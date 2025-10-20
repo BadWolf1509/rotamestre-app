@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,15 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Alert,
+  ScrollView,
+  Linking,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import MapViewDirections from 'react-native-maps-directions';
+// import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+// import MapViewDirections from 'react-native-maps-directions';
 import { supabase } from '../../lib/supabase';
 import { useUser } from '../../hooks/useUser';
 
-const GOOGLE_MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+// const GOOGLE_MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
 interface Parada {
   id: string;
@@ -36,7 +38,7 @@ interface Rota {
 
 export default function RotaMotorista() {
   const { userData } = useUser();
-  const mapRef = useRef<MapView>(null);
+  // const mapRef = useRef<MapView>(null);
   const [rota, setRota] = useState<Rota | null>(null);
   const [paradas, setParadas] = useState<Parada[]>([]);
   const [loading, setLoading] = useState(true);
@@ -176,65 +178,37 @@ export default function RotaMotorista() {
   const paradasConcluidas = paradas.filter((p) => p.status === 'concluida').length;
   const progresso = Math.round((paradasConcluidas / paradas.length) * 100);
 
+  // Função para abrir no Google Maps
+  const abrirNoGoogleMaps = () => {
+    if (paradas.length === 0) return;
+
+    const origem = `${paradas[0].latitude},${paradas[0].longitude}`;
+    const destino = `${paradas[paradas.length - 1].latitude},${paradas[paradas.length - 1].longitude}`;
+    const waypoints = paradas.slice(1, -1).map(p => `${p.latitude},${p.longitude}`).join('|');
+
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${origem}&destination=${destino}&waypoints=${waypoints}&travelmode=driving`;
+    Linking.openURL(url);
+  };
+
   return (
     <View style={styles.container}>
-      {/* Mapa */}
-      <MapView
-        ref={mapRef}
-        provider={PROVIDER_GOOGLE}
-        style={styles.map}
-        initialRegion={{
-          latitude: paradas[0]?.latitude || -23.5505,
-          longitude: paradas[0]?.longitude || -46.6333,
-          latitudeDelta: 0.1,
-          longitudeDelta: 0.1,
-        }}
-        showsUserLocation
-        showsMyLocationButton
-      >
-        {/* Marcadores das paradas */}
-        {paradas.map((parada, index) => (
-          <Marker
-            key={parada.id}
-            coordinate={{
-              latitude: parada.latitude,
-              longitude: parada.longitude,
-            }}
-            title={`Parada ${index + 1}`}
-            description={parada.endereco}
-            pinColor={parada.status === 'concluida' ? '#10b981' : '#FF8C00'}
-          />
-        ))}
-
-        {/* Rota otimizada */}
-        {paradas.length > 1 && GOOGLE_MAPS_KEY && (
-          <MapViewDirections
-            origin={{
-              latitude: paradas[0].latitude,
-              longitude: paradas[0].longitude,
-            }}
-            destination={{
-              latitude: paradas[paradas.length - 1].latitude,
-              longitude: paradas[paradas.length - 1].longitude,
-            }}
-            waypoints={
-              paradas.length > 2
-                ? paradas.slice(1, -1).map((p) => ({
-                    latitude: p.latitude,
-                    longitude: p.longitude,
-                  }))
-                : undefined
-            }
-            apikey={GOOGLE_MAPS_KEY}
-            strokeWidth={4}
-            strokeColor="#0D5A9C"
-            optimizeWaypoints={true}
-            onReady={(result) => {
-              console.log('Rota calculada:', result.distance, 'km');
-            }}
-          />
-        )}
-      </MapView>
+      {/* Placeholder do Mapa - Requer build nativo para react-native-maps */}
+      <View style={styles.mapPlaceholder}>
+        <Text style={styles.mapPlaceholderTitle}>📍 Mapa da Rota</Text>
+        <Text style={styles.mapPlaceholderText}>
+          {paradas.length} paradas na rota
+        </Text>
+        <TouchableOpacity
+          style={styles.mapsButton}
+          onPress={abrirNoGoogleMaps}
+        >
+          <Text style={styles.mapsButtonText}>🗺️ Abrir no Google Maps</Text>
+        </TouchableOpacity>
+        <Text style={styles.mapPlaceholderHint}>
+          Para ver o mapa integrado, compile o app com:
+{'\n'}npx expo run:ios ou npx expo run:android
+        </Text>
+      </View>
 
       {/* Painel de Informações */}
       <View style={styles.infoPanel}>
@@ -323,6 +297,42 @@ export default function RotaMotorista() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  mapPlaceholder: {
+    flex: 1,
+    backgroundColor: '#e5e7eb',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  mapPlaceholderTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 10,
+  },
+  mapPlaceholderText: {
+    fontSize: 16,
+    color: '#6b7280',
+    marginBottom: 20,
+  },
+  mapsButton: {
+    backgroundColor: '#0D5A9C',
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 10,
+    marginBottom: 15,
+  },
+  mapsButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  mapPlaceholderHint: {
+    fontSize: 12,
+    color: '#9ca3af',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   loadingContainer: {
     flex: 1,
