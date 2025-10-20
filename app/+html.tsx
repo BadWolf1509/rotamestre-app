@@ -37,31 +37,33 @@ export default function Root({ children }: PropsWithChildren) {
 
         {/* Open Graph / Facebook */}
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://app.rotamestre.tec.br" />
+        <meta property="og:url" content="https://app.rotamestre.tec.br/" />
         <meta property="og:title" content="Rota Mestre - Gestão Inteligente de Entregas" />
         <meta
           property="og:description"
           content="Sistema completo de gestão de rotas de entrega com rastreamento em tempo real. Otimize sua logística e melhore a eficiência operacional."
         />
-        <meta property="og:image" content="https://app.rotamestre.tec.br/og-image.png" />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
+        <meta property="og:image" content="https://app.rotamestre.tec.br/icon-512.png" />
+        <meta property="og:image:width" content="512" />
+        <meta property="og:image:height" content="512" />
         <meta property="og:locale" content="pt_BR" />
         <meta property="og:site_name" content="Rota Mestre" />
 
         {/* Twitter Cards */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:url" content="https://app.rotamestre.tec.br" />
+        <meta name="twitter:url" content="https://app.rotamestre.tec.br/" />
         <meta name="twitter:title" content="Rota Mestre - Gestão Inteligente de Entregas" />
         <meta
           name="twitter:description"
           content="Sistema completo de gestão de rotas de entrega com rastreamento em tempo real. Otimize sua logística."
         />
-        <meta name="twitter:image" content="https://app.rotamestre.tec.br/twitter-image.png" />
+        <meta name="twitter:image" content="https://app.rotamestre.tec.br/icon-512.png" />
 
         {/* Favicons */}
+        <link rel="icon" type="image/x-icon" href="/favicon.ico" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+        <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.json" />
 

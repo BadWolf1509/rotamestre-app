@@ -2,13 +2,13 @@
   "name": "Rota Mestre - Gestão Inteligente de Entregas",
   "short_name": "Rota Mestre",
   "description": "Sistema completo de gestão de rotas de entrega com rastreamento em tempo real. Otimize logística, acompanhe motoristas e melhore a eficiência operacional.",
-  "start_url": "/",
+  "start_url": "https://app.rotamestre.tec.br/",
+  "scope": "https://app.rotamestre.tec.br/",
   "display": "standalone",
   "orientation": "portrait",
   "theme_color": "#2563eb",
   "background_color": "#ffffff",
   "lang": "pt-BR",
-  "scope": "/",
   "icons": [
     {
       "src": "/favicon-16x16.png",
