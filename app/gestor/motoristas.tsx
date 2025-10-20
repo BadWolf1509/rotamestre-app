@@ -11,8 +11,8 @@ import {
   Modal,
   TextInput,
 } from 'react-native';
-import { supabase } from '../../lib/supabase';
-import { useUser } from '../../hooks/useUser';
+import { supabase } from '@/lib/supabase';
+import { useUser } from '@/hooks/useUser';
 
 interface MotoristaDetalhado {
   id: string;

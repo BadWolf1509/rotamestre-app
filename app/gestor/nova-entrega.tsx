@@ -12,9 +12,9 @@ import {
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { supabase } from '../../lib/supabase';
-import { useUser } from '../../hooks/useUser';
-import { getCoordinates } from '../../lib/google';
+import { supabase } from '@/lib/supabase';
+import { useUser } from '@/hooks/useUser';
+import { getCoordinates } from '@/lib/google';
 
 // Schema de validação
 const paradaSchema = z.object({

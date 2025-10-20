@@ -10,8 +10,8 @@ import {
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
-import { supabase } from '../../lib/supabase';
-import { useUser } from '../../hooks/useUser';
+import { supabase } from '@/lib/supabase';
+import { useUser } from '@/hooks/useUser';
 
 const GOOGLE_MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 

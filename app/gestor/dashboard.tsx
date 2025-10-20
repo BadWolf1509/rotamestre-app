@@ -9,8 +9,8 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { supabase } from '../../lib/supabase';
-import { useUser } from '../../hooks/useUser';
+import { supabase } from '@/lib/supabase';
+import { useUser } from '@/hooks/useUser';
 
 interface Stats {
   total: number;

@@ -10,7 +10,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { authService } from '../../lib/auth';
+import { authService } from '@/lib/auth';
 import { TipoUsuario } from '../../types/usuario';
 
 export default function Register() {

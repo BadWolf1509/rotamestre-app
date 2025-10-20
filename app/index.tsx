@@ -1,8 +1,8 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
-import { authService } from '../lib/auth';
+import { supabase } from '@/lib/supabase';
+import { authService } from '@/lib/auth';
 
 export default function Index() {
   const router = useRouter();

@@ -8,8 +8,8 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { supabase } from '../../lib/supabase';
-import { useUser } from '../../hooks/useUser';
+import { supabase } from '@/lib/supabase';
+import { useUser } from '@/hooks/useUser';
 import { useRouter } from 'expo-router';
 
 interface Parada {
