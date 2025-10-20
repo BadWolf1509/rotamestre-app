@@ -1,0 +1,16 @@
+# Netlify redirects configuration
+# Redirect www to non-www with HTTPS enforcement
+
+# Redirect www subdomain to root domain (301 permanent)
+https://www.rotamestre.tec.br/*       https://rotamestre.tec.br/:splat         301!
+https://www.app.rotamestre.tec.br/*   https://app.rotamestre.tec.br/:splat     301!
+https://www.painel.rotamestre.tec.br/* https://painel.rotamestre.tec.br/:splat 301!
+https://www.docs.rotamestre.tec.br/*  https://docs.rotamestre.tec.br/:splat    301!
+https://www.api.rotamestre.tec.br/*   https://api.rotamestre.tec.br/:splat     301!
+
+# Force HTTPS for all requests (301 permanent)
+http://rotamestre.tec.br/*            https://rotamestre.tec.br/:splat         301!
+http://app.rotamestre.tec.br/*        https://app.rotamestre.tec.br/:splat     301!
+http://painel.rotamestre.tec.br/*     https://painel.rotamestre.tec.br/:splat  301!
+http://docs.rotamestre.tec.br/*       https://docs.rotamestre.tec.br/:splat    301!
+http://api.rotamestre.tec.br/*        https://api.rotamestre.tec.br/:splat     301!

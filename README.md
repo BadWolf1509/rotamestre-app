@@ -153,6 +153,34 @@ Todos os recursos visuais estão em [assets/](assets/):
 
 Veja [assets/README.md](assets/README.md) para diretrizes de uso.
 
+## 🌐 Deploy Web
+
+O RotaMestre possui build web pronto para deploy!
+
+### Quick Deploy
+
+```bash
+# Build
+npx expo export --platform web
+
+# Deploy Vercel
+vercel --prod
+```
+
+### Domínios Configurados
+
+- 🌐 **app.rotamestre.tec.br** - Aplicação web (PWA)
+- 🧭 **painel.rotamestre.tec.br** - Painel administrativo
+- 📚 **docs.rotamestre.tec.br** - Documentação técnica
+- 🔗 **api.rotamestre.tec.br** - API pública
+
+### Documentação Completa
+
+- [DEPLOY_WEB.md](DEPLOY_WEB.md) - Guia de deploy web
+- [DEPLOYMENT.md](DEPLOYMENT.md) - Deploy mobile (iOS/Android)
+- [ECOSYSTEM.md](ECOSYSTEM.md) - Arquitetura de domínios
+- [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) - Plano de implementação
+
 ## Licença
 
 MIT

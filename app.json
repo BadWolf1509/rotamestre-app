@@ -1,34 +1,61 @@
 {
   "expo": {
-    "name": "rotamestre-app",
-    "slug": "rotamestre-app",
+    "name": "Rota Mestre",
+    "slug": "rotamestre",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "scheme": "rotamestre",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0D5A9C"
+    },
+    "extra": {
+      "baseUrl": "https://app.rotamestre.tec.br",
+      "apiUrl": "https://api.rotamestre.tec.br"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "br.tec.rotamestre",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "O RotaMestre precisa acessar sua localização para mostrar sua posição no mapa e calcular rotas.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "O RotaMestre precisa acessar sua localização em segundo plano para rastrear o progresso da entrega."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#0D5A9C"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "br.tec.rotamestre",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "FOREGROUND_SERVICE"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_ANDROID_API_KEY"
+        }
+      }
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     },
-    "scheme": "rotamestre",
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "O RotaMestre precisa acessar sua localização para rastrear entregas."
+        }
+      ]
     ]
   }
 }

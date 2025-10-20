@@ -1,0 +1,14 @@
+node_modules
+.expo
+.git
+.github
+.vscode
+*.log
+.env
+.env.local
+android
+ios
+database
+mcp-rotamestre
+supabase/.temp
+*.sql
