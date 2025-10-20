@@ -24,6 +24,7 @@
     "expo-location": "^19.0.7",
     "expo-router": "^6.0.12",
     "expo-status-bar": "~3.0.8",
+    "pg": "^8.16.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.65.0",
