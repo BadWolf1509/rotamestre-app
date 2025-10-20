@@ -29,8 +29,9 @@ if not exist "%APPDATA%\Claude\claude_desktop_config.json" (
 echo.
 echo [1] Caminhos dos MCPs:
 echo.
-echo MCP Git:      %CD%\tools\mcp-git-rotamestre\src\index.js
-echo MCP Database: %CD%\tools\mcp-server\src\index.js
+echo MCP Git:        %CD%\tools\mcp-git-rotamestre\src\index.js
+echo MCP Database:   %CD%\tools\mcp-server\src\index.js
+echo MCP Filesystem: npx @modelcontextprotocol/server-filesystem %CD%
 echo.
 
 echo [2] Arquivo de configuracao:

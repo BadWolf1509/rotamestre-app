@@ -19,7 +19,7 @@ C:\Users\welli\AppData\Roaming\Claude\claude_desktop_config.json
 
 ---
 
-## ✅ Configuração Completa (2 MCPs)
+## ✅ Configuração Completa (3 MCPs)
 
 Copie e cole esta configuração **completa** no arquivo:
 
@@ -40,6 +40,14 @@ Copie e cole esta configuração **completa** no arquivo:
       "command": "node",
       "args": [
         "C:\\Users\\welli\\rotamestre-app\\tools\\mcp-git-rotamestre\\src\\index.js"
+      ]
+    },
+    "filesystem-rotamestre": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "C:\\Users\\welli\\rotamestre-app"
       ]
     }
   }
@@ -124,11 +132,19 @@ Use a tool listar_unidades
 Use a tool listar_rotas com limit: 10
 ```
 
+### MCP Filesystem
+```
+Use a tool read_file com path: "package.json"
+Use a tool list_directory com path: "."
+```
+
 ---
 
 ## 📊 MCPs Disponíveis
 
 ### 🔧 rotamestre-git (13 tools)
+Operações Git no repositório do projeto.
+
 - `git_status` - Status do repositório
 - `git_log` - Histórico de commits
 - `git_diff` - Diferenças entre commits
@@ -144,6 +160,8 @@ Use a tool listar_rotas com limit: 10
 - `git_current_branch` - Branch atual
 
 ### 🗄️ rotamestre-db (14 tools)
+Operações no banco de dados Supabase.
+
 - `listar_unidades` - Lista unidades
 - `listar_usuarios` - Lista usuários
 - `listar_rotas` - Lista rotas
@@ -158,6 +176,21 @@ Use a tool listar_rotas com limit: 10
 - `criar_rota` - Criar rota
 - `adicionar_parada` - Adicionar parada
 - `atualizar_status_rota` - Atualizar status
+
+### 📁 filesystem-rotamestre (10+ tools)
+Operações no sistema de arquivos do projeto.
+
+- `read_file` - Ler conteúdo de arquivo
+- `read_multiple_files` - Ler múltiplos arquivos
+- `write_file` - Criar/sobrescrever arquivo
+- `edit_file` - Editar arquivo (substituições)
+- `create_directory` - Criar diretório
+- `list_directory` - Listar arquivos/pastas
+- `directory_tree` - Árvore de diretórios (JSON)
+- `move_file` - Mover/renomear arquivo
+- `search_files` - Buscar arquivos por nome
+- `get_file_info` - Metadados do arquivo
+- `list_allowed_directories` - Diretórios permitidos
 
 ---
 
@@ -207,5 +240,6 @@ O MCP Server lerá automaticamente o `.env`.
 ---
 
 **Data:** 2025-10-20
-**MCPs:** rotamestre-git (v1.0.0) + rotamestre-db (v1.0.0)
+**MCPs:** rotamestre-git (v1.0.0) + rotamestre-db (v1.0.0) + filesystem-rotamestre
+**Total de Tools:** 37+ (13 Git + 14 Database + 10+ Filesystem)
 **Status:** ✅ Pronto para uso
