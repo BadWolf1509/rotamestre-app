@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "scheme": "rotamestre",
     "description": "Sistema inteligente de gestão e rastreamento de rotas de entrega em tempo real. Otimize suas entregas, acompanhe motoristas e melhore a eficiência logística da sua empresa.",
     "splash": {
