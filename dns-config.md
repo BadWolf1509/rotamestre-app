@@ -1,16 +1,30 @@
 # 🌐 Configuração DNS - RotaMestre
 
-## 📋 Registros DNS Necessários
+## ✅ Registros DNS Ativos
+
+### Resumo dos Registros Configurados
+
+| Domínio | Tipo | Destino | Status |
+|---------|------|---------|--------|
+| rotamestre.tec.br | A | 216.198.79.1 | ✅ Ativo |
+| www.rotamestre.tec.br | CNAME | 3a288de4d433bd70.vercel-dns-017.com. | ✅ Ativo |
+| app.rotamestre.tec.br | CNAME | cname.vercel-dns.com. | ✅ Ativo |
+| painel.rotamestre.tec.br | CNAME | cname.vercel-dns.com. | ✅ Ativo |
+| docs.rotamestre.tec.br | CNAME | cname.vercel-dns.com. | ✅ Ativo |
+| api.rotamestre.tec.br | CNAME | cname.vercel-dns.com. | ✅ Ativo |
+
+---
+
+## 📋 Configuração Detalhada
 
 ### Domínio Principal - rotamestre.tec.br
 
 ```dns
-; A/AAAA Records (IP do servidor/Vercel)
-rotamestre.tec.br.           300   IN   A      76.76.21.21
-rotamestre.tec.br.           300   IN   AAAA   2606:4700:3034::ac43:bd5e
+; A Record (IP Vercel)
+rotamestre.tec.br.           300   IN   A      216.198.79.1
 
-; CNAME para www (redirect)
-www.rotamestre.tec.br.       300   IN   CNAME  rotamestre.tec.br.
+; CNAME para www (redirect específico)
+www.rotamestre.tec.br.       300   IN   CNAME  3a288de4d433bd70.vercel-dns-017.com.
 ```
 
 ### App Web - app.rotamestre.tec.br
@@ -18,12 +32,6 @@ www.rotamestre.tec.br.       300   IN   CNAME  rotamestre.tec.br.
 ```dns
 ; CNAME para Vercel
 app.rotamestre.tec.br.       300   IN   CNAME  cname.vercel-dns.com.
-
-; Ou para Netlify
-app.rotamestre.tec.br.       300   IN   CNAME  rotamestre-app.netlify.app.
-
-; WWW redirect
-www.app.rotamestre.tec.br.   300   IN   CNAME  app.rotamestre.tec.br.
 ```
 
 ### Painel Admin - painel.rotamestre.tec.br
@@ -31,35 +39,20 @@ www.app.rotamestre.tec.br.   300   IN   CNAME  app.rotamestre.tec.br.
 ```dns
 ; CNAME para Vercel
 painel.rotamestre.tec.br.    300   IN   CNAME  cname.vercel-dns.com.
-
-; WWW redirect
-www.painel.rotamestre.tec.br. 300  IN   CNAME  painel.rotamestre.tec.br.
 ```
 
 ### Documentação - docs.rotamestre.tec.br
 
 ```dns
-; CNAME para GitHub Pages
-docs.rotamestre.tec.br.      300   IN   CNAME  rotamestre.github.io.
-
-; Ou para Vercel
+; CNAME para Vercel
 docs.rotamestre.tec.br.      300   IN   CNAME  cname.vercel-dns.com.
-
-; WWW redirect
-www.docs.rotamestre.tec.br.  300   IN   CNAME  docs.rotamestre.tec.br.
 ```
 
 ### API - api.rotamestre.tec.br
 
 ```dns
-; CNAME para Supabase
-api.rotamestre.tec.br.       300   IN   CNAME  xezslsyxjivunmhhyxtd.supabase.co.
-
-; Ou CNAME para proxy (Cloudflare Workers/Vercel)
+; CNAME para Vercel (proxy para Supabase)
 api.rotamestre.tec.br.       300   IN   CNAME  cname.vercel-dns.com.
-
-; WWW redirect
-www.api.rotamestre.tec.br.   300   IN   CNAME  api.rotamestre.tec.br.
 ```
 
 ---
@@ -132,7 +125,7 @@ rotamestre.tec.br.           300   IN   TXT    "facebook-domain-verification=xyz
 
 ---
 
-## 🎯 Arquivo de Zona Completo (Exemplo)
+## 🎯 Arquivo de Zona Completo (Configuração Real)
 
 ```bind
 $TTL 300
@@ -143,24 +136,19 @@ $TTL 300
         604800      ; Expire
         300 )       ; Minimum TTL
 
-; Nameservers
-@                           IN  NS     ns1.cloudflare.com.
-@                           IN  NS     ns2.cloudflare.com.
+; Nameservers (Vercel DNS)
+@                           IN  NS     ns1.vercel-dns.com.
+@                           IN  NS     ns2.vercel-dns.com.
 
-; A/AAAA Records
-@                           IN  A      76.76.21.21
-@                           IN  AAAA   2606:4700:3034::ac43:bd5e
+; A Record (Vercel IP)
+@                           IN  A      216.198.79.1
 
 ; CNAME Records
-www                         IN  CNAME  rotamestre.tec.br.
+www                         IN  CNAME  3a288de4d433bd70.vercel-dns-017.com.
 app                         IN  CNAME  cname.vercel-dns.com.
-www.app                     IN  CNAME  app.rotamestre.tec.br.
 painel                      IN  CNAME  cname.vercel-dns.com.
-www.painel                  IN  CNAME  painel.rotamestre.tec.br.
-docs                        IN  CNAME  rotamestre.github.io.
-www.docs                    IN  CNAME  docs.rotamestre.tec.br.
-api                         IN  CNAME  xezslsyxjivunmhhyxtd.supabase.co.
-www.api                     IN  CNAME  api.rotamestre.tec.br.
+docs                        IN  CNAME  cname.vercel-dns.com.
+api                         IN  CNAME  cname.vercel-dns.com.
 
 ; MX Records (Zoho Mail)
 @                           IN  MX     10  mx1.zoho.com.
