@@ -1,0 +1,15 @@
+{
+  "name": "rotamestre-scripts",
+  "version": "1.0.0",
+  "description": "Scripts utilitários do RotaMestre",
+  "type": "module",
+  "scripts": {
+    "create-users": "node create-test-users.js",
+    "apply-seed": "node apply-seed.js",
+    "update-emails": "node update-user-emails.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.47.10",
+    "dotenv": "^16.4.7"
+  }
+}
