@@ -29,33 +29,30 @@ export default function RootLayout() {
         headerTitleStyle: {
           fontWeight: 'bold',
         },
+        headerShown: false,
       }}
     >
       <Stack.Screen
         name="index"
         options={{
-          headerShown: false,
           title: 'Rota Mestre - Início'
         }}
       />
       <Stack.Screen
         name="auth"
         options={{
-          headerShown: false,
           title: 'Rota Mestre - Autenticação'
         }}
       />
       <Stack.Screen
         name="gestor"
         options={{
-          headerShown: false,
           title: 'Rota Mestre - Painel do Gestor'
         }}
       />
       <Stack.Screen
         name="motorista"
         options={{
-          headerShown: false,
           title: 'Rota Mestre - Motorista'
         }}
       />

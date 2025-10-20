@@ -7,11 +7,27 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
+  Platform,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import MapViewDirections from 'react-native-maps-directions';
+import * as Constants from 'expo-constants';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
+
+// Importação condicional do MapView
+let MapView: any = null;
+let Marker: any = null;
+let PROVIDER_GOOGLE: any = null;
+let MapViewDirections: any = null;
+
+try {
+  const maps = require('react-native-maps');
+  MapView = maps.default;
+  Marker = maps.Marker;
+  PROVIDER_GOOGLE = maps.PROVIDER_GOOGLE;
+  MapViewDirections = require('react-native-maps-directions').default;
+} catch (error) {
+  console.log('react-native-maps não disponível no Expo Go');
+}
 
 const GOOGLE_MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
@@ -37,11 +53,14 @@ interface Rota {
 
 export default function RotaMotorista() {
   const { userData } = useUser();
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
   const [rota, setRota] = useState<Rota | null>(null);
   const [paradas, setParadas] = useState<Parada[]>([]);
   const [loading, setLoading] = useState(true);
   const [iniciandoRota, setIniciandoRota] = useState(false);
+
+  // Detectar se está no Expo Go
+  const isExpoGo = Constants.default.appOwnership === 'expo';
 
   useEffect(() => {
     if (userData?.id) {
@@ -176,6 +195,98 @@ export default function RotaMotorista() {
   const paradasPendentes = paradas.filter((p) => p.status === 'pendente').length;
   const paradasConcluidas = paradas.filter((p) => p.status === 'concluida').length;
   const progresso = Math.round((paradasConcluidas / paradas.length) * 100);
+
+  // Se estiver no Expo Go, mostrar mensagem informativa
+  if (isExpoGo || !MapView) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.expoGoWarning}>
+          <Text style={styles.expoGoTitle}>🗺️ Mapa não disponível no Expo Go</Text>
+          <Text style={styles.expoGoText}>
+            O mapa com react-native-maps requer um development build.
+          </Text>
+          <Text style={styles.expoGoSubtext}>
+            Para ver o mapa funcionando, execute:{'\n'}
+            {'\n'}
+            <Text style={styles.expoGoCode}>npx expo run:ios</Text>
+            {'\n'}{'\n'}
+            ou acesse a versão web:{'\n'}
+            {'\n'}
+            <Text style={styles.expoGoCode}>npm run web</Text>
+          </Text>
+        </View>
+
+        {/* Painel de Informações (mesmo sem mapa) */}
+        {rota && (
+          <View style={styles.infoPanel}>
+            <View style={styles.infoPanelHeader}>
+              <Text style={styles.infoPanelTitle}>Rota Ativa</Text>
+              <View
+                style={[
+                  styles.statusBadge,
+                  {
+                    backgroundColor:
+                      rota.status === 'em_andamento' ? '#3b82f6' : '#f59e0b',
+                  },
+                ]}
+              >
+                <Text style={styles.statusBadgeText}>
+                  {rota.status === 'em_andamento' ? 'Em Andamento' : 'Pendente'}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.infoUnidade}>{rota.unidades.nome}</Text>
+
+            {/* Lista de Paradas */}
+            <ScrollView style={styles.paradasList}>
+              {paradas.map((parada, index) => (
+                <View key={parada.id} style={styles.paradaItem}>
+                  <View style={styles.paradaNumber}>
+                    <Text style={styles.paradaNumberText}>{index + 1}</Text>
+                  </View>
+                  <View style={styles.paradaInfo}>
+                    <Text style={styles.paradaEndereco}>{parada.endereco}</Text>
+                    <Text style={styles.paradaTipo}>
+                      {parada.tipo === 'entrega' ? '📦 Entrega' : '📥 Retirada'}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.paradaStatus,
+                      {
+                        backgroundColor:
+                          parada.status === 'concluida' ? '#10b981' : '#f59e0b',
+                      },
+                    ]}
+                  >
+                    <Text style={styles.paradaStatusText}>
+                      {parada.status === 'concluida' ? '✓' : '○'}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+
+            {/* Botão Iniciar Rota */}
+            {rota.status === 'pendente' && (
+              <TouchableOpacity
+                style={styles.startButton}
+                onPress={iniciarRota}
+                disabled={iniciandoRota}
+              >
+                {iniciandoRota ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.startButtonText}>🚚 Iniciar Rota</Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -324,6 +435,90 @@ export default function RotaMotorista() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  expoGoWarning: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f0f9ff',
+    padding: 30,
+  },
+  expoGoTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#0369a1',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  expoGoText: {
+    fontSize: 16,
+    color: '#0c4a6e',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  expoGoSubtext: {
+    fontSize: 14,
+    color: '#475569',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  expoGoCode: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    backgroundColor: '#e0f2fe',
+    color: '#0369a1',
+    fontSize: 13,
+    padding: 4,
+  },
+  paradasList: {
+    maxHeight: 300,
+    marginBottom: 15,
+  },
+  paradaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  paradaNumber: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#0D5A9C',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  paradaNumberText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  paradaInfo: {
+    flex: 1,
+  },
+  paradaEndereco: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  paradaTipo: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  paradaStatus: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  paradaStatusText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   map: {
     flex: 1,
