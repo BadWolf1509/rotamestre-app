@@ -10,6 +10,17 @@
   ],
   "redirects": [
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "rotamestre.tec.br"
+        }
+      ],
+      "destination": "https://app.rotamestre.tec.br",
+      "permanent": true
+    },
+    {
       "source": "/:path((?!www).*)",
       "has": [
         {
@@ -17,7 +28,7 @@
           "value": "www.rotamestre.tec.br"
         }
       ],
-      "destination": "https://rotamestre.tec.br/:path",
+      "destination": "https://app.rotamestre.tec.br/:path",
       "permanent": true
     },
     {
@@ -29,39 +40,6 @@
         }
       ],
       "destination": "https://app.rotamestre.tec.br/:path",
-      "permanent": true
-    },
-    {
-      "source": "/:path((?!www).*)",
-      "has": [
-        {
-          "type": "host",
-          "value": "www.painel.rotamestre.tec.br"
-        }
-      ],
-      "destination": "https://painel.rotamestre.tec.br/:path",
-      "permanent": true
-    },
-    {
-      "source": "/:path((?!www).*)",
-      "has": [
-        {
-          "type": "host",
-          "value": "www.docs.rotamestre.tec.br"
-        }
-      ],
-      "destination": "https://docs.rotamestre.tec.br/:path",
-      "permanent": true
-    },
-    {
-      "source": "/:path((?!www).*)",
-      "has": [
-        {
-          "type": "host",
-          "value": "www.api.rotamestre.tec.br"
-        }
-      ],
-      "destination": "https://api.rotamestre.tec.br/:path",
       "permanent": true
     }
   ],

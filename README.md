@@ -157,11 +157,23 @@ Veja [assets/README.md](assets/README.md) para diretrizes de uso.
 
 O RotaMestre possui build web pronto para deploy!
 
+### Arquitetura de Domínios
+
+```
+rotamestre.tec.br           → Redirect 301 para app.rotamestre.tec.br
+
+app.rotamestre.tec.br       → Aplicação Web (PWA)
+  ├─ /                      → Tela inicial
+  ├─ /auth/login           → Login
+  ├─ /gestor/dashboard     → Dashboard gestor
+  └─ /motorista/rota       → Rota motorista
+```
+
 ### Quick Deploy
 
 ```bash
 # Build
-npx expo export --platform web
+npm run build:web
 
 # Deploy Vercel
 vercel --prod
@@ -169,14 +181,15 @@ vercel --prod
 
 ### Domínios Configurados
 
-- 🌐 **app.rotamestre.tec.br** - Aplicação web (PWA)
-- 🧭 **painel.rotamestre.tec.br** - Painel administrativo
-- 📚 **docs.rotamestre.tec.br** - Documentação técnica
-- 🔗 **api.rotamestre.tec.br** - API pública
+- 🌐 **rotamestre.tec.br** - Redirect para app (301)
+- 📱 **app.rotamestre.tec.br** - Aplicação web (PWA)
+- 🧭 **painel.rotamestre.tec.br** - Painel administrativo (futuro)
+- 📚 **docs.rotamestre.tec.br** - Documentação técnica (futuro)
+- 🔗 **api.rotamestre.tec.br** - API pública (Supabase)
 
 ### Documentação Completa
 
-- [DEPLOY_WEB.md](DEPLOY_WEB.md) - Guia de deploy web
+- [DOMAIN_SETUP_GUIDE.md](DOMAIN_SETUP_GUIDE.md) - **Guia de configuração de domínios**
 - [DEPLOYMENT.md](DEPLOYMENT.md) - Deploy mobile (iOS/Android)
 - [ECOSYSTEM.md](ECOSYSTEM.md) - Arquitetura de domínios
 - [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) - Plano de implementação
