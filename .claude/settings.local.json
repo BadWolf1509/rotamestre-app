@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(supabase --version)",
+      "Bash(npm install -g supabase)",
+      "Bash(npm install -D supabase)",
+      "Bash(npx supabase init)",
+      "Bash(npx supabase migration new initial_schema)",
+      "Bash(npx supabase start)",
+      "Bash(npx supabase projects list)",
+      "Bash(npx supabase link --project-ref xezslsyxjivunmhhyxtd)",
+      "Bash(npx supabase db push)",
+      "Bash(del \"c:\\Users\\welli\\rotamestre-app\\supabase\\migrations\\20251019225216_initial_schema.sql\")",
+      "Bash(npx supabase migration new initial_schema_fixed)",
+      "Bash(npx supabase db diff)",
+      "Bash(npm install)",
+      "Bash(echo $APPDATA)",
+      "Bash(ls \"$APPDATA/Claude\")",
+      "Read(//c/Users/welli/AppData/Roaming/Claude/**)",
+      "Bash(node src/index.js)",
+      "Bash(ls \"$APPDATA/Claude/logs\")",
+      "Bash(node test-connection.js)",
+      "Bash(npm install react-hook-form zod @hookform/resolvers expo-location @react-native-community/datetimepicker)",
+      "Bash(npm install --legacy-peer-deps react-hook-form zod @hookform/resolvers expo-location @react-native-community/datetimepicker)",
+      "Bash(npx supabase db pull)",
+      "Bash(move 20251019_rls_policies.sql 20251019230400_rls_policies.sql)",
+      "Bash(npx supabase inspect db policies --linked)",
+      "Bash(npx supabase db diff --linked --schema public)",
+      "Bash(git add supabase/ *.sql *.md)",
+      "Bash(git add .)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

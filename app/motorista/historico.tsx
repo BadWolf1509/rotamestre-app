@@ -1,10 +1,306 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+} from 'react-native';
+import { supabase } from '../../lib/supabase';
+import { useUser } from '../../hooks/useUser';
 
-export default function Historico() {
+interface RotaHistorico {
+  id: string;
+  data: string;
+  status: string;
+  distancia_total?: number;
+  iniciada_em?: string;
+  concluida_em?: string;
+  unidades: {
+    nome: string;
+  };
+  paradas_count?: number;
+  paradas_concluidas?: number;
+}
+
+export default function HistoricoMotorista() {
+  const { userData } = useUser();
+  const [rotas, setRotas] = useState<RotaHistorico[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [expandedRotaId, setExpandedRotaId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (userData?.id) {
+      loadHistorico();
+    }
+  }, [userData]);
+
+  async function loadHistorico() {
+    try {
+      setLoading(true);
+
+      // Buscar rotas do motorista
+      const { data: rotasData, error: rotasError } = await supabase
+        .from('rotas')
+        .select('id, data, status, distancia_total, iniciada_em, concluida_em, unidades(nome)')
+        .eq('motorista_id', userData!.id)
+        .order('data', { ascending: false });
+
+      if (rotasError) throw rotasError;
+
+      // Para cada rota, buscar contagem de paradas
+      const rotasComParadas = await Promise.all(
+        (rotasData || []).map(async (rota) => {
+          const { data: paradasData, error: paradasError } = await supabase
+            .from('paradas')
+            .select('id, status')
+            .eq('rota_id', rota.id);
+
+          if (paradasError) {
+            console.error('Erro ao buscar paradas:', paradasError);
+            return {
+              ...rota,
+              paradas_count: 0,
+              paradas_concluidas: 0,
+            };
+          }
+
+          return {
+            ...rota,
+            paradas_count: paradasData?.length || 0,
+            paradas_concluidas:
+              paradasData?.filter((p) => p.status === 'concluida').length || 0,
+          };
+        })
+      );
+
+      setRotas(rotasComParadas as RotaHistorico[]);
+    } catch (error) {
+      console.error('Erro ao carregar histórico:', error);
+      Alert.alert('Erro', 'Não foi possível carregar o histórico');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
+
+  function onRefresh() {
+    setRefreshing(true);
+    loadHistorico();
+  }
+
+  function toggleExpand(rotaId: string) {
+    setExpandedRotaId(expandedRotaId === rotaId ? null : rotaId);
+  }
+
+  function calcularTempoTotal(rota: RotaHistorico) {
+    if (!rota.iniciada_em || !rota.concluida_em) return null;
+    const inicio = new Date(rota.iniciada_em);
+    const fim = new Date(rota.concluida_em);
+    const diffMs = fim.getTime() - inicio.getTime();
+    const diffHoras = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutos = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    return `${diffHoras}h ${diffMinutos}min`;
+  }
+
+  const renderRota = ({ item }: { item: RotaHistorico }) => {
+    const isExpanded = expandedRotaId === item.id;
+    const isPendente = item.status === 'pendente';
+    const isEmAndamento = item.status === 'em_andamento';
+    const isConcluida = item.status === 'concluida';
+    const isCancelada = item.status === 'cancelada';
+
+    const taxaConclusao =
+      item.paradas_count && item.paradas_count > 0
+        ? Math.round((item.paradas_concluidas! / item.paradas_count) * 100)
+        : 0;
+
+    const tempoTotal = calcularTempoTotal(item);
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.rotaCard,
+          isPendente && styles.rotaCardPendente,
+          isEmAndamento && styles.rotaCardEmAndamento,
+          isConcluida && styles.rotaCardConcluida,
+          isCancelada && styles.rotaCardCancelada,
+        ]}
+        onPress={() => toggleExpand(item.id)}
+        activeOpacity={0.7}
+      >
+        {/* Header do Card */}
+        <View style={styles.rotaHeader}>
+          <View style={styles.rotaHeaderLeft}>
+            <Text style={styles.rotaData}>
+              {new Date(item.data).toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              })}
+            </Text>
+            <Text style={styles.rotaUnidade}>{item.unidades.nome}</Text>
+          </View>
+
+          <View
+            style={[
+              styles.statusBadge,
+              isPendente && styles.statusBadgePendente,
+              isEmAndamento && styles.statusBadgeEmAndamento,
+              isConcluida && styles.statusBadgeConcluida,
+              isCancelada && styles.statusBadgeCancelada,
+            ]}
+          >
+            <Text style={styles.statusBadgeText}>
+              {isPendente && 'Pendente'}
+              {isEmAndamento && 'Em Andamento'}
+              {isConcluida && 'Concluída'}
+              {isCancelada && 'Cancelada'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Stats Rápidas */}
+        <View style={styles.rotaStats}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{item.paradas_count || 0}</Text>
+            <Text style={styles.statLabel}>Paradas</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={[styles.statValue, { color: '#10b981' }]}>
+              {item.paradas_concluidas || 0}
+            </Text>
+            <Text style={styles.statLabel}>Concluídas</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={[styles.statValue, { color: '#8b5cf6' }]}>
+              {taxaConclusao}%
+            </Text>
+            <Text style={styles.statLabel}>Taxa</Text>
+          </View>
+        </View>
+
+        {/* Detalhes Expandidos */}
+        {isExpanded && (
+          <View style={styles.rotaDetalhes}>
+            <View style={styles.divider} />
+
+            {item.iniciada_em && (
+              <View style={styles.detalheRow}>
+                <Text style={styles.detalheLabel}>Início:</Text>
+                <Text style={styles.detalheValue}>
+                  {new Date(item.iniciada_em).toLocaleString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Text>
+              </View>
+            )}
+
+            {item.concluida_em && (
+              <View style={styles.detalheRow}>
+                <Text style={styles.detalheLabel}>Conclusão:</Text>
+                <Text style={styles.detalheValue}>
+                  {new Date(item.concluida_em).toLocaleString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Text>
+              </View>
+            )}
+
+            {tempoTotal && (
+              <View style={styles.detalheRow}>
+                <Text style={styles.detalheLabel}>Tempo Total:</Text>
+                <Text style={styles.detalheValue}>{tempoTotal}</Text>
+              </View>
+            )}
+
+            {item.distancia_total && (
+              <View style={styles.detalheRow}>
+                <Text style={styles.detalheLabel}>Distância:</Text>
+                <Text style={styles.detalheValue}>
+                  {item.distancia_total.toFixed(1)} km
+                </Text>
+              </View>
+            )}
+
+            {item.paradas_count && item.paradas_count > 0 && (
+              <View style={styles.detalheRow}>
+                <Text style={styles.detalheLabel}>Progresso:</Text>
+                <View style={styles.progressBarContainer}>
+                  <View
+                    style={[
+                      styles.progressBarFill,
+                      { width: `${taxaConclusao}%` },
+                    ]}
+                  />
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Indicador de Expansão */}
+        <View style={styles.expandIndicator}>
+          <Text style={styles.expandIndicatorText}>
+            {isExpanded ? '▲ Menos detalhes' : '▼ Mais detalhes'}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0D5A9C" />
+        <Text style={styles.loadingText}>Carregando histórico...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Histórico de Rotas</Text>
-      <Text style={styles.subtitle}>Em desenvolvimento...</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Histórico de Rotas</Text>
+        <Text style={styles.headerSubtitle}>
+          {rotas.length} {rotas.length === 1 ? 'rota' : 'rotas'} registradas
+        </Text>
+      </View>
+
+      {/* Lista de Rotas */}
+      <FlatList
+        data={rotas}
+        keyExtractor={(item) => item.id}
+        renderItem={renderRota}
+        contentContainerStyle={styles.listContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#0D5A9C']}
+          />
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyTitle}>📋</Text>
+            <Text style={styles.emptyText}>Nenhuma rota registrada</Text>
+            <Text style={styles.emptySubtext}>
+              Suas rotas aparecerão aqui após serem criadas
+            </Text>
+          </View>
+        }
+      />
     </View>
   );
 }
@@ -12,19 +308,188 @@ export default function Historico() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f9fafb',
+  },
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f9fafb',
-    padding: 20,
   },
-  title: {
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  header: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#111827',
-    marginBottom: 10,
+    marginBottom: 4,
   },
-  subtitle: {
-    fontSize: 16,
+  headerSubtitle: {
+    fontSize: 14,
     color: '#6b7280',
+  },
+  listContainer: {
+    padding: 16,
+  },
+  emptyContainer: {
+    padding: 60,
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+  },
+  rotaCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  rotaCardPendente: {
+    borderLeftColor: '#f59e0b',
+  },
+  rotaCardEmAndamento: {
+    borderLeftColor: '#3b82f6',
+  },
+  rotaCardConcluida: {
+    borderLeftColor: '#10b981',
+  },
+  rotaCardCancelada: {
+    borderLeftColor: '#ef4444',
+    opacity: 0.7,
+  },
+  rotaHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  rotaHeaderLeft: {
+    flex: 1,
+  },
+  rotaData: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 4,
+    textTransform: 'capitalize',
+  },
+  rotaUnidade: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  statusBadgePendente: {
+    backgroundColor: '#fef3c7',
+  },
+  statusBadgeEmAndamento: {
+    backgroundColor: '#dbeafe',
+  },
+  statusBadgeConcluida: {
+    backgroundColor: '#d1fae5',
+  },
+  statusBadgeCancelada: {
+    backgroundColor: '#fee2e2',
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  rotaStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 8,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#0D5A9C',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: '#6b7280',
+  },
+  rotaDetalhes: {
+    marginTop: 8,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#e5e7eb',
+    marginVertical: 12,
+  },
+  detalheRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  detalheLabel: {
+    fontSize: 13,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  detalheValue: {
+    fontSize: 13,
+    color: '#111827',
+    fontWeight: '600',
+  },
+  progressBarContainer: {
+    flex: 1,
+    height: 6,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 3,
+    marginLeft: 12,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#10b981',
+    borderRadius: 3,
+  },
+  expandIndicator: {
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  expandIndicatorText: {
+    fontSize: 12,
+    color: '#0D5A9C',
+    fontWeight: '600',
   },
 });

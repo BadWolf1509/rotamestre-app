@@ -1,5 +1,13 @@
 # RotaMestre App
 
+<p align="center">
+  <img src="assets/logo/rotamestre-logo-horizontal.png" alt="RotaMestre Logo" width="400">
+</p>
+
+<p align="center">
+  <strong>Entregas e retiradas na ordem certa — sempre.</strong>
+</p>
+
 Sistema mobile de gestão de rotas e entregas com otimização inteligente.
 
 ## Tecnologias
@@ -41,11 +49,28 @@ rotamestre-app/
 │   ├── supabase.ts                   # Supabase client
 │   └── auth.ts                       # Autenticação
 │
-└── types/                            # Tipos TypeScript
-    ├── rota.ts
-    ├── endereco.ts
-    ├── usuario.ts
-    └── unidade.ts
+├── types/                            # Tipos TypeScript
+│   ├── rota.ts
+│   ├── endereco.ts
+│   ├── usuario.ts
+│   └── unidade.ts
+│
+├── assets/                           # Recursos visuais
+│   ├── logo/                         # Logotipos
+│   ├── icon/                         # Ícones do app
+│   ├── splash/                       # Splash screens
+│   └── mockups/                      # Mockups e promoção
+│
+├── database/                         # Schema do banco de dados
+│   └── schema.sql                    # Schema Supabase/PostgreSQL
+│
+├── supabase/                         # Configuração Supabase
+│   └── migrations/                   # Migrations do banco
+│
+└── mcp-rotamestre/                   # MCP Server para Supabase
+    ├── src/
+    │   └── index.js                  # Servidor MCP com 16 tools
+    └── README.md                     # Documentação do MCP
 ```
 
 ## Configuração
@@ -95,6 +120,38 @@ npm start
 - `npm run android` - Roda no emulador Android
 - `npm run ios` - Roda no emulador iOS (apenas macOS)
 - `npm run web` - Roda no navegador
+
+## Banco de Dados
+
+O projeto utiliza Supabase (PostgreSQL) com schema completo incluindo:
+
+- **5 Tabelas**: unidades, usuarios, rotas, paradas, logs
+- **Triggers Automáticos**: Atualização de timestamps e logging de eventos
+- **Funções Úteis**: Cálculo de distâncias (Haversine), estatísticas de rotas
+- **2 Views**: Resumo de rotas e performance de motoristas
+
+Para mais detalhes, veja [database/schema.sql](database/schema.sql) ou [supabase/migrations/](supabase/migrations/).
+
+## MCP Server
+
+O projeto inclui um servidor MCP (Model Context Protocol) para interagir com o banco de dados Supabase via Claude Desktop.
+
+**16 ferramentas disponíveis:**
+- Consultas: listar_unidades, listar_usuarios, listar_rotas, etc.
+- Criação: criar_unidade, criar_rota, adicionar_parada
+- Atualizações: atualizar_status_rota, atualizar_status_parada
+- Views e funções do banco de dados
+
+Para configurar, veja [mcp-rotamestre/README.md](mcp-rotamestre/README.md).
+
+## Assets e Identidade Visual
+
+Todos os recursos visuais estão em [assets/](assets/):
+- Logos e ícones
+- Splash screens
+- Mockups e materiais promocionais
+
+Veja [assets/README.md](assets/README.md) para diretrizes de uso.
 
 ## Licença
 
