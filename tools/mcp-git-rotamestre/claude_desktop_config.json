@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "git-rotamestre": {
+      "command": "node",
+      "args": [
+        "C:\\Users\\welli\\rotamestre-app\\tools\\mcp-git-rotamestre\\src\\index.js"
+      ]
+    }
+  }
+}
