@@ -2,6 +2,8 @@
 
 **Visão Geral da Documentação Técnica do Projeto**
 
+**Última atualização:** 2025-10-20
+
 ---
 
 ## 📁 Estrutura da Documentação
@@ -11,103 +13,196 @@ docs/
 ├── setup/              # Guias de instalação e configuração
 ├── development/        # Documentação técnica e arquitetura
 ├── testing/            # Guias de teste e QA
-└── operations/         # Documentos operacionais
+├── operations/         # Documentos operacionais
+└── archive/            # Documentos históricos e obsoletos
 ```
 
 ---
 
-## 🚀 Guias Principais
+## 🎯 Guias Principais (Consolidados)
 
-### Para Começar
+### 🚀 Setup & Deploy
 
-1. **[Deployment](setup/deployment.md)** - Como fazer deploy do app (mobile + web)
-2. **[Deploy Web](setup/deploy-web.md)** - Deploy específico para web (Vercel/Netlify)
-3. **[DNS Config](setup/dns-config.md)** - Configuração de DNS e domínios
+| Guia | Descrição | Tempo |
+|------|-----------|-------|
+| **[DOMAIN_COMPLETE_GUIDE.md](setup/DOMAIN_COMPLETE_GUIDE.md)** | 🌐 Configuração completa de domínios (DNS, SSL, redirects) | 15 min |
+| **[DEPLOYMENT_GUIDE.md](setup/DEPLOYMENT_GUIDE.md)** | 🚀 Deploy completo (Git, CLI, troubleshooting) | 20 min |
+| **[SEO_AND_PWA_GUIDE.md](setup/SEO_AND_PWA_GUIDE.md)** | 🎯 SEO, PWA, meta tags, favicons | 25 min |
+| [CLAUDE_DESKTOP_CONFIG.md](setup/CLAUDE_DESKTOP_CONFIG.md) | 🤖 Configuração MCP para Claude Desktop | 10 min |
+| [UPDATE_FAVICON_INSTRUCTIONS.md](setup/UPDATE_FAVICON_INSTRUCTIONS.md) | 🎨 Como atualizar favicons | 5 min |
+| [vercel-env-setup.md](setup/vercel-env-setup.md) | ⚙️ Variáveis de ambiente Vercel | 5 min |
 
-### Desenvolvimento
+### 💻 Development
 
-4. **[Project Analysis](development/project-analysis.md)** - Análise técnica do projeto
-5. **[Ecosystem](development/ecosystem.md)** - Visão geral do ecossistema RotaMestre
-6. **[Implementation Plan](development/implementation-plan.md)** - Plano de implementação
+| Guia | Descrição | Público |
+|------|-----------|---------|
+| [project-analysis.md](development/project-analysis.md) | 📊 Análise técnica detalhada | Devs |
+| [ecosystem.md](development/ecosystem.md) | 🏗️ Arquitetura e componentes | Arquitetos |
+| [implementation-plan.md](development/implementation-plan.md) | 📋 Roadmap de implementação | PM/Devs |
+| [project-structure-proposal.md](development/project-structure-proposal.md) | 📁 Proposta de estrutura | Devs |
+| [EXPO_GO_LIMITATION.md](development/EXPO_GO_LIMITATION.md) | ⚠️ Limitações do Expo Go | Devs |
 
-### Testes
+### 🧪 Testing & QA
 
-7. **[Create Test Users](testing/create-test-users.md)** - Como criar usuários de teste
-8. **[MCP Test Report](testing/mcp-test-report.md)** - Relatório de testes do MCP
-9. **[MCP Test Execution](testing/mcp-test-execution.md)** - Execução dos testes MCP
+| Guia | Descrição | Tipo |
+|------|-----------|------|
+| **[MCP_COMPLETE_GUIDE.md](testing/MCP_COMPLETE_GUIDE.md)** | 🛠️ Guia completo de MCP (37+ tools) | Manual |
+| [create-test-users.md](testing/create-test-users.md) | 👥 Criar usuários no Supabase | Manual |
 
-### Operações
+### 📊 Operations
 
-10. **[DNS Status](operations/dns-status.md)** - Status ao vivo dos domínios
-11. **[Email Update Summary](operations/email-update-summary.md)** - Histórico de updates
+| Guia | Descrição | Atualização |
+|------|-----------|-------------|
+| **[RLS_FIX_GUIDE.md](operations/RLS_FIX_GUIDE.md)** | 🔧 Correção de recursão RLS | Sob demanda |
+| [dns-status.md](operations/dns-status.md) | 🌐 Status dos domínios | Tempo real |
+| [CONEXAO_DB_ANALISE.md](operations/CONEXAO_DB_ANALISE.md) | 🔍 Análise de conexão DB | Referência |
+
+### 📦 Archive (Histórico)
+
+| Arquivo | Motivo |
+|---------|--------|
+| DEPLOY_SUCCESS.md | Deploy específico (Oct 20) - histórico |
+| SESSION_SUMMARY.md | Resumo de sessão antiga |
+| DOMAIN_STATUS.md | Status antigo de domínios |
+| migration-success.md | Migração já concluída |
+| SUPABASE_INCIDENT_STATUS.md | Incidente resolvido |
+| email-update-summary.md | Update antigo |
 
 ---
 
 ## 🎯 Início Rápido
 
-### Novo Desenvolvedor
+### 👨‍💻 Novo Desenvolvedor
 
-1. Clone o repositório
-2. Leia [Project Analysis](development/project-analysis.md)
-3. Configure ambiente seguindo [Deployment](setup/deployment.md)
-4. Crie usuários de teste: [Create Test Users](testing/create-test-users.md)
+```bash
+# 1. Clone e instale
+git clone https://github.com/BadWolf1509/rotamestre-app.git
+cd rotamestre-app
+npm install
 
-### Deploy em Produção
+# 2. Configure ambiente
+cp .env.example .env
+# Edite .env com suas credenciais
 
-1. Configure DNS: [DNS Config](setup/dns-config.md)
-2. Deploy web: [Deploy Web](setup/deploy-web.md)
-3. Deploy mobile: [Deployment](setup/deployment.md)
-4. Valide: [DNS Status](operations/dns-status.md)
+# 3. Rode localmente
+npm start
+```
 
-### Testes e QA
+**Leia:**
+1. [Project Analysis](development/project-analysis.md) - Entenda a arquitetura
+2. [Ecosystem](development/ecosystem.md) - Visão geral do sistema
+3. [Create Test Users](testing/create-test-users.md) - Crie dados de teste
 
-1. Configure usuários: [Create Test Users](testing/create-test-users.md)
-2. Teste MCP: [MCP Test Execution](testing/mcp-test-execution.md)
-3. Valide features: [MCP Test Report](testing/mcp-test-report.md)
+---
+
+### 🚀 Deploy em Produção
+
+**Checklist:**
+1. ✅ Configure DNS: [DOMAIN_COMPLETE_GUIDE](setup/DOMAIN_COMPLETE_GUIDE.md)
+2. ✅ Configure Vercel: [DEPLOYMENT_GUIDE](setup/DEPLOYMENT_GUIDE.md)
+3. ✅ SEO e PWA: [SEO_AND_PWA_GUIDE](setup/SEO_AND_PWA_GUIDE.md)
+4. ✅ Teste tudo: [MCP_COMPLETE_GUIDE](testing/MCP_COMPLETE_GUIDE.md)
+
+**Comandos:**
+```bash
+# Deploy via Git (automático)
+git push origin main
+
+# Deploy via CLI (manual)
+vercel --prod
+
+# Deploy forçado
+vercel --prod --force
+```
+
+---
+
+### 🧪 Testes e QA
+
+**Setup:**
+```bash
+# Criar usuários de teste
+# Ver: testing/create-test-users.md
+
+# Testar MCP Git
+npm run mcp:git:test
+
+# Testar MCP DB
+npm run mcp:db:test
+```
+
+**Ferramentas:**
+- [MCP Complete Guide](testing/MCP_COMPLETE_GUIDE.md) - 37+ ferramentas
 
 ---
 
 ## 📚 Índice por Categoria
 
-### 🛠️ Setup & Configuration
+### 🛠️ Setup & Configuration (6 guias)
 
-| Documento | Descrição | Tempo |
-|-----------|-----------|-------|
-| [deployment.md](setup/deployment.md) | Deploy mobile (iOS/Android via EAS) e web | 30 min |
-| [deploy-web.md](setup/deploy-web.md) | Deploy web específico (Vercel/Netlify) | 15 min |
-| [vercel-domain-setup.md](setup/vercel-domain-setup.md) | Configurar domínio no Vercel | 10 min |
-| [vercel-env-setup.md](setup/vercel-env-setup.md) | Variáveis de ambiente no Vercel | 5 min |
-| [dns-config.md](setup/dns-config.md) | Configuração completa de DNS | 20 min |
-| [SEO_CONFIGURATION.md](setup/SEO_CONFIGURATION.md) | Guia completo de SEO, meta tags e PWA | 20 min |
-| [SEO_IMPLEMENTATION_SUMMARY.md](setup/SEO_IMPLEMENTATION_SUMMARY.md) | Resumo da implementação de SEO | 5 min |
-| [DEPLOY_CHECKLIST.md](setup/DEPLOY_CHECKLIST.md) | Checklist completo de deploy | 10 min |
+**Essenciais (3 consolidados):**
+- 🌐 **[DOMAIN_COMPLETE_GUIDE.md](setup/DOMAIN_COMPLETE_GUIDE.md)** → DNS, SSL, redirects
+- 🚀 **[DEPLOYMENT_GUIDE.md](setup/DEPLOYMENT_GUIDE.md)** → Deploy completo
+- 🎯 **[SEO_AND_PWA_GUIDE.md](setup/SEO_AND_PWA_GUIDE.md)** → SEO, PWA, favicons
 
-### 💻 Development
+**Complementares:**
+- [CLAUDE_DESKTOP_CONFIG.md](setup/CLAUDE_DESKTOP_CONFIG.md) → MCP setup
+- [UPDATE_FAVICON_INSTRUCTIONS.md](setup/UPDATE_FAVICON_INSTRUCTIONS.md) → Favicons
+- [vercel-env-setup.md](setup/vercel-env-setup.md) → Env vars
 
-| Documento | Descrição | Público |
-|-----------|-----------|---------|
-| [project-analysis.md](development/project-analysis.md) | Análise técnica detalhada | Devs |
-| [ecosystem.md](development/ecosystem.md) | Arquitetura e componentes | Arquitetos |
-| [implementation-plan.md](development/implementation-plan.md) | Roadmap de implementação | PM/Devs |
+---
 
-### 🧪 Testing & QA
+### 💻 Development (5 guias)
 
-| Documento | Descrição | Tipo |
-|-----------|-----------|------|
-| [create-test-users.md](testing/create-test-users.md) | Criar usuários no Supabase | Manual |
-| [mcp-test-report.md](testing/mcp-test-report.md) | Relatório de testes MCP | Automático |
-| [mcp-test-execution.md](testing/mcp-test-execution.md) | Execução dos testes MCP | Manual |
+- [project-analysis.md](development/project-analysis.md) → Análise técnica (535 linhas)
+- [ecosystem.md](development/ecosystem.md) → Arquitetura (406 linhas)
+- [implementation-plan.md](development/implementation-plan.md) → Roadmap (892 linhas)
+- [project-structure-proposal.md](development/project-structure-proposal.md) → Estrutura (461 linhas)
+- [EXPO_GO_LIMITATION.md](development/EXPO_GO_LIMITATION.md) → Limitações (108 linhas)
 
-### 📊 Operations
+---
 
-| Documento | Descrição | Atualização |
-|-----------|-----------|-------------|
-| [dns-status.md](operations/dns-status.md) | Status dos domínios | Em tempo real |
-| [email-update-summary.md](operations/email-update-summary.md) | Histórico de mudanças de email | Sob demanda |
-| [RLS_FIX_INSTRUCTIONS.md](operations/RLS_FIX_INSTRUCTIONS.md) | Correção de recursão RLS no Supabase | Sob demanda |
-| [RLS_FIX_FINAL_INSTRUCTIONS.md](operations/RLS_FIX_FINAL_INSTRUCTIONS.md) | Guia detalhado para aplicar correção RLS | Sob demanda |
-| [CONEXAO_DB_ANALISE.md](operations/CONEXAO_DB_ANALISE.md) | Análise de tentativas de conexão ao DB | Referência |
-| [SUPABASE_INCIDENT_STATUS.md](operations/SUPABASE_INCIDENT_STATUS.md) | Status de incidentes do Supabase | Histórico |
+### 🧪 Testing & QA (2 guias)
+
+**Essencial:**
+- 🛠️ **[MCP_COMPLETE_GUIDE.md](testing/MCP_COMPLETE_GUIDE.md)** → 37+ tools (Git, DB, Filesystem)
+
+**Complementar:**
+- [create-test-users.md](testing/create-test-users.md) → Setup de testes
+
+---
+
+### 📊 Operations (3 guias)
+
+**Essencial:**
+- 🔧 **[RLS_FIX_GUIDE.md](operations/RLS_FIX_GUIDE.md)** → Correção RLS definitiva
+
+**Complementares:**
+- [dns-status.md](operations/dns-status.md) → Status DNS
+- [CONEXAO_DB_ANALISE.md](operations/CONEXAO_DB_ANALISE.md) → Análise de conexão
+
+---
+
+## 📊 Estatísticas da Documentação
+
+### Antes da Consolidação
+- 📄 32 arquivos
+- 📝 9.797 linhas
+- 🔴 15 duplicados
+- ⚠️ 6 obsoletos
+
+### Depois da Consolidação
+- 📄 16 arquivos (50% redução)
+- 📝 ~4.500 linhas (54% redução)
+- ✅ 0 duplicados
+- ✅ 6 arquivados
+- ✅ 5 guias consolidados completos
+
+**Resultado:**
+- ✅ Mais fácil de navegar
+- ✅ Sem confusão (qual ler?)
+- ✅ Guias completos e definitivos
+- ✅ Manutenção simplificada
 
 ---
 
@@ -116,21 +211,23 @@ docs/
 ### Ambientes
 
 - **App Web:** https://app.rotamestre.tec.br
-- **Site:** https://rotamestre.tec.br
+- **Site:** https://rotamestre.tec.br (redirect → app)
 - **Docs:** https://docs.rotamestre.tec.br (futuro)
 - **Painel:** https://painel.rotamestre.tec.br (futuro)
-- **API:** https://api.rotamestre.tec.br
 
 ### Ferramentas
 
 - **Supabase Dashboard:** https://supabase.com/dashboard/project/xezslsyxjivunmhhyxtd
-- **Vercel Dashboard:** https://vercel.com/wellintonribeiro-projects
-- **Expo Dashboard:** https://expo.dev/
+- **Vercel Dashboard:** https://vercel.com/wellintonribeiro-projects/rotamestre-app
+- **Vercel Analytics:** https://vercel.com/wellintonribeiro-projects/rotamestre-app/analytics
+- **GitHub Repo:** https://github.com/BadWolf1509/rotamestre-app
 
-### Repositórios
+### Monitoramento
 
-- **App:** github.com/seu-usuario/rotamestre-app
-- **Docs:** github.com/seu-usuario/rotamestre-docs (futuro)
+- **DNS Checker:** https://dnschecker.org/
+- **SSL Labs:** https://www.ssllabs.com/ssltest/
+- **PageSpeed Insights:** https://pagespeed.web.dev/
+- **Lighthouse:** Chrome DevTools → Lighthouse tab
 
 ---
 
@@ -138,17 +235,40 @@ docs/
 
 ### Dúvidas Técnicas
 
-Consulte a documentação relevante acima ou o README principal na raiz do projeto.
+1. Consulte os guias consolidados acima
+2. Leia o README principal na raiz
+3. Verifique issues no GitHub
 
 ### Problemas e Bugs
 
-1. Verifique os logs no Vercel/Expo
-2. Consulte troubleshooting nos guias de deploy
-3. Abra uma issue no GitHub
+1. **Build falha?** → [DEPLOYMENT_GUIDE](setup/DEPLOYMENT_GUIDE.md) → Troubleshooting
+2. **DNS não funciona?** → [DOMAIN_COMPLETE_GUIDE](setup/DOMAIN_COMPLETE_GUIDE.md) → Troubleshooting
+3. **RLS erro?** → [RLS_FIX_GUIDE](operations/RLS_FIX_GUIDE.md)
+4. **Favicons não aparecem?** → [SEO_AND_PWA_GUIDE](setup/SEO_AND_PWA_GUIDE.md) → Validação
 
 ### Atualizações
 
-Esta documentação é atualizada regularmente. Última atualização: 2025-10-20
+Esta documentação foi consolidada em **2025-10-20** e está atualizada.
+
+---
+
+## ✅ Melhorias na Documentação (Oct 20, 2025)
+
+### 🎯 Consolidação Agressiva
+
+1. ✅ Criado 5 guias consolidados completos
+2. ✅ Removido 15 arquivos duplicados
+3. ✅ Arquivado 6 documentos obsoletos
+4. ✅ Reduzido 54% das linhas (9.797 → 4.500)
+5. ✅ Estrutura mais limpa e profissional
+
+### 📚 Guias Consolidados
+
+- **DOMAIN_COMPLETE_GUIDE** → Combina 5 arquivos (DNS, domínios, Vercel)
+- **DEPLOYMENT_GUIDE** → Combina 3 arquivos (deploy, checklist, web)
+- **SEO_AND_PWA_GUIDE** → Combina 2 arquivos (SEO config, summary)
+- **RLS_FIX_GUIDE** → Combina 2 arquivos (instructions, final)
+- **MCP_COMPLETE_GUIDE** → Combina 3 arquivos (validation, execution, report)
 
 ---
 
@@ -158,3 +278,4 @@ Esta documentação é atualizada regularmente. Última atualização: 2025-10-2
 - [Development →](development/)
 - [Testing →](testing/)
 - [Operations →](operations/)
+- [Archive →](archive/)
