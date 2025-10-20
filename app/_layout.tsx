@@ -1,6 +1,24 @@
 import { Stack } from 'expo-router';
+import { useEffect } from 'react';
+import { Platform } from 'react-native';
 
 export default function RootLayout() {
+  useEffect(() => {
+    // Configurar título da página para web
+    if (Platform.OS === 'web') {
+      document.title = 'Rota Mestre - Gestão Inteligente de Entregas';
+
+      // Adicionar meta description se não existir
+      let metaDescription = document.querySelector('meta[name="description"]');
+      if (!metaDescription) {
+        metaDescription = document.createElement('meta');
+        metaDescription.setAttribute('name', 'description');
+        document.head.appendChild(metaDescription);
+      }
+      metaDescription.setAttribute('content', 'Sistema completo de gestão de rotas de entrega com rastreamento em tempo real.');
+    }
+  }, []);
+
   return (
     <Stack
       screenOptions={{
@@ -13,10 +31,34 @@ export default function RootLayout() {
         },
       }}
     >
-      <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="auth" options={{ headerShown: false }} />
-      <Stack.Screen name="gestor" options={{ headerShown: false }} />
-      <Stack.Screen name="motorista" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="index"
+        options={{
+          headerShown: false,
+          title: 'Rota Mestre - Início'
+        }}
+      />
+      <Stack.Screen
+        name="auth"
+        options={{
+          headerShown: false,
+          title: 'Rota Mestre - Autenticação'
+        }}
+      />
+      <Stack.Screen
+        name="gestor"
+        options={{
+          headerShown: false,
+          title: 'Rota Mestre - Painel do Gestor'
+        }}
+      />
+      <Stack.Screen
+        name="motorista"
+        options={{
+          headerShown: false,
+          title: 'Rota Mestre - Motorista'
+        }}
+      />
     </Stack>
   );
 }

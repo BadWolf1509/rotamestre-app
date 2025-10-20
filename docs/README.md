@@ -78,6 +78,9 @@ docs/
 | [vercel-domain-setup.md](setup/vercel-domain-setup.md) | Configurar domínio no Vercel | 10 min |
 | [vercel-env-setup.md](setup/vercel-env-setup.md) | Variáveis de ambiente no Vercel | 5 min |
 | [dns-config.md](setup/dns-config.md) | Configuração completa de DNS | 20 min |
+| [SEO_CONFIGURATION.md](setup/SEO_CONFIGURATION.md) | Guia completo de SEO, meta tags e PWA | 20 min |
+| [SEO_IMPLEMENTATION_SUMMARY.md](setup/SEO_IMPLEMENTATION_SUMMARY.md) | Resumo da implementação de SEO | 5 min |
+| [DEPLOY_CHECKLIST.md](setup/DEPLOY_CHECKLIST.md) | Checklist completo de deploy | 10 min |
 
 ### 💻 Development
 
@@ -100,7 +103,11 @@ docs/
 | Documento | Descrição | Atualização |
 |-----------|-----------|-------------|
 | [dns-status.md](operations/dns-status.md) | Status dos domínios | Em tempo real |
-| [email-update-summary.md](operations/email-update-summary.md) | Histórico de mudanças | Sob demanda |
+| [email-update-summary.md](operations/email-update-summary.md) | Histórico de mudanças de email | Sob demanda |
+| [RLS_FIX_INSTRUCTIONS.md](operations/RLS_FIX_INSTRUCTIONS.md) | Correção de recursão RLS no Supabase | Sob demanda |
+| [RLS_FIX_FINAL_INSTRUCTIONS.md](operations/RLS_FIX_FINAL_INSTRUCTIONS.md) | Guia detalhado para aplicar correção RLS | Sob demanda |
+| [CONEXAO_DB_ANALISE.md](operations/CONEXAO_DB_ANALISE.md) | Análise de tentativas de conexão ao DB | Referência |
+| [SUPABASE_INCIDENT_STATUS.md](operations/SUPABASE_INCIDENT_STATUS.md) | Status de incidentes do Supabase | Histórico |
 
 ---
 

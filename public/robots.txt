@@ -1,0 +1,18 @@
+# robots.txt para Rota Mestre
+# https://app.rotamestre.tec.br/robots.txt
+
+User-agent: *
+Allow: /
+Allow: /auth/login
+Allow: /auth/register
+
+# Bloquear rotas privadas
+Disallow: /gestor/
+Disallow: /motorista/
+Disallow: /api/
+
+# Sitemap
+Sitemap: https://app.rotamestre.tec.br/sitemap.xml
+
+# Crawl-delay para evitar sobrecarga
+Crawl-delay: 10
