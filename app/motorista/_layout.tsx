@@ -1,5 +1,7 @@
 import { Tabs, useRouter } from 'expo-router';
-import { TouchableOpacity, Text, Alert } from 'react-native';
+import { TouchableOpacity, Text, Alert, Platform, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import { authService } from '@/lib/auth';
 
 export default function MotoristaLayout() {
@@ -28,24 +30,27 @@ export default function MotoristaLayout() {
     );
   }
 
-  const LogoutButton = () => (
-    <TouchableOpacity
-      onPress={handleLogout}
-      style={{
-        marginRight: 16,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
-        borderRadius: 6,
-        borderWidth: 1,
-        borderColor: '#fff',
-      }}
-    >
-      <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>
-        ⎋ Sair
-      </Text>
-    </TouchableOpacity>
-  );
+  const LogoutButton = () => {
+    const [pressed, setPressed] = useState(false);
+
+    return (
+      <TouchableOpacity
+        onPress={handleLogout}
+        onPressIn={() => setPressed(true)}
+        onPressOut={() => setPressed(false)}
+        style={[
+          styles.logoutButton,
+          pressed && styles.logoutButtonPressed,
+          Platform.OS === 'web' && styles.logoutButtonWeb,
+        ]}
+        accessibilityLabel="Sair da conta"
+        accessibilityRole="button"
+      >
+        <Ionicons name="log-out-outline" size={20} color="#fff" />
+        <Text style={styles.logoutText}>Sair</Text>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <Tabs
@@ -92,3 +97,34 @@ export default function MotoristaLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  logoutButton: {
+    marginRight: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  logoutButtonPressed: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    transform: [{ scale: 0.97 }],
+  },
+  logoutButtonWeb: {
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  },
+  logoutText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+});
