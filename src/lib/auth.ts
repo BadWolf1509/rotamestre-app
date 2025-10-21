@@ -21,7 +21,7 @@ export const authService = {
   },
 
   // Registro
-  async signUp(email: string, password: string, nome: string, tipo: TipoUsuario) {
+  async signUp(email: string, password: string, nome: string, papel: TipoUsuario) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -38,7 +38,7 @@ export const authService = {
             id: data.user.id,
             email,
             nome,
-            tipo,
+            papel, // Alterado de 'tipo' para 'papel' (match com DB)
           },
         ]);
 
@@ -87,6 +87,6 @@ export const authService = {
   // Verificar tipo de usuário
   async verificarTipoUsuario(userId: string): Promise<TipoUsuario | null> {
     const usuario = await this.getUsuario(userId);
-    return usuario?.tipo || null;
+    return usuario?.papel || null; // Alterado de 'tipo' para 'papel' (match com DB)
   },
 };

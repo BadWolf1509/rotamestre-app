@@ -4,7 +4,7 @@ export interface Usuario {
   id: string;
   email: string;
   nome: string;
-  tipo: TipoUsuario;
+  papel: TipoUsuario; // Alterado de 'tipo' para 'papel' (match com DB)
   unidade_id?: string;
   created_at: string;
   updated_at: string;

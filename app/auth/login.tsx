@@ -29,10 +29,10 @@ export default function Login() {
       const { usuario } = await authService.signIn(email, password);
 
       if (usuario) {
-        if (usuario.tipo === 'gestor') {
-          router.replace('/(gestor)/dashboard');
-        } else if (usuario.tipo === 'motorista') {
-          router.replace('/(motorista)/rota');
+        if (usuario.papel === 'gestor') {
+          router.replace('/gestor/dashboard');
+        } else if (usuario.papel === 'motorista') {
+          router.replace('/motorista/rota');
         }
       } else {
         Alert.alert('Erro', 'Usuário não encontrado');
