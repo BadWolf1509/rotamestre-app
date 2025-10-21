@@ -20,9 +20,9 @@ export default function Index() {
         const tipo = await authService.verificarTipoUsuario(session.user.id);
 
         if (tipo === 'gestor') {
-          router.replace('/(gestor)/dashboard');
+          router.replace('/gestor/dashboard');
         } else if (tipo === 'motorista') {
-          router.replace('/(motorista)/rota');
+          router.replace('/motorista/rota');
         }
       }
     } catch (error) {

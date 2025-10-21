@@ -14,7 +14,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
-import { getCoordinates } from '@/lib/google';
+import { getCoordinates, googleMapsService } from '@/lib/google';
 
 // Schema de validação
 const paradaSchema = z.object({
@@ -40,6 +40,11 @@ export default function NovaEntrega() {
   const [motoristaSelecionado, setMotoristaSelecionado] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMotoristas, setIsLoadingMotoristas] = useState(true);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [rotaOtimizada, setRotaOtimizada] = useState<{
+    distancia: number;
+    tempo: number;
+  } | null>(null);
 
   const {
     control,
@@ -116,6 +121,82 @@ export default function NovaEntrega() {
     // Reordenar
     const reordenadas = novasParadas.map((p, i) => ({ ...p, ordem: i + 1 }));
     setParadas(reordenadas);
+    setRotaOtimizada(null); // Limpar otimização ao remover parada
+  }
+
+  // Otimizar rota usando Google Directions API
+  async function otimizarRota() {
+    if (paradas.length < 2) {
+      Alert.alert('Atenção', 'Adicione pelo menos 2 paradas para otimizar a rota');
+      return;
+    }
+
+    setIsOptimizing(true);
+    try {
+      // Pegar primeira e última parada como origem e destino
+      const origem = {
+        latitude: paradas[0].latitude!,
+        longitude: paradas[0].longitude!,
+      };
+      const destino = {
+        latitude: paradas[paradas.length - 1].latitude!,
+        longitude: paradas[paradas.length - 1].longitude!,
+      };
+
+      // Paradas intermediárias (waypoints)
+      const waypoints = paradas.slice(1, -1).map((p) => ({
+        latitude: p.latitude!,
+        longitude: p.longitude!,
+      }));
+
+      // Chamar API Google Directions com optimize:true
+      const resultado = await googleMapsService.getDirections(
+        origem,
+        destino,
+        waypoints.length > 0 ? waypoints : undefined
+      );
+
+      if (!resultado) {
+        Alert.alert('Erro', 'Não foi possível otimizar a rota');
+        return;
+      }
+
+      // Reordenar paradas conforme ordem otimizada
+      const ordemOtimizada = resultado.ordem_otimizada || [];
+      const paradasReordenadas: Parada[] = [paradas[0]]; // Primeira parada fixa
+
+      // Adicionar waypoints na ordem otimizada
+      ordemOtimizada.forEach((indice: number) => {
+        paradasReordenadas.push(paradas[indice + 1]);
+      });
+
+      // Adicionar última parada
+      paradasReordenadas.push(paradas[paradas.length - 1]);
+
+      // Atualizar ordem
+      const paradasComNovaOrdem = paradasReordenadas.map((p, i) => ({
+        ...p,
+        ordem: i + 1,
+      }));
+
+      setParadas(paradasComNovaOrdem);
+      setRotaOtimizada({
+        distancia: resultado.distancia / 1000, // Converter metros para km
+        tempo: resultado.tempo / 60, // Converter segundos para minutos
+      });
+
+      Alert.alert(
+        'Rota Otimizada! ✅',
+        `Distância total: ${(resultado.distancia / 1000).toFixed(1)} km\n` +
+          `Tempo estimado: ${Math.round(resultado.tempo / 60)} minutos\n\n` +
+          `As paradas foram reordenadas para o percurso mais eficiente.`
+      );
+    } catch (error) {
+      console.error('Erro ao otimizar rota:', error);
+      Alert.alert('Erro', 'Não foi possível otimizar a rota. Verifique sua conexão.');
+    } finally {
+      setIsOptimizing(false);
+    }
   }
 
   // Gerar rota completa
@@ -139,6 +220,7 @@ export default function NovaEntrega() {
           unidade_id: userData!.unidade_id,
           motorista_id: motoristaSelecionado,
           status: 'pendente',
+          distancia_total: rotaOtimizada?.distancia || null,
         })
         .select()
         .single();
@@ -351,6 +433,47 @@ export default function NovaEntrega() {
                 )}
               </View>
             ))}
+
+            {/* Botão Otimizar Rota */}
+            {paradas.length >= 2 && (
+              <TouchableOpacity
+                style={styles.otimizarButton}
+                onPress={otimizarRota}
+                disabled={isOptimizing}
+              >
+                {isOptimizing ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.otimizarButtonText}>
+                    🗺️ Otimizar Rota (Melhor Percurso)
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
+
+            {/* Banner de Rota Otimizada */}
+            {rotaOtimizada && (
+              <View style={styles.otimizacaoBanner}>
+                <Text style={styles.otimizacaoBannerTitle}>✅ Rota Otimizada!</Text>
+                <View style={styles.otimizacaoStats}>
+                  <View style={styles.otimizacaoStat}>
+                    <Text style={styles.otimizacaoStatLabel}>Distância:</Text>
+                    <Text style={styles.otimizacaoStatValue}>
+                      {rotaOtimizada.distancia.toFixed(1)} km
+                    </Text>
+                  </View>
+                  <View style={styles.otimizacaoStat}>
+                    <Text style={styles.otimizacaoStatLabel}>Tempo Estimado:</Text>
+                    <Text style={styles.otimizacaoStatValue}>
+                      {Math.round(rotaOtimizada.tempo)} min
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.otimizacaoBannerHint}>
+                  As paradas foram reordenadas para o percurso mais eficiente
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -576,5 +699,55 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 18,
+  },
+  otimizarButton: {
+    backgroundColor: '#8b5cf6',
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 15,
+  },
+  otimizarButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  otimizacaoBanner: {
+    backgroundColor: '#d1fae5',
+    borderLeftWidth: 4,
+    borderLeftColor: '#10b981',
+    padding: 16,
+    borderRadius: 8,
+    marginTop: 15,
+  },
+  otimizacaoBannerTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#065f46',
+    marginBottom: 12,
+  },
+  otimizacaoStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 12,
+  },
+  otimizacaoStat: {
+    alignItems: 'center',
+  },
+  otimizacaoStatLabel: {
+    fontSize: 12,
+    color: '#047857',
+    marginBottom: 4,
+  },
+  otimizacaoStatValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#065f46',
+  },
+  otimizacaoBannerHint: {
+    fontSize: 12,
+    color: '#047857',
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
 });

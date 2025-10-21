@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,35 +7,13 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
-  Platform,
 } from 'react-native';
-import * as Constants from 'expo-constants';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
-
-// Importação condicional do MapView
-let MapView: any = null;
-let Marker: any = null;
-let PROVIDER_GOOGLE: any = null;
-let MapViewDirections: any = null;
-
-try {
-  const maps = require('react-native-maps');
-  MapView = maps.default;
-  Marker = maps.Marker;
-  PROVIDER_GOOGLE = maps.PROVIDER_GOOGLE;
-  MapViewDirections = require('react-native-maps-directions').default;
-} catch (error) {
-  console.log('react-native-maps não disponível no Expo Go');
-}
-
-const GOOGLE_MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
 interface Parada {
   id: string;
   endereco: string;
-  latitude: number;
-  longitude: number;
   ordem: number;
   status: string;
   tipo: string;
@@ -48,19 +26,14 @@ interface Rota {
     nome: string;
   };
   distancia_total?: number;
-  tempo_total?: number;
 }
 
-export default function RotaMotorista() {
+export default function RotaMotoristaWeb() {
   const { userData } = useUser();
-  const mapRef = useRef<any>(null);
   const [rota, setRota] = useState<Rota | null>(null);
   const [paradas, setParadas] = useState<Parada[]>([]);
   const [loading, setLoading] = useState(true);
   const [iniciandoRota, setIniciandoRota] = useState(false);
-
-  // Detectar se está no Expo Go
-  const isExpoGo = Constants.default.appOwnership === 'expo';
 
   useEffect(() => {
     if (userData?.id) {
@@ -72,10 +45,9 @@ export default function RotaMotorista() {
     try {
       setLoading(true);
 
-      // Buscar rota ativa do motorista
       const { data: rotasData, error: rotasError } = await supabase
         .from('rotas')
-        .select('id, status, distancia_total, tempo_total, unidades(nome)')
+        .select('id, status, distancia_total, unidades(nome)')
         .eq('motorista_id', userData!.id)
         .in('status', ['pendente', 'em_andamento'])
         .order('created_at', { ascending: false })
@@ -91,32 +63,15 @@ export default function RotaMotorista() {
 
       setRota(rotasData as Rota);
 
-      // Buscar paradas da rota
       const { data: paradasData, error: paradasError } = await supabase
         .from('paradas')
-        .select('id, endereco, latitude, longitude, ordem, status, tipo')
+        .select('id, endereco, ordem, status, tipo')
         .eq('rota_id', rotasData.id)
         .order('ordem');
 
       if (paradasError) throw paradasError;
 
-      setParadas(paradasData as Parada[] || []);
-
-      // Centralizar mapa nas paradas
-      if (paradasData && paradasData.length > 0 && mapRef.current) {
-        setTimeout(() => {
-          mapRef.current?.fitToCoordinates(
-            paradasData.map((p: Parada) => ({
-              latitude: p.latitude,
-              longitude: p.longitude,
-            })),
-            {
-              edgePadding: { top: 50, right: 50, bottom: 300, left: 50 },
-              animated: true,
-            }
-          );
-        }, 1000);
-      }
+      setParadas(paradasData || []);
     } catch (error) {
       console.error('Erro ao carregar rota:', error);
       Alert.alert('Erro', 'Não foi possível carregar a rota');
@@ -128,269 +83,88 @@ export default function RotaMotorista() {
   async function iniciarRota() {
     if (!rota) return;
 
-    Alert.alert(
-      'Iniciar Rota',
-      'Deseja iniciar esta rota agora?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Iniciar',
-          onPress: async () => {
-            setIniciandoRota(true);
-            try {
-              // Atualizar status da rota
-              await supabase
-                .from('rotas')
-                .update({
-                  status: 'em_andamento',
-                  iniciada_em: new Date().toISOString(),
-                })
-                .eq('id', rota.id);
+    setIniciandoRota(true);
+    try {
+      const { error } = await supabase
+        .from('rotas')
+        .update({
+          status: 'em_andamento',
+          iniciada_em: new Date().toISOString(),
+        })
+        .eq('id', rota.id);
 
-              // Criar log
-              await supabase.from('logs').insert({
-                usuario_id: userData!.id,
-                rota_id: rota.id,
-                evento: 'rota_iniciada',
-                detalhes: {
-                  total_paradas: paradas.length,
-                },
-              });
+      if (error) throw error;
 
-              setRota({ ...rota, status: 'em_andamento' });
-              Alert.alert('Sucesso', 'Rota iniciada! Boa viagem!');
-            } catch (error) {
-              console.error('Erro ao iniciar rota:', error);
-              Alert.alert('Erro', 'Não foi possível iniciar a rota');
-            } finally {
-              setIniciandoRota(false);
-            }
-          },
-        },
-      ]
-    );
+      Alert.alert('Sucesso!', 'Rota iniciada! Boa viagem! 🚚');
+      loadRotaAtiva();
+    } catch (error) {
+      console.error('Erro ao iniciar rota:', error);
+      Alert.alert('Erro', 'Não foi possível iniciar a rota');
+    } finally {
+      setIniciandoRota(false);
+    }
   }
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#0D5A9C" />
-        <Text style={styles.loadingText}>Carregando rota...</Text>
+        <Text style={styles.loadingText}>Carregando...</Text>
       </View>
     );
   }
 
-  if (!rota || paradas.length === 0) {
+  if (!rota) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyTitle}>📍</Text>
-        <Text style={styles.emptyText}>Nenhuma rota ativa no momento</Text>
-        <Text style={styles.emptySubtext}>
-          Aguarde o gestor atribuir uma nova rota
+        <Text style={styles.emptyIcon}>📭</Text>
+        <Text style={styles.emptyTitle}>Nenhuma rota ativa</Text>
+        <Text style={styles.emptyText}>
+          Aguarde até que o gestor atribua uma rota para você
         </Text>
       </View>
     );
   }
 
-  const paradasPendentes = paradas.filter((p) => p.status === 'pendente').length;
   const paradasConcluidas = paradas.filter((p) => p.status === 'concluida').length;
-  const progresso = Math.round((paradasConcluidas / paradas.length) * 100);
-
-  // Se estiver no Expo Go, mostrar mensagem informativa
-  if (isExpoGo || !MapView) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.expoGoWarning}>
-          <Text style={styles.expoGoTitle}>🗺️ Mapa não disponível no Expo Go</Text>
-          <Text style={styles.expoGoText}>
-            O mapa com react-native-maps requer um development build.
-          </Text>
-          <Text style={styles.expoGoSubtext}>
-            Para ver o mapa funcionando, execute:{'\n'}
-            {'\n'}
-            <Text style={styles.expoGoCode}>npx expo run:ios</Text>
-            {'\n'}{'\n'}
-            ou acesse a versão web:{'\n'}
-            {'\n'}
-            <Text style={styles.expoGoCode}>npm run web</Text>
-          </Text>
-        </View>
-
-        {/* Painel de Informações (mesmo sem mapa) */}
-        {rota && (
-          <View style={styles.infoPanel}>
-            <View style={styles.infoPanelHeader}>
-              <Text style={styles.infoPanelTitle}>Rota Ativa</Text>
-              <View
-                style={[
-                  styles.statusBadge,
-                  {
-                    backgroundColor:
-                      rota.status === 'em_andamento' ? '#3b82f6' : '#f59e0b',
-                  },
-                ]}
-              >
-                <Text style={styles.statusBadgeText}>
-                  {rota.status === 'em_andamento' ? 'Em Andamento' : 'Pendente'}
-                </Text>
-              </View>
-            </View>
-
-            <Text style={styles.infoUnidade}>{rota.unidades.nome}</Text>
-
-            {/* Lista de Paradas */}
-            <ScrollView style={styles.paradasList}>
-              {paradas.map((parada, index) => (
-                <View key={parada.id} style={styles.paradaItem}>
-                  <View style={styles.paradaNumber}>
-                    <Text style={styles.paradaNumberText}>{index + 1}</Text>
-                  </View>
-                  <View style={styles.paradaInfo}>
-                    <Text style={styles.paradaEndereco}>{parada.endereco}</Text>
-                    <Text style={styles.paradaTipo}>
-                      {parada.tipo === 'entrega' ? '📦 Entrega' : '📥 Retirada'}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.paradaStatus,
-                      {
-                        backgroundColor:
-                          parada.status === 'concluida' ? '#10b981' : '#f59e0b',
-                      },
-                    ]}
-                  >
-                    <Text style={styles.paradaStatusText}>
-                      {parada.status === 'concluida' ? '✓' : '○'}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-
-            {/* Botão Iniciar Rota */}
-            {rota.status === 'pendente' && (
-              <TouchableOpacity
-                style={styles.startButton}
-                onPress={iniciarRota}
-                disabled={iniciandoRota}
-              >
-                {iniciandoRota ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.startButtonText}>🚚 Iniciar Rota</Text>
-                )}
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-      </View>
-    );
-  }
+  const paradasPendentes = paradas.filter((p) => p.status !== 'concluida').length;
+  const progresso = paradas.length > 0 ? Math.round((paradasConcluidas / paradas.length) * 100) : 0;
 
   return (
-    <View style={styles.container}>
-      {/* Mapa com direções */}
-      <MapView
-        ref={mapRef}
-        provider={PROVIDER_GOOGLE}
-        style={styles.map}
-        initialRegion={{
-          latitude: paradas[0]?.latitude || -23.5505,
-          longitude: paradas[0]?.longitude || -46.6333,
-          latitudeDelta: 0.1,
-          longitudeDelta: 0.1,
-        }}
-        showsUserLocation
-        showsMyLocationButton
-      >
-        {/* Marcadores das paradas */}
-        {paradas.map((parada, index) => (
-          <Marker
-            key={parada.id}
-            coordinate={{
-              latitude: parada.latitude,
-              longitude: parada.longitude,
-            }}
-            title={`Parada ${index + 1}`}
-            description={parada.endereco}
-            pinColor={parada.status === 'concluida' ? '#10b981' : '#FF8C00'}
-          />
-        ))}
-
-        {/* Rota otimizada com direções */}
-        {paradas.length > 1 && GOOGLE_MAPS_KEY && (
-          <MapViewDirections
-            origin={{
-              latitude: paradas[0].latitude,
-              longitude: paradas[0].longitude,
-            }}
-            destination={{
-              latitude: paradas[paradas.length - 1].latitude,
-              longitude: paradas[paradas.length - 1].longitude,
-            }}
-            waypoints={
-              paradas.length > 2
-                ? paradas.slice(1, -1).map((p) => ({
-                    latitude: p.latitude,
-                    longitude: p.longitude,
-                  }))
-                : undefined
-            }
-            apikey={GOOGLE_MAPS_KEY}
-            strokeWidth={4}
-            strokeColor="#0D5A9C"
-            optimizeWaypoints={true}
-            onReady={(result) => {
-              console.log('Rota calculada:', result.distance, 'km');
-            }}
-          />
-        )}
-      </MapView>
-
-      {/* Painel de Informações */}
-      <View style={styles.infoPanel}>
-        <View style={styles.infoPanelHeader}>
-          <Text style={styles.infoPanelTitle}>Rota Ativa</Text>
-          <View
-            style={[
-              styles.statusBadge,
-              {
-                backgroundColor:
-                  rota.status === 'em_andamento' ? '#3b82f6' : '#f59e0b',
-              },
-            ]}
-          >
-            <Text style={styles.statusBadgeText}>
-              {rota.status === 'em_andamento' ? 'Em Andamento' : 'Pendente'}
-            </Text>
-          </View>
+    <ScrollView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Rota Atual</Text>
+        <View style={[
+          styles.statusBadge,
+          rota.status === 'em_andamento' ? styles.statusEmAndamento : styles.statusPendente
+        ]}>
+          <Text style={styles.statusText}>
+            {rota.status === 'em_andamento' ? 'Em Andamento' : 'Pendente'}
+          </Text>
         </View>
+      </View>
 
+      {/* Info da Rota */}
+      <View style={styles.infoCard}>
         <Text style={styles.infoUnidade}>{rota.unidades.nome}</Text>
 
-        {/* Estatísticas */}
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{paradas.length}</Text>
             <Text style={styles.statLabel}>Paradas</Text>
           </View>
-
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{paradasConcluidas}</Text>
+            <Text style={[styles.statValue, { color: '#10b981' }]}>{paradasConcluidas}</Text>
             <Text style={styles.statLabel}>Concluídas</Text>
           </View>
-
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{paradasPendentes}</Text>
+            <Text style={[styles.statValue, { color: '#f59e0b' }]}>{paradasPendentes}</Text>
             <Text style={styles.statLabel}>Pendentes</Text>
           </View>
-
           {rota.distancia_total && (
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>
-                {rota.distancia_total.toFixed(1)}
-              </Text>
+              <Text style={styles.statValue}>{rota.distancia_total.toFixed(1)}</Text>
               <Text style={styles.statLabel}>km</Text>
             </View>
           )}
@@ -400,14 +174,42 @@ export default function RotaMotorista() {
         <View style={styles.progressSection}>
           <Text style={styles.progressLabel}>Progresso: {progresso}%</Text>
           <View style={styles.progressContainer}>
-            <View
-              style={[styles.progressBar, { width: `${progresso}%` }]}
-            />
+            <View style={[styles.progressBar, { width: `${progresso}%` }]} />
           </View>
         </View>
+      </View>
 
-        {/* Botão Iniciar Rota */}
-        {rota.status === 'pendente' && (
+      {/* Lista de Paradas */}
+      <View style={styles.paradasSection}>
+        <Text style={styles.sectionTitle}>Paradas</Text>
+        {paradas.map((parada) => (
+          <View key={parada.id} style={styles.paradaCard}>
+            <View style={styles.paradaHeader}>
+              <View style={styles.paradaNumero}>
+                <Text style={styles.paradaNumeroText}>{parada.ordem}</Text>
+              </View>
+              <View style={styles.paradaInfo}>
+                <Text style={styles.paradaEndereco}>{parada.endereco}</Text>
+                <Text style={styles.paradaTipo}>
+                  {parada.tipo === 'entrega' ? '📦 Entrega' : '📥 Retirada'}
+                </Text>
+              </View>
+              <View style={[
+                styles.paradaStatus,
+                parada.status === 'concluida' ? styles.paradaStatusConcluida : styles.paradaStatusPendente
+              ]}>
+                <Text style={styles.paradaStatusText}>
+                  {parada.status === 'concluida' ? '✓' : '○'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        ))}
+      </View>
+
+      {/* Botão Iniciar */}
+      {rota.status === 'pendente' && (
+        <View style={styles.actionSection}>
           <TouchableOpacity
             style={styles.startButton}
             onPress={iniciarRota}
@@ -419,109 +221,24 @@ export default function RotaMotorista() {
               <Text style={styles.startButtonText}>🚚 Iniciar Rota</Text>
             )}
           </TouchableOpacity>
-        )}
+        </View>
+      )}
 
-        {/* Link para Checkpoints */}
-        {rota.status === 'em_andamento' && (
-          <Text style={styles.hint}>
-            Acesse a aba "Checkpoints" para concluir as paradas
+      {rota.status === 'em_andamento' && (
+        <View style={styles.hintSection}>
+          <Text style={styles.hintText}>
+            Acesse a aba "Paradas" para concluir as entregas
           </Text>
-        )}
-      </View>
-    </View>
+        </View>
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  expoGoWarning: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f0f9ff',
-    padding: 30,
-  },
-  expoGoTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0369a1',
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  expoGoText: {
-    fontSize: 16,
-    color: '#0c4a6e',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  expoGoSubtext: {
-    fontSize: 14,
-    color: '#475569',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  expoGoCode: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    backgroundColor: '#e0f2fe',
-    color: '#0369a1',
-    fontSize: 13,
-    padding: 4,
-  },
-  paradasList: {
-    maxHeight: 300,
-    marginBottom: 15,
-  },
-  paradaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#f9fafb',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  paradaNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#0D5A9C',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  paradaNumberText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  paradaInfo: {
-    flex: 1,
-  },
-  paradaEndereco: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  paradaTipo: {
-    fontSize: 12,
-    color: '#6b7280',
-  },
-  paradaStatus: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  paradaStatusText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  map: {
-    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -538,73 +255,74 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
     padding: 40,
   },
-  emptyTitle: {
+  emptyIcon: {
     fontSize: 64,
-    marginBottom: 20,
+    marginBottom: 16,
   },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
     color: '#111827',
     marginBottom: 8,
-    textAlign: 'center',
   },
-  emptySubtext: {
+  emptyText: {
     fontSize: 14,
     color: '#6b7280',
     textAlign: 'center',
   },
-  map: {
-    flex: 1,
-  },
-  infoPanel: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+  header: {
     backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  infoPanelHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
   },
-  infoPanelTitle: {
-    fontSize: 20,
+  headerTitle: {
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#111827',
   },
   statusBadge: {
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 12,
   },
-  statusBadgeText: {
-    color: '#fff',
+  statusEmAndamento: {
+    backgroundColor: '#dbeafe',
+  },
+  statusPendente: {
+    backgroundColor: '#fef3c7',
+  },
+  statusText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
+    color: '#111827',
+  },
+  infoCard: {
+    backgroundColor: '#fff',
+    margin: 16,
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   infoUnidade: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 15,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 16,
   },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 15,
+    marginBottom: 16,
   },
   statItem: {
     alignItems: 'center',
@@ -613,19 +331,18 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#0D5A9C',
+    marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
     color: '#6b7280',
-    marginTop: 4,
   },
   progressSection: {
-    marginBottom: 15,
+    marginTop: 8,
   },
   progressLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
+    color: '#6b7280',
     marginBottom: 8,
   },
   progressContainer: {
@@ -636,11 +353,86 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: '100%',
-    backgroundColor: '#10b981',
+    backgroundColor: '#0D5A9C',
+    borderRadius: 4,
+  },
+  paradasSection: {
+    padding: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 12,
+  },
+  paradaCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#0D5A9C',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  paradaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  paradaNumero: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#0D5A9C',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  paradaNumeroText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  paradaInfo: {
+    flex: 1,
+  },
+  paradaEndereco: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  paradaTipo: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  paradaStatus: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  paradaStatusConcluida: {
+    backgroundColor: '#d1fae5',
+  },
+  paradaStatusPendente: {
+    backgroundColor: '#fee2e2',
+  },
+  paradaStatusText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  actionSection: {
+    padding: 16,
   },
   startButton: {
     backgroundColor: '#0D5A9C',
-    padding: 16,
+    paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
   },
@@ -649,11 +441,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  hint: {
-    fontSize: 12,
+  hintSection: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  hintText: {
+    fontSize: 14,
     color: '#6b7280',
     textAlign: 'center',
-    marginTop: 10,
     fontStyle: 'italic',
   },
 });

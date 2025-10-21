@@ -11,6 +11,7 @@ import {
   Modal,
   TextInput,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 
@@ -34,6 +35,7 @@ interface RotaHistorico {
 type FiltroStatus = 'todas' | 'pendente' | 'em_andamento' | 'concluida' | 'cancelada';
 
 export default function HistoricoGestor() {
+  const router = useRouter();
   const { userData } = useUser();
   const [rotas, setRotas] = useState<RotaHistorico[]>([]);
   const [rotasFiltradas, setRotasFiltradas] = useState<RotaHistorico[]>([]);
@@ -380,6 +382,14 @@ export default function HistoricoGestor() {
                 </View>
               </View>
             )}
+
+            {/* Botão Ver no Mapa */}
+            <TouchableOpacity
+              style={styles.verMapaButton}
+              onPress={() => router.push(`/gestor/mapa-rota?id=${item.id}`)}
+            >
+              <Text style={styles.verMapaButtonText}>🗺️ Ver Rota no Mapa</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -766,6 +776,19 @@ const styles = StyleSheet.create({
   expandIndicatorText: {
     fontSize: 12,
     color: '#0D5A9C',
+    fontWeight: '600',
+  },
+  verMapaButton: {
+    backgroundColor: '#10b981',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  verMapaButtonText: {
+    color: '#fff',
+    fontSize: 14,
     fontWeight: '600',
   },
   modalOverlay: {
