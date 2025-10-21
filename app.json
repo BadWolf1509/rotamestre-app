@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "scheme": "rotamestre",
     "description": "Sistema inteligente de gestão e rastreamento de rotas de entrega em tempo real. Otimize suas entregas, acompanhe motoristas e melhore a eficiência logística da sua empresa.",
     "splash": {
@@ -16,7 +16,11 @@
     },
     "extra": {
       "baseUrl": "https://app.rotamestre.tec.br",
-      "apiUrl": "https://api.rotamestre.tec.br"
+      "apiUrl": "https://api.rotamestre.tec.br",
+      "router": {},
+      "eas": {
+        "projectId": "1ea74080-a787-46db-abbf-d303d1b7a9d4"
+      }
     },
     "ios": {
       "supportsTablet": true,
@@ -37,7 +41,9 @@
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
-        "FOREGROUND_SERVICE"
+        "FOREGROUND_SERVICE",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ],
       "config": {
         "googleMaps": {
