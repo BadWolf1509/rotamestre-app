@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 export default function RootLayout() {
   useEffect(() => {
     // Configurar título da página para web
-    if (Platform.OS === 'web') {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
       document.title = 'Rota Mestre - Gestão Inteligente de Entregas';
 
       // Adicionar meta description se não existir
