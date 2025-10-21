@@ -140,7 +140,11 @@
       "Bash(cat:*)",
       "Bash(npm install:*)",
       "Bash(test:*)",
-      "Bash(git check-ignore:*)"
+      "Bash(git check-ignore:*)",
+      "Bash(npx expo config:*)",
+      "Bash(eas:*)",
+      "Bash(npm show:*)",
+      "Bash(set:*)"
     ],
     "deny": [],
     "ask": []

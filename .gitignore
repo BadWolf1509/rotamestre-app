@@ -51,3 +51,7 @@ rota-mestre/
 
 # Claude settings (local only)
 .claude/settings.local.json
+
+# Marketing assets (not needed in builds)
+assets/branding/
+assets/marketing/
