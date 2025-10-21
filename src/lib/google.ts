@@ -2,6 +2,32 @@ import { Coordenadas, Endereco, EnderecoGeocodificado } from '../types/endereco'
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
+// Helper function: retorna apenas as coordenadas (simplificado)
+export async function getCoordinates(endereco: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+        endereco
+      )}&key=${GOOGLE_MAPS_API_KEY}`
+    );
+
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.results.length > 0) {
+      const location = data.results[0].geometry.location;
+      return {
+        lat: location.lat,
+        lng: location.lng,
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Erro ao obter coordenadas:', error);
+    return null;
+  }
+}
+
 export const googleMapsService = {
   // Geocodificar endereço (endereço -> coordenadas)
   async geocodeAddress(endereco: string): Promise<EnderecoGeocodificado | null> {
