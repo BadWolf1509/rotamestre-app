@@ -67,7 +67,8 @@ END;
 $$;
 
 -- 1.4 rotas_ativas_motorista
-CREATE OR REPLACE FUNCTION public.rotas_ativas_motorista(motorista_id UUID)
+DROP FUNCTION IF EXISTS public.rotas_ativas_motorista(UUID);
+CREATE FUNCTION public.rotas_ativas_motorista(motorista_id UUID)
 RETURNS SETOF public.rotas
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -96,7 +97,8 @@ END;
 $$;
 
 -- 1.6 estatisticas_rota
-CREATE OR REPLACE FUNCTION public.estatisticas_rota(rota_id UUID)
+DROP FUNCTION IF EXISTS public.estatisticas_rota(UUID);
+CREATE FUNCTION public.estatisticas_rota(rota_id UUID)
 RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -167,7 +169,8 @@ END;
 $$;
 
 -- 1.8 calcular_distancia
-CREATE OR REPLACE FUNCTION public.calcular_distancia(
+DROP FUNCTION IF EXISTS public.calcular_distancia(DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION);
+CREATE FUNCTION public.calcular_distancia(
   lat1 DOUBLE PRECISION,
   lon1 DOUBLE PRECISION,
   lat2 DOUBLE PRECISION,
