@@ -67,10 +67,18 @@ module.exports = ({ config }) => {
     },
     plugins: [
       "expo-router",
+      "expo-asset",
+      "expo-font",
       [
         "expo-location",
         {
           locationAlwaysAndWhenInUsePermission: "O RotaMestre precisa acessar sua localização para rastrear entregas."
+        }
+      ],
+      [
+        "react-native-maps",
+        {
+          enableGoogleMaps: true
         }
       ]
     ]

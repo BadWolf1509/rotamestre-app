@@ -1,33 +1,24 @@
 import { Tabs, useRouter } from 'expo-router';
-import { TouchableOpacity, Text, Alert, Platform, StyleSheet } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { authService } from '@/lib/auth';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 export default function GestorLayout() {
   const router = useRouter();
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
 
-  async function handleLogout() {
-    Alert.alert(
-      'Sair',
-      'Deseja realmente sair da sua conta?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Sair',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await authService.signOut();
-              router.replace('/auth/login');
-            } catch (error) {
-              console.error('Erro ao fazer logout:', error);
-              Alert.alert('Erro', 'Não foi possível sair. Tente novamente.');
-            }
-          },
-        },
-      ]
-    );
+  async function handleLogoutConfirm() {
+    setShowLogoutDialog(false);
+    try {
+      await authService.signOut();
+      router.replace('/auth/login');
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+      setShowErrorDialog(true);
+    }
   }
 
   const LogoutButton = () => {
@@ -35,13 +26,12 @@ export default function GestorLayout() {
 
     return (
       <TouchableOpacity
-        onPress={handleLogout}
+        onPress={() => setShowLogoutDialog(true)}
         onPressIn={() => setPressed(true)}
         onPressOut={() => setPressed(false)}
         style={[
           styles.logoutButton,
           pressed && styles.logoutButtonPressed,
-          Platform.OS === 'web' && styles.logoutButtonWeb,
         ]}
         accessibilityLabel="Sair da conta"
         accessibilityRole="button"
@@ -53,48 +43,73 @@ export default function GestorLayout() {
   };
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: '#2563eb',
-        headerStyle: {
-          backgroundColor: '#2563eb',
-        },
-        headerTintColor: '#fff',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
-        headerRight: () => <LogoutButton />,
-      }}
-    >
-      <Tabs.Screen
-        name="dashboard"
-        options={{
-          title: 'Dashboard',
-          tabBarLabel: 'Início',
+    <>
+      <Tabs
+        screenOptions={{
+          tabBarActiveTintColor: '#2563eb',
+          headerStyle: {
+            backgroundColor: '#2563eb',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+          headerRight: () => <LogoutButton />,
         }}
+      >
+        <Tabs.Screen
+          name="dashboard"
+          options={{
+            title: 'Dashboard',
+            tabBarLabel: 'Início',
+          }}
+        />
+        <Tabs.Screen
+          name="nova-entrega"
+          options={{
+            title: 'Nova Entrega',
+            tabBarLabel: 'Nova Rota',
+          }}
+        />
+        <Tabs.Screen
+          name="historico"
+          options={{
+            title: 'Histórico',
+            tabBarLabel: 'Histórico',
+          }}
+        />
+        <Tabs.Screen
+          name="motoristas"
+          options={{
+            title: 'Motoristas',
+            tabBarLabel: 'Motoristas',
+          }}
+        />
+      </Tabs>
+
+      {/* Dialogs */}
+      <ConfirmDialog
+        visible={showLogoutDialog}
+        title="Sair da conta"
+        message="Deseja realmente encerrar sua sessão? Você precisará fazer login novamente."
+        confirmText="Sair"
+        cancelText="Cancelar"
+        type="destructive"
+        onConfirm={handleLogoutConfirm}
+        onCancel={() => setShowLogoutDialog(false)}
       />
-      <Tabs.Screen
-        name="nova-entrega"
-        options={{
-          title: 'Nova Entrega',
-          tabBarLabel: 'Nova Rota',
-        }}
+
+      <ConfirmDialog
+        visible={showErrorDialog}
+        title="Erro ao sair"
+        message="Não foi possível encerrar sua sessão. Verifique sua conexão e tente novamente."
+        confirmText="Entendi"
+        cancelText="Fechar"
+        type="destructive"
+        onConfirm={() => setShowErrorDialog(false)}
+        onCancel={() => setShowErrorDialog(false)}
       />
-      <Tabs.Screen
-        name="historico"
-        options={{
-          title: 'Histórico',
-          tabBarLabel: 'Histórico',
-        }}
-      />
-      <Tabs.Screen
-        name="motoristas"
-        options={{
-          title: 'Motoristas',
-          tabBarLabel: 'Motoristas',
-        }}
-      />
-    </Tabs>
+    </>
   );
 }
 
@@ -117,10 +132,6 @@ const styles = StyleSheet.create({
   logoutButtonPressed: {
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
     transform: [{ scale: 0.97 }],
-  },
-  logoutButtonWeb: {
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
   },
   logoutText: {
     color: '#fff',
