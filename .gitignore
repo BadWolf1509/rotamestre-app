@@ -49,7 +49,11 @@ nul
 *-backup.tsx
 rota-mestre/
 
-# Claude settings (local only)
+# IDE
+.idea/
+.vscode/
+
+# Claude Code local settings
 .claude/settings.local.json
 
 # Marketing assets (not needed in builds)

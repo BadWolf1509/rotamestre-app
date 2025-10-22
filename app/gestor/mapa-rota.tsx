@@ -11,10 +11,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import Constants from 'expo-constants';
-import MapaWeb from '@/components/MapaWeb';
-
-const IS_WEB = Platform.OS === 'web';
+import { MapaAdapter } from '@/components/MapaAdapter';
 
 interface Parada {
   id: string;
@@ -45,8 +42,6 @@ export default function MapaRota() {
   const [loading, setLoading] = useState(true);
   const [rota, setRota] = useState<Rota | null>(null);
   const [paradas, setParadas] = useState<Parada[]>([]);
-
-  const isExpoGo = Constants.appOwnership === 'expo';
 
   useEffect(() => {
     if (id) {
@@ -147,22 +142,12 @@ export default function MapaRota() {
         </View>
       </View>
 
-      {/* Mapa Interativo */}
-      {IS_WEB && paradas.length > 0 ? (
+      {/* Mapa Interativo - Funciona em Web e Mobile (com dev build) */}
+      {paradas.length > 0 && (
         <View style={styles.mapContainer}>
-          <MapaWeb paradas={paradas} />
+          <MapaAdapter paradas={paradas} />
         </View>
-      ) : !IS_WEB && isExpoGo ? (
-        <View style={styles.expoGoWarning}>
-          <Text style={styles.warningTitle}>ℹ️ Limitação do Expo Go</Text>
-          <Text style={styles.warningText}>
-            O mapa interativo não está disponível no Expo Go.
-          </Text>
-          <Text style={styles.warningHint}>
-            Para ver o mapa completo, use um development build.
-          </Text>
-        </View>
-      ) : null}
+      )}
 
       {/* Lista de Paradas */}
       <View style={styles.paradasContainer}>
@@ -335,30 +320,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     color: '#1e40af',
     textTransform: 'capitalize',
-  },
-  expoGoWarning: {
-    backgroundColor: '#fef3c7',
-    borderLeftWidth: 4,
-    borderLeftColor: '#f59e0b',
-    padding: 16,
-    margin: 16,
-    borderRadius: 8,
-  },
-  warningTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#92400e',
-    marginBottom: 8,
-  },
-  warningText: {
-    fontSize: 14,
-    color: '#92400e',
-    marginBottom: 4,
-  },
-  warningHint: {
-    fontSize: 12,
-    color: '#92400e',
-    fontStyle: 'italic',
   },
   paradasContainer: {
     padding: 16,
