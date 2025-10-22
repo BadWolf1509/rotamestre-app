@@ -74,12 +74,6 @@ module.exports = ({ config }) => {
         {
           locationAlwaysAndWhenInUsePermission: "O RotaMestre precisa acessar sua localização para rastrear entregas."
         }
-      ],
-      [
-        "react-native-maps",
-        {
-          enableGoogleMaps: true
-        }
       ]
     ]
   };
