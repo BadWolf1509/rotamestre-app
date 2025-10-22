@@ -29,6 +29,9 @@ module.exports = ({ config }) => {
       infoPlist: {
         NSLocationWhenInUseUsageDescription: "O RotaMestre precisa acessar sua localização para mostrar sua posição no mapa e calcular rotas.",
         NSLocationAlwaysAndWhenInUseUsageDescription: "O RotaMestre precisa acessar sua localização em segundo plano para rastrear o progresso da entrega."
+      },
+      config: {
+        googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || ""
       }
     },
     android: {
@@ -39,6 +42,7 @@ module.exports = ({ config }) => {
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: "br.tec.rotamestre",
+      versionCode: 3001, // Incrementar +1 a cada build (3001, 3002, 3003...)
       permissions: [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
@@ -73,6 +77,12 @@ module.exports = ({ config }) => {
         "expo-location",
         {
           locationAlwaysAndWhenInUsePermission: "O RotaMestre precisa acessar sua localização para rastrear entregas."
+        }
+      ],
+      [
+        "react-native-maps",
+        {
+          enableGoogleMaps: true
         }
       ]
     ]
