@@ -131,33 +131,112 @@ export default function MotoristasGestor() {
 
     setSalvando(true);
     try {
-      // Criar usuário no Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formEmail.trim(),
-        password: formSenha.trim(),
-      });
+      console.log('🔄 Iniciando criação de motorista...');
 
-      if (authError) throw authError;
+      // Obter token de autenticação do gestor atual
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      if (!authData.user) {
-        throw new Error('Usuário não foi criado');
+      if (sessionError) {
+        console.error('❌ Erro ao obter sessão:', sessionError);
+        Alert.alert(
+          'Erro de Autenticação',
+          `Erro ao obter sessão: ${sessionError.message}\n\nFaça logout e login novamente.`
+        );
+        return;
       }
 
-      // Criar registro na tabela usuarios
-      const { error: insertError } = await supabase.from('usuarios').insert({
-        id: authData.user.id,
+      if (!session) {
+        console.error('❌ Sessão não encontrada');
+        Alert.alert(
+          'Sessão Expirada',
+          'Sua sessão expirou. Por favor, faça login novamente.'
+        );
+        return;
+      }
+
+      console.log('✅ Sessão obtida:', session.user.email);
+
+      // Chamar Edge Function para criar motorista usando Admin API
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const functionUrl = `${supabaseUrl}/functions/v1/criar-motorista`;
+
+      console.log('🌐 Chamando Edge Function:', functionUrl);
+      console.log('📋 Dados:', {
         nome: formNome.trim(),
         email: formEmail.trim(),
         telefone: formTelefone.trim() || null,
-        papel: 'motorista',
-        unidade_id: userData!.unidade_id,
-        ativo: true,
       });
 
-      if (insertError) throw insertError;
+      let response;
+      try {
+        response = await fetch(functionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            nome: formNome.trim(),
+            email: formEmail.trim(),
+            senha: formSenha.trim(),
+            telefone: formTelefone.trim() || null,
+          }),
+        });
+      } catch (fetchError: any) {
+        console.error('❌ Erro de rede:', fetchError);
+        Alert.alert(
+          'Erro de Conexão',
+          `Não foi possível conectar à Edge Function.\n\n` +
+          `Erro: ${fetchError.message}\n\n` +
+          `URL: ${functionUrl}\n\n` +
+          `Verifique se a função foi deployada:\n` +
+          `supabase functions deploy criar-motorista`
+        );
+        return;
+      }
+
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', JSON.stringify(Object.fromEntries(response.headers)));
+
+      let result;
+      try {
+        const responseText = await response.text();
+        console.log('📄 Response text:', responseText);
+        result = responseText ? JSON.parse(responseText) : {};
+      } catch (parseError: any) {
+        console.error('❌ Erro ao parsear resposta:', parseError);
+        Alert.alert(
+          'Erro na Resposta',
+          `A Edge Function retornou uma resposta inválida.\n\n` +
+          `Status: ${response.status}\n\n` +
+          `Isso pode indicar que a função não foi deployada corretamente.`
+        );
+        return;
+      }
+
+      if (!response.ok) {
+        console.error('❌ Resposta com erro:', result);
+        Alert.alert(
+          'Erro ao Criar Motorista',
+          `Status: ${response.status}\n\n` +
+          `Erro: ${result.error || 'Erro desconhecido'}\n\n` +
+          (response.status === 404
+            ? 'Edge Function não encontrada. Execute:\nsupabase functions deploy criar-motorista'
+            : response.status === 401
+            ? 'Não autorizado. Faça logout e login novamente.'
+            : response.status === 403
+            ? 'Você não tem permissão para criar motoristas.'
+            : ''
+          )
+        );
+        return;
+      }
+
+      console.log('✅ Motorista criado:', result);
 
       // Criar log
-      await supabase.from('logs').insert({
+      console.log('📝 Criando log...');
+      const { error: logError } = await supabase.from('logs').insert({
         usuario_id: userData!.id,
         evento: 'motorista_criado',
         detalhes: {
@@ -166,12 +245,21 @@ export default function MotoristasGestor() {
         },
       });
 
+      if (logError) {
+        console.error('⚠️ Erro ao criar log (não crítico):', logError);
+      }
+
+      console.log('✅ Processo concluído com sucesso!');
       Alert.alert('Sucesso', 'Motorista adicionado com sucesso!');
       setShowAddModal(false);
       loadMotoristas();
     } catch (error: any) {
-      console.error('Erro ao adicionar motorista:', error);
-      Alert.alert('Erro', error.message || 'Não foi possível adicionar o motorista');
+      console.error('❌ Erro inesperado ao adicionar motorista:', error);
+      Alert.alert(
+        'Erro Inesperado',
+        `${error.message || 'Não foi possível adicionar o motorista'}\n\n` +
+        `Detalhes técnicos:\n${JSON.stringify(error, null, 2)}`
+      );
     } finally {
       setSalvando(false);
     }

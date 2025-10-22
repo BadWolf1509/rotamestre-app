@@ -14,6 +14,8 @@
     "mcp:db": "node tools/mcp-server/src/index.js"
   },
   "dependencies": {
+    "@expo-google-fonts/nunito-sans": "^0.4.2",
+    "@expo-google-fonts/viga": "^0.4.1",
     "@expo/vector-icons": "^15.0.2",
     "@hookform/resolvers": "^5.2.2",
     "@react-google-maps/api": "^2.20.7",
