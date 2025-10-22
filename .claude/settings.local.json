@@ -144,7 +144,13 @@
       "Bash(npx expo config:*)",
       "Bash(eas:*)",
       "Bash(npm show:*)",
-      "Bash(set:*)"
+      "Bash(set:*)",
+      "Bash(git log:*)",
+      "Bash(git remote add:*)",
+      "Read(//c/Users/welli/**)",
+      "Bash(netstat:*)",
+      "Bash(tasklist:*)",
+      "Bash(psql:*)"
     ],
     "deny": [],
     "ask": []
