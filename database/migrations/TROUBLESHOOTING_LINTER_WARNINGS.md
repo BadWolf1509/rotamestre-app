@@ -10,6 +10,14 @@ Você aplicou a migration `20251022000000_fix_security_warnings.sql`, mas o Data
 | `get_user_role` | function_search_path_mutable |
 | `calcular_distancia` | function_search_path_mutable |
 
+## ✅ Causa Identificada: Funções Duplicadas
+
+O diagnóstico revelou que existem **DUAS VERSÕES** de cada função:
+- ✅ Uma versão **COM** `search_path=public` (correta)
+- ❌ Uma versão **SEM** `search_path` (problemática)
+
+O Database Linter detecta as versões sem `search_path`, por isso os avisos persistem.
+
 ## 🔎 Possíveis Causas
 
 ### 1. Migration Não Aplicada Completamente
@@ -30,7 +38,30 @@ Você aplicou a migration `20251022000000_fix_security_warnings.sql`, mas o Data
 
 ## 🛠️ Soluções
 
-### Solução 1: Verificar Estado Atual (RECOMENDADO)
+### Solução 1: Remover Funções Duplicadas (RECOMENDADO)
+
+**Este é o problema confirmado: existem 2 versões de cada função.**
+
+1. **Abra o Supabase SQL Editor:**
+   https://supabase.com/dashboard/project/xezslsyxjivunmhhyxtd/sql
+
+2. **Execute o script de remoção:**
+   - Arquivo: `database/migrations/REMOVE_DUPLICATE_FUNCTIONS.sql`
+   - Copie **TODO** o conteúdo
+   - Cole no SQL Editor
+   - Clique em **"Run"**
+
+3. **Verifique o resultado:**
+   - O script mostra uma tabela final
+   - Deve haver EXATAMENTE 3 linhas (uma para cada função)
+   - Todas devem mostrar ✅
+
+4. **Execute o Database Linter:**
+   - Dashboard → Database → Database Linter
+   - Clique em **"Run Linter"**
+   - Os 3 avisos devem desaparecer ✅
+
+### Solução 2: Investigar Detalhes das Duplicatas (Opcional)
 
 1. **Abra o Supabase SQL Editor:**
    https://supabase.com/dashboard/project/xezslsyxjivunmhhyxtd/sql
@@ -114,12 +145,14 @@ Os avisos do Database Linter estarão resolvidos quando:
 
 ## 📁 Arquivos de Ajuda
 
-| Arquivo | Propósito |
-|---------|-----------|
-| `VERIFY_FUNCTIONS_SEARCH_PATH.sql` | Verificar estado atual das funções |
-| `FIX_FUNCTIONS_INDIVIDUALLY.sql` | Corrigir as 3 funções problemáticas |
-| `20251022000000_fix_security_warnings.sql` | Migration completa original |
-| `APPLY_SECURITY_MIGRATION.md` | Guia de aplicação da migration |
+| Arquivo | Propósito | Prioridade |
+|---------|-----------|------------|
+| **`REMOVE_DUPLICATE_FUNCTIONS.sql`** | **Remover duplicatas e recriar funções** | **🔥 USAR ESTE** |
+| `IDENTIFY_DUPLICATE_FUNCTIONS.sql` | Investigar detalhes das duplicatas | Opcional |
+| `VERIFY_FUNCTIONS_SEARCH_PATH.sql` | Verificar estado atual das funções | Diagnóstico |
+| `FIX_FUNCTIONS_INDIVIDUALLY.sql` | Corrigir as 3 funções individualmente | Alternativa |
+| `20251022000000_fix_security_warnings.sql` | Migration completa original | Referência |
+| `APPLY_SECURITY_MIGRATION.md` | Guia de aplicação da migration | Referência |
 
 ## 🆘 Precisa de Ajuda?
 
