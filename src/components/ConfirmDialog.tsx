@@ -8,6 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { colors, typography, spacing, borderRadius, shadows } from '@/lib/design-tokens';
 
 interface ConfirmDialogProps {
   visible: boolean;
@@ -44,11 +45,11 @@ export function ConfirmDialog({
   const getIconColor = () => {
     switch (type) {
       case 'destructive':
-        return '#ef4444';
+        return colors.error;
       case 'success':
-        return '#22c55e';
+        return colors.success;
       default:
-        return '#2563eb';
+        return colors.primary.main;
     }
   };
 
@@ -112,52 +113,44 @@ export function ConfirmDialog({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: colors.overlay.medium,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: spacing.lg,
   },
   container: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
+    backgroundColor: colors.background.primary,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
     width: '100%',
     maxWidth: 400,
     ...Platform.select({
       web: {
         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
       },
-      default: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.25,
-        shadowRadius: 20,
-        elevation: 10,
-      },
+      default: shadows.modal,
     }),
   },
   iconContainer: {
     width: 64,
     height: 64,
-    borderRadius: 32,
+    borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1f2937',
+    ...typography.styles.h2,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   message: {
-    fontSize: 15,
-    color: '#6b7280',
+    ...typography.styles.body,
+    color: colors.text.secondary,
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: 24,
+    marginBottom: spacing.lg,
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -166,37 +159,39 @@ const styles = StyleSheet.create({
   button: {
     flex: 1,
     paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: 44,
   },
   cancelButton: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.gray[100],
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: colors.border.light,
   },
   cancelButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#374151',
+    fontSize: typography.fontSize.md,
+    fontFamily: typography.fontFamily.semibold,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.text.primary,
   },
   confirmButton: {
     borderWidth: 0,
   },
   confirmButtonDefault: {
-    backgroundColor: '#2563eb',
+    backgroundColor: colors.primary.main,
   },
   confirmButtonDestructive: {
-    backgroundColor: '#ef4444',
+    backgroundColor: colors.error,
   },
   confirmButtonSuccess: {
-    backgroundColor: '#22c55e',
+    backgroundColor: colors.success,
   },
   confirmButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
+    fontSize: typography.fontSize.md,
+    fontFamily: typography.fontFamily.semibold,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.white,
   },
 });

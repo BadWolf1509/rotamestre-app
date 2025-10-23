@@ -8,7 +8,7 @@ import {
   TextStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/styles/colors';
+import { colors, typography, spacing, borderRadius } from '@/lib/design-tokens';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 export type ButtonSize = 'small' | 'medium' | 'large';
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
+    borderRadius: borderRadius.md,
     minHeight: 44, // Acessibilidade
   },
 
@@ -120,55 +120,56 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   danger: {
-    backgroundColor: colors.status.error,
+    backgroundColor: colors.error,
   },
 
   // Tamanhos
   small: {
-    paddingVertical: 8,
+    paddingVertical: spacing.sm,
     paddingHorizontal: 12,
   },
   medium: {
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.md,
   },
   large: {
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
 
   // Textos
   text: {
-    fontWeight: '600',
+    fontFamily: typography.fontFamily.semibold,
+    fontWeight: typography.fontWeight.semibold,
   },
   primaryText: {
     color: colors.white,
-    fontSize: 16,
+    fontSize: typography.fontSize.md,
   },
   secondaryText: {
     color: colors.white,
-    fontSize: 16,
+    fontSize: typography.fontSize.md,
   },
   outlineText: {
     color: colors.primary.main,
-    fontSize: 16,
+    fontSize: typography.fontSize.md,
   },
   ghostText: {
     color: colors.primary.main,
-    fontSize: 16,
+    fontSize: typography.fontSize.md,
   },
   dangerText: {
     color: colors.white,
-    fontSize: 16,
+    fontSize: typography.fontSize.md,
   },
   smallText: {
-    fontSize: 14,
+    fontSize: typography.fontSize.sm,
   },
   mediumText: {
-    fontSize: 16,
+    fontSize: typography.fontSize.md,
   },
   largeText: {
-    fontSize: 18,
+    fontSize: typography.fontSize.lg,
   },
 
   // Estados
@@ -181,9 +182,9 @@ const styles = StyleSheet.create({
 
   // Ícones
   iconLeft: {
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   iconRight: {
-    marginLeft: 8,
+    marginLeft: spacing.sm,
   },
 });

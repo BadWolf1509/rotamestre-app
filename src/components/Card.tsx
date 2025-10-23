@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle, TouchableOpacity } from 'react-native';
-import { colors } from '@/styles/colors';
+import { colors, borderRadius, shadows } from '@/lib/design-tokens';
 
 interface CardProps {
   children: React.ReactNode;
@@ -37,17 +37,13 @@ export function Card({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 12,
-    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.background.primary,
   },
 
   // Variantes
   elevated: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    ...shadows.card,
   },
   outlined: {
     borderWidth: 1,
