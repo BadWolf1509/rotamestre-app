@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
+import { toast } from '@/utils/toast';
+import { validation, formatTelefone } from '@/utils/validation';
 
 interface MotoristaDetalhado {
   id: string;
@@ -216,19 +218,7 @@ export default function MotoristasGestor() {
 
       if (!response.ok) {
         console.error('❌ Resposta com erro:', result);
-        Alert.alert(
-          'Erro ao Criar Motorista',
-          `Status: ${response.status}\n\n` +
-          `Erro: ${result.error || 'Erro desconhecido'}\n\n` +
-          (response.status === 404
-            ? 'Edge Function não encontrada. Execute:\nsupabase functions deploy criar-motorista'
-            : response.status === 401
-            ? 'Não autorizado. Faça logout e login novamente.'
-            : response.status === 403
-            ? 'Você não tem permissão para criar motoristas.'
-            : ''
-          )
-        );
+        toast.error(result.error || 'Erro desconhecido', 'Erro ao Criar Motorista');
         return;
       }
 

@@ -84,8 +84,19 @@ serve(async (req) => {
     })
 
     if (createAuthError) {
+      // Verificar se é erro de email duplicado
+      const errorMsg = createAuthError.message.toLowerCase();
+      const isDuplicateEmail = errorMsg.includes('already been registered') ||
+                               errorMsg.includes('already registered') ||
+                               errorMsg.includes('duplicate') ||
+                               errorMsg.includes('unique constraint');
+
+      const errorMessage = isDuplicateEmail
+        ? 'Este email já está cadastrado no sistema. Use outro email.'
+        : `Erro ao criar usuário: ${createAuthError.message}`;
+
       return new Response(
-        JSON.stringify({ error: `Erro ao criar usuário: ${createAuthError.message}` }),
+        JSON.stringify({ error: errorMessage }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }

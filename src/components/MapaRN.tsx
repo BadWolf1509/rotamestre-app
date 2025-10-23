@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, Linking, Platform, Alert } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import { colors } from '@/styles/colors';
+import { colors } from '@/lib/design-tokens';
 
 interface Parada {
   id: string;
@@ -149,7 +149,7 @@ export function MapaRN({ paradas, rotaAtiva = false }: MapaRNProps) {
             }}
             title={`Parada ${parada.ordem}`}
             description={parada.endereco}
-            pinColor={parada.status === 'concluida' ? colors.status.success : colors.primary.main}
+            pinColor={parada.status === 'concluida' ? colors.success : colors.primary.main}
           >
             <View style={styles.markerContainer}>
               <View style={[
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     borderColor: colors.white,
   },
   markerConcluida: {
-    backgroundColor: colors.status.success,
+    backgroundColor: colors.success,
   },
   markerText: {
     color: colors.white,

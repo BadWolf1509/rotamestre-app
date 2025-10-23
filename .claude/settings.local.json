@@ -150,7 +150,16 @@
       "Read(//c/Users/welli/**)",
       "Bash(netstat:*)",
       "Bash(tasklist:*)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(npx supabase functions deploy:*)",
+      "Bash(git checkout:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npx expo prebuild:*)",
+      "Bash(npx expo run:android:*)",
+      "Bash(java:*)",
+      "Bash(adb uninstall:*)",
+      "Bash(taskkill:*)",
+      "Bash(npx kill-port:*)"
     ],
     "deny": [],
     "ask": []

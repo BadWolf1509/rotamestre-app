@@ -1,8 +1,8 @@
 # 🎨 Brand Guidelines - RotaMestre
 
-**Versão:** 2.1  
-**Data:** 22/10/2025  
-**Status:** Oficial
+**Versão:** 3.0  
+**Data:** 23/10/2025  
+**Status:** Oficial - Atualizado com Assets Finais Aprovados
 
 ---
 
@@ -657,49 +657,289 @@ Exemplo: "Nova Rota de Entrega"
 ### 5.1 Logo Principal (Horizontal)
 
 ```
-┌────────────────────────────────┐
-│                                │
-│   [🏗️ M]  ROTA MESTRE         │
-│                                │
-└────────────────────────────────┘
+┌────────────────────────────────────────┐
+│                                        │
+│   [🏗️ M↗]  ROTA                       │
+│             MESTRE                     │
+│                                        │
+└────────────────────────────────────────┘
 
-Arquivo: rotamestre-logo-horizontal.png
-Proporção: ~3:1 (largura:altura)
+Arquivo: logo-horizontal.png
+Dimensões: 2400×720px (3.3:1)
+Qualidade: 10/10 - Premium 3D render
+Status: ✅ APROVADO (23/10/2025)
 ```
 
 **Elementos:**
-- Capacete laranja com letra "M" branca
-- Nome "ROTA MESTRE" em azul
-- Seta crescente integrada (opcional, em versões específicas)
+- **Capacete:** Laranja #f7a02a, render 3D premium
+- **Letra "M":** Branco #FFFFFF, sólido (sem bordas)
+- **Seta crescente:** Branco #FFFFFF, integrada ao M (↗)
+- **Texto:** "ROTA MESTRE" em azul #0D5A9C (2 linhas)
+- **Fundo:** Branco ou transparente
 
-**Uso:**
-- Headers de dashboards
-- Emails e documentos
-- Assinaturas
+**Composição:**
+- Ícone: 30% largura (esquerda)
+- Espaçamento: 5%
+- Texto: 65% largura (direita)
+
+**Uso Primário:**
+- Headers de site/app (web)
+- Emails corporativos
+- Documentos oficiais
+- Assinaturas digitais
 - Materiais impressos largos
+- Apresentações PowerPoint
 
-**Tamanho Mínimo:** 150px de largura
+**Tamanho Mínimo:** 200px de largura
+**Formato:** PNG com fundo branco ou transparente
+**DPI Recomendado:** 300 DPI para impressão
 
-### 5.2 Logo Quadrado/Ícone
+### 5.2 Logo Quadrado (App Icon)
 
 ```
-┌──────────┐
-│          │
-│  🏗️ M   │
-│          │
-└──────────┘
+┌──────────────┐
+│              │
+│   🏗️ M↗    │
+│              │
+└──────────────┘
 
-Arquivo: rotamestre-logo.png
-Proporção: 1:1
+Arquivo: logo-square.png
+Dimensões: 2048×2048px (1:1)
+Qualidade: 10/10 - Premium 3D render
+Status: ✅ APROVADO (23/10/2025)
 ```
 
-**Uso:**
-- Ícone de aplicativo (iOS/Android)
-- Favicon
-- Avatar/perfil
-- Ícones em mapas
+**Elementos:**
+- **Capacete:** Laranja #f7a02a, render 3D premium
+- **Letra "M":** Branco #FFFFFF, sólido, grande
+- **Seta crescente:** Branco #FFFFFF, bem visível (↗)
+- **Sombra:** Flutuante sutil (floating effect)
+- **Fundo:** Branco limpo
+
+**Uso Primário:**
+- Ícone de aplicativo iOS (icon.png)
+- Base para ícones Android
+- Favicon (versão reduzida)
+- Avatar em redes sociais (fundo branco)
+- Perfis corporativos
 
 **Tamanho Mínimo:** 48px × 48px
+**Escalabilidade:** Funciona perfeitamente em 16px, 32px, 48px, 64px, 128px, 256px, 512px
+**Formato:** PNG de alta qualidade
+**Safe Zone:** Elementos críticos dentro de 80% do centro
+
+### 5.3 Logo Branco (Fundos Escuros)
+
+```
+┌────────────────────────────────┐
+│  [Fundo Azul Escuro #0D5A9C]  │
+│                                │
+│   [🏗️ M↗]  ROTA              │
+│  (branco)   MESTRE            │
+│                                │
+└────────────────────────────────┘
+
+Arquivo: logo-white.png
+Dimensões: Variável
+Qualidade: 10/10
+Status: ✅ APROVADO (23/10/2025)
+```
+
+**Elementos:**
+- **Capacete:** Branco #FFFFFF
+- **Letra "M":** Branco #FFFFFF
+- **Seta crescente:** Branco #FFFFFF (sutil)
+- **Texto:** "ROTA MESTRE" branco #FFFFFF (2 linhas)
+- **Fundo:** Azul escuro #0D5A9C ou transparente
+
+**Uso Primário:**
+- Headers de app em dark mode
+- Fundos escuros (azul, preto)
+- Materiais promocionais com fundos coloridos
+- Uniformes e brindes escuros
+- Vídeos com background escuro
+
+**Contraste Mínimo:** Sempre usar em fundos com valor < 50% luminosidade
+
+### 5.4 Logos Monocromáticos
+
+#### **5.4.1 Logo Monocromático Azul**
+
+```
+Arquivo: logo-mono-blue.png
+Cor: Azul #0D5A9C (tudo)
+Qualidade: 10/10
+Status: ✅ APROVADO (23/10/2025)
+```
+
+**Uso:**
+- Documentos coloridos
+- Apresentações formais
+- Materiais institucionais
+- Fundos neutros (branco, cinza claro)
+
+#### **5.4.2 Logo Monocromático Cinza**
+
+```
+Arquivo: logo-mono-gray.png
+Cor: Cinza #374151 (tudo)
+Qualidade: 10/10
+Status: ✅ APROVADO (23/10/2025)
+```
+
+**Uso:**
+- Documentos P&B
+- Impressões em preto e branco
+- Faxes e xerox
+- Contratos e documentos formais
+- Jornais
+
+#### **5.4.3 Ícone Branco Quadrado**
+
+```
+┌──────────────┐
+│ [Azul Dark]  │
+│              │
+│   🏗️ M↗    │
+│  (branco)    │
+│              │
+└──────────────┘
+
+Arquivo: icon-white.png
+Dimensões: 2048×2048px (1:1)
+Fundo: Azul #0D5A9C com cantos arredondados
+Qualidade: 10/10
+Status: ✅ APROVADO (23/10/2025)
+```
+
+**Uso:**
+- Avatar de redes sociais (fundo escuro)
+- App icon em dark mode
+- Perfis em plataformas
+- Favicon alternativo
+
+### 5.5 Splash Screen
+
+```
+┌─────────────────────────────────┐
+│  [Fundo Azul Escuro #0D5A9C]   │
+│                                 │
+│         [🏗️ M↗]               │
+│         (grande)                │
+│                                 │
+│          ROTA                   │
+│          MESTRE                 │
+│         (branco)                │
+│                                 │
+└─────────────────────────────────┘
+
+Arquivo: splash.png
+Dimensões: 2048×2048px (1:1)
+Qualidade: 10/10 - Premium 3D render
+Status: ✅ APROVADO (23/10/2025)
+```
+
+**Especificações:**
+- **Fundo:** Azul sólido #0D5A9C (sem gradientes)
+- **Ícone:** Capacete + M + Seta (branco, centralizado)
+- **Texto:** "ROTA MESTRE" branco (2 linhas, abaixo do ícone)
+- **Layout:** Vertical centralizado
+- **Espaçamento:** Ícone 35% altura, texto 15%, margens adequadas
+
+**Uso:**
+- Splash screen do app (iOS/Android/PWA)
+- Tela de loading
+- Primeira tela ao abrir o aplicativo
+
+**Configuração Expo:**
+```json
+{
+  "splash": {
+    "image": "./assets/splash.png",
+    "resizeMode": "contain",
+    "backgroundColor": "#0D5A9C"
+  }
+}
+```
+
+### 5.6 Adaptive Icon (Android)
+
+```
+┌─────────────────────────────────┐
+│  [Fundo Transparente]           │
+│                                 │
+│         [🏗️ M↗]               │
+│      (sem fundo)                │
+│                                 │
+└─────────────────────────────────┘
+
+Arquivo: adaptive-icon.png
+Dimensões: 2048×2048px (1:1)
+Fundo: 100% TRANSPARENTE (alpha)
+Qualidade: 10/10 - Premium 3D render
+Status: ✅ APROVADO (23/10/2025)
+```
+
+**Especificações Técnicas:**
+- **Foreground Layer:** Apenas capacete + M + seta
+- **Fundo:** 100% transparente (alpha = 0)
+- **Safe Zone:** Elementos dentro do círculo de 1365px (72dp)
+- **Formato:** PNG-24 com canal alpha
+- **Background Color:** #0D5A9C (configurado no app.json)
+
+**Uso:**
+- Android Adaptive Icon (API 26+)
+- Adapta-se a diferentes máscaras (círculo, squircle, etc)
+
+**Configuração Expo:**
+```json
+{
+  "android": {
+    "adaptiveIcon": {
+      "foregroundImage": "./assets/adaptive-icon.png",
+      "backgroundColor": "#0D5A9C"
+    }
+  }
+}
+```
+
+**Máscaras Suportadas:**
+- ✅ Círculo (Samsung)
+- ✅ Squircle (Google Pixel)
+- ✅ Quadrado arredondado (outros)
+- ✅ Teardrop (diversos)
+
+### 5.7 Ícones Auxiliares
+
+#### **Favicon**
+
+```
+Arquivo: favicon.png
+Dimensões: 1024×1024px (gerar 16px, 32px, 64px)
+Fundo: Azul #0D5A9C com cantos arredondados
+Qualidade: 10/10
+Status: ✅ APROVADO (23/10/2025)
+```
+
+**Uso:**
+- Favicon do site (16×16, 32×32)
+- Aba do navegador
+- Favoritos/bookmarks
+
+#### **Splash Icon**
+
+```
+Arquivo: splash-icon.png
+Dimensões: 1024×1024px
+Fundo: Azul #0D5A9C com cantos arredondados
+Qualidade: 10/10
+Status: ✅ APROVADO (23/10/2025)
+```
+
+**Uso:**
+- Ícone no splash screen
+- Loading states
+- Telas de transição
 
 ### 5.3 Área de Proteção
 
