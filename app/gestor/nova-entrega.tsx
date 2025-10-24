@@ -2,19 +2,20 @@ import { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
   Alert,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
-import { getCoordinates, googleMapsService } from '@/lib/google';
+import { googleMapsService } from '@/lib/google';
+import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 
 // Schema de validação
 const paradaSchema = z.object({
@@ -50,6 +51,7 @@ export default function NovaEntrega() {
     control,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<ParadaFormData>({
     resolver: zodResolver(paradaSchema),
@@ -85,22 +87,28 @@ export default function NovaEntrega() {
     }
   }
 
-  // Adicionar parada à lista
+  // Adicionar parada à lista (coordenadas já obtidas pelo autocomplete)
   async function onAddParada(data: ParadaFormData) {
     setIsLoading(true);
     try {
-      // Geocodificar endereço
-      const coords = await getCoordinates(data.endereco);
+      // Se não tem coordenadas, tentar geocodificar manualmente
+      if (!data.latitude || !data.longitude) {
+        const result = await googleMapsService.geocodeAddress(data.endereco);
 
-      if (!coords) {
-        Alert.alert('Erro', 'Não foi possível localizar o endereço informado');
-        return;
+        if (!result) {
+          Alert.alert(
+            'Erro',
+            'Não foi possível localizar o endereço. Use o autocomplete para selecionar um endereço válido.'
+          );
+          return;
+        }
+
+        data.latitude = result.coordenadas.latitude;
+        data.longitude = result.coordenadas.longitude;
       }
 
       const novaParada: Parada = {
         ...data,
-        latitude: coords.lat,
-        longitude: coords.lng,
         ordem: paradas.length + 1,
       };
 
@@ -339,18 +347,28 @@ export default function NovaEntrega() {
             control={control}
             name="endereco"
             render={({ field: { onChange, value } }) => (
-              <>
-                <TextInput
-                  style={[styles.input, errors.endereco && styles.inputError]}
-                  placeholder="Endereço completo *"
-                  value={value}
-                  onChangeText={onChange}
-                  multiline
-                />
-                {errors.endereco && (
-                  <Text style={styles.errorText}>{errors.endereco.message}</Text>
-                )}
-              </>
+              <AddressAutocomplete
+                value={value || ''}
+                onChangeText={onChange}
+                onSelectAddress={async (address, placeId) => {
+                  // Atualizar campo de endereço
+                  onChange(address);
+
+                  // Obter detalhes do place (coordenadas)
+                  const details = await googleMapsService.getPlaceDetails(placeId);
+                  if (details) {
+                    // Armazenar coordenadas temporariamente no form data
+                    // Usando setValue para atualizar campos não visíveis
+                    // @ts-ignore - adicionando campos extras ao form
+                    setValue('latitude', details.coordenadas.latitude);
+                    // @ts-ignore
+                    setValue('longitude', details.coordenadas.longitude);
+                  }
+                }}
+                placeholder="Digite o endereço completo *"
+                error={errors.endereco?.message}
+                multiline
+              />
             )}
           />
 

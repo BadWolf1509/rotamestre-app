@@ -28,7 +28,94 @@ export async function getCoordinates(endereco: string): Promise<{ lat: number; l
   }
 }
 
+export interface PlaceSuggestion {
+  place_id: string;
+  description: string;
+  structured_formatting: {
+    main_text: string;
+    secondary_text: string;
+  };
+}
+
 export const googleMapsService = {
+  // Autocomplete de endereços (Google Places Autocomplete API)
+  async autocompleteAddress(input: string, sessionToken?: string): Promise<PlaceSuggestion[]> {
+    if (input.length < 3) {
+      return [];
+    }
+
+    try {
+      // Usar sessionToken para agrupar chamadas e reduzir custos
+      const sessionParam = sessionToken ? `&sessiontoken=${sessionToken}` : '';
+
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
+          input
+        )}&key=${GOOGLE_MAPS_API_KEY}&language=pt-BR&components=country:br${sessionParam}`
+      );
+
+      const data = await response.json();
+
+      if (data.status === 'OK' && data.predictions) {
+        return data.predictions.map((prediction: any) => ({
+          place_id: prediction.place_id,
+          description: prediction.description,
+          structured_formatting: {
+            main_text: prediction.structured_formatting.main_text,
+            secondary_text: prediction.structured_formatting.secondary_text || '',
+          },
+        }));
+      }
+
+      return [];
+    } catch (error) {
+      console.error('Erro no autocomplete:', error);
+      return [];
+    }
+  },
+
+  // Obter detalhes de um place_id (retorna endereço completo + coordenadas)
+  async getPlaceDetails(placeId: string, sessionToken?: string): Promise<EnderecoGeocodificado | null> {
+    try {
+      const sessionParam = sessionToken ? `&sessiontoken=${sessionToken}` : '';
+
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&key=${GOOGLE_MAPS_API_KEY}&language=pt-BR&fields=formatted_address,geometry,address_components${sessionParam}`
+      );
+
+      const data = await response.json();
+
+      if (data.status === 'OK' && data.result) {
+        const result = data.result;
+        const location = result.geometry.location;
+
+        // Extrair componentes do endereço
+        const addressComponents = result.address_components || [];
+        const getComponent = (type: string) =>
+          addressComponents.find((c: any) => c.types.includes(type))?.long_name || '';
+
+        return {
+          logradouro: getComponent('route'),
+          numero: getComponent('street_number'),
+          bairro: getComponent('sublocality') || getComponent('neighborhood'),
+          cidade: getComponent('locality') || getComponent('administrative_area_level_2'),
+          estado: getComponent('administrative_area_level_1'),
+          cep: getComponent('postal_code'),
+          coordenadas: {
+            latitude: location.lat,
+            longitude: location.lng,
+          },
+          formatted_address: result.formatted_address,
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Erro ao obter detalhes do place:', error);
+      return null;
+    }
+  },
+
   // Geocodificar endereço (endereço -> coordenadas)
   async geocodeAddress(endereco: string): Promise<EnderecoGeocodificado | null> {
     try {
