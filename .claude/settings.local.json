@@ -159,7 +159,15 @@
       "Bash(java:*)",
       "Bash(adb uninstall:*)",
       "Bash(taskkill:*)",
-      "Bash(npx kill-port:*)"
+      "Bash(npx kill-port:*)",
+      "Bash(tree:*)",
+      "Bash(npx expo doctor:*)",
+      "Bash(npx expo-doctor:*)",
+      "Bash(adb install:*)",
+      "Bash(wget:*)",
+      "Bash(\"$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe\" install -r rotamestre-corrigido.apk)",
+      "Bash(git mv:*)",
+      "Bash(npm run web:*)"
     ],
     "deny": [],
     "ask": []

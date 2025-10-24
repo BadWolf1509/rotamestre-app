@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
+import { abrirNavegacao } from '@/lib/navigation';
 
 interface Parada {
   id: string;
@@ -17,6 +18,8 @@ interface Parada {
   ordem: number;
   status: string;
   tipo: string;
+  latitude: number;
+  longitude: number;
 }
 
 interface Rota {
@@ -65,7 +68,7 @@ export default function RotaMotoristaWeb() {
 
       const { data: paradasData, error: paradasError } = await supabase
         .from('paradas')
-        .select('id, endereco, ordem, status, tipo')
+        .select('id, endereco, ordem, status, tipo, latitude, longitude')
         .eq('rota_id', rotasData.id)
         .order('ordem');
 
@@ -203,6 +206,22 @@ export default function RotaMotoristaWeb() {
                 </Text>
               </View>
             </View>
+
+            {/* Botão de Navegação */}
+            {parada.status !== 'concluida' && (
+              <TouchableOpacity
+                style={styles.botaoNavegar}
+                onPress={() => abrirNavegacao({
+                  latitude: parada.latitude,
+                  longitude: parada.longitude,
+                  endereco: parada.endereco
+                })}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.botaoNavegarIcone}>🧭</Text>
+                <Text style={styles.botaoNavegarTexto}>Como Chegar</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ))}
       </View>
@@ -450,5 +469,29 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  botaoNavegar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FF8C00',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginTop: 12,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  botaoNavegarIcone: {
+    fontSize: 20,
+  },
+  botaoNavegarTexto: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

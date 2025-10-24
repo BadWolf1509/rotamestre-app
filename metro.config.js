@@ -15,4 +15,20 @@ config.resolver.assetExts.push(
   'xml'
 );
 
+// Fix for Supabase Realtime dynamic imports on web
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (
+    platform === 'web' &&
+    moduleName.includes('async-require')
+  ) {
+    // Return a mock module for async-require on web
+    return {
+      type: 'empty',
+    };
+  }
+
+  // Let Metro handle all other imports normally
+  return context.resolveRequest(context, moduleName, platform);
+};
+
 module.exports = config;

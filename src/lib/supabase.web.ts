@@ -31,4 +31,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: false,
   },
+  realtime: {
+    // Disable realtime on web to avoid node-fetch import issues
+    // Web app doesn't need realtime updates for MVP
+  },
 });

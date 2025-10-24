@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
+import { abrirNavegacao } from '@/lib/navigation';
 
 interface Parada {
   id: string;
@@ -323,6 +324,22 @@ export default function CheckpointsMotorista() {
             <Text style={styles.observacoesLabel}>Observações:</Text>
             <Text style={styles.observacoesTexto}>{item.observacoes}</Text>
           </View>
+        )}
+
+        {/* Botão de Navegação */}
+        {!isConcluida && !isPulada && (
+          <TouchableOpacity
+            style={styles.botaoNavegar}
+            onPress={() => abrirNavegacao({
+              latitude: item.latitude,
+              longitude: item.longitude,
+              endereco: item.endereco
+            })}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.botaoNavegarIcone}>🧭</Text>
+            <Text style={styles.botaoNavegarTexto}>Como Chegar</Text>
+          </TouchableOpacity>
         )}
 
         {/* Botões de Ação */}
@@ -667,5 +684,30 @@ const styles = StyleSheet.create({
   },
   botaoDisabled: {
     opacity: 0.6,
+  },
+  botaoNavegar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FF8C00',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginTop: 12,
+    marginBottom: 8,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  botaoNavegarIcone: {
+    fontSize: 20,
+  },
+  botaoNavegarTexto: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

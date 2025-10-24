@@ -40,18 +40,8 @@ export default function RootLayout() {
     }
   }, [fontsLoaded, fontError]);
 
-  // Mostrar null enquanto fontes não carregam (splash screen continua visível)
-  if (!fontsLoaded && !fontError) {
-    return null;
-  }
-
-  // Se houver erro ao carregar fontes, mostrar no console mas continuar
-  if (fontError) {
-    console.error('Erro ao carregar fontes:', fontError);
-  }
-
+  // Configurar título da página para web apenas
   useEffect(() => {
-    // Configurar título da página para web apenas
     if (Platform.OS === 'web') {
       try {
         if (typeof document !== 'undefined') {
@@ -72,6 +62,16 @@ export default function RootLayout() {
       }
     }
   }, []);
+
+  // Mostrar null enquanto fontes não carregam (splash screen continua visível)
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
+
+  // Se houver erro ao carregar fontes, mostrar no console mas continuar
+  if (fontError) {
+    console.error('Erro ao carregar fontes:', fontError);
+  }
 
   return (
     <>
