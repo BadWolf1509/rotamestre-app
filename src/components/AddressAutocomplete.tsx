@@ -59,7 +59,7 @@ export function AddressAutocomplete({
       clearTimeout(debounceTimer.current);
     }
 
-    if (value.length < 3) {
+    if (!value || value.length < 3) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
@@ -110,7 +110,7 @@ export function AddressAutocomplete({
             multiline && styles.inputMultiline,
           ]}
           placeholder={placeholder}
-          value={value}
+          value={value || ''}
           onChangeText={onChangeText}
           onFocus={() => {
             if (suggestions.length > 0) {
@@ -122,7 +122,7 @@ export function AddressAutocomplete({
           autoCorrect={false}
           autoCapitalize="words"
         />
-        {value.length > 0 && (
+        {value && value.length > 0 && (
           <TouchableOpacity style={styles.clearButton} onPress={handleClearInput}>
             <Text style={styles.clearButtonText}>✕</Text>
           </TouchableOpacity>
@@ -173,7 +173,7 @@ export function AddressAutocomplete({
       )}
 
       {/* Mensagem quando não há resultados */}
-      {showSuggestions && suggestions.length === 0 && !isLoading && value.length >= 3 && (
+      {showSuggestions && suggestions.length === 0 && !isLoading && value && value.length >= 3 && (
         <View style={styles.noResultsContainer}>
           <Text style={styles.noResultsText}>
             Nenhum endereço encontrado. Tente ser mais específico.
@@ -182,7 +182,7 @@ export function AddressAutocomplete({
       )}
 
       {/* Hint de uso */}
-      {!showSuggestions && value.length > 0 && value.length < 3 && (
+      {!showSuggestions && value && value.length > 0 && value.length < 3 && (
         <Text style={styles.hintText}>Digite pelo menos 3 caracteres para buscar</Text>
       )}
     </View>
