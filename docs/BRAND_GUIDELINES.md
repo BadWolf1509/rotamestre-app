@@ -1789,7 +1789,66 @@ Desktop: 1200px (centralizado)
 - Detalhes de Parada
 - Histórico
 
-### 10.3 Landing Page
+### 10.3 Painel Administrativo
+
+**Domínio:** painel.rotamestre.tec.br
+
+**Plataforma:** Next.js 14 + TypeScript + Tailwind CSS + shadcn/ui
+
+**Propósito:**
+Sistema interno para administradores gerenciarem unidades, usuários e analisarem métricas operacionais do RotaMestre. Interface web responsiva para uso exclusivo de admins (não acessível por gestores ou motoristas).
+
+**Características:**
+- Design System: Mesma identidade visual (Azul #1e5aa8 + Laranja #f7a02a)
+- Typography: Viga (títulos) + Nunito Sans (corpo de texto)
+- Components: shadcn/ui adaptados às cores do RotaMestre
+- Theme: Blue (#2563eb) como cor primária de contraste
+- SEO: `noindex, nofollow` (painel não deve ser indexado por segurança)
+- Layout: Sidebar fixa (desktop) + Header responsivo (mobile)
+
+**Telas Principais:**
+1. **Login de Admin**
+   - Logo centralizado
+   - Formulário simples (email + senha)
+   - Validação com Supabase Auth
+
+2. **Dashboard de Métricas**
+   - KPIs: Total de unidades, usuários ativos, rotas hoje
+   - Gráficos: Rotas por status, performance por unidade
+   - Cards com estatísticas em tempo real
+
+3. **Gestão de Unidades**
+   - Lista de unidades cadastradas (nome, cidade, CNPJ)
+   - Criar nova unidade (formulário completo)
+   - Editar/desativar unidades existentes
+   - Visualizar gestores e motoristas por unidade
+
+4. **Gestão de Usuários**
+   - Lista de usuários (gestores e motoristas)
+   - Filtros por papel (gestor/motorista) e unidade
+   - Criar novos usuários (email, senha, unidade, papel)
+   - Editar perfis e resetar senhas
+
+5. **Analytics**
+   - Relatórios de performance
+   - Métricas de uso da plataforma
+   - Logs de atividades do sistema
+
+**Meta Tags:**
+- Title: "Rota Mestre - Painel Administrativo"
+- Description: "Painel administrativo para gestão de unidades, usuários e métricas do sistema Rota Mestre. Acompanhe operações, crie unidades e gerencie a plataforma."
+- Keywords: painel administrativo, gestão de unidades, gestão de usuários, dashboard analytics, administração logística
+- Open Graph e Twitter Cards configurados
+- Favicons: favicon.ico, 16x16, 32x32, 180x180 (Apple Touch)
+
+**Diferenças do App Principal:**
+- **App (app.rotamestre.tec.br):** Para gestores e motoristas gerenciarem rotas
+- **Painel (painel.rotamestre.tec.br):** Para admins gerenciarem unidades e usuários
+- **Público:** Interno (admins) vs Externo (clientes franqueados)
+- **SEO:** Não indexado vs Indexado
+- **Stack:** Next.js vs Expo (React Native)
+
+### 10.4 Landing Page
 
 **Domínio:** rotamestre.tec.br
 
@@ -1821,7 +1880,7 @@ Desktop: 1200px (centralizado)
 **Fase 2 (Mercado Geral):**
 > "Logística inteligente para empresas que querem crescer. De e-commerce a atacado, otimize suas rotas."
 
-### 10.4 Materiais de Marketing
+### 10.5 Materiais de Marketing
 
 #### **Mockups de Van**
 ```
