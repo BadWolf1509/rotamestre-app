@@ -15,10 +15,10 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
 
         {/* SEO Básico */}
-        <title>Rota Mestre - Gestão Inteligente de Entregas e Rastreamento em Tempo Real</title>
+        <title>Rota Mestre - Sistema de Otimização e Gestão Logística</title>
         <meta
           name="description"
-          content="Sistema completo de gestão de rotas de entrega com rastreamento em tempo real. Otimize logística, acompanhe motoristas, gerencie paradas e melhore a eficiência operacional da sua empresa."
+          content="Rotas inteligentes, rastreamento de entregas e retiradas, e gestão completa de motoristas. Aumente a eficiência operacional e reduza custos."
         />
         <meta
           name="keywords"
@@ -38,10 +38,10 @@ export default function Root({ children }: PropsWithChildren) {
         {/* Open Graph / Facebook */}
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://app.rotamestre.tec.br/" />
-        <meta property="og:title" content="Rota Mestre - Gestão Inteligente de Entregas" />
+        <meta property="og:title" content="Rota Mestre - Sistema de Otimização e Gestão Logística" />
         <meta
           property="og:description"
-          content="Sistema completo de gestão de rotas de entrega com rastreamento em tempo real. Otimize sua logística e melhore a eficiência operacional."
+          content="Rotas inteligentes, rastreamento de entregas e retiradas, e gestão completa de motoristas. Aumente a eficiência operacional e reduza custos."
         />
         <meta property="og:image" content="https://app.rotamestre.tec.br/icon-512.png" />
         <meta property="og:image:width" content="512" />
@@ -52,10 +52,10 @@ export default function Root({ children }: PropsWithChildren) {
         {/* Twitter Cards */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:url" content="https://app.rotamestre.tec.br/" />
-        <meta name="twitter:title" content="Rota Mestre - Gestão Inteligente de Entregas" />
+        <meta name="twitter:title" content="Rota Mestre - Sistema de Otimização e Gestão Logística" />
         <meta
           name="twitter:description"
-          content="Sistema completo de gestão de rotas de entrega com rastreamento em tempo real. Otimize sua logística."
+          content="Rotas inteligentes, rastreamento de entregas e retiradas, e gestão completa de motoristas. Aumente a eficiência operacional e reduza custos."
         />
         <meta name="twitter:image" content="https://app.rotamestre.tec.br/icon-512.png" />
 
