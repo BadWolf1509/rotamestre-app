@@ -11,6 +11,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 import { abrirNavegacao } from '@/lib/navigation';
+import CameraUpload from '@/components/CameraUpload';
 
 interface Parada {
   id: string;
@@ -20,6 +21,7 @@ interface Parada {
   tipo: string;
   latitude: number;
   longitude: number;
+  foto_url?: string | null;
 }
 
 interface Rota {
@@ -37,6 +39,7 @@ export default function RotaMotoristaWeb() {
   const [paradas, setParadas] = useState<Parada[]>([]);
   const [loading, setLoading] = useState(true);
   const [iniciandoRota, setIniciandoRota] = useState(false);
+  const [paradaSelecionadaParaFoto, setParadaSelecionadaParaFoto] = useState<string | null>(null);
 
   useEffect(() => {
     if (userData?.id) {
@@ -68,7 +71,7 @@ export default function RotaMotoristaWeb() {
 
       const { data: paradasData, error: paradasError } = await supabase
         .from('paradas')
-        .select('id, endereco, ordem, status, tipo, latitude, longitude')
+        .select('id, endereco, ordem, status, tipo, latitude, longitude, foto_url')
         .eq('rota_id', rotasData.id)
         .order('ordem');
 
@@ -209,18 +212,43 @@ export default function RotaMotoristaWeb() {
 
             {/* Botão de Navegação */}
             {parada.status !== 'concluida' && (
-              <TouchableOpacity
-                style={styles.botaoNavegar}
-                onPress={() => abrirNavegacao({
-                  latitude: parada.latitude,
-                  longitude: parada.longitude,
-                  endereco: parada.endereco
-                })}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.botaoNavegarIcone}>🧭</Text>
-                <Text style={styles.botaoNavegarTexto}>Como Chegar</Text>
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity
+                  style={styles.botaoNavegar}
+                  onPress={() => abrirNavegacao({
+                    latitude: parada.latitude,
+                    longitude: parada.longitude,
+                    endereco: parada.endereco
+                  })}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.botaoNavegarIcone}>🧭</Text>
+                  <Text style={styles.botaoNavegarTexto}>Como Chegar</Text>
+                </TouchableOpacity>
+
+                {/* Upload de Foto */}
+                {rota && userData && (
+                  <CameraUpload
+                    unidadeId={userData.unidade_id!}
+                    rotaId={rota.id}
+                    paradaId={parada.id}
+                    onUploadSuccess={() => {
+                      Alert.alert('Sucesso!', 'Foto enviada! Você pode concluir a parada agora.');
+                      loadRotaAtiva(); // Recarregar para mostrar foto_url
+                    }}
+                    onUploadError={(error) => {
+                      Alert.alert('Erro', `Não foi possível enviar a foto: ${error}`);
+                    }}
+                  />
+                )}
+              </>
+            )}
+
+            {/* Indicador de Foto Enviada */}
+            {parada.foto_url && (
+              <View style={styles.fotoIndicador}>
+                <Text style={styles.fotoIndicadorTexto}>✅ Foto de comprovante enviada</Text>
+              </View>
             )}
           </View>
         ))}
@@ -492,6 +520,18 @@ const styles = StyleSheet.create({
   botaoNavegarTexto: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  fotoIndicador: {
+    backgroundColor: '#d1fae5',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  fotoIndicadorTexto: {
+    color: '#065f46',
+    fontSize: 14,
     fontWeight: '600',
   },
 });

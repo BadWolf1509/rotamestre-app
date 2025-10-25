@@ -19,10 +19,22 @@ import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 
 // Schema de validação
 const paradaSchema = z.object({
-  endereco: z.string().min(5, 'Endereço deve ter no mínimo 5 caracteres'),
+  endereco: z
+    .string({ required_error: 'Endereço é obrigatório' })
+    .min(5, 'Endereço deve ter no mínimo 5 caracteres'),
   tipo: z.enum(['entrega', 'retirada']),
-  destinatario: z.string().optional(),
-  telefone: z.string().optional(),
+  destinatario: z
+    .string({ required_error: 'Nome do destinatário é obrigatório' })
+    .min(1, 'Nome do destinatário é obrigatório')
+    .refine((val) => val.trim().length >= 3, {
+      message: 'Nome do destinatário deve ter no mínimo 3 caracteres',
+    }),
+  telefone: z
+    .string({ required_error: 'Telefone é obrigatório' })
+    .min(1, 'Telefone de contato é obrigatório')
+    .refine((val) => val.replace(/\D/g, '').length >= 10, {
+      message: 'Telefone deve ter no mínimo 10 dígitos',
+    }),
   observacoes: z.string().optional(),
 });
 
@@ -57,6 +69,10 @@ export default function NovaEntrega() {
     resolver: zodResolver(paradaSchema),
     defaultValues: {
       tipo: 'entrega',
+      endereco: '',
+      destinatario: '',
+      telefone: '',
+      observacoes: '',
     },
   });
 
@@ -209,6 +225,10 @@ export default function NovaEntrega() {
 
   // Gerar rota completa
   async function gerarRota() {
+    console.log('🚀 gerarRota() chamada!');
+    console.log('📍 Paradas:', paradas.length);
+    console.log('🚗 Motorista:', motoristaSelecionado);
+
     if (paradas.length === 0) {
       Alert.alert('Atenção', 'Adicione pelo menos uma parada');
       return;
@@ -219,6 +239,13 @@ export default function NovaEntrega() {
       return;
     }
 
+    // ⚠️ PROTEÇÃO: Prevenir múltiplos cliques
+    if (isLoading) {
+      console.log('⚠️ Já está processando, ignorando clique duplicado');
+      return;
+    }
+
+    console.log('✅ Validações OK, iniciando criação de rota...');
     setIsLoading(true);
     try {
       // 1. Criar rota
@@ -234,6 +261,8 @@ export default function NovaEntrega() {
         .single();
 
       if (rotaError) throw rotaError;
+
+      console.log('✅ Rota criada:', rotaData);
 
       // 2. Inserir paradas vinculadas à rota
       const paradasParaInserir = paradas.map((p) => ({
@@ -255,6 +284,8 @@ export default function NovaEntrega() {
 
       if (paradasError) throw paradasError;
 
+      console.log('✅ Paradas inseridas com sucesso');
+
       // 3. Log da ação
       await supabase.from('logs').insert({
         usuario_id: userData!.id,
@@ -266,13 +297,15 @@ export default function NovaEntrega() {
         },
       });
 
+      console.log('🎉 Rota completa criada com sucesso!');
+
       Alert.alert(
         'Sucesso!',
         `Rota criada com ${paradas.length} parada(s)`,
         [{ text: 'OK', onPress: () => limparFormulario() }]
       );
     } catch (error) {
-      console.error('Erro ao criar rota:', error);
+      console.error('❌ Erro ao criar rota:', error);
       Alert.alert('Erro', 'Não foi possível criar a rota');
     } finally {
       setIsLoading(false);
@@ -376,12 +409,20 @@ export default function NovaEntrega() {
             control={control}
             name="destinatario"
             render={({ field: { onChange, value } }) => (
-              <TextInput
-                style={styles.input}
-                placeholder="Nome do destinatário"
-                value={value}
-                onChangeText={onChange}
-              />
+              <>
+                <TextInput
+                  style={[
+                    styles.input,
+                    errors.destinatario && styles.inputError,
+                  ]}
+                  placeholder="Nome do destinatário *"
+                  value={value}
+                  onChangeText={onChange}
+                />
+                {errors.destinatario && (
+                  <Text style={styles.errorText}>{errors.destinatario.message}</Text>
+                )}
+              </>
             )}
           />
 
@@ -389,13 +430,21 @@ export default function NovaEntrega() {
             control={control}
             name="telefone"
             render={({ field: { onChange, value } }) => (
-              <TextInput
-                style={styles.input}
-                placeholder="Telefone de contato"
-                value={value}
-                onChangeText={onChange}
-                keyboardType="phone-pad"
-              />
+              <>
+                <TextInput
+                  style={[
+                    styles.input,
+                    errors.telefone && styles.inputError,
+                  ]}
+                  placeholder="Telefone de contato *"
+                  value={value}
+                  onChangeText={onChange}
+                  keyboardType="phone-pad"
+                />
+                {errors.telefone && (
+                  <Text style={styles.errorText}>{errors.telefone.message}</Text>
+                )}
+              </>
             )}
           />
 
@@ -437,7 +486,7 @@ export default function NovaEntrega() {
               <View key={index} style={styles.paradaCard}>
                 <View style={styles.paradaHeader}>
                   <Text style={styles.paradaTipo}>
-                    {parada.ordem}. {parada.tipo.toUpperCase()}
+                    {`${parada.ordem}. ${parada.tipo.toUpperCase()}`}
                   </Text>
                   <TouchableOpacity onPress={() => removeParada(index)}>
                     <Text style={styles.removeButton}>Remover</Text>
@@ -533,9 +582,12 @@ export default function NovaEntrega() {
             disabled={!motoristaSelecionado || isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator color="#fff" />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <ActivityIndicator color="#fff" />
+                <Text style={styles.gerarButtonText}>Criando rota...</Text>
+              </View>
             ) : (
-              <Text style={styles.gerarButtonText}>Gerar Rota</Text>
+              <Text style={styles.gerarButtonText}>✅ Gerar Rota</Text>
             )}
           </TouchableOpacity>
         )}

@@ -55,12 +55,8 @@ async function loadGoogleMapsAPI(): Promise<void> {
   await loadingPromise;
 }
 
-// Variável para cache do AutocompleteService
-let autocompleteService: google.maps.places.AutocompleteService | null = null;
-let placesService: google.maps.places.PlacesService | null = null;
-
 export const googleMapsService = {
-  // Autocomplete usando Google Maps JavaScript API (funciona no browser)
+  // Autocomplete usando NOVA API Place (google.maps.places.AutocompleteSuggestion)
   async autocompleteAddress(input: string, sessionToken?: string): Promise<PlaceSuggestion[]> {
     if (input.length < 3) {
       return [];
@@ -69,88 +65,73 @@ export const googleMapsService = {
     try {
       await loadGoogleMapsAPI();
 
-      // Criar service se não existe
-      if (!autocompleteService) {
-        autocompleteService = new google.maps.places.AutocompleteService();
-      }
+      // Importar a nova API Place
+      const { AutocompleteSuggestion } = await google.maps.importLibrary('places') as any;
 
-      return new Promise((resolve, reject) => {
-        autocompleteService!.getPlacePredictions(
-          {
-            input,
-            componentRestrictions: { country: 'br' },
-            language: 'pt-BR',
-          },
-          (predictions, status) => {
-            if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
-              const suggestions: PlaceSuggestion[] = predictions.map((prediction) => ({
-                place_id: prediction.place_id,
-                description: prediction.description,
-                structured_formatting: {
-                  main_text: prediction.structured_formatting.main_text,
-                  secondary_text: prediction.structured_formatting.secondary_text || '',
-                },
-              }));
-              resolve(suggestions);
-            } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
-              resolve([]);
-            } else {
-              console.error('Autocomplete error:', status);
-              resolve([]);
-            }
-          }
-        );
+      // Chamar a nova API fetchAutocompleteSuggestions
+      const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
+        input,
+        includedRegionCodes: ['br'], // Substituiu componentRestrictions
+        language: 'pt-BR',
       });
+
+      // Transformar para o formato esperado
+      const mappedSuggestions: PlaceSuggestion[] = suggestions.map((suggestion: any) => {
+        const prediction = suggestion.placePrediction;
+        return {
+          place_id: prediction.placeId,
+          // Compor description a partir de mainText e secondaryText (API nova não tem description)
+          description: `${prediction.mainText.text}, ${prediction.secondaryText?.text || ''}`.trim(),
+          structured_formatting: {
+            main_text: prediction.mainText.text,
+            secondary_text: prediction.secondaryText?.text || '',
+          },
+        };
+      });
+
+      return mappedSuggestions;
     } catch (error) {
       console.error('Erro no autocomplete:', error);
       return [];
     }
   },
 
-  // Obter detalhes usando Google Maps JavaScript API
+  // Obter detalhes usando NOVA API Place (google.maps.places.Place.fetchFields)
   async getPlaceDetails(placeId: string, sessionToken?: string): Promise<EnderecoGeocodificado | null> {
     try {
       await loadGoogleMapsAPI();
 
-      // Criar service se não existe (precisa de um elemento DIV)
-      if (!placesService) {
-        const div = document.createElement('div');
-        placesService = new google.maps.places.PlacesService(div);
-      }
+      // Importar a nova API Place
+      const { Place } = await google.maps.importLibrary('places') as any;
 
-      return new Promise((resolve, reject) => {
-        placesService!.getDetails(
-          {
-            placeId,
-            fields: ['address_components', 'formatted_address', 'geometry'],
-            language: 'pt-BR',
-          },
-          (place, status) => {
-            if (status === google.maps.places.PlacesServiceStatus.OK && place) {
-              const addressComponents = place.address_components || [];
-              const getComponent = (type: string) =>
-                addressComponents.find((c) => c.types.includes(type))?.long_name || '';
+      // Criar instância do Place
+      const place = new Place({ id: placeId });
 
-              resolve({
-                logradouro: getComponent('route'),
-                numero: getComponent('street_number'),
-                bairro: getComponent('sublocality') || getComponent('neighborhood'),
-                cidade: getComponent('locality') || getComponent('administrative_area_level_2'),
-                estado: getComponent('administrative_area_level_1'),
-                cep: getComponent('postal_code'),
-                coordenadas: {
-                  latitude: place.geometry!.location!.lat(),
-                  longitude: place.geometry!.location!.lng(),
-                },
-                formatted_address: place.formatted_address || '',
-              });
-            } else {
-              console.error('Place details error:', status);
-              resolve(null);
-            }
-          }
-        );
+      // Fetch fields usando a nova API (retorna Promise, não callback!)
+      await place.fetchFields({
+        fields: ['addressComponents', 'formattedAddress', 'location'],
       });
+
+      // Processar address components
+      const addressComponents = place.addressComponents || [];
+      const getComponent = (type: string) => {
+        const component = addressComponents.find((c: any) => c.types.includes(type));
+        return component?.longText || '';
+      };
+
+      return {
+        logradouro: getComponent('route'),
+        numero: getComponent('street_number'),
+        bairro: getComponent('sublocality') || getComponent('neighborhood'),
+        cidade: getComponent('locality') || getComponent('administrative_area_level_2'),
+        estado: getComponent('administrative_area_level_1'),
+        cep: getComponent('postal_code'),
+        coordenadas: {
+          latitude: place.location.lat(),
+          longitude: place.location.lng(),
+        },
+        formatted_address: place.formattedAddress || '',
+      };
     } catch (error) {
       console.error('Erro ao obter detalhes do place:', error);
       return null;
@@ -235,34 +216,70 @@ export const googleMapsService = {
     }
   },
 
-  // Calcular rota entre pontos (continua usando Directions API via HTTP - funciona)
+  // Calcular rota entre pontos usando Google Maps JavaScript API (resolve CORS)
   async getDirections(
     origin: Coordenadas,
     destination: Coordenadas,
     waypoints?: Coordenadas[]
   ) {
     try {
-      let waypointsParam = '';
-      if (waypoints && waypoints.length > 0) {
-        const waypointsStr = waypoints
-          .map((wp) => `${wp.latitude},${wp.longitude}`)
-          .join('|');
-        waypointsParam = `&waypoints=optimize:true|${waypointsStr}`;
+      // Carregar API do Google Maps se necessário
+      await loadGoogleMapsAPI();
+
+      // Verificar se google.maps está disponível
+      if (typeof window === 'undefined' || !window.google?.maps) {
+        throw new Error('Google Maps API não está carregada');
       }
 
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}${waypointsParam}&key=${GOOGLE_MAPS_API_KEY}`
-      );
+      // Criar DirectionsService
+      const directionsService = new google.maps.DirectionsService();
 
-      const data = await response.json();
+      // Preparar waypoints com otimização
+      const waypointsFormatted: google.maps.DirectionsWaypoint[] = waypoints
+        ? waypoints.map((wp) => ({
+            location: new google.maps.LatLng(wp.latitude, wp.longitude),
+            stopover: true,
+          }))
+        : [];
 
-      if (data.status === 'OK' && data.routes.length > 0) {
-        const route = data.routes[0];
+      // Configurar requisição
+      const request: google.maps.DirectionsRequest = {
+        origin: new google.maps.LatLng(origin.latitude, origin.longitude),
+        destination: new google.maps.LatLng(destination.latitude, destination.longitude),
+        waypoints: waypointsFormatted,
+        optimizeWaypoints: true, // Otimizar ordem dos waypoints
+        travelMode: google.maps.TravelMode.DRIVING,
+      };
+
+      // Fazer requisição usando promise
+      const result = await new Promise<google.maps.DirectionsResult>((resolve, reject) => {
+        directionsService.route(request, (result, status) => {
+          if (status === google.maps.DirectionsStatus.OK && result) {
+            resolve(result);
+          } else {
+            reject(new Error(`Directions request failed: ${status}`));
+          }
+        });
+      });
+
+      // Processar resultado
+      if (result.routes && result.routes.length > 0) {
+        const route = result.routes[0];
+
+        // Calcular distância e tempo totais
+        let distanciaTotal = 0;
+        let tempoTotal = 0;
+
+        route.legs.forEach((leg) => {
+          if (leg.distance) distanciaTotal += leg.distance.value;
+          if (leg.duration) tempoTotal += leg.duration.value;
+        });
+
         return {
-          polyline: route.overview_polyline.points,
-          distancia: route.legs.reduce((acc: number, leg: any) => acc + leg.distance.value, 0),
-          tempo: route.legs.reduce((acc: number, leg: any) => acc + leg.duration.value, 0),
-          ordem_otimizada: data.routes[0].waypoint_order || [],
+          polyline: route.overview_polyline,
+          distancia: distanciaTotal, // em metros
+          tempo: tempoTotal, // em segundos
+          ordem_otimizada: route.waypoint_order || [],
         };
       }
 

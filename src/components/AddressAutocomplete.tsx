@@ -183,7 +183,9 @@ export function AddressAutocomplete({
 
       {/* Hint de uso */}
       {!showSuggestions && value && value.length > 0 && value.length < 3 && (
-        <Text style={styles.hintText}>Digite pelo menos 3 caracteres para buscar</Text>
+        <View style={styles.hintContainer}>
+          <Text style={styles.hintText}>Digite pelo menos 3 caracteres para buscar</Text>
+        </View>
       )}
     </View>
   );
@@ -323,10 +325,12 @@ const styles = StyleSheet.create({
     color: '#dc2626',
     textAlign: 'center',
   },
+  hintContainer: {
+    marginTop: 4,
+  },
   hintText: {
     fontSize: 12,
     color: '#6b7280',
-    marginTop: 4,
     fontStyle: 'italic',
   },
 });

@@ -10,6 +10,7 @@ import {
   RefreshControl,
   Modal,
   TextInput,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -48,6 +49,10 @@ export default function HistoricoGestor() {
   const [filtroMotorista, setFiltroMotorista] = useState<string>('');
   const [motoristas, setMotoristas] = useState<Motorista[]>([]);
   const [showFiltros, setShowFiltros] = useState(false);
+
+  // Modal de confirmação de cancelamento
+  const [showCancelarModal, setShowCancelarModal] = useState(false);
+  const [rotaParaCancelar, setRotaParaCancelar] = useState<RotaHistorico | null>(null);
 
   useEffect(() => {
     if (userData?.unidade_id) {
@@ -168,6 +173,79 @@ export default function HistoricoGestor() {
     const diffHoras = Math.floor(diffMs / (1000 * 60 * 60));
     const diffMinutos = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
     return `${diffHoras}h ${diffMinutos}min`;
+  }
+
+  // Cancelar rota (apenas pendentes)
+  function cancelarRota(rota: RotaHistorico) {
+    console.log('🔵 cancelarRota() chamada para rota:', rota.id);
+
+    if (Platform.OS === 'web') {
+      // Abrir modal customizado
+      setRotaParaCancelar(rota);
+      setShowCancelarModal(true);
+    } else {
+      // Para mobile, usamos Alert nativo
+      const mensagem = `Tem certeza que deseja cancelar esta rota?${rota.motorista ? `\nMotorista: ${rota.motorista.nome}` : ''}\nParadas: ${rota.paradas_count || 0}`;
+      Alert.alert(
+        'Cancelar Rota',
+        mensagem,
+        [
+          { text: 'Não', style: 'cancel' },
+          {
+            text: 'Sim, Cancelar',
+            style: 'destructive',
+            onPress: () => executarCancelamento(rota),
+          },
+        ]
+      );
+    }
+  }
+
+  // Função auxiliar para executar o cancelamento
+  async function executarCancelamento(rota: RotaHistorico) {
+    // Fechar modal se estiver aberto
+    setShowCancelarModal(false);
+    setRotaParaCancelar(null);
+
+    try {
+      console.log('🚫 Cancelando rota:', rota.id);
+
+      const { error } = await supabase
+        .from('rotas')
+        .update({ status: 'cancelada' })
+        .eq('id', rota.id);
+
+      if (error) throw error;
+
+      console.log('✅ Rota cancelada com sucesso');
+
+      // Log da ação
+      await supabase.from('logs').insert({
+        usuario_id: userData!.id,
+        rota_id: rota.id,
+        evento: 'rota_cancelada',
+        detalhes: {
+          motivo: 'Cancelada pelo gestor',
+          paradas_count: rota.paradas_count,
+        },
+      });
+
+      // Recarregar histórico
+      loadHistorico();
+
+      // Feedback de sucesso (apenas mobile usa Alert)
+      if (Platform.OS !== 'web') {
+        Alert.alert('Sucesso!', 'Rota cancelada com sucesso');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao cancelar rota:', error);
+
+      if (Platform.OS === 'web') {
+        alert('Erro: Não foi possível cancelar a rota');
+      } else {
+        Alert.alert('Erro', 'Não foi possível cancelar a rota');
+      }
+    }
   }
 
   const renderFiltrosModal = () => (
@@ -383,13 +461,34 @@ export default function HistoricoGestor() {
               </View>
             )}
 
-            {/* Botão Ver no Mapa */}
-            <TouchableOpacity
-              style={styles.verMapaButton}
-              onPress={() => router.push(`/gestor/mapa-rota?id=${item.id}`)}
-            >
-              <Text style={styles.verMapaButtonText}>🗺️ Ver Rota no Mapa</Text>
-            </TouchableOpacity>
+            {/* Botões de Ação */}
+            <View style={{ gap: 10 }} pointerEvents="box-none">
+              <TouchableOpacity
+                style={styles.verMapaButton}
+                onPress={(e: any) => {
+                  e?.stopPropagation?.();
+                  router.push(`/gestor/mapa-rota?id=${item.id}`);
+                }}
+                pointerEvents="auto"
+              >
+                <Text style={styles.verMapaButtonText}>🗺️ Ver Rota no Mapa</Text>
+              </TouchableOpacity>
+
+              {/* Botão Cancelar (apenas para rotas pendentes) */}
+              {isPendente && (
+                <TouchableOpacity
+                  style={styles.cancelarButton}
+                  onPress={(e: any) => {
+                    console.log('🚫 Botão Cancelar clicado!');
+                    e?.stopPropagation?.();
+                    cancelarRota(item);
+                  }}
+                  pointerEvents="auto"
+                >
+                  <Text style={styles.cancelarButtonText}>🚫 Cancelar Rota</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         )}
 
@@ -514,6 +613,83 @@ export default function HistoricoGestor() {
 
       {/* Modal de Filtros */}
       {renderFiltrosModal()}
+
+      {/* Modal de Confirmação de Cancelamento */}
+      <Modal
+        visible={showCancelarModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setShowCancelarModal(false);
+          setRotaParaCancelar(null);
+        }}
+      >
+        <View style={styles.modalOverlayCancelar}>
+          <View style={styles.modalContentCancelar}>
+            <View style={styles.modalHeaderCancelar}>
+              <Text style={styles.modalTitleCancelar}>🚫 Cancelar Rota</Text>
+            </View>
+
+            <View style={styles.modalBodyCancelar}>
+              <Text style={styles.modalTextCancelar}>
+                Tem certeza que deseja cancelar esta rota?
+              </Text>
+
+              {rotaParaCancelar && (
+                <View style={styles.rotaInfoCancelar}>
+                  {rotaParaCancelar.motorista && (
+                    <View style={styles.infoRowCancelar}>
+                      <Text style={styles.infoLabelCancelar}>Motorista:</Text>
+                      <Text style={styles.infoValueCancelar}>
+                        {rotaParaCancelar.motorista.nome}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.infoRowCancelar}>
+                    <Text style={styles.infoLabelCancelar}>Paradas:</Text>
+                    <Text style={styles.infoValueCancelar}>
+                      {rotaParaCancelar.paradas_count || 0}
+                    </Text>
+                  </View>
+                  <View style={styles.infoRowCancelar}>
+                    <Text style={styles.infoLabelCancelar}>Data:</Text>
+                    <Text style={styles.infoValueCancelar}>
+                      {new Date(rotaParaCancelar.data).toLocaleDateString('pt-BR')}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              <Text style={styles.modalWarningCancelar}>
+                Esta ação não pode ser desfeita.
+              </Text>
+            </View>
+
+            <View style={styles.modalFooterCancelar}>
+              <TouchableOpacity
+                style={styles.modalButtonCancelarSecondary}
+                onPress={() => {
+                  setShowCancelarModal(false);
+                  setRotaParaCancelar(null);
+                }}
+              >
+                <Text style={styles.modalButtonTextSecondary}>Não, Manter</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalButtonCancelarPrimary}
+                onPress={() => {
+                  if (rotaParaCancelar) {
+                    executarCancelamento(rotaParaCancelar);
+                  }
+                }}
+              >
+                <Text style={styles.modalButtonTextPrimary}>Sim, Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -791,6 +967,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  cancelarButton: {
+    backgroundColor: '#ef4444',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  cancelarButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -875,6 +1064,112 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalButtonPrimaryText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  // Estilos do Modal de Cancelamento
+  modalOverlayCancelar: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContentCancelar: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalHeaderCancelar: {
+    backgroundColor: '#fee2e2',
+    padding: 20,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#fecaca',
+  },
+  modalTitleCancelar: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#991b1b',
+    textAlign: 'center',
+  },
+  modalBodyCancelar: {
+    padding: 24,
+  },
+  modalTextCancelar: {
+    fontSize: 16,
+    color: '#374151',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 24,
+  },
+  rotaInfoCancelar: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  infoRowCancelar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  infoLabelCancelar: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  infoValueCancelar: {
+    fontSize: 14,
+    color: '#111827',
+    fontWeight: '600',
+  },
+  modalWarningCancelar: {
+    fontSize: 13,
+    color: '#dc2626',
+    textAlign: 'center',
+    fontWeight: '500',
+    fontStyle: 'italic',
+  },
+  modalFooterCancelar: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  modalButtonCancelarSecondary: {
+    flex: 1,
+    backgroundColor: '#f3f4f6',
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+  },
+  modalButtonTextSecondary: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  modalButtonCancelarPrimary: {
+    flex: 1,
+    backgroundColor: '#dc2626',
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalButtonTextPrimary: {
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',

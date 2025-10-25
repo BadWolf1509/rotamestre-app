@@ -8,6 +8,9 @@ import {
   Alert,
   TouchableOpacity,
   Platform,
+  Image,
+  Modal,
+  Dimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -24,6 +27,7 @@ interface Parada {
   destinatario?: string;
   telefone?: string;
   observacoes?: string;
+  foto_url?: string | null;
 }
 
 interface Rota {
@@ -42,10 +46,15 @@ export default function MapaRota() {
   const [loading, setLoading] = useState(true);
   const [rota, setRota] = useState<Rota | null>(null);
   const [paradas, setParadas] = useState<Parada[]>([]);
+  const [fotoModalVisible, setFotoModalVisible] = useState(false);
+  const [fotoSelecionada, setFotoSelecionada] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
       loadRotaEParadas();
+    } else {
+      // Sem ID de rota - parar loading e mostrar mensagem
+      setLoading(false);
     }
   }, [id]);
 
@@ -91,6 +100,41 @@ export default function MapaRota() {
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#0D5A9C" />
         <Text style={styles.loadingText}>Carregando rota...</Text>
+      </View>
+    );
+  }
+
+  // Empty state quando não há ID de rota
+  if (!id) {
+    return (
+      <View style={styles.emptyStateContainer}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.emptyStateBackLink}>
+          <Text style={styles.backLinkText}>← Voltar</Text>
+        </TouchableOpacity>
+
+        <View style={styles.emptyStateContent}>
+          <Text style={styles.emptyStateIcon}>📍</Text>
+          <Text style={styles.emptyStateTitle}>Nenhuma Rota Selecionada</Text>
+          <Text style={styles.emptyStateDescription}>
+            Você precisa selecionar uma rota para visualizar o mapa e paradas.
+          </Text>
+
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={() => router.push('/gestor/historico')}
+          >
+            <Text style={styles.primaryButtonText}>📋 Ver Minhas Rotas</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.emptyStateOr}>Ou crie uma nova rota:</Text>
+
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() => router.push('/gestor/nova-entrega')}
+          >
+            <Text style={styles.secondaryButtonText}>➕ Nova Rota</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -207,9 +251,62 @@ export default function MapaRota() {
                 📍 {parada.latitude.toFixed(6)}, {parada.longitude.toFixed(6)}
               </Text>
             )}
+
+            {/* Foto do Comprovante */}
+            {parada.foto_url && (
+              <View style={styles.fotoContainer}>
+                <Text style={styles.fotoLabel}>📸 Comprovante de Entrega:</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setFotoSelecionada(parada.foto_url!);
+                    setFotoModalVisible(true);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Image
+                    source={{ uri: parada.foto_url }}
+                    style={styles.fotoThumbnail}
+                    resizeMode="cover"
+                  />
+                  <Text style={styles.fotoHint}>Toque para ampliar</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         ))}
       </View>
+
+      {/* Modal para visualizar foto em tamanho grande */}
+      <Modal
+        visible={fotoModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setFotoModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalCloseArea}
+            onPress={() => setFotoModalVisible(false)}
+            activeOpacity={1}
+          >
+            <View style={styles.modalContent}>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setFotoModalVisible(false)}
+              >
+                <Text style={styles.modalCloseButtonText}>✕</Text>
+              </TouchableOpacity>
+              {fotoSelecionada && (
+                <Image
+                  source={{ uri: fotoSelecionada }}
+                  style={styles.fotoGrande}
+                  resizeMode="contain"
+                />
+              )}
+            </View>
+          </TouchableOpacity>
+        </View>
+      </Modal>
 
       {/* Resumo */}
       <View style={styles.resumo}>
@@ -503,5 +600,147 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  // Empty State Styles
+  emptyStateContainer: {
+    flex: 1,
+    backgroundColor: '#f9fafb',
+    padding: 20,
+  },
+  emptyStateBackLink: {
+    marginBottom: 20,
+  },
+  emptyStateContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 100,
+  },
+  emptyStateIcon: {
+    fontSize: 64,
+    marginBottom: 20,
+  },
+  emptyStateTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  emptyStateDescription: {
+    fontSize: 16,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 24,
+    paddingHorizontal: 20,
+  },
+  primaryButton: {
+    backgroundColor: '#0D5A9C',
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 320,
+    shadowColor: '#0D5A9C',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  primaryButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  emptyStateOr: {
+    fontSize: 14,
+    color: '#9ca3af',
+    marginTop: 24,
+    marginBottom: 16,
+  },
+  secondaryButton: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 320,
+    borderWidth: 2,
+    borderColor: '#0D5A9C',
+  },
+  secondaryButtonText: {
+    color: '#0D5A9C',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  fotoContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  fotoLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  fotoThumbnail: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+  },
+  fotoHint: {
+    fontSize: 12,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginTop: 6,
+    fontStyle: 'italic',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseArea: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: Dimensions.get('window').width - 40,
+    maxHeight: Dimensions.get('window').height - 100,
+    position: 'relative',
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: -40,
+    right: 0,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  modalCloseButtonText: {
+    fontSize: 24,
+    color: '#111827',
+    fontWeight: 'bold',
+  },
+  fotoGrande: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
   },
 });

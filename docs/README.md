@@ -54,6 +54,7 @@ docs/
 | Guia | Descrição | Atualização |
 |------|-----------|-------------|
 | **[RLS_FIX_GUIDE.md](operations/RLS_FIX_GUIDE.md)** | 🔧 Correção de recursão RLS | Sob demanda |
+| **[GOOGLE_PLACES_API_MIGRATION.md](operations/GOOGLE_PLACES_API_MIGRATION.md)** | 📋 Plano migração Places API | Monitorar |
 | [dns-status.md](operations/dns-status.md) | 🌐 Status dos domínios | Tempo real |
 | [CONEXAO_DB_ANALISE.md](operations/CONEXAO_DB_ANALISE.md) | 🔍 Análise de conexão DB | Referência |
 
