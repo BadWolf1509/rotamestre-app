@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   ImageBackground,
   Platform,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { authService } from '@/lib/auth';
@@ -143,7 +144,11 @@ export default function Login() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.logoHorizontal}>
-          <Text style={styles.logoText}>Rota Mestre</Text>
+          <Image
+            source={require('@/assets/splash-icon.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </View>
         <Text style={styles.subtitle}>Entre com sua conta</Text>
       </View>
@@ -328,10 +333,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  logoText: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#FF6B35', // Laranja Brand
+  logoImage: {
+    width: 120,
+    height: 120,
   },
   subtitle: {
     fontSize: 16,
