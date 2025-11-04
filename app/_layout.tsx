@@ -45,7 +45,7 @@ export default function RootLayout() {
     if (Platform.OS === 'web') {
       try {
         if (typeof document !== 'undefined') {
-          document.title = 'Rota Mestre - Gestão Inteligente de Entregas';
+          document.title = 'Rota Mestre - Sistema de Otimização e Gestão de Rotas';
 
           // Adicionar meta description se não existir
           let metaDescription = document.querySelector('meta[name="description"]');

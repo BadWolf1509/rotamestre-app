@@ -3,18 +3,24 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  RefreshControl,
-  Modal,
-  TextInput,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
+import { useResponsive } from '@/hooks/useResponsive';
+import { ResponsiveContainer } from '@/components/ResponsiveContainer';
+import { DataTable, DataTableColumn, DataTableAction } from '@/components/DataTable';
+import { Toast } from '@/components/Toast';
+import { useToast } from '@/hooks/useToast';
+
+// ============================================
+// TYPES
+// ============================================
 
 interface Motorista {
   id: string;
@@ -35,51 +41,34 @@ interface RotaHistorico {
 
 type FiltroStatus = 'todas' | 'pendente' | 'em_andamento' | 'concluida' | 'cancelada';
 
+// ============================================
+// COMPONENT
+// ============================================
+
 export default function HistoricoGestor() {
   const router = useRouter();
   const { userData } = useUser();
+  const { isDesktop } = useResponsive();
+  const { toast: toastState, showToast, hideToast, withToast } = useToast();
+
   const [rotas, setRotas] = useState<RotaHistorico[]>([]);
   const [rotasFiltradas, setRotasFiltradas] = useState<RotaHistorico[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [expandedRotaId, setExpandedRotaId] = useState<string | null>(null);
-
-  // Filtros
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('todas');
-  const [filtroMotorista, setFiltroMotorista] = useState<string>('');
-  const [motoristas, setMotoristas] = useState<Motorista[]>([]);
-  const [showFiltros, setShowFiltros] = useState(false);
-
-  // Modal de confirmação de cancelamento
-  const [showCancelarModal, setShowCancelarModal] = useState(false);
-  const [rotaParaCancelar, setRotaParaCancelar] = useState<RotaHistorico | null>(null);
 
   useEffect(() => {
     if (userData?.unidade_id) {
-      loadMotoristas();
       loadHistorico();
     }
   }, [userData]);
 
   useEffect(() => {
     aplicarFiltros();
-  }, [rotas, filtroStatus, filtroMotorista]);
+  }, [rotas, filtroStatus]);
 
-  async function loadMotoristas() {
-    try {
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('id, nome')
-        .eq('unidade_id', userData!.unidade_id)
-        .eq('papel', 'motorista')
-        .order('nome');
-
-      if (error) throw error;
-      setMotoristas(data as Motorista[] || []);
-    } catch (error) {
-      console.error('Erro ao carregar motoristas:', error);
-    }
-  }
+  // ============================================
+  // DATA LOADING
+  // ============================================
 
   async function loadHistorico() {
     try {
@@ -90,27 +79,18 @@ export default function HistoricoGestor() {
         .from('rotas')
         .select('id, data, status, distancia_total, iniciada_em, concluida_em, motorista_id, usuarios!rotas_motorista_id_fkey(id, nome)')
         .eq('unidade_id', userData!.unidade_id)
-        .order('data', { ascending: false });
+        .order('data', { ascending: false })
+        .limit(100); // Limitar a 100 rotas
 
       if (rotasError) throw rotasError;
 
       // Para cada rota, buscar contagem de paradas
       const rotasComParadas = await Promise.all(
         (rotasData || []).map(async (rota) => {
-          const { data: paradasData, error: paradasError } = await supabase
+          const { data: paradasData } = await supabase
             .from('paradas')
             .select('id, status')
             .eq('rota_id', rota.id);
-
-          if (paradasError) {
-            console.error('Erro ao buscar paradas:', paradasError);
-            return {
-              ...rota,
-              motorista: rota.usuarios,
-              paradas_count: 0,
-              paradas_concluidas: 0,
-            };
-          }
 
           return {
             ...rota,
@@ -128,7 +108,6 @@ export default function HistoricoGestor() {
       Alert.alert('Erro', 'Não foi possível carregar o histórico');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }
 
@@ -140,52 +119,29 @@ export default function HistoricoGestor() {
       resultado = resultado.filter((rota) => rota.status === filtroStatus);
     }
 
-    // Filtrar por motorista
-    if (filtroMotorista) {
-      resultado = resultado.filter(
-        (rota) =>
-          rota.motorista?.nome.toLowerCase().includes(filtroMotorista.toLowerCase())
-      );
-    }
-
     setRotasFiltradas(resultado);
   }
 
-  function limparFiltros() {
-    setFiltroStatus('todas');
-    setFiltroMotorista('');
+  // ============================================
+  // ACTIONS
+  // ============================================
+
+  function verDetalhes(rota: RotaHistorico) {
+    router.push(`/gestor/mapa-rota?id=${rota.id}`);
   }
 
-  function onRefresh() {
-    setRefreshing(true);
-    loadHistorico();
-  }
+  async function cancelarRota(rota: RotaHistorico) {
+    // Validar se pode cancelar
+    if (rota.status !== 'pendente' && rota.status !== 'em_andamento') {
+      Alert.alert('Atenção', 'Apenas rotas pendentes ou em andamento podem ser canceladas');
+      return;
+    }
 
-  function toggleExpand(rotaId: string) {
-    setExpandedRotaId(expandedRotaId === rotaId ? null : rotaId);
-  }
-
-  function calcularTempoTotal(rota: RotaHistorico) {
-    if (!rota.iniciada_em || !rota.concluida_em) return null;
-    const inicio = new Date(rota.iniciada_em);
-    const fim = new Date(rota.concluida_em);
-    const diffMs = fim.getTime() - inicio.getTime();
-    const diffHoras = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffMinutos = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    return `${diffHoras}h ${diffMinutos}min`;
-  }
-
-  // Cancelar rota (apenas pendentes)
-  function cancelarRota(rota: RotaHistorico) {
-    console.log('🔵 cancelarRota() chamada para rota:', rota.id);
+    const mensagem = `Tem certeza que deseja cancelar esta rota?\nMotorista: ${rota.motorista?.nome || 'Sem motorista'}\nParadas: ${rota.paradas_count || 0}`;
 
     if (Platform.OS === 'web') {
-      // Abrir modal customizado
-      setRotaParaCancelar(rota);
-      setShowCancelarModal(true);
+      if (!confirm(mensagem)) return;
     } else {
-      // Para mobile, usamos Alert nativo
-      const mensagem = `Tem certeza que deseja cancelar esta rota?${rota.motorista ? `\nMotorista: ${rota.motorista.nome}` : ''}\nParadas: ${rota.paradas_count || 0}`;
       Alert.alert(
         'Cancelar Rota',
         mensagem,
@@ -198,506 +154,234 @@ export default function HistoricoGestor() {
           },
         ]
       );
+      return;
     }
+
+    executarCancelamento(rota);
   }
 
-  // Função auxiliar para executar o cancelamento
   async function executarCancelamento(rota: RotaHistorico) {
-    // Fechar modal se estiver aberto
-    setShowCancelarModal(false);
-    setRotaParaCancelar(null);
-
     try {
-      console.log('🚫 Cancelando rota:', rota.id);
+      await withToast(
+        async () => {
+          const { error } = await supabase
+            .from('rotas')
+            .update({ status: 'cancelada' })
+            .eq('id', rota.id);
 
-      const { error } = await supabase
-        .from('rotas')
-        .update({ status: 'cancelada' })
-        .eq('id', rota.id);
+          if (error) throw error;
 
-      if (error) throw error;
-
-      console.log('✅ Rota cancelada com sucesso');
-
-      // Log da ação
-      await supabase.from('logs').insert({
-        usuario_id: userData!.id,
-        rota_id: rota.id,
-        evento: 'rota_cancelada',
-        detalhes: {
-          motivo: 'Cancelada pelo gestor',
-          paradas_count: rota.paradas_count,
+          // Log da ação
+          await supabase.from('logs').insert({
+            usuario_id: userData!.id,
+            rota_id: rota.id,
+            evento: 'rota_cancelada',
+            detalhes: {
+              motivo: 'Cancelada pelo gestor',
+              paradas_count: rota.paradas_count,
+            },
+          });
         },
-      });
+        {
+          loading: 'Cancelando rota...',
+          success: 'Rota cancelada com sucesso!',
+          error: 'Não foi possível cancelar a rota',
+        }
+      );
 
       // Recarregar histórico
       loadHistorico();
-
-      // Feedback de sucesso (apenas mobile usa Alert)
-      if (Platform.OS !== 'web') {
-        Alert.alert('Sucesso!', 'Rota cancelada com sucesso');
-      }
     } catch (error) {
-      console.error('❌ Erro ao cancelar rota:', error);
-
-      if (Platform.OS === 'web') {
-        alert('Erro: Não foi possível cancelar a rota');
-      } else {
-        Alert.alert('Erro', 'Não foi possível cancelar a rota');
-      }
+      console.error('Erro ao cancelar rota:', error);
     }
   }
 
-  const renderFiltrosModal = () => (
-    <Modal
-      visible={showFiltros}
-      transparent
-      animationType="slide"
-      onRequestClose={() => setShowFiltros(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Filtros</Text>
+  // ============================================
+  // HELPERS
+  // ============================================
 
-          {/* Filtro de Status */}
-          <Text style={styles.filterLabel}>Status:</Text>
-          <View style={styles.statusFilterContainer}>
-            {(['todas', 'pendente', 'em_andamento', 'concluida', 'cancelada'] as FiltroStatus[]).map(
-              (status) => (
-                <TouchableOpacity
-                  key={status}
-                  style={[
-                    styles.statusFilterButton,
-                    filtroStatus === status && styles.statusFilterButtonActive,
-                  ]}
-                  onPress={() => setFiltroStatus(status)}
-                >
-                  <Text
-                    style={[
-                      styles.statusFilterButtonText,
-                      filtroStatus === status && styles.statusFilterButtonTextActive,
-                    ]}
-                  >
-                    {status === 'todas' && 'Todas'}
-                    {status === 'pendente' && 'Pendente'}
-                    {status === 'em_andamento' && 'Em Andamento'}
-                    {status === 'concluida' && 'Concluída'}
-                    {status === 'cancelada' && 'Cancelada'}
-                  </Text>
-                </TouchableOpacity>
-              )
-            )}
-          </View>
+  function getStatusLabel(status: string): string {
+    switch (status) {
+      case 'pendente': return 'Pendente';
+      case 'em_andamento': return 'Em Andamento';
+      case 'concluida': return 'Concluída';
+      case 'cancelada': return 'Cancelada';
+      default: return status;
+    }
+  }
 
-          {/* Filtro de Motorista */}
-          <Text style={styles.filterLabel}>Motorista:</Text>
-          <TextInput
-            style={styles.filterInput}
-            placeholder="Digite o nome do motorista..."
-            value={filtroMotorista}
-            onChangeText={setFiltroMotorista}
-            placeholderTextColor="#9ca3af"
-          />
+  function getStatusColor(status: string): string {
+    switch (status) {
+      case 'pendente': return '#f59e0b'; // Amarelo
+      case 'em_andamento': return '#3b82f6'; // Azul
+      case 'concluida': return '#10b981'; // Verde
+      case 'cancelada': return '#ef4444'; // Vermelho
+      default: return '#6b7280';
+    }
+  }
 
-          {/* Botões de Ação */}
-          <View style={styles.modalActions}>
-            <TouchableOpacity
-              style={styles.modalButtonSecondary}
-              onPress={limparFiltros}
-            >
-              <Text style={styles.modalButtonSecondaryText}>Limpar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.modalButtonPrimary}
-              onPress={() => setShowFiltros(false)}
-            >
-              <Text style={styles.modalButtonPrimaryText}>Aplicar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
+  function formatarData(dataStr: string): string {
+    const data = new Date(dataStr);
+    return data.toLocaleDateString('pt-BR');
+  }
 
-  const renderRota = ({ item }: { item: RotaHistorico }) => {
-    const isExpanded = expandedRotaId === item.id;
-    const isPendente = item.status === 'pendente';
-    const isEmAndamento = item.status === 'em_andamento';
-    const isConcluida = item.status === 'concluida';
-    const isCancelada = item.status === 'cancelada';
+  // ============================================
+  // DATA TABLE CONFIG
+  // ============================================
 
-    const taxaConclusao =
-      item.paradas_count && item.paradas_count > 0
-        ? Math.round((item.paradas_concluidas! / item.paradas_count) * 100)
-        : 0;
-
-    const tempoTotal = calcularTempoTotal(item);
-
-    return (
-      <TouchableOpacity
-        style={[
-          styles.rotaCard,
-          isPendente && styles.rotaCardPendente,
-          isEmAndamento && styles.rotaCardEmAndamento,
-          isConcluida && styles.rotaCardConcluida,
-          isCancelada && styles.rotaCardCancelada,
-        ]}
-        onPress={() => toggleExpand(item.id)}
-        activeOpacity={0.7}
-      >
-        {/* Header do Card */}
-        <View style={styles.rotaHeader}>
-          <View style={styles.rotaHeaderLeft}>
-            <Text style={styles.rotaData}>
-              {new Date(item.data).toLocaleDateString('pt-BR', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric',
-              })}
-            </Text>
-            <Text style={styles.rotaMotorista}>
-              {item.motorista?.nome || 'Sem motorista'}
-            </Text>
-          </View>
-
-          <View
-            style={[
-              styles.statusBadge,
-              isPendente && styles.statusBadgePendente,
-              isEmAndamento && styles.statusBadgeEmAndamento,
-              isConcluida && styles.statusBadgeConcluida,
-              isCancelada && styles.statusBadgeCancelada,
-            ]}
-          >
-            <Text style={styles.statusBadgeText}>
-              {isPendente && 'Pendente'}
-              {isEmAndamento && 'Em Andamento'}
-              {isConcluida && 'Concluída'}
-              {isCancelada && 'Cancelada'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Stats Rápidas */}
-        <View style={styles.rotaStats}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{item.paradas_count || 0}</Text>
-            <Text style={styles.statLabel}>Paradas</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: '#10b981' }]}>
-              {item.paradas_concluidas || 0}
-            </Text>
-            <Text style={styles.statLabel}>Concluídas</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: '#8b5cf6' }]}>
-              {taxaConclusao}%
-            </Text>
-            <Text style={styles.statLabel}>Taxa</Text>
-          </View>
-        </View>
-
-        {/* Detalhes Expandidos */}
-        {isExpanded && (
-          <View style={styles.rotaDetalhes}>
-            <View style={styles.divider} />
-
-            {item.iniciada_em && (
-              <View style={styles.detalheRow}>
-                <Text style={styles.detalheLabel}>Início:</Text>
-                <Text style={styles.detalheValue}>
-                  {new Date(item.iniciada_em).toLocaleString('pt-BR', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </Text>
-              </View>
-            )}
-
-            {item.concluida_em && (
-              <View style={styles.detalheRow}>
-                <Text style={styles.detalheLabel}>Conclusão:</Text>
-                <Text style={styles.detalheValue}>
-                  {new Date(item.concluida_em).toLocaleString('pt-BR', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </Text>
-              </View>
-            )}
-
-            {tempoTotal && (
-              <View style={styles.detalheRow}>
-                <Text style={styles.detalheLabel}>Tempo Total:</Text>
-                <Text style={styles.detalheValue}>{tempoTotal}</Text>
-              </View>
-            )}
-
-            {item.distancia_total && (
-              <View style={styles.detalheRow}>
-                <Text style={styles.detalheLabel}>Distância:</Text>
-                <Text style={styles.detalheValue}>
-                  {item.distancia_total.toFixed(1)} km
-                </Text>
-              </View>
-            )}
-
-            {item.paradas_count && item.paradas_count > 0 && (
-              <View style={styles.detalheRow}>
-                <Text style={styles.detalheLabel}>Progresso:</Text>
-                <View style={styles.progressBarContainer}>
-                  <View
-                    style={[
-                      styles.progressBarFill,
-                      { width: `${taxaConclusao}%` },
-                    ]}
-                  />
-                </View>
-              </View>
-            )}
-
-            {/* Botões de Ação */}
-            <View style={{ gap: 10 }} pointerEvents="box-none">
-              <TouchableOpacity
-                style={styles.verMapaButton}
-                onPress={(e: any) => {
-                  e?.stopPropagation?.();
-                  router.push(`/gestor/mapa-rota?id=${item.id}`);
-                }}
-                pointerEvents="auto"
-              >
-                <Text style={styles.verMapaButtonText}>🗺️ Ver Rota no Mapa</Text>
-              </TouchableOpacity>
-
-              {/* Botão Cancelar (apenas para rotas pendentes) */}
-              {isPendente && (
-                <TouchableOpacity
-                  style={styles.cancelarButton}
-                  onPress={(e: any) => {
-                    console.log('🚫 Botão Cancelar clicado!');
-                    e?.stopPropagation?.();
-                    cancelarRota(item);
-                  }}
-                  pointerEvents="auto"
-                >
-                  <Text style={styles.cancelarButtonText}>🚫 Cancelar Rota</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        )}
-
-        {/* Indicador de Expansão */}
-        <View style={styles.expandIndicator}>
-          <Text style={styles.expandIndicatorText}>
-            {isExpanded ? '▲ Menos detalhes' : '▼ Mais detalhes'}
+  const columns: DataTableColumn<RotaHistorico>[] = [
+    {
+      key: 'data',
+      label: 'Data',
+      width: 120,
+      sortable: true,
+      render: (rota) => formatarData(rota.data),
+    },
+    {
+      key: 'motorista',
+      label: 'Motorista',
+      width: 180,
+      sortable: true,
+      render: (rota) => rota.motorista?.nome || 'Sem motorista',
+    },
+    {
+      key: 'paradas',
+      label: 'Paradas',
+      width: 120,
+      align: 'center',
+      render: (rota) => `${rota.paradas_concluidas || 0}/${rota.paradas_count || 0}`,
+    },
+    {
+      key: 'distancia',
+      label: 'Distância',
+      width: 120,
+      align: 'right',
+      desktopOnly: true,
+      render: (rota) => rota.distancia_total ? `${rota.distancia_total.toFixed(1)} km` : '-',
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      width: 140,
+      sortable: true,
+      render: (rota) => (
+        <View
+          style={[
+            styles.statusBadge,
+            { backgroundColor: getStatusColor(rota.status) },
+          ]}
+        >
+          <Text style={styles.statusBadgeText}>
+            {getStatusLabel(rota.status)}
           </Text>
         </View>
-      </TouchableOpacity>
-    );
-  };
+      ),
+    },
+  ];
+
+  const actions: DataTableAction<RotaHistorico>[] = [
+    {
+      label: 'Ver Detalhes',
+      icon: '👁️',
+      type: 'primary',
+      onPress: verDetalhes,
+    },
+    {
+      label: 'Cancelar',
+      icon: '🚫',
+      type: 'danger',
+      onPress: cancelarRota,
+    },
+  ];
+
+  // ============================================
+  // RENDER
+  // ============================================
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0D5A9C" />
+        <ActivityIndicator size="large" color="#1e5aa8" />
         <Text style={styles.loadingText}>Carregando histórico...</Text>
       </View>
     );
   }
 
-  const filtrosAtivos =
-    filtroStatus !== 'todas' || filtroMotorista !== '';
-
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <View>
-            <Text style={styles.headerTitle}>Histórico de Rotas</Text>
-            <Text style={styles.headerSubtitle}>
-              {rotasFiltradas.length} de {rotas.length}{' '}
-              {rotas.length === 1 ? 'rota' : 'rotas'}
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={[
-              styles.filtroButton,
-              filtrosAtivos && styles.filtroButtonActive,
-            ]}
-            onPress={() => setShowFiltros(true)}
-          >
-            <Text
-              style={[
-                styles.filtroButtonText,
-                filtrosAtivos && styles.filtroButtonTextActive,
-              ]}
-            >
-              🔍 Filtros
-            </Text>
-            {filtrosAtivos && <View style={styles.filtroIndicator} />}
-          </TouchableOpacity>
+    <ScrollView style={styles.container}>
+      <ResponsiveContainer>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Histórico de Rotas</Text>
+          <Text style={styles.subtitle}>
+            {rotasFiltradas.length} rota(s) encontrada(s)
+          </Text>
         </View>
 
-        {/* Indicador de Filtros Ativos */}
-        {filtrosAtivos && (
-          <View style={styles.filtrosAtivosContainer}>
-            {filtroStatus !== 'todas' && (
-              <View style={styles.filtroAtivoBadge}>
-                <Text style={styles.filtroAtivoText}>
-                  Status: {filtroStatus}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setFiltroStatus('todas')}
-                  style={styles.filtroAtivoRemove}
+        {/* Filtros */}
+        <View style={styles.filtrosContainer}>
+          <Text style={styles.filtrosLabel}>Filtrar por Status:</Text>
+          <View style={styles.filtrosButtons}>
+            {(['todas', 'pendente', 'em_andamento', 'concluida', 'cancelada'] as FiltroStatus[]).map((status) => (
+              <TouchableOpacity
+                key={status}
+                style={[
+                  styles.filtroButton,
+                  filtroStatus === status && styles.filtroButtonActive,
+                ]}
+                onPress={() => setFiltroStatus(status)}
+              >
+                <Text
+                  style={[
+                    styles.filtroButtonText,
+                    filtroStatus === status && styles.filtroButtonTextActive,
+                  ]}
                 >
-                  <Text style={styles.filtroAtivoRemoveText}>×</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            {filtroMotorista && (
-              <View style={styles.filtroAtivoBadge}>
-                <Text style={styles.filtroAtivoText}>
-                  Motorista: {filtroMotorista}
+                  {status === 'todas' ? 'Todas' : getStatusLabel(status)}
                 </Text>
-                <TouchableOpacity
-                  onPress={() => setFiltroMotorista('')}
-                  style={styles.filtroAtivoRemove}
-                >
-                  <Text style={styles.filtroAtivoRemoveText}>×</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        )}
-      </View>
-
-      {/* Lista de Rotas */}
-      <FlatList
-        data={rotasFiltradas}
-        keyExtractor={(item) => item.id}
-        renderItem={renderRota}
-        contentContainerStyle={styles.listContainer}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={['#0D5A9C']}
-          />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>📋</Text>
-            <Text style={styles.emptyText}>
-              {filtrosAtivos
-                ? 'Nenhuma rota encontrada com esses filtros'
-                : 'Nenhuma rota registrada'}
-            </Text>
-            {filtrosAtivos && (
-              <TouchableOpacity
-                style={styles.emptyButton}
-                onPress={limparFiltros}
-              >
-                <Text style={styles.emptyButtonText}>Limpar Filtros</Text>
               </TouchableOpacity>
-            )}
-          </View>
-        }
-      />
-
-      {/* Modal de Filtros */}
-      {renderFiltrosModal()}
-
-      {/* Modal de Confirmação de Cancelamento */}
-      <Modal
-        visible={showCancelarModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => {
-          setShowCancelarModal(false);
-          setRotaParaCancelar(null);
-        }}
-      >
-        <View style={styles.modalOverlayCancelar}>
-          <View style={styles.modalContentCancelar}>
-            <View style={styles.modalHeaderCancelar}>
-              <Text style={styles.modalTitleCancelar}>🚫 Cancelar Rota</Text>
-            </View>
-
-            <View style={styles.modalBodyCancelar}>
-              <Text style={styles.modalTextCancelar}>
-                Tem certeza que deseja cancelar esta rota?
-              </Text>
-
-              {rotaParaCancelar && (
-                <View style={styles.rotaInfoCancelar}>
-                  {rotaParaCancelar.motorista && (
-                    <View style={styles.infoRowCancelar}>
-                      <Text style={styles.infoLabelCancelar}>Motorista:</Text>
-                      <Text style={styles.infoValueCancelar}>
-                        {rotaParaCancelar.motorista.nome}
-                      </Text>
-                    </View>
-                  )}
-                  <View style={styles.infoRowCancelar}>
-                    <Text style={styles.infoLabelCancelar}>Paradas:</Text>
-                    <Text style={styles.infoValueCancelar}>
-                      {rotaParaCancelar.paradas_count || 0}
-                    </Text>
-                  </View>
-                  <View style={styles.infoRowCancelar}>
-                    <Text style={styles.infoLabelCancelar}>Data:</Text>
-                    <Text style={styles.infoValueCancelar}>
-                      {new Date(rotaParaCancelar.data).toLocaleDateString('pt-BR')}
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              <Text style={styles.modalWarningCancelar}>
-                Esta ação não pode ser desfeita.
-              </Text>
-            </View>
-
-            <View style={styles.modalFooterCancelar}>
-              <TouchableOpacity
-                style={styles.modalButtonCancelarSecondary}
-                onPress={() => {
-                  setShowCancelarModal(false);
-                  setRotaParaCancelar(null);
-                }}
-              >
-                <Text style={styles.modalButtonTextSecondary}>Não, Manter</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.modalButtonCancelarPrimary}
-                onPress={() => {
-                  if (rotaParaCancelar) {
-                    executarCancelamento(rotaParaCancelar);
-                  }
-                }}
-              >
-                <Text style={styles.modalButtonTextPrimary}>Sim, Cancelar</Text>
-              </TouchableOpacity>
-            </View>
+            ))}
           </View>
         </View>
-      </Modal>
-    </View>
+
+        {/* DataTable */}
+        <DataTable
+          data={rotasFiltradas}
+          columns={columns}
+          actions={actions}
+          keyExtractor={(rota) => rota.id}
+          itemsPerPage={isDesktop ? 20 : 10}
+          pagination
+          isLoading={loading}
+          skeletonRows={isDesktop ? 10 : 5}
+          emptyState={
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>📋</Text>
+              <Text style={styles.emptyStateTitle}>Nenhuma rota encontrada</Text>
+              <Text style={styles.emptyStateSubtitle}>
+                {filtroStatus !== 'todas'
+                  ? 'Tente alterar os filtros'
+                  : 'Crie sua primeira rota de entrega'}
+              </Text>
+            </View>
+          }
+        />
+      </ResponsiveContainer>
+
+      {/* Toast de Feedback */}
+      <Toast {...toastState} onDismiss={hideToast} />
+    </ScrollView>
   );
 }
+
+// ============================================
+// STYLES
+// ============================================
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#f9fafb', // Gray 50
   },
   loadingContainer: {
     flex: 1,
@@ -706,472 +390,84 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb',
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 12,
     fontSize: 14,
-    color: '#6b7280',
+    color: '#6b7280', // Gray 500
   },
   header: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    paddingVertical: 24,
   },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  headerTitle: {
-    fontSize: 24,
+  title: {
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#111827',
+    color: '#111827', // Gray 900
     marginBottom: 4,
   },
-  headerSubtitle: {
+  subtitle: {
     fontSize: 14,
-    color: '#6b7280',
+    color: '#6b7280', // Gray 500
+  },
+  filtrosContainer: {
+    marginBottom: 24,
+  },
+  filtrosLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151', // Gray 700
+    marginBottom: 12,
+  },
+  filtrosButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   filtroButton: {
-    backgroundColor: '#f3f4f6',
-    paddingHorizontal: 16,
     paddingVertical: 8,
+    paddingHorizontal: 16,
     borderRadius: 8,
-    position: 'relative',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb', // Gray 200
   },
   filtroButtonActive: {
-    backgroundColor: '#0D5A9C',
+    backgroundColor: '#1e5aa8', // Azul Main
+    borderColor: '#1e5aa8',
   },
   filtroButtonText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
+    fontWeight: '500',
+    color: '#374151', // Gray 700
   },
   filtroButtonTextActive: {
     color: '#fff',
-  },
-  filtroIndicator: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#ef4444',
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  filtrosAtivosContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 12,
-    gap: 8,
-  },
-  filtroAtivoBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#dbeafe',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    gap: 6,
-  },
-  filtroAtivoText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1e40af',
-  },
-  filtroAtivoRemove: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#1e40af',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  filtroAtivoRemoveText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  listContainer: {
-    padding: 16,
-  },
-  emptyContainer: {
-    padding: 60,
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  emptyButton: {
-    backgroundColor: '#0D5A9C',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  emptyButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  rotaCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#e5e7eb',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  rotaCardPendente: {
-    borderLeftColor: '#f59e0b',
-  },
-  rotaCardEmAndamento: {
-    borderLeftColor: '#3b82f6',
-  },
-  rotaCardConcluida: {
-    borderLeftColor: '#10b981',
-  },
-  rotaCardCancelada: {
-    borderLeftColor: '#ef4444',
-    opacity: 0.7,
-  },
-  rotaHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  rotaHeaderLeft: {
-    flex: 1,
-  },
-  rotaData: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 4,
-    textTransform: 'capitalize',
-  },
-  rotaMotorista: {
-    fontSize: 14,
-    color: '#6b7280',
   },
   statusBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
-  },
-  statusBadgePendente: {
-    backgroundColor: '#fef3c7',
-  },
-  statusBadgeEmAndamento: {
-    backgroundColor: '#dbeafe',
-  },
-  statusBadgeConcluida: {
-    backgroundColor: '#d1fae5',
-  },
-  statusBadgeCancelada: {
-    backgroundColor: '#fee2e2',
+    alignSelf: 'flex-start',
   },
   statusBadgeText: {
+    color: '#fff',
     fontSize: 12,
     fontWeight: '600',
-    color: '#111827',
   },
-  rotaStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 8,
-  },
-  statItem: {
+  emptyState: {
     alignItems: 'center',
+    paddingVertical: 60,
   },
-  statValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#0D5A9C',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: '#6b7280',
-  },
-  rotaDetalhes: {
-    marginTop: 8,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#e5e7eb',
-    marginVertical: 12,
-  },
-  detalheRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 6,
-  },
-  detalheLabel: {
-    fontSize: 13,
-    color: '#6b7280',
-    fontWeight: '500',
-  },
-  detalheValue: {
-    fontSize: 13,
-    color: '#111827',
-    fontWeight: '600',
-  },
-  progressBarContainer: {
-    flex: 1,
-    height: 6,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 3,
-    marginLeft: 12,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#10b981',
-    borderRadius: 3,
-  },
-  expandIndicator: {
-    marginTop: 12,
-    alignItems: 'center',
-  },
-  expandIndicatorText: {
-    fontSize: 12,
-    color: '#0D5A9C',
-    fontWeight: '600',
-  },
-  verMapaButton: {
-    backgroundColor: '#10b981',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  verMapaButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  cancelarButton: {
-    backgroundColor: '#ef4444',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  cancelarButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
-    maxHeight: '80%',
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 24,
-  },
-  filterLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-    marginTop: 16,
-  },
-  statusFilterContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  statusFilterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#f3f4f6',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  statusFilterButtonActive: {
-    backgroundColor: '#0D5A9C',
-    borderColor: '#0D5A9C',
-  },
-  statusFilterButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  statusFilterButtonTextActive: {
-    color: '#fff',
-  },
-  filterInput: {
-    backgroundColor: '#f9fafb',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    color: '#111827',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
-  },
-  modalButtonSecondary: {
-    flex: 1,
-    backgroundColor: '#f3f4f6',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  modalButtonSecondaryText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  modalButtonPrimary: {
-    flex: 1,
-    backgroundColor: '#0D5A9C',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  modalButtonPrimaryText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  // Estilos do Modal de Cancelamento
-  modalOverlayCancelar: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContentCancelar: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    width: '100%',
-    maxWidth: 400,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  modalHeaderCancelar: {
-    backgroundColor: '#fee2e2',
-    padding: 20,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#fecaca',
-  },
-  modalTitleCancelar: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#991b1b',
-    textAlign: 'center',
-  },
-  modalBodyCancelar: {
-    padding: 24,
-  },
-  modalTextCancelar: {
-    fontSize: 16,
-    color: '#374151',
-    textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 24,
-  },
-  rotaInfoCancelar: {
-    backgroundColor: '#f9fafb',
-    borderRadius: 8,
-    padding: 16,
+  emptyStateText: {
+    fontSize: 48,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
-  infoRowCancelar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827', // Gray 900
     marginBottom: 8,
   },
-  infoLabelCancelar: {
+  emptyStateSubtitle: {
     fontSize: 14,
-    color: '#6b7280',
-    fontWeight: '500',
-  },
-  infoValueCancelar: {
-    fontSize: 14,
-    color: '#111827',
-    fontWeight: '600',
-  },
-  modalWarningCancelar: {
-    fontSize: 13,
-    color: '#dc2626',
-    textAlign: 'center',
-    fontWeight: '500',
-    fontStyle: 'italic',
-  },
-  modalFooterCancelar: {
-    flexDirection: 'row',
-    gap: 12,
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-  },
-  modalButtonCancelarSecondary: {
-    flex: 1,
-    backgroundColor: '#f3f4f6',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-  },
-  modalButtonTextSecondary: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  modalButtonCancelarPrimary: {
-    flex: 1,
-    backgroundColor: '#dc2626',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  modalButtonTextPrimary: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
+    color: '#6b7280', // Gray 500
   },
 });

@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   TextInput,
 } from 'react-native';
@@ -16,6 +15,10 @@ import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 import { googleMapsService } from '@/lib/google';
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
+import { useResponsive } from '@/hooks/useResponsive';
+import { ResponsiveContainer } from '@/components/ResponsiveContainer';
+import { Toast } from '@/components/Toast';
+import { useToast } from '@/hooks/useToast';
 
 // Schema de validação
 const paradaSchema = z.object({
@@ -48,6 +51,8 @@ interface Parada extends ParadaFormData {
 
 export default function NovaEntrega() {
   const { userData, unidade } = useUser();
+  const { isDesktop, isMobile, isTablet } = useResponsive();
+  const { toast: toastState, showToast, hideToast, withToast } = useToast();
   const [paradas, setParadas] = useState<Parada[]>([]);
   const [motoristas, setMotoristas] = useState<any[]>([]);
   const [motoristaSelecionado, setMotoristaSelecionado] = useState<string>('');
@@ -130,10 +135,10 @@ export default function NovaEntrega() {
 
       setParadas([...paradas, novaParada]);
       reset();
-      Alert.alert('Sucesso', 'Parada adicionada à lista!');
+      showToast('Parada adicionada à lista!', 'success');
     } catch (error) {
       console.error('Erro ao adicionar parada:', error);
-      Alert.alert('Erro', 'Não foi possível adicionar a parada');
+      showToast('Não foi possível adicionar a parada', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -209,15 +214,14 @@ export default function NovaEntrega() {
         tempo: resultado.tempo / 60, // Converter segundos para minutos
       });
 
-      Alert.alert(
-        'Rota Otimizada! ✅',
-        `Distância total: ${(resultado.distancia / 1000).toFixed(1)} km\n` +
-          `Tempo estimado: ${Math.round(resultado.tempo / 60)} minutos\n\n` +
-          `As paradas foram reordenadas para o percurso mais eficiente.`
+      showToast(
+        `Rota otimizada! ${(resultado.distancia / 1000).toFixed(1)} km - ${Math.round(resultado.tempo / 60)} min`,
+        'success',
+        4000
       );
     } catch (error) {
       console.error('Erro ao otimizar rota:', error);
-      Alert.alert('Erro', 'Não foi possível otimizar a rota. Verifique sua conexão.');
+      showToast('Não foi possível otimizar a rota', 'error');
     } finally {
       setIsOptimizing(false);
     }
@@ -230,12 +234,12 @@ export default function NovaEntrega() {
     console.log('🚗 Motorista:', motoristaSelecionado);
 
     if (paradas.length === 0) {
-      Alert.alert('Atenção', 'Adicione pelo menos uma parada');
+      showToast('Adicione pelo menos uma parada antes de gerar a rota', 'info');
       return;
     }
 
     if (!motoristaSelecionado) {
-      Alert.alert('Atenção', 'Selecione um motorista');
+      showToast('Selecione um motorista para a rota', 'info');
       return;
     }
 
@@ -299,14 +303,17 @@ export default function NovaEntrega() {
 
       console.log('🎉 Rota completa criada com sucesso!');
 
-      Alert.alert(
-        'Sucesso!',
-        `Rota criada com ${paradas.length} parada(s)`,
-        [{ text: 'OK', onPress: () => limparFormulario() }]
+      showToast(
+        `Rota criada com sucesso! ${paradas.length} parada(s) adicionadas.`,
+        'success',
+        4000
       );
+
+      // Limpar formulário após sucesso
+      setTimeout(() => limparFormulario(), 1000);
     } catch (error) {
       console.error('❌ Erro ao criar rota:', error);
-      Alert.alert('Erro', 'Não foi possível criar a rota');
+      showToast('Não foi possível criar a rota. Tente novamente.', 'error', 5000);
     } finally {
       setIsLoading(false);
     }
@@ -328,11 +335,13 @@ export default function NovaEntrega() {
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.content}>
+      <ResponsiveContainer>
         <Text style={styles.title}>Nova Rota de Entrega</Text>
 
-        {/* Formulário de Parada */}
-        <View style={styles.form}>
+        {/* Layout Responsivo: 2 colunas em desktop, stack em mobile */}
+        <View style={[styles.content, isDesktop && styles.contentDesktop]}>
+          {/* Coluna Esquerda: Formulário de Parada */}
+          <View style={[styles.form, isDesktop && styles.formDesktop]}>
           <Text style={styles.sectionTitle}>Adicionar Parada</Text>
 
           <Controller
@@ -474,8 +483,11 @@ export default function NovaEntrega() {
               <Text style={styles.addButtonText}>+ Adicionar Parada</Text>
             )}
           </TouchableOpacity>
-        </View>
+          </View>
+          {/* Fim Coluna Esquerda: Formulário */}
 
+          {/* Coluna Direita: Lista de Paradas + Motorista */}
+          <View style={[styles.paradasColumn, isDesktop && styles.paradasColumnDesktop]}>
         {/* Lista de Paradas */}
         {paradas.length > 0 && (
           <View style={styles.paradasList}>
@@ -591,7 +603,14 @@ export default function NovaEntrega() {
             )}
           </TouchableOpacity>
         )}
-      </View>
+          </View>
+          {/* Fim Coluna Direita */}
+        </View>
+        {/* Fim Layout 2 Colunas */}
+      </ResponsiveContainer>
+
+      {/* Toast de Feedback */}
+      <Toast {...toastState} onDismiss={hideToast} />
     </ScrollView>
   );
 }
@@ -819,5 +838,26 @@ const styles = StyleSheet.create({
     color: '#047857',
     fontStyle: 'italic',
     textAlign: 'center',
+  },
+  // ============================================
+  // Estilos Responsivos Desktop
+  // ============================================
+  contentDesktop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 0,
+  },
+  formDesktop: {
+    flex: 1,
+    minWidth: 400,
+    maxWidth: 500,
+    marginRight: 24,
+  },
+  paradasColumn: {
+    // Mobile: fullwidth
+  },
+  paradasColumnDesktop: {
+    flex: 1,
+    minWidth: 400,
   },
 });

@@ -1,116 +1,88 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 
+/**
+ * Index - Redirect Inteligente
+ *
+ * Esta página NÃO é uma landing page.
+ * Ela detecta se o usuário está logado e redireciona automaticamente:
+ *
+ * - Logado como gestor → /gestor/dashboard
+ * - Logado como motorista → /motorista/rota
+ * - Não logado → /auth/login
+ *
+ * Landing page institucional: www.rotamestre.tec.br
+ */
 export default function Index() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    checkSession();
+    checkSessionAndRedirect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function checkSession() {
+  async function checkSessionAndRedirect() {
     try {
       const session = await authService.getSession();
 
       if (session?.user) {
+        // Usuário autenticado: redireciona para área correspondente
         const tipo = await authService.verificarTipoUsuario(session.user.id);
 
         if (tipo === 'gestor') {
+          console.log('✅ Usuário autenticado como gestor → /gestor/dashboard');
           router.replace('/gestor/dashboard');
         } else if (tipo === 'motorista') {
+          console.log('✅ Usuário autenticado como motorista → /motorista/rota');
           router.replace('/motorista/rota');
+        } else {
+          // Tipo desconhecido, vai para login
+          console.warn('⚠️ Tipo de usuário desconhecido, redirecionando para login');
+          router.replace('/auth/login');
         }
+      } else {
+        // Não autenticado: redireciona para login
+        console.log('👤 Usuário não autenticado → /auth/login');
+        router.replace('/auth/login');
       }
     } catch (error) {
-      console.error('Erro ao verificar sessão:', error);
+      // Erro ao verificar sessão: vai para login como fallback
+      console.error('❌ Erro ao verificar sessão:', error);
+      router.replace('/auth/login');
     } finally {
       setLoading(false);
     }
   }
 
+  // Loading state enquanto verifica sessão
   if (loading) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.loadingText}>Carregando...</Text>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#1e5aa8" />
+        <Text style={styles.loadingText}>Verificando sessão...</Text>
       </View>
     );
   }
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>RotaMestre</Text>
-      <Text style={styles.subtitle}>Sistema de Gestão de Rotas e Entregas</Text>
-
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => router.push('/auth/login')}
-        >
-          <Text style={styles.buttonText}>Entrar</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.button, styles.buttonSecondary]}
-          onPress={() => router.push('/auth/register')}
-        >
-          <Text style={[styles.buttonText, styles.buttonTextSecondary]}>
-            Criar Conta
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+  // Nunca deve chegar aqui (sempre redireciona)
+  // Mas retorna null como fallback
+  return null;
 }
 
 const styles = StyleSheet.create({
-  container: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
     backgroundColor: '#fff',
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#2563eb',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6b7280',
-    marginBottom: 40,
-    textAlign: 'center',
   },
   loadingText: {
-    fontSize: 18,
-    color: '#6b7280',
-  },
-  buttonContainer: {
-    width: '100%',
-    gap: 15,
-  },
-  button: {
-    backgroundColor: '#2563eb',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  buttonSecondary: {
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#2563eb',
-  },
-  buttonText: {
-    color: '#fff',
+    marginTop: 16,
     fontSize: 16,
-    fontWeight: '600',
-  },
-  buttonTextSecondary: {
-    color: '#2563eb',
+    color: '#6b7280',
+    fontWeight: '500',
   },
 });

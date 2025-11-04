@@ -15,6 +15,11 @@ import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 import { toast } from '@/utils/toast';
 import { validation, formatTelefone } from '@/utils/validation';
+import { useResponsive } from '@/hooks/useResponsive';
+import { ResponsiveContainer } from '@/components/ResponsiveContainer';
+import { DataTable, DataTableColumn, DataTableAction } from '@/components/DataTable';
+import { Toast } from '@/components/Toast';
+import { useToast } from '@/hooks/useToast';
 
 interface MotoristaDetalhado {
   id: string;
@@ -32,6 +37,8 @@ interface MotoristaDetalhado {
 
 export default function MotoristasGestor() {
   const { userData } = useUser();
+  const { isDesktop, isMobile } = useResponsive();
+  const { toast: toastState, showToast, hideToast, withToast } = useToast();
   const [motoristas, setMotoristas] = useState<MotoristaDetalhado[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -310,31 +317,34 @@ export default function MotoristasGestor() {
           style: novoStatus ? 'default' : 'destructive',
           onPress: async () => {
             try {
-              const { error } = await supabase
-                .from('usuarios')
-                .update({ ativo: novoStatus })
-                .eq('id', motorista.id);
+              await withToast(
+                async () => {
+                  const { error } = await supabase
+                    .from('usuarios')
+                    .update({ ativo: novoStatus })
+                    .eq('id', motorista.id);
 
-              if (error) throw error;
+                  if (error) throw error;
 
-              // Criar log
-              await supabase.from('logs').insert({
-                usuario_id: userData!.id,
-                evento: novoStatus ? 'motorista_ativado' : 'motorista_desativado',
-                detalhes: {
-                  motorista_id: motorista.id,
-                  motorista_nome: motorista.nome,
+                  // Criar log
+                  await supabase.from('logs').insert({
+                    usuario_id: userData!.id,
+                    evento: novoStatus ? 'motorista_ativado' : 'motorista_desativado',
+                    detalhes: {
+                      motorista_id: motorista.id,
+                      motorista_nome: motorista.nome,
+                    },
+                  });
                 },
-              });
-
-              Alert.alert(
-                'Sucesso',
-                `Motorista ${novoStatus ? 'ativado' : 'desativado'} com sucesso`
+                {
+                  loading: `${novoStatus ? 'Ativando' : 'Desativando'} motorista...`,
+                  success: `Motorista ${novoStatus ? 'ativado' : 'desativado'} com sucesso!`,
+                  error: 'Não foi possível alterar o status do motorista',
+                }
               );
               loadMotoristas();
             } catch (error: any) {
               console.error('Erro ao alterar status:', error);
-              Alert.alert('Erro', 'Não foi possível alterar o status do motorista');
             }
           },
         },
@@ -563,6 +573,68 @@ export default function MotoristasGestor() {
     </View>
   );
 
+  // ============================================
+  // DATATABLE: Definir Colunas e Ações
+  // ============================================
+
+  const columns: DataTableColumn<MotoristaDetalhado>[] = [
+    {
+      key: 'nome',
+      label: 'Nome',
+      width: 200,
+      sortable: true,
+      render: (motorista) => motorista.nome,
+    },
+    {
+      key: 'email',
+      label: 'E-mail',
+      width: 220,
+      render: (motorista) => motorista.email,
+    },
+    {
+      key: 'telefone',
+      label: 'Telefone',
+      width: 140,
+      render: (motorista) => motorista.telefone || '-',
+    },
+    {
+      key: 'rotas_total',
+      label: 'Rotas',
+      width: 100,
+      align: 'center',
+      sortable: true,
+      render: (motorista) => motorista.rotas_stats?.total?.toString() || '0',
+    },
+    {
+      key: 'rotas_concluidas',
+      label: 'Concluídas',
+      width: 120,
+      align: 'center',
+      render: (motorista) => motorista.rotas_stats?.concluidas?.toString() || '0',
+    },
+    {
+      key: 'ativo',
+      label: 'Status',
+      width: 100,
+      render: (motorista) => (motorista.ativo ? '✅ Ativo' : '❌ Inativo'),
+    },
+  ];
+
+  const actions: DataTableAction<MotoristaDetalhado>[] = [
+    {
+      label: 'Editar',
+      icon: '✏️',
+      type: 'primary',
+      onPress: abrirModalEditar,
+    },
+    {
+      label: (motorista) => (motorista.ativo ? 'Desativar' : 'Ativar'),
+      icon: (motorista) => (motorista.ativo ? '🚫' : '✅'),
+      type: 'secondary',
+      onPress: toggleAtivo,
+    },
+  ];
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -593,20 +665,9 @@ export default function MotoristasGestor() {
         </View>
       </View>
 
-      {/* Lista de Motoristas */}
-      <FlatList
-        data={motoristas}
-        keyExtractor={(item) => item.id}
-        renderItem={renderMotorista}
-        contentContainerStyle={styles.listContainer}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={['#0D5A9C']}
-          />
-        }
-        ListEmptyComponent={
+      {/* Lista de Motoristas - DataTable Responsivo */}
+      <ResponsiveContainer>
+        {motoristas.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyTitle}>👤</Text>
             <Text style={styles.emptyText}>Nenhum motorista cadastrado</Text>
@@ -614,12 +675,26 @@ export default function MotoristasGestor() {
               Adicione o primeiro motorista usando o botão acima
             </Text>
           </View>
-        }
-      />
+        ) : (
+          <DataTable
+            data={motoristas}
+            columns={columns}
+            actions={actions}
+            keyExtractor={(item) => item.id}
+            itemsPerPage={isDesktop ? 20 : 10}
+            pagination
+            isLoading={loading}
+            skeletonRows={isDesktop ? 10 : 5}
+          />
+        )}
+      </ResponsiveContainer>
 
       {/* Modals */}
       {renderAddModal()}
       {renderEditModal()}
+
+      {/* Toast de Feedback */}
+      <Toast {...toastState} onDismiss={hideToast} />
     </View>
   );
 }

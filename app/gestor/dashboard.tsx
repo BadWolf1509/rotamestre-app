@@ -11,6 +11,10 @@ import {
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
+import { useResponsive } from '@/hooks/useResponsive';
+import { ResponsiveContainer } from '@/components/ResponsiveContainer';
+import { Toast } from '@/components/Toast';
+import { useToast } from '@/hooks/useToast';
 
 interface Stats {
   total: number;
@@ -32,6 +36,8 @@ interface RotaResumo {
 export default function Dashboard() {
   const router = useRouter();
   const { userData, loading: userLoading } = useUser();
+  const { isMobile, isTablet, isDesktop, width } = useResponsive();
+  const { toast: toastState, showToast, hideToast } = useToast();
   const [stats, setStats] = useState<Stats>({
     total: 0,
     emAndamento: 0,
@@ -41,6 +47,10 @@ export default function Dashboard() {
   const [rotas, setRotas] = useState<RotaResumo[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Grid responsivo para cards de stats
+  const statsColumns = isMobile ? 2 : isTablet ? 2 : 4;
+  const statsCardWidth = isMobile ? '48%' : isTablet ? '48%' : '23%';
 
   useEffect(() => {
     if (userData?.unidade_id) {
@@ -102,6 +112,7 @@ export default function Dashboard() {
       setRotas(rotasComDetalhes);
     } catch (error) {
       console.error('Erro ao carregar dashboard:', error);
+      showToast('Erro ao carregar os dados do dashboard', 'error', 4000);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -157,62 +168,69 @@ export default function Dashboard() {
         </View>
       </View>
 
-      {/* Cards de Estatísticas */}
-      <View style={styles.statsContainer}>
-        <View style={[styles.statCard, { backgroundColor: '#0D5A9C' }]}>
-          <Text style={styles.statValue}>{stats.total}</Text>
-          <Text style={styles.statLabel}>Total Hoje</Text>
-        </View>
+      {/* Cards de Estatísticas - Grid Responsivo */}
+      <ResponsiveContainer>
+        <View style={styles.statsContainer}>
+          <View style={[styles.statCard, { backgroundColor: '#0D5A9C', width: statsCardWidth }]}>
+            <Text style={styles.statValue}>{stats.total}</Text>
+            <Text style={styles.statLabel}>Total Hoje</Text>
+          </View>
 
-        <View style={[styles.statCard, { backgroundColor: '#FF8C00' }]}>
-          <Text style={styles.statValue}>{stats.emAndamento}</Text>
-          <Text style={styles.statLabel}>Em Andamento</Text>
-        </View>
+          <View style={[styles.statCard, { backgroundColor: '#f7a02a', width: statsCardWidth }]}>
+            <Text style={styles.statValue}>{stats.emAndamento}</Text>
+            <Text style={styles.statLabel}>Em Andamento</Text>
+          </View>
 
-        <View style={[styles.statCard, { backgroundColor: '#10b981' }]}>
-          <Text style={styles.statValue}>{stats.concluidas}</Text>
-          <Text style={styles.statLabel}>Concluídas</Text>
-        </View>
+          <View style={[styles.statCard, { backgroundColor: '#10b981', width: statsCardWidth }]}>
+            <Text style={styles.statValue}>{stats.concluidas}</Text>
+            <Text style={styles.statLabel}>Concluídas</Text>
+          </View>
 
-        <View style={[styles.statCard, { backgroundColor: '#8b5cf6' }]}>
-          <Text style={styles.statValue}>{stats.distanciaTotal.toFixed(1)}</Text>
-          <Text style={styles.statLabel}>km Total</Text>
+          <View style={[styles.statCard, { backgroundColor: '#8b5cf6', width: statsCardWidth }]}>
+            <Text style={styles.statValue}>{stats.distanciaTotal.toFixed(1)}</Text>
+            <Text style={styles.statLabel}>km Total</Text>
+          </View>
         </View>
-      </View>
+      </ResponsiveContainer>
 
       {/* Ações Rápidas */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Ações Rápidas</Text>
+      <ResponsiveContainer>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Ações Rápidas</Text>
 
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => router.push('/gestor/nova-entrega')}
-        >
-          <Text style={styles.actionButtonText}>+ Nova Rota de Entrega</Text>
-        </TouchableOpacity>
+          <View style={[styles.actionsGrid, isDesktop && styles.actionsGridDesktop]}>
+            <TouchableOpacity
+              style={[styles.actionButton, isDesktop && styles.actionButtonDesktop]}
+              onPress={() => router.push('/gestor/nova-entrega')}
+            >
+              <Text style={styles.actionButtonText}>+ Nova Rota de Entrega</Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.actionButton, styles.actionButtonSecondary]}
-          onPress={() => router.push('/gestor/motoristas')}
-        >
-          <Text style={[styles.actionButtonText, styles.actionButtonTextSecondary]}>
-            Gerenciar Motoristas
-          </Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.actionButtonSecondary, isDesktop && styles.actionButtonDesktop]}
+              onPress={() => router.push('/gestor/motoristas')}
+            >
+              <Text style={[styles.actionButtonText, styles.actionButtonTextSecondary]}>
+                👥 Gerenciar Motoristas
+              </Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.actionButton, styles.actionButtonSecondary]}
-          onPress={() => router.push('/gestor/historico')}
-        >
-          <Text style={[styles.actionButtonText, styles.actionButtonTextSecondary]}>
-            Ver Histórico
-          </Text>
-        </TouchableOpacity>
-      </View>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.actionButtonSecondary, isDesktop && styles.actionButtonDesktop]}
+              onPress={() => router.push('/gestor/historico')}
+            >
+              <Text style={[styles.actionButtonText, styles.actionButtonTextSecondary]}>
+                📋 Ver Histórico
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ResponsiveContainer>
 
       {/* Rotas Recentes */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Rotas de Hoje</Text>
+      <ResponsiveContainer>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Rotas de Hoje</Text>
 
         {rotas.length === 0 ? (
           <View style={styles.emptyState}>
@@ -276,7 +294,11 @@ export default function Dashboard() {
             </TouchableOpacity>
           ))
         )}
-      </View>
+        </View>
+      </ResponsiveContainer>
+
+      {/* Toast de Feedback */}
+      <Toast {...toastState} onDismiss={hideToast} />
     </ScrollView>
   );
 }
@@ -304,16 +326,16 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: '#e5e7eb', // Gray 200 - Brand Guidelines
   },
   greeting: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#111827',
+    color: '#111827', // Gray 900 - Brand Guidelines
   },
   subtitle: {
     fontSize: 14,
-    color: '#6b7280',
+    color: '#6b7280', // Gray 500 - Brand Guidelines
     marginTop: 4,
   },
   statsContainer: {
@@ -355,17 +377,30 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginBottom: 15,
   },
+  // Actions Grid
+  actionsGrid: {
+    flexDirection: 'column',
+    gap: 10,
+  },
+  actionsGridDesktop: {
+    flexDirection: 'row',
+    gap: 16,
+  },
   actionButton: {
-    backgroundColor: '#0D5A9C',
+    backgroundColor: '#1e5aa8', // Azul Main - Brand Guidelines
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
     marginBottom: 10,
   },
+  actionButtonDesktop: {
+    flex: 1,
+    marginBottom: 0,
+  },
   actionButtonSecondary: {
     backgroundColor: '#fff',
     borderWidth: 2,
-    borderColor: '#0D5A9C',
+    borderColor: '#1e5aa8', // Azul Main
   },
   actionButtonText: {
     color: '#fff',
@@ -373,7 +408,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   actionButtonTextSecondary: {
-    color: '#0D5A9C',
+    color: '#1e5aa8', // Azul Main
   },
   emptyState: {
     backgroundColor: '#fff',

@@ -1,12 +1,17 @@
-import { Tabs, useRouter } from 'expo-router';
-import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { Tabs, useRouter, Slot } from 'expo-router';
+import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { authService } from '@/lib/auth';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { useResponsive } from '@/hooks/useResponsive';
+import { GestorSidebar } from '@/components/GestorSidebar';
+
+const SIDEBAR_WIDTH = 260;
 
 export default function GestorLayout() {
   const router = useRouter();
+  const { isDesktop, width } = useResponsive();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
 
@@ -42,13 +47,54 @@ export default function GestorLayout() {
     );
   };
 
+  // Desktop: Layout com sidebar
+  if (isDesktop) {
+    return (
+      <>
+        <View style={styles.desktopContainer}>
+          {/* Sidebar fixa à esquerda */}
+          <GestorSidebar />
+
+          {/* Conteúdo principal com margem da sidebar */}
+          <View style={styles.desktopContent}>
+            <Slot />
+          </View>
+        </View>
+
+        {/* Dialogs */}
+        <ConfirmDialog
+          visible={showLogoutDialog}
+          title="Sair da conta"
+          message="Deseja realmente encerrar sua sessão? Você precisará fazer login novamente."
+          confirmText="Sair"
+          cancelText="Cancelar"
+          type="destructive"
+          onConfirm={handleLogoutConfirm}
+          onCancel={() => setShowLogoutDialog(false)}
+        />
+
+        <ConfirmDialog
+          visible={showErrorDialog}
+          title="Erro ao sair"
+          message="Não foi possível encerrar sua sessão. Verifique sua conexão e tente novamente."
+          confirmText="Entendi"
+          cancelText="Fechar"
+          type="destructive"
+          onConfirm={() => setShowErrorDialog(false)}
+          onCancel={() => setShowErrorDialog(false)}
+        />
+      </>
+    );
+  }
+
+  // Mobile/Tablet: Layout com tabs na parte inferior
   return (
     <>
       <Tabs
         screenOptions={{
-          tabBarActiveTintColor: '#2563eb',
+          tabBarActiveTintColor: '#1e5aa8', // Azul Main - Brand Guidelines
           headerStyle: {
-            backgroundColor: '#2563eb',
+            backgroundColor: '#0D5A9C', // Azul Dark - Brand Guidelines
           },
           headerTintColor: '#fff',
           headerTitleStyle: {
@@ -114,6 +160,21 @@ export default function GestorLayout() {
 }
 
 const styles = StyleSheet.create({
+  // Desktop layout
+  desktopContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: '#f9fafb', // Gray 50 - Brand Guidelines
+  },
+  desktopContent: {
+    flex: 1,
+    marginLeft: SIDEBAR_WIDTH, // Largura da sidebar
+    backgroundColor: '#f9fafb',
+    minHeight: '100vh' as any,
+    overflowY: 'auto' as any,
+    overflowX: 'hidden' as any,
+  },
+  // Mobile logout button
   logoutButton: {
     marginRight: 16,
     paddingHorizontal: 12,

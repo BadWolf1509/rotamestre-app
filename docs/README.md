@@ -21,6 +21,12 @@ docs/
 
 ## 🎯 Guias Principais (Consolidados)
 
+### 🎨 Brand Guidelines
+
+📄 **[Brand Guidelines](../../docs/BRAND_GUIDELINES.md)** - Guia completo de identidade visual (v3.0)
+- ✅ Consolidado na raiz do projeto
+- Logotipo, cores, tipografia, componentes visuais
+
 ### 🚀 Setup & Deploy
 
 | Guia | Descrição | Tempo |
