@@ -57,18 +57,36 @@ export default function FirstPasswordScreen() {
     try {
       setLoading(true);
 
+      // Verificar se há uma sessão ativa
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        Alert.alert('Erro', 'Sessão expirada. Por favor, faça login novamente.');
+        await supabase.auth.signOut();
+        router.replace('/auth/login');
+        return;
+      }
+
       // Atualizar senha no Supabase Auth
       const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword,
       });
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Erro ao atualizar senha:', updateError);
+        throw new Error(updateError.message || 'Erro ao atualizar senha');
+      }
 
       // Marcar primeira_senha como false
-      await supabase
+      const { error: dbError } = await supabase
         .from('usuarios')
         .update({ primeira_senha: false })
         .eq('id', user.id);
+
+      if (dbError) {
+        console.error('Erro ao atualizar primeira_senha:', dbError);
+        // Não falhar aqui, a senha já foi atualizada
+      }
 
       Alert.alert(
         'Sucesso!',
@@ -83,7 +101,8 @@ export default function FirstPasswordScreen() {
         ]
       );
     } catch (error: any) {
-      Alert.alert('Erro', error.message || 'Erro ao definir senha');
+      console.error('Erro completo:', error);
+      Alert.alert('Erro', error.message || 'Erro ao definir senha. Tente novamente.');
     } finally {
       setLoading(false);
     }
