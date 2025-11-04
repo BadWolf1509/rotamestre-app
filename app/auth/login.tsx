@@ -137,7 +137,7 @@ export default function Login() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Image
-          source={require('../../assets/branding/logo-horizontal.png')}
+          source={require('../../assets/logo/logo-horizontal.PNG')}
           style={styles.logoHorizontal}
           resizeMode="contain"
         />
