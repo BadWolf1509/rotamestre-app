@@ -58,14 +58,17 @@ export default function Login() {
       <View style={styles.containerDesktop}>
         {/* Left Side - Imagem de Branding (sem overlay de texto, imagem já contém tudo) */}
         <View style={styles.leftPanel}>
-          <ImageBackground
-            source={require('../../assets/marketing/login-background.png')}
-            style={styles.imageWrapper}
-            resizeMode="cover"
-            imageStyle={styles.backgroundImage}
-          >
-            {/* Sem overlay nem texto - a imagem já tem tudo */}
-          </ImageBackground>
+          <View style={[styles.imageWrapper, { backgroundColor: '#004E89' }]}>
+            {/* Fallback: cor sólida para web/produção */}
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 }}>
+              <Text style={{ fontSize: 48, fontWeight: 'bold', color: '#FF6B35', marginBottom: 20 }}>
+                Rota Mestre
+              </Text>
+              <Text style={{ fontSize: 20, color: 'white', textAlign: 'center' }}>
+                Otimização inteligente de rotas
+              </Text>
+            </View>
+          </View>
         </View>
 
         {/* Right Side - Form (Branco) */}
