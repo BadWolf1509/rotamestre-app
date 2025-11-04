@@ -34,6 +34,13 @@ export default function Login() {
       const { usuario } = await authService.signIn(email, password);
 
       if (usuario) {
+        // Verificar se é primeiro acesso e precisa trocar senha
+        if (usuario.primeira_senha === true) {
+          router.replace('/onboarding/first-password');
+          return;
+        }
+
+        // Redirecionar para dashboard apropriado
         if (usuario.papel === 'gestor') {
           router.replace('/gestor/dashboard');
         } else if (usuario.papel === 'motorista') {
