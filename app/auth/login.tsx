@@ -7,7 +7,6 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-  Image,
   ImageBackground,
   Platform,
 } from 'react-native';
@@ -136,11 +135,9 @@ export default function Login() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Image
-          source={require('../../assets/logo/logo-horizontal.PNG')}
-          style={styles.logoHorizontal}
-          resizeMode="contain"
-        />
+        <View style={styles.logoHorizontal}>
+          <Text style={styles.logoText}>Rota Mestre</Text>
+        </View>
         <Text style={styles.subtitle}>Entre com sua conta</Text>
       </View>
 
@@ -320,9 +317,14 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logoHorizontal: {
-    width: 880,
-    height: 240,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 16,
+  },
+  logoText: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#FF6B35', // Laranja Brand
   },
   subtitle: {
     fontSize: 16,
