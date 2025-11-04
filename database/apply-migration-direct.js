@@ -41,7 +41,8 @@ async function applyMigration() {
     console.log('✅ Conectado!\n');
 
     // Ler arquivo SQL
-    const migrationPath = join(__dirname, 'migrations', '20251025000000_add_foto_url_to_paradas.sql');
+    const migrationFile = process.argv[2] || '20251104_add_profile_management.sql';
+    const migrationPath = join(__dirname, 'migrations', migrationFile);
     const sql = readFileSync(migrationPath, 'utf8');
 
     console.log('📄 Migration SQL:');
@@ -57,22 +58,31 @@ async function applyMigration() {
 
     console.log('✅ Migration aplicada com sucesso!\n');
 
-    // Verificar se coluna existe
+    // Verificar se colunas foram criadas
     const result = await client.query(`
       SELECT column_name, data_type, is_nullable
       FROM information_schema.columns
-      WHERE table_name = 'paradas'
-      AND column_name = 'foto_url'
+      WHERE table_name = 'usuarios'
+      AND column_name IN ('primeira_senha', 'is_gestor_principal', 'foto_url', 'ultimo_login')
+      ORDER BY column_name
     `);
 
     if (result.rows.length > 0) {
-      console.log('✅ Verificação: Coluna foto_url criada com sucesso!');
+      console.log('✅ Verificação: Colunas criadas com sucesso!');
       console.log('📊 Detalhes:');
-      console.log(`   - Nome: ${result.rows[0].column_name}`);
-      console.log(`   - Tipo: ${result.rows[0].data_type}`);
-      console.log(`   - Nullable: ${result.rows[0].is_nullable}`);
+      result.rows.forEach(row => {
+        console.log(`   - ${row.column_name}: ${row.data_type} (nullable: ${row.is_nullable})`);
+      });
+
+      // Verificar gestores principais
+      const gestores = await client.query(`
+        SELECT COUNT(*) as total
+        FROM usuarios
+        WHERE is_gestor_principal = true
+      `);
+      console.log(`\n✅ Gestores principais marcados: ${gestores.rows[0].total}`);
     } else {
-      console.log('⚠️  Coluna não encontrada após migration!');
+      console.log('⚠️  Colunas não encontradas após migration!');
     }
 
   } catch (error) {
@@ -106,7 +116,7 @@ async function applyMigration() {
 }
 
 async function main() {
-  console.log('🚀 Sprint 1.3 - Upload de Fotos - Migration via PostgreSQL\n');
+  console.log('🚀 Gestão de Perfil - Migration via PostgreSQL\n');
   await applyMigration();
   console.log('\n✅ Processo concluído!');
 }
