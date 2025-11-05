@@ -73,6 +73,30 @@ serve(async (req) => {
       )
     }
 
+    // Verificar se email já existe na tabela usuarios (verificação na aplicação)
+    const { data: existingUser } = await supabaseAdmin
+      .from('usuarios')
+      .select('id, email')
+      .eq('email', email.trim())
+      .single()
+
+    if (existingUser) {
+      return new Response(
+        JSON.stringify({ error: 'Este email já está cadastrado no sistema. Use outro email.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Verificar se o email existe no Auth mas não na tabela usuarios (possível inconsistência)
+    const { data: { users: authUsers } } = await supabaseAdmin.auth.admin.listUsers()
+    const existingAuthUser = authUsers?.find(u => u.email === email.trim())
+
+    if (existingAuthUser) {
+      // Email existe no Auth mas não na tabela usuarios - limpar inconsistência
+      console.log(`Limpando usuário órfão do Auth: ${email.trim()}`)
+      await supabaseAdmin.auth.admin.deleteUser(existingAuthUser.id)
+    }
+
     // Criar usuário no Auth usando Admin API
     const { data: authData, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
       email: email.trim(),

@@ -1,15 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   TextInput,
   TouchableOpacity,
   Text,
-  StyleSheet,
   ActivityIndicator,
   FlatList,
   Platform,
   Keyboard,
 } from 'react-native';
+import { StyleSheet } from 'react-native-unistyles';
 import { googleMapsService, PlaceSuggestion } from '@/lib/google';
 
 interface AddressAutocompleteProps {
@@ -26,12 +26,13 @@ interface AddressAutocompleteProps {
  *
  * Features:
  * - Busca a partir de 3 caracteres
- * - Debounce de 500ms para reduzir chamadas à API
+ * - Debounce de 1000ms (1 segundo) para não interromper digitação rápida
  * - Session tokens para agrupar chamadas e reduzir custos
  * - Lista de sugestões com separação de texto principal e secundário
  * - Coordenadas obtidas automaticamente ao selecionar
+ * - TextInput otimizado com useCallback e React.memo para evitar perda de foco
  */
-export function AddressAutocomplete({
+const AddressAutocompleteComponent = function AddressAutocomplete({
   value,
   onChangeText,
   onSelectAddress,
@@ -62,13 +63,15 @@ export function AddressAutocomplete({
     if (!value || value.length < 3) {
       setSuggestions([]);
       setShowSuggestions(false);
+      setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
-    setShowSuggestions(true);
-
+    // Não mostrar loading imediatamente - só após o debounce
     debounceTimer.current = setTimeout(async () => {
+      setIsLoading(true);
+      setShowSuggestions(true);
+
       try {
         const results = await googleMapsService.autocompleteAddress(value, sessionToken);
         setSuggestions(results);
@@ -78,7 +81,7 @@ export function AddressAutocomplete({
       } finally {
         setIsLoading(false);
       }
-    }, 500); // 500ms de debounce
+    }, 1000); // 1000ms de debounce (1 segundo = sem interrupções)
 
     return () => {
       if (debounceTimer.current) {
@@ -87,18 +90,25 @@ export function AddressAutocomplete({
     };
   }, [value, sessionToken]);
 
-  const handleSelectSuggestion = (suggestion: PlaceSuggestion) => {
+  // Memoizar handlers para evitar re-renders
+  const handleSelectSuggestion = useCallback((suggestion: PlaceSuggestion) => {
     onSelectAddress(suggestion.description, suggestion.place_id);
     setSuggestions([]);
     setShowSuggestions(false);
     Keyboard.dismiss();
-  };
+  }, [onSelectAddress]);
 
-  const handleClearInput = () => {
+  const handleClearInput = useCallback(() => {
     onChangeText('');
     setSuggestions([]);
     setShowSuggestions(false);
-  };
+  }, [onChangeText]);
+
+  const handleFocus = useCallback(() => {
+    if (suggestions.length > 0) {
+      setShowSuggestions(true);
+    }
+  }, [suggestions.length]);
 
   return (
     <View style={styles.container}>
@@ -112,18 +122,21 @@ export function AddressAutocomplete({
           placeholder={placeholder}
           value={value || ''}
           onChangeText={onChangeText}
-          onFocus={() => {
-            if (suggestions.length > 0) {
-              setShowSuggestions(true);
-            }
-          }}
+          onFocus={handleFocus}
           multiline={multiline}
           numberOfLines={multiline ? 2 : 1}
+          textAlignVertical={multiline ? 'top' : 'center'}
           autoCorrect={false}
           autoCapitalize="words"
+          blurOnSubmit={false}
+          returnKeyType="done"
         />
         {value && value.length > 0 && (
-          <TouchableOpacity style={styles.clearButton} onPress={handleClearInput}>
+          <TouchableOpacity
+            style={styles.clearButton}
+            onPress={handleClearInput}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
             <Text style={styles.clearButtonText}>✕</Text>
           </TouchableOpacity>
         )}
@@ -131,7 +144,7 @@ export function AddressAutocomplete({
 
       {error && <Text style={styles.errorText}>{error}</Text>}
 
-      {/* Indicador de carregamento */}
+      {/* Indicador de carregamento - Só mostra se demorar mais de 300ms */}
       {isLoading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color="#0D5A9C" />
@@ -189,14 +202,30 @@ export function AddressAutocomplete({
       )}
     </View>
   );
-}
+};
+
+// Exportar com React.memo customizado que ignora mudanças nas funções
+// Isso evita re-renders desnecessários que causam perda de foco
+export const AddressAutocomplete = React.memo(
+  AddressAutocompleteComponent,
+  (prevProps, nextProps) => {
+    // Comparar apenas value, placeholder, error e multiline
+    // Ignorar funções (onChangeText, onSelectAddress) para evitar re-renders
+    return (
+      prevProps.value === nextProps.value &&
+      prevProps.placeholder === nextProps.placeholder &&
+      prevProps.error === nextProps.error &&
+      prevProps.multiline === nextProps.multiline
+    );
+  }
+);
 
 // Gerar session token único para agrupar chamadas
 function generateSessionToken(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
     marginBottom: 12,
     zIndex: 1000,
@@ -206,19 +235,19 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: theme.colors.border,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#fff',
-    paddingRight: 40, // Espaço para o botão clear
+    backgroundColor: theme.colors.surface,
+    paddingRight: 40,
   },
   inputMultiline: {
     minHeight: 60,
     textAlignVertical: 'top',
   },
   inputError: {
-    borderColor: '#ef4444',
+    borderColor: theme.colors.error,
   },
   clearButton: {
     position: 'absolute',
@@ -227,17 +256,17 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#9ca3af',
+    backgroundColor: theme.colors.textSecondary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   clearButtonText: {
-    color: '#fff',
+    color: theme.colors.surface,
     fontSize: 14,
     fontWeight: 'bold',
   },
   errorText: {
-    color: '#ef4444',
+    color: theme.colors.error,
     fontSize: 12,
     marginTop: 4,
   },
@@ -245,21 +274,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: theme.colors.disabled,
     borderRadius: 8,
     marginTop: 8,
   },
   loadingText: {
     marginLeft: 8,
     fontSize: 14,
-    color: '#6b7280',
+    color: theme.colors.textSecondary,
   },
   suggestionsContainer: {
     marginTop: 8,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.surface,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: theme.colors.border,
     maxHeight: 300,
     ...Platform.select({
       ios: {
@@ -283,7 +312,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.surface,
   },
   suggestionIcon: {
     width: 32,
@@ -301,28 +330,28 @@ const styles = StyleSheet.create({
   suggestionMainText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#111827',
+    color: theme.colors.text,
     marginBottom: 2,
   },
   suggestionSecondaryText: {
     fontSize: 13,
-    color: '#6b7280',
+    color: theme.colors.textSecondary,
   },
   separator: {
     height: 1,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: theme.colors.border,
   },
   noResultsContainer: {
     padding: 16,
-    backgroundColor: '#fef2f2',
+    backgroundColor: theme.colors.errorLight,
     borderRadius: 8,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: '#fecaca',
+    borderColor: theme.colors.error,
   },
   noResultsText: {
     fontSize: 14,
-    color: '#dc2626',
+    color: theme.colors.error,
     textAlign: 'center',
   },
   hintContainer: {
@@ -330,7 +359,7 @@ const styles = StyleSheet.create({
   },
   hintText: {
     fontSize: 12,
-    color: '#6b7280',
+    color: theme.colors.textSecondary,
     fontStyle: 'italic',
   },
-});
+}));

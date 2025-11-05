@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   ActivityIndicator,
   Alert,
@@ -12,9 +11,12 @@ import {
   Modal,
   Dimensions,
 } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { MapaAdapter } from '@/components/MapaAdapter';
+import { DesktopLayout, SplitView } from '@/components/desktop';
+import { useResponsive } from '@/hooks/useResponsive';
 
 interface Parada {
   id: string;
@@ -41,8 +43,10 @@ interface Rota {
 }
 
 export default function MapaRota() {
+  const { theme } = useUnistyles();
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { isDesktop } = useResponsive();
   const [loading, setLoading] = useState(true);
   const [rota, setRota] = useState<Rota | null>(null);
   const [paradas, setParadas] = useState<Parada[]>([]);
@@ -98,7 +102,7 @@ export default function MapaRota() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0D5A9C" />
+        <ActivityIndicator size="large" color={theme.colors.primaryDark} />
         <Text style={styles.loadingText}>Carregando rota...</Text>
       </View>
     );
@@ -150,57 +154,58 @@ export default function MapaRota() {
     );
   }
 
-  return (
-    <ScrollView style={styles.container}>
-      {/* Header da Rota */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backLink}>
-          <Text style={styles.backLinkText}>← Voltar</Text>
-        </TouchableOpacity>
+  // Componente Header reutilizável
+  const Header = () => (
+    <View style={styles.header}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backLink}>
+        <Text style={styles.backLinkText}>← Voltar</Text>
+      </TouchableOpacity>
 
-        <Text style={styles.title}>Mapa da Rota</Text>
+      <Text style={styles.title}>Mapa da Rota</Text>
 
-        <View style={styles.rotaInfo}>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Data:</Text>
-            <Text style={styles.infoValue}>
-              {new Date(rota.data).toLocaleDateString('pt-BR')}
-            </Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Motorista:</Text>
-            <Text style={styles.infoValue}>{rota.motorista?.nome || 'Não atribuído'}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Status:</Text>
-            <Text style={[styles.infoValue, styles.statusBadge]}>
-              {rota.status}
-            </Text>
-          </View>
-          {rota.distancia_total && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Distância:</Text>
-              <Text style={styles.infoValue}>{rota.distancia_total.toFixed(1)} km</Text>
-            </View>
-          )}
+      <View style={styles.rotaInfo}>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Data:</Text>
+          <Text style={styles.infoValue}>
+            {new Date(rota!.data).toLocaleDateString('pt-BR')}
+          </Text>
         </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Motorista:</Text>
+          <Text style={styles.infoValue}>{rota!.motorista?.nome || 'Não atribuído'}</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Status:</Text>
+          <Text style={[styles.infoValue, styles.statusBadge]}>
+            {rota!.status}
+          </Text>
+        </View>
+        {rota!.distancia_total && (
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Distância:</Text>
+            <Text style={styles.infoValue}>{rota!.distancia_total.toFixed(1)} km</Text>
+          </View>
+        )}
       </View>
+    </View>
+  );
 
-      {/* Mapa Interativo - Funciona em Web e Mobile (com dev build) */}
-      {paradas.length > 0 && (
-        <View style={styles.mapContainer}>
-          <MapaAdapter paradas={paradas} />
-        </View>
-      )}
+  // Componente Mapa reutilizável
+  const MapView = () => (
+    <View style={isDesktop ? styles.mapContainerDesktop : styles.mapContainer}>
+      <MapaAdapter paradas={paradas} />
+    </View>
+  );
 
-      {/* Lista de Paradas */}
-      <View style={styles.paradasContainer}>
-        <Text style={styles.paradasTitle}>
-          Paradas ({paradas.length})
-        </Text>
+  // Componente Lista de Paradas reutilizável
+  const ParadasList = () => (
+    <View style={styles.paradasContainer}>
+      <Text style={styles.paradasTitle}>
+        Paradas ({paradas.length})
+      </Text>
 
-        {paradas.map((parada, index) => (
-          <View key={parada.id} style={styles.paradaCard}>
+      {paradas.map((parada, index) => (
+        <View key={parada.id} style={styles.paradaCard}>
             <View style={styles.paradaHeader}>
               <View style={styles.paradaNumero}>
                 <Text style={styles.paradaNumeroText}>{parada.ordem}</Text>
@@ -274,7 +279,61 @@ export default function MapaRota() {
             )}
           </View>
         ))}
+
+      {/* Resumo */}
+      <View style={styles.resumo}>
+        <Text style={styles.resumoTitle}>Resumo da Rota</Text>
+        <View style={styles.resumoStats}>
+          <View style={styles.resumoStat}>
+            <Text style={styles.resumoStatValue}>{paradas.length}</Text>
+            <Text style={styles.resumoStatLabel}>Paradas Totais</Text>
+          </View>
+          <View style={styles.resumoStat}>
+            <Text style={[styles.resumoStatValue, { color: '#10b981' }]}>
+              {paradas.filter((p) => p.status === 'concluida').length}
+            </Text>
+            <Text style={styles.resumoStatLabel}>Concluídas</Text>
+          </View>
+          <View style={styles.resumoStat}>
+            <Text style={[styles.resumoStatValue, { color: '#f59e0b' }]}>
+              {paradas.filter((p) => p.status === 'pendente').length}
+            </Text>
+            <Text style={styles.resumoStatLabel}>Pendentes</Text>
+          </View>
+        </View>
       </View>
+    </View>
+  );
+
+  // Render principal com SplitView para desktop
+  return (
+    <>
+      <DesktopLayout scrollable={!isDesktop}>
+        <Header />
+
+        {paradas.length > 0 ? (
+          isDesktop ? (
+            // Desktop: Split horizontal (Mapa esquerda | Paradas direita)
+            <SplitView
+              left={<MapView />}
+              right={<ScrollView><ParadasList /></ScrollView>}
+              leftFlex={3}
+              rightFlex={2}
+              gap={24}
+            />
+          ) : (
+            // Mobile: Empilhado vertical
+            <>
+              <MapView />
+              <ParadasList />
+            </>
+          )
+        ) : (
+          <View style={styles.emptyParadas}>
+            <Text style={styles.emptyParadasText}>Nenhuma parada nesta rota</Text>
+          </View>
+        )}
+      </DesktopLayout>
 
       {/* Modal para visualizar foto em tamanho grande */}
       <Modal
@@ -307,93 +366,70 @@ export default function MapaRota() {
           </TouchableOpacity>
         </View>
       </Modal>
-
-      {/* Resumo */}
-      <View style={styles.resumo}>
-        <Text style={styles.resumoTitle}>Resumo da Rota</Text>
-        <View style={styles.resumoStats}>
-          <View style={styles.resumoStat}>
-            <Text style={styles.resumoStatValue}>{paradas.length}</Text>
-            <Text style={styles.resumoStatLabel}>Paradas Totais</Text>
-          </View>
-          <View style={styles.resumoStat}>
-            <Text style={[styles.resumoStatValue, { color: '#10b981' }]}>
-              {paradas.filter((p) => p.status === 'concluida').length}
-            </Text>
-            <Text style={styles.resumoStatLabel}>Concluídas</Text>
-          </View>
-          <View style={styles.resumoStat}>
-            <Text style={[styles.resumoStatValue, { color: '#f59e0b' }]}>
-              {paradas.filter((p) => p.status === 'pendente').length}
-            </Text>
-            <Text style={styles.resumoStatLabel}>Pendentes</Text>
-          </View>
-        </View>
-      </View>
-    </ScrollView>
+    </>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.gray50,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.gray50,
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 14,
-    color: '#6b7280',
+    marginTop: theme.spacing.sm + 2,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray500,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: theme.spacing.xl,
   },
   errorText: {
-    fontSize: 18,
-    color: '#ef4444',
-    marginBottom: 20,
+    fontSize: theme.typography.fontSize.lg,
+    color: theme.colors.error,
+    marginBottom: theme.spacing.xl,
   },
   backButton: {
-    backgroundColor: '#0D5A9C',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
+    backgroundColor: theme.colors.primaryDark,
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: theme.spacing.sm + 2,
+    borderRadius: theme.borderRadius.sm,
   },
   backButtonText: {
-    color: '#fff',
-    fontSize: 16,
+    color: theme.colors.white,
+    fontSize: theme.typography.fontSize.base,
     fontWeight: '600',
   },
   header: {
-    backgroundColor: '#fff',
-    padding: 20,
+    backgroundColor: theme.colors.white,
+    padding: theme.spacing.xl,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: theme.colors.gray200,
   },
   backLink: {
-    marginBottom: 12,
+    marginBottom: theme.spacing.md,
   },
   backLinkText: {
-    fontSize: 16,
-    color: '#0D5A9C',
+    fontSize: theme.typography.fontSize.base,
+    color: theme.colors.primaryDark,
     fontWeight: '600',
   },
   title: {
-    fontSize: 24,
+    fontSize: theme.typography.fontSize['2xl'],
     fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 16,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.lg,
   },
   rotaInfo: {
-    gap: 8,
+    gap: theme.spacing.sm,
   },
   infoRow: {
     flexDirection: 'row',
@@ -401,142 +437,134 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   infoLabel: {
-    fontSize: 14,
-    color: '#6b7280',
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray500,
     fontWeight: '500',
   },
   infoValue: {
-    fontSize: 14,
-    color: '#111827',
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray900,
     fontWeight: '600',
   },
   statusBadge: {
-    backgroundColor: '#dbeafe',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    backgroundColor: theme.colors.infoBg,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.lg,
     color: '#1e40af',
     textTransform: 'capitalize',
   },
   paradasContainer: {
-    padding: 16,
+    padding: theme.spacing.lg,
   },
   paradasTitle: {
-    fontSize: 18,
+    fontSize: theme.typography.fontSize.lg,
     fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 12,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.md,
   },
   paradaCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
     borderLeftWidth: 4,
-    borderLeftColor: '#0D5A9C',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    borderLeftColor: theme.colors.primaryDark,
+    ...theme.shadows.sm,
   },
   paradaHeader: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: theme.spacing.md,
   },
   paradaNumero: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#0D5A9C',
+    backgroundColor: theme.colors.primaryDark,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: theme.spacing.md,
   },
   paradaNumeroText: {
-    color: '#fff',
-    fontSize: 16,
+    color: theme.colors.white,
+    fontSize: theme.typography.fontSize.base,
     fontWeight: 'bold',
   },
   paradaHeaderInfo: {
     flex: 1,
   },
   paradaEndereco: {
-    fontSize: 15,
+    fontSize: theme.typography.fontSize.sm + 1,
     fontWeight: '600',
-    color: '#111827',
-    marginBottom: 8,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.sm,
   },
   paradaTags: {
     flexDirection: 'row',
-    gap: 8,
+    gap: theme.spacing.sm,
     flexWrap: 'wrap',
   },
   tipoTag: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: theme.spacing.sm + 2,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.lg,
   },
   tipoTagEntrega: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: theme.colors.infoBg,
   },
   tipoTagRetirada: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: theme.colors.warningBg,
   },
   tipoTagText: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     fontWeight: '600',
-    color: '#111827',
+    color: theme.colors.gray900,
   },
   statusTag: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: theme.spacing.sm + 2,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.lg,
   },
   statusTagConcluida: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: theme.colors.successBg,
   },
   statusTagPendente: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: theme.colors.errorBg,
   },
   statusTagEmAndamento: {
     backgroundColor: '#e0e7ff',
   },
   statusTagText: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     fontWeight: '600',
-    color: '#111827',
+    color: theme.colors.gray900,
   },
   paradaDetalhes: {
-    gap: 6,
-    marginTop: 8,
+    gap: theme.spacing.sm - 2,
+    marginTop: theme.spacing.sm,
   },
   paradaDetalhe: {
-    fontSize: 13,
-    color: '#6b7280',
+    fontSize: theme.typography.fontSize.sm - 1,
+    color: theme.colors.gray500,
   },
   coordenadas: {
-    fontSize: 12,
-    color: '#9ca3af',
-    marginTop: 8,
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.gray400,
+    marginTop: theme.spacing.sm,
     fontFamily: 'monospace',
   },
   resumo: {
-    backgroundColor: '#fff',
-    padding: 20,
-    margin: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: theme.colors.white,
+    padding: theme.spacing.xl,
+    margin: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
+    ...theme.shadows.sm,
   },
   resumoTitle: {
-    fontSize: 18,
+    fontSize: theme.typography.fontSize.lg,
     fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 16,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.lg,
   },
   resumoStats: {
     flexDirection: 'row',
@@ -546,26 +574,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   resumoStatValue: {
-    fontSize: 24,
+    fontSize: theme.typography.fontSize['2xl'],
     fontWeight: 'bold',
-    color: '#0D5A9C',
-    marginBottom: 4,
+    color: theme.colors.primaryDark,
+    marginBottom: theme.spacing.xs,
   },
   resumoStatLabel: {
-    fontSize: 12,
-    color: '#6b7280',
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.gray500,
     textAlign: 'center',
   },
   mapContainer: {
     height: 400,
-    margin: 16,
-    borderRadius: 12,
+    margin: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    ...theme.shadows.md,
+  },
+  mapContainerDesktop: {
+    height: '100%',
+    minHeight: 600,
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+    ...theme.shadows.md,
+  },
+  emptyParadas: {
+    padding: theme.spacing['3xl'],
+    alignItems: 'center',
+  },
+  emptyParadasText: {
+    fontSize: theme.typography.fontSize.lg,
+    color: theme.colors.gray500,
   },
   map: {
     width: '100%',
@@ -604,102 +643,102 @@ const styles = StyleSheet.create({
   // Empty State Styles
   emptyStateContainer: {
     flex: 1,
-    backgroundColor: '#f9fafb',
-    padding: 20,
+    backgroundColor: theme.colors.gray50,
+    padding: theme.spacing.xl,
   },
   emptyStateBackLink: {
-    marginBottom: 20,
+    marginBottom: theme.spacing.xl,
   },
   emptyStateContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: theme.spacing.xl,
     paddingBottom: 100,
   },
   emptyStateIcon: {
     fontSize: 64,
-    marginBottom: 20,
+    marginBottom: theme.spacing.xl,
   },
   emptyStateTitle: {
-    fontSize: 24,
+    fontSize: theme.typography.fontSize['2xl'],
     fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 12,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.md,
     textAlign: 'center',
   },
   emptyStateDescription: {
-    fontSize: 16,
-    color: '#6b7280',
+    fontSize: theme.typography.fontSize.base,
+    color: theme.colors.gray500,
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: theme.spacing['3xl'],
     lineHeight: 24,
-    paddingHorizontal: 20,
+    paddingHorizontal: theme.spacing.xl,
   },
   primaryButton: {
-    backgroundColor: '#0D5A9C',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 12,
+    backgroundColor: theme.colors.primaryDark,
+    paddingHorizontal: theme.spacing['3xl'],
+    paddingVertical: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
     width: '100%',
     maxWidth: 320,
-    shadowColor: '#0D5A9C',
+    shadowColor: theme.colors.primaryDark,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
   },
   primaryButtonText: {
-    color: '#fff',
-    fontSize: 18,
+    color: theme.colors.white,
+    fontSize: theme.typography.fontSize.lg,
     fontWeight: '700',
     textAlign: 'center',
   },
   emptyStateOr: {
-    fontSize: 14,
-    color: '#9ca3af',
-    marginTop: 24,
-    marginBottom: 16,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray400,
+    marginTop: theme.spacing['2xl'],
+    marginBottom: theme.spacing.lg,
   },
   secondaryButton: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 12,
+    backgroundColor: theme.colors.white,
+    paddingHorizontal: theme.spacing['3xl'],
+    paddingVertical: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
     width: '100%',
     maxWidth: 320,
     borderWidth: 2,
-    borderColor: '#0D5A9C',
+    borderColor: theme.colors.primaryDark,
   },
   secondaryButtonText: {
-    color: '#0D5A9C',
-    fontSize: 18,
+    color: theme.colors.primaryDark,
+    fontSize: theme.typography.fontSize.lg,
     fontWeight: '700',
     textAlign: 'center',
   },
   fotoContainer: {
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: theme.spacing.md,
+    paddingTop: theme.spacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderTopColor: theme.colors.gray200,
   },
   fotoLabel: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     fontWeight: '600',
-    color: '#111827',
-    marginBottom: 8,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.sm,
   },
   fotoThumbnail: {
     width: '100%',
     height: 200,
-    borderRadius: 8,
-    backgroundColor: '#f3f4f6',
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: theme.colors.gray100,
   },
   fotoHint: {
-    fontSize: 12,
-    color: '#6b7280',
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.gray500,
     textAlign: 'center',
-    marginTop: 6,
+    marginTop: theme.spacing.sm - 2,
     fontStyle: 'italic',
   },
   modalOverlay: {
@@ -713,7 +752,7 @@ const styles = StyleSheet.create({
     width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: theme.spacing.xl,
   },
   modalContent: {
     width: '100%',
@@ -728,19 +767,19 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.white,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
   },
   modalCloseButtonText: {
-    fontSize: 24,
-    color: '#111827',
+    fontSize: theme.typography.fontSize['2xl'],
+    color: theme.colors.gray900,
     fontWeight: 'bold',
   },
   fotoGrande: {
     width: '100%',
     height: '100%',
-    borderRadius: 12,
+    borderRadius: theme.borderRadius.lg,
   },
-});
+}));

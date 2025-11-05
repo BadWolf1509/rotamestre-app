@@ -2,21 +2,20 @@ import { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
   RefreshControl,
-  Modal,
   TextInput,
 } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 import { toast } from '@/utils/toast';
 import { validation, formatTelefone } from '@/utils/validation';
 import { useResponsive } from '@/hooks/useResponsive';
-import { ResponsiveContainer } from '@/components/ResponsiveContainer';
+import { DesktopLayout, DesktopModal } from '@/components/desktop';
 import { DataTable, DataTableColumn, DataTableAction } from '@/components/DataTable';
 import { Toast } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
@@ -36,6 +35,7 @@ interface MotoristaDetalhado {
 }
 
 export default function MotoristasGestor() {
+  const { theme } = useUnistyles();
   const { userData } = useUser();
   const { isDesktop, isMobile } = useResponsive();
   const { toast: toastState, showToast, hideToast, withToast } = useToast();
@@ -52,6 +52,10 @@ export default function MotoristasGestor() {
   const [formEmail, setFormEmail] = useState('');
   const [formTelefone, setFormTelefone] = useState('');
   const [formSenha, setFormSenha] = useState('');
+
+  // Validation errors
+  const [emailError, setEmailError] = useState('');
+  const [telefoneError, setTelefoneError] = useState('');
 
   useEffect(() => {
     if (userData?.unidade_id) {
@@ -121,6 +125,8 @@ export default function MotoristasGestor() {
     setFormEmail('');
     setFormTelefone('');
     setFormSenha('');
+    setEmailError('');
+    setTelefoneError('');
     setShowAddModal(true);
   }
 
@@ -129,12 +135,62 @@ export default function MotoristasGestor() {
     setFormNome(motorista.nome);
     setFormEmail(motorista.email);
     setFormTelefone(motorista.telefone || '');
+    setEmailError('');
+    setTelefoneError('');
     setShowEditModal(true);
   }
 
+  // Validação em tempo real
+  function validateEmail(email: string): boolean {
+    setEmailError('');
+    if (!email.trim()) return true; // Campo vazio é OK (validação obrigatória acontece no submit)
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setEmailError('Digite um email válido');
+      return false;
+    }
+    return true;
+  }
+
+  function validateTelefone(telefone: string): boolean {
+    setTelefoneError('');
+    return true; // Apenas limpa erro, a formatação já limita os dígitos
+  }
+
+  function formatTelefoneInput(text: string): string {
+    // Remove tudo que não é número
+    const numeros = text.replace(/\D/g, '');
+
+    // Limita a 11 dígitos
+    const numerosLimitados = numeros.slice(0, 11);
+
+    // Formata conforme o tamanho
+    if (numerosLimitados.length <= 2) {
+      return numerosLimitados;
+    } else if (numerosLimitados.length <= 6) {
+      // (00) 0000
+      return `(${numerosLimitados.slice(0, 2)}) ${numerosLimitados.slice(2)}`;
+    } else if (numerosLimitados.length <= 10) {
+      // (00) 0000-0000
+      return `(${numerosLimitados.slice(0, 2)}) ${numerosLimitados.slice(2, 6)}-${numerosLimitados.slice(6)}`;
+    } else {
+      // (00) 00000-0000
+      return `(${numerosLimitados.slice(0, 2)}) ${numerosLimitados.slice(2, 7)}-${numerosLimitados.slice(7)}`;
+    }
+  }
+
   async function adicionarMotorista() {
+    // Validar campos obrigatórios
     if (!formNome.trim() || !formEmail.trim() || !formSenha.trim()) {
       Alert.alert('Erro', 'Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formEmail.trim())) {
+      Alert.alert('Erro', 'Digite um email válido');
       return;
     }
 
@@ -263,8 +319,16 @@ export default function MotoristasGestor() {
   }
 
   async function editarMotorista() {
+    // Validar campos obrigatórios
     if (!formNome.trim() || !formEmail.trim()) {
       Alert.alert('Erro', 'Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formEmail.trim())) {
+      Alert.alert('Erro', 'Digite um email válido');
       return;
     }
 
@@ -353,148 +417,161 @@ export default function MotoristasGestor() {
   }
 
   const renderAddModal = () => (
-    <Modal
+    <DesktopModal
       visible={showAddModal}
-      transparent
-      animationType="slide"
-      onRequestClose={() => setShowAddModal(false)}
+      onClose={() => setShowAddModal(false)}
+      title="Adicionar Motorista"
+      maxWidth={500}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Adicionar Motorista</Text>
+      <Text style={styles.inputLabel}>Nome *</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Digite o nome completo"
+        value={formNome}
+        onChangeText={setFormNome}
+        placeholderTextColor="#9ca3af"
+      />
 
-          <Text style={styles.inputLabel}>Nome *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Digite o nome completo"
-            value={formNome}
-            onChangeText={setFormNome}
-            placeholderTextColor="#9ca3af"
-          />
+      <Text style={styles.inputLabel}>Email *</Text>
+      <TextInput
+        style={[styles.input, emailError && styles.inputError]}
+        placeholder="Digite o email"
+        value={formEmail}
+        onChangeText={(text) => {
+          setFormEmail(text);
+          validateEmail(text);
+        }}
+        onBlur={() => validateEmail(formEmail)}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        placeholderTextColor="#9ca3af"
+      />
+      {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
-          <Text style={styles.inputLabel}>Email *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Digite o email"
-            value={formEmail}
-            onChangeText={setFormEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            placeholderTextColor="#9ca3af"
-          />
+      <Text style={styles.inputLabel}>Telefone</Text>
+      <TextInput
+        style={[styles.input, telefoneError && styles.inputError]}
+        placeholder="(00) 00000-0000"
+        value={formTelefone}
+        onChangeText={(text) => {
+          const formatted = formatTelefoneInput(text);
+          setFormTelefone(formatted);
+          validateTelefone(formatted);
+        }}
+        keyboardType="phone-pad"
+        placeholderTextColor="#9ca3af"
+        maxLength={15}
+      />
+      {telefoneError ? <Text style={styles.errorText}>{telefoneError}</Text> : null}
 
-          <Text style={styles.inputLabel}>Telefone</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="(00) 00000-0000"
-            value={formTelefone}
-            onChangeText={setFormTelefone}
-            keyboardType="phone-pad"
-            placeholderTextColor="#9ca3af"
-          />
+      <Text style={styles.inputLabel}>Senha *</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Digite a senha inicial"
+        value={formSenha}
+        onChangeText={setFormSenha}
+        secureTextEntry
+        placeholderTextColor="#9ca3af"
+      />
 
-          <Text style={styles.inputLabel}>Senha *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Digite a senha inicial"
-            value={formSenha}
-            onChangeText={setFormSenha}
-            secureTextEntry
-            placeholderTextColor="#9ca3af"
-          />
-
-          <View style={styles.modalActions}>
-            <TouchableOpacity
-              style={styles.modalButtonSecondary}
-              onPress={() => setShowAddModal(false)}
-              disabled={salvando}
-            >
-              <Text style={styles.modalButtonSecondaryText}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modalButtonPrimary, salvando && styles.buttonDisabled]}
-              onPress={adicionarMotorista}
-              disabled={salvando}
-            >
-              {salvando ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.modalButtonPrimaryText}>Adicionar</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
+      <View style={styles.modalActions}>
+        <TouchableOpacity
+          style={styles.modalButtonSecondary}
+          onPress={() => setShowAddModal(false)}
+          disabled={salvando}
+        >
+          <Text style={styles.modalButtonSecondaryText}>Cancelar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.modalButtonPrimary, salvando && styles.buttonDisabled]}
+          onPress={adicionarMotorista}
+          disabled={salvando}
+        >
+          {salvando ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.modalButtonPrimaryText}>Adicionar</Text>
+          )}
+        </TouchableOpacity>
       </View>
-    </Modal>
+    </DesktopModal>
   );
 
   const renderEditModal = () => (
-    <Modal
+    <DesktopModal
       visible={showEditModal}
-      transparent
-      animationType="slide"
-      onRequestClose={() => setShowEditModal(false)}
+      onClose={() => {
+        setShowEditModal(false);
+        setMotoristaEditando(null);
+      }}
+      title="Editar Motorista"
+      maxWidth={500}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Editar Motorista</Text>
+      <Text style={styles.inputLabel}>Nome *</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Digite o nome completo"
+        value={formNome}
+        onChangeText={setFormNome}
+        placeholderTextColor="#9ca3af"
+      />
 
-          <Text style={styles.inputLabel}>Nome *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Digite o nome completo"
-            value={formNome}
-            onChangeText={setFormNome}
-            placeholderTextColor="#9ca3af"
-          />
+      <Text style={styles.inputLabel}>Email *</Text>
+      <TextInput
+        style={[styles.input, emailError && styles.inputError]}
+        placeholder="Digite o email"
+        value={formEmail}
+        onChangeText={(text) => {
+          setFormEmail(text);
+          validateEmail(text);
+        }}
+        onBlur={() => validateEmail(formEmail)}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        placeholderTextColor="#9ca3af"
+      />
+      {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
-          <Text style={styles.inputLabel}>Email *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Digite o email"
-            value={formEmail}
-            onChangeText={setFormEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            placeholderTextColor="#9ca3af"
-          />
+      <Text style={styles.inputLabel}>Telefone</Text>
+      <TextInput
+        style={[styles.input, telefoneError && styles.inputError]}
+        placeholder="(00) 00000-0000"
+        value={formTelefone}
+        onChangeText={(text) => {
+          const formatted = formatTelefoneInput(text);
+          setFormTelefone(formatted);
+          validateTelefone(formatted);
+        }}
+        keyboardType="phone-pad"
+        placeholderTextColor="#9ca3af"
+        maxLength={15}
+      />
+      {telefoneError ? <Text style={styles.errorText}>{telefoneError}</Text> : null}
 
-          <Text style={styles.inputLabel}>Telefone</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="(00) 00000-0000"
-            value={formTelefone}
-            onChangeText={setFormTelefone}
-            keyboardType="phone-pad"
-            placeholderTextColor="#9ca3af"
-          />
-
-          <View style={styles.modalActions}>
-            <TouchableOpacity
-              style={styles.modalButtonSecondary}
-              onPress={() => {
-                setShowEditModal(false);
-                setMotoristaEditando(null);
-              }}
-              disabled={salvando}
-            >
-              <Text style={styles.modalButtonSecondaryText}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modalButtonPrimary, salvando && styles.buttonDisabled]}
-              onPress={editarMotorista}
-              disabled={salvando}
-            >
-              {salvando ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.modalButtonPrimaryText}>Salvar</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
+      <View style={styles.modalActions}>
+        <TouchableOpacity
+          style={styles.modalButtonSecondary}
+          onPress={() => {
+            setShowEditModal(false);
+            setMotoristaEditando(null);
+          }}
+          disabled={salvando}
+        >
+          <Text style={styles.modalButtonSecondaryText}>Cancelar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.modalButtonPrimary, salvando && styles.buttonDisabled]}
+          onPress={editarMotorista}
+          disabled={salvando}
+        >
+          {salvando ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.modalButtonPrimaryText}>Salvar</Text>
+          )}
+        </TouchableOpacity>
       </View>
-    </Modal>
+    </DesktopModal>
   );
 
   const renderMotorista = ({ item }: { item: MotoristaDetalhado }) => (
@@ -638,7 +715,7 @@ export default function MotoristasGestor() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0D5A9C" />
+        <ActivityIndicator size="large" color={theme.colors.primaryDark} />
         <Text style={styles.loadingText}>Carregando motoristas...</Text>
       </View>
     );
@@ -666,7 +743,7 @@ export default function MotoristasGestor() {
       </View>
 
       {/* Lista de Motoristas - DataTable Responsivo */}
-      <ResponsiveContainer>
+      <DesktopLayout scrollable>
         {motoristas.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyTitle}>👤</Text>
@@ -687,7 +764,7 @@ export default function MotoristasGestor() {
             skeletonRows={isDesktop ? 10 : 5}
           />
         )}
-      </ResponsiveContainer>
+      </DesktopLayout>
 
       {/* Modals */}
       {renderAddModal()}
@@ -699,27 +776,27 @@ export default function MotoristasGestor() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.gray50,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.gray50,
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 14,
-    color: '#6b7280',
+    marginTop: theme.spacing.sm + 2,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray500,
   },
   header: {
-    backgroundColor: '#fff',
-    padding: 20,
+    backgroundColor: theme.colors.white,
+    padding: theme.spacing.xl,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: theme.colors.gray200,
   },
   headerTop: {
     flexDirection: 'row',
@@ -727,59 +804,55 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: theme.typography.fontSize['2xl'],
     fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 4,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.xs,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: '#6b7280',
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray500,
   },
   addButton: {
-    backgroundColor: '#10b981',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
+    backgroundColor: theme.colors.success,
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: theme.spacing.sm + 2,
+    borderRadius: theme.borderRadius.sm,
   },
   addButtonText: {
-    color: '#fff',
-    fontSize: 14,
+    color: theme.colors.white,
+    fontSize: theme.typography.fontSize.sm,
     fontWeight: '600',
   },
   listContainer: {
-    padding: 16,
+    padding: theme.spacing.lg,
   },
   emptyContainer: {
-    padding: 60,
+    padding: theme.spacing['6xl'] - 4,
     alignItems: 'center',
   },
   emptyTitle: {
     fontSize: 64,
-    marginBottom: 16,
+    marginBottom: theme.spacing.lg,
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: theme.typography.fontSize.lg,
     fontWeight: '600',
-    color: '#111827',
-    marginBottom: 8,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.sm,
     textAlign: 'center',
   },
   emptySubtext: {
-    fontSize: 14,
-    color: '#6b7280',
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray500,
     textAlign: 'center',
   },
   motoristaCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+    ...theme.shadows.sm,
   },
   motoristaCardInativo: {
     opacity: 0.6,
@@ -794,162 +867,155 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   motoristaNome: {
-    fontSize: 18,
+    fontSize: theme.typography.fontSize.lg,
     fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 4,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.xs,
   },
   motoristaEmail: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 4,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray500,
+    marginBottom: theme.spacing.xs,
   },
   motoristaTelefone: {
-    fontSize: 13,
-    color: '#6b7280',
+    fontSize: theme.typography.fontSize.sm - 1,
+    color: theme.colors.gray500,
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm - 2,
+    borderRadius: theme.borderRadius.lg,
   },
   statusBadgeAtivo: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: theme.colors.successBg,
   },
   statusBadgeInativo: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: theme.colors.errorBg,
   },
   statusBadgeText: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     fontWeight: '600',
-    color: '#111827',
+    color: theme.colors.gray900,
   },
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 16,
-    paddingVertical: 12,
-    backgroundColor: '#f9fafb',
-    borderRadius: 8,
+    marginBottom: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    backgroundColor: theme.colors.gray50,
+    borderRadius: theme.borderRadius.sm,
   },
   statBox: {
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 20,
+    fontSize: theme.typography.fontSize.xl,
     fontWeight: 'bold',
-    color: '#0D5A9C',
-    marginBottom: 4,
+    color: theme.colors.primaryDark,
+    marginBottom: theme.spacing.xs,
   },
   statLabel: {
-    fontSize: 11,
-    color: '#6b7280',
+    fontSize: theme.typography.fontSize.xs - 1,
+    color: theme.colors.gray500,
     textAlign: 'center',
   },
   acoesContainer: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
   },
   botaoEditar: {
     flex: 1,
-    backgroundColor: '#3b82f6',
-    padding: 12,
-    borderRadius: 8,
+    backgroundColor: theme.colors.info,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.sm,
     alignItems: 'center',
   },
   botaoEditarText: {
-    color: '#fff',
-    fontSize: 14,
+    color: theme.colors.white,
+    fontSize: theme.typography.fontSize.sm,
     fontWeight: '600',
   },
   botaoStatus: {
     flex: 1,
-    padding: 12,
-    borderRadius: 8,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.sm,
     alignItems: 'center',
   },
   botaoDesativar: {
-    backgroundColor: '#ef4444',
+    backgroundColor: theme.colors.error,
   },
   botaoAtivar: {
-    backgroundColor: '#10b981',
+    backgroundColor: theme.colors.success,
   },
   botaoStatusText: {
-    color: '#fff',
-    fontSize: 14,
+    color: theme.colors.white,
+    fontSize: theme.typography.fontSize.sm,
     fontWeight: '600',
   },
   dataCadastro: {
-    fontSize: 11,
-    color: '#9ca3af',
+    fontSize: theme.typography.fontSize.xs - 1,
+    color: theme.colors.gray400,
     fontStyle: 'italic',
     textAlign: 'center',
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
-    maxHeight: '80%',
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 24,
-  },
   inputLabel: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-    marginTop: 12,
+    color: theme.colors.gray700,
+    marginBottom: theme.spacing.sm,
+    marginTop: theme.spacing.md,
   },
   input: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.gray50,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    color: '#111827',
+    borderColor: theme.colors.gray200,
+    borderRadius: theme.borderRadius.sm,
+    padding: theme.spacing.md,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray900,
+  },
+  inputError: {
+    borderColor: '#ef4444',
+    borderWidth: 2,
+    backgroundColor: '#fef2f2',
+  },
+  errorText: {
+    fontSize: theme.typography.fontSize.xs,
+    color: '#ef4444',
+    marginTop: theme.spacing.xs,
+    marginBottom: theme.spacing.sm,
   },
   modalActions: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
+    gap: theme.spacing.md,
+    marginTop: theme.spacing['2xl'],
   },
   modalButtonSecondary: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
-    padding: 14,
-    borderRadius: 8,
+    backgroundColor: theme.colors.gray100,
+    padding: theme.spacing.sm + 6,
+    borderRadius: theme.borderRadius.sm,
     alignItems: 'center',
   },
   modalButtonSecondaryText: {
-    fontSize: 16,
+    fontSize: theme.typography.fontSize.base,
     fontWeight: '600',
-    color: '#374151',
+    color: theme.colors.gray700,
   },
   modalButtonPrimary: {
     flex: 1,
-    backgroundColor: '#0D5A9C',
-    padding: 14,
-    borderRadius: 8,
+    backgroundColor: theme.colors.primaryDark,
+    padding: theme.spacing.sm + 6,
+    borderRadius: theme.borderRadius.sm,
     alignItems: 'center',
   },
   modalButtonPrimaryText: {
-    fontSize: 16,
+    fontSize: theme.typography.fontSize.base,
     fontWeight: '600',
-    color: '#fff',
+    color: theme.colors.white,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
-});
+}));

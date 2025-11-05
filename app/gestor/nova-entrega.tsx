@@ -1,14 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
-  StyleSheet,
   ActivityIndicator,
   TextInput,
+  Alert,
 } from 'react-native';
-import { useForm, Controller } from 'react-hook-form';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { useForm, Controller, Control, FieldErrors } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { supabase } from '@/lib/supabase';
@@ -16,7 +17,7 @@ import { useUser } from '@/hooks/useUser';
 import { googleMapsService } from '@/lib/google';
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import { useResponsive } from '@/hooks/useResponsive';
-import { ResponsiveContainer } from '@/components/ResponsiveContainer';
+import { DesktopLayout, SplitView } from '@/components/desktop';
 import { Toast } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
 
@@ -49,7 +50,174 @@ interface Parada extends ParadaFormData {
   ordem: number;
 }
 
+// ============================================
+// Componente FormularioParada Memoizado
+// ============================================
+interface FormularioParadaProps {
+  control: Control<ParadaFormData>;
+  errors: FieldErrors<ParadaFormData>;
+  setValue: any;
+  handleSubmit: any;
+  onAddParada: (data: ParadaFormData) => void;
+  isLoading: boolean;
+}
+
+const FormularioParadaMemoized = memo(function FormularioParada({
+  control,
+  errors,
+  setValue,
+  handleSubmit,
+  onAddParada,
+  isLoading,
+}: FormularioParadaProps) {
+  const { theme } = useUnistyles();
+  const styles = createStyles(theme);
+
+  return (
+    <View style={styles.form}>
+      <Text style={styles.sectionTitle}>Adicionar Parada</Text>
+
+      <Controller
+        control={control}
+        name="tipo"
+        render={({ field: { onChange, value } }) => (
+          <View style={styles.radioGroup}>
+            <TouchableOpacity
+              style={[
+                styles.radioButton,
+                value === 'entrega' && styles.radioButtonActive,
+              ]}
+              onPress={() => onChange('entrega')}
+            >
+              <Text
+                style={[
+                  styles.radioText,
+                  value === 'entrega' && styles.radioTextActive,
+                ]}
+              >
+                Entrega
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.radioButton,
+                value === 'retirada' && styles.radioButtonActive,
+              ]}
+              onPress={() => onChange('retirada')}
+            >
+              <Text
+                style={[
+                  styles.radioText,
+                  value === 'retirada' && styles.radioTextActive,
+                ]}
+              >
+                Retirada
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      />
+
+      <Controller
+        control={control}
+        name="endereco"
+        render={({ field: { onChange, value } }) => (
+          <AddressAutocomplete
+            value={value || ''}
+            onChangeText={onChange}
+            onSelectAddress={async (address, placeId) => {
+              onChange(address);
+              const details = await googleMapsService.getPlaceDetails(placeId);
+              if (details) {
+                // @ts-ignore
+                setValue('latitude', details.coordenadas.latitude);
+                // @ts-ignore
+                setValue('longitude', details.coordenadas.longitude);
+              }
+            }}
+            placeholder="Digite o endereço completo *"
+            error={errors.endereco?.message}
+            multiline
+          />
+        )}
+      />
+
+      <Controller
+        control={control}
+        name="destinatario"
+        render={({ field: { onChange, value } }) => (
+          <>
+            <TextInput
+              style={[
+                styles.input,
+                errors.destinatario && styles.inputError,
+              ]}
+              placeholder="Nome do destinatário *"
+              value={value}
+              onChangeText={onChange}
+            />
+            {errors.destinatario && (
+              <Text style={styles.errorText}>{errors.destinatario.message}</Text>
+            )}
+          </>
+        )}
+      />
+
+      <Controller
+        control={control}
+        name="telefone"
+        render={({ field: { onChange, value } }) => (
+          <>
+            <TextInput
+              style={[
+                styles.input,
+                errors.telefone && styles.inputError,
+              ]}
+              placeholder="Telefone de contato *"
+              value={value}
+              onChangeText={onChange}
+              keyboardType="phone-pad"
+            />
+            {errors.telefone && (
+              <Text style={styles.errorText}>{errors.telefone.message}</Text>
+            )}
+          </>
+        )}
+      />
+
+      <Controller
+        control={control}
+        name="observacoes"
+        render={({ field: { onChange, value } }) => (
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            placeholder="Observações"
+            value={value}
+            onChangeText={onChange}
+            multiline
+            numberOfLines={3}
+          />
+        )}
+      />
+
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={handleSubmit(onAddParada)}
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.addButtonText}>+ Adicionar Parada</Text>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+});
+
 export default function NovaEntrega() {
+  const { theme } = useUnistyles();
+  const styles = createStyles(theme);
   const { userData, unidade } = useUser();
   const { isDesktop, isMobile, isTablet } = useResponsive();
   const { toast: toastState, showToast, hideToast, withToast } = useToast();
@@ -62,6 +230,11 @@ export default function NovaEntrega() {
   const [rotaOtimizada, setRotaOtimizada] = useState<{
     distancia: number;
     tempo: number;
+  } | null>(null);
+  const [enderecoUnidade, setEnderecoUnidade] = useState<{
+    latitude: number;
+    longitude: number;
+    endereco: string;
   } | null>(null);
 
   const {
@@ -85,6 +258,37 @@ export default function NovaEntrega() {
   useEffect(() => {
     loadMotoristas();
   }, [userData]);
+
+  // Carregar endereço da unidade ao montar
+  useEffect(() => {
+    if (unidade?.endereco) {
+      loadEnderecoUnidade();
+    }
+  }, [unidade]);
+
+  async function loadEnderecoUnidade() {
+    if (!unidade?.endereco) {
+      console.warn('Unidade sem endereço cadastrado');
+      return;
+    }
+
+    try {
+      const result = await googleMapsService.geocodeAddress(unidade.endereco);
+      if (result?.coordenadas) {
+        setEnderecoUnidade({
+          latitude: result.coordenadas.latitude,
+          longitude: result.coordenadas.longitude,
+          endereco: unidade.endereco,
+        });
+        console.log('✅ Endereço da unidade geocodificado:', unidade.endereco);
+      } else {
+        console.error('❌ Não foi possível geocodificar o endereço da unidade');
+        showToast('Endereço da unidade não encontrado. Verifique o cadastro da unidade.', 'error');
+      }
+    } catch (error) {
+      console.error('Erro ao geocodificar endereço da unidade:', error);
+    }
+  }
 
   async function loadMotoristas() {
     if (!userData?.unidade_id) return;
@@ -155,54 +359,62 @@ export default function NovaEntrega() {
 
   // Otimizar rota usando Google Directions API
   async function otimizarRota() {
-    if (paradas.length < 2) {
-      Alert.alert('Atenção', 'Adicione pelo menos 2 paradas para otimizar a rota');
+    if (paradas.length < 1) {
+      showToast('Adicione pelo menos 1 parada para otimizar a rota', 'info');
+      return;
+    }
+
+    if (!enderecoUnidade) {
+      showToast('Endereço da unidade não encontrado. Verifique o cadastro da unidade.', 'error');
       return;
     }
 
     setIsOptimizing(true);
     try {
-      // Pegar primeira e última parada como origem e destino
-      const origem = {
-        latitude: paradas[0].latitude!,
-        longitude: paradas[0].longitude!,
-      };
-      const destino = {
-        latitude: paradas[paradas.length - 1].latitude!,
-        longitude: paradas[paradas.length - 1].longitude!,
+      // Origem e destino: endereço da unidade (rota circular)
+      const pontoUnidade = {
+        latitude: enderecoUnidade.latitude,
+        longitude: enderecoUnidade.longitude,
       };
 
-      // Paradas intermediárias (waypoints)
-      const waypoints = paradas.slice(1, -1).map((p) => ({
+      // Todas as paradas são waypoints a serem otimizados
+      const waypoints = paradas.map((p) => ({
         latitude: p.latitude!,
         longitude: p.longitude!,
       }));
 
+      console.log('🗺️ Otimizando rota circular da unidade:', {
+        unidade: enderecoUnidade.endereco,
+        paradas: paradas.length,
+      });
+
       // Chamar API Google Directions com optimize:true
       const resultado = await googleMapsService.getDirections(
-        origem,
-        destino,
-        waypoints.length > 0 ? waypoints : undefined
+        pontoUnidade, // Origem: Unidade
+        pontoUnidade, // Destino: Unidade (rota circular)
+        waypoints
       );
 
       if (!resultado) {
-        Alert.alert('Erro', 'Não foi possível otimizar a rota');
+        showToast('Não foi possível otimizar a rota', 'error');
         return;
       }
 
-      // Reordenar paradas conforme ordem otimizada
+      // Reordenar paradas conforme ordem otimizada retornada pela API
       const ordemOtimizada = resultado.ordem_otimizada || [];
-      const paradasReordenadas: Parada[] = [paradas[0]]; // Primeira parada fixa
+      const paradasReordenadas: Parada[] = [];
 
-      // Adicionar waypoints na ordem otimizada
+      // Adicionar paradas na ordem otimizada
       ordemOtimizada.forEach((indice: number) => {
-        paradasReordenadas.push(paradas[indice + 1]);
+        paradasReordenadas.push(paradas[indice]);
       });
 
-      // Adicionar última parada
-      paradasReordenadas.push(paradas[paradas.length - 1]);
+      // Se não houver ordem otimizada (1 parada apenas), manter ordem original
+      if (paradasReordenadas.length === 0) {
+        paradasReordenadas.push(...paradas);
+      }
 
-      // Atualizar ordem
+      // Atualizar ordem das paradas
       const paradasComNovaOrdem = paradasReordenadas.map((p, i) => ({
         ...p,
         ordem: i + 1,
@@ -268,27 +480,70 @@ export default function NovaEntrega() {
 
       console.log('✅ Rota criada:', rotaData);
 
-      // 2. Inserir paradas vinculadas à rota
-      const paradasParaInserir = paradas.map((p) => ({
-        rota_id: rotaData.id,
-        tipo: p.tipo,
-        endereco: p.endereco,
-        latitude: p.latitude!,
-        longitude: p.longitude!,
-        ordem: p.ordem,
-        destinatario: p.destinatario,
-        telefone: p.telefone,
-        observacoes: p.observacoes,
-        status: 'pendente',
-      }));
+      // 2. Inserir paradas vinculadas à rota (incluindo unidade como início e fim)
+      const paradasParaInserir = [];
+
+      // Parada 0: Unidade (início da rota)
+      if (enderecoUnidade) {
+        paradasParaInserir.push({
+          rota_id: rotaData.id,
+          tipo: 'retirada', // Usando 'retirada' pois é onde o motorista retira os pacotes
+          endereco: enderecoUnidade.endereco,
+          latitude: enderecoUnidade.latitude,
+          longitude: enderecoUnidade.longitude,
+          ordem: 0,
+          destinatario: unidade?.nome || 'Base',
+          telefone: null,
+          observacoes: 'Ponto de partida',
+          status: 'pendente',
+        });
+      }
+
+      // Paradas 1 a N: Entregas/coletas do usuário
+      paradas.forEach((p, index) => {
+        paradasParaInserir.push({
+          rota_id: rotaData.id,
+          tipo: p.tipo,
+          endereco: p.endereco,
+          latitude: p.latitude!,
+          longitude: p.longitude!,
+          ordem: index + 1, // Começa do 1
+          destinatario: p.destinatario,
+          telefone: p.telefone,
+          observacoes: p.observacoes,
+          status: 'pendente',
+        });
+      });
+
+      // Parada N+1: Unidade (fim da rota)
+      if (enderecoUnidade) {
+        paradasParaInserir.push({
+          rota_id: rotaData.id,
+          tipo: 'entrega', // Usando 'entrega' pois é o retorno à base
+          endereco: enderecoUnidade.endereco,
+          latitude: enderecoUnidade.latitude,
+          longitude: enderecoUnidade.longitude,
+          ordem: paradas.length + 1, // Última parada
+          destinatario: unidade?.nome || 'Base',
+          telefone: null,
+          observacoes: 'Ponto de chegada',
+          status: 'pendente',
+        });
+      }
+
+      // Debug: Log das paradas que serão inseridas
+      console.log('🔍 Paradas a serem inseridas:', JSON.stringify(paradasParaInserir, null, 2));
 
       const { error: paradasError } = await supabase
         .from('paradas')
         .insert(paradasParaInserir);
 
-      if (paradasError) throw paradasError;
+      if (paradasError) {
+        console.error('❌ Erro ao inserir paradas:', paradasError);
+        throw paradasError;
+      }
 
-      console.log('✅ Paradas inseridas com sucesso');
+      console.log('✅ Paradas inseridas com sucesso (incluindo unidade como início e fim)');
 
       // 3. Log da ação
       await supabase.from('logs').insert({
@@ -303,8 +558,9 @@ export default function NovaEntrega() {
 
       console.log('🎉 Rota completa criada com sucesso!');
 
+      const totalParadasInseridas = enderecoUnidade ? paradas.length + 2 : paradas.length;
       showToast(
-        `Rota criada com sucesso! ${paradas.length} parada(s) adicionadas.`,
+        `Rota circular criada com sucesso! ${totalParadasInseridas} parada(s) (incluindo base).`,
         'success',
         4000
       );
@@ -328,236 +584,96 @@ export default function NovaEntrega() {
   if (isLoadingMotoristas) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0D5A9C" />
+        <ActivityIndicator size="large" color={theme.colors.primaryDark} />
       </View>
     );
   }
 
-  return (
-    <ScrollView style={styles.container}>
-      <ResponsiveContainer>
-        <Text style={styles.title}>Nova Rota de Entrega</Text>
+  // ============================================
+  // Componentes Reutilizáveis
+  // ============================================
 
-        {/* Layout Responsivo: 2 colunas em desktop, stack em mobile */}
-        <View style={[styles.content, isDesktop && styles.contentDesktop]}>
-          {/* Coluna Esquerda: Formulário de Parada */}
-          <View style={[styles.form, isDesktop && styles.formDesktop]}>
-          <Text style={styles.sectionTitle}>Adicionar Parada</Text>
-
-          <Controller
-            control={control}
-            name="tipo"
-            render={({ field: { onChange, value } }) => (
-              <View style={styles.radioGroup}>
-                <TouchableOpacity
-                  style={[
-                    styles.radioButton,
-                    value === 'entrega' && styles.radioButtonActive,
-                  ]}
-                  onPress={() => onChange('entrega')}
-                >
-                  <Text
-                    style={[
-                      styles.radioText,
-                      value === 'entrega' && styles.radioTextActive,
-                    ]}
-                  >
-                    Entrega
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.radioButton,
-                    value === 'retirada' && styles.radioButtonActive,
-                  ]}
-                  onPress={() => onChange('retirada')}
-                >
-                  <Text
-                    style={[
-                      styles.radioText,
-                      value === 'retirada' && styles.radioTextActive,
-                    ]}
-                  >
-                    Retirada
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          />
-
-          <Controller
-            control={control}
-            name="endereco"
-            render={({ field: { onChange, value } }) => (
-              <AddressAutocomplete
-                value={value || ''}
-                onChangeText={onChange}
-                onSelectAddress={async (address, placeId) => {
-                  // Atualizar campo de endereço
-                  onChange(address);
-
-                  // Obter detalhes do place (coordenadas)
-                  const details = await googleMapsService.getPlaceDetails(placeId);
-                  if (details) {
-                    // Armazenar coordenadas temporariamente no form data
-                    // Usando setValue para atualizar campos não visíveis
-                    // @ts-ignore - adicionando campos extras ao form
-                    setValue('latitude', details.coordenadas.latitude);
-                    // @ts-ignore
-                    setValue('longitude', details.coordenadas.longitude);
-                  }
-                }}
-                placeholder="Digite o endereço completo *"
-                error={errors.endereco?.message}
-                multiline
-              />
-            )}
-          />
-
-          <Controller
-            control={control}
-            name="destinatario"
-            render={({ field: { onChange, value } }) => (
-              <>
-                <TextInput
-                  style={[
-                    styles.input,
-                    errors.destinatario && styles.inputError,
-                  ]}
-                  placeholder="Nome do destinatário *"
-                  value={value}
-                  onChangeText={onChange}
-                />
-                {errors.destinatario && (
-                  <Text style={styles.errorText}>{errors.destinatario.message}</Text>
-                )}
-              </>
-            )}
-          />
-
-          <Controller
-            control={control}
-            name="telefone"
-            render={({ field: { onChange, value } }) => (
-              <>
-                <TextInput
-                  style={[
-                    styles.input,
-                    errors.telefone && styles.inputError,
-                  ]}
-                  placeholder="Telefone de contato *"
-                  value={value}
-                  onChangeText={onChange}
-                  keyboardType="phone-pad"
-                />
-                {errors.telefone && (
-                  <Text style={styles.errorText}>{errors.telefone.message}</Text>
-                )}
-              </>
-            )}
-          />
-
-          <Controller
-            control={control}
-            name="observacoes"
-            render={({ field: { onChange, value } }) => (
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Observações"
-                value={value}
-                onChangeText={onChange}
-                multiline
-                numberOfLines={3}
-              />
-            )}
-          />
-
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={handleSubmit(onAddParada)}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.addButtonText}>+ Adicionar Parada</Text>
-            )}
-          </TouchableOpacity>
-          </View>
-          {/* Fim Coluna Esquerda: Formulário */}
-
-          {/* Coluna Direita: Lista de Paradas + Motorista */}
-          <View style={[styles.paradasColumn, isDesktop && styles.paradasColumnDesktop]}>
-        {/* Lista de Paradas */}
-        {paradas.length > 0 && (
-          <View style={styles.paradasList}>
-            <Text style={styles.sectionTitle}>
-              Paradas Adicionadas ({paradas.length})
-            </Text>
-            {paradas.map((parada, index) => (
-              <View key={index} style={styles.paradaCard}>
-                <View style={styles.paradaHeader}>
-                  <Text style={styles.paradaTipo}>
-                    {`${parada.ordem}. ${parada.tipo.toUpperCase()}`}
-                  </Text>
-                  <TouchableOpacity onPress={() => removeParada(index)}>
-                    <Text style={styles.removeButton}>Remover</Text>
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.paradaEndereco}>{parada.endereco}</Text>
-                {parada.destinatario && (
-                  <Text style={styles.paradaDetail}>
-                    Destinatário: {parada.destinatario}
-                  </Text>
-                )}
-              </View>
-            ))}
-
-            {/* Botão Otimizar Rota */}
-            {paradas.length >= 2 && (
-              <TouchableOpacity
-                style={styles.otimizarButton}
-                onPress={otimizarRota}
-                disabled={isOptimizing}
-              >
-                {isOptimizing ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.otimizarButtonText}>
-                    🗺️ Otimizar Rota (Melhor Percurso)
-                  </Text>
-                )}
-              </TouchableOpacity>
-            )}
-
-            {/* Banner de Rota Otimizada */}
-            {rotaOtimizada && (
-              <View style={styles.otimizacaoBanner}>
-                <Text style={styles.otimizacaoBannerTitle}>✅ Rota Otimizada!</Text>
-                <View style={styles.otimizacaoStats}>
-                  <View style={styles.otimizacaoStat}>
-                    <Text style={styles.otimizacaoStatLabel}>Distância:</Text>
-                    <Text style={styles.otimizacaoStatValue}>
-                      {rotaOtimizada.distancia.toFixed(1)} km
-                    </Text>
-                  </View>
-                  <View style={styles.otimizacaoStat}>
-                    <Text style={styles.otimizacaoStatLabel}>Tempo Estimado:</Text>
-                    <Text style={styles.otimizacaoStatValue}>
-                      {Math.round(rotaOtimizada.tempo)} min
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.otimizacaoBannerHint}>
-                  As paradas foram reordenadas para o percurso mais eficiente
+  // Lista de Paradas + Motorista + Gerar Rota (Right Panel no Desktop)
+  const ParadasListAndActions = () => (
+    <View style={styles.paradasColumn}>
+      {/* Lista de Paradas */}
+      {paradas.length > 0 ? (
+        <View style={styles.paradasList}>
+          <Text style={styles.sectionTitle}>
+            Paradas Adicionadas ({paradas.length})
+          </Text>
+          {paradas.map((parada, index) => (
+            <View key={index} style={styles.paradaCard}>
+              <View style={styles.paradaHeader}>
+                <Text style={styles.paradaTipo}>
+                  {`${parada.ordem}. ${parada.tipo.toUpperCase()}`}
                 </Text>
+                <TouchableOpacity onPress={() => removeParada(index)}>
+                  <Text style={styles.removeButton}>Remover</Text>
+                </TouchableOpacity>
               </View>
-            )}
-          </View>
-        )}
+              <Text style={styles.paradaEndereco}>{parada.endereco}</Text>
+              {parada.destinatario && (
+                <Text style={styles.paradaDetail}>
+                  Destinatário: {parada.destinatario}
+                </Text>
+              )}
+            </View>
+          ))}
 
-        {/* Seleção de Motorista */}
-        {paradas.length > 0 && (
+          {/* Botão Otimizar Rota */}
+          {paradas.length >= 1 && (
+            <TouchableOpacity
+              style={styles.otimizarButton}
+              onPress={otimizarRota}
+              disabled={isOptimizing || !enderecoUnidade}
+            >
+              {isOptimizing ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.otimizarButtonText}>
+                  🗺️ Otimizar Rota (Melhor Percurso)
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {/* Banner de Rota Otimizada */}
+          {rotaOtimizada && (
+            <View style={styles.otimizacaoBanner}>
+              <Text style={styles.otimizacaoBannerTitle}>✅ Rota Otimizada!</Text>
+              <View style={styles.otimizacaoStats}>
+                <View style={styles.otimizacaoStat}>
+                  <Text style={styles.otimizacaoStatLabel}>Distância:</Text>
+                  <Text style={styles.otimizacaoStatValue}>
+                    {rotaOtimizada.distancia.toFixed(1)} km
+                  </Text>
+                </View>
+                <View style={styles.otimizacaoStat}>
+                  <Text style={styles.otimizacaoStatLabel}>Tempo Estimado:</Text>
+                  <Text style={styles.otimizacaoStatValue}>
+                    {Math.round(rotaOtimizada.tempo)} min
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.otimizacaoBannerHint}>
+                Rota circular otimizada: {enderecoUnidade?.endereco || 'Unidade'} → Paradas → {enderecoUnidade?.endereco || 'Unidade'}
+              </Text>
+            </View>
+          )}
+        </View>
+      ) : (
+        <View style={styles.emptyParadasState}>
+          <Text style={styles.emptyParadasIcon}>📦</Text>
+          <Text style={styles.emptyParadasTitle}>Nenhuma parada adicionada</Text>
+          <Text style={styles.emptyParadasText}>
+            Adicione paradas ao formulário ao lado para começar a criar sua rota de entrega
+          </Text>
+        </View>
+      )}
+
+      {/* Seleção de Motorista */}
+      {paradas.length > 0 && (
           <View style={styles.motoristaSection}>
             <Text style={styles.sectionTitle}>Selecionar Motorista</Text>
             {motoristas.length === 0 ? (
@@ -583,281 +699,323 @@ export default function NovaEntrega() {
           </View>
         )}
 
-        {/* Botão Gerar Rota */}
-        {paradas.length > 0 && (
-          <TouchableOpacity
-            style={[
-              styles.gerarButton,
-              (!motoristaSelecionado || isLoading) && styles.gerarButtonDisabled,
-            ]}
-            onPress={gerarRota}
-            disabled={!motoristaSelecionado || isLoading}
-          >
-            {isLoading ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <ActivityIndicator color="#fff" />
-                <Text style={styles.gerarButtonText}>Criando rota...</Text>
-              </View>
-            ) : (
-              <Text style={styles.gerarButtonText}>✅ Gerar Rota</Text>
-            )}
-          </TouchableOpacity>
+      {/* Botão Gerar Rota */}
+      {paradas.length > 0 && (
+        <TouchableOpacity
+          style={[
+            styles.gerarButton,
+            (!motoristaSelecionado || isLoading) && styles.gerarButtonDisabled,
+          ]}
+          onPress={gerarRota}
+          disabled={!motoristaSelecionado || isLoading}
+        >
+          {isLoading ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <ActivityIndicator color="#fff" />
+              <Text style={styles.gerarButtonText}>Criando rota...</Text>
+            </View>
+          ) : (
+            <Text style={styles.gerarButtonText}>✅ Gerar Rota</Text>
+          )}
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  // ============================================
+  // Render Principal
+  // ============================================
+  return (
+    <>
+      <DesktopLayout scrollable>
+        <Text style={styles.title}>Nova Rota de Entrega</Text>
+
+        {isDesktop ? (
+          // Desktop: Split horizontal (Formulário | Paradas + Motorista)
+          <SplitView
+            left={
+              <FormularioParadaMemoized
+                control={control}
+                errors={errors}
+                setValue={setValue}
+                handleSubmit={handleSubmit}
+                onAddParada={onAddParada}
+                isLoading={isLoading}
+              />
+            }
+            right={<ScrollView showsVerticalScrollIndicator={false}><ParadasListAndActions /></ScrollView>}
+            leftFlex={1}
+            rightFlex={1}
+            gap={24}
+          />
+        ) : (
+          // Mobile: Stack vertical
+          <>
+            <FormularioParadaMemoized
+              control={control}
+              errors={errors}
+              setValue={setValue}
+              handleSubmit={handleSubmit}
+              onAddParada={onAddParada}
+              isLoading={isLoading}
+            />
+            <ParadasListAndActions />
+          </>
         )}
-          </View>
-          {/* Fim Coluna Direita */}
-        </View>
-        {/* Fim Layout 2 Colunas */}
-      </ResponsiveContainer>
+      </DesktopLayout>
 
       {/* Toast de Feedback */}
       <Toast {...toastState} onDismiss={hideToast} />
-    </ScrollView>
+    </>
   );
 }
 
-const styles = StyleSheet.create({
+// Helper para criar styles (usado tanto no componente principal quanto no memoizado)
+const createStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.gray50,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  content: {
-    padding: 20,
-  },
   title: {
-    fontSize: 24,
+    fontSize: theme.typography.fontSize['2xl'],
     fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 20,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.xl,
   },
   form: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: theme.colors.white,
+    padding: theme.spacing.xl,
+    borderRadius: theme.borderRadius.lg,
+    marginBottom: theme.spacing.xl,
+    ...theme.shadows.md,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: theme.typography.fontSize.lg,
     fontWeight: '600',
-    color: '#111827',
-    marginBottom: 15,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.md,
   },
   radioGroup: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 15,
+    gap: theme.spacing.sm + 2,
+    marginBottom: theme.spacing.md,
   },
   radioButton: {
     flex: 1,
-    padding: 12,
-    borderRadius: 8,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.sm,
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: theme.colors.gray300,
     alignItems: 'center',
   },
   radioButtonActive: {
-    backgroundColor: '#0D5A9C',
-    borderColor: '#0D5A9C',
+    backgroundColor: theme.colors.primaryDark,
+    borderColor: theme.colors.primaryDark,
   },
   radioText: {
-    color: '#6b7280',
+    color: theme.colors.gray500,
     fontWeight: '500',
   },
   radioTextActive: {
-    color: '#fff',
+    color: theme.colors.white,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 12,
-    backgroundColor: '#fff',
+    borderColor: theme.colors.gray300,
+    borderRadius: theme.borderRadius.sm,
+    padding: theme.spacing.md,
+    fontSize: theme.typography.fontSize.base,
+    marginBottom: theme.spacing.md,
+    backgroundColor: theme.colors.white,
   },
   inputError: {
-    borderColor: '#ef4444',
+    borderColor: theme.colors.error,
   },
   textArea: {
     height: 80,
     textAlignVertical: 'top',
   },
   errorText: {
-    color: '#ef4444',
-    fontSize: 12,
-    marginTop: -8,
-    marginBottom: 8,
+    color: theme.colors.error,
+    fontSize: theme.typography.fontSize.xs,
+    marginTop: -theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
   },
   addButton: {
-    backgroundColor: '#FF8C00',
-    padding: 15,
-    borderRadius: 8,
+    backgroundColor: theme.colors.secondary,
+    padding: theme.spacing.md + 3,
+    borderRadius: theme.borderRadius.sm,
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: theme.spacing.sm + 2,
   },
   addButtonText: {
-    color: '#fff',
+    color: theme.colors.white,
     fontWeight: '600',
-    fontSize: 16,
+    fontSize: theme.typography.fontSize.base,
   },
   paradasList: {
-    marginBottom: 20,
+    marginBottom: theme.spacing.xl,
   },
   paradaCard: {
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
+    backgroundColor: theme.colors.white,
+    padding: theme.spacing.md + 3,
+    borderRadius: theme.borderRadius.sm,
+    marginBottom: theme.spacing.sm + 2,
     borderLeftWidth: 4,
-    borderLeftColor: '#0D5A9C',
+    borderLeftColor: theme.colors.primaryDark,
   },
   paradaHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   paradaTipo: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     fontWeight: '600',
-    color: '#0D5A9C',
+    color: theme.colors.primaryDark,
   },
   removeButton: {
-    color: '#ef4444',
-    fontSize: 14,
+    color: theme.colors.error,
+    fontSize: theme.typography.fontSize.sm,
   },
   paradaEndereco: {
-    fontSize: 14,
-    color: '#111827',
-    marginBottom: 4,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.xs,
   },
   paradaDetail: {
-    fontSize: 12,
-    color: '#6b7280',
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.gray500,
   },
   motoristaSection: {
-    marginBottom: 20,
+    marginBottom: theme.spacing.xl,
   },
   noMotoristas: {
-    color: '#6b7280',
+    color: theme.colors.gray500,
     fontStyle: 'italic',
     textAlign: 'center',
-    padding: 20,
+    padding: theme.spacing.xl,
   },
   motoristaCard: {
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
+    backgroundColor: theme.colors.white,
+    padding: theme.spacing.md + 3,
+    borderRadius: theme.borderRadius.sm,
+    marginBottom: theme.spacing.sm + 2,
     borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderColor: theme.colors.gray200,
   },
   motoristaCardActive: {
-    borderColor: '#0D5A9C',
-    backgroundColor: '#eff6ff',
+    borderColor: theme.colors.primaryDark,
+    backgroundColor: theme.colors.primaryBg,
   },
   motoristaNome: {
-    fontSize: 16,
+    fontSize: theme.typography.fontSize.base,
     fontWeight: '600',
-    color: '#111827',
+    color: theme.colors.gray900,
   },
   motoristaEmail: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginTop: 4,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray500,
+    marginTop: theme.spacing.xs,
   },
   gerarButton: {
-    backgroundColor: '#0D5A9C',
-    padding: 18,
-    borderRadius: 8,
+    backgroundColor: theme.colors.primaryDark,
+    padding: theme.spacing.lg + 2,
+    borderRadius: theme.borderRadius.sm,
     alignItems: 'center',
   },
   gerarButtonDisabled: {
-    backgroundColor: '#9ca3af',
+    backgroundColor: theme.colors.gray400,
   },
   gerarButtonText: {
-    color: '#fff',
+    color: theme.colors.white,
     fontWeight: 'bold',
-    fontSize: 18,
+    fontSize: theme.typography.fontSize.lg,
   },
   otimizarButton: {
-    backgroundColor: '#8b5cf6',
-    padding: 15,
-    borderRadius: 8,
+    backgroundColor: theme.colors.purple,
+    padding: theme.spacing.md + 3,
+    borderRadius: theme.borderRadius.sm,
     alignItems: 'center',
-    marginTop: 15,
+    marginTop: theme.spacing.md + 3,
   },
   otimizarButtonText: {
-    color: '#fff',
+    color: theme.colors.white,
     fontWeight: '600',
-    fontSize: 16,
+    fontSize: theme.typography.fontSize.base,
   },
   otimizacaoBanner: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: theme.colors.successBg,
     borderLeftWidth: 4,
-    borderLeftColor: '#10b981',
-    padding: 16,
-    borderRadius: 8,
-    marginTop: 15,
+    borderLeftColor: theme.colors.success,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.sm,
+    marginTop: theme.spacing.md + 3,
   },
   otimizacaoBannerTitle: {
-    fontSize: 16,
+    fontSize: theme.typography.fontSize.base,
     fontWeight: 'bold',
     color: '#065f46',
-    marginBottom: 12,
+    marginBottom: theme.spacing.md,
   },
   otimizacaoStats: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 12,
+    marginBottom: theme.spacing.md,
   },
   otimizacaoStat: {
     alignItems: 'center',
   },
   otimizacaoStatLabel: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     color: '#047857',
-    marginBottom: 4,
+    marginBottom: theme.spacing.xs,
   },
   otimizacaoStatValue: {
-    fontSize: 18,
+    fontSize: theme.typography.fontSize.lg,
     fontWeight: 'bold',
     color: '#065f46',
   },
   otimizacaoBannerHint: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     color: '#047857',
     fontStyle: 'italic',
     textAlign: 'center',
   },
-  // ============================================
-  // Estilos Responsivos Desktop
-  // ============================================
-  contentDesktop: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    padding: 0,
-  },
-  formDesktop: {
-    flex: 1,
-    minWidth: 400,
-    maxWidth: 500,
-    marginRight: 24,
-  },
   paradasColumn: {
-    // Mobile: fullwidth
-  },
-  paradasColumnDesktop: {
     flex: 1,
-    minWidth: 400,
+  },
+  emptyParadasState: {
+    backgroundColor: theme.colors.white,
+    padding: theme.spacing['3xl'],
+    borderRadius: theme.borderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 400,
+    ...theme.shadows.sm,
+  },
+  emptyParadasIcon: {
+    fontSize: 64,
+    marginBottom: theme.spacing.lg,
+  },
+  emptyParadasTitle: {
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: '600',
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.sm,
+    textAlign: 'center',
+  },
+  emptyParadasText: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray500,
+    textAlign: 'center',
+    maxWidth: 300,
+    lineHeight: 20,
   },
 });

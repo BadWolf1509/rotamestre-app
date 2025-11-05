@@ -2,18 +2,18 @@ import { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
   Platform,
   ScrollView,
 } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 import { useResponsive } from '@/hooks/useResponsive';
-import { ResponsiveContainer } from '@/components/ResponsiveContainer';
+import { DesktopLayout } from '@/components/desktop';
 import { DataTable, DataTableColumn, DataTableAction } from '@/components/DataTable';
 import { Toast } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
@@ -46,6 +46,7 @@ type FiltroStatus = 'todas' | 'pendente' | 'em_andamento' | 'concluida' | 'cance
 // ============================================
 
 export default function HistoricoGestor() {
+  const { theme } = useUnistyles();
   const router = useRouter();
   const { userData } = useUser();
   const { isDesktop } = useResponsive();
@@ -301,15 +302,15 @@ export default function HistoricoGestor() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1e5aa8" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
         <Text style={styles.loadingText}>Carregando histórico...</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <ResponsiveContainer>
+    <>
+      <DesktopLayout scrollable>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Histórico de Rotas</Text>
@@ -366,11 +367,11 @@ export default function HistoricoGestor() {
             </View>
           }
         />
-      </ResponsiveContainer>
+      </DesktopLayout>
 
       {/* Toast de Feedback */}
       <Toast {...toastState} onDismiss={hideToast} />
-    </ScrollView>
+    </>
   );
 }
 
@@ -378,96 +379,96 @@ export default function HistoricoGestor() {
 // STYLES
 // ============================================
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb', // Gray 50
+    backgroundColor: theme.colors.gray50,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.gray50,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#6b7280', // Gray 500
+    marginTop: theme.spacing.md,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray500,
   },
   header: {
-    paddingVertical: 24,
+    paddingVertical: theme.spacing['2xl'],
   },
   title: {
-    fontSize: 28,
+    fontSize: theme.typography.fontSize['3xl'] - 2,
     fontWeight: 'bold',
-    color: '#111827', // Gray 900
-    marginBottom: 4,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.xs,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#6b7280', // Gray 500
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray500,
   },
   filtrosContainer: {
-    marginBottom: 24,
+    marginBottom: theme.spacing['2xl'],
   },
   filtrosLabel: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     fontWeight: '600',
-    color: '#374151', // Gray 700
-    marginBottom: 12,
+    color: theme.colors.gray700,
+    marginBottom: theme.spacing.md,
   },
   filtrosButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: theme.spacing.sm,
   },
   filtroButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: '#fff',
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: theme.colors.white,
     borderWidth: 1,
-    borderColor: '#e5e7eb', // Gray 200
+    borderColor: theme.colors.gray200,
   },
   filtroButtonActive: {
-    backgroundColor: '#1e5aa8', // Azul Main
-    borderColor: '#1e5aa8',
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
   },
   filtroButtonText: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     fontWeight: '500',
-    color: '#374151', // Gray 700
+    color: theme.colors.gray700,
   },
   filtroButtonTextActive: {
-    color: '#fff',
+    color: theme.colors.white,
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm - 2,
+    borderRadius: theme.borderRadius.lg,
     alignSelf: 'flex-start',
   },
   statusBadgeText: {
-    color: '#fff',
-    fontSize: 12,
+    color: theme.colors.white,
+    fontSize: theme.typography.fontSize.xs,
     fontWeight: '600',
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 60,
+    paddingVertical: theme.spacing['6xl'] - 4,
   },
   emptyStateText: {
     fontSize: 48,
-    marginBottom: 16,
+    marginBottom: theme.spacing.lg,
   },
   emptyStateTitle: {
-    fontSize: 18,
+    fontSize: theme.typography.fontSize.lg,
     fontWeight: '600',
-    color: '#111827', // Gray 900
-    marginBottom: 8,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.sm,
   },
   emptyStateSubtitle: {
-    fontSize: 14,
-    color: '#6b7280', // Gray 500
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray500,
   },
-});
+}));
