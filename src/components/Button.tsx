@@ -5,9 +5,11 @@ import {
   ActivityIndicator,
   ViewStyle,
   TextStyle,
+  Platform,
 } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Ionicons } from '@expo/vector-icons';
+import { useBreakpoint } from '@/hooks/useBreakpoint';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 export type ButtonSize = 'small' | 'medium' | 'large';
@@ -40,7 +42,21 @@ export function Button({
   textStyle,
 }: ButtonProps) {
   const { theme } = useUnistyles();
+  const { isDesktop, isLargeDesktop } = useBreakpoint();
   const isDisabled = disabled || loading;
+
+  // Responsive sizing for desktop
+  const getResponsiveStyle = () => {
+    if (isLargeDesktop) {
+      return { paddingScale: 1.15, fontScale: 1.125 };
+    }
+    if (isDesktop) {
+      return { paddingScale: 1.1, fontScale: 1.0625 };
+    }
+    return { paddingScale: 1, fontScale: 1 };
+  };
+
+  const { paddingScale } = getResponsiveStyle();
 
   return (
     <TouchableOpacity
@@ -102,24 +118,74 @@ const styles = StyleSheet.create(theme => ({
     justifyContent: 'center',
     borderRadius: theme.borderRadius.md,
     minHeight: 44,
+    // Web-only: Smooth transitions and cursor
+    ...(Platform.OS === 'web' && {
+      cursor: 'pointer',
+      transitionProperty: 'all',
+      transitionDuration: '0.2s',
+      transitionTimingFunction: 'ease-in-out',
+    }),
   },
 
   primary: {
     backgroundColor: theme.colors.primary,
+    // Web-only: Hover effects
+    ...(Platform.OS === 'web' && {
+      // @ts-ignore - web-only CSS
+      ':hover': {
+        backgroundColor: theme.colors.primaryDark,
+        transform: 'translateY(-1px)',
+        boxShadow: '0 4px 8px rgba(0,0,0,0.15)',
+      },
+      ':active': {
+        transform: 'translateY(0px)',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      },
+    }),
   },
   secondary: {
     backgroundColor: theme.colors.secondary,
+    ...(Platform.OS === 'web' && {
+      // @ts-ignore
+      ':hover': {
+        opacity: 0.9,
+        transform: 'translateY(-1px)',
+        boxShadow: '0 4px 8px rgba(0,0,0,0.15)',
+      },
+    }),
   },
   outline: {
     backgroundColor: 'transparent',
     borderWidth: 2,
     borderColor: theme.colors.primary,
+    ...(Platform.OS === 'web' && {
+      // @ts-ignore
+      ':hover': {
+        backgroundColor: theme.colors.primary + '08',
+        borderColor: theme.colors.primaryDark,
+        transform: 'translateY(-1px)',
+      },
+    }),
   },
   ghost: {
     backgroundColor: 'transparent',
+    ...(Platform.OS === 'web' && {
+      // @ts-ignore
+      ':hover': {
+        backgroundColor: theme.colors.gray100,
+      },
+    }),
   },
   danger: {
     backgroundColor: theme.colors.error,
+    ...(Platform.OS === 'web' && {
+      // @ts-ignore
+      ':hover': {
+        opacity: 0.9,
+        transform: 'translateY(-1px)',
+        boxShadow: '0 4px 8px rgba(239, 68, 68, 0.3)',
+      },
+    }),
   },
 
   small: {
@@ -170,6 +236,14 @@ const styles = StyleSheet.create(theme => ({
 
   disabled: {
     opacity: 0.5,
+    ...(Platform.OS === 'web' && {
+      cursor: 'not-allowed',
+      // @ts-ignore
+      ':hover': {
+        transform: 'none',
+        boxShadow: 'none',
+      },
+    }),
   },
   fullWidth: {
     width: '100%',

@@ -15,8 +15,6 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { MapaAdapter } from '@/components/MapaAdapter';
-import { DesktopLayout, SplitView } from '@/components/desktop';
-import { useResponsive } from '@/hooks/useResponsive';
 
 interface Parada {
   id: string;
@@ -46,7 +44,6 @@ export default function MapaRota() {
   const { theme } = useUnistyles();
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { isDesktop } = useResponsive();
   const [loading, setLoading] = useState(true);
   const [rota, setRota] = useState<Rota | null>(null);
   const [paradas, setParadas] = useState<Parada[]>([]);
@@ -154,48 +151,17 @@ export default function MapaRota() {
     );
   }
 
-  // Componente Header reutilizável
-  const Header = () => (
-    <View style={styles.header}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backLink}>
-        <Text style={styles.backLinkText}>← Voltar</Text>
-      </TouchableOpacity>
-
-      <Text style={styles.title}>Mapa da Rota</Text>
-
-      <View style={styles.rotaInfo}>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Data:</Text>
-          <Text style={styles.infoValue}>
-            {new Date(rota!.data).toLocaleDateString('pt-BR')}
-          </Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Motorista:</Text>
-          <Text style={styles.infoValue}>{rota!.motorista?.nome || 'Não atribuído'}</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Status:</Text>
-          <Text style={[styles.infoValue, styles.statusBadge]}>
-            {rota!.status}
-          </Text>
-        </View>
-        {rota!.distancia_total && (
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Distância:</Text>
-            <Text style={styles.infoValue}>{rota!.distancia_total.toFixed(1)} km</Text>
-          </View>
-        )}
-      </View>
-    </View>
-  );
-
   // Componente Mapa reutilizável
-  const MapView = () => (
-    <View style={isDesktop ? styles.mapContainerDesktop : styles.mapContainer}>
-      <MapaAdapter paradas={paradas} />
-    </View>
-  );
+  const MapView = () => {
+    const windowWidth = Dimensions.get('window').width;
+    const isSplitView = windowWidth >= 1024;
+
+    return (
+      <View style={isSplitView ? styles.mapContainerSplit : styles.mapContainer}>
+        <MapaAdapter paradas={paradas} />
+      </View>
+    );
+  };
 
   // Componente Lista de Paradas reutilizável
   const ParadasList = () => (
@@ -305,24 +271,73 @@ export default function MapaRota() {
     </View>
   );
 
-  // Render principal com SplitView para desktop
+  // Componente Breadcrumbs (apenas desktop)
+  const Breadcrumbs = () => {
+    const windowWidth = Dimensions.get('window').width;
+    if (windowWidth < 768) return null;
+
+    return (
+      <View style={styles.breadcrumbs}>
+        <TouchableOpacity onPress={() => router.push('/gestor/historico')}>
+          <Text style={styles.breadcrumbLink}>Histórico</Text>
+        </TouchableOpacity>
+        <Text style={styles.breadcrumbSeparator}>→</Text>
+        <Text style={styles.breadcrumbCurrent}>Mapa da Rota</Text>
+      </View>
+    );
+  };
+
+  // Render principal
   return (
     <>
-      <DesktopLayout scrollable={!isDesktop}>
-        <Header />
+      {/* Header */}
+      <View style={styles.header}>
+        <Breadcrumbs />
+        <View style={styles.headerContent}>
+          <View>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backLink}>
+              <Text style={styles.backLinkText}>← Voltar</Text>
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Mapa da Rota</Text>
+            <Text style={styles.headerSubtitle}>
+              {rota?.motorista?.nome || 'Sem motorista'} • {new Date(rota!.data).toLocaleDateString('pt-BR')}
+            </Text>
+          </View>
+        </View>
 
+        {/* Rota Info */}
+        <View style={styles.rotaInfo}>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Status:</Text>
+            <View style={styles.statusBadge}>
+              <Text style={styles.statusBadgeText}>{rota!.status}</Text>
+            </View>
+          </View>
+          {rota!.distancia_total && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Distância Total:</Text>
+              <Text style={styles.infoValue}>{rota!.distancia_total.toFixed(1)} km</Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Content */}
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.content}>
         {paradas.length > 0 ? (
-          isDesktop ? (
-            // Desktop: Split horizontal (Mapa esquerda | Paradas direita)
-            <SplitView
-              left={<MapView />}
-              right={<ScrollView><ParadasList /></ScrollView>}
-              leftFlex={3}
-              rightFlex={2}
-              gap={24}
-            />
+          Dimensions.get('window').width >= 1024 ? (
+            // Desktop: Split horizontal (Mapa | Paradas)
+            <View style={styles.splitContainer}>
+              <View style={styles.mapColumn}>
+                <MapView />
+              </View>
+              <ScrollView style={styles.listColumn}>
+                <ParadasList />
+              </ScrollView>
+            </View>
           ) : (
-            // Mobile: Empilhado vertical
+            // Mobile/Tablet: Stack vertical
             <>
               <MapView />
               <ParadasList />
@@ -333,7 +348,8 @@ export default function MapaRota() {
             <Text style={styles.emptyParadasText}>Nenhuma parada nesta rota</Text>
           </View>
         )}
-      </DesktopLayout>
+        </View>
+      </ScrollView>
 
       {/* Modal para visualizar foto em tamanho grande */}
       <Modal
@@ -410,52 +426,97 @@ const styles = StyleSheet.create(theme => ({
   },
   header: {
     backgroundColor: theme.colors.white,
-    padding: theme.spacing.xl,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray200,
+    paddingHorizontal: theme.spacing['3xl'],
+    paddingVertical: theme.spacing['2xl'],
+  },
+  breadcrumbs: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
+  breadcrumbLink: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.primary,
+    fontFamily: theme.typography.fontSansMedium,
+  },
+  breadcrumbSeparator: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray400,
+  },
+  breadcrumbCurrent: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray600,
+    fontFamily: theme.typography.fontSansMedium,
+  },
+  headerContent: {
+    marginBottom: theme.spacing.lg,
   },
   backLink: {
     marginBottom: theme.spacing.md,
   },
   backLinkText: {
-    fontSize: theme.typography.fontSize.base,
-    color: theme.colors.primaryDark,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    color: theme.colors.primary,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
-  title: {
-    fontSize: theme.typography.fontSize['2xl'],
-    fontWeight: 'bold',
+  headerTitle: {
+    fontSize: theme.typography['3xl'],
+    fontFamily: theme.typography.fontDisplay,
     color: theme.colors.gray900,
-    marginBottom: theme.spacing.lg,
+  },
+  headerSubtitle: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
+    marginTop: 4,
+  },
+  scrollView: {
+    flex: 1,
+    backgroundColor: theme.colors.gray50,
+  },
+  content: {
+    paddingHorizontal: theme.spacing['3xl'],
+    paddingVertical: theme.spacing['2xl'],
+    maxWidth: theme.layout.containerMaxWidth,
+    marginHorizontal: 'auto',
+    width: '100%',
   },
   rotaInfo: {
-    gap: theme.spacing.sm,
+    flexDirection: 'row',
+    gap: theme.spacing.xl,
+    marginTop: theme.spacing.md,
   },
   infoRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: theme.spacing.sm,
   },
   infoLabel: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.gray500,
-    fontWeight: '500',
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray600,
+    fontFamily: theme.typography.fontSansMedium,
   },
   infoValue: {
-    fontSize: theme.typography.fontSize.sm,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray900,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   statusBadge: {
-    backgroundColor: theme.colors.infoBg,
+    backgroundColor: theme.colors.info + '20',
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
+    paddingVertical: theme.spacing.sm,
     borderRadius: theme.borderRadius.lg,
-    color: '#1e40af',
+  },
+  statusBadgeText: {
+    color: theme.colors.info,
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
     textTransform: 'capitalize',
   },
   paradasContainer: {
-    padding: theme.spacing.lg,
+    // Content padding handled by parent
   },
   paradasTitle: {
     fontSize: theme.typography.fontSize.lg,
@@ -556,7 +617,7 @@ const styles = StyleSheet.create(theme => ({
   resumo: {
     backgroundColor: theme.colors.white,
     padding: theme.spacing.xl,
-    margin: theme.spacing.lg,
+    marginTop: theme.spacing.lg,
     borderRadius: theme.borderRadius.lg,
     ...theme.shadows.sm,
   },
@@ -584,16 +645,29 @@ const styles = StyleSheet.create(theme => ({
     color: theme.colors.gray500,
     textAlign: 'center',
   },
+  splitContainer: {
+    flexDirection: 'row',
+    gap: theme.spacing.xl,
+    minHeight: 700,
+    height: '100%',
+  },
+  mapColumn: {
+    flex: 3,
+    minHeight: 700,
+  },
+  listColumn: {
+    flex: 2,
+  },
   mapContainer: {
     height: 400,
-    margin: theme.spacing.lg,
+    marginBottom: theme.spacing.xl,
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
     ...theme.shadows.md,
   },
-  mapContainerDesktop: {
+  mapContainerSplit: {
     height: '100%',
-    minHeight: 600,
+    minHeight: 700,
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
     ...theme.shadows.md,

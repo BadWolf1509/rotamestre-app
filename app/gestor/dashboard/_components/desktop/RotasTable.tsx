@@ -1,10 +1,11 @@
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import type { RotaResumo } from '../../dashboard/_hooks/useDashboardData';
 
 interface RotasTableProps {
   rotas: RotaResumo[];
   onRotaPress?: (rotaId: string) => void;
+  onDeletePress?: (rotaId: string) => void;
 }
 
 function getStatusColor(status: string, theme: any): string {
@@ -41,7 +42,7 @@ function getStatusLabel(status: string): string {
  * Tabela de rotas estilo desktop
  * Layout inspirado no rotamestre-painel
  */
-export function RotasTable({ rotas, onRotaPress }: RotasTableProps) {
+export function RotasTable({ rotas, onRotaPress, onDeletePress }: RotasTableProps) {
   const { theme } = useUnistyles();
 
   if (rotas.length === 0) {
@@ -161,6 +162,18 @@ export function RotasTable({ rotas, onRotaPress }: RotasTableProps) {
                       Ver Detalhes
                     </Text>
                   </TouchableOpacity>
+
+                  {onDeletePress && (
+                    <TouchableOpacity
+                      onPress={() => onDeletePress(rota.id)}
+                      style={[styles.deleteButton, styles.deleteButtonSpacing]}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.deleteButtonText}>
+                        🗑️ Excluir
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
             );
@@ -192,6 +205,16 @@ const styles = StyleSheet.create(theme => ({
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray200,
+    // Web-only hover state
+    ...(Platform.OS === 'web' && {
+      transitionProperty: 'background-color',
+      transitionDuration: '0.15s',
+      transitionTimingFunction: 'ease-in-out',
+      // @ts-ignore - web-only CSS
+      ':hover': {
+        backgroundColor: theme.colors.primary + '08', // 8% opacity
+      },
+    }),
   },
   rowEven: {
     backgroundColor: theme.colors.white,
@@ -208,56 +231,58 @@ const styles = StyleSheet.create(theme => ({
   textCenter: {
     textAlign: 'center',
   },
-  // Columns
+  // Columns - Redistributed for better space usage
+  // Total width: 280 + 180 + 220 + 160 + 280 = 1120px (Ações combina Ver Detalhes + Excluir)
   colMotorista: {
-    width: 192, // 48 * 4
+    width: 280, // Increased for better readability
     paddingHorizontal: theme.spacing['2xl'],
     paddingVertical: theme.spacing.md,
   },
   colStatus: {
-    width: 128, // 32 * 4
+    width: 180, // Increased
     paddingHorizontal: theme.spacing['2xl'],
     paddingVertical: theme.spacing.md,
   },
   colProgresso: {
-    width: 160, // 40 * 4
+    width: 220, // Increased for progress bar
     paddingHorizontal: theme.spacing['2xl'],
     paddingVertical: theme.spacing.md,
   },
   colDistancia: {
-    width: 128, // 32 * 4
+    width: 160, // Increased
     paddingHorizontal: theme.spacing['2xl'],
     paddingVertical: theme.spacing.md,
   },
   colAcoes: {
-    width: 128, // 32 * 4
-    paddingHorizontal: theme.spacing['2xl'],
+    width: 300, // Increased to fit both buttons with proper spacing
+    paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
   },
   colStatusContent: {
-    width: 128,
+    width: 180,
     paddingHorizontal: theme.spacing['2xl'],
     paddingVertical: theme.spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   colProgressoContent: {
-    width: 160,
+    width: 220,
     paddingHorizontal: theme.spacing['2xl'],
     paddingVertical: theme.spacing.lg,
     justifyContent: 'center',
   },
   colDistanciaContent: {
-    width: 128,
+    width: 160,
     paddingHorizontal: theme.spacing['2xl'],
     paddingVertical: theme.spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   colAcoesContent: {
-    width: 128,
-    paddingHorizontal: theme.spacing['2xl'],
+    width: 300,
+    paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.lg,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -302,15 +327,55 @@ const styles = StyleSheet.create(theme => ({
     color: theme.colors.gray900,
   },
   detailsButton: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     backgroundColor: theme.colors.primary,
     borderRadius: theme.borderRadius.md,
+    // Web-only hover state
+    ...(Platform.OS === 'web' && {
+      cursor: 'pointer',
+      transitionProperty: 'all',
+      transitionDuration: '0.2s',
+      transitionTimingFunction: 'ease-in-out',
+      // @ts-ignore - web-only CSS
+      ':hover': {
+        backgroundColor: theme.colors.primaryDark,
+        transform: 'translateY(-1px)',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+      },
+    }),
   },
   detailsButtonText: {
     fontSize: theme.typography.xs,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.white,
+  },
+  deleteButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: theme.colors.error,
+    borderRadius: theme.borderRadius.md,
+    // Web-only hover state
+    ...(Platform.OS === 'web' && {
+      cursor: 'pointer',
+      transitionProperty: 'all',
+      transitionDuration: '0.2s',
+      transitionTimingFunction: 'ease-in-out',
+      // @ts-ignore - web-only CSS
+      ':hover': {
+        opacity: 0.9,
+        transform: 'translateY(-1px)',
+        boxShadow: '0 2px 4px rgba(239, 68, 68, 0.3)',
+      },
+    }),
+  },
+  deleteButtonText: {
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.white,
+  },
+  deleteButtonSpacing: {
+    marginLeft: 8,
   },
   emptyState: {
     backgroundColor: theme.colors.white,

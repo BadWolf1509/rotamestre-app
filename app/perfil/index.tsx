@@ -12,13 +12,10 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useProfile } from '@/hooks/useProfile';
-import { useResponsive } from '@/hooks/useResponsive';
-import { ResponsiveContainer } from '@/components/ResponsiveContainer';
 
 export default function PerfilScreen() {
   const router = useRouter();
   const { theme } = useUnistyles();
-  const { isDesktop } = useResponsive();
   const [user, setUser] = useState<any>(null);
   const { profile, loading: profileLoading, updateProfile } = useProfile(user);
 
@@ -110,27 +107,22 @@ export default function PerfilScreen() {
   }
 
   return (
-    <ResponsiveContainer>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <View style={[styles.content, isDesktop && styles.contentDesktop]}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Text style={styles.backIcon}>←</Text>
-          </TouchableOpacity>
-          <View style={styles.headerContent}>
-            <Text style={styles.title}>Meu Perfil</Text>
-            <Text style={styles.subtitle}>
-              Gerencie suas informações pessoais
+    <>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.headerTitle}>Meu Perfil</Text>
+            <Text style={styles.headerSubtitle}>
+              {profile?.unidades?.nome || 'Rota Mestre'}
             </Text>
           </View>
         </View>
+      </View>
+
+      {/* Content */}
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.content}>
 
         {/* Informações do Perfil */}
         <View style={styles.card}>
@@ -240,27 +232,11 @@ export default function PerfilScreen() {
         </View>
         </View>
       </ScrollView>
-    </ResponsiveContainer>
+    </>
   );
 }
 
 const styles = StyleSheet.create(theme => ({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.gray50,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    padding: 20,
-  },
-  content: {
-    maxWidth: '100%',
-  },
-  contentDesktop: {
-    maxWidth: 600,
-    alignSelf: 'center',
-    width: '100%',
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -268,8 +244,8 @@ const styles = StyleSheet.create(theme => ({
     backgroundColor: theme.colors.gray50,
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
+    marginTop: theme.spacing.lg,
+    fontSize: theme.typography.base,
     color: theme.colors.gray500,
   },
   errorContainer: {
@@ -277,118 +253,121 @@ const styles = StyleSheet.create(theme => ({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: theme.colors.gray50,
-    padding: 20,
+    padding: theme.spacing['2xl'],
   },
   errorText: {
-    fontSize: 16,
+    fontSize: theme.typography.base,
     color: theme.colors.error,
-    marginBottom: 16,
+    marginBottom: theme.spacing.lg,
   },
   retryButton: {
     backgroundColor: theme.colors.secondary,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingHorizontal: theme.spacing['2xl'],
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
   },
   retryButtonText: {
     color: theme.colors.white,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 24,
-  },
-  backButton: {
-    padding: 8,
-    marginRight: 12,
-    marginTop: -4,
-  },
-  backIcon: {
-    fontSize: 24,
-    color: theme.colors.primary,
+    backgroundColor: theme.colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.gray200,
+    paddingHorizontal: theme.spacing['3xl'],
+    paddingVertical: theme.spacing['2xl'],
   },
   headerContent: {
-    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
+  headerTitle: {
+    fontSize: theme.typography['3xl'],
+    fontFamily: theme.typography.fontDisplay,
     color: theme.colors.gray900,
-    marginBottom: 4,
   },
-  subtitle: {
-    fontSize: 14,
+  headerSubtitle: {
+    fontSize: theme.typography.sm,
     color: theme.colors.gray500,
+    marginTop: 4,
+  },
+  scrollView: {
+    flex: 1,
+    backgroundColor: theme.colors.gray50,
+  },
+  content: {
+    paddingHorizontal: theme.spacing['3xl'],
+    paddingVertical: theme.spacing['2xl'],
+    maxWidth: theme.layout.containerMaxWidth,
+    marginHorizontal: 'auto',
+    width: '100%',
   },
   card: {
     backgroundColor: theme.colors.white,
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: theme.colors.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing['2xl'],
+    marginBottom: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
   },
   infoGroup: {
-    marginBottom: 20,
+    marginBottom: theme.spacing['2xl'],
   },
   label: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray700,
-    marginBottom: 6,
+    marginBottom: theme.spacing.sm,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   value: {
-    fontSize: 16,
+    fontSize: theme.typography.base,
     color: theme.colors.gray900,
   },
   valueSecondary: {
-    fontSize: 14,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray500,
   },
   hint: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray400,
     marginTop: 4,
   },
   input: {
     borderWidth: 1,
-    borderColor: theme.colors.gray200,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
+    borderColor: theme.colors.gray300,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.md,
+    fontSize: theme.typography.base,
     backgroundColor: theme.colors.white,
   },
   badge: {
     alignSelf: 'flex-start',
-    backgroundColor: theme.colors.infoBg,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+    backgroundColor: theme.colors.info + '15',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
   },
   badgeText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.info,
   },
   editButtons: {
-    gap: 12,
-    marginBottom: 16,
+    gap: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
   },
   button: {
-    padding: 16,
-    borderRadius: 8,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
   },
   editButton: {
     backgroundColor: theme.colors.secondary,
-    marginBottom: 16,
+    marginBottom: theme.spacing.lg,
   },
   saveButton: {
     backgroundColor: theme.colors.success,
@@ -396,40 +375,40 @@ const styles = StyleSheet.create(theme => ({
   cancelButton: {
     backgroundColor: theme.colors.white,
     borderWidth: 1,
-    borderColor: theme.colors.gray200,
+    borderColor: theme.colors.gray300,
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   buttonText: {
     color: theme.colors.white,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   cancelButtonText: {
     color: theme.colors.gray500,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   actions: {
-    gap: 12,
+    gap: theme.spacing.md,
   },
   actionButton: {
     backgroundColor: theme.colors.white,
-    padding: 16,
-    borderRadius: 8,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: theme.colors.gray200,
+    borderColor: theme.colors.gray300,
   },
   actionButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray700,
   },
   logoutButton: {
-    borderColor: theme.colors.errorBg,
-    backgroundColor: theme.colors.errorBg,
+    borderColor: theme.colors.error + '30',
+    backgroundColor: theme.colors.error + '10',
   },
   logoutButtonText: {
     color: theme.colors.error,

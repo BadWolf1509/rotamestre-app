@@ -158,13 +158,14 @@ export default function TransferirGestaoScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Text style={styles.backIcon}>←</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Transferir Gestão</Text>
+          <View style={styles.headerContent}>
+            <View>
+              <Text style={styles.headerTitle}>Transferir Gestão</Text>
+              <Text style={styles.headerSubtitle}>
+                {userData?.unidades?.nome}
+              </Text>
+            </View>
+          </View>
         </View>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>
@@ -181,13 +182,14 @@ export default function TransferirGestaoScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Transferir Gestão Principal</Text>
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.headerTitle}>Transferir Gestão Principal</Text>
+            <Text style={styles.headerSubtitle}>
+              {userData?.unidades?.nome}
+            </Text>
+          </View>
+        </View>
       </View>
 
       <ScrollView style={styles.content}>
@@ -332,39 +334,40 @@ export default function TransferirGestaoScreen() {
 const styles = StyleSheet.create(theme => ({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.gray50,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.gray50,
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 14,
-    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.sm,
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
   },
   header: {
+    backgroundColor: theme.colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.gray200,
+    paddingHorizontal: theme.spacing['3xl'],
+    paddingVertical: theme.spacing['2xl'],
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  backButton: {
-    padding: 8,
-    marginRight: 12,
-  },
-  backIcon: {
-    fontSize: 24,
-    color: theme.colors.primary,
+    justifyContent: 'space-between',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: theme.colors.text,
+    fontSize: theme.typography['3xl'],
+    fontFamily: theme.typography.fontDisplay,
+    color: theme.colors.gray900,
+  },
+  headerSubtitle: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
+    marginTop: 4,
   },
   content: {
     flex: 1,

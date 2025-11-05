@@ -12,8 +12,6 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
-import { useResponsive } from '@/hooks/useResponsive';
-import { DesktopLayout } from '@/components/desktop';
 import { DataTable, DataTableColumn, DataTableAction } from '@/components/DataTable';
 import { Toast } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
@@ -49,7 +47,6 @@ export default function HistoricoGestor() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { userData } = useUser();
-  const { isDesktop } = useResponsive();
   const { toast: toastState, showToast, hideToast, withToast } = useToast();
 
   const [rotas, setRotas] = useState<RotaHistorico[]>([]);
@@ -261,6 +258,34 @@ export default function HistoricoGestor() {
       render: (rota) => rota.distancia_total ? `${rota.distancia_total.toFixed(1)} km` : '-',
     },
     {
+      key: 'iniciada_em',
+      label: 'Iniciada',
+      width: 140,
+      desktopOnly: true,
+      render: (rota) => rota.iniciada_em
+        ? new Date(rota.iniciada_em).toLocaleString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+          })
+        : '-',
+    },
+    {
+      key: 'concluida_em',
+      label: 'Concluída',
+      width: 140,
+      desktopOnly: true,
+      render: (rota) => rota.concluida_em
+        ? new Date(rota.concluida_em).toLocaleString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+          })
+        : '-',
+    },
+    {
       key: 'status',
       label: 'Status',
       width: 140,
@@ -310,11 +335,35 @@ export default function HistoricoGestor() {
 
   return (
     <>
-      <DesktopLayout scrollable>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Histórico de Rotas</Text>
-          <Text style={styles.subtitle}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.headerTitle}>Histórico de Rotas</Text>
+            <Text style={styles.headerSubtitle}>
+              {userData?.unidades?.nome}
+            </Text>
+          </View>
+          {/* Quick Actions - apenas desktop */}
+          {Platform.OS === 'web' && (
+            <View style={styles.quickActions}>
+              <TouchableOpacity
+                style={styles.quickActionButton}
+                onPress={() => router.push('/gestor/nova-entrega')}
+              >
+                <Text style={styles.quickActionText}>+ Nova Rota</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Content */}
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.content}>
+        {/* Info */}
+        <View style={styles.infoBox}>
+          <Text style={styles.infoText}>
             {rotasFiltradas.length} rota(s) encontrada(s)
           </Text>
         </View>
@@ -351,10 +400,10 @@ export default function HistoricoGestor() {
           columns={columns}
           actions={actions}
           keyExtractor={(rota) => rota.id}
-          itemsPerPage={isDesktop ? 20 : 10}
+          itemsPerPage={20}
           pagination
           isLoading={loading}
-          skeletonRows={isDesktop ? 10 : 5}
+          skeletonRows={10}
           emptyState={
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateText}>📋</Text>
@@ -367,7 +416,8 @@ export default function HistoricoGestor() {
             </View>
           }
         />
-      </DesktopLayout>
+        </View>
+      </ScrollView>
 
       {/* Toast de Feedback */}
       <Toast {...toastState} onDismiss={hideToast} />
@@ -391,52 +441,101 @@ const styles = StyleSheet.create(theme => ({
     backgroundColor: theme.colors.gray50,
   },
   loadingText: {
-    marginTop: theme.spacing.md,
-    fontSize: theme.typography.fontSize.sm,
+    marginTop: theme.spacing.lg,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray500,
   },
   header: {
+    backgroundColor: theme.colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.gray200,
+    paddingHorizontal: theme.spacing['3xl'],
     paddingVertical: theme.spacing['2xl'],
   },
-  title: {
-    fontSize: theme.typography.fontSize['3xl'] - 2,
-    fontWeight: 'bold',
-    color: theme.colors.gray900,
-    marginBottom: theme.spacing.xs,
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  subtitle: {
-    fontSize: theme.typography.fontSize.sm,
+  headerTitle: {
+    fontSize: theme.typography['3xl'],
+    fontFamily: theme.typography.fontDisplay,
+    color: theme.colors.gray900,
+  },
+  headerSubtitle: {
+    fontSize: theme.typography.sm,
     color: theme.colors.gray500,
+    marginTop: 4,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+  },
+  quickActionButton: {
+    backgroundColor: theme.colors.secondary,
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+  },
+  quickActionText: {
+    color: theme.colors.white,
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
+  },
+  scrollView: {
+    flex: 1,
+    backgroundColor: theme.colors.gray50,
+  },
+  content: {
+    paddingHorizontal: theme.spacing['3xl'],
+    paddingVertical: theme.spacing['2xl'],
+    maxWidth: theme.layout.containerMaxWidth,
+    marginHorizontal: 'auto',
+    width: '100%',
+  },
+  infoBox: {
+    backgroundColor: theme.colors.info + '10',
+    borderWidth: 1,
+    borderColor: theme.colors.info + '30',
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing['2xl'],
+  },
+  infoText: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.info,
+    textAlign: 'center',
   },
   filtrosContainer: {
     marginBottom: theme.spacing['2xl'],
   },
   filtrosLabel: {
-    fontSize: theme.typography.fontSize.sm,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray700,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
   },
   filtrosButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: theme.spacing.sm,
+    gap: theme.spacing.md,
   },
   filtroButton: {
-    paddingVertical: theme.spacing.sm,
+    paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
-    borderRadius: theme.borderRadius.sm,
+    borderRadius: theme.borderRadius.lg,
     backgroundColor: theme.colors.white,
     borderWidth: 1,
-    borderColor: theme.colors.gray200,
+    borderColor: theme.colors.gray300,
   },
   filtroButtonActive: {
     backgroundColor: theme.colors.primary,
     borderColor: theme.colors.primary,
   },
   filtroButtonText: {
-    fontSize: theme.typography.fontSize.sm,
-    fontWeight: '500',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray700,
   },
   filtroButtonTextActive: {
@@ -444,31 +543,31 @@ const styles = StyleSheet.create(theme => ({
   },
   statusBadge: {
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm - 2,
+    paddingVertical: theme.spacing.sm,
     borderRadius: theme.borderRadius.lg,
     alignSelf: 'flex-start',
   },
   statusBadgeText: {
     color: theme.colors.white,
-    fontSize: theme.typography.fontSize.xs,
-    fontWeight: '600',
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: theme.spacing['6xl'] - 4,
+    paddingVertical: theme.spacing['3xl'],
   },
   emptyStateText: {
     fontSize: 48,
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing['2xl'],
   },
   emptyStateTitle: {
-    fontSize: theme.typography.fontSize.lg,
-    fontWeight: '600',
+    fontSize: theme.typography.lg,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
   },
   emptyStateSubtitle: {
-    fontSize: theme.typography.fontSize.sm,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray500,
   },
 }));

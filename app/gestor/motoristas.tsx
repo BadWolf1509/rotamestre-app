@@ -8,14 +8,14 @@ import {
   Alert,
   RefreshControl,
   TextInput,
+  ScrollView,
+  Modal,
 } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 import { toast } from '@/utils/toast';
 import { validation, formatTelefone } from '@/utils/validation';
-import { useResponsive } from '@/hooks/useResponsive';
-import { DesktopLayout, DesktopModal } from '@/components/desktop';
 import { DataTable, DataTableColumn, DataTableAction } from '@/components/DataTable';
 import { Toast } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
@@ -37,7 +37,6 @@ interface MotoristaDetalhado {
 export default function MotoristasGestor() {
   const { theme } = useUnistyles();
   const { userData } = useUser();
-  const { isDesktop, isMobile } = useResponsive();
   const { toast: toastState, showToast, hideToast, withToast } = useToast();
   const [motoristas, setMotoristas] = useState<MotoristaDetalhado[]>([]);
   const [loading, setLoading] = useState(true);
@@ -417,12 +416,15 @@ export default function MotoristasGestor() {
   }
 
   const renderAddModal = () => (
-    <DesktopModal
+    <Modal
       visible={showAddModal}
-      onClose={() => setShowAddModal(false)}
-      title="Adicionar Motorista"
-      maxWidth={500}
+      onRequestClose={() => setShowAddModal(false)}
+      animationType="slide"
+      transparent={true}
     >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Adicionar Motorista</Text>
       <Text style={styles.inputLabel}>Nome *</Text>
       <TextInput
         style={styles.input}
@@ -494,19 +496,24 @@ export default function MotoristasGestor() {
           )}
         </TouchableOpacity>
       </View>
-    </DesktopModal>
+        </View>
+      </View>
+    </Modal>
   );
 
   const renderEditModal = () => (
-    <DesktopModal
+    <Modal
       visible={showEditModal}
-      onClose={() => {
+      onRequestClose={() => {
         setShowEditModal(false);
         setMotoristaEditando(null);
       }}
-      title="Editar Motorista"
-      maxWidth={500}
+      animationType="slide"
+      transparent={true}
     >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Editar Motorista</Text>
       <Text style={styles.inputLabel}>Nome *</Text>
       <TextInput
         style={styles.input}
@@ -571,7 +578,9 @@ export default function MotoristasGestor() {
           )}
         </TouchableOpacity>
       </View>
-    </DesktopModal>
+        </View>
+      </View>
+    </Modal>
   );
 
   const renderMotorista = ({ item }: { item: MotoristaDetalhado }) => (
@@ -658,26 +667,26 @@ export default function MotoristasGestor() {
     {
       key: 'nome',
       label: 'Nome',
-      width: 200,
+      width: 180,
       sortable: true,
       render: (motorista) => motorista.nome,
     },
     {
       key: 'email',
       label: 'E-mail',
-      width: 220,
+      width: 200,
       render: (motorista) => motorista.email,
     },
     {
       key: 'telefone',
       label: 'Telefone',
-      width: 140,
+      width: 130,
       render: (motorista) => motorista.telefone || '-',
     },
     {
       key: 'rotas_total',
       label: 'Rotas',
-      width: 100,
+      width: 80,
       align: 'center',
       sortable: true,
       render: (motorista) => motorista.rotas_stats?.total?.toString() || '0',
@@ -685,14 +694,29 @@ export default function MotoristasGestor() {
     {
       key: 'rotas_concluidas',
       label: 'Concluídas',
-      width: 120,
+      width: 100,
       align: 'center',
       render: (motorista) => motorista.rotas_stats?.concluidas?.toString() || '0',
     },
     {
+      key: 'rotas_em_andamento',
+      label: 'Em Andamento',
+      width: 130,
+      align: 'center',
+      desktopOnly: true,
+      render: (motorista) => motorista.rotas_stats?.em_andamento?.toString() || '0',
+    },
+    {
+      key: 'created_at',
+      label: 'Cadastrado em',
+      width: 130,
+      desktopOnly: true,
+      render: (motorista) => new Date(motorista.created_at).toLocaleDateString('pt-BR'),
+    },
+    {
       key: 'ativo',
       label: 'Status',
-      width: 100,
+      width: 90,
       render: (motorista) => (motorista.ativo ? '✅ Ativo' : '❌ Inativo'),
     },
   ];
@@ -722,15 +746,14 @@ export default function MotoristasGestor() {
   }
 
   return (
-    <View style={styles.container}>
+    <>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerTop}>
+        <View style={styles.headerContent}>
           <View>
             <Text style={styles.headerTitle}>Motoristas</Text>
             <Text style={styles.headerSubtitle}>
-              {motoristas.length} {motoristas.length === 1 ? 'motorista' : 'motoristas'}{' '}
-              cadastrados
+              {userData?.unidades?.nome}
             </Text>
           </View>
           <TouchableOpacity
@@ -742,8 +765,15 @@ export default function MotoristasGestor() {
         </View>
       </View>
 
-      {/* Lista de Motoristas - DataTable Responsivo */}
-      <DesktopLayout scrollable>
+      {/* Content */}
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.content}>
+        {/* Info */}
+        <View style={styles.infoBox}>
+          <Text style={styles.infoText}>
+            {motoristas.length} {motoristas.length === 1 ? 'motorista' : 'motoristas'} cadastrados
+          </Text>
+        </View>
         {motoristas.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyTitle}>👤</Text>
@@ -758,13 +788,14 @@ export default function MotoristasGestor() {
             columns={columns}
             actions={actions}
             keyExtractor={(item) => item.id}
-            itemsPerPage={isDesktop ? 20 : 10}
+            itemsPerPage={20}
             pagination
             isLoading={loading}
-            skeletonRows={isDesktop ? 10 : 5}
+            skeletonRows={10}
           />
         )}
-      </DesktopLayout>
+        </View>
+      </ScrollView>
 
       {/* Modals */}
       {renderAddModal()}
@@ -772,7 +803,7 @@ export default function MotoristasGestor() {
 
       {/* Toast de Feedback */}
       <Toast {...toastState} onDismiss={hideToast} />
-    </View>
+    </>
   );
 }
 
@@ -794,38 +825,61 @@ const styles = StyleSheet.create(theme => ({
   },
   header: {
     backgroundColor: theme.colors.white,
-    padding: theme.spacing.xl,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray200,
+    paddingHorizontal: theme.spacing['3xl'],
+    paddingVertical: theme.spacing['2xl'],
   },
-  headerTop: {
+  headerContent: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
   },
   headerTitle: {
-    fontSize: theme.typography.fontSize['2xl'],
-    fontWeight: 'bold',
+    fontSize: theme.typography['3xl'],
+    fontFamily: theme.typography.fontDisplay,
     color: theme.colors.gray900,
-    marginBottom: theme.spacing.xs,
   },
   headerSubtitle: {
-    fontSize: theme.typography.fontSize.sm,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray500,
+    marginTop: 4,
+  },
+  scrollView: {
+    flex: 1,
+    backgroundColor: theme.colors.gray50,
+  },
+  content: {
+    paddingHorizontal: theme.spacing['3xl'],
+    paddingVertical: theme.spacing['2xl'],
+    maxWidth: theme.layout.containerMaxWidth,
+    marginHorizontal: 'auto',
+    width: '100%',
+  },
+  infoBox: {
+    backgroundColor: theme.colors.info + '10',
+    borderWidth: 1,
+    borderColor: theme.colors.info + '30',
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing['2xl'],
+  },
+  infoText: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.info,
+    textAlign: 'center',
   },
   addButton: {
     backgroundColor: theme.colors.success,
     paddingHorizontal: theme.spacing.xl,
-    paddingVertical: theme.spacing.sm + 2,
-    borderRadius: theme.borderRadius.sm,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
   },
   addButtonText: {
     color: theme.colors.white,
-    fontSize: theme.typography.fontSize.sm,
-    fontWeight: '600',
-  },
-  listContainer: {
-    padding: theme.spacing.lg,
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   emptyContainer: {
     padding: theme.spacing['6xl'] - 4,
@@ -1017,5 +1071,29 @@ const styles = StyleSheet.create(theme => ({
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.xl,
+  },
+  modalContent: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing['2xl'],
+    width: '100%',
+    maxWidth: 600,
+    minWidth: 400,
+    maxHeight: '85vh',
+    ...theme.shadows.lg,
+  },
+  modalTitle: {
+    fontSize: theme.typography.xl,
+    fontFamily: theme.typography.fontDisplay,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.lg,
+    textAlign: 'center',
   },
 }));

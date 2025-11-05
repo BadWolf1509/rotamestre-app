@@ -161,7 +161,7 @@ export function DashboardMobile({
               key={rota.id}
               rota={rota}
               onPress={() => {
-                console.log('Ver detalhes da rota:', rota.id);
+                router.push(`/gestor/mapa-rota?id=${rota.id}`);
               }}
             />
           ))

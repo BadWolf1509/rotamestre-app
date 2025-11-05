@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   TextInput,
   Alert,
+  Platform,
 } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useForm, Controller, Control, FieldErrors } from 'react-hook-form';
@@ -16,10 +17,9 @@ import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 import { googleMapsService } from '@/lib/google';
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
-import { useResponsive } from '@/hooks/useResponsive';
-import { DesktopLayout, SplitView } from '@/components/desktop';
 import { Toast } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
+import { useBreakpoint } from '@/hooks/useBreakpoint';
 
 // Schema de validação
 const paradaSchema = z.object({
@@ -219,8 +219,8 @@ export default function NovaEntrega() {
   const { theme } = useUnistyles();
   const styles = createStyles(theme);
   const { userData, unidade } = useUser();
-  const { isDesktop, isMobile, isTablet } = useResponsive();
   const { toast: toastState, showToast, hideToast, withToast } = useToast();
+  const { isDesktop, isLargeDesktop } = useBreakpoint();
   const [paradas, setParadas] = useState<Parada[]>([]);
   const [motoristas, setMotoristas] = useState<any[]>([]);
   const [motoristaSelecionado, setMotoristaSelecionado] = useState<string>('');
@@ -727,13 +727,41 @@ export default function NovaEntrega() {
   // ============================================
   return (
     <>
-      <DesktopLayout scrollable>
-        <Text style={styles.title}>Nova Rota de Entrega</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.headerTitle}>Nova Rota de Entrega</Text>
+            <Text style={styles.headerSubtitle}>
+              {userData?.unidades?.nome}
+            </Text>
+          </View>
+        </View>
+      </View>
 
-        {isDesktop ? (
-          // Desktop: Split horizontal (Formulário | Paradas + Motorista)
-          <SplitView
-            left={
+      {/* Content */}
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.content}>
+          {/* Desktop: Two-column layout (Form | Preview) */}
+          {isDesktop || isLargeDesktop ? (
+            <View style={styles.twoColumnLayout}>
+              <View style={styles.formColumn}>
+                <FormularioParadaMemoized
+                  control={control}
+                  errors={errors}
+                  setValue={setValue}
+                  handleSubmit={handleSubmit}
+                  onAddParada={onAddParada}
+                  isLoading={isLoading}
+                />
+              </View>
+              <View style={styles.previewColumn}>
+                <ParadasListAndActions />
+              </View>
+            </View>
+          ) : (
+            /* Mobile/Tablet: Stacked layout */
+            <>
               <FormularioParadaMemoized
                 control={control}
                 errors={errors}
@@ -742,27 +770,11 @@ export default function NovaEntrega() {
                 onAddParada={onAddParada}
                 isLoading={isLoading}
               />
-            }
-            right={<ScrollView showsVerticalScrollIndicator={false}><ParadasListAndActions /></ScrollView>}
-            leftFlex={1}
-            rightFlex={1}
-            gap={24}
-          />
-        ) : (
-          // Mobile: Stack vertical
-          <>
-            <FormularioParadaMemoized
-              control={control}
-              errors={errors}
-              setValue={setValue}
-              handleSubmit={handleSubmit}
-              onAddParada={onAddParada}
-              isLoading={isLoading}
-            />
-            <ParadasListAndActions />
-          </>
-        )}
-      </DesktopLayout>
+              <ParadasListAndActions />
+            </>
+          )}
+        </View>
+      </ScrollView>
 
       {/* Toast de Feedback */}
       <Toast {...toastState} onDismiss={hideToast} />
@@ -780,35 +792,78 @@ const createStyles = (theme: any) => StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: theme.colors.gray50,
   },
-  title: {
-    fontSize: theme.typography.fontSize['2xl'],
-    fontWeight: 'bold',
+  header: {
+    backgroundColor: theme.colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.gray200,
+    paddingHorizontal: theme.spacing['3xl'],
+    paddingVertical: theme.spacing['2xl'],
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitle: {
+    fontSize: theme.typography['3xl'],
+    fontFamily: theme.typography.fontDisplay,
     color: theme.colors.gray900,
-    marginBottom: theme.spacing.xl,
+  },
+  headerSubtitle: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
+    marginTop: 4,
+  },
+  scrollView: {
+    flex: 1,
+    backgroundColor: theme.colors.gray50,
+  },
+  content: {
+    paddingHorizontal: theme.spacing['3xl'],
+    paddingVertical: theme.spacing['2xl'],
+    maxWidth: theme.layout.containerMaxWidth,
+    marginHorizontal: 'auto',
+    width: '100%',
+  },
+  // Two-column layout (Desktop)
+  twoColumnLayout: {
+    flexDirection: 'row',
+    gap: theme.spacing['2xl'],
+    alignItems: 'flex-start',
+  },
+  formColumn: {
+    flex: 1,
+    minWidth: 0, // Permite flex shrink funcionar corretamente
+  },
+  previewColumn: {
+    flex: 1,
+    minWidth: 0,
   },
   form: {
     backgroundColor: theme.colors.white,
-    padding: theme.spacing.xl,
-    borderRadius: theme.borderRadius.lg,
-    marginBottom: theme.spacing.xl,
-    ...theme.shadows.md,
+    padding: theme.spacing['2xl'],
+    borderRadius: theme.borderRadius.xl,
+    marginBottom: theme.spacing['2xl'],
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
   },
   sectionTitle: {
-    fontSize: theme.typography.fontSize.lg,
-    fontWeight: '600',
+    fontSize: theme.typography.lg,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing['2xl'],
   },
   radioGroup: {
     flexDirection: 'row',
-    gap: theme.spacing.sm + 2,
-    marginBottom: theme.spacing.md,
+    gap: theme.spacing.md,
+    marginBottom: theme.spacing['2xl'],
   },
   radioButton: {
     flex: 1,
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.sm,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
     borderColor: theme.colors.gray300,
     alignItems: 'center',
@@ -818,8 +873,9 @@ const createStyles = (theme: any) => StyleSheet.create({
     borderColor: theme.colors.primaryDark,
   },
   radioText: {
-    color: theme.colors.gray500,
-    fontWeight: '500',
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray700,
   },
   radioTextActive: {
     color: theme.colors.white,
@@ -827,10 +883,10 @@ const createStyles = (theme: any) => StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: theme.colors.gray300,
-    borderRadius: theme.borderRadius.sm,
+    borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.md,
-    fontSize: theme.typography.fontSize.base,
-    marginBottom: theme.spacing.md,
+    fontSize: theme.typography.base,
+    marginBottom: theme.spacing['2xl'],
     backgroundColor: theme.colors.white,
   },
   inputError: {
@@ -842,149 +898,156 @@ const createStyles = (theme: any) => StyleSheet.create({
   },
   errorText: {
     color: theme.colors.error,
-    fontSize: theme.typography.fontSize.xs,
-    marginTop: -theme.spacing.sm,
-    marginBottom: theme.spacing.sm,
+    fontSize: theme.typography.xs,
+    marginTop: -theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
   addButton: {
     backgroundColor: theme.colors.secondary,
-    padding: theme.spacing.md + 3,
-    borderRadius: theme.borderRadius.sm,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
-    marginTop: theme.spacing.sm + 2,
+    marginTop: theme.spacing.md,
   },
   addButtonText: {
     color: theme.colors.white,
-    fontWeight: '600',
-    fontSize: theme.typography.fontSize.base,
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   paradasList: {
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing['2xl'],
   },
   paradaCard: {
     backgroundColor: theme.colors.white,
-    padding: theme.spacing.md + 3,
-    borderRadius: theme.borderRadius.sm,
-    marginBottom: theme.spacing.sm + 2,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
+    marginBottom: theme.spacing.md,
     borderLeftWidth: 4,
     borderLeftColor: theme.colors.primaryDark,
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
   },
   paradaHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
   },
   paradaTipo: {
-    fontSize: theme.typography.fontSize.sm,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.primaryDark,
   },
   removeButton: {
     color: theme.colors.error,
-    fontSize: theme.typography.fontSize.sm,
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   paradaEndereco: {
-    fontSize: theme.typography.fontSize.sm,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray900,
-    marginBottom: theme.spacing.xs,
+    marginBottom: theme.spacing.sm,
   },
   paradaDetail: {
-    fontSize: theme.typography.fontSize.xs,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray500,
   },
   motoristaSection: {
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing['2xl'],
   },
   noMotoristas: {
     color: theme.colors.gray500,
     fontStyle: 'italic',
     textAlign: 'center',
-    padding: theme.spacing.xl,
+    padding: theme.spacing['2xl'],
+    fontSize: theme.typography.sm,
   },
   motoristaCard: {
     backgroundColor: theme.colors.white,
-    padding: theme.spacing.md + 3,
-    borderRadius: theme.borderRadius.sm,
-    marginBottom: theme.spacing.sm + 2,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
+    marginBottom: theme.spacing.md,
     borderWidth: 2,
     borderColor: theme.colors.gray200,
   },
   motoristaCardActive: {
     borderColor: theme.colors.primaryDark,
-    backgroundColor: theme.colors.primaryBg,
+    backgroundColor: theme.colors.primaryLight,
   },
   motoristaNome: {
-    fontSize: theme.typography.fontSize.base,
-    fontWeight: '600',
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
   },
   motoristaEmail: {
-    fontSize: theme.typography.fontSize.sm,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray500,
-    marginTop: theme.spacing.xs,
+    marginTop: theme.spacing.sm,
   },
   gerarButton: {
-    backgroundColor: theme.colors.primaryDark,
-    padding: theme.spacing.lg + 2,
-    borderRadius: theme.borderRadius.sm,
+    backgroundColor: theme.colors.success,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
   },
   gerarButtonDisabled: {
     backgroundColor: theme.colors.gray400,
+    opacity: 0.5,
   },
   gerarButtonText: {
     color: theme.colors.white,
-    fontWeight: 'bold',
-    fontSize: theme.typography.fontSize.lg,
+    fontSize: theme.typography.lg,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   otimizarButton: {
-    backgroundColor: theme.colors.purple,
-    padding: theme.spacing.md + 3,
-    borderRadius: theme.borderRadius.sm,
+    backgroundColor: theme.colors.info,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
-    marginTop: theme.spacing.md + 3,
+    marginTop: theme.spacing.lg,
   },
   otimizarButtonText: {
     color: theme.colors.white,
-    fontWeight: '600',
-    fontSize: theme.typography.fontSize.base,
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   otimizacaoBanner: {
-    backgroundColor: theme.colors.successBg,
+    backgroundColor: theme.colors.success + '10',
     borderLeftWidth: 4,
     borderLeftColor: theme.colors.success,
-    padding: theme.spacing.lg,
-    borderRadius: theme.borderRadius.sm,
-    marginTop: theme.spacing.md + 3,
+    borderWidth: 1,
+    borderColor: theme.colors.success + '30',
+    padding: theme.spacing['2xl'],
+    borderRadius: theme.borderRadius.lg,
+    marginTop: theme.spacing.lg,
   },
   otimizacaoBannerTitle: {
-    fontSize: theme.typography.fontSize.base,
-    fontWeight: 'bold',
-    color: '#065f46',
-    marginBottom: theme.spacing.md,
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.success,
+    marginBottom: theme.spacing.lg,
   },
   otimizacaoStats: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
   },
   otimizacaoStat: {
     alignItems: 'center',
   },
   otimizacaoStatLabel: {
-    fontSize: theme.typography.fontSize.xs,
-    color: '#047857',
-    marginBottom: theme.spacing.xs,
+    fontSize: theme.typography.xs,
+    color: theme.colors.success,
+    marginBottom: theme.spacing.sm,
   },
   otimizacaoStatValue: {
-    fontSize: theme.typography.fontSize.lg,
-    fontWeight: 'bold',
-    color: '#065f46',
+    fontSize: theme.typography.lg,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.success,
   },
   otimizacaoBannerHint: {
-    fontSize: theme.typography.fontSize.xs,
-    color: '#047857',
+    fontSize: theme.typography.xs,
+    color: theme.colors.success,
     fontStyle: 'italic',
     textAlign: 'center',
   },
@@ -994,25 +1057,26 @@ const createStyles = (theme: any) => StyleSheet.create({
   emptyParadasState: {
     backgroundColor: theme.colors.white,
     padding: theme.spacing['3xl'],
-    borderRadius: theme.borderRadius.lg,
+    borderRadius: theme.borderRadius.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 400,
-    ...theme.shadows.sm,
   },
   emptyParadasIcon: {
     fontSize: 64,
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing['2xl'],
   },
   emptyParadasTitle: {
-    fontSize: theme.typography.fontSize.lg,
-    fontWeight: '600',
+    fontSize: theme.typography.lg,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
     textAlign: 'center',
   },
   emptyParadasText: {
-    fontSize: theme.typography.fontSize.sm,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray500,
     textAlign: 'center',
     maxWidth: 300,

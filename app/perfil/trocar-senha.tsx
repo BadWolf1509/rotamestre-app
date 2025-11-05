@@ -14,15 +14,12 @@ import { supabase } from '@/lib/supabase';
 import { useProfile } from '@/hooks/useProfile';
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
 import { isPasswordValid } from '@/utils/passwordValidation';
-import { useResponsive } from '@/hooks/useResponsive';
-import { ResponsiveContainer } from '@/components/ResponsiveContainer';
 
 export default function TrocarSenhaScreen() {
   const router = useRouter();
   const { theme } = useUnistyles();
-  const { isDesktop } = useResponsive();
   const [user, setUser] = useState<any>(null);
-  const { changePassword } = useProfile(user);
+  const { profile, changePassword } = useProfile(user);
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -85,16 +82,27 @@ export default function TrocarSenhaScreen() {
   }
 
   return (
-    <ResponsiveContainer>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <View style={[styles.content, isDesktop && styles.contentDesktop]}>
-        <Text style={styles.title}>Trocar Senha</Text>
-        <Text style={styles.subtitle}>
-          Por segurança, você precisará fazer login novamente após trocar a senha.
-        </Text>
+    <>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.headerTitle}>Trocar Senha</Text>
+            <Text style={styles.headerSubtitle}>
+              {profile?.unidades?.nome || 'Rota Mestre'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Content */}
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.content}>
+        <View style={styles.infoBox}>
+          <Text style={styles.infoText}>
+            Por segurança, você precisará fazer login novamente após trocar a senha.
+          </Text>
+        </View>
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Senha Atual</Text>
@@ -173,54 +181,65 @@ export default function TrocarSenhaScreen() {
         </TouchableOpacity>
         </View>
       </ScrollView>
-    </ResponsiveContainer>
+    </>
   );
 }
 
 const styles = StyleSheet.create(theme => ({
-  container: {
+  header: {
+    backgroundColor: theme.colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.gray200,
+    paddingHorizontal: theme.spacing['3xl'],
+    paddingVertical: theme.spacing['2xl'],
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitle: {
+    fontSize: theme.typography['3xl'],
+    fontFamily: theme.typography.fontDisplay,
+    color: theme.colors.gray900,
+  },
+  headerSubtitle: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
+    marginTop: 4,
+  },
+  scrollView: {
     flex: 1,
     backgroundColor: theme.colors.gray50,
   },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 20,
-  },
   content: {
-    backgroundColor: theme.colors.white,
-    borderRadius: 12,
-    padding: 24,
-    shadowColor: theme.colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  contentDesktop: {
-    maxWidth: 500,
-    alignSelf: 'center',
+    paddingHorizontal: theme.spacing['3xl'],
+    paddingVertical: theme.spacing['2xl'],
+    maxWidth: 600,
+    marginHorizontal: 'auto',
     width: '100%',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: theme.colors.gray900,
-    marginBottom: 8,
+  infoBox: {
+    backgroundColor: theme.colors.info + '10',
+    borderWidth: 1,
+    borderColor: theme.colors.info + '30',
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing['2xl'],
   },
-  subtitle: {
-    fontSize: 14,
-    color: theme.colors.gray500,
-    marginBottom: 24,
+  infoText: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.info,
+    textAlign: 'center',
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: theme.spacing['2xl'],
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray700,
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -229,42 +248,42 @@ const styles = StyleSheet.create(theme => ({
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: theme.colors.gray200,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
+    borderColor: theme.colors.gray300,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.md,
+    fontSize: theme.typography.base,
     backgroundColor: theme.colors.white,
   },
   eyeButton: {
     position: 'absolute',
-    right: 12,
+    right: theme.spacing.md,
   },
   errorText: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.error,
     marginTop: 4,
   },
   button: {
     backgroundColor: theme.colors.secondary,
-    padding: 16,
-    borderRadius: 8,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: theme.spacing.sm,
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   buttonText: {
     color: theme.colors.white,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   cancelButton: {
-    padding: 16,
+    padding: theme.spacing.lg,
     alignItems: 'center',
   },
   cancelButtonText: {
     color: theme.colors.gray500,
-    fontSize: 16,
+    fontSize: theme.typography.base,
   },
 }));

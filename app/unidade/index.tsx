@@ -7,6 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useRouter } from 'expo-router';
@@ -14,6 +15,7 @@ import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 import { Toast } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
+import { useBreakpoint } from '@/hooks/useBreakpoint';
 
 interface UnidadeData {
   id: string;
@@ -31,6 +33,7 @@ export default function UnidadeScreen() {
   const router = useRouter();
   const { userData, loading: userLoading } = useUser();
   const { toast: toastState, showToast, hideToast } = useToast();
+  const { isDesktop, isLargeDesktop } = useBreakpoint();
   const [unidade, setUnidade] = useState<UnidadeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
@@ -147,51 +150,43 @@ export default function UnidadeScreen() {
 
   const isGestorPrincipal = userData?.is_gestor_principal === true;
 
-  return (
-    <ScrollView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Minha Unidade</Text>
-          {isGestorPrincipal && !editMode && (
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={() => setEditMode(true)}
-            >
-              <Text style={styles.editButtonText}>✏️ Editar</Text>
-            </TouchableOpacity>
-          )}
+  // Componente Sidebar (Info Cards) - reutilizável
+  const SidebarInfo = () => (
+    <View style={styles.sidebarContainer}>
+      {/* Badge Gestor Principal */}
+      {isGestorPrincipal && (
+        <View style={styles.principalBadge}>
+          <Text style={styles.principalBadgeText}>⭐ Gestor Principal</Text>
         </View>
+      )}
+
+      {/* Info Card - Membros */}
+      <View style={styles.infoCard}>
+        <Text style={styles.infoLabel}>Membros da Equipe</Text>
+        <Text style={styles.infoValue}>{membrosCount}</Text>
+        <TouchableOpacity
+          style={styles.linkButton}
+          onPress={() => router.push('/unidade/equipe')}
+        >
+          <Text style={styles.linkButtonText}>Ver equipe →</Text>
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.content}>
-        {/* Badge Gestor Principal */}
-        {isGestorPrincipal && (
-          <View style={styles.principalBadge}>
-            <Text style={styles.principalBadgeText}>⭐ Gestor Principal</Text>
-          </View>
-        )}
-
-        {/* Info Cards */}
-        <View style={styles.infoCard}>
-          <Text style={styles.infoLabel}>Membros da Equipe</Text>
-          <Text style={styles.infoValue}>{membrosCount}</Text>
-          <TouchableOpacity
-            style={styles.linkButton}
-            onPress={() => router.push('/unidade/equipe')}
-          >
-            <Text style={styles.linkButtonText}>Ver equipe →</Text>
-          </TouchableOpacity>
+      {/* Aviso para gestores não principais */}
+      {!isGestorPrincipal && (
+        <View style={styles.warningBox}>
+          <Text style={styles.warningText}>
+            ℹ️ Apenas o gestor principal pode editar as informações da unidade.
+          </Text>
         </View>
+      )}
+    </View>
+  );
 
-        {/* Dados da Unidade */}
-        <View style={styles.section}>
+  // Componente Formulário - reutilizável
+  const FormularioUnidade = () => (
+    <View style={styles.formContainer}>
+      <View style={styles.section}>
           <Text style={styles.sectionTitle}>Informações da Unidade</Text>
 
           {/* Nome */}
@@ -312,65 +307,105 @@ export default function UnidadeScreen() {
             </View>
           )}
         </View>
+    </View>
+  );
 
-        {/* Aviso para gestores não principais */}
-        {!isGestorPrincipal && (
-          <View style={styles.warningBox}>
-            <Text style={styles.warningText}>
-              ℹ️ Apenas o gestor principal pode editar as informações da unidade.
+  // Render Principal
+  return (
+    <>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.headerTitle}>Minha Unidade</Text>
+            <Text style={styles.headerSubtitle}>
+              {userData?.unidades?.nome}
             </Text>
           </View>
-        )}
+          <View style={styles.userSection}>
+            {isGestorPrincipal && !editMode && (
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={() => setEditMode(true)}
+              >
+                <Text style={styles.editButtonText}>✏️ Editar</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
       </View>
+
+      {/* Content */}
+      <ScrollView style={styles.container}>
+        <View style={styles.content}>
+          {/* Desktop: Two-column layout (Form | Sidebar) */}
+          {isDesktop || isLargeDesktop ? (
+            <View style={styles.twoColumnLayout}>
+              <View style={styles.mainColumn}>
+                <FormularioUnidade />
+              </View>
+              <View style={styles.sideColumn}>
+                <SidebarInfo />
+              </View>
+            </View>
+          ) : (
+            /* Mobile/Tablet: Stacked layout */
+            <>
+              <SidebarInfo />
+              <FormularioUnidade />
+            </>
+          )}
+        </View>
+      </ScrollView>
 
       {/* Toast de Feedback */}
       <Toast {...toastState} onDismiss={hideToast} />
-    </ScrollView>
+    </>
   );
 }
 
 const styles = StyleSheet.create(theme => ({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.gray50,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.gray50,
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 14,
-    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.sm,
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  backButton: {
-    padding: 8,
-    marginRight: 12,
-  },
-  backIcon: {
-    fontSize: 24,
-    color: theme.colors.primary,
+    borderBottomColor: theme.colors.gray200,
+    paddingHorizontal: theme.spacing['3xl'],
+    paddingVertical: theme.spacing['2xl'],
   },
   headerContent: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: theme.colors.text,
+    fontSize: theme.typography['3xl'],
+    fontFamily: theme.typography.fontDisplay,
+    color: theme.colors.gray900,
+  },
+  headerSubtitle: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
+    marginTop: 4,
+  },
+  userSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.lg,
   },
   editButton: {
     paddingHorizontal: 12,
@@ -384,34 +419,70 @@ const styles = StyleSheet.create(theme => ({
     color: theme.colors.primary,
   },
   content: {
-    padding: 20,
+    paddingHorizontal: theme.spacing['3xl'],
+    paddingVertical: theme.spacing['2xl'],
+    maxWidth: theme.layout.containerMaxWidth,
+    marginHorizontal: 'auto',
+    width: '100%',
+  },
+  // Two-column layout (Desktop)
+  twoColumnLayout: {
+    flexDirection: 'row',
+    gap: theme.spacing['2xl'],
+    alignItems: 'flex-start',
+  },
+  mainColumn: {
+    flex: 2,
+    minWidth: 0,
+  },
+  sideColumn: {
+    flex: 1,
+    minWidth: 0,
+  },
+  sidebarContainer: {
+    // Sidebar container
+  },
+  formContainer: {
+    // Form container
   },
   principalBadge: {
-    backgroundColor: theme.colors.warningLight,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginBottom: 20,
+    backgroundColor: theme.colors.warning + '20',
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    marginBottom: theme.spacing['2xl'],
     alignItems: 'center',
   },
   principalBadgeText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: theme.colors.warningDark,
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.warning,
   },
   infoCard: {
-    backgroundColor: theme.colors.surface,
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 20,
+    backgroundColor: theme.colors.white,
+    padding: theme.spacing['2xl'],
+    borderRadius: theme.borderRadius.xl,
+    marginBottom: theme.spacing['2xl'],
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.gray200,
     alignItems: 'center',
+    // Web-only: Smooth transitions and hover
+    ...(Platform.OS === 'web' && {
+      transitionProperty: 'all',
+      transitionDuration: '0.2s',
+      transitionTimingFunction: 'ease-in-out',
+      // @ts-ignore - web-only CSS
+      ':hover': {
+        borderColor: theme.colors.primary,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+        transform: 'translateY(-2px)',
+      },
+    }),
   },
   infoLabel: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    marginBottom: 8,
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
+    marginBottom: theme.spacing.sm,
   },
   infoValue: {
     fontSize: 32,
@@ -428,48 +499,48 @@ const styles = StyleSheet.create(theme => ({
     color: theme.colors.primary,
   },
   section: {
-    backgroundColor: theme.colors.surface,
-    padding: 20,
-    borderRadius: 12,
+    backgroundColor: theme.colors.white,
+    padding: theme.spacing['2xl'],
+    borderRadius: theme.borderRadius.xl,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.gray200,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: theme.colors.text,
-    marginBottom: 20,
+    fontSize: theme.typography.lg,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing['2xl'],
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: theme.spacing.lg,
   },
   inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: theme.colors.text,
-    marginBottom: 8,
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.sm,
   },
   input: {
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: theme.colors.surface,
-    color: theme.colors.text,
+    borderColor: theme.colors.gray300,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.md,
+    fontSize: theme.typography.base,
+    backgroundColor: theme.colors.white,
+    color: theme.colors.gray900,
   },
   inputDisabled: {
-    backgroundColor: theme.colors.disabled,
-    color: theme.colors.textSecondary,
+    backgroundColor: theme.colors.gray100,
+    color: theme.colors.gray500,
   },
   helperText: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray500,
     marginTop: 4,
   },
   row: {
     flexDirection: 'row',
-    gap: 12,
+    gap: theme.spacing.md,
   },
   flex1: {
     flex: 1,
@@ -479,41 +550,41 @@ const styles = StyleSheet.create(theme => ({
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
+    gap: theme.spacing.md,
+    marginTop: theme.spacing['3xl'],
   },
   button: {
     flex: 1,
-    padding: 16,
-    borderRadius: 8,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
   },
   buttonPrimary: {
     backgroundColor: theme.colors.secondary,
   },
   buttonSecondary: {
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.white,
     borderWidth: 2,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.gray300,
   },
   buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: theme.colors.surface,
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.white,
   },
   buttonTextSecondary: {
-    color: theme.colors.text,
+    color: theme.colors.gray900,
   },
   warningBox: {
     backgroundColor: theme.colors.primaryLight,
-    padding: 16,
-    borderRadius: 8,
-    marginTop: 20,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
+    marginTop: theme.spacing['2xl'],
     borderWidth: 1,
     borderColor: theme.colors.primary,
   },
   warningText: {
-    fontSize: 14,
+    fontSize: theme.typography.sm,
     color: theme.colors.primary,
     textAlign: 'center',
   },

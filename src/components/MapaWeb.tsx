@@ -20,7 +20,7 @@ const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
 const containerStyle = {
   width: '100%',
-  height: '400px',
+  height: '100%',
 };
 
 export default function MapaWeb({ paradas }: MapaWebProps) {

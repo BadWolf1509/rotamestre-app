@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   TextInput,
   Alert,
+  Platform,
 } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useRouter } from 'expo-router';
@@ -14,6 +15,7 @@ import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 import { Toast } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
+import { useBreakpoint } from '@/hooks/useBreakpoint';
 
 interface Membro {
   id: string;
@@ -30,6 +32,7 @@ export default function EquipeScreen() {
   const router = useRouter();
   const { userData, loading: userLoading } = useUser();
   const { toast: toastState, showToast, hideToast } = useToast();
+  const { isDesktop, isLargeDesktop, width } = useBreakpoint();
   const [membros, setMembros] = useState<Membro[]>([]);
   const [filteredMembros, setFilteredMembros] = useState<Membro[]>([]);
   const [loading, setLoading] = useState(true);
@@ -161,13 +164,14 @@ export default function EquipeScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Equipe</Text>
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.headerTitle}>Equipe</Text>
+            <Text style={styles.headerSubtitle}>
+              {userData?.unidades?.nome}
+            </Text>
+          </View>
+        </View>
       </View>
 
       {/* Stats */}
@@ -257,12 +261,14 @@ export default function EquipeScreen() {
             </Text>
           </View>
         ) : (
-          filteredMembros.map((membro) => (
+          <View style={(isDesktop || isLargeDesktop) ? styles.gridContainer : undefined}>
+            {filteredMembros.map((membro) => (
             <View
               key={membro.id}
               style={[
                 styles.membroCard,
                 !membro.ativo && styles.membroCardInativo,
+                (isDesktop || isLargeDesktop) && styles.membroCardGrid,
               ]}
             >
               {/* Avatar e Info */}
@@ -329,7 +335,8 @@ export default function EquipeScreen() {
                 </View>
               )}
             </View>
-          ))
+            ))}
+          </View>
         )}
       </ScrollView>
 
@@ -356,39 +363,40 @@ export default function EquipeScreen() {
 const styles = StyleSheet.create(theme => ({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.gray50,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.gray50,
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 14,
-    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.sm,
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
   },
   header: {
+    backgroundColor: theme.colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.gray200,
+    paddingHorizontal: theme.spacing['3xl'],
+    paddingVertical: theme.spacing['2xl'],
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  backButton: {
-    padding: 8,
-    marginRight: 12,
-  },
-  backIcon: {
-    fontSize: 24,
-    color: theme.colors.primary,
+    justifyContent: 'space-between',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: theme.colors.text,
+    fontSize: theme.typography['3xl'],
+    fontFamily: theme.typography.fontDisplay,
+    color: theme.colors.gray900,
+  },
+  headerSubtitle: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
+    marginTop: 4,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -458,6 +466,13 @@ const styles = StyleSheet.create(theme => ({
     flex: 1,
     paddingHorizontal: 20,
   },
+  // Grid layout for desktop
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.lg,
+    paddingBottom: theme.spacing.lg,
+  },
   emptyState: {
     backgroundColor: theme.colors.surface,
     padding: 40,
@@ -477,6 +492,25 @@ const styles = StyleSheet.create(theme => ({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    // Web-only: Smooth transitions and hover
+    ...(Platform.OS === 'web' && {
+      transitionProperty: 'all',
+      transitionDuration: '0.2s',
+      transitionTimingFunction: 'ease-in-out',
+      // @ts-ignore - web-only CSS
+      ':hover': {
+        borderColor: theme.colors.primary,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+        transform: 'translateY(-2px)',
+      },
+    }),
+  },
+  membroCardGrid: {
+    // 3 colunas no desktop: (100% - 2 gaps) / 3
+    // gap: 16px, então: calc((100% - 32px) / 3)
+    width: 'calc((100% - 32px) / 3)',
+    minWidth: 280,
+    marginBottom: 0, // Gap já gerencia espaçamento
   },
   membroCardInativo: {
     opacity: 0.6,

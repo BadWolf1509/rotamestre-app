@@ -204,7 +204,7 @@ export function DataTable<T = any>({
               </View>
             ))}
             {actions && actions.length > 0 && (
-              <View style={[styles.tableHeaderCell, { width: actions.length * 80 }]}>
+              <View style={[styles.tableHeaderCell, { width: actions.length * 100, minWidth: 180 }]}>
                 <Text style={styles.tableHeaderText}>Ações</Text>
               </View>
             )}
@@ -228,7 +228,7 @@ export function DataTable<T = any>({
                 </View>
               ))}
               {actions && actions.length > 0 && (
-                <View style={[styles.tableCell, { width: actions.length * 80 }]}>
+                <View style={[styles.tableCell, { width: actions.length * 100, minWidth: 180 }]}>
                   <SkeletonLoader />
                 </View>
               )}
@@ -343,7 +343,7 @@ export function DataTable<T = any>({
       {title && <Text style={styles.title}>{title}</Text>}
 
       <View style={styles.tableContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={true}>
           <View>
             {/* Table Header */}
             <View style={styles.tableHeader}>
@@ -368,7 +368,7 @@ export function DataTable<T = any>({
                 </TouchableOpacity>
               ))}
               {actions && actions.length > 0 && (
-                <View style={[styles.tableHeaderCell, { width: actions.length * 80 }]}>
+                <View style={[styles.tableHeaderCell, { width: actions.length * 100, minWidth: 180 }]}>
                   <Text style={styles.tableHeaderText}>Ações</Text>
                 </View>
               )}
@@ -594,6 +594,17 @@ const styles = StyleSheet.create(theme => ({
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray200,
+    // Web-only hover state
+    ...(Platform.OS === 'web' && {
+      cursor: 'default',
+      transitionProperty: 'background-color',
+      transitionDuration: '0.15s',
+      transitionTimingFunction: 'ease-in-out',
+      // @ts-ignore - web-only CSS
+      ':hover': {
+        backgroundColor: theme.colors.primary + '08', // 8% opacity
+      },
+    }),
   },
   tableRowEven: {
     backgroundColor: theme.colors.gray50,
@@ -618,6 +629,19 @@ const styles = StyleSheet.create(theme => ({
     borderRadius: theme.borderRadius.sm,
     backgroundColor: theme.colors.gray100,
     gap: 4,
+    // Web-only hover state
+    ...(Platform.OS === 'web' && {
+      cursor: 'pointer',
+      transitionProperty: 'all',
+      transitionDuration: '0.2s',
+      transitionTimingFunction: 'ease-in-out',
+      // @ts-ignore - web-only CSS
+      ':hover': {
+        backgroundColor: theme.colors.primary + '15', // 15% opacity
+        transform: 'translateY(-1px)',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      },
+    }),
   },
   tableActionButtonDanger: {
     backgroundColor: `${theme.colors.error}20`,

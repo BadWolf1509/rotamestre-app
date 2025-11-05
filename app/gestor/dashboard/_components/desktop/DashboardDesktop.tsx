@@ -1,7 +1,8 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useRouter } from 'expo-router';
 import { useUser } from '@/hooks/useUser';
+import { supabase } from '@/lib/supabase';
 import type { DashboardData } from '../../dashboard/_hooks/useDashboardData';
 import { StatsCard } from '../shared/StatsCard';
 import { RotasTable } from './RotasTable';
@@ -22,6 +23,39 @@ export function DashboardDesktop({
   const { theme } = useUnistyles();
   const router = useRouter();
   const { userData } = useUser();
+
+  const handleDeleteRota = async (rotaId: string) => {
+    Alert.alert(
+      'Confirmar Exclusão',
+      'Tem certeza que deseja excluir esta rota? Esta ação não pode ser desfeita.',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('rotas')
+                .delete()
+                .eq('id', rotaId);
+
+              if (error) throw error;
+
+              Alert.alert('Sucesso', 'Rota excluída com sucesso');
+              onRefresh(); // Refresh the dashboard
+            } catch (error) {
+              console.error('Erro ao excluir rota:', error);
+              Alert.alert('Erro', 'Não foi possível excluir a rota');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   if (loading) {
     return (
@@ -143,8 +177,9 @@ export function DashboardDesktop({
             <RotasTable
               rotas={rotas}
               onRotaPress={(rotaId) => {
-                console.log('Ver detalhes da rota:', rotaId);
+                router.push(`/gestor/mapa-rota?id=${rotaId}`);
               }}
+              onDeletePress={handleDeleteRota}
             />
           </View>
         </View>
