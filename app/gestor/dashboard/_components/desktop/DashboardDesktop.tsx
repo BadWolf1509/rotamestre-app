@@ -1,4 +1,5 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Platform } from 'react-native';
+import { useState } from 'react';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useRouter } from 'expo-router';
 import { useUser } from '@/hooks/useUser';
@@ -6,6 +7,8 @@ import { supabase } from '@/lib/supabase';
 import type { DashboardData } from '../../dashboard/_hooks/useDashboardData';
 import { StatsCard } from '../shared/StatsCard';
 import { RotasTable } from './RotasTable';
+import { ConfirmModal } from '@/components/ConfirmModal';
+import { Toast } from '@/components/Toast';
 
 interface DashboardDesktopProps extends DashboardData {}
 
@@ -24,37 +27,88 @@ export function DashboardDesktop({
   const router = useRouter();
   const { userData } = useUser();
 
+  // Estado para modal de confirmação
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [rotaToDelete, setRotaToDelete] = useState<string | null>(null);
+
+  // Estado para toast de feedback
+  const [toast, setToast] = useState<{
+    visible: boolean;
+    message: string;
+    type: 'success' | 'error' | 'info';
+  }>({
+    visible: false,
+    message: '',
+    type: 'info',
+  });
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info') => {
+    setToast({ visible: true, message, type });
+  };
+
   const handleDeleteRota = async (rotaId: string) => {
-    Alert.alert(
-      'Confirmar Exclusão',
-      'Tem certeza que deseja excluir esta rota? Esta ação não pode ser desfeita.',
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error } = await supabase
-                .from('rotas')
-                .delete()
-                .eq('id', rotaId);
-
-              if (error) throw error;
-
-              Alert.alert('Sucesso', 'Rota excluída com sucesso');
-              onRefresh(); // Refresh the dashboard
-            } catch (error) {
-              console.error('Erro ao excluir rota:', error);
-              Alert.alert('Erro', 'Não foi possível excluir a rota');
-            }
+    // Web: usar modal customizado
+    if (Platform.OS === 'web') {
+      setRotaToDelete(rotaId);
+      setShowConfirmModal(true);
+    } else {
+      // Mobile: usar Alert.alert nativo
+      Alert.alert(
+        'Confirmar Exclusão',
+        'Tem certeza que deseja excluir esta rota? Esta ação não pode ser desfeita.',
+        [
+          {
+            text: 'Cancelar',
+            style: 'cancel',
           },
-        },
-      ]
-    );
+          {
+            text: 'Excluir',
+            style: 'destructive',
+            onPress: () => executeDelete(rotaId),
+          },
+        ]
+      );
+    }
+  };
+
+  const executeDelete = async (rotaId: string) => {
+    try {
+      const { error } = await supabase
+        .from('rotas')
+        .delete()
+        .eq('id', rotaId);
+
+      if (error) throw error;
+
+      if (Platform.OS === 'web') {
+        showToast('Rota excluída com sucesso', 'success');
+      } else {
+        Alert.alert('Sucesso', 'Rota excluída com sucesso');
+      }
+
+      onRefresh(); // Refresh the dashboard
+    } catch (error) {
+      console.error('Erro ao excluir rota:', error);
+
+      if (Platform.OS === 'web') {
+        showToast('Erro ao excluir a rota', 'error');
+      } else {
+        Alert.alert('Erro', 'Não foi possível excluir a rota');
+      }
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    setShowConfirmModal(false);
+    if (rotaToDelete) {
+      executeDelete(rotaToDelete);
+      setRotaToDelete(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setShowConfirmModal(false);
+    setRotaToDelete(null);
   };
 
   if (loading) {
@@ -67,12 +121,13 @@ export function DashboardDesktop({
   }
 
   return (
-    <ScrollView
-      style={styles.scrollView}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
+    <>
+      <ScrollView
+        style={styles.scrollView}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerContent}>
@@ -184,6 +239,27 @@ export function DashboardDesktop({
           </View>
         </View>
       </ScrollView>
+
+      {/* Modal de Confirmação de Exclusão */}
+      <ConfirmModal
+        visible={showConfirmModal}
+        title="Confirmar Exclusão"
+        message="Tem certeza que deseja excluir esta rota? Esta ação não pode ser desfeita."
+        confirmText="Excluir"
+        cancelText="Cancelar"
+        type="danger"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
+
+      {/* Toast de Feedback */}
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onDismiss={() => setToast({ ...toast, visible: false })}
+      />
+    </>
   );
 }
 
