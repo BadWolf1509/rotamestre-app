@@ -8,9 +8,10 @@
  */
 
 import React from 'react';
-import { Platform, View, Text, StyleSheet } from 'react-native';
+import { Platform, View, Text } from 'react-native';
+import { StyleSheet } from 'react-native-unistyles';
 import MapaWeb from './MapaWeb';
-import { MapaMobile } from './MapaMobile'; // Metro automaticamente usa MapaMobile.web.tsx na web
+import { MapaMobile } from './MapaMobile';
 
 interface Parada {
   id: string;
@@ -104,14 +105,14 @@ function getStatusColor(status: string): string {
   }
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   fallbackContainer: {
     height: 400,
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.background,
     borderRadius: 12,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: theme.colors.border,
   },
   fallbackHeader: {
     alignItems: 'center',
@@ -119,20 +120,20 @@ const styles = StyleSheet.create({
   fallbackTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
+    color: theme.colors.text,
     marginBottom: 8,
   },
   fallbackSubtitle: {
     fontSize: 14,
-    color: '#6b7280',
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     marginBottom: 12,
   },
   fallbackCommand: {
     fontFamily: 'monospace',
     fontSize: 12,
-    color: '#0D5A9C',
-    backgroundColor: '#f3f4f6',
+    color: theme.colors.primary,
+    backgroundColor: theme.colors.disabled,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -140,7 +141,7 @@ const styles = StyleSheet.create({
   },
   fallbackDivider: {
     height: 1,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: theme.colors.border,
     marginVertical: 16,
   },
   fallbackParadas: {
@@ -149,18 +150,18 @@ const styles = StyleSheet.create({
   fallbackListTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: theme.colors.text,
     marginBottom: 12,
   },
   fallbackParadaItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 10,
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.surface,
     borderRadius: 8,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: theme.colors.border,
   },
   fallbackParadaBadge: {
     width: 32,
@@ -171,7 +172,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   fallbackParadaBadgeText: {
-    color: '#ffffff',
+    color: theme.colors.surface,
     fontSize: 14,
     fontWeight: 'bold',
   },
@@ -180,13 +181,13 @@ const styles = StyleSheet.create({
   },
   fallbackParadaEndereco: {
     fontSize: 14,
-    color: '#374151',
+    color: theme.colors.text,
     fontWeight: '500',
     marginBottom: 4,
   },
   fallbackParadaCoords: {
     fontSize: 12,
-    color: '#6b7280',
+    color: theme.colors.textSecondary,
     fontFamily: 'monospace',
   },
-});
+}));

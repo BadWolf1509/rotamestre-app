@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { authService } from '@/lib/auth';
@@ -16,6 +17,7 @@ import { authService } from '@/lib/auth';
  * Landing page institucional: www.rotamestre.tec.br
  */
 export default function Index() {
+  const { theme } = useUnistyles();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
 
@@ -61,7 +63,7 @@ export default function Index() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1e5aa8" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
         <Text style={styles.loadingText}>Verificando sessão...</Text>
       </View>
     );
@@ -72,17 +74,17 @@ export default function Index() {
   return null;
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.white,
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#6b7280',
-    fontWeight: '500',
+    marginTop: theme.spacing.lg,
+    fontSize: theme.typography.base,
+    color: theme.colors.gray500,
+    fontFamily: theme.typography.fontSansMedium,
   },
-});
+}));

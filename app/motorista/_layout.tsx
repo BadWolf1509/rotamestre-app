@@ -1,11 +1,13 @@
 import { Tabs, useRouter } from 'expo-router';
-import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { TouchableOpacity, Text } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { authService } from '@/lib/auth';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 export default function MotoristaLayout() {
+  const { theme } = useUnistyles();
   const router = useRouter();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
@@ -46,11 +48,11 @@ export default function MotoristaLayout() {
     <>
       <Tabs
         screenOptions={{
-          tabBarActiveTintColor: '#2563eb',
+          tabBarActiveTintColor: theme.colors.primary,
           headerStyle: {
-            backgroundColor: '#2563eb',
+            backgroundColor: theme.colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: theme.colors.white,
           headerTitleStyle: {
             fontWeight: 'bold',
           },
@@ -113,7 +115,7 @@ export default function MotoristaLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   logoutButton: {
     marginRight: 16,
     paddingHorizontal: 12,
@@ -121,7 +123,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#fff',
+    borderColor: theme.colors.white,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -134,8 +136,8 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.97 }],
   },
   logoutText: {
-    color: '#fff',
+    color: theme.colors.white,
     fontSize: 14,
     fontWeight: '600',
   },
-});
+}));

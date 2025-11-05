@@ -7,9 +7,9 @@
  * Usa design tokens para cores, tipografia e espaçamento.
  */
 
-import { View, Text, TextInput, StyleSheet, ViewStyle, TextInputProps } from 'react-native';
+import { View, Text, TextInput, ViewStyle, TextInputProps } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, spacing, borderRadius } from '@/lib/design-tokens';
 
 type InputSize = 'small' | 'medium' | 'large';
 
@@ -38,12 +38,12 @@ export function Input({
   style,
   ...textInputProps
 }: InputProps) {
+  const { theme } = useUnistyles();
   const hasError = !!error;
   const isDisabled = textInputProps.editable === false;
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {/* Label */}
       {label && (
         <View style={styles.labelContainer}>
           <Text style={styles.label}>
@@ -53,7 +53,6 @@ export function Input({
         </View>
       )}
 
-      {/* Input Container */}
       <View
         style={[
           styles.inputContainer,
@@ -62,17 +61,15 @@ export function Input({
           isDisabled && styles.inputContainerDisabled,
         ]}
       >
-        {/* Left Icon */}
         {leftIcon && (
           <Ionicons
             name={leftIcon}
             size={size === 'small' ? 16 : size === 'large' ? 24 : 20}
-            color={hasError ? colors.error : colors.text.tertiary}
+            color={hasError ? theme.colors.error : theme.colors.gray400}
             style={styles.leftIcon}
           />
         )}
 
-        {/* Text Input */}
         <TextInput
           style={[
             styles.input,
@@ -80,23 +77,21 @@ export function Input({
             rightIcon && styles.inputWithRightIcon,
             style,
           ]}
-          placeholderTextColor={colors.text.tertiary}
+          placeholderTextColor={theme.colors.gray400}
           {...textInputProps}
         />
 
-        {/* Right Icon */}
         {rightIcon && (
           <Ionicons
             name={rightIcon}
             size={size === 'small' ? 16 : size === 'large' ? 24 : 20}
-            color={hasError ? colors.error : colors.text.tertiary}
+            color={hasError ? theme.colors.error : theme.colors.gray400}
             style={styles.rightIcon}
             onPress={onRightIconPress}
           />
         )}
       </View>
 
-      {/* Helper Text or Error */}
       {(error || helperText) && (
         <Text style={[styles.helperText, hasError && styles.errorText]}>
           {error || helperText}
@@ -106,59 +101,56 @@ export function Input({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
-    marginBottom: spacing.md,
+    marginBottom: theme.spacing.md,
   },
 
-  // Label
   labelContainer: {
-    marginBottom: spacing.xs,
+    marginBottom: theme.spacing.xs,
   },
   label: {
-    ...typography.styles.body,
-    fontSize: typography.fontSize.sm,
-    color: colors.text.primary,
+    fontFamily: theme.typography.fontSans,
+    fontSize: theme.typography.fontSize.sm,
+    lineHeight: theme.typography.fontSize.sm * 1.5,
+    color: theme.colors.gray900,
   },
   required: {
-    color: colors.error,
+    color: theme.colors.error,
   },
 
-  // Input Container
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background.primary,
+    backgroundColor: theme.colors.white,
     borderWidth: 1,
-    borderColor: colors.border.medium,
-    borderRadius: borderRadius.sm,
+    borderColor: theme.colors.gray300,
+    borderRadius: theme.borderRadius.sm,
   },
   inputContainerError: {
-    borderColor: colors.error,
+    borderColor: theme.colors.error,
     borderWidth: 2,
   },
   inputContainerDisabled: {
-    backgroundColor: colors.gray[100],
+    backgroundColor: theme.colors.gray100,
     opacity: 0.6,
   },
 
-  // Tamanhos
   small: {
     height: 36,
   },
   medium: {
-    height: 44, // Acessibilidade
+    height: 44,
   },
   large: {
     height: 52,
   },
 
-  // Input
   input: {
     flex: 1,
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.fontSize.md,
-    color: colors.text.primary,
+    fontFamily: theme.typography.fontSans,
+    fontSize: theme.typography.fontSize.base,
+    color: theme.colors.gray900,
     paddingHorizontal: 12,
   },
   inputWithLeftIcon: {
@@ -168,7 +160,6 @@ const styles = StyleSheet.create({
     paddingRight: 4,
   },
 
-  // Icons
   leftIcon: {
     marginLeft: 12,
   },
@@ -176,16 +167,17 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
 
-  // Helper Text / Error
   helperText: {
-    ...typography.styles.caption,
-    color: colors.text.secondary,
-    marginTop: spacing.xs,
+    fontFamily: theme.typography.fontSans,
+    fontSize: theme.typography.fontSize.xs,
+    lineHeight: theme.typography.fontSize.xs * 1.5,
+    color: theme.colors.gray500,
+    marginTop: theme.spacing.xs,
   },
   errorText: {
-    color: colors.error,
+    color: theme.colors.error,
   },
-});
+}));
 
 // Export default para facilitar import
 export default Input;

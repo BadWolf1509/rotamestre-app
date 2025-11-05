@@ -4,19 +4,23 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   Alert,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useProfile } from '@/hooks/useProfile';
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
 import { isPasswordValid } from '@/utils/passwordValidation';
+import { useResponsive } from '@/hooks/useResponsive';
+import { ResponsiveContainer } from '@/components/ResponsiveContainer';
 
 export default function FirstPasswordScreen() {
+  const { theme } = useUnistyles();
   const router = useRouter();
+  const { isDesktop } = useResponsive();
   const [user, setUser] = useState<any>(null);
   const { profile, updateProfile } = useProfile(user);
 
@@ -67,12 +71,40 @@ export default function FirstPasswordScreen() {
         return;
       }
 
+      // Verificar se o perfil está carregado
+      if (!user || !profile) {
+        Alert.alert('Erro', 'Não foi possível carregar os dados do usuário.');
+        setLoading(false);
+        return;
+      }
+
+      // Segurança: verificar se realmente está marcado como primeira_senha
+      if (profile.primeira_senha !== true) {
+        console.warn('⚠️ Usuário tentou acessar first-password sem estar marcado como primeira_senha');
+        // Redirecionar para a área apropriada
+        const targetRoute = profile.papel === 'gestor' ? '/gestor/dashboard' : '/motorista/rota';
+        router.replace(targetRoute);
+        return;
+      }
+
       // Atualizar senha no Supabase Auth
       const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword,
       });
 
       if (updateError) {
+        // Se o erro for de senha igual, significa que o usuário está tentando
+        // usar a mesma senha temporária. Vamos orientá-lo.
+        if (updateError.message.includes('should be different') ||
+            updateError.message.includes('same')) {
+          Alert.alert(
+            'Senha Inválida',
+            'A nova senha não pode ser igual à senha temporária que você recebeu. Por favor, escolha uma senha diferente.'
+          );
+          setLoading(false);
+          return;
+        }
+
         console.error('Erro ao atualizar senha:', updateError);
         throw new Error(updateError.message || 'Erro ao atualizar senha');
       }
@@ -88,14 +120,21 @@ export default function FirstPasswordScreen() {
         // Não falhar aqui, a senha já foi atualizada
       }
 
+      // Determinar rota de destino baseado no papel
+      const targetRoute = profile.papel === 'gestor'
+        ? '/gestor/dashboard'
+        : '/motorista/rota';
+
+      const papelNome = profile.papel === 'gestor' ? 'Gestor' : 'Motorista';
+
       Alert.alert(
-        'Sucesso!',
-        'Sua senha foi definida com sucesso. Bem-vindo ao Rota Mestre!',
+        'Senha Definida com Sucesso!',
+        `Bem-vindo ao Rota Mestre, ${profile.nome}! Você será redirecionado para sua área de ${papelNome}.`,
         [
           {
-            text: 'OK',
+            text: 'Continuar',
             onPress: () => {
-              router.replace('/');
+              router.replace(targetRoute);
             },
           },
         ]
@@ -109,8 +148,12 @@ export default function FirstPasswordScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
+    <ResponsiveContainer>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View style={[styles.content, isDesktop && styles.contentDesktop]}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.welcomeText}>Bem-vindo! 👋</Text>
@@ -197,18 +240,36 @@ export default function FirstPasswordScreen() {
             💡 Dica: Use uma senha única que você não usa em outros sites.
           </Text>
         </View>
-      </View>
-    </ScrollView>
+        </View>
+      </ScrollView>
+    </ResponsiveContainer>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.gray50,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: 20,
   },
   content: {
-    padding: 20,
+    backgroundColor: theme.colors.white,
+    borderRadius: 12,
+    padding: 24,
+    shadowColor: theme.colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  contentDesktop: {
+    maxWidth: 550,
+    alignSelf: 'center',
+    width: '100%',
   },
   header: {
     marginBottom: 32,
@@ -217,18 +278,18 @@ const styles = StyleSheet.create({
   welcomeText: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#111827',
+    color: theme.colors.gray900,
     marginBottom: 8,
   },
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#374151',
+    color: theme.colors.gray700,
     marginBottom: 12,
   },
   subtitle: {
     fontSize: 14,
-    color: '#6b7280',
+    color: theme.colors.gray500,
     lineHeight: 20,
   },
   inputGroup: {
@@ -237,7 +298,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: theme.colors.gray700,
     marginBottom: 8,
   },
   inputContainer: {
@@ -247,11 +308,11 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: theme.colors.gray300,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.white,
   },
   eyeButton: {
     position: 'absolute',
@@ -259,30 +320,30 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 12,
-    color: '#dc2626',
+    color: theme.colors.red600,
     marginTop: 4,
   },
   requirementsBox: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: theme.colors.blue50,
     borderRadius: 8,
     padding: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#bfdbfe',
+    borderColor: theme.colors.blue200,
   },
   requirementsTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1e40af',
+    color: theme.colors.blue800,
     marginBottom: 8,
   },
   requirementText: {
     fontSize: 12,
-    color: '#1e40af',
+    color: theme.colors.blue800,
     marginTop: 4,
   },
   button: {
-    backgroundColor: '#f7a02a',
+    backgroundColor: theme.colors.secondary,
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
@@ -292,20 +353,20 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   buttonText: {
-    color: '#fff',
+    color: theme.colors.white,
     fontSize: 16,
     fontWeight: '600',
   },
   infoBox: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: theme.colors.yellow100,
     borderRadius: 8,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#fde047',
+    borderColor: theme.colors.yellow300,
   },
   infoText: {
     fontSize: 12,
-    color: '#92400e',
+    color: theme.colors.yellow900,
     lineHeight: 18,
   },
-});
+}));

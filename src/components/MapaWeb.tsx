@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
-import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
+import { View, ActivityIndicator, Text } from 'react-native';
+import { StyleSheet } from 'react-native-unistyles';
 import { GoogleMap, useJsApiLoader, Marker, DirectionsRenderer } from '@react-google-maps/api';
 
 interface Parada {
@@ -179,26 +180,26 @@ export default function MapaWeb({ paradas }: MapaWebProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   loadingContainer: {
     height: 400,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f3f4f6',
+    backgroundColor: theme.colors.disabled,
   },
   loadingText: {
     marginTop: 10,
     fontSize: 14,
-    color: '#6b7280',
+    color: theme.colors.textSecondary,
   },
   errorContainer: {
     height: 400,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fef2f2',
+    backgroundColor: theme.colors.errorLight,
   },
   errorText: {
     fontSize: 14,
-    color: '#ef4444',
+    color: theme.colors.error,
   },
-});
+}));

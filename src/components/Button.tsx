@@ -3,12 +3,11 @@ import {
   TouchableOpacity,
   Text,
   ActivityIndicator,
-  StyleSheet,
   ViewStyle,
   TextStyle,
 } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, spacing, borderRadius } from '@/lib/design-tokens';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 export type ButtonSize = 'small' | 'medium' | 'large';
@@ -40,6 +39,7 @@ export function Button({
   style,
   textStyle,
 }: ButtonProps) {
+  const { theme } = useUnistyles();
   const isDisabled = disabled || loading;
 
   return (
@@ -58,7 +58,7 @@ export function Button({
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === 'outline' || variant === 'ghost' ? colors.primary.main : colors.white}
+          color={variant === 'outline' || variant === 'ghost' ? theme.colors.primary : theme.colors.white}
         />
       ) : (
         <>
@@ -68,8 +68,8 @@ export function Button({
               size={size === 'small' ? 16 : size === 'large' ? 24 : 20}
               color={
                 variant === 'outline' || variant === 'ghost'
-                  ? colors.primary.main
-                  : colors.white
+                  ? theme.colors.primary
+                  : theme.colors.white
               }
               style={styles.iconLeft}
             />
@@ -83,8 +83,8 @@ export function Button({
               size={size === 'small' ? 16 : size === 'large' ? 24 : 20}
               color={
                 variant === 'outline' || variant === 'ghost'
-                  ? colors.primary.main
-                  : colors.white
+                  ? theme.colors.primary
+                  : theme.colors.white
               }
               style={styles.iconRight}
             />
@@ -95,84 +95,79 @@ export function Button({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   button: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: borderRadius.md,
-    minHeight: 44, // Acessibilidade
+    borderRadius: theme.borderRadius.md,
+    minHeight: 44,
   },
 
-  // Variantes
   primary: {
-    backgroundColor: colors.primary.main,
+    backgroundColor: theme.colors.primary,
   },
   secondary: {
-    backgroundColor: colors.secondary.main,
+    backgroundColor: theme.colors.secondary,
   },
   outline: {
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: colors.primary.main,
+    borderColor: theme.colors.primary,
   },
   ghost: {
     backgroundColor: 'transparent',
   },
   danger: {
-    backgroundColor: colors.error,
+    backgroundColor: theme.colors.error,
   },
 
-  // Tamanhos
   small: {
-    paddingVertical: spacing.sm,
+    paddingVertical: theme.spacing.sm,
     paddingHorizontal: 12,
   },
   medium: {
     paddingVertical: 12,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: theme.spacing.md,
   },
   large: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
   },
 
-  // Textos
   text: {
-    fontFamily: typography.fontFamily.semibold,
-    fontWeight: typography.fontWeight.semibold,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   primaryText: {
-    color: colors.white,
-    fontSize: typography.fontSize.md,
+    color: theme.colors.white,
+    fontSize: theme.typography.fontSize.base,
   },
   secondaryText: {
-    color: colors.white,
-    fontSize: typography.fontSize.md,
+    color: theme.colors.white,
+    fontSize: theme.typography.fontSize.base,
   },
   outlineText: {
-    color: colors.primary.main,
-    fontSize: typography.fontSize.md,
+    color: theme.colors.primary,
+    fontSize: theme.typography.fontSize.base,
   },
   ghostText: {
-    color: colors.primary.main,
-    fontSize: typography.fontSize.md,
+    color: theme.colors.primary,
+    fontSize: theme.typography.fontSize.base,
   },
   dangerText: {
-    color: colors.white,
-    fontSize: typography.fontSize.md,
+    color: theme.colors.white,
+    fontSize: theme.typography.fontSize.base,
   },
   smallText: {
-    fontSize: typography.fontSize.sm,
+    fontSize: theme.typography.fontSize.sm,
   },
   mediumText: {
-    fontSize: typography.fontSize.md,
+    fontSize: theme.typography.fontSize.base,
   },
   largeText: {
-    fontSize: typography.fontSize.lg,
+    fontSize: theme.typography.fontSize.lg,
   },
 
-  // Estados
   disabled: {
     opacity: 0.5,
   },
@@ -180,11 +175,10 @@ const styles = StyleSheet.create({
     width: '100%',
   },
 
-  // Ícones
   iconLeft: {
-    marginRight: spacing.sm,
+    marginRight: theme.spacing.sm,
   },
   iconRight: {
-    marginLeft: spacing.sm,
+    marginLeft: theme.spacing.sm,
   },
-});
+}));

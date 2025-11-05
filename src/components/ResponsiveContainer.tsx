@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, ViewStyle, StyleSheet } from 'react-native';
+import { View, ViewStyle } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useResponsive } from '@/hooks/useResponsive';
 
 interface ResponsiveContainerProps {
@@ -38,15 +39,16 @@ export function ResponsiveContainer({
   center = true,
 }: ResponsiveContainerProps) {
   const { isMobile, isTablet, isDesktop } = useResponsive();
+  const { theme } = useUnistyles();
 
   // Padding padrão por breakpoint
-  const defaultPadding = isMobile ? 16 : isTablet ? 24 : 32;
+  const defaultPadding = isMobile ? theme.spacing.md : isTablet ? theme.spacing.lg : theme.spacing.xl;
   const horizontalPadding = padding !== undefined ? padding : defaultPadding;
 
   const containerStyle: ViewStyle = {
     width: '100%',
     paddingHorizontal: horizontalPadding,
-    paddingVertical: isDesktop ? 24 : 16, // Padding vertical para não colar no topo
+    paddingVertical: isDesktop ? theme.spacing.lg : theme.spacing.md,
     ...(isDesktop && center && {
       maxWidth,
       marginHorizontal: 'auto',
@@ -56,4 +58,4 @@ export function ResponsiveContainer({
   return <View style={[containerStyle, style]}>{children}</View>;
 }
 
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create(theme => ({}));

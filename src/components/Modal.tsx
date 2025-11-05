@@ -12,14 +12,13 @@ import {
   View,
   Text,
   TouchableOpacity,
-  StyleSheet,
   ViewStyle,
   Animated,
   Dimensions,
 } from 'react-native';
 import { useEffect, useRef } from 'react';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, spacing, borderRadius, shadows, zIndex } from '@/lib/design-tokens';
 
 type ModalSize = 'small' | 'medium' | 'large' | 'full';
 
@@ -48,6 +47,7 @@ export function Modal({
   transparent = true,
   style,
 }: ModalProps) {
+  const { theme } = useUnistyles();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
@@ -144,7 +144,7 @@ export function Modal({
                   onPress={onClose}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="close" size={24} color={colors.text.secondary} />
+                  <Ionicons name="close" size={24} color={theme.colors.gray500} />
                 </TouchableOpacity>
               )}
             </View>
@@ -158,31 +158,28 @@ export function Modal({
   );
 }
 
-const styles = StyleSheet.create({
-  // Overlay
+const styles = StyleSheet.create(theme => ({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.overlay.dark,
-    zIndex: zIndex.modal,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    zIndex: 30,
   },
   overlayTouchable: {
     flex: 1,
   },
 
-  // Container
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: zIndex.modal + 1,
+    zIndex: 31,
   },
 
-  // Modal
   modal: {
-    backgroundColor: colors.background.primary,
-    borderRadius: borderRadius.xl,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.xl,
     maxHeight: '80%',
-    ...shadows.modal,
+    ...theme.shadows.lg,
   },
   fullModal: {
     width: '100%',
@@ -191,33 +188,34 @@ const styles = StyleSheet.create({
     borderRadius: 0,
   },
 
-  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
+    borderBottomColor: theme.colors.gray200,
   },
 
   title: {
-    ...typography.styles.h3,
+    fontFamily: theme.typography.fontSansBold,
+    fontSize: theme.typography.fontSize.base,
+    lineHeight: theme.typography.fontSize.base * 1.5,
+    color: theme.colors.gray900,
     flex: 1,
   },
 
   closeButton: {
-    padding: spacing.xs,
-    marginLeft: spacing.sm,
+    padding: theme.spacing.xs,
+    marginLeft: theme.spacing.sm,
   },
 
-  // Content
   content: {
-    padding: spacing.md,
+    padding: theme.spacing.md,
   },
-});
+}));
 
 // Export default para facilitar import
 export default Modal;

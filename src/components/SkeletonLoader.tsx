@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, ViewStyle } from 'react-native';
-import { colors, spacing, borderRadius } from '@/lib/design-tokens';
+import { View, Animated, ViewStyle } from 'react-native';
+import { StyleSheet } from 'react-native-unistyles';
 
 interface SkeletonProps {
   width?: number | string;
@@ -100,41 +100,41 @@ export function SkeletonDashboard() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   skeleton: {
-    backgroundColor: colors.gray[200],
+    backgroundColor: theme.colors.gray200,
   },
   card: {
-    padding: spacing.md,
-    backgroundColor: colors.background.primary,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.md,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.lg,
+    marginBottom: theme.spacing.md,
   },
   listItem: {
     flexDirection: 'row',
-    padding: spacing.md,
-    backgroundColor: colors.background.primary,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.md,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.lg,
+    marginBottom: theme.spacing.md,
   },
   container: {
     flex: 1,
-    backgroundColor: colors.background.secondary,
-    padding: spacing.md,
+    backgroundColor: theme.colors.gray50,
+    padding: theme.spacing.md,
   },
   header: {
-    marginBottom: spacing.lg,
+    marginBottom: theme.spacing.lg,
   },
   statsRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: spacing.lg,
+    marginBottom: theme.spacing.lg,
   },
   statCard: {
     flex: 1,
-    padding: spacing.md,
-    backgroundColor: colors.background.primary,
-    borderRadius: borderRadius.lg,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
   },
-});
+}));

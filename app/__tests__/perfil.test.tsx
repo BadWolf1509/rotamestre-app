@@ -1,0 +1,195 @@
+import React from 'react';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import PerfilScreen from '../perfil/index';
+import { supabase } from '@/lib/supabase';
+
+// Mock dos módulos
+jest.mock('@/lib/supabase');
+jest.mock('@/hooks/useProfile');
+
+// Mock do Alert
+jest.spyOn(Alert, 'alert');
+
+describe('PerfilScreen', () => {
+  const mockUser = {
+    id: '123',
+    email: 'teste@email.com',
+  };
+
+  const mockProfile = {
+    id: '123',
+    nome: 'João Silva',
+    email: 'teste@email.com',
+    telefone: '(11) 98765-4321',
+    papel: 'gestor',
+    ultimo_login: '2025-01-01T10:00:00',
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    // Mock do Supabase getUser
+    (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+      data: { user: mockUser },
+    });
+
+    // Mock do useProfile hook
+    const useProfile = require('@/hooks/useProfile').useProfile;
+    useProfile.mockReturnValue({
+      profile: mockProfile,
+      loading: false,
+      updateProfile: jest.fn(),
+    });
+  });
+
+  it('deve renderizar informações do perfil corretamente', async () => {
+    const { getByText } = render(<PerfilScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Meu Perfil')).toBeTruthy();
+      expect(getByText('João Silva')).toBeTruthy();
+      expect(getByText('teste@email.com')).toBeTruthy();
+      expect(getByText('(11) 98765-4321')).toBeTruthy();
+      expect(getByText('Gestor')).toBeTruthy();
+    });
+  });
+
+  it('deve mostrar loading enquanto carrega', () => {
+    const useProfile = require('@/hooks/useProfile').useProfile;
+    useProfile.mockReturnValue({
+      profile: null,
+      loading: true,
+      updateProfile: jest.fn(),
+    });
+
+    const { getByText } = render(<PerfilScreen />);
+    expect(getByText('Carregando perfil...')).toBeTruthy();
+  });
+
+  it('deve entrar em modo de edição ao clicar em "Editar Perfil"', async () => {
+    const { getByText, queryByText } = render(<PerfilScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Editar Perfil')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('Editar Perfil'));
+
+    await waitFor(() => {
+      expect(getByText('Salvar Alterações')).toBeTruthy();
+      expect(getByText('Cancelar')).toBeTruthy();
+      expect(queryByText('Editar Perfil')).toBeNull();
+    });
+  });
+
+  it('deve cancelar edição e restaurar valores', async () => {
+    const { getByText, getByDisplayValue } = render(<PerfilScreen />);
+
+    await waitFor(() => {
+      fireEvent.press(getByText('Editar Perfil'));
+    });
+
+    // Alterar o nome
+    const nomeInput = getByDisplayValue('João Silva');
+    fireEvent.changeText(nomeInput, 'Novo Nome');
+
+    // Cancelar
+    fireEvent.press(getByText('Cancelar'));
+
+    await waitFor(() => {
+      expect(getByText('João Silva')).toBeTruthy();
+      expect(getByText('Editar Perfil')).toBeTruthy();
+    });
+  });
+
+  it('deve validar campo nome obrigatório', async () => {
+    const { getByText, getByDisplayValue } = render(<PerfilScreen />);
+
+    await waitFor(() => {
+      fireEvent.press(getByText('Editar Perfil'));
+    });
+
+    const nomeInput = getByDisplayValue('João Silva');
+    fireEvent.changeText(nomeInput, '');
+
+    fireEvent.press(getByText('Salvar Alterações'));
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Nome é obrigatório');
+    });
+  });
+
+  it('deve salvar alterações com sucesso', async () => {
+    const mockUpdateProfile = jest.fn().mockResolvedValue({});
+    const useProfile = require('@/hooks/useProfile').useProfile;
+    useProfile.mockReturnValue({
+      profile: mockProfile,
+      loading: false,
+      updateProfile: mockUpdateProfile,
+    });
+
+    const { getByText, getByDisplayValue } = render(<PerfilScreen />);
+
+    await waitFor(() => {
+      fireEvent.press(getByText('Editar Perfil'));
+    });
+
+    const nomeInput = getByDisplayValue('João Silva');
+    fireEvent.changeText(nomeInput, 'João da Silva');
+
+    fireEvent.press(getByText('Salvar Alterações'));
+
+    await waitFor(() => {
+      expect(mockUpdateProfile).toHaveBeenCalledWith({
+        nome: 'João da Silva',
+        telefone: '(11) 98765-4321',
+      });
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Sucesso',
+        'Perfil atualizado com sucesso'
+      );
+    });
+  });
+
+  it('deve navegar de volta ao clicar no botão voltar', async () => {
+    const mockBack = jest.fn();
+    const useRouter = require('expo-router').useRouter;
+    useRouter.mockReturnValue({ back: mockBack });
+
+    const { getByText } = render(<PerfilScreen />);
+
+    await waitFor(() => {
+      const backButton = getByText('←');
+      fireEvent.press(backButton);
+      expect(mockBack).toHaveBeenCalled();
+    });
+  });
+
+  it('deve confirmar antes de fazer logout', async () => {
+    const { getByText } = render(<PerfilScreen />);
+
+    await waitFor(() => {
+      fireEvent.press(getByText('🚪 Sair da Conta'));
+    });
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Sair',
+      'Tem certeza que deseja sair?',
+      expect.any(Array)
+    );
+  });
+
+  it('deve navegar para tela de trocar senha', async () => {
+    const mockPush = jest.fn();
+    const useRouter = require('expo-router').useRouter;
+    useRouter.mockReturnValue({ push: mockPush, back: jest.fn() });
+
+    const { getByText } = render(<PerfilScreen />);
+
+    await waitFor(() => {
+      fireEvent.press(getByText('🔒 Trocar Senha'));
+      expect(mockPush).toHaveBeenCalledWith('/perfil/trocar-senha');
+    });
+  });
+});

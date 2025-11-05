@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, Linking, Platform, Alert } from 'react-native';
+import { View, TouchableOpacity, Text, Linking, Platform, Alert } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import { colors } from '@/lib/design-tokens';
 
 interface Parada {
   id: string;
@@ -18,6 +18,7 @@ interface MapaRNProps {
 }
 
 export function MapaRN({ paradas, rotaAtiva = false }: MapaRNProps) {
+  const { theme } = useUnistyles();
   const [directions, setDirections] = useState<{latitude: number; longitude: number}[]>([]);
   const [distancia, setDistancia] = useState<string>('');
   const [duracao, setDuracao] = useState<string>('');
@@ -149,7 +150,7 @@ export function MapaRN({ paradas, rotaAtiva = false }: MapaRNProps) {
             }}
             title={`Parada ${parada.ordem}`}
             description={parada.endereco}
-            pinColor={parada.status === 'concluida' ? colors.success : colors.primary.main}
+            pinColor={parada.status === 'concluida' ? theme.colors.success : theme.colors.primary}
           >
             <View style={styles.markerContainer}>
               <View style={[
@@ -166,7 +167,7 @@ export function MapaRN({ paradas, rotaAtiva = false }: MapaRNProps) {
         {directions.length > 0 && (
           <Polyline
             coordinates={directions}
-            strokeColor={colors.primary.main}
+            strokeColor={theme.colors.primary}
             strokeWidth={4}
           />
         )}
@@ -195,7 +196,7 @@ export function MapaRN({ paradas, rotaAtiva = false }: MapaRNProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
     flex: 1,
   },
@@ -206,11 +207,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background.secondary,
+    backgroundColor: theme.colors.background,
   },
   emptyText: {
     fontSize: 16,
-    color: colors.gray[500],
+    color: theme.colors.textSecondary,
   },
   markerContainer: {
     alignItems: 'center',
@@ -219,17 +220,17 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.primary.main,
+    backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: colors.white,
+    borderColor: theme.colors.surface,
   },
   markerConcluida: {
-    backgroundColor: colors.success,
+    backgroundColor: theme.colors.success,
   },
   markerText: {
-    color: colors.white,
+    color: theme.colors.surface,
     fontWeight: 'bold',
     fontSize: 14,
   },
@@ -238,7 +239,7 @@ const styles = StyleSheet.create({
     top: 16,
     left: 16,
     right: 16,
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.surface,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -250,7 +251,7 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 14,
-    color: colors.gray[700],
+    color: theme.colors.text,
     textAlign: 'center',
   },
   botaoNavegar: {
@@ -258,7 +259,7 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: 16,
     right: 16,
-    backgroundColor: colors.secondary.main,
+    backgroundColor: theme.colors.secondary,
     paddingVertical: 16,
     borderRadius: 12,
     shadowColor: '#000',
@@ -268,9 +269,9 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   botaoTexto: {
-    color: colors.white,
+    color: theme.colors.surface,
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
   },
-});
+}));

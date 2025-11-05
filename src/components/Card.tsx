@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle, TouchableOpacity } from 'react-native';
-import { colors, borderRadius, shadows } from '@/lib/design-tokens';
+import { View, ViewStyle, TouchableOpacity } from 'react-native';
+import { StyleSheet } from 'react-native-unistyles';
 
 interface CardProps {
   children: React.ReactNode;
@@ -35,25 +35,23 @@ export function Card({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   card: {
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.background.primary,
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: theme.colors.white,
   },
 
-  // Variantes
   elevated: {
-    ...shadows.card,
+    ...theme.shadows.md,
   },
   outlined: {
     borderWidth: 1,
-    borderColor: colors.border.light,
+    borderColor: theme.colors.gray200,
   },
   filled: {
-    backgroundColor: colors.background.secondary,
+    backgroundColor: theme.colors.gray50,
   },
 
-  // Paddings
   paddingNone: {
     padding: 0,
   },
@@ -66,4 +64,4 @@ const styles = StyleSheet.create({
   paddingLarge: {
     padding: 20,
   },
-});
+}));

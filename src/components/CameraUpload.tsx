@@ -10,10 +10,10 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  StyleSheet,
   Alert,
   Platform
 } from 'react-native';
+import { StyleSheet } from 'react-native-unistyles';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { uploadELinkFotoParada } from '../lib/storage';
@@ -254,7 +254,7 @@ export default function CameraUpload({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
     marginVertical: 16,
   },
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 200,
     borderRadius: 8,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: theme.colors.disabled,
   },
   buttonsRow: {
     flexDirection: 'row',
@@ -279,36 +279,36 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   buttonPrimary: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: theme.colors.secondary,
   },
   buttonSecondary: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: theme.colors.border,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: theme.colors.surface,
     fontSize: 16,
     fontWeight: '600',
   },
   buttonTextSecondary: {
-    color: '#666666',
+    color: theme.colors.textSecondary,
     fontSize: 16,
     fontWeight: '600',
   },
   addButton: {
     height: 56,
-    backgroundColor: '#F8F8F8',
+    backgroundColor: theme.colors.background,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: '#FF6B35',
+    borderColor: theme.colors.secondary,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
   },
   addButtonText: {
-    color: '#FF6B35',
+    color: theme.colors.secondary,
     fontSize: 16,
     fontWeight: '600',
   },
-});
+}));

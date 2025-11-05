@@ -7,8 +7,8 @@
  * Usa design tokens para cores e espaçamento.
  */
 
-import { View, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
-import { borderRadius, typography, getBadgeColor } from '@/lib/design-tokens';
+import { View, Text, ViewStyle, TextStyle } from 'react-native';
+import { StyleSheet } from 'react-native-unistyles';
 
 type BadgeStatus = 'pendente' | 'em_andamento' | 'concluida' | 'cancelada';
 type BadgeSize = 'small' | 'medium' | 'large';
@@ -21,6 +21,36 @@ interface BadgeProps {
   variant?: BadgeVariant;
   style?: ViewStyle;
 }
+
+const getBadgeColor = (status: BadgeStatus) => {
+  switch (status) {
+    case 'pendente':
+      return {
+        background: '#FEF3C7',
+        text: '#f59e0b',
+      };
+    case 'em_andamento':
+      return {
+        background: '#DBEAFE',
+        text: '#3b82f6',
+      };
+    case 'concluida':
+      return {
+        background: '#D1FAE5',
+        text: '#10b981',
+      };
+    case 'cancelada':
+      return {
+        background: '#FEE2E2',
+        text: '#ef4444',
+      };
+    default:
+      return {
+        background: '#f3f4f6',
+        text: '#4b5563',
+      };
+  }
+};
 
 export function Badge({
   status,
@@ -68,15 +98,14 @@ export function Badge({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   badge: {
     alignSelf: 'flex-start',
-    borderRadius: borderRadius.sm,
+    borderRadius: theme.borderRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  // Tamanhos
   small: {
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -90,20 +119,19 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
 
-  // Textos
   text: {
-    fontFamily: typography.fontFamily.semibold,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   smallText: {
-    fontSize: typography.fontSize.xs, // 12px
+    fontSize: theme.typography.fontSize.xs,
   },
   mediumText: {
-    fontSize: typography.fontSize.sm, // 14px
+    fontSize: theme.typography.fontSize.sm,
   },
   largeText: {
-    fontSize: typography.fontSize.md, // 16px
+    fontSize: theme.typography.fontSize.base,
   },
-});
+}));
 
 // Export default para facilitar import
 export default Badge;

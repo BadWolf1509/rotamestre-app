@@ -1,8 +1,14 @@
+/**
+ * TODO: DEPRECATED - Este arquivo está deprecated e deve ser removido.
+ * Use historico.tsx ao invés deste arquivo.
+ *
+ * Motivo: historico.tsx possui melhor estrutura, usa Toast e está mais atualizado.
+ */
+
 import { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
@@ -12,6 +18,7 @@ import {
   TextInput,
   Platform,
 } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
@@ -39,6 +46,7 @@ interface RotaHistorico {
 type FiltroStatus = 'todas' | 'pendente' | 'em_andamento' | 'concluida' | 'cancelada';
 
 export default function HistoricoGestor() {
+  const { theme } = useUnistyles();
   const router = useRouter();
   const { userData } = useUser();
   const { isDesktop, isMobile } = useResponsive();
@@ -509,7 +517,7 @@ export default function HistoricoGestor() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0D5A9C" />
+        <ActivityIndicator size="large" color={theme.colors.primaryDark} />
         <Text style={styles.loadingText}>Carregando histórico...</Text>
       </View>
     );
@@ -698,27 +706,27 @@ export default function HistoricoGestor() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.gray50,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.gray50,
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 14,
-    color: '#6b7280',
+    marginTop: theme.spacing.sm + 2,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray500,
   },
   header: {
-    backgroundColor: '#fff',
-    padding: 20,
+    backgroundColor: theme.colors.white,
+    padding: theme.spacing.xl,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: theme.colors.gray200,
   },
   headerTop: {
     flexDirection: 'row',
@@ -726,32 +734,32 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: theme.typography.fontSize['2xl'],
     fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 4,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.xs,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: '#6b7280',
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray500,
   },
   filtroButton: {
-    backgroundColor: '#f3f4f6',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    backgroundColor: theme.colors.gray100,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.sm,
     position: 'relative',
   },
   filtroButtonActive: {
-    backgroundColor: '#0D5A9C',
+    backgroundColor: theme.colors.primaryDark,
   },
   filtroButtonText: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     fontWeight: '600',
-    color: '#374151',
+    color: theme.colors.gray700,
   },
   filtroButtonTextActive: {
-    color: '#fff',
+    color: theme.colors.white,
   },
   filtroIndicator: {
     position: 'absolute',
@@ -760,9 +768,9 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#ef4444',
+    backgroundColor: theme.colors.error,
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: theme.colors.white,
   },
   filtrosAtivosContainer: {
     flexDirection: 'row',
@@ -798,58 +806,54 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   listContainer: {
-    padding: 16,
+    padding: theme.spacing.lg,
   },
   emptyContainer: {
-    padding: 60,
+    padding: theme.spacing['6xl'] - 4,
     alignItems: 'center',
   },
   emptyTitle: {
     fontSize: 64,
-    marginBottom: 16,
+    marginBottom: theme.spacing.lg,
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: theme.typography.fontSize.lg,
     fontWeight: '600',
-    color: '#111827',
-    marginBottom: 16,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.lg,
     textAlign: 'center',
   },
   emptyButton: {
-    backgroundColor: '#0D5A9C',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
+    backgroundColor: theme.colors.primaryDark,
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: theme.spacing.sm + 2,
+    borderRadius: theme.borderRadius.sm,
   },
   emptyButtonText: {
-    color: '#fff',
-    fontSize: 14,
+    color: theme.colors.white,
+    fontSize: theme.typography.fontSize.sm,
     fontWeight: '600',
   },
   rotaCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
     borderLeftWidth: 4,
-    borderLeftColor: '#e5e7eb',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    borderLeftColor: theme.colors.gray200,
+    ...theme.shadows.sm,
   },
   rotaCardPendente: {
-    borderLeftColor: '#f59e0b',
+    borderLeftColor: theme.colors.warning,
   },
   rotaCardEmAndamento: {
-    borderLeftColor: '#3b82f6',
+    borderLeftColor: theme.colors.info,
   },
   rotaCardConcluida: {
-    borderLeftColor: '#10b981',
+    borderLeftColor: theme.colors.success,
   },
   rotaCardCancelada: {
-    borderLeftColor: '#ef4444',
+    borderLeftColor: theme.colors.error,
     opacity: 0.7,
   },
   rotaHeader: {
@@ -959,29 +963,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   verMapaButton: {
-    backgroundColor: '#10b981',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    backgroundColor: theme.colors.success,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.sm,
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: theme.spacing.lg,
   },
   verMapaButtonText: {
-    color: '#fff',
-    fontSize: 14,
+    color: theme.colors.white,
+    fontSize: theme.typography.fontSize.sm,
     fontWeight: '600',
   },
   cancelarButton: {
-    backgroundColor: '#ef4444',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    backgroundColor: theme.colors.error,
+    paddingVertical: theme.spacing.sm + 2,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.sm,
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: theme.spacing.md,
   },
   cancelarButtonText: {
-    color: '#fff',
-    fontSize: 14,
+    color: theme.colors.white,
+    fontSize: theme.typography.fontSize.sm,
     fontWeight: '600',
   },
   modalOverlay: {
@@ -1062,15 +1066,15 @@ const styles = StyleSheet.create({
   },
   modalButtonPrimary: {
     flex: 1,
-    backgroundColor: '#0D5A9C',
-    padding: 14,
-    borderRadius: 8,
+    backgroundColor: theme.colors.primaryDark,
+    padding: theme.spacing.sm + 6,
+    borderRadius: theme.borderRadius.sm,
     alignItems: 'center',
   },
   modalButtonPrimaryText: {
-    fontSize: 16,
+    fontSize: theme.typography.fontSize.base,
     fontWeight: '600',
-    color: '#fff',
+    color: theme.colors.white,
   },
   // Estilos do Modal de Cancelamento
   modalOverlayCancelar: {
@@ -1169,13 +1173,13 @@ const styles = StyleSheet.create({
   modalButtonCancelarPrimary: {
     flex: 1,
     backgroundColor: '#dc2626',
-    padding: 14,
-    borderRadius: 8,
+    padding: theme.spacing.sm + 6,
+    borderRadius: theme.borderRadius.sm,
     alignItems: 'center',
   },
   modalButtonTextPrimary: {
-    fontSize: 16,
+    fontSize: theme.typography.fontSize.base,
     fontWeight: '600',
-    color: '#fff',
+    color: theme.colors.white,
   },
-});
+}));

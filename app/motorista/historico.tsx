@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
   RefreshControl,
 } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 
@@ -27,6 +27,7 @@ interface RotaHistorico {
 }
 
 export default function HistoricoMotorista() {
+  const { theme } = useUnistyles();
   const { userData } = useUser();
   const [rotas, setRotas] = useState<RotaHistorico[]>([]);
   const [loading, setLoading] = useState(true);
@@ -171,13 +172,13 @@ export default function HistoricoMotorista() {
             <Text style={styles.statLabel}>Paradas</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: '#10b981' }]}>
+            <Text style={[styles.statValue, { color: theme.colors.success }]}>
               {item.paradas_concluidas || 0}
             </Text>
             <Text style={styles.statLabel}>Concluídas</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: '#8b5cf6' }]}>
+            <Text style={[styles.statValue, { color: theme.colors.purple600 }]}>
               {taxaConclusao}%
             </Text>
             <Text style={styles.statLabel}>Taxa</Text>
@@ -262,7 +263,7 @@ export default function HistoricoMotorista() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0D5A9C" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
         <Text style={styles.loadingText}>Carregando histórico...</Text>
       </View>
     );
@@ -288,7 +289,7 @@ export default function HistoricoMotorista() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#0D5A9C']}
+            colors={[theme.colors.primary]}
           />
         }
         ListEmptyComponent={
@@ -305,37 +306,37 @@ export default function HistoricoMotorista() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.gray50,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.gray50,
   },
   loadingText: {
     marginTop: 10,
     fontSize: 14,
-    color: '#6b7280',
+    color: theme.colors.gray500,
   },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.white,
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: theme.colors.gray300,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#111827',
+    color: theme.colors.gray900,
     marginBottom: 4,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#6b7280',
+    color: theme.colors.gray500,
   },
   listContainer: {
     padding: 16,
@@ -351,39 +352,39 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
+    color: theme.colors.gray900,
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#6b7280',
+    color: theme.colors.gray500,
     textAlign: 'center',
   },
   rotaCard: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.white,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#e5e7eb',
-    shadowColor: '#000',
+    borderLeftColor: theme.colors.gray300,
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
   },
   rotaCardPendente: {
-    borderLeftColor: '#f59e0b',
+    borderLeftColor: theme.colors.warning,
   },
   rotaCardEmAndamento: {
-    borderLeftColor: '#3b82f6',
+    borderLeftColor: theme.colors.blue500,
   },
   rotaCardConcluida: {
-    borderLeftColor: '#10b981',
+    borderLeftColor: theme.colors.success,
   },
   rotaCardCancelada: {
-    borderLeftColor: '#ef4444',
+    borderLeftColor: theme.colors.error,
     opacity: 0.7,
   },
   rotaHeader: {
@@ -398,13 +399,13 @@ const styles = StyleSheet.create({
   rotaData: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#111827',
+    color: theme.colors.gray900,
     marginBottom: 4,
     textTransform: 'capitalize',
   },
   rotaUnidade: {
     fontSize: 14,
-    color: '#6b7280',
+    color: theme.colors.gray500,
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -412,21 +413,21 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusBadgePendente: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: theme.colors.yellow100,
   },
   statusBadgeEmAndamento: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: theme.colors.blue100,
   },
   statusBadgeConcluida: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: theme.colors.green100,
   },
   statusBadgeCancelada: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: theme.colors.red100,
   },
   statusBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#111827',
+    color: theme.colors.gray900,
   },
   rotaStats: {
     flexDirection: 'row',
@@ -439,19 +440,19 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#0D5A9C',
+    color: theme.colors.primary,
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 11,
-    color: '#6b7280',
+    color: theme.colors.gray500,
   },
   rotaDetalhes: {
     marginTop: 8,
   },
   divider: {
     height: 1,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: theme.colors.gray300,
     marginVertical: 12,
   },
   detalheRow: {
@@ -462,25 +463,25 @@ const styles = StyleSheet.create({
   },
   detalheLabel: {
     fontSize: 13,
-    color: '#6b7280',
+    color: theme.colors.gray500,
     fontWeight: '500',
   },
   detalheValue: {
     fontSize: 13,
-    color: '#111827',
+    color: theme.colors.gray900,
     fontWeight: '600',
   },
   progressBarContainer: {
     flex: 1,
     height: 6,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: theme.colors.gray300,
     borderRadius: 3,
     marginLeft: 12,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#10b981',
+    backgroundColor: theme.colors.success,
     borderRadius: 3,
   },
   expandIndicator: {
@@ -489,7 +490,7 @@ const styles = StyleSheet.create({
   },
   expandIndicatorText: {
     fontSize: 12,
-    color: '#0D5A9C',
+    color: theme.colors.primary,
     fontWeight: '600',
   },
-});
+}));

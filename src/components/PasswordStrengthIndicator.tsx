@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { validatePasswordStrength } from '@/utils/passwordValidation';
 
 interface Props {
@@ -7,6 +8,8 @@ interface Props {
 }
 
 export function PasswordStrengthIndicator({ password }: Props) {
+  const { theme } = useUnistyles();
+
   if (!password) return null;
 
   const { score, label, color, feedback } = validatePasswordStrength(password);
@@ -39,19 +42,19 @@ export function PasswordStrengthIndicator({ password }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
-    marginTop: 8,
+    marginTop: theme.spacing.xs,
   },
   barContainer: {
     height: 4,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 2,
+    backgroundColor: theme.colors.gray200,
+    borderRadius: theme.borderRadius.xs,
     overflow: 'hidden',
   },
   bar: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: theme.borderRadius.xs,
   },
   label: {
     fontSize: 12,
@@ -59,11 +62,11 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   feedbackContainer: {
-    marginTop: 8,
+    marginTop: theme.spacing.xs,
   },
   feedbackText: {
     fontSize: 12,
-    color: '#6b7280',
+    color: theme.colors.gray500,
     marginTop: 2,
   },
-});
+}));

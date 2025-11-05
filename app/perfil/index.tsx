@@ -4,17 +4,21 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   Alert,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useProfile } from '@/hooks/useProfile';
+import { useResponsive } from '@/hooks/useResponsive';
+import { ResponsiveContainer } from '@/components/ResponsiveContainer';
 
 export default function PerfilScreen() {
   const router = useRouter();
+  const { theme } = useUnistyles();
+  const { isDesktop } = useResponsive();
   const [user, setUser] = useState<any>(null);
   const { profile, loading: profileLoading, updateProfile } = useProfile(user);
 
@@ -106,14 +110,26 @@ export default function PerfilScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
+    <ResponsiveContainer>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View style={[styles.content, isDesktop && styles.contentDesktop]}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Meu Perfil</Text>
-          <Text style={styles.subtitle}>
-            Gerencie suas informações pessoais
-          </Text>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.backIcon}>←</Text>
+          </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <Text style={styles.title}>Meu Perfil</Text>
+            <Text style={styles.subtitle}>
+              Gerencie suas informações pessoais
+            </Text>
+          </View>
         </View>
 
         {/* Informações do Perfil */}
@@ -222,72 +238,96 @@ export default function PerfilScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-      </View>
-    </ScrollView>
+        </View>
+      </ScrollView>
+    </ResponsiveContainer>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.gray50,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    padding: 20,
   },
   content: {
-    padding: 20,
+    maxWidth: '100%',
+  },
+  contentDesktop: {
+    maxWidth: 600,
+    alignSelf: 'center',
+    width: '100%',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.gray50,
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#6b7280',
+    color: theme.colors.gray500,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.gray50,
     padding: 20,
   },
   errorText: {
     fontSize: 16,
-    color: '#dc2626',
+    color: theme.colors.error,
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#f7a02a',
+    backgroundColor: theme.colors.secondary,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: '#fff',
+    color: theme.colors.white,
     fontSize: 14,
     fontWeight: '600',
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     marginBottom: 24,
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 12,
+    marginTop: -4,
+  },
+  backIcon: {
+    fontSize: 24,
+    color: theme.colors.primary,
+  },
+  headerContent: {
+    flex: 1,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#111827',
+    color: theme.colors.gray900,
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: '#6b7280',
+    color: theme.colors.gray500,
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.white,
     borderRadius: 12,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -299,35 +339,35 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#374151',
+    color: theme.colors.gray700,
     marginBottom: 6,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   value: {
     fontSize: 16,
-    color: '#111827',
+    color: theme.colors.gray900,
   },
   valueSecondary: {
     fontSize: 14,
-    color: '#6b7280',
+    color: theme.colors.gray500,
   },
   hint: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: theme.colors.gray400,
     marginTop: 4,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: theme.colors.gray200,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.white,
   },
   badge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#dbeafe',
+    backgroundColor: theme.colors.infoBg,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
@@ -335,7 +375,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1e40af',
+    color: theme.colors.info,
   },
   editButtons: {
     gap: 12,
@@ -347,27 +387,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   editButton: {
-    backgroundColor: '#f7a02a',
+    backgroundColor: theme.colors.secondary,
     marginBottom: 16,
   },
   saveButton: {
-    backgroundColor: '#10b981',
+    backgroundColor: theme.colors.success,
   },
   cancelButton: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.white,
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: theme.colors.gray200,
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   buttonText: {
-    color: '#fff',
+    color: theme.colors.white,
     fontSize: 16,
     fontWeight: '600',
   },
   cancelButtonText: {
-    color: '#6b7280',
+    color: theme.colors.gray500,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -375,23 +415,23 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   actionButton: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.white,
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: theme.colors.gray200,
   },
   actionButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
+    color: theme.colors.gray700,
   },
   logoutButton: {
-    borderColor: '#fca5a5',
-    backgroundColor: '#fef2f2',
+    borderColor: theme.colors.errorBg,
+    backgroundColor: theme.colors.errorBg,
   },
   logoutButtonText: {
-    color: '#dc2626',
+    color: theme.colors.error,
   },
-});
+}));

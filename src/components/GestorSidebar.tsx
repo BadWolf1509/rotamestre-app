@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Platform, Image } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useRouter, usePathname } from 'expo-router';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
@@ -22,6 +23,7 @@ export function GestorSidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const { userData } = useUser();
+  const { theme } = useUnistyles();
 
   async function handleLogout() {
     try {
@@ -96,11 +98,11 @@ export function GestorSidebar() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   sidebar: {
     width: 260,
     height: '100%',
-    backgroundColor: '#0D5A9C', // Azul Dark - Brand Guidelines
+    backgroundColor: theme.colors.primaryDark,
     borderRightWidth: 1,
     borderRightColor: 'rgba(255, 255, 255, 0.1)',
     flexDirection: 'column',
@@ -113,7 +115,7 @@ const styles = StyleSheet.create({
     }),
   },
   header: {
-    padding: 24,
+    padding: theme.spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
@@ -121,7 +123,7 @@ const styles = StyleSheet.create({
   logoImage: {
     width: 220,
     height: 180,
-    marginBottom: 12,
+    marginBottom: theme.spacing.sm,
   },
   unidadeName: {
     fontSize: 12,
@@ -131,25 +133,25 @@ const styles = StyleSheet.create({
   },
   menu: {
     flex: 1,
-    paddingTop: 16,
+    paddingTop: theme.spacing.md,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    marginHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
+    marginHorizontal: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
     marginBottom: 4,
   },
   menuItemActive: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderLeftWidth: 4,
-    borderLeftColor: '#f7a02a', // Laranja - Brand Guidelines
+    borderLeftColor: theme.colors.secondary,
   },
   menuIcon: {
     fontSize: 20,
-    marginRight: 12,
+    marginRight: theme.spacing.sm,
     opacity: 0.8,
   },
   menuIconActive: {
@@ -162,32 +164,32 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   menuLabelActive: {
-    color: '#fff',
+    color: theme.colors.background,
     fontWeight: '700',
   },
   footer: {
-    padding: 16,
+    padding: theme.spacing.md,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: theme.spacing.sm,
   },
   avatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FF8C00',
+    backgroundColor: theme.colors.secondary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: theme.spacing.sm,
   },
   avatarText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#fff',
+    color: theme.colors.background,
   },
   userDetails: {
     flex: 1,
@@ -195,7 +197,7 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: theme.colors.background,
     marginBottom: 2,
   },
   userRole: {
@@ -207,17 +209,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   logoutIcon: {
     fontSize: 16,
-    marginRight: 8,
+    marginRight: theme.spacing.xs,
   },
   logoutText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: theme.colors.background,
   },
-});
+}));

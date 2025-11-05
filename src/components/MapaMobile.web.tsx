@@ -6,7 +6,8 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, Text } from 'react-native';
+import { View, Text } from 'react-native';
+import { StyleSheet } from 'react-native-unistyles';
 
 interface Parada {
   id: string;
@@ -37,21 +38,21 @@ export function MapaMobile({ paradas }: MapaMobileProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
     height: 400,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fef3c7',
+    backgroundColor: theme.colors.warningLight,
     borderRadius: 12,
     padding: 20,
     borderWidth: 2,
-    borderColor: '#f59e0b',
+    borderColor: theme.colors.warning,
   },
   text: {
     fontSize: 14,
-    color: '#92400e',
+    color: theme.colors.warningDark,
     textAlign: 'center',
     fontWeight: '600',
   },
-});
+}));

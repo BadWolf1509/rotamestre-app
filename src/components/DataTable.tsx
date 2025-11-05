@@ -3,11 +3,11 @@ import {
   View,
   Text,
   TouchableOpacity,
-  StyleSheet,
   ScrollView,
   Platform,
   Animated,
 } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useResponsive } from '@/hooks/useResponsive';
 
 // ============================================
@@ -128,6 +128,7 @@ export function DataTable<T = any>({
   skeletonRows = 5,
 }: DataTableProps<T>) {
   const { isMobile, isTablet, isDesktop } = useResponsive();
+  const { theme } = useUnistyles();
 
   // Paginação
   const [currentPage, setCurrentPage] = useState(1);
@@ -465,26 +466,26 @@ export function DataTable<T = any>({
 // STYLES
 // ============================================
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
     flex: 1,
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827', // Gray 900 - Brand Guidelines
-    marginBottom: 16,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.md,
   },
   emptyState: {
-    backgroundColor: '#fff',
-    padding: 40,
-    borderRadius: 12,
+    backgroundColor: theme.colors.background,
+    padding: theme.spacing.xl,
+    borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e5e7eb', // Gray 200
+    borderColor: theme.colors.gray200,
   },
   emptyText: {
-    color: '#6b7280', // Gray 500
+    color: theme.colors.gray500,
     fontSize: 16,
   },
 
@@ -495,12 +496,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   card: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
+    backgroundColor: theme.colors.background,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    marginBottom: theme.spacing.sm,
     borderWidth: 1,
-    borderColor: '#e5e7eb', // Gray 200
+    borderColor: theme.colors.gray200,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -510,41 +511,41 @@ const styles = StyleSheet.create({
   cardRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: theme.spacing.xs,
   },
   cardLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6b7280', // Gray 500
+    color: theme.colors.gray500,
     flex: 1,
   },
   cardValue: {
     fontSize: 14,
-    color: '#111827', // Gray 900
+    color: theme.colors.gray900,
     flex: 2,
     textAlign: 'right',
   },
   cardActions: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
-    paddingTop: 12,
+    gap: theme.spacing.xs,
+    marginTop: theme.spacing.sm,
+    paddingTop: theme.spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderTopColor: theme.colors.gray200,
   },
   cardActionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    backgroundColor: '#f3f4f6', // Gray 100
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: theme.colors.gray100,
     gap: 4,
   },
   cardActionButtonDanger: {
-    backgroundColor: '#fee2e2', // Red 100
+    backgroundColor: `${theme.colors.error}20`,
   },
   cardActionIcon: {
     fontSize: 14,
@@ -552,82 +553,82 @@ const styles = StyleSheet.create({
   cardActionText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1e5aa8', // Azul Main
+    color: theme.colors.primary,
   },
   cardActionTextDanger: {
-    color: '#ef4444', // Red
+    color: theme.colors.error,
   },
 
   // ============================================
   // DESKTOP STYLES (Table)
   // ============================================
   tableContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: theme.colors.gray200,
     overflow: 'hidden',
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#f9fafb', // Gray 50
+    backgroundColor: theme.colors.gray50,
     borderBottomWidth: 2,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: theme.colors.gray200,
   },
   tableHeaderCell: {
-    padding: 12,
+    padding: theme.spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
   },
   tableHeaderText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#374151', // Gray 700
+    color: theme.colors.gray700,
   },
   sortIndicator: {
     fontSize: 12,
-    color: '#1e5aa8', // Azul Main
+    color: theme.colors.primary,
     marginLeft: 4,
   },
   tableRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: theme.colors.gray200,
   },
   tableRowEven: {
-    backgroundColor: '#f9fafb', // Gray 50
+    backgroundColor: theme.colors.gray50,
   },
   tableCell: {
-    padding: 12,
+    padding: theme.spacing.sm,
     justifyContent: 'center',
   },
   tableCellText: {
     fontSize: 14,
-    color: '#111827', // Gray 900
+    color: theme.colors.gray900,
   },
   tableCellActions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: theme.spacing.xs,
   },
   tableActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    backgroundColor: '#f3f4f6',
+    paddingHorizontal: theme.spacing.sm,
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: theme.colors.gray100,
     gap: 4,
   },
   tableActionButtonDanger: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: `${theme.colors.error}20`,
   },
   tableActionText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1e5aa8', // Azul Main
+    color: theme.colors.primary,
   },
   tableActionTextDanger: {
-    color: '#ef4444',
+    color: theme.colors.error,
   },
 
   // ============================================
@@ -637,51 +638,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    backgroundColor: '#fff',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.sm,
+    backgroundColor: theme.colors.background,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-    marginTop: 12,
+    borderTopColor: theme.colors.gray200,
+    marginTop: theme.spacing.sm,
   },
   paginationDesktop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    backgroundColor: '#f9fafb',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: theme.colors.gray50,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderTopColor: theme.colors.gray200,
   },
   paginationControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: theme.spacing.md,
   },
   pageButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    backgroundColor: '#1e5aa8', // Azul Main
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: theme.colors.primary,
   },
   pageButtonDisabled: {
-    backgroundColor: '#d1d5db', // Gray 300
+    backgroundColor: theme.colors.gray300,
     opacity: 0.5,
   },
   pageButtonText: {
-    color: '#fff',
+    color: theme.colors.background,
     fontSize: 14,
     fontWeight: '600',
   },
   pageInfo: {
     fontSize: 14,
-    color: '#6b7280', // Gray 500
+    color: theme.colors.gray500,
     fontWeight: '500',
   },
   pageInfoDesktop: {
     fontSize: 14,
-    color: '#6b7280',
+    color: theme.colors.gray500,
   },
 
   // ============================================
@@ -689,8 +690,8 @@ const styles = StyleSheet.create({
   // ============================================
   skeletonBox: {
     height: 16,
-    backgroundColor: '#e5e7eb', // Gray 200
-    borderRadius: 4,
+    backgroundColor: theme.colors.gray200,
+    borderRadius: theme.borderRadius.xs,
     flex: 1,
   },
-});
+}));

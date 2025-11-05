@@ -4,19 +4,23 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   Alert,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useProfile } from '@/hooks/useProfile';
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
 import { isPasswordValid } from '@/utils/passwordValidation';
+import { useResponsive } from '@/hooks/useResponsive';
+import { ResponsiveContainer } from '@/components/ResponsiveContainer';
 
 export default function TrocarSenhaScreen() {
   const router = useRouter();
+  const { theme } = useUnistyles();
+  const { isDesktop } = useResponsive();
   const [user, setUser] = useState<any>(null);
   const { changePassword } = useProfile(user);
 
@@ -36,7 +40,6 @@ export default function TrocarSenhaScreen() {
   }, []);
 
   async function handleChangePassword() {
-    // Validações
     if (!currentPassword || !newPassword || !confirmPassword) {
       Alert.alert('Erro', 'Preencha todos os campos');
       return;
@@ -82,14 +85,17 @@ export default function TrocarSenhaScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
+    <ResponsiveContainer>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View style={[styles.content, isDesktop && styles.contentDesktop]}>
         <Text style={styles.title}>Trocar Senha</Text>
         <Text style={styles.subtitle}>
           Por segurança, você precisará fazer login novamente após trocar a senha.
         </Text>
 
-        {/* Senha Atual */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Senha Atual</Text>
           <View style={styles.inputContainer}>
@@ -110,7 +116,6 @@ export default function TrocarSenhaScreen() {
           </View>
         </View>
 
-        {/* Nova Senha */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Nova Senha</Text>
           <View style={styles.inputContainer}>
@@ -132,7 +137,6 @@ export default function TrocarSenhaScreen() {
           <PasswordStrengthIndicator password={newPassword} />
         </View>
 
-        {/* Confirmar Senha */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Confirmar Nova Senha</Text>
           <TextInput
@@ -148,7 +152,6 @@ export default function TrocarSenhaScreen() {
           )}
         </View>
 
-        {/* Botões */}
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
           onPress={handleChangePassword}
@@ -168,28 +171,46 @@ export default function TrocarSenhaScreen() {
         >
           <Text style={styles.cancelButtonText}>Cancelar</Text>
         </TouchableOpacity>
-      </View>
-    </ScrollView>
+        </View>
+      </ScrollView>
+    </ResponsiveContainer>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.gray50,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: 20,
   },
   content: {
-    padding: 20,
+    backgroundColor: theme.colors.white,
+    borderRadius: 12,
+    padding: 24,
+    shadowColor: theme.colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  contentDesktop: {
+    maxWidth: 500,
+    alignSelf: 'center',
+    width: '100%',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#111827',
+    color: theme.colors.gray900,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
-    color: '#6b7280',
+    color: theme.colors.gray500,
     marginBottom: 24,
   },
   inputGroup: {
@@ -198,7 +219,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: theme.colors.gray700,
     marginBottom: 8,
   },
   inputContainer: {
@@ -208,11 +229,11 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: theme.colors.gray200,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.white,
   },
   eyeButton: {
     position: 'absolute',
@@ -220,11 +241,11 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 12,
-    color: '#dc2626',
+    color: theme.colors.error,
     marginTop: 4,
   },
   button: {
-    backgroundColor: '#f7a02a',
+    backgroundColor: theme.colors.secondary,
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
@@ -234,7 +255,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   buttonText: {
-    color: '#fff',
+    color: theme.colors.white,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -243,7 +264,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#6b7280',
+    color: theme.colors.gray500,
     fontSize: 16,
   },
-});
+}));

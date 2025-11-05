@@ -4,11 +4,10 @@ import {
   View,
   Text,
   TouchableOpacity,
-  StyleSheet,
   Platform,
 } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, spacing, borderRadius, shadows } from '@/lib/design-tokens';
 
 interface ConfirmDialogProps {
   visible: boolean;
@@ -31,6 +30,8 @@ export function ConfirmDialog({
   onCancel,
   type = 'default',
 }: ConfirmDialogProps) {
+  const { theme } = useUnistyles();
+
   const getIconName = () => {
     switch (type) {
       case 'destructive':
@@ -45,11 +46,11 @@ export function ConfirmDialog({
   const getIconColor = () => {
     switch (type) {
       case 'destructive':
-        return colors.error;
+        return theme.colors.error;
       case 'success':
-        return colors.success;
+        return theme.colors.success;
       default:
-        return colors.primary.main;
+        return theme.colors.primary;
     }
   };
 
@@ -110,47 +111,51 @@ export function ConfirmDialog({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   overlay: {
     flex: 1,
-    backgroundColor: colors.overlay.medium,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.lg,
+    padding: theme.spacing.lg,
   },
   container: {
-    backgroundColor: colors.background.primary,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.lg,
     width: '100%',
     maxWidth: 400,
     ...Platform.select({
       web: {
         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
       },
-      default: shadows.modal,
+      default: theme.shadows.lg,
     }),
   },
   iconContainer: {
     width: 64,
     height: 64,
-    borderRadius: borderRadius.full,
+    borderRadius: theme.borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'center',
-    marginBottom: spacing.md,
+    marginBottom: theme.spacing.md,
   },
   title: {
-    ...typography.styles.h2,
+    fontFamily: theme.typography.fontSansBold,
+    fontSize: theme.typography.fontSize.xl,
+    lineHeight: theme.typography.fontSize.xl * 1.4,
+    color: theme.colors.gray900,
     textAlign: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: theme.spacing.sm,
   },
   message: {
-    ...typography.styles.body,
-    color: colors.text.secondary,
+    fontFamily: theme.typography.fontSans,
+    fontSize: theme.typography.fontSize.sm,
+    lineHeight: theme.typography.fontSize.sm * 1.5,
+    color: theme.colors.gray500,
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: spacing.lg,
+    marginBottom: theme.spacing.lg,
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -159,39 +164,37 @@ const styles = StyleSheet.create({
   button: {
     flex: 1,
     paddingVertical: 12,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: 44,
   },
   cancelButton: {
-    backgroundColor: colors.gray[100],
+    backgroundColor: theme.colors.gray100,
     borderWidth: 1,
-    borderColor: colors.border.light,
+    borderColor: theme.colors.gray200,
   },
   cancelButtonText: {
-    fontSize: typography.fontSize.md,
-    fontFamily: typography.fontFamily.semibold,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.text.primary,
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray900,
   },
   confirmButton: {
     borderWidth: 0,
   },
   confirmButtonDefault: {
-    backgroundColor: colors.primary.main,
+    backgroundColor: theme.colors.primary,
   },
   confirmButtonDestructive: {
-    backgroundColor: colors.error,
+    backgroundColor: theme.colors.error,
   },
   confirmButtonSuccess: {
-    backgroundColor: colors.success,
+    backgroundColor: theme.colors.success,
   },
   confirmButtonText: {
-    fontSize: typography.fontSize.md,
-    fontFamily: typography.fontFamily.semibold,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.white,
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.white,
   },
-});
+}));

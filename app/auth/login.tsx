@@ -4,18 +4,19 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   Alert,
   ActivityIndicator,
   ImageBackground,
   Platform,
   Image,
 } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useRouter } from 'expo-router';
 import { authService } from '@/lib/auth';
 import { useResponsive } from '@/hooks/useResponsive';
 
 export default function Login() {
+  const { theme } = useUnistyles();
   const router = useRouter();
   const { isDesktop, isMobile, width, height, breakpoint } = useResponsive();
   const [email, setEmail] = useState('');
@@ -145,7 +146,7 @@ export default function Login() {
       <View style={styles.header}>
         <View style={styles.logoHorizontal}>
           <Image
-            source={require('@/assets/splash-icon.png')}
+            source={require('../../assets/logo-horizontal1.png')}
             style={styles.logoImage}
             resizeMode="contain"
           />
@@ -196,10 +197,7 @@ export default function Login() {
   );
 }
 
-const styles = StyleSheet.create({
-  // ============================================
-  // DESKTOP STYLES (Split Screen)
-  // ============================================
+const styles = StyleSheet.create(theme => ({
   containerDesktop: {
     flex: 1,
     flexDirection: 'row',
@@ -209,7 +207,7 @@ const styles = StyleSheet.create({
   },
   leftPanel: {
     flex: 1,
-    backgroundColor: '#0D5A9C', // Azul Dark - Brand Guidelines (fallback se imagem não carregar)
+    backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -224,16 +222,15 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   backgroundImage: {
-    // Alinha imagem no topo, cortando apenas a parte inferior
     width: '100%',
     height: '100%',
     ...(Platform.OS === 'web' && {
-      objectPosition: 'top center' as any, // Mantém topo visível
+      objectPosition: 'top center' as any,
     }),
   },
   rightPanel: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.white,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 60,
@@ -245,7 +242,7 @@ const styles = StyleSheet.create({
   brandTitle: {
     fontSize: 48,
     fontWeight: 'bold',
-    color: '#fff',
+    color: theme.colors.white,
     marginBottom: 16,
     textAlign: 'center',
     textShadowColor: 'rgba(0, 0, 0, 0.4)',
@@ -267,7 +264,7 @@ const styles = StyleSheet.create({
   },
   brandFeature: {
     fontSize: 16,
-    color: '#fff',
+    color: theme.colors.white,
     lineHeight: 24,
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
@@ -283,12 +280,12 @@ const styles = StyleSheet.create({
   titleDesktop: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#111827', // Gray 900
+    color: theme.colors.gray900,
     marginBottom: 8,
   },
   subtitleDesktop: {
     fontSize: 16,
-    color: '#6b7280', // Gray 500
+    color: theme.colors.gray500,
   },
   inputGroup: {
     marginBottom: 16,
@@ -296,37 +293,33 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151', // Gray 700
+    color: theme.colors.gray700,
     marginBottom: 8,
   },
   inputDesktop: {
     borderWidth: 1,
-    borderColor: '#d1d5db', // Gray 300
+    borderColor: theme.colors.gray300,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.white,
   },
   buttonDesktop: {
-    backgroundColor: '#f7a02a', // Laranja - Brand Guidelines (CTA)
+    backgroundColor: theme.colors.secondary,
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 24,
   },
-
-  // ============================================
-  // MOBILE/TABLET STYLES (Vertical Centered)
-  // ============================================
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.white,
     padding: 20,
     justifyContent: 'center',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 24,
   },
   logoHorizontal: {
     justifyContent: 'center',
@@ -334,32 +327,32 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   logoImage: {
-    width: 120,
-    height: 120,
+    width: 180,
+    height: 180,
   },
   subtitle: {
     fontSize: 16,
-    color: '#6b7280', // Gray 500
+    color: theme.colors.gray500,
   },
   form: {
     gap: 15,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: theme.colors.gray300,
     borderRadius: 8,
     padding: 15,
     fontSize: 16,
   },
   button: {
-    backgroundColor: '#f7a02a', // Laranja - Brand Guidelines
+    backgroundColor: theme.colors.secondary,
     padding: 15,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 10,
   },
   buttonText: {
-    color: '#fff',
+    color: theme.colors.white,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -367,7 +360,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
   },
   forgotButtonText: {
-    color: '#1e5aa8', // Azul Main - Brand Guidelines
+    color: theme.colors.primaryDark,
     fontSize: 14,
   },
-});
+}));

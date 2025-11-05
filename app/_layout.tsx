@@ -1,4 +1,7 @@
-import { Stack } from 'expo-router';
+// Inicializar Unistyles v3 ANTES de qualquer componente
+import '../unistyles';
+
+import { Stack, usePathname } from 'expo-router';
 import { useEffect } from 'react';
 import { Platform, View, Text } from 'react-native';
 import Toast from 'react-native-toast-message';
@@ -13,9 +16,49 @@ import {
 } from '@expo-google-fonts/nunito-sans';
 import { Viga_400Regular } from '@expo-google-fonts/viga';
 import * as SplashScreen from 'expo-splash-screen';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { useUser } from '@/hooks/useUser';
+import { useResponsive } from '@/hooks/useResponsive';
+import { Sidebar } from './gestor/dashboard/_components/desktop/Sidebar';
 
 // Prevenir auto-hide do splash screen enquanto fontes carregam
 SplashScreen.preventAutoHideAsync();
+
+/**
+ * Wrapper condicional que renderiza Sidebar apenas para gestor em desktop
+ * nas rotas específicas (/gestor, /perfil, /unidade)
+ */
+function ConditionalLayout({ children }: { children: React.ReactNode }) {
+  const { theme } = useUnistyles();
+  const { userData } = useUser();
+  const { isDesktop } = useResponsive();
+  const pathname = usePathname();
+
+  // Rotas onde o Sidebar deve aparecer para gestores
+  const gestorRoutes = ['/gestor', '/perfil', '/unidade'];
+
+  // Mostrar Sidebar se:
+  // 1. Usuário é gestor
+  // 2. Está em desktop (width >= 1024px)
+  // 3. Está em uma das rotas específicas
+  const showSidebar =
+    userData?.papel === 'gestor' &&
+    isDesktop &&
+    gestorRoutes.some(route => pathname.startsWith(route));
+
+  if (showSidebar) {
+    return (
+      <View style={styles.desktopLayout}>
+        <Sidebar />
+        <View style={styles.content}>
+          {children}
+        </View>
+      </View>
+    );
+  }
+
+  return <>{children}</>;
+}
 
 export default function RootLayout() {
   // Carregar fontes customizadas
@@ -75,43 +118,45 @@ export default function RootLayout() {
 
   return (
     <>
-      <Stack
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: '#2563eb',
-          },
-          headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
-          headerShown: false,
-        }}
-      >
-        <Stack.Screen
-          name="index"
-          options={{
-            title: 'Rota Mestre - Início'
+      <ConditionalLayout>
+        <Stack
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: '#2563eb',
+            },
+            headerTintColor: '#fff',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+            headerShown: false,
           }}
-        />
-        <Stack.Screen
-          name="auth"
-          options={{
-            title: 'Rota Mestre - Autenticação'
-          }}
-        />
-        <Stack.Screen
-          name="gestor"
-          options={{
-            title: 'Rota Mestre - Painel do Gestor'
-          }}
-        />
-        <Stack.Screen
-          name="motorista"
-          options={{
-            title: 'Rota Mestre - Motorista'
-          }}
-        />
-      </Stack>
+        >
+          <Stack.Screen
+            name="index"
+            options={{
+              title: 'Rota Mestre - Início'
+            }}
+          />
+          <Stack.Screen
+            name="auth"
+            options={{
+              title: 'Rota Mestre - Autenticação'
+            }}
+          />
+          <Stack.Screen
+            name="gestor"
+            options={{
+              title: 'Rota Mestre - Painel do Gestor'
+            }}
+          />
+          <Stack.Screen
+            name="motorista"
+            options={{
+              title: 'Rota Mestre - Motorista'
+            }}
+          />
+        </Stack>
+      </ConditionalLayout>
       <Toast
         config={{
           success: ({ text1, text2 }) => (
@@ -153,3 +198,16 @@ export default function RootLayout() {
     </>
   );
 }
+
+// Estilos para o layout desktop com Sidebar
+const styles = StyleSheet.create(theme => ({
+  desktopLayout: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: theme.colors.gray50,
+  },
+  content: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+}));

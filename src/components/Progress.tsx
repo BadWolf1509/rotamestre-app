@@ -7,9 +7,9 @@
  * Usa design tokens para cores, tipografia e espaçamento.
  */
 
-import { View, Text, StyleSheet, ViewStyle, Animated } from 'react-native';
+import { View, Text, ViewStyle, Animated } from 'react-native';
 import { useEffect, useRef } from 'react';
-import { colors, typography, spacing, borderRadius } from '@/lib/design-tokens';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 type ProgressSize = 'small' | 'medium' | 'large';
 type ProgressColor = 'primary' | 'success' | 'warning' | 'error';
@@ -33,6 +33,7 @@ export function Progress({
   animated = true,
   style,
 }: ProgressProps) {
+  const { theme } = useUnistyles();
   const animatedWidth = useRef(new Animated.Value(0)).current;
   const clampedProgress = Math.max(0, Math.min(1, progress));
   const percentage = Math.round(clampedProgress * 100);
@@ -52,15 +53,15 @@ export function Progress({
   const getColorForProgress = (): string => {
     switch (color) {
       case 'primary':
-        return colors.primary.main;
+        return theme.colors.primary;
       case 'success':
-        return colors.success;
+        return theme.colors.success;
       case 'warning':
-        return colors.warning;
+        return theme.colors.warning;
       case 'error':
-        return colors.error;
+        return theme.colors.error;
       default:
-        return colors.primary.main;
+        return theme.colors.primary;
     }
   };
 
@@ -99,7 +100,7 @@ export function Progress({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
     width: '100%',
   },
@@ -108,34 +109,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    marginBottom: theme.spacing.xs,
   },
 
   label: {
-    ...typography.styles.caption,
-    color: colors.text.primary,
+    fontFamily: theme.typography.fontSans,
+    fontSize: theme.typography.fontSize.xs,
+    lineHeight: theme.typography.fontSize.xs * 1.5,
+    color: theme.colors.gray900,
     flex: 1,
   },
 
   percentage: {
-    ...typography.styles.caption,
-    fontFamily: typography.fontFamily.semibold,
+    fontFamily: theme.typography.fontSansSemiBold,
+    fontSize: theme.typography.fontSize.xs,
+    lineHeight: theme.typography.fontSize.xs * 1.5,
     minWidth: 40,
     textAlign: 'right',
   },
 
   progressBackground: {
-    backgroundColor: colors.gray[200],
-    borderRadius: borderRadius.full,
+    backgroundColor: theme.colors.gray200,
+    borderRadius: theme.borderRadius.full,
     overflow: 'hidden',
   },
 
   progressFill: {
     height: '100%',
-    borderRadius: borderRadius.full,
+    borderRadius: theme.borderRadius.full,
   },
 
-  // Tamanhos
   small: {
     height: 6,
   },
@@ -145,7 +148,7 @@ const styles = StyleSheet.create({
   large: {
     height: 12,
   },
-});
+}));
 
 // Export default para facilitar import
 export default Progress;

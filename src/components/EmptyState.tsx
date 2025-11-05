@@ -7,9 +7,9 @@
  * Usa design tokens para cores, tipografia e espaçamento.
  */
 
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { View, Text, ViewStyle } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, spacing } from '@/lib/design-tokens';
 import { Button } from './Button';
 
 interface EmptyStateProps {
@@ -29,13 +29,14 @@ export function EmptyState({
   onActionPress,
   style,
 }: EmptyStateProps) {
+  const { theme } = useUnistyles();
+
   return (
     <View style={[styles.container, style]}>
-      {/* Icon */}
       <Ionicons
         name={icon}
         size={64}
-        color={colors.gray[400]}
+        color={theme.colors.gray400}
         style={styles.icon}
       />
 
@@ -60,37 +61,41 @@ export function EmptyState({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.xl,
+    padding: theme.spacing.xl,
   },
 
   icon: {
-    marginBottom: spacing.lg,
+    marginBottom: theme.spacing.lg,
   },
 
   title: {
-    ...typography.styles.h3,
+    fontFamily: theme.typography.fontSansBold,
+    fontSize: theme.typography.fontSize.base,
+    lineHeight: theme.typography.fontSize.base * 1.5,
+    color: theme.colors.gray900,
     textAlign: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: theme.spacing.sm,
   },
 
   description: {
-    ...typography.styles.body,
-    color: colors.text.secondary,
+    fontFamily: theme.typography.fontSans,
+    fontSize: theme.typography.fontSize.sm,
+    lineHeight: theme.typography.fontSize.sm * 1.5,
+    color: theme.colors.gray500,
     textAlign: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: theme.spacing.lg,
     maxWidth: 300,
-    lineHeight: 22,
   },
 
   button: {
-    marginTop: spacing.sm,
+    marginTop: theme.spacing.sm,
   },
-});
+}));
 
 // Export default para facilitar import
 export default EmptyState;

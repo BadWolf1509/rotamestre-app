@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
   RefreshControl,
 } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 import { abrirNavegacao } from '@/lib/navigation';
@@ -35,6 +35,7 @@ interface Rota {
 }
 
 export default function CheckpointsMotorista() {
+  const { theme } = useUnistyles();
   const { userData } = useUser();
   const [rota, setRota] = useState<Rota | null>(null);
   const [paradas, setParadas] = useState<Parada[]>([]);
@@ -233,7 +234,7 @@ export default function CheckpointsMotorista() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0D5A9C" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
         <Text style={styles.loadingText}>Carregando checkpoints...</Text>
       </View>
     );
@@ -387,20 +388,20 @@ export default function CheckpointsMotorista() {
             <Text style={styles.statLabel}>Total</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: '#10b981' }]}>
+            <Text style={[styles.statValue, { color: theme.colors.green500 }]}>
               {paradasConcluidas}
             </Text>
             <Text style={styles.statLabel}>Concluídas</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: '#f59e0b' }]}>
+            <Text style={[styles.statValue, { color: theme.colors.yellow500 }]}>
               {paradasPendentes}
             </Text>
             <Text style={styles.statLabel}>Pendentes</Text>
           </View>
           {paradasPuladas > 0 && (
             <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: '#ef4444' }]}>
+              <Text style={[styles.statValue, { color: theme.colors.red500 }]}>
                 {paradasPuladas}
               </Text>
               <Text style={styles.statLabel}>Puladas</Text>
@@ -434,7 +435,7 @@ export default function CheckpointsMotorista() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#0D5A9C']}
+            colors={[theme.colors.primary]}
           />
         }
         ListEmptyComponent={
@@ -447,239 +448,239 @@ export default function CheckpointsMotorista() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.gray50,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.gray50,
   },
   loadingText: {
     marginTop: 10,
-    fontSize: 14,
-    color: '#6b7280',
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
-    padding: 40,
+    backgroundColor: theme.colors.gray50,
+    padding: theme.spacing.xl,
   },
   emptyTitle: {
     fontSize: 64,
-    marginBottom: 20,
+    marginBottom: theme.spacing.lg,
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: theme.typography.lg,
     fontWeight: '600',
-    color: '#111827',
-    marginBottom: 8,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.xs,
     textAlign: 'center',
   },
   emptySubtext: {
-    fontSize: 14,
-    color: '#6b7280',
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
     textAlign: 'center',
   },
   header: {
-    backgroundColor: '#fff',
-    padding: 20,
+    backgroundColor: theme.colors.white,
+    padding: theme.spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: theme.colors.gray200,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: theme.typography['2xl'],
     fontWeight: 'bold',
-    color: '#111827',
+    color: theme.colors.gray900,
     marginBottom: 4,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 16,
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
+    marginBottom: theme.spacing.md,
   },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 16,
+    marginBottom: theme.spacing.md,
   },
   statItem: {
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 24,
+    fontSize: theme.typography['2xl'],
     fontWeight: 'bold',
-    color: '#0D5A9C',
+    color: theme.colors.primary,
   },
   statLabel: {
-    fontSize: 12,
-    color: '#6b7280',
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray500,
     marginTop: 4,
   },
   progressSection: {
-    marginTop: 8,
+    marginTop: theme.spacing.xs,
   },
   progressLabel: {
-    fontSize: 14,
+    fontSize: theme.typography.sm,
     fontWeight: '600',
-    color: '#111827',
-    marginBottom: 8,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.xs,
   },
   progressContainer: {
     height: 8,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 4,
+    backgroundColor: theme.colors.gray200,
+    borderRadius: theme.borderRadius.sm,
     overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
-    backgroundColor: '#10b981',
+    backgroundColor: theme.colors.green500,
   },
   listContainer: {
-    padding: 16,
+    padding: theme.spacing.md,
   },
   emptyListContainer: {
-    padding: 40,
+    padding: theme.spacing.xl,
     alignItems: 'center',
   },
   emptyListText: {
-    fontSize: 14,
-    color: '#6b7280',
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
   },
   paradaCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
     borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderColor: theme.colors.gray200,
   },
   paradaCardConcluida: {
-    borderColor: '#10b981',
-    backgroundColor: '#f0fdf4',
+    borderColor: theme.colors.green500,
+    backgroundColor: theme.colors.green50,
   },
   paradaCardPulada: {
-    borderColor: '#ef4444',
-    backgroundColor: '#fef2f2',
+    borderColor: theme.colors.red500,
+    backgroundColor: theme.colors.red50,
     opacity: 0.7,
   },
   paradaHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
+    marginBottom: theme.spacing.sm,
+    gap: theme.spacing.xs,
   },
   ordemBadge: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#0D5A9C',
+    backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   ordemText: {
-    color: '#fff',
-    fontSize: 16,
+    color: theme.colors.white,
+    fontSize: theme.typography.md,
     fontWeight: 'bold',
   },
   statusBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: theme.borderRadius.xl,
     flex: 1,
   },
   statusBadgePendente: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: theme.colors.yellow100,
   },
   statusBadgeConcluida: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: theme.colors.green100,
   },
   statusBadgePulada: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: theme.colors.red100,
   },
   statusBadgeText: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     fontWeight: '600',
-    color: '#111827',
+    color: theme.colors.gray900,
   },
   tipoBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: theme.borderRadius.xl,
   },
   tipoBadgeEntrega: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: theme.colors.blue100,
   },
   tipoBadgeRetirada: {
-    backgroundColor: '#e0e7ff',
+    backgroundColor: theme.colors.indigo100,
   },
   tipoBadgeText: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     fontWeight: '600',
-    color: '#111827',
+    color: theme.colors.gray900,
   },
   paradaEndereco: {
-    fontSize: 16,
+    fontSize: theme.typography.md,
     fontWeight: '600',
-    color: '#111827',
-    marginBottom: 8,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.xs,
   },
   paradaDetalhes: {
-    marginBottom: 8,
+    marginBottom: theme.spacing.xs,
   },
   paradaDetalheTexto: {
-    fontSize: 14,
-    color: '#6b7280',
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
     marginBottom: 4,
   },
   observacoesContainer: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.gray50,
     padding: 10,
-    borderRadius: 8,
-    marginBottom: 12,
+    borderRadius: theme.borderRadius.md,
+    marginBottom: theme.spacing.sm,
   },
   observacoesLabel: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     fontWeight: '600',
-    color: '#6b7280',
+    color: theme.colors.gray500,
     marginBottom: 4,
   },
   observacoesTexto: {
-    fontSize: 14,
-    color: '#111827',
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray900,
     fontStyle: 'italic',
   },
   acoesContainer: {
     flexDirection: 'row',
-    gap: 8,
+    gap: theme.spacing.xs,
   },
   botaoPular: {
     flex: 1,
-    backgroundColor: '#ef4444',
-    padding: 12,
-    borderRadius: 8,
+    backgroundColor: theme.colors.red500,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
     alignItems: 'center',
   },
   botaoPularTexto: {
-    color: '#fff',
-    fontSize: 14,
+    color: theme.colors.white,
+    fontSize: theme.typography.sm,
     fontWeight: '600',
   },
   botaoConcluir: {
     flex: 2,
-    backgroundColor: '#10b981',
-    padding: 12,
-    borderRadius: 8,
+    backgroundColor: theme.colors.green500,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
     alignItems: 'center',
   },
   botaoConcluirTexto: {
-    color: '#fff',
-    fontSize: 16,
+    color: theme.colors.white,
+    fontSize: theme.typography.md,
     fontWeight: 'bold',
   },
   botaoDisabled: {
@@ -689,13 +690,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FF8C00',
+    backgroundColor: theme.colors.orange,
     paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginTop: 12,
-    marginBottom: 8,
-    gap: 8,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.md,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
+    gap: theme.spacing.xs,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -706,8 +707,8 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
   botaoNavegarTexto: {
-    color: '#fff',
-    fontSize: 16,
+    color: theme.colors.white,
+    fontSize: theme.typography.md,
     fontWeight: '600',
   },
-});
+}));

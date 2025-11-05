@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
-import { View, StyleSheet, Text, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, ActivityIndicator, Platform } from 'react-native';
+import { StyleSheet } from 'react-native-unistyles';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 
 interface Parada {
@@ -165,12 +166,12 @@ export function MapaMobile({ paradas }: MapaMobileProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
     height: 400,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#f3f4f6',
+    backgroundColor: theme.colors.disabled,
   },
   map: {
     flex: 1,
@@ -179,13 +180,13 @@ const styles = StyleSheet.create({
     height: 400,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f3f4f6',
+    backgroundColor: theme.colors.disabled,
     borderRadius: 12,
     padding: 20,
   },
   emptyText: {
     fontSize: 16,
-    color: '#6b7280',
+    color: theme.colors.textSecondary,
     textAlign: 'center',
   },
   markerContainer: {
@@ -195,7 +196,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: '#ffffff',
+    borderColor: theme.colors.surface,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
@@ -203,7 +204,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   markerText: {
-    color: '#ffffff',
+    color: theme.colors.surface,
     fontSize: 14,
     fontWeight: 'bold',
   },
@@ -224,6 +225,6 @@ const styles = StyleSheet.create({
   infoBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#374151',
+    color: theme.colors.text,
   },
-});
+}));

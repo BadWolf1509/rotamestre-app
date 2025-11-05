@@ -2,11 +2,11 @@ import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   Animated,
   TouchableOpacity,
   Platform,
 } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 export type ToastType = 'success' | 'error' | 'info' | 'loading';
 
@@ -32,6 +32,7 @@ export interface ToastProps {
  * ```
  */
 export function Toast({ message, type = 'info', duration = 3000, onDismiss, visible }: ToastProps) {
+  const { theme } = useUnistyles();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-100)).current;
 
@@ -100,14 +101,14 @@ export function Toast({ message, type = 'info', duration = 3000, onDismiss, visi
   const getBackgroundColor = () => {
     switch (type) {
       case 'success':
-        return '#10b981'; // Green 500
+        return theme.colors.success;
       case 'error':
-        return '#ef4444'; // Red 500
+        return theme.colors.error;
       case 'loading':
-        return '#3b82f6'; // Blue 500
+        return theme.colors.info;
       case 'info':
       default:
-        return '#6b7280'; // Gray 500
+        return theme.colors.gray500;
     }
   };
 
@@ -138,7 +139,7 @@ export function Toast({ message, type = 'info', duration = 3000, onDismiss, visi
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
     position: Platform.OS === 'web' ? ('fixed' as any) : 'absolute',
     top: Platform.OS === 'web' ? 20 : 60,
@@ -151,7 +152,7 @@ const styles = StyleSheet.create({
     }),
     maxWidth: 500,
     minWidth: 300,
-    borderRadius: 12,
+    borderRadius: theme.borderRadius.md,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -175,7 +176,7 @@ const styles = StyleSheet.create({
   message: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
+    color: theme.colors.white,
     flex: 1,
     lineHeight: 20,
   },
@@ -185,7 +186,7 @@ const styles = StyleSheet.create({
   },
   closeIcon: {
     fontSize: 18,
-    color: '#fff',
+    color: theme.colors.white,
     fontWeight: '700',
   },
-});
+}));

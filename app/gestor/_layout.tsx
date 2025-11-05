@@ -1,17 +1,22 @@
 import { Tabs, useRouter, Slot } from 'expo-router';
-import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
+import { TouchableOpacity, Text } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { authService } from '@/lib/auth';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useResponsive } from '@/hooks/useResponsive';
-import { GestorSidebar } from '@/components/GestorSidebar';
 
-const SIDEBAR_WIDTH = 260;
-
+/**
+ * Layout do Gestor
+ *
+ * Desktop: Renderiza apenas <Slot /> porque Sidebar é gerenciado pelo app/_layout.tsx
+ * Mobile/Tablet: Usa <Tabs> com navegação inferior
+ */
 export default function GestorLayout() {
+  const { theme } = useUnistyles();
   const router = useRouter();
-  const { isDesktop, width } = useResponsive();
+  const { isDesktop } = useResponsive();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
 
@@ -47,19 +52,11 @@ export default function GestorLayout() {
     );
   };
 
-  // Desktop: Layout com sidebar
+  // Desktop: Apenas Slot (Sidebar gerenciado pelo root layout)
   if (isDesktop) {
     return (
       <>
-        <View style={styles.desktopContainer}>
-          {/* Sidebar fixa à esquerda */}
-          <GestorSidebar />
-
-          {/* Conteúdo principal com margem da sidebar */}
-          <View style={styles.desktopContent}>
-            <Slot />
-          </View>
-        </View>
+        <Slot />
 
         {/* Dialogs */}
         <ConfirmDialog
@@ -159,33 +156,19 @@ export default function GestorLayout() {
   );
 }
 
-const styles = StyleSheet.create({
-  // Desktop layout
-  desktopContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: '#f9fafb', // Gray 50 - Brand Guidelines
-  },
-  desktopContent: {
-    flex: 1,
-    marginLeft: SIDEBAR_WIDTH, // Largura da sidebar
-    backgroundColor: '#f9fafb',
-    minHeight: '100vh' as any,
-    overflowY: 'auto' as any,
-    overflowX: 'hidden' as any,
-  },
+const styles = StyleSheet.create(theme => ({
   // Mobile logout button
   logoutButton: {
-    marginRight: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    marginRight: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 6,
+    borderRadius: theme.spacing.sm - 2,
     borderWidth: 1,
-    borderColor: '#fff',
+    borderColor: theme.colors.white,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: theme.spacing.sm - 2,
     minWidth: 44,
     minHeight: 44,
     justifyContent: 'center',
@@ -195,8 +178,8 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.97 }],
   },
   logoutText: {
-    color: '#fff',
-    fontSize: 14,
+    color: theme.colors.white,
+    fontSize: theme.typography.fontSize.sm,
     fontWeight: '600',
   },
-});
+}));
