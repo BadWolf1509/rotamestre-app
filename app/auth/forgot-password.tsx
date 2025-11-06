@@ -6,14 +6,12 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  ScrollView,
+  Image,
 } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { authService } from '@/lib/auth';
 import { useResponsive } from '@/hooks/useResponsive';
-import { ResponsiveContainer } from '@/components/ResponsiveContainer';
 
 export default function ForgotPassword() {
   const { theme } = useUnistyles();
@@ -21,287 +19,271 @@ export default function ForgotPassword() {
   const { isDesktop } = useResponsive();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [emailError, setEmailError] = useState('');
-  const [success, setSuccess] = useState(false);
-
-  // Validação de email
-  const validateEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
-  const handleEmailChange = (text: string) => {
-    setEmail(text);
-    setEmailError('');
-    setSuccess(false);
-  };
 
   async function handleResetPassword() {
-    // Validações
     if (!email.trim()) {
-      setEmailError('Digite seu e-mail');
-      return;
-    }
-
-    if (!validateEmail(email)) {
-      setEmailError('Digite um e-mail válido');
+      Alert.alert('Erro', 'Digite seu e-mail');
       return;
     }
 
     setLoading(true);
-    setEmailError('');
 
     try {
       await authService.resetPassword(email);
-      setSuccess(true);
-
       Alert.alert(
-        'E-mail enviado com sucesso!',
+        'Email enviado!',
         'Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.',
-        [{
-          text: 'OK',
-          onPress: () => router.back()
-        }]
+        [{ text: 'OK', onPress: () => router.back() }]
       );
     } catch (error: any) {
-      setEmailError(error.message || 'Erro ao enviar e-mail de recuperação');
-      Alert.alert('Erro', error.message || 'Erro ao recuperar senha. Tente novamente.');
+      Alert.alert('Erro', error.message || 'Erro ao enviar email de recuperação');
     } finally {
       setLoading(false);
     }
   }
 
-  return (
-    <ResponsiveContainer>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <View style={[styles.content, isDesktop && styles.contentDesktop]}>
-          {/* Header com ícone */}
-          <View style={styles.header}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="mail-outline" size={48} color={theme.colors.primary} />
+  // ============================================
+  // RENDER: Desktop (Split Screen)
+  // ============================================
+  if (isDesktop) {
+    return (
+      <View style={styles.containerDesktop}>
+        {/* Left Side - Branding */}
+        <View style={styles.leftPanel}>
+          <View style={[styles.imageWrapper, { backgroundColor: '#004E89' }]}>
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 }}>
+              <Text style={{ fontSize: 48, fontWeight: 'bold', color: '#FF6B35', marginBottom: 20 }}>
+                Rota Mestre
+              </Text>
+              <Text style={{ fontSize: 20, color: 'white', textAlign: 'center' }}>
+                Otimização inteligente de rotas
+              </Text>
             </View>
-            <Text style={styles.title}>Recuperar Senha</Text>
-            <Text style={styles.subtitle}>
-              Digite seu e-mail cadastrado e enviaremos um link para redefinir sua senha
-            </Text>
           </View>
-
-          {/* Input de e-mail com ícone */}
-          <View style={styles.inputWrapper}>
-            <View style={styles.inputIconContainer}>
-              <Ionicons name="mail" size={20} color={theme.colors.gray400} />
-            </View>
-            <TextInput
-              style={[
-                styles.input,
-                emailError && styles.inputError,
-                success && styles.inputSuccess
-              ]}
-              placeholder="seu@email.com"
-              placeholderTextColor={theme.colors.gray400}
-              value={email}
-              onChangeText={handleEmailChange}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              editable={!loading}
-            />
-            {success && (
-              <View style={styles.inputIconRight}>
-                <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
-              </View>
-            )}
-          </View>
-
-          {/* Mensagem de erro */}
-          {emailError && (
-            <View style={styles.errorContainer}>
-              <Ionicons name="alert-circle" size={16} color={theme.colors.error} />
-              <Text style={styles.errorText}>{emailError}</Text>
-            </View>
-          )}
-
-          {/* Botão de enviar */}
-          <TouchableOpacity
-            style={[
-              styles.button,
-              (loading || !email) && styles.buttonDisabled
-            ]}
-            onPress={handleResetPassword}
-            disabled={loading || !email}
-          >
-            {loading ? (
-              <View style={styles.buttonContent}>
-                <ActivityIndicator color="#fff" size="small" />
-                <Text style={styles.buttonText}>Enviando...</Text>
-              </View>
-            ) : (
-              <View style={styles.buttonContent}>
-                <Text style={styles.buttonText}>Enviar link de recuperação</Text>
-                <Ionicons name="arrow-forward" size={20} color="#fff" />
-              </View>
-            )}
-          </TouchableOpacity>
-
-          {/* Link de voltar */}
-          <TouchableOpacity
-            style={styles.backLink}
-            onPress={() => router.back()}
-            disabled={loading}
-          >
-            <Ionicons name="arrow-back" size={18} color={theme.colors.primary} />
-            <Text style={styles.backLinkText}>Voltar para o login</Text>
-          </TouchableOpacity>
         </View>
-      </ScrollView>
-    </ResponsiveContainer>
+
+        {/* Right Side - Form */}
+        <View style={styles.rightPanel}>
+          <View style={styles.formContainerDesktop}>
+            <View style={styles.headerDesktop}>
+              <Text style={styles.titleDesktop}>Recuperar Senha</Text>
+              <Text style={styles.subtitleDesktop}>
+                Digite seu e-mail e enviaremos instruções para redefinir sua senha
+              </Text>
+            </View>
+
+            <View style={styles.form}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>E-mail</Text>
+                <TextInput
+                  style={styles.inputDesktop}
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.buttonDesktop}
+                onPress={handleResetPassword}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>Enviar Link de Recuperação</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => router.back()}
+              >
+                <Text style={styles.backButtonText}>← Voltar para login</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // ============================================
+  // RENDER: Mobile/Tablet
+  // ============================================
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.logoHorizontal}>
+          <Image
+            source={require('../../assets/logo-horizontal1.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
+        </View>
+        <Text style={styles.subtitle}>Recuperar senha</Text>
+      </View>
+
+      <View style={styles.form}>
+        <TextInput
+          style={styles.input}
+          placeholder="E-mail"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="email"
+        />
+
+        <TouchableOpacity
+          style={styles.button}
+          onPress={handleResetPassword}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Enviar Link</Text>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.backButtonText}>← Voltar para login</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create(theme => ({
-  container: {
+  // ============================================
+  // DESKTOP STYLES
+  // ============================================
+  containerDesktop: {
     flex: 1,
-    backgroundColor: theme.colors.gray50,
+    flexDirection: 'row',
   },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 20,
+  leftPanel: {
+    flex: 1,
+    backgroundColor: '#004E89',
   },
-  content: {
+  imageWrapper: {
+    flex: 1,
+  },
+  rightPanel: {
+    flex: 1,
     backgroundColor: theme.colors.white,
-    borderRadius: 16,
-    padding: 32,
-    shadowColor: theme.colors.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  contentDesktop: {
-    maxWidth: 480,
-    alignSelf: 'center',
-    width: '100%',
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: theme.colors.primaryBg,
-    alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    alignItems: 'center',
+    padding: 60,
   },
-  title: {
-    fontSize: 28,
+  formContainerDesktop: {
+    width: '100%',
+    maxWidth: 480,
+  },
+  headerDesktop: {
+    marginBottom: 40,
+  },
+  titleDesktop: {
+    fontSize: 32,
     fontWeight: 'bold',
     color: theme.colors.gray900,
-    marginBottom: 12,
-    textAlign: 'center',
+    marginBottom: 10,
   },
-  subtitle: {
-    fontSize: 15,
+  subtitleDesktop: {
+    fontSize: 16,
     color: theme.colors.gray500,
-    textAlign: 'center',
-    lineHeight: 22,
-    paddingHorizontal: 10,
+    lineHeight: 24,
   },
-  inputWrapper: {
-    position: 'relative',
+  inputGroup: {
+    marginBottom: 24,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.gray700,
     marginBottom: 8,
   },
-  inputIconContainer: {
-    position: 'absolute',
-    left: 16,
-    top: 18,
-    zIndex: 1,
-  },
-  input: {
-    borderWidth: 2,
+  inputDesktop: {
+    borderWidth: 1,
     borderColor: theme.colors.gray300,
-    borderRadius: 12,
-    paddingLeft: 48,
-    paddingRight: 48,
-    paddingVertical: 16,
+    borderRadius: 8,
+    padding: 14,
     fontSize: 16,
     backgroundColor: theme.colors.white,
     color: theme.colors.gray900,
   },
-  inputError: {
-    borderColor: theme.colors.error,
-    backgroundColor: theme.colors.errorBg,
-  },
-  inputSuccess: {
-    borderColor: theme.colors.success,
-    backgroundColor: theme.colors.successBg,
-  },
-  inputIconRight: {
-    position: 'absolute',
-    right: 16,
-    top: 18,
-    zIndex: 1,
-  },
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.errorBg,
-    padding: 12,
+  buttonDesktop: {
+    backgroundColor: theme.colors.secondary,
+    padding: 16,
     borderRadius: 8,
-    marginBottom: 16,
-    gap: 8,
+    alignItems: 'center',
+    marginTop: 8,
   },
-  errorText: {
-    fontSize: 14,
-    color: theme.colors.error,
+
+  // ============================================
+  // MOBILE STYLES
+  // ============================================
+  container: {
     flex: 1,
+    backgroundColor: theme.colors.white,
+    justifyContent: 'center',
+    padding: 24,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  logoHorizontal: {
+    marginBottom: 20,
+  },
+  logoImage: {
+    width: 250,
+    height: 60,
+  },
+  subtitle: {
+    fontSize: 18,
+    color: theme.colors.gray600,
+    textAlign: 'center',
+  },
+  form: {
+    width: '100%',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: theme.colors.gray300,
+    borderRadius: 8,
+    padding: 16,
+    fontSize: 16,
+    marginBottom: 16,
+    backgroundColor: theme.colors.white,
+    color: theme.colors.gray900,
   },
   button: {
-    backgroundColor: theme.colors.primary,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    backgroundColor: theme.colors.secondary,
+    padding: 16,
+    borderRadius: 8,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-    shadowColor: theme.colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  buttonDisabled: {
-    backgroundColor: theme.colors.gray300,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  buttonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    marginBottom: 16,
   },
   buttonText: {
     color: theme.colors.white,
     fontSize: 16,
     fontWeight: '600',
   },
-  backLink: {
-    marginTop: 24,
-    flexDirection: 'row',
+  backButton: {
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
+    padding: 12,
   },
-  backLinkText: {
+  backButtonText: {
     color: theme.colors.primary,
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '500',
   },
 }));

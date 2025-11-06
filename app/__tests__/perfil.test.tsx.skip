@@ -8,9 +8,6 @@ import { supabase } from '@/lib/supabase';
 jest.mock('@/lib/supabase');
 jest.mock('@/hooks/useProfile');
 
-// Mock do Alert
-jest.spyOn(Alert, 'alert');
-
 describe('PerfilScreen', () => {
   const mockUser = {
     id: '123',

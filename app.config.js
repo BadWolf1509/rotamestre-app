@@ -11,7 +11,7 @@ module.exports = ({ config }) => {
     scheme: "rotamestre",
     description: "Sistema inteligente de gestão e rastreamento de rotas de entrega em tempo real. Otimize suas entregas, acompanhe motoristas e melhore a eficiência logística da sua empresa.",
     splash: {
-      image: "./assets/splash1.png",
+      image: "./assets/splash-icon1.png",
       resizeMode: "contain",
       backgroundColor: "#0D5A9C"
     },
@@ -36,7 +36,7 @@ module.exports = ({ config }) => {
     },
     android: {
       adaptiveIcon: {
-        foregroundImage: "./assets/splash1.png",
+        foregroundImage: "./assets/splash-icon1.png",
         backgroundColor: "#0D5A9C"
       },
       edgeToEdgeEnabled: true,

@@ -1,0 +1,461 @@
+import { authService } from '../auth';
+import { supabase } from '../supabase';
+
+// O mock do supabase já está configurado globalmente no jest.setup.js
+// Apenas fazemos o cast para usar com TypeScript
+const mockSupabase = supabase as jest.Mocked<typeof supabase>;
+
+describe('AuthService - Unit Tests', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // ============================================
+  // GRUPO 1: signIn - Login
+  // ============================================
+  describe('signIn', () => {
+    it('deve fazer login com sucesso e retornar sessão e usuário', async () => {
+      const mockSession = {
+        access_token: 'mock-token-123',
+        user: { id: 'user-123', email: 'teste@rotamestre.com' },
+      };
+
+      const mockUsuario = {
+        id: 'user-123',
+        email: 'teste@rotamestre.com',
+        nome: 'Usuário Teste',
+        papel: 'gestor' as const,
+      };
+
+      mockSupabase.auth.signInWithPassword.mockResolvedValue({
+        data: { session: mockSession, user: mockSession.user } as any,
+        error: null,
+      });
+
+      mockSupabase.from.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({
+          data: mockUsuario,
+          error: null,
+        }),
+      } as any);
+
+      const result = await authService.signIn('teste@rotamestre.com', 'senha123');
+
+      expect(mockSupabase.auth.signInWithPassword).toHaveBeenCalledWith({
+        email: 'teste@rotamestre.com',
+        password: 'senha123',
+      });
+      expect(result.session).toEqual(mockSession);
+      expect(result.usuario).toEqual(mockUsuario);
+    });
+
+    it('deve lançar erro quando credenciais são inválidas', async () => {
+      mockSupabase.auth.signInWithPassword.mockResolvedValue({
+        data: { session: null, user: null },
+        error: new Error('E-mail ou senha inválidos'),
+      } as any);
+
+      await expect(
+        authService.signIn('erro@rotamestre.com', 'senhaerrada')
+      ).rejects.toThrow('E-mail ou senha inválidos');
+
+      expect(mockSupabase.auth.signInWithPassword).toHaveBeenCalledWith({
+        email: 'erro@rotamestre.com',
+        password: 'senhaerrada',
+      });
+    });
+
+    it('deve retornar usuario null quando usuário não existe na tabela', async () => {
+      const mockSession = {
+        access_token: 'mock-token-123',
+        user: { id: 'user-999', email: 'teste@rotamestre.com' },
+      };
+
+      mockSupabase.auth.signInWithPassword.mockResolvedValue({
+        data: { session: mockSession, user: mockSession.user } as any,
+        error: null,
+      });
+
+      mockSupabase.from.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({
+          data: null,
+          error: new Error('Usuário não encontrado'),
+        }),
+      } as any);
+
+      const result = await authService.signIn('teste@rotamestre.com', 'senha123');
+
+      expect(result.session).toEqual(mockSession);
+      expect(result.usuario).toBeNull();
+    });
+  });
+
+  // ============================================
+  // GRUPO 2: signUp - Registro
+  // ============================================
+  describe('signUp', () => {
+    it('deve criar novo usuário com sucesso', async () => {
+      const mockUser = {
+        id: 'new-user-123',
+        email: 'novo@rotamestre.com',
+      };
+
+      mockSupabase.auth.signUp.mockResolvedValue({
+        data: { user: mockUser, session: null } as any,
+        error: null,
+      });
+
+      const mockInsert = jest.fn().mockResolvedValue({
+        data: null,
+        error: null,
+      });
+
+      mockSupabase.from.mockReturnValue({
+        insert: mockInsert,
+      } as any);
+
+      const result = await authService.signUp(
+        'novo@rotamestre.com',
+        'senha123',
+        'Novo Usuário',
+        'motorista'
+      );
+
+      expect(mockSupabase.auth.signUp).toHaveBeenCalledWith({
+        email: 'novo@rotamestre.com',
+        password: 'senha123',
+      });
+
+      expect(mockSupabase.from).toHaveBeenCalledWith('usuarios');
+      expect(mockInsert).toHaveBeenCalledWith([
+        {
+          id: 'new-user-123',
+          email: 'novo@rotamestre.com',
+          nome: 'Novo Usuário',
+          papel: 'motorista',
+        },
+      ]);
+
+      expect(result.user).toEqual(mockUser);
+    });
+
+    it('deve lançar erro quando email já existe', async () => {
+      mockSupabase.auth.signUp.mockResolvedValue({
+        data: { user: null, session: null },
+        error: new Error('Este email já está cadastrado'),
+      } as any);
+
+      await expect(
+        authService.signUp(
+          'existente@rotamestre.com',
+          'senha123',
+          'Teste',
+          'gestor'
+        )
+      ).rejects.toThrow('Este email já está cadastrado');
+    });
+
+    it('deve lançar erro quando inserção na tabela usuarios falha', async () => {
+      const mockUser = {
+        id: 'new-user-123',
+        email: 'novo@rotamestre.com',
+      };
+
+      mockSupabase.auth.signUp.mockResolvedValue({
+        data: { user: mockUser, session: null } as any,
+        error: null,
+      });
+
+      const mockInsert = jest.fn().mockResolvedValue({
+        data: null,
+        error: new Error('Erro ao criar registro do usuário'),
+      });
+
+      mockSupabase.from.mockReturnValue({
+        insert: mockInsert,
+      } as any);
+
+      await expect(
+        authService.signUp(
+          'novo@rotamestre.com',
+          'senha123',
+          'Novo Usuário',
+          'motorista'
+        )
+      ).rejects.toThrow('Erro ao criar registro do usuário');
+    });
+  });
+
+  // ============================================
+  // GRUPO 3: signOut - Logout
+  // ============================================
+  describe('signOut', () => {
+    it('deve fazer logout com sucesso', async () => {
+      mockSupabase.auth.signOut.mockResolvedValue({
+        error: null,
+      });
+
+      await authService.signOut();
+
+      expect(mockSupabase.auth.signOut).toHaveBeenCalled();
+    });
+
+    it('deve lançar erro quando logout falha', async () => {
+      mockSupabase.auth.signOut.mockResolvedValue({
+        error: new Error('Erro ao fazer logout'),
+      });
+
+      await expect(authService.signOut()).rejects.toThrow('Erro ao fazer logout');
+    });
+  });
+
+  // ============================================
+  // GRUPO 4: resetPassword - Recuperar Senha
+  // ============================================
+  describe('resetPassword', () => {
+    it('deve enviar email de recuperação com sucesso', async () => {
+      mockSupabase.auth.resetPasswordForEmail.mockResolvedValue({
+        data: {} as any,
+        error: null,
+      });
+
+      await authService.resetPassword('usuario@rotamestre.com');
+
+      expect(mockSupabase.auth.resetPasswordForEmail).toHaveBeenCalledWith(
+        'usuario@rotamestre.com',
+        {
+          redirectTo: 'rotamestre://reset-password',
+        }
+      );
+    });
+
+    it('deve lançar erro quando email não existe', async () => {
+      mockSupabase.auth.resetPasswordForEmail.mockResolvedValue({
+        data: {} as any,
+        error: new Error('Usuário não encontrado'),
+      });
+
+      await expect(
+        authService.resetPassword('naoexiste@rotamestre.com')
+      ).rejects.toThrow('Usuário não encontrado');
+    });
+
+    it('deve usar redirectTo correto para deep linking', async () => {
+      mockSupabase.auth.resetPasswordForEmail.mockResolvedValue({
+        data: {} as any,
+        error: null,
+      });
+
+      await authService.resetPassword('test@rotamestre.com');
+
+      const callArgs = mockSupabase.auth.resetPasswordForEmail.mock.calls[0];
+      expect(callArgs[1]).toEqual({
+        redirectTo: 'rotamestre://reset-password',
+      });
+    });
+  });
+
+  // ============================================
+  // GRUPO 5: updatePassword - Atualizar Senha
+  // ============================================
+  describe('updatePassword', () => {
+    it('deve atualizar senha com sucesso', async () => {
+      mockSupabase.auth.updateUser.mockResolvedValue({
+        data: { user: {} } as any,
+        error: null,
+      });
+
+      await authService.updatePassword('novaSenha123');
+
+      expect(mockSupabase.auth.updateUser).toHaveBeenCalledWith({
+        password: 'novaSenha123',
+      });
+    });
+
+    it('deve lançar erro quando token é inválido ou expirado', async () => {
+      mockSupabase.auth.updateUser.mockResolvedValue({
+        data: { user: null },
+        error: new Error('Token de recuperação inválido ou expirado'),
+      });
+
+      await expect(authService.updatePassword('novaSenha123')).rejects.toThrow(
+        'Token de recuperação inválido ou expirado'
+      );
+    });
+
+    it('deve aceitar senhas com caracteres especiais', async () => {
+      mockSupabase.auth.updateUser.mockResolvedValue({
+        data: { user: {} } as any,
+        error: null,
+      });
+
+      const complexPassword = 'S3nh@C0mpl3x@#$%';
+      await authService.updatePassword(complexPassword);
+
+      expect(mockSupabase.auth.updateUser).toHaveBeenCalledWith({
+        password: complexPassword,
+      });
+    });
+  });
+
+  // ============================================
+  // GRUPO 6: getSession - Obter Sessão Atual
+  // ============================================
+  describe('getSession', () => {
+    it('deve retornar sessão ativa', async () => {
+      const mockSession = {
+        access_token: 'mock-token-123',
+        user: { id: 'user-123', email: 'teste@rotamestre.com' },
+      };
+
+      mockSupabase.auth.getSession.mockResolvedValue({
+        data: { session: mockSession } as any,
+        error: null,
+      });
+
+      const session = await authService.getSession();
+
+      expect(session).toEqual(mockSession);
+      expect(mockSupabase.auth.getSession).toHaveBeenCalled();
+    });
+
+    it('deve retornar null quando não há sessão ativa', async () => {
+      mockSupabase.auth.getSession.mockResolvedValue({
+        data: { session: null },
+        error: null,
+      });
+
+      const session = await authService.getSession();
+
+      expect(session).toBeNull();
+    });
+  });
+
+  // ============================================
+  // GRUPO 7: getUsuario - Obter Dados do Usuário
+  // ============================================
+  describe('getUsuario', () => {
+    it('deve retornar dados do usuário com sucesso', async () => {
+      const mockUsuario = {
+        id: 'user-123',
+        email: 'teste@rotamestre.com',
+        nome: 'Usuário Teste',
+        papel: 'gestor' as const,
+      };
+
+      mockSupabase.from.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({
+          data: mockUsuario,
+          error: null,
+        }),
+      } as any);
+
+      const usuario = await authService.getUsuario('user-123');
+
+      expect(mockSupabase.from).toHaveBeenCalledWith('usuarios');
+      expect(usuario).toEqual(mockUsuario);
+    });
+
+    it('deve retornar null quando usuário não existe', async () => {
+      mockSupabase.from.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({
+          data: null,
+          error: new Error('Usuário não encontrado'),
+        }),
+      } as any);
+
+      const usuario = await authService.getUsuario('user-999');
+
+      expect(usuario).toBeNull();
+    });
+
+    it('deve buscar usuário pelo ID correto', async () => {
+      const mockEq = jest.fn().mockReturnThis();
+
+      mockSupabase.from.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: mockEq,
+        single: jest.fn().mockResolvedValue({
+          data: {},
+          error: null,
+        }),
+      } as any);
+
+      await authService.getUsuario('user-specific-id');
+
+      expect(mockEq).toHaveBeenCalledWith('id', 'user-specific-id');
+    });
+  });
+
+  // ============================================
+  // GRUPO 8: verificarTipoUsuario - Verificar Tipo
+  // ============================================
+  describe('verificarTipoUsuario', () => {
+    it('deve retornar tipo "gestor" corretamente', async () => {
+      const mockUsuario = {
+        id: 'user-123',
+        email: 'gestor@rotamestre.com',
+        nome: 'Gestor Teste',
+        papel: 'gestor' as const,
+      };
+
+      mockSupabase.from.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({
+          data: mockUsuario,
+          error: null,
+        }),
+      } as any);
+
+      const tipo = await authService.verificarTipoUsuario('user-123');
+
+      expect(tipo).toBe('gestor');
+    });
+
+    it('deve retornar tipo "motorista" corretamente', async () => {
+      const mockUsuario = {
+        id: 'user-456',
+        email: 'motorista@rotamestre.com',
+        nome: 'Motorista Teste',
+        papel: 'motorista' as const,
+      };
+
+      mockSupabase.from.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({
+          data: mockUsuario,
+          error: null,
+        }),
+      } as any);
+
+      const tipo = await authService.verificarTipoUsuario('user-456');
+
+      expect(tipo).toBe('motorista');
+    });
+
+    it('deve retornar null quando usuário não existe', async () => {
+      mockSupabase.from.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({
+          data: null,
+          error: new Error('Usuário não encontrado'),
+        }),
+      } as any);
+
+      const tipo = await authService.verificarTipoUsuario('user-999');
+
+      expect(tipo).toBeNull();
+    });
+  });
+});

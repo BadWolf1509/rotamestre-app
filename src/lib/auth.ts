@@ -62,6 +62,14 @@ export const authService = {
     if (error) throw error;
   },
 
+  // Atualizar senha
+  async updatePassword(newPassword: string) {
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+    if (error) throw error;
+  },
+
   // Obter sessão atual
   async getSession() {
     const { data } = await supabase.auth.getSession();

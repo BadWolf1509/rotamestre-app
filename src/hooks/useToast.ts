@@ -35,7 +35,7 @@ export function useToast() {
   const [toast, setToast] = useState<ToastState>({
     visible: false,
     message: '',
-    type: 'info',
+    type: 'success',
     duration: 3000,
   });
 
