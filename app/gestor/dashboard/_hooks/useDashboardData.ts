@@ -71,13 +71,14 @@ export function useDashboardData(): DashboardData {
 
       if (rotasError) throw rotasError;
 
-      // Buscar paradas para cada rota
+      // Buscar paradas para cada rota (apenas entregas reais, não base)
       const rotasComDetalhes = await Promise.all(
         (rotasData || []).map(async (rota: any) => {
           const { data: paradas } = await supabase
             .from('paradas')
             .select('id, status')
-            .eq('rota_id', rota.id);
+            .eq('rota_id', rota.id)
+            .eq('is_checkpoint', true); // Filtra apenas entregas reais
 
           return {
             id: rota.id,

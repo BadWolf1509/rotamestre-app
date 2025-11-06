@@ -59,4 +59,9 @@ rota-mestre/
 # Marketing assets (not needed in builds)
 assets/branding/
 assets/marketing/
+
+# Build outputs (APK, AAB, IPA)
+*.apk
+*.aab
+*.ipa
 rotamestre-corrigido.apk

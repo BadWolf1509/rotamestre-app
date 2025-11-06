@@ -4,13 +4,14 @@ import {
   Text,
   ScrollView,
   ActivityIndicator,
-  Alert,
   TouchableOpacity,
   Platform,
   Image,
   Modal,
   Dimensions,
 } from 'react-native';
+import { Toast } from '@/components/Toast';
+import { useToast } from '@/hooks/useToast';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -44,6 +45,7 @@ export default function MapaRota() {
   const { theme } = useUnistyles();
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { toast, showToast, hideToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [rota, setRota] = useState<Rota | null>(null);
   const [paradas, setParadas] = useState<Parada[]>([]);
@@ -89,7 +91,7 @@ export default function MapaRota() {
       setParadas(paradasData || []);
     } catch (error) {
       console.error('Erro ao carregar rota:', error);
-      Alert.alert('Erro', 'Não foi possível carregar os dados da rota');
+      showToast('Não foi possível carregar os dados da rota', 'error');
       router.back();
     } finally {
       setLoading(false);
@@ -278,7 +280,11 @@ export default function MapaRota() {
 
     return (
       <View style={styles.breadcrumbs}>
-        <TouchableOpacity onPress={() => router.push('/gestor/historico')}>
+        <TouchableOpacity
+          onPress={() => router.push('/gestor/historico')}
+          accessibilityLabel="Voltar para o histórico"
+          accessibilityRole="button"
+        >
           <Text style={styles.breadcrumbLink}>Histórico</Text>
         </TouchableOpacity>
         <Text style={styles.breadcrumbSeparator}>→</Text>
@@ -295,7 +301,12 @@ export default function MapaRota() {
         <Breadcrumbs />
         <View style={styles.headerContent}>
           <View>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backLink}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.backLink}
+              accessibilityLabel="Voltar para tela anterior"
+              accessibilityRole="button"
+            >
               <Text style={styles.backLinkText}>← Voltar</Text>
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Mapa da Rota</Text>
@@ -382,6 +393,9 @@ export default function MapaRota() {
           </TouchableOpacity>
         </View>
       </Modal>
+
+      {/* Toast de Feedback */}
+      <Toast {...toast} onDismiss={hideToast} />
     </>
   );
 }

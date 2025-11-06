@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 import { DataTable, DataTableColumn, DataTableAction } from '@/components/DataTable';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { Toast } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
 
@@ -54,6 +55,10 @@ export default function HistoricoGestor() {
   const [loading, setLoading] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('todas');
 
+  // Estado para modal de confirmação
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [rotaToDelete, setRotaToDelete] = useState<RotaHistorico | null>(null);
+
   useEffect(() => {
     if (userData?.unidade_id) {
       loadHistorico();
@@ -82,13 +87,14 @@ export default function HistoricoGestor() {
 
       if (rotasError) throw rotasError;
 
-      // Para cada rota, buscar contagem de paradas
+      // Para cada rota, buscar contagem de paradas (apenas entregas reais, não base)
       const rotasComParadas = await Promise.all(
         (rotasData || []).map(async (rota) => {
           const { data: paradasData } = await supabase
             .from('paradas')
             .select('id, status')
-            .eq('rota_id', rota.id);
+            .eq('rota_id', rota.id)
+            .eq('is_checkpoint', true); // Filtra apenas entregas reais
 
           return {
             ...rota,
@@ -128,43 +134,49 @@ export default function HistoricoGestor() {
     router.push(`/gestor/mapa-rota?id=${rota.id}`);
   }
 
-  async function cancelarRota(rota: RotaHistorico) {
-    // Validar se pode cancelar
-    if (rota.status !== 'pendente' && rota.status !== 'em_andamento') {
-      Alert.alert('Atenção', 'Apenas rotas pendentes ou em andamento podem ser canceladas');
-      return;
-    }
-
-    const mensagem = `Tem certeza que deseja cancelar esta rota?\nMotorista: ${rota.motorista?.nome || 'Sem motorista'}\nParadas: ${rota.paradas_count || 0}`;
-
+  async function excluirRota(rota: RotaHistorico) {
+    // Web: usar modal customizado
     if (Platform.OS === 'web') {
-      if (!confirm(mensagem)) return;
+      setRotaToDelete(rota);
+      setShowConfirmModal(true);
     } else {
+      // Mobile: usar Alert.alert nativo
+      const mensagem = `Tem certeza que deseja excluir esta rota?\n\nMotorista: ${rota.motorista?.nome || 'Sem motorista'}\nParadas: ${rota.paradas_count || 0}\n\nEsta ação não pode ser desfeita.`;
       Alert.alert(
-        'Cancelar Rota',
+        'Confirmar Exclusão',
         mensagem,
         [
-          { text: 'Não', style: 'cancel' },
+          { text: 'Cancelar', style: 'cancel' },
           {
-            text: 'Sim, Cancelar',
+            text: 'Excluir',
             style: 'destructive',
-            onPress: () => executarCancelamento(rota),
+            onPress: () => executarExclusao(rota),
           },
         ]
       );
-      return;
     }
-
-    executarCancelamento(rota);
   }
 
-  async function executarCancelamento(rota: RotaHistorico) {
+  const handleConfirmDelete = () => {
+    setShowConfirmModal(false);
+    if (rotaToDelete) {
+      executarExclusao(rotaToDelete);
+      setRotaToDelete(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setShowConfirmModal(false);
+    setRotaToDelete(null);
+  };
+
+  async function executarExclusao(rota: RotaHistorico) {
     try {
       await withToast(
         async () => {
           const { error } = await supabase
             .from('rotas')
-            .update({ status: 'cancelada' })
+            .delete()
             .eq('id', rota.id);
 
           if (error) throw error;
@@ -173,24 +185,26 @@ export default function HistoricoGestor() {
           await supabase.from('logs').insert({
             usuario_id: userData!.id,
             rota_id: rota.id,
-            evento: 'rota_cancelada',
+            evento: 'rota_excluida',
             detalhes: {
-              motivo: 'Cancelada pelo gestor',
+              motivo: 'Excluída pelo gestor no histórico',
+              motorista: rota.motorista?.nome,
               paradas_count: rota.paradas_count,
+              status_anterior: rota.status,
             },
           });
         },
         {
-          loading: 'Cancelando rota...',
-          success: 'Rota cancelada com sucesso!',
-          error: 'Não foi possível cancelar a rota',
+          loading: 'Excluindo rota...',
+          success: 'Rota excluída com sucesso!',
+          error: 'Não foi possível excluir a rota',
         }
       );
 
       // Recarregar histórico
       loadHistorico();
     } catch (error) {
-      console.error('Erro ao cancelar rota:', error);
+      console.error('Erro ao excluir rota:', error);
     }
   }
 
@@ -313,10 +327,10 @@ export default function HistoricoGestor() {
       onPress: verDetalhes,
     },
     {
-      label: 'Cancelar',
-      icon: '🚫',
+      label: 'Excluir',
+      icon: '🗑️',
       type: 'danger',
-      onPress: cancelarRota,
+      onPress: excluirRota,
     },
   ];
 
@@ -418,6 +432,18 @@ export default function HistoricoGestor() {
         />
         </View>
       </ScrollView>
+
+      {/* Modal de Confirmação de Exclusão */}
+      <ConfirmModal
+        visible={showConfirmModal}
+        title="Confirmar Exclusão"
+        message={`Tem certeza que deseja excluir esta rota?\n\nMotorista: ${rotaToDelete?.motorista?.nome || 'Sem motorista'}\nParadas: ${rotaToDelete?.paradas_count || 0}\nStatus: ${rotaToDelete?.status ? getStatusLabel(rotaToDelete.status) : '-'}\n\nEsta ação não pode ser desfeita.`}
+        confirmText="Excluir"
+        cancelText="Cancelar"
+        type="danger"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
 
       {/* Toast de Feedback */}
       <Toast {...toastState} onDismiss={hideToast} />

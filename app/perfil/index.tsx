@@ -4,25 +4,33 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useProfile } from '@/hooks/useProfile';
+import { Avatar } from '@/components/Avatar';
+import { ConfirmModal } from '@/components/ConfirmModal';
+import { Toast } from '@/components/Toast';
+import { useToast } from '@/hooks/useToast';
+import { formatPhone, validatePhone, getPhoneErrorMessage, maskPhone } from '@/utils/phoneValidation';
 
 export default function PerfilScreen() {
   const router = useRouter();
   const { theme } = useUnistyles();
   const [user, setUser] = useState<any>(null);
-  const { profile, loading: profileLoading, updateProfile } = useProfile(user);
+  const { profile, loading: profileLoading, updateProfile, refetch } = useProfile(user);
+  const { toast, showToast, hideToast, withToast } = useToast();
 
   const [isEditing, setIsEditing] = useState(false);
   const [nome, setNome] = useState('');
   const [telefone, setTelefone] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   useEffect(() => {
     async function loadUser() {
@@ -41,49 +49,97 @@ export default function PerfilScreen() {
 
   async function handleSave() {
     if (!nome.trim()) {
-      Alert.alert('Erro', 'Nome é obrigatório');
+      showToast('Nome é obrigatório', 'error');
+      return;
+    }
+
+    if (telefone && !validatePhone(telefone)) {
+      showToast('Telefone inválido', 'error');
       return;
     }
 
     try {
       setLoading(true);
-      await updateProfile({
-        nome: nome.trim(),
-        telefone: telefone.trim() || null,
-      });
+      await withToast(
+        async () => {
+          await updateProfile({
+            nome: nome.trim(),
+            telefone: telefone.trim() || null,
+          });
+        },
+        {
+          loading: 'Salvando alterações...',
+          success: 'Perfil atualizado com sucesso!',
+          error: 'Erro ao atualizar perfil',
+        }
+      );
 
-      Alert.alert('Sucesso', 'Perfil atualizado com sucesso');
       setIsEditing(false);
     } catch (error: any) {
-      Alert.alert('Erro', error.message || 'Erro ao atualizar perfil');
+      console.error('Erro ao salvar perfil:', error);
     } finally {
       setLoading(false);
     }
   }
 
   function handleCancel() {
-    // Restaurar valores originais
     setNome(profile?.nome || '');
     setTelefone(profile?.telefone || '');
+    setPhoneError('');
     setIsEditing(false);
   }
 
+  function handlePhoneChange(text: string) {
+    const formatted = maskPhone(text);
+    setTelefone(formatted);
+
+    if (text.length > 0) {
+      const error = getPhoneErrorMessage(formatted);
+      setPhoneError(error || '');
+    } else {
+      setPhoneError('');
+    }
+  }
+
   async function handleLogout() {
-    Alert.alert(
-      'Sair',
-      'Tem certeza que deseja sair?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Sair',
-          style: 'destructive',
-          onPress: async () => {
-            await supabase.auth.signOut();
-            router.replace('/auth/login');
+    if (Platform.OS === 'web') {
+      setShowLogoutModal(true);
+    } else {
+      const Alert = require('react-native').Alert;
+      Alert.alert(
+        'Sair da Conta',
+        'Tem certeza que deseja sair?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Sair',
+            style: 'destructive',
+            onPress: confirmLogout,
           },
-        },
-      ]
+        ]
+      );
+    }
+  }
+
+  async function confirmLogout() {
+    setShowLogoutModal(false);
+    await withToast(
+      async () => {
+        await supabase.auth.signOut();
+        router.replace('/auth/login');
+      },
+      {
+        loading: 'Saindo...',
+        success: 'Até logo!',
+        error: 'Erro ao sair',
+      }
     );
+  }
+
+  async function handleRetry() {
+    if (refetch) {
+      await refetch();
+    }
   }
 
   if (profileLoading) {
@@ -99,7 +155,12 @@ export default function PerfilScreen() {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Erro ao carregar perfil</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => window.location.reload()}>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={handleRetry}
+          accessibilityLabel="Tentar carregar perfil novamente"
+          accessibilityRole="button"
+        >
           <Text style={styles.retryButtonText}>Tentar novamente</Text>
         </TouchableOpacity>
       </View>
@@ -124,6 +185,21 @@ export default function PerfilScreen() {
       <ScrollView style={styles.scrollView}>
         <View style={styles.content}>
 
+        {/* Profile Header com Avatar */}
+        <View style={styles.profileHeader}>
+          <Avatar
+            name={profile.nome}
+            imageUrl={profile.foto_url}
+            size="xl"
+          />
+          <View style={styles.profileHeaderInfo}>
+            <Text style={styles.profileName}>{profile.nome}</Text>
+            <Text style={styles.profileRole}>
+              {profile.papel === 'gestor' ? 'Gestor' : 'Motorista'}
+            </Text>
+          </View>
+        </View>
+
         {/* Informações do Perfil */}
         <View style={styles.card}>
           <View style={styles.infoGroup}>
@@ -135,6 +211,8 @@ export default function PerfilScreen() {
                 onChangeText={setNome}
                 placeholder="Digite seu nome completo"
                 autoCapitalize="words"
+                accessibilityLabel="Campo de nome completo"
+                accessibilityHint="Digite seu nome completo"
               />
             ) : (
               <Text style={styles.value}>{profile.nome}</Text>
@@ -150,15 +228,21 @@ export default function PerfilScreen() {
           <View style={styles.infoGroup}>
             <Text style={styles.label}>Telefone</Text>
             {isEditing ? (
-              <TextInput
-                style={styles.input}
-                value={telefone}
-                onChangeText={setTelefone}
-                placeholder="(00) 00000-0000"
-                keyboardType="phone-pad"
-              />
+              <>
+                <TextInput
+                  style={[styles.input, phoneError && styles.inputError]}
+                  value={telefone}
+                  onChangeText={handlePhoneChange}
+                  placeholder="(00) 00000-0000"
+                  keyboardType="phone-pad"
+                  maxLength={15}
+                  accessibilityLabel="Campo de telefone"
+                  accessibilityHint="Digite seu telefone com DDD"
+                />
+                {phoneError && <Text style={styles.errorText}>{phoneError}</Text>}
+              </>
             ) : (
-              <Text style={styles.value}>{profile.telefone || 'Não informado'}</Text>
+              <Text style={styles.value}>{formatPhone(profile.telefone) || 'Não informado'}</Text>
             )}
           </View>
 
@@ -188,6 +272,9 @@ export default function PerfilScreen() {
               style={[styles.button, styles.saveButton, loading && styles.buttonDisabled]}
               onPress={handleSave}
               disabled={loading}
+              accessibilityLabel="Salvar alterações do perfil"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: loading }}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
@@ -199,6 +286,9 @@ export default function PerfilScreen() {
               style={[styles.button, styles.cancelButton]}
               onPress={handleCancel}
               disabled={loading}
+              accessibilityLabel="Cancelar edição"
+              accessibilityRole="button"
+              accessibilityHint="Descarta as alterações feitas"
             >
               <Text style={styles.cancelButtonText}>Cancelar</Text>
             </TouchableOpacity>
@@ -207,8 +297,11 @@ export default function PerfilScreen() {
           <TouchableOpacity
             style={[styles.button, styles.editButton]}
             onPress={() => setIsEditing(true)}
+            accessibilityLabel="Editar perfil"
+            accessibilityRole="button"
+            accessibilityHint="Ativa o modo de edição do perfil"
           >
-            <Text style={styles.buttonText}>Editar Perfil</Text>
+            <Text style={styles.buttonText}>✏️ Editar Perfil</Text>
           </TouchableOpacity>
         )}
 
@@ -217,6 +310,9 @@ export default function PerfilScreen() {
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => router.push('/perfil/trocar-senha')}
+            accessibilityLabel="Trocar senha"
+            accessibilityRole="button"
+            accessibilityHint="Navega para a tela de troca de senha"
           >
             <Text style={styles.actionButtonText}>🔒 Trocar Senha</Text>
           </TouchableOpacity>
@@ -224,6 +320,9 @@ export default function PerfilScreen() {
           <TouchableOpacity
             style={[styles.actionButton, styles.logoutButton]}
             onPress={handleLogout}
+            accessibilityLabel="Sair da conta"
+            accessibilityRole="button"
+            accessibilityHint="Desloga do sistema"
           >
             <Text style={[styles.actionButtonText, styles.logoutButtonText]}>
               🚪 Sair da Conta
@@ -232,6 +331,21 @@ export default function PerfilScreen() {
         </View>
         </View>
       </ScrollView>
+
+      {/* Modal de Confirmação de Logout */}
+      <ConfirmModal
+        visible={showLogoutModal}
+        title="Sair da Conta"
+        message="Tem certeza que deseja sair? Você precisará fazer login novamente para acessar o sistema."
+        confirmText="Sair"
+        cancelText="Cancelar"
+        type="danger"
+        onConfirm={confirmLogout}
+        onCancel={() => setShowLogoutModal(false)}
+      />
+
+      {/* Toast de Feedback */}
+      <Toast {...toast} onDismiss={hideToast} />
     </>
   );
 }
@@ -412,5 +526,35 @@ const styles = StyleSheet.create(theme => ({
   },
   logoutButtonText: {
     color: theme.colors.error,
+  },
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing['3xl'],
+    padding: theme.spacing['2xl'],
+    backgroundColor: theme.colors.primary + '08',
+    borderRadius: theme.borderRadius.xl,
+  },
+  profileHeaderInfo: {
+    marginLeft: theme.spacing['2xl'],
+    flex: 1,
+  },
+  profileName: {
+    fontSize: theme.typography['2xl'],
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray900,
+  },
+  profileRole: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray600,
+    marginTop: 4,
+  },
+  inputError: {
+    borderColor: theme.colors.error,
+  },
+  errorText: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.error,
+    marginTop: 4,
   },
 }));

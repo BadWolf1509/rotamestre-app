@@ -6,9 +6,9 @@ import {
   ScrollView,
   ActivityIndicator,
   TextInput,
-  Alert,
   Platform,
 } from 'react-native';
+import { maskPhone, validatePhone, getPhoneErrorMessage } from '@/utils/phoneValidation';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useForm, Controller, Control, FieldErrors } from 'react-hook-form';
 import { z } from 'zod';
@@ -88,6 +88,9 @@ const FormularioParadaMemoized = memo(function FormularioParada({
                 value === 'entrega' && styles.radioButtonActive,
               ]}
               onPress={() => onChange('entrega')}
+              accessibilityLabel="Selecionar tipo entrega"
+              accessibilityRole="radio"
+              accessibilityState={{ checked: value === 'entrega' }}
             >
               <Text
                 style={[
@@ -104,6 +107,9 @@ const FormularioParadaMemoized = memo(function FormularioParada({
                 value === 'retirada' && styles.radioButtonActive,
               ]}
               onPress={() => onChange('retirada')}
+              accessibilityLabel="Selecionar tipo retirada"
+              accessibilityRole="radio"
+              accessibilityState={{ checked: value === 'retirada' }}
             >
               <Text
                 style={[
@@ -155,6 +161,8 @@ const FormularioParadaMemoized = memo(function FormularioParada({
               placeholder="Nome do destinatário *"
               value={value}
               onChangeText={onChange}
+              accessibilityLabel="Campo de nome do destinatário"
+              accessibilityHint="Digite o nome completo do destinatário"
             />
             {errors.destinatario && (
               <Text style={styles.errorText}>{errors.destinatario.message}</Text>
@@ -175,8 +183,11 @@ const FormularioParadaMemoized = memo(function FormularioParada({
               ]}
               placeholder="Telefone de contato *"
               value={value}
-              onChangeText={onChange}
+              onChangeText={(text) => onChange(maskPhone(text))}
               keyboardType="phone-pad"
+              maxLength={15}
+              accessibilityLabel="Campo de telefone do destinatário"
+              accessibilityHint="Digite o telefone do destinatário com DDD"
             />
             {errors.telefone && (
               <Text style={styles.errorText}>{errors.telefone.message}</Text>
@@ -196,6 +207,8 @@ const FormularioParadaMemoized = memo(function FormularioParada({
             onChangeText={onChange}
             multiline
             numberOfLines={3}
+            accessibilityLabel="Campo de observações"
+            accessibilityHint="Digite observações adicionais sobre a entrega"
           />
         )}
       />
@@ -204,6 +217,9 @@ const FormularioParadaMemoized = memo(function FormularioParada({
         style={styles.addButton}
         onPress={handleSubmit(onAddParada)}
         disabled={isLoading}
+        accessibilityLabel="Adicionar parada à lista"
+        accessibilityRole="button"
+        accessibilityState={{ disabled: isLoading }}
       >
         {isLoading ? (
           <ActivityIndicator color="#fff" />
@@ -306,7 +322,7 @@ export default function NovaEntrega() {
       setMotoristas(data || []);
     } catch (error) {
       console.error('Erro ao carregar motoristas:', error);
-      Alert.alert('Erro', 'Não foi possível carregar os motoristas');
+      showToast('Não foi possível carregar os motoristas', 'error');
     } finally {
       setIsLoadingMotoristas(false);
     }
@@ -321,10 +337,7 @@ export default function NovaEntrega() {
         const result = await googleMapsService.geocodeAddress(data.endereco);
 
         if (!result) {
-          Alert.alert(
-            'Erro',
-            'Não foi possível localizar o endereço. Use o autocomplete para selecionar um endereço válido.'
-          );
+          showToast('Não foi possível localizar o endereço. Use o autocomplete para selecionar um endereço válido.', 'error');
           return;
         }
 
@@ -496,6 +509,7 @@ export default function NovaEntrega() {
           telefone: null,
           observacoes: 'Ponto de partida',
           status: 'pendente',
+          is_checkpoint: false, // Base não conta como entrega
         });
       }
 
@@ -512,6 +526,7 @@ export default function NovaEntrega() {
           telefone: p.telefone,
           observacoes: p.observacoes,
           status: 'pendente',
+          is_checkpoint: true, // Entregas reais contam como checkpoint
         });
       });
 
@@ -528,6 +543,7 @@ export default function NovaEntrega() {
           telefone: null,
           observacoes: 'Ponto de chegada',
           status: 'pendente',
+          is_checkpoint: false, // Base não conta como entrega
         });
       }
 
@@ -558,9 +574,10 @@ export default function NovaEntrega() {
 
       console.log('🎉 Rota completa criada com sucesso!');
 
-      const totalParadasInseridas = enderecoUnidade ? paradas.length + 2 : paradas.length;
+      // Conta apenas entregas reais (não inclui base)
+      const totalEntregas = paradas.length;
       showToast(
-        `Rota circular criada com sucesso! ${totalParadasInseridas} parada(s) (incluindo base).`,
+        `Rota circular criada com sucesso! ${totalEntregas} entrega(s) cadastrada(s).`,
         'success',
         4000
       );
@@ -710,9 +727,9 @@ export default function NovaEntrega() {
           disabled={!motoristaSelecionado || isLoading}
         >
           {isLoading ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <ActivityIndicator color="#fff" />
-              <Text style={styles.gerarButtonText}>Criando rota...</Text>
+              <Text style={[styles.gerarButtonText, { marginLeft: 10 }]}>Criando rota...</Text>
             </View>
           ) : (
             <Text style={styles.gerarButtonText}>✅ Gerar Rota</Text>

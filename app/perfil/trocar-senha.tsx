@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
@@ -14,12 +13,15 @@ import { supabase } from '@/lib/supabase';
 import { useProfile } from '@/hooks/useProfile';
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
 import { isPasswordValid } from '@/utils/passwordValidation';
+import { Toast } from '@/components/Toast';
+import { useToast } from '@/hooks/useToast';
 
 export default function TrocarSenhaScreen() {
   const router = useRouter();
   const { theme } = useUnistyles();
   const [user, setUser] = useState<any>(null);
   const { profile, changePassword } = useProfile(user);
+  const { toast, showToast, hideToast, withToast } = useToast();
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -38,44 +40,41 @@ export default function TrocarSenhaScreen() {
 
   async function handleChangePassword() {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert('Erro', 'Preencha todos os campos');
+      showToast('Preencha todos os campos', 'error');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert('Erro', 'As senhas não coincidem');
+      showToast('As senhas não coincidem', 'error');
       return;
     }
 
     if (!isPasswordValid(newPassword)) {
-      Alert.alert('Senha Fraca', 'A nova senha não atende aos requisitos mínimos de segurança');
+      showToast('A nova senha não atende aos requisitos mínimos de segurança', 'error');
       return;
     }
 
     if (currentPassword === newPassword) {
-      Alert.alert('Erro', 'A nova senha deve ser diferente da senha atual');
+      showToast('A nova senha deve ser diferente da senha atual', 'error');
       return;
     }
 
     try {
       setLoading(true);
-      await changePassword(currentPassword, newPassword);
-
-      Alert.alert(
-        'Sucesso!',
-        'Senha alterada com sucesso. Você será redirecionado para fazer login novamente.',
-        [
-          {
-            text: 'OK',
-            onPress: async () => {
-              await supabase.auth.signOut();
-              router.replace('/auth/login');
-            },
-          },
-        ]
+      await withToast(
+        async () => {
+          await changePassword(currentPassword, newPassword);
+          await supabase.auth.signOut();
+          router.replace('/auth/login');
+        },
+        {
+          loading: 'Alterando senha...',
+          success: 'Senha alterada com sucesso! Faça login novamente.',
+          error: 'Erro ao alterar senha',
+        }
       );
     } catch (error: any) {
-      Alert.alert('Erro', error.message);
+      console.error('Erro ao alterar senha:', error);
     } finally {
       setLoading(false);
     }
@@ -114,10 +113,14 @@ export default function TrocarSenhaScreen() {
               secureTextEntry={!showCurrentPassword}
               placeholder="Digite sua senha atual"
               autoCapitalize="none"
+              accessibilityLabel="Campo de senha atual"
+              accessibilityHint="Digite sua senha atual para confirmar a alteração"
             />
             <TouchableOpacity
               onPress={() => setShowCurrentPassword(!showCurrentPassword)}
               style={styles.eyeButton}
+              accessibilityLabel={showCurrentPassword ? "Ocultar senha atual" : "Mostrar senha atual"}
+              accessibilityRole="button"
             >
               <Text>{showCurrentPassword ? '👁️' : '👁️‍🗨️'}</Text>
             </TouchableOpacity>
@@ -134,10 +137,14 @@ export default function TrocarSenhaScreen() {
               secureTextEntry={!showNewPassword}
               placeholder="Digite sua nova senha"
               autoCapitalize="none"
+              accessibilityLabel="Campo de nova senha"
+              accessibilityHint="Digite a nova senha que deseja usar"
             />
             <TouchableOpacity
               onPress={() => setShowNewPassword(!showNewPassword)}
               style={styles.eyeButton}
+              accessibilityLabel={showNewPassword ? "Ocultar nova senha" : "Mostrar nova senha"}
+              accessibilityRole="button"
             >
               <Text>{showNewPassword ? '👁️' : '👁️‍🗨️'}</Text>
             </TouchableOpacity>
@@ -154,6 +161,8 @@ export default function TrocarSenhaScreen() {
             secureTextEntry
             placeholder="Digite novamente sua nova senha"
             autoCapitalize="none"
+            accessibilityLabel="Campo de confirmação de senha"
+            accessibilityHint="Digite novamente a nova senha para confirmar"
           />
           {confirmPassword && newPassword !== confirmPassword && (
             <Text style={styles.errorText}>As senhas não coincidem</Text>
@@ -164,6 +173,10 @@ export default function TrocarSenhaScreen() {
           style={[styles.button, loading && styles.buttonDisabled]}
           onPress={handleChangePassword}
           disabled={loading}
+          accessibilityLabel="Alterar senha"
+          accessibilityRole="button"
+          accessibilityHint="Confirma a alteração da senha"
+          accessibilityState={{ disabled: loading }}
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
@@ -176,11 +189,17 @@ export default function TrocarSenhaScreen() {
           style={styles.cancelButton}
           onPress={() => router.back()}
           disabled={loading}
+          accessibilityLabel="Cancelar alteração de senha"
+          accessibilityRole="button"
+          accessibilityHint="Cancela e volta para a tela anterior"
         >
           <Text style={styles.cancelButtonText}>Cancelar</Text>
         </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Toast de Feedback */}
+      <Toast {...toast} onDismiss={hideToast} />
     </>
   );
 }

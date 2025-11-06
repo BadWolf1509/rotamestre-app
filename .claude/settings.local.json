@@ -210,5 +210,11 @@
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "enabledMcpjsonServers": [
+    "rotamestre",
+    "rotamestre-git",
+    "filesystem-rotamestre"
+  ],
+  "enableAllProjectMcpServers": true
 }

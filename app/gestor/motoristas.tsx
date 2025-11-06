@@ -5,11 +5,11 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   RefreshControl,
   TextInput,
   ScrollView,
   Modal,
+  Platform,
 } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { supabase } from '@/lib/supabase';
@@ -19,6 +19,8 @@ import { validation, formatTelefone } from '@/utils/validation';
 import { DataTable, DataTableColumn, DataTableAction } from '@/components/DataTable';
 import { Toast } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
+import { ConfirmModal } from '@/components/ConfirmModal';
+import { maskPhone, validatePhone, getPhoneErrorMessage } from '@/utils/phoneValidation';
 
 interface MotoristaDetalhado {
   id: string;
@@ -45,6 +47,8 @@ export default function MotoristasGestor() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [motoristaEditando, setMotoristaEditando] = useState<MotoristaDetalhado | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [motoristaParaToggle, setMotoristaParaToggle] = useState<MotoristaDetalhado | null>(null);
 
   // Form state
   const [formNome, setFormNome] = useState('');
@@ -107,7 +111,7 @@ export default function MotoristasGestor() {
       setMotoristas(motoristasComStats as MotoristaDetalhado[]);
     } catch (error) {
       console.error('Erro ao carregar motoristas:', error);
-      Alert.alert('Erro', 'Não foi possível carregar os motoristas');
+      showToast('Não foi possível carregar os motoristas', 'error');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -152,44 +156,35 @@ export default function MotoristasGestor() {
     return true;
   }
 
-  function validateTelefone(telefone: string): boolean {
-    setTelefoneError('');
-    return true; // Apenas limpa erro, a formatação já limita os dígitos
-  }
+  function handleTelefoneChange(text: string) {
+    const formatted = maskPhone(text);
+    setFormTelefone(formatted);
 
-  function formatTelefoneInput(text: string): string {
-    // Remove tudo que não é número
-    const numeros = text.replace(/\D/g, '');
-
-    // Limita a 11 dígitos
-    const numerosLimitados = numeros.slice(0, 11);
-
-    // Formata conforme o tamanho
-    if (numerosLimitados.length <= 2) {
-      return numerosLimitados;
-    } else if (numerosLimitados.length <= 6) {
-      // (00) 0000
-      return `(${numerosLimitados.slice(0, 2)}) ${numerosLimitados.slice(2)}`;
-    } else if (numerosLimitados.length <= 10) {
-      // (00) 0000-0000
-      return `(${numerosLimitados.slice(0, 2)}) ${numerosLimitados.slice(2, 6)}-${numerosLimitados.slice(6)}`;
+    if (text.length > 0) {
+      const error = getPhoneErrorMessage(formatted);
+      setTelefoneError(error || '');
     } else {
-      // (00) 00000-0000
-      return `(${numerosLimitados.slice(0, 2)}) ${numerosLimitados.slice(2, 7)}-${numerosLimitados.slice(7)}`;
+      setTelefoneError('');
     }
   }
 
   async function adicionarMotorista() {
     // Validar campos obrigatórios
     if (!formNome.trim() || !formEmail.trim() || !formSenha.trim()) {
-      Alert.alert('Erro', 'Preencha todos os campos obrigatórios');
+      showToast('Preencha todos os campos obrigatórios', 'error');
       return;
     }
 
     // Validar formato de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formEmail.trim())) {
-      Alert.alert('Erro', 'Digite um email válido');
+      showToast('Digite um email válido', 'error');
+      return;
+    }
+
+    // Validar telefone se preenchido
+    if (formTelefone && !validatePhone(formTelefone)) {
+      showToast('Telefone inválido', 'error');
       return;
     }
 
@@ -202,19 +197,13 @@ export default function MotoristasGestor() {
 
       if (sessionError) {
         console.error('❌ Erro ao obter sessão:', sessionError);
-        Alert.alert(
-          'Erro de Autenticação',
-          `Erro ao obter sessão: ${sessionError.message}\n\nFaça logout e login novamente.`
-        );
+        showToast(`Erro ao obter sessão: ${sessionError.message}. Faça logout e login novamente.`, 'error');
         return;
       }
 
       if (!session) {
         console.error('❌ Sessão não encontrada');
-        Alert.alert(
-          'Sessão Expirada',
-          'Sua sessão expirou. Por favor, faça login novamente.'
-        );
+        showToast('Sua sessão expirou. Por favor, faça login novamente.', 'error');
         return;
       }
 
@@ -248,14 +237,7 @@ export default function MotoristasGestor() {
         });
       } catch (fetchError: any) {
         console.error('❌ Erro de rede:', fetchError);
-        Alert.alert(
-          'Erro de Conexão',
-          `Não foi possível conectar à Edge Function.\n\n` +
-          `Erro: ${fetchError.message}\n\n` +
-          `URL: ${functionUrl}\n\n` +
-          `Verifique se a função foi deployada:\n` +
-          `supabase functions deploy criar-motorista`
-        );
+        showToast(`Erro de conexão: ${fetchError.message}. Verifique se a função foi deployada.`, 'error');
         return;
       }
 
@@ -269,12 +251,7 @@ export default function MotoristasGestor() {
         result = responseText ? JSON.parse(responseText) : {};
       } catch (parseError: any) {
         console.error('❌ Erro ao parsear resposta:', parseError);
-        Alert.alert(
-          'Erro na Resposta',
-          `A Edge Function retornou uma resposta inválida.\n\n` +
-          `Status: ${response.status}\n\n` +
-          `Isso pode indicar que a função não foi deployada corretamente.`
-        );
+        showToast('A Edge Function retornou uma resposta inválida. Função não deployada corretamente.', 'error');
         return;
       }
 
@@ -302,16 +279,12 @@ export default function MotoristasGestor() {
       }
 
       console.log('✅ Processo concluído com sucesso!');
-      Alert.alert('Sucesso', 'Motorista adicionado com sucesso!');
+      showToast('Motorista adicionado com sucesso!', 'success');
       setShowAddModal(false);
       loadMotoristas();
     } catch (error: any) {
       console.error('❌ Erro inesperado ao adicionar motorista:', error);
-      Alert.alert(
-        'Erro Inesperado',
-        `${error.message || 'Não foi possível adicionar o motorista'}\n\n` +
-        `Detalhes técnicos:\n${JSON.stringify(error, null, 2)}`
-      );
+      showToast(error.message || 'Não foi possível adicionar o motorista', 'error');
     } finally {
       setSalvando(false);
     }
@@ -320,14 +293,20 @@ export default function MotoristasGestor() {
   async function editarMotorista() {
     // Validar campos obrigatórios
     if (!formNome.trim() || !formEmail.trim()) {
-      Alert.alert('Erro', 'Preencha todos os campos obrigatórios');
+      showToast('Preencha todos os campos obrigatórios', 'error');
       return;
     }
 
     // Validar formato de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formEmail.trim())) {
-      Alert.alert('Erro', 'Digite um email válido');
+      showToast('Digite um email válido', 'error');
+      return;
+    }
+
+    // Validar telefone se preenchido
+    if (formTelefone && !validatePhone(formTelefone)) {
+      showToast('Telefone inválido', 'error');
       return;
     }
 
@@ -354,65 +333,82 @@ export default function MotoristasGestor() {
         },
       });
 
-      Alert.alert('Sucesso', 'Motorista atualizado com sucesso!');
+      showToast('Motorista atualizado com sucesso!', 'success');
       setShowEditModal(false);
       setMotoristaEditando(null);
       loadMotoristas();
     } catch (error: any) {
       console.error('Erro ao editar motorista:', error);
-      Alert.alert('Erro', error.message || 'Não foi possível editar o motorista');
+      showToast(error.message || 'Não foi possível editar o motorista', 'error');
     } finally {
       setSalvando(false);
     }
   }
 
   async function toggleAtivo(motorista: MotoristaDetalhado) {
-    const novoStatus = !motorista.ativo;
-    const acao = novoStatus ? 'ativar' : 'desativar';
+    setMotoristaParaToggle(motorista);
 
-    Alert.alert(
-      `${novoStatus ? 'Ativar' : 'Desativar'} Motorista`,
-      `Deseja realmente ${acao} ${motorista.nome}?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Confirmar',
-          style: novoStatus ? 'default' : 'destructive',
-          onPress: async () => {
-            try {
-              await withToast(
-                async () => {
-                  const { error } = await supabase
-                    .from('usuarios')
-                    .update({ ativo: novoStatus })
-                    .eq('id', motorista.id);
+    if (Platform.OS === 'web') {
+      setShowConfirmModal(true);
+    } else {
+      const Alert = require('react-native').Alert;
+      const novoStatus = !motorista.ativo;
+      const acao = novoStatus ? 'ativar' : 'desativar';
 
-                  if (error) throw error;
-
-                  // Criar log
-                  await supabase.from('logs').insert({
-                    usuario_id: userData!.id,
-                    evento: novoStatus ? 'motorista_ativado' : 'motorista_desativado',
-                    detalhes: {
-                      motorista_id: motorista.id,
-                      motorista_nome: motorista.nome,
-                    },
-                  });
-                },
-                {
-                  loading: `${novoStatus ? 'Ativando' : 'Desativando'} motorista...`,
-                  success: `Motorista ${novoStatus ? 'ativado' : 'desativado'} com sucesso!`,
-                  error: 'Não foi possível alterar o status do motorista',
-                }
-              );
-              loadMotoristas();
-            } catch (error: any) {
-              console.error('Erro ao alterar status:', error);
-            }
+      Alert.alert(
+        `${novoStatus ? 'Ativar' : 'Desativar'} Motorista`,
+        `Deseja realmente ${acao} ${motorista.nome}?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Confirmar',
+            style: novoStatus ? 'default' : 'destructive',
+            onPress: () => confirmarToggleAtivo(),
           },
+        ]
+      );
+    }
+  }
+
+  async function confirmarToggleAtivo() {
+    if (!motoristaParaToggle) return;
+
+    const motorista = motoristaParaToggle;
+    const novoStatus = !motorista.ativo;
+
+    setShowConfirmModal(false);
+    setMotoristaParaToggle(null);
+
+    try {
+      await withToast(
+        async () => {
+          const { error } = await supabase
+            .from('usuarios')
+            .update({ ativo: novoStatus })
+            .eq('id', motorista.id);
+
+          if (error) throw error;
+
+          // Criar log
+          await supabase.from('logs').insert({
+            usuario_id: userData!.id,
+            evento: novoStatus ? 'motorista_ativado' : 'motorista_desativado',
+            detalhes: {
+              motorista_id: motorista.id,
+              motorista_nome: motorista.nome,
+            },
+          });
         },
-      ]
-    );
+        {
+          loading: `${novoStatus ? 'Ativando' : 'Desativando'} motorista...`,
+          success: `Motorista ${novoStatus ? 'ativado' : 'desativado'} com sucesso!`,
+          error: 'Não foi possível alterar o status do motorista',
+        }
+      );
+      loadMotoristas();
+    } catch (error: any) {
+      console.error('Erro ao alterar status:', error);
+    }
   }
 
   const renderAddModal = () => (
@@ -432,6 +428,8 @@ export default function MotoristasGestor() {
         value={formNome}
         onChangeText={setFormNome}
         placeholderTextColor="#9ca3af"
+        accessibilityLabel="Campo de nome do motorista"
+        accessibilityHint="Digite o nome completo do motorista"
       />
 
       <Text style={styles.inputLabel}>Email *</Text>
@@ -447,6 +445,8 @@ export default function MotoristasGestor() {
         keyboardType="email-address"
         autoCapitalize="none"
         placeholderTextColor="#9ca3af"
+        accessibilityLabel="Campo de email do motorista"
+        accessibilityHint="Digite o email do motorista"
       />
       {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
@@ -455,14 +455,12 @@ export default function MotoristasGestor() {
         style={[styles.input, telefoneError && styles.inputError]}
         placeholder="(00) 00000-0000"
         value={formTelefone}
-        onChangeText={(text) => {
-          const formatted = formatTelefoneInput(text);
-          setFormTelefone(formatted);
-          validateTelefone(formatted);
-        }}
+        onChangeText={handleTelefoneChange}
         keyboardType="phone-pad"
         placeholderTextColor="#9ca3af"
         maxLength={15}
+        accessibilityLabel="Campo de telefone do motorista"
+        accessibilityHint="Digite o telefone do motorista com DDD"
       />
       {telefoneError ? <Text style={styles.errorText}>{telefoneError}</Text> : null}
 
@@ -474,6 +472,8 @@ export default function MotoristasGestor() {
         onChangeText={setFormSenha}
         secureTextEntry
         placeholderTextColor="#9ca3af"
+        accessibilityLabel="Campo de senha do motorista"
+        accessibilityHint="Digite a senha inicial do motorista"
       />
 
       <View style={styles.modalActions}>
@@ -481,6 +481,8 @@ export default function MotoristasGestor() {
           style={styles.modalButtonSecondary}
           onPress={() => setShowAddModal(false)}
           disabled={salvando}
+          accessibilityLabel="Cancelar adição de motorista"
+          accessibilityRole="button"
         >
           <Text style={styles.modalButtonSecondaryText}>Cancelar</Text>
         </TouchableOpacity>
@@ -488,6 +490,9 @@ export default function MotoristasGestor() {
           style={[styles.modalButtonPrimary, salvando && styles.buttonDisabled]}
           onPress={adicionarMotorista}
           disabled={salvando}
+          accessibilityLabel="Adicionar motorista"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: salvando }}
         >
           {salvando ? (
             <ActivityIndicator color="#fff" size="small" />
@@ -521,6 +526,8 @@ export default function MotoristasGestor() {
         value={formNome}
         onChangeText={setFormNome}
         placeholderTextColor="#9ca3af"
+        accessibilityLabel="Campo de nome do motorista"
+        accessibilityHint="Digite o nome completo do motorista"
       />
 
       <Text style={styles.inputLabel}>Email *</Text>
@@ -536,6 +543,8 @@ export default function MotoristasGestor() {
         keyboardType="email-address"
         autoCapitalize="none"
         placeholderTextColor="#9ca3af"
+        accessibilityLabel="Campo de email do motorista"
+        accessibilityHint="Digite o email do motorista"
       />
       {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
@@ -544,14 +553,12 @@ export default function MotoristasGestor() {
         style={[styles.input, telefoneError && styles.inputError]}
         placeholder="(00) 00000-0000"
         value={formTelefone}
-        onChangeText={(text) => {
-          const formatted = formatTelefoneInput(text);
-          setFormTelefone(formatted);
-          validateTelefone(formatted);
-        }}
+        onChangeText={handleTelefoneChange}
         keyboardType="phone-pad"
         placeholderTextColor="#9ca3af"
         maxLength={15}
+        accessibilityLabel="Campo de telefone do motorista"
+        accessibilityHint="Digite o telefone do motorista com DDD"
       />
       {telefoneError ? <Text style={styles.errorText}>{telefoneError}</Text> : null}
 
@@ -563,6 +570,8 @@ export default function MotoristasGestor() {
             setMotoristaEditando(null);
           }}
           disabled={salvando}
+          accessibilityLabel="Cancelar edição de motorista"
+          accessibilityRole="button"
         >
           <Text style={styles.modalButtonSecondaryText}>Cancelar</Text>
         </TouchableOpacity>
@@ -570,6 +579,9 @@ export default function MotoristasGestor() {
           style={[styles.modalButtonPrimary, salvando && styles.buttonDisabled]}
           onPress={editarMotorista}
           disabled={salvando}
+          accessibilityLabel="Salvar alterações do motorista"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: salvando }}
         >
           {salvando ? (
             <ActivityIndicator color="#fff" size="small" />
@@ -631,6 +643,9 @@ export default function MotoristasGestor() {
         <TouchableOpacity
           style={styles.botaoEditar}
           onPress={() => abrirModalEditar(item)}
+          accessibilityLabel={`Editar motorista ${item.nome}`}
+          accessibilityRole="button"
+          accessibilityHint="Abre o formulário para editar os dados do motorista"
         >
           <Text style={styles.botaoEditarText}>✏️ Editar</Text>
         </TouchableOpacity>
@@ -640,6 +655,9 @@ export default function MotoristasGestor() {
             item.ativo ? styles.botaoDesativar : styles.botaoAtivar,
           ]}
           onPress={() => toggleAtivo(item)}
+          accessibilityLabel={`${item.ativo ? 'Desativar' : 'Ativar'} motorista ${item.nome}`}
+          accessibilityRole="button"
+          accessibilityHint={`${item.ativo ? 'Desativa' : 'Ativa'} o motorista no sistema`}
         >
           <Text style={styles.botaoStatusText}>
             {item.ativo ? '🚫 Desativar' : '✓ Ativar'}
@@ -759,6 +777,9 @@ export default function MotoristasGestor() {
           <TouchableOpacity
             style={styles.addButton}
             onPress={abrirModalAdicionar}
+            accessibilityLabel="Adicionar novo motorista"
+            accessibilityRole="button"
+            accessibilityHint="Abre o formulário para adicionar um novo motorista"
           >
             <Text style={styles.addButtonText}>+ Novo</Text>
           </TouchableOpacity>
@@ -800,6 +821,21 @@ export default function MotoristasGestor() {
       {/* Modals */}
       {renderAddModal()}
       {renderEditModal()}
+
+      {/* Modal de Confirmação de Toggle Ativo/Inativo */}
+      <ConfirmModal
+        visible={showConfirmModal}
+        title={motoristaParaToggle?.ativo ? "Desativar Motorista" : "Ativar Motorista"}
+        message={`Deseja realmente ${motoristaParaToggle?.ativo ? 'desativar' : 'ativar'} ${motoristaParaToggle?.nome}?`}
+        confirmText="Confirmar"
+        cancelText="Cancelar"
+        type={motoristaParaToggle?.ativo ? "danger" : "success"}
+        onConfirm={confirmarToggleAtivo}
+        onCancel={() => {
+          setShowConfirmModal(false);
+          setMotoristaParaToggle(null);
+        }}
+      />
 
       {/* Toast de Feedback */}
       <Toast {...toastState} onDismiss={hideToast} />

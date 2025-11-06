@@ -152,28 +152,37 @@ export function RotasTable({ rotas, onRotaPress, onDeletePress }: RotasTableProp
                 </View>
 
                 {/* Ações */}
-                <View style={styles.colAcoesContent}>
+                <View style={[styles.colAcoes, styles.colAcoesContent]}>
                   <TouchableOpacity
                     onPress={() => onRotaPress?.(rota.id)}
-                    style={styles.detailsButton}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      backgroundColor: theme.colors.primary,
+                      borderRadius: theme.borderRadius.md,
+                      marginRight: 8,
+                    }}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.detailsButtonText}>
-                      Ver Detalhes
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: 'white' }}>
+                      👁️ Detalhes
                     </Text>
                   </TouchableOpacity>
 
-                  {onDeletePress && (
-                    <TouchableOpacity
-                      onPress={() => onDeletePress(rota.id)}
-                      style={[styles.deleteButton, styles.deleteButtonSpacing]}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.deleteButtonText}>
-                        🗑️ Excluir
-                      </Text>
-                    </TouchableOpacity>
-                  )}
+                  <TouchableOpacity
+                    onPress={() => onDeletePress?.(rota.id)}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      backgroundColor: theme.colors.error,
+                      borderRadius: theme.borderRadius.md,
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: 'white' }}>
+                      🗑️ Excluir
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             );
@@ -284,7 +293,8 @@ const styles = StyleSheet.create(theme => ({
     paddingVertical: theme.spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    flexWrap: 'nowrap',
   },
   motoristaNome: {
     fontSize: theme.typography.sm,
@@ -331,6 +341,10 @@ const styles = StyleSheet.create(theme => ({
     paddingVertical: 6,
     backgroundColor: theme.colors.primary,
     borderRadius: theme.borderRadius.md,
+    marginRight: theme.spacing.sm,
+    minWidth: 90,
+    alignItems: 'center',
+    justifyContent: 'center',
     // Web-only hover state
     ...(Platform.OS === 'web' && {
       cursor: 'pointer',
@@ -355,6 +369,9 @@ const styles = StyleSheet.create(theme => ({
     paddingVertical: 6,
     backgroundColor: theme.colors.error,
     borderRadius: theme.borderRadius.md,
+    minWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
     // Web-only hover state
     ...(Platform.OS === 'web' && {
       cursor: 'pointer',
@@ -373,9 +390,6 @@ const styles = StyleSheet.create(theme => ({
     fontSize: theme.typography.xs,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.white,
-  },
-  deleteButtonSpacing: {
-    marginLeft: 8,
   },
   emptyState: {
     backgroundColor: theme.colors.white,
