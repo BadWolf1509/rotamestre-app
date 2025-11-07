@@ -53,6 +53,11 @@ rota-mestre/
 .idea/
 .vscode/
 
+# Testing
+coverage/
+__tests__/
+__mocks__/
+
 # Claude Code local settings
 .claude/settings.local.json
 
