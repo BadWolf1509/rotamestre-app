@@ -74,6 +74,13 @@ export default function MotoristaLayout() {
           }}
         />
         <Tabs.Screen
+          name="mapa"
+          options={{
+            title: 'Mapa',
+            tabBarLabel: 'Mapa',
+          }}
+        />
+        <Tabs.Screen
           name="historico"
           options={{
             title: 'Histórico',

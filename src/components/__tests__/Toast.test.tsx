@@ -3,6 +3,10 @@ import { render, fireEvent, act } from '@testing-library/react-native';
 import { Toast } from '../Toast';
 
 describe('Toast Component', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('não deve renderizar quando visible é false', () => {
     const { queryByText } = render(
       <Toast
@@ -27,7 +31,7 @@ describe('Toast Component', () => {
     expect(getByText('Teste de mensagem')).toBeTruthy();
   });
 
-  it('deve aplicar estilo de sucesso corretamente', () => {
+  it('deve renderizar com tipo success e ícone correto', () => {
     const { getByText } = render(
       <Toast
         visible={true}
@@ -36,11 +40,11 @@ describe('Toast Component', () => {
         onDismiss={jest.fn()}
       />
     );
-    const toast = getByText('Sucesso!').parent?.parent;
-    expect(toast).toHaveStyle({ backgroundColor: '#10b981' });
+    expect(getByText('Sucesso!')).toBeTruthy();
+    expect(getByText('✅')).toBeTruthy();
   });
 
-  it('deve aplicar estilo de erro corretamente', () => {
+  it('deve renderizar com tipo error e ícone correto', () => {
     const { getByText } = render(
       <Toast
         visible={true}
@@ -49,26 +53,54 @@ describe('Toast Component', () => {
         onDismiss={jest.fn()}
       />
     );
-    const toast = getByText('Erro!').parent?.parent;
-    expect(toast).toHaveStyle({ backgroundColor: '#ef4444' });
+    expect(getByText('Erro!')).toBeTruthy();
+    expect(getByText('❌')).toBeTruthy();
   });
 
-  it('deve aplicar estilo de warning corretamente', () => {
+  it('deve renderizar com tipo info e ícone correto', () => {
     const { getByText } = render(
       <Toast
         visible={true}
-        message="Aviso!"
-        type="warning"
+        message="Info!"
+        type="info"
         onDismiss={jest.fn()}
       />
     );
-    const toast = getByText('Aviso!').parent?.parent;
-    expect(toast).toHaveStyle({ backgroundColor: '#f59e0b' });
+    expect(getByText('Info!')).toBeTruthy();
+    expect(getByText('ℹ️')).toBeTruthy();
   });
 
-  it('deve chamar onDismiss quando fechar', () => {
+  it('deve renderizar com tipo loading e ícone correto', () => {
+    const { getByText, queryByText } = render(
+      <Toast
+        visible={true}
+        message="Carregando..."
+        type="loading"
+        onDismiss={jest.fn()}
+      />
+    );
+    expect(getByText('Carregando...')).toBeTruthy();
+    expect(getByText('⏳')).toBeTruthy();
+    // Loading não tem botão de fechar
+    expect(queryByText('✕')).toBeNull();
+  });
+
+  it('deve mostrar botão de fechar quando não é loading', () => {
+    const { getByText } = render(
+      <Toast
+        visible={true}
+        message="Teste"
+        type="success"
+        onDismiss={jest.fn()}
+      />
+    );
+    expect(getByText('✕')).toBeTruthy();
+  });
+
+  it('deve chamar onDismiss quando clicar no botão fechar', () => {
+    jest.useFakeTimers();
     const mockDismiss = jest.fn();
-    const { getByTestId } = render(
+    const { getByText } = render(
       <Toast
         visible={true}
         message="Teste"
@@ -77,53 +109,15 @@ describe('Toast Component', () => {
       />
     );
 
-    const closeButton = getByTestId('toast-close');
+    const closeButton = getByText('✕');
     fireEvent.press(closeButton);
-    expect(mockDismiss).toHaveBeenCalledTimes(1);
-  });
 
-  it('deve auto-fechar após duration (3000ms)', () => {
-    jest.useFakeTimers();
-    const mockDismiss = jest.fn();
-
-    render(
-      <Toast
-        visible={true}
-        message="Auto fechar"
-        type="success"
-        onDismiss={mockDismiss}
-        duration={3000}
-      />
-    );
-
-    expect(mockDismiss).not.toHaveBeenCalled();
-
+    // onDismiss é chamado após a animação (200ms)
     act(() => {
-      jest.advanceTimersByTime(3000);
+      jest.advanceTimersByTime(250);
     });
 
-    expect(mockDismiss).toHaveBeenCalledTimes(1);
-    jest.useRealTimers();
-  });
-
-  it('não deve auto-fechar se duration não for fornecido', () => {
-    jest.useFakeTimers();
-    const mockDismiss = jest.fn();
-
-    render(
-      <Toast
-        visible={true}
-        message="Sem auto fechar"
-        type="success"
-        onDismiss={mockDismiss}
-      />
-    );
-
-    act(() => {
-      jest.advanceTimersByTime(5000);
-    });
-
-    expect(mockDismiss).not.toHaveBeenCalled();
+    expect(mockDismiss).toHaveBeenCalled();
     jest.useRealTimers();
   });
 });

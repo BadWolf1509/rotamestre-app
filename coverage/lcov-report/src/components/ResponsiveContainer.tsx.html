@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/8</span>
+                <span class='fraction'>8/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/13</span>
+                <span class='fraction'>13/13</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/7</span>
+                <span class='fraction'>7/7</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -164,27 +164,27 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import React from 'react';
 import { View, ViewStyle } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
@@ -218,21 +218,21 @@ interface ResponsiveContainerProps {
  * &lt;/ResponsiveContainer&gt;
  * ```
  */
-export function <span class="fstat-no" title="function not covered" >ResponsiveContainer(</span>{
+export function ResponsiveContainer({
   children,
   style,
-  maxWidth = <span class="branch-0 cbranch-no" title="branch not covered" >1280,</span>
+  maxWidth = 1280,
   padding,
-  center = <span class="branch-0 cbranch-no" title="branch not covered" >true,</span>
+  center = true,
 }: ResponsiveContainerProps) {
-  const { isMobile, isTablet, isDesktop } = <span class="cstat-no" title="statement not covered" >useResponsive();</span>
-  const { theme } = <span class="cstat-no" title="statement not covered" >useUnistyles();</span>
+  const { isMobile, isTablet, isDesktop } = useResponsive();
+  const { theme } = useUnistyles();
 &nbsp;
   // Padding padrão por breakpoint
-  const defaultPadding = <span class="cstat-no" title="statement not covered" >isMobile ? theme.spacing.md : isTablet ? theme.spacing.lg : theme.spacing.xl;</span>
-  const horizontalPadding = <span class="cstat-no" title="statement not covered" >padding !== undefined ? padding : defaultPadding;</span>
+  const defaultPadding = isMobile ? theme.spacing.md : isTablet ? theme.spacing.lg : theme.spacing.xl;
+  const horizontalPadding = padding !== undefined ? padding : defaultPadding;
 &nbsp;
-  const containerStyle: ViewStyle = <span class="cstat-no" title="statement not covered" >{</span>
+  const containerStyle: ViewStyle = {
     width: '100%',
     paddingHorizontal: horizontalPadding,
     paddingVertical: isDesktop ? theme.spacing.lg : theme.spacing.md,
@@ -242,10 +242,10 @@ export function <span class="fstat-no" title="function not covered" >ResponsiveC
     }),
   };
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return &lt;View style={[containerStyle, style]}&gt;{children}&lt;/View&gt;;</span>
+  return &lt;View style={[containerStyle, style]}&gt;{children}&lt;/View&gt;;
 }
 &nbsp;
-const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.create(<span class="fstat-no" title="function not covered" >th</span>eme =&gt; (<span class="cstat-no" title="statement not covered" >{})</span>);</span>
+const styles = StyleSheet.create(theme =&gt; ({}));
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -253,7 +253,7 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-06T20:16:30.798Z
+                at 2025-11-07T00:23:04.564Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

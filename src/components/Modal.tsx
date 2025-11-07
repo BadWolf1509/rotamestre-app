@@ -258,7 +258,8 @@ export default Modal;
  *   title="Detalhes da Rota"
  * >
  *   <ScrollView>
- *     {/* Conteúdo grande */}
+ *     // Conteúdo grande
+ *   </ScrollView>
  * </Modal>
  *
  * // Modal full screen
@@ -268,7 +269,7 @@ export default Modal;
  *   size="full"
  *   title="Editor"
  * >
- *   {/* Conteúdo que precisa de tela cheia */}
+ *   // Conteúdo que precisa de tela cheia
  * </Modal>
  *
  * // Modal sem botão de fechar
@@ -287,7 +288,7 @@ export default Modal;
  *   animationType="slide"
  *   title="Nova Rota"
  * >
- *   {/* Formulário */}
+ *   // Formulário
  * </Modal>
  *
  * // Modal com conteúdo customizado

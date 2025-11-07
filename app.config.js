@@ -7,11 +7,11 @@ module.exports = ({ config }) => {
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
-    newArchEnabled: true,
+    newArchEnabled: false,
     scheme: "rotamestre",
     description: "Sistema inteligente de gestão e rastreamento de rotas de entrega em tempo real. Otimize suas entregas, acompanhe motoristas e melhore a eficiência logística da sua empresa.",
     splash: {
-      image: "./assets/splash-icon1.png",
+      image: "./assets/splash.png",
       resizeMode: "contain",
       backgroundColor: "#0D5A9C"
     },
@@ -36,13 +36,14 @@ module.exports = ({ config }) => {
     },
     android: {
       adaptiveIcon: {
-        foregroundImage: "./assets/splash-icon1.png",
+        foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#0D5A9C"
       },
+      icon: "./assets/icon.png",
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: "br.tec.rotamestre",
-      versionCode: 3003, // Incrementar +1 a cada build (3001, 3002, 3003...)
+      versionCode: 3004, // Incrementar +1 a cada build (3001, 3002, 3003...)
       permissions: [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",

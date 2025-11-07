@@ -12,6 +12,14 @@ import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 import { abrirNavegacao } from '@/lib/navigation';
 import CameraUpload from '@/components/CameraUpload';
+import * as Location from 'expo-location';
+import {
+  calcularTempoEstimado,
+  formatarTempo,
+  formatarHorario,
+  calcularProximaParada,
+  calcularDistancia,
+} from '@/utils/timeEstimation';
 
 interface Parada {
   id: string;
@@ -41,12 +49,29 @@ export default function RotaMotoristaWeb() {
   const [loading, setLoading] = useState(true);
   const [iniciandoRota, setIniciandoRota] = useState(false);
   const [paradaSelecionadaParaFoto, setParadaSelecionadaParaFoto] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
   useEffect(() => {
     if (userData?.id) {
       loadRotaAtiva();
+      requestLocationPermission();
     }
   }, [userData]);
+
+  async function requestLocationPermission() {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const location = await Location.getCurrentPositionAsync({});
+        setUserLocation({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao obter localização:', error);
+    }
+  }
 
   async function loadRotaAtiva() {
     try {
@@ -137,6 +162,12 @@ export default function RotaMotoristaWeb() {
   const paradasPendentes = paradas.filter((p) => p.status !== 'concluida').length;
   const progresso = paradas.length > 0 ? Math.round((paradasConcluidas / paradas.length) * 100) : 0;
 
+  // Feature 9: Calcula tempo estimado de conclusão
+  const tempoEstimado = calcularTempoEstimado(paradas, userLocation || undefined);
+
+  // Feature 6: Calcula distância até próxima parada
+  const proximaParada = userLocation ? calcularProximaParada(paradas, userLocation) : null;
+
   return (
     <ScrollView style={styles.container}>
       {/* Header */}
@@ -184,6 +215,44 @@ export default function RotaMotoristaWeb() {
             <View style={[styles.progressBar, { width: `${progresso}%` }]} />
           </View>
         </View>
+
+        {/* Feature 9: Tempo Estimado */}
+        {paradasPendentes > 0 && (
+          <View style={styles.estimativaSection}>
+            <Text style={styles.estimativaTitle}>⏱️ Tempo Estimado</Text>
+            <View style={styles.estimativaRow}>
+              <View style={styles.estimativaItem}>
+                <Text style={styles.estimativaValue}>{formatarTempo(tempoEstimado.tempoTotalMinutos)}</Text>
+                <Text style={styles.estimativaLabel}>Total restante</Text>
+              </View>
+              <View style={styles.estimativaItem}>
+                <Text style={styles.estimativaValue}>{formatarHorario(tempoEstimado.horarioEstimadoConclusao)}</Text>
+                <Text style={styles.estimativaLabel}>Previsão conclusão</Text>
+              </View>
+              <View style={styles.estimativaItem}>
+                <Text style={styles.estimativaValue}>{tempoEstimado.distanciaTotalKm} km</Text>
+                <Text style={styles.estimativaLabel}>Distância</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Feature 6: Próxima Parada */}
+        {proximaParada && (
+          <View style={styles.proximaParadaSection}>
+            <Text style={styles.proximaParadaTitle}>📍 Próxima Parada</Text>
+            <View style={styles.proximaParadaRow}>
+              <Text style={styles.proximaParadaTexto}>
+                Parada #{proximaParada.paradaIndex + 1} está a{' '}
+                <Text style={styles.proximaParadaDestaque}>{proximaParada.distanciaKm} km</Text>
+                {' '}de você
+              </Text>
+              <Text style={styles.proximaParadaTempo}>
+                ~{formatarTempo(proximaParada.tempoEstimadoMinutos)} de viagem
+              </Text>
+            </View>
+          </View>
+        )}
       </View>
 
       {/* Lista de Paradas */}
@@ -534,5 +603,67 @@ const styles = StyleSheet.create(theme => ({
     color: theme.colors.green800,
     fontSize: theme.typography.sm,
     fontWeight: '600',
+  },
+  estimativaSection: {
+    marginTop: theme.spacing.md,
+    paddingTop: theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.gray200,
+  },
+  estimativaTitle: {
+    fontSize: theme.typography.md,
+    fontWeight: '600',
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.sm,
+  },
+  estimativaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  estimativaItem: {
+    alignItems: 'center',
+  },
+  estimativaValue: {
+    fontSize: theme.typography.lg,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
+    marginBottom: 4,
+  },
+  estimativaLabel: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray500,
+    textAlign: 'center',
+  },
+  proximaParadaSection: {
+    marginTop: theme.spacing.sm,
+    paddingTop: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    backgroundColor: theme.colors.blue50,
+    borderRadius: theme.borderRadius.md,
+    borderLeftWidth: 4,
+    borderLeftColor: theme.colors.primary,
+  },
+  proximaParadaTitle: {
+    fontSize: theme.typography.sm,
+    fontWeight: '600',
+    color: theme.colors.gray900,
+    marginBottom: 6,
+  },
+  proximaParadaRow: {
+    gap: 4,
+  },
+  proximaParadaTexto: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray700,
+  },
+  proximaParadaDestaque: {
+    fontWeight: 'bold',
+    color: theme.colors.primary,
+  },
+  proximaParadaTempo: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray500,
+    fontStyle: 'italic',
   },
 }));

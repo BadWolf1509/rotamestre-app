@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/6</span>
+                <span class='fraction'>6/6</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">83.78% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/37</span>
+                <span class='fraction'>31/37</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/5</span>
+                <span class='fraction'>5/5</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -363,13 +363,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">22x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -426,7 +424,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -610,24 +610,24 @@ interface InputProps extends TextInputProps {
   containerStyle?: ViewStyle;
 }
 &nbsp;
-export function <span class="fstat-no" title="function not covered" >Input(</span>{
+export function Input({
   label,
   error,
   helperText,
   leftIcon,
   rightIcon,
   onRightIconPress,
-  size = <span class="branch-0 cbranch-no" title="branch not covered" >'medium',</span>
-  required = <span class="branch-0 cbranch-no" title="branch not covered" >false,</span>
+  size = 'medium',
+  required = false,
   containerStyle,
   style,
   ...textInputProps
 }: InputProps) {
-  const { theme } = <span class="cstat-no" title="statement not covered" >useUnistyles();</span>
-  const hasError = <span class="cstat-no" title="statement not covered" >!!error;</span>
-  const isDisabled = <span class="cstat-no" title="statement not covered" >textInputProps.editable === false;</span>
+  const { theme } = useUnistyles();
+  const hasError = !!error;
+  const isDisabled = textInputProps.editable === false;
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return (</span>
+  return (
     &lt;View style={[styles.container, containerStyle]}&gt;
       {label &amp;&amp; (
         &lt;View style={styles.labelContainer}&gt;
@@ -649,8 +649,8 @@ export function <span class="fstat-no" title="function not covered" >Input(</spa
         {leftIcon &amp;&amp; (
           &lt;Ionicons
             name={leftIcon}
-            size={size === 'small' ? 16 : size === 'large' ? 24 : 20}
-            color={hasError ? theme.colors.error : theme.colors.gray400}
+            size={size === 'small' ? <span class="branch-0 cbranch-no" title="branch not covered" >16 </span>: size === 'large' ? <span class="branch-0 cbranch-no" title="branch not covered" >24 </span>: 20}
+            color={hasError ? <span class="branch-0 cbranch-no" title="branch not covered" >theme.colors.error </span>: theme.colors.gray400}
             style={styles.leftIcon}
           /&gt;
         )}
@@ -669,8 +669,8 @@ export function <span class="fstat-no" title="function not covered" >Input(</spa
         {rightIcon &amp;&amp; (
           &lt;Ionicons
             name={rightIcon}
-            size={size === 'small' ? 16 : size === 'large' ? 24 : 20}
-            color={hasError ? theme.colors.error : theme.colors.gray400}
+            size={size === 'small' ? <span class="branch-0 cbranch-no" title="branch not covered" >16 </span>: size === 'large' ? <span class="branch-0 cbranch-no" title="branch not covered" >24 </span>: 20}
+            color={hasError ? <span class="branch-0 cbranch-no" title="branch not covered" >theme.colors.error </span>: theme.colors.gray400}
             style={styles.rightIcon}
             onPress={onRightIconPress}
           /&gt;
@@ -686,7 +686,7 @@ export function <span class="fstat-no" title="function not covered" >Input(</spa
   );
 }
 &nbsp;
-const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.create(<span class="fstat-no" title="function not covered" >th</span>eme =&gt; (<span class="cstat-no" title="statement not covered" >{</span></span>
+const styles = StyleSheet.create(theme =&gt; ({
   container: {
     marginBottom: theme.spacing.md,
   },
@@ -850,7 +850,7 @@ export default Input;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-06T20:16:30.798Z
+                at 2025-11-07T00:23:04.564Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">84.61% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/13</span>
+                <span class='fraction'>11/13</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">48.27% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/58</span>
+                <span class='fraction'>28/58</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/3</span>
+                <span class='fraction'>3/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">83.33% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/12</span>
+                <span class='fraction'>10/12</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -364,28 +364,24 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -434,7 +430,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -609,37 +609,37 @@ interface ButtonProps {
   textStyle?: TextStyle;
 }
 &nbsp;
-export function <span class="fstat-no" title="function not covered" >Button(</span>{
+export function Button({
   title,
   onPress,
-  variant = <span class="branch-0 cbranch-no" title="branch not covered" >'primary',</span>
-  size = <span class="branch-0 cbranch-no" title="branch not covered" >'medium',</span>
+  variant = 'primary',
+  size = 'medium',
   icon,
-  iconPosition = <span class="branch-0 cbranch-no" title="branch not covered" >'left',</span>
-  loading = <span class="branch-0 cbranch-no" title="branch not covered" >false,</span>
-  disabled = <span class="branch-0 cbranch-no" title="branch not covered" >false,</span>
-  fullWidth = <span class="branch-0 cbranch-no" title="branch not covered" >false,</span>
+  iconPosition = 'left',
+  loading = false,
+  disabled = false,
+  fullWidth = false,
   style,
   textStyle,
 }: ButtonProps) {
-  const { theme } = <span class="cstat-no" title="statement not covered" >useUnistyles();</span>
-  const { isDesktop, isLargeDesktop } = <span class="cstat-no" title="statement not covered" >useBreakpoint();</span>
-  const isDisabled = <span class="cstat-no" title="statement not covered" >disabled || loading;</span>
+  const { theme } = useUnistyles();
+  const { isDesktop, isLargeDesktop } = useBreakpoint();
+  const isDisabled = disabled || loading;
 &nbsp;
   // Responsive sizing for desktop
-  const getResponsiveStyle = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    if (isLargeDesktop) {</span>
+  const getResponsiveStyle = () =&gt; {
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (isLargeDesktop) {
 <span class="cstat-no" title="statement not covered" >      return { paddingScale: 1.15, fontScale: 1.125 };</span>
     }
-<span class="cstat-no" title="statement not covered" >    if (isDesktop) {</span>
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (isDesktop) {
 <span class="cstat-no" title="statement not covered" >      return { paddingScale: 1.1, fontScale: 1.0625 };</span>
     }
-<span class="cstat-no" title="statement not covered" >    return { paddingScale: 1, fontScale: 1 };</span>
+    return { paddingScale: 1, fontScale: 1 };
   };
 &nbsp;
-  const { paddingScale } = <span class="cstat-no" title="statement not covered" >getResponsiveStyle();</span>
+  const { paddingScale } = getResponsiveStyle();
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return (</span>
+  return (
     &lt;TouchableOpacity
       style={[
         styles.button,
@@ -655,12 +655,12 @@ export function <span class="fstat-no" title="function not covered" >Button(</sp
     &gt;
       {loading ? (
         &lt;ActivityIndicator
-          color={variant === 'outline' || variant === 'ghost' ? theme.colors.primary : theme.colors.white}
+          color={variant === 'outline' || variant === 'ghost' ? <span class="branch-0 cbranch-no" title="branch not covered" >theme.colors.primary </span>: theme.colors.white}
         /&gt;
       ) : (
         &lt;&gt;
-          {icon &amp;&amp; iconPosition === 'left' &amp;&amp; (
-            &lt;Ionicons
+          {icon &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >iconPosition === 'left' </span>&amp;&amp; (
+<span class="branch-2 cbranch-no" title="branch not covered" >            &lt;Ionicons</span>
               name={icon}
               size={size === 'small' ? 16 : size === 'large' ? 24 : 20}
               color={
@@ -674,8 +674,8 @@ export function <span class="fstat-no" title="function not covered" >Button(</sp
           &lt;Text style={[styles.text, styles[`${variant}Text`], styles[`${size}Text`], textStyle]}&gt;
             {title}
           &lt;/Text&gt;
-          {icon &amp;&amp; iconPosition === 'right' &amp;&amp; (
-            &lt;Ionicons
+          {icon &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >iconPosition === 'right' </span>&amp;&amp; (
+<span class="branch-2 cbranch-no" title="branch not covered" >            &lt;Ionicons</span>
               name={icon}
               size={size === 'small' ? 16 : size === 'large' ? 24 : 20}
               color={
@@ -692,7 +692,7 @@ export function <span class="fstat-no" title="function not covered" >Button(</sp
   );
 }
 &nbsp;
-const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.create(<span class="fstat-no" title="function not covered" >th</span>eme =&gt; (<span class="cstat-no" title="statement not covered" >{</span></span>
+const styles = StyleSheet.create(theme =&gt; ({
   button: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -700,7 +700,7 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
     borderRadius: theme.borderRadius.md,
     minHeight: 44,
     // Web-only: Smooth transitions and cursor
-    ...(Platform.OS === 'web' &amp;&amp; {
+    ...(Platform.OS === 'web' &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >{</span>
       cursor: 'pointer',
       transitionProperty: 'all',
       transitionDuration: '0.2s',
@@ -711,7 +711,7 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
   primary: {
     backgroundColor: theme.colors.primary,
     // Web-only: Hover effects
-    ...(Platform.OS === 'web' &amp;&amp; {
+    ...(Platform.OS === 'web' &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >{</span>
       // @ts-ignore - web-only CSS
       ':hover': {
         backgroundColor: theme.colors.primaryDark,
@@ -726,7 +726,7 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
   },
   secondary: {
     backgroundColor: theme.colors.secondary,
-    ...(Platform.OS === 'web' &amp;&amp; {
+    ...(Platform.OS === 'web' &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >{</span>
       // @ts-ignore
       ':hover': {
         opacity: 0.9,
@@ -739,7 +739,7 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
     backgroundColor: 'transparent',
     borderWidth: 2,
     borderColor: theme.colors.primary,
-    ...(Platform.OS === 'web' &amp;&amp; {
+    ...(Platform.OS === 'web' &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >{</span>
       // @ts-ignore
       ':hover': {
         backgroundColor: theme.colors.primary + '08',
@@ -750,7 +750,7 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
   },
   ghost: {
     backgroundColor: 'transparent',
-    ...(Platform.OS === 'web' &amp;&amp; {
+    ...(Platform.OS === 'web' &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >{</span>
       // @ts-ignore
       ':hover': {
         backgroundColor: theme.colors.gray100,
@@ -759,7 +759,7 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
   },
   danger: {
     backgroundColor: theme.colors.error,
-    ...(Platform.OS === 'web' &amp;&amp; {
+    ...(Platform.OS === 'web' &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >{</span>
       // @ts-ignore
       ':hover': {
         opacity: 0.9,
@@ -817,7 +817,7 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
 &nbsp;
   disabled: {
     opacity: 0.5,
-    ...(Platform.OS === 'web' &amp;&amp; {
+    ...(Platform.OS === 'web' &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >{</span>
       cursor: 'not-allowed',
       // @ts-ignore
       ':hover': {
@@ -844,7 +844,7 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-06T20:16:30.798Z
+                at 2025-11-07T00:23:04.564Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
