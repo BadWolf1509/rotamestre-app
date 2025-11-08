@@ -8,7 +8,7 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 

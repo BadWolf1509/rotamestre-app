@@ -9,7 +9,7 @@
 
 import { View, Text, ViewStyle, Animated } from 'react-native';
 import { useEffect, useRef } from 'react';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 type ProgressSize = 'small' | 'medium' | 'large';
 type ProgressColor = 'primary' | 'success' | 'warning' | 'error';

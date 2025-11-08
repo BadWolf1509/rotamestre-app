@@ -1,150 +1,99 @@
-import { Tabs, useRouter } from 'expo-router';
-import { TouchableOpacity, Text } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
-import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
-import { authService } from '@/lib/auth';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { Drawer } from 'expo-router/drawer';
+import { Text } from 'react-native';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { CustomDrawerContent } from '@/components/CustomDrawerContent';
+import 'react-native-gesture-handler';
 
 export default function MotoristaLayout() {
   const { theme } = useUnistyles();
-  const router = useRouter();
-  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const [showErrorDialog, setShowErrorDialog] = useState(false);
-
-  async function handleLogoutConfirm() {
-    setShowLogoutDialog(false);
-    try {
-      await authService.signOut();
-      router.replace('/auth/login');
-    } catch (error) {
-      console.error('Erro ao fazer logout:', error);
-      setShowErrorDialog(true);
-    }
-  }
-
-  const LogoutButton = () => {
-    const [pressed, setPressed] = useState(false);
-
-    return (
-      <TouchableOpacity
-        onPress={() => setShowLogoutDialog(true)}
-        onPressIn={() => setPressed(true)}
-        onPressOut={() => setPressed(false)}
-        style={[
-          styles.logoutButton,
-          pressed && styles.logoutButtonPressed,
-        ]}
-        accessibilityLabel="Sair da conta"
-        accessibilityRole="button"
-      >
-        <Ionicons name="log-out-outline" size={20} color="#fff" />
-        <Text style={styles.logoutText}>Sair</Text>
-      </TouchableOpacity>
-    );
-  };
 
   return (
-    <>
-      <Tabs
-        screenOptions={{
-          tabBarActiveTintColor: theme.colors.primary,
-          headerStyle: {
-            backgroundColor: theme.colors.primary,
-          },
-          headerTintColor: theme.colors.white,
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
-          headerRight: () => <LogoutButton />,
+    <Drawer
+      drawerContent={(props) => <CustomDrawerContent {...props} />}
+      screenOptions={{
+        drawerPosition: 'left',
+        drawerType: 'slide',
+        drawerStyle: {
+          width: '80%',
+          maxWidth: 320,
+        },
+        headerStyle: {
+          backgroundColor: theme.colors.primary,
+        },
+        headerTintColor: theme.colors.white,
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
+        drawerActiveTintColor: theme.colors.primary,
+        drawerInactiveTintColor: theme.colors.gray600,
+        drawerLabelStyle: styles(theme).drawerLabel,
+        drawerItemStyle: styles(theme).drawerItem,
+      }}
+    >
+      <Drawer.Screen
+        name="rota"
+        options={{
+          title: 'Rota Atual',
+          drawerLabel: 'Rota Atual',
+          drawerIcon: () => <Text style={styles(theme).menuIcon}>🚗</Text>,
         }}
-      >
-        <Tabs.Screen
-          name="rota"
-          options={{
-            title: 'Rota Atual',
-            tabBarLabel: 'Rota',
-          }}
-        />
-        <Tabs.Screen
-          name="checkpoints"
-          options={{
-            title: 'Paradas',
-            tabBarLabel: 'Paradas',
-          }}
-        />
-        <Tabs.Screen
-          name="mapa"
-          options={{
-            title: 'Mapa',
-            tabBarLabel: 'Mapa',
-          }}
-        />
-        <Tabs.Screen
-          name="historico"
-          options={{
-            title: 'Histórico',
-            tabBarLabel: 'Histórico',
-          }}
-        />
-        <Tabs.Screen
-          name="resumo"
-          options={{
-            title: 'Resumo',
-            tabBarLabel: 'Resumo',
-          }}
-        />
-      </Tabs>
-
-      {/* Dialogs */}
-      <ConfirmDialog
-        visible={showLogoutDialog}
-        title="Sair da conta"
-        message="Deseja realmente encerrar sua sessão? Você precisará fazer login novamente."
-        confirmText="Sair"
-        cancelText="Cancelar"
-        type="destructive"
-        onConfirm={handleLogoutConfirm}
-        onCancel={() => setShowLogoutDialog(false)}
       />
-
-      <ConfirmDialog
-        visible={showErrorDialog}
-        title="Erro ao sair"
-        message="Não foi possível encerrar sua sessão. Verifique sua conexão e tente novamente."
-        confirmText="Entendi"
-        cancelText="Fechar"
-        type="destructive"
-        onConfirm={() => setShowErrorDialog(false)}
-        onCancel={() => setShowErrorDialog(false)}
+      <Drawer.Screen
+        name="checkpoints"
+        options={{
+          title: 'Paradas',
+          drawerLabel: 'Paradas',
+          drawerIcon: () => <Text style={styles(theme).menuIcon}>📍</Text>,
+        }}
       />
-    </>
+      <Drawer.Screen
+        name="mapa"
+        options={{
+          title: 'Mapa',
+          drawerLabel: 'Mapa',
+          drawerIcon: () => <Text style={styles(theme).menuIcon}>🗺️</Text>,
+        }}
+      />
+      <Drawer.Screen
+        name="historico"
+        options={{
+          title: 'Histórico',
+          drawerLabel: 'Histórico',
+          drawerIcon: () => <Text style={styles(theme).menuIcon}>📋</Text>,
+        }}
+      />
+      <Drawer.Screen
+        name="resumo"
+        options={{
+          title: 'Resumo',
+          drawerLabel: 'Resumo',
+          drawerIcon: () => <Text style={styles(theme).menuIcon}>📊</Text>,
+        }}
+      />
+      <Drawer.Screen
+        name="perfil"
+        options={{
+          headerShown: false,
+          drawerItemStyle: { display: 'none' }, // Esconder do menu (acessa via seção de perfil)
+        }}
+      />
+    </Drawer>
   );
 }
 
-const styles = StyleSheet.create(theme => ({
-  logoutButton: {
-    marginRight: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: theme.colors.white,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  logoutButtonPressed: {
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    transform: [{ scale: 0.97 }],
-  },
-  logoutText: {
-    color: theme.colors.white,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-}));
+const styles = (theme: any) =>
+  StyleSheet.create({
+    menuIcon: {
+      fontSize: 20,
+      marginRight: theme.spacing.lg,
+      width: 24,
+    },
+    drawerLabel: {
+      fontSize: 15,
+      marginLeft: -16,
+    },
+    drawerItem: {
+      borderRadius: 8,
+      marginHorizontal: 8,
+    },
+  });

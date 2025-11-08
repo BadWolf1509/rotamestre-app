@@ -13,7 +13,7 @@ import {
   Alert,
   Platform
 } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet } from '@/utils/styles';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { uploadELinkFotoParada } from '../lib/storage';

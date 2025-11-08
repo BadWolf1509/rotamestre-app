@@ -1,0 +1,346 @@
+import { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  ScrollView,
+  ActivityIndicator,
+} from 'react-native';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { useRouter } from 'expo-router';
+import { authService } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
+import { Usuario } from '@/types/usuario';
+
+export default function EditarPerfil() {
+  const { theme } = useUnistyles();
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [usuario, setUsuario] = useState<Usuario | null>(null);
+
+  // Campos editáveis
+  const [nome, setNome] = useState('');
+  const [telefone, setTelefone] = useState('');
+
+  useEffect(() => {
+    loadUsuario();
+  }, []);
+
+  async function loadUsuario() {
+    try {
+      const session = await authService.getSession();
+      if (session?.user) {
+        const userData = await authService.getUsuario(session.user.id);
+        setUsuario(userData);
+        setNome(userData?.nome || '');
+        setTelefone(userData?.telefone || '');
+      }
+    } catch (error) {
+      console.error('Erro ao carregar usuário:', error);
+      Alert.alert('Erro', 'Não foi possível carregar os dados');
+      router.back();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSave() {
+    // Validações
+    if (!nome.trim()) {
+      Alert.alert('Erro', 'O nome é obrigatório');
+      return;
+    }
+
+    if (telefone && !/^\(\d{2}\)\s\d{4,5}-\d{4}$/.test(telefone)) {
+      Alert.alert(
+        'Erro',
+        'Telefone inválido. Use o formato: (11) 99999-9999'
+      );
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      if (!usuario?.id) throw new Error('Usuário não encontrado');
+
+      // Atualizar no banco
+      const { error } = await supabase
+        .from('usuarios')
+        .update({
+          nome: nome.trim(),
+          telefone: telefone.trim() || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', usuario.id);
+
+      if (error) throw error;
+
+      Alert.alert('Sucesso', 'Perfil atualizado com sucesso!', [
+        {
+          text: 'OK',
+          onPress: () => router.back(),
+        },
+      ]);
+    } catch (error: any) {
+      console.error('Erro ao salvar:', error);
+      Alert.alert('Erro', error.message || 'Não foi possível salvar as alterações');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function formatPhone(text: string) {
+    // Remove tudo que não é número
+    const cleaned = text.replace(/\D/g, '');
+
+    // Aplica a máscara
+    if (cleaned.length <= 2) {
+      return cleaned;
+    } else if (cleaned.length <= 6) {
+      return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
+    } else if (cleaned.length <= 10) {
+      return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 6)}-${cleaned.slice(6)}`;
+    } else {
+      return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7, 11)}`;
+    }
+  }
+
+  if (loading) {
+    return (
+      <View style={styles(theme).loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={styles(theme).loadingText}>Carregando...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles(theme).container}>
+      <ScrollView style={styles(theme).scrollView}>
+        {/* Header com botão voltar */}
+        <View style={styles(theme).header}>
+          <TouchableOpacity
+            style={styles(theme).backButton}
+            onPress={() => router.push('/motorista/perfil')}
+            disabled={saving}
+          >
+            <Text style={styles(theme).backButtonText}>←</Text>
+          </TouchableOpacity>
+          <View style={styles(theme).headerContent}>
+            <Text style={styles(theme).headerTitle}>Editar Perfil</Text>
+            <Text style={styles(theme).headerSubtitle}>
+              Atualize suas informações pessoais
+            </Text>
+          </View>
+        </View>
+
+        {/* Formulário */}
+        <View style={styles(theme).form}>
+          {/* Nome */}
+          <View style={styles(theme).inputGroup}>
+            <Text style={styles(theme).inputLabel}>
+              Nome Completo <Text style={styles(theme).required}>*</Text>
+            </Text>
+            <TextInput
+              style={styles(theme).input}
+              placeholder="Digite seu nome completo"
+              value={nome}
+              onChangeText={setNome}
+              autoCapitalize="words"
+              autoCorrect={false}
+              maxLength={100}
+            />
+          </View>
+
+          {/* Email (não editável) */}
+          <View style={styles(theme).inputGroup}>
+            <Text style={styles(theme).inputLabel}>Email</Text>
+            <TextInput
+              style={[styles(theme).input, styles(theme).inputDisabled]}
+              value={usuario?.email || ''}
+              editable={false}
+            />
+            <Text style={styles(theme).helperText}>
+              O email não pode ser alterado
+            </Text>
+          </View>
+
+          {/* Telefone */}
+          <View style={styles(theme).inputGroup}>
+            <Text style={styles(theme).inputLabel}>Telefone</Text>
+            <TextInput
+              style={styles(theme).input}
+              placeholder="(11) 99999-9999"
+              value={telefone}
+              onChangeText={(text) => setTelefone(formatPhone(text))}
+              keyboardType="phone-pad"
+              maxLength={15}
+            />
+            <Text style={styles(theme).helperText}>
+              Formato: (11) 99999-9999
+            </Text>
+          </View>
+
+          {/* Botões inline */}
+          <View style={styles(theme).buttonsContainer}>
+            <TouchableOpacity
+              style={styles(theme).buttonSecondary}
+              onPress={() => router.push('/motorista/perfil')}
+              disabled={saving}
+            >
+              <Text style={styles(theme).buttonSecondaryText}>Cancelar</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles(theme).buttonPrimary,
+                saving && styles(theme).buttonDisabled,
+              ]}
+              onPress={handleSave}
+              disabled={saving}
+            >
+              {saving ? (
+                <ActivityIndicator color={theme.colors.white} />
+              ) : (
+                <Text style={styles(theme).buttonPrimaryText}>Salvar</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = (theme: any) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.gray50,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.colors.gray50,
+    },
+    loadingText: {
+      marginTop: 12,
+      fontSize: 16,
+      color: theme.colors.gray500,
+    },
+    header: {
+      backgroundColor: theme.colors.white,
+      paddingTop: 20,
+      paddingBottom: 20,
+      paddingHorizontal: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.gray200,
+      marginBottom: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    backButton: {
+      marginRight: 12,
+      padding: 4,
+    },
+    backButtonText: {
+      fontSize: 28,
+      color: theme.colors.gray700,
+    },
+    headerContent: {
+      flex: 1,
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: theme.colors.gray900,
+      marginBottom: 4,
+    },
+    headerSubtitle: {
+      fontSize: 14,
+      color: theme.colors.gray500,
+    },
+    form: {
+      backgroundColor: theme.colors.white,
+      marginHorizontal: 16,
+      borderRadius: 12,
+      padding: 20,
+      marginBottom: 24,
+    },
+    inputGroup: {
+      marginBottom: 20,
+    },
+    inputLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.gray700,
+      marginBottom: 8,
+    },
+    required: {
+      color: theme.colors.error,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: theme.colors.gray300,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16,
+      color: theme.colors.gray900,
+      backgroundColor: theme.colors.white,
+    },
+    inputDisabled: {
+      backgroundColor: theme.colors.gray100,
+      color: theme.colors.gray500,
+    },
+    helperText: {
+      fontSize: 12,
+      color: theme.colors.gray500,
+      marginTop: 4,
+    },
+    buttonsContainer: {
+      flexDirection: 'row',
+      gap: 12,
+      marginTop: 8,
+    },
+    buttonPrimary: {
+      flex: 1,
+      backgroundColor: theme.colors.secondary,
+      padding: 16,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 50,
+    },
+    buttonPrimaryText: {
+      color: theme.colors.white,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    buttonSecondary: {
+      flex: 1,
+      backgroundColor: theme.colors.white,
+      padding: 16,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: theme.colors.gray300,
+      minHeight: 50,
+    },
+    buttonSecondaryText: {
+      color: theme.colors.gray700,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    buttonDisabled: {
+      opacity: 0.6,
+    },
+  });

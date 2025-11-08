@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Animated, ViewStyle } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet } from '@/utils/styles';
 
 interface SkeletonProps {
   width?: number | string;

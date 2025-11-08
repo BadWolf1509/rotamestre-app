@@ -8,7 +8,7 @@
  */
 
 import { View, Text, ViewStyle, TextStyle } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet } from '@/utils/styles';
 
 type BadgeStatus = 'pendente' | 'em_andamento' | 'concluida' | 'cancelada';
 type BadgeSize = 'small' | 'medium' | 'large';

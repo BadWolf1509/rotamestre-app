@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { maskPhone, validatePhone, getPhoneErrorMessage } from '@/utils/phoneValidation';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 import { useForm, Controller, Control, FieldErrors } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -244,8 +244,9 @@ export default function NovaEntrega() {
   const [isLoadingMotoristas, setIsLoadingMotoristas] = useState(true);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [rotaOtimizada, setRotaOtimizada] = useState<{
-    distancia: number;
-    tempo: number;
+    distancia_total_metros: number;
+    duracao_total_segundos: number;
+    legs: any[];
   } | null>(null);
   const [enderecoUnidade, setEnderecoUnidade] = useState<{
     latitude: number;
@@ -296,7 +297,6 @@ export default function NovaEntrega() {
           longitude: result.coordenadas.longitude,
           endereco: unidade.endereco,
         });
-        console.log('✅ Endereço da unidade geocodificado:', unidade.endereco);
       } else {
         console.error('❌ Não foi possível geocodificar o endereço da unidade');
         showToast('Endereço da unidade não encontrado. Verifique o cadastro da unidade.', 'error');
@@ -435,12 +435,13 @@ export default function NovaEntrega() {
 
       setParadas(paradasComNovaOrdem);
       setRotaOtimizada({
-        distancia: resultado.distancia / 1000, // Converter metros para km
-        tempo: resultado.tempo / 60, // Converter segundos para minutos
+        distancia_total_metros: resultado.distancia_total_metros,
+        duracao_total_segundos: resultado.duracao_total_segundos,
+        legs: resultado.legs,
       });
 
       showToast(
-        `Rota otimizada! ${(resultado.distancia / 1000).toFixed(1)} km - ${Math.round(resultado.tempo / 60)} min`,
+        `Rota otimizada! ${(resultado.distancia_total_metros / 1000).toFixed(1)} km - ${Math.round(resultado.duracao_total_segundos / 60)} min`,
         'success',
         4000
       );
@@ -474,34 +475,41 @@ export default function NovaEntrega() {
       return;
     }
 
-    console.log('✅ Validações OK, iniciando criação de rota...');
     setIsLoading(true);
     try {
-      // 1. Criar rota
-      const { data: rotaData, error: rotaError } = await supabase
+      // Data de hoje no formato ISO (YYYY-MM-DD)
+      const dataHoje = new Date().toISOString().split('T')[0];
+
+      // 1. Criar rota com todos os campos necessários
+      const { data: rotaData, error: rotaError} = await supabase
         .from('rotas')
         .insert({
           unidade_id: userData!.unidade_id,
           motorista_id: motoristaSelecionado,
           status: 'pendente',
-          distancia_total: rotaOtimizada?.distancia || null,
+          data_rota: dataHoje,
+          otimizada: rotaOtimizada !== null, // true se foi otimizada
+          distancia_total_metros: rotaOtimizada?.distancia_total_metros || null,
+          duracao_total_segundos: rotaOtimizada?.duracao_total_segundos || null,
         })
         .select()
         .single();
 
       if (rotaError) throw rotaError;
 
-      console.log('✅ Rota criada:', rotaData);
-
       // 2. Inserir paradas vinculadas à rota (incluindo unidade como início e fim)
       const paradasParaInserir = [];
 
       // Parada 0: Unidade (início da rota)
       if (enderecoUnidade) {
+        // Para a primeira parada, usar o leg 0 para distância/tempo até a próxima
+        const leg0 = rotaOtimizada?.legs?.[0];
+
         paradasParaInserir.push({
           rota_id: rotaData.id,
           tipo: 'retirada', // Usando 'retirada' pois é onde o motorista retira os pacotes
           endereco: enderecoUnidade.endereco,
+          endereco_completo: leg0?.endereco_inicio || enderecoUnidade.endereco,
           latitude: enderecoUnidade.latitude,
           longitude: enderecoUnidade.longitude,
           ordem: 0,
@@ -510,15 +518,23 @@ export default function NovaEntrega() {
           observacoes: 'Ponto de partida',
           status: 'pendente',
           is_checkpoint: false, // Base não conta como entrega
+          distancia_proxima_parada_metros: leg0?.distancia_metros || null,
+          tempo_ate_proxima_parada_segundos: leg0?.duracao_segundos || null,
         });
       }
 
       // Paradas 1 a N: Entregas/coletas do usuário
       paradas.forEach((p, index) => {
+        // index = 0 corresponde ao leg 1 (base -> primeira entrega já foi usada acima)
+        // Precisamos do leg para ir desta parada até a próxima
+        const legIndex = index + 1; // leg 1 = da primeira entrega para a segunda
+        const leg = rotaOtimizada?.legs?.[legIndex];
+
         paradasParaInserir.push({
           rota_id: rotaData.id,
           tipo: p.tipo,
           endereco: p.endereco,
+          endereco_completo: leg?.endereco_inicio || p.endereco,
           latitude: p.latitude!,
           longitude: p.longitude!,
           ordem: index + 1, // Começa do 1
@@ -527,15 +543,22 @@ export default function NovaEntrega() {
           observacoes: p.observacoes,
           status: 'pendente',
           is_checkpoint: true, // Entregas reais contam como checkpoint
+          distancia_proxima_parada_metros: leg?.distancia_metros || null,
+          tempo_ate_proxima_parada_segundos: leg?.duracao_segundos || null,
         });
       });
 
       // Parada N+1: Unidade (fim da rota)
       if (enderecoUnidade) {
+        // Última parada não tem "próxima parada", então distância/tempo são null
+        const ultimoLegIndex = paradas.length; // leg que chega na última parada (volta para base)
+        const ultimoLeg = rotaOtimizada?.legs?.[ultimoLegIndex];
+
         paradasParaInserir.push({
           rota_id: rotaData.id,
           tipo: 'entrega', // Usando 'entrega' pois é o retorno à base
           endereco: enderecoUnidade.endereco,
+          endereco_completo: ultimoLeg?.endereco_fim || enderecoUnidade.endereco,
           latitude: enderecoUnidade.latitude,
           longitude: enderecoUnidade.longitude,
           ordem: paradas.length + 1, // Última parada
@@ -544,11 +567,10 @@ export default function NovaEntrega() {
           observacoes: 'Ponto de chegada',
           status: 'pendente',
           is_checkpoint: false, // Base não conta como entrega
+          distancia_proxima_parada_metros: null, // Última parada não tem próxima
+          tempo_ate_proxima_parada_segundos: null,
         });
       }
-
-      // Debug: Log das paradas que serão inseridas
-      console.log('🔍 Paradas a serem inseridas:', JSON.stringify(paradasParaInserir, null, 2));
 
       const { error: paradasError } = await supabase
         .from('paradas')
@@ -558,8 +580,6 @@ export default function NovaEntrega() {
         console.error('❌ Erro ao inserir paradas:', paradasError);
         throw paradasError;
       }
-
-      console.log('✅ Paradas inseridas com sucesso (incluindo unidade como início e fim)');
 
       // 3. Log da ação
       await supabase.from('logs').insert({
@@ -571,8 +591,6 @@ export default function NovaEntrega() {
           motorista_id: motoristaSelecionado,
         },
       });
-
-      console.log('🎉 Rota completa criada com sucesso!');
 
       // Conta apenas entregas reais (não inclui base)
       const totalEntregas = paradas.length;
@@ -663,13 +681,13 @@ export default function NovaEntrega() {
                 <View style={styles.otimizacaoStat}>
                   <Text style={styles.otimizacaoStatLabel}>Distância:</Text>
                   <Text style={styles.otimizacaoStatValue}>
-                    {rotaOtimizada.distancia.toFixed(1)} km
+                    {(rotaOtimizada.distancia_total_metros / 1000).toFixed(1)} km
                   </Text>
                 </View>
                 <View style={styles.otimizacaoStat}>
                   <Text style={styles.otimizacaoStatLabel}>Tempo Estimado:</Text>
                   <Text style={styles.otimizacaoStatValue}>
-                    {Math.round(rotaOtimizada.tempo)} min
+                    {Math.round(rotaOtimizada.duracao_total_segundos / 60)} min
                   </Text>
                 </View>
               </View>

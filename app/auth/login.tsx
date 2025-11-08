@@ -10,10 +10,11 @@ import {
   Platform,
   Image,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 import { useRouter } from 'expo-router';
 import { authService } from '@/lib/auth';
 import { useResponsive } from '@/hooks/useResponsive';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function Login() {
   const { theme } = useUnistyles();
@@ -22,6 +23,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
 
   async function handleLogin() {
@@ -103,14 +105,26 @@ export default function Login() {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Senha</Text>
-                <TextInput
-                  style={styles.inputDesktop}
-                  placeholder="••••••••"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  autoComplete="password"
-                />
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.inputDesktopPassword}
+                    placeholder="••••••••"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    autoComplete="password"
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeButton}
+                    onPress={() => setShowPassword(!showPassword)}
+                  >
+                    <Ionicons
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={22}
+                      color={theme.colors.gray500}
+                    />
+                  </TouchableOpacity>
+                </View>
               </View>
 
               <TouchableOpacity
@@ -165,14 +179,26 @@ export default function Login() {
           autoComplete="email"
         />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Senha"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoComplete="password"
-        />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.inputPassword}
+            placeholder="Senha"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            autoComplete="password"
+          />
+          <TouchableOpacity
+            style={styles.eyeButton}
+            onPress={() => setShowPassword(!showPassword)}
+          >
+            <Ionicons
+              name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+              size={22}
+              color={theme.colors.gray500}
+            />
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity
           style={styles.forgotButton}
@@ -304,6 +330,26 @@ const styles = StyleSheet.create(theme => ({
     fontSize: 16,
     backgroundColor: theme.colors.white,
   },
+  passwordContainer: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  inputDesktopPassword: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: theme.colors.gray300,
+    borderRadius: 8,
+    padding: 12,
+    paddingRight: 45,
+    fontSize: 16,
+    backgroundColor: theme.colors.white,
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 12,
+    padding: 8,
+  },
   buttonDesktop: {
     backgroundColor: theme.colors.secondary,
     padding: 16,
@@ -342,6 +388,15 @@ const styles = StyleSheet.create(theme => ({
     borderColor: theme.colors.gray300,
     borderRadius: 8,
     padding: 15,
+    fontSize: 16,
+  },
+  inputPassword: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: theme.colors.gray300,
+    borderRadius: 8,
+    padding: 15,
+    paddingRight: 45,
     fontSize: 16,
   },
   button: {

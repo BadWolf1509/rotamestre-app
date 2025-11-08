@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet } from '@/utils/styles';
 import { GoogleMap, useJsApiLoader, Marker, DirectionsRenderer } from '@react-google-maps/api';
 
 interface Parada {

@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 import { useRouter, usePathname } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { useUser } from '@/hooks/useUser';

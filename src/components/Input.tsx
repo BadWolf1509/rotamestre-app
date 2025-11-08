@@ -8,7 +8,7 @@
  */
 
 import { View, Text, TextInput, ViewStyle, TextInputProps } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 import { Ionicons } from '@expo/vector-icons';
 
 type InputSize = 'small' | 'medium' | 'large';

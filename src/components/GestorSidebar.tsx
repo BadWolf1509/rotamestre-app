@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Platform, Image } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 import { useRouter, usePathname } from 'expo-router';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';

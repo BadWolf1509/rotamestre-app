@@ -7,7 +7,7 @@ import {
   Platform,
   Animated,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 import { useResponsive } from '@/hooks/useResponsive';
 
 // ============================================

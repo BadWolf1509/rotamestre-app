@@ -387,13 +387,6 @@ SET LOCAL request.jwt.claims = '{"sub": "user-id-here"}';
 SELECT * FROM rotas;
 ```
 
-### Expo Go Não Carregando
-
-Verifique se:
-1. Mobile e PC estão na mesma rede
-2. Firewall não está bloqueando porta 8081
-3. Use modo Tunnel: `npx expo start --tunnel`
-
 ### Google Maps Não Aparecendo
 
 Verifique `.env`:

@@ -17,7 +17,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { useEffect, useRef } from 'react';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 import { Ionicons } from '@expo/vector-icons';
 
 type ModalSize = 'small' | 'medium' | 'large' | 'full';

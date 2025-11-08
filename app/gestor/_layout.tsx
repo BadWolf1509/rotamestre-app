@@ -1,6 +1,6 @@
 import { Tabs, useRouter, Slot } from 'expo-router';
 import { TouchableOpacity, Text } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { authService } from '@/lib/auth';
@@ -126,6 +126,13 @@ export default function GestorLayout() {
           options={{
             title: 'Motoristas',
             tabBarLabel: 'Motoristas',
+          }}
+        />
+        <Tabs.Screen
+          name="mapa-rota"
+          options={{
+            title: 'Mapa da Rota',
+            href: null, // Ocultar da barra de tabs (acessível apenas via navegação programática)
           }}
         />
       </Tabs>

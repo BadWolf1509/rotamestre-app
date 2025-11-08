@@ -1,5 +1,5 @@
 import { View, ScrollView, ViewStyle } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet } from '@/utils/styles';
 import { useResponsive } from '@/hooks/useResponsive';
 
 /**

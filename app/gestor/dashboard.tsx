@@ -1,7 +1,7 @@
 import { useResponsive } from '@/hooks/useResponsive';
-import { useDashboardData } from './dashboard/_hooks/useDashboardData';
-import { DashboardMobile } from './dashboard/_components/mobile/DashboardMobile';
-import { DashboardDesktop } from './dashboard/_components/desktop/DashboardDesktop';
+import { useDashboardData } from '@/components/gestor/dashboard/_hooks/useDashboardData';
+import { DashboardMobile } from '@/components/gestor/dashboard/_components/mobile/DashboardMobile';
+import { DashboardDesktop } from '@/components/gestor/dashboard/_components/desktop/DashboardDesktop';
 
 /**
  * Roteador principal do Dashboard do Gestor

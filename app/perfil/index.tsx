@@ -8,7 +8,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useProfile } from '@/hooks/useProfile';

@@ -193,3 +193,92 @@ export async function deletarFoto(fotoUrl: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Upload de foto de perfil de usuário
+ *
+ * @param usuarioId - UUID do usuário
+ * @param fotoUri - URI local da foto (file:// ou blob:)
+ * @returns URL pública da foto ou null se houver erro
+ */
+export async function uploadFotoUsuario(
+  usuarioId: string,
+  fotoUri: string
+): Promise<string | null> {
+  try {
+    console.log('📸 Iniciando upload de foto de perfil...');
+    console.log(`   Usuário: ${usuarioId}`);
+
+    // Gerar nome único com timestamp
+    const timestamp = Date.now();
+    const fileName = `perfil_${usuarioId}_${timestamp}.jpg`;
+    const filePath = `perfis/${fileName}`;
+
+    console.log(`   Caminho: ${filePath}`);
+
+    // Converter URI para blob
+    const response = await fetch(fotoUri);
+    const blob = await response.blob();
+
+    console.log(`   Tamanho: ${(blob.size / 1024).toFixed(2)} KB`);
+
+    // Validar tamanho (máx 2MB para perfil)
+    if (blob.size > 2 * 1024 * 1024) {
+      console.error('❌ Foto muito grande! Máximo: 2MB');
+      throw new Error('Foto muito grande. Máximo: 2MB');
+    }
+
+    // Upload para Supabase Storage
+    const { data, error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .upload(filePath, blob, {
+        contentType: 'image/jpeg',
+        cacheControl: '3600', // Cache de 1 hora
+        upsert: true, // Sobrescrever se já existir
+      });
+
+    if (error) {
+      console.error('❌ Erro no upload:', error);
+      throw error;
+    }
+
+    console.log('✅ Upload concluído:', data.path);
+
+    // Obter URL pública
+    const { data: { publicUrl } } = supabase.storage
+      .from(BUCKET_NAME)
+      .getPublicUrl(filePath);
+
+    console.log('🔗 URL pública:', publicUrl);
+
+    // Atualizar tabela usuarios com a nova foto_url
+    const { error: updateError } = await supabase
+      .from('usuarios')
+      .update({
+        foto_url: publicUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', usuarioId);
+
+    if (updateError) {
+      console.error('❌ Erro ao atualizar foto_url no banco:', updateError);
+      throw updateError;
+    }
+
+    console.log('✅ foto_url atualizada no banco!');
+
+    return publicUrl;
+  } catch (error) {
+    console.error('❌ Erro ao fazer upload de foto de perfil:', error);
+    return null;
+  }
+}
+
+// Export como objeto para manter compatibilidade
+export const storageService = {
+  uploadFotoEntrega,
+  salvarFotoParada,
+  uploadELinkFotoParada,
+  deletarFoto,
+  uploadFotoUsuario,
+};

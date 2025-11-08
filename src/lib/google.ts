@@ -201,11 +201,39 @@ export const googleMapsService = {
 
       if (data.status === 'OK' && data.routes.length > 0) {
         const route = data.routes[0];
+
+        // Extrair informações de cada leg (segmento entre paradas consecutivas)
+        const legs = route.legs.map((leg: any) => ({
+          distancia_metros: leg.distance.value,
+          duracao_segundos: leg.duration.value,
+          endereco_inicio: leg.start_address,
+          endereco_fim: leg.end_address,
+          coordenadas_inicio: {
+            latitude: leg.start_location.lat,
+            longitude: leg.start_location.lng,
+          },
+          coordenadas_fim: {
+            latitude: leg.end_location.lat,
+            longitude: leg.end_location.lng,
+          },
+        }));
+
+        // Calcular totais somando todos os legs
+        const distancia_total = route.legs.reduce(
+          (acc: number, leg: any) => acc + leg.distance.value,
+          0
+        );
+        const tempo_total = route.legs.reduce(
+          (acc: number, leg: any) => acc + leg.duration.value,
+          0
+        );
+
         return {
           polyline: route.overview_polyline.points,
-          distancia: route.legs.reduce((acc: number, leg: any) => acc + leg.distance.value, 0),
-          tempo: route.legs.reduce((acc: number, leg: any) => acc + leg.duration.value, 0),
+          distancia_total_metros: distancia_total,
+          duracao_total_segundos: tempo_total,
           ordem_otimizada: data.routes[0].waypoint_order || [],
+          legs, // Array com detalhes de cada segmento
         };
       }
 

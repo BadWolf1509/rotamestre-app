@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
-import { View, Text, ActivityIndicator, Alert, TouchableOpacity, Platform } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import { useState, useEffect } from 'react';
+import { View, Text, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 import * as Location from 'expo-location';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 import { Ionicons } from '@expo/vector-icons';
+import { MapaAdapter } from '@/components/MapaAdapter';
 
 interface Parada {
   id: string;
@@ -34,7 +34,6 @@ export default function MapaMotorista() {
   const [loading, setLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [trackingLocation, setTrackingLocation] = useState(false);
-  const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
     if (userData?.id) {
@@ -89,21 +88,6 @@ export default function MapaMotorista() {
       if (paradasError) throw paradasError;
 
       setParadas(paradasData || []);
-
-      // Ajusta o mapa para mostrar todas as paradas
-      if (paradasData && paradasData.length > 0 && mapRef.current) {
-        const coordinates = paradasData.map((p) => ({
-          latitude: p.latitude,
-          longitude: p.longitude,
-        }));
-
-        setTimeout(() => {
-          mapRef.current?.fitToCoordinates(coordinates, {
-            edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-            animated: true,
-          });
-        }, 500);
-      }
     } catch (error) {
       console.error('Erro ao carregar rota:', error);
       Alert.alert('Erro', 'Não foi possível carregar a rota');
@@ -114,42 +98,9 @@ export default function MapaMotorista() {
 
   function toggleLocationTracking() {
     setTrackingLocation(!trackingLocation);
-
-    if (!trackingLocation && userLocation && mapRef.current) {
-      mapRef.current.animateToRegion({
-        latitude: userLocation.latitude,
-        longitude: userLocation.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      });
-    }
+    // Location tracking logic will be handled by MapaAdapter
   }
 
-  function centerOnStops() {
-    if (paradas.length > 0 && mapRef.current) {
-      const coordinates = paradas.map((p) => ({
-        latitude: p.latitude,
-        longitude: p.longitude,
-      }));
-
-      mapRef.current.fitToCoordinates(coordinates, {
-        edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-        animated: true,
-      });
-    }
-  }
-
-  function getMarkerColor(parada: Parada): string {
-    if (parada.status === 'concluida') return theme.colors.green500;
-    if (parada.status === 'pulada') return theme.colors.yellow500;
-    return theme.colors.red500;
-  }
-
-  function getMarkerIcon(parada: Parada): string {
-    if (parada.status === 'concluida') return 'checkmark-circle';
-    if (parada.status === 'pulada') return 'alert-circle';
-    return 'location';
-  }
 
   if (loading) {
     return (
@@ -172,22 +123,6 @@ export default function MapaMotorista() {
     );
   }
 
-  // Calcula região inicial do mapa
-  const initialRegion = paradas.length > 0 ? {
-    latitude: paradas[0].latitude,
-    longitude: paradas[0].longitude,
-    latitudeDelta: 0.05,
-    longitudeDelta: 0.05,
-  } : undefined;
-
-  // Prepara coordenadas para a linha de rota
-  const routeCoordinates = paradas
-    .filter(p => p.status !== 'pulada')
-    .map((p) => ({
-      latitude: p.latitude,
-      longitude: p.longitude,
-    }));
-
   return (
     <View style={styles.container}>
       {/* Header Info */}
@@ -198,86 +133,9 @@ export default function MapaMotorista() {
         </Text>
       </View>
 
-      {/* Mapa */}
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-        initialRegion={initialRegion}
-        showsUserLocation={true}
-        showsMyLocationButton={false}
-        showsCompass={true}
-        showsScale={true}
-      >
-        {/* Linha da rota */}
-        {routeCoordinates.length > 1 && (
-          <Polyline
-            coordinates={routeCoordinates}
-            strokeColor={theme.colors.primary}
-            strokeWidth={3}
-            lineDashPattern={[5, 5]}
-          />
-        )}
-
-        {/* Marcadores das paradas */}
-        {paradas.map((parada) => (
-          <Marker
-            key={parada.id}
-            coordinate={{
-              latitude: parada.latitude,
-              longitude: parada.longitude,
-            }}
-            title={`Parada ${parada.ordem}`}
-            description={parada.endereco}
-            pinColor={getMarkerColor(parada)}
-          >
-            <View style={[
-              styles.markerContainer,
-              { backgroundColor: getMarkerColor(parada) }
-            ]}>
-              <Text style={styles.markerText}>{parada.ordem}</Text>
-            </View>
-          </Marker>
-        ))}
-
-        {/* Marcador da posição do usuário (customizado) */}
-        {userLocation && (
-          <Marker
-            coordinate={userLocation}
-            title="Sua localização"
-            anchor={{ x: 0.5, y: 0.5 }}
-          >
-            <View style={styles.userMarker}>
-              <View style={styles.userMarkerDot} />
-            </View>
-          </Marker>
-        )}
-      </MapView>
-
-      {/* Controles flutuantes */}
-      <View style={styles.controls}>
-        <TouchableOpacity
-          style={styles.controlButton}
-          onPress={centerOnStops}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="locate" size={24} color={theme.colors.primary} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.controlButton,
-            trackingLocation && styles.controlButtonActive
-          ]}
-          onPress={toggleLocationTracking}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name={trackingLocation ? "navigate" : "navigate-outline"}
-            size={24}
-            color={trackingLocation ? theme.colors.white : theme.colors.primary}
-          />
-        </TouchableOpacity>
+      {/* Mapa usando MapaAdapter (funciona em web e mobile) */}
+      <View style={styles.mapContainer}>
+        <MapaAdapter paradas={paradas} />
       </View>
 
       {/* Legenda */}
@@ -353,65 +211,11 @@ const styles = StyleSheet.create(theme => ({
     color: theme.colors.gray500,
     marginTop: 4,
   },
-  map: {
+  mapContainer: {
     flex: 1,
-  },
-  markerContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: theme.colors.white,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
-  },
-  markerText: {
-    color: theme.colors.white,
-    fontSize: theme.typography.sm,
-    fontWeight: 'bold',
-  },
-  userMarker: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: 'rgba(66, 133, 244, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  userMarkerDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#4285F4',
-    borderWidth: 2,
-    borderColor: theme.colors.white,
-  },
-  controls: {
-    position: 'absolute',
-    right: theme.spacing.md,
-    top: 120,
-    gap: theme.spacing.sm,
-  },
-  controlButton: {
-    backgroundColor: theme.colors.white,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 5,
-  },
-  controlButtonActive: {
-    backgroundColor: theme.colors.primary,
+    margin: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
   },
   legend: {
     position: 'absolute',

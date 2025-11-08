@@ -1,9 +1,11 @@
-// Inicializar Unistyles v3 ANTES de qualquer componente
-import '../unistyles';
+// Inicializar Unistyles v3 ANTES de qualquer componente (apenas native)
+import { Platform, View, Text } from 'react-native';
+if (Platform.OS !== 'web') {
+  require('../unistyles');
+}
 
 import { Stack, usePathname } from 'expo-router';
 import { useEffect } from 'react';
-import { Platform, View, Text } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useFonts } from 'expo-font';
 import {
@@ -16,10 +18,10 @@ import {
 } from '@expo-google-fonts/nunito-sans';
 import { Viga_400Regular } from '@expo-google-fonts/viga';
 import * as SplashScreen from 'expo-splash-screen';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 import { useUser } from '@/hooks/useUser';
 import { useResponsive } from '@/hooks/useResponsive';
-import { Sidebar } from './gestor/dashboard/_components/desktop/Sidebar';
+import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
 
 // Prevenir auto-hide do splash screen enquanto fontes carregam
 SplashScreen.preventAutoHideAsync();

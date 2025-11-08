@@ -9,7 +9,7 @@ import {
   Platform,
   Keyboard,
 } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet } from '@/utils/styles';
 import { googleMapsService, PlaceSuggestion } from '@/lib/google';
 
 interface AddressAutocompleteProps {

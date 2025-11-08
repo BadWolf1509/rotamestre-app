@@ -1,5 +1,5 @@
 import { Modal, View, Text, TouchableOpacity, Pressable, ViewStyle } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet } from '@/utils/styles';
 import { Ionicons } from '@expo/vector-icons';
 import { useResponsive } from '@/hooks/useResponsive';
 

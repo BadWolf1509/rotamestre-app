@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Toast } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { MapaAdapter } from '@/components/MapaAdapter';
