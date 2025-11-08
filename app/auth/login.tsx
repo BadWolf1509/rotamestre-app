@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   ImageBackground,
   Platform,
@@ -15,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { authService } from '@/lib/auth';
 import { useResponsive } from '@/hooks/useResponsive';
 import { Ionicons } from '@expo/vector-icons';
+import { AlertDialog } from '@/components/AlertDialog';
 
 export default function Login() {
   const { theme } = useUnistyles();
@@ -24,11 +24,29 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'default' | 'error' | 'success' | 'warning';
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'error',
+  });
 
+  function showAlert(title: string, message: string, type: 'default' | 'error' | 'success' | 'warning' = 'error') {
+    setAlertConfig({ visible: true, title, message, type });
+  }
+
+  function hideAlert() {
+    setAlertConfig({ ...alertConfig, visible: false });
+  }
 
   async function handleLogin() {
     if (!email || !password) {
-      Alert.alert('Erro', 'Preencha todos os campos');
+      showAlert('Erro', 'Preencha todos os campos', 'error');
       return;
     }
 
@@ -51,10 +69,10 @@ export default function Login() {
           router.replace('/motorista/rota');
         }
       } else {
-        Alert.alert('Erro', 'Usuário não encontrado');
+        showAlert('Erro', 'Usuário não encontrado', 'error');
       }
     } catch (error: any) {
-      Alert.alert('Erro', error.message || 'Erro ao fazer login');
+      showAlert('Erro', error.message || 'Erro ao fazer login', 'error');
     } finally {
       setLoading(false);
     }
@@ -148,6 +166,15 @@ export default function Login() {
             </View>
           </View>
         </View>
+
+        {/* Alert Dialog */}
+        <AlertDialog
+          visible={alertConfig.visible}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          type={alertConfig.type}
+          onConfirm={hideAlert}
+        />
       </View>
     );
   }
@@ -219,6 +246,15 @@ export default function Login() {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onConfirm={hideAlert}
+      />
     </View>
   );
 }
