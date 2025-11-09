@@ -34,7 +34,7 @@ export function abrirNavegacao(coords: Coordenadas) {
  */
 export async function abrirNavegacaoDireta(
   coords: Coordenadas,
-  appPreferido: 'waze' | 'google' | 'apple'
+  _appPreferido: 'waze' | 'google' | 'apple'
 ): Promise<boolean> {
   abrirNavegacao(coords);
   return true;
@@ -44,7 +44,7 @@ export async function abrirNavegacaoDireta(
  * Versão web - sempre retorna true (sempre pode abrir Google Maps)
  */
 export async function verificarAppInstalado(
-  app: 'waze' | 'google' | 'apple'
+  _app: 'waze' | 'google' | 'apple'
 ): Promise<boolean> {
   return true;
 }

@@ -1,5 +1,6 @@
-import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import React from 'react';
+
 import { DrawerMenu } from '../DrawerMenu';
 
 // Mock expo-router
@@ -16,12 +17,9 @@ jest.mock('expo-router', () => ({
 }));
 
 // Mock supabase
-const mockGetUser = jest.fn();
 const mockSelect = jest.fn();
 const mockEq = jest.fn();
 const mockSingle = jest.fn();
-const mockSignOut = jest.fn();
-const mockFrom = jest.fn();
 
 jest.mock('@/lib/supabase', () => ({
   supabase: {

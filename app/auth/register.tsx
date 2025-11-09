@@ -1,22 +1,24 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  ScrollView,
+  View,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useRouter } from 'expo-router';
-import { authService } from '@/lib/auth';
-import { TipoUsuario } from '../../types/usuario';
-import { useResponsive } from '@/hooks/useResponsive';
+
 import { ResponsiveContainer } from '@/components/ResponsiveContainer';
+import { useResponsive } from '@/hooks/useResponsive';
+import { authService } from '@/lib/auth';
+import { StyleSheet } from '@/utils/styles';
+
+import { TipoUsuario } from '../../types/usuario';
+
 
 export default function Register() {
-  const { theme } = useUnistyles();
   const router = useRouter();
   const { isDesktop } = useResponsive();
   const [nome, setNome] = useState('');

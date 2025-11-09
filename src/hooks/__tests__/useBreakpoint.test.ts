@@ -1,5 +1,6 @@
 import { renderHook } from '@testing-library/react-native';
 import { Dimensions } from 'react-native';
+
 import { useBreakpoint } from '../useBreakpoint';
 
 // Mock do Dimensions.get

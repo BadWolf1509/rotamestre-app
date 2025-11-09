@@ -1,3 +1,5 @@
+/* global Deno */
+
 // Edge Function para criar motorista usando Admin API
 // Deploy: supabase functions deploy criar-motorista
 

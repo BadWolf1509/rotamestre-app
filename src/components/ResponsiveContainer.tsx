@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, ViewStyle } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+
 import { useResponsive } from '@/hooks/useResponsive';
+import { useUnistyles } from '@/utils/styles';
 
 interface ResponsiveContainerProps {
   children: React.ReactNode;
@@ -58,4 +59,3 @@ export function ResponsiveContainer({
   return <View style={[containerStyle, style]}>{children}</View>;
 }
 
-const styles = StyleSheet.create(theme => ({}));

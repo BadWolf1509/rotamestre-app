@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
+
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 export type ToastType = 'success' | 'error' | 'info' | 'loading';
@@ -36,6 +37,23 @@ export function Toast({ message, type = 'info', duration = 3000, onDismiss, visi
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-100)).current;
 
+  const handleDismiss = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: -100,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      onDismiss?.();
+    });
+  }, [fadeAnim, onDismiss, translateY]);
+
   useEffect(() => {
     if (visible) {
       // Slide in + fade in
@@ -63,24 +81,7 @@ export function Toast({ message, type = 'info', duration = 3000, onDismiss, visi
     } else {
       handleDismiss();
     }
-  }, [visible]);
-
-  const handleDismiss = () => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: -100,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      onDismiss?.();
-    });
-  };
+  }, [duration, handleDismiss, type, translateY, visible, fadeAnim]);
 
   if (!visible && fadeAnim._value === 0) return null;
 

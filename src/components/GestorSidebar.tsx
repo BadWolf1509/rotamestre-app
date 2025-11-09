@@ -1,9 +1,10 @@
+import { useRouter, usePathname } from 'expo-router';
 import React from 'react';
 import { View, Text, TouchableOpacity, Platform, Image } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useRouter, usePathname } from 'expo-router';
+
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
+import { StyleSheet } from '@/utils/styles';
 
 interface MenuItem {
   id: string;
@@ -23,7 +24,6 @@ export function GestorSidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const { userData } = useUser();
-  const { theme } = useUnistyles();
 
   async function handleLogout() {
     try {

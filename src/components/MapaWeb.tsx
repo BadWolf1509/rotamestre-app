@@ -1,7 +1,10 @@
+/* global google */
+
+import { GoogleMap, useJsApiLoader, Marker, DirectionsRenderer } from '@react-google-maps/api';
 import React, { useCallback } from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
+
 import { StyleSheet } from '@/utils/styles';
-import { GoogleMap, useJsApiLoader, Marker, DirectionsRenderer } from '@react-google-maps/api';
 
 interface Parada {
   id: string;
@@ -31,8 +34,6 @@ export default function MapaWeb({ paradas }: MapaWebProps) {
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
   });
 
-  const [map, setMap] = React.useState<google.maps.Map | null>(null);
-
   // Calcular centro do mapa
   const center = React.useMemo(() => {
     const paradasComCoord = paradas.filter(p => p.latitude && p.longitude);
@@ -45,29 +46,23 @@ export default function MapaWeb({ paradas }: MapaWebProps) {
     };
   }, [paradas]);
 
-  const onLoad = useCallback((map: google.maps.Map) => {
-    setMap(map);
-
+  const onLoad = useCallback((mapInstance: google.maps.Map) => {
     // Ajustar bounds para mostrar todas as paradas
-    const paradasComCoord = paradas.filter(p => p.latitude && p.longitude);
+    const paradasComCoord = paradas.filter((p) => p.latitude != null && p.longitude != null);
     if (paradasComCoord.length > 0) {
       const bounds = new window.google.maps.LatLngBounds();
-      paradasComCoord.forEach(p => {
+      paradasComCoord.forEach((p) => {
         bounds.extend({ lat: p.latitude!, lng: p.longitude! });
       });
-      map.fitBounds(bounds);
+      mapInstance.fitBounds(bounds);
     }
   }, [paradas]);
-
-  const onUnmount = useCallback(() => {
-    setMap(null);
-  }, []);
 
   // Calcular direções
   React.useEffect(() => {
     if (!isLoaded || paradas.length < 2) return;
 
-    const paradasComCoord = paradas.filter(p => p.latitude && p.longitude);
+    const paradasComCoord = paradas.filter((p) => p.latitude != null && p.longitude != null);
     if (paradasComCoord.length < 2) return;
 
     const DirectionsService = new google.maps.DirectionsService();
@@ -122,7 +117,7 @@ export default function MapaWeb({ paradas }: MapaWebProps) {
     );
   }
 
-  const paradasComCoord = paradas.filter(p => p.latitude && p.longitude);
+  const paradasComCoord = paradas.filter((p) => p.latitude != null && p.longitude != null);
 
   return (
     <GoogleMap
@@ -130,7 +125,6 @@ export default function MapaWeb({ paradas }: MapaWebProps) {
       center={center}
       zoom={13}
       onLoad={onLoad}
-      onUnmount={onUnmount}
       options={{
         zoomControl: true,
         streetViewControl: false,

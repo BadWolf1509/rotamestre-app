@@ -1,5 +1,6 @@
-import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react-native';
+import React from 'react';
+
 import { Toast } from '../Toast';
 
 describe('Toast Component', () => {

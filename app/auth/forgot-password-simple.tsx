@@ -1,14 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  ScrollView,
+  View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+
 import { authService } from '@/lib/auth';
 
 export default function ForgotPassword() {
@@ -35,9 +36,7 @@ export default function ForgotPassword() {
     setLoading(true);
 
     try {
-      // await authService.resetPassword(email);
-      // Simulação temporária para teste
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await authService.resetPassword(email.trim());
       Alert.alert(
         'Sucesso',
         'Instruções de recuperação foram enviadas para seu e-mail',

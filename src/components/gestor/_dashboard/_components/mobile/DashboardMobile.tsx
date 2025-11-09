@@ -1,14 +1,18 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { useUser } from '@/hooks/useUser';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+
+import { DrawerMenu } from '@/components/DrawerMenu';
 import { Toast } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
-import { DrawerMenu } from '@/components/DrawerMenu';
-import type { DashboardData } from '../../dashboard/_hooks/useDashboardData';
-import { StatsCard } from '../shared/StatsCard';
+import { useUser } from '@/hooks/useUser';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
+
+
 import { RotaCard } from '../shared/RotaCard';
+import { StatsCard } from '../shared/StatsCard';
+
+import type { DashboardData } from '../../dashboard/_hooks/useDashboardData';
 
 interface DashboardMobileProps extends DashboardData {}
 
@@ -26,7 +30,7 @@ export function DashboardMobile({
   const { theme } = useUnistyles();
   const router = useRouter();
   const { userData } = useUser();
-  const { toast: toastState, showToast, hideToast } = useToast();
+  const { toast: toastState, hideToast } = useToast();
   const [drawerVisible, setDrawerVisible] = useState(false);
 
   if (loading) {

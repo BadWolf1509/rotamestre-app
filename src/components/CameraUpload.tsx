@@ -3,6 +3,8 @@
  * Sprint 1.3 - Upload de Fotos
  */
 
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import {
   View,
@@ -13,9 +15,9 @@ import {
   Alert,
   Platform
 } from 'react-native';
+
 import { StyleSheet } from '@/utils/styles';
-import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
+
 import { uploadELinkFotoParada } from '../lib/storage';
 
 interface CameraUploadProps {

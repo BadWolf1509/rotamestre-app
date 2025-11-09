@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,10 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { supabase } from '@/lib/supabase';
+
 import { useUser } from '@/hooks/useUser';
+import { supabase } from '@/lib/supabase';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface RotaHistorico {
   id: string;
@@ -35,25 +36,28 @@ export default function HistoricoMotorista() {
   const [expandedRotaId, setExpandedRotaId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (userData?.id) {
-      loadHistorico();
-    }
-  }, [userData]);
+    loadHistorico();
+  }, [loadHistorico]);
 
-  async function loadHistorico() {
+  const loadHistorico = useCallback(async () => {
+    if (!userData?.id) {
+      setRotas([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
     try {
       setLoading(true);
 
-      // Buscar rotas do motorista
       const { data: rotasData, error: rotasError } = await supabase
         .from('rotas')
         .select('id, data, status, distancia_total, iniciada_em, concluida_em, unidades(nome)')
-        .eq('motorista_id', userData!.id)
+        .eq('motorista_id', userData.id)
         .order('data', { ascending: false });
 
       if (rotasError) throw rotasError;
 
-      // Para cada rota, buscar contagem de paradas
       const rotasComParadas = await Promise.all(
         (rotasData || []).map(async (rota) => {
           const { data: paradasData, error: paradasError } = await supabase
@@ -87,12 +91,12 @@ export default function HistoricoMotorista() {
       setLoading(false);
       setRefreshing(false);
     }
-  }
+  }, [userData?.id]);
 
-  function onRefresh() {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadHistorico();
-  }
+  }, [loadHistorico]);
 
   function toggleExpand(rotaId: string) {
     setExpandedRotaId(expandedRotaId === rotaId ? null : rotaId);

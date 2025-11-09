@@ -6,6 +6,7 @@ import {
   Modal,
   Platform,
 } from 'react-native';
+
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 export interface ConfirmModalProps {

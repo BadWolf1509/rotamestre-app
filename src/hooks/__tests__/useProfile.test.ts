@@ -1,7 +1,9 @@
-import { renderHook, waitFor, act } from '@testing-library/react-native';
-import { useProfile } from '../useProfile';
-import { supabase } from '@/lib/supabase';
 import { User } from '@supabase/supabase-js';
+import { renderHook, waitFor, act } from '@testing-library/react-native';
+
+import { supabase } from '@/lib/supabase';
+
+import { useProfile } from '../useProfile';
 
 // Mock do supabase
 jest.mock('@/lib/supabase');

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from './supabase';
 import NetInfo from '@react-native-community/netinfo';
+
+import { supabase } from './supabase';
 
 const OFFLINE_QUEUE_KEY = '@rotamestre:offline_queue';
 const OFFLINE_DATA_KEY = '@rotamestre:offline_data';
@@ -108,7 +109,7 @@ export async function processOfflineQueue(): Promise<{ success: number; failed: 
  */
 async function executeOfflineAction(action: OfflineAction): Promise<void> {
   switch (action.type) {
-    case 'update_parada':
+    case 'update_parada': {
       const { id, ...updateData } = action.data;
       const { error: updateError } = await supabase
         .from('paradas')
@@ -116,15 +117,17 @@ async function executeOfflineAction(action: OfflineAction): Promise<void> {
         .eq('id', id);
       if (updateError) throw updateError;
       break;
+    }
 
-    case 'insert_log':
+    case 'insert_log': {
       const { error: logError } = await supabase
         .from('logs')
         .insert(action.data);
       if (logError) throw logError;
       break;
+    }
 
-    case 'finalizar_rota':
+    case 'finalizar_rota': {
       const { rotaId, ...rotaData } = action.data;
       const { error: rotaError } = await supabase
         .from('rotas')
@@ -132,6 +135,7 @@ async function executeOfflineAction(action: OfflineAction): Promise<void> {
         .eq('id', rotaId);
       if (rotaError) throw rotaError;
       break;
+    }
 
     case 'upload_foto':
       // Fotos não podem ser sincronizadas offline facilmente

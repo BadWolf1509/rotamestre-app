@@ -1,14 +1,15 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { useUser } from '@/hooks/useUser';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+
 import { Toast } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
-import { DrawerMenu } from '@/components/DrawerMenu';
-import type { DashboardData } from '../../dashboard/_hooks/useDashboardData';
-import { StatsCard } from '../shared/StatsCard';
+import { useUser } from '@/hooks/useUser';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
+
 import { RotaCard } from '../shared/RotaCard';
+import { StatsCard } from '../shared/StatsCard';
+
+import type { DashboardData } from '../../dashboard/_hooks/useDashboardData';
 
 interface DashboardMobileProps extends DashboardData {}
 
@@ -26,8 +27,7 @@ export function DashboardMobile({
   const { theme } = useUnistyles();
   const router = useRouter();
   const { userData } = useUser();
-  const { toast: toastState, showToast, hideToast } = useToast();
-  const [drawerVisible, setDrawerVisible] = useState(false);
+  const { toast: toastState, hideToast } = useToast();
 
   if (loading) {
     return (
@@ -47,12 +47,6 @@ export function DashboardMobile({
     >
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => setDrawerVisible(true)}
-        >
-          <Text style={styles.menuIcon}>☰</Text>
-        </TouchableOpacity>
         <View style={styles.headerTextContainer}>
           <Text style={styles.headerTitle}>
             Olá, {userData?.nome}!
@@ -62,12 +56,6 @@ export function DashboardMobile({
           </Text>
         </View>
       </View>
-
-      {/* Drawer Menu */}
-      <DrawerMenu
-        visible={drawerVisible}
-        onClose={() => setDrawerVisible(false)}
-      />
 
       {/* Cards de Estatísticas - Grid 2x2 */}
       <View style={styles.statsGrid}>
@@ -191,24 +179,16 @@ const styles = StyleSheet.create(theme => ({
     color: theme.colors.gray500,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
     paddingHorizontal: theme.spacing.xl,
     paddingVertical: theme.spacing.xl,
     backgroundColor: theme.colors.white,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray200,
   },
-  menuButton: {
-    padding: theme.spacing.sm,
-    marginRight: theme.spacing.lg,
-  },
-  menuIcon: {
-    fontSize: 28,
-    color: theme.colors.primary,
-  },
   headerTextContainer: {
-    flex: 1,
+    width: '100%',
   },
   headerTitle: {
     fontSize: theme.typography['2xl'],

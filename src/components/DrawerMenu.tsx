@@ -1,3 +1,4 @@
+import { useRouter, usePathname } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -7,9 +8,10 @@ import {
   ScrollView,
   SafeAreaView,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useRouter, usePathname } from 'expo-router';
+
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { supabase } from '@/lib/supabase';
+import { StyleSheet } from '@/utils/styles';
 
 interface DrawerMenuProps {
   visible: boolean;
@@ -17,10 +19,11 @@ interface DrawerMenuProps {
 }
 
 export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
-  const { theme } = useUnistyles();
   const router = useRouter();
   const pathname = usePathname();
   const [profile, setProfile] = useState<any>(null);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -43,56 +46,58 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
     router.push(path);
   }
 
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    onClose();
-    router.replace('/auth/login');
+  function handleLogoutPress() {
+
+    setShowLogoutDialog(true);
+
   }
 
-  const menuItems = [
-    {
-      icon: '🏠',
-      label: 'Dashboard',
-      path: '/gestor/dashboard',
-      show: true,
-    },
-    {
-      icon: '📦',
-      label: 'Nova Rota',
-      path: '/gestor/nova-entrega',
-      show: true,
-    },
-    {
-      icon: '📋',
-      label: 'Histórico',
-      path: '/gestor/historico',
-      show: true,
-    },
-    {
-      icon: '👥',
-      label: 'Motoristas',
-      path: '/gestor/motoristas',
-      show: true,
-    },
-    {
-      icon: '👤',
-      label: 'Meu Perfil',
-      path: '/perfil',
-      show: true,
-    },
-    {
-      icon: '🏢',
-      label: 'Minha Unidade',
-      path: '/unidade',
-      show: profile?.papel === 'gestor',
-    },
-    {
-      icon: '👥',
-      label: 'Equipe',
-      path: '/unidade/equipe',
-      show: profile?.papel === 'gestor',
-    },
+
+
+  async function handleLogoutConfirm() {
+
+    setShowLogoutDialog(false);
+
+    try {
+
+      await supabase.auth.signOut();
+
+      onClose();
+
+      router.replace('/auth/login');
+
+    } catch (error) {
+
+      console.error('Erro ao fazer logout:', error);
+
+      setShowErrorDialog(true);
+
+    }
+
+  }
+
+  const gestorMenuItems = [
+    { icon: '🏠', label: 'Dashboard', path: '/gestor/dashboard', show: true },
+    { icon: '📦', label: 'Nova Rota', path: '/gestor/nova-entrega', show: true },
+    { icon: '📋', label: 'Histórico', path: '/gestor/historico', show: true },
+    { icon: '🧑‍✈️', label: 'Motoristas', path: '/gestor/motoristas', show: true },
+    { icon: '👤', label: 'Meu Perfil', path: '/perfil', show: true },
+    { icon: '🏢', label: 'Minha Unidade', path: '/unidade', show: profile?.papel === 'gestor' },
+    { icon: '👥', label: 'Equipe', path: '/unidade/equipe', show: profile?.papel === 'gestor' },
   ];
+
+  const motoristaMenuItems = [
+    { icon: '🚚', label: 'Rota Atual', path: '/motorista/rota', show: true },
+    { icon: '📍', label: 'Paradas', path: '/motorista/checkpoints', show: true },
+    { icon: '🗺️', label: 'Mapa', path: '/motorista/mapa', show: true },
+    { icon: '📑', label: 'Histórico', path: '/motorista/historico', show: true },
+    { icon: '📊', label: 'Resumo', path: '/motorista/resumo', show: true },
+    { icon: '👤', label: 'Meu Perfil', path: '/motorista/perfil', show: true },
+  ];
+
+  const isMotorista = profile?.papel === 'motorista';
+  const menuItems = isMotorista ? motoristaMenuItems : gestorMenuItems;
+
 
   return (
     <Modal
@@ -166,7 +171,7 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
 
               {/* Logout */}
               <View style={styles.footer}>
-                <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                <TouchableOpacity style={styles.logoutButton} onPress={handleLogoutPress}>
                   <Text style={styles.logoutIcon}>🚪</Text>
                   <Text style={styles.logoutText}>Sair da Conta</Text>
                 </TouchableOpacity>
@@ -175,6 +180,26 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
           </SafeAreaView>
         </TouchableOpacity>
       </TouchableOpacity>
+      <ConfirmDialog
+        visible={showLogoutDialog}
+        title="Sair da conta"
+        message="Deseja realmente encerrar sua sessão?"
+        confirmText="Sair"
+        cancelText="Cancelar"
+        type="destructive"
+        onConfirm={handleLogoutConfirm}
+        onCancel={() => setShowLogoutDialog(false)}
+      />
+      <ConfirmDialog
+        visible={showErrorDialog}
+        title="Erro ao sair"
+        message="Não foi possível encerrar sua sessão. Tente novamente."
+        confirmText="Entendi"
+        cancelText="Fechar"
+        type="destructive"
+        onConfirm={() => setShowErrorDialog(false)}
+        onCancel={() => setShowErrorDialog(false)}
+      />
     </Modal>
   );
 }
@@ -311,3 +336,5 @@ const styles = StyleSheet.create(theme => ({
     color: theme.colors.error,
   },
 }));
+
+

@@ -8,8 +8,9 @@
 
 import React from 'react';
 import { Platform } from 'react-native';
-import MapaWeb from './MapaWeb';
+
 import { MapaMobile } from './MapaMobile';
+import MapaWeb from './MapaWeb';
 
 interface Parada {
   id: string;

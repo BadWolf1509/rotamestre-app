@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useState, useEffect, useCallback } from 'react';
+
 import { useUser } from '@/hooks/useUser';
+import { supabase } from '@/lib/supabase';
 
 export interface Stats {
   total: number;
@@ -33,6 +34,7 @@ export interface DashboardData {
  */
 export function useDashboardData(): DashboardData {
   const { userData } = useUser();
+  const unidadeId = userData?.unidade_id;
   const [stats, setStats] = useState<Stats>({
     total: 0,
     emAndamento: 0,
@@ -43,13 +45,20 @@ export function useDashboardData(): DashboardData {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (userData?.unidade_id) {
-      loadDashboard();
+  const loadDashboard = useCallback(async () => {
+    if (!unidadeId) {
+      setStats({
+        total: 0,
+        emAndamento: 0,
+        concluidas: 0,
+        distanciaTotal: 0,
+      });
+      setRotas([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
     }
-  }, [userData]);
 
-  async function loadDashboard() {
     try {
       setLoading(true);
 
@@ -65,7 +74,7 @@ export function useDashboardData(): DashboardData {
           distancia_total,
           usuarios!motorista_id (nome)
         `)
-        .eq('unidade_id', userData!.unidade_id)
+        .eq('unidade_id', unidadeId)
         .gte('data', hoje)
         .order('created_at', { ascending: false });
 
@@ -109,12 +118,16 @@ export function useDashboardData(): DashboardData {
       setLoading(false);
       setRefreshing(false);
     }
-  }
+  }, [unidadeId]);
 
-  async function onRefresh() {
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadDashboard();
-  }
+  }, [loadDashboard]);
 
   return {
     stats,

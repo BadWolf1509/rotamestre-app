@@ -7,9 +7,10 @@
  * Usa design tokens para cores, tipografia e espaçamento.
  */
 
-import { View, Text, TextInput, ViewStyle, TextInputProps } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
 import { Ionicons } from '@expo/vector-icons';
+import { View, Text, TextInput, ViewStyle, TextInputProps } from 'react-native';
+
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 type InputSize = 'small' | 'medium' | 'large';
 

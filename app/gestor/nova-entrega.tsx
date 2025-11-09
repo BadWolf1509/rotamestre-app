@@ -1,4 +1,6 @@
-import { useState, useEffect, memo } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useState, useEffect, memo, useCallback } from 'react';
+import { useForm, Controller, Control, FieldErrors } from 'react-hook-form';
 import {
   View,
   Text,
@@ -6,20 +8,19 @@ import {
   ScrollView,
   ActivityIndicator,
   TextInput,
-  Platform,
 } from 'react-native';
-import { maskPhone, validatePhone, getPhoneErrorMessage } from '@/utils/phoneValidation';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useForm, Controller, Control, FieldErrors } from 'react-hook-form';
 import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { supabase } from '@/lib/supabase';
-import { useUser } from '@/hooks/useUser';
-import { googleMapsService } from '@/lib/google';
+
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import { Toast } from '@/components/Toast';
-import { useToast } from '@/hooks/useToast';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { useToast } from '@/hooks/useToast';
+import { useUser } from '@/hooks/useUser';
+import { googleMapsService } from '@/lib/google';
+import { supabase } from '@/lib/supabase';
+import { GoogleDirectionsLeg } from '@/types/google-directions';
+import { maskPhone } from '@/utils/phoneValidation';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 // Schema de validação
 const paradaSchema = z.object({
@@ -48,6 +49,92 @@ interface Parada extends ParadaFormData {
   latitude?: number;
   longitude?: number;
   ordem: number;
+}
+
+interface RotaOtimizadaState {
+  distancia_total_metros: number;
+  duracao_total_segundos: number;
+  legs: GoogleDirectionsLeg[];
+  polyline?: string;
+}
+
+function distanceInMeters(
+  parada: Parada,
+  coords?: { latitude: number; longitude: number }
+) {
+  if (
+    parada.latitude == null ||
+    parada.longitude == null ||
+    !coords
+  ) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const R = 6371000; // Earth radius in meters
+  const dLat = toRad(coords.latitude - parada.latitude);
+  const dLon = toRad(coords.longitude - parada.longitude);
+
+  const lat1 = toRad(parada.latitude);
+  const lat2 = toRad(coords.latitude);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function ordenarParadasPorRota(
+  paradas: Parada[],
+  ordemOtimizada: number[],
+  legs?: GoogleDirectionsLeg[]
+) {
+  if (ordemOtimizada?.length === paradas.length) {
+    return ordemOtimizada.map((index) => paradas[index]);
+  }
+
+  if (legs?.length) {
+    const utilizados = new Set<number>();
+    const ordenadas: Parada[] = [];
+
+    legs.forEach((leg, idx) => {
+      // último leg = retorno à base
+      if (idx === legs.length - 1) return;
+
+      let melhorIndex = -1;
+      let menorDistancia = Number.POSITIVE_INFINITY;
+
+      paradas.forEach((parada, paradaIndex) => {
+        if (utilizados.has(paradaIndex)) return;
+        const distancia = distanceInMeters(parada, leg.coordenadas_fim);
+        if (distancia < menorDistancia) {
+          menorDistancia = distancia;
+          melhorIndex = paradaIndex;
+        }
+      });
+
+      if (melhorIndex !== -1) {
+        ordenadas.push(paradas[melhorIndex]);
+        utilizados.add(melhorIndex);
+      }
+    });
+
+    // Caso alguma parada não tenha sido encontrada (variação de coordenadas), mantém a ordem original remanescente
+    paradas.forEach((parada, index) => {
+      if (!utilizados.has(index)) {
+        ordenadas.push(parada);
+        utilizados.add(index);
+      }
+    });
+
+    if (ordenadas.length === paradas.length) {
+      return ordenadas;
+    }
+  }
+
+  // Fallback: mantém a ordem original
+  return [...paradas];
 }
 
 // ============================================
@@ -235,7 +322,7 @@ export default function NovaEntrega() {
   const { theme } = useUnistyles();
   const styles = createStyles(theme);
   const { userData, unidade } = useUser();
-  const { toast: toastState, showToast, hideToast, withToast } = useToast();
+  const { toast: toastState, showToast, hideToast } = useToast();
   const { isDesktop, isLargeDesktop } = useBreakpoint();
   const [paradas, setParadas] = useState<Parada[]>([]);
   const [motoristas, setMotoristas] = useState<any[]>([]);
@@ -243,11 +330,7 @@ export default function NovaEntrega() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMotoristas, setIsLoadingMotoristas] = useState(true);
   const [isOptimizing, setIsOptimizing] = useState(false);
-  const [rotaOtimizada, setRotaOtimizada] = useState<{
-    distancia_total_metros: number;
-    duracao_total_segundos: number;
-    legs: any[];
-  } | null>(null);
+  const [rotaOtimizada, setRotaOtimizada] = useState<RotaOtimizadaState | null>(null);
   const [enderecoUnidade, setEnderecoUnidade] = useState<{
     latitude: number;
     longitude: number;
@@ -271,82 +354,121 @@ export default function NovaEntrega() {
     },
   });
 
-  // Carregar motoristas da unidade
-  useEffect(() => {
-    loadMotoristas();
-  }, [userData]);
-
-  // Carregar endereço da unidade ao montar
-  useEffect(() => {
-    if (unidade?.endereco) {
-      loadEnderecoUnidade();
+  const loadEnderecoUnidade = useCallback(async () => {
+    if (!unidade) {
+      console.warn('Usuário sem unidade vinculada');
+      return;
     }
-  }, [unidade]);
 
-  async function loadEnderecoUnidade() {
-    if (!unidade?.endereco) {
-      console.warn('Unidade sem endereço cadastrado');
+    const parseCoordinate = (value: unknown): number | null => {
+      if (value === null || value === undefined) return null;
+      const numeric = typeof value === 'number' ? value : Number(value);
+      return Number.isFinite(numeric) ? numeric : null;
+    };
+
+    const latitudeFromDb = parseCoordinate((unidade as any).sede_latitude);
+    const longitudeFromDb = parseCoordinate((unidade as any).sede_longitude);
+    const enderecoBase = (unidade as any).sede_endereco || unidade.endereco;
+
+    const enderecoCompleto = [
+      enderecoBase,
+      unidade.cidade,
+      (unidade as any).uf,
+      (unidade as any).cep,
+    ]
+      .filter((parte) => typeof parte === 'string' && parte.trim().length > 0)
+      .join(', ');
+
+    if (latitudeFromDb != null && longitudeFromDb != null) {
+      setEnderecoUnidade({
+        latitude: latitudeFromDb,
+        longitude: longitudeFromDb,
+        endereco: enderecoCompleto || enderecoBase || 'Sede da unidade',
+      });
+      return;
+    }
+
+    if (!enderecoCompleto) {
+      console.warn('Unidade sem endereço completo cadastrado');
+      showToast('Endereço da unidade não encontrado. Complete o cadastro antes de gerar rotas.', 'error');
       return;
     }
 
     try {
-      const result = await googleMapsService.geocodeAddress(unidade.endereco);
+      const result = await googleMapsService.geocodeAddress(enderecoCompleto);
       if (result?.coordenadas) {
         setEnderecoUnidade({
           latitude: result.coordenadas.latitude,
           longitude: result.coordenadas.longitude,
-          endereco: unidade.endereco,
+          endereco: result.formatted_address || enderecoCompleto,
         });
       } else {
-        console.error('❌ Não foi possível geocodificar o endereço da unidade');
+        console.error('⚠️ Não foi possível geocodificar o endereço da unidade');
         showToast('Endereço da unidade não encontrado. Verifique o cadastro da unidade.', 'error');
       }
     } catch (error) {
       console.error('Erro ao geocodificar endereço da unidade:', error);
     }
-  }
+  }, [showToast, unidade]);
 
-  async function loadMotoristas() {
-    if (!userData?.unidade_id) return;
+  const loadMotoristas = useCallback(async () => {
+    const unidadeId = userData?.unidade_id;
+    if (!unidadeId) {
+      setIsLoadingMotoristas(false);
+      return;
+    }
 
     try {
-      const { data, error } = await supabase
+      setIsLoadingMotoristas(true);
+      const { data: motoristasData, error } = await supabase
         .from('usuarios')
         .select('id, nome, email')
         .eq('papel', 'motorista')
-        .eq('unidade_id', userData.unidade_id)
+        .eq('unidade_id', unidadeId)
         .eq('ativo', true)
         .order('nome');
 
       if (error) throw error;
-      setMotoristas(data || []);
+      setMotoristas(motoristasData || []);
     } catch (error) {
       console.error('Erro ao carregar motoristas:', error);
       showToast('Não foi possível carregar os motoristas', 'error');
     } finally {
       setIsLoadingMotoristas(false);
     }
-  }
+  }, [showToast, userData?.unidade_id]);
+
+  // Carregar motoristas da unidade
+  useEffect(() => {
+    loadMotoristas();
+  }, [loadMotoristas]);
+
+  // Carregar endereço da unidade ao montar
+  useEffect(() => {
+    if (unidade) {
+      loadEnderecoUnidade();
+    }
+  }, [loadEnderecoUnidade, unidade]);
 
   // Adicionar parada à lista (coordenadas já obtidas pelo autocomplete)
-  async function onAddParada(data: ParadaFormData) {
+  async function onAddParada(paradaData: ParadaFormData) {
     setIsLoading(true);
     try {
       // Se não tem coordenadas, tentar geocodificar manualmente
-      if (!data.latitude || !data.longitude) {
-        const result = await googleMapsService.geocodeAddress(data.endereco);
+      if (!paradaData.latitude || !paradaData.longitude) {
+        const result = await googleMapsService.geocodeAddress(paradaData.endereco);
 
         if (!result) {
           showToast('Não foi possível localizar o endereço. Use o autocomplete para selecionar um endereço válido.', 'error');
           return;
         }
 
-        data.latitude = result.coordenadas.latitude;
-        data.longitude = result.coordenadas.longitude;
+        paradaData.latitude = result.coordenadas.latitude;
+        paradaData.longitude = result.coordenadas.longitude;
       }
 
       const novaParada: Parada = {
-        ...data,
+        ...paradaData,
         ordem: paradas.length + 1,
       };
 
@@ -415,17 +537,7 @@ export default function NovaEntrega() {
 
       // Reordenar paradas conforme ordem otimizada retornada pela API
       const ordemOtimizada = resultado.ordem_otimizada || [];
-      const paradasReordenadas: Parada[] = [];
-
-      // Adicionar paradas na ordem otimizada
-      ordemOtimizada.forEach((indice: number) => {
-        paradasReordenadas.push(paradas[indice]);
-      });
-
-      // Se não houver ordem otimizada (1 parada apenas), manter ordem original
-      if (paradasReordenadas.length === 0) {
-        paradasReordenadas.push(...paradas);
-      }
+      const paradasReordenadas = ordenarParadasPorRota(paradas, ordemOtimizada, resultado.legs);
 
       // Atualizar ordem das paradas
       const paradasComNovaOrdem = paradasReordenadas.map((p, i) => ({
@@ -438,6 +550,7 @@ export default function NovaEntrega() {
         distancia_total_metros: resultado.distancia_total_metros,
         duracao_total_segundos: resultado.duracao_total_segundos,
         legs: resultado.legs,
+        polyline: resultado.polyline,
       });
 
       showToast(
@@ -480,18 +593,37 @@ export default function NovaEntrega() {
       // Data de hoje no formato ISO (YYYY-MM-DD)
       const dataHoje = new Date().toISOString().split('T')[0];
 
-      // 1. Criar rota com todos os campos necessários
-      const { data: rotaData, error: rotaError} = await supabase
+      const distanciaKm =
+        rotaOtimizada?.distancia_total_metros != null
+          ? Number((rotaOtimizada.distancia_total_metros / 1000).toFixed(2))
+          : null;
+      const tempoMin =
+        rotaOtimizada?.duracao_total_segundos != null
+          ? Math.round(rotaOtimizada.duracao_total_segundos / 60)
+          : null;
+
+      const rotaPayload: Record<string, any> = {
+        unidade_id: userData!.unidade_id,
+        motorista_id: motoristaSelecionado,
+        status: 'pendente',
+        data: dataHoje,
+      };
+
+      if (distanciaKm !== null) {
+        rotaPayload.distancia_total = distanciaKm;
+      }
+
+      if (tempoMin !== null) {
+        rotaPayload.tempo_total = tempoMin;
+      }
+
+      if (rotaOtimizada?.polyline) {
+        rotaPayload.polyline = rotaOtimizada.polyline;
+      }
+
+      const { data: rotaData, error: rotaError } = await supabase
         .from('rotas')
-        .insert({
-          unidade_id: userData!.unidade_id,
-          motorista_id: motoristaSelecionado,
-          status: 'pendente',
-          data_rota: dataHoje,
-          otimizada: rotaOtimizada !== null, // true se foi otimizada
-          distancia_total_metros: rotaOtimizada?.distancia_total_metros || null,
-          duracao_total_segundos: rotaOtimizada?.duracao_total_segundos || null,
-        })
+        .insert(rotaPayload)
         .select()
         .single();
 
@@ -507,9 +639,8 @@ export default function NovaEntrega() {
 
         paradasParaInserir.push({
           rota_id: rotaData.id,
-          tipo: 'retirada', // Usando 'retirada' pois é onde o motorista retira os pacotes
-          endereco: enderecoUnidade.endereco,
-          endereco_completo: leg0?.endereco_inicio || enderecoUnidade.endereco,
+          tipo: 'retirada', // ponto de retirada inicial
+          endereco: leg0?.endereco_inicio || enderecoUnidade.endereco,
           latitude: enderecoUnidade.latitude,
           longitude: enderecoUnidade.longitude,
           ordem: 0,
@@ -517,9 +648,6 @@ export default function NovaEntrega() {
           telefone: null,
           observacoes: 'Ponto de partida',
           status: 'pendente',
-          is_checkpoint: false, // Base não conta como entrega
-          distancia_proxima_parada_metros: leg0?.distancia_metros || null,
-          tempo_ate_proxima_parada_segundos: leg0?.duracao_segundos || null,
         });
       }
 
@@ -533,8 +661,7 @@ export default function NovaEntrega() {
         paradasParaInserir.push({
           rota_id: rotaData.id,
           tipo: p.tipo,
-          endereco: p.endereco,
-          endereco_completo: leg?.endereco_inicio || p.endereco,
+          endereco: leg?.endereco_inicio || p.endereco,
           latitude: p.latitude!,
           longitude: p.longitude!,
           ordem: index + 1, // Começa do 1
@@ -542,9 +669,6 @@ export default function NovaEntrega() {
           telefone: p.telefone,
           observacoes: p.observacoes,
           status: 'pendente',
-          is_checkpoint: true, // Entregas reais contam como checkpoint
-          distancia_proxima_parada_metros: leg?.distancia_metros || null,
-          tempo_ate_proxima_parada_segundos: leg?.duracao_segundos || null,
         });
       });
 
@@ -556,9 +680,8 @@ export default function NovaEntrega() {
 
         paradasParaInserir.push({
           rota_id: rotaData.id,
-          tipo: 'entrega', // Usando 'entrega' pois é o retorno à base
-          endereco: enderecoUnidade.endereco,
-          endereco_completo: ultimoLeg?.endereco_fim || enderecoUnidade.endereco,
+          tipo: 'entrega', // retorno à base
+          endereco: ultimoLeg?.endereco_fim || enderecoUnidade.endereco,
           latitude: enderecoUnidade.latitude,
           longitude: enderecoUnidade.longitude,
           ordem: paradas.length + 1, // Última parada
@@ -566,9 +689,6 @@ export default function NovaEntrega() {
           telefone: null,
           observacoes: 'Ponto de chegada',
           status: 'pendente',
-          is_checkpoint: false, // Base não conta como entrega
-          distancia_proxima_parada_metros: null, // Última parada não tem próxima
-          tempo_ate_proxima_parada_segundos: null,
         });
       }
 

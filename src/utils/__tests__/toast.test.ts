@@ -1,5 +1,6 @@
-import { toast } from '../toast';
 import Toast from 'react-native-toast-message';
+
+import { toast } from '../toast';
 
 // Mock react-native-toast-message
 jest.mock('react-native-toast-message', () => ({

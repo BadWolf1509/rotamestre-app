@@ -1,3 +1,4 @@
+/* global jest */
 // Setup para Jest
 import '@testing-library/jest-native/extend-expect';
 
@@ -153,7 +154,7 @@ jest.mock('react-native-unistyles', () => ({
     if (typeof stylesOrFunction === 'function') {
       try {
         return stylesOrFunction(mockTheme, mockMiniRuntime) || {};
-      } catch (error) {
+      } catch {
         return {};
       }
     }
@@ -167,10 +168,10 @@ jest.mock('react-native/Libraries/Image/Image', () => {
   return {
     __esModule: true,
     default: jest.fn((props) => React.createElement('Image', props)),
-    resolveAssetSource: jest.fn((_source) => ({
-      uri: 'mocked-image-uri',
-      width: 100,
-      height: 100,
+    resolveAssetSource: jest.fn((source) => ({
+      uri: source?.uri ?? 'mocked-image-uri',
+      width: source?.width ?? 100,
+      height: source?.height ?? 100,
     })),
   };
 });
@@ -231,4 +232,3 @@ jest.mock('@/hooks/useResponsive', () => ({
     height: 667,
   }),
 }));
-

@@ -1,3 +1,5 @@
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import {
   View,
@@ -8,13 +10,11 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useRouter } from 'expo-router';
+
 import { authService } from '@/lib/auth';
-import { supabase } from '@/lib/supabase';
-import { Usuario } from '@/types/usuario';
-import * as ImagePicker from 'expo-image-picker';
 import { storageService } from '@/lib/storage';
+import { Usuario } from '@/types/usuario';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface SectionItem {
   label: string;
@@ -101,29 +101,6 @@ export default function PerfilMotorista() {
     } finally {
       setUploadingPhoto(false);
     }
-  }
-
-  async function handleLogout() {
-    Alert.alert(
-      'Sair',
-      'Tem certeza que deseja sair da sua conta?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Sair',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await authService.signOut();
-              router.replace('/auth/login');
-            } catch (error) {
-              console.error('Erro ao fazer logout:', error);
-              Alert.alert('Erro', 'Não foi possível sair');
-            }
-          },
-        },
-      ]
-    );
   }
 
   const sections: Section[] = [
@@ -221,15 +198,6 @@ export default function PerfilMotorista() {
       ))}
 
       {/* Botão Sair */}
-      <TouchableOpacity
-        style={styles(theme).logoutButton}
-        onPress={handleLogout}
-        activeOpacity={0.8}
-      >
-        <Text style={styles(theme).logoutIcon}>🚪</Text>
-        <Text style={styles(theme).logoutText}>Sair</Text>
-      </TouchableOpacity>
-
       {/* Espaçamento inferior */}
       <View style={styles(theme).footer} />
     </ScrollView>
@@ -386,38 +354,6 @@ const styles = (theme: any) =>
       fontSize: 20,
       color: theme.colors.gray400,
       marginLeft: 8,
-    },
-    logoutButton: {
-      flexDirection: 'row',
-      backgroundColor: theme.colors.white,
-      marginHorizontal: 16,
-      marginTop: 8,
-      padding: 16,
-      borderRadius: 12,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: theme.colors.error + '30',
-      ...Platform.select({
-        ios: {
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.05,
-          shadowRadius: 8,
-        },
-        android: {
-          elevation: 2,
-        },
-      }),
-    },
-    logoutIcon: {
-      fontSize: 20,
-      marginRight: 8,
-    },
-    logoutText: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: theme.colors.error,
     },
     footer: {
       height: 40,

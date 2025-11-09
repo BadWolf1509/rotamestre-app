@@ -8,10 +8,11 @@
  * - motorista@rotamestre.com.br (senha: motorista123)
  */
 
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 
 // Carregar .env do diretório mcp-rotamestre
 const __filename = fileURLToPath(import.meta.url);

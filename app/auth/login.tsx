@@ -1,25 +1,25 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Image,
+  Platform,
   Text,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator,
-  ImageBackground,
-  Platform,
-  Image,
+  View,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useRouter } from 'expo-router';
-import { authService } from '@/lib/auth';
-import { useResponsive } from '@/hooks/useResponsive';
-import { Ionicons } from '@expo/vector-icons';
+
 import { AlertDialog } from '@/components/AlertDialog';
+import { useResponsive } from '@/hooks/useResponsive';
+import { authService } from '@/lib/auth';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 export default function Login() {
   const { theme } = useUnistyles();
   const router = useRouter();
-  const { isDesktop, isMobile, width, height, breakpoint } = useResponsive();
+  const { isDesktop } = useResponsive();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -46,7 +46,7 @@ export default function Login() {
 
   async function handleLogin() {
     if (!email || !password) {
-      showAlert('Erro', 'Preencha todos os campos', 'error');
+      showAlert('Ops!', 'Por favor, preencha seu e-mail e senha para continuar.', 'warning');
       return;
     }
 
@@ -69,10 +69,22 @@ export default function Login() {
           router.replace('/motorista/rota');
         }
       } else {
-        showAlert('Erro', 'Usuário não encontrado', 'error');
+        showAlert('Usuário não encontrado', 'Não encontramos sua conta. Verifique seus dados e tente novamente.', 'error');
       }
     } catch (error: any) {
-      showAlert('Erro', error.message || 'Erro ao fazer login', 'error');
+      // Mensagens de erro mais amigáveis baseadas no tipo de erro
+      let title = 'Não foi possível entrar';
+      let message = 'Verifique seu e-mail e senha e tente novamente.';
+
+      if (error.message?.toLowerCase().includes('invalid')) {
+        title = 'E-mail ou senha incorretos';
+        message = 'Verifique seus dados e tente novamente. Caso tenha esquecido sua senha, clique em "Esqueceu a senha?".';
+      } else if (error.message?.toLowerCase().includes('network') || error.message?.toLowerCase().includes('connection')) {
+        title = 'Sem conexão';
+        message = 'Verifique sua conexão com a internet e tente novamente.';
+      }
+
+      showAlert(title, message, 'error');
     } finally {
       setLoading(false);
     }

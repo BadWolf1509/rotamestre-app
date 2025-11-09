@@ -7,8 +7,9 @@ import {
   Platform,
   Animated,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+
 import { useResponsive } from '@/hooks/useResponsive';
+import { StyleSheet } from '@/utils/styles';
 
 // ============================================
 // TYPES
@@ -127,8 +128,7 @@ export function DataTable<T = any>({
   isLoading = false,
   skeletonRows = 5,
 }: DataTableProps<T>) {
-  const { isMobile, isTablet, isDesktop } = useResponsive();
-  const { theme } = useUnistyles();
+  const { isMobile, isTablet } = useResponsive();
 
   // Paginação
   const [currentPage, setCurrentPage] = useState(1);
@@ -264,7 +264,7 @@ export function DataTable<T = any>({
         {title && <Text style={styles.title}>{title}</Text>}
 
         <ScrollView style={styles.mobileContainer}>
-          {paginatedData.map((item, index) => (
+          {paginatedData.map((item) => (
             <View key={keyExtractor(item)} style={styles.card}>
               {/* Dados do card */}
               {columns

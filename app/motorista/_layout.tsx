@@ -1,22 +1,52 @@
-import { Drawer } from 'expo-router/drawer';
-import { Text } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { CustomDrawerContent } from '@/components/CustomDrawerContent';
-import 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
+import { Stack, Slot } from 'expo-router';
+import { Pressable } from 'react-native';
+
+import { DrawerMenuProvider, useDrawerMenu } from '@/context/DrawerMenuContext';
+import { useResponsive } from '@/hooks/useResponsive';
+import { useUnistyles } from '@/utils/styles';
 
 export default function MotoristaLayout() {
-  const { theme } = useUnistyles();
+  const { isDesktop } = useResponsive();
+
+  if (isDesktop) {
+    return <Slot />;
+  }
 
   return (
-    <Drawer
-      drawerContent={(props) => <CustomDrawerContent {...props} />}
+    <DrawerMenuProvider>
+      <MobileStack />
+    </DrawerMenuProvider>
+  );
+}
+
+function MobileStack() {
+  const { theme } = useUnistyles();
+  const { openDrawer } = useDrawerMenu();
+
+  const renderMenuButton = (tintColor?: string) => (
+    <Pressable
+      onPress={openDrawer}
+      style={{ paddingHorizontal: 12, paddingVertical: 4 }}
+      hitSlop={8}
+    >
+      <Ionicons name="menu" size={22} color={tintColor ?? theme.colors.white} />
+    </Pressable>
+  );
+
+  const renderBackButton = (navigation: any) => (
+    <Pressable
+      onPress={() => navigation.goBack()}
+      style={{ paddingHorizontal: 12, paddingVertical: 4 }}
+      hitSlop={8}
+    >
+      <Ionicons name="chevron-back" size={22} color={theme.colors.white} />
+    </Pressable>
+  );
+
+  return (
+    <Stack
       screenOptions={{
-        drawerPosition: 'left',
-        drawerType: 'slide',
-        drawerStyle: {
-          width: '80%',
-          maxWidth: 320,
-        },
         headerStyle: {
           backgroundColor: theme.colors.primary,
         },
@@ -24,76 +54,59 @@ export default function MotoristaLayout() {
         headerTitleStyle: {
           fontWeight: 'bold',
         },
-        drawerActiveTintColor: theme.colors.primary,
-        drawerInactiveTintColor: theme.colors.gray600,
-        drawerLabelStyle: styles(theme).drawerLabel,
-        drawerItemStyle: styles(theme).drawerItem,
+        animation: 'slide_from_right',
+        headerLeft: ({ tintColor }) => renderMenuButton(tintColor),
       }}
     >
-      <Drawer.Screen
+      <Stack.Screen
         name="rota"
         options={{
           title: 'Rota Atual',
-          drawerLabel: 'Rota Atual',
-          drawerIcon: () => <Text style={styles(theme).menuIcon}>🚗</Text>,
         }}
       />
-      <Drawer.Screen
+      <Stack.Screen
         name="checkpoints"
         options={{
           title: 'Paradas',
-          drawerLabel: 'Paradas',
-          drawerIcon: () => <Text style={styles(theme).menuIcon}>📍</Text>,
         }}
       />
-      <Drawer.Screen
+      <Stack.Screen
+        name="checkpoints-enhanced"
+        options={{
+          title: 'Checkpoints 2.0',
+        }}
+      />
+      <Stack.Screen
         name="mapa"
         options={{
           title: 'Mapa',
-          drawerLabel: 'Mapa',
-          drawerIcon: () => <Text style={styles(theme).menuIcon}>🗺️</Text>,
         }}
       />
-      <Drawer.Screen
+      <Stack.Screen
         name="historico"
         options={{
           title: 'Histórico',
-          drawerLabel: 'Histórico',
-          drawerIcon: () => <Text style={styles(theme).menuIcon}>📋</Text>,
         }}
       />
-      <Drawer.Screen
+      <Stack.Screen
         name="resumo"
         options={{
           title: 'Resumo',
-          drawerLabel: 'Resumo',
-          drawerIcon: () => <Text style={styles(theme).menuIcon}>📊</Text>,
         }}
       />
-      <Drawer.Screen
+      <Stack.Screen
         name="perfil"
         options={{
           headerShown: false,
-          drawerItemStyle: { display: 'none' }, // Esconder do menu (acessa via seção de perfil)
         }}
       />
-    </Drawer>
+      <Stack.Screen
+        name="mapa-rota"
+        options={({ navigation }) => ({
+          title: 'Mapa da Rota',
+          headerLeft: () => renderBackButton(navigation),
+        })}
+      />
+    </Stack>
   );
 }
-
-const styles = (theme: any) =>
-  StyleSheet.create({
-    menuIcon: {
-      fontSize: 20,
-      marginRight: theme.spacing.lg,
-      width: 24,
-    },
-    drawerLabel: {
-      fontSize: 15,
-      marginLeft: -16,
-    },
-    drawerItem: {
-      borderRadius: 8,
-      marginHorizontal: 8,
-    },
-  });

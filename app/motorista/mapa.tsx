@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react';
-import { View, Text, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import * as Location from 'expo-location';
-import { supabase } from '@/lib/supabase';
-import { useUser } from '@/hooks/useUser';
-import { Ionicons } from '@expo/vector-icons';
+import { useCallback, useEffect, useState } from 'react';
+import { View, Text, ActivityIndicator, Alert } from 'react-native';
+
 import { MapaAdapter } from '@/components/MapaAdapter';
+import { useUser } from '@/hooks/useUser';
+import { supabase } from '@/lib/supabase';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface Parada {
   id: string;
@@ -32,39 +31,23 @@ export default function MapaMotorista() {
   const [rota, setRota] = useState<Rota | null>(null);
   const [paradas, setParadas] = useState<Parada[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [trackingLocation, setTrackingLocation] = useState(false);
 
-  useEffect(() => {
-    if (userData?.id) {
-      loadRotaAtiva();
-      requestLocationPermission();
+  const loadRotaAtiva = useCallback(async () => {
+    const motoristaId = userData?.id;
+    if (!motoristaId) {
+      setLoading(false);
+      setRota(null);
+      setParadas([]);
+      return;
     }
-  }, [userData]);
 
-  async function requestLocationPermission() {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const location = await Location.getCurrentPositionAsync({});
-        setUserLocation({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        });
-      }
-    } catch (error) {
-      console.error('Erro ao obter localização:', error);
-    }
-  }
-
-  async function loadRotaAtiva() {
     try {
       setLoading(true);
 
       const { data: rotasData, error: rotasError } = await supabase
         .from('rotas')
         .select('id, status, unidades(nome)')
-        .eq('motorista_id', userData!.id)
+        .eq('motorista_id', motoristaId)
         .in('status', ['pendente', 'em_andamento'])
         .order('created_at', { ascending: false })
         .limit(1)
@@ -94,13 +77,11 @@ export default function MapaMotorista() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [userData]);
 
-  function toggleLocationTracking() {
-    setTrackingLocation(!trackingLocation);
-    // Location tracking logic will be handled by MapaAdapter
-  }
-
+  useEffect(() => {
+    loadRotaAtiva();
+  }, [loadRotaAtiva]);
 
   if (loading) {
     return (

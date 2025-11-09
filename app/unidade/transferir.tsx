@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,12 +9,12 @@ import {
   Alert,
   TextInput,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useRouter } from 'expo-router';
-import { supabase } from '@/lib/supabase';
-import { useUser } from '@/hooks/useUser';
+
 import { Toast } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
+import { useUser } from '@/hooks/useUser';
+import { supabase } from '@/lib/supabase';
+import { StyleSheet } from '@/utils/styles';
 
 interface GestorElegivel {
   id: string;
@@ -23,7 +24,6 @@ interface GestorElegivel {
 }
 
 export default function TransferirGestaoScreen() {
-  const { theme } = useUnistyles();
   const router = useRouter();
   const { userData, loading: userLoading } = useUser();
   const { toast: toastState, showToast, hideToast } = useToast();
@@ -34,20 +34,21 @@ export default function TransferirGestaoScreen() {
   const [confirmationText, setConfirmationText] = useState('');
   const [transferring, setTransferring] = useState(false);
 
-  useEffect(() => {
-    if (userData?.unidade_id) {
-      loadGestoresElegiveis();
+  const loadGestoresElegiveis = useCallback(async () => {
+    const unidadeId = userData?.unidade_id;
+    if (!unidadeId) {
+      setGestores([]);
+      setLoading(false);
+      return;
     }
-  }, [userData]);
 
-  async function loadGestoresElegiveis() {
     try {
       setLoading(true);
       // Buscar apenas gestores ativos, excluindo o gestor principal atual
       const { data, error } = await supabase
         .from('usuarios')
         .select('id, nome, email, created_at')
-        .eq('unidade_id', userData!.unidade_id)
+        .eq('unidade_id', unidadeId)
         .eq('papel', 'gestor')
         .eq('ativo', true)
         .eq('is_gestor_principal', false)
@@ -62,7 +63,11 @@ export default function TransferirGestaoScreen() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [showToast, userData?.unidade_id]);
+
+  useEffect(() => {
+    loadGestoresElegiveis();
+  }, [loadGestoresElegiveis]);
 
   function handleSelectGestor(gestorId: string) {
     setSelectedGestor(gestorId);

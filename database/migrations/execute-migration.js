@@ -5,9 +5,10 @@
  * Executa: node database/migrations/execute-migration.js
  */
 
-const { Client } = require('pg');
 const fs = require('fs');
 const path = require('path');
+
+const { Client } = require('pg');
 
 // Carregar variáveis de ambiente
 require('dotenv').config({ path: path.join(__dirname, '../../.env') });

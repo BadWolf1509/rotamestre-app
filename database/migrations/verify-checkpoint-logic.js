@@ -5,8 +5,9 @@
  * Mostra a diferença entre contar todas as paradas vs apenas checkpoints
  */
 
-const { Client } = require('pg');
 const path = require('path');
+
+const { Client } = require('pg');
 
 require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 

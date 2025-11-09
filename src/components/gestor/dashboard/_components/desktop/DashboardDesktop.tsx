@@ -1,14 +1,20 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Platform } from 'react-native';
-import { useState } from 'react';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
 import { useRouter } from 'expo-router';
-import { useUser } from '@/hooks/useUser';
-import { supabase } from '@/lib/supabase';
-import type { DashboardData } from '../../dashboard/_hooks/useDashboardData';
-import { StatsCard } from '../shared/StatsCard';
-import { RotasTable } from './RotasTable';
+import { useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Platform } from 'react-native';
+
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { Toast } from '@/components/Toast';
+import { useUser } from '@/hooks/useUser';
+import { supabase } from '@/lib/supabase';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
+
+
+
+import { RotasTable } from './RotasTable';
+import { StatsCard } from '../shared/StatsCard';
+
+import type { DashboardData } from '../../dashboard/_hooks/useDashboardData';
+
 
 interface DashboardDesktopProps extends DashboardData {}
 

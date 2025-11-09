@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,13 +10,13 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useRouter } from 'expo-router';
-import { supabase } from '@/lib/supabase';
-import { useUser } from '@/hooks/useUser';
+
 import { Toast } from '@/components/Toast';
-import { useToast } from '@/hooks/useToast';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { useToast } from '@/hooks/useToast';
+import { useUser } from '@/hooks/useUser';
+import { supabase } from '@/lib/supabase';
+import { StyleSheet } from '@/utils/styles';
 
 interface UnidadeData {
   id: string;
@@ -29,7 +30,6 @@ interface UnidadeData {
 }
 
 export default function UnidadeScreen() {
-  const { theme } = useUnistyles();
   const router = useRouter();
   const { userData, loading: userLoading } = useUser();
   const { toast: toastState, showToast, hideToast } = useToast();
@@ -48,20 +48,20 @@ export default function UnidadeScreen() {
   const [estado, setEstado] = useState('');
   const [cep, setCep] = useState('');
 
-  useEffect(() => {
-    if (userData?.unidade_id) {
-      loadUnidade();
-      loadMembrosCount();
+  const loadUnidade = useCallback(async () => {
+    const unidadeId = userData?.unidade_id;
+    if (!unidadeId) {
+      setUnidade(null);
+      setLoading(false);
+      return;
     }
-  }, [userData]);
 
-  async function loadUnidade() {
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('unidades')
         .select('*')
-        .eq('id', userData!.unidade_id)
+        .eq('id', unidadeId)
         .single();
 
       if (error) throw error;
@@ -79,21 +79,32 @@ export default function UnidadeScreen() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [showToast, userData?.unidade_id]);
 
-  async function loadMembrosCount() {
+  const loadMembrosCount = useCallback(async () => {
+    const unidadeId = userData?.unidade_id;
+    if (!unidadeId) {
+      setMembrosCount(0);
+      return;
+    }
+
     try {
       const { count, error } = await supabase
         .from('usuarios')
         .select('*', { count: 'exact', head: true })
-        .eq('unidade_id', userData!.unidade_id);
+        .eq('unidade_id', unidadeId);
 
       if (error) throw error;
       setMembrosCount(count || 0);
     } catch (error) {
       console.error('Erro ao contar membros:', error);
     }
-  }
+  }, [userData?.unidade_id]);
+
+  useEffect(() => {
+    loadUnidade();
+    loadMembrosCount();
+  }, [loadMembrosCount, loadUnidade]);
 
   async function handleSave() {
     if (!nome.trim()) {

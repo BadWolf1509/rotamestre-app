@@ -7,6 +7,8 @@
  * Usa design tokens para cores, sombras e espaçamento.
  */
 
+import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useRef } from 'react';
 import {
   Modal as RNModal,
   View,
@@ -16,9 +18,9 @@ import {
   Animated,
   Dimensions,
 } from 'react-native';
-import { useEffect, useRef } from 'react';
+
 import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { Ionicons } from '@expo/vector-icons';
+
 
 type ModalSize = 'small' | 'medium' | 'large' | 'full';
 
@@ -80,7 +82,7 @@ export function Modal({
         }),
       ]).start();
     }
-  }, [visible]);
+  }, [fadeAnim, slideAnim, visible]);
 
   const getModalWidth = (): string | number => {
     switch (size) {

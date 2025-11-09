@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { View, Text } from 'react-native';
+
 import { StyleSheet } from '@/utils/styles';
 
 interface Parada {
@@ -27,7 +28,7 @@ interface MapaMobileProps {
  * Na web, o MapaAdapter deve usar MapaWeb em vez deste componente.
  * Este arquivo existe apenas para evitar erros de bundling.
  */
-export function MapaMobile({ paradas }: MapaMobileProps) {
+export function MapaMobile({ paradas: _paradas }: MapaMobileProps) {
   return (
     <View style={styles.container}>
       <Text style={styles.text}>

@@ -1,5 +1,6 @@
 import { View, Text } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+
+import { StyleSheet } from '@/utils/styles';
 
 interface StatsCardProps {
   value: string | number;

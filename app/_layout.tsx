@@ -1,13 +1,3 @@
-// Inicializar Unistyles v3 ANTES de qualquer componente (apenas native)
-import { Platform, View, Text } from 'react-native';
-if (Platform.OS !== 'web') {
-  require('../unistyles');
-}
-
-import { Stack, usePathname } from 'expo-router';
-import { useEffect } from 'react';
-import Toast from 'react-native-toast-message';
-import { useFonts } from 'expo-font';
 import {
   NunitoSans_300Light,
   NunitoSans_400Regular,
@@ -17,11 +7,22 @@ import {
   NunitoSans_800ExtraBold,
 } from '@expo-google-fonts/nunito-sans';
 import { Viga_400Regular } from '@expo-google-fonts/viga';
+import { useFonts } from 'expo-font';
+import { Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useUser } from '@/hooks/useUser';
-import { useResponsive } from '@/hooks/useResponsive';
+import React, { useEffect } from 'react';
+import { Platform, Text, View } from 'react-native';
+import Toast from 'react-native-toast-message';
+
 import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
+import { useResponsive } from '@/hooks/useResponsive';
+import { useUser } from '@/hooks/useUser';
+import { StyleSheet } from '@/utils/styles';
+
+// Inicializar Unistyles v3 ANTES de qualquer componente (apenas native)
+if (Platform.OS !== 'web') {
+  require('../unistyles');
+}
 
 // Prevenir auto-hide do splash screen enquanto fontes carregam
 SplashScreen.preventAutoHideAsync();
@@ -31,7 +32,6 @@ SplashScreen.preventAutoHideAsync();
  * nas rotas específicas (/gestor, /perfil, /unidade)
  */
 function ConditionalLayout({ children }: { children: React.ReactNode }) {
-  const { theme } = useUnistyles();
   const { userData } = useUser();
   const { isDesktop } = useResponsive();
   const pathname = usePathname();

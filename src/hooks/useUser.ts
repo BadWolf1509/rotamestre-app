@@ -1,29 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+
+import { useAuth } from './useAuth';
 import { supabase } from '../lib/supabase';
 import { Usuario } from '../types/usuario';
-import { useAuth } from './useAuth';
 
 export function useUser() {
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [userData, setUserData] = useState<Usuario | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!user) {
+  const loadUserData = useCallback(async () => {
+    if (!userId) {
       setUserData(null);
       setLoading(false);
       return;
     }
 
-    loadUserData();
-  }, [user]);
-
-  async function loadUserData() {
     try {
       const { data, error } = await supabase
         .from('usuarios')
         .select('*, unidades(*)')
-        .eq('id', user!.id)
+        .eq('id', userId)
         .single();
 
       if (error) throw error;
@@ -33,7 +31,11 @@ export function useUser() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [userId]);
+
+  useEffect(() => {
+    loadUserData();
+  }, [loadUserData]);
 
   return {
     userData,

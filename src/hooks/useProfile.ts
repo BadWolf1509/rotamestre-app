@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import { User } from '@supabase/supabase-js';
+import { useState, useEffect, useCallback } from 'react';
+
+import { supabase } from '@/lib/supabase';
 
 interface UserProfile {
   id: string;
@@ -27,13 +28,15 @@ interface UseProfileReturn {
 }
 
 export function useProfile(user: User | null): UseProfileReturn {
+  const userId = user?.id ?? null;
+  const userEmail = user?.email ?? null;
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Carregar perfil
-  async function loadProfile() {
-    if (!user) {
+  const loadProfile = useCallback(async () => {
+    if (!userId) {
       setProfile(null);
       setLoading(false);
       return;
@@ -44,7 +47,7 @@ export function useProfile(user: User | null): UseProfileReturn {
       const { data, error: fetchError } = await supabase
         .from('usuarios')
         .select('*')
-        .eq('id', user.id)
+        .eq('id', userId)
         .single();
 
       if (fetchError) throw fetchError;
@@ -56,27 +59,27 @@ export function useProfile(user: User | null): UseProfileReturn {
       await supabase
         .from('usuarios')
         .update({ ultimo_login: new Date().toISOString() })
-        .eq('id', user.id);
+        .eq('id', userId);
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }
+  }, [userId]);
 
   useEffect(() => {
     loadProfile();
-  }, [user]);
+  }, [loadProfile]);
 
   // Atualizar perfil
   async function updateProfile(data: Partial<UserProfile>) {
-    if (!user || !profile) throw new Error('Usuário não autenticado');
+    if (!userId || !profile) throw new Error('Usuário não autenticado');
 
     try {
       const { error: updateError } = await supabase
         .from('usuarios')
         .update(data)
-        .eq('id', user.id);
+        .eq('id', userId);
 
       if (updateError) throw updateError;
 
@@ -88,12 +91,12 @@ export function useProfile(user: User | null): UseProfileReturn {
 
   // Trocar senha
   async function changePassword(currentPassword: string, newPassword: string) {
-    if (!user) throw new Error('Usuário não autenticado');
+    if (!userId || !userEmail) throw new Error('Usuário não autenticado');
 
     try {
       // Validar senha atual fazendo login novamente
       const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user.email!,
+        email: userEmail,
         password: currentPassword,
       });
 
@@ -110,7 +113,7 @@ export function useProfile(user: User | null): UseProfileReturn {
       await supabase
         .from('usuarios')
         .update({ primeira_senha: false })
-        .eq('id', user.id);
+        .eq('id', userId);
 
       await loadProfile();
     } catch (err: any) {

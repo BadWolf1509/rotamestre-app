@@ -288,13 +288,6 @@ export function abrirNavegacaoRotaCompleta(paradas: Coordenadas[]) {
 
   const origem = paradas[0];
   const destino = paradas[paradas.length - 1];
-  const waypoints = paradas.slice(1, -1);
-
-  // Waze suporta múltiplos waypoints via URL
-  const waypointsWaze = waypoints
-    .map((p) => `${p.latitude},${p.longitude}`)
-    .join('|');
-
   const opcoes: OpcaoNavegacao[] = [
     {
       nome: 'Waze',

@@ -1,8 +1,10 @@
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
-import Register from '../register';
+
 import { authService } from '@/lib/auth';
+
+import Register from '../register';
 
 // Mock expo-router
 const mockBack = jest.fn();
@@ -118,20 +120,48 @@ describe('Register Screen', () => {
       expect(input.props.value).toBe('123456');
     });
 
-    it('deve alternar tipo de usuário para gestor', () => {
-      const { getByText } = render(<Register />);
-      const gestorButton = getByText('Gestor');
+    it('deve alternar tipo de usuário para gestor', async () => {
+      (authService.signUp as jest.Mock).mockResolvedValueOnce(undefined);
 
-      fireEvent.press(gestorButton);
-      // Estado interno foi alterado, verificado pela seleção
+      const { getByText, getByPlaceholderText, getAllByText } = render(<Register />);
+      fireEvent.press(getByText('Gestor'));
+
+      fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
+      fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'gestor@exemplo.com');
+      fireEvent.changeText(getByPlaceholderText('Mínimo 6 caracteres'), '123456');
+      fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), '123456');
+      fireEvent.press(getAllByText('Criar Conta')[1]);
+
+      await waitFor(() => {
+        expect(authService.signUp).toHaveBeenCalledWith(
+          'João Silva',
+          'gestor@exemplo.com',
+          '123456',
+          'gestor'
+        );
+      });
     });
 
-    it('deve alternar tipo de usuário para motorista', () => {
-      const { getByText } = render(<Register />);
-      const motoristaButton = getByText('Motorista');
+    it('deve alternar tipo de usuário para motorista', async () => {
+      (authService.signUp as jest.Mock).mockResolvedValueOnce(undefined);
 
-      fireEvent.press(motoristaButton);
-      // Motorista é o padrão
+      const { getByText, getByPlaceholderText, getAllByText } = render(<Register />);
+      fireEvent.press(getByText('Motorista'));
+
+      fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'Maria Souza');
+      fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'motorista@exemplo.com');
+      fireEvent.changeText(getByPlaceholderText('Mínimo 6 caracteres'), '123456');
+      fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), '123456');
+      fireEvent.press(getAllByText('Criar Conta')[1]);
+
+      await waitFor(() => {
+        expect(authService.signUp).toHaveBeenCalledWith(
+          'Maria Souza',
+          'motorista@exemplo.com',
+          '123456',
+          'motorista'
+        );
+      });
     });
   });
 
@@ -352,9 +382,9 @@ describe('Register Screen', () => {
 
       // Durante loading, texto do botão some (mostra ActivityIndicator)
       await waitFor(() => {
-        const buttons = queryByText('Criar Conta');
         // Título ainda existe, mas botão com texto some
         expect(getAllByText('Criar Conta').length).toBe(1); // Apenas título
+        expect(queryByText('Criar Conta')).toBeTruthy();
       });
     });
 

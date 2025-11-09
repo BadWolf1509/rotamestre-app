@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
   TouchableOpacity,
@@ -7,9 +8,8 @@ import {
   TextStyle,
   Platform,
 } from 'react-native';
+
 import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { Ionicons } from '@expo/vector-icons';
-import { useBreakpoint } from '@/hooks/useBreakpoint';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 export type ButtonSize = 'small' | 'medium' | 'large';
@@ -42,21 +42,7 @@ export function Button({
   textStyle,
 }: ButtonProps) {
   const { theme } = useUnistyles();
-  const { isDesktop, isLargeDesktop } = useBreakpoint();
   const isDisabled = disabled || loading;
-
-  // Responsive sizing for desktop
-  const getResponsiveStyle = () => {
-    if (isLargeDesktop) {
-      return { paddingScale: 1.15, fontScale: 1.125 };
-    }
-    if (isDesktop) {
-      return { paddingScale: 1.1, fontScale: 1.0625 };
-    }
-    return { paddingScale: 1, fontScale: 1 };
-  };
-
-  const { paddingScale } = getResponsiveStyle();
 
   return (
     <TouchableOpacity

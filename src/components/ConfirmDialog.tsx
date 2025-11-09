@@ -1,4 +1,6 @@
-import React, { useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Modal,
   View,
@@ -7,9 +9,8 @@ import {
   Platform,
   Pressable,
 } from 'react-native';
-import { createPortal } from 'react-dom';
+
 import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { Ionicons } from '@expo/vector-icons';
 
 interface ConfirmDialogProps {
   visible: boolean;
@@ -33,15 +34,58 @@ export function ConfirmDialog({
   type = 'default',
 }: ConfirmDialogProps) {
   const { theme } = useUnistyles();
+  const scrollPositionRef = useRef(0);
 
-  // Block body scroll on web when modal is open
+  // Lock body scroll on web while modal is open (best practice for overlays)
   useEffect(() => {
-    if (Platform.OS === 'web' && visible) {
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = '';
-      };
+    if (
+      Platform.OS !== 'web' ||
+      typeof document === 'undefined' ||
+      typeof window === 'undefined' ||
+      !visible
+    ) {
+      return;
     }
+
+    const body = document.body;
+    const html = document.documentElement;
+
+    const preventScroll = (event: Event) => {
+      event.preventDefault();
+    };
+
+    scrollPositionRef.current =
+      window.scrollY || html.scrollTop || body.scrollTop || 0;
+
+    body.style.position = 'fixed';
+    body.style.top = `-${scrollPositionRef.current}px`;
+    body.style.left = '0';
+    body.style.right = '0';
+    body.style.width = '100%';
+    body.style.overflow = 'hidden';
+
+    html.style.overflow = 'hidden';
+    html.style.height = '100%';
+
+    window.addEventListener('wheel', preventScroll, { passive: false });
+    window.addEventListener('touchmove', preventScroll, { passive: false });
+
+    return () => {
+      window.removeEventListener('wheel', preventScroll);
+      window.removeEventListener('touchmove', preventScroll);
+
+      body.style.position = '';
+      body.style.top = '';
+      body.style.left = '';
+      body.style.right = '';
+      body.style.width = '';
+      body.style.overflow = '';
+
+      html.style.overflow = '';
+      html.style.height = '';
+
+      window.scrollTo(0, scrollPositionRef.current);
+    };
   }, [visible]);
 
   const getIconName = () => {
@@ -99,6 +143,8 @@ export function ConfirmDialog({
           backgroundColor: 'rgba(0, 0, 0, 0.5)',
           padding: 0,
           margin: 0,
+          overscrollBehavior: 'contain',
+          touchAction: 'none',
         }}
         onClick={onCancel}
       >

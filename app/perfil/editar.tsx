@@ -15,7 +15,7 @@ import { supabase } from '@/lib/supabase';
 import { Usuario } from '@/types/usuario';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
-export default function EditarPerfil() {
+export default function EditarPerfilGestor() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -74,12 +74,10 @@ export default function EditarPerfil() {
       }
     } catch (error) {
       console.error('Erro ao carregar usuário:', error);
-      setAlertConfig({
-        visible: true,
+      showAlert({
         title: 'Erro ao carregar dados',
         message: 'Não foi possível carregar o seu perfil. Tente novamente.',
         type: 'error',
-        confirmText: 'OK',
         onConfirm: () => router.back(),
       });
       return;
@@ -134,7 +132,7 @@ export default function EditarPerfil() {
         message: 'Suas informações foram salvas com sucesso.',
         type: 'success',
         confirmText: 'Voltar',
-        onConfirm: () => router.replace('/motorista/perfil'),
+        onConfirm: () => router.replace('/perfil'),
       });
     } catch (error: any) {
       console.error('Erro ao salvar:', error);
@@ -236,7 +234,7 @@ export default function EditarPerfil() {
           <View style={styles(theme).buttonsContainer}>
             <TouchableOpacity
               style={styles(theme).buttonSecondary}
-              onPress={() => router.push('/motorista/perfil')}
+              onPress={() => router.push('/perfil')}
               disabled={saving}
             >
               <Text style={styles(theme).buttonSecondaryText}>Cancelar</Text>

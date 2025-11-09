@@ -1,5 +1,7 @@
 import { View, Text, TouchableOpacity } from 'react-native';
+
 import { StyleSheet, useUnistyles } from '@/utils/styles';
+
 import type { RotaResumo } from '../../dashboard/_hooks/useDashboardData';
 
 interface RotaCardProps {

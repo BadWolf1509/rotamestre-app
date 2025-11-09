@@ -1,6 +1,7 @@
+import { render } from '@testing-library/react-native';
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { Alert, Platform } from 'react-native';
+
 import CameraUpload from '../CameraUpload';
 
 // Mock functions - declared before jest.mock

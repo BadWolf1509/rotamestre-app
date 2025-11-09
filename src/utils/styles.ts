@@ -244,7 +244,7 @@ if (Platform.OS === 'web') {
   // Web: StyleSheet básico sem Unistyles (Babel plugin não funciona bem)
   StyleSheetImpl = {
     create: <T extends Record<string, any>>(
-      stylesOrFactory: T | ((theme: Theme) => T)
+      stylesOrFactory: T | ((_theme: Theme) => T)
     ): T => {
       if (typeof stylesOrFactory === 'function') {
         const styles = stylesOrFactory(defaultTheme);

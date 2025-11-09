@@ -1,6 +1,7 @@
+import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { Text } from 'react-native';
+
 import { Modal } from '../Modal';
 
 describe('Modal Component', () => {
@@ -40,7 +41,7 @@ describe('Modal Component', () => {
     });
 
     it('deve renderizar sem título', () => {
-      const { queryByText, getByText } = render(
+      const { getByText } = render(
         <Modal visible={true} onClose={jest.fn()}>
           <Text>Conteúdo</Text>
         </Modal>
@@ -215,7 +216,7 @@ describe('Modal Component', () => {
     });
 
     it('deve renderizar children complexos', () => {
-      const { getByText, getByPlaceholderText } = render(
+      const { getByText } = render(
         <Modal visible={true} onClose={jest.fn()} title="Formulário">
           <Text>Preencha os dados:</Text>
         </Modal>

@@ -1,20 +1,20 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  Image,
   Text,
   TextInput,
   TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  Image,
+  View,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useRouter } from 'expo-router';
-import { authService } from '@/lib/auth';
+
 import { useResponsive } from '@/hooks/useResponsive';
+import { authService } from '@/lib/auth';
+import { StyleSheet } from '@/utils/styles';
 
 export default function ForgotPassword() {
-  const { theme } = useUnistyles();
   const router = useRouter();
   const { isDesktop } = useResponsive();
   const [email, setEmail] = useState('');

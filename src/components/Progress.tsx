@@ -7,8 +7,9 @@
  * Usa design tokens para cores, tipografia e espaçamento.
  */
 
-import { View, Text, ViewStyle, Animated } from 'react-native';
 import { useEffect, useRef } from 'react';
+import { View, Text, ViewStyle, Animated } from 'react-native';
+
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 type ProgressSize = 'small' | 'medium' | 'large';
@@ -48,7 +49,7 @@ export function Progress({
     } else {
       animatedWidth.setValue(clampedProgress);
     }
-  }, [clampedProgress, animated]);
+  }, [animated, animatedWidth, clampedProgress]);
 
   const getColorForProgress = (): string => {
     switch (color) {

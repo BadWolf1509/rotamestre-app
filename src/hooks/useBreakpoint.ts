@@ -87,7 +87,7 @@ export const useResponsiveValue = <T,>(values: {
   desktop?: T;
   largeDesktop?: T;
 }): T => {
-  const { isMobile, isTablet, isDesktop, isLargeDesktop } = useBreakpoint();
+  const { isTablet, isDesktop, isLargeDesktop } = useBreakpoint();
 
   if (isLargeDesktop && values.largeDesktop !== undefined) {
     return values.largeDesktop;

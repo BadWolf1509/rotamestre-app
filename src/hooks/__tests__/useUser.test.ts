@@ -1,7 +1,9 @@
-import { renderHook, waitFor } from '@testing-library/react-native';
-import { useUser } from '../useUser';
-import { supabase } from '@/lib/supabase';
 import { User } from '@supabase/supabase-js';
+import { renderHook, waitFor } from '@testing-library/react-native';
+
+import { supabase } from '@/lib/supabase';
+
+import { useUser } from '../useUser';
 
 // Mock do supabase
 jest.mock('@/lib/supabase');

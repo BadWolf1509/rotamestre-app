@@ -1,4 +1,5 @@
 import { renderHook } from '@testing-library/react-native';
+
 import { useResponsive } from '../useResponsive';
 
 // Mock básico para useWindowDimensions retornar valores padrão

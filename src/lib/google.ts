@@ -1,4 +1,5 @@
-import { Coordenadas, Endereco, EnderecoGeocodificado } from '../types/endereco';
+import { Coordenadas, EnderecoGeocodificado } from '../types/endereco';
+import { GoogleDirectionsLeg, GoogleDirectionsResult } from '../types/google-directions';
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
@@ -183,7 +184,7 @@ export const googleMapsService = {
     origin: Coordenadas,
     destination: Coordenadas,
     waypoints?: Coordenadas[]
-  ) {
+  ): Promise<GoogleDirectionsResult | null> {
     try {
       let waypointsParam = '';
       if (waypoints && waypoints.length > 0) {
@@ -203,7 +204,7 @@ export const googleMapsService = {
         const route = data.routes[0];
 
         // Extrair informações de cada leg (segmento entre paradas consecutivas)
-        const legs = route.legs.map((leg: any) => ({
+        const legs: GoogleDirectionsLeg[] = route.legs.map((leg: any) => ({
           distancia_metros: leg.distance.value,
           duracao_segundos: leg.duration.value,
           endereco_inicio: leg.start_address,

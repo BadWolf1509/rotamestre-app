@@ -1,5 +1,7 @@
 import { View, Text, TouchableOpacity, ScrollView, Platform } from 'react-native';
+
 import { StyleSheet, useUnistyles } from '@/utils/styles';
+
 import type { RotaResumo } from '../../dashboard/_hooks/useDashboardData';
 
 interface RotasTableProps {

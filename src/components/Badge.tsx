@@ -8,6 +8,7 @@
  */
 
 import { View, Text, ViewStyle, TextStyle } from 'react-native';
+
 import { StyleSheet } from '@/utils/styles';
 
 type BadgeStatus = 'pendente' | 'em_andamento' | 'concluida' | 'cancelada';

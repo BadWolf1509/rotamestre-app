@@ -1,560 +1,371 @@
-import React, { useState, useEffect } from 'react';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
   ScrollView,
+  TouchableOpacity,
+  Image,
+  Alert,
+  ActivityIndicator,
   Platform,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useRouter } from 'expo-router';
+
+import { authService } from '@/lib/auth';
+import { storageService } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
-import { useProfile } from '@/hooks/useProfile';
-import { Avatar } from '@/components/Avatar';
-import { ConfirmModal } from '@/components/ConfirmModal';
-import { Toast } from '@/components/Toast';
-import { useToast } from '@/hooks/useToast';
-import { formatPhone, validatePhone, getPhoneErrorMessage, maskPhone } from '@/utils/phoneValidation';
+import { Usuario } from '@/types/usuario';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
-export default function PerfilScreen() {
-  const router = useRouter();
+interface SectionItem {
+  label: string;
+  value?: string;
+  action?: boolean;
+}
+
+interface Section {
+  title: string;
+  icon: string;
+  items: SectionItem[];
+  onPress?: () => void;
+}
+
+type UsuarioComUnidade = Usuario & {
+  unidades?: {
+    nome?: string;
+  };
+};
+
+export default function PerfilGestor() {
   const { theme } = useUnistyles();
-  const [user, setUser] = useState<any>(null);
-  const { profile, loading: profileLoading, updateProfile, refetch } = useProfile(user);
-  const { toast, showToast, hideToast, withToast } = useToast();
-
-  const [isEditing, setIsEditing] = useState(false);
-  const [nome, setNome] = useState('');
-  const [telefone, setTelefone] = useState('');
-  const [phoneError, setPhoneError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const router = useRouter();
+  const [usuario, setUsuario] = useState<UsuarioComUnidade | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   useEffect(() => {
-    async function loadUser() {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      setUser(currentUser);
-    }
-    loadUser();
+    loadUsuario();
   }, []);
 
-  useEffect(() => {
-    if (profile) {
-      setNome(profile.nome || '');
-      setTelefone(profile.telefone || '');
-    }
-  }, [profile]);
-
-  async function handleSave() {
-    if (!nome.trim()) {
-      showToast('Nome é obrigatório', 'error');
-      return;
-    }
-
-    if (telefone && !validatePhone(telefone)) {
-      showToast('Telefone inválido', 'error');
-      return;
-    }
-
+  async function loadUsuario() {
     try {
-      setLoading(true);
-      await withToast(
-        async () => {
-          await updateProfile({
-            nome: nome.trim(),
-            telefone: telefone.trim() || null,
-          });
-        },
-        {
-          loading: 'Salvando alterações...',
-          success: 'Perfil atualizado com sucesso!',
-          error: 'Erro ao atualizar perfil',
-        }
-      );
+      const session = await authService.getSession();
+      if (session?.user?.id) {
+        const { data, error } = await supabase
+          .from('usuarios')
+          .select('*, unidades(nome)')
+          .eq('id', session.user.id)
+          .single();
 
-      setIsEditing(false);
-    } catch (error: any) {
-      console.error('Erro ao salvar perfil:', error);
+        if (error) throw error;
+        setUsuario(data as UsuarioComUnidade);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar usuário:', error);
+      Alert.alert('Erro', 'Não foi possível carregar os dados do perfil');
     } finally {
       setLoading(false);
     }
   }
 
-  function handleCancel() {
-    setNome(profile?.nome || '');
-    setTelefone(profile?.telefone || '');
-    setPhoneError('');
-    setIsEditing(false);
-  }
-
-  function handlePhoneChange(text: string) {
-    const formatted = maskPhone(text);
-    setTelefone(formatted);
-
-    if (text.length > 0) {
-      const error = getPhoneErrorMessage(formatted);
-      setPhoneError(error || '');
-    } else {
-      setPhoneError('');
-    }
-  }
-
-  async function handleLogout() {
-    if (Platform.OS === 'web') {
-      setShowLogoutModal(true);
-    } else {
-      const Alert = require('react-native').Alert;
-      Alert.alert(
-        'Sair da Conta',
-        'Tem certeza que deseja sair?',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Sair',
-            style: 'destructive',
-            onPress: confirmLogout,
-          },
-        ]
-      );
-    }
-  }
-
-  async function confirmLogout() {
-    setShowLogoutModal(false);
-    await withToast(
-      async () => {
-        await supabase.auth.signOut();
-        router.replace('/auth/login');
-      },
-      {
-        loading: 'Saindo...',
-        success: 'Até logo!',
-        error: 'Erro ao sair',
+  async function handleSelectPhoto() {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permissão necessária', 'Precisamos de acesso à sua galeria');
+        return;
       }
-    );
-  }
 
-  async function handleRetry() {
-    if (refetch) {
-      await refetch();
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0] && usuario?.id) {
+        setUploadingPhoto(true);
+        const fotoUrl = await storageService.uploadFotoUsuario(
+          usuario.id,
+          result.assets[0].uri
+        );
+
+        setUsuario({ ...usuario, foto_url: fotoUrl });
+
+        Alert.alert('Sucesso', 'Foto atualizada com sucesso!');
+      }
+    } catch (error) {
+      console.error('Erro ao selecionar foto:', error);
+      Alert.alert('Erro', 'Não foi possível atualizar a foto');
+    } finally {
+      setUploadingPhoto(false);
     }
   }
 
-  if (profileLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#f7a02a" />
-        <Text style={styles.loadingText}>Carregando perfil...</Text>
-      </View>
-    );
-  }
+  const sections: Section[] = [
+    {
+      title: 'Informações Pessoais',
+      icon: '👤',
+      items: [
+        { label: 'Nome', value: usuario?.nome || 'Não informado' },
+        { label: 'Email', value: usuario?.email || 'Não informado' },
+        { label: 'Telefone', value: usuario?.telefone || 'Não informado' },
+      ],
+      onPress: () => router.push('/perfil/editar'),
+    },
+    {
+      title: 'Segurança',
+      icon: '🔐',
+      items: [{ label: 'Alterar Senha', action: true }],
+      onPress: () => router.push('/perfil/trocar-senha'),
+    },
+  ];
 
-  if (!profile) {
+  if (loading) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Erro ao carregar perfil</Text>
-        <TouchableOpacity
-          style={styles.retryButton}
-          onPress={handleRetry}
-          accessibilityLabel="Tentar carregar perfil novamente"
-          accessibilityRole="button"
-        >
-          <Text style={styles.retryButtonText}>Tentar novamente</Text>
-        </TouchableOpacity>
+      <View style={styles(theme).loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={styles(theme).loadingText}>Carregando perfil...</Text>
       </View>
     );
   }
 
   return (
-    <>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.headerTitle}>Meu Perfil</Text>
-            <Text style={styles.headerSubtitle}>
-              {profile?.unidades?.nome || 'Rota Mestre'}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Content */}
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.content}>
-
-        {/* Profile Header com Avatar */}
-        <View style={styles.profileHeader}>
-          <Avatar
-            name={profile.nome}
-            imageUrl={profile.foto_url}
-            size="xl"
-          />
-          <View style={styles.profileHeaderInfo}>
-            <Text style={styles.profileName}>{profile.nome}</Text>
-            <Text style={styles.profileRole}>
-              {profile.papel === 'gestor' ? 'Gestor' : 'Motorista'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Informações do Perfil */}
-        <View style={styles.card}>
-          <View style={styles.infoGroup}>
-            <Text style={styles.label}>Nome Completo</Text>
-            {isEditing ? (
-              <TextInput
-                style={styles.input}
-                value={nome}
-                onChangeText={setNome}
-                placeholder="Digite seu nome completo"
-                autoCapitalize="words"
-                accessibilityLabel="Campo de nome completo"
-                accessibilityHint="Digite seu nome completo"
-              />
-            ) : (
-              <Text style={styles.value}>{profile.nome}</Text>
-            )}
-          </View>
-
-          <View style={styles.infoGroup}>
-            <Text style={styles.label}>E-mail</Text>
-            <Text style={styles.value}>{profile.email}</Text>
-            <Text style={styles.hint}>O e-mail não pode ser alterado</Text>
-          </View>
-
-          <View style={styles.infoGroup}>
-            <Text style={styles.label}>Telefone</Text>
-            {isEditing ? (
-              <>
-                <TextInput
-                  style={[styles.input, phoneError && styles.inputError]}
-                  value={telefone}
-                  onChangeText={handlePhoneChange}
-                  placeholder="(00) 00000-0000"
-                  keyboardType="phone-pad"
-                  maxLength={15}
-                  accessibilityLabel="Campo de telefone"
-                  accessibilityHint="Digite seu telefone com DDD"
-                />
-                {phoneError && <Text style={styles.errorText}>{phoneError}</Text>}
-              </>
-            ) : (
-              <Text style={styles.value}>{formatPhone(profile.telefone) || 'Não informado'}</Text>
-            )}
-          </View>
-
-          <View style={styles.infoGroup}>
-            <Text style={styles.label}>Papel</Text>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {profile.papel === 'gestor' ? 'Gestor' : 'Motorista'}
-              </Text>
-            </View>
-          </View>
-
-          {profile.ultimo_login && (
-            <View style={styles.infoGroup}>
-              <Text style={styles.label}>Último acesso</Text>
-              <Text style={styles.valueSecondary}>
-                {new Date(profile.ultimo_login).toLocaleString('pt-BR')}
+    <ScrollView style={styles(theme).container}>
+      <View style={styles(theme).header}>
+        <TouchableOpacity
+          onPress={handleSelectPhoto}
+          disabled={uploadingPhoto}
+          style={styles(theme).avatarContainer}
+        >
+          {usuario?.foto_url ? (
+            <Image source={{ uri: usuario.foto_url }} style={styles(theme).avatar} />
+          ) : (
+            <View style={styles(theme).avatarPlaceholder}>
+              <Text style={styles(theme).avatarPlaceholderText}>
+                {usuario?.nome?.charAt(0).toUpperCase() || '?'}
               </Text>
             </View>
           )}
-        </View>
-
-        {/* Botões de Edição */}
-        {isEditing ? (
-          <View style={styles.editButtons}>
-            <TouchableOpacity
-              style={[styles.button, styles.saveButton, loading && styles.buttonDisabled]}
-              onPress={handleSave}
-              disabled={loading}
-              accessibilityLabel="Salvar alterações do perfil"
-              accessibilityRole="button"
-              accessibilityState={{ disabled: loading }}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>Salvar Alterações</Text>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.button, styles.cancelButton]}
-              onPress={handleCancel}
-              disabled={loading}
-              accessibilityLabel="Cancelar edição"
-              accessibilityRole="button"
-              accessibilityHint="Descarta as alterações feitas"
-            >
-              <Text style={styles.cancelButtonText}>Cancelar</Text>
-            </TouchableOpacity>
+          <View style={styles(theme).avatarBadge}>
+            <Text style={styles(theme).avatarBadgeText}>📷</Text>
           </View>
-        ) : (
-          <TouchableOpacity
-            style={[styles.button, styles.editButton]}
-            onPress={() => setIsEditing(true)}
-            accessibilityLabel="Editar perfil"
-            accessibilityRole="button"
-            accessibilityHint="Ativa o modo de edição do perfil"
-          >
-            <Text style={styles.buttonText}>✏️ Editar Perfil</Text>
-          </TouchableOpacity>
-        )}
+        </TouchableOpacity>
 
-        {/* Ações Adicionais */}
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.push('/perfil/trocar-senha')}
-            accessibilityLabel="Trocar senha"
-            accessibilityRole="button"
-            accessibilityHint="Navega para a tela de troca de senha"
-          >
-            <Text style={styles.actionButtonText}>🔒 Trocar Senha</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, styles.logoutButton]}
-            onPress={handleLogout}
-            accessibilityLabel="Sair da conta"
-            accessibilityRole="button"
-            accessibilityHint="Desloga do sistema"
-          >
-            <Text style={[styles.actionButtonText, styles.logoutButtonText]}>
-              🚪 Sair da Conta
+        <Text style={styles(theme).nome}>{usuario?.nome || 'Gestor'}</Text>
+        <Text style={styles(theme).email}>{usuario?.email || ''}</Text>
+        <View style={styles(theme).roleBadge}>
+          <Text style={styles(theme).roleBadgeText}>
+            {usuario?.papel === 'gestor' ? 'Gestor' : 'Usuário'}
+          </Text>
+        </View>
+        {usuario?.unidades?.nome && (
+          <View style={styles(theme).unitBadge}>
+            <Text style={styles(theme).unitBadgeLabel}>Unidade</Text>
+            <Text style={styles(theme).unitBadgeValue}>
+              {usuario.unidades.nome}
             </Text>
-          </TouchableOpacity>
-        </View>
-        </View>
-      </ScrollView>
+          </View>
+        )}
+      </View>
 
-      {/* Modal de Confirmação de Logout */}
-      <ConfirmModal
-        visible={showLogoutModal}
-        title="Sair da Conta"
-        message="Tem certeza que deseja sair? Você precisará fazer login novamente para acessar o sistema."
-        confirmText="Sair"
-        cancelText="Cancelar"
-        type="danger"
-        onConfirm={confirmLogout}
-        onCancel={() => setShowLogoutModal(false)}
-      />
+      {sections.map((section, index) => (
+        <TouchableOpacity
+          key={index}
+          style={styles(theme).section}
+          onPress={section.onPress}
+          activeOpacity={0.7}
+        >
+          <View style={styles(theme).sectionHeader}>
+            <Text style={styles(theme).sectionIcon}>{section.icon}</Text>
+            <Text style={styles(theme).sectionTitle}>{section.title}</Text>
+            <Text style={styles(theme).sectionArrow}>›</Text>
+          </View>
 
-      {/* Toast de Feedback */}
-      <Toast {...toast} onDismiss={hideToast} />
-    </>
+          <View style={styles(theme).sectionContent}>
+            {section.items.map((item, itemIndex) => (
+              <View key={itemIndex} style={styles(theme).sectionItem}>
+                <Text style={styles(theme).itemLabel}>{item.label}</Text>
+                {item.value ? (
+                  <Text style={styles(theme).itemValue} numberOfLines={1}>
+                    {item.value}
+                  </Text>
+                ) : (
+                  item.action && (
+                    <Text style={styles(theme).itemAction}>›</Text>
+                  )
+                )}
+              </View>
+            ))}
+          </View>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
   );
 }
 
-const styles = StyleSheet.create(theme => ({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.colors.gray50,
-  },
-  loadingText: {
-    marginTop: theme.spacing.lg,
-    fontSize: theme.typography.base,
-    color: theme.colors.gray500,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.colors.gray50,
-    padding: theme.spacing['2xl'],
-  },
-  errorText: {
-    fontSize: theme.typography.base,
-    color: theme.colors.error,
-    marginBottom: theme.spacing.lg,
-  },
-  retryButton: {
-    backgroundColor: theme.colors.secondary,
-    paddingHorizontal: theme.spacing['2xl'],
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.lg,
-  },
-  retryButtonText: {
-    color: theme.colors.white,
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
-  header: {
-    backgroundColor: theme.colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray200,
-    paddingHorizontal: theme.spacing['3xl'],
-    paddingVertical: theme.spacing['2xl'],
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitle: {
-    fontSize: theme.typography['3xl'],
-    fontFamily: theme.typography.fontDisplay,
-    color: theme.colors.gray900,
-  },
-  headerSubtitle: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
-    marginTop: 4,
-  },
-  scrollView: {
-    flex: 1,
-    backgroundColor: theme.colors.gray50,
-  },
-  content: {
-    paddingHorizontal: theme.spacing['3xl'],
-    paddingVertical: theme.spacing['2xl'],
-    maxWidth: theme.layout.containerMaxWidth,
-    marginHorizontal: 'auto',
-    width: '100%',
-  },
-  card: {
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.borderRadius.xl,
-    padding: theme.spacing['2xl'],
-    marginBottom: theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.gray200,
-  },
-  infoGroup: {
-    marginBottom: theme.spacing['2xl'],
-  },
-  label: {
-    fontSize: theme.typography.xs,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray700,
-    marginBottom: theme.spacing.sm,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  value: {
-    fontSize: theme.typography.base,
-    color: theme.colors.gray900,
-  },
-  valueSecondary: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
-  },
-  hint: {
-    fontSize: theme.typography.xs,
-    color: theme.colors.gray400,
-    marginTop: 4,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: theme.colors.gray300,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.md,
-    fontSize: theme.typography.base,
-    backgroundColor: theme.colors.white,
-  },
-  badge: {
-    alignSelf: 'flex-start',
-    backgroundColor: theme.colors.info + '15',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.md,
-  },
-  badgeText: {
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.info,
-  },
-  editButtons: {
-    gap: theme.spacing.md,
-    marginBottom: theme.spacing.lg,
-  },
-  button: {
-    padding: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
-    alignItems: 'center',
-  },
-  editButton: {
-    backgroundColor: theme.colors.secondary,
-    marginBottom: theme.spacing.lg,
-  },
-  saveButton: {
-    backgroundColor: theme.colors.success,
-  },
-  cancelButton: {
-    backgroundColor: theme.colors.white,
-    borderWidth: 1,
-    borderColor: theme.colors.gray300,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: theme.colors.white,
-    fontSize: theme.typography.base,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
-  cancelButtonText: {
-    color: theme.colors.gray500,
-    fontSize: theme.typography.base,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
-  actions: {
-    gap: theme.spacing.md,
-  },
-  actionButton: {
-    backgroundColor: theme.colors.white,
-    padding: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.gray300,
-  },
-  actionButtonText: {
-    fontSize: theme.typography.base,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray700,
-  },
-  logoutButton: {
-    borderColor: theme.colors.error + '30',
-    backgroundColor: theme.colors.error + '10',
-  },
-  logoutButtonText: {
-    color: theme.colors.error,
-  },
-  profileHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: theme.spacing['3xl'],
-    padding: theme.spacing['2xl'],
-    backgroundColor: theme.colors.primary + '08',
-    borderRadius: theme.borderRadius.xl,
-  },
-  profileHeaderInfo: {
-    marginLeft: theme.spacing['2xl'],
-    flex: 1,
-  },
-  profileName: {
-    fontSize: theme.typography['2xl'],
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray900,
-  },
-  profileRole: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray600,
-    marginTop: 4,
-  },
-  inputError: {
-    borderColor: theme.colors.error,
-  },
-  errorText: {
-    fontSize: theme.typography.xs,
-    color: theme.colors.error,
-    marginTop: 4,
-  },
-}));
+const styles = (theme: any) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.gray50,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.colors.gray50,
+    },
+    loadingText: {
+      marginTop: theme.spacing.sm,
+      fontSize: theme.typography.sm,
+      color: theme.colors.gray500,
+    },
+    header: {
+      padding: theme.spacing.xl,
+      alignItems: 'center',
+      backgroundColor: theme.colors.white,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.gray200,
+    },
+    avatarContainer: {
+      position: 'relative',
+    },
+    avatar: {
+      width: 96,
+      height: 96,
+      borderRadius: 48,
+    },
+    avatarPlaceholder: {
+      width: 96,
+      height: 96,
+      borderRadius: 48,
+      backgroundColor: theme.colors.primaryBg,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    avatarPlaceholderText: {
+      fontSize: 36,
+      color: theme.colors.primary,
+      fontWeight: 'bold',
+    },
+    avatarBadge: {
+      position: 'absolute',
+      bottom: 0,
+      right: 0,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: theme.colors.secondary,
+      borderWidth: 2,
+      borderColor: theme.colors.white,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarBadgeText: {
+      fontSize: 14,
+      color: theme.colors.white,
+    },
+    nome: {
+      marginTop: theme.spacing.lg,
+      fontSize: theme.typography['2xl'],
+      fontFamily: theme.typography.fontSansBold,
+      color: theme.colors.gray900,
+    },
+    email: {
+      marginTop: 4,
+      fontSize: theme.typography.sm,
+      color: theme.colors.gray500,
+    },
+    roleBadge: {
+      marginTop: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: 6,
+      borderRadius: theme.borderRadius.full,
+      backgroundColor: theme.colors.primaryBg,
+    },
+    roleBadgeText: {
+      color: theme.colors.primary,
+      fontWeight: '600',
+    },
+    unitBadge: {
+      marginTop: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: 6,
+      borderRadius: theme.borderRadius.md,
+      backgroundColor: theme.colors.gray100,
+    },
+    unitBadgeLabel: {
+      fontSize: theme.typography.xs,
+      color: theme.colors.gray500,
+    },
+    unitBadgeValue: {
+      fontSize: theme.typography.sm,
+      fontWeight: '600',
+      color: theme.colors.gray800,
+    },
+    section: {
+      margin: theme.spacing.lg,
+      backgroundColor: theme.colors.white,
+      borderRadius: theme.borderRadius.lg,
+      borderWidth: 1,
+      borderColor: theme.colors.gray100,
+      overflow: 'hidden',
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 2 },
+        },
+        android: {
+          elevation: 2,
+        },
+      }),
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: theme.spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.gray100,
+    },
+    sectionIcon: {
+      fontSize: 20,
+      marginRight: theme.spacing.md,
+    },
+    sectionTitle: {
+      flex: 1,
+      fontSize: theme.typography.base,
+      fontWeight: '600',
+      color: theme.colors.gray900,
+    },
+    sectionArrow: {
+      fontSize: 20,
+      color: theme.colors.gray400,
+    },
+    sectionContent: {
+      padding: theme.spacing.lg,
+      gap: theme.spacing.sm,
+    },
+    sectionItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    itemLabel: {
+      fontSize: theme.typography.sm,
+      color: theme.colors.gray500,
+    },
+    itemValue: {
+      fontSize: theme.typography.sm,
+      color: theme.colors.gray900,
+      maxWidth: '60%',
+      textAlign: 'right',
+    },
+    itemAction: {
+      fontSize: 20,
+      color: theme.colors.gray400,
+    },
+  });

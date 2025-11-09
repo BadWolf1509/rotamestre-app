@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -8,21 +9,20 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useRouter } from 'expo-router';
-import { supabase } from '@/lib/supabase';
-import { useProfile } from '@/hooks/useProfile';
+
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
-import { isPasswordValid } from '@/utils/passwordValidation';
-import { useResponsive } from '@/hooks/useResponsive';
 import { ResponsiveContainer } from '@/components/ResponsiveContainer';
+import { useProfile } from '@/hooks/useProfile';
+import { useResponsive } from '@/hooks/useResponsive';
+import { supabase } from '@/lib/supabase';
+import { isPasswordValid } from '@/utils/passwordValidation';
+import { StyleSheet } from '@/utils/styles';
 
 export default function FirstPasswordScreen() {
-  const { theme } = useUnistyles();
   const router = useRouter();
   const { isDesktop } = useResponsive();
   const [user, setUser] = useState<any>(null);
-  const { profile, updateProfile } = useProfile(user);
+  const { profile } = useProfile(user);
 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

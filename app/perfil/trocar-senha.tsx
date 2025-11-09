@@ -1,308 +1,421 @@
-import React, { useState, useEffect } from 'react';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator,
+  Alert,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useRouter } from 'expo-router';
+
+import { authService } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
-import { useProfile } from '@/hooks/useProfile';
-import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
-import { isPasswordValid } from '@/utils/passwordValidation';
-import { Toast } from '@/components/Toast';
-import { useToast } from '@/hooks/useToast';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
-export default function TrocarSenhaScreen() {
-  const router = useRouter();
+export default function AlterarSenha() {
   const { theme } = useUnistyles();
-  const [user, setUser] = useState<any>(null);
-  const { profile, changePassword } = useProfile(user);
-  const { toast, showToast, hideToast, withToast } = useToast();
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
 
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
+  // Campos
+  const [senhaAtual, setSenhaAtual] = useState('');
+  const [novaSenha, setNovaSenha] = useState('');
+  const [confirmarSenha, setConfirmarSenha] = useState('');
 
-  useEffect(() => {
-    async function loadUser() {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      setUser(currentUser);
-    }
-    loadUser();
-  }, []);
+  // Visibilidade das senhas
+  const [showSenhaAtual, setShowSenhaAtual] = useState(false);
+  const [showNovaSenha, setShowNovaSenha] = useState(false);
+  const [showConfirmarSenha, setShowConfirmarSenha] = useState(false);
 
-  async function handleChangePassword() {
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      showToast('Preencha todos os campos', 'error');
+  async function handleSave() {
+    // Validações
+    if (!senhaAtual) {
+      Alert.alert('Erro', 'Digite sua senha atual');
       return;
     }
 
-    if (newPassword !== confirmPassword) {
-      showToast('As senhas não coincidem', 'error');
+    if (!novaSenha) {
+      Alert.alert('Erro', 'Digite a nova senha');
       return;
     }
 
-    if (!isPasswordValid(newPassword)) {
-      showToast('A nova senha não atende aos requisitos mínimos de segurança', 'error');
+    if (novaSenha.length < 6) {
+      Alert.alert('Erro', 'A nova senha deve ter no mínimo 6 caracteres');
       return;
     }
 
-    if (currentPassword === newPassword) {
-      showToast('A nova senha deve ser diferente da senha atual', 'error');
+    if (novaSenha !== confirmarSenha) {
+      Alert.alert('Erro', 'As senhas não coincidem');
       return;
     }
+
+    if (senhaAtual === novaSenha) {
+      Alert.alert('Erro', 'A nova senha deve ser diferente da atual');
+      return;
+    }
+
+    setSaving(true);
 
     try {
-      setLoading(true);
-      await withToast(
-        async () => {
-          await changePassword(currentPassword, newPassword);
-          await supabase.auth.signOut();
-          router.replace('/auth/login');
-        },
+      // Verificar senha atual fazendo login novamente
+      const session = await authService.getSession();
+      if (!session?.user?.email) {
+        throw new Error('Sessão não encontrada');
+      }
+
+      // Tentar fazer login com a senha atual para validar
+      try {
+        await authService.signIn(session.user.email, senhaAtual);
+      } catch {
+        throw new Error('Senha atual incorreta');
+      }
+
+      // Atualizar senha
+      await authService.updatePassword(novaSenha);
+
+      // Marcar primeira_senha como false se ainda não estiver
+      await supabase
+        .from('usuarios')
+        .update({
+          primeira_senha: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', session.user.id);
+
+      Alert.alert('Sucesso!', 'Senha alterada com sucesso!', [
         {
-          loading: 'Alterando senha...',
-          success: 'Senha alterada com sucesso! Faça login novamente.',
-          error: 'Erro ao alterar senha',
-        }
-      );
+          text: 'OK',
+          onPress: () => router.back(),
+        },
+      ]);
     } catch (error: any) {
       console.error('Erro ao alterar senha:', error);
+      Alert.alert('Erro', error.message || 'Não foi possível alterar a senha');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   }
 
+  function validatePassword(password: string): {
+    isValid: boolean;
+    message: string;
+  } {
+    if (password.length < 6) {
+      return { isValid: false, message: 'Mínimo 6 caracteres' };
+    }
+    if (password.length >= 6 && password.length < 8) {
+      return { isValid: true, message: 'Senha fraca' };
+    }
+    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+      return { isValid: true, message: 'Senha média' };
+    }
+    return { isValid: true, message: 'Senha forte' };
+  }
+
+  const passwordStrength = novaSenha ? validatePassword(novaSenha) : null;
+  const passwordsMatch = novaSenha && confirmarSenha && novaSenha === confirmarSenha;
+
   return (
-    <>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.headerTitle}>Trocar Senha</Text>
-            <Text style={styles.headerSubtitle}>
-              {profile?.unidades?.nome || 'Rota Mestre'}
+    <View style={styles(theme).container}>
+      <ScrollView style={styles(theme).scrollView}>
+        {/* Header */}
+        <View style={styles(theme).header}>
+          <View style={styles(theme).headerContent}>
+            <Text style={styles(theme).headerSubtitle}>
+              Crie uma senha forte para proteger sua conta
             </Text>
           </View>
         </View>
-      </View>
 
-      {/* Content */}
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.content}>
-        <View style={styles.infoBox}>
-          <Text style={styles.infoText}>
-            Por segurança, você precisará fazer login novamente após trocar a senha.
-          </Text>
-        </View>
+        {/* Formulário */}
+        <View style={styles(theme).form}>
+          {/* Senha Atual */}
+          <View style={styles(theme).inputGroup}>
+            <Text style={styles(theme).inputLabel}>
+              Senha Atual <Text style={styles(theme).required}>*</Text>
+            </Text>
+            <View style={styles(theme).passwordContainer}>
+              <TextInput
+                style={styles(theme).input}
+                placeholder="Digite sua senha atual"
+                value={senhaAtual}
+                onChangeText={setSenhaAtual}
+                secureTextEntry={!showSenhaAtual}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                style={styles(theme).passwordToggle}
+                onPress={() => setShowSenhaAtual(!showSenhaAtual)}
+              >
+                <Text style={styles(theme).passwordToggleText}>
+                  {showSenhaAtual ? '👁️' : '👁️‍🗨️'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Senha Atual</Text>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-              secureTextEntry={!showCurrentPassword}
-              placeholder="Digite sua senha atual"
-              autoCapitalize="none"
-              accessibilityLabel="Campo de senha atual"
-              accessibilityHint="Digite sua senha atual para confirmar a alteração"
-            />
+          {/* Nova Senha */}
+          <View style={styles(theme).inputGroup}>
+            <Text style={styles(theme).inputLabel}>
+              Nova Senha <Text style={styles(theme).required}>*</Text>
+            </Text>
+            <View style={styles(theme).passwordContainer}>
+              <TextInput
+                style={styles(theme).input}
+                placeholder="Digite a nova senha"
+                value={novaSenha}
+                onChangeText={setNovaSenha}
+                secureTextEntry={!showNovaSenha}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                style={styles(theme).passwordToggle}
+                onPress={() => setShowNovaSenha(!showNovaSenha)}
+              >
+                <Text style={styles(theme).passwordToggleText}>
+                  {showNovaSenha ? '👁️' : '👁️‍🗨️'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {passwordStrength && (
+              <Text
+                style={[
+                  styles(theme).helperText,
+                  passwordStrength.message === 'Senha forte' &&
+                    styles(theme).helperTextSuccess,
+                  passwordStrength.message === 'Senha média' &&
+                    styles(theme).helperTextWarning,
+                  !passwordStrength.isValid && styles(theme).helperTextError,
+                ]}
+              >
+                {passwordStrength.message}
+              </Text>
+            )}
+          </View>
+
+          {/* Confirmar Senha */}
+          <View style={styles(theme).inputGroup}>
+            <Text style={styles(theme).inputLabel}>
+              Confirmar Nova Senha <Text style={styles(theme).required}>*</Text>
+            </Text>
+            <View style={styles(theme).passwordContainer}>
+              <TextInput
+                style={styles(theme).input}
+                placeholder="Digite a senha novamente"
+                value={confirmarSenha}
+                onChangeText={setConfirmarSenha}
+                secureTextEntry={!showConfirmarSenha}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                style={styles(theme).passwordToggle}
+                onPress={() => setShowConfirmarSenha(!showConfirmarSenha)}
+              >
+                <Text style={styles(theme).passwordToggleText}>
+                  {showConfirmarSenha ? '👁️' : '👁️‍🗨️'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {confirmarSenha && (
+              <Text
+                style={[
+                  styles(theme).helperText,
+                  passwordsMatch
+                    ? styles(theme).helperTextSuccess
+                    : styles(theme).helperTextError,
+                ]}
+              >
+                {passwordsMatch ? 'Senhas coincidem' : 'Senhas não coincidem'}
+              </Text>
+            )}
+          </View>
+
+          {/* Dicas de Segurança */}
+          <View style={styles(theme).tipsContainer}>
+            <Text style={styles(theme).tipsTitle}>Dicas para uma senha forte:</Text>
+            <Text style={styles(theme).tipText}>• Mínimo de 6 caracteres</Text>
+            <Text style={styles(theme).tipText}>
+              • Use letras maiúsculas e minúsculas
+            </Text>
+            <Text style={styles(theme).tipText}>• Inclua números</Text>
+            <Text style={styles(theme).tipText}>
+              • Adicione caracteres especiais (@, #, $, etc.)
+            </Text>
+          </View>
+
+          {/* Botões inline */}
+          <View style={styles(theme).buttonsContainer}>
             <TouchableOpacity
-              onPress={() => setShowCurrentPassword(!showCurrentPassword)}
-              style={styles.eyeButton}
-              accessibilityLabel={showCurrentPassword ? "Ocultar senha atual" : "Mostrar senha atual"}
-              accessibilityRole="button"
+              style={styles(theme).buttonSecondary}
+              onPress={() => router.push('/perfil')}
+              disabled={saving}
             >
-              <Text>{showCurrentPassword ? '👁️' : '👁️‍🗨️'}</Text>
+              <Text style={styles(theme).buttonSecondaryText}>Cancelar</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles(theme).buttonPrimary,
+                saving && styles(theme).buttonDisabled,
+              ]}
+              onPress={handleSave}
+              disabled={saving}
+            >
+              {saving ? (
+                <ActivityIndicator color={theme.colors.white} />
+              ) : (
+                <Text style={styles(theme).buttonPrimaryText}>Salvar</Text>
+              )}
             </TouchableOpacity>
           </View>
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Nova Senha</Text>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              value={newPassword}
-              onChangeText={setNewPassword}
-              secureTextEntry={!showNewPassword}
-              placeholder="Digite sua nova senha"
-              autoCapitalize="none"
-              accessibilityLabel="Campo de nova senha"
-              accessibilityHint="Digite a nova senha que deseja usar"
-            />
-            <TouchableOpacity
-              onPress={() => setShowNewPassword(!showNewPassword)}
-              style={styles.eyeButton}
-              accessibilityLabel={showNewPassword ? "Ocultar nova senha" : "Mostrar nova senha"}
-              accessibilityRole="button"
-            >
-              <Text>{showNewPassword ? '👁️' : '👁️‍🗨️'}</Text>
-            </TouchableOpacity>
-          </View>
-          <PasswordStrengthIndicator password={newPassword} />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Confirmar Nova Senha</Text>
-          <TextInput
-            style={styles.input}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-            placeholder="Digite novamente sua nova senha"
-            autoCapitalize="none"
-            accessibilityLabel="Campo de confirmação de senha"
-            accessibilityHint="Digite novamente a nova senha para confirmar"
-          />
-          {confirmPassword && newPassword !== confirmPassword && (
-            <Text style={styles.errorText}>As senhas não coincidem</Text>
-          )}
-        </View>
-
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleChangePassword}
-          disabled={loading}
-          accessibilityLabel="Alterar senha"
-          accessibilityRole="button"
-          accessibilityHint="Confirma a alteração da senha"
-          accessibilityState={{ disabled: loading }}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Alterar Senha</Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.cancelButton}
-          onPress={() => router.back()}
-          disabled={loading}
-          accessibilityLabel="Cancelar alteração de senha"
-          accessibilityRole="button"
-          accessibilityHint="Cancela e volta para a tela anterior"
-        >
-          <Text style={styles.cancelButtonText}>Cancelar</Text>
-        </TouchableOpacity>
         </View>
       </ScrollView>
-
-      {/* Toast de Feedback */}
-      <Toast {...toast} onDismiss={hideToast} />
-    </>
+    </View>
   );
 }
 
-const styles = StyleSheet.create(theme => ({
-  header: {
-    backgroundColor: theme.colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray200,
-    paddingHorizontal: theme.spacing['3xl'],
-    paddingVertical: theme.spacing['2xl'],
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitle: {
-    fontSize: theme.typography['3xl'],
-    fontFamily: theme.typography.fontDisplay,
-    color: theme.colors.gray900,
-  },
-  headerSubtitle: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
-    marginTop: 4,
-  },
-  scrollView: {
-    flex: 1,
-    backgroundColor: theme.colors.gray50,
-  },
-  content: {
-    paddingHorizontal: theme.spacing['3xl'],
-    paddingVertical: theme.spacing['2xl'],
-    maxWidth: 600,
-    marginHorizontal: 'auto',
-    width: '100%',
-  },
-  infoBox: {
-    backgroundColor: theme.colors.info + '10',
-    borderWidth: 1,
-    borderColor: theme.colors.info + '30',
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
-    marginBottom: theme.spacing['2xl'],
-  },
-  infoText: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.info,
-    textAlign: 'center',
-  },
-  inputGroup: {
-    marginBottom: theme.spacing['2xl'],
-  },
-  label: {
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray700,
-    marginBottom: theme.spacing.sm,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: theme.colors.gray300,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.md,
-    fontSize: theme.typography.base,
-    backgroundColor: theme.colors.white,
-  },
-  eyeButton: {
-    position: 'absolute',
-    right: theme.spacing.md,
-  },
-  errorText: {
-    fontSize: theme.typography.xs,
-    color: theme.colors.error,
-    marginTop: 4,
-  },
-  button: {
-    backgroundColor: theme.colors.secondary,
-    padding: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
-    alignItems: 'center',
-    marginTop: theme.spacing.sm,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: theme.colors.white,
-    fontSize: theme.typography.base,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
-  cancelButton: {
-    padding: theme.spacing.lg,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: theme.colors.gray500,
-    fontSize: theme.typography.base,
-  },
-}));
+const styles = (theme: any) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.gray50,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    header: {
+      backgroundColor: theme.colors.white,
+      paddingTop: 20,
+      paddingBottom: 20,
+      paddingHorizontal: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.gray200,
+      marginBottom: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    headerContent: {
+      flex: 1,
+    },
+    headerSubtitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: theme.colors.gray900,
+    },
+    form: {
+      backgroundColor: theme.colors.white,
+      marginHorizontal: 16,
+      borderRadius: 12,
+      padding: 20,
+      marginBottom: 24,
+    },
+    inputGroup: {
+      marginBottom: 20,
+    },
+    inputLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.gray700,
+      marginBottom: 8,
+    },
+    required: {
+      color: theme.colors.error,
+    },
+    passwordContainer: {
+      position: 'relative',
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: theme.colors.gray300,
+      borderRadius: 8,
+      padding: 12,
+      paddingRight: 48,
+      fontSize: 16,
+      color: theme.colors.gray900,
+      backgroundColor: theme.colors.white,
+    },
+    passwordToggle: {
+      position: 'absolute',
+      right: 12,
+      top: 12,
+      padding: 4,
+    },
+    passwordToggleText: {
+      fontSize: 20,
+    },
+    helperText: {
+      fontSize: 12,
+      color: theme.colors.gray500,
+      marginTop: 4,
+    },
+    helperTextSuccess: {
+      color: theme.colors.success,
+    },
+    helperTextWarning: {
+      color: '#F59E0B', // Amber 500
+    },
+    helperTextError: {
+      color: theme.colors.error,
+    },
+    tipsContainer: {
+      backgroundColor: theme.colors.primary + '10',
+      padding: 16,
+      borderRadius: 8,
+      marginTop: 8,
+      marginBottom: 20,
+    },
+    tipsTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.primary,
+      marginBottom: 8,
+    },
+    tipText: {
+      fontSize: 13,
+      color: theme.colors.gray700,
+      marginBottom: 4,
+    },
+    buttonsContainer: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    buttonPrimary: {
+      flex: 1,
+      backgroundColor: theme.colors.secondary,
+      padding: 16,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 50,
+    },
+    buttonPrimaryText: {
+      color: theme.colors.white,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    buttonSecondary: {
+      flex: 1,
+      backgroundColor: theme.colors.white,
+      padding: 16,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: theme.colors.gray300,
+      minHeight: 50,
+    },
+    buttonSecondaryText: {
+      color: theme.colors.gray700,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    buttonDisabled: {
+      opacity: 0.6,
+    },
+  });
+

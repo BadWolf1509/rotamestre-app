@@ -1,4 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Modal,
   View,
@@ -7,9 +9,8 @@ import {
   Platform,
   Pressable,
 } from 'react-native';
-import { createPortal } from 'react-dom';
+
 import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { Ionicons } from '@expo/vector-icons';
 
 interface AlertDialogProps {
   visible: boolean;

@@ -1,5 +1,6 @@
-import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
+import React from 'react';
+
 import { EmptyState } from '../EmptyState';
 
 describe('EmptyState Component', () => {
@@ -25,7 +26,7 @@ describe('EmptyState Component', () => {
     });
 
     it('deve renderizar sem descrição', () => {
-      const { getByText, queryByText } = render(
+      const { getByText } = render(
         <EmptyState title="Lista vazia" />
       );
 

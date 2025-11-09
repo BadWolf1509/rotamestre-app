@@ -1,4 +1,7 @@
-import { Coordenadas, Endereco, EnderecoGeocodificado } from '../types/endereco';
+/* global google */
+
+import { Coordenadas, EnderecoGeocodificado } from '../types/endereco';
+import { GoogleDirectionsLeg, GoogleDirectionsResult } from '../types/google-directions';
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
@@ -57,7 +60,7 @@ async function loadGoogleMapsAPI(): Promise<void> {
 
 export const googleMapsService = {
   // Autocomplete usando NOVA API Place (google.maps.places.AutocompleteSuggestion)
-  async autocompleteAddress(input: string, sessionToken?: string): Promise<PlaceSuggestion[]> {
+  async autocompleteAddress(input: string): Promise<PlaceSuggestion[]> {
     if (input.length < 3) {
       return [];
     }
@@ -97,7 +100,7 @@ export const googleMapsService = {
   },
 
   // Obter detalhes usando NOVA API Place (google.maps.places.Place.fetchFields)
-  async getPlaceDetails(placeId: string, sessionToken?: string): Promise<EnderecoGeocodificado | null> {
+  async getPlaceDetails(placeId: string): Promise<EnderecoGeocodificado | null> {
     try {
       await loadGoogleMapsAPI();
 
@@ -221,7 +224,7 @@ export const googleMapsService = {
     origin: Coordenadas,
     destination: Coordenadas,
     waypoints?: Coordenadas[]
-  ) {
+  ): Promise<GoogleDirectionsResult | null> {
     try {
       // Carregar API do Google Maps se necessário
       await loadGoogleMapsAPI();
@@ -266,20 +269,35 @@ export const googleMapsService = {
       if (result.routes && result.routes.length > 0) {
         const route = result.routes[0];
 
-        // Calcular distância e tempo totais
-        let distanciaTotal = 0;
-        let tempoTotal = 0;
+        const legs: GoogleDirectionsLeg[] = route.legs.map((leg) => ({
+          distancia_metros: leg.distance?.value || 0,
+          duracao_segundos: leg.duration?.value || 0,
+          endereco_inicio: leg.start_address || '',
+          endereco_fim: leg.end_address || '',
+          coordenadas_inicio: {
+            latitude: leg.start_location?.lat() || 0,
+            longitude: leg.start_location?.lng() || 0,
+          },
+          coordenadas_fim: {
+            latitude: leg.end_location?.lat() || 0,
+            longitude: leg.end_location?.lng() || 0,
+          },
+        }));
 
-        route.legs.forEach((leg) => {
-          if (leg.distance) distanciaTotal += leg.distance.value;
-          if (leg.duration) tempoTotal += leg.duration.value;
-        });
+        const distanciaTotal = legs.reduce((acc, leg) => acc + leg.distancia_metros, 0);
+        const tempoTotal = legs.reduce((acc, leg) => acc + leg.duracao_segundos, 0);
+
+        const encodedPolyline =
+          route.overview_polyline?.encodedPath ||
+          (route.overview_polyline as any)?.points ||
+          '';
 
         return {
-          polyline: route.overview_polyline,
-          distancia: distanciaTotal, // em metros
-          tempo: tempoTotal, // em segundos
+          polyline: encodedPolyline,
+          distancia_total_metros: distanciaTotal,
+          duracao_total_segundos: tempoTotal,
           ordem_otimizada: route.waypoint_order || [],
+          legs,
         };
       }
 

@@ -1,5 +1,6 @@
+import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+
 import { AddressAutocomplete } from '../AddressAutocomplete';
 
 // Mock do Google Maps Service

@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,13 +10,13 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useRouter } from 'expo-router';
-import { supabase } from '@/lib/supabase';
-import { useUser } from '@/hooks/useUser';
+
 import { Toast } from '@/components/Toast';
-import { useToast } from '@/hooks/useToast';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { useToast } from '@/hooks/useToast';
+import { useUser } from '@/hooks/useUser';
+import { supabase } from '@/lib/supabase';
+import { StyleSheet } from '@/utils/styles';
 
 interface Membro {
   id: string;
@@ -28,34 +29,30 @@ interface Membro {
 }
 
 export default function EquipeScreen() {
-  const { theme } = useUnistyles();
   const router = useRouter();
   const { userData, loading: userLoading } = useUser();
   const { toast: toastState, showToast, hideToast } = useToast();
-  const { isDesktop, isLargeDesktop, width } = useBreakpoint();
+  const { isDesktop, isLargeDesktop } = useBreakpoint();
   const [membros, setMembros] = useState<Membro[]>([]);
   const [filteredMembros, setFilteredMembros] = useState<Membro[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPapel, setFilterPapel] = useState<'todos' | 'gestor' | 'motorista'>('todos');
 
-  useEffect(() => {
-    if (userData?.unidade_id) {
-      loadMembros();
+  const loadMembros = useCallback(async () => {
+    const unidadeId = userData?.unidade_id;
+    if (!unidadeId) {
+      setMembros([]);
+      setLoading(false);
+      return;
     }
-  }, [userData]);
 
-  useEffect(() => {
-    filterMembros();
-  }, [searchQuery, filterPapel, membros]);
-
-  async function loadMembros() {
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('usuarios')
         .select('id, nome, email, papel, is_gestor_principal, ativo, created_at')
-        .eq('unidade_id', userData!.unidade_id)
+        .eq('unidade_id', unidadeId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -67,28 +64,26 @@ export default function EquipeScreen() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [showToast, userData?.unidade_id]);
 
-  function filterMembros() {
-    let filtered = [...membros];
+  useEffect(() => {
+    loadMembros();
+  }, [loadMembros]);
 
-    // Filtrar por papel
-    if (filterPapel !== 'todos') {
-      filtered = filtered.filter((m) => m.papel === filterPapel);
-    }
-
-    // Filtrar por busca
-    if (searchQuery.trim()) {
+  useEffect(() => {
+    const filtered = membros.filter((m) => {
+      const papelOk = filterPapel === 'todos' || m.papel === filterPapel;
+      if (!papelOk) {
+        return false;
+      }
+      if (!searchQuery.trim()) {
+        return true;
+      }
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (m) =>
-          m.nome.toLowerCase().includes(query) ||
-          m.email.toLowerCase().includes(query)
-      );
-    }
-
+      return m.nome.toLowerCase().includes(query) || m.email.toLowerCase().includes(query);
+    });
     setFilteredMembros(filtered);
-  }
+  }, [filterPapel, membros, searchQuery]);
 
   async function handleToggleAtivo(membro: Membro) {
     // Não permitir desativar o próprio usuário

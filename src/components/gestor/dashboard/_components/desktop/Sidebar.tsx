@@ -1,10 +1,11 @@
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
 import { useRouter, usePathname } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useUser } from '@/hooks/useUser';
 import { authService } from '@/lib/auth';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { StyleSheet } from '@/utils/styles';
 
 interface SidebarProps {
   onNavigate?: () => void;
@@ -16,7 +17,6 @@ interface SidebarProps {
  * Compatível com DrawerMenu mobile
  */
 export function Sidebar({ onNavigate }: SidebarProps) {
-  const { theme } = useUnistyles();
   const router = useRouter();
   const pathname = usePathname();
   const { userData } = useUser();

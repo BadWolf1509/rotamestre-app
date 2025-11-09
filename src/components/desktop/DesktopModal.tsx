@@ -1,7 +1,9 @@
-import { Modal, View, Text, TouchableOpacity, Pressable, ViewStyle } from 'react-native';
-import { StyleSheet } from '@/utils/styles';
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { Modal, View, Text, TouchableOpacity, Pressable, ViewStyle } from 'react-native';
+
 import { useResponsive } from '@/hooks/useResponsive';
+import { StyleSheet } from '@/utils/styles';
 
 /**
  * DesktopModal - Modal responsivo adaptativo

@@ -1,6 +1,7 @@
-import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
+import React from 'react';
 import { Text } from 'react-native';
+
 import { DataTable, DataTableColumn, DataTableAction } from '../DataTable';
 
 // Mock useResponsive hook
@@ -248,7 +249,7 @@ describe('DataTable Component', () => {
     });
 
     it('deve navegar para próxima página', () => {
-      const { getByText, queryByText } = render(
+      const { getByText } = render(
         <DataTable
           data={manyItems}
           columns={sampleColumns}

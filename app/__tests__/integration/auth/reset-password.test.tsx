@@ -1,7 +1,9 @@
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import ResetPassword from '../../../auth/reset-password';
+
 import { authService } from '@/lib/auth';
+
+import ResetPassword from '../../../auth/reset-password';
 
 // Mock do Alert está configurado globalmente no jest.setup.js
 // Acessar via global.mockAlert

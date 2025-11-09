@@ -5,10 +5,11 @@
  * Sprint 1.3 - Upload de Fotos
  */
 
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -61,7 +62,7 @@ async function setupBucket() {
     // 2. Criar bucket
     console.log(`📦 Criando bucket "${BUCKET_NAME}"...\n`);
 
-    const { data: newBucket, error: createError } = await supabase.storage.createBucket(BUCKET_NAME, {
+    const { error: createError } = await supabase.storage.createBucket(BUCKET_NAME, {
       public: true, // Bucket público para facilitar visualização
       fileSizeLimit: 5242880, // 5MB em bytes
       allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp']
@@ -116,7 +117,7 @@ async function testUpload() {
 
     const testPath = 'test/test.jpg';
 
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from(BUCKET_NAME)
       .upload(testPath, testBlob, {
         contentType: 'image/jpeg',

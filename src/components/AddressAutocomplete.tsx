@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   TextInput,
@@ -9,8 +9,9 @@ import {
   Platform,
   Keyboard,
 } from 'react-native';
-import { StyleSheet } from '@/utils/styles';
+
 import { googleMapsService, PlaceSuggestion } from '@/lib/google';
+import { StyleSheet } from '@/utils/styles';
 
 interface AddressAutocompleteProps {
   value: string;
@@ -44,7 +45,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [sessionToken] = useState(() => generateSessionToken());
-  const debounceTimer = useRef<NodeJS.Timeout>();
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Limpar suggestions quando value é limpo externamente
   useEffect(() => {

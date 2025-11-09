@@ -1,5 +1,6 @@
-import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import React from 'react';
+
 import { GestorSidebar } from '../GestorSidebar';
 
 // Mock expo-router
@@ -206,7 +207,6 @@ describe('GestorSidebar Component', () => {
 
   describe('Estado Ativo', () => {
     it('deve marcar Dashboard como ativo quando pathname é /gestor/dashboard', () => {
-      const { usePathname } = require('expo-router');
       jest.spyOn(require('expo-router'), 'usePathname').mockReturnValue('/gestor/dashboard');
 
       const { getByText } = render(<GestorSidebar />);

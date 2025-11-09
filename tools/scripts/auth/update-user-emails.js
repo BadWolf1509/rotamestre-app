@@ -6,10 +6,11 @@
  * Para: @rotamestre.tec.br
  */
 
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -37,7 +38,7 @@ const NEW_GESTOR_EMAIL = 'gestor@rotamestre.tec.br';
 const OLD_MOTORISTA_EMAIL = 'motorista@rotamestre.com.br';
 const NEW_MOTORISTA_EMAIL = 'motorista@rotamestre.tec.br';
 
-async function updateUserEmail(oldEmail, newEmail, nome) {
+async function updateUserEmail(oldEmail, newEmail) {
   console.log(`\n🔄 Atualizando email: ${oldEmail} → ${newEmail}...`);
 
   try {
@@ -59,7 +60,7 @@ async function updateUserEmail(oldEmail, newEmail, nome) {
 
     // 2. Atualizar email no Supabase Auth
     console.log(`   🔄 Atualizando email no Auth...`);
-    const { data: authData, error: authError } = await supabase.auth.admin.updateUserById(
+    const { error: authError } = await supabase.auth.admin.updateUserById(
       usuario.id,
       {
         email: newEmail,
@@ -99,15 +100,13 @@ async function main() {
     // Atualizar gestor
     const gestorId = await updateUserEmail(
       OLD_GESTOR_EMAIL,
-      NEW_GESTOR_EMAIL,
-      'João Silva - Gestor'
+      NEW_GESTOR_EMAIL
     );
 
     // Atualizar motorista
     const motoristaId = await updateUserEmail(
       OLD_MOTORISTA_EMAIL,
-      NEW_MOTORISTA_EMAIL,
-      'Carlos Santos - Motorista'
+      NEW_MOTORISTA_EMAIL
     );
 
     // Resumo

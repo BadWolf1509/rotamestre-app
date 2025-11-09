@@ -1,21 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
-  Platform,
   Image,
   Modal,
   Dimensions,
 } from 'react-native';
+
+import { MapaAdapter } from '@/components/MapaAdapter';
 import { Toast } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { MapaAdapter } from '@/components/MapaAdapter';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface Parada {
   id: string;
@@ -52,16 +52,9 @@ export default function MapaRota() {
   const [fotoModalVisible, setFotoModalVisible] = useState(false);
   const [fotoSelecionada, setFotoSelecionada] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (id) {
-      loadRotaEParadas();
-    } else {
-      // Sem ID de rota - parar loading e mostrar mensagem
-      setLoading(false);
-    }
-  }, [id]);
+  const loadRotaEParadas = useCallback(async () => {
+    if (!id) return;
 
-  async function loadRotaEParadas() {
     try {
       setLoading(true);
 
@@ -96,7 +89,15 @@ export default function MapaRota() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [id, router, showToast]);
+
+  useEffect(() => {
+    if (id) {
+      loadRotaEParadas();
+    } else {
+      setLoading(false);
+    }
+  }, [id, loadRotaEParadas]);
 
   if (loading) {
     return (
@@ -172,7 +173,7 @@ export default function MapaRota() {
         Paradas ({paradas.length})
       </Text>
 
-      {paradas.map((parada, index) => (
+      {paradas.map((parada) => (
         <View key={parada.id} style={styles.paradaCard}>
             <View style={styles.paradaHeader}>
               <View style={styles.paradaNumero}>

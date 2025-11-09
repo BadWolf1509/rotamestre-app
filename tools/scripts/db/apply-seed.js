@@ -4,11 +4,12 @@
  * Script para aplicar seed data no Supabase
  */
 
-import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'fs';
-import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -28,8 +29,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // IDs fixos do seed
 const UNIDADE_ID = '00000000-0000-0000-0000-000000000001';
-const GESTOR_ID = '10000000-0000-0000-0000-000000000001';
-const MOTORISTA_ID = '20000000-0000-0000-0000-000000000001';
 const ROTA1_ID = '30000000-0000-0000-0000-000000000001';
 const ROTA2_ID = '30000000-0000-0000-0000-000000000002';
 

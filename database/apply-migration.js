@@ -3,9 +3,10 @@
  * Uso: node database/apply-migration.js [arquivo.sql]
  */
 
-const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
 const path = require('path');
+
+const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
 // Criar cliente admin

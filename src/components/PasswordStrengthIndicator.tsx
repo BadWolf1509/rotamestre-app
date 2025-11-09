@@ -1,15 +1,14 @@
 import React from 'react';
 import { View, Text } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+
 import { validatePasswordStrength } from '@/utils/passwordValidation';
+import { StyleSheet } from '@/utils/styles';
 
 interface Props {
   password: string;
 }
 
 export function PasswordStrengthIndicator({ password }: Props) {
-  const { theme } = useUnistyles();
-
   if (!password) return null;
 
   const { score, label, color, feedback } = validatePasswordStrength(password);

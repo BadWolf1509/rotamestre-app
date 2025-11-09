@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,10 +11,11 @@ import {
   Modal,
   Linking,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { supabase } from '@/lib/supabase';
+
 import { useUser } from '@/hooks/useUser';
 import { abrirNavegacao } from '@/lib/navigation';
+import { supabase } from '@/lib/supabase';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface Parada {
   id: string;
@@ -55,20 +56,22 @@ export default function CheckpointsMotoristaEnhanced() {
   const [paradaSelecionada, setParadaSelecionada] = useState<Parada | null>(null);
   const [observacaoTexto, setObservacaoTexto] = useState('');
 
-  useEffect(() => {
-    if (userData?.id) {
-      loadRotaEParadas();
+  const loadRotaEParadas = useCallback(async () => {
+    if (!userData?.id) {
+      setRota(null);
+      setParadas([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
     }
-  }, [userData]);
 
-  async function loadRotaEParadas() {
     try {
       setLoading(true);
 
       const { data: rotasData, error: rotasError } = await supabase
         .from('rotas')
         .select('id, status, unidades(nome)')
-        .eq('motorista_id', userData!.id)
+        .eq('motorista_id', userData.id)
         .in('status', ['pendente', 'em_andamento'])
         .order('created_at', { ascending: false })
         .limit(1)
@@ -91,7 +94,7 @@ export default function CheckpointsMotoristaEnhanced() {
 
       if (paradasError) throw paradasError;
 
-      setParadas(paradasData as Parada[] || []);
+      setParadas((paradasData as Parada[]) || []);
     } catch (error) {
       console.error('Erro ao carregar checkpoints:', error);
       Alert.alert('Erro', 'Não foi possível carregar os checkpoints');
@@ -99,7 +102,11 @@ export default function CheckpointsMotoristaEnhanced() {
       setLoading(false);
       setRefreshing(false);
     }
-  }
+  }, [userData?.id]);
+
+  useEffect(() => {
+    loadRotaEParadas();
+  }, [loadRotaEParadas]);
 
   // Feature 3: Validar ordem de paradas
   function validarOrdemParada(parada: Parada): { valido: boolean; mensagem?: string } {
@@ -422,25 +429,10 @@ export default function CheckpointsMotoristaEnhanced() {
     );
   }
 
-  function onRefresh() {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadRotaEParadas();
-  }
-
-  // Feature 6: Calcular distância (função auxiliar - requer geolocalização)
-  function calcularDistancia(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const R = 6371; // Raio da Terra em km
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
+  }, [loadRotaEParadas]);
 
   if (loading) {
     return (
@@ -465,7 +457,7 @@ export default function CheckpointsMotoristaEnhanced() {
   const paradasConcluidas = paradas.filter((p) => p.status === 'concluida').length;
   const paradasPuladas = paradas.filter((p) => p.status === 'pulada').length;
 
-  const renderParada = ({ item, index }: { item: Parada; index: number }) => {
+  const renderParada = ({ item }: { item: Parada }) => {
     const isConcluida = item.status === 'concluida';
     const isPulada = item.status === 'pulada';
     const isPendente = item.status === 'pendente';

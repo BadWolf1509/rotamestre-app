@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,14 +9,14 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useRouter } from 'expo-router';
-import { supabase } from '@/lib/supabase';
-import { useUser } from '@/hooks/useUser';
-import { DataTable, DataTableColumn, DataTableAction } from '@/components/DataTable';
+
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { DataTable, DataTableColumn, DataTableAction } from '@/components/DataTable';
 import { Toast } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
+import { useUser } from '@/hooks/useUser';
+import { supabase } from '@/lib/supabase';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 // ============================================
 // TYPES
@@ -48,7 +49,7 @@ export default function HistoricoGestor() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { userData } = useUser();
-  const { toast: toastState, showToast, hideToast, withToast } = useToast();
+  const { toast: toastState, hideToast, withToast } = useToast();
 
   const [rotas, setRotas] = useState<RotaHistorico[]>([]);
   const [rotasFiltradas, setRotasFiltradas] = useState<RotaHistorico[]>([]);
@@ -59,72 +60,65 @@ export default function HistoricoGestor() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [rotaToDelete, setRotaToDelete] = useState<RotaHistorico | null>(null);
 
-  useEffect(() => {
-    if (userData?.unidade_id) {
-      loadHistorico();
-    }
-  }, [userData]);
+const loadHistorico = useCallback(async () => {
+  if (!userData?.unidade_id) return;
 
-  useEffect(() => {
-    aplicarFiltros();
-  }, [rotas, filtroStatus]);
+  try {
+    setLoading(true);
+
+    const { data: rotasData, error: rotasError } = await supabase
+      .from('rotas')
+      .select(
+        'id, data, status, distancia_total, iniciada_em, concluida_em, motorista_id, usuarios!rotas_motorista_id_fkey(id, nome)'
+      )
+      .eq('unidade_id', userData.unidade_id)
+      .order('data', { ascending: false })
+      .limit(100);
+
+    if (rotasError) throw rotasError;
+
+    const rotasComParadas = await Promise.all(
+      (rotasData || []).map(async (rota) => {
+        const { data: paradasData } = await supabase
+          .from('paradas')
+          .select('id, status')
+          .eq('rota_id', rota.id)
+          .eq('is_checkpoint', true);
+
+        return {
+          ...rota,
+          motorista: rota.usuarios,
+          paradas_count: paradasData?.length || 0,
+          paradas_concluidas:
+            paradasData?.filter((p) => p.status === 'concluida').length || 0,
+        };
+      })
+    );
+
+    setRotas(rotasComParadas as RotaHistorico[]);
+  } catch (error) {
+    console.error('Erro ao carregar histórico:', error);
+    Alert.alert('Erro', 'Não foi possível carregar o histórico');
+  } finally {
+    setLoading(false);
+  }
+}, [userData?.unidade_id]);
+
+useEffect(() => {
+  loadHistorico();
+}, [loadHistorico]);
+
+useEffect(() => {
+  let resultado = [...rotas];
+  if (filtroStatus !== 'todas') {
+    resultado = resultado.filter((rota) => rota.status === filtroStatus);
+  }
+  setRotasFiltradas(resultado);
+}, [rotas, filtroStatus]);
 
   // ============================================
   // DATA LOADING
   // ============================================
-
-  async function loadHistorico() {
-    try {
-      setLoading(true);
-
-      // Buscar rotas da unidade
-      const { data: rotasData, error: rotasError } = await supabase
-        .from('rotas')
-        .select('id, data, status, distancia_total, iniciada_em, concluida_em, motorista_id, usuarios!rotas_motorista_id_fkey(id, nome)')
-        .eq('unidade_id', userData!.unidade_id)
-        .order('data', { ascending: false })
-        .limit(100); // Limitar a 100 rotas
-
-      if (rotasError) throw rotasError;
-
-      // Para cada rota, buscar contagem de paradas (apenas entregas reais, não base)
-      const rotasComParadas = await Promise.all(
-        (rotasData || []).map(async (rota) => {
-          const { data: paradasData } = await supabase
-            .from('paradas')
-            .select('id, status')
-            .eq('rota_id', rota.id)
-            .eq('is_checkpoint', true); // Filtra apenas entregas reais
-
-          return {
-            ...rota,
-            motorista: rota.usuarios,
-            paradas_count: paradasData?.length || 0,
-            paradas_concluidas:
-              paradasData?.filter((p) => p.status === 'concluida').length || 0,
-          };
-        })
-      );
-
-      setRotas(rotasComParadas as RotaHistorico[]);
-    } catch (error) {
-      console.error('Erro ao carregar histórico:', error);
-      Alert.alert('Erro', 'Não foi possível carregar o histórico');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function aplicarFiltros() {
-    let resultado = [...rotas];
-
-    // Filtrar por status
-    if (filtroStatus !== 'todas') {
-      resultado = resultado.filter((rota) => rota.status === filtroStatus);
-    }
-
-    setRotasFiltradas(resultado);
-  }
 
   // ============================================
   // ACTIONS

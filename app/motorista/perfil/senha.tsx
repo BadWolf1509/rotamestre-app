@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   View,
@@ -8,10 +9,10 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useRouter } from 'expo-router';
+
 import { authService } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 export default function AlterarSenha() {
   const { theme } = useUnistyles();
@@ -67,7 +68,7 @@ export default function AlterarSenha() {
       // Tentar fazer login com a senha atual para validar
       try {
         await authService.signIn(session.user.email, senhaAtual);
-      } catch (error) {
+      } catch {
         throw new Error('Senha atual incorreta');
       }
 
@@ -119,17 +120,9 @@ export default function AlterarSenha() {
   return (
     <View style={styles(theme).container}>
       <ScrollView style={styles(theme).scrollView}>
-        {/* Header com botão voltar */}
+        {/* Header */}
         <View style={styles(theme).header}>
-          <TouchableOpacity
-            style={styles(theme).backButton}
-            onPress={() => router.push('/motorista/perfil')}
-            disabled={saving}
-          >
-            <Text style={styles(theme).backButtonText}>←</Text>
-          </TouchableOpacity>
           <View style={styles(theme).headerContent}>
-            <Text style={styles(theme).headerTitle}>Alterar Senha</Text>
             <Text style={styles(theme).headerSubtitle}>
               Crie uma senha forte para proteger sua conta
             </Text>
@@ -306,26 +299,13 @@ const styles = (theme: any) =>
       flexDirection: 'row',
       alignItems: 'center',
     },
-    backButton: {
-      marginRight: 12,
-      padding: 4,
-    },
-    backButtonText: {
-      fontSize: 28,
-      color: theme.colors.gray700,
-    },
     headerContent: {
       flex: 1,
     },
-    headerTitle: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: theme.colors.gray900,
-      marginBottom: 4,
-    },
     headerSubtitle: {
-      fontSize: 14,
-      color: theme.colors.gray500,
+      fontSize: 16,
+      fontWeight: '700',
+      color: theme.colors.gray900,
     },
     form: {
       backgroundColor: theme.colors.white,

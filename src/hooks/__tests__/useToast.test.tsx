@@ -1,4 +1,5 @@
 import { renderHook, act } from '@testing-library/react-native';
+
 import { useToast } from '../useToast';
 
 describe('useToast Hook', () => {

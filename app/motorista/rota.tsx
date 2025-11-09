@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import * as Location from 'expo-location';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,18 +8,17 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { supabase } from '@/lib/supabase';
+
+import CameraUpload from '@/components/CameraUpload';
 import { useUser } from '@/hooks/useUser';
 import { abrirNavegacao } from '@/lib/navigation';
-import CameraUpload from '@/components/CameraUpload';
-import * as Location from 'expo-location';
+import { supabase } from '@/lib/supabase';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 import {
   calcularTempoEstimado,
   formatarTempo,
   formatarHorario,
   calcularProximaParada,
-  calcularDistancia,
 } from '@/utils/timeEstimation';
 
 interface Parada {
@@ -48,17 +48,9 @@ export default function RotaMotoristaWeb() {
   const [paradas, setParadas] = useState<Parada[]>([]);
   const [loading, setLoading] = useState(true);
   const [iniciandoRota, setIniciandoRota] = useState(false);
-  const [paradaSelecionadaParaFoto, setParadaSelecionadaParaFoto] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
-  useEffect(() => {
-    if (userData?.id) {
-      loadRotaAtiva();
-      requestLocationPermission();
-    }
-  }, [userData]);
-
-  async function requestLocationPermission() {
+  const requestLocationPermission = useCallback(async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
@@ -71,16 +63,23 @@ export default function RotaMotoristaWeb() {
     } catch (error) {
       console.error('Erro ao obter localização:', error);
     }
-  }
+  }, []);
 
-  async function loadRotaAtiva() {
+  const loadRotaAtiva = useCallback(async () => {
+    if (!userData?.id) {
+      setRota(null);
+      setParadas([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
 
       const { data: rotasData, error: rotasError } = await supabase
         .from('rotas')
         .select('id, status, distancia_total, unidades(nome)')
-        .eq('motorista_id', userData!.id)
+        .eq('motorista_id', userData.id)
         .in('status', ['pendente', 'em_andamento'])
         .order('created_at', { ascending: false })
         .limit(1)
@@ -110,7 +109,12 @@ export default function RotaMotoristaWeb() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [userData?.id]);
+
+  useEffect(() => {
+    loadRotaAtiva();
+    requestLocationPermission();
+  }, [loadRotaAtiva, requestLocationPermission]);
 
   async function iniciarRota() {
     if (!rota) return;

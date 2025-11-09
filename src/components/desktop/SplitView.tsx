@@ -1,6 +1,8 @@
+import React from 'react';
 import { View, ScrollView, ViewStyle } from 'react-native';
-import { StyleSheet } from '@/utils/styles';
+
 import { useResponsive } from '@/hooks/useResponsive';
+import { StyleSheet } from '@/utils/styles';
 
 /**
  * SplitView - Layout de duas colunas responsivo
@@ -113,7 +115,7 @@ export function SplitView({
   return <View style={containerStyles}>{isDesktop ? desktopContent : mobileContent}</View>;
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create(_theme => ({
   container: {
     flex: 1,
   },

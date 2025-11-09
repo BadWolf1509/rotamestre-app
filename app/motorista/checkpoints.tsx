@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,11 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { supabase } from '@/lib/supabase';
+
 import { useUser } from '@/hooks/useUser';
 import { abrirNavegacao } from '@/lib/navigation';
+import { supabase } from '@/lib/supabase';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface Parada {
   id: string;
@@ -44,21 +45,22 @@ export default function CheckpointsMotorista() {
   const [concluindoParada, setConcluindoParada] = useState<string | null>(null);
   const [pulandoParada, setPulandoParada] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (userData?.id) {
-      loadRotaEParadas();
+  const loadRotaEParadas = useCallback(async () => {
+    if (!userData?.id) {
+      setRota(null);
+      setParadas([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
     }
-  }, [userData]);
 
-  async function loadRotaEParadas() {
     try {
       setLoading(true);
 
-      // Buscar rota ativa do motorista
       const { data: rotasData, error: rotasError } = await supabase
         .from('rotas')
         .select('id, status, unidades(nome)')
-        .eq('motorista_id', userData!.id)
+        .eq('motorista_id', userData.id)
         .in('status', ['pendente', 'em_andamento'])
         .order('created_at', { ascending: false })
         .limit(1)
@@ -73,7 +75,6 @@ export default function CheckpointsMotorista() {
 
       setRota(rotasData as Rota);
 
-      // Buscar paradas da rota ordenadas
       const { data: paradasData, error: paradasError } = await supabase
         .from('paradas')
         .select('*')
@@ -82,7 +83,7 @@ export default function CheckpointsMotorista() {
 
       if (paradasError) throw paradasError;
 
-      setParadas(paradasData as Parada[] || []);
+      setParadas((paradasData as Parada[]) || []);
     } catch (error) {
       console.error('Erro ao carregar checkpoints:', error);
       Alert.alert('Erro', 'Não foi possível carregar os checkpoints');
@@ -90,7 +91,11 @@ export default function CheckpointsMotorista() {
       setLoading(false);
       setRefreshing(false);
     }
-  }
+  }, [userData?.id]);
+
+  useEffect(() => {
+    loadRotaEParadas();
+  }, [loadRotaEParadas]);
 
   async function concluirParada(parada: Parada) {
     Alert.alert(
@@ -226,10 +231,10 @@ export default function CheckpointsMotorista() {
     );
   }
 
-  function onRefresh() {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadRotaEParadas();
-  }
+  }, [loadRotaEParadas]);
 
   if (loading) {
     return (
@@ -256,7 +261,7 @@ export default function CheckpointsMotorista() {
   const paradasConcluidas = paradas.filter((p) => p.status === 'concluida').length;
   const paradasPuladas = paradas.filter((p) => p.status === 'pulada').length;
 
-  const renderParada = ({ item, index }: { item: Parada; index: number }) => {
+  const renderParada = ({ item }: { item: Parada }) => {
     const isConcluida = item.status === 'concluida';
     const isPulada = item.status === 'pulada';
     const isPendente = item.status === 'pendente';

@@ -1,6 +1,8 @@
+import React from 'react';
 import { View, ScrollView, ViewStyle } from 'react-native';
-import { StyleSheet } from '@/utils/styles';
+
 import { useResponsive } from '@/hooks/useResponsive';
+import { StyleSheet } from '@/utils/styles';
 
 /**
  * DesktopLayout - Wrapper responsivo para conteúdo

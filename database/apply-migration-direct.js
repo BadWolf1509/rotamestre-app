@@ -5,11 +5,12 @@
  * Sprint 1.3 - Upload de Fotos
  */
 
-import pg from 'pg';
 import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
 import dotenv from 'dotenv';
+import pg from 'pg';
 
 const { Client } = pg;
 

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, TouchableOpacity, Text, Linking, Platform, Alert } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface Parada {
   id: string;
@@ -23,13 +24,7 @@ export function MapaRN({ paradas, rotaAtiva = false }: MapaRNProps) {
   const [distancia, setDistancia] = useState<string>('');
   const [duracao, setDuracao] = useState<string>('');
 
-  useEffect(() => {
-    if (paradas.length >= 2) {
-      fetchDirections();
-    }
-  }, [paradas]);
-
-  async function fetchDirections() {
+  const fetchDirections = useCallback(async () => {
     try {
       const origem = paradas[0];
       const destino = paradas[paradas.length - 1];
@@ -63,7 +58,17 @@ export function MapaRN({ paradas, rotaAtiva = false }: MapaRNProps) {
     } catch (error) {
       console.error('Erro ao buscar direções:', error);
     }
-  }
+  }, [paradas]);
+
+  useEffect(() => {
+    if (paradas.length >= 2) {
+      fetchDirections();
+    } else {
+      setDirections([]);
+      setDistancia('');
+      setDuracao('');
+    }
+  }, [fetchDirections, paradas.length]);
 
   // Decode Google Polyline
   function decodePolyline(encoded: string) {
@@ -141,7 +146,7 @@ export function MapaRN({ paradas, rotaAtiva = false }: MapaRNProps) {
         initialRegion={region}
       >
         {/* Marcadores de Paradas */}
-        {paradas.map((parada, index) => (
+        {paradas.map((parada) => (
           <Marker
             key={parada.id}
             coordinate={{

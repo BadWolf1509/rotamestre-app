@@ -5,10 +5,11 @@
  * Sprint 1.3 - Upload de Fotos
  */
 
-import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
+import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 
 // Configurar __dirname para ES modules
@@ -109,7 +110,7 @@ async function checkColumn() {
   console.log('🔍 Verificando se coluna foto_url já existe...\n');
 
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('paradas')
       .select('foto_url')
       .limit(1);

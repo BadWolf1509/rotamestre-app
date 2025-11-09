@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,10 +8,10 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { supabase } from '@/lib/supabase';
+
 import { useUser } from '@/hooks/useUser';
-import { useRouter } from 'expo-router';
+import { supabase } from '@/lib/supabase';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface Parada {
   id: string;
@@ -44,20 +45,24 @@ export default function ResumoMotorista() {
   const [finalizando, setFinalizando] = useState(false);
 
   useEffect(() => {
-    if (userData?.id) {
-      loadRotaConcluida();
-    }
-  }, [userData]);
+    loadRotaConcluida();
+  }, [loadRotaConcluida]);
 
-  async function loadRotaConcluida() {
+  const loadRotaConcluida = useCallback(async () => {
+    if (!userData?.id) {
+      setRota(null);
+      setParadas([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
 
-      // Buscar última rota concluída do motorista
       const { data: rotasData, error: rotasError } = await supabase
         .from('rotas')
         .select('id, status, data, distancia_total, tempo_total, iniciada_em, concluida_em, unidades(nome)')
-        .eq('motorista_id', userData!.id)
+        .eq('motorista_id', userData.id)
         .eq('status', 'concluida')
         .order('concluida_em', { ascending: false })
         .limit(1)
@@ -72,7 +77,6 @@ export default function ResumoMotorista() {
 
       setRota(rotasData as Rota);
 
-      // Buscar paradas da rota
       const { data: paradasData, error: paradasError } = await supabase
         .from('paradas')
         .select('*')
@@ -81,14 +85,14 @@ export default function ResumoMotorista() {
 
       if (paradasError) throw paradasError;
 
-      setParadas(paradasData as Parada[] || []);
+      setParadas((paradasData as Parada[]) || []);
     } catch (error) {
       console.error('Erro ao carregar resumo:', error);
       Alert.alert('Erro', 'Não foi possível carregar o resumo da rota');
     } finally {
       setLoading(false);
     }
-  }
+  }, [userData?.id]);
 
   async function confirmarFinalizacao() {
     Alert.alert(

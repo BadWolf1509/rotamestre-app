@@ -1,26 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
-  FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  RefreshControl,
   TextInput,
   ScrollView,
   Modal,
   Platform,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { supabase } from '@/lib/supabase';
-import { useUser } from '@/hooks/useUser';
-import { toast } from '@/utils/toast';
-import { validation, formatTelefone } from '@/utils/validation';
+
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { DataTable, DataTableColumn, DataTableAction } from '@/components/DataTable';
 import { Toast } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
-import { ConfirmModal } from '@/components/ConfirmModal';
+import { useUser } from '@/hooks/useUser';
+import { supabase } from '@/lib/supabase';
 import { maskPhone, validatePhone, getPhoneErrorMessage } from '@/utils/phoneValidation';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { toast } from '@/utils/toast';
 
 interface MotoristaDetalhado {
   id: string;
@@ -42,7 +40,6 @@ export default function MotoristasGestor() {
   const { toast: toastState, showToast, hideToast, withToast } = useToast();
   const [motoristas, setMotoristas] = useState<MotoristaDetalhado[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [motoristaEditando, setMotoristaEditando] = useState<MotoristaDetalhado | null>(null);
@@ -60,27 +57,21 @@ export default function MotoristasGestor() {
   const [emailError, setEmailError] = useState('');
   const [telefoneError, setTelefoneError] = useState('');
 
-  useEffect(() => {
-    if (userData?.unidade_id) {
-      loadMotoristas();
-    }
-  }, [userData]);
+  const loadMotoristas = useCallback(async () => {
+    if (!userData?.unidade_id) return;
 
-  async function loadMotoristas() {
     try {
       setLoading(true);
 
-      // Buscar motoristas da unidade
       const { data: motoristasData, error: motoristasError } = await supabase
         .from('usuarios')
         .select('id, nome, email, telefone, ativo, created_at')
-        .eq('unidade_id', userData!.unidade_id)
+        .eq('unidade_id', userData.unidade_id)
         .eq('papel', 'motorista')
         .order('nome');
 
       if (motoristasError) throw motoristasError;
 
-      // Para cada motorista, buscar estatísticas de rotas
       const motoristasComStats = await Promise.all(
         (motoristasData || []).map(async (motorista) => {
           const { data: rotasData, error: rotasError } = await supabase
@@ -114,14 +105,12 @@ export default function MotoristasGestor() {
       showToast('Não foi possível carregar os motoristas', 'error');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  }
+  }, [showToast, userData?.unidade_id]);
 
-  function onRefresh() {
-    setRefreshing(true);
+  useEffect(() => {
     loadMotoristas();
-  }
+  }, [loadMotoristas]);
 
   function abrirModalAdicionar() {
     setFormNome('');
@@ -593,88 +582,6 @@ export default function MotoristasGestor() {
         </View>
       </View>
     </Modal>
-  );
-
-  const renderMotorista = ({ item }: { item: MotoristaDetalhado }) => (
-    <View style={[styles.motoristaCard, !item.ativo && styles.motoristaCardInativo]}>
-      {/* Header */}
-      <View style={styles.motoristaHeader}>
-        <View style={styles.motoristaHeaderLeft}>
-          <Text style={styles.motoristaNome}>{item.nome}</Text>
-          <Text style={styles.motoristaEmail}>{item.email}</Text>
-          {item.telefone && (
-            <Text style={styles.motoristaTelefone}>📞 {item.telefone}</Text>
-          )}
-        </View>
-        <View
-          style={[
-            styles.statusBadge,
-            item.ativo ? styles.statusBadgeAtivo : styles.statusBadgeInativo,
-          ]}
-        >
-          <Text style={styles.statusBadgeText}>
-            {item.ativo ? 'Ativo' : 'Inativo'}
-          </Text>
-        </View>
-      </View>
-
-      {/* Estatísticas */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statBox}>
-          <Text style={styles.statValue}>{item.rotas_stats?.total || 0}</Text>
-          <Text style={styles.statLabel}>Total de Rotas</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={[styles.statValue, { color: '#10b981' }]}>
-            {item.rotas_stats?.concluidas || 0}
-          </Text>
-          <Text style={styles.statLabel}>Concluídas</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={[styles.statValue, { color: '#3b82f6' }]}>
-            {item.rotas_stats?.em_andamento || 0}
-          </Text>
-          <Text style={styles.statLabel}>Em Andamento</Text>
-        </View>
-      </View>
-
-      {/* Ações */}
-      <View style={styles.acoesContainer}>
-        <TouchableOpacity
-          style={styles.botaoEditar}
-          onPress={() => abrirModalEditar(item)}
-          accessibilityLabel={`Editar motorista ${item.nome}`}
-          accessibilityRole="button"
-          accessibilityHint="Abre o formulário para editar os dados do motorista"
-        >
-          <Text style={styles.botaoEditarText}>✏️ Editar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.botaoStatus,
-            item.ativo ? styles.botaoDesativar : styles.botaoAtivar,
-          ]}
-          onPress={() => toggleAtivo(item)}
-          accessibilityLabel={`${item.ativo ? 'Desativar' : 'Ativar'} motorista ${item.nome}`}
-          accessibilityRole="button"
-          accessibilityHint={`${item.ativo ? 'Desativa' : 'Ativa'} o motorista no sistema`}
-        >
-          <Text style={styles.botaoStatusText}>
-            {item.ativo ? '🚫 Desativar' : '✓ Ativar'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Data de Cadastro */}
-      <Text style={styles.dataCadastro}>
-        Cadastrado em{' '}
-        {new Date(item.created_at).toLocaleDateString('pt-BR', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-        })}
-      </Text>
-    </View>
   );
 
   // ============================================

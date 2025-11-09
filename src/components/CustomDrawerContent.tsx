@@ -1,20 +1,19 @@
-import { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-} from 'react-native';
 import {
   DrawerContentScrollView,
   DrawerItemList,
   DrawerItem,
   DrawerContentComponentProps,
 } from '@react-navigation/drawer';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
 import { useRouter } from 'expo-router';
+import { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
+
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { authService } from '@/lib/auth';
 import { Usuario } from '@/types/usuario';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
+
+
 
 export function CustomDrawerContent(props: DrawerContentComponentProps) {
   const { theme } = useUnistyles();
@@ -22,6 +21,12 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const isDialogOpen = showLogoutDialog || showErrorDialog;
+
+  function handleLogoutPress() {
+    props.navigation.closeDrawer();
+    setTimeout(() => setShowLogoutDialog(true), 200);
+  }
 
   useEffect(() => {
     loadUsuario();
@@ -54,11 +59,17 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
     <View style={{ flex: 1 }}>
       <DrawerContentScrollView
         {...props}
+        bounces={false}
+        overScrollMode="never"
+        alwaysBounceVertical={false}
+        scrollEnabled={!isDialogOpen}
+        pointerEvents={isDialogOpen ? 'none' : 'auto'}
         style={styles(theme).container}
         contentContainerStyle={styles(theme).contentContainer}
       >
-        {/* Seção de Perfil (topo) */}
-        <View style={styles(theme).header}>
+        <View style={{ flexGrow: 1, justifyContent: 'space-between' }}>
+          {/* Seção de Perfil (topo) */}
+          <View style={styles(theme).header}>
           <View style={styles(theme).avatar}>
             <Text style={styles(theme).avatarText}>
               {usuario?.nome?.charAt(0)?.toUpperCase() || '?'}
@@ -78,6 +89,17 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
         {/* Navegação Principal */}
         <View style={styles(theme).menuSection}>
           <DrawerItemList {...props} />
+          <DrawerItem
+            label="Meu Perfil"
+            icon={() => <Text style={styles(theme).menuIcon}>👤</Text>}
+            onPress={() => {
+              props.navigation.closeDrawer();
+              router.push('/motorista/perfil');
+            }}
+            labelStyle={styles(theme).drawerLabel}
+            activeTintColor={theme.colors.primary}
+            inactiveTintColor={theme.colors.gray700}
+          />
         </View>
 
         {/* Itens Secundários */}
@@ -110,12 +132,13 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
         <View style={styles(theme).footer}>
           <TouchableOpacity
             style={styles(theme).logoutButton}
-            onPress={() => setShowLogoutDialog(true)}
+            onPress={handleLogoutPress}
             activeOpacity={0.8}
           >
             <Text style={styles(theme).logoutIcon}>🚪</Text>
             <Text style={styles(theme).logoutText}>Sair da Conta</Text>
           </TouchableOpacity>
+        </View>
         </View>
       </DrawerContentScrollView>
 
@@ -153,7 +176,7 @@ const styles = (theme: any) =>
     },
     contentContainer: {
       paddingTop: 0,
-      flex: 1,
+      paddingBottom: 0,
     },
     header: {
       padding: theme.spacing.xl,
@@ -200,7 +223,6 @@ const styles = (theme: any) =>
     },
     menuSection: {
       paddingVertical: theme.spacing.sm,
-      flex: 1,
     },
     secondarySection: {
       paddingVertical: theme.spacing.sm,

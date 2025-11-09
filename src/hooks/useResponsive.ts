@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { Platform, useWindowDimensions } from 'react-native';
 
 export type Breakpoint = 'mobile' | 'tablet' | 'desktop';

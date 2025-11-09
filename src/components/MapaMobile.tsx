@@ -1,7 +1,8 @@
-import React, { useRef, useEffect } from 'react';
-import { View, Text, ActivityIndicator, Platform } from 'react-native';
-import { StyleSheet } from '@/utils/styles';
+import React, { useRef, useEffect, useMemo } from 'react';
+import { View, Text } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+
+import { StyleSheet } from '@/utils/styles';
 
 interface Parada {
   id: string;
@@ -20,9 +21,31 @@ export function MapaMobile({ paradas }: MapaMobileProps) {
   const mapRef = useRef<MapView>(null);
 
   // Filtrar paradas com coordenadas válidas
-  const paradasComCoord = paradas.filter(
-    p => p.latitude !== null && p.longitude !== null
+  const paradasComCoord = useMemo(
+    () => paradas.filter((p) => p.latitude !== null && p.longitude !== null),
+    [paradas]
   );
+
+  // Ajustar mapa para mostrar todas as paradas após carregar
+  useEffect(() => {
+    if (paradasComCoord.length > 1 && mapRef.current) {
+      const timer = setTimeout(() => {
+        mapRef.current?.fitToCoordinates(
+          paradasComCoord.map((p) => ({
+            latitude: p.latitude!,
+            longitude: p.longitude!,
+          })),
+          {
+            edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+            animated: true,
+          }
+        );
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [paradasComCoord]);
 
   // Se não houver paradas com coordenadas
   if (paradasComCoord.length === 0) {
@@ -73,24 +96,6 @@ export function MapaMobile({ paradas }: MapaMobileProps) {
   };
 
   const initialRegion = calculateRegion();
-
-  // Ajustar mapa para mostrar todas as paradas após carregar
-  useEffect(() => {
-    if (paradasComCoord.length > 1 && mapRef.current) {
-      setTimeout(() => {
-        mapRef.current?.fitToCoordinates(
-          paradasComCoord.map(p => ({
-            latitude: p.latitude!,
-            longitude: p.longitude!,
-          })),
-          {
-            edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-            animated: true,
-          }
-        );
-      }, 500);
-    }
-  }, [paradasComCoord.length]);
 
   // Função para determinar cor do marcador baseado no status
   const getMarkerColor = (status: string): string => {
