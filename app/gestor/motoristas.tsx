@@ -9,12 +9,17 @@ import {
   Modal,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { DataTable, DataTableColumn, DataTableAction } from '@/components/DataTable';
 import { Toast } from '@/components/Toast';
+import { DesktopPageLayout } from '@/components/desktop';
+import { DesktopModal } from '@/components/desktop';
+import { DesktopCard, DesktopCardGrid } from '@/components/desktop';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
+import { useResponsive } from '@/hooks/useResponsive';
 import { supabase } from '@/lib/supabase';
 import { maskPhone, validatePhone, getPhoneErrorMessage } from '@/utils/phoneValidation';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
@@ -37,6 +42,7 @@ interface MotoristaDetalhado {
 export default function MotoristasGestor() {
   const { theme } = useUnistyles();
   const { userData } = useUser();
+  const { isDesktop } = useResponsive();
   const { toast: toastState, showToast, hideToast, withToast } = useToast();
   const [motoristas, setMotoristas] = useState<MotoristaDetalhado[]>([]);
   const [loading, setLoading] = useState(true);
@@ -400,6 +406,193 @@ export default function MotoristasGestor() {
     }
   }
 
+  function resetFormulario() {
+    setFormNome('');
+    setFormEmail('');
+    setFormTelefone('');
+    setFormSenha('');
+    setEmailError('');
+    setTelefoneError('');
+  }
+
+  const handleAdicionarMotorista = () => adicionarMotorista();
+  const handleEditarMotorista = () => editarMotorista();
+
+  const renderAddModalContent = () => (
+    <ScrollView showsVerticalScrollIndicator={false}>
+      <View style={styles.modalContent}>
+        {/* Nome */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Nome Completo</Text>
+          <TextInput
+            style={styles.input}
+            value={formNome}
+            onChangeText={setFormNome}
+            placeholder="Digite o nome completo"
+            autoCapitalize="words"
+          />
+        </View>
+
+        {/* Email */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Email</Text>
+          <TextInput
+            style={[styles.input, emailError && styles.inputError]}
+            value={formEmail}
+            onChangeText={(text) => {
+              setFormEmail(text.toLowerCase());
+              setEmailError('');
+            }}
+            placeholder="email@exemplo.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+        </View>
+
+        {/* Telefone */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Telefone (opcional)</Text>
+          <TextInput
+            style={[styles.input, telefoneError && styles.inputError]}
+            value={formTelefone}
+            onChangeText={(text) => {
+              const maskedPhone = maskPhone(text);
+              setFormTelefone(maskedPhone);
+              if (maskedPhone) {
+                const validation = validatePhone(maskedPhone);
+                setTelefoneError(validation.isValid ? '' : getPhoneErrorMessage(validation.error));
+              } else {
+                setTelefoneError('');
+              }
+            }}
+            placeholder="(00) 00000-0000"
+            keyboardType="phone-pad"
+          />
+          {telefoneError ? <Text style={styles.errorText}>{telefoneError}</Text> : null}
+        </View>
+
+        {/* Senha */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Senha Inicial</Text>
+          <TextInput
+            style={styles.input}
+            value={formSenha}
+            onChangeText={setFormSenha}
+            placeholder="Mínimo 6 caracteres"
+            secureTextEntry
+            autoCapitalize="none"
+          />
+          <Text style={styles.helperText}>
+            O motorista poderá alterar a senha no primeiro acesso
+          </Text>
+        </View>
+
+        {/* Botões */}
+        <View style={styles.modalFooter}>
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={() => {
+              setShowAddModal(false);
+              resetFormulario();
+            }}
+          >
+            <Text style={styles.cancelButtonText}>Cancelar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.confirmButton, salvando && styles.disabledButton]}
+            onPress={handleAdicionarMotorista}
+            disabled={salvando}
+          >
+            {salvando ? (
+              <ActivityIndicator color={theme.colors.white} />
+            ) : (
+              <Text style={styles.confirmButtonText}>Adicionar</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ScrollView>
+  );
+
+  const renderEditModalContent = () => (
+    <ScrollView showsVerticalScrollIndicator={false}>
+      <View style={styles.modalContent}>
+        {/* Nome */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Nome Completo</Text>
+          <TextInput
+            style={styles.input}
+            value={formNome}
+            onChangeText={setFormNome}
+            placeholder="Digite o nome completo"
+            autoCapitalize="words"
+          />
+        </View>
+
+        {/* Email - Não editável */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Email</Text>
+          <TextInput
+            style={[styles.input, styles.inputDisabled]}
+            value={motoristaEditando?.email}
+            editable={false}
+          />
+          <Text style={styles.helperText}>
+            Email não pode ser alterado
+          </Text>
+        </View>
+
+        {/* Telefone */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Telefone (opcional)</Text>
+          <TextInput
+            style={[styles.input, telefoneError && styles.inputError]}
+            value={formTelefone}
+            onChangeText={(text) => {
+              const maskedPhone = maskPhone(text);
+              setFormTelefone(maskedPhone);
+              if (maskedPhone) {
+                const validation = validatePhone(maskedPhone);
+                setTelefoneError(validation.isValid ? '' : getPhoneErrorMessage(validation.error));
+              } else {
+                setTelefoneError('');
+              }
+            }}
+            placeholder="(00) 00000-0000"
+            keyboardType="phone-pad"
+          />
+          {telefoneError ? <Text style={styles.errorText}>{telefoneError}</Text> : null}
+        </View>
+
+        {/* Botões */}
+        <View style={styles.modalFooter}>
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={() => {
+              setShowEditModal(false);
+              setMotoristaEditando(null);
+              resetFormulario();
+            }}
+          >
+            <Text style={styles.cancelButtonText}>Cancelar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.confirmButton, salvando && styles.disabledButton]}
+            onPress={handleEditarMotorista}
+            disabled={salvando}
+          >
+            {salvando ? (
+              <ActivityIndicator color={theme.colors.white} />
+            ) : (
+              <Text style={styles.confirmButtonText}>Salvar</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ScrollView>
+  );
+
   const renderAddModal = () => (
     <Modal
       visible={showAddModal}
@@ -661,6 +854,100 @@ export default function MotoristasGestor() {
     },
   ];
 
+  // Desktop Layout
+  if (isDesktop) {
+    return (
+      <>
+        <DesktopPageLayout
+          title="Motoristas"
+          subtitle={`${motoristas.length} ${motoristas.length === 1 ? 'motorista' : 'motoristas'} cadastrados`}
+          actions={[
+            {
+              label: 'Adicionar Motorista',
+              icon: 'add-circle-outline',
+              onPress: abrirModalAdicionar,
+              variant: 'primary'
+            }
+          ]}
+          loading={loading}
+          loadingText="Carregando motoristas..."
+        >
+          {motoristas.length === 0 ? (
+            <DesktopCard variant="elevated">
+              <View style={styles.emptyContainer}>
+                <Ionicons name="people-outline" size={64} color={theme.colors.gray400} />
+                <Text style={styles.emptyText}>Nenhum motorista cadastrado</Text>
+                <Text style={styles.emptySubtext}>
+                  Adicione o primeiro motorista usando o botão acima
+                </Text>
+              </View>
+            </DesktopCard>
+          ) : (
+            <DesktopCard
+              title="Lista de Motoristas"
+              icon="people"
+              variant="elevated"
+              noPadding
+            >
+              <DataTable
+                data={motoristas}
+                columns={columns}
+                actions={actions}
+                keyExtractor={(item) => item.id}
+                itemsPerPage={20}
+                pagination
+                isLoading={loading}
+                skeletonRows={10}
+              />
+            </DesktopCard>
+          )}
+        </DesktopPageLayout>
+
+        {/* Modals usando DesktopModal */}
+        <DesktopModal
+          visible={showAddModal}
+          title="Adicionar Motorista"
+          onClose={() => {
+            setShowAddModal(false);
+            resetFormulario();
+          }}
+        >
+          {renderAddModalContent()}
+        </DesktopModal>
+
+        <DesktopModal
+          visible={showEditModal}
+          title="Editar Motorista"
+          onClose={() => {
+            setShowEditModal(false);
+            setMotoristaEditando(null);
+            resetFormulario();
+          }}
+        >
+          {renderEditModalContent()}
+        </DesktopModal>
+
+        {/* Modal de Confirmação */}
+        <ConfirmModal
+          visible={showConfirmModal}
+          title={motoristaParaToggle?.ativo ? "Desativar Motorista" : "Ativar Motorista"}
+          message={`Deseja realmente ${motoristaParaToggle?.ativo ? 'desativar' : 'ativar'} ${motoristaParaToggle?.nome}?`}
+          confirmText="Confirmar"
+          cancelText="Cancelar"
+          type={motoristaParaToggle?.ativo ? "danger" : "success"}
+          onConfirm={confirmarToggleAtivo}
+          onCancel={() => {
+            setShowConfirmModal(false);
+            setMotoristaParaToggle(null);
+          }}
+        />
+
+        <Toast {...toastState} onDismiss={hideToast} />
+      </>
+    );
+  }
+
+  // Mobile Layout (existing)
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -672,36 +959,28 @@ export default function MotoristasGestor() {
 
   return (
     <>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.headerTitle}>Motoristas</Text>
-            <Text style={styles.headerSubtitle}>
-              {userData?.unidades?.nome}
+      {/* Content */}
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.content}>
+        {/* Header com Info e Botão */}
+        <View style={styles.topSection}>
+          <View style={styles.infoBox}>
+            <Text style={styles.infoText}>
+              {motoristas.length} {motoristas.length === 1 ? 'motorista' : 'motoristas'} cadastrados
             </Text>
           </View>
           <TouchableOpacity
-            style={styles.addButton}
+            style={styles.addButtonMobile}
             onPress={abrirModalAdicionar}
             accessibilityLabel="Adicionar novo motorista"
             accessibilityRole="button"
             accessibilityHint="Abre o formulário para adicionar um novo motorista"
           >
-            <Text style={styles.addButtonText}>+ Novo</Text>
+            <Text style={styles.addButtonText}>+ Novo Motorista</Text>
           </TouchableOpacity>
         </View>
-      </View>
 
-      {/* Content */}
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.content}>
-        {/* Info */}
-        <View style={styles.infoBox}>
-          <Text style={styles.infoText}>
-            {motoristas.length} {motoristas.length === 1 ? 'motorista' : 'motoristas'} cadastrados
-          </Text>
-        </View>
+        {/* Lista/Tabela de Motoristas */}
         {motoristas.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyTitle}>👤</Text>
@@ -799,13 +1078,16 @@ const styles = StyleSheet.create(theme => ({
     marginHorizontal: 'auto',
     width: '100%',
   },
+  topSection: {
+    marginBottom: theme.spacing.lg,
+  },
   infoBox: {
     backgroundColor: theme.colors.info + '10',
     borderWidth: 1,
     borderColor: theme.colors.info + '30',
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.lg,
-    marginBottom: theme.spacing['2xl'],
+    marginBottom: theme.spacing.md,
   },
   infoText: {
     fontSize: theme.typography.sm,
@@ -818,6 +1100,13 @@ const styles = StyleSheet.create(theme => ({
     paddingHorizontal: theme.spacing.xl,
     paddingVertical: theme.spacing.md,
     borderRadius: theme.borderRadius.lg,
+  },
+  addButtonMobile: {
+    backgroundColor: theme.colors.success,
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    alignItems: 'center',
   },
   addButtonText: {
     color: theme.colors.white,
@@ -973,13 +1262,13 @@ const styles = StyleSheet.create(theme => ({
     color: theme.colors.gray900,
   },
   inputError: {
-    borderColor: '#ef4444',
+    borderColor: theme.colors.error,
     borderWidth: 2,
-    backgroundColor: '#fef2f2',
+    backgroundColor: theme.colors.red50,
   },
   errorText: {
     fontSize: theme.typography.fontSize.xs,
-    color: '#ef4444',
+    color: theme.colors.error,
     marginTop: theme.spacing.xs,
     marginBottom: theme.spacing.sm,
   },
@@ -1038,5 +1327,51 @@ const styles = StyleSheet.create(theme => ({
     color: theme.colors.gray900,
     marginBottom: theme.spacing.lg,
     textAlign: 'center',
+  },
+  inputGroup: {
+    marginBottom: theme.spacing.lg,
+  },
+  helperText: {
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.gray500,
+    marginTop: theme.spacing.xs,
+  },
+  inputDisabled: {
+    backgroundColor: theme.colors.gray100,
+    color: theme.colors.gray500,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+    marginTop: theme.spacing['2xl'],
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: theme.colors.gray100,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: theme.borderRadius.lg,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.gray700,
+  },
+  confirmButton: {
+    flex: 1,
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: theme.borderRadius.lg,
+    alignItems: 'center',
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.white,
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
 }));

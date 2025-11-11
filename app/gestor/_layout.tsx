@@ -1,18 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, Slot } from 'expo-router';
-import { Pressable } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { DrawerMenuProvider, useDrawerMenu } from '@/context/DrawerMenuContext';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUnistyles } from '@/utils/styles';
+import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
 
 export default function GestorLayout() {
-  const { isDesktop } = useResponsive();
+  const { isDesktop, isTablet } = useResponsive();
 
+  // Desktop Layout - Sidebar fixa + conteúdo
   if (isDesktop) {
-    return <Slot />;
+    return (
+      <View style={{ flex: 1, flexDirection: 'row', backgroundColor: '#f9fafb' }}>
+        <Sidebar />
+        <View style={{ flex: 1 }}>
+          <Slot />
+        </View>
+      </View>
+    );
   }
 
+  // Tablet & Mobile - Drawer Menu + Stack Navigation
   return (
     <DrawerMenuProvider>
       <GestorStack />

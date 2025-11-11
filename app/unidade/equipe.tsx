@@ -157,17 +157,6 @@ export default function EquipeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.headerTitle}>Equipe</Text>
-            <Text style={styles.headerSubtitle}>
-              {userData?.unidades?.nome}
-            </Text>
-          </View>
-        </View>
-      </View>
 
       {/* Stats */}
       <View style={styles.statsContainer}>

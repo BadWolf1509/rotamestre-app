@@ -6,6 +6,8 @@ export interface Usuario {
   nome: string;
   papel: TipoUsuario; // Alterado de 'tipo' para 'papel' (match com DB)
   unidade_id?: string;
+  telefone?: string | null;
+  ultimo_login?: string | null;
   created_at: string;
   updated_at: string;
 }

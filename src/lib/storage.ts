@@ -6,9 +6,10 @@
 import { supabase } from './supabase';
 
 /**
- * Bucket name no Supabase Storage
+ * Bucket names no Supabase Storage
  */
-const BUCKET_NAME = 'fotos-entrega';
+const BUCKET_FOTOS_ENTREGA = 'fotos-entrega';
+const BUCKET_INCIDENTES = 'incidentes';
 
 /**
  * Upload de foto de comprovante de entrega
@@ -52,7 +53,7 @@ export async function uploadFotoEntrega(
 
     // Upload para Supabase Storage
     const { data, error } = await supabase.storage
-      .from(BUCKET_NAME)
+      .from(BUCKET_FOTOS_ENTREGA)
       .upload(filePath, blob, {
         contentType: 'image/jpeg',
         cacheControl: '3600', // Cache de 1 hora
@@ -68,7 +69,7 @@ export async function uploadFotoEntrega(
 
     // Obter URL pública
     const { data: { publicUrl } } = supabase.storage
-      .from(BUCKET_NAME)
+      .from(BUCKET_FOTOS_ENTREGA)
       .getPublicUrl(filePath);
 
     console.log('🔗 URL pública:', publicUrl);
@@ -178,7 +179,7 @@ export async function deletarFoto(fotoUrl: string): Promise<boolean> {
     console.log('🗑️  Deletando foto:', filePath);
 
     const { error } = await supabase.storage
-      .from(BUCKET_NAME)
+      .from(BUCKET_FOTOS_ENTREGA)
       .remove([filePath]);
 
     if (error) {
@@ -230,7 +231,7 @@ export async function uploadFotoUsuario(
 
     // Upload para Supabase Storage
     const { data, error } = await supabase.storage
-      .from(BUCKET_NAME)
+      .from(BUCKET_FOTOS_ENTREGA)
       .upload(filePath, blob, {
         contentType: 'image/jpeg',
         cacheControl: '3600', // Cache de 1 hora
@@ -246,7 +247,7 @@ export async function uploadFotoUsuario(
 
     // Obter URL pública
     const { data: { publicUrl } } = supabase.storage
-      .from(BUCKET_NAME)
+      .from(BUCKET_FOTOS_ENTREGA)
       .getPublicUrl(filePath);
 
     console.log('🔗 URL pública:', publicUrl);
@@ -274,6 +275,68 @@ export async function uploadFotoUsuario(
   }
 }
 
+/**
+ * Upload de foto de incidente
+ *
+ * @param fotoUri - URI local da foto
+ * @param fileName - Nome do arquivo
+ * @returns URL pública da foto ou string vazia se houver erro
+ */
+export async function uploadIncidentPhoto(
+  fotoUri: string,
+  fileName: string
+): Promise<string> {
+  try {
+    console.log('📸 Iniciando upload de foto de incidente...');
+
+    // Converter URI para blob
+    const response = await fetch(fotoUri);
+    const blob = await response.blob();
+
+    console.log(`   Tamanho: ${(blob.size / 1024).toFixed(2)} KB`);
+
+    // Validar tamanho (máx 5MB)
+    if (blob.size > 5 * 1024 * 1024) {
+      console.error('❌ Foto muito grande! Máximo: 5MB');
+      throw new Error('Foto muito grande. Máximo: 5MB');
+    }
+
+    // Criar bucket de incidentes se não existir
+    const { data: buckets } = await supabase.storage.listBuckets();
+    if (!buckets?.find(b => b.name === BUCKET_INCIDENTES)) {
+      await supabase.storage.createBucket(BUCKET_INCIDENTES, {
+        public: true,
+      });
+    }
+
+    // Upload para o bucket
+    const { data, error } = await supabase.storage
+      .from(BUCKET_INCIDENTES)
+      .upload(fileName, blob, {
+        contentType: 'image/jpeg',
+        upsert: true,
+      });
+
+    if (error) {
+      console.error('❌ Erro no upload:', error);
+      throw error;
+    }
+
+    // Gerar URL pública
+    const { data: urlData } = supabase.storage
+      .from(BUCKET_INCIDENTES)
+      .getPublicUrl(fileName);
+
+    console.log('✅ Upload de incidente concluído!');
+    console.log(`   URL: ${urlData.publicUrl}`);
+
+    return urlData.publicUrl;
+  } catch (error) {
+    console.error('❌ Erro ao fazer upload de foto de incidente:', error);
+    return '';
+  }
+}
+
 // Export como objeto para manter compatibilidade
 export const storageService = {
   uploadFotoEntrega,
@@ -281,4 +344,5 @@ export const storageService = {
   uploadELinkFotoParada,
   deletarFoto,
   uploadFotoUsuario,
+  uploadIncidentPhoto,
 };

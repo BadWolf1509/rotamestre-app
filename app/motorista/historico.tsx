@@ -35,10 +35,6 @@ export default function HistoricoMotorista() {
   const [refreshing, setRefreshing] = useState(false);
   const [expandedRotaId, setExpandedRotaId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadHistorico();
-  }, [loadHistorico]);
-
   const loadHistorico = useCallback(async () => {
     if (!userData?.id) {
       setRotas([]);
@@ -92,6 +88,10 @@ export default function HistoricoMotorista() {
       setRefreshing(false);
     }
   }, [userData?.id]);
+
+  useEffect(() => {
+    loadHistorico();
+  }, [loadHistorico]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -322,7 +322,7 @@ const styles = StyleSheet.create(theme => ({
     backgroundColor: theme.colors.gray50,
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: theme.spacing.lg,
     fontSize: 14,
     color: theme.colors.gray500,
   },

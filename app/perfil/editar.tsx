@@ -10,14 +10,17 @@ import {
 } from 'react-native';
 
 import { AlertDialog } from '@/components/AlertDialog';
+import { FormDesktopLayout } from '@/components/perfil/FormDesktopLayout';
 import { authService } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { Usuario } from '@/types/usuario';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { useResponsive } from '@/hooks/useResponsive';
 
 export default function EditarPerfilGestor() {
   const { theme } = useUnistyles();
   const router = useRouter();
+  const { isDesktop } = useResponsive();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [usuario, setUsuario] = useState<Usuario | null>(null);
@@ -171,6 +174,62 @@ export default function EditarPerfilGestor() {
     );
   }
 
+  // Desktop layout
+  if (isDesktop) {
+    const fields = [
+      {
+        label: 'Nome Completo',
+        value: nome,
+        placeholder: 'Digite seu nome completo',
+        onChange: setNome,
+        autoCapitalize: 'words' as const,
+      },
+      {
+        label: 'Email',
+        value: usuario?.email || '',
+        editable: false,
+        helperText: 'O email não pode ser alterado',
+        onChange: () => {},
+      },
+      {
+        label: 'Telefone',
+        value: telefone,
+        placeholder: '(11) 99999-9999',
+        onChange: (text: string) => setTelefone(formatPhone(text)),
+        keyboardType: 'phone-pad' as const,
+        helperText: 'Formato: (11) 99999-9999',
+      },
+    ];
+
+    return (
+      <>
+        <FormDesktopLayout
+          title="Editar Perfil"
+          subtitle="Atualize suas informações pessoais"
+          fields={fields}
+          primaryButtonText="Salvar Alterações"
+          primaryButtonDisabled={saving || !nome.trim()}
+          onPrimaryPress={handleSave}
+          secondaryButtonText="Cancelar"
+          onSecondaryPress={() => router.push('/perfil')}
+          loading={saving}
+        />
+        <AlertDialog
+          visible={alertConfig.visible}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          type={alertConfig.type}
+          confirmText={alertConfig.confirmText}
+          onConfirm={() => {
+            hideAlert();
+            alertConfig.onConfirm?.();
+          }}
+        />
+      </>
+    );
+  }
+
+  // Mobile layout
   return (
     <View style={styles(theme).container}>
       <ScrollView style={styles(theme).scrollView}>

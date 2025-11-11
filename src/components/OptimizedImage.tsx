@@ -1,0 +1,313 @@
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Image,
+  View,
+  ActivityIndicator,
+  StyleSheet,
+  ImageProps,
+  Animated,
+  Platform,
+} from 'react-native';
+import { BlurView } from 'expo-blur';
+// Import file system conditionally for native only
+const FileSystem = Platform.OS !== 'web' ? require('expo-file-system') : null;
+const Crypto = Platform.OS !== 'web' ? require('expo-crypto') : null;
+import PerformanceOptimizer from '@/services/performanceOptimizer';
+
+interface OptimizedImageProps extends Omit<ImageProps, 'source'> {
+  source: { uri: string } | number;
+  placeholder?: { uri: string } | number;
+  width?: number;
+  height?: number;
+  priority?: 'high' | 'normal' | 'low';
+  enableCache?: boolean;
+  enableLazyLoad?: boolean;
+  blurRadius?: number;
+  onLoadStart?: () => void;
+  onLoadEnd?: () => void;
+  onError?: (error: any) => void;
+}
+
+const CACHE_DIR = Platform.OS !== 'web' && FileSystem ? `${FileSystem.cacheDirectory}images/` : '';
+
+export function OptimizedImage({
+  source,
+  placeholder,
+  width,
+  height,
+  priority = 'normal',
+  enableCache = true,
+  enableLazyLoad = true,
+  blurRadius = 10,
+  onLoadStart,
+  onLoadEnd,
+  onError,
+  style,
+  ...props
+}: OptimizedImageProps) {
+  const [isLoading, setIsLoading] = useState(true);
+  const [imageSource, setImageSource] = useState<{ uri: string } | number>(
+    placeholder || source
+  );
+  const [error, setError] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof source === 'number') {
+      // Local image, no optimization needed
+      setImageSource(source);
+      setIsLoading(false);
+      return;
+    }
+
+    loadImage();
+  }, [source]);
+
+  const loadImage = async () => {
+    if (typeof source === 'number') return;
+
+    const { uri } = source;
+    if (!uri) return;
+
+    setIsLoading(true);
+    onLoadStart?.();
+
+    try {
+      let finalUri = uri;
+
+      // Apply image optimization if enabled
+      if (Platform.OS === 'web') {
+        finalUri = PerformanceOptimizer.getOptimizedImageUrl(uri, width, height);
+      }
+
+      // Check cache if enabled
+      if (enableCache && Platform.OS !== 'web') {
+        const cachedUri = await getCachedImage(uri);
+        if (cachedUri && mountedRef.current) {
+          setImageSource({ uri: cachedUri });
+          setIsLoading(false);
+          animateImageLoad();
+          onLoadEnd?.();
+          return;
+        }
+      }
+
+      // Load image with priority
+      if (enableLazyLoad) {
+        await PerformanceOptimizer.deferOperation(async () => {
+          if (!mountedRef.current) return;
+
+          // Download and cache if needed
+          if (enableCache && Platform.OS !== 'web') {
+            const localUri = await downloadAndCacheImage(uri);
+            if (localUri && mountedRef.current) {
+              setImageSource({ uri: localUri });
+            }
+          } else {
+            setImageSource({ uri: finalUri });
+          }
+
+          if (mountedRef.current) {
+            setIsLoading(false);
+            animateImageLoad();
+            onLoadEnd?.();
+          }
+        }, priority);
+      } else {
+        // Immediate load
+        if (enableCache && Platform.OS !== 'web') {
+          const localUri = await downloadAndCacheImage(uri);
+          if (localUri && mountedRef.current) {
+            setImageSource({ uri: localUri });
+          }
+        } else {
+          setImageSource({ uri: finalUri });
+        }
+
+        if (mountedRef.current) {
+          setIsLoading(false);
+          animateImageLoad();
+          onLoadEnd?.();
+        }
+      }
+    } catch (err) {
+      console.error('Error loading image:', err);
+      if (mountedRef.current) {
+        setError(true);
+        setIsLoading(false);
+        onError?.(err);
+        onLoadEnd?.();
+      }
+    }
+  };
+
+  const getCachedImage = async (uri: string): Promise<string | null> => {
+    if (Platform.OS === 'web' || !FileSystem || !Crypto) {
+      return null;
+    }
+
+    try {
+      // Generate cache key
+      const cacheKey = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.MD5,
+        uri
+      );
+      const cacheFilePath = `${CACHE_DIR}${cacheKey}.jpg`;
+
+      // Check if cached file exists
+      const fileInfo = await FileSystem.getInfoAsync(cacheFilePath);
+      if (fileInfo.exists && !fileInfo.isDirectory) {
+        // Check if cache is not too old (7 days)
+        const age = Date.now() - (fileInfo.modificationTime || 0) * 1000;
+        if (age < 7 * 24 * 60 * 60 * 1000) {
+          return cacheFilePath;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking cache:', error);
+    }
+    return null;
+  };
+
+  const downloadAndCacheImage = async (uri: string): Promise<string | null> => {
+    if (Platform.OS === 'web' || !FileSystem || !Crypto) {
+      return null;
+    }
+
+    try {
+      // Ensure cache directory exists
+      const dirInfo = await FileSystem.getInfoAsync(CACHE_DIR);
+      if (!dirInfo.exists) {
+        await FileSystem.makeDirectoryAsync(CACHE_DIR, { intermediates: true });
+      }
+
+      // Generate cache key
+      const cacheKey = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.MD5,
+        uri
+      );
+      const cacheFilePath = `${CACHE_DIR}${cacheKey}.jpg`;
+
+      // Download image
+      const downloadResult = await FileSystem.downloadAsync(uri, cacheFilePath);
+
+      if (downloadResult.status === 200) {
+        return downloadResult.uri;
+      }
+    } catch (error) {
+      console.error('Error caching image:', error);
+    }
+    return null;
+  };
+
+  const animateImageLoad = () => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handleError = (err: any) => {
+    setError(true);
+    setIsLoading(false);
+    onError?.(err);
+  };
+
+  // Calculate optimized dimensions
+  const getOptimizedStyle = () => {
+    const baseStyle = StyleSheet.flatten(style);
+
+    if (width && height) {
+      return {
+        ...baseStyle,
+        width,
+        height,
+      };
+    }
+
+    return baseStyle;
+  };
+
+  if (error) {
+    return (
+      <View style={[styles.container, getOptimizedStyle()]}>
+        <View style={styles.errorContainer}>
+          <View style={styles.errorIconContainer}>
+            <Text style={styles.errorIcon}>⚠️</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, getOptimizedStyle()]}>
+      {isLoading && placeholder && (
+        <View style={StyleSheet.absoluteFillObject}>
+          <Image
+            source={placeholder}
+            style={[StyleSheet.absoluteFillObject, getOptimizedStyle()]}
+            blurRadius={blurRadius}
+            {...props}
+          />
+          {Platform.OS === 'ios' && (
+            <BlurView intensity={80} style={StyleSheet.absoluteFillObject} />
+          )}
+          <ActivityIndicator
+            style={styles.loader}
+            size="small"
+            color="#6b7280"
+          />
+        </View>
+      )}
+
+      <Animated.Image
+        source={imageSource}
+        style={[
+          StyleSheet.absoluteFillObject,
+          getOptimizedStyle(),
+          { opacity: fadeAnim },
+        ]}
+        onError={handleError}
+        {...props}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    overflow: 'hidden',
+    backgroundColor: '#f3f4f6',
+  },
+  loader: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginTop: -10,
+    marginLeft: -10,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+  },
+  errorIconContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorIcon: {
+    fontSize: 40,
+    opacity: 0.5,
+  },
+});

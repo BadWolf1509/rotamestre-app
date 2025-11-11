@@ -14,6 +14,10 @@ export const authService = {
     // Buscar dados do usuário na tabela usuarios
     if (data.user) {
       const usuario = await this.getUsuario(data.user.id);
+      await supabase
+        .from('usuarios')
+        .update({ ultimo_login: new Date().toISOString() })
+        .eq('id', data.user.id);
       return { session: data.session, usuario };
     }
 

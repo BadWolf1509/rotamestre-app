@@ -13,7 +13,6 @@ import { z } from 'zod';
 
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import { Toast } from '@/components/Toast';
-import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { googleMapsService } from '@/lib/google';
@@ -21,6 +20,9 @@ import { supabase } from '@/lib/supabase';
 import { GoogleDirectionsLeg } from '@/types/google-directions';
 import { maskPhone } from '@/utils/phoneValidation';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { useResponsive } from '@/hooks/useResponsive';
+import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
+import { DesktopCard } from '@/components/desktop/DesktopCard';
 
 // Schema de validação
 const paradaSchema = z.object({
@@ -323,7 +325,7 @@ export default function NovaEntrega() {
   const styles = createStyles(theme);
   const { userData, unidade } = useUser();
   const { toast: toastState, showToast, hideToast } = useToast();
-  const { isDesktop, isLargeDesktop } = useBreakpoint();
+  const { isDesktop } = useResponsive();
   const [paradas, setParadas] = useState<Parada[]>([]);
   const [motoristas, setMotoristas] = useState<any[]>([]);
   const [motoristaSelecionado, setMotoristaSelecionado] = useState<string>('');
@@ -880,27 +882,39 @@ export default function NovaEntrega() {
   // ============================================
   // Render Principal
   // ============================================
-  return (
-    <>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.headerTitle}>Nova Rota de Entrega</Text>
-            <Text style={styles.headerSubtitle}>
-              {userData?.unidades?.nome}
-            </Text>
-          </View>
-        </View>
-      </View>
 
-      {/* Content */}
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.content}>
-          {/* Desktop: Two-column layout (Form | Preview) */}
-          {isDesktop || isLargeDesktop ? (
-            <View style={styles.twoColumnLayout}>
-              <View style={styles.formColumn}>
+  // Desktop Layout
+  if (isDesktop) {
+    return (
+      <>
+        <DesktopPageLayout
+          title="Nova Rota de Entrega"
+          subtitle={userData?.unidades?.nome || 'Carregando...'}
+          breadcrumbs={[
+            { label: 'Dashboard', route: '/gestor' },
+            { label: 'Nova Entrega' }
+          ]}
+          actions={[
+            {
+              label: 'Limpar Formulário',
+              icon: 'refresh-outline',
+              onPress: limparFormulario,
+              variant: 'secondary',
+              disabled: paradas.length === 0
+            }
+          ]}
+          loading={isLoadingMotoristas}
+          loadingText="Carregando dados..."
+        >
+          <View style={styles.twoColumnLayout}>
+            {/* Formulário */}
+            <View style={styles.formColumn}>
+              <DesktopCard
+                title="Adicionar Parada"
+                icon="add-circle-outline"
+                iconColor={theme.colors.primary}
+                variant="outlined"
+              >
                 <FormularioParadaMemoized
                   control={control}
                   errors={errors}
@@ -909,25 +923,45 @@ export default function NovaEntrega() {
                   onAddParada={onAddParada}
                   isLoading={isLoading}
                 />
-              </View>
-              <View style={styles.previewColumn}>
-                <ParadasListAndActions />
-              </View>
+              </DesktopCard>
             </View>
-          ) : (
-            /* Mobile/Tablet: Stacked layout */
-            <>
-              <FormularioParadaMemoized
-                control={control}
-                errors={errors}
-                setValue={setValue}
-                handleSubmit={handleSubmit}
-                onAddParada={onAddParada}
-                isLoading={isLoading}
-              />
-              <ParadasListAndActions />
-            </>
-          )}
+
+            {/* Lista de Paradas e Ações */}
+            <View style={styles.previewColumn}>
+              <DesktopCard
+                title="Paradas Adicionadas"
+                subtitle={`${paradas.length} parada(s) na lista`}
+                icon="list-outline"
+                iconColor={theme.colors.secondary}
+                variant="elevated"
+              >
+                <ParadasListAndActions />
+              </DesktopCard>
+            </View>
+          </View>
+        </DesktopPageLayout>
+
+        {/* Toast de Feedback */}
+        <Toast {...toastState} onDismiss={hideToast} />
+      </>
+    );
+  }
+
+  // Mobile Layout (original)
+  return (
+    <>
+      {/* Content */}
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.content}>
+          <FormularioParadaMemoized
+            control={control}
+            errors={errors}
+            setValue={setValue}
+            handleSubmit={handleSubmit}
+            onAddParada={onAddParada}
+            isLoading={isLoading}
+          />
+          <ParadasListAndActions />
         </View>
       </ScrollView>
 

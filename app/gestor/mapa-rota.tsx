@@ -16,6 +16,11 @@ import { Toast } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { useResponsive } from '@/hooks/useResponsive';
+import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
+import { DesktopCard } from '@/components/desktop/DesktopCard';
+import { SplitView } from '@/components/desktop/SplitView';
+import { DesktopModal } from '@/components/desktop/DesktopModal';
 
 interface Parada {
   id: string;
@@ -46,6 +51,7 @@ export default function MapaRota() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const { toast, showToast, hideToast } = useToast();
+  const { isDesktop } = useResponsive();
   const [loading, setLoading] = useState(true);
   const [rota, setRota] = useState<Rota | null>(null);
   const [paradas, setParadas] = useState<Parada[]>([]);
@@ -156,11 +162,8 @@ export default function MapaRota() {
 
   // Componente Mapa reutilizável
   const MapView = () => {
-    const windowWidth = Dimensions.get('window').width;
-    const isSplitView = windowWidth >= 1024;
-
     return (
-      <View style={isSplitView ? styles.mapContainerSplit : styles.mapContainer}>
+      <View style={isDesktop ? styles.mapContainerSplit : styles.mapContainer}>
         <MapaAdapter paradas={paradas} />
       </View>
     );
@@ -295,11 +298,134 @@ export default function MapaRota() {
   };
 
   // Render principal
+
+  // Desktop Layout
+  if (isDesktop) {
+    return (
+      <>
+        <DesktopPageLayout
+          title="Mapa da Rota"
+          subtitle={`${rota?.motorista?.nome || 'Sem motorista'} • ${new Date(rota!.data).toLocaleDateString('pt-BR')}`}
+          breadcrumbs={[
+            { label: 'Dashboard', route: '/gestor' },
+            { label: 'Histórico', route: '/gestor/historico' },
+            { label: 'Mapa da Rota' }
+          ]}
+          actions={[
+            {
+              label: 'Voltar',
+              icon: 'arrow-back-outline',
+              onPress: () => router.back(),
+              variant: 'secondary'
+            }
+          ]}
+          fullWidth
+          noPadding
+        >
+          {/* Info da Rota */}
+          <View style={{ padding: 24, backgroundColor: theme.colors.white, borderRadius: 12, marginBottom: 24 }}>
+            <View style={{ flexDirection: 'row', gap: 32, alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                <Text style={{ fontSize: 14, color: theme.colors.gray600 }}>Status:</Text>
+                <View style={[
+                  styles.statusBadge,
+                  { paddingHorizontal: 12, paddingVertical: 4 }
+                ]}>
+                  <Text style={{ fontSize: 14, color: theme.colors.white, fontWeight: '600' }}>
+                    {rota!.status}
+                  </Text>
+                </View>
+              </View>
+
+              {rota!.distancia_total && (
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 14, color: theme.colors.gray600 }}>Distância Total:</Text>
+                  <Text style={{ fontSize: 14, color: theme.colors.gray900, fontWeight: '600' }}>
+                    {rota!.distancia_total.toFixed(1)} km
+                  </Text>
+                </View>
+              )}
+
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                <Text style={{ fontSize: 14, color: theme.colors.gray600 }}>Paradas:</Text>
+                <Text style={{ fontSize: 14, color: theme.colors.gray900, fontWeight: '600' }}>
+                  {paradas.filter(p => p.status === 'concluida').length}/{paradas.length} concluídas
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Split View: Mapa | Lista de Paradas */}
+          {paradas.length > 0 ? (
+            <SplitView
+              left={
+                <DesktopCard
+                  title="Mapa"
+                  icon="map-outline"
+                  iconColor={theme.colors.primary}
+                  variant="elevated"
+                  noPadding
+                >
+                  <View style={{ height: 600 }}>
+                    <MapaAdapter paradas={paradas} />
+                  </View>
+                </DesktopCard>
+              }
+              right={
+                <DesktopCard
+                  title="Paradas"
+                  subtitle={`${paradas.length} paradas na rota`}
+                  icon="list-outline"
+                  iconColor={theme.colors.secondary}
+                  variant="outlined"
+                >
+                  <ScrollView style={{ maxHeight: 600 }}>
+                    <ParadasList />
+                  </ScrollView>
+                </DesktopCard>
+              }
+              leftFlex={2}
+              rightFlex={1}
+              gap={24}
+            />
+          ) : (
+            <DesktopCard variant="outlined">
+              <View style={styles.emptyParadas}>
+                <Text style={styles.emptyParadasText}>Nenhuma parada nesta rota</Text>
+              </View>
+            </DesktopCard>
+          )}
+        </DesktopPageLayout>
+
+        {/* Modal para foto - Desktop */}
+        <DesktopModal
+          visible={fotoModalVisible}
+          onClose={() => setFotoModalVisible(false)}
+          title="Foto da Entrega"
+          size="lg"
+        >
+          {fotoSelecionada && (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <Image
+                source={{ uri: fotoSelecionada }}
+                style={{ width: '100%', height: 500 }}
+                resizeMode="contain"
+              />
+            </View>
+          )}
+        </DesktopModal>
+
+        {/* Toast de Feedback */}
+        <Toast {...toast} onDismiss={hideToast} />
+      </>
+    );
+  }
+
+  // Mobile Layout (original)
   return (
     <>
       {/* Header */}
       <View style={styles.header}>
-        <Breadcrumbs />
         <View style={styles.headerContent}>
           <View>
             <TouchableOpacity
@@ -338,23 +464,10 @@ export default function MapaRota() {
       <ScrollView style={styles.scrollView}>
         <View style={styles.content}>
         {paradas.length > 0 ? (
-          Dimensions.get('window').width >= 1024 ? (
-            // Desktop: Split horizontal (Mapa | Paradas)
-            <View style={styles.splitContainer}>
-              <View style={styles.mapColumn}>
-                <MapView />
-              </View>
-              <ScrollView style={styles.listColumn}>
-                <ParadasList />
-              </ScrollView>
-            </View>
-          ) : (
-            // Mobile/Tablet: Stack vertical
-            <>
-              <MapView />
-              <ParadasList />
-            </>
-          )
+          <>
+            <MapView />
+            <ParadasList />
+          </>
         ) : (
           <View style={styles.emptyParadas}>
             <Text style={styles.emptyParadasText}>Nenhuma parada nesta rota</Text>
@@ -363,7 +476,7 @@ export default function MapaRota() {
         </View>
       </ScrollView>
 
-      {/* Modal para visualizar foto em tamanho grande */}
+      {/* Modal para visualizar foto em tamanho grande - Mobile */}
       <Modal
         visible={fotoModalVisible}
         transparent={true}
@@ -608,7 +721,7 @@ const styles = StyleSheet.create(theme => ({
     backgroundColor: theme.colors.errorBg,
   },
   statusTagEmAndamento: {
-    backgroundColor: '#e0e7ff',
+    backgroundColor: theme.colors.blue50,
   },
   statusTagText: {
     fontSize: theme.typography.fontSize.xs,

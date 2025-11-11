@@ -15,6 +15,8 @@ import { Platform, Text, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 
 import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
+import { DevOverlay } from '@/components/DevOverlay';
+import { DevToolsInitializer } from '@/components/DevToolsInitializer';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUser } from '@/hooks/useUser';
 import { StyleSheet } from '@/utils/styles';
@@ -23,6 +25,9 @@ import { StyleSheet } from '@/utils/styles';
 if (Platform.OS !== 'web') {
   require('../unistyles');
 }
+
+// Inicializar DevTools para desenvolvimento web
+// Removido temporariamente para evitar erro de import dinâmico
 
 // Prevenir auto-hide do splash screen enquanto fontes carregam
 SplashScreen.preventAutoHideAsync();
@@ -37,12 +42,13 @@ function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   // Rotas onde o Sidebar deve aparecer para gestores
-  const gestorRoutes = ['/gestor', '/perfil', '/unidade'];
+  // REMOVIDO /gestor pois gestor/_layout.tsx já renderiza sua própria Sidebar
+  const gestorRoutes = ['/perfil', '/unidade'];
 
   // Mostrar Sidebar se:
   // 1. Usuário é gestor
   // 2. Está em desktop (width >= 1024px)
-  // 3. Está em uma das rotas específicas
+  // 3. Está em uma das rotas específicas (exceto /gestor que tem seu próprio layout)
   const showSidebar =
     userData?.papel === 'gestor' &&
     isDesktop &&
@@ -197,6 +203,10 @@ export default function RootLayout() {
           ),
         }}
       />
+      {/* DevTools Initializer */}
+      <DevToolsInitializer />
+      {/* DevOverlay apenas em desenvolvimento web */}
+      {__DEV__ && Platform.OS === 'web' && <DevOverlay />}
     </>
   );
 }

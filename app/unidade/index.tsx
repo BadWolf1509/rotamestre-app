@@ -25,7 +25,7 @@ interface UnidadeData {
   telefone: string;
   endereco: string;
   cidade: string;
-  estado: string;
+  uf: string;
   cep: string;
 }
 
@@ -71,7 +71,7 @@ export default function UnidadeScreen() {
       setTelefone(data.telefone || '');
       setEndereco(data.endereco || '');
       setCidade(data.cidade || '');
-      setEstado(data.estado || '');
+      setEstado(data.uf || '');
       setCep(data.cep || '');
     } catch (error) {
       console.error('Erro ao carregar unidade:', error);
@@ -122,7 +122,7 @@ export default function UnidadeScreen() {
           telefone: telefone.trim(),
           endereco: endereco.trim(),
           cidade: cidade.trim(),
-          estado: estado.trim(),
+          uf: estado.trim(),
           cep: cep.trim(),
         })
         .eq('id', unidade!.id);
@@ -145,7 +145,7 @@ export default function UnidadeScreen() {
     setTelefone(unidade?.telefone || '');
     setEndereco(unidade?.endereco || '');
     setCidade(unidade?.cidade || '');
-    setEstado(unidade?.estado || '');
+    setEstado(unidade?.uf || '');
     setCep(unidade?.cep || '');
     setEditMode(false);
   }
@@ -182,15 +182,6 @@ export default function UnidadeScreen() {
           <Text style={styles.linkButtonText}>Ver equipe →</Text>
         </TouchableOpacity>
       </View>
-
-      {/* Aviso para gestores não principais */}
-      {!isGestorPrincipal && (
-        <View style={styles.warningBox}>
-          <Text style={styles.warningText}>
-            ℹ️ Apenas o gestor principal pode editar as informações da unidade.
-          </Text>
-        </View>
-      )}
     </View>
   );
 
@@ -324,31 +315,21 @@ export default function UnidadeScreen() {
   // Render Principal
   return (
     <>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.headerTitle}>Minha Unidade</Text>
-            <Text style={styles.headerSubtitle}>
-              {userData?.unidades?.nome}
-            </Text>
-          </View>
-          <View style={styles.userSection}>
-            {isGestorPrincipal && !editMode && (
-              <TouchableOpacity
-                style={styles.editButton}
-                onPress={() => setEditMode(true)}
-              >
-                <Text style={styles.editButtonText}>✏️ Editar</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      </View>
 
       {/* Content */}
       <ScrollView style={styles.container}>
         <View style={styles.content}>
+          {/* Botão de Editar para dispositivos móveis */}
+          {!isDesktop && isGestorPrincipal && !editMode && (
+            <View style={styles.mobileEditButtonContainer}>
+              <TouchableOpacity
+                style={styles.mobileEditButton}
+                onPress={() => setEditMode(true)}
+              >
+                <Text style={styles.mobileEditButtonText}>✏️ Editar Informações</Text>
+              </TouchableOpacity>
+            </View>
+          )}
           {/* Desktop: Two-column layout (Form | Sidebar) */}
           {isDesktop || isLargeDesktop ? (
             <View style={styles.twoColumnLayout}>
@@ -428,6 +409,21 @@ const styles = StyleSheet.create(theme => ({
     fontSize: 14,
     fontWeight: '600',
     color: theme.colors.primary,
+  },
+  mobileEditButtonContainer: {
+    marginBottom: theme.spacing.lg,
+  },
+  mobileEditButton: {
+    backgroundColor: theme.colors.primary,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.xl,
+    borderRadius: theme.borderRadius.lg,
+    alignItems: 'center',
+  },
+  mobileEditButtonText: {
+    color: theme.colors.white,
+    fontSize: theme.typography.md,
+    fontWeight: '600',
   },
   content: {
     paddingHorizontal: theme.spacing['3xl'],
@@ -585,18 +581,5 @@ const styles = StyleSheet.create(theme => ({
   },
   buttonTextSecondary: {
     color: theme.colors.gray900,
-  },
-  warningBox: {
-    backgroundColor: theme.colors.primaryLight,
-    padding: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
-    marginTop: theme.spacing['2xl'],
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-  },
-  warningText: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.primary,
-    textAlign: 'center',
   },
 }));

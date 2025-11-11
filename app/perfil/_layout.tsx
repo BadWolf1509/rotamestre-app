@@ -1,11 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
+import { Stack, Slot } from 'expo-router';
 import { Pressable } from 'react-native';
 
 import { DrawerMenuProvider, useDrawerMenu } from '@/context/DrawerMenuContext';
 import { useUnistyles } from '@/utils/styles';
+import { useResponsive } from '@/hooks/useResponsive';
 
 export default function PerfilGestorLayout() {
+  const { isDesktop } = useResponsive();
+
+  // Desktop - sem header, usa o layout global
+  if (isDesktop) {
+    return <Slot />;
+  }
+
+  // Mobile/Tablet - com header e DrawerMenu
   return (
     <DrawerMenuProvider>
       <PerfilStack />

@@ -8,7 +8,12 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
 
+import { SwipeableRow } from '@/components/SwipeableRow';
+import { StreetViewPreview } from '@/components/StreetViewPreview';
+import { IncidentReportWizard } from '@/components/IncidentReportWizard';
 import { useUser } from '@/hooks/useUser';
 import { abrirNavegacao } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
@@ -44,6 +49,8 @@ export default function CheckpointsMotorista() {
   const [refreshing, setRefreshing] = useState(false);
   const [concluindoParada, setConcluindoParada] = useState<string | null>(null);
   const [pulandoParada, setPulandoParada] = useState<string | null>(null);
+  const [showIncidentWizard, setShowIncidentWizard] = useState(false);
+  const [selectedParadaForIncident, setSelectedParadaForIncident] = useState<Parada | null>(null);
 
   const loadRotaEParadas = useCallback(async () => {
     if (!userData?.id) {
@@ -268,14 +275,38 @@ export default function CheckpointsMotorista() {
     const isConcluindo = concluindoParada === item.id;
     const isPulando = pulandoParada === item.id;
 
+    // Swipe actions para paradas pendentes
+    const leftActions = isPendente ? [
+      {
+        icon: 'checkmark-circle',
+        label: 'Concluir',
+        color: theme.colors.success || '#10b981',
+        onPress: () => concluirParada(item),
+      }
+    ] : [];
+
+    const rightActions = isPendente ? [
+      {
+        icon: 'arrow-forward-circle',
+        label: 'Pular',
+        color: theme.colors.warning || '#f59e0b',
+        onPress: () => pularParada(item),
+      }
+    ] : [];
+
     return (
-      <View
-        style={[
-          styles.paradaCard,
-          isConcluida && styles.paradaCardConcluida,
-          isPulada && styles.paradaCardPulada,
-        ]}
+      <SwipeableRow
+        leftActions={leftActions}
+        rightActions={rightActions}
+        enabled={isPendente && !isConcluindo && !isPulando}
       >
+        <View
+          style={[
+            styles.paradaCard,
+            isConcluida && styles.paradaCardConcluida,
+            isPulada && styles.paradaCardPulada,
+          ]}
+        >
         {/* Ordem e Status */}
         <View style={styles.paradaHeader}>
           <View style={styles.ordemBadge}>
@@ -308,6 +339,18 @@ export default function CheckpointsMotorista() {
         {/* Endereco */}
         <Text style={styles.paradaEndereco}>{item.endereco}</Text>
 
+        {/* Street View Preview */}
+        {isPendente && (
+          <View style={styles.streetViewContainer}>
+            <StreetViewPreview
+              latitude={item.latitude}
+              longitude={item.longitude}
+              address={item.endereco}
+              size="medium"
+            />
+          </View>
+        )}
+
         {/* Destinatario e Telefone */}
         {(item.destinatario || item.telefone) && (
           <View style={styles.paradaDetalhes}>
@@ -332,24 +375,39 @@ export default function CheckpointsMotorista() {
           </View>
         )}
 
-        {/* Botão de Navegação */}
+        {/* Botões de Ação Primários */}
         {!isConcluida && !isPulada && (
-          <TouchableOpacity
-            style={styles.botaoNavegar}
-            onPress={() => abrirNavegacao({
-              latitude: item.latitude,
-              longitude: item.longitude,
-              endereco: item.endereco
-            })}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.botaoNavegarIcone}>🧭</Text>
-            <Text style={styles.botaoNavegarTexto}>Como Chegar</Text>
-          </TouchableOpacity>
+          <View style={styles.primaryActionsContainer}>
+            <TouchableOpacity
+              style={styles.botaoNavegar}
+              onPress={() => abrirNavegacao({
+                latitude: item.latitude,
+                longitude: item.longitude,
+                endereco: item.endereco
+              })}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.botaoNavegarIcone}>🧭</Text>
+              <Text style={styles.botaoNavegarTexto}>Como Chegar</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.botaoReportar}
+              onPress={() => {
+                setSelectedParadaForIncident(item);
+                setShowIncidentWizard(true);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="warning-outline" size={20} color="#fff" />
+              <Text style={styles.botaoReportarTexto}>Reportar Problema</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
-        {/* Botões de Ação */}
-        {!isConcluida && (
+        {/* Botões de Ação - Removidos pois agora usamos swipe */}
+        {/* Mantemos apenas para fallback quando swipe está desabilitado */}
+        {!isConcluida && !isPendente && (
           <View style={styles.acoesContainer}>
             <TouchableOpacity
               style={[styles.botaoPular, isPulando && styles.botaoDisabled]}
@@ -376,12 +434,21 @@ export default function CheckpointsMotorista() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Indicador visual de swipe para paradas pendentes */}
+        {isPendente && (
+          <View style={styles.swipeHint}>
+            <Ionicons name="swap-horizontal" size={16} color={theme.colors.gray400} />
+            <Text style={styles.swipeHintText}>Deslize para ações</Text>
+          </View>
+        )}
       </View>
+    </SwipeableRow>
     );
   };
 
   return (
-    <View style={styles.container}>
+    <GestureHandlerRootView style={styles.container}>
       {/* Header com estatísticas */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Checkpoints</Text>
@@ -449,7 +516,26 @@ export default function CheckpointsMotorista() {
           </View>
         }
       />
-    </View>
+
+      {/* Incident Report Wizard */}
+      {showIncidentWizard && selectedParadaForIncident && rota && (
+        <IncidentReportWizard
+          visible={showIncidentWizard}
+          onClose={() => {
+            setShowIncidentWizard(false);
+            setSelectedParadaForIncident(null);
+          }}
+          onSubmit={(report) => {
+            console.log('Incidente reportado:', report);
+            loadRotaEParadas(); // Recarregar dados
+          }}
+          paradaId={selectedParadaForIncident.id}
+          rotaId={rota.id}
+          motoristaId={userData?.id || ''}
+          endereco={selectedParadaForIncident.endereco}
+        />
+      )}
+    </GestureHandlerRootView>
   );
 }
 
@@ -465,7 +551,7 @@ const styles = StyleSheet.create(theme => ({
     backgroundColor: theme.colors.gray50,
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: theme.spacing.lg,
     fontSize: theme.typography.sm,
     color: theme.colors.gray500,
   },
@@ -692,21 +778,16 @@ const styles = StyleSheet.create(theme => ({
     opacity: 0.6,
   },
   botaoNavegar: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.orange,
-    paddingVertical: 14,
-    paddingHorizontal: theme.spacing.lg,
+    backgroundColor: theme.colors.orange || '#f7a02a',
+    paddingVertical: 12,
+    paddingHorizontal: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
-    marginTop: theme.spacing.sm,
-    marginBottom: theme.spacing.xs,
     gap: theme.spacing.xs,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+    ...theme.shadows.sm,
   },
   botaoNavegarIcone: {
     fontSize: 20,
@@ -714,6 +795,46 @@ const styles = StyleSheet.create(theme => ({
   botaoNavegarTexto: {
     color: theme.colors.white,
     fontSize: theme.typography.md,
+    fontWeight: '600',
+  },
+  swipeHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.xs,
+    paddingTop: theme.spacing.xs,
+    opacity: 0.6,
+  },
+  swipeHintText: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray400,
+    fontStyle: 'italic',
+  },
+  streetViewContainer: {
+    marginTop: theme.spacing.sm,
+    alignItems: 'center',
+  },
+  primaryActionsContainer: {
+    flexDirection: 'row',
+    gap: theme.spacing.xs,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
+  },
+  botaoReportar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.warning || '#f59e0b',
+    paddingVertical: 12,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    gap: theme.spacing.xs,
+    ...theme.shadows.sm,
+  },
+  botaoReportarTexto: {
+    color: theme.colors.white,
+    fontSize: theme.typography.sm,
     fontWeight: '600',
   },
 }));

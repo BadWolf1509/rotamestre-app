@@ -1,0 +1,79 @@
+import React from 'react';
+import { View, Text, ViewStyle } from 'react-native';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
+
+interface MobileCardProps {
+  children: React.ReactNode;
+  title?: string;
+  subtitle?: string;
+  style?: ViewStyle;
+  variant?: 'default' | 'highlight' | 'bordered';
+  noPadding?: boolean;
+}
+
+/**
+ * Componente padronizado para cards em telas mobile
+ * Segue o padrão de design estabelecido para o RotaMestre
+ */
+export function MobileCard({
+  children,
+  title,
+  subtitle,
+  style,
+  variant = 'default',
+  noPadding = false
+}: MobileCardProps) {
+  const { theme } = useUnistyles();
+
+  return (
+    <View style={[
+      styles.card,
+      variant === 'highlight' && styles.cardHighlight,
+      variant === 'bordered' && styles.cardBordered,
+      noPadding && styles.noPadding,
+      style,
+    ]}>
+      {(title || subtitle) && (
+        <View style={styles.cardHeader}>
+          {title && <Text style={styles.cardTitle}>{title}</Text>}
+          {subtitle && <Text style={styles.cardSubtitle}>{subtitle}</Text>}
+        </View>
+      )}
+      {children}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create(theme => ({
+  card: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+    ...theme.shadows.sm,
+  },
+  cardHighlight: {
+    borderLeftWidth: 4,
+    borderLeftColor: theme.colors.primary,
+  },
+  cardBordered: {
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
+  },
+  noPadding: {
+    padding: 0,
+  },
+  cardHeader: {
+    marginBottom: theme.spacing.md,
+  },
+  cardTitle: {
+    fontSize: theme.typography.lg,
+    fontWeight: '600',
+    color: theme.colors.gray900,
+    marginBottom: 4,
+  },
+  cardSubtitle: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
+  },
+}));

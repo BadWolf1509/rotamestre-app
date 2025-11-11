@@ -1,17 +1,19 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  Alert,
   ActivityIndicator,
+  Alert,
+  Image,
   Platform,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
+import { PerfilDesktopLayout } from '@/components/perfil/PerfilDesktopLayout';
+import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { storageService } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
@@ -35,14 +37,23 @@ type UsuarioComUnidade = Usuario & {
   unidades?: {
     nome?: string;
   };
+  ultimo_login?: string | null;
 };
 
 export default function PerfilGestor() {
   const { theme } = useUnistyles();
   const router = useRouter();
+  const { isDesktop } = useResponsive();
   const [usuario, setUsuario] = useState<UsuarioComUnidade | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [atividadeRecente, setAtividadeRecente] = useState<{
+    ultimoAcesso: string | null;
+    dispositivosAtivos: number | null;
+  }>({
+    ultimoAcesso: null,
+    dispositivosAtivos: null,
+  });
 
   useEffect(() => {
     loadUsuario();
@@ -60,6 +71,25 @@ export default function PerfilGestor() {
 
         if (error) throw error;
         setUsuario(data as UsuarioComUnidade);
+
+        const lastAccess = (data as UsuarioComUnidade)?.ultimo_login || session.user.last_sign_in_at;
+        const userMetadata = session.user.user_metadata as {
+          dispositivos?: string[];
+          devices?: string[];
+        } | undefined;
+        const appMetadata = session.user.app_metadata as { active_devices?: number } | undefined;
+        const dispositivosAtivos =
+          appMetadata?.active_devices ??
+          (Array.isArray(userMetadata?.dispositivos)
+            ? userMetadata?.dispositivos.length
+            : Array.isArray(userMetadata?.devices)
+              ? userMetadata?.devices.length
+              : 1);
+
+        setAtividadeRecente({
+          ultimoAcesso: lastAccess ?? null,
+          dispositivosAtivos: dispositivosAtivos ?? 1,
+        });
       }
     } catch (error) {
       console.error('Erro ao carregar usuário:', error);
@@ -103,6 +133,20 @@ export default function PerfilGestor() {
     }
   }
 
+  // Renderizar layout desktop para telas grandes
+  if (isDesktop) {
+    return (
+      <PerfilDesktopLayout
+        usuario={usuario}
+        loading={loading}
+        uploadingPhoto={uploadingPhoto}
+        onSelectPhoto={handleSelectPhoto}
+        atividade={atividadeRecente}
+      />
+    );
+  }
+
+  // Layout mobile/tablet existente
   const sections: Section[] = [
     {
       title: 'Informações Pessoais',

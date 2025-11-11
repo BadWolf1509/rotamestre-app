@@ -191,8 +191,8 @@ const styles = StyleSheet.create(theme => ({
     width: '100%',
   },
   headerTitle: {
-    fontSize: theme.typography['2xl'],
-    fontFamily: theme.typography.fontSansBold,
+    fontSize: theme.typography['3xl'],
+    fontFamily: theme.typography.fontDisplay,
     color: theme.colors.gray900,
   },
   headerSubtitle: {

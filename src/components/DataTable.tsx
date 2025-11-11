@@ -33,10 +33,10 @@ export interface DataTableColumn<T = any> {
 }
 
 export interface DataTableAction<T = any> {
-  /** Label da ação */
-  label: string;
-  /** Ícone (emoji ou texto) */
-  icon?: string;
+  /** Label da ação (string ou função que retorna string baseada no item) */
+  label: string | ((item: T) => string);
+  /** Ícone (emoji ou texto, string ou função que retorna string baseada no item) */
+  icon?: string | ((item: T) => string);
   /** Callback ao clicar */
   onPress: (item: T) => void;
   /** Cor do botão */
@@ -281,26 +281,31 @@ export function DataTable<T = any>({
               {/* Ações */}
               {actions && actions.length > 0 && (
                 <View style={styles.cardActions}>
-                  {actions.map((action, idx) => (
-                    <TouchableOpacity
-                      key={idx}
-                      style={[
-                        styles.cardActionButton,
-                        action.type === 'danger' && styles.cardActionButtonDanger,
-                      ]}
-                      onPress={() => action.onPress(item)}
-                    >
-                      {action.icon && <Text style={styles.cardActionIcon}>{action.icon}</Text>}
-                      <Text
+                  {actions.map((action, idx) => {
+                    const label = typeof action.label === 'function' ? action.label(item) : action.label;
+                    const icon = action.icon ? (typeof action.icon === 'function' ? action.icon(item) : action.icon) : undefined;
+
+                    return (
+                      <TouchableOpacity
+                        key={idx}
                         style={[
-                          styles.cardActionText,
-                          action.type === 'danger' && styles.cardActionTextDanger,
+                          styles.cardActionButton,
+                          action.type === 'danger' && styles.cardActionButtonDanger,
                         ]}
+                        onPress={() => action.onPress(item)}
                       >
-                        {action.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                        {icon && <Text style={styles.cardActionIcon}>{icon}</Text>}
+                        <Text
+                          style={[
+                            styles.cardActionText,
+                            action.type === 'danger' && styles.cardActionTextDanger,
+                          ]}
+                        >
+                          {label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               )}
             </View>
@@ -399,26 +404,31 @@ export function DataTable<T = any>({
                 {/* Ações Desktop */}
                 {actions && actions.length > 0 && (
                   <View style={[styles.tableCell, styles.tableCellActions]}>
-                    {actions.map((action, idx) => (
-                      <TouchableOpacity
-                        key={idx}
-                        style={[
-                          styles.tableActionButton,
-                          action.type === 'danger' && styles.tableActionButtonDanger,
-                        ]}
-                        onPress={() => action.onPress(item)}
-                      >
-                        {action.icon && <Text>{action.icon}</Text>}
-                        <Text
+                    {actions.map((action, idx) => {
+                      const label = typeof action.label === 'function' ? action.label(item) : action.label;
+                      const icon = action.icon ? (typeof action.icon === 'function' ? action.icon(item) : action.icon) : undefined;
+
+                      return (
+                        <TouchableOpacity
+                          key={idx}
                           style={[
-                            styles.tableActionText,
-                            action.type === 'danger' && styles.tableActionTextDanger,
+                            styles.tableActionButton,
+                            action.type === 'danger' && styles.tableActionButtonDanger,
                           ]}
+                          onPress={() => action.onPress(item)}
                         >
-                          {action.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                          {icon && <Text>{icon}</Text>}
+                          <Text
+                            style={[
+                              styles.tableActionText,
+                              action.type === 'danger' && styles.tableActionTextDanger,
+                            ]}
+                          >
+                            {label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                 )}
               </View>

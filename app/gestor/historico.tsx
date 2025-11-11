@@ -17,6 +17,11 @@ import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { useResponsive } from '@/hooks/useResponsive';
+import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
+import { DesktopCard } from '@/components/desktop/DesktopCard';
+import { DesktopModal } from '@/components/desktop/DesktopModal';
+import { MobileHeader, MobileCard, MobileLoading, MobileEmptyState } from '@/components/mobile';
 
 // ============================================
 // TYPES
@@ -50,6 +55,7 @@ export default function HistoricoGestor() {
   const router = useRouter();
   const { userData } = useUser();
   const { toast: toastState, hideToast, withToast } = useToast();
+  const { isDesktop } = useResponsive();
 
   const [rotas, setRotas] = useState<RotaHistorico[]>([]);
   const [rotasFiltradas, setRotasFiltradas] = useState<RotaHistorico[]>([]);
@@ -218,11 +224,11 @@ useEffect(() => {
 
   function getStatusColor(status: string): string {
     switch (status) {
-      case 'pendente': return '#f59e0b'; // Amarelo
-      case 'em_andamento': return '#3b82f6'; // Azul
-      case 'concluida': return '#10b981'; // Verde
-      case 'cancelada': return '#ef4444'; // Vermelho
-      default: return '#6b7280';
+      case 'pendente': return theme.colors.warning;
+      case 'em_andamento': return theme.colors.blue500;
+      case 'concluida': return theme.colors.success;
+      case 'cancelada': return theme.colors.error;
+      default: return theme.colors.gray500;
     }
   }
 
@@ -332,52 +338,178 @@ useEffect(() => {
   // RENDER
   // ============================================
 
-  if (loading) {
+  // Desktop Layout
+  if (isDesktop) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>Carregando histórico...</Text>
-      </View>
+      <>
+        <DesktopPageLayout
+          title="Histórico de Rotas"
+          subtitle={`${userData?.unidades?.nome || 'Carregando...'}`}
+          breadcrumbs={[
+            { label: 'Dashboard', route: '/gestor' },
+            { label: 'Histórico' }
+          ]}
+          actions={[
+            {
+              label: 'Nova Rota',
+              icon: 'add-circle-outline',
+              onPress: () => router.push('/gestor/nova-entrega'),
+              variant: 'primary'
+            },
+            {
+              label: 'Exportar',
+              icon: 'download-outline',
+              onPress: () => Alert.alert('Info', 'Funcionalidade em desenvolvimento'),
+              variant: 'secondary'
+            }
+          ]}
+          loading={loading}
+          loadingText="Carregando histórico..."
+        >
+          {/* Filtros */}
+          <DesktopCard
+            title="Filtros"
+            subtitle={`${rotasFiltradas.length} rota(s) encontrada(s)`}
+            icon="filter-outline"
+            iconColor={theme.colors.primary}
+          >
+            <View style={styles.filtrosButtons}>
+              {(['todas', 'pendente', 'em_andamento', 'concluida', 'cancelada'] as FiltroStatus[]).map((status) => (
+                <TouchableOpacity
+                  key={status}
+                  style={[
+                    styles.filtroButton,
+                    filtroStatus === status && styles.filtroButtonActive,
+                  ]}
+                  onPress={() => setFiltroStatus(status)}
+                >
+                  <Text
+                    style={[
+                      styles.filtroButtonText,
+                      filtroStatus === status && styles.filtroButtonTextActive,
+                    ]}
+                  >
+                    {status === 'todas' ? 'Todas' : getStatusLabel(status)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </DesktopCard>
+
+          {/* Tabela de Rotas */}
+          <View style={{ marginTop: 24 }}>
+            <DesktopCard
+              title="Rotas"
+              noPadding
+              variant="elevated"
+            >
+              <DataTable
+                data={rotasFiltradas}
+                columns={columns}
+                actions={actions}
+                keyExtractor={(rota) => rota.id}
+                itemsPerPage={20}
+                pagination
+                isLoading={loading}
+                skeletonRows={10}
+                emptyState={
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyStateText}>📋</Text>
+                    <Text style={styles.emptyStateTitle}>Nenhuma rota encontrada</Text>
+                    <Text style={styles.emptyStateSubtitle}>
+                      {filtroStatus !== 'todas'
+                        ? 'Tente alterar os filtros'
+                        : 'Crie sua primeira rota de entrega'}
+                    </Text>
+                  </View>
+                }
+              />
+            </DesktopCard>
+          </View>
+        </DesktopPageLayout>
+
+        {/* Modal de Confirmação - Desktop */}
+        <DesktopModal
+          visible={showConfirmModal}
+          onClose={handleCancelDelete}
+          title="Confirmar Exclusão"
+          size="sm"
+        >
+          <View style={{ padding: 20 }}>
+            <Text style={{ fontSize: 16, marginBottom: 20, lineHeight: 24 }}>
+              Tem certeza que deseja excluir esta rota?
+            </Text>
+
+            <View style={{ backgroundColor: theme.colors.gray50, padding: 16, borderRadius: 8, marginBottom: 20 }}>
+              <Text style={{ fontSize: 14, marginBottom: 8 }}>
+                <Text style={{ fontWeight: '600' }}>Motorista:</Text> {rotaToDelete?.motorista?.nome || 'Sem motorista'}
+              </Text>
+              <Text style={{ fontSize: 14, marginBottom: 8 }}>
+                <Text style={{ fontWeight: '600' }}>Paradas:</Text> {rotaToDelete?.paradas_count || 0}
+              </Text>
+              <Text style={{ fontSize: 14 }}>
+                <Text style={{ fontWeight: '600' }}>Status:</Text> {rotaToDelete?.status ? getStatusLabel(rotaToDelete.status) : '-'}
+              </Text>
+            </View>
+
+            <Text style={{ fontSize: 14, color: theme.colors.error, marginBottom: 24 }}>
+              ⚠️ Esta ação não pode ser desfeita.
+            </Text>
+
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  paddingHorizontal: 20,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: theme.colors.gray300,
+                  alignItems: 'center'
+                }}
+                onPress={handleCancelDelete}
+              >
+                <Text style={{ fontSize: 16, color: theme.colors.gray700 }}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  paddingHorizontal: 20,
+                  borderRadius: 8,
+                  backgroundColor: theme.colors.error,
+                  alignItems: 'center'
+                }}
+                onPress={handleConfirmDelete}
+              >
+                <Text style={{ fontSize: 16, color: theme.colors.white, fontWeight: '600' }}>Excluir</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </DesktopModal>
+
+        {/* Toast de Feedback */}
+        <Toast {...toastState} onDismiss={hideToast} />
+      </>
     );
+  }
+
+  // Mobile Layout (original)
+  if (loading) {
+    return <MobileLoading message="Carregando histórico..." />;
   }
 
   return (
     <>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.headerTitle}>Histórico de Rotas</Text>
-            <Text style={styles.headerSubtitle}>
-              {userData?.unidades?.nome}
-            </Text>
-          </View>
-          {/* Quick Actions - apenas desktop */}
-          {Platform.OS === 'web' && (
-            <View style={styles.quickActions}>
-              <TouchableOpacity
-                style={styles.quickActionButton}
-                onPress={() => router.push('/gestor/nova-entrega')}
-              >
-                <Text style={styles.quickActionText}>+ Nova Rota</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      </View>
-
       {/* Content */}
       <ScrollView style={styles.scrollView}>
         <View style={styles.content}>
-        {/* Info */}
-        <View style={styles.infoBox}>
-          <Text style={styles.infoText}>
-            {rotasFiltradas.length} rota(s) encontrada(s)
-          </Text>
-        </View>
-
-        {/* Filtros */}
-        <View style={styles.filtrosContainer}>
+        {/* Info e Filtros */}
+        <MobileCard
+          title="Filtros"
+          subtitle={`${rotasFiltradas.length} rota(s) encontrada(s)`}
+        >
           <Text style={styles.filtrosLabel}>Filtrar por Status:</Text>
           <View style={styles.filtrosButtons}>
             {(['todas', 'pendente', 'em_andamento', 'concluida', 'cancelada'] as FiltroStatus[]).map((status) => (
@@ -400,7 +532,7 @@ useEffect(() => {
               </TouchableOpacity>
             ))}
           </View>
-        </View>
+        </MobileCard>
 
         {/* DataTable */}
         <DataTable
@@ -413,21 +545,23 @@ useEffect(() => {
           isLoading={loading}
           skeletonRows={10}
           emptyState={
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>📋</Text>
-              <Text style={styles.emptyStateTitle}>Nenhuma rota encontrada</Text>
-              <Text style={styles.emptyStateSubtitle}>
-                {filtroStatus !== 'todas'
+            <MobileEmptyState
+              icon="📋"
+              title="Nenhuma rota encontrada"
+              subtitle={
+                filtroStatus !== 'todas'
                   ? 'Tente alterar os filtros'
-                  : 'Crie sua primeira rota de entrega'}
-              </Text>
-            </View>
+                  : 'Crie sua primeira rota de entrega'
+              }
+              actionLabel={filtroStatus === 'todas' ? 'Criar Nova Rota' : undefined}
+              onAction={filtroStatus === 'todas' ? () => router.push('/gestor/nova-entrega') : undefined}
+            />
           }
         />
         </View>
       </ScrollView>
 
-      {/* Modal de Confirmação de Exclusão */}
+      {/* Modal de Confirmação de Exclusão - Mobile */}
       <ConfirmModal
         visible={showConfirmModal}
         title="Confirmar Exclusão"

@@ -12,6 +12,7 @@ import {
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { MobileHeader, MobileCard, MobileLoading, MobileEmptyState, MobileButton } from '@/components/mobile';
 
 interface Parada {
   id: string;
@@ -43,10 +44,6 @@ export default function ResumoMotorista() {
   const [paradas, setParadas] = useState<Parada[]>([]);
   const [loading, setLoading] = useState(true);
   const [finalizando, setFinalizando] = useState(false);
-
-  useEffect(() => {
-    loadRotaConcluida();
-  }, [loadRotaConcluida]);
 
   const loadRotaConcluida = useCallback(async () => {
     if (!userData?.id) {
@@ -93,6 +90,10 @@ export default function ResumoMotorista() {
       setLoading(false);
     }
   }, [userData?.id]);
+
+  useEffect(() => {
+    loadRotaConcluida();
+  }, [loadRotaConcluida]);
 
   async function confirmarFinalizacao() {
     Alert.alert(
@@ -155,23 +156,18 @@ export default function ResumoMotorista() {
   }
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>Carregando resumo...</Text>
-      </View>
-    );
+    return <MobileLoading message="Carregando resumo..." />;
   }
 
   if (!rota || paradas.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyTitle}>📊</Text>
-        <Text style={styles.emptyText}>Nenhuma rota concluída recentemente</Text>
-        <Text style={styles.emptySubtext}>
-          Complete uma rota para visualizar o resumo
-        </Text>
-      </View>
+      <MobileEmptyState
+        icon="📊"
+        title="Nenhuma rota concluída recentemente"
+        subtitle="Complete uma rota para visualizar o resumo"
+        actionLabel="Ver Rotas Disponíveis"
+        onAction={() => router.push('/motorista')}
+      />
     );
   }
 
@@ -181,24 +177,21 @@ export default function ResumoMotorista() {
   const tempoTotal = calcularTempoTotal();
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Header com Título */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Resumo da Rota</Text>
-        <Text style={styles.headerSubtitle}>{rota.unidades.nome}</Text>
-        <Text style={styles.headerData}>
-          {new Date(rota.data).toLocaleDateString('pt-BR', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-          })}
-        </Text>
-      </View>
+    <>
+      {/* Header */}
+      <MobileHeader
+        title="Resumo da Rota"
+        subtitle={`${rota.unidades.nome} • ${new Date(rota.data).toLocaleDateString('pt-BR', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'short',
+        })}`}
+      />
+
+      <ScrollView style={styles.container}>
 
       {/* Card de Performance */}
-      <View style={styles.performanceCard}>
-        <Text style={styles.sectionTitle}>Desempenho</Text>
+      <MobileCard title="Desempenho" variant="highlight">
         <View style={styles.performanceGrid}>
           <View style={styles.performanceItem}>
             <View style={[styles.performanceIcon, { backgroundColor: theme.colors.primary }]}>
@@ -232,11 +225,10 @@ export default function ResumoMotorista() {
             <Text style={styles.performanceLabel}>Taxa de Sucesso</Text>
           </View>
         </View>
-      </View>
+      </MobileCard>
 
       {/* Informações da Rota */}
-      <View style={styles.infoCard}>
-        <Text style={styles.sectionTitle}>Informações da Rota</Text>
+      <MobileCard title="Informações da Rota">
 
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Horário de Início:</Text>
@@ -273,11 +265,10 @@ export default function ResumoMotorista() {
             {rota.distancia_total ? `${rota.distancia_total.toFixed(1)} km` : 'N/A'}
           </Text>
         </View>
-      </View>
+      </MobileCard>
 
       {/* Lista de Paradas */}
-      <View style={styles.paradasCard}>
-        <Text style={styles.sectionTitle}>Detalhes das Paradas</Text>
+      <MobileCard title="Detalhes das Paradas">
 
         {paradas.map((parada) => {
           const isConcluida = parada.status === 'concluida';
@@ -339,28 +330,23 @@ export default function ResumoMotorista() {
             </View>
           );
         })}
-      </View>
+      </MobileCard>
 
       {/* Botão de Finalização */}
-      <View style={styles.actionsCard}>
-        <TouchableOpacity
-          style={[styles.finalizarButton, finalizando && styles.buttonDisabled]}
+      <MobileCard>
+        <MobileButton
+          title="✓ Confirmar e Finalizar"
           onPress={confirmarFinalizacao}
-          disabled={finalizando}
-        >
-          {finalizando ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <>
-              <Text style={styles.finalizarButtonText}>✓ Confirmar e Finalizar</Text>
-              <Text style={styles.finalizarButtonSubtext}>
-                Enviar resumo completo da rota
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
+          loading={finalizando}
+          variant="success"
+          fullWidth
+        />
+        <Text style={styles.finalizarButtonSubtext}>
+          Enviar resumo completo da rota
+        </Text>
+      </MobileCard>
     </ScrollView>
+    </>
   );
 }
 
@@ -368,78 +354,6 @@ const styles = StyleSheet.create(theme => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.colors.gray50,
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 14,
-    color: theme.colors.gray500,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.colors.gray50,
-    padding: 40,
-  },
-  emptyTitle: {
-    fontSize: 64,
-    marginBottom: 20,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: theme.colors.gray900,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: theme.colors.gray500,
-    textAlign: 'center',
-  },
-  header: {
-    backgroundColor: theme.colors.primary,
-    padding: 24,
-    paddingTop: 40,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: theme.colors.white,
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: theme.colors.indigo200,
-    marginBottom: 8,
-  },
-  headerData: {
-    fontSize: 14,
-    color: theme.colors.blue200,
-    textTransform: 'capitalize',
-  },
-  performanceCard: {
-    backgroundColor: theme.colors.white,
-    margin: 16,
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: theme.colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.colors.gray900,
-    marginBottom: 16,
   },
   performanceGrid: {
     flexDirection: 'row',
@@ -474,18 +388,6 @@ const styles = StyleSheet.create(theme => ({
     color: theme.colors.gray500,
     textAlign: 'center',
   },
-  infoCard: {
-    backgroundColor: theme.colors.white,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: theme.colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -502,18 +404,6 @@ const styles = StyleSheet.create(theme => ({
     fontSize: 14,
     color: theme.colors.gray900,
     fontWeight: '600',
-  },
-  paradasCard: {
-    backgroundColor: theme.colors.white,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: theme.colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   paradaItem: {
     marginBottom: 12,
@@ -601,35 +491,10 @@ const styles = StyleSheet.create(theme => ({
     fontStyle: 'italic',
     marginTop: 4,
   },
-  actionsCard: {
-    backgroundColor: theme.colors.white,
-    marginHorizontal: 16,
-    marginBottom: 32,
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: theme.colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  finalizarButton: {
-    backgroundColor: theme.colors.success,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  finalizarButtonText: {
-    color: theme.colors.white,
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
   finalizarButtonSubtext: {
-    color: theme.colors.green100,
+    color: theme.colors.gray500,
     fontSize: 12,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
+    textAlign: 'center',
+    marginTop: 8,
   },
 }));

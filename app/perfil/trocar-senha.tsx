@@ -10,13 +10,16 @@ import {
   ActivityIndicator,
 } from 'react-native';
 
+import { FormDesktopLayout } from '@/components/perfil/FormDesktopLayout';
 import { authService } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { useResponsive } from '@/hooks/useResponsive';
 
 export default function AlterarSenha() {
   const { theme } = useUnistyles();
   const router = useRouter();
+  const { isDesktop } = useResponsive();
   const [saving, setSaving] = useState(false);
 
   // Campos
@@ -117,6 +120,70 @@ export default function AlterarSenha() {
   const passwordStrength = novaSenha ? validatePassword(novaSenha) : null;
   const passwordsMatch = novaSenha && confirmarSenha && novaSenha === confirmarSenha;
 
+  // Desktop layout
+  if (isDesktop) {
+    const fields = [
+      {
+        label: 'Senha Atual',
+        value: senhaAtual,
+        placeholder: 'Digite sua senha atual',
+        secureTextEntry: true,
+        onChange: setSenhaAtual,
+        autoCapitalize: 'none' as const,
+      },
+      {
+        label: 'Nova Senha',
+        value: novaSenha,
+        placeholder: 'Digite a nova senha',
+        secureTextEntry: true,
+        onChange: setNovaSenha,
+        autoCapitalize: 'none' as const,
+        helperText: passwordStrength?.message,
+        error: passwordStrength && !passwordStrength.isValid ? passwordStrength.message : undefined,
+      },
+      {
+        label: 'Confirmar Nova Senha',
+        value: confirmarSenha,
+        placeholder: 'Digite a senha novamente',
+        secureTextEntry: true,
+        onChange: setConfirmarSenha,
+        autoCapitalize: 'none' as const,
+        helperText: confirmarSenha ? (passwordsMatch ? 'Senhas coincidem' : undefined) : undefined,
+        error: confirmarSenha && !passwordsMatch ? 'Senhas não coincidem' : undefined,
+      },
+    ];
+
+    const sidePanel = (
+      <View style={desktopStyles(theme).sidePanel}>
+        <View style={desktopStyles(theme).tipsCard}>
+          <Text style={desktopStyles(theme).tipsTitle}>Dicas para uma senha forte:</Text>
+          <View style={desktopStyles(theme).tipsList}>
+            <Text style={desktopStyles(theme).tipText}>✓ Mínimo de 6 caracteres</Text>
+            <Text style={desktopStyles(theme).tipText}>✓ Use letras maiúsculas e minúsculas</Text>
+            <Text style={desktopStyles(theme).tipText}>✓ Inclua números</Text>
+            <Text style={desktopStyles(theme).tipText}>✓ Adicione caracteres especiais (@, #, $, etc.)</Text>
+          </View>
+        </View>
+      </View>
+    );
+
+    return (
+      <FormDesktopLayout
+        title="Alterar Senha"
+        subtitle="Crie uma senha forte para proteger sua conta"
+        fields={fields}
+        primaryButtonText="Alterar Senha"
+        primaryButtonDisabled={saving || !senhaAtual || !novaSenha || !confirmarSenha || !passwordsMatch || (passwordStrength ? !passwordStrength.isValid : true)}
+        onPrimaryPress={handleSave}
+        secondaryButtonText="Cancelar"
+        onSecondaryPress={() => router.push('/perfil')}
+        loading={saving}
+        sidePanel={sidePanel}
+      />
+    );
+  }
+
+  // Mobile layout
   return (
     <View style={styles(theme).container}>
       <ScrollView style={styles(theme).scrollView}>
@@ -278,6 +345,34 @@ export default function AlterarSenha() {
     </View>
   );
 }
+
+const desktopStyles = (theme: any) =>
+  StyleSheet.create({
+    sidePanel: {
+      flex: 1,
+    },
+    tipsCard: {
+      backgroundColor: theme.colors.blue50 || '#EFF6FF',
+      borderRadius: 12,
+      padding: 24,
+      borderWidth: 1,
+      borderColor: theme.colors.blue100 || '#DBEAFE',
+    },
+    tipsTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.blue900 || '#1E3A8A',
+      marginBottom: 16,
+    },
+    tipsList: {
+      gap: 12,
+    },
+    tipText: {
+      fontSize: 14,
+      color: theme.colors.blue700 || '#1D4ED8',
+      lineHeight: 20,
+    },
+  });
 
 const styles = (theme: any) =>
   StyleSheet.create({

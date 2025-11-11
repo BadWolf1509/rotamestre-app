@@ -61,6 +61,12 @@ __mocks__/
 # Claude Code local settings
 .claude/settings.local.json
 
+# MCP configurations (contain sensitive credentials)
+.mcp.json
+
+# Temporary check scripts
+check-*.js
+
 # Marketing assets (not needed in builds)
 assets/branding/
 assets/marketing/
