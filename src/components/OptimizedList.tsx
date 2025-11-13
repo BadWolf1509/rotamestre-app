@@ -1,19 +1,19 @@
-import React, { useMemo, useCallback, useRef, memo } from 'react';
-import {
-  FlatList,
-  VirtualizedList,
-  SectionList,
-  View,
-  Text,
-  ActivityIndicator,
-  RefreshControl,
-  StyleSheet,
-  ListRenderItem,
-  ViewToken,
-  Platform,
-} from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import PerformanceOptimizer from '@/services/performanceOptimizer';
+import React, { memo, useCallback, useMemo, useRef } from 'react';
+import {
+  ListRenderItem,
+  Platform,
+  RefreshControl,
+  SectionList,
+  StyleSheet,
+  Text,
+  View,
+  ViewToken,
+  VirtualizedList,
+  FlatList,
+} from 'react-native';
+
+import { defaultTheme } from '@/utils/styles';
 
 interface OptimizedListProps<T> {
   data: T[];
@@ -110,7 +110,7 @@ function OptimizedListComponent<T>({
   const debouncedOnEndReached = useMemo(() => {
     if (!onEndReached) return undefined;
 
-    let timeout: NodeJS.Timeout;
+    let timeout: ReturnType<typeof setTimeout>;
     return () => {
       clearTimeout(timeout);
       timeout = setTimeout(() => {
@@ -177,8 +177,8 @@ function OptimizedListComponent<T>({
     <RefreshControl
       refreshing={refreshing}
       onRefresh={onRefresh}
-      colors={['#1e5aa8']}
-      tintColor="#1e5aa8"
+      colors={[defaultTheme.colors.primary]}
+      tintColor={defaultTheme.colors.primary}
     />
   ) : undefined;
 
@@ -320,8 +320,8 @@ export function OptimizedSectionList<T>({
     <RefreshControl
       refreshing={refreshing}
       onRefresh={onRefresh}
-      colors={['#1e5aa8']}
-      tintColor="#1e5aa8"
+      colors={[defaultTheme.colors.primary]}
+      tintColor={defaultTheme.colors.primary}
     />
   ) : undefined;
 

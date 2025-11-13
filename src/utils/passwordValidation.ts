@@ -1,3 +1,5 @@
+import { defaultTheme } from '@/utils/styles';
+
 export interface PasswordStrength {
   score: number; // 0-5
   label: 'Muito Fraca' | 'Fraca' | 'Regular' | 'Boa' | 'Forte' | 'Muito Forte';
@@ -50,24 +52,26 @@ export function validatePasswordStrength(password: string): PasswordStrength {
   let label: PasswordStrength['label'];
   let color: string;
 
+  const { colors } = defaultTheme;
+
   if (score <= 1) {
     label = 'Muito Fraca';
-    color = '#dc2626'; // red-600
+    color = colors.error;
   } else if (score === 2) {
     label = 'Fraca';
-    color = '#ea580c'; // orange-600
+    color = colors.warning;
   } else if (score === 3) {
     label = 'Regular';
-    color = '#eab308'; // yellow-500
+    color = colors.secondary;
   } else if (score === 4) {
     label = 'Boa';
-    color = '#16a34a'; // green-600
+    color = colors.success;
   } else if (score === 5) {
     label = 'Forte';
-    color = '#059669'; // emerald-600
+    color = colors.primary;
   } else {
     label = 'Muito Forte';
-    color = '#047857'; // emerald-700
+    color = colors.primaryDark;
   }
 
   return { score, label, color, feedback };

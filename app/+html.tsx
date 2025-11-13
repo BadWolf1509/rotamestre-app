@@ -33,7 +33,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Rota Mestre" />
-        <meta name="theme-color" content="#2563eb" />
+        <meta name="theme-color" content="#284093" />
         <meta name="mobile-web-app-capable" content="yes" />
 
         {/* Open Graph / Facebook */}
@@ -90,7 +90,7 @@ export default function Root({ children }: PropsWithChildren) {
             }
             body {
               overflow: hidden;
-              background-color: #ffffff;
+              background-color: white;
             }
             #root {
               display: flex;
@@ -130,3 +130,4 @@ export default function Root({ children }: PropsWithChildren) {
     </html>
   );
 }
+

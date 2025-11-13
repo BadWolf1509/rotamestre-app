@@ -1,19 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter, usePathname } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
+  Alert,
   Platform,
   ScrollView,
-  Alert,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { useRouter, usePathname } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { usePerformance } from '@/hooks/usePerformance';
 import { supabase } from '@/lib/supabase';
 import PerformanceOptimizer from '@/services/performanceOptimizer';
-import { usePerformance } from '@/hooks/usePerformance';
+import { defaultTheme, useUnistyles } from '@/utils/styles';
 
 interface DevOverlayProps {
   enabled?: boolean;
@@ -23,6 +24,7 @@ export function DevOverlay({ enabled = __DEV__ }: DevOverlayProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { metrics, clearCache, getPerformanceReport } = usePerformance();
+  const { theme } = useUnistyles();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showRoutes, setShowRoutes] = useState(false);
   const [showPerformance, setShowPerformance] = useState(false);
@@ -181,7 +183,7 @@ export function DevOverlay({ enabled = __DEV__ }: DevOverlayProps) {
                       <Ionicons
                         name={route.icon as any}
                         size={16}
-                        color={pathname === route.path ? '#1e5aa8' : '#fff'}
+                        color={pathname === route.path ? theme.colors.primary : '#fff'}
                       />
                       <Text
                         style={[
@@ -233,14 +235,14 @@ export function DevOverlay({ enabled = __DEV__ }: DevOverlayProps) {
             <Text style={styles.sectionTitle}>Quick Login</Text>
             <View style={styles.loginButtons}>
               <TouchableOpacity
-                style={[styles.loginButton, { backgroundColor: '#f7a02a' }]}
+                style={[styles.loginButton, styles.loginButtonSecondary]}
                 onPress={() => handleLoginAs('motorista')}
               >
                 <Ionicons name="car" size={16} color="#fff" />
                 <Text style={styles.loginButtonText}>Motorista</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.loginButton, { backgroundColor: '#1e5aa8' }]}
+                style={[styles.loginButton, { backgroundColor: theme.colors.primary }]}
                 onPress={() => handleLoginAs('gestor')}
               >
                 <Ionicons name="business" size={16} color="#fff" />
@@ -350,9 +352,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
   },
-  activeRouteText: {
-    color: '#1e5aa8',
-  },
   actionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -384,6 +383,9 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 8,
     borderRadius: 6,
+  },
+  loginButtonSecondary: {
+    backgroundColor: defaultTheme.colors.secondary,
   },
   loginButtonText: {
     color: '#fff',

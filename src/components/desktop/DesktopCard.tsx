@@ -1,6 +1,7 @@
-import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { Text, TouchableOpacity, View } from 'react-native';
+
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface DesktopCardProps {
@@ -76,7 +77,7 @@ export function DesktopCardGrid({
 }: DesktopCardGridProps) {
   return (
     <View style={[styles.grid, { gap }]}>
-      {React.Children.map(children, (child, index) => (
+      {React.Children.map(children, (child) => (
         <View style={[styles.gridItem, { flex: 1 / columns }]}>
           {child}
         </View>

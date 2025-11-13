@@ -1,14 +1,16 @@
 import { useRouter, usePathname } from 'expo-router';
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
+import LogoHorizontal from '@/../assets/logo-horizontal1.png';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { useUser } from '@/hooks/useUser';
+// REMOVIDO: import { useUser } from '@/hooks/useUser'; // userData agora vem como prop
 import { authService } from '@/lib/auth';
 import { StyleSheet } from '@/utils/styles';
 
 interface SidebarProps {
   onNavigate?: () => void;
+  userData?: any; // ✅ Receber userData como prop
 }
 
 /**
@@ -16,10 +18,10 @@ interface SidebarProps {
  * Inspirada no design do rotamestre-painel
  * Compatível com DrawerMenu mobile
  */
-export function Sidebar({ onNavigate }: SidebarProps) {
+export function Sidebar({ onNavigate, userData }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { userData } = useUser();
+  // REMOVIDO: const { userData } = useUser(); // Evitar chamada duplicada
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
 
@@ -89,19 +91,8 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       <View style={styles.container}>
         {/* Logo / Brand */}
         <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <View style={styles.logoIcon}>
-              <Text style={styles.logoEmoji}>🚚</Text>
-            </View>
-            <View>
-              <Text style={styles.brandTitle}>
-                Rota Mestre
-              </Text>
-              <Text style={styles.brandSubtitle}>
-                Painel do Gestor
-              </Text>
-            </View>
-          </View>
+          <Image source={LogoHorizontal} style={styles.logoImage} />
+          <Text style={styles.brandSubtitle}>Painel do Gestor</Text>
         </View>
 
         {/* Navigation */}
@@ -190,31 +181,19 @@ const styles = StyleSheet.create(theme => ({
     padding: theme.spacing['2xl'],
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray200,
-  },
-  logoContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
-  logoIcon: {
-    width: 48,
-    height: 48,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoEmoji: {
-    fontSize: 24,
-  },
-  brandTitle: {
-    fontSize: theme.typography.xl,
-    fontFamily: theme.typography.fontDisplay,
-    color: theme.colors.gray900,
+  logoImage: {
+    width: 270,
+    height: 72,
+    resizeMode: 'contain',
   },
   brandSubtitle: {
     fontSize: theme.typography.xs,
     color: theme.colors.gray500,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   scrollView: {
     flex: 1,

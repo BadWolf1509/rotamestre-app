@@ -12,7 +12,10 @@ import {
 import { z } from 'zod';
 
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
+import { DesktopCard } from '@/components/desktop/DesktopCard';
+import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { Toast } from '@/components/Toast';
+import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { googleMapsService } from '@/lib/google';
@@ -20,9 +23,6 @@ import { supabase } from '@/lib/supabase';
 import { GoogleDirectionsLeg } from '@/types/google-directions';
 import { maskPhone } from '@/utils/phoneValidation';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useResponsive } from '@/hooks/useResponsive';
-import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
-import { DesktopCard } from '@/components/desktop/DesktopCard';
 
 // Schema de validação
 const paradaSchema = z.object({
@@ -650,6 +650,7 @@ export default function NovaEntrega() {
           telefone: null,
           observacoes: 'Ponto de partida',
           status: 'pendente',
+          is_checkpoint: false,
         });
       }
 
@@ -691,6 +692,7 @@ export default function NovaEntrega() {
           telefone: null,
           observacoes: 'Ponto de chegada',
           status: 'pendente',
+          is_checkpoint: false,
         });
       }
 
@@ -838,20 +840,38 @@ export default function NovaEntrega() {
                 Nenhum motorista disponível nesta unidade
               </Text>
             ) : (
-              motoristas.map((motorista) => (
-                <TouchableOpacity
-                  key={motorista.id}
-                  style={[
-                    styles.motoristaCard,
-                    motoristaSelecionado === motorista.id &&
-                      styles.motoristaCardActive,
-                  ]}
-                  onPress={() => setMotoristaSelecionado(motorista.id)}
-                >
-                  <Text style={styles.motoristaNome}>{motorista.nome}</Text>
-                  <Text style={styles.motoristaEmail}>{motorista.email}</Text>
-                </TouchableOpacity>
-              ))
+              motoristas.map((motorista) => {
+                const isSelecionado = motoristaSelecionado === motorista.id;
+
+                return (
+                  <TouchableOpacity
+                    key={motorista.id}
+                    style={[
+                      styles.motoristaCard,
+                      isSelecionado && styles.motoristaCardActive,
+                    ]}
+                    onPress={() => setMotoristaSelecionado(motorista.id)}
+                    activeOpacity={0.85}
+                  >
+                    <Text
+                      style={[
+                        styles.motoristaNome,
+                        isSelecionado && styles.motoristaNomeActive,
+                      ]}
+                    >
+                      {motorista.nome}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.motoristaEmail,
+                        isSelecionado && styles.motoristaEmailActive,
+                      ]}
+                    >
+                      {motorista.email}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })
             )}
           </View>
         )}
@@ -948,24 +968,63 @@ export default function NovaEntrega() {
   }
 
   // Mobile Layout (original)
+  const breadcrumbs = [
+    { label: 'Dashboard', route: '/gestor/dashboard' },
+    { label: 'Nova Rota de Entrega' },
+  ];
+
+  const renderMainContent = () => (
+    <View style={styles.content}>
+      <FormularioParadaMemoized
+        control={control}
+        errors={errors}
+        setValue={setValue}
+        handleSubmit={handleSubmit}
+        onAddParada={onAddParada}
+        isLoading={isLoading}
+      />
+      <ParadasListAndActions />
+    </View>
+  );
+
+  if (isDesktop) {
+    return (
+      <>
+        <DesktopPageLayout
+          title="Nova Rota de Entrega"
+          subtitle={unidade?.nome || userData?.unidades?.nome || ''}
+          breadcrumbs={breadcrumbs}
+          actions={[
+            {
+              label: 'Limpar Formulário',
+              icon: 'refresh-outline',
+              onPress: limparFormulario,
+              variant: 'ghost',
+              disabled: paradas.length === 0 && !motoristaSelecionado,
+            },
+          ]}
+          loading={isLoadingMotoristas}
+        >
+          {renderMainContent()}
+        </DesktopPageLayout>
+        <Toast {...toastState} onDismiss={hideToast} />
+      </>
+    );
+  }
+
+  if (isLoadingMotoristas) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primaryDark} />
+      </View>
+    );
+  }
+
   return (
     <>
-      {/* Content */}
       <ScrollView style={styles.scrollView}>
-        <View style={styles.content}>
-          <FormularioParadaMemoized
-            control={control}
-            errors={errors}
-            setValue={setValue}
-            handleSubmit={handleSubmit}
-            onAddParada={onAddParada}
-            isLoading={isLoading}
-          />
-          <ParadasListAndActions />
-        </View>
+        {renderMainContent()}
       </ScrollView>
-
-      {/* Toast de Feedback */}
       <Toast {...toastState} onDismiss={hideToast} />
     </>
   );
@@ -982,28 +1041,6 @@ const createStyles = (theme: any) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: theme.colors.gray50,
-  },
-  header: {
-    backgroundColor: theme.colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray200,
-    paddingHorizontal: theme.spacing['3xl'],
-    paddingVertical: theme.spacing['2xl'],
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitle: {
-    fontSize: theme.typography['3xl'],
-    fontFamily: theme.typography.fontDisplay,
-    color: theme.colors.gray900,
-  },
-  headerSubtitle: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
-    marginTop: 4,
   },
   scrollView: {
     flex: 1,
@@ -1158,20 +1195,34 @@ const createStyles = (theme: any) => StyleSheet.create({
     marginBottom: theme.spacing.md,
     borderWidth: 2,
     borderColor: theme.colors.gray200,
+    shadowColor: theme.colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   motoristaCardActive: {
-    borderColor: theme.colors.primaryDark,
-    backgroundColor: theme.colors.primaryLight,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryBg,
+    shadowColor: theme.colors.primaryDark,
+    shadowOpacity: 0.15,
+    elevation: 4,
   },
   motoristaNome: {
     fontSize: theme.typography.base,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
   },
+  motoristaNomeActive: {
+    color: theme.colors.primaryDark,
+  },
   motoristaEmail: {
     fontSize: theme.typography.sm,
     color: theme.colors.gray500,
     marginTop: theme.spacing.sm,
+  },
+  motoristaEmailActive: {
+    color: theme.colors.primary,
   },
   gerarButton: {
     backgroundColor: theme.colors.success,

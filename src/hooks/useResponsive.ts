@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Platform, useWindowDimensions } from 'react-native';
 
 export type Breakpoint = 'mobile' | 'tablet' | 'desktop';
@@ -31,6 +32,9 @@ export interface ResponsiveHook {
  * - Tablet: 768px - 1023px
  * - Desktop: ≥ 1024px
  *
+ * ✅ FIX: Usar useMemo para evitar recriação do objeto em cada render
+ * Isso previne loops infinitos causados por mudanças de referência
+ *
  * @example
  * ```tsx
  * const { isMobile, isDesktop, breakpoint } = useResponsive();
@@ -46,32 +50,36 @@ export function useResponsive(): ResponsiveHook {
   const { width, height } = useWindowDimensions();
   const platform = Platform.OS;
 
-  // Calcular breakpoint baseado na largura
-  const getBreakpoint = (w: number): Breakpoint => {
-    if (w < 768) return 'mobile';
-    if (w < 1024) return 'tablet';
-    return 'desktop';
-  };
+  // ✅ FIX: Memoizar o resultado para evitar recriação desnecessária do objeto
+  // Apenas recria quando width, height ou platform mudam
+  return useMemo(() => {
+    // Calcular breakpoint baseado na largura
+    const getBreakpoint = (w: number): Breakpoint => {
+      if (w < 768) return 'mobile';
+      if (w < 1024) return 'tablet';
+      return 'desktop';
+    };
 
-  // Calcular orientação
-  const getOrientation = (w: number, h: number): 'portrait' | 'landscape' => {
-    return h > w ? 'portrait' : 'landscape';
-  };
+    // Calcular orientação
+    const getOrientation = (w: number, h: number): 'portrait' | 'landscape' => {
+      return h > w ? 'portrait' : 'landscape';
+    };
 
-  const breakpoint = getBreakpoint(width);
-  const orientation = getOrientation(width, height);
+    const breakpoint = getBreakpoint(width);
+    const orientation = getOrientation(width, height);
 
-  return {
-    width,
-    height,
-    isMobile: breakpoint === 'mobile',
-    isTablet: breakpoint === 'tablet',
-    isDesktop: breakpoint === 'desktop',
-    isWeb: platform === 'web',
-    isNative: platform === 'ios' || platform === 'android',
-    breakpoint,
-    orientation,
-  };
+    return {
+      width,
+      height,
+      isMobile: breakpoint === 'mobile',
+      isTablet: breakpoint === 'tablet',
+      isDesktop: breakpoint === 'desktop',
+      isWeb: platform === 'web',
+      isNative: platform === 'ios' || platform === 'android',
+      breakpoint,
+      orientation,
+    };
+  }, [width, height, platform]); // Apenas recria quando essas dependências mudam
 }
 
 /**

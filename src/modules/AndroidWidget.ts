@@ -1,4 +1,7 @@
+import { useEffect } from 'react';
 import { NativeModules, Platform } from 'react-native';
+
+import { useRouteStatus } from '@/context/RouteStatusContext';
 
 interface WidgetData {
   status: 'no_route' | 'pending' | 'active' | 'completed';
@@ -114,10 +117,6 @@ class AndroidWidgetModule {
 // Export singleton instance
 const AndroidWidget = new AndroidWidgetModule();
 export default AndroidWidget;
-
-// Hook for React components
-import { useEffect } from 'react';
-import { useRouteStatus } from '@/context/RouteStatusContext';
 
 export function useAndroidWidget() {
   const {

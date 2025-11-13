@@ -1,18 +1,19 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Image,
-  TouchableOpacity,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  Modal,
-  Dimensions,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import React, { useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Dimensions,
+  Image,
+  Modal,
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+} from 'react-native';
+
 import { useUnistyles } from '@/utils/styles';
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window');
 
 // Substitua com sua chave de API do Google
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
@@ -33,6 +34,7 @@ export function StreetViewPreview({
   onPress,
 }: StreetViewPreviewProps) {
   const { theme } = useUnistyles();
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -180,116 +182,115 @@ export function StreetViewPreview({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: '#f5f5f5',
-  },
-  image: {
-    borderRadius: 8,
-  },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    zIndex: 1,
-  },
-  errorContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderStyle: 'dashed',
-  },
-  errorText: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
-  },
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'space-between',
-  },
-  iconContainer: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 4,
-    padding: 4,
-  },
-  addressContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    padding: 4,
-  },
-  addressText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '500',
-  },
-
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    width: screenWidth - 32,
-    maxWidth: 400,
-    overflow: 'hidden',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-  },
-  modalImage: {
-    width: '100%',
-    height: 400,
-  },
-  modalAddress: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    gap: 8,
-  },
-  modalAddressText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#333',
-  },
-  modalHint: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-    padding: 12,
-    fontStyle: 'italic',
-  },
-});
+const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
+  StyleSheet.create({
+    container: {
+      borderRadius: 8,
+      overflow: 'hidden',
+      backgroundColor: theme.colors.gray100,
+    },
+    image: {
+      borderRadius: 8,
+    },
+    loadingOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      zIndex: 1,
+    },
+    errorContainer: {
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.colors.gray100,
+      borderWidth: 1,
+      borderColor: theme.colors.gray200,
+      borderStyle: 'dashed',
+    },
+    errorText: {
+      fontSize: 12,
+      color: theme.colors.gray600,
+      marginTop: 4,
+    },
+    overlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      justifyContent: 'space-between',
+    },
+    iconContainer: {
+      position: 'absolute',
+      top: 8,
+      right: 8,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      borderRadius: 4,
+      padding: 4,
+    },
+    addressContainer: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      padding: 4,
+    },
+    addressText: {
+      color: theme.colors.white,
+      fontSize: 11,
+      fontWeight: '500',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.9)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContent: {
+      backgroundColor: theme.colors.white,
+      borderRadius: 12,
+      width: screenWidth - 32,
+      maxWidth: 400,
+      overflow: 'hidden',
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.gray200,
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: theme.colors.gray800,
+    },
+    modalImage: {
+      width: '100%',
+      height: 400,
+    },
+    modalAddress: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 16,
+      gap: 8,
+    },
+    modalAddressText: {
+      flex: 1,
+      fontSize: 14,
+      color: theme.colors.gray800,
+    },
+    modalHint: {
+      fontSize: 12,
+      color: theme.colors.gray600,
+      textAlign: 'center',
+      padding: 12,
+      fontStyle: 'italic',
+    },
+  });

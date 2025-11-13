@@ -1,7 +1,8 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
-import { AppState, AppStateStatus, InteractionManager } from 'react-native';
-import PerformanceOptimizer from '@/services/performanceOptimizer';
 import NetInfo from '@react-native-community/netinfo';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, AppStateStatus, InteractionManager } from 'react-native';
+
+import PerformanceOptimizer from '@/services/performanceOptimizer';
 
 interface PerformanceHookOptions {
   trackScreenLoad?: boolean;
@@ -34,6 +35,18 @@ export function usePerformance(options: PerformanceHookOptions = {}) {
 
   const screenLoadStartTime = useRef<number>(Date.now());
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+
+  const handleAppStateChange = useCallback((nextAppState: AppStateStatus) => {
+    if (appStateRef.current === 'background' && nextAppState === 'active') {
+      // App came to foreground - refresh data if needed
+      if (enableOptimizations) {
+        PerformanceOptimizer.deferOperation(() => {
+          console.log('App resumed - checking for updates');
+        });
+      }
+    }
+    appStateRef.current = nextAppState;
+  }, [enableOptimizations]);
 
   useEffect(() => {
     // Track screen load time
@@ -73,19 +86,7 @@ export function usePerformance(options: PerformanceHookOptions = {}) {
       netInfoUnsubscribe();
       clearInterval(memoryInterval);
     };
-  }, [trackScreenLoad, screenName]);
-
-  const handleAppStateChange = (nextAppState: AppStateStatus) => {
-    if (appStateRef.current === 'background' && nextAppState === 'active') {
-      // App came to foreground - refresh data if needed
-      if (enableOptimizations) {
-        PerformanceOptimizer.deferOperation(() => {
-          console.log('App resumed - checking for updates');
-        });
-      }
-    }
-    appStateRef.current = nextAppState;
-  };
+  }, [handleAppStateChange, screenName, trackScreenLoad]);
 
   // Optimized API call wrapper
   const optimizedApiCall = useCallback(
@@ -267,7 +268,7 @@ export function useLazyComponent<T>(
     if (preload) {
       loadComponent();
     }
-  }, [preload]);
+  }, [loadComponent, preload]);
 
   const loadComponent = useCallback(async () => {
     if (Component || isLoading) return;
@@ -301,8 +302,8 @@ export function useLazyComponent<T>(
 // Hook for detecting memory leaks
 export function useMemoryLeakDetector(componentName: string) {
   const mountTime = useRef(Date.now());
-  const activeTimers = useRef<Set<NodeJS.Timeout>>(new Set());
-  const activeIntervals = useRef<Set<NodeJS.Timeout>>(new Set());
+  const activeTimers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+  const activeIntervals = useRef<Set<ReturnType<typeof setInterval>>>(new Set());
   const activePromises = useRef<Set<Promise<any>>>(new Set());
 
   // Override setTimeout to track timers
@@ -331,27 +332,32 @@ export function useMemoryLeakDetector(componentName: string) {
   }, []);
 
   useEffect(() => {
+    const mountedAt = mountTime.current;
+    const timersRef = activeTimers.current;
+    const intervalsRef = activeIntervals.current;
+    const promisesRef = activePromises.current;
+
     return () => {
       // Check for memory leaks on unmount
-      const lifetime = Date.now() - mountTime.current;
+      const lifetime = Date.now() - mountedAt;
 
-      if (activeTimers.current.size > 0) {
+      if (timersRef.size > 0) {
         console.warn(
-          `${componentName}: ${activeTimers.current.size} timer(s) not cleared after ${lifetime}ms`
+          `${componentName}: ${timersRef.size} timer(s) not cleared after ${lifetime}ms`
         );
-        activeTimers.current.forEach(timer => clearTimeout(timer));
+        timersRef.forEach(timer => clearTimeout(timer));
       }
 
-      if (activeIntervals.current.size > 0) {
+      if (intervalsRef.size > 0) {
         console.warn(
-          `${componentName}: ${activeIntervals.current.size} interval(s) not cleared after ${lifetime}ms`
+          `${componentName}: ${intervalsRef.size} interval(s) not cleared after ${lifetime}ms`
         );
-        activeIntervals.current.forEach(interval => clearInterval(interval));
+        intervalsRef.forEach(interval => clearInterval(interval));
       }
 
-      if (activePromises.current.size > 0) {
+      if (promisesRef.size > 0) {
         console.warn(
-          `${componentName}: ${activePromises.current.size} promise(s) still pending after ${lifetime}ms`
+          `${componentName}: ${promisesRef.size} promise(s) still pending after ${lifetime}ms`
         );
       }
     };

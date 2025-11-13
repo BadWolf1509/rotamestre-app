@@ -36,6 +36,7 @@ export function Toast({ message, type = 'info', duration = 3000, onDismiss, visi
   const { theme } = useUnistyles();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-100)).current;
+  const wasVisibleRef = useRef(false);
 
   const handleDismiss = useCallback(() => {
     Animated.parallel([
@@ -78,9 +79,11 @@ export function Toast({ message, type = 'info', duration = 3000, onDismiss, visi
         }, duration);
         return () => clearTimeout(timer);
       }
-    } else {
+    } else if (wasVisibleRef.current) {
       handleDismiss();
     }
+
+    wasVisibleRef.current = visible;
   }, [duration, handleDismiss, type, translateY, visible, fadeAnim]);
 
   if (!visible && fadeAnim._value === 0) return null;

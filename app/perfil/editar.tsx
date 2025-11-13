@@ -11,11 +11,11 @@ import {
 
 import { AlertDialog } from '@/components/AlertDialog';
 import { FormDesktopLayout } from '@/components/perfil/FormDesktopLayout';
+import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { Usuario } from '@/types/usuario';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useResponsive } from '@/hooks/useResponsive';
 
 export default function EditarPerfilGestor() {
   const { theme } = useUnistyles();

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, ActivityIndicator, ViewStyle } from 'react-native';
+
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface MobileLoadingProps {

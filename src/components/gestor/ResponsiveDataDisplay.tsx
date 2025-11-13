@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
   View,
@@ -6,10 +7,11 @@ import {
   TouchableOpacity,
   FlatList,
   Platform,
+  TextInput,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+
 import { useResponsive } from '@/hooks/useResponsive';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface Column {
   key: string;
@@ -204,7 +206,15 @@ export function ResponsiveDataDisplay({
       {showSearch && (
         <View style={styles.searchBar}>
           <Ionicons name="search-outline" size={20} color={theme.colors.gray500} />
-          <Text style={styles.searchInput}>{searchPlaceholder}</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder={searchPlaceholder}
+            placeholderTextColor={theme.colors.gray400}
+            value={searchTerm}
+            onChangeText={setSearchTerm}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
         </View>
       )}
 

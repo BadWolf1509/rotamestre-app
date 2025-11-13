@@ -1,19 +1,20 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
   Animated,
+  Dimensions,
   Modal,
   ScrollView,
-  Dimensions,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useUnistyles } from '@/utils/styles';
-import DynamicReroutingService from '@/services/dynamicRerouting';
+
+import { defaultTheme, useUnistyles } from '@/utils/styles';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const colors = defaultTheme.colors;
 
 interface OptimizationAlertProps {
   visible: boolean;
@@ -81,7 +82,31 @@ export function OptimizationAlert({
         useNativeDriver: true,
       }).start();
     }
-  }, [visible, optimization]);
+  }, [optimization, pulseAnim, slideAnim, visible]);
+
+  const handleAccept = useCallback(() => {
+    setAutoAcceptTimer(null);
+    onAccept();
+
+    // Animate out
+    Animated.timing(slideAnim, {
+      toValue: -200,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [onAccept, slideAnim]);
+
+  const handleReject = useCallback(() => {
+    setAutoAcceptTimer(null);
+    onReject();
+
+    // Animate out
+    Animated.timing(slideAnim, {
+      toValue: -200,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [onReject, slideAnim]);
 
   // Countdown for auto-accept
   useEffect(() => {
@@ -96,31 +121,7 @@ export function OptimizationAlert({
     }
 
     return () => clearTimeout(timer);
-  }, [autoAcceptTimer]);
-
-  const handleAccept = async () => {
-    setAutoAcceptTimer(null);
-    onAccept();
-
-    // Animate out
-    Animated.timing(slideAnim, {
-      toValue: -200,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handleReject = () => {
-    setAutoAcceptTimer(null);
-    onReject();
-
-    // Animate out
-    Animated.timing(slideAnim, {
-      toValue: -200,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  };
+  }, [autoAcceptTimer, handleAccept]);
 
   const getConfidenceColor = (confidence: number) => {
     if (confidence > 80) return theme.colors.success;
@@ -175,7 +176,7 @@ export function OptimizationAlert({
               style={styles.closeButton}
               onPress={onClose}
             >
-              <Ionicons name="close" size={20} color="#6b7280" />
+              <Ionicons name="close" size={20} color={theme.colors.gray500} />
             </TouchableOpacity>
           </View>
 
@@ -209,7 +210,7 @@ export function OptimizationAlert({
               style={[styles.actionButton, styles.rejectButton]}
               onPress={handleReject}
             >
-              <Ionicons name="close-circle-outline" size={20} color="#dc2626" />
+              <Ionicons name="close-circle-outline" size={20} color={theme.colors.error} />
               <Text style={styles.rejectButtonText}>Ignorar</Text>
             </TouchableOpacity>
 
@@ -217,7 +218,7 @@ export function OptimizationAlert({
               style={styles.detailsButton}
               onPress={() => setShowDetails(true)}
             >
-              <Ionicons name="information-circle-outline" size={20} color="#1e5aa8" />
+              <Ionicons name="information-circle-outline" size={20} color={theme.colors.primary} />
               <Text style={styles.detailsButtonText}>Detalhes</Text>
             </TouchableOpacity>
 
@@ -249,7 +250,7 @@ export function OptimizationAlert({
                 onPress={() => setShowDetails(false)}
                 style={styles.modalCloseButton}
               >
-                <Ionicons name="close" size={24} color="#374151" />
+                <Ionicons name="close" size={24} color={theme.colors.gray700} />
               </TouchableOpacity>
             </View>
 
@@ -380,9 +381,9 @@ const styles = StyleSheet.create({
     top: 50,
     left: 16,
     right: 16,
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderRadius: 12,
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -401,7 +402,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#e0e7ff',
+    backgroundColor: colors.primaryBg,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -412,11 +413,11 @@ const styles = StyleSheet.create({
   alertTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.gray900,
   },
   alertSubtitle: {
     fontSize: 14,
-    color: '#10b981',
+    color: colors.success,
     fontWeight: '600',
   },
   closeButton: {
@@ -424,7 +425,7 @@ const styles = StyleSheet.create({
   },
   reasonText: {
     fontSize: 13,
-    color: '#6b7280',
+    color: colors.gray500,
     marginBottom: 12,
     paddingLeft: 52,
   },
@@ -436,13 +437,13 @@ const styles = StyleSheet.create({
   },
   confidenceLabel: {
     fontSize: 12,
-    color: '#6b7280',
+    color: colors.gray500,
     marginRight: 8,
   },
   confidenceBar: {
     flex: 1,
     height: 6,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: colors.gray200,
     borderRadius: 3,
     overflow: 'hidden',
   },
@@ -469,12 +470,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   rejectButton: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: colors.errorBg,
     borderWidth: 1,
-    borderColor: '#fca5a5',
+    borderColor: colors.error,
   },
   rejectButtonText: {
-    color: '#dc2626',
+    color: colors.error,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -486,18 +487,18 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.gray100,
   },
   detailsButtonText: {
-    color: '#1e5aa8',
+    color: defaultTheme.colors.primary,
     fontSize: 14,
     fontWeight: '600',
   },
   acceptButton: {
-    backgroundColor: '#10b981',
+    backgroundColor: colors.success,
   },
   acceptButtonText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -510,7 +511,7 @@ const styles = StyleSheet.create({
   modalContent: {
     width: SCREEN_WIDTH - 32,
     maxHeight: '80%',
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderRadius: 16,
   },
   modalHeader: {
@@ -519,12 +520,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: colors.gray200,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.gray900,
   },
   modalCloseButton: {
     padding: 4,
@@ -544,11 +545,11 @@ const styles = StyleSheet.create({
   detailTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.gray700,
   },
   detailValue: {
     fontSize: 14,
-    color: '#111827',
+    color: colors.gray900,
     lineHeight: 20,
   },
   orderComparison: {
@@ -562,7 +563,7 @@ const styles = StyleSheet.create({
   orderColumnTitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6b7280',
+    color: colors.gray500,
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -574,38 +575,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 6,
     paddingHorizontal: 8,
-    backgroundColor: '#f9fafb',
+    backgroundColor: colors.gray50,
     borderRadius: 6,
     marginBottom: 4,
   },
   stopItemMoved: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: colors.warningBg,
   },
   stopNumber: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: colors.gray200,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
     fontSize: 12,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.gray700,
     textAlign: 'center',
     lineHeight: 24,
   },
   stopNumberMoved: {
-    backgroundColor: '#f59e0b',
-    color: '#fff',
+    backgroundColor: colors.warning,
+    color: colors.white,
   },
   stopAddress: {
     flex: 1,
     fontSize: 11,
-    color: '#6b7280',
+    color: colors.gray500,
   },
   stopAddressMoved: {
-    color: '#92400e',
+    color: colors.secondaryDark,
     fontWeight: '500',
   },
   modalActions: {
@@ -620,19 +621,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalRejectButton: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.gray100,
   },
   modalRejectButtonText: {
-    color: '#6b7280',
+    color: colors.gray500,
     fontSize: 14,
     fontWeight: '600',
   },
   modalAcceptButton: {
-    backgroundColor: '#10b981',
+    backgroundColor: colors.success,
   },
   modalAcceptButtonText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 14,
     fontWeight: '600',
   },
 });
+
+

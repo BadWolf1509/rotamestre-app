@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Switch,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  ScrollView,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
 import LocationTrackingService from '@/services/locationTracking';
-import { useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface NavigationSettingsProps {
   visible: boolean;
@@ -111,8 +111,8 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
             <Switch
               value={settings.autoAdvance}
               onValueChange={(value) => handleSettingChange('autoAdvance', value)}
-              trackColor={{ false: '#d1d5db', true: theme.colors.primary }}
-              thumbColor="#fff"
+              trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+              thumbColor={theme.colors.white}
             />
           </View>
 
@@ -132,7 +132,7 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
                 value={settings.proximityRadius}
                 onValueChange={(value) => handleSettingChange('proximityRadius', value)}
                 minimumTrackTintColor={theme.colors.primary}
-                maximumTrackTintColor="#d1d5db"
+                maximumTrackTintColor={theme.colors.gray300}
                 thumbTintColor={theme.colors.primary}
               />
               <View style={styles.sliderLabels}>
@@ -157,8 +157,8 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
             <Switch
               value={settings.internalNavigation}
               onValueChange={(value) => handleSettingChange('internalNavigation', value)}
-              trackColor={{ false: '#d1d5db', true: theme.colors.primary }}
-              thumbColor="#fff"
+              trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+              thumbColor={theme.colors.white}
             />
           </View>
 
@@ -173,8 +173,8 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
               <Switch
                 value={settings.voiceNavigation}
                 onValueChange={(value) => handleSettingChange('voiceNavigation', value)}
-                trackColor={{ false: '#d1d5db', true: theme.colors.primary }}
-                thumbColor="#fff"
+                trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+                thumbColor={theme.colors.white}
               />
             </View>
           )}
@@ -194,8 +194,8 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
             <Switch
               value={settings.soundAlerts}
               onValueChange={(value) => handleSettingChange('soundAlerts', value)}
-              trackColor={{ false: '#d1d5db', true: theme.colors.primary }}
-              thumbColor="#fff"
+              trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+              thumbColor={theme.colors.white}
             />
           </View>
 
@@ -209,8 +209,8 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
             <Switch
               value={settings.vibrationAlerts}
               onValueChange={(value) => handleSettingChange('vibrationAlerts', value)}
-              trackColor={{ false: '#d1d5db', true: theme.colors.primary }}
-              thumbColor="#fff"
+              trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+              thumbColor={theme.colors.white}
             />
           </View>
         </View>
@@ -229,8 +229,8 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
             <Switch
               value={settings.showSpeedometer}
               onValueChange={(value) => handleSettingChange('showSpeedometer', value)}
-              trackColor={{ false: '#d1d5db', true: theme.colors.primary }}
-              thumbColor="#fff"
+              trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+              thumbColor={theme.colors.white}
             />
           </View>
 
@@ -244,8 +244,8 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
             <Switch
               value={settings.preventScreenSleep}
               onValueChange={(value) => handleSettingChange('preventScreenSleep', value)}
-              trackColor={{ false: '#d1d5db', true: theme.colors.primary }}
-              thumbColor="#fff"
+              trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+              thumbColor={theme.colors.white}
             />
           </View>
         </View>
@@ -279,14 +279,14 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.white,
     zIndex: 1000,
   },
   header: {
@@ -295,12 +295,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: theme.colors.gray200,
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    color: theme.colors.gray900,
   },
   closeButton: {
     padding: 8,
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6b7280',
+    color: theme.colors.gray500,
     marginBottom: 12,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: theme.colors.gray100,
   },
   settingInfo: {
     flex: 1,
@@ -335,28 +335,28 @@ const styles = StyleSheet.create({
   settingLabel: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#111827',
+    color: theme.colors.gray900,
     marginBottom: 2,
   },
   settingDescription: {
     fontSize: 12,
-    color: '#6b7280',
+    color: theme.colors.gray500,
   },
   sliderSetting: {
     marginTop: 16,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
+    borderTopColor: theme.colors.gray100,
   },
   sliderLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#111827',
+    color: theme.colors.gray900,
     marginBottom: 4,
   },
   sliderDescription: {
     fontSize: 12,
-    color: '#6b7280',
+    color: theme.colors.gray500,
     marginBottom: 12,
   },
   slider: {
@@ -369,10 +369,10 @@ const styles = StyleSheet.create({
   },
   sliderEndLabel: {
     fontSize: 11,
-    color: '#9ca3af',
+    color: theme.colors.gray400,
   },
   tipsSection: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: theme.colors.warningBg,
     padding: 12,
     borderRadius: 8,
     marginBottom: 24,
@@ -386,11 +386,11 @@ const styles = StyleSheet.create({
   tipTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#92400e',
+    color: theme.colors.secondaryDark,
   },
   tipText: {
     fontSize: 12,
-    color: '#92400e',
+    color: theme.colors.secondaryDark,
     marginBottom: 4,
     paddingLeft: 28,
   },
@@ -401,13 +401,14 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 12,
     borderWidth: 1,
-    borderColor: '#fca5a5',
+    borderColor: theme.colors.errorBg,
     borderRadius: 8,
-    backgroundColor: '#fef2f2',
+    backgroundColor: theme.colors.errorBg,
   },
   resetButtonText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#dc2626',
+    color: theme.colors.error,
   },
-});
+}));
+

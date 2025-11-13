@@ -59,6 +59,12 @@ function MobileStack() {
       }}
     >
       <Stack.Screen
+        name="home"
+        options={{
+          title: 'Home',
+        }}
+      />
+      <Stack.Screen
         name="rota"
         options={{
           title: 'Rota Atual',

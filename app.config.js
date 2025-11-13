@@ -13,7 +13,7 @@ module.exports = ({ config }) => {
     splash: {
       image: "./assets/splash.png",
       resizeMode: "contain",
-      backgroundColor: "#0D5A9C"
+      backgroundColor: "#284093"
     },
     extra: {
       baseUrl: "https://app.rotamestre.tec.br",
@@ -37,7 +37,7 @@ module.exports = ({ config }) => {
     android: {
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
-        backgroundColor: "#0D5A9C"
+        backgroundColor: "#284093"
       },
       icon: "./assets/icon.png",
       edgeToEdgeEnabled: true,
@@ -63,7 +63,7 @@ module.exports = ({ config }) => {
       name: "Rota Mestre - Gestão Inteligente de Entregas",
       shortName: "Rota Mestre",
       description: "Sistema de gestão e rastreamento de rotas de entrega em tempo real. Otimize logística, acompanhe motoristas e melhore eficiência operacional.",
-      themeColor: "#2563eb",
+      themeColor: "#284093",
       backgroundColor: "#ffffff",
       display: "standalone",
       orientation: "portrait",
@@ -85,3 +85,4 @@ module.exports = ({ config }) => {
     ]
   };
 };
+

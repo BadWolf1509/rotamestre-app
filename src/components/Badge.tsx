@@ -9,7 +9,7 @@
 
 import { View, Text, ViewStyle, TextStyle } from 'react-native';
 
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, Theme, useUnistyles } from '@/utils/styles';
 
 type BadgeStatus = 'pendente' | 'em_andamento' | 'concluida' | 'cancelada';
 type BadgeSize = 'small' | 'medium' | 'large';
@@ -23,32 +23,32 @@ interface BadgeProps {
   style?: ViewStyle;
 }
 
-const getBadgeColor = (status: BadgeStatus) => {
+const getBadgeColor = (theme: Theme, status: BadgeStatus) => {
   switch (status) {
     case 'pendente':
       return {
-        background: '#FEF3C7',
-        text: '#f59e0b',
+        background: theme.colors.secondaryBg,
+        text: theme.colors.secondary,
       };
     case 'em_andamento':
       return {
-        background: '#DBEAFE',
-        text: '#3b82f6',
+        background: theme.colors.infoBg,
+        text: theme.colors.info,
       };
     case 'concluida':
       return {
-        background: '#D1FAE5',
-        text: '#10b981',
+        background: theme.colors.successBg,
+        text: theme.colors.success,
       };
     case 'cancelada':
       return {
-        background: '#FEE2E2',
-        text: '#ef4444',
+        background: theme.colors.errorBg,
+        text: theme.colors.error,
       };
     default:
       return {
-        background: '#f3f4f6',
-        text: '#4b5563',
+        background: theme.colors.gray100,
+        text: theme.colors.gray600,
       };
   }
 };
@@ -60,7 +60,8 @@ export function Badge({
   variant = 'filled',
   style,
 }: BadgeProps) {
-  const { background, text } = getBadgeColor(status);
+  const { theme } = useUnistyles();
+  const { background, text } = getBadgeColor(theme, status);
 
   const defaultLabels = {
     pendente: 'Pendente',

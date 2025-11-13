@@ -1,23 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Dimensions,
-  Alert,
-  Platform,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import * as Location from 'expo-location';
-import LocationTrackingService from '@/services/locationTracking';
-import { TurnByTurnNavigation } from './TurnByTurnNavigation';
-import { useUnistyles } from '@/utils/styles';
-import { abrirNavegacao } from '@/lib/navigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  Alert,
+  Dimensions,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+
+import { abrirNavegacao } from '@/lib/navigation';
+import LocationTrackingService from '@/services/locationTracking';
+import { defaultTheme } from '@/utils/styles';
+
+import { NavigationSettings } from './NavigationSettings';
+import { TurnByTurnNavigation } from './TurnByTurnNavigation';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const colors = defaultTheme.colors;
 
 interface NavigationModeProps {
   currentStop: any;
@@ -36,7 +40,6 @@ export function NavigationMode({
   onSkip,
   onExit,
 }: NavigationModeProps) {
-  const { theme } = useUnistyles();
   const [userLocation, setUserLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -51,16 +54,67 @@ export function NavigationMode({
   const [internalNavEnabled, setInternalNavEnabled] = useState(false);
   const mapRef = React.useRef<MapView>(null);
 
+  const startNavigation = useCallback(async () => {
+    if (!currentStop) return;
+
+    const tracking = await LocationTrackingService.startTracking(
+      currentStop.rota_id,
+      currentStop.id,
+      nextStop?.id
+    );
+    setIsTracking(tracking);
+  }, [currentStop, nextStop]);
+
+  const stopNavigation = useCallback(async () => {
+    await LocationTrackingService.stopTracking();
+    setIsTracking(false);
+  }, []);
+
+  const checkInternalNavPreference = useCallback(async () => {
+    try {
+      const prefs = await AsyncStorage.getItem('navigationPreferences');
+      if (prefs) {
+        const parsed = JSON.parse(prefs);
+        setInternalNavEnabled(parsed.internalNavigation || false);
+        if (parsed.internalNavigation) {
+          setNavigationMode('turn-by-turn');
+        }
+      }
+    } catch (error) {
+      console.log('Error loading nav preferences:', error);
+    }
+  }, []);
+
+  const calculateDistance = useCallback(
+    (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+      const EARTH_RADIUS = 6371000;
+      const phi1 = (lat1 * Math.PI) / 180;
+      const phi2 = (lat2 * Math.PI) / 180;
+      const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+      const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+
+      const a =
+        Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+        Math.cos(phi1) *
+          Math.cos(phi2) *
+          Math.sin(deltaLambda / 2) *
+          Math.sin(deltaLambda / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+      return EARTH_RADIUS * c;
+    },
+    []
+  );
+
   useEffect(() => {
     startNavigation();
     checkInternalNavPreference();
     return () => {
       stopNavigation();
     };
-  }, [currentStop]);
+  }, [checkInternalNavPreference, startNavigation, stopNavigation]);
 
   useEffect(() => {
-    // Watch position updates
     let subscription: Location.LocationSubscription | null = null;
 
     (async () => {
@@ -106,53 +160,7 @@ export function NavigationMode({
     return () => {
       subscription?.remove();
     };
-  }, [currentStop]);
-
-  const startNavigation = async () => {
-    if (!currentStop) return;
-
-    const tracking = await LocationTrackingService.startTracking(
-      currentStop.rota_id,
-      currentStop.id,
-      nextStop?.id
-    );
-    setIsTracking(tracking);
-  };
-
-  const stopNavigation = async () => {
-    await LocationTrackingService.stopTracking();
-    setIsTracking(false);
-  };
-
-  const checkInternalNavPreference = async () => {
-    try {
-      const prefs = await AsyncStorage.getItem('navigationPreferences');
-      if (prefs) {
-        const parsed = JSON.parse(prefs);
-        setInternalNavEnabled(parsed.internalNavigation || false);
-        if (parsed.internalNavigation) {
-          setNavigationMode('turn-by-turn');
-        }
-      }
-    } catch (error) {
-      console.log('Error loading nav preferences:', error);
-    }
-  };
-
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371000; // Earth radius in meters
-    const φ1 = (lat1 * Math.PI) / 180;
-    const φ2 = (lat2 * Math.PI) / 180;
-    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-    const a =
-      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c;
-  };
+  }, [calculateDistance, currentStop]);
 
   const handleOpenInMaps = () => {
     if (!currentStop) return;
@@ -168,10 +176,6 @@ export function NavigationMode({
         endereco: currentStop.endereco,
       });
     }
-  };
-
-  const toggleNavigationMode = () => {
-    setNavigationMode(prev => prev === 'map' ? 'turn-by-turn' : 'map');
   };
 
   const handleCompleteStop = () => {
@@ -301,7 +305,7 @@ export function NavigationMode({
           description={currentStop.observacoes}
         >
           <View style={styles.destinationMarker}>
-            <Ionicons name="location" size={30} color="#dc2626" />
+            <Ionicons name="location" size={30} color={colors.error} />
           </View>
         </Marker>
 
@@ -387,7 +391,7 @@ export function NavigationMode({
 
           {currentStop.destinatario && (
             <View style={styles.recipientInfo}>
-              <Ionicons name="person-outline" size={14} color="#6b7280" />
+              <Ionicons name="person-outline" size={14} color={colors.gray500} />
               <Text style={styles.recipientText}>{currentStop.destinatario}</Text>
             </View>
           )}
@@ -405,7 +409,7 @@ export function NavigationMode({
             style={[styles.actionButton, styles.skipButton]}
             onPress={handleSkipStop}
           >
-            <Ionicons name="arrow-forward-circle-outline" size={20} color="#f59e0b" />
+            <Ionicons name="arrow-forward-circle-outline" size={20} color={colors.warning} />
             <Text style={styles.skipButtonText}>Pular</Text>
           </TouchableOpacity>
 
@@ -441,9 +445,6 @@ export function NavigationMode({
     </View>
   );
 }
-
-// Import NavigationSettings component
-import { NavigationSettings } from './NavigationSettings';
 
 const styles = StyleSheet.create({
   container: {
@@ -495,10 +496,10 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
   },
   trackingText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -507,13 +508,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingTop: 20,
     paddingHorizontal: 16,
     paddingBottom: Platform.OS === 'ios' ? 30 : 20,
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
@@ -525,7 +526,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: colors.gray200,
   },
   distanceContainer: {
     alignItems: 'center',
@@ -533,17 +534,17 @@ const styles = StyleSheet.create({
   distanceValue: {
     fontSize: 32,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.gray900,
   },
   distanceLabel: {
     fontSize: 11,
-    color: '#6b7280',
+    color: colors.gray500,
     marginTop: 2,
   },
   separator: {
     width: 1,
     height: 40,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: colors.gray200,
   },
   etaContainer: {
     alignItems: 'center',
@@ -551,11 +552,11 @@ const styles = StyleSheet.create({
   etaValue: {
     fontSize: 24,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.gray900,
   },
   etaLabel: {
     fontSize: 11,
-    color: '#6b7280',
+    color: colors.gray500,
     marginTop: 2,
   },
   speedContainer: {
@@ -564,17 +565,17 @@ const styles = StyleSheet.create({
   speedValue: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.gray900,
   },
   speedUnit: {
     fontSize: 11,
-    color: '#6b7280',
+    color: colors.gray500,
     marginTop: 2,
   },
   destinationInfo: {
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: colors.gray200,
   },
   destinationHeader: {
     flexDirection: 'row',
@@ -585,17 +586,17 @@ const styles = StyleSheet.create({
   destinationLabel: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#6b7280',
+    color: colors.gray500,
     letterSpacing: 0.5,
   },
   nextStopHint: {
     fontSize: 10,
-    color: '#9ca3af',
+    color: colors.gray400,
   },
   destinationAddress: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.gray900,
     marginBottom: 8,
   },
   recipientInfo: {
@@ -606,17 +607,17 @@ const styles = StyleSheet.create({
   },
   recipientText: {
     fontSize: 14,
-    color: '#6b7280',
+    color: colors.gray500,
   },
   observationBox: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: colors.warningBg,
     padding: 8,
     borderRadius: 6,
     marginTop: 8,
   },
   observationText: {
     fontSize: 12,
-    color: '#92400e',
+    color: colors.secondaryDark,
   },
   actions: {
     flexDirection: 'row',
@@ -633,51 +634,51 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   skipButton: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: colors.warningBg,
   },
   skipButtonText: {
-    color: '#f59e0b',
+    color: colors.warning,
     fontWeight: '600',
     fontSize: 14,
   },
   mapsButton: {
-    backgroundColor: '#1e5aa8',
+    backgroundColor: defaultTheme.colors.primary,
   },
   mapsButtonText: {
-    color: '#fff',
+    color: colors.white,
     fontWeight: '600',
     fontSize: 14,
   },
   completeButton: {
-    backgroundColor: '#10b981',
+    backgroundColor: colors.success,
   },
   completeButtonText: {
-    color: '#fff',
+    color: colors.white,
     fontWeight: '600',
     fontSize: 14,
   },
   destinationMarker: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderRadius: 25,
     padding: 5,
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 5,
   },
   otherMarker: {
-    backgroundColor: '#6b7280',
+    backgroundColor: colors.gray500,
     width: 30,
     height: 30,
     borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: colors.white,
   },
   markerText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -689,3 +690,5 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
 });
+
+

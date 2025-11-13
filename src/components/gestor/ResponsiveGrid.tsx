@@ -1,7 +1,14 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { View, ScrollView, Platform } from 'react-native';
-import { StyleSheet } from '@/utils/styles';
+import {
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
 import { useResponsive } from '@/hooks/useResponsive';
+import { StyleSheet } from '@/utils/styles';
 
 interface ResponsiveGridProps {
   children: React.ReactNode;
@@ -43,9 +50,11 @@ interface GridItemProps {
  * </ResponsiveGrid>
  * ```
  */
-export function ResponsiveGrid({ children, spacing = 16, scrollable = false }: ResponsiveGridProps) {
-  const { breakpoint } = useResponsive();
-
+export function ResponsiveGrid({
+  children,
+  spacing = 16,
+  scrollable = false,
+}: ResponsiveGridProps) {
   const gridStyles = [
     styles.grid,
     {
@@ -61,12 +70,7 @@ export function ResponsiveGrid({ children, spacing = 16, scrollable = false }: R
 
   return (
     <Container {...containerProps}>
-      {React.Children.map(children, (child) => {
-        if (React.isValidElement(child) && child.type === GridItem) {
-          return React.cloneElement(child as any, { breakpoint });
-        }
-        return child;
-      })}
+      {React.Children.map(children, (child) => child)}
     </Container>
   );
 }
@@ -77,7 +81,7 @@ export function ResponsiveGrid({ children, spacing = 16, scrollable = false }: R
  * @param span - Quantas colunas o item deve ocupar em cada breakpoint
  * @param order - Ordem de exibição em cada breakpoint (útil para reorganizar em mobile)
  */
-export function GridItem({ children, span = {}, order = {}, breakpoint }: GridItemProps & { breakpoint?: string }) {
+export function GridItem({ children, span = {}, order = {} }: GridItemProps) {
   const { isDesktop, isTablet, isMobile } = useResponsive();
 
   // Calcular largura baseado no span
@@ -164,9 +168,6 @@ export function MetricCard({ title, value, subtitle, icon, trend, color }: Metri
     </View>
   );
 }
-
-import { Text, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
 const styles = StyleSheet.create(theme => ({
   grid: {

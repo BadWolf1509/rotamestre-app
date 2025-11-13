@@ -4,24 +4,23 @@ import {
   View,
   Text,
   TouchableOpacity,
-  ActivityIndicator,
   Alert,
   Platform,
   ScrollView,
 } from 'react-native';
 
 import { ConfirmModal } from '@/components/ConfirmModal';
-import { DataTable, DataTableColumn, DataTableAction } from '@/components/DataTable';
+import { DataTable, DataTableAction, DataTableColumn } from '@/components/DataTable';
+import { DesktopCard } from '@/components/desktop/DesktopCard';
+import { DesktopModal } from '@/components/desktop/DesktopModal';
+import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
+import { MobileCard, MobileEmptyState, MobileLoading } from '@/components/mobile';
 import { Toast } from '@/components/Toast';
+import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useResponsive } from '@/hooks/useResponsive';
-import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
-import { DesktopCard } from '@/components/desktop/DesktopCard';
-import { DesktopModal } from '@/components/desktop/DesktopModal';
-import { MobileHeader, MobileCard, MobileLoading, MobileEmptyState } from '@/components/mobile';
 
 // ============================================
 // TYPES
@@ -87,16 +86,20 @@ const loadHistorico = useCallback(async () => {
       (rotasData || []).map(async (rota) => {
         const { data: paradasData } = await supabase
           .from('paradas')
-          .select('id, status')
-          .eq('rota_id', rota.id)
-          .eq('is_checkpoint', true);
+          .select('id, status, is_checkpoint')
+          .eq('rota_id', rota.id);
+
+        const paradasReais = (paradasData || []).filter(
+          (parada) => parada.is_checkpoint !== false
+        );
 
         return {
           ...rota,
           motorista: rota.usuarios,
-          paradas_count: paradasData?.length || 0,
-          paradas_concluidas:
-            paradasData?.filter((p) => p.status === 'concluida').length || 0,
+          paradas_count: paradasReais.length,
+          paradas_concluidas: paradasReais.filter(
+            (p) => p.status === 'concluida'
+          ).length,
         };
       })
     );
@@ -232,9 +235,16 @@ useEffect(() => {
     }
   }
 
+  function parseLocalDate(dataStr: string): Date | null {
+    if (!dataStr) return null;
+    const [year, month, day] = dataStr.split('-').map(Number);
+    if (!year || !month || !day) return null;
+    return new Date(year, month - 1, day);
+  }
+
   function formatarData(dataStr: string): string {
-    const data = new Date(dataStr);
-    return data.toLocaleDateString('pt-BR');
+    const data = parseLocalDate(dataStr);
+    return data ? data.toLocaleDateString('pt-BR') : '-';
   }
 
   // ============================================
@@ -252,7 +262,8 @@ useEffect(() => {
     {
       key: 'motorista',
       label: 'Motorista',
-      width: 180,
+      width: 220,
+      noWrap: true,
       sortable: true,
       render: (rota) => rota.motorista?.nome || 'Sem motorista',
     },

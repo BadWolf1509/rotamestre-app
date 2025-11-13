@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, ViewStyle } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+
+import { StyleSheet } from '@/utils/styles';
 
 interface MobileCardProps {
   children: React.ReactNode;
@@ -23,8 +24,6 @@ export function MobileCard({
   variant = 'default',
   noPadding = false
 }: MobileCardProps) {
-  const { theme } = useUnistyles();
-
   return (
     <View style={[
       styles.card,

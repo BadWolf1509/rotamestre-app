@@ -11,10 +11,10 @@ import {
 } from 'react-native';
 
 import { FormDesktopLayout } from '@/components/perfil/FormDesktopLayout';
+import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useResponsive } from '@/hooks/useResponsive';
 
 export default function AlterarSenha() {
   const { theme } = useUnistyles();
@@ -352,16 +352,16 @@ const desktopStyles = (theme: any) =>
       flex: 1,
     },
     tipsCard: {
-      backgroundColor: theme.colors.blue50 || '#EFF6FF',
+      backgroundColor: theme.colors.primaryBg,
       borderRadius: 12,
       padding: 24,
       borderWidth: 1,
-      borderColor: theme.colors.blue100 || '#DBEAFE',
+      borderColor: theme.colors.primaryLight,
     },
     tipsTitle: {
       fontSize: 16,
       fontWeight: '600',
-      color: theme.colors.blue900 || '#1E3A8A',
+      color: theme.colors.primaryDark,
       marginBottom: 16,
     },
     tipsList: {
@@ -369,7 +369,7 @@ const desktopStyles = (theme: any) =>
     },
     tipText: {
       fontSize: 14,
-      color: theme.colors.blue700 || '#1D4ED8',
+      color: theme.colors.primary,
       lineHeight: 20,
     },
   });
@@ -452,7 +452,7 @@ const styles = (theme: any) =>
       color: theme.colors.success,
     },
     helperTextWarning: {
-      color: '#F59E0B', // Amber 500
+      color: theme.colors.warning, // Amber 500
     },
     helperTextError: {
       color: theme.colors.error,

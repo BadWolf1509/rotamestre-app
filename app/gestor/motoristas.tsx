@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import {
   View,
@@ -9,17 +10,14 @@ import {
   Modal,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
 import { ConfirmModal } from '@/components/ConfirmModal';
-import { DataTable, DataTableColumn, DataTableAction } from '@/components/DataTable';
+import { DataTable, DataTableAction, DataTableColumn } from '@/components/DataTable';
+import { DesktopCard, DesktopModal, DesktopPageLayout } from '@/components/desktop';
 import { Toast } from '@/components/Toast';
-import { DesktopPageLayout } from '@/components/desktop';
-import { DesktopModal } from '@/components/desktop';
-import { DesktopCard, DesktopCardGrid } from '@/components/desktop';
+import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
-import { useResponsive } from '@/hooks/useResponsive';
 import { supabase } from '@/lib/supabase';
 import { maskPhone, validatePhone, getPhoneErrorMessage } from '@/utils/phoneValidation';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
@@ -609,7 +607,7 @@ export default function MotoristasGestor() {
         placeholder="Digite o nome completo"
         value={formNome}
         onChangeText={setFormNome}
-        placeholderTextColor="#9ca3af"
+        placeholderTextColor={theme.colors.gray400}
         accessibilityLabel="Campo de nome do motorista"
         accessibilityHint="Digite o nome completo do motorista"
       />
@@ -626,7 +624,7 @@ export default function MotoristasGestor() {
         onBlur={() => validateEmail(formEmail)}
         keyboardType="email-address"
         autoCapitalize="none"
-        placeholderTextColor="#9ca3af"
+        placeholderTextColor={theme.colors.gray400}
         accessibilityLabel="Campo de email do motorista"
         accessibilityHint="Digite o email do motorista"
       />
@@ -639,7 +637,7 @@ export default function MotoristasGestor() {
         value={formTelefone}
         onChangeText={handleTelefoneChange}
         keyboardType="phone-pad"
-        placeholderTextColor="#9ca3af"
+        placeholderTextColor={theme.colors.gray400}
         maxLength={15}
         accessibilityLabel="Campo de telefone do motorista"
         accessibilityHint="Digite o telefone do motorista com DDD"
@@ -653,7 +651,7 @@ export default function MotoristasGestor() {
         value={formSenha}
         onChangeText={setFormSenha}
         secureTextEntry
-        placeholderTextColor="#9ca3af"
+        placeholderTextColor={theme.colors.gray400}
         accessibilityLabel="Campo de senha do motorista"
         accessibilityHint="Digite a senha inicial do motorista"
       />
@@ -707,7 +705,7 @@ export default function MotoristasGestor() {
         placeholder="Digite o nome completo"
         value={formNome}
         onChangeText={setFormNome}
-        placeholderTextColor="#9ca3af"
+        placeholderTextColor={theme.colors.gray400}
         accessibilityLabel="Campo de nome do motorista"
         accessibilityHint="Digite o nome completo do motorista"
       />
@@ -724,7 +722,7 @@ export default function MotoristasGestor() {
         onBlur={() => validateEmail(formEmail)}
         keyboardType="email-address"
         autoCapitalize="none"
-        placeholderTextColor="#9ca3af"
+        placeholderTextColor={theme.colors.gray400}
         accessibilityLabel="Campo de email do motorista"
         accessibilityHint="Digite o email do motorista"
       />
@@ -737,7 +735,7 @@ export default function MotoristasGestor() {
         value={formTelefone}
         onChangeText={handleTelefoneChange}
         keyboardType="phone-pad"
-        placeholderTextColor="#9ca3af"
+        placeholderTextColor={theme.colors.gray400}
         maxLength={15}
         accessibilityLabel="Campo de telefone do motorista"
         accessibilityHint="Digite o telefone do motorista com DDD"
@@ -1045,28 +1043,6 @@ const styles = StyleSheet.create(theme => ({
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray500,
   },
-  header: {
-    backgroundColor: theme.colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray200,
-    paddingHorizontal: theme.spacing['3xl'],
-    paddingVertical: theme.spacing['2xl'],
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitle: {
-    fontSize: theme.typography['3xl'],
-    fontFamily: theme.typography.fontDisplay,
-    color: theme.colors.gray900,
-  },
-  headerSubtitle: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
-    marginTop: 4,
-  },
   scrollView: {
     flex: 1,
     backgroundColor: theme.colors.gray50,
@@ -1094,12 +1070,6 @@ const styles = StyleSheet.create(theme => ({
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.info,
     textAlign: 'center',
-  },
-  addButton: {
-    backgroundColor: theme.colors.success,
-    paddingHorizontal: theme.spacing.xl,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.lg,
   },
   addButtonMobile: {
     backgroundColor: theme.colors.success,
@@ -1375,3 +1345,6 @@ const styles = StyleSheet.create(theme => ({
     opacity: 0.6,
   },
 }));
+
+
+

@@ -1,34 +1,34 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  ScrollView,
-  RefreshControl,
-  StyleSheet,
-  Alert,
-  Platform,
-} from 'react-native';
-import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// Contexts
-import { RouteStatusProvider, useRouteStatus } from '@/context/RouteStatusContext';
-import { useUser } from '@/hooks/useUser';
-
-// Components
-import { StatusSection } from '@/components/motorista/home/StatusSection';
-import { MainCard } from '@/components/motorista/home/MainCard';
-import { ProgressBar } from '@/components/motorista/home/ProgressBar';
-import { MiniMap } from '@/components/motorista/home/MiniMap';
-import { QuickActions, FloatingActionButton } from '@/components/motorista/home/QuickActions';
+import CameraUpload from '@/components/CameraUpload';
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
+import { MainCard } from '@/components/motorista/home/MainCard';
+import { MiniMap } from '@/components/motorista/home/MiniMap';
+import { ProgressBar } from '@/components/motorista/home/ProgressBar';
+import { FloatingActionButton, QuickActions } from '@/components/motorista/home/QuickActions';
+import { StatusSection } from '@/components/motorista/home/StatusSection';
 import { NavigationMode } from '@/components/motorista/NavigationMode';
 import { NavigationSettings } from '@/components/motorista/NavigationSettings';
-import { PictureInPictureMap } from '@/components/motorista/PictureInPictureMap';
 import { OptimizationAlert } from '@/components/motorista/OptimizationAlert';
-import DynamicReroutingService from '@/services/dynamicRerouting';
-
-// Utils
+import { PictureInPictureMap } from '@/components/motorista/PictureInPictureMap';
+import { SupportModal } from '@/components/SupportModal';
+import { RouteStatusProvider, useRouteStatus } from '@/context/RouteStatusContext';
+import { useUser } from '@/hooks/useUser';
 import { abrirNavegacao } from '@/lib/navigation';
+import DynamicReroutingService from '@/services/dynamicRerouting';
 import LocationTrackingService from '@/services/locationTracking';
 import { useUnistyles } from '@/utils/styles';
 
@@ -36,6 +36,7 @@ function MotoristaHomeContent() {
   const router = useRouter();
   const { theme } = useUnistyles();
   const { userData } = useUser();
+  const insets = useSafeAreaInsets();
 
   // Route context
   const {
@@ -45,7 +46,6 @@ function MotoristaHomeContent() {
     currentStop,
     nextStop,
     progress,
-    loading,
     refreshRoute,
     startRoute,
     completeStop,
@@ -63,6 +63,9 @@ function MotoristaHomeContent() {
   const [showPiPMap, setShowPiPMap] = useState(false);
   const [optimization, setOptimization] = useState<any>(null);
   const [showOptimization, setShowOptimization] = useState(false);
+  const [showCameraUpload, setShowCameraUpload] = useState(false);
+  const [pendingStopToComplete, setPendingStopToComplete] = useState<string | null>(null);
+  const [showSupportModal, setShowSupportModal] = useState(false);
 
   // Load user location
   useEffect(() => {
@@ -152,7 +155,7 @@ function MotoristaHomeContent() {
     try {
       await startRoute();
       Alert.alert('Rota Iniciada', 'Boa viagem! Dirija com segurança.');
-    } catch (error) {
+    } catch {
       Alert.alert('Erro', 'Não foi possível iniciar a rota');
     }
   };
@@ -178,9 +181,17 @@ function MotoristaHomeContent() {
   };
 
   // Complete current stop
-  const handleCompleteStop = async () => {
+  const handleCompleteStop = async (fotoUrl?: string) => {
     if (!currentStop) return;
 
+    // Se não tem foto, abrir camera upload
+    if (!fotoUrl) {
+      setPendingStopToComplete(currentStop.id);
+      setShowCameraUpload(true);
+      return;
+    }
+
+    // Se tem foto, confirmar e concluir
     Alert.alert(
       'Confirmar Entrega',
       `Confirma a entrega em:\n${currentStop.endereco}?`,
@@ -190,15 +201,60 @@ function MotoristaHomeContent() {
           text: 'Confirmar',
           onPress: async () => {
             try {
-              await completeStop(currentStop.id);
-              Alert.alert('Sucesso', 'Parada concluída!');
-            } catch (error) {
+              await completeStop(currentStop.id, fotoUrl);
+              Alert.alert('Sucesso', 'Parada concluída com foto de comprovante!');
+              setPendingStopToComplete(null);
+            } catch {
               Alert.alert('Erro', 'Não foi possível concluir a parada');
             }
           }
         }
       ]
     );
+  };
+
+  // Handle photo upload success
+  const handlePhotoUploadSuccess = (fotoUrl: string) => {
+    setShowCameraUpload(false);
+    if (pendingStopToComplete) {
+      handleCompleteStop(fotoUrl);
+    }
+  };
+
+  // Handle photo upload error
+  const handlePhotoUploadError = (error: string) => {
+    Alert.alert('Erro no Upload', error, [
+      {
+        text: 'Continuar sem foto',
+        onPress: () => {
+          setShowCameraUpload(false);
+          if (pendingStopToComplete && currentStop) {
+            // Allow completing without photo
+            Alert.alert(
+              'Confirmar sem foto',
+              'Deseja concluir a parada sem foto de comprovante?',
+              [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                  text: 'Confirmar',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await completeStop(currentStop.id);
+                      Alert.alert('Sucesso', 'Parada concluída (sem foto)');
+                      setPendingStopToComplete(null);
+                    } catch {
+                      Alert.alert('Erro', 'Não foi possível concluir a parada');
+                    }
+                  }
+                }
+              ]
+            );
+          }
+        }
+      },
+      { text: 'Tentar novamente', style: 'cancel' }
+    ]);
   };
 
   // Skip current stop
@@ -217,7 +273,7 @@ function MotoristaHomeContent() {
             try {
               await skipStop(currentStop.id);
               Alert.alert('Parada Pulada', 'Você pode voltar a ela mais tarde');
-            } catch (error) {
+            } catch {
               Alert.alert('Erro', 'Não foi possível pular a parada');
             }
           }
@@ -239,7 +295,7 @@ function MotoristaHomeContent() {
             try {
               await completeRoute();
               Alert.alert('Parabéns!', 'Rota concluída com sucesso!');
-            } catch (error) {
+            } catch {
               Alert.alert('Erro', 'Não foi possível finalizar a rota');
             }
           }
@@ -275,7 +331,7 @@ function MotoristaHomeContent() {
       case 'pending':
         return {
           icon: 'play-circle',
-          color: theme.colors.success || '#10b981',
+          color: theme.colors.success,
           label: 'Iniciar',
         };
 
@@ -283,21 +339,21 @@ function MotoristaHomeContent() {
       case 'last-stop':
         return {
           icon: 'navigate',
-          color: theme.colors.secondary || '#f7a02a',
+          color: theme.colors.secondary,
           label: 'Navegar',
         };
 
       case 'ready-to-complete':
         return {
           icon: 'checkmark-circle',
-          color: theme.colors.success || '#10b981',
+          color: theme.colors.success,
           label: 'Finalizar',
         };
 
       case 'completed':
         return {
           icon: 'refresh',
-          color: theme.colors.gray500 || '#6b7280',
+          color: theme.colors.gray500,
           label: 'Atualizar',
         };
 
@@ -305,7 +361,7 @@ function MotoristaHomeContent() {
       default:
         return {
           icon: 'time',
-          color: theme.colors.primary || '#1e5aa8',
+          color: theme.colors.primary,
           label: 'Histórico',
         };
     }
@@ -342,7 +398,7 @@ function MotoristaHomeContent() {
       Alert.alert('Sucesso', `Rota otimizada! Você economizará ${optimization.timeSaved} minutos.`);
       setShowOptimization(false);
       setOptimization(null);
-    } catch (error) {
+    } catch {
       Alert.alert('Erro', 'Não foi possível aplicar a otimização');
     }
   };
@@ -371,6 +427,10 @@ function MotoristaHomeContent() {
     <View style={styles.container}>
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: 220 + insets.bottom },
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -381,7 +441,10 @@ function MotoristaHomeContent() {
         showsVerticalScrollIndicator={false}
       >
         {/* Status Section */}
-        <StatusSection userName={userData?.nome} />
+        <StatusSection
+          userName={userData?.nome}
+          unitName={userData?.unidades?.nome}
+        />
 
         {/* Main Card */}
         <MainCard
@@ -418,19 +481,40 @@ function MotoristaHomeContent() {
           />
         )}
 
-        {/* Add padding for FAB */}
-        <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Quick Actions */}
-      <QuickActions
-        state={routeStatus}
-        onViewAllStops={() => router.push('/motorista/checkpoints')}
-        onViewHistory={() => router.push('/motorista/historico')}
-        onContactSupport={() => Alert.alert('Suporte', 'Em breve!')}
-        onReportIncident={() => setShowIncidentWizard(true)}
-        onOpenSettings={() => setShowNavigationSettings(true)}
-      />
+      <View
+        pointerEvents="box-none"
+        style={[
+          styles.quickActionsPortal,
+          { paddingBottom: 16 + insets.bottom },
+        ]}
+      >
+        <QuickActions
+          style={styles.quickActionsCard}
+          state={routeStatus}
+          onViewAllStops={() => {
+            console.log('?? Navegando para checkpoints');
+            router.push('/motorista/checkpoints');
+          }}
+          onContactSupport={() => {
+            console.log('?? Abrindo modal de suporte');
+            setShowSupportModal(true);
+          }}
+          onReportIncident={() => {
+            console.log('?? Abrindo wizard de incidente');
+            setShowIncidentWizard(true);
+          }}
+          onOpenSettings={() => {
+            console.log('?? Abrindo configuracoes de navegacao');
+            setShowNavigationSettings(true);
+          }}
+          onViewSummary={() => {
+            console.log('?? Navegando para resumo');
+            router.push('/motorista/resumo');
+          }}
+        />
+      </View>
 
       {/* Floating Action Button */}
       <FloatingActionButton
@@ -491,6 +575,40 @@ function MotoristaHomeContent() {
         onReject={handleRejectOptimization}
         onClose={() => setShowOptimization(false)}
       />
+
+      {/* Camera Upload Modal */}
+      {showCameraUpload && currentStop && route && userData && (
+        <View style={styles.cameraUploadOverlay}>
+          <View style={styles.cameraUploadContainer}>
+            <View style={styles.cameraUploadHeader}>
+              <Text style={styles.cameraUploadTitle}>📸 Foto de Comprovante</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowCameraUpload(false);
+                  setPendingStopToComplete(null);
+                }}
+                style={styles.cameraUploadClose}
+              >
+                <Ionicons name="close" size={24} color={theme.colors.gray500} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.cameraUploadAddress}>{currentStop.endereco}</Text>
+            <CameraUpload
+              unidadeId={userData.unidade_id!}
+              rotaId={route.id}
+              paradaId={currentStop.id}
+              onUploadSuccess={handlePhotoUploadSuccess}
+              onUploadError={handlePhotoUploadError}
+            />
+          </View>
+        </View>
+      )}
+
+      {/* Support Modal */}
+      <SupportModal
+        visible={showSupportModal}
+        onClose={() => setShowSupportModal(false)}
+      />
     </View>
   );
 }
@@ -504,12 +622,71 @@ export default function MotoristaHome() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.gray50,
+    position: 'relative',
   },
   scrollView: {
     flex: 1,
   },
-});
+  scrollContent: {
+    paddingBottom: 180,
+  },
+  quickActionsPortal: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  quickActionsCard: {
+    width: '100%',
+  },
+  cameraUploadOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+  },
+  cameraUploadContainer: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    width: '90%',
+    maxWidth: 400,
+    maxHeight: '80%',
+  },
+  cameraUploadHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  cameraUploadTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.gray900,
+  },
+  cameraUploadClose: {
+    padding: 4,
+  },
+  cameraUploadAddress: {
+    fontSize: 14,
+    color: theme.colors.gray500,
+    marginBottom: 16,
+  },
+}));
+
+
+
+

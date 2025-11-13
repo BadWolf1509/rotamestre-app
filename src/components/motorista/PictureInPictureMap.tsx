@@ -1,16 +1,16 @@
-import React, { useRef, useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View,
+  Animated,
+  Dimensions,
+  PanResponder,
   StyleSheet,
   TouchableOpacity,
-  Animated,
-  PanResponder,
-  Dimensions,
-  Platform,
+  View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { useUnistyles } from '@/utils/styles';
+
+import { defaultTheme } from '@/utils/styles';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -20,6 +20,7 @@ const PIP_HEIGHT = 180;
 const EXPANDED_WIDTH = SCREEN_WIDTH * 0.9;
 const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.4;
 const EDGE_PADDING = 16;
+const colors = defaultTheme.colors;
 
 interface PictureInPictureMapProps {
   visible: boolean;
@@ -36,8 +37,6 @@ export function PictureInPictureMap({
   onClose,
   onExpand,
 }: PictureInPictureMapProps) {
-  const { theme } = useUnistyles();
-
   // Animation values
   const pan = useRef(new Animated.ValueXY({
     x: SCREEN_WIDTH - PIP_WIDTH - EDGE_PADDING,
@@ -104,7 +103,7 @@ export function PictureInPictureMap({
       duration: 300,
       useNativeDriver: true,
     }).start();
-  }, [visible]);
+  }, [opacity, visible]);
 
   // Toggle expansion
   const toggleExpand = () => {
@@ -217,7 +216,7 @@ export function PictureInPictureMap({
             title={destination.address}
           >
             <View style={styles.destinationMarker}>
-              <Ionicons name="location" size={20} color="#dc2626" />
+              <Ionicons name="location" size={20} color={colors.error} />
             </View>
           </Marker>
         )}
@@ -336,3 +335,4 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
 });
+

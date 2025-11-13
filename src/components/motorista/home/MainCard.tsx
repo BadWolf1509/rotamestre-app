@@ -1,21 +1,28 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useUnistyles } from '@/utils/styles';
-import { RouteStatus } from '@/context/RouteStatusContext';
+import React, { useCallback, useEffect, useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
 import { StreetViewPreview } from '@/components/StreetViewPreview';
 import { SwipeableRow } from '@/components/SwipeableRow';
+import { RouteStatus } from '@/context/RouteStatusContext';
+import { useUser } from '@/hooks/useUser';
+import { supabase } from '@/lib/supabase';
+import { defaultTheme, useUnistyles } from '@/utils/styles';
 
 interface MainCardProps {
   state: RouteStatus;
   route: any;
   paradas: any[];
   currentStop?: any;
-  nextStop?: any;
-  location?: any;
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
   onPress?: () => void;
+}
+
+interface MotoristaStats {
+  rotasOntem: number;
+  paradasOntem: number;
+  distanciaOntem: number;
 }
 
 export function MainCard({
@@ -23,13 +30,78 @@ export function MainCard({
   route,
   paradas,
   currentStop,
-  nextStop,
-  location,
   onSwipeLeft,
   onSwipeRight,
   onPress,
 }: MainCardProps) {
   const { theme } = useUnistyles();
+  const { userData } = useUser();
+  const motoristaId = userData?.id;
+  const [stats, setStats] = useState<MotoristaStats>({
+    rotasOntem: 0,
+    paradasOntem: 0,
+    distanciaOntem: 0,
+  });
+
+  // Load yesterday's stats when no route
+  const loadYesterdayStats = useCallback(async () => {
+    if (!motoristaId) return;
+
+    try {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(0, 0, 0, 0);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Get yesterday's completed routes
+      const { data: rotas, error } = await supabase
+        .from('rotas')
+        .select('id, distancia_total')
+        .eq('motorista_id', motoristaId)
+        .eq('status', 'concluida')
+        .gte('concluida_em', yesterday.toISOString())
+        .lt('concluida_em', today.toISOString());
+
+      if (error) throw error;
+
+      const rotasCount = rotas?.length || 0;
+      const distanciaTotal = rotas?.reduce((sum, r) => sum + (r.distancia_total || 0), 0) || 0;
+
+      // Get yesterday's completed stops
+      if (rotas && rotas.length > 0) {
+        const rotaIds = rotas.map(r => r.id);
+        const { data: paradas, error: paradasError } = await supabase
+          .from('paradas')
+          .select('id')
+          .in('rota_id', rotaIds)
+          .eq('status', 'concluida');
+
+        if (!paradasError) {
+          setStats({
+            rotasOntem: rotasCount,
+            paradasOntem: paradas?.length || 0,
+            distanciaOntem: Math.round(distanciaTotal),
+          });
+        }
+      } else {
+        setStats({
+          rotasOntem: 0,
+          paradasOntem: 0,
+          distanciaOntem: 0,
+        });
+      }
+    } catch (error) {
+      console.error('Error loading yesterday stats:', error);
+    }
+  }, [motoristaId]);
+
+  useEffect(() => {
+    if (state === 'no-route' && motoristaId) {
+      loadYesterdayStats();
+    }
+  }, [loadYesterdayStats, motoristaId, state]);
 
   // Renderização baseada no estado
   const renderContent = () => {
@@ -53,21 +125,23 @@ export function MainCard({
   const renderNoRoute = () => (
     <View style={styles.content}>
       <Text style={styles.icon}>☕</Text>
-      <Text style={styles.title}>{getGreeting()}, {route?.motorista_nome || 'Motorista'}!</Text>
-      <Text style={styles.subtitle}>Nenhuma rota para hoje</Text>
+      <Text style={styles.title}>Nenhuma rota para hoje</Text>
+      <Text style={styles.subtitle}>Confira suas estatísticas de ontem</Text>
 
       <View style={styles.statsRow}>
         <View style={styles.stat}>
           <Text style={styles.statLabel}>Ontem</Text>
-          <Text style={styles.statValue}>2 rotas</Text>
+          <Text style={styles.statValue}>
+            {stats.rotasOntem} {stats.rotasOntem === 1 ? 'rota' : 'rotas'}
+          </Text>
         </View>
         <View style={styles.stat}>
           <Text style={styles.statLabel}>Paradas</Text>
-          <Text style={styles.statValue}>24</Text>
+          <Text style={styles.statValue}>{stats.paradasOntem}</Text>
         </View>
         <View style={styles.stat}>
           <Text style={styles.statLabel}>Distância</Text>
-          <Text style={styles.statValue}>87 km</Text>
+          <Text style={styles.statValue}>{stats.distanciaOntem} km</Text>
         </View>
       </View>
     </View>
@@ -231,13 +305,6 @@ export function MainCard({
     </View>
   );
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Bom dia';
-    if (hour < 18) return 'Boa tarde';
-    return 'Boa noite';
-  };
-
   return (
     <View style={styles.card}>
       {renderContent()}
@@ -245,13 +312,15 @@ export function MainCard({
   );
 }
 
+const colors = defaultTheme.colors;
+
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderRadius: 12,
     marginHorizontal: 16,
     marginVertical: 12,
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -267,13 +336,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   badge: {
-    backgroundColor: '#1e5aa8',
+    backgroundColor: colors.primary,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
   },
   badgeText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -285,7 +354,7 @@ const styles = StyleSheet.create({
   },
   timerText: {
     fontSize: 12,
-    color: '#6b7280',
+    color: colors.gray500,
   },
   icon: {
     fontSize: 48,
@@ -295,26 +364,26 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.gray900,
     textAlign: 'center',
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: '#6b7280',
+    color: colors.gray500,
     textAlign: 'center',
     marginBottom: 16,
   },
   empresa: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.gray900,
     marginBottom: 12,
   },
   addressMain: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.gray900,
     marginBottom: 8,
   },
   statsRow: {
@@ -327,13 +396,13 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
-    color: '#6b7280',
+    color: colors.gray500,
     marginBottom: 4,
   },
   statValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.gray900,
   },
   infoGrid: {
     flexDirection: 'row',
@@ -347,28 +416,28 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: 14,
-    color: '#374151',
+    color: colors.gray700,
   },
   firstStopSection: {
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderTopColor: colors.gray200,
     paddingTop: 12,
   },
   sectionLabel: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#6b7280',
+    color: colors.gray500,
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   addressText: {
     fontSize: 14,
-    color: '#111827',
+    color: colors.gray900,
     marginBottom: 4,
   },
   distanceText: {
     fontSize: 12,
-    color: '#6b7280',
+    color: colors.gray500,
   },
   contactInfo: {
     flexDirection: 'row',
@@ -378,17 +447,17 @@ const styles = StyleSheet.create({
   },
   contactText: {
     fontSize: 14,
-    color: '#374151',
+    color: colors.gray700,
   },
   observationBox: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: colors.warningBg,
     padding: 8,
     borderRadius: 6,
     marginTop: 8,
   },
   observationText: {
     fontSize: 12,
-    color: '#92400e',
+    color: colors.secondaryDark,
   },
   streetViewContainer: {
     marginTop: 12,
@@ -400,7 +469,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 8,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.gray100,
     borderRadius: 6,
     marginTop: 8,
   },
@@ -414,13 +483,13 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 12,
-    color: '#6b7280',
+    color: colors.gray500,
     marginBottom: 4,
   },
   summaryValue: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.gray900,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -433,13 +502,16 @@ const styles = StyleSheet.create({
     minWidth: '45%',
     alignItems: 'center',
     padding: 12,
-    backgroundColor: '#f9fafb',
+    backgroundColor: colors.gray50,
     borderRadius: 8,
   },
   statNumber: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.gray900,
     marginBottom: 4,
   },
 });
+
+
+

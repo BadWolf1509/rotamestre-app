@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import {
   View,
@@ -9,11 +10,10 @@ import {
   RefreshControl,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Ionicons } from '@expo/vector-icons';
 
-import { SwipeableRow } from '@/components/SwipeableRow';
-import { StreetViewPreview } from '@/components/StreetViewPreview';
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
+import { StreetViewPreview } from '@/components/StreetViewPreview';
+import { SwipeableRow } from '@/components/SwipeableRow';
 import { useUser } from '@/hooks/useUser';
 import { abrirNavegacao } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
@@ -280,7 +280,7 @@ export default function CheckpointsMotorista() {
       {
         icon: 'checkmark-circle',
         label: 'Concluir',
-        color: theme.colors.success || '#10b981',
+        color: theme.colors.success,
         onPress: () => concluirParada(item),
       }
     ] : [];
@@ -289,7 +289,7 @@ export default function CheckpointsMotorista() {
       {
         icon: 'arrow-forward-circle',
         label: 'Pular',
-        color: theme.colors.warning || '#f59e0b',
+        color: theme.colors.warning,
         onPress: () => pularParada(item),
       }
     ] : [];
@@ -782,7 +782,7 @@ const styles = StyleSheet.create(theme => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.orange || '#f7a02a',
+    backgroundColor: theme.colors.secondary,
     paddingVertical: 12,
     paddingHorizontal: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
@@ -825,7 +825,7 @@ const styles = StyleSheet.create(theme => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.warning || '#f59e0b',
+    backgroundColor: theme.colors.warning,
     paddingVertical: 12,
     paddingHorizontal: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
@@ -838,3 +838,4 @@ const styles = StyleSheet.create(theme => ({
     fontWeight: '600',
   },
 }));
+

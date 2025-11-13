@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useRef } from 'react';
 import {
   View,
@@ -7,12 +8,7 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
-import {
-  Swipeable,
-  GestureHandlerRootView,
-} from 'react-native-gesture-handler';
-import { Ionicons } from '@expo/vector-icons';
-import { useUnistyles } from '@/utils/styles';
+import { Swipeable } from 'react-native-gesture-handler';
 
 const { width: screenWidth } = Dimensions.get('window');
 const SWIPE_THRESHOLD = screenWidth * 0.25;
@@ -39,12 +35,11 @@ export function SwipeableRow({
   onSwipeableOpen,
   enabled = true,
 }: SwipeableRowProps) {
-  const { theme } = useUnistyles();
   const swipeableRef = useRef<Swipeable>(null);
 
   const renderLeftActions = (
     progress: Animated.AnimatedInterpolation<number>,
-    dragX: Animated.AnimatedInterpolation<number>
+    _dragX: Animated.AnimatedInterpolation<number>
   ) => {
     if (leftActions.length === 0) return null;
 
@@ -90,7 +85,7 @@ export function SwipeableRow({
 
   const renderRightActions = (
     progress: Animated.AnimatedInterpolation<number>,
-    dragX: Animated.AnimatedInterpolation<number>
+    _dragX: Animated.AnimatedInterpolation<number>
   ) => {
     if (rightActions.length === 0) return null;
 

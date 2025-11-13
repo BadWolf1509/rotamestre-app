@@ -17,14 +17,14 @@ export const breakpoints = {
 // ===== THEME =====
 export const lightTheme = {
   colors: {
-    primary: '#1e5aa8',
-    primaryDark: '#0d5a9c',
-    primaryLight: '#3b82f6',
-    primaryBg: '#eef5ff',
+    primary: '#284093',
+    primaryDark: '#1b2c63',
+    primaryLight: '#34699f',
+    primaryBg: '#e6ecfb',
     secondary: '#f7a02a',
-    secondaryDark: '#d68a1d',
-    secondaryLight: '#ffc266',
-    secondaryBg: '#fff8ed',
+    secondaryDark: '#c87704',
+    secondaryLight: '#ffbf14',
+    secondaryBg: '#fff3d6',
     success: '#10b981',
     successBg: '#d1fae5',
     warning: '#f59e0b',

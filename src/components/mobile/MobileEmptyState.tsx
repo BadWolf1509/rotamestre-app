@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, ViewStyle } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+
+import { StyleSheet } from '@/utils/styles';
+
 import { MobileButton } from './MobileButton';
 
 interface MobileEmptyStateProps {
@@ -26,8 +28,6 @@ export function MobileEmptyState({
   style,
   fullScreen = false,
 }: MobileEmptyStateProps) {
-  const { theme } = useUnistyles();
-
   return (
     <View style={[
       fullScreen ? styles.containerFullScreen : styles.container,

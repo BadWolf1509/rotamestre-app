@@ -1,25 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Dimensions,
-  Alert,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import LocationTrackingService from '@/services/locationTracking';
-import { useUnistyles } from '@/utils/styles';
-import { abrirNavegacao } from '@/lib/navigation';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  Alert,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+import { abrirNavegacao } from '@/lib/navigation';
+import LocationTrackingService from '@/services/locationTracking';
+import { defaultTheme, useUnistyles } from '@/utils/styles';
+
+const colors = defaultTheme.colors;
 
 interface NavigationModeProps {
   currentStop: any;
   nextStop?: any;
-  paradas: any[];
   onComplete: () => void;
   onSkip: () => void;
   onExit: () => void;
@@ -28,13 +26,11 @@ interface NavigationModeProps {
 export function NavigationMode({
   currentStop,
   nextStop,
-  paradas,
   onComplete,
   onSkip,
   onExit,
 }: NavigationModeProps) {
   const { theme } = useUnistyles();
-  const [userLocation, setUserLocation] = useState<any>(null);
   const [distanceToStop, setDistanceToStop] = useState<number | null>(null);
   const [settings, setSettings] = useState({
     autoAdvance: true,
@@ -42,18 +38,32 @@ export function NavigationMode({
     vibrationAlerts: true,
     proximityRadius: 50,
   });
+  const { autoAdvance, proximityRadius } = settings;
 
   useEffect(() => {
     loadSettings();
-    startLocationTracking();
-  }, []);
+  }, [loadSettings]);
 
-  const loadSettings = async () => {
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+
+    const initialize = async () => {
+      cleanup = await startLocationTracking();
+    };
+
+    initialize();
+
+    return () => {
+      cleanup?.();
+    };
+  }, [startLocationTracking]);
+
+  const loadSettings = useCallback(async () => {
     const prefs = await LocationTrackingService.getNavigationPreferences();
     setSettings(prefs as any);
-  };
+  }, []);
 
-  const startLocationTracking = async () => {
+  const startLocationTracking = useCallback(async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Erro', 'Permissão de localização negada');
@@ -62,10 +72,11 @@ export function NavigationMode({
 
     // Get initial location
     const location = await Location.getCurrentPositionAsync({});
-    setUserLocation({
+    const initialCoords = {
       latitude: location.coords.latitude,
       longitude: location.coords.longitude,
-    });
+    };
+    checkProximityToStop(initialCoords);
 
     // Watch location updates
     const subscription = await Location.watchPositionAsync(
@@ -79,51 +90,58 @@ export function NavigationMode({
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
         };
-        setUserLocation(coords);
         checkProximityToStop(coords);
       }
     );
 
     return () => subscription.remove();
-  };
+  }, [checkProximityToStop]);
 
-  const checkProximityToStop = (userCoords: any) => {
-    if (!currentStop) return;
+  const checkProximityToStop = useCallback(
+    (userCoords: { latitude: number; longitude: number }) => {
+      if (!currentStop) return;
 
-    const distance = calculateDistance(
-      userCoords.latitude,
-      userCoords.longitude,
-      currentStop.latitude,
-      currentStop.longitude
-    );
+      const distance = calculateDistance(
+        userCoords.latitude,
+        userCoords.longitude,
+        currentStop.latitude,
+        currentStop.longitude
+      );
 
-    setDistanceToStop(distance);
+      setDistanceToStop(distance);
 
-    // Check if arrived at stop
-    if (distance < settings.proximityRadius && settings.autoAdvance) {
-      handleArrival();
-    }
-  };
+      if (distance < proximityRadius && autoAdvance) {
+        handleArrival();
+      }
+    },
+    [autoAdvance, calculateDistance, currentStop, handleArrival, proximityRadius]
+  );
 
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371000; // Earth radius in meters
-    const φ1 = (lat1 * Math.PI) / 180;
-    const φ2 = (lat2 * Math.PI) / 180;
-    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+  const calculateDistance = useCallback(
+    (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+      const EARTH_RADIUS = 6371000;
+      const phi1 = (lat1 * Math.PI) / 180;
+      const phi2 = (lat2 * Math.PI) / 180;
+      const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+      const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
 
-    const a =
-      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const a =
+        Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+        Math.cos(phi1) *
+          Math.cos(phi2) *
+          Math.sin(deltaLambda / 2) *
+          Math.sin(deltaLambda / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-    return R * c;
-  };
+      return EARTH_RADIUS * c;
+    },
+    []
+  );
 
-  const handleArrival = () => {
+  const handleArrival = useCallback(() => {
     Alert.alert(
       'Chegou ao Destino!',
-      `Você chegou em: ${currentStop.endereco}`,
+      `Voce chegou em: ${currentStop.endereco}`,
       [
         {
           text: 'Pular',
@@ -136,7 +154,7 @@ export function NavigationMode({
         },
       ]
     );
-  };
+  }, [currentStop, onComplete, onSkip]);
 
   const formatDistance = (meters: number): string => {
     if (meters < 1000) {
@@ -228,7 +246,7 @@ export function NavigationMode({
             style={[styles.actionButton, styles.completeButton]}
             onPress={onComplete}
           >
-            <Ionicons name="checkmark-circle" size={24} color="#fff" />
+            <Ionicons name="checkmark-circle" size={24} color={colors.white} />
             <Text style={[styles.actionButtonText, { color: '#fff' }]}>
               Concluir
             </Text>
@@ -248,28 +266,28 @@ export function NavigationMode({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: colors.black,
   },
   mapContainer: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.gray100,
   },
   mapPlaceholder: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
+    backgroundColor: colors.gray50,
   },
   mapPlaceholderText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#6b7280',
+    color: colors.gray500,
   },
   openMapButton: {
     marginTop: 24,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: '#1e5aa8',
+    backgroundColor: defaultTheme.colors.primary,
     borderRadius: 8,
   },
   openMapButtonText: {
@@ -278,13 +296,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   infoContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
     paddingBottom: 30,
     elevation: 10,
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
@@ -295,7 +313,7 @@ const styles = StyleSheet.create({
   nextStopInfo: {
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderTopColor: colors.gray200,
   },
   stopHeader: {
     flexDirection: 'row',
@@ -305,7 +323,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#e0f2fe',
+    backgroundColor: colors.infoBg,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -315,7 +333,7 @@ const styles = StyleSheet.create({
   },
   stopLabel: {
     fontSize: 12,
-    color: '#6b7280',
+    color: colors.gray500,
     marginBottom: 4,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -323,12 +341,12 @@ const styles = StyleSheet.create({
   stopAddress: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.gray900,
     marginBottom: 4,
   },
   distanceText: {
     fontSize: 14,
-    color: '#1e5aa8',
+    color: defaultTheme.colors.primary,
     fontWeight: '500',
   },
   actionButtons: {
@@ -346,12 +364,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   skipButton: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: colors.warningBg,
     borderWidth: 1,
-    borderColor: '#fcd34d',
+    borderColor: colors.secondaryLight,
   },
   completeButton: {
-    backgroundColor: '#10b981',
+    backgroundColor: colors.success,
   },
   actionButtonText: {
     fontSize: 16,
@@ -367,6 +385,7 @@ const styles = StyleSheet.create({
   },
   exitButtonText: {
     fontSize: 14,
-    color: '#6b7280',
+    color: colors.gray500,
   },
 });
+

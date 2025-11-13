@@ -310,7 +310,7 @@ export async function uploadIncidentPhoto(
     }
 
     // Upload para o bucket
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from(BUCKET_INCIDENTES)
       .upload(fileName, blob, {
         contentType: 'image/jpeg',

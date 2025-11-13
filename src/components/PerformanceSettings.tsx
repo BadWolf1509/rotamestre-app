@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import Slider from '@react-native-community/slider';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,11 +11,10 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import Slider from '@react-native-community/slider';
-import PerformanceOptimizer from '@/services/performanceOptimizer';
+
 import { usePerformance } from '@/hooks/usePerformance';
 import { formatBytes } from '@/lib/utils';
+import PerformanceOptimizer from '@/services/performanceOptimizer';
 import { useUnistyles } from '@/utils/styles';
 
 interface PerformanceSettingsProps {
@@ -323,7 +324,10 @@ export function PerformanceSettings({ visible, onClose }: PerformanceSettingsPro
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.button, styles.primaryButton]}
+            style={[
+              styles.button,
+              { backgroundColor: theme.colors.primary, shadowColor: theme.colors.primaryDark },
+            ]}
             onPress={handleRunDiagnostics}
           >
             <Ionicons name="analytics-outline" size={20} color="#fff" />
@@ -480,9 +484,6 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 12,
     borderRadius: 8,
-  },
-  primaryButton: {
-    backgroundColor: '#1e5aa8',
   },
   secondaryButton: {
     backgroundColor: '#f3f4f6',

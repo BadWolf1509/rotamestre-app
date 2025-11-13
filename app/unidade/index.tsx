@@ -11,12 +11,13 @@ import {
   Platform,
 } from 'react-native';
 
+import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { Toast } from '@/components/Toast';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface UnidadeData {
   id: string;
@@ -30,6 +31,7 @@ interface UnidadeData {
 }
 
 export default function UnidadeScreen() {
+  const { theme } = useUnistyles();
   const router = useRouter();
   const { userData, loading: userLoading } = useUser();
   const { toast: toastState, showToast, hideToast } = useToast();
@@ -47,6 +49,8 @@ export default function UnidadeScreen() {
   const [cidade, setCidade] = useState('');
   const [estado, setEstado] = useState('');
   const [cep, setCep] = useState('');
+  const isDesktopView = isDesktop || isLargeDesktop;
+  const isLoading = userLoading || loading;
 
   const loadUnidade = useCallback(async () => {
     const unidadeId = userData?.unidade_id;
@@ -148,15 +152,6 @@ export default function UnidadeScreen() {
     setEstado(unidade?.uf || '');
     setCep(unidade?.cep || '');
     setEditMode(false);
-  }
-
-  if (userLoading || loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0D5A9C" />
-        <Text style={styles.loadingText}>Carregando...</Text>
-      </View>
-    );
   }
 
   const isGestorPrincipal = userData?.is_gestor_principal === true;
@@ -283,7 +278,7 @@ export default function UnidadeScreen() {
           </View>
 
           {/* Botões de Ação (apenas em modo edição) */}
-          {editMode && (
+          {editMode && !isDesktopView && (
             <View style={styles.actionButtons}>
               <TouchableOpacity
                 style={[styles.button, styles.buttonSecondary]}
@@ -312,15 +307,69 @@ export default function UnidadeScreen() {
     </View>
   );
 
-  // Render Principal
+  if (isDesktopView) {
+    const desktopActions = isGestorPrincipal
+      ? (editMode
+          ? [
+              {
+                label: 'Cancelar',
+                icon: 'close-circle-outline',
+                onPress: handleCancel,
+                variant: 'secondary',
+                disabled: saving,
+              },
+              {
+                label: saving ? 'Salvando...' : 'Salvar alterações',
+                icon: 'save-outline',
+                onPress: handleSave,
+                disabled: saving,
+              },
+            ]
+          : [
+              {
+                label: 'Editar informações',
+                icon: 'create-outline',
+                onPress: () => setEditMode(true),
+              },
+            ])
+      : undefined;
+
+    return (
+      <>
+        <DesktopPageLayout
+          title="Minha Unidade"
+          subtitle="Informações e Configurações"
+          loading={isLoading}
+          actions={desktopActions}
+        >
+          <View style={styles.twoColumnLayout}>
+            <View style={styles.mainColumn}>
+              <FormularioUnidade />
+            </View>
+            <View style={styles.sideColumn}>
+              <SidebarInfo />
+            </View>
+          </View>
+        </DesktopPageLayout>
+        <Toast {...toastState} onDismiss={hideToast} />
+      </>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={styles.loadingText}>Carregando...</Text>
+      </View>
+    );
+  }
+
   return (
     <>
-
-      {/* Content */}
       <ScrollView style={styles.container}>
         <View style={styles.content}>
-          {/* Botão de Editar para dispositivos móveis */}
-          {!isDesktop && isGestorPrincipal && !editMode && (
+          {isGestorPrincipal && !editMode && (
             <View style={styles.mobileEditButtonContainer}>
               <TouchableOpacity
                 style={styles.mobileEditButton}
@@ -330,27 +379,11 @@ export default function UnidadeScreen() {
               </TouchableOpacity>
             </View>
           )}
-          {/* Desktop: Two-column layout (Form | Sidebar) */}
-          {isDesktop || isLargeDesktop ? (
-            <View style={styles.twoColumnLayout}>
-              <View style={styles.mainColumn}>
-                <FormularioUnidade />
-              </View>
-              <View style={styles.sideColumn}>
-                <SidebarInfo />
-              </View>
-            </View>
-          ) : (
-            /* Mobile/Tablet: Stacked layout */
-            <>
-              <SidebarInfo />
-              <FormularioUnidade />
-            </>
-          )}
+          <SidebarInfo />
+          <FormularioUnidade />
         </View>
       </ScrollView>
 
-      {/* Toast de Feedback */}
       <Toast {...toastState} onDismiss={hideToast} />
     </>
   );
@@ -371,44 +404,6 @@ const styles = StyleSheet.create(theme => ({
     marginTop: theme.spacing.sm,
     fontSize: theme.typography.sm,
     color: theme.colors.gray500,
-  },
-  header: {
-    backgroundColor: theme.colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray200,
-    paddingHorizontal: theme.spacing['3xl'],
-    paddingVertical: theme.spacing['2xl'],
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitle: {
-    fontSize: theme.typography['3xl'],
-    fontFamily: theme.typography.fontDisplay,
-    color: theme.colors.gray900,
-  },
-  headerSubtitle: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
-    marginTop: 4,
-  },
-  userSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.lg,
-  },
-  editButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: theme.colors.primaryLight,
-    borderRadius: 6,
-  },
-  editButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: theme.colors.primary,
   },
   mobileEditButtonContainer: {
     marginBottom: theme.spacing.lg,
@@ -583,3 +578,6 @@ const styles = StyleSheet.create(theme => ({
     color: theme.colors.gray900,
   },
 }));
+
+
+

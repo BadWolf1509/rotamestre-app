@@ -11,8 +11,10 @@ import {
 } from 'react-native';
 
 import { authService } from '@/lib/auth';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 export default function ForgotPassword() {
+  const { theme } = useUnistyles();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -39,11 +41,11 @@ export default function ForgotPassword() {
       await authService.resetPassword(email.trim());
       Alert.alert(
         'Sucesso',
-        'Instruções de recuperação foram enviadas para seu e-mail',
-        [{ text: 'OK', onPress: () => router.back() }]
+        'Instrucoes de recuperacao foram enviadas para seu e-mail',
+        [{ text: 'OK', onPress: () => router.back() }],
       );
-    } catch (error: any) {
-      Alert.alert('Erro', error.message || 'Erro ao recuperar senha');
+    } catch (resetError: any) {
+      Alert.alert('Erro', resetError.message || 'Erro ao recuperar senha');
     } finally {
       setLoading(false);
     }
@@ -51,74 +53,133 @@ export default function ForgotPassword() {
 
   if (error) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#fee2e2' }}>
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#ef4444', marginBottom: 10 }}>
-          Erro ao carregar tela
-        </Text>
-        <Text style={{ fontSize: 14, color: '#991b1b', textAlign: 'center' }}>
-          {error}
-        </Text>
+      <View style={styles.errorState}>
+        <Text style={styles.errorTitle}>Erro ao carregar tela</Text>
+        <Text style={styles.errorMessage}>{error}</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: '#f9fafb' }}>
-      <View style={{ padding: 20, paddingTop: 100 }}>
-        <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 24 }}>
-          <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 20 }}>
-            Recuperar Senha
-          </Text>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.scrollContent}>
+      <View style={styles.card}>
+        <Text style={styles.title}>Recuperar Senha</Text>
 
-          <Text style={{ fontSize: 14, color: '#666', marginBottom: 20 }}>
-            Digite seu e-mail e enviaremos instruções para redefinir sua senha.
-          </Text>
+        <Text style={styles.description}>
+          Digite seu e-mail e enviaremos instrucoes para redefinir sua senha.
+        </Text>
 
-          <TextInput
-            style={{
-              borderWidth: 1,
-              borderColor: '#d1d5db',
-              borderRadius: 8,
-              padding: 15,
-              fontSize: 16,
-              marginBottom: 20,
-            }}
-            placeholder="E-mail"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
+        <TextInput
+          style={styles.input}
+          placeholder="E-mail"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
 
-          <TouchableOpacity
-            style={{
-              backgroundColor: '#1e5aa8',
-              padding: 15,
-              borderRadius: 8,
-              alignItems: 'center',
-            }}
-            onPress={handleResetPassword}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
-                Enviar
-              </Text>
-            )}
-          </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={handleResetPassword}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color={theme.colors.white} />
+          ) : (
+            <Text style={styles.buttonText}>Enviar</Text>
+          )}
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            style={{ marginTop: 20, alignItems: 'center' }}
-            onPress={() => router.back()}
-          >
-            <Text style={{ color: '#1e5aa8', fontSize: 14 }}>
-              ← Voltar para login
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={styles.backLink}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.backLinkText}>Voltar para login</Text>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create(theme => ({
+  screen: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: 100,
+    paddingBottom: 40,
+  },
+  card: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.lg,
+    padding: 24,
+    ...theme.shadows.md,
+  },
+  title: {
+    fontFamily: theme.typography.fontDisplay,
+    fontSize: 24,
+    color: theme.colors.gray900,
+    marginBottom: 12,
+  },
+  description: {
+    fontFamily: theme.typography.fontSans,
+    fontSize: 14,
+    color: theme.colors.gray600,
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: theme.colors.gray300,
+    borderRadius: theme.borderRadius.md,
+    padding: 15,
+    fontSize: 16,
+    fontFamily: theme.typography.fontSans,
+    marginBottom: 20,
+    backgroundColor: theme.colors.white,
+  },
+  button: {
+    backgroundColor: theme.colors.primary,
+    padding: 15,
+    borderRadius: theme.borderRadius.lg,
+    alignItems: 'center',
+    ...theme.shadows.sm,
+  },
+  buttonText: {
+    color: theme.colors.white,
+    fontSize: 16,
+    letterSpacing: 0.5,
+    fontFamily: theme.typography.fontSansSemiBold,
+  },
+  backLink: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  backLinkText: {
+    color: theme.colors.primary,
+    fontSize: 14,
+    fontFamily: theme.typography.fontSansMedium,
+  },
+  errorState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: theme.colors.errorBg,
+  },
+  errorTitle: {
+    fontFamily: theme.typography.fontDisplay,
+    fontSize: 18,
+    color: theme.colors.error,
+    marginBottom: 8,
+  },
+  errorMessage: {
+    fontFamily: theme.typography.fontSans,
+    fontSize: 14,
+    color: theme.colors.error,
+    textAlign: 'center',
+  },
+}));

@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -11,16 +11,16 @@ import {
   Dimensions,
 } from 'react-native';
 
+import { DesktopCard } from '@/components/desktop/DesktopCard';
+import { DesktopModal } from '@/components/desktop/DesktopModal';
+import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
+import { SplitView } from '@/components/desktop/SplitView';
 import { MapaAdapter } from '@/components/MapaAdapter';
 import { Toast } from '@/components/Toast';
+import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { useResponsive } from '@/hooks/useResponsive';
-import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
-import { DesktopCard } from '@/components/desktop/DesktopCard';
-import { SplitView } from '@/components/desktop/SplitView';
-import { DesktopModal } from '@/components/desktop/DesktopModal';
 
 interface Parada {
   id: string;
@@ -34,6 +34,7 @@ interface Parada {
   telefone?: string;
   observacoes?: string;
   foto_url?: string | null;
+  is_checkpoint?: boolean;
 }
 
 interface Rota {
@@ -44,6 +45,14 @@ interface Rota {
   motorista?: {
     nome: string;
   };
+}
+
+function formatarDataLocal(dateStr?: string, locale = 'pt-BR'): string {
+  if (!dateStr) return '-';
+  const [year, month, day] = dateStr.split('-').map(Number);
+  if (!year || !month || !day) return '-';
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString(locale);
 }
 
 export default function MapaRota() {
@@ -57,6 +66,34 @@ export default function MapaRota() {
   const [paradas, setParadas] = useState<Parada[]>([]);
   const [fotoModalVisible, setFotoModalVisible] = useState(false);
   const [fotoSelecionada, setFotoSelecionada] = useState<string | null>(null);
+
+  const paradasReais = useMemo(
+    () => paradas.filter((parada) => parada.is_checkpoint !== false),
+    [paradas]
+  );
+
+  const pontosBase = useMemo(
+    () => paradas.filter((parada) => parada.is_checkpoint === false),
+    [paradas]
+  );
+
+  const resumoParadas = useMemo(() => {
+    const total = paradasReais.length;
+    const concluidas = paradasReais.filter((p) => p.status === 'concluida').length;
+    const pendentes = paradasReais.filter((p) => p.status === 'pendente').length;
+    const emAndamento = paradasReais.filter((p) => p.status === 'em_andamento').length;
+    return { total, concluidas, pendentes, emAndamento };
+  }, [paradasReais]);
+
+  const baseInicio = useMemo(() => {
+    if (pontosBase.length === 0) return null;
+    return pontosBase.reduce((prev, curr) => (curr.ordem < prev.ordem ? curr : prev));
+  }, [pontosBase]);
+
+  const baseFim = useMemo(() => {
+    if (pontosBase.length === 0) return null;
+    return pontosBase.reduce((prev, curr) => (curr.ordem > prev.ordem ? curr : prev));
+  }, [pontosBase]);
 
   const loadRotaEParadas = useCallback(async () => {
     if (!id) return;
@@ -173,14 +210,21 @@ export default function MapaRota() {
   const ParadasList = () => (
     <View style={styles.paradasContainer}>
       <Text style={styles.paradasTitle}>
-        Paradas ({paradas.length})
+        Paradas ({resumoParadas.total})
       </Text>
 
-      {paradas.map((parada) => (
-        <View key={parada.id} style={styles.paradaCard}>
+      {paradasReais.length === 0 ? (
+        <View style={styles.emptyParadas}>
+          <Text style={styles.emptyParadasText}>
+            Nenhuma entrega ou retirada registrada para esta rota.
+          </Text>
+        </View>
+      ) : (
+        paradasReais.map((parada, index) => (
+          <View key={parada.id} style={styles.paradaCard}>
             <View style={styles.paradaHeader}>
               <View style={styles.paradaNumero}>
-                <Text style={styles.paradaNumeroText}>{parada.ordem}</Text>
+                <Text style={styles.paradaNumeroText}>{index + 1}</Text>
               </View>
               <View style={styles.paradaHeaderInfo}>
                 <Text style={styles.paradaEndereco}>{parada.endereco}</Text>
@@ -201,7 +245,7 @@ export default function MapaRota() {
                   ]}>
                     <Text style={styles.statusTagText}>
                       {parada.status === 'concluida' && '✓ Concluída'}
-                      {parada.status === 'pendente' && '⏱ Pendente'}
+                      {parada.status === 'pendente' && '⏳ Pendente'}
                       {parada.status === 'em_andamento' && '🚚 Em andamento'}
                     </Text>
                   </View>
@@ -229,10 +273,9 @@ export default function MapaRota() {
               </Text>
             )}
 
-            {/* Foto do Comprovante */}
             {parada.foto_url && (
               <View style={styles.fotoContainer}>
-                <Text style={styles.fotoLabel}>📸 Comprovante de Entrega:</Text>
+                <Text style={styles.fotoLabel}>🖼 Comprovante de Entrega:</Text>
                 <TouchableOpacity
                   onPress={() => {
                     setFotoSelecionada(parada.foto_url!);
@@ -250,25 +293,37 @@ export default function MapaRota() {
               </View>
             )}
           </View>
-        ))}
+        ))
+      )}
 
-      {/* Resumo */}
+      {(baseInicio || baseFim) && (
+        <View style={styles.baseInfoCard}>
+          <Text style={styles.baseInfoTitle}>Pontos da Unidade</Text>
+          {baseInicio && (
+            <Text style={styles.baseInfoItem}>🚩 Partida: {baseInicio.endereco}</Text>
+          )}
+          {baseFim && (!baseInicio || baseFim.id !== baseInicio.id) && (
+            <Text style={styles.baseInfoItem}>🏁 Chegada: {baseFim.endereco}</Text>
+          )}
+        </View>
+      )}
+
       <View style={styles.resumo}>
         <Text style={styles.resumoTitle}>Resumo da Rota</Text>
         <View style={styles.resumoStats}>
           <View style={styles.resumoStat}>
-            <Text style={styles.resumoStatValue}>{paradas.length}</Text>
+            <Text style={styles.resumoStatValue}>{resumoParadas.total}</Text>
             <Text style={styles.resumoStatLabel}>Paradas Totais</Text>
           </View>
           <View style={styles.resumoStat}>
-            <Text style={[styles.resumoStatValue, { color: '#10b981' }]}>
-              {paradas.filter((p) => p.status === 'concluida').length}
+            <Text style={[styles.resumoStatValue, styles.resumoStatValueSuccess]}>
+              {resumoParadas.concluidas}
             </Text>
             <Text style={styles.resumoStatLabel}>Concluídas</Text>
           </View>
           <View style={styles.resumoStat}>
-            <Text style={[styles.resumoStatValue, { color: '#f59e0b' }]}>
-              {paradas.filter((p) => p.status === 'pendente').length}
+            <Text style={[styles.resumoStatValue, styles.resumoStatValueWarning]}>
+              {resumoParadas.pendentes}
             </Text>
             <Text style={styles.resumoStatLabel}>Pendentes</Text>
           </View>
@@ -276,26 +331,6 @@ export default function MapaRota() {
       </View>
     </View>
   );
-
-  // Componente Breadcrumbs (apenas desktop)
-  const Breadcrumbs = () => {
-    const windowWidth = Dimensions.get('window').width;
-    if (windowWidth < 768) return null;
-
-    return (
-      <View style={styles.breadcrumbs}>
-        <TouchableOpacity
-          onPress={() => router.push('/gestor/historico')}
-          accessibilityLabel="Voltar para o histórico"
-          accessibilityRole="button"
-        >
-          <Text style={styles.breadcrumbLink}>Histórico</Text>
-        </TouchableOpacity>
-        <Text style={styles.breadcrumbSeparator}>→</Text>
-        <Text style={styles.breadcrumbCurrent}>Mapa da Rota</Text>
-      </View>
-    );
-  };
 
   // Render principal
 
@@ -305,7 +340,7 @@ export default function MapaRota() {
       <>
         <DesktopPageLayout
           title="Mapa da Rota"
-          subtitle={`${rota?.motorista?.nome || 'Sem motorista'} • ${new Date(rota!.data).toLocaleDateString('pt-BR')}`}
+          subtitle={`${rota?.motorista?.nome || 'Sem motorista'} • ${formatarDataLocal(rota?.data)}`}
           breadcrumbs={[
             { label: 'Dashboard', route: '/gestor' },
             { label: 'Histórico', route: '/gestor/historico' },
@@ -349,7 +384,9 @@ export default function MapaRota() {
               <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                 <Text style={{ fontSize: 14, color: theme.colors.gray600 }}>Paradas:</Text>
                 <Text style={{ fontSize: 14, color: theme.colors.gray900, fontWeight: '600' }}>
-                  {paradas.filter(p => p.status === 'concluida').length}/{paradas.length} concluídas
+                  {resumoParadas.total > 0
+                    ? `${resumoParadas.concluidas}/${resumoParadas.total} concluídas`
+                    : 'Sem entregas'}
                 </Text>
               </View>
             </View>
@@ -374,7 +411,11 @@ export default function MapaRota() {
               right={
                 <DesktopCard
                   title="Paradas"
-                  subtitle={`${paradas.length} paradas na rota`}
+                  subtitle={
+                    resumoParadas.total > 0
+                      ? `${resumoParadas.total} paradas na rota`
+                      : 'Nenhuma entrega ou retirada'
+                  }
                   icon="list-outline"
                   iconColor={theme.colors.secondary}
                   variant="outlined"
@@ -438,7 +479,7 @@ export default function MapaRota() {
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Mapa da Rota</Text>
             <Text style={styles.headerSubtitle}>
-              {rota?.motorista?.nome || 'Sem motorista'} • {new Date(rota!.data).toLocaleDateString('pt-BR')}
+              {rota?.motorista?.nome || 'Sem motorista'} • {formatarDataLocal(rota?.data)}
             </Text>
           </View>
         </View>
@@ -768,10 +809,35 @@ const styles = StyleSheet.create(theme => ({
     color: theme.colors.primaryDark,
     marginBottom: theme.spacing.xs,
   },
+  resumoStatValueSuccess: {
+    color: theme.colors.success,
+  },
+  resumoStatValueWarning: {
+    color: theme.colors.warning,
+  },
   resumoStatLabel: {
     fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray500,
     textAlign: 'center',
+  },
+  baseInfoCard: {
+    marginTop: theme.spacing.xl,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
+    backgroundColor: theme.colors.primaryBg,
+  },
+  baseInfoTitle: {
+    fontSize: theme.typography.fontSize.sm,
+    fontWeight: '600',
+    color: theme.colors.primaryDark,
+    marginBottom: theme.spacing.sm,
+  },
+  baseInfoItem: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray700,
+    marginBottom: theme.spacing.xs,
   },
   splitContainer: {
     flexDirection: 'row',
@@ -820,25 +886,25 @@ const styles = StyleSheet.create(theme => ({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#f59e0b',
+    backgroundColor: theme.colors.warning,
     borderWidth: 3,
-    borderColor: '#fff',
+    borderColor: theme.colors.white,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 3,
     elevation: 5,
   },
   markerBadgeConcluida: {
-    backgroundColor: '#10b981',
+    backgroundColor: theme.colors.success,
   },
   markerBadgeEmAndamento: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: theme.colors.info,
   },
   markerText: {
-    color: '#fff',
+    color: theme.colors.white,
     fontSize: 14,
     fontWeight: 'bold',
   },
@@ -985,3 +1051,5 @@ const styles = StyleSheet.create(theme => ({
     borderRadius: theme.borderRadius.lg,
   },
 }));
+
+

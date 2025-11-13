@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { AlertDialog } from '@/components/AlertDialog';
+import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
@@ -66,7 +67,7 @@ export default function Login() {
         if (usuario.papel === 'gestor') {
           router.replace('/gestor/dashboard');
         } else if (usuario.papel === 'motorista') {
-          router.replace('/motorista/rota');
+          router.replace('/motorista/home');
         }
       } else {
         showAlert('Usuário não encontrado', 'Não encontramos sua conta. Verifique seus dados e tente novamente.', 'error');
@@ -98,17 +99,7 @@ export default function Login() {
       <View style={styles.containerDesktop}>
         {/* Left Side - Imagem de Branding (sem overlay de texto, imagem já contém tudo) */}
         <View style={styles.leftPanel}>
-          <View style={[styles.imageWrapper, { backgroundColor: '#004E89' }]}>
-            {/* Fallback: cor sólida para web/produção */}
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 }}>
-              <Text style={{ fontSize: 48, fontWeight: 'bold', color: '#FF6B35', marginBottom: 20 }}>
-                Rota Mestre
-              </Text>
-              <Text style={{ fontSize: 20, color: 'white', textAlign: 'center' }}>
-                Otimização inteligente de rotas
-              </Text>
-            </View>
-          </View>
+          <AuthBrandPanel />
         </View>
 
         {/* Right Side - Form (Branco) */}
@@ -282,25 +273,6 @@ const styles = StyleSheet.create(theme => ({
   leftPanel: {
     flex: 1,
     backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  imageWrapper: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: '100%',
-    height: '100%',
-  },
-  backgroundImage: {
-    width: '100%',
-    height: '100%',
-    ...(Platform.OS === 'web' && {
-      objectPosition: 'top center' as any,
-    }),
   },
   rightPanel: {
     flex: 1,
@@ -308,41 +280,6 @@ const styles = StyleSheet.create(theme => ({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 60,
-  },
-  brandingContainer: {
-    maxWidth: 500,
-    alignItems: 'center',
-  },
-  brandTitle: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: theme.colors.white,
-    marginBottom: 16,
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.4)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 6,
-  },
-  brandSubtitle: {
-    fontSize: 18,
-    color: 'rgba(255, 255, 255, 0.95)',
-    textAlign: 'center',
-    marginBottom: 40,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-  },
-  brandFeatures: {
-    gap: 16,
-    width: '100%',
-  },
-  brandFeature: {
-    fontSize: 16,
-    color: theme.colors.white,
-    lineHeight: 24,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
   },
   formContainerDesktop: {
     width: '100%',
@@ -352,12 +289,13 @@ const styles = StyleSheet.create(theme => ({
     marginBottom: 32,
   },
   titleDesktop: {
+    fontFamily: theme.typography.fontDisplay,
     fontSize: 32,
-    fontWeight: 'bold',
     color: theme.colors.gray900,
     marginBottom: 8,
   },
   subtitleDesktop: {
+    fontFamily: theme.typography.fontSans,
     fontSize: 16,
     color: theme.colors.gray500,
   },
@@ -365,8 +303,8 @@ const styles = StyleSheet.create(theme => ({
     marginBottom: 16,
   },
   inputLabel: {
+    fontFamily: theme.typography.fontSansSemiBold,
     fontSize: 14,
-    fontWeight: '600',
     color: theme.colors.gray700,
     marginBottom: 8,
   },
@@ -376,6 +314,7 @@ const styles = StyleSheet.create(theme => ({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
+    fontFamily: theme.typography.fontSans,
     backgroundColor: theme.colors.white,
   },
   passwordContainer: {
@@ -391,6 +330,7 @@ const styles = StyleSheet.create(theme => ({
     padding: 12,
     paddingRight: 45,
     fontSize: 16,
+    fontFamily: theme.typography.fontSans,
     backgroundColor: theme.colors.white,
   },
   eyeButton: {
@@ -399,11 +339,12 @@ const styles = StyleSheet.create(theme => ({
     padding: 8,
   },
   buttonDesktop: {
-    backgroundColor: theme.colors.secondary,
+    backgroundColor: theme.colors.primary,
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     marginTop: 24,
+    ...theme.shadows.md,
   },
   container: {
     flex: 1,
@@ -425,6 +366,7 @@ const styles = StyleSheet.create(theme => ({
     height: 180,
   },
   subtitle: {
+    fontFamily: theme.typography.fontSans,
     fontSize: 16,
     color: theme.colors.gray500,
   },
@@ -437,6 +379,8 @@ const styles = StyleSheet.create(theme => ({
     borderRadius: 8,
     padding: 15,
     fontSize: 16,
+    fontFamily: theme.typography.fontSans,
+    backgroundColor: theme.colors.white,
   },
   inputPassword: {
     flex: 1,
@@ -446,18 +390,22 @@ const styles = StyleSheet.create(theme => ({
     padding: 15,
     paddingRight: 45,
     fontSize: 16,
+    fontFamily: theme.typography.fontSans,
+    backgroundColor: theme.colors.white,
   },
   button: {
-    backgroundColor: theme.colors.secondary,
+    backgroundColor: theme.colors.primary,
     padding: 15,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     marginTop: 10,
+    ...theme.shadows.sm,
   },
   buttonText: {
     color: theme.colors.white,
     fontSize: 16,
-    fontWeight: '600',
+    letterSpacing: 0.5,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   forgotButton: {
     alignSelf: 'flex-end',
@@ -465,5 +413,6 @@ const styles = StyleSheet.create(theme => ({
   forgotButtonText: {
     color: theme.colors.primaryDark,
     fontSize: 14,
+    fontFamily: theme.typography.fontSansMedium,
   },
 }));

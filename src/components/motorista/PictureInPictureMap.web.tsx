@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
   View,
@@ -6,7 +7,8 @@ import {
   TouchableOpacity,
   Animated,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+
+import { defaultTheme } from '@/utils/styles';
 
 interface PictureInPictureMapProps {
   visible: boolean;
@@ -19,6 +21,8 @@ interface PictureInPictureMapProps {
   onClose: () => void;
   onExpand: () => void;
 }
+
+const colors = defaultTheme.colors;
 
 export function PictureInPictureMap({
   visible,
@@ -57,13 +61,13 @@ export function PictureInPictureMap({
       </View>
 
       <TouchableOpacity style={styles.mapPlaceholder} onPress={openGoogleMaps}>
-        <Ionicons name="map" size={40} color="#6b7280" />
+        <Ionicons name="map" size={40} color={colors.gray500} />
         <Text style={styles.placeholderText}>Mini Mapa</Text>
         <Text style={styles.addressText} numberOfLines={2}>
           {destination.address}
         </Text>
         <View style={styles.openButton}>
-          <Ionicons name="open-outline" size={16} color="#1e5aa8" />
+          <Ionicons name="open-outline" size={16} color={defaultTheme.colors.primary} />
           <Text style={styles.openButtonText}>Abrir Maps</Text>
         </View>
       </TouchableOpacity>
@@ -87,7 +91,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: colors.gray200,
   },
   header: {
     flexDirection: 'row',
@@ -120,19 +124,19 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
+    backgroundColor: colors.gray50,
     padding: 16,
   },
   placeholderText: {
     marginTop: 8,
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.gray700,
   },
   addressText: {
     marginTop: 8,
     fontSize: 11,
-    color: '#6b7280',
+    color: colors.gray500,
     textAlign: 'center',
     paddingHorizontal: 8,
   },
@@ -143,12 +147,13 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#e0f2fe',
+    backgroundColor: colors.infoBg,
     borderRadius: 6,
   },
   openButtonText: {
     fontSize: 12,
-    color: '#1e5aa8',
+    color: defaultTheme.colors.primary,
     fontWeight: '500',
   },
 });
+

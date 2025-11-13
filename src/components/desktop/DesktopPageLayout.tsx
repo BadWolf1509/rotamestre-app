@@ -1,3 +1,5 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import {
   View,
@@ -5,9 +7,9 @@ import {
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
+  ScrollViewProps,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface BreadcrumbItem {
@@ -35,6 +37,8 @@ interface DesktopPageLayoutProps {
   onBack?: () => void;
   fullWidth?: boolean;
   noPadding?: boolean;
+  headerExtra?: React.ReactNode;
+  scrollViewProps?: ScrollViewProps;
 }
 
 export function DesktopPageLayout({
@@ -49,6 +53,8 @@ export function DesktopPageLayout({
   onBack,
   fullWidth = false,
   noPadding = false,
+  headerExtra,
+  scrollViewProps: providedScrollProps,
 }: DesktopPageLayoutProps) {
   const { theme } = useUnistyles();
   const router = useRouter();
@@ -91,11 +97,17 @@ export function DesktopPageLayout({
     }
   };
 
+  const {
+    contentContainerStyle,
+    style: scrollStyle,
+    ...restScrollViewProps
+  } = providedScrollProps || {};
+
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerContent}>
+        <View style={styles.headerLeft}>
           {/* Breadcrumbs */}
           {breadcrumbs && breadcrumbs.length > 0 && (
             <View style={styles.breadcrumbs}>
@@ -142,50 +154,56 @@ export function DesktopPageLayout({
           </View>
         </View>
 
-        {/* Actions */}
-        {actions && actions.length > 0 && (
-          <View style={styles.actions}>
-            {actions.map((action, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.button,
-                  getButtonStyle(action.variant),
-                  action.disabled && styles.buttonDisabled,
-                ]}
-                onPress={action.onPress}
-                disabled={action.disabled}
-              >
-                {action.icon && (
-                  <Ionicons
-                    name={action.icon}
-                    size={18}
-                    color={
-                      action.variant === 'primary'
-                        ? theme.colors.white
-                        : theme.colors.gray700
-                    }
-                    style={styles.buttonIcon}
-                  />
-                )}
-                <Text style={[styles.buttonText, getButtonTextStyle(action.variant)]}>
-                  {action.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+        {(headerExtra || (actions && actions.length > 0)) && (
+          <View style={styles.headerRight}>
+            {headerExtra && <View style={styles.headerExtra}>{headerExtra}</View>}
+            {actions && actions.length > 0 && (
+              <View style={styles.actions}>
+                {actions.map((action, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.button,
+                      getButtonStyle(action.variant),
+                      action.disabled && styles.buttonDisabled,
+                    ]}
+                    onPress={action.onPress}
+                    disabled={action.disabled}
+                  >
+                    {action.icon && (
+                      <Ionicons
+                        name={action.icon}
+                        size={18}
+                        color={
+                          action.variant === 'primary'
+                            ? theme.colors.white
+                            : theme.colors.gray700
+                        }
+                        style={styles.buttonIcon}
+                      />
+                    )}
+                    <Text style={[styles.buttonText, getButtonTextStyle(action.variant)]}>
+                      {action.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
         )}
       </View>
 
       {/* Content */}
       <ScrollView
-        style={styles.scrollView}
+        style={[styles.scrollView, scrollStyle]}
         contentContainerStyle={[
           styles.contentContainer,
           fullWidth && styles.contentFullWidth,
           noPadding && styles.contentNoPadding,
+          contentContainerStyle,
         ]}
         showsVerticalScrollIndicator={false}
+        {...restScrollViewProps}
       >
         <View style={[styles.content, fullWidth && styles.contentInnerFullWidth]}>
           {children}
@@ -226,8 +244,9 @@ const styles = StyleSheet.create(theme => ({
     shadowRadius: 1,
     elevation: 2,
   },
-  headerContent: {
+  headerLeft: {
     flex: 1,
+    minWidth: 0,
   },
   breadcrumbs: {
     flexDirection: 'row',
@@ -272,6 +291,16 @@ const styles = StyleSheet.create(theme => ({
     fontSize: 14,
     color: theme.colors.gray500,
     lineHeight: 20,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginLeft: 32,
+  },
+  headerExtra: {
+    alignItems: 'flex-end',
+    gap: 4,
   },
   actions: {
     flexDirection: 'row',

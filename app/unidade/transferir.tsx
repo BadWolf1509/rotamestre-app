@@ -10,11 +10,13 @@ import {
   TextInput,
 } from 'react-native';
 
+import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { Toast } from '@/components/Toast';
+import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface GestorElegivel {
   id: string;
@@ -24,15 +26,20 @@ interface GestorElegivel {
 }
 
 export default function TransferirGestaoScreen() {
+  const { theme } = useUnistyles();
   const router = useRouter();
   const { userData, loading: userLoading } = useUser();
   const { toast: toastState, showToast, hideToast } = useToast();
+  const { isDesktop } = useBreakpoint();
   const [gestores, setGestores] = useState<GestorElegivel[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedGestor, setSelectedGestor] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
   const [transferring, setTransferring] = useState(false);
+  const isDesktopView = isDesktop;
+  const isLoading = userLoading || loading;
+  const isGestorPrincipal = userData?.is_gestor_principal === true;
 
   const loadGestoresElegiveis = useCallback(async () => {
     const unidadeId = userData?.unidade_id;
@@ -149,15 +156,6 @@ export default function TransferirGestaoScreen() {
     }
   }
 
-  if (userLoading || loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0D5A9C" />
-        <Text style={styles.loadingText}>Carregando gestores...</Text>
-      </View>
-    );
-  }
-
   // Verificar se é gestor principal
   if (!userData?.is_gestor_principal) {
     return (
@@ -183,154 +181,193 @@ export default function TransferirGestaoScreen() {
 
   const selectedGestorData = gestores.find((g) => g.id === selectedGestor);
 
+  const renderMainContent = () => (
+    <>
+      <View style={styles.warningBox}>
+        <Text style={styles.warningTitle}>⚠️ Atenção</Text>
+        <Text style={styles.warningText}>
+          Esta ação é irreversível e transferirá todos os privilégios de gestor
+          principal para outro gestor. Você continuará como gestor normal, mas
+          perderá acesso às configurações da unidade, gestão de membros e esta
+          função de transferência.
+        </Text>
+      </View>
+
+      {confirming ? (
+        <View style={styles.confirmationSection}>
+          <View style={styles.confirmationCard}>
+            <Text style={styles.confirmationTitle}>Confirmar Transferência</Text>
+            <Text style={styles.confirmationText}>
+              Você está transferindo a gestão principal para:
+            </Text>
+            <View style={styles.selectedGestorCard}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {selectedGestorData?.nome.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <View>
+                <Text style={styles.selectedGestorNome}>
+                  {selectedGestorData?.nome}
+                </Text>
+                <Text style={styles.selectedGestorEmail}>
+                  {selectedGestorData?.email}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.confirmationInstructions}>
+              Para confirmar, digite <Text style={styles.confirmationKeyword}>TRANSFERIR</Text>
+              {' '}no campo abaixo.
+            </Text>
+            <TextInput
+              style={styles.confirmationInput}
+              value={confirmationText}
+              onChangeText={setConfirmationText}
+              placeholder="TRANSFERIR"
+              autoCapitalize="characters"
+            />
+            <View style={styles.confirmationButtons}>
+              <TouchableOpacity
+                style={[styles.button, styles.buttonSecondary]}
+                onPress={handleCancelConfirmation}
+                disabled={transferring}
+              >
+                <Text style={styles.buttonTextSecondary}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, styles.buttonDanger, transferring && styles.buttonDisabled]}
+                onPress={handleConfirmTransfer}
+                disabled={transferring}
+              >
+                <Text style={styles.buttonText}>Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.listSection}>
+          <Text style={styles.listTitle}>Selecione o novo gestor principal</Text>
+          {gestores.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>
+                Não há outros gestores ativos disponíveis nesta unidade.
+              </Text>
+            </View>
+          ) : (
+            gestores.map((gestor) => (
+              <TouchableOpacity
+                key={gestor.id}
+                style={[
+                  styles.gestorItem,
+                  selectedGestor === gestor.id && styles.gestorItemSelected,
+                ]}
+                onPress={() => handleSelectGestor(gestor.id)}
+              >
+                <View style={styles.avatarGestor}>
+                  <Text style={styles.avatarText}>{gestor.nome.charAt(0).toUpperCase()}</Text>
+                </View>
+                <View style={styles.gestorDetails}>
+                  <Text style={styles.gestorNome}>{gestor.nome}</Text>
+                  <Text style={styles.gestorEmail}>{gestor.email}</Text>
+                  <Text style={styles.gestorData}>
+                    Gestor desde {new Date(gestor.created_at).toLocaleDateString('pt-BR')}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
+      )}
+    </>
+  );
+
+  const desktopActions = [
+    {
+      label: 'Voltar',
+      icon: 'arrow-back-outline',
+      variant: 'secondary',
+      onPress: () => router.back(),
+    },
+  ];
+
+  if (isDesktopView) {
+    if (!isGestorPrincipal) {
+      return (
+        <>
+          <DesktopPageLayout
+            title="Transferir Gestão Principal"
+            subtitle={userData?.unidades?.nome}
+            loading={isLoading}
+            actions={desktopActions}
+          >
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>
+                Apenas o gestor principal pode transferir a gestão.
+              </Text>
+            </View>
+          </DesktopPageLayout>
+          <Toast {...toastState} onDismiss={hideToast} />
+        </>
+      );
+    }
+
+    return (
+      <>
+        <DesktopPageLayout
+          title="Transferir Gestão Principal"
+          subtitle={userData?.unidades?.nome}
+          loading={isLoading}
+          actions={desktopActions}
+        >
+          {renderMainContent()}
+        </DesktopPageLayout>
+        <Toast {...toastState} onDismiss={hideToast} />
+      </>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={styles.loadingText}>Carregando gestores...</Text>
+      </View>
+    );
+  }
+
+  if (!isGestorPrincipal) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <View>
+              <Text style={styles.headerTitle}>Transferir Gestão</Text>
+              <Text style={styles.headerSubtitle}>{userData?.unidades?.nome}</Text>
+            </View>
+          </View>
+        </View>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>
+            Apenas o gestor principal pode transferir a gestão.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View>
             <Text style={styles.headerTitle}>Transferir Gestão Principal</Text>
-            <Text style={styles.headerSubtitle}>
-              {userData?.unidades?.nome}
-            </Text>
+            <Text style={styles.headerSubtitle}>{userData?.unidades?.nome}</Text>
           </View>
         </View>
       </View>
 
-      <ScrollView style={styles.content}>
-        {/* Aviso Importante */}
-        <View style={styles.warningBox}>
-          <Text style={styles.warningTitle}>⚠️ Atenção</Text>
-          <Text style={styles.warningText}>
-            Esta ação é irreversível e transferirá todos os privilégios de gestor
-            principal para outro gestor. Você continuará como gestor normal, mas
-            perderá acesso às configurações da unidade, gestão de membros e esta
-            função de transferência.
-          </Text>
-        </View>
+      <ScrollView style={styles.content}>{renderMainContent()}</ScrollView>
 
-        {/* Modo de Confirmação */}
-        {confirming ? (
-          <View style={styles.confirmationSection}>
-            <View style={styles.confirmationCard}>
-              <Text style={styles.confirmationTitle}>
-                Confirmar Transferência
-              </Text>
-              <Text style={styles.confirmationText}>
-                Você está transferindo a gestão principal para:
-              </Text>
-              <View style={styles.selectedGestorCard}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {selectedGestorData?.nome.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-                <View>
-                  <Text style={styles.selectedGestorNome}>
-                    {selectedGestorData?.nome}
-                  </Text>
-                  <Text style={styles.selectedGestorEmail}>
-                    {selectedGestorData?.email}
-                  </Text>
-                </View>
-              </View>
-
-              <Text style={styles.confirmationInstructions}>
-                Para confirmar, digite{' '}
-                <Text style={styles.confirmationKeyword}>TRANSFERIR</Text> abaixo:
-              </Text>
-
-              <TextInput
-                style={styles.confirmationInput}
-                value={confirmationText}
-                onChangeText={setConfirmationText}
-                placeholder="Digite TRANSFERIR"
-                autoCapitalize="characters"
-                autoFocus
-              />
-
-              <View style={styles.confirmationButtons}>
-                <TouchableOpacity
-                  style={[styles.button, styles.buttonSecondary]}
-                  onPress={handleCancelConfirmation}
-                  disabled={transferring}
-                >
-                  <Text style={[styles.buttonText, styles.buttonTextSecondary]}>
-                    Cancelar
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.button,
-                    styles.buttonDanger,
-                    confirmationText !== 'TRANSFERIR' && styles.buttonDisabled,
-                  ]}
-                  onPress={handleConfirmTransfer}
-                  disabled={confirmationText !== 'TRANSFERIR' || transferring}
-                >
-                  {transferring ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.buttonText}>Confirmar Transferência</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        ) : (
-          <>
-            {/* Lista de Gestores Elegíveis */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                Selecione o Novo Gestor Principal
-              </Text>
-              <Text style={styles.sectionSubtitle}>
-                Apenas gestores ativos podem receber a gestão principal.
-              </Text>
-
-              {gestores.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Text style={styles.emptyStateText}>
-                    Nenhum gestor elegível encontrado
-                  </Text>
-                  <Text style={styles.emptyStateSubtext}>
-                    Você precisa ter pelo menos outro gestor ativo na unidade para
-                    transferir a gestão.
-                  </Text>
-                </View>
-              ) : (
-                gestores.map((gestor) => (
-                  <TouchableOpacity
-                    key={gestor.id}
-                    style={styles.gestorCard}
-                    onPress={() => handleSelectGestor(gestor.id)}
-                  >
-                    <View style={styles.gestorInfo}>
-                      <View style={styles.avatar}>
-                        <Text style={styles.avatarText}>
-                          {gestor.nome.charAt(0).toUpperCase()}
-                        </Text>
-                      </View>
-                      <View style={styles.gestorDetails}>
-                        <Text style={styles.gestorNome}>{gestor.nome}</Text>
-                        <Text style={styles.gestorEmail}>{gestor.email}</Text>
-                        <Text style={styles.gestorData}>
-                          Membro desde{' '}
-                          {new Date(gestor.created_at).toLocaleDateString('pt-BR')}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text style={styles.gestorArrow}>→</Text>
-                  </TouchableOpacity>
-                ))
-              )}
-            </View>
-          </>
-        )}
-      </ScrollView>
-
-      {/* Toast de Feedback */}
       <Toast {...toastState} onDismiss={hideToast} />
     </View>
   );
@@ -591,3 +628,6 @@ const styles = StyleSheet.create(theme => ({
     color: theme.colors.text,
   },
 }));
+
+
+

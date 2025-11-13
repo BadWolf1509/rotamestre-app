@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshCon
 
 import { Toast } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
-import { useUser } from '@/hooks/useUser';
+// REMOVIDO: import { useUser } from '@/hooks/useUser'; // Agora recebe userData como prop
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 import { RotaCard } from '../shared/RotaCard';
@@ -23,10 +23,11 @@ export function DashboardMobile({
   loading,
   refreshing,
   onRefresh,
+  userData, // Receber userData como prop ao invés de usar useUser
 }: DashboardMobileProps) {
   const { theme } = useUnistyles();
   const router = useRouter();
-  const { userData } = useUser();
+  // REMOVIDO: const { userData } = useUser(); // Evitar chamada duplicada
   const { toast: toastState, hideToast } = useToast();
 
   if (loading) {

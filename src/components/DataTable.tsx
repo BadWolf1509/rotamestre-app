@@ -30,6 +30,8 @@ export interface DataTableColumn<T = any> {
   align?: 'left' | 'center' | 'right';
   /** Mostrar apenas em desktop? */
   desktopOnly?: boolean;
+  /** Impedir quebra de linha e aplicar reticências */
+  noWrap?: boolean;
 }
 
 export interface DataTableAction<T = any> {
@@ -395,7 +397,14 @@ export function DataTable<T = any>({
                       column.align === 'right' && { alignItems: 'flex-end' },
                     ]}
                   >
-                    <Text style={styles.tableCellText}>
+                    <Text
+                      style={[
+                        styles.tableCellText,
+                        column.noWrap && styles.tableCellTextNoWrap,
+                      ]}
+                      numberOfLines={column.noWrap ? 1 : undefined}
+                      ellipsizeMode={column.noWrap ? 'tail' : undefined}
+                    >
                       {column.render ? column.render(item) : (item as any)[column.key]}
                     </Text>
                   </View>
@@ -626,6 +635,15 @@ const styles = StyleSheet.create(theme => ({
   tableCellText: {
     fontSize: 14,
     color: theme.colors.gray900,
+  },
+  tableCellTextNoWrap: {
+    ...(Platform.OS === 'web'
+      ? {
+          whiteSpace: 'nowrap',
+          textOverflow: 'ellipsis',
+          overflow: 'hidden',
+        }
+      : {}),
   },
   tableCellActions: {
     flexDirection: 'row',

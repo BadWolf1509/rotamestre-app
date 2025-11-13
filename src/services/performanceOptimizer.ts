@@ -1,6 +1,6 @@
-import { InteractionManager, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import { InteractionManager, Platform } from 'react-native';
 
 /**
  * Performance Optimizer Service
@@ -34,10 +34,10 @@ class PerformanceOptimizer {
   private static instance: PerformanceOptimizer;
   private metrics: PerformanceMetrics;
   private settings: OptimizationSettings;
-  private cache: Map<string, { data: any; timestamp: number; size: number }>;
+  private cache: Map<string, { data: any; timestamp: number; size: number; ttl: number }>;
   private requestQueue: Map<string, Promise<any>>;
   private pendingBatch: { endpoint: string; params: any; resolve: Function; reject: Function }[];
-  private batchTimer: NodeJS.Timeout | null = null;
+  private batchTimer: ReturnType<typeof setTimeout> | null = null;
   private isOnline: boolean = true;
 
   private constructor() {
@@ -149,7 +149,7 @@ class PerformanceOptimizer {
 
     const size = JSON.stringify(data).length / 1024; // Size in KB
     const timestamp = Date.now();
-    const expirationTime = ttl || this.settings.cacheConfig.ttl;
+    const effectiveTtl = ttl ?? this.settings.cacheConfig.ttl;
 
     // Check cache size limit
     const currentSize = this.calculateCacheSize();
@@ -157,7 +157,7 @@ class PerformanceOptimizer {
       this.cleanupCache();
     }
 
-    this.cache.set(key, { data, timestamp, size });
+    this.cache.set(key, { data, timestamp, size, ttl: effectiveTtl });
 
     // Also persist important data to AsyncStorage for offline access
     if (this.settings.enableOfflineMode) {
@@ -177,7 +177,7 @@ class PerformanceOptimizer {
     const cached = this.cache.get(key);
     if (cached) {
       const age = Date.now() - cached.timestamp;
-      if (age < this.settings.cacheConfig.ttl) {
+      if (age < cached.ttl) {
         // Update access time for LRU
         if (this.settings.cacheConfig.strategy === 'LRU') {
           cached.timestamp = Date.now();

@@ -198,13 +198,9 @@ const styles = StyleSheet.create(theme => ({
   },
   content: {
     backgroundColor: theme.colors.white,
-    borderRadius: 12,
+    borderRadius: theme.borderRadius.lg,
     padding: 24,
-    shadowColor: theme.colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    ...theme.shadows.md,
   },
   contentDesktop: {
     maxWidth: 500,
@@ -212,12 +208,13 @@ const styles = StyleSheet.create(theme => ({
     width: '100%',
   },
   title: {
+    fontFamily: theme.typography.fontDisplay,
     fontSize: 24,
-    fontWeight: 'bold',
     color: theme.colors.gray900,
     marginBottom: 8,
   },
   subtitle: {
+    fontFamily: theme.typography.fontSans,
     fontSize: 14,
     color: theme.colors.gray500,
     marginBottom: 24,
@@ -227,8 +224,8 @@ const styles = StyleSheet.create(theme => ({
     gap: 20,
   },
   label: {
+    fontFamily: theme.typography.fontSansSemiBold,
     fontSize: 14,
-    fontWeight: '600',
     color: theme.colors.gray700,
     marginBottom: 8,
   },
@@ -238,6 +235,7 @@ const styles = StyleSheet.create(theme => ({
     borderRadius: 8,
     padding: 15,
     fontSize: 16,
+    fontFamily: theme.typography.fontSans,
     backgroundColor: theme.colors.white,
   },
   tipoContainer: {
@@ -255,14 +253,15 @@ const styles = StyleSheet.create(theme => ({
   },
   tipoButtonActive: {
     borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.blue50,
+    backgroundColor: theme.colors.primaryBg,
   },
   tipoButtonText: {
+    fontFamily: theme.typography.fontSansSemiBold,
     fontSize: 16,
     color: theme.colors.gray500,
-    fontWeight: '600',
   },
   tipoButtonTextActive: {
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.primary,
   },
   button: {
@@ -275,7 +274,8 @@ const styles = StyleSheet.create(theme => ({
   buttonText: {
     color: theme.colors.white,
     fontSize: 16,
-    fontWeight: '600',
+    letterSpacing: 0.5,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   backLink: {
     marginTop: 16,
@@ -284,6 +284,6 @@ const styles = StyleSheet.create(theme => ({
   backLinkText: {
     color: theme.colors.primary,
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: theme.typography.fontSansMedium,
   },
 }));

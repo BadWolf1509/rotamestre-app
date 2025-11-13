@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 
+import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { StyleSheet } from '@/utils/styles';
@@ -69,16 +70,7 @@ export default function ResetPassword() {
       <View style={styles.containerDesktop}>
         {/* Left Side - Branding */}
         <View style={styles.leftPanel}>
-          <View style={[styles.imageWrapper, { backgroundColor: '#004E89' }]}>
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 }}>
-              <Text style={{ fontSize: 48, fontWeight: 'bold', color: '#FF6B35', marginBottom: 20 }}>
-                Rota Mestre
-              </Text>
-              <Text style={{ fontSize: 20, color: 'white', textAlign: 'center' }}>
-                Otimização inteligente de rotas
-              </Text>
-            </View>
-          </View>
+          <AuthBrandPanel />
         </View>
 
         {/* Right Side - Form */}
@@ -132,7 +124,7 @@ export default function ResetPassword() {
                 style={styles.backButton}
                 onPress={() => router.replace('/auth/login')}
               >
-                <Text style={styles.backButtonText}>← Voltar para login</Text>
+                <Text style={styles.backButtonText}>Voltar para login</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -192,7 +184,7 @@ export default function ResetPassword() {
           style={styles.backButton}
           onPress={() => router.replace('/auth/login')}
         >
-          <Text style={styles.backButtonText}>← Voltar para login</Text>
+        <Text style={styles.backButtonText}>Voltar para login</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -200,19 +192,13 @@ export default function ResetPassword() {
 }
 
 const styles = StyleSheet.create(theme => ({
-  // ============================================
-  // DESKTOP STYLES
-  // ============================================
   containerDesktop: {
     flex: 1,
     flexDirection: 'row',
   },
   leftPanel: {
     flex: 1,
-    backgroundColor: '#004E89',
-  },
-  imageWrapper: {
-    flex: 1,
+    backgroundColor: theme.colors.primary,
   },
   rightPanel: {
     flex: 1,
@@ -229,12 +215,13 @@ const styles = StyleSheet.create(theme => ({
     marginBottom: 40,
   },
   titleDesktop: {
+    fontFamily: theme.typography.fontDisplay,
     fontSize: 32,
-    fontWeight: 'bold',
     color: theme.colors.gray900,
     marginBottom: 10,
   },
   subtitleDesktop: {
+    fontFamily: theme.typography.fontSans,
     fontSize: 16,
     color: theme.colors.gray500,
     lineHeight: 24,
@@ -243,8 +230,8 @@ const styles = StyleSheet.create(theme => ({
     marginBottom: 24,
   },
   inputLabel: {
+    fontFamily: theme.typography.fontSansSemiBold,
     fontSize: 14,
-    fontWeight: '600',
     color: theme.colors.gray700,
     marginBottom: 8,
   },
@@ -254,20 +241,18 @@ const styles = StyleSheet.create(theme => ({
     borderRadius: 8,
     padding: 14,
     fontSize: 16,
+    fontFamily: theme.typography.fontSans,
     backgroundColor: theme.colors.white,
     color: theme.colors.gray900,
   },
   buttonDesktop: {
-    backgroundColor: theme.colors.secondary,
+    backgroundColor: theme.colors.primary,
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     marginTop: 8,
+    ...theme.shadows.md,
   },
-
-  // ============================================
-  // MOBILE STYLES
-  // ============================================
   container: {
     flex: 1,
     backgroundColor: theme.colors.white,
@@ -286,6 +271,7 @@ const styles = StyleSheet.create(theme => ({
     height: 60,
   },
   subtitle: {
+    fontFamily: theme.typography.fontSans,
     fontSize: 18,
     color: theme.colors.gray600,
     textAlign: 'center',
@@ -299,21 +285,24 @@ const styles = StyleSheet.create(theme => ({
     borderRadius: 8,
     padding: 16,
     fontSize: 16,
+    fontFamily: theme.typography.fontSans,
     marginBottom: 16,
     backgroundColor: theme.colors.white,
     color: theme.colors.gray900,
   },
   button: {
-    backgroundColor: theme.colors.secondary,
+    backgroundColor: theme.colors.primary,
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     marginBottom: 16,
+    ...theme.shadows.sm,
   },
   buttonText: {
     color: theme.colors.white,
     fontSize: 16,
-    fontWeight: '600',
+    letterSpacing: 0.5,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   backButton: {
     alignItems: 'center',
@@ -322,6 +311,7 @@ const styles = StyleSheet.create(theme => ({
   backButtonText: {
     color: theme.colors.primary,
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: theme.typography.fontSansMedium,
   },
 }));
+

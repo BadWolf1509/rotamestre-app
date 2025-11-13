@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { BlurView } from 'expo-blur';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Image,
   View,
@@ -8,11 +9,12 @@ import {
   Animated,
   Platform,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
+
+import PerformanceOptimizer from '@/services/performanceOptimizer';
+
 // Import file system conditionally for native only
 const FileSystem = Platform.OS !== 'web' ? require('expo-file-system') : null;
 const Crypto = Platform.OS !== 'web' ? require('expo-crypto') : null;
-import PerformanceOptimizer from '@/services/performanceOptimizer';
 
 interface OptimizedImageProps extends Omit<ImageProps, 'source'> {
   source: { uri: string } | number;
@@ -60,18 +62,7 @@ export function OptimizedImage({
     };
   }, []);
 
-  useEffect(() => {
-    if (typeof source === 'number') {
-      // Local image, no optimization needed
-      setImageSource(source);
-      setIsLoading(false);
-      return;
-    }
-
-    loadImage();
-  }, [source]);
-
-  const loadImage = async () => {
+  const loadImage = useCallback(async () => {
     if (typeof source === 'number') return;
 
     const { uri } = source;
@@ -147,9 +138,22 @@ export function OptimizedImage({
         onLoadEnd?.();
       }
     }
-  };
+  }, [
+    animateImageLoad,
+    downloadAndCacheImage,
+    enableCache,
+    enableLazyLoad,
+    getCachedImage,
+    height,
+    onLoadEnd,
+    onLoadStart,
+    onError,
+    priority,
+    source,
+    width,
+  ]);
 
-  const getCachedImage = async (uri: string): Promise<string | null> => {
+  const getCachedImage = useCallback(async (uri: string): Promise<string | null> => {
     if (Platform.OS === 'web' || !FileSystem || !Crypto) {
       return null;
     }
@@ -175,46 +179,62 @@ export function OptimizedImage({
       console.error('Error checking cache:', error);
     }
     return null;
-  };
+  }, []);
 
-  const downloadAndCacheImage = async (uri: string): Promise<string | null> => {
-    if (Platform.OS === 'web' || !FileSystem || !Crypto) {
+  const downloadAndCacheImage = useCallback(
+    async (
+      uri: string
+    ): Promise<string | null> => {
+      if (Platform.OS === 'web' || !FileSystem || !Crypto) {
+        return null;
+      }
+
+      try {
+        // Ensure cache directory exists
+        const dirInfo = await FileSystem.getInfoAsync(CACHE_DIR);
+        if (!dirInfo.exists) {
+          await FileSystem.makeDirectoryAsync(CACHE_DIR, { intermediates: true });
+        }
+
+        // Generate cache key
+        const cacheKey = await Crypto.digestStringAsync(
+          Crypto.CryptoDigestAlgorithm.MD5,
+          uri
+        );
+        const cacheFilePath = `${CACHE_DIR}${cacheKey}.jpg`;
+
+        // Download image
+        const downloadResult = await FileSystem.downloadAsync(uri, cacheFilePath);
+
+        if (downloadResult.status === 200) {
+          return downloadResult.uri;
+        }
+      } catch (error) {
+        console.error('Error caching image:', error);
+      }
       return null;
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (typeof source === 'number') {
+      // Local image, no optimization needed
+      setImageSource(source);
+      setIsLoading(false);
+      return;
     }
 
-    try {
-      // Ensure cache directory exists
-      const dirInfo = await FileSystem.getInfoAsync(CACHE_DIR);
-      if (!dirInfo.exists) {
-        await FileSystem.makeDirectoryAsync(CACHE_DIR, { intermediates: true });
-      }
+    loadImage();
+  }, [loadImage, source]);
 
-      // Generate cache key
-      const cacheKey = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.MD5,
-        uri
-      );
-      const cacheFilePath = `${CACHE_DIR}${cacheKey}.jpg`;
-
-      // Download image
-      const downloadResult = await FileSystem.downloadAsync(uri, cacheFilePath);
-
-      if (downloadResult.status === 200) {
-        return downloadResult.uri;
-      }
-    } catch (error) {
-      console.error('Error caching image:', error);
-    }
-    return null;
-  };
-
-  const animateImageLoad = () => {
+  const animateImageLoad = useCallback(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 300,
       useNativeDriver: true,
     }).start();
-  };
+  }, [fadeAnim]);
 
   const handleError = (err: any) => {
     setError(true);

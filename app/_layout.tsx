@@ -14,12 +14,12 @@ import React, { useEffect } from 'react';
 import { Platform, Text, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 
-import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
 import { DevOverlay } from '@/components/DevOverlay';
 import { DevToolsInitializer } from '@/components/DevToolsInitializer';
+import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUser } from '@/hooks/useUser';
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 // Inicializar Unistyles v3 ANTES de qualquer componente (apenas native)
 if (Platform.OS !== 'web') {
@@ -57,7 +57,7 @@ function ConditionalLayout({ children }: { children: React.ReactNode }) {
   if (showSidebar) {
     return (
       <View style={styles.desktopLayout}>
-        <Sidebar />
+        <Sidebar userData={userData} />
         <View style={styles.content}>
           {children}
         </View>
@@ -69,6 +69,7 @@ function ConditionalLayout({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout() {
+  const { theme } = useUnistyles();
   // Carregar fontes customizadas
   const [fontsLoaded, fontError] = useFonts({
     // Nunito Sans (todos os pesos)
@@ -130,11 +131,12 @@ export default function RootLayout() {
         <Stack
           screenOptions={{
             headerStyle: {
-              backgroundColor: '#2563eb',
+              backgroundColor: theme.colors.primary,
             },
-            headerTintColor: '#fff',
+            headerTintColor: theme.colors.white,
             headerTitleStyle: {
-              fontWeight: 'bold',
+              fontFamily: theme.typography.fontDisplay,
+              fontSize: theme.typography.lg,
             },
             headerShown: false,
           }}
@@ -167,40 +169,8 @@ export default function RootLayout() {
       </ConditionalLayout>
       <Toast
         config={{
-          success: ({ text1, text2 }) => (
-            <View style={{
-              backgroundColor: '#10b981',
-              padding: 16,
-              borderRadius: 8,
-              marginHorizontal: 20,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.25,
-              shadowRadius: 3.84,
-              elevation: 5,
-              minWidth: 300,
-            }}>
-              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{text1}</Text>
-              {text2 && <Text style={{ color: '#fff', fontSize: 14, marginTop: 4 }}>{text2}</Text>}
-            </View>
-          ),
-          error: ({ text1, text2 }) => (
-            <View style={{
-              backgroundColor: '#ef4444',
-              padding: 16,
-              borderRadius: 8,
-              marginHorizontal: 20,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.25,
-              shadowRadius: 3.84,
-              elevation: 5,
-              minWidth: 300,
-            }}>
-              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{text1}</Text>
-              {text2 && <Text style={{ color: '#fff', fontSize: 14, marginTop: 4 }}>{text2}</Text>}
-            </View>
-          ),
+          success: ({ text1, text2 }) => renderToast(theme.colors.success, text1, text2),
+          error: ({ text1, text2 }) => renderToast(theme.colors.error, text1, text2),
         }}
       />
       {/* DevTools Initializer */}
@@ -208,6 +178,15 @@ export default function RootLayout() {
       {/* DevOverlay apenas em desenvolvimento web */}
       {__DEV__ && Platform.OS === 'web' && <DevOverlay />}
     </>
+  );
+}
+
+function renderToast(backgroundColor: string, title?: string, message?: string) {
+  return (
+    <View style={[styles.toastContainer, { backgroundColor }]}>
+      {title ? <Text style={styles.toastTitle}>{title}</Text> : null}
+      {message ? <Text style={styles.toastMessage}>{message}</Text> : null}
+    </View>
   );
 }
 
@@ -220,6 +199,23 @@ const styles = StyleSheet.create(theme => ({
   },
   content: {
     flex: 1,
-    overflow: 'hidden',
+  },
+  toastContainer: {
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
+    marginHorizontal: theme.spacing['3xl'],
+    minWidth: 300,
+    ...theme.shadows.md,
+  },
+  toastTitle: {
+    fontFamily: theme.typography.fontSansBold,
+    fontSize: theme.typography.fontSize.lg,
+    color: theme.colors.white,
+  },
+  toastMessage: {
+    marginTop: theme.spacing.xs,
+    fontFamily: theme.typography.fontSans,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.white,
   },
 }));

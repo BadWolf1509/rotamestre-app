@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 
+import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { PerfilDesktopLayout } from '@/components/perfil/PerfilDesktopLayout';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
@@ -136,13 +137,18 @@ export default function PerfilGestor() {
   // Renderizar layout desktop para telas grandes
   if (isDesktop) {
     return (
-      <PerfilDesktopLayout
-        usuario={usuario}
+      <DesktopPageLayout
+        title="Meu Perfil"
+        subtitle="Gerencie suas informações pessoais e configurações"
         loading={loading}
-        uploadingPhoto={uploadingPhoto}
-        onSelectPhoto={handleSelectPhoto}
-        atividade={atividadeRecente}
-      />
+      >
+        <PerfilDesktopLayout
+          usuario={usuario}
+          uploadingPhoto={uploadingPhoto}
+          onSelectPhoto={handleSelectPhoto}
+          atividade={atividadeRecente}
+        />
+      </DesktopPageLayout>
     );
   }
 

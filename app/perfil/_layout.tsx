@@ -3,8 +3,8 @@ import { Stack, Slot } from 'expo-router';
 import { Pressable } from 'react-native';
 
 import { DrawerMenuProvider, useDrawerMenu } from '@/context/DrawerMenuContext';
-import { useUnistyles } from '@/utils/styles';
 import { useResponsive } from '@/hooks/useResponsive';
+import { useUnistyles } from '@/utils/styles';
 
 export default function PerfilGestorLayout() {
   const { isDesktop } = useResponsive();

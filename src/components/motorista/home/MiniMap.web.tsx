@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useUnistyles } from '@/utils/styles';
+import React from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-const { width: screenWidth } = Dimensions.get('window');
+import { defaultTheme, useUnistyles } from '@/utils/styles';
+
+const colors = defaultTheme.colors;
 
 interface MiniMapProps {
   paradas: any[];
   userLocation?: { latitude: number; longitude: number };
   expanded?: boolean;
   onToggleExpand?: () => void;
-  onOpenFullMap?: () => void;
   onOpenPiP?: () => void;
 }
 
@@ -19,7 +19,6 @@ export function MiniMap({
   userLocation,
   expanded = false,
   onToggleExpand,
-  onOpenFullMap,
   onOpenPiP,
 }: MiniMapProps) {
   const { theme } = useUnistyles();
@@ -97,7 +96,7 @@ export function MiniMap({
                   <View key={parada.id} style={styles.stopItem}>
                     <View style={[
                       styles.stopMarker,
-                      index === 0 && { backgroundColor: '#f59e0b' }
+                      index === 0 && { backgroundColor: colors.warning }
                     ]}>
                       <Text style={styles.stopNumber}>{parada.ordem}</Text>
                     </View>
@@ -113,7 +112,7 @@ export function MiniMap({
           {/* Overlay with info */}
           <View style={styles.overlay}>
             <View style={styles.infoBox}>
-              <Text style={styles.infoText}>
+            <Text style={styles.infoText}>
                 {paradasPendentes.length} paradas • {Math.round(paradas.length * 2.5)} km
               </Text>
             </View>
@@ -132,7 +131,7 @@ export function MiniMap({
                 <Ionicons
                   name="copy-outline"
                   size={18}
-                  color="#fff"
+                  color={colors.white}
                 />
               </TouchableOpacity>
 
@@ -148,7 +147,7 @@ export function MiniMap({
                 <Ionicons
                   name={expanded ? 'contract' : 'expand'}
                   size={20}
-                  color="#fff"
+                  color={colors.white}
                 />
               </TouchableOpacity>
             </View>
@@ -171,11 +170,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: colors.gray200,
   },
   mapPlaceholder: {
     width: '100%',
-    backgroundColor: '#f9fafb',
+    backgroundColor: colors.gray50,
     position: 'relative',
   },
   routeInfo: {
@@ -192,7 +191,7 @@ const styles = StyleSheet.create({
   routeTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.gray900,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -205,23 +204,23 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1e5aa8',
+    color: defaultTheme.colors.primary,
   },
   statLabel: {
     fontSize: 12,
-    color: '#6b7280',
+    color: colors.gray500,
     marginTop: 4,
   },
   stopsPreview: {
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderTopColor: colors.gray200,
   },
   stopsTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.gray700,
     marginBottom: 8,
   },
   stopItem: {
@@ -233,20 +232,20 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#6b7280',
+    backgroundColor: colors.gray500,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
   },
   stopNumber: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 12,
     fontWeight: '700',
   },
   stopAddress: {
     flex: 1,
     fontSize: 12,
-    color: '#4b5563',
+    color: colors.gray600,
   },
   overlay: {
     position: 'absolute',
@@ -264,7 +263,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   infoText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -290,9 +289,12 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 11,
-    color: '#6b7280',
+    color: colors.gray500,
     textAlign: 'center',
     marginTop: 4,
     fontStyle: 'italic',
   },
 });
+
+
+

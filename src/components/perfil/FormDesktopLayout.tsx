@@ -1,14 +1,15 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
   ActivityIndicator,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface FormField {
@@ -202,8 +203,8 @@ const styles = StyleSheet.create(theme => ({
     maxWidth: 800,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: theme.typography['3xl'],
+    fontFamily: theme.typography.fontDisplay,
     color: theme.colors.gray900,
     marginBottom: 8,
   },

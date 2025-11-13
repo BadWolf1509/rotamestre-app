@@ -1,24 +1,25 @@
-import React, { useState, useRef } from 'react';
-import {
-  View,
-  Text,
-  Modal,
-  TouchableOpacity,
-  TextInput,
-  ScrollView,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Dimensions,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { Image } from 'react-native';
-import { useUnistyles } from '@/utils/styles';
-import { supabase } from '@/lib/supabase';
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
 import { storageService } from '@/lib/storage';
+import { supabase } from '@/lib/supabase';
+import { useUnistyles } from '@/utils/styles';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -463,7 +464,7 @@ export function IncidentReportWizard({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create(theme => ({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -506,7 +507,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   stepCircleActive: {
-    backgroundColor: '#1e5aa8',
+    backgroundColor: theme.colors.primary,
   },
   stepNumber: {
     fontSize: 14,
@@ -523,7 +524,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
   stepLineActive: {
-    backgroundColor: '#1e5aa8',
+    backgroundColor: theme.colors.primary,
   },
   content: {
     flex: 1,
@@ -556,8 +557,8 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   categoryCardSelected: {
-    borderColor: '#1e5aa8',
-    backgroundColor: '#f0f7ff',
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryBg,
   },
   categoryIcon: {
     width: 40,
@@ -683,7 +684,7 @@ const styles = StyleSheet.create({
   },
   nextButton: {
     flex: 1,
-    backgroundColor: '#1e5aa8',
+    backgroundColor: theme.colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
@@ -712,4 +713,4 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.5,
   },
-});
+}));

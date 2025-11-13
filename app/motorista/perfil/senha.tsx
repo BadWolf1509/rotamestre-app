@@ -357,7 +357,7 @@ const styles = (theme: any) =>
       color: theme.colors.success,
     },
     helperTextWarning: {
-      color: '#F59E0B', // Amber 500
+      color: theme.colors.warning, // Amber 500
     },
     helperTextError: {
       color: theme.colors.error,
@@ -418,3 +418,4 @@ const styles = (theme: any) =>
       opacity: 0.6,
     },
   });
+

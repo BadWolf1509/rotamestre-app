@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { useUnistyles } from '@/utils/styles';
+
+import { defaultTheme, useUnistyles } from '@/utils/styles';
 
 interface ProgressBarProps {
   completed: number;
@@ -58,6 +59,8 @@ export function ProgressBar({ completed, total, timeElapsed, estimatedTime }: Pr
   );
 }
 
+const colors = defaultTheme.colors;
+
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
@@ -72,23 +75,23 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.gray700,
   },
   percentage: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.gray900,
   },
   barContainer: {
     height: 8,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: colors.gray200,
     borderRadius: 4,
     overflow: 'hidden',
     position: 'relative',
   },
   barFill: {
     height: '100%',
-    backgroundColor: '#10b981',
+    backgroundColor: colors.success,
     borderRadius: 4,
   },
   milestone: {
@@ -96,7 +99,7 @@ const styles = StyleSheet.create({
     top: 0,
     width: 2,
     height: '100%',
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
   },
   stats: {
     flexDirection: 'row',
@@ -112,7 +115,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 11,
-    color: '#6b7280',
+    color: colors.gray500,
     marginTop: 2,
   },
 });

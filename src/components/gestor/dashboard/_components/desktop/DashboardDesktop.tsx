@@ -1,10 +1,18 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  RefreshControl,
+  Alert,
+  Platform,
+} from 'react-native';
 
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { Toast } from '@/components/Toast';
-import { useUser } from '@/hooks/useUser';
+// REMOVIDO: import { useUser } from '@/hooks/useUser'; // Agora recebe userData como prop
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
@@ -28,10 +36,11 @@ export function DashboardDesktop({
   loading,
   refreshing,
   onRefresh,
+  userData, // Receber userData como prop ao invés de usar useUser
 }: DashboardDesktopProps) {
   const { theme } = useUnistyles();
   const router = useRouter();
-  const { userData } = useUser();
+  // REMOVIDO: const { userData } = useUser(); // Evitar chamada duplicada
 
   // Estado para modal de confirmação
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -117,50 +126,33 @@ export function DashboardDesktop({
     setRotaToDelete(null);
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primaryDark} />
-        <Text style={styles.loadingText}>Carregando dashboard...</Text>
+  const headerExtra = (
+    <View style={styles.userSection}>
+      <Text style={styles.userGreeting}>
+        Olá, <Text style={styles.userName}>{userData?.nome}</Text>
+      </Text>
+      <View style={styles.userAvatar}>
+        <Text style={styles.userAvatarText}>
+          {userData?.nome?.charAt(0).toUpperCase()}
+        </Text>
       </View>
-    );
-  }
+    </View>
+  );
 
   return (
     <>
-      <ScrollView
-        style={styles.scrollView}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+      <DesktopPageLayout
+        title="Dashboard"
+        subtitle={userData?.unidades?.nome || ''}
+        headerExtra={headerExtra}
+        loading={loading}
+        scrollViewProps={{
+          refreshControl: (
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          ),
+        }}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerContent}>
-            <View>
-              <Text style={styles.headerTitle}>
-                Dashboard
-              </Text>
-              <Text style={styles.headerSubtitle}>
-                {userData?.unidades?.nome}
-              </Text>
-            </View>
-            <View style={styles.userSection}>
-              <Text style={styles.userGreeting}>
-                Olá, <Text style={styles.userName}>{userData?.nome}</Text>
-              </Text>
-              <View style={styles.userAvatar}>
-                <Text style={styles.userAvatarText}>
-                  {userData?.nome?.charAt(0).toUpperCase()}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Content */}
         <View style={styles.content}>
-          {/* Stats Cards - Grid 4x1 Horizontal */}
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
               <StatsCard
@@ -192,73 +184,49 @@ export function DashboardDesktop({
             </View>
           </View>
 
-          {/* Ações Rápidas - Horizontal */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              Ações Rápidas
-            </Text>
+            <Text style={styles.sectionTitle}>Ações Rápidas</Text>
             <View style={styles.actionsRow}>
               <TouchableOpacity
                 style={styles.primaryAction}
                 onPress={() => router.push('/gestor/nova-entrega')}
-                activeOpacity={0.8}
               >
-                <Text style={styles.primaryActionText}>
-                  + Nova Rota de Entrega
-                </Text>
+                <Text style={styles.primaryActionText}>+ Nova Rota de Entrega</Text>
               </TouchableOpacity>
-
               <TouchableOpacity
                 style={styles.secondaryAction}
                 onPress={() => router.push('/gestor/motoristas')}
-                activeOpacity={0.8}
               >
-                <Text style={styles.secondaryActionText}>
-                  👥 Gerenciar Motoristas
-                </Text>
+                <Text style={styles.secondaryActionText}>Gerenciar Motoristas</Text>
               </TouchableOpacity>
-
               <TouchableOpacity
                 style={styles.secondaryAction}
                 onPress={() => router.push('/gestor/historico')}
-                activeOpacity={0.8}
               >
-                <Text style={styles.secondaryActionText}>
-                  📋 Ver Histórico
-                </Text>
+                <Text style={styles.secondaryActionText}>Ver Histórico</Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Tabela de Rotas */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              Rotas de Hoje
-            </Text>
-            <RotasTable
-              rotas={rotas}
-              onRotaPress={(rotaId) => {
-                router.push(`/gestor/mapa-rota?id=${rotaId}`);
-              }}
-              onDeletePress={handleDeleteRota}
-            />
-          </View>
+          <RotasTable
+            rotas={rotas}
+            onViewDetails={(rotaId) => router.push(`/gestor/mapa-rota?id=${rotaId}`)}
+            onDelete={handleDeleteRota}
+          />
         </View>
-      </ScrollView>
+      </DesktopPageLayout>
 
-      {/* Modal de Confirmação de Exclusão */}
       <ConfirmModal
         visible={showConfirmModal}
-        title="Confirmar Exclusão"
+        title="Excluir Rota"
         message="Tem certeza que deseja excluir esta rota? Esta ação não pode ser desfeita."
         confirmText="Excluir"
         cancelText="Cancelar"
-        type="danger"
+        type="destructive"
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
       />
 
-      {/* Toast de Feedback */}
       <Toast
         visible={toast.visible}
         message={toast.message}
@@ -270,43 +238,6 @@ export function DashboardDesktop({
 }
 
 const styles = StyleSheet.create(theme => ({
-  scrollView: {
-    flex: 1,
-    backgroundColor: theme.colors.gray50,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.colors.gray50,
-  },
-  loadingText: {
-    marginTop: theme.spacing.sm,
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
-  },
-  header: {
-    backgroundColor: theme.colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray200,
-    paddingHorizontal: theme.spacing['3xl'],
-    paddingVertical: theme.spacing['2xl'],
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitle: {
-    fontSize: theme.typography['3xl'],
-    fontFamily: theme.typography.fontDisplay,
-    color: theme.colors.gray900,
-  },
-  headerSubtitle: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
-    marginTop: 4,
-  },
   userSection: {
     flexDirection: 'row',
     alignItems: 'center',

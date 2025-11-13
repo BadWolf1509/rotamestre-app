@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import { useUnistyles } from '@/utils/styles';
 
-const { width: screenWidth } = Dimensions.get('window');
+import { defaultTheme } from '@/utils/styles';
+
+const colors = defaultTheme.colors;
 
 interface MiniMapProps {
   paradas: any[];
@@ -23,7 +24,6 @@ export function MiniMap({
   onOpenFullMap,
   onOpenPiP,
 }: MiniMapProps) {
-  const { theme } = useUnistyles();
   const height = expanded ? 300 : 150;
 
   // Filtrar apenas paradas pendentes
@@ -111,7 +111,7 @@ export function MiniMap({
           )}
 
           {/* Marcadores das paradas concluídas */}
-          {paradasConcluidas.map((parada, index) => (
+          {paradasConcluidas.map((parada) => (
             <Marker
               key={`concluida-${parada.id}`}
               coordinate={{
@@ -121,7 +121,7 @@ export function MiniMap({
               opacity={0.5}
             >
               <View style={[styles.marker, styles.markerConcluida]}>
-                <Ionicons name="checkmark" size={12} color="#fff" />
+                <Ionicons name="checkmark" size={12} color={colors.white} />
               </View>
             </Marker>
           ))}
@@ -150,7 +150,7 @@ export function MiniMap({
           {getRouteCoordinates().length > 1 && (
             <Polyline
               coordinates={getRouteCoordinates()}
-              strokeColor="#1e5aa8"
+              strokeColor={defaultTheme.colors.primary}
               strokeWidth={3}
               lineDashPattern={[10, 5]}
             />
@@ -179,7 +179,7 @@ export function MiniMap({
               <Ionicons
                 name="copy-outline"
                 size={18}
-                color="#fff"
+                color={colors.white}
               />
             </TouchableOpacity>
 
@@ -195,7 +195,7 @@ export function MiniMap({
               <Ionicons
                 name={expanded ? 'contract' : 'expand'}
                 size={20}
-              color="#fff"
+              color={colors.white}
             />
           </TouchableOpacity>
           </View>
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: colors.gray200,
   },
   map: {
     width: '100%',
@@ -233,13 +233,14 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   infoBox: {
-    backgroundColor: 'rgba(30, 90, 168, 0.9)',
+    backgroundColor: colors.primary,
+    opacity: 0.9,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
   },
   infoText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -256,7 +257,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pipButton: {
-    backgroundColor: 'rgba(30, 90, 168, 0.8)',
+    backgroundColor: colors.primary,
+    opacity: 0.85,
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -275,9 +277,9 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#3b82f6',
+    backgroundColor: colors.info,
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: colors.white,
   },
   marker: {
     width: 28,
@@ -286,27 +288,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: colors.white,
   },
   markerNext: {
-    backgroundColor: '#f59e0b',
+    backgroundColor: colors.warning,
   },
   markerPending: {
-    backgroundColor: '#6b7280',
+    backgroundColor: colors.gray500,
   },
   markerConcluida: {
-    backgroundColor: '#10b981',
+    backgroundColor: colors.success,
   },
   markerText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 12,
     fontWeight: '700',
   },
   hint: {
     fontSize: 11,
-    color: '#6b7280',
+    color: colors.gray500,
     textAlign: 'center',
     marginTop: 4,
     fontStyle: 'italic',
   },
 });
+
+

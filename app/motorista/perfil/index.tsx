@@ -31,10 +31,16 @@ interface Section {
   onPress?: () => void;
 }
 
+type UsuarioComUnidade = Usuario & {
+  unidades?: {
+    nome?: string;
+  };
+};
+
 export default function PerfilMotorista() {
   const { theme } = useUnistyles();
   const router = useRouter();
-  const [usuario, setUsuario] = useState<Usuario | null>(null);
+  const [usuario, setUsuario] = useState<UsuarioComUnidade | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
@@ -163,6 +169,14 @@ export default function PerfilMotorista() {
         <View style={styles(theme).roleBadge}>
           <Text style={styles(theme).roleBadgeText}>Motorista</Text>
         </View>
+        {usuario?.unidades?.nome && (
+          <View style={styles(theme).unitBadge}>
+            <Text style={styles(theme).unitBadgeLabel}>Unidade</Text>
+            <Text style={styles(theme).unitBadgeValue}>
+              {usuario.unidades.nome}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Seções */}
@@ -289,6 +303,22 @@ const styles = (theme: any) =>
       fontSize: 12,
       fontWeight: '600',
       color: theme.colors.primary,
+    },
+    unitBadge: {
+      marginTop: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: 6,
+      borderRadius: theme.borderRadius.md,
+      backgroundColor: theme.colors.gray100,
+    },
+    unitBadgeLabel: {
+      fontSize: theme.typography.xs,
+      color: theme.colors.gray500,
+    },
+    unitBadgeValue: {
+      fontSize: theme.typography.sm,
+      fontWeight: '600',
+      color: theme.colors.gray800,
     },
     section: {
       backgroundColor: theme.colors.white,

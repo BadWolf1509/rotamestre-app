@@ -1,18 +1,11 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  ActivityIndicator,
-  TouchableOpacity,
-  Alert,
-} from 'react-native';
+import { Alert, ScrollView, Text, View } from 'react-native';
 
+import { MobileHeader, MobileCard, MobileLoading, MobileEmptyState, MobileButton } from '@/components/mobile';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
-import { MobileHeader, MobileCard, MobileLoading, MobileEmptyState, MobileButton } from '@/components/mobile';
 
 interface Parada {
   id: string;

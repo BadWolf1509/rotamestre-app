@@ -1,25 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, Slot } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { Pressable } from 'react-native';
 
 import { DrawerMenuProvider, useDrawerMenu } from '@/context/DrawerMenuContext';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUnistyles } from '@/utils/styles';
-import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
 
 export default function UnidadeLayout() {
   const { isDesktop } = useResponsive();
 
-  // Desktop Layout - Sidebar fixa + conteúdo
+  // Desktop Layout - Apenas conteúdo (Sidebar já está no layout pai)
   if (isDesktop) {
-    return (
-      <View style={{ flex: 1, flexDirection: 'row', backgroundColor: '#f9fafb' }}>
-        <Sidebar />
-        <View style={{ flex: 1 }}>
-          <Slot />
-        </View>
-      </View>
-    );
+    return <Slot />;
   }
 
   // Tablet & Mobile - Drawer Menu + Stack Navigation
@@ -41,16 +33,6 @@ function UnidadeStack() {
       hitSlop={8}
     >
       <Ionicons name="menu" size={22} color={tintColor ?? theme.colors.white} />
-    </Pressable>
-  );
-
-  const renderBackButton = (navigation: any) => (
-    <Pressable
-      onPress={() => navigation.goBack()}
-      style={{ paddingHorizontal: 12, paddingVertical: 4 }}
-      hitSlop={8}
-    >
-      <Ionicons name="chevron-back" size={22} color={theme.colors.white} />
     </Pressable>
   );
 

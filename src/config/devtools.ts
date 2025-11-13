@@ -59,7 +59,7 @@ export const enablePerformanceMonitoring = () => {
 
       try {
         longTaskObserver.observe({ entryTypes: ['longtask'] });
-      } catch (e) {
+      } catch {
         // Long task observer might not be available
       }
     }

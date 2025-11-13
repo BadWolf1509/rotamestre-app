@@ -33,9 +33,11 @@ export function useUser() {
     }
   }, [userId]);
 
+  // ✅ FIX: Usar userId diretamente ao invés de loadUserData
   useEffect(() => {
     loadUserData();
-  }, [loadUserData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]); // Apenas userId, evita loop infinito
 
   return {
     userData,

@@ -12,7 +12,7 @@ import { StyleSheet, useUnistyles } from '@/utils/styles';
  * Ela detecta se o usuário está logado e redireciona automaticamente:
  *
  * - Logado como gestor → /gestor/dashboard
- * - Logado como motorista → /motorista/rota
+ * - Logado como motorista → /motorista/home
  * - Não logado → /auth/login
  *
  * Landing page institucional: www.rotamestre.tec.br
@@ -39,8 +39,8 @@ export default function Index() {
           console.log('✅ Usuário autenticado como gestor → /gestor/dashboard');
           router.replace('/gestor/dashboard');
         } else if (tipo === 'motorista') {
-          console.log('✅ Usuário autenticado como motorista → /motorista/rota');
-          router.replace('/motorista/rota');
+          console.log('✅ Usuário autenticado como motorista → /motorista/home');
+          router.replace('/motorista/home');
         } else {
           // Tipo desconhecido, vai para login
           console.warn('⚠️ Tipo de usuário desconhecido, redirecionando para login');

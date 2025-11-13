@@ -1,23 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Dimensions,
-  Alert,
-  Platform,
-  ScrollView,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import { useKeepAwake } from 'expo-keep-awake';
 import * as Location from 'expo-location';
 import * as Speech from 'expo-speech';
-import TurnByTurnNavigationService from '@/services/turnByTurnNavigation';
-import { useUnistyles } from '@/utils/styles';
-import { useKeepAwake } from 'expo-keep-awake';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Alert,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+import TurnByTurnNavigationService from '@/services/turnByTurnNavigation';
+import { defaultTheme, useUnistyles } from '@/utils/styles';
+
+const colors = defaultTheme.colors;
 
 interface TurnByTurnNavigationProps {
   origin: { latitude: number; longitude: number };
@@ -52,6 +51,11 @@ export function TurnByTurnNavigation({
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [mapView, setMapView] = useState<'north-up' | 'heading-up'>('heading-up');
+  const voiceEnabledRef = useRef(voiceEnabled);
+
+  useEffect(() => {
+    voiceEnabledRef.current = voiceEnabled;
+  }, [voiceEnabled]);
 
   // Initialize navigation
   useEffect(() => {
@@ -60,7 +64,7 @@ export function TurnByTurnNavigation({
       TurnByTurnNavigationService.reset();
       Speech.stop();
     };
-  }, []);
+  }, [initializeNavigation]);
 
   // Watch position updates
   useEffect(() => {
@@ -110,10 +114,10 @@ export function TurnByTurnNavigation({
     return () => {
       subscription?.remove();
     };
-  }, [destination]);
+  }, [destination, handleArrival, updateNavigation]);
 
   // Initialize navigation with directions
-  const initializeNavigation = async () => {
+  const initializeNavigation = useCallback(async () => {
     setIsLoading(true);
 
     const route = await TurnByTurnNavigationService.getDirections(
@@ -137,7 +141,7 @@ export function TurnByTurnNavigation({
     setRemainingTime(route.duration);
 
     // Get first instruction
-    const firstInstruction = TurnByTurnNavigationService.getCurrentInstruction(origin);
+    const firstInstruction = TurnByTurnNavigationService.getCurrentInstruction();
     setCurrentInstruction(firstInstruction);
 
     const secondInstruction = TurnByTurnNavigationService.getNextInstruction();
@@ -146,7 +150,7 @@ export function TurnByTurnNavigation({
     setIsLoading(false);
 
     // Speak initial instruction
-    if (firstInstruction?.voiceInstruction && voiceEnabled) {
+    if (firstInstruction?.voiceInstruction && voiceEnabledRef.current) {
       setTimeout(() => {
         Speech.speak(`Iniciando navegação. ${firstInstruction.voiceInstruction}`, {
           language: 'pt-BR',
@@ -155,14 +159,18 @@ export function TurnByTurnNavigation({
         });
       }, 1000);
     }
-  };
+  }, [destination, onExit, origin, voiceEnabledRef, waypoints]);
 
   // Update navigation based on position
-  const updateNavigation = async (currentLocation: { latitude: number; longitude: number }, speedMs: number) => {
-    const update = await TurnByTurnNavigationService.updateNavigation(
-      currentLocation,
-      speedMs * 3.6 // Convert to km/h
-    );
+  const updateNavigation = useCallback(
+    async (
+      currentLocation: { latitude: number; longitude: number },
+      speedMs: number
+    ) => {
+      const update = await TurnByTurnNavigationService.updateNavigation(
+        currentLocation,
+        speedMs * 3.6 // Convert to km/h
+      );
 
     setCurrentInstruction(update.currentInstruction);
     setNextInstruction(update.nextInstruction);
@@ -172,14 +180,20 @@ export function TurnByTurnNavigation({
     setRemainingTime(TurnByTurnNavigationService.getRemainingTime());
 
     // Speak instruction if needed
-    if (update.shouldSpeak && update.currentInstruction?.voiceInstruction && voiceEnabled) {
+    if (
+      update.shouldSpeak &&
+      update.currentInstruction?.voiceInstruction &&
+      voiceEnabledRef.current
+    ) {
       TurnByTurnNavigationService.speakInstruction(update.currentInstruction.voiceInstruction);
     }
-  };
+  },
+    [voiceEnabledRef]
+  );
 
   // Handle arrival at destination
-  const handleArrival = () => {
-    Speech.speak('Você chegou ao seu destino', {
+  const handleArrival = useCallback(() => {
+    Speech.speak('Voce chegou ao seu destino', {
       language: 'pt-BR',
       pitch: 1.0,
       rate: 0.9,
@@ -188,22 +202,22 @@ export function TurnByTurnNavigation({
     setTimeout(() => {
       onArrive();
     }, 2000);
-  };
+  }, [onArrive]);
 
   // Calculate distance
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371000;
-    const φ1 = (lat1 * Math.PI) / 180;
-    const φ2 = (lat2 * Math.PI) / 180;
-    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+    const EARTH_RADIUS = 6371000;
+    const phi1 = (lat1 * Math.PI) / 180;
+    const phi2 = (lat2 * Math.PI) / 180;
+    const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+    const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
 
     const a =
-      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+      Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+      Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-    return R * c;
+    return EARTH_RADIUS * c;
   };
 
   // Format distance
@@ -312,7 +326,7 @@ export function TurnByTurnNavigation({
           title={destination.address}
         >
           <View style={styles.destinationMarker}>
-            <Ionicons name="flag" size={24} color="#dc2626" />
+            <Ionicons name="flag" size={24} color={colors.error} />
           </View>
         </Marker>
       </MapView>
@@ -324,7 +338,7 @@ export function TurnByTurnNavigation({
             <Ionicons
               name={getManeuverIcon(currentInstruction?.maneuver) as any}
               size={40}
-              color="#fff"
+              color={colors.white}
             />
           </View>
 
@@ -343,7 +357,7 @@ export function TurnByTurnNavigation({
             <Ionicons
               name={getManeuverIcon(nextInstruction.maneuver) as any}
               size={16}
-              color="#9ca3af"
+              color={colors.gray400}
             />
             <Text style={styles.nextInstructionText}>
               Depois: {nextInstruction.instruction}
@@ -390,12 +404,12 @@ export function TurnByTurnNavigation({
             <Ionicons
               name={voiceEnabled ? 'volume-high' : 'volume-mute'}
               size={24}
-              color={voiceEnabled ? theme.colors.primary : '#9ca3af'}
+              color={voiceEnabled ? theme.colors.primary : colors.gray400}
             />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.exitButton} onPress={onExit}>
-            <Ionicons name="close" size={24} color="#fff" />
+            <Ionicons name="close" size={24} color={colors.white} />
             <Text style={styles.exitButtonText}>Sair</Text>
           </TouchableOpacity>
 
@@ -420,11 +434,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
   },
   loadingText: {
     fontSize: 16,
-    color: '#6b7280',
+    color: colors.gray500,
   },
   map: {
     flex: 1,
@@ -434,9 +448,9 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#1e5aa8',
+    backgroundColor: defaultTheme.colors.primary,
     paddingTop: Platform.OS === 'ios' ? 50 : 30,
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -463,12 +477,12 @@ const styles = StyleSheet.create({
   distanceText: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.white,
     marginBottom: 4,
   },
   instructionMainText: {
     fontSize: 16,
-    color: '#fff',
+    color: colors.white,
     opacity: 0.95,
   },
   nextInstructionBar: {
@@ -482,7 +496,7 @@ const styles = StyleSheet.create({
   },
   nextInstructionText: {
     fontSize: 12,
-    color: '#e5e7eb',
+    color: colors.gray200,
     marginLeft: 8,
   },
   bottomPanel: {
@@ -490,11 +504,11 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: Platform.OS === 'ios' ? 30 : 20,
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
@@ -502,14 +516,14 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: 4,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: colors.gray200,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#10b981',
+    backgroundColor: colors.success,
   },
   statsRow: {
     flexDirection: 'row',
@@ -524,17 +538,17 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.gray900,
   },
   statLabel: {
     fontSize: 11,
-    color: '#6b7280',
+    color: colors.gray500,
     marginTop: 2,
   },
   statSeparator: {
     width: 1,
     height: 30,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: colors.gray200,
   },
   controls: {
     flexDirection: 'row',
@@ -543,13 +557,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderTopColor: colors.gray200,
   },
   controlButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.gray100,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -559,25 +573,27 @@ const styles = StyleSheet.create({
   exitButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#dc2626',
+    backgroundColor: colors.error,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 24,
     gap: 8,
   },
   exitButtonText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 16,
     fontWeight: '600',
   },
   destinationMarker: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderRadius: 20,
     padding: 8,
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 5,
   },
 });
+
+

@@ -1,5 +1,6 @@
 import { View, Text, TouchableOpacity, ScrollView, Platform } from 'react-native';
 
+import EmptyState from '@/components/EmptyState';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 import type { RotaResumo } from '../../dashboard/_hooks/useDashboardData';
@@ -49,14 +50,12 @@ export function RotasTable({ rotas, onRotaPress, onDeletePress }: RotasTableProp
 
   if (rotas.length === 0) {
     return (
-      <View style={styles.emptyState}>
-        <Text style={styles.emptyStateTitle}>
-          Nenhuma rota cadastrada hoje
-        </Text>
-        <Text style={styles.emptyStateSubtitle}>
-          Crie sua primeira rota de entrega
-        </Text>
-      </View>
+      <EmptyState
+        icon="map-outline"
+        title="Nenhuma rota cadastrada hoje"
+        description="Crie sua primeira rota de entrega"
+        style={styles.emptyState}
+      />
     );
   }
 
@@ -399,16 +398,5 @@ const styles = StyleSheet.create(theme => ({
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
     borderColor: theme.colors.gray200,
-    alignItems: 'center',
-  },
-  emptyStateTitle: {
-    fontSize: theme.typography.base,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray700,
-    marginBottom: theme.spacing.sm,
-  },
-  emptyStateSubtitle: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
   },
 }));

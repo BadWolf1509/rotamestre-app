@@ -11,12 +11,13 @@ import {
   Platform,
 } from 'react-native';
 
+import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { Toast } from '@/components/Toast';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface Membro {
   id: string;
@@ -29,6 +30,7 @@ interface Membro {
 }
 
 export default function EquipeScreen() {
+  const { theme } = useUnistyles();
   const router = useRouter();
   const { userData, loading: userLoading } = useUser();
   const { toast: toastState, showToast, hideToast } = useToast();
@@ -38,6 +40,8 @@ export default function EquipeScreen() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPapel, setFilterPapel] = useState<'todos' | 'gestor' | 'motorista'>('todos');
+  const isDesktopView = isDesktop || isLargeDesktop;
+  const isLoading = userLoading || loading;
 
   const loadMembros = useCallback(async () => {
     const unidadeId = userData?.unidade_id;
@@ -139,164 +143,164 @@ export default function EquipeScreen() {
   }
 
   function getPapelColor(papel: string): string {
-    return papel === 'gestor' ? '#1e5aa8' : '#10b981';
-  }
-
-  if (userLoading || loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0D5A9C" />
-        <Text style={styles.loadingText}>Carregando equipe...</Text>
-      </View>
-    );
+    return papel === 'gestor' ? theme.colors.primary : theme.colors.success;
   }
 
   const isGestorPrincipal = userData?.is_gestor_principal === true;
   const ativos = membros.filter((m) => m.ativo).length;
   const inativos = membros.filter((m) => !m.ativo).length;
 
-  return (
-    <View style={styles.container}>
-
-      {/* Stats */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{membros.length}</Text>
-          <Text style={styles.statLabel}>Total</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={[styles.statValue, { color: '#10b981' }]}>{ativos}</Text>
-          <Text style={styles.statLabel}>Ativos</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={[styles.statValue, { color: '#ef4444' }]}>{inativos}</Text>
-          <Text style={styles.statLabel}>Inativos</Text>
-        </View>
+  const statsSection = (
+    <View style={styles.statsContainer}>
+      <View style={styles.statCard}>
+        <Text style={styles.statValue}>{membros.length}</Text>
+        <Text style={styles.statLabel}>Total</Text>
       </View>
-
-      {/* Busca */}
-      <View style={styles.searchSection}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Buscar por nome ou e-mail..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
+      <View style={styles.statCard}>
+        <Text style={[styles.statValue, styles.statValuePositive]}>{ativos}</Text>
+        <Text style={styles.statLabel}>Ativos</Text>
       </View>
+      <View style={styles.statCard}>
+        <Text style={[styles.statValue, styles.statValueNegative]}>{inativos}</Text>
+        <Text style={styles.statLabel}>Inativos</Text>
+      </View>
+    </View>
+  );
 
-      {/* Filtros */}
-      <View style={styles.filterSection}>
-        <TouchableOpacity
+  const searchSection = (
+    <View style={styles.searchSection}>
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Buscar por nome ou e-mail..."
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+      />
+    </View>
+  );
+
+  const filterSection = (
+    <View style={styles.filterSection}>
+      <TouchableOpacity
+        style={[
+          styles.filterButton,
+          filterPapel === 'todos' && styles.filterButtonActive,
+        ]}
+        onPress={() => setFilterPapel('todos')}
+      >
+        <Text
           style={[
-            styles.filterButton,
-            filterPapel === 'todos' && styles.filterButtonActive,
+            styles.filterButtonText,
+            filterPapel === 'todos' && styles.filterButtonTextActive,
           ]}
-          onPress={() => setFilterPapel('todos')}
         >
-          <Text
+          Todos
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          styles.filterButton,
+          filterPapel === 'gestor' && styles.filterButtonActive,
+        ]}
+        onPress={() => setFilterPapel('gestor')}
+      >
+        <Text
+          style={[
+            styles.filterButtonText,
+            filterPapel === 'gestor' && styles.filterButtonTextActive,
+          ]}
+        >
+          Gestores
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          styles.filterButton,
+          filterPapel === 'motorista' && styles.filterButtonActive,
+        ]}
+        onPress={() => setFilterPapel('motorista')}
+      >
+        <Text
+          style={[
+            styles.filterButtonText,
+            filterPapel === 'motorista' && styles.filterButtonTextActive,
+          ]}
+        >
+          Motoristas
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderMembersSection = (useDesktopLayout: boolean) => {
+    if (filteredMembros.length === 0) {
+      const emptyState = (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyStateText}>
+            {searchQuery ? 'Nenhum membro encontrado' : 'Nenhum membro na equipe'}
+          </Text>
+        </View>
+      );
+
+      return useDesktopLayout ? (
+        <View style={styles.listContainer}>{emptyState}</View>
+      ) : (
+        <ScrollView style={styles.listContainer}>{emptyState}</ScrollView>
+      );
+    }
+
+    const cards = (
+      <View style={useDesktopLayout ? styles.gridContainer : undefined}>
+        {filteredMembros.map((membro) => (
+          <View
+            key={membro.id}
             style={[
-              styles.filterButtonText,
-              filterPapel === 'todos' && styles.filterButtonTextActive,
+              styles.membroCard,
+              !membro.ativo && styles.membroCardInativo,
+              useDesktopLayout && styles.membroCardGrid,
             ]}
           >
-            Todos
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.filterButton,
-            filterPapel === 'gestor' && styles.filterButtonActive,
-          ]}
-          onPress={() => setFilterPapel('gestor')}
-        >
-          <Text
-            style={[
-              styles.filterButtonText,
-              filterPapel === 'gestor' && styles.filterButtonTextActive,
-            ]}
-          >
-            Gestores
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.filterButton,
-            filterPapel === 'motorista' && styles.filterButtonActive,
-          ]}
-          onPress={() => setFilterPapel('motorista')}
-        >
-          <Text
-            style={[
-              styles.filterButtonText,
-              filterPapel === 'motorista' && styles.filterButtonTextActive,
-            ]}
-          >
-            Motoristas
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Lista de Membros */}
-      <ScrollView style={styles.listContainer}>
-        {filteredMembros.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>
-              {searchQuery ? 'Nenhum membro encontrado' : 'Nenhum membro na equipe'}
-            </Text>
-          </View>
-        ) : (
-          <View style={(isDesktop || isLargeDesktop) ? styles.gridContainer : undefined}>
-            {filteredMembros.map((membro) => (
-            <View
-              key={membro.id}
-              style={[
-                styles.membroCard,
-                !membro.ativo && styles.membroCardInativo,
-                (isDesktop || isLargeDesktop) && styles.membroCardGrid,
-              ]}
-            >
-              {/* Avatar e Info */}
-              <View style={styles.membroHeader}>
-                <View
-                  style={[
-                    styles.avatar,
-                    { backgroundColor: getPapelColor(membro.papel) },
-                  ]}
-                >
-                  <Text style={styles.avatarText}>
-                    {membro.nome.charAt(0).toUpperCase()}
+            <View style={styles.membroHeader}>
+              <View
+                style={[
+                  styles.avatar,
+                  { backgroundColor: getPapelColor(membro.papel) },
+                ]}
+              >
+                <Text style={styles.avatarText}>
+                  {membro.nome.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.membroInfo}>
+                <View style={styles.membroNameRow}>
+                  <Text style={styles.membroNome}>{membro.nome}</Text>
+                  {membro.is_gestor_principal && (
+                    <View style={styles.principalBadge}>
+                      <Text style={styles.principalBadgeText}>⭐</Text>
+                    </View>
+                  )}
+                  {!membro.ativo && (
+                    <View style={styles.inativoBadge}>
+                      <Text style={styles.inativoBadgeText}>Inativo</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.membroEmail}>{membro.email}</Text>
+                <View style={styles.papelBadge}>
+                  <Text
+                    style={[
+                      styles.papelBadgeText,
+                      { color: getPapelColor(membro.papel) },
+                    ]}
+                  >
+                    {getPapelLabel(membro.papel)}
                   </Text>
                 </View>
-                <View style={styles.membroInfo}>
-                  <View style={styles.membroNameRow}>
-                    <Text style={styles.membroNome}>{membro.nome}</Text>
-                    {membro.is_gestor_principal && (
-                      <View style={styles.principalBadge}>
-                        <Text style={styles.principalBadgeText}>⭐</Text>
-                      </View>
-                    )}
-                    {!membro.ativo && (
-                      <View style={styles.inativoBadge}>
-                        <Text style={styles.inativoBadgeText}>Inativo</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.membroEmail}>{membro.email}</Text>
-                  <View style={styles.papelBadge}>
-                    <Text
-                      style={[
-                        styles.papelBadgeText,
-                        { color: getPapelColor(membro.papel) },
-                      ]}
-                    >
-                      {getPapelLabel(membro.papel)}
-                    </Text>
-                  </View>
-                </View>
               </View>
+            </View>
 
-              {/* Ações (apenas para gestor principal) */}
-              {isGestorPrincipal && membro.id !== userData?.id && !membro.is_gestor_principal && (
+            {isGestorPrincipal &&
+              membro.id !== userData?.id &&
+              !membro.is_gestor_principal && (
                 <View style={styles.membroActions}>
                   <TouchableOpacity
                     style={[
@@ -312,33 +316,81 @@ export default function EquipeScreen() {
                 </View>
               )}
 
-              {/* Você */}
-              {membro.id === userData?.id && (
-                <View style={styles.youBadge}>
-                  <Text style={styles.youBadgeText}>Você</Text>
-                </View>
-              )}
-            </View>
-            ))}
+            {membro.id === userData?.id && (
+              <View style={styles.youBadge}>
+                <Text style={styles.youBadgeText}>Você</Text>
+              </View>
+            )}
           </View>
-        )}
-      </ScrollView>
+        ))}
+      </View>
+    );
 
-      {/* Ações (Gestor Principal) */}
-      {isGestorPrincipal && (
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.transferButton}
-            onPress={() => router.push('/unidade/transferir')}
-          >
-            <Text style={styles.transferButtonText}>
-              🔄 Transferir Gestão Principal
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
+    return useDesktopLayout ? (
+      <View style={styles.listContainer}>{cards}</View>
+    ) : (
+      <ScrollView style={styles.listContainer}>{cards}</ScrollView>
+    );
+  };
 
-      {/* Toast de Feedback */}
+  const footerSection =
+    isGestorPrincipal && !isDesktopView ? (
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={styles.transferButton}
+          onPress={() => router.push('/unidade/transferir')}
+        >
+          <Text style={styles.transferButtonText}>🔄 Transferir Gestão Principal</Text>
+        </TouchableOpacity>
+      </View>
+    ) : null;
+
+  if (isDesktopView) {
+    const desktopActions = isGestorPrincipal
+      ? [
+          {
+            label: 'Transferir gestão',
+            icon: 'swap-horizontal-outline',
+            onPress: () => router.push('/unidade/transferir'),
+            variant: 'secondary',
+          },
+        ]
+      : undefined;
+
+    return (
+      <>
+        <DesktopPageLayout
+          title="Equipe"
+          subtitle={`${membros.length} ${membros.length === 1 ? 'membro' : 'membros'}`}
+          loading={isLoading}
+          actions={desktopActions}
+        >
+          {statsSection}
+          {searchSection}
+          {filterSection}
+          {renderMembersSection(true)}
+        </DesktopPageLayout>
+        <Toast {...toastState} onDismiss={hideToast} />
+      </>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={styles.loadingText}>Carregando equipe...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      {statsSection}
+      {searchSection}
+      {filterSection}
+      {renderMembersSection(false)}
+      {footerSection}
       <Toast {...toastState} onDismiss={hideToast} />
     </View>
   );
@@ -360,28 +412,6 @@ const styles = StyleSheet.create(theme => ({
     fontSize: theme.typography.sm,
     color: theme.colors.gray500,
   },
-  header: {
-    backgroundColor: theme.colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray200,
-    paddingHorizontal: theme.spacing['3xl'],
-    paddingVertical: theme.spacing['2xl'],
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitle: {
-    fontSize: theme.typography['3xl'],
-    fontFamily: theme.typography.fontDisplay,
-    color: theme.colors.gray900,
-  },
-  headerSubtitle: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
-    marginTop: 4,
-  },
   statsContainer: {
     flexDirection: 'row',
     padding: 20,
@@ -401,6 +431,12 @@ const styles = StyleSheet.create(theme => ({
     fontWeight: 'bold',
     color: theme.colors.primary,
     marginBottom: 4,
+  },
+  statValuePositive: {
+    color: theme.colors.success,
+  },
+  statValueNegative: {
+    color: theme.colors.error,
   },
   statLabel: {
     fontSize: 12,
@@ -625,3 +661,7 @@ const styles = StyleSheet.create(theme => ({
     color: theme.colors.warningDark,
   },
 }));
+
+
+
+

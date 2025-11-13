@@ -1,5 +1,6 @@
-import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { supabase } from '@/lib/supabase';
 
 // Types
 interface Stop {
@@ -41,7 +42,7 @@ class DynamicReroutingService {
   private googleMapsApiKey: string;
   private settings: OptimizationSettings;
   private lastCheckTime: number = 0;
-  private checkInterval: NodeJS.Timeout | null = null;
+  private checkInterval: ReturnType<typeof setInterval> | null = null;
   private currentRouteId: string | null = null;
 
   private constructor() {

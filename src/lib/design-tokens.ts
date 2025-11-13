@@ -16,16 +16,16 @@
 export const colors = {
   // Cores Primárias
   primary: {
-    main: '#1e5aa8',   // Azul RotaMestre
-    dark: '#0D5A9C',   // Azul Escuro (headers)
-    light: '#3b82f6',  // Azul Claro
+    main: '#284093',   // Azul RotaMestre
+    dark: '#1b2c63',   // Azul Escuro (headers)
+    light: '#34699f',  // Azul Claro
   },
 
   // Cor Secundária (CTA)
   secondary: {
     main: '#f7a02a',   // Laranja RotaMestre
-    dark: '#e68a00',   // Laranja Escuro
-    light: '#ffb84d',  // Laranja Claro
+    dark: '#c87704',   // Laranja Escuro
+    light: '#ffbf14',  // Laranja Claro
   },
 
   // Cores Semânticas (Status)
@@ -76,7 +76,7 @@ export const colors = {
     tertiary: '#9ca3af',    // Texto terciário (gray[400])
     disabled: '#d1d5db',    // Texto desabilitado (gray[300])
     inverse: '#ffffff',     // Texto em fundos escuros
-    link: '#1e5aa8',        // Links (primary.main)
+    link: '#284093',        // Links (primary.main)
   },
 
   // Cores puras (utilitários)

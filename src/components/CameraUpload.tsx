@@ -16,7 +16,7 @@ import {
   Platform
 } from 'react-native';
 
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 import { uploadELinkFotoParada } from '../lib/storage';
 
@@ -35,6 +35,7 @@ export default function CameraUpload({
   onUploadSuccess,
   onUploadError
 }: CameraUploadProps) {
+  const { theme } = useUnistyles();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -235,7 +236,7 @@ export default function CameraUpload({
               disabled={uploading}
             >
               {uploading ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color={theme.colors.white} />
               ) : (
                 <Text style={styles.buttonText}>📤 Enviar Foto</Text>
               )}
@@ -314,3 +315,4 @@ const styles = StyleSheet.create(theme => ({
     fontWeight: '600',
   },
 }));
+

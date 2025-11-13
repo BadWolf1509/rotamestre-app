@@ -87,7 +87,7 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
   ];
 
   const motoristaMenuItems = [
-    { icon: '🚚', label: 'Rota Atual', path: '/motorista/rota', show: true },
+    { icon: '🏠', label: 'Home', path: '/motorista/home', show: true },
     { icon: '📍', label: 'Paradas', path: '/motorista/checkpoints', show: true },
     { icon: '🗺️', label: 'Mapa', path: '/motorista/mapa', show: true },
     { icon: '📑', label: 'Histórico', path: '/motorista/historico', show: true },

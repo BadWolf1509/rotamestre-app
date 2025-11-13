@@ -1,5 +1,6 @@
-import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { View, Text } from 'react-native';
+
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface StatsCardProps {

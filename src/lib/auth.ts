@@ -84,7 +84,7 @@ export const authService = {
   async getUsuario(userId: string): Promise<Usuario | null> {
     const { data, error } = await supabase
       .from('usuarios')
-      .select('*')
+      .select('*, unidades(nome)')
       .eq('id', userId)
       .single();
 

@@ -25,7 +25,7 @@ async function runMigration() {
   try {
     // Testar conexão primeiro
     console.log('📡 Testando conexão com o banco...');
-    const { data: testData, error: testError } = await supabase
+    const { error: testError } = await supabase
       .from('unidades')
       .select('id')
       .limit(1);
@@ -64,7 +64,7 @@ async function runMigration() {
     // Como não podemos executar SQL direto via API, vamos verificar se a coluna existe
     console.log('🔍 Verificando se a coluna CEP já existe...\n');
 
-    const { data: checkData, error: checkError } = await supabase
+    const { error: checkError } = await supabase
       .from('unidades')
       .select('cep')
       .limit(1);

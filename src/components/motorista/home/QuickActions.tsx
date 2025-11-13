@@ -1,40 +1,50 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useUnistyles } from '@/utils/styles';
+import React from 'react';
+import {
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
+
 import { RouteStatus } from '@/context/RouteStatusContext';
+import { defaultTheme, useUnistyles } from '@/utils/styles';
 
 interface QuickActionsProps {
   state: RouteStatus;
   onViewAllStops?: () => void;
-  onViewHistory?: () => void;
   onContactSupport?: () => void;
   onReportIncident?: () => void;
   onOpenSettings?: () => void;
+  onViewSummary?: () => void;
+  style?: StyleProp<ViewStyle>;
 }
+
+const colors = defaultTheme.colors;
 
 export function QuickActions({
   state,
   onViewAllStops,
-  onViewHistory,
   onContactSupport,
   onReportIncident,
   onOpenSettings,
+  onViewSummary,
+  style,
 }: QuickActionsProps) {
-  const { theme } = useUnistyles();
-
   const getActions = () => {
     switch (state) {
       case 'no-route':
         return [
-          { icon: 'time-outline', label: 'Histórico', onPress: onViewHistory },
           { icon: 'help-circle-outline', label: 'Ajuda', onPress: onContactSupport },
+          { icon: 'bar-chart-outline', label: 'Estatisticas', onPress: onViewSummary },
         ];
 
       case 'pending':
         return [
           { icon: 'list-outline', label: 'Ver Paradas', onPress: onViewAllStops },
-          { icon: 'time-outline', label: 'Histórico', onPress: onViewHistory },
+          { icon: 'call-outline', label: 'Suporte', onPress: onContactSupport },
         ];
 
       case 'active':
@@ -42,19 +52,19 @@ export function QuickActions({
         return [
           { icon: 'list-outline', label: 'Todas Paradas', onPress: onViewAllStops },
           { icon: 'warning-outline', label: 'Reportar', onPress: onReportIncident },
-          { icon: 'settings-outline', label: 'Navegação', onPress: onOpenSettings },
+          { icon: 'settings-outline', label: 'Navegacao', onPress: onOpenSettings },
         ];
 
       case 'ready-to-complete':
         return [
-          { icon: 'list-outline', label: 'Ver Resumo', onPress: onViewAllStops },
-          { icon: 'time-outline', label: 'Histórico', onPress: onViewHistory },
+          { icon: 'checkmark-circle-outline', label: 'Ver Resumo', onPress: onViewSummary },
+          { icon: 'share-outline', label: 'Compartilhar', onPress: onContactSupport },
         ];
 
       case 'completed':
         return [
-          { icon: 'time-outline', label: 'Histórico', onPress: onViewHistory },
-          { icon: 'refresh-outline', label: 'Nova Rota', onPress: () => {} },
+          { icon: 'bar-chart-outline', label: 'Ver Detalhes', onPress: onViewSummary },
+          { icon: 'share-outline', label: 'Compartilhar', onPress: onContactSupport },
         ];
 
       default:
@@ -65,45 +75,25 @@ export function QuickActions({
   const actions = getActions();
 
   return (
-    <View style={styles.container}>
-      {actions.map((action, index) => (
+    <View style={[styles.container, style]}>
+      {actions.map((action) => (
         <TouchableOpacity
-          key={index}
+          key={action.label}
           style={styles.actionButton}
-          onPress={action.onPress}
+          onPress={() => {
+            if (action.onPress) {
+              action.onPress();
+            }
+          }}
+          activeOpacity={0.7}
         >
-          <Ionicons
-            name={action.icon as any}
-            size={24}
-            color={theme.colors.primary}
-          />
+          <Ionicons name={action.icon as any} size={22} color={colors.primary} />
           <Text style={styles.actionLabel}>{action.label}</Text>
         </TouchableOpacity>
       ))}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-    backgroundColor: '#fff',
-  },
-  actionButton: {
-    alignItems: 'center',
-    padding: 8,
-  },
-  actionLabel: {
-    fontSize: 12,
-    color: '#374151',
-    marginTop: 4,
-  },
-});
 
 // FAB Component
 interface FloatingActionButtonProps {
@@ -119,38 +109,76 @@ export function FloatingActionButton({
   onPress,
   label,
 }: FloatingActionButtonProps) {
+  const { theme } = useUnistyles();
+
   return (
     <TouchableOpacity
-      style={[fabStyles.fab, { backgroundColor: color }]}
+      style={[fabStyles(theme).fab, { backgroundColor: color }]}
       onPress={onPress}
       activeOpacity={0.8}
     >
-      <Ionicons name={icon as any} size={28} color="#fff" />
-      {label && <Text style={fabStyles.fabLabel}>{label}</Text>}
+      <Ionicons name={icon as any} size={28} color={theme.colors.white} />
+      {label && <Text style={fabStyles(theme).fabLabel}>{label}</Text>}
     </TouchableOpacity>
   );
 }
 
-const fabStyles = StyleSheet.create({
+const styles = StyleSheet.create({
+  container: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.gray200,
+    backgroundColor: colors.white,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  actionButton: {
+    flexGrow: 1,
+    minWidth: 110,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    marginHorizontal: 4,
+    marginVertical: 6,
+  },
+  actionLabel: {
+    fontSize: 12,
+    color: colors.gray700,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+});
+
+const fabStyles = StyleSheet.create((theme) => ({
   fab: {
     position: 'absolute',
-    bottom: 24,
+    bottom: 120,
     right: 24,
     width: 64,
     height: 64,
     borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+    zIndex: 15,
   },
   fabLabel: {
-    color: '#fff',
+    color: theme.colors.white,
     fontSize: 10,
     marginTop: 2,
     fontWeight: '600',
   },
-});
+}));

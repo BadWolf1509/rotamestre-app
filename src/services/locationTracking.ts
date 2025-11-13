@@ -1,8 +1,10 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
-import { supabase } from '@/lib/supabase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
+
+import { supabase } from '@/lib/supabase';
+import { defaultTheme } from '@/utils/styles';
 
 // Task name for background location
 const LOCATION_TASK = 'background-location-tracking';
@@ -39,7 +41,7 @@ interface NavigationState {
 class LocationTrackingService {
   private static instance: LocationTrackingService;
   private navigationState: NavigationState | null = null;
-  private arrivalTimeout: NodeJS.Timeout | null = null;
+  private arrivalTimeout: ReturnType<typeof setTimeout> | null = null;
   private lastNotificationTime: number = 0;
 
   private constructor() {}
@@ -106,7 +108,7 @@ class LocationTrackingService {
         foregroundService: {
           notificationTitle: 'RotaMestre - Navegação Ativa',
           notificationBody: `Navegando para ${stopData.endereco}`,
-          notificationColor: '#1e5aa8',
+          notificationColor: defaultTheme.colors.primary,
         },
         pausesUpdatesAutomatically: false,
         showsBackgroundLocationIndicator: true,
@@ -362,7 +364,7 @@ class LocationTrackingService {
   }
 
   // Send notification (placeholder - would use expo-notifications)
-  private async sendNotification(title: string, body: string, priority: boolean) {
+  private async sendNotification(title: string, body: string, _priority: boolean) {
     // In a real implementation, would use expo-notifications
     console.log(`Notification: ${title} - ${body}`);
   }

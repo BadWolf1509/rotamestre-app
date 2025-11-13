@@ -1,6 +1,14 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '@/lib/supabase';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from 'react';
+
 import { useUser } from '@/hooks/useUser';
+import { supabase } from '@/lib/supabase';
 
 export type RouteStatus = 'no-route' | 'pending' | 'active' | 'last-stop' | 'ready-to-complete' | 'completed';
 
@@ -51,6 +59,7 @@ const RouteStatusContext = createContext<RouteStatusContextData>({} as RouteStat
 
 export function RouteStatusProvider({ children }: { children: ReactNode }) {
   const { userData } = useUser();
+  const motoristaId = userData?.id;
   const [route, setRoute] = useState<RouteData | null>(null);
   const [paradas, setParadas] = useState<ParadaData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,8 +109,8 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
   };
 
   // Carrega rota ativa
-  const loadActiveRoute = async () => {
-    if (!userData?.id) {
+  const loadActiveRoute = useCallback(async () => {
+    if (!motoristaId) {
       setRoute(null);
       setParadas([]);
       setLoading(false);
@@ -123,7 +132,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
           concluida_em,
           unidades (nome)
         `)
-        .eq('motorista_id', userData.id)
+        .eq('motorista_id', motoristaId)
         .in('status', ['pendente', 'em_andamento'])
         .order('created_at', { ascending: false })
         .limit(1)
@@ -142,7 +151,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
             concluida_em,
             unidades (nome)
           `)
-          .eq('motorista_id', userData.id)
+        .eq('motorista_id', motoristaId)
           .eq('status', 'concluida')
           .order('concluida_em', { ascending: false })
           .limit(1)
@@ -188,7 +197,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [motoristaId]);
 
   // Inicia rota
   const startRoute = async () => {
@@ -281,11 +290,11 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     loadActiveRoute();
-  }, [userData?.id]);
+  }, [loadActiveRoute]);
 
   // Realtime subscription
   useEffect(() => {
-    if (!userData?.id) return;
+    if (!motoristaId) return;
 
     const channel = supabase
       .channel('route-updates')
@@ -295,7 +304,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
           event: '*',
           schema: 'public',
           table: 'rotas',
-          filter: `motorista_id=eq.${userData.id}`,
+          filter: `motorista_id=eq.${motoristaId}`,
         },
         () => {
           loadActiveRoute();
@@ -317,7 +326,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userData?.id]);
+  }, [loadActiveRoute, motoristaId]);
 
   return (
     <RouteStatusContext.Provider

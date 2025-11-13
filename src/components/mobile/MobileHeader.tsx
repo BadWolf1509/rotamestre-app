@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+
+import { StyleSheet } from '@/utils/styles';
 
 interface MobileHeaderProps {
   title: string;
@@ -13,8 +14,6 @@ interface MobileHeaderProps {
  * Segue o padrão de design estabelecido para o RotaMestre
  */
 export function MobileHeader({ title, subtitle, rightContent }: MobileHeaderProps) {
-  const { theme } = useUnistyles();
-
   return (
     <View style={styles.header}>
       <View style={styles.headerContent}>

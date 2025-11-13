@@ -2,19 +2,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, Slot } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
+import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
 import { DrawerMenuProvider, useDrawerMenu } from '@/context/DrawerMenuContext';
 import { useResponsive } from '@/hooks/useResponsive';
+import { useUser } from '@/hooks/useUser';
 import { useUnistyles } from '@/utils/styles';
-import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
 
 export default function GestorLayout() {
-  const { isDesktop, isTablet } = useResponsive();
+  const { isDesktop } = useResponsive();
+  const { userData } = useUser();
+  
+  const { theme } = useUnistyles();
 
   // Desktop Layout - Sidebar fixa + conteúdo
   if (isDesktop) {
     return (
-      <View style={{ flex: 1, flexDirection: 'row', backgroundColor: '#f9fafb' }}>
-        <Sidebar />
+      <View style={{ flex: 1, flexDirection: 'row', backgroundColor: theme.colors.gray50 }}>
+        <Sidebar userData={userData} />
         <View style={{ flex: 1 }}>
           <Slot />
         </View>
@@ -62,7 +66,8 @@ function GestorStack() {
         },
         headerTintColor: theme.colors.white,
         headerTitleStyle: {
-          fontWeight: 'bold',
+          fontFamily: theme.typography.fontDisplay,
+          fontSize: theme.typography.lg,
         },
         animation: 'slide_from_right',
         headerLeft: ({ tintColor }) => renderMenuButton(tintColor),
@@ -102,3 +107,8 @@ function GestorStack() {
     </Stack>
   );
 }
+
+
+
+
+

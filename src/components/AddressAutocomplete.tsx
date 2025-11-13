@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 
 import { googleMapsService, PlaceSuggestion } from '@/lib/google';
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface AddressAutocompleteProps {
   value: string;
@@ -41,6 +41,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   error,
   multiline = false,
 }: AddressAutocompleteProps) {
+  const { theme } = useUnistyles();
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -148,7 +149,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
       {/* Indicador de carregamento - Só mostra se demorar mais de 300ms */}
       {isLoading && (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color="#0D5A9C" />
+          <ActivityIndicator size="small" color={theme.colors.primary} />
           <Text style={styles.loadingText}>Buscando endereços...</Text>
         </View>
       )}
@@ -364,3 +365,4 @@ const styles = StyleSheet.create(theme => ({
     fontStyle: 'italic',
   },
 }));
+
