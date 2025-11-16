@@ -80,7 +80,7 @@
     "@react-native/eslint-plugin": "^0.82.1",
     "@testing-library/jest-native": "^5.4.3",
     "@testing-library/react-hooks": "^8.0.1",
-    "@testing-library/react-native": "^12.9.0",
+    "@testing-library/react-native": "^13.3.3",
     "@types/jest": "^29.5.12",
     "@types/react": "~19.1.0",
     "@typescript-eslint/eslint-plugin": "^8.46.3",
