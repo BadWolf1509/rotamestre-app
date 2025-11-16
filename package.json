@@ -36,7 +36,7 @@
     "@react-native-community/slider": "^5.1.1",
     "@react-navigation/drawer": "^7.7.2",
     "@shopify/flash-list": "^2.2.0",
-    "@supabase/supabase-js": "^2.75.1",
+    "@supabase/supabase-js": "^2.81.1",
     "expo": "54.0.23",
     "expo-asset": "~12.0.9",
     "expo-battery": "^10.0.7",
