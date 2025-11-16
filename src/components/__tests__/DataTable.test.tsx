@@ -45,8 +45,8 @@ describe('DataTable Component', () => {
   const mockDelete = jest.fn();
 
   const sampleActions: DataTableAction<SampleItem>[] = [
-    { label: 'Editar', icon: '✏️', onPress: mockEdit, type: 'primary' },
-    { label: 'Excluir', icon: '🗑️', onPress: mockDelete, type: 'danger' },
+    { label: 'Editar', icon: 'pencil-outline', onPress: mockEdit, type: 'primary' },
+    { label: 'Excluir', icon: 'trash-outline', onPress: mockDelete, type: 'danger' },
   ];
 
   beforeEach(() => {
@@ -221,8 +221,10 @@ describe('DataTable Component', () => {
         />
       );
 
-      expect(getAllByText('✏️').length).toBeGreaterThan(0);
-      expect(getAllByText('🗑️').length).toBeGreaterThan(0);
+      // Ionicons são renderizados como elementos React, não como texto
+      // Apenas verificamos que as ações foram renderizadas corretamente
+      expect(getAllByText('Editar').length).toBeGreaterThan(0);
+      expect(getAllByText('Excluir').length).toBeGreaterThan(0);
     });
   });
 
@@ -350,7 +352,7 @@ describe('DataTable Component', () => {
         {
           key: 'status',
           label: 'Status',
-          render: (item) => item.status.toUpperCase(),
+          render: (item) => <Text>{item.status.toUpperCase()}</Text>,
         },
       ];
 

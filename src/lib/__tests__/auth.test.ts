@@ -32,14 +32,16 @@ describe('AuthService - Unit Tests', () => {
         error: null,
       });
 
-      mockSupabase.from.mockReturnValue({
+      const mockQueryBuilder = {
         select: jest.fn().mockReturnThis(),
+        update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
         single: jest.fn().mockResolvedValue({
           data: mockUsuario,
           error: null,
         }),
-      } as any);
+      };
+      mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
 
       const result = await authService.signIn('teste@rotamestre.com', 'senha123');
 
@@ -78,14 +80,16 @@ describe('AuthService - Unit Tests', () => {
         error: null,
       });
 
-      mockSupabase.from.mockReturnValue({
+      const mockQueryBuilder = {
         select: jest.fn().mockReturnThis(),
+        update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
         single: jest.fn().mockResolvedValue({
           data: null,
           error: new Error('Usuário não encontrado'),
         }),
-      } as any);
+      };
+      mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
 
       const result = await authService.signIn('teste@rotamestre.com', 'senha123');
 
@@ -347,14 +351,16 @@ describe('AuthService - Unit Tests', () => {
         papel: 'gestor' as const,
       };
 
-      mockSupabase.from.mockReturnValue({
+      const mockQueryBuilder = {
         select: jest.fn().mockReturnThis(),
+        update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
         single: jest.fn().mockResolvedValue({
           data: mockUsuario,
           error: null,
         }),
-      } as any);
+      };
+      mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
 
       const usuario = await authService.getUsuario('user-123');
 
@@ -363,14 +369,16 @@ describe('AuthService - Unit Tests', () => {
     });
 
     it('deve retornar null quando usuário não existe', async () => {
-      mockSupabase.from.mockReturnValue({
+      const mockQueryBuilder = {
         select: jest.fn().mockReturnThis(),
+        update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
         single: jest.fn().mockResolvedValue({
           data: null,
           error: new Error('Usuário não encontrado'),
         }),
-      } as any);
+      };
+      mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
 
       const usuario = await authService.getUsuario('user-999');
 
@@ -407,14 +415,16 @@ describe('AuthService - Unit Tests', () => {
         papel: 'gestor' as const,
       };
 
-      mockSupabase.from.mockReturnValue({
+      const mockQueryBuilder = {
         select: jest.fn().mockReturnThis(),
+        update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
         single: jest.fn().mockResolvedValue({
           data: mockUsuario,
           error: null,
         }),
-      } as any);
+      };
+      mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
 
       const tipo = await authService.verificarTipoUsuario('user-123');
 
@@ -429,14 +439,16 @@ describe('AuthService - Unit Tests', () => {
         papel: 'motorista' as const,
       };
 
-      mockSupabase.from.mockReturnValue({
+      const mockQueryBuilder = {
         select: jest.fn().mockReturnThis(),
+        update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
         single: jest.fn().mockResolvedValue({
           data: mockUsuario,
           error: null,
         }),
-      } as any);
+      };
+      mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
 
       const tipo = await authService.verificarTipoUsuario('user-456');
 
@@ -444,14 +456,16 @@ describe('AuthService - Unit Tests', () => {
     });
 
     it('deve retornar null quando usuário não existe', async () => {
-      mockSupabase.from.mockReturnValue({
+      const mockQueryBuilder = {
         select: jest.fn().mockReturnThis(),
+        update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
         single: jest.fn().mockResolvedValue({
           data: null,
           error: new Error('Usuário não encontrado'),
         }),
-      } as any);
+      };
+      mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
 
       const tipo = await authService.verificarTipoUsuario('user-999');
 

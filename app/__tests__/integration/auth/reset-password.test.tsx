@@ -36,7 +36,7 @@ describe('Reset Password Screen - Integration Tests', () => {
       expect(getByPlaceholderText('Nova senha')).toBeTruthy();
       expect(getByPlaceholderText('Confirmar senha')).toBeTruthy();
       expect(getByText('Redefinir Senha')).toBeTruthy();
-      expect(getByText('← Voltar para login')).toBeTruthy();
+      expect(getByText('Voltar para login')).toBeTruthy();
       expect(getByText('Nova senha')).toBeTruthy();
     });
 
@@ -53,7 +53,7 @@ describe('Reset Password Screen - Integration Tests', () => {
     it('deve ter botão "Voltar para login" visível', () => {
       const { getByText } = render(<ResetPassword />);
 
-      const backButton = getByText('← Voltar para login');
+      const backButton = getByText('Voltar para login');
       expect(backButton).toBeTruthy();
     });
 
@@ -413,7 +413,7 @@ describe('Reset Password Screen - Integration Tests', () => {
     it('deve navegar para login ao clicar em "Voltar para login"', () => {
       const { getByText } = render(<ResetPassword />);
 
-      const backButton = getByText('← Voltar para login');
+      const backButton = getByText('Voltar para login');
       fireEvent.press(backButton);
 
       expect(mockRouter.replace).toHaveBeenCalledWith('/auth/login');

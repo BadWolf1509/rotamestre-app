@@ -92,7 +92,7 @@ export default function ForgotPassword() {
 
               <TouchableOpacity
                 style={styles.backButton}
-                onPress={() => router.back()}
+                onPress={() => router.push('/auth/login')}
               >
                 <Text style={styles.backButtonText}>Voltar para login</Text>
               </TouchableOpacity>
@@ -144,9 +144,9 @@ export default function ForgotPassword() {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => router.push('/auth/login')}
         >
-        <Text style={styles.backButtonText}>Voltar para login</Text>
+          <Text style={styles.backButtonText}>Voltar para login</Text>
         </TouchableOpacity>
       </View>
     </View>

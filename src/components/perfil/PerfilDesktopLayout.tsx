@@ -14,6 +14,7 @@ interface PerfilDesktopLayoutProps {
     dispositivosAtivos: number | null;
   };
   children?: React.ReactNode;
+  onLogout?: () => void;
 }
 
 export function PerfilDesktopLayout({
@@ -22,6 +23,7 @@ export function PerfilDesktopLayout({
   onSelectPhoto,
   atividade,
   children,
+  onLogout,
 }: PerfilDesktopLayoutProps) {
   const { theme } = useUnistyles();
   const router = useRouter();
@@ -108,6 +110,17 @@ export function PerfilDesktopLayout({
               <Text style={styles(theme).quickActionText}>Alterar Senha</Text>
               <Ionicons name="chevron-forward" size={16} color={theme.colors.gray400} />
             </TouchableOpacity>
+
+            {onLogout && (
+              <TouchableOpacity
+                style={[styles(theme).quickAction, styles(theme).logoutAction]}
+                onPress={onLogout}
+              >
+                <Ionicons name="log-out-outline" size={20} color={theme.colors.error} />
+                <Text style={[styles(theme).quickActionText, styles(theme).logoutText]}>Sair</Text>
+                <Ionicons name="chevron-forward" size={16} color={theme.colors.gray400} />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
@@ -134,25 +147,6 @@ export function PerfilDesktopLayout({
                 <View style={styles(theme).infoRow}>
                   <Text style={styles(theme).infoLabel}>Telefone</Text>
                   <Text style={styles(theme).infoValue}>{usuario?.telefone || 'Não informado'}</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles(theme).infoCard}>
-              <View style={styles(theme).cardHeader}>
-                <Ionicons name="shield-checkmark" size={20} color={theme.colors.success} />
-                <Text style={styles(theme).cardTitle}>Segurança</Text>
-              </View>
-              <View style={styles(theme).cardContent}>
-                <View style={styles(theme).infoRow}>
-                  <Text style={styles(theme).infoLabel}>Última alteração de senha</Text>
-                  <Text style={styles(theme).infoValue}>Há 30 dias</Text>
-                </View>
-                <View style={styles(theme).infoRow}>
-                  <Text style={styles(theme).infoLabel}>Autenticação em dois fatores</Text>
-                  <Text style={[styles(theme).infoValue, { color: theme.colors.warning }]}>
-                    Desativada
-                  </Text>
                 </View>
               </View>
             </View>
@@ -306,6 +300,15 @@ const styles = (theme: any) =>
       flex: 1,
       fontSize: 14,
       color: theme.colors.gray700,
+    },
+    logoutAction: {
+      marginTop: 8,
+      paddingTop: 16,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.gray200,
+    },
+    logoutText: {
+      color: theme.colors.error,
     },
     contentArea: {
       flex: 1,

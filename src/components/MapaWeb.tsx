@@ -1,6 +1,6 @@
 /* global google */
 
-import { GoogleMap, useJsApiLoader, Marker, DirectionsRenderer } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, DirectionsRenderer } from '@react-google-maps/api';
 import React, { useCallback } from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
 
@@ -13,6 +13,7 @@ interface Parada {
   latitude: number | null;
   longitude: number | null;
   status: string;
+  is_checkpoint?: boolean;
 }
 
 interface MapaWebProps {
@@ -20,23 +21,85 @@ interface MapaWebProps {
 }
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+const GOOGLE_MAPS_MAP_ID = process.env.EXPO_PUBLIC_GOOGLE_MAPS_MAP_ID || '';
 
 const containerStyle = {
   width: '100%',
   height: '100%',
 };
 
+function getStatusColor(status?: string) {
+  switch (status) {
+    case 'concluida':
+      return '#10b981';
+    case 'em_andamento':
+      return '#3b82f6';
+    case 'cancelada':
+      return '#ef4444';
+    default:
+      return '#f59e0b';
+  }
+}
+
+function createMarkerContent(parada: Parada) {
+  // Checkpoint (partida/chegada): ícone de pin azul primário (#284093)
+  if (parada.is_checkpoint === false) {
+    const wrapper = document.createElement('div');
+    wrapper.style.display = 'flex';
+    wrapper.style.flexDirection = 'column';
+    wrapper.style.alignItems = 'center';
+    wrapper.innerHTML = `
+      <svg width="32" height="40" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 0C7.03 0 3 3.47 3 7.75C3 13.56 12 24 12 24C12 24 21 13.56 21 7.75C21 3.47 16.97 0 12 0ZM12 10.5C10.62 10.5 9.5 9.38 9.5 8C9.5 6.62 10.62 5.5 12 5.5C13.38 5.5 14.5 6.62 14.5 8C14.5 9.38 13.38 10.5 12 10.5Z" fill="#284093"/>
+      </svg>
+    `;
+    return wrapper;
+  }
+
+  // Parada normal: círculo com número
+  const wrapper = document.createElement('div');
+  wrapper.style.width = '34px';
+  wrapper.style.height = '34px';
+  wrapper.style.borderRadius = '17px';
+  wrapper.style.display = 'flex';
+  wrapper.style.alignItems = 'center';
+  wrapper.style.justifyContent = 'center';
+  wrapper.style.backgroundColor = getStatusColor(parada.status);
+  wrapper.style.color = '#ffffff';
+  wrapper.style.fontWeight = '700';
+  wrapper.style.fontSize = '14px';
+  wrapper.style.border = '2px solid #ffffff';
+  wrapper.style.boxShadow = '0 3px 8px rgba(0,0,0,0.25)';
+
+  const label = document.createElement('span');
+  label.textContent = String(parada.ordem);
+  wrapper.appendChild(label);
+
+  return wrapper;
+}
+
 export default function MapaWeb({ paradas }: MapaWebProps) {
   const [directions, setDirections] = React.useState<google.maps.DirectionsResult | null>(null);
+  const mapRef = React.useRef<google.maps.Map | null>(null);
+  const advancedMarkersRef = React.useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const fallbackMarkersRef = React.useRef<google.maps.Marker[]>([]);
+  const [mapReady, setMapReady] = React.useState(false);
+
+  const mapLibraries = React.useMemo(() => ['marker'] as google.maps.libraryName[], []);
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+    libraries: mapLibraries,
   });
+
+  const paradasComCoord = React.useMemo(
+    () => paradas.filter((p) => p.latitude != null && p.longitude != null),
+    [paradas]
+  );
 
   // Calcular centro do mapa
   const center = React.useMemo(() => {
-    const paradasComCoord = paradas.filter(p => p.latitude && p.longitude);
     if (paradasComCoord.length === 0) {
       return { lat: -15.7942, lng: -47.8822 }; // Brasília
     }
@@ -44,26 +107,105 @@ export default function MapaWeb({ paradas }: MapaWebProps) {
       lat: paradasComCoord[0].latitude!,
       lng: paradasComCoord[0].longitude!,
     };
-  }, [paradas]);
+  }, [paradasComCoord]);
 
-  const onLoad = useCallback((mapInstance: google.maps.Map) => {
-    // Ajustar bounds para mostrar todas as paradas
-    const paradasComCoord = paradas.filter((p) => p.latitude != null && p.longitude != null);
-    if (paradasComCoord.length > 0) {
-      const bounds = new window.google.maps.LatLngBounds();
-      paradasComCoord.forEach((p) => {
-        bounds.extend({ lat: p.latitude!, lng: p.longitude! });
+  const onLoad = useCallback(
+    (mapInstance: google.maps.Map) => {
+      mapRef.current = mapInstance;
+      setMapReady(true);
+      // Ajustar bounds para mostrar todas as paradas
+      if (paradasComCoord.length > 0) {
+        const bounds = new window.google.maps.LatLngBounds();
+        paradasComCoord.forEach((p) => {
+          bounds.extend({ lat: p.latitude!, lng: p.longitude! });
+        });
+        mapInstance.fitBounds(bounds);
+      }
+    },
+    [paradasComCoord]
+  );
+
+  const clearMarkers = useCallback(() => {
+    advancedMarkersRef.current.forEach((marker) => {
+      marker.map = null;
+    });
+    advancedMarkersRef.current = [];
+
+    fallbackMarkersRef.current.forEach((marker) => {
+      marker.setMap(null);
+    });
+    fallbackMarkersRef.current = [];
+  }, []);
+
+  React.useEffect(() => {
+    if (!isLoaded || !mapReady || !mapRef.current) return;
+
+    clearMarkers();
+
+    if (paradasComCoord.length === 0) return;
+
+    const AdvancedMarker = google.maps.marker?.AdvancedMarkerElement;
+    const canUseAdvancedMarkers = Boolean(GOOGLE_MAPS_MAP_ID && AdvancedMarker);
+
+    if (canUseAdvancedMarkers && AdvancedMarker) {
+      advancedMarkersRef.current = paradasComCoord.map((parada) => {
+        const marker = new AdvancedMarker({
+          map: mapRef.current!,
+          position: { lat: parada.latitude!, lng: parada.longitude! },
+          title: `Parada ${parada.ordem}: ${parada.endereco}`,
+          content: createMarkerContent(parada),
+        });
+        return marker;
       });
-      mapInstance.fitBounds(bounds);
+      return;
     }
-  }, [paradas]);
+
+    // Fallback para browsers que ainda não suportam AdvancedMarkerElement
+    fallbackMarkersRef.current = paradasComCoord.map((parada) => {
+      // Checkpoint (partida/chegada): marcador azul primário
+      if (parada.is_checkpoint === false) {
+        return new google.maps.Marker({
+          map: mapRef.current!,
+          position: { lat: parada.latitude!, lng: parada.longitude! },
+          title: parada.ordem === 1 ? 'Ponto de Partida' : 'Ponto de Chegada',
+          icon: {
+            url: 'http://maps.google.com/mapfiles/ms/icons/blue.png',
+          },
+        });
+      }
+
+      // Parada normal: círculo colorido com número
+      return new google.maps.Marker({
+        map: mapRef.current!,
+        position: { lat: parada.latitude!, lng: parada.longitude! },
+        title: `Parada ${parada.ordem}: ${parada.endereco}`,
+        label: {
+          text: String(parada.ordem),
+          color: '#ffffff',
+          fontWeight: '700',
+        },
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          fillColor: getStatusColor(parada.status),
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 2,
+          scale: 16,
+        },
+      });
+    });
+  }, [isLoaded, mapReady, paradasComCoord, clearMarkers]);
+
+  React.useEffect(
+    () => () => {
+      clearMarkers();
+    },
+    [clearMarkers]
+  );
 
   // Calcular direções
   React.useEffect(() => {
-    if (!isLoaded || paradas.length < 2) return;
-
-    const paradasComCoord = paradas.filter((p) => p.latitude != null && p.longitude != null);
-    if (paradasComCoord.length < 2) return;
+    if (!isLoaded || paradasComCoord.length < 2) return;
 
     const DirectionsService = new google.maps.DirectionsService();
 
@@ -98,7 +240,7 @@ export default function MapaWeb({ paradas }: MapaWebProps) {
         }
       }
     );
-  }, [isLoaded, paradas]);
+  }, [isLoaded, paradasComCoord]);
 
   if (loadError) {
     return (
@@ -117,8 +259,6 @@ export default function MapaWeb({ paradas }: MapaWebProps) {
     );
   }
 
-  const paradasComCoord = paradas.filter((p) => p.latitude != null && p.longitude != null);
-
   return (
     <GoogleMap
       mapContainerStyle={containerStyle}
@@ -130,39 +270,15 @@ export default function MapaWeb({ paradas }: MapaWebProps) {
         streetViewControl: false,
         mapTypeControl: false,
         fullscreenControl: true,
+        mapId: GOOGLE_MAPS_MAP_ID || undefined,
       }}
     >
-      {/* Marcadores */}
-      {!directions && paradasComCoord.map((parada) => (
-        <Marker
-          key={parada.id}
-          position={{
-            lat: parada.latitude!,
-            lng: parada.longitude!,
-          }}
-          label={{
-            text: String(parada.ordem),
-            color: '#fff',
-            fontWeight: 'bold',
-          }}
-          icon={{
-            path: google.maps.SymbolPath.CIRCLE,
-            fillColor: parada.status === 'concluida' ? '#10b981' : parada.status === 'em_andamento' ? '#3b82f6' : '#f59e0b',
-            fillOpacity: 1,
-            strokeColor: '#fff',
-            strokeWeight: 2,
-            scale: 15,
-          }}
-          title={`Parada ${parada.ordem}: ${parada.endereco}`}
-        />
-      ))}
-
       {/* Direções */}
       {directions && (
         <DirectionsRenderer
           directions={directions}
           options={{
-            suppressMarkers: false,
+            suppressMarkers: true,
             polylineOptions: {
               strokeColor: '#0D5A9C',
               strokeWeight: 4,

@@ -14,6 +14,8 @@ import {
 
 import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { PerfilDesktopLayout } from '@/components/perfil/PerfilDesktopLayout';
+import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { storageService } from '@/lib/storage';
@@ -54,6 +56,10 @@ export default function PerfilGestor() {
   }>({
     ultimoAcesso: null,
     dispositivosAtivos: null,
+  });
+  const pageMeta = getGestorPageMeta('perfil');
+  const { userMenuTrigger, userMenuItems, logoutModal, openLogoutModal } = useDesktopHeaderMenu({
+    userName: usuario?.nome,
   });
 
   useEffect(() => {
@@ -137,18 +143,25 @@ export default function PerfilGestor() {
   // Renderizar layout desktop para telas grandes
   if (isDesktop) {
     return (
-      <DesktopPageLayout
-        title="Meu Perfil"
-        subtitle="Gerencie suas informações pessoais e configurações"
-        loading={loading}
-      >
-        <PerfilDesktopLayout
-          usuario={usuario}
-          uploadingPhoto={uploadingPhoto}
-          onSelectPhoto={handleSelectPhoto}
-          atividade={atividadeRecente}
-        />
-      </DesktopPageLayout>
+      <>
+        <DesktopPageLayout
+          title={pageMeta.title}
+          subtitle="Gerencie suas informacoes pessoais e configuracoes"
+          breadcrumbs={pageMeta.breadcrumbs}
+          userMenuTrigger={userMenuTrigger}
+          userMenuItems={userMenuItems}
+          loading={loading}
+        >
+          <PerfilDesktopLayout
+            usuario={usuario}
+            uploadingPhoto={uploadingPhoto}
+            onSelectPhoto={handleSelectPhoto}
+            atividade={atividadeRecente}
+            onLogout={openLogoutModal}
+          />
+        </DesktopPageLayout>
+        {logoutModal}
+      </>
     );
   }
 
@@ -174,15 +187,19 @@ export default function PerfilGestor() {
 
   if (loading) {
     return (
-      <View style={styles(theme).loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles(theme).loadingText}>Carregando perfil...</Text>
-      </View>
+      <>
+        <View style={styles(theme).loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles(theme).loadingText}>Carregando perfil...</Text>
+        </View>
+        {logoutModal}
+      </>
     );
   }
 
   return (
-    <ScrollView style={styles(theme).container}>
+    <>
+      <ScrollView style={styles(theme).container}>
       <View style={styles(theme).header}>
         <TouchableOpacity
           onPress={handleSelectPhoto}
@@ -251,7 +268,9 @@ export default function PerfilGestor() {
           </View>
         </TouchableOpacity>
       ))}
-    </ScrollView>
+      </ScrollView>
+      {logoutModal}
+    </>
   );
 }
 
@@ -419,3 +438,6 @@ const styles = (theme: any) =>
       color: theme.colors.gray400,
     },
   });
+
+
+

@@ -24,7 +24,6 @@ export default function AuthLayout() {
         name="forgot-password"
         options={{
           title: 'Recuperar Senha',
-          headerShown: true,
         }}
       />
     </Stack>

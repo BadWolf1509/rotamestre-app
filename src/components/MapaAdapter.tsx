@@ -20,6 +20,7 @@ interface Parada {
   longitude: number | null;
   status: string;
   tipo?: string;
+  is_checkpoint?: boolean;
 }
 
 interface MapaAdapterProps {

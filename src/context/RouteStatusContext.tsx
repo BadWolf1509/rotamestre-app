@@ -34,6 +34,7 @@ interface ParadaData {
   telefone?: string;
   observacoes?: string;
   foto_url?: string | null;
+  is_checkpoint?: boolean;
 }
 
 interface RouteStatusContextData {
@@ -64,14 +65,15 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
   const [paradas, setParadas] = useState<ParadaData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Determina o status da rota
+  // Determina o status da rota (excluindo checkpoints da contagem)
   const getRouteStatus = (): RouteStatus => {
     if (!route) return 'no-route';
 
     if (route.status === 'pendente') return 'pending';
 
     if (route.status === 'em_andamento') {
-      const pendingStops = paradas.filter(p => p.status === 'pendente');
+      // Contar apenas paradas reais (excluindo checkpoints de partida/chegada)
+      const pendingStops = paradas.filter(p => p.status === 'pendente' && p.is_checkpoint !== false);
 
       if (pendingStops.length === 0) return 'ready-to-complete';
       if (pendingStops.length === 1) return 'last-stop';
@@ -83,26 +85,27 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     return 'no-route';
   };
 
-  // Calcula progresso
+  // Calcula progresso (excluindo checkpoints de partida/chegada)
   const getProgress = () => {
-    const completed = paradas.filter(p => p.status === 'concluida').length;
-    const total = paradas.length;
+    const paradasReais = paradas.filter(p => p.is_checkpoint !== false);
+    const completed = paradasReais.filter(p => p.status === 'concluida').length;
+    const total = paradasReais.length;
     const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
 
     return { completed, total, percentage };
   };
 
-  // Pega a parada atual (próxima pendente)
+  // Pega a parada atual (próxima pendente, excluindo checkpoints)
   const getCurrentStop = (): ParadaData | null => {
     return paradas
-      .filter(p => p.status === 'pendente')
+      .filter(p => p.status === 'pendente' && p.is_checkpoint !== false)
       .sort((a, b) => a.ordem - b.ordem)[0] || null;
   };
 
-  // Pega a próxima parada após a atual
+  // Pega a próxima parada após a atual (excluindo checkpoints)
   const getNextStop = (): ParadaData | null => {
     const pendingStops = paradas
-      .filter(p => p.status === 'pendente')
+      .filter(p => p.status === 'pendente' && p.is_checkpoint !== false)
       .sort((a, b) => a.ordem - b.ordem);
 
     return pendingStops[1] || null;
@@ -163,7 +166,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
             unidade_nome: lastRoute.unidades?.nome || '',
           } as RouteData);
 
-          // Carrega paradas da rota concluída
+          // Carrega TODAS as paradas da rota concluída (incluindo checkpoints)
           const { data: paradasData } = await supabase
             .from('paradas')
             .select('*')
@@ -181,7 +184,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
           unidade_nome: rotaData.unidades?.nome || '',
         } as RouteData);
 
-        // Carrega paradas
+        // Carrega TODAS as paradas (incluindo checkpoints de partida/chegada)
         const { data: paradasData } = await supabase
           .from('paradas')
           .select('*')

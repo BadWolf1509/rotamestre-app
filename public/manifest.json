@@ -64,10 +64,10 @@
   ],
   "shortcuts": [
     {
-      "name": "Dashboard",
-      "short_name": "Dashboard",
-      "description": "Acessar painel de controle",
-      "url": "/gestor/dashboard",
+      "name": "Início (Gestor)",
+      "short_name": "Início",
+      "description": "Acessar painel principal do gestor",
+      "url": "/gestor/inicio",
       "icons": [
         {
           "src": "/favicon-96x96.png",

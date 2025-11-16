@@ -32,7 +32,7 @@ import DynamicReroutingService from '@/services/dynamicRerouting';
 import LocationTrackingService from '@/services/locationTracking';
 import { useUnistyles } from '@/utils/styles';
 
-function MotoristaHomeContent() {
+function MotoristaInicioContent() {
   const router = useRouter();
   const { theme } = useUnistyles();
   const { userData } = useUser();
@@ -101,27 +101,28 @@ function MotoristaHomeContent() {
     })();
   }, []);
 
-  // Check for route optimizations periodically
-  useEffect(() => {
-    if (routeStatus === 'active' && route && paradas.length > 1) {
-      // Start monitoring for optimizations
-      DynamicReroutingService.startMonitoring(route.id, paradas);
+  // SUSPENDED: Dynamic route optimization (Google Distance Matrix API has high cost)
+  // TODO: Re-enable when budget allows or implement alternative optimization
+  // useEffect(() => {
+  //   if (routeStatus === 'active' && route && paradas.length > 1) {
+  //     // Start monitoring for optimizations
+  //     DynamicReroutingService.startMonitoring(route.id, paradas);
 
-      // Check for optimizations every 5 minutes
-      const checkOptimization = setInterval(async () => {
-        const opt = await DynamicReroutingService.checkForOptimization(paradas);
-        if (opt && opt.timeSaved >= 5) {
-          setOptimization(opt);
-          setShowOptimization(true);
-        }
-      }, 5 * 60 * 1000); // 5 minutes
+  //     // Check for optimizations every 5 minutes
+  //     const checkOptimization = setInterval(async () => {
+  //       const opt = await DynamicReroutingService.checkForOptimization(paradas);
+  //       if (opt && opt.timeSaved >= 5) {
+  //         setOptimization(opt);
+  //         setShowOptimization(true);
+  //       }
+  //     }, 5 * 60 * 1000); // 5 minutes
 
-      return () => {
-        clearInterval(checkOptimization);
-        DynamicReroutingService.stopMonitoring();
-      };
-    }
-  }, [routeStatus, route, paradas]);
+  //     return () => {
+  //       clearInterval(checkOptimization);
+  //       DynamicReroutingService.stopMonitoring();
+  //     };
+  //   }
+  // }, [routeStatus, route, paradas]);
 
   // Main action handler
   const handleMainAction = async () => {
@@ -424,12 +425,12 @@ function MotoristaHomeContent() {
   }
 
   return (
-    <View style={styles.container}>
+    <>
       <ScrollView
-        style={styles.scrollView}
+        style={styles.container}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: 220 + insets.bottom },
+          { paddingBottom: 100 + insets.bottom },
         ]}
         refreshControl={
           <RefreshControl
@@ -478,45 +479,40 @@ function MotoristaHomeContent() {
             onToggleExpand={() => setMiniMapExpanded(!miniMapExpanded)}
             onOpenFullMap={() => router.push('/motorista/mapa')}
             onOpenPiP={() => setShowPiPMap(true)}
+            route={route}
           />
         )}
 
+        {/* Quick Actions - moved inside ScrollView */}
+        <View style={{ paddingHorizontal: 16, paddingBottom: 16 + insets.bottom }}>
+          <QuickActions
+            state={routeStatus}
+            onViewAllStops={() => {
+              console.log('?? Navegando para checkpoints');
+              router.push('/motorista/checkpoints');
+            }}
+            onContactSupport={() => {
+              console.log('?? Abrindo modal de suporte');
+              setShowSupportModal(true);
+            }}
+            onReportIncident={() => {
+              console.log('?? Abrindo wizard de incidente');
+              setShowIncidentWizard(true);
+            }}
+            onOpenSettings={() => {
+              console.log('?? Abrindo configuracoes de navegacao');
+              setShowNavigationSettings(true);
+            }}
+            onViewSummary={() => {
+              console.log('?? Navegando para resumo');
+              router.push('/motorista/resumo');
+            }}
+          />
+        </View>
+
       </ScrollView>
 
-      <View
-        pointerEvents="box-none"
-        style={[
-          styles.quickActionsPortal,
-          { paddingBottom: 16 + insets.bottom },
-        ]}
-      >
-        <QuickActions
-          style={styles.quickActionsCard}
-          state={routeStatus}
-          onViewAllStops={() => {
-            console.log('?? Navegando para checkpoints');
-            router.push('/motorista/checkpoints');
-          }}
-          onContactSupport={() => {
-            console.log('?? Abrindo modal de suporte');
-            setShowSupportModal(true);
-          }}
-          onReportIncident={() => {
-            console.log('?? Abrindo wizard de incidente');
-            setShowIncidentWizard(true);
-          }}
-          onOpenSettings={() => {
-            console.log('?? Abrindo configuracoes de navegacao');
-            setShowNavigationSettings(true);
-          }}
-          onViewSummary={() => {
-            console.log('?? Navegando para resumo');
-            router.push('/motorista/resumo');
-          }}
-        />
-      </View>
-
-      {/* Floating Action Button */}
+      {/* Floating Action Button - absolute positioned outside ScrollView */}
       <FloatingActionButton
         icon={fabProps.icon}
         color={fabProps.color}
@@ -524,8 +520,8 @@ function MotoristaHomeContent() {
         label={fabProps.label}
       />
 
-      {/* Incident Report Wizard */}
-      {showIncidentWizard && route && currentStop && (
+      {/* Modals - rendered outside ScrollView */}
+      {showIncidentWizard && (
         <IncidentReportWizard
           visible={showIncidentWizard}
           onClose={() => setShowIncidentWizard(false)}
@@ -533,14 +529,13 @@ function MotoristaHomeContent() {
             console.log('Incidente reportado:', report);
             setShowIncidentWizard(false);
           }}
-          paradaId={currentStop.id}
-          rotaId={route.id}
+          paradaId={currentStop?.id}
+          rotaId={route?.id}
           motoristaId={userData?.id || ''}
-          endereco={currentStop.endereco}
+          endereco={currentStop?.endereco}
         />
       )}
 
-      {/* Navigation Settings */}
       {showNavigationSettings && (
         <NavigationSettings
           visible={showNavigationSettings}
@@ -548,7 +543,6 @@ function MotoristaHomeContent() {
         />
       )}
 
-      {/* Picture-in-Picture Map */}
       {(routeStatus === 'active' || routeStatus === 'last-stop') && (
         <PictureInPictureMap
           visible={showPiPMap}
@@ -566,7 +560,6 @@ function MotoristaHomeContent() {
         />
       )}
 
-      {/* Optimization Alert */}
       <OptimizationAlert
         visible={showOptimization}
         optimization={optimization}
@@ -576,7 +569,6 @@ function MotoristaHomeContent() {
         onClose={() => setShowOptimization(false)}
       />
 
-      {/* Camera Upload Modal */}
       {showCameraUpload && currentStop && route && userData && (
         <View style={styles.cameraUploadOverlay}>
           <View style={styles.cameraUploadContainer}>
@@ -604,20 +596,19 @@ function MotoristaHomeContent() {
         </View>
       )}
 
-      {/* Support Modal */}
       <SupportModal
         visible={showSupportModal}
         onClose={() => setShowSupportModal(false)}
       />
-    </View>
+    </>
   );
 }
 
 // Main component with provider
-export default function MotoristaHome() {
+export default function MotoristaInicio() {
   return (
     <RouteStatusProvider>
-      <MotoristaHomeContent />
+      <MotoristaInicioContent />
     </RouteStatusProvider>
   );
 }
@@ -626,26 +617,9 @@ const styles = StyleSheet.create(theme => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,
-    position: 'relative',
-  },
-  scrollView: {
-    flex: 1,
   },
   scrollContent: {
     paddingBottom: 180,
-  },
-  quickActionsPortal: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    alignItems: 'center',
-    zIndex: 20,
-  },
-  quickActionsCard: {
-    width: '100%',
   },
   cameraUploadOverlay: {
     position: 'absolute',

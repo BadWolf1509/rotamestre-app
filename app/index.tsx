@@ -11,8 +11,8 @@ import { StyleSheet, useUnistyles } from '@/utils/styles';
  * Esta página NÃO é uma landing page.
  * Ela detecta se o usuário está logado e redireciona automaticamente:
  *
- * - Logado como gestor → /gestor/dashboard
- * - Logado como motorista → /motorista/home
+ * - Logado como gestor → /gestor/inicio
+ * - Logado como motorista → /motorista/inicio
  * - Não logado → /auth/login
  *
  * Landing page institucional: www.rotamestre.tec.br
@@ -36,11 +36,11 @@ export default function Index() {
         const tipo = await authService.verificarTipoUsuario(session.user.id);
 
         if (tipo === 'gestor') {
-          console.log('✅ Usuário autenticado como gestor → /gestor/dashboard');
-          router.replace('/gestor/dashboard');
+          console.log('✅ Usuário autenticado como gestor → /gestor/inicio');
+          router.replace('/gestor/inicio');
         } else if (tipo === 'motorista') {
-          console.log('✅ Usuário autenticado como motorista → /motorista/home');
-          router.replace('/motorista/home');
+          console.log('✅ Usuário autenticado como motorista → /motorista/inicio');
+          router.replace('/motorista/inicio');
         } else {
           // Tipo desconhecido, vai para login
           console.warn('⚠️ Tipo de usuário desconhecido, redirecionando para login');

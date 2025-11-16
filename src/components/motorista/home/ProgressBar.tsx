@@ -24,7 +24,6 @@ export function ProgressBar({ completed, total, timeElapsed, estimatedTime }: Pr
       <View style={styles.barContainer}>
         <View style={[styles.barFill, { width: `${percentage}%` }]} />
 
-        {/* Milestones */}
         <View style={[styles.milestone, { left: '25%' }]} />
         <View style={[styles.milestone, { left: '50%' }]} />
         <View style={[styles.milestone, { left: '75%' }]} />

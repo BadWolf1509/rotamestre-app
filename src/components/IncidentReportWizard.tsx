@@ -3,7 +3,6 @@ import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   Image,
   KeyboardAvoidingView,
@@ -17,9 +16,10 @@ import {
   View,
 } from 'react-native';
 
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { storageService } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
-import { useUnistyles } from '@/utils/styles';
+import { defaultTheme, useUnistyles } from '@/utils/styles';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -35,9 +35,9 @@ interface IncidentReportWizardProps {
   onClose: () => void;
   onSubmit: (report: IncidentReport) => void;
   paradaId?: string;
-  rotaId: string;
+  rotaId?: string;
   motoristaId: string;
-  endereco: string;
+  endereco?: string;
 }
 
 export interface IncidentReport {
@@ -45,9 +45,9 @@ export interface IncidentReport {
   description: string;
   photoUri?: string;
   paradaId?: string;
-  rotaId: string;
+  rotaId?: string;
   motoristaId: string;
-  endereco: string;
+  endereco?: string;
   timestamp: string;
 }
 
@@ -75,7 +75,12 @@ export function IncidentReportWizard({
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [description, setDescription] = useState('');
   const [photoUri, setPhotoUri] = useState<string>('');
+  const [manualEndereco, setManualEndereco] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const steps = [
     { id: 'category', title: 'Tipo de Problema' },
@@ -89,33 +94,28 @@ export function IncidentReportWizard({
     setSelectedCategory('');
     setDescription('');
     setPhotoUri('');
+    setManualEndereco('');
   };
 
   const handleClose = () => {
-    Alert.alert(
-      'Cancelar Reporte',
-      'Tem certeza que deseja cancelar o reporte do incidente?',
-      [
-        { text: 'Continuar', style: 'cancel' },
-        {
-          text: 'Cancelar Reporte',
-          style: 'destructive',
-          onPress: () => {
-            resetWizard();
-            onClose();
-          }
-        },
-      ]
-    );
+    setShowConfirmClose(true);
+  };
+
+  const confirmClose = () => {
+    setShowConfirmClose(false);
+    resetWizard();
+    onClose();
   };
 
   const handleNext = () => {
     if (currentStep === 0 && !selectedCategory) {
-      Alert.alert('Atenção', 'Selecione o tipo de problema');
+      setErrorMessage('Selecione o tipo de problema');
+      setShowErrorModal(true);
       return;
     }
     if (currentStep === 2 && description.length < 20) {
-      Alert.alert('Atenção', 'A descrição deve ter pelo menos 20 caracteres');
+      setErrorMessage('A descrição deve ter pelo menos 20 caracteres');
+      setShowErrorModal(true);
       return;
     }
 
@@ -172,6 +172,7 @@ export function IncidentReportWizard({
 
     try {
       let uploadedPhotoUrl = '';
+      const finalEndereco = endereco || manualEndereco || 'Localização não informada';
 
       // Upload da foto se existir
       if (photoUri) {
@@ -181,31 +182,34 @@ export function IncidentReportWizard({
 
       // Criar registro no banco
       const { error } = await supabase.from('incidentes').insert({
-        rota_id: rotaId,
-        parada_id: paradaId,
+        rota_id: rotaId || null,
+        parada_id: paradaId || null,
         motorista_id: motoristaId,
         categoria: selectedCategory,
         descricao: description,
         foto_url: uploadedPhotoUrl,
-        endereco: endereco,
+        endereco: finalEndereco,
         status: 'aberto',
         created_at: new Date().toISOString(),
       });
 
       if (error) throw error;
 
-      // Criar log
-      await supabase.from('logs').insert({
-        usuario_id: motoristaId,
-        rota_id: rotaId,
-        parada_id: paradaId,
-        evento: 'incidente_reportado',
-        detalhes: {
-          categoria: selectedCategory,
-          descricao: description,
-          tem_foto: !!photoUri,
-        },
-      });
+      // Criar log (apenas se tiver rota_id)
+      if (rotaId) {
+        await supabase.from('logs').insert({
+          usuario_id: motoristaId,
+          rota_id: rotaId,
+          evento: 'incidente_reportado',
+          detalhes: {
+            categoria: selectedCategory,
+            descricao: description,
+            tem_foto: !!photoUri,
+            parada_id: paradaId || null,
+            endereco: finalEndereco,
+          },
+        });
+      }
 
       const report: IncidentReport = {
         category: selectedCategory,
@@ -214,25 +218,37 @@ export function IncidentReportWizard({
         paradaId,
         rotaId,
         motoristaId,
-        endereco,
+        endereco: finalEndereco,
         timestamp: new Date().toISOString(),
       };
 
-      Alert.alert(
-        'Incidente Reportado',
-        'O problema foi registrado e será analisado pela gestão.',
-        [{ text: 'OK', onPress: () => {
-          resetWizard();
-          onSubmit(report);
-          onClose();
-        }}]
-      );
+      // Mostrar modal de sucesso
+      setShowSuccessModal(true);
+
+      // Callback será executado quando usuário clicar "OK" no modal de sucesso
     } catch (error) {
       console.error('Erro ao reportar incidente:', error);
-      Alert.alert('Erro', 'Não foi possível enviar o reporte. Tente novamente.');
+      setErrorMessage('Não foi possível enviar o reporte. Tente novamente.');
+      setShowErrorModal(true);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSuccessConfirm = () => {
+    setShowSuccessModal(false);
+    resetWizard();
+    onSubmit({
+      category: selectedCategory,
+      description,
+      photoUri,
+      paradaId,
+      rotaId,
+      motoristaId,
+      endereco: endereco || manualEndereco || 'Localização não informada',
+      timestamp: new Date().toISOString(),
+    });
+    onClose();
   };
 
   const renderStepIndicator = () => (
@@ -360,6 +376,7 @@ export function IncidentReportWizard({
 
   const renderReviewStep = () => {
     const category = INCIDENT_CATEGORIES.find(c => c.value === selectedCategory);
+    const finalEndereco = endereco || manualEndereco;
 
     return (
       <View style={styles.stepContent}>
@@ -367,7 +384,16 @@ export function IncidentReportWizard({
 
         <View style={styles.reviewSection}>
           <Text style={styles.reviewLabel}>Local:</Text>
-          <Text style={styles.reviewValue}>{endereco}</Text>
+          {!endereco ? (
+            <TextInput
+              style={styles.manualAddressInput}
+              placeholder="Informe o local do incidente..."
+              value={manualEndereco}
+              onChangeText={setManualEndereco}
+            />
+          ) : (
+            <Text style={styles.reviewValue}>{endereco}</Text>
+          )}
         </View>
 
         <View style={styles.reviewSection}>
@@ -405,19 +431,20 @@ export function IncidentReportWizard({
         style={styles.modalOverlay}
       >
         <View style={styles.modalContent}>
-          {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity onPress={handleClose}>
+            <TouchableOpacity
+              onPress={handleClose}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={{ zIndex: 10 }}
+            >
               <Ionicons name="close" size={24} color={theme.colors.text} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Reportar Problema</Text>
             <View style={{ width: 24 }} />
           </View>
 
-          {/* Step Indicator */}
           {renderStepIndicator()}
 
-          {/* Step Content */}
           <ScrollView style={styles.content}>
             {currentStep === 0 && renderCategoryStep()}
             {currentStep === 1 && renderPhotoStep()}
@@ -425,7 +452,6 @@ export function IncidentReportWizard({
             {currentStep === 3 && renderReviewStep()}
           </ScrollView>
 
-          {/* Actions */}
           <View style={styles.actions}>
             {currentStep > 0 && (
               <TouchableOpacity
@@ -438,9 +464,16 @@ export function IncidentReportWizard({
 
             {currentStep < steps.length - 1 ? (
               <TouchableOpacity
-                style={[styles.nextButton, !selectedCategory && currentStep === 0 && styles.buttonDisabled]}
+                style={[
+                  styles.nextButton,
+                  (!selectedCategory && currentStep === 0) && styles.buttonDisabled,
+                  (description.length < 20 && currentStep === 2) && styles.buttonDisabled,
+                ]}
                 onPress={handleNext}
-                disabled={!selectedCategory && currentStep === 0}
+                disabled={
+                  (!selectedCategory && currentStep === 0) ||
+                  (description.length < 20 && currentStep === 2)
+                }
               >
                 <Text style={styles.nextButtonText}>Próximo</Text>
               </TouchableOpacity>
@@ -460,11 +493,47 @@ export function IncidentReportWizard({
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Modal de confirmação para fechar */}
+      <ConfirmModal
+        visible={showConfirmClose}
+        title="Cancelar Reporte"
+        message="Tem certeza que deseja cancelar o reporte do incidente? As informações preenchidas serão perdidas."
+        confirmText="Sim, cancelar"
+        cancelText="Continuar editando"
+        type="warning"
+        onConfirm={confirmClose}
+        onCancel={() => setShowConfirmClose(false)}
+      />
+
+      {/* Modal de sucesso */}
+      <ConfirmModal
+        visible={showSuccessModal}
+        title="Incidente Reportado"
+        message="O problema foi registrado e será analisado pela gestão."
+        confirmText="OK"
+        cancelText=""
+        type="info"
+        onConfirm={handleSuccessConfirm}
+        onCancel={handleSuccessConfirm}
+      />
+
+      {/* Modal de erro */}
+      <ConfirmModal
+        visible={showErrorModal}
+        title="Atenção"
+        message={errorMessage}
+        confirmText="OK"
+        cancelText=""
+        type="warning"
+        onConfirm={() => setShowErrorModal(false)}
+        onCancel={() => setShowErrorModal(false)}
+      />
     </Modal>
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -507,7 +576,7 @@ const styles = StyleSheet.create(theme => ({
     alignItems: 'center',
   },
   stepCircleActive: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: defaultTheme.colors.primary,
   },
   stepNumber: {
     fontSize: 14,
@@ -524,7 +593,7 @@ const styles = StyleSheet.create(theme => ({
     marginHorizontal: 5,
   },
   stepLineActive: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: defaultTheme.colors.primary,
   },
   content: {
     flex: 1,
@@ -557,8 +626,8 @@ const styles = StyleSheet.create(theme => ({
     borderColor: 'transparent',
   },
   categoryCardSelected: {
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.primaryBg,
+    borderColor: defaultTheme.colors.primary,
+    backgroundColor: defaultTheme.colors.primaryBg,
   },
   categoryIcon: {
     width: 40,
@@ -667,6 +736,15 @@ const styles = StyleSheet.create(theme => ({
     borderRadius: 8,
     marginTop: 4,
   },
+  manualAddressInput: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 14,
+    backgroundColor: '#f9f9f9',
+    marginTop: 4,
+  },
   actions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -684,7 +762,7 @@ const styles = StyleSheet.create(theme => ({
   },
   nextButton: {
     flex: 1,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: defaultTheme.colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
@@ -713,4 +791,4 @@ const styles = StyleSheet.create(theme => ({
   buttonDisabled: {
     opacity: 0.5,
   },
-}));
+});

@@ -30,6 +30,7 @@ interface Parada {
   observacoes?: string;
   foto_url?: string | null;
   observacoes_motorista?: string;
+  is_checkpoint?: boolean;
 }
 
 interface Rota {
@@ -90,6 +91,7 @@ export default function CheckpointsMotoristaEnhanced() {
         .from('paradas')
         .select('*')
         .eq('rota_id', rotasData.id)
+        .or('is_checkpoint.is.null,is_checkpoint.eq.true')
         .order('ordem');
 
       if (paradasError) throw paradasError;
@@ -256,14 +258,17 @@ export default function CheckpointsMotoristaEnhanced() {
         })
         .eq('id', rota!.id);
 
+      // Filtrar apenas paradas reais (excluindo checkpoints)
+      const paradasReais = paradas.filter(p => p.is_checkpoint !== false);
+
       await supabase.from('logs').insert({
         usuario_id: userData!.id,
         rota_id: rota!.id,
         evento: 'rota_concluida',
         detalhes: {
-          total_paradas: paradas.length,
-          paradas_concluidas: paradas.filter((p) => p.status === 'concluida').length,
-          paradas_puladas: paradas.filter((p) => p.status === 'pulada').length,
+          total_paradas: paradasReais.length,
+          paradas_concluidas: paradasReais.filter((p) => p.status === 'concluida').length,
+          paradas_puladas: paradasReais.filter((p) => p.status === 'pulada').length,
         },
       });
 
@@ -453,9 +458,11 @@ export default function CheckpointsMotoristaEnhanced() {
     );
   }
 
-  const paradasPendentes = paradas.filter((p) => p.status === 'pendente').length;
-  const paradasConcluidas = paradas.filter((p) => p.status === 'concluida').length;
-  const paradasPuladas = paradas.filter((p) => p.status === 'pulada').length;
+  // Filtrar apenas paradas reais (excluindo checkpoints de partida/chegada)
+  const paradasReais = paradas.filter(p => p.is_checkpoint !== false);
+  const paradasPendentes = paradasReais.filter((p) => p.status === 'pendente').length;
+  const paradasConcluidas = paradasReais.filter((p) => p.status === 'concluida').length;
+  const paradasPuladas = paradasReais.filter((p) => p.status === 'pulada').length;
 
   const renderParada = ({ item }: { item: Parada }) => {
     const isConcluida = item.status === 'concluida';
@@ -628,7 +635,7 @@ export default function CheckpointsMotoristaEnhanced() {
 
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{paradas.length}</Text>
+            <Text style={styles.statValue}>{paradasReais.length}</Text>
             <Text style={styles.statLabel}>Total</Text>
           </View>
           <View style={styles.statItem}>
@@ -653,13 +660,13 @@ export default function CheckpointsMotoristaEnhanced() {
 
         <View style={styles.progressSection}>
           <Text style={styles.progressLabel}>
-            Progresso: {Math.round((paradasConcluidas / paradas.length) * 100)}%
+            Progresso: {paradasReais.length > 0 ? Math.round((paradasConcluidas / paradasReais.length) * 100) : 0}%
           </Text>
           <View style={styles.progressContainer}>
             <View
               style={[
                 styles.progressBar,
-                { width: `${(paradasConcluidas / paradas.length) * 100}%` },
+                { width: `${paradasReais.length > 0 ? (paradasConcluidas / paradasReais.length) * 100 : 0}%` },
               ]}
             />
           </View>

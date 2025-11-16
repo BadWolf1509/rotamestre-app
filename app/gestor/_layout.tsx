@@ -74,9 +74,9 @@ function GestorStack() {
       }}
     >
       <Stack.Screen
-        name="dashboard"
+        name="inicio"
         options={{
-          title: 'Dashboard',
+          title: 'Início',
         }}
       />
       <Stack.Screen
@@ -103,6 +103,12 @@ function GestorStack() {
           title: 'Mapa da Rota',
           headerLeft: () => renderBackButton(navigation),
         })}
+      />
+      <Stack.Screen
+        name="incidentes"
+        options={{
+          title: 'Incidentes',
+        }}
       />
     </Stack>
   );

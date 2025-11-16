@@ -1,4 +1,30 @@
+/**
+ * Dynamic Route Rerouting Service
+ *
+ * ⚠️ SUSPENDED FOR MVP - High API costs
+ *
+ * This service provides real-time route optimization using Google Maps APIs:
+ * - Distance Matrix API: Traffic data between waypoints (~$5-10 per 1000 requests)
+ * - Directions API: Optimized waypoint ordering (~$5 per 1000 requests)
+ *
+ * Current Status: DISABLED (commented out in inicio.tsx)
+ * Reason: API costs too high for MVP phase
+ *
+ * Alternative solutions to consider:
+ * 1. Client-side optimization using Haversine distance (free, less accurate)
+ * 2. Batch optimization once per day during off-peak hours
+ * 3. Only optimize routes with 5+ stops
+ * 4. Use cached traffic patterns instead of real-time data
+ *
+ * To re-enable:
+ * 1. Uncomment useEffect in app/motorista/inicio.tsx (lines 106-125)
+ * 2. Deploy Edge Functions: supabase functions deploy google-directions --no-verify-jwt
+ * 3. Set GOOGLE_MAPS_API_KEY in Supabase dashboard
+ * 4. Monitor API usage and costs in Google Cloud Console
+ */
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
 
@@ -173,16 +199,34 @@ class DynamicReroutingService {
   // Get traffic data between two points
   private async getTrafficData(origin: Stop, destination: Stop): Promise<TrafficData> {
     try {
-      const url = `https://maps.googleapis.com/maps/api/distancematrix/json?` +
-        `origins=${origin.latitude},${origin.longitude}` +
-        `&destinations=${destination.latitude},${destination.longitude}` +
-        `&mode=driving` +
-        `&departure_time=now` +
-        `&traffic_model=best_guess` +
-        `&key=${this.googleMapsApiKey}`;
+      let data;
 
-      const response = await fetch(url);
-      const data = await response.json();
+      if (Platform.OS === 'web') {
+        // Use Supabase Edge Function to avoid CORS
+        const { data: edgeData, error } = await supabase.functions.invoke('google-distance-matrix', {
+          body: {
+            origins: `${origin.latitude},${origin.longitude}`,
+            destinations: `${destination.latitude},${destination.longitude}`,
+            mode: 'driving',
+            departureTime: 'now',
+          },
+        });
+
+        if (error) throw error;
+        data = edgeData;
+      } else {
+        // Mobile: call Google API directly
+        const url = `https://maps.googleapis.com/maps/api/distancematrix/json?` +
+          `origins=${origin.latitude},${origin.longitude}` +
+          `&destinations=${destination.latitude},${destination.longitude}` +
+          `&mode=driving` +
+          `&departure_time=now` +
+          `&traffic_model=best_guess` +
+          `&key=${this.googleMapsApiKey}`;
+
+        const response = await fetch(url);
+        data = await response.json();
+      }
 
       if (data.rows && data.rows[0] && data.rows[0].elements[0]) {
         const element = data.rows[0].elements[0];
@@ -318,17 +362,36 @@ class DynamicReroutingService {
         .map(s => `${s.latitude},${s.longitude}`)
         .join('|');
 
-      const url = `https://maps.googleapis.com/maps/api/directions/json?` +
-        `origin=${origin}` +
-        `&destination=${destination}` +
-        `&waypoints=optimize:true|${waypoints}` +
-        `&mode=driving` +
-        `&departure_time=now` +
-        `&traffic_model=best_guess` +
-        `&key=${this.googleMapsApiKey}`;
+      let data;
 
-      const response = await fetch(url);
-      const data = await response.json();
+      if (Platform.OS === 'web') {
+        // Use Supabase Edge Function to avoid CORS
+        const { data: edgeData, error } = await supabase.functions.invoke('google-directions', {
+          body: {
+            origin,
+            destination,
+            waypoints: `optimize:true|${waypoints}`,
+            mode: 'driving',
+            departureTime: 'now',
+          },
+        });
+
+        if (error) throw error;
+        data = edgeData;
+      } else {
+        // Mobile: call Google API directly
+        const url = `https://maps.googleapis.com/maps/api/directions/json?` +
+          `origin=${origin}` +
+          `&destination=${destination}` +
+          `&waypoints=optimize:true|${waypoints}` +
+          `&mode=driving` +
+          `&departure_time=now` +
+          `&traffic_model=best_guess` +
+          `&key=${this.googleMapsApiKey}`;
+
+        const response = await fetch(url);
+        data = await response.json();
+      }
 
       if (data.routes && data.routes[0]) {
         const route = data.routes[0];

@@ -1,5 +1,9 @@
 # 📱 Rota Mestre - App
 
+[![Tests](https://github.com/BadWolf1509/rotamestre-app/actions/workflows/test.yml/badge.svg)](https://github.com/BadWolf1509/rotamestre-app/actions/workflows/test.yml)
+[![Code Quality](https://github.com/BadWolf1509/rotamestre-app/actions/workflows/quality.yml/badge.svg)](https://github.com/BadWolf1509/rotamestre-app/actions/workflows/quality.yml)
+[![codecov](https://codecov.io/gh/BadWolf1509/rotamestre-app/branch/main/graph/badge.svg)](https://codecov.io/gh/BadWolf1509/rotamestre-app)
+
 > Sistema completo de gestão de rotas para gestores e motoristas
 
 **Stack:** React Native 0.81.5 • Expo 54 • TypeScript • Supabase • Unistyles • Google Maps
@@ -19,6 +23,7 @@ npm install
 # 2. Configure variáveis de ambiente
 cp .env.example .env
 # Preencha: SUPABASE_URL, SUPABASE_ANON_KEY, GOOGLE_MAPS_API_KEY
+# (Opcional) EXPO_PUBLIC_GOOGLE_MAPS_MAP_ID para habilitar AdvancedMarkerElement no mapa web
 
 # 3. Rode o app
 npm start              # Dev mode (Expo)

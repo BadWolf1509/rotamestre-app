@@ -42,7 +42,8 @@ export function NavigationMode({
 
   useEffect(() => {
     loadSettings();
-  }, [loadSettings]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // loadSettings é estável (useCallback com deps vazias)
 
   useEffect(() => {
     let cleanup: (() => void) | undefined;
@@ -56,7 +57,8 @@ export function NavigationMode({
     return () => {
       cleanup?.();
     };
-  }, [startLocationTracking]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // startLocationTracking é estável (useCallback)
 
   const loadSettings = useCallback(async () => {
     const prefs = await LocationTrackingService.getNavigationPreferences();

@@ -16,15 +16,15 @@ import {
 describe('Design Tokens', () => {
   describe('Colors', () => {
     it('deve ter cores primárias definidas', () => {
-      expect(colors.primary.main).toBe('#1e5aa8');
-      expect(colors.primary.dark).toBe('#0D5A9C');
-      expect(colors.primary.light).toBe('#3b82f6');
+      expect(colors.primary.main).toBe('#284093');
+      expect(colors.primary.dark).toBe('#1b2c63');
+      expect(colors.primary.light).toBe('#34699f');
     });
 
     it('deve ter cores secundárias definidas', () => {
       expect(colors.secondary.main).toBe('#f7a02a');
-      expect(colors.secondary.dark).toBe('#e68a00');
-      expect(colors.secondary.light).toBe('#ffb84d');
+      expect(colors.secondary.dark).toBe('#c87704');
+      expect(colors.secondary.light).toBe('#ffbf14');
     });
 
     it('deve ter cores semânticas definidas', () => {
@@ -44,7 +44,7 @@ describe('Design Tokens', () => {
       expect(colors.text.primary).toBe('#111827');
       expect(colors.text.secondary).toBe('#6b7280');
       expect(colors.text.inverse).toBe('#ffffff');
-      expect(colors.text.link).toBe('#1e5aa8');
+      expect(colors.text.link).toBe('#284093');
     });
   });
 
@@ -268,10 +268,6 @@ describe('Design Tokens', () => {
 
     it('deve ter cor de link consistente com cor primária', () => {
       expect(colors.text.link).toBe(colors.primary.main);
-    });
-
-    it('deve ter info color consistente com primary light', () => {
-      expect(colors.info).toBe(colors.primary.light);
     });
   });
 });

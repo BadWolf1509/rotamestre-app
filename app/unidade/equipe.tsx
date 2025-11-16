@@ -13,7 +13,9 @@ import {
 
 import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { Toast } from '@/components/Toast';
+import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
@@ -33,8 +35,12 @@ export default function EquipeScreen() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { userData, loading: userLoading } = useUser();
+  const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
+    userName: userData?.nome,
+  });
   const { toast: toastState, showToast, hideToast } = useToast();
   const { isDesktop, isLargeDesktop } = useBreakpoint();
+  const pageMeta = getGestorPageMeta('equipe');
   const [membros, setMembros] = useState<Membro[]>([]);
   const [filteredMembros, setFilteredMembros] = useState<Membro[]>([]);
   const [loading, setLoading] = useState(true);
@@ -250,8 +256,10 @@ export default function EquipeScreen() {
 
     const cards = (
       <View style={useDesktopLayout ? styles.gridContainer : undefined}>
-        {filteredMembros.map((membro) => (
-          <View
+        {filteredMembros.map((membro) => {
+          const isGestorRole = membro.papel === 'gestor';
+          return (
+            <View
             key={membro.id}
             style={[
               styles.membroCard,
@@ -285,11 +293,18 @@ export default function EquipeScreen() {
                   )}
                 </View>
                 <Text style={styles.membroEmail}>{membro.email}</Text>
-                <View style={styles.papelBadge}>
+                <View
+                  style={[
+                    styles.papelBadge,
+                    isGestorRole ? styles.papelBadgeGestor : styles.papelBadgeMotorista,
+                  ]}
+                >
                   <Text
                     style={[
                       styles.papelBadgeText,
-                      { color: getPapelColor(membro.papel) },
+                      isGestorRole
+                        ? styles.papelBadgeTextGestor
+                        : styles.papelBadgeTextMotorista,
                     ]}
                   >
                     {getPapelLabel(membro.papel)}
@@ -322,7 +337,8 @@ export default function EquipeScreen() {
               </View>
             )}
           </View>
-        ))}
+          );
+        })}
       </View>
     );
 
@@ -360,8 +376,11 @@ export default function EquipeScreen() {
     return (
       <>
         <DesktopPageLayout
-          title="Equipe"
+          title={pageMeta.title}
           subtitle={`${membros.length} ${membros.length === 1 ? 'membro' : 'membros'}`}
+          breadcrumbs={pageMeta.breadcrumbs}
+          userMenuTrigger={userMenuTrigger}
+          userMenuItems={userMenuItems}
           loading={isLoading}
           actions={desktopActions}
         >
@@ -371,16 +390,20 @@ export default function EquipeScreen() {
           {renderMembersSection(true)}
         </DesktopPageLayout>
         <Toast {...toastState} onDismiss={hideToast} />
+        {logoutModal}
       </>
     );
   }
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>Carregando equipe...</Text>
-      </View>
+      <>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>Carregando equipe...</Text>
+        </View>
+        {logoutModal}
+      </>
     );
   }
 
@@ -392,6 +415,7 @@ export default function EquipeScreen() {
       {renderMembersSection(false)}
       {footerSection}
       <Toast {...toastState} onDismiss={hideToast} />
+      {logoutModal}
     </View>
   );
 }
@@ -506,12 +530,13 @@ const styles = StyleSheet.create(theme => ({
     color: theme.colors.textSecondary,
   },
   membroCard: {
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.white,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderWidth: 1.5,
+    borderColor: theme.colors.gray200,
+    ...theme.shadows.sm,
     // Web-only: Smooth transitions and hover
     ...(Platform.OS === 'web' && {
       transitionProperty: 'all',
@@ -593,10 +618,28 @@ const styles = StyleSheet.create(theme => ({
   },
   papelBadge: {
     alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  papelBadgeGestor: {
+    backgroundColor: theme.colors.primaryBg,
+    borderColor: theme.colors.primaryLight,
+  },
+  papelBadgeMotorista: {
+    backgroundColor: theme.colors.successBg,
+    borderColor: theme.colors.success,
   },
   papelBadgeText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  papelBadgeTextGestor: {
+    color: theme.colors.primaryDark,
+  },
+  papelBadgeTextMotorista: {
+    color: theme.colors.success,
   },
   membroActions: {
     flexDirection: 'row',
@@ -629,7 +672,7 @@ const styles = StyleSheet.create(theme => ({
     color: theme.colors.text,
   },
   youBadge: {
-    backgroundColor: theme.colors.primaryLight,
+    backgroundColor: theme.colors.primary,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -639,7 +682,7 @@ const styles = StyleSheet.create(theme => ({
   youBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: theme.colors.primary,
+    color: theme.colors.white,
   },
   footer: {
     padding: 20,

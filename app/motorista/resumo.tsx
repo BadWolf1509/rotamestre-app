@@ -38,6 +38,13 @@ export default function ResumoMotorista() {
   const [loading, setLoading] = useState(true);
   const [finalizando, setFinalizando] = useState(false);
 
+  function parseLocalDate(dataStr: string): Date | null {
+    if (!dataStr) return null;
+    const [year, month, day] = dataStr.split('-').map(Number);
+    if (!year || !month || !day) return null;
+    return new Date(year, month - 1, day);
+  }
+
   const loadRotaConcluida = useCallback(async () => {
     if (!userData?.id) {
       setRota(null);
@@ -71,6 +78,7 @@ export default function ResumoMotorista() {
         .from('paradas')
         .select('*')
         .eq('rota_id', rotasData.id)
+        .or('is_checkpoint.is.null,is_checkpoint.eq.true')
         .order('ordem');
 
       if (paradasError) throw paradasError;
@@ -106,15 +114,18 @@ export default function ResumoMotorista() {
   async function finalizarRota() {
     setFinalizando(true);
     try {
+      // Filtrar apenas paradas reais (excluindo checkpoints)
+      const paradasReais = paradas.filter(p => p.is_checkpoint !== false);
+
       // Criar log de finalização
       await supabase.from('logs').insert({
         usuario_id: userData!.id,
         rota_id: rota!.id,
         evento: 'rota_finalizada',
         detalhes: {
-          total_paradas: paradas.length,
-          paradas_concluidas: paradas.filter((p) => p.status === 'concluida').length,
-          paradas_puladas: paradas.filter((p) => p.status === 'pulada').length,
+          total_paradas: paradasReais.length,
+          paradas_concluidas: paradasReais.filter((p) => p.status === 'concluida').length,
+          paradas_puladas: paradasReais.filter((p) => p.status === 'pulada').length,
           tempo_total: rota!.tempo_total,
           distancia_total: rota!.distancia_total,
         },
@@ -164,9 +175,11 @@ export default function ResumoMotorista() {
     );
   }
 
-  const paradasConcluidas = paradas.filter((p) => p.status === 'concluida').length;
-  const paradasPuladas = paradas.filter((p) => p.status === 'pulada').length;
-  const taxaConclusao = Math.round((paradasConcluidas / paradas.length) * 100);
+  // Filtrar apenas paradas reais (excluindo checkpoints de partida/chegada)
+  const paradasReais = paradas.filter(p => p.is_checkpoint !== false);
+  const paradasConcluidas = paradasReais.filter((p) => p.status === 'concluida').length;
+  const paradasPuladas = paradasReais.filter((p) => p.status === 'pulada').length;
+  const taxaConclusao = paradasReais.length > 0 ? Math.round((paradasConcluidas / paradasReais.length) * 100) : 0;
   const tempoTotal = calcularTempoTotal();
 
   return (
@@ -174,11 +187,11 @@ export default function ResumoMotorista() {
       {/* Header */}
       <MobileHeader
         title="Resumo da Rota"
-        subtitle={`${rota.unidades.nome} • ${new Date(rota.data).toLocaleDateString('pt-BR', {
+        subtitle={`${rota.unidades.nome} • ${parseLocalDate(rota.data)?.toLocaleDateString('pt-BR', {
           weekday: 'long',
           day: 'numeric',
           month: 'short',
-        })}`}
+        }) || rota.data}`}
       />
 
       <ScrollView style={styles.container}>
@@ -190,7 +203,7 @@ export default function ResumoMotorista() {
             <View style={[styles.performanceIcon, { backgroundColor: theme.colors.primary }]}>
               <Text style={styles.performanceIconText}>📍</Text>
             </View>
-            <Text style={styles.performanceValue}>{paradas.length}</Text>
+            <Text style={styles.performanceValue}>{paradasReais.length}</Text>
             <Text style={styles.performanceLabel}>Total de Paradas</Text>
           </View>
 

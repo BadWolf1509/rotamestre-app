@@ -3,6 +3,7 @@ import Slider from '@react-native-community/slider';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
+  Platform,
   ScrollView,
   Switch,
   Text,
@@ -20,6 +21,8 @@ interface NavigationSettingsProps {
 
 export function NavigationSettings({ visible, onClose }: NavigationSettingsProps) {
   const { theme } = useUnistyles();
+  const isWeb = Platform.OS === 'web';
+
   const [settings, setSettings] = useState({
     autoAdvance: true,
     soundAlerts: true,
@@ -147,10 +150,13 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Navegação</Text>
 
-          <View style={styles.setting}>
+          <View style={[styles.setting, isWeb && styles.settingDisabled]}>
             <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>Navegação Interna</Text>
-              <Text style={styles.settingDescription}>
+              <Text style={[styles.settingLabel, isWeb && styles.disabledText]}>
+                Navegação Interna
+                {isWeb && ' (somente mobile)'}
+              </Text>
+              <Text style={[styles.settingDescription, isWeb && styles.disabledText]}>
                 Turn-by-turn dentro do app (economia de bateria)
               </Text>
             </View>
@@ -159,6 +165,7 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
               onValueChange={(value) => handleSettingChange('internalNavigation', value)}
               trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
               thumbColor={theme.colors.white}
+              disabled={isWeb}
             />
           </View>
 
@@ -219,10 +226,13 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Exibição</Text>
 
-          <View style={styles.setting}>
+          <View style={[styles.setting, isWeb && styles.settingDisabled]}>
             <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>Velocímetro</Text>
-              <Text style={styles.settingDescription}>
+              <Text style={[styles.settingLabel, isWeb && styles.disabledText]}>
+                Velocímetro
+                {isWeb && ' (somente mobile)'}
+              </Text>
+              <Text style={[styles.settingDescription, isWeb && styles.disabledText]}>
                 Mostrar velocidade atual durante navegação
               </Text>
             </View>
@@ -231,13 +241,17 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
               onValueChange={(value) => handleSettingChange('showSpeedometer', value)}
               trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
               thumbColor={theme.colors.white}
+              disabled={isWeb}
             />
           </View>
 
-          <View style={styles.setting}>
+          <View style={[styles.setting, isWeb && styles.settingDisabled]}>
             <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>Manter Tela Ligada</Text>
-              <Text style={styles.settingDescription}>
+              <Text style={[styles.settingLabel, isWeb && styles.disabledText]}>
+                Manter Tela Ligada
+                {isWeb && ' (somente mobile)'}
+              </Text>
+              <Text style={[styles.settingDescription, isWeb && styles.disabledText]}>
                 Impedir que a tela desligue durante navegação
               </Text>
             </View>
@@ -246,6 +260,7 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
               onValueChange={(value) => handleSettingChange('preventScreenSleep', value)}
               trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
               thumbColor={theme.colors.white}
+              disabled={isWeb}
             />
           </View>
         </View>
@@ -262,9 +277,16 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
           <Text style={styles.tipText}>
             • Ajuste o raio de proximidade baseado na precisão do GPS em sua região
           </Text>
-          <Text style={styles.tipText}>
-            • Mantenha a tela ligada para visualização contínua do mapa
-          </Text>
+          {!isWeb && (
+            <Text style={styles.tipText}>
+              • Mantenha a tela ligada para visualização contínua do mapa
+            </Text>
+          )}
+          {isWeb && (
+            <Text style={styles.tipText}>
+              • Algumas opções (Navegação Interna, Velocímetro e Tela Ligada) estão disponíveis apenas no app mobile
+            </Text>
+          )}
         </View>
 
         {/* Reset Button */}
@@ -341,6 +363,12 @@ const styles = StyleSheet.create(theme => ({
   settingDescription: {
     fontSize: 12,
     color: theme.colors.gray500,
+  },
+  settingDisabled: {
+    opacity: 0.5,
+  },
+  disabledText: {
+    color: theme.colors.gray400,
   },
   sliderSetting: {
     marginTop: 16,

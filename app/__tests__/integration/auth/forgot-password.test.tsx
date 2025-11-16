@@ -35,7 +35,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
 
       expect(getByPlaceholderText('E-mail')).toBeTruthy();
       expect(getByText('Enviar Link')).toBeTruthy();
-      expect(getByText('← Voltar para login')).toBeTruthy();
+      expect(getByText('Voltar para login')).toBeTruthy();
       expect(getByText('Recuperar senha')).toBeTruthy();
     });
 
@@ -49,7 +49,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
     it('deve ter botão "Voltar para login" visível', () => {
       const { getByText } = render(<ForgotPassword />);
 
-      const backButton = getByText('← Voltar para login');
+      const backButton = getByText('Voltar para login');
       expect(backButton).toBeTruthy();
     });
   });
@@ -291,10 +291,10 @@ describe('Forgot Password Screen - Integration Tests', () => {
     it('deve voltar para tela anterior ao clicar em "Voltar para login"', () => {
       const { getByText } = render(<ForgotPassword />);
 
-      const backButton = getByText('← Voltar para login');
+      const backButton = getByText('Voltar para login');
       fireEvent.press(backButton);
 
-      expect(mockRouter.back).toHaveBeenCalled();
+      expect(mockRouter.push).toHaveBeenCalledWith('/auth/login');
     });
 
     it('deve exibir Alert de sucesso com botão de confirmação', async () => {

@@ -93,18 +93,21 @@ export function ConfirmModal({
 
           {/* Footer */}
           <View style={styles.footer}>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={onCancel}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.cancelButtonText}>{cancelText}</Text>
-            </TouchableOpacity>
+            {cancelText && (
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={onCancel}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.cancelButtonText}>{cancelText}</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={[
                 styles.confirmButton,
                 { backgroundColor: getConfirmButtonColor() },
+                !cancelText && styles.singleButton,
               ]}
               onPress={onConfirm}
               activeOpacity={0.8}
@@ -222,5 +225,8 @@ const styles = StyleSheet.create(theme => ({
     fontSize: theme.typography.sm,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.white,
+  },
+  singleButton: {
+    flex: 1,
   },
 }));

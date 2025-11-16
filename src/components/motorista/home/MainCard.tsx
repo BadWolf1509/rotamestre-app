@@ -43,6 +43,9 @@ export function MainCard({
     distanciaOntem: 0,
   });
 
+  // Filtrar apenas paradas reais (sem checkpoints)
+  const paradasReais = paradas.filter(p => p.is_checkpoint !== false);
+
   // Load yesterday's stats when no route
   const loadYesterdayStats = useCallback(async () => {
     if (!motoristaId) return;
@@ -163,7 +166,7 @@ export function MainCard({
         <View style={styles.infoGrid}>
           <View style={styles.infoItem}>
             <Ionicons name="location-outline" size={16} color={theme.colors.gray500} />
-            <Text style={styles.infoValue}>{paradas.length} paradas</Text>
+            <Text style={styles.infoValue}>{paradasReais.length} paradas</Text>
           </View>
           <View style={styles.infoItem}>
             <Ionicons name="navigate-outline" size={16} color={theme.colors.gray500} />
@@ -210,7 +213,7 @@ export function MainCard({
           <View style={styles.header}>
             <View style={styles.badge}>
               <Text style={styles.badgeText}>
-                {state === 'last-stop' ? 'ÚLTIMA PARADA! 🎯' : `PARADA ${currentStop.ordem}/${paradas.length}`}
+                {state === 'last-stop' ? 'ÚLTIMA PARADA! 🎯' : `PARADA ${currentStop.ordem}/${paradasReais.length}`}
               </Text>
             </View>
             <View style={styles.timer}>
@@ -241,7 +244,6 @@ export function MainCard({
             </View>
           )}
 
-          {/* Street View Preview */}
           <View style={styles.streetViewContainer}>
             <StreetViewPreview
               latitude={currentStop.latitude}
@@ -290,7 +292,7 @@ export function MainCard({
           <Text style={styles.statLabel}>Tempo Total</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{paradas.length}</Text>
+          <Text style={styles.statNumber}>{paradasReais.length}</Text>
           <Text style={styles.statLabel}>Paradas</Text>
         </View>
         <View style={styles.statCard}>

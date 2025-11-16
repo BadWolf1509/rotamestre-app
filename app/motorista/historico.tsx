@@ -58,7 +58,7 @@ export default function HistoricoMotorista() {
         (rotasData || []).map(async (rota) => {
           const { data: paradasData, error: paradasError } = await supabase
             .from('paradas')
-            .select('id, status')
+            .select('id, status, is_checkpoint')
             .eq('rota_id', rota.id);
 
           if (paradasError) {
@@ -70,11 +70,16 @@ export default function HistoricoMotorista() {
             };
           }
 
+          // Filtrar apenas paradas reais (sem checkpoints base)
+          const paradasReais = (paradasData || []).filter(
+            (parada) => parada.is_checkpoint !== false
+          );
+
           return {
             ...rota,
-            paradas_count: paradasData?.length || 0,
+            paradas_count: paradasReais.length,
             paradas_concluidas:
-              paradasData?.filter((p) => p.status === 'concluida').length || 0,
+              paradasReais.filter((p) => p.status === 'concluida').length,
           };
         })
       );
@@ -100,6 +105,13 @@ export default function HistoricoMotorista() {
 
   function toggleExpand(rotaId: string) {
     setExpandedRotaId(expandedRotaId === rotaId ? null : rotaId);
+  }
+
+  function parseLocalDate(dataStr: string): Date | null {
+    if (!dataStr) return null;
+    const [year, month, day] = dataStr.split('-').map(Number);
+    if (!year || !month || !day) return null;
+    return new Date(year, month - 1, day);
   }
 
   function calcularTempoTotal(rota: RotaHistorico) {
@@ -142,11 +154,11 @@ export default function HistoricoMotorista() {
         <View style={styles.rotaHeader}>
           <View style={styles.rotaHeaderLeft}>
             <Text style={styles.rotaData}>
-              {new Date(item.data).toLocaleDateString('pt-BR', {
+              {parseLocalDate(item.data)?.toLocaleDateString('pt-BR', {
                 day: '2-digit',
                 month: 'short',
                 year: 'numeric',
-              })}
+              }) || item.data}
             </Text>
             <Text style={styles.rotaUnidade}>{item.unidades.nome}</Text>
           </View>

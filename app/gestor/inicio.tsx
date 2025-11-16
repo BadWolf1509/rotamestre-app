@@ -4,10 +4,10 @@ import { useDashboardData } from '@/components/gestor/dashboard/_hooks/useDashbo
 import { useResponsive } from '@/hooks/useResponsive';
 
 /**
- * Roteador principal do Dashboard do Gestor
+ * Página inicial do gestor
  * Renderiza DashboardMobile ou DashboardDesktop baseado no breakpoint
  */
-export default function Dashboard() {
+export default function GestorInicio() {
   const { isDesktop } = useResponsive();
   const dashboardData = useDashboardData();
 

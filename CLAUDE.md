@@ -20,7 +20,7 @@
 
 ### ✅ Migration Complete (2025-11-11)
 **Motorista home screen updated to advanced version:**
-- **`/motorista/home`** - Main screen with state machine, CameraUpload, PiP, NavigationMode
+- **`/motorista/inicio`** - Main screen with state machine, CameraUpload, PiP, NavigationMode
 - **`/motorista/checkpoints`** - Detailed list of stops with swipe actions
 - **`/motorista/rota`** - Legacy (can be removed after validation)
 

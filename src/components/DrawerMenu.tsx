@@ -77,22 +77,21 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
   }
 
   const gestorMenuItems = [
-    { icon: '🏠', label: 'Dashboard', path: '/gestor/dashboard', show: true },
+    { icon: '🏠', label: 'Início', path: '/gestor/inicio', show: true },
     { icon: '📦', label: 'Nova Rota', path: '/gestor/nova-entrega', show: true },
     { icon: '📋', label: 'Histórico', path: '/gestor/historico', show: true },
+    { icon: '⚠️', label: 'Incidentes', path: '/gestor/incidentes', show: true },
     { icon: '🧑‍✈️', label: 'Motoristas', path: '/gestor/motoristas', show: true },
-    { icon: '👤', label: 'Meu Perfil', path: '/perfil', show: true },
     { icon: '🏢', label: 'Minha Unidade', path: '/unidade', show: profile?.papel === 'gestor' },
     { icon: '👥', label: 'Equipe', path: '/unidade/equipe', show: profile?.papel === 'gestor' },
   ];
 
   const motoristaMenuItems = [
-    { icon: '🏠', label: 'Home', path: '/motorista/home', show: true },
+    { icon: '🏠', label: 'Início', path: '/motorista/inicio', show: true },
     { icon: '📍', label: 'Paradas', path: '/motorista/checkpoints', show: true },
     { icon: '🗺️', label: 'Mapa', path: '/motorista/mapa', show: true },
     { icon: '📑', label: 'Histórico', path: '/motorista/historico', show: true },
     { icon: '📊', label: 'Resumo', path: '/motorista/resumo', show: true },
-    { icon: '👤', label: 'Meu Perfil', path: '/motorista/perfil', show: true },
   ];
 
   const isMotorista = profile?.papel === 'motorista';
@@ -169,12 +168,29 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
                   })}
               </View>
 
-              {/* Logout */}
+              {/* Footer Actions */}
               <View style={styles.footer}>
-                <TouchableOpacity style={styles.logoutButton} onPress={handleLogoutPress}>
-                  <Text style={styles.logoutIcon}>🚪</Text>
-                  <Text style={styles.logoutText}>Sair da Conta</Text>
+                <TouchableOpacity
+                  style={styles.footerItem}
+                  onPress={() => navigate(isMotorista ? '/motorista/perfil' : '/perfil')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.footerIcon}>👤</Text>
+                  <Text style={styles.footerLabel}>Meu Perfil</Text>
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.footerItem}
+                  onPress={handleLogoutPress}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.footerIcon}>🚪</Text>
+                  <Text style={styles.footerLabel}>Sair</Text>
+                </TouchableOpacity>
+
+                <View style={styles.versionContainer}>
+                  <Text style={styles.versionText}>Versão 1.0.0</Text>
+                </View>
               </View>
             </ScrollView>
           </SafeAreaView>
@@ -311,29 +327,42 @@ const styles = StyleSheet.create(theme => ({
     color: theme.colors.primary,
   },
   footer: {
-    padding: theme.spacing.xl,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.xl,
+    paddingBottom: theme.spacing.lg,
     borderTopWidth: 1,
     borderTopColor: theme.colors.gray200,
     marginTop: 'auto',
+    gap: 4,
+    backgroundColor: theme.colors.gray50,
   },
-  logoutButton: {
+  footerItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    backgroundColor: `${theme.colors.error}10`,
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: `${theme.colors.error}30`,
+    paddingVertical: 12,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.white,
   },
-  logoutIcon: {
-    fontSize: 20,
+  footerIcon: {
+    fontSize: 18,
     marginRight: theme.spacing.md,
+    width: 24,
   },
-  logoutText: {
-    fontSize: theme.typography.base,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.error,
+  footerLabel: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansMedium,
+    color: theme.colors.gray600,
+  },
+  versionContainer: {
+    marginTop: theme.spacing.md,
+    paddingTop: theme.spacing.md,
+    alignItems: 'center',
+  },
+  versionText: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray400,
+    fontFamily: theme.typography.fontSansMedium,
   },
 }));
 

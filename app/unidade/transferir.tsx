@@ -12,7 +12,9 @@ import {
 
 import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { Toast } from '@/components/Toast';
+import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
@@ -29,8 +31,12 @@ export default function TransferirGestaoScreen() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { userData, loading: userLoading } = useUser();
+  const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
+    userName: userData?.nome,
+  });
   const { toast: toastState, showToast, hideToast } = useToast();
   const { isDesktop } = useBreakpoint();
+  const pageMeta = getGestorPageMeta('transferirUnidade');
   const [gestores, setGestores] = useState<GestorElegivel[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedGestor, setSelectedGestor] = useState<string | null>(null);
@@ -140,7 +146,7 @@ export default function TransferirGestaoScreen() {
           {
             text: 'OK',
             onPress: () => {
-              router.replace('/gestor/dashboard');
+              router.replace('/gestor/inicio');
             },
           },
         ]
@@ -295,8 +301,11 @@ export default function TransferirGestaoScreen() {
       return (
         <>
           <DesktopPageLayout
-            title="Transferir Gestão Principal"
+            title={pageMeta.title}
             subtitle={userData?.unidades?.nome}
+            breadcrumbs={pageMeta.breadcrumbs}
+            userMenuTrigger={userMenuTrigger}
+            userMenuItems={userMenuItems}
             loading={isLoading}
             actions={desktopActions}
           >
@@ -307,6 +316,7 @@ export default function TransferirGestaoScreen() {
             </View>
           </DesktopPageLayout>
           <Toast {...toastState} onDismiss={hideToast} />
+          {logoutModal}
         </>
       );
     }
@@ -314,30 +324,38 @@ export default function TransferirGestaoScreen() {
     return (
       <>
         <DesktopPageLayout
-          title="Transferir Gestão Principal"
+          title={pageMeta.title}
           subtitle={userData?.unidades?.nome}
+          breadcrumbs={pageMeta.breadcrumbs}
+          userMenuTrigger={userMenuTrigger}
+          userMenuItems={userMenuItems}
           loading={isLoading}
           actions={desktopActions}
         >
           {renderMainContent()}
         </DesktopPageLayout>
         <Toast {...toastState} onDismiss={hideToast} />
+        {logoutModal}
       </>
     );
   }
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>Carregando gestores...</Text>
-      </View>
+      <>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>Carregando gestores...</Text>
+        </View>
+        {logoutModal}
+      </>
     );
   }
 
   if (!isGestorPrincipal) {
     return (
-      <View style={styles.container}>
+      <>
+        <View style={styles.container}>
         <View style={styles.header}>
           <View style={styles.headerContent}>
             <View>
@@ -352,6 +370,8 @@ export default function TransferirGestaoScreen() {
           </Text>
         </View>
       </View>
+      {logoutModal}
+      </>
     );
   }
 
@@ -365,10 +385,10 @@ export default function TransferirGestaoScreen() {
           </View>
         </View>
       </View>
-
       <ScrollView style={styles.content}>{renderMainContent()}</ScrollView>
 
       <Toast {...toastState} onDismiss={hideToast} />
+      {logoutModal}
     </View>
   );
 }

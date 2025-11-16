@@ -87,10 +87,8 @@ describe('Login Screen - Integration Tests', () => {
       fireEvent.press(loginButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith(
-          'Erro',
-          'Preencha todos os campos'
-        );
+        expect(getByText('Ops!')).toBeTruthy();
+        expect(getByText('Por favor, preencha seu e-mail e senha para continuar.')).toBeTruthy();
       });
     });
 
@@ -104,10 +102,8 @@ describe('Login Screen - Integration Tests', () => {
       fireEvent.press(loginButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith(
-          'Erro',
-          'Preencha todos os campos'
-        );
+        expect(getByText('Ops!')).toBeTruthy();
+        expect(getByText('Por favor, preencha seu e-mail e senha para continuar.')).toBeTruthy();
       });
     });
 
@@ -121,10 +117,8 @@ describe('Login Screen - Integration Tests', () => {
       fireEvent.press(loginButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith(
-          'Erro',
-          'Preencha todos os campos'
-        );
+        expect(getByText('Ops!')).toBeTruthy();
+        expect(getByText('Por favor, preencha seu e-mail e senha para continuar.')).toBeTruthy();
       });
     });
   });
@@ -162,7 +156,7 @@ describe('Login Screen - Integration Tests', () => {
           'gestor@rotamestre.com',
           'senha123'
         );
-        expect(mockRouter.replace).toHaveBeenCalledWith('/gestor/dashboard');
+        expect(mockRouter.replace).toHaveBeenCalledWith('/gestor/inicio');
       });
     });
 
@@ -195,7 +189,7 @@ describe('Login Screen - Integration Tests', () => {
           'motorista@rotamestre.com',
           'senha123'
         );
-        expect(mockRouter.replace).toHaveBeenCalledWith('/motorista/rota');
+        expect(mockRouter.replace).toHaveBeenCalledWith('/motorista/inicio');
       });
     });
 
@@ -237,7 +231,7 @@ describe('Login Screen - Integration Tests', () => {
   describe('Tratamento de Erros', () => {
     it('deve exibir erro quando credenciais são inválidas', async () => {
       (authService.signIn as jest.Mock).mockRejectedValue(
-        new Error('E-mail ou senha inválidos')
+        new Error('Invalid login credentials')
       );
 
       const { getByPlaceholderText, getByText } = render(<Login />);
@@ -252,10 +246,8 @@ describe('Login Screen - Integration Tests', () => {
       fireEvent.press(loginButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith(
-          'Erro',
-          'E-mail ou senha inválidos'
-        );
+        expect(getByText('E-mail ou senha incorretos')).toBeTruthy();
+        expect(getByText('Verifique seus dados e tente novamente. Caso tenha esquecido sua senha, clique em "Esqueceu a senha?".')).toBeTruthy();
       });
     });
 
@@ -274,7 +266,8 @@ describe('Login Screen - Integration Tests', () => {
       fireEvent.press(loginButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Erro ao fazer login');
+        expect(getByText('Não foi possível entrar')).toBeTruthy();
+        expect(getByText('Verifique seu e-mail e senha e tente novamente.')).toBeTruthy();
       });
     });
 
@@ -295,7 +288,8 @@ describe('Login Screen - Integration Tests', () => {
       fireEvent.press(loginButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Usuário não encontrado');
+        expect(getByText('Usuário não encontrado')).toBeTruthy();
+        expect(getByText('Não encontramos sua conta. Verifique seus dados e tente novamente.')).toBeTruthy();
       });
     });
   });
@@ -389,7 +383,7 @@ describe('Login Screen - Integration Tests', () => {
 
       await waitFor(() => {
         expect(authService.signIn).toHaveBeenCalled();
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Erro de teste');
+        expect(getByText('Não foi possível entrar')).toBeTruthy();
       });
     });
   });
@@ -424,7 +418,7 @@ describe('Login Screen - Integration Tests', () => {
       fireEvent.press(loginButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalled();
+        expect(getByText('Não foi possível entrar')).toBeTruthy();
       });
 
       expect(mockRouter.replace).not.toHaveBeenCalled();
@@ -489,10 +483,7 @@ describe('Login Screen - Integration Tests', () => {
       fireEvent.press(loginButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith(
-          'Erro',
-          'Credenciais inválidas'
-        );
+        expect(getByText('Não foi possível entrar')).toBeTruthy();
         expect(authService.signIn).toHaveBeenCalledTimes(1);
       });
 
@@ -508,7 +499,7 @@ describe('Login Screen - Integration Tests', () => {
 
       await waitFor(() => {
         expect(authService.signIn).toHaveBeenCalledTimes(2);
-        expect(mockRouter.replace).toHaveBeenCalledWith('/gestor/dashboard');
+        expect(mockRouter.replace).toHaveBeenCalledWith('/gestor/inicio');
       });
     });
   });

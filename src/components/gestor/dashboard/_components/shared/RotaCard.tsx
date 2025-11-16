@@ -39,6 +39,18 @@ function getStatusLabel(status: string): string {
   }
 }
 
+function parseLocalDate(dateStr?: string): Date | null {
+  if (!dateStr) return null;
+  const [year, month, day] = dateStr.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
+function formatDate(dateStr?: string): string {
+  const date = parseLocalDate(dateStr);
+  return date ? date.toLocaleDateString('pt-BR') : '-';
+}
+
 /**
  * Card de rota compartilhado entre mobile e desktop
  */
@@ -71,7 +83,7 @@ export function RotaCard({ rota, onPress }: RotaCardProps) {
 
       {/* Data */}
       <Text style={styles.data}>
-        {new Date(rota.data).toLocaleDateString('pt-BR')}
+        {formatDate(rota.data)}
       </Text>
 
       {/* Stats */}

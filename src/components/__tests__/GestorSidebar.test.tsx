@@ -84,9 +84,9 @@ describe('GestorSidebar Component', () => {
   });
 
   describe('Menu Items', () => {
-    it('deve renderizar item Dashboard', () => {
+    it('deve renderizar item Início', () => {
       const { getByText } = render(<GestorSidebar />);
-      expect(getByText('Dashboard')).toBeTruthy();
+      expect(getByText('Início')).toBeTruthy();
       expect(getByText('📊')).toBeTruthy();
     });
 
@@ -110,10 +110,10 @@ describe('GestorSidebar Component', () => {
   });
 
   describe('Navegação', () => {
-    it('deve navegar ao clicar em Dashboard', () => {
+    it('deve navegar ao clicar em Início', () => {
       const { getByText } = render(<GestorSidebar />);
-      fireEvent.press(getByText('Dashboard'));
-      expect(mockPush).toHaveBeenCalledWith('/gestor/dashboard');
+      fireEvent.press(getByText('Início'));
+      expect(mockPush).toHaveBeenCalledWith('/gestor/inicio');
     });
 
     it('deve navegar ao clicar em Nova Rota', () => {
@@ -206,11 +206,11 @@ describe('GestorSidebar Component', () => {
   });
 
   describe('Estado Ativo', () => {
-    it('deve marcar Dashboard como ativo quando pathname é /gestor/dashboard', () => {
+    it('deve marcar Início como ativo quando pathname é /gestor/dashboard', () => {
       jest.spyOn(require('expo-router'), 'usePathname').mockReturnValue('/gestor/dashboard');
 
       const { getByText } = render(<GestorSidebar />);
-      expect(getByText('Dashboard')).toBeTruthy();
+      expect(getByText('Início')).toBeTruthy();
     });
   });
 
@@ -252,7 +252,7 @@ describe('GestorSidebar Component', () => {
     it('deve renderizar todos os 4 itens do menu', () => {
       const { getByText } = render(<GestorSidebar />);
 
-      expect(getByText('Dashboard')).toBeTruthy();
+      expect(getByText('Início')).toBeTruthy();
       expect(getByText('Nova Rota')).toBeTruthy();
       expect(getByText('Histórico')).toBeTruthy();
       expect(getByText('Motoristas')).toBeTruthy();

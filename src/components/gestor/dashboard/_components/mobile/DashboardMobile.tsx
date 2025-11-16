@@ -34,7 +34,7 @@ export function DashboardMobile({
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.colors.primaryDark} />
-        <Text style={styles.loadingText}>Carregando dashboard...</Text>
+        <Text style={styles.loadingText}>Carregando início...</Text>
       </View>
     );
   }
@@ -88,6 +88,17 @@ export function DashboardMobile({
             backgroundColor={theme.colors.purple}
           />
         </View>
+        <TouchableOpacity
+          style={styles.statsCardWrapper}
+          onPress={() => router.push('/gestor/incidentes')}
+          activeOpacity={0.8}
+        >
+          <StatsCard
+            value={stats.incidentesAbertos || 0}
+            label="Incidentes Abertos"
+            backgroundColor={theme.colors.error}
+          />
+        </TouchableOpacity>
       </View>
 
       {/* Ações Rápidas */}

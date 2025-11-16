@@ -16,11 +16,13 @@ import { DesktopModal } from '@/components/desktop/DesktopModal';
 import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { MobileCard, MobileEmptyState, MobileLoading } from '@/components/mobile';
 import { Toast } from '@/components/Toast';
+import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // ============================================
 // TYPES
@@ -53,8 +55,12 @@ export default function HistoricoGestor() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { userData } = useUser();
+  const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
+    userName: userData?.nome,
+  });
   const { toast: toastState, hideToast, withToast } = useToast();
   const { isDesktop } = useResponsive();
+  const pageMeta = getGestorPageMeta('historico');
 
   const [rotas, setRotas] = useState<RotaHistorico[]>([]);
   const [rotasFiltradas, setRotasFiltradas] = useState<RotaHistorico[]>([]);
@@ -65,65 +71,65 @@ export default function HistoricoGestor() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [rotaToDelete, setRotaToDelete] = useState<RotaHistorico | null>(null);
 
-const loadHistorico = useCallback(async () => {
-  if (!userData?.unidade_id) return;
+  const loadHistorico = useCallback(async () => {
+    if (!userData?.unidade_id) return;
 
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const { data: rotasData, error: rotasError } = await supabase
-      .from('rotas')
-      .select(
-        'id, data, status, distancia_total, iniciada_em, concluida_em, motorista_id, usuarios!rotas_motorista_id_fkey(id, nome)'
-      )
-      .eq('unidade_id', userData.unidade_id)
-      .order('data', { ascending: false })
-      .limit(100);
+      const { data: rotasData, error: rotasError } = await supabase
+        .from('rotas')
+        .select(
+          'id, data, status, distancia_total, iniciada_em, concluida_em, motorista_id, usuarios!rotas_motorista_id_fkey(id, nome)'
+        )
+        .eq('unidade_id', userData.unidade_id)
+        .order('data', { ascending: false })
+        .limit(100);
 
-    if (rotasError) throw rotasError;
+      if (rotasError) throw rotasError;
 
-    const rotasComParadas = await Promise.all(
-      (rotasData || []).map(async (rota) => {
-        const { data: paradasData } = await supabase
-          .from('paradas')
-          .select('id, status, is_checkpoint')
-          .eq('rota_id', rota.id);
+      const rotasComParadas = await Promise.all(
+        (rotasData || []).map(async (rota) => {
+          const { data: paradasData } = await supabase
+            .from('paradas')
+            .select('id, status, is_checkpoint')
+            .eq('rota_id', rota.id);
 
-        const paradasReais = (paradasData || []).filter(
-          (parada) => parada.is_checkpoint !== false
-        );
+          const paradasReais = (paradasData || []).filter(
+            (parada) => parada.is_checkpoint !== false
+          );
 
-        return {
-          ...rota,
-          motorista: rota.usuarios,
-          paradas_count: paradasReais.length,
-          paradas_concluidas: paradasReais.filter(
-            (p) => p.status === 'concluida'
-          ).length,
-        };
-      })
-    );
+          return {
+            ...rota,
+            motorista: Array.isArray(rota.usuarios) ? rota.usuarios[0] : rota.usuarios,
+            paradas_count: paradasReais.length,
+            paradas_concluidas: paradasReais.filter(
+              (p) => p.status === 'concluida'
+            ).length,
+          };
+        })
+      );
 
-    setRotas(rotasComParadas as RotaHistorico[]);
-  } catch (error) {
-    console.error('Erro ao carregar histórico:', error);
-    Alert.alert('Erro', 'Não foi possível carregar o histórico');
-  } finally {
-    setLoading(false);
-  }
-}, [userData?.unidade_id]);
+      setRotas(rotasComParadas as RotaHistorico[]);
+    } catch (error) {
+      console.error('Erro ao carregar histórico:', error);
+      Alert.alert('Erro', 'Não foi possível carregar o histórico');
+    } finally {
+      setLoading(false);
+    }
+  }, [userData?.unidade_id]);
 
-useEffect(() => {
-  loadHistorico();
-}, [loadHistorico]);
+  useEffect(() => {
+    loadHistorico();
+  }, [loadHistorico]);
 
-useEffect(() => {
-  let resultado = [...rotas];
-  if (filtroStatus !== 'todas') {
-    resultado = resultado.filter((rota) => rota.status === filtroStatus);
-  }
-  setRotasFiltradas(resultado);
-}, [rotas, filtroStatus]);
+  useEffect(() => {
+    let resultado = [...rotas];
+    if (filtroStatus !== 'todas') {
+      resultado = resultado.filter((rota) => rota.status === filtroStatus);
+    }
+    setRotasFiltradas(resultado);
+  }, [rotas, filtroStatus]);
 
   // ============================================
   // DATA LOADING
@@ -211,6 +217,89 @@ useEffect(() => {
     }
   }
 
+  function exportarParaCSV() {
+    try {
+      // Cabeçalho do CSV
+      const headers = [
+        'Data',
+        'Motorista',
+        'Paradas Concluídas',
+        'Total Paradas',
+        'Distância (km)',
+        'Iniciada em',
+        'Concluída em',
+        'Status'
+      ];
+
+      // Dados das rotas
+      const rows = rotasFiltradas.map(rota => [
+        formatarData(rota.data),
+        rota.motorista?.nome || 'Sem motorista',
+        rota.paradas_concluidas || 0,
+        rota.paradas_count || 0,
+        rota.distancia_total ? rota.distancia_total.toFixed(1) : '-',
+        rota.iniciada_em
+          ? new Date(rota.iniciada_em).toLocaleString('pt-BR', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : '-',
+        rota.concluida_em
+          ? new Date(rota.concluida_em).toLocaleString('pt-BR', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : '-',
+        getStatusLabel(rota.status)
+      ]);
+
+      // Montar CSV
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+
+      // Criar blob e fazer download
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+
+      const dataAtual = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+      const nomeArquivo = `historico-rotas-${dataAtual}.csv`;
+
+      link.setAttribute('href', url);
+      link.setAttribute('download', nomeArquivo);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Log da ação
+      if (userData?.id) {
+        supabase.from('logs').insert({
+          usuario_id: userData.id,
+          evento: 'exportacao_historico',
+          detalhes: {
+            total_rotas: rotasFiltradas.length,
+            filtro_status: filtroStatus,
+            formato: 'csv'
+          },
+        });
+      }
+
+      Alert.alert('Sucesso', `${rotasFiltradas.length} rotas exportadas com sucesso!`);
+    } catch (error) {
+      console.error('Erro ao exportar:', error);
+      Alert.alert('Erro', 'Não foi possível exportar os dados');
+    }
+  }
+
   // ============================================
   // HELPERS
   // ============================================
@@ -228,7 +317,7 @@ useEffect(() => {
   function getStatusColor(status: string): string {
     switch (status) {
       case 'pendente': return theme.colors.warning;
-      case 'em_andamento': return theme.colors.blue500;
+      case 'em_andamento': return theme.colors.info;
       case 'concluida': return theme.colors.success;
       case 'cancelada': return theme.colors.error;
       default: return theme.colors.gray500;
@@ -257,7 +346,7 @@ useEffect(() => {
       label: 'Data',
       width: 120,
       sortable: true,
-      render: (rota) => formatarData(rota.data),
+      render: (rota) => <Text>{formatarData(rota.data)}</Text>,
     },
     {
       key: 'motorista',
@@ -265,14 +354,14 @@ useEffect(() => {
       width: 220,
       noWrap: true,
       sortable: true,
-      render: (rota) => rota.motorista?.nome || 'Sem motorista',
+      render: (rota) => <Text>{rota.motorista?.nome || 'Sem motorista'}</Text>,
     },
     {
       key: 'paradas',
       label: 'Paradas',
       width: 120,
       align: 'center',
-      render: (rota) => `${rota.paradas_concluidas || 0}/${rota.paradas_count || 0}`,
+      render: (rota) => <Text>{`${rota.paradas_concluidas || 0}/${rota.paradas_count || 0}`}</Text>,
     },
     {
       key: 'distancia',
@@ -280,66 +369,81 @@ useEffect(() => {
       width: 120,
       align: 'right',
       desktopOnly: true,
-      render: (rota) => rota.distancia_total ? `${rota.distancia_total.toFixed(1)} km` : '-',
+      render: (rota) => <Text>{rota.distancia_total ? `${rota.distancia_total.toFixed(1)} km` : '-'}</Text>,
     },
     {
       key: 'iniciada_em',
       label: 'Iniciada',
       width: 140,
       desktopOnly: true,
-      render: (rota) => rota.iniciada_em
-        ? new Date(rota.iniciada_em).toLocaleString('pt-BR', {
-            day: '2-digit',
-            month: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
-          })
-        : '-',
+      render: (rota) => (
+        <Text>
+          {rota.iniciada_em
+            ? new Date(rota.iniciada_em).toLocaleString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+            : '-'}
+        </Text>
+      ),
     },
     {
       key: 'concluida_em',
       label: 'Concluída',
       width: 140,
       desktopOnly: true,
-      render: (rota) => rota.concluida_em
-        ? new Date(rota.concluida_em).toLocaleString('pt-BR', {
-            day: '2-digit',
-            month: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
-          })
-        : '-',
+      render: (rota) => (
+        <Text>
+          {rota.concluida_em
+            ? new Date(rota.concluida_em).toLocaleString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+            : '-'}
+        </Text>
+      ),
     },
     {
       key: 'status',
       label: 'Status',
       width: 140,
       sortable: true,
-      render: (rota) => (
-        <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: getStatusColor(rota.status) },
-          ]}
-        >
-          <Text style={styles.statusBadgeText}>
-            {getStatusLabel(rota.status)}
-          </Text>
-        </View>
-      ),
+      render: (rota) => {
+        console.log('Renderizando status:', rota.data, rota.status);
+        if (!rota.status) {
+          console.warn('Status vazio para rota:', rota.id, rota.data);
+          return <Text style={styles.tableCellText}>-</Text>;
+        }
+        return (
+          <View
+            style={[
+              styles.statusBadge,
+              { backgroundColor: getStatusColor(rota.status) },
+            ]}
+          >
+            <Text style={styles.statusBadgeText}>
+              {getStatusLabel(rota.status)}
+            </Text>
+          </View>
+        );
+      },
     },
   ];
 
   const actions: DataTableAction<RotaHistorico>[] = [
     {
       label: 'Ver Detalhes',
-      icon: '👁️',
+      icon: 'eye-outline',
       type: 'primary',
       onPress: verDetalhes,
     },
     {
       label: 'Excluir',
-      icon: '🗑️',
+      icon: 'trash-outline',
       type: 'danger',
       onPress: excluirRota,
     },
@@ -349,31 +453,57 @@ useEffect(() => {
   // RENDER
   // ============================================
 
+  const totalRotas = rotasFiltradas.length;
+  const concluidasCount = rotasFiltradas.filter((rota) => rota.status === 'concluida').length;
+  const pendentesCount = rotasFiltradas.filter((rota) => rota.status === 'pendente').length;
+
+  const desktopStats = (
+    <View style={styles.headerStats}>
+      <View style={styles.headerStat}>
+        <Text style={styles.headerStatValue}>{totalRotas}</Text>
+        <Text style={styles.headerStatLabel}>Rotas registradas</Text>
+      </View>
+      <View style={styles.headerStat}>
+        <Text style={[styles.headerStatValue, styles.headerStatValueSuccess]}>{concluidasCount}</Text>
+        <Text style={styles.headerStatLabel}>Concluídas</Text>
+      </View>
+      <View style={styles.headerStat}>
+        <Text style={[styles.headerStatValue, styles.headerStatValueWarning]}>{pendentesCount}</Text>
+        <Text style={styles.headerStatLabel}>Pendentes</Text>
+      </View>
+    </View>
+  );
+
+  const tableHeaderActions = isDesktop ? (
+    <View style={styles.cardHeader}>
+      {desktopStats}
+      <View style={styles.cardHeaderButtons}>
+        <TouchableOpacity
+          style={styles.cardHeaderButtonSecondary}
+          onPress={exportarParaCSV}
+        >
+          <Text style={styles.cardHeaderButtonSecondaryText}>Exportar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.cardHeaderButtonPrimary}
+          onPress={() => router.push('/gestor/nova-entrega')}
+        >
+          <Text style={styles.cardHeaderButtonPrimaryText}>Nova Rota</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  ) : undefined;
+
   // Desktop Layout
   if (isDesktop) {
     return (
       <>
         <DesktopPageLayout
-          title="Histórico de Rotas"
-          subtitle={`${userData?.unidades?.nome || 'Carregando...'}`}
-          breadcrumbs={[
-            { label: 'Dashboard', route: '/gestor' },
-            { label: 'Histórico' }
-          ]}
-          actions={[
-            {
-              label: 'Nova Rota',
-              icon: 'add-circle-outline',
-              onPress: () => router.push('/gestor/nova-entrega'),
-              variant: 'primary'
-            },
-            {
-              label: 'Exportar',
-              icon: 'download-outline',
-              onPress: () => Alert.alert('Info', 'Funcionalidade em desenvolvimento'),
-              variant: 'secondary'
-            }
-          ]}
+          title={pageMeta.title}
+          subtitle={pageMeta.subtitle}
+          breadcrumbs={pageMeta.breadcrumbs}
+          userMenuTrigger={userMenuTrigger}
+          userMenuItems={userMenuItems}
           loading={loading}
           loadingText="Carregando histórico..."
         >
@@ -413,6 +543,7 @@ useEffect(() => {
               title="Rotas"
               noPadding
               variant="elevated"
+              actions={tableHeaderActions}
             >
               <DataTable
                 data={rotasFiltradas}
@@ -444,7 +575,6 @@ useEffect(() => {
           visible={showConfirmModal}
           onClose={handleCancelDelete}
           title="Confirmar Exclusão"
-          size="sm"
         >
           <View style={{ padding: 20 }}>
             <Text style={{ fontSize: 16, marginBottom: 20, lineHeight: 24 }}>
@@ -508,7 +638,12 @@ useEffect(() => {
 
   // Mobile Layout (original)
   if (loading) {
-    return <MobileLoading message="Carregando histórico..." />;
+    return (
+      <>
+        <MobileLoading message="Carregando histórico..." />
+        {logoutModal}
+      </>
+    );
   }
 
   return (
@@ -586,6 +721,7 @@ useEffect(() => {
 
       {/* Toast de Feedback */}
       <Toast {...toastState} onDismiss={hideToast} />
+      {logoutModal}
     </>
   );
 }
@@ -594,7 +730,7 @@ useEffect(() => {
 // STYLES
 // ============================================
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,
@@ -734,5 +870,62 @@ const styles = StyleSheet.create(theme => ({
   emptyStateSubtitle: {
     fontSize: theme.typography.sm,
     color: theme.colors.gray500,
+  },
+  headerStats: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: theme.spacing.xl,
+  },
+  headerStat: {
+    alignItems: 'flex-end',
+  },
+  headerStatValue: {
+    fontSize: theme.typography['2xl'],
+    fontFamily: theme.typography.fontSansBold,
+    color: theme.colors.gray900,
+  },
+  headerStatValueSuccess: {
+    color: theme.colors.success,
+  },
+  headerStatValueWarning: {
+    color: theme.colors.warning,
+  },
+  headerStatLabel: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray500,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: theme.spacing.lg,
+  },
+  cardHeaderButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  cardHeaderButtonPrimary: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.full,
+  },
+  cardHeaderButtonPrimaryText: {
+    color: theme.colors.white,
+    fontFamily: theme.typography.fontSansSemiBold,
+  },
+  cardHeaderButtonSecondary: {
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
+    backgroundColor: theme.colors.white,
+  },
+  cardHeaderButtonSecondaryText: {
+    color: theme.colors.gray700,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
 }));

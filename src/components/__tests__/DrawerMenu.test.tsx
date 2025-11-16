@@ -108,13 +108,13 @@ describe('DrawerMenu Component', () => {
   });
 
   describe('Menu Items Básicos', () => {
-    it('deve renderizar item Dashboard', async () => {
+    it('deve renderizar item Início', async () => {
       const { getByText } = render(
         <DrawerMenu visible={true} onClose={mockOnClose} />
       );
 
       await waitFor(() => {
-        expect(getByText('Dashboard')).toBeTruthy();
+        expect(getByText('Início')).toBeTruthy();
         expect(getByText('🏠')).toBeTruthy();
       });
     });
@@ -148,7 +148,7 @@ describe('DrawerMenu Component', () => {
 
       await waitFor(() => {
         expect(getByText('Motoristas')).toBeTruthy();
-        expect(getByText('👥')).toBeTruthy();
+        expect(getByText('🧑‍✈️')).toBeTruthy();
       });
     });
 
@@ -248,17 +248,17 @@ describe('DrawerMenu Component', () => {
   });
 
   describe('Navegação', () => {
-    it('deve navegar ao clicar em Dashboard', async () => {
+    it('deve navegar ao clicar em Início', async () => {
       const { getByText } = render(
         <DrawerMenu visible={true} onClose={mockOnClose} />
       );
 
       await waitFor(() => {
-        fireEvent.press(getByText('Dashboard'));
+        fireEvent.press(getByText('Início'));
       });
 
       expect(mockOnClose).toHaveBeenCalled();
-      expect(mockPush).toHaveBeenCalledWith('/gestor/dashboard');
+      expect(mockPush).toHaveBeenCalledWith('/gestor/inicio');
     });
 
     it('deve navegar ao clicar em Nova Rota', async () => {
@@ -295,7 +295,7 @@ describe('DrawerMenu Component', () => {
       );
 
       await waitFor(() => {
-        expect(getByText('Sair da Conta')).toBeTruthy();
+        expect(getByText('Sair')).toBeTruthy();
         expect(getByText('🚪')).toBeTruthy();
       });
     });
@@ -303,12 +303,18 @@ describe('DrawerMenu Component', () => {
     it('deve fazer logout ao clicar no botão', async () => {
       const { supabase } = require('@/lib/supabase');
 
-      const { getByText } = render(
+      const { getByText, getAllByText } = render(
         <DrawerMenu visible={true} onClose={mockOnClose} />
       );
 
       await waitFor(() => {
-        fireEvent.press(getByText('Sair da Conta'));
+        fireEvent.press(getByText('Sair'));
+      });
+
+      // Clicar no botão de confirmação do dialog (o segundo "Sair")
+      await waitFor(() => {
+        const sairButtons = getAllByText('Sair');
+        fireEvent.press(sairButtons[sairButtons.length - 1]);
       });
 
       await waitFor(() => {

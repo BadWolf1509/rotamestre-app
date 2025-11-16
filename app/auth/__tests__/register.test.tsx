@@ -1,10 +1,12 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
-import { Alert } from 'react-native';
 
 import { authService } from '@/lib/auth';
 
 import Register from '../register';
+
+// Use global mockAlert instead of importing Alert
+const Alert = { alert: (global as any).mockAlert };
 
 // Mock expo-router
 const mockBack = jest.fn();
@@ -37,12 +39,10 @@ jest.mock('@/components/ResponsiveContainer', () => ({
   ResponsiveContainer: ({ children }: any) => children,
 }));
 
-// Mock Alert
-jest.spyOn(Alert, 'alert');
-
 describe('Register Screen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (global as any).mockAlert.mockClear();
   });
 
   describe('Renderização', () => {
@@ -134,9 +134,9 @@ describe('Register Screen', () => {
 
       await waitFor(() => {
         expect(authService.signUp).toHaveBeenCalledWith(
-          'João Silva',
           'gestor@exemplo.com',
           '123456',
+          'João Silva',
           'gestor'
         );
       });
@@ -156,9 +156,9 @@ describe('Register Screen', () => {
 
       await waitFor(() => {
         expect(authService.signUp).toHaveBeenCalledWith(
-          'Maria Souza',
           'motorista@exemplo.com',
           '123456',
+          'Maria Souza',
           'motorista'
         );
       });

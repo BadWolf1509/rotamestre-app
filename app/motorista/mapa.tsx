@@ -15,6 +15,7 @@ interface Parada {
   latitude: number;
   longitude: number;
   foto_url?: string | null;
+  is_checkpoint?: boolean;
 }
 
 interface Rota {
@@ -62,9 +63,10 @@ export default function MapaMotorista() {
 
       setRota(rotasData as Rota);
 
+      // Buscar TODAS as paradas (incluindo checkpoints de partida/chegada)
       const { data: paradasData, error: paradasError } = await supabase
         .from('paradas')
-        .select('id, endereco, ordem, status, tipo, latitude, longitude, foto_url')
+        .select('id, endereco, ordem, status, tipo, latitude, longitude, foto_url, is_checkpoint')
         .eq('rota_id', rotasData.id)
         .order('ordem');
 
@@ -110,7 +112,7 @@ export default function MapaMotorista() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{rota.unidades.nome}</Text>
         <Text style={styles.headerSubtitle}>
-          {paradas.filter(p => p.status === 'concluida').length} de {paradas.length} paradas concluídas
+          {paradas.filter(p => p.status === 'concluida' && p.is_checkpoint !== false).length} de {paradas.filter(p => p.is_checkpoint !== false).length} paradas concluídas
         </Text>
       </View>
 

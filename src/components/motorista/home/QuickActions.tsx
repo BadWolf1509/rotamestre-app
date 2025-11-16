@@ -37,6 +37,7 @@ export function QuickActions({
     switch (state) {
       case 'no-route':
         return [
+          { icon: 'warning-outline', label: 'Reportar', onPress: onReportIncident },
           { icon: 'help-circle-outline', label: 'Ajuda', onPress: onContactSupport },
           { icon: 'bar-chart-outline', label: 'Estatisticas', onPress: onViewSummary },
         ];
@@ -44,6 +45,7 @@ export function QuickActions({
       case 'pending':
         return [
           { icon: 'list-outline', label: 'Ver Paradas', onPress: onViewAllStops },
+          { icon: 'warning-outline', label: 'Reportar', onPress: onReportIncident },
           { icon: 'call-outline', label: 'Suporte', onPress: onContactSupport },
         ];
 

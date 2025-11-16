@@ -7,12 +7,13 @@ import {
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
+  Pressable,
   ScrollViewProps,
 } from 'react-native';
 
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
-interface BreadcrumbItem {
+export interface BreadcrumbItem {
   label: string;
   route?: string;
 }
@@ -23,6 +24,13 @@ interface ActionButton {
   onPress: () => void;
   variant?: 'primary' | 'secondary' | 'ghost';
   disabled?: boolean;
+}
+
+export interface UserMenuItem {
+  label: string;
+  icon?: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
+  destructive?: boolean;
 }
 
 interface DesktopPageLayoutProps {
@@ -38,6 +46,8 @@ interface DesktopPageLayoutProps {
   fullWidth?: boolean;
   noPadding?: boolean;
   headerExtra?: React.ReactNode;
+  userMenuTrigger?: React.ReactNode | ((isOpen: boolean) => React.ReactNode);
+  userMenuItems?: UserMenuItem[];
   scrollViewProps?: ScrollViewProps;
 }
 
@@ -54,10 +64,37 @@ export function DesktopPageLayout({
   fullWidth = false,
   noPadding = false,
   headerExtra,
+  userMenuTrigger,
+  userMenuItems,
   scrollViewProps: providedScrollProps,
 }: DesktopPageLayoutProps) {
   const { theme } = useUnistyles();
   const router = useRouter();
+  const [userMenuVisible, setUserMenuVisible] = React.useState(false);
+  const userMenuRef = React.useRef<View>(null);
+
+  // Detect clicks outside the dropdown to close it
+  React.useEffect(() => {
+    if (!userMenuVisible) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      // Check if click is outside the menu
+      const target = event.target as HTMLElement;
+      const menuElement = userMenuRef.current as any;
+
+      if (menuElement && !menuElement.contains?.(target)) {
+        setUserMenuVisible(false);
+      }
+    };
+
+    // Add event listener on mount
+    document.addEventListener('mousedown', handleClickOutside);
+
+    // Cleanup on unmount
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [userMenuVisible]);
 
   const handleBack = () => {
     if (onBack) {
@@ -154,9 +191,51 @@ export function DesktopPageLayout({
           </View>
         </View>
 
-        {(headerExtra || (actions && actions.length > 0)) && (
+        {(headerExtra || userMenuTrigger || (actions && actions.length > 0)) && (
           <View style={styles.headerRight}>
             {headerExtra && <View style={styles.headerExtra}>{headerExtra}</View>}
+            {userMenuTrigger && userMenuItems?.length ? (
+              <View style={styles.headerExtra} ref={userMenuRef}>
+                <TouchableOpacity
+                  onPress={() => setUserMenuVisible((prev) => !prev)}
+                  activeOpacity={0.8}
+                >
+                  {typeof userMenuTrigger === 'function'
+                    ? userMenuTrigger(userMenuVisible)
+                    : userMenuTrigger}
+                </TouchableOpacity>
+                {userMenuVisible && (
+                  <View style={styles.userMenu}>
+                    {userMenuItems.map((item, index) => (
+                      <TouchableOpacity
+                        key={`${item.label}-${index}`}
+                        style={styles.userMenuItem}
+                        onPress={() => {
+                          setUserMenuVisible(false);
+                          item.onPress();
+                        }}
+                      >
+                        {item.icon && (
+                          <Ionicons
+                            name={item.icon}
+                            size={16}
+                            color={item.destructive ? theme.colors.error : theme.colors.gray700}
+                          />
+                        )}
+                        <Text
+                          style={[
+                            styles.userMenuText,
+                            item.destructive && styles.userMenuTextLogout,
+                          ]}
+                        >
+                          {item.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ) : null}
             {actions && actions.length > 0 && (
               <View style={styles.actions}>
                 {actions.map((action, index) => (
@@ -217,6 +296,7 @@ const styles = StyleSheet.create(theme => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,
+    position: 'relative',
   },
   loadingContainer: {
     flex: 1,
@@ -243,6 +323,7 @@ const styles = StyleSheet.create(theme => ({
     shadowOpacity: 0.05,
     shadowRadius: 1,
     elevation: 2,
+    zIndex: 50,
   },
   headerLeft: {
     flex: 1,
@@ -301,6 +382,37 @@ const styles = StyleSheet.create(theme => ({
   headerExtra: {
     alignItems: 'flex-end',
     gap: 4,
+  },
+  userMenu: {
+    position: 'absolute',
+    top: '100%',
+    right: 0,
+    marginTop: 8,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.lg,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    shadowColor: theme.colors.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
+    zIndex: 60,
+  },
+  userMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm,
+  },
+  userMenuText: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray700,
+  },
+  userMenuTextLogout: {
+    color: theme.colors.error,
   },
   actions: {
     flexDirection: 'row',

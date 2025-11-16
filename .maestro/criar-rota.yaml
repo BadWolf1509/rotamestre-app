@@ -1,0 +1,177 @@
+# Fluxo E2E: Criar Rota de Entrega
+# Testa criação completa de rota com múltiplas paradas
+appId: br.tec.rotamestre
+---
+
+# Pré-requisito: Login como gestor
+- runFlow: login-gestor.yaml
+
+# Navegar para Nova Entrega
+- tapOn: "Nova Entrega"
+- assertVisible: "Nova Rota de Entrega"
+- assertVisible: "Adicionar Parada"
+
+# ============================================
+# PARADA 1: Entrega
+# ============================================
+
+# Tipo de parada
+- tapOn:
+    text: "Entrega"
+- assertVisible:
+    id: "tipo-entrega-selected"
+
+# Endereço (autocomplete)
+- tapOn:
+    id: "endereco-input"
+- inputText: "Av. Paulista, 1000, São Paulo, SP"
+- waitForAnimationToEnd:
+    timeout: 2000
+
+# Selecionar primeira sugestão
+- tapOn:
+    index: 0
+    id: "suggestion-item"
+
+# Destinatário
+- tapOn:
+    id: "destinatario-input"
+- inputText: "Cliente Teste 1"
+
+# Telefone
+- tapOn:
+    id: "telefone-input"
+- inputText: "(11) 98765-4321"
+
+# Observações (opcional)
+- tapOn:
+    id: "observacoes-input"
+- inputText: "Entregar na recepção"
+
+# Adicionar parada
+- tapOn: "+ Adicionar Parada"
+- waitForAnimationToEnd
+
+# Verificar parada adicionada
+- assertVisible: "1. ENTREGA"
+- assertVisible: "Av. Paulista, 1000"
+- assertVisible: "Cliente Teste 1"
+
+# ============================================
+# PARADA 2: Retirada
+# ============================================
+
+- tapOn:
+    text: "Retirada"
+
+- tapOn:
+    id: "endereco-input"
+- inputText: "Rua Augusta, 500, São Paulo, SP"
+- waitForAnimationToEnd:
+    timeout: 2000
+
+- tapOn:
+    index: 0
+    id: "suggestion-item"
+
+- tapOn:
+    id: "destinatario-input"
+- inputText: "Cliente Teste 2"
+
+- tapOn:
+    id: "telefone-input"
+- inputText: "(11) 91234-5678"
+
+- tapOn: "+ Adicionar Parada"
+- waitForAnimationToEnd
+
+# Verificar segunda parada
+- assertVisible: "2. RETIRADA"
+- assertVisible: "Rua Augusta, 500"
+
+# ============================================
+# PARADA 3: Entrega
+# ============================================
+
+- tapOn:
+    text: "Entrega"
+
+- tapOn:
+    id: "endereco-input"
+- inputText: "Av. Rebouças, 3000, São Paulo, SP"
+- waitForAnimationToEnd:
+    timeout: 2000
+
+- tapOn:
+    index: 0
+    id: "suggestion-item"
+
+- tapOn:
+    id: "destinatario-input"
+- inputText: "Cliente Teste 3"
+
+- tapOn:
+    id: "telefone-input"
+- inputText: "(11) 99999-8888"
+
+- tapOn: "+ Adicionar Parada"
+- waitForAnimationToEnd
+
+# Verificar terceira parada
+- assertVisible: "3. ENTREGA"
+- assertVisible: "Paradas Adicionadas (3)"
+
+# ============================================
+# OTIMIZAR ROTA
+# ============================================
+
+- scroll
+
+- tapOn: "🗺️ Otimizar Rota (Melhor Percurso)"
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# Verificar otimização bem-sucedida
+- assertVisible: "✅ Rota Otimizada!"
+- assertVisible: "Distância:"
+- assertVisible: "km"
+- assertVisible: "Tempo Estimado:"
+- assertVisible: "min"
+
+# ============================================
+# SELECIONAR MOTORISTA
+# ============================================
+
+- scroll
+
+- assertVisible: "Selecionar Motorista"
+
+# Selecionar primeiro motorista disponível
+- tapOn:
+    index: 0
+    id: "motorista-card"
+
+# Verificar motorista selecionado (card ativo)
+- assertVisible:
+    id: "motorista-selected"
+
+# ============================================
+# GERAR ROTA
+# ============================================
+
+- scroll
+
+- tapOn: "✅ Gerar Rota"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Verificar toast de sucesso
+- assertVisible: "Rota circular criada com sucesso!"
+- assertVisible: "3 entrega(s) cadastrada(s)"
+
+# Aguardar redirecionamento ou limpeza do formulário
+- waitForAnimationToEnd:
+    timeout: 2000
+
+# Verificar que formulário foi limpo
+- assertVisible: "Nenhuma parada adicionada"

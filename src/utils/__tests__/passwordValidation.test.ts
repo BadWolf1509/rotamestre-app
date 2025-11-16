@@ -7,7 +7,7 @@ describe('Password Validation', () => {
         const result = validatePasswordStrength('');
         expect(result.score).toBe(0);
         expect(result.label).toBe('Muito Fraca');
-        expect(result.color).toBe('#dc2626');
+        expect(result.color).toBe('#ef4444');
         expect(result.feedback).toHaveLength(5);
       });
 
@@ -15,7 +15,7 @@ describe('Password Validation', () => {
         const result = validatePasswordStrength('abc');
         expect(result.score).toBe(1);
         expect(result.label).toBe('Muito Fraca');
-        expect(result.color).toBe('#dc2626');
+        expect(result.color).toBe('#ef4444');
         expect(result.feedback).toContain('Mínimo 8 caracteres');
       });
 
@@ -31,7 +31,7 @@ describe('Password Validation', () => {
         const result = validatePasswordStrength('abcdefgh');
         expect(result.score).toBe(2);
         expect(result.label).toBe('Fraca');
-        expect(result.color).toBe('#ea580c');
+        expect(result.color).toBe('#f59e0b');
       });
 
       it('deve retornar "Fraca" para senha com minúsculas e números', () => {
@@ -46,7 +46,7 @@ describe('Password Validation', () => {
         const result = validatePasswordStrength('AbcDefgh');
         expect(result.score).toBe(3);
         expect(result.label).toBe('Regular');
-        expect(result.color).toBe('#eab308');
+        expect(result.color).toBe('#f7a02a');
       });
 
       it('deve retornar "Regular" para senha com minúsculas, maiúsculas e números', () => {
@@ -61,7 +61,7 @@ describe('Password Validation', () => {
         const result = validatePasswordStrength('AbcDef12');
         expect(result.score).toBe(4);
         expect(result.label).toBe('Boa');
-        expect(result.color).toBe('#16a34a');
+        expect(result.color).toBe('#10b981');
       });
 
       it('deve retornar "Boa" para senha com todos requisitos exceto especial', () => {
@@ -77,7 +77,7 @@ describe('Password Validation', () => {
         const result = validatePasswordStrength('AbcDef12!');
         expect(result.score).toBe(5);
         expect(result.label).toBe('Forte');
-        expect(result.color).toBe('#059669');
+        expect(result.color).toBe('#284093');
         expect(result.feedback).toHaveLength(0);
       });
 
@@ -93,7 +93,7 @@ describe('Password Validation', () => {
         const result = validatePasswordStrength('AbcDef123!@#');
         expect(result.score).toBe(6);
         expect(result.label).toBe('Muito Forte');
-        expect(result.color).toBe('#047857');
+        expect(result.color).toBe('#1b2c63');
         expect(result.feedback).toHaveLength(0);
       });
 

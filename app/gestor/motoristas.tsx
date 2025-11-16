@@ -15,6 +15,8 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import { DataTable, DataTableAction, DataTableColumn } from '@/components/DataTable';
 import { DesktopCard, DesktopModal, DesktopPageLayout } from '@/components/desktop';
 import { Toast } from '@/components/Toast';
+import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
@@ -40,7 +42,11 @@ interface MotoristaDetalhado {
 export default function MotoristasGestor() {
   const { theme } = useUnistyles();
   const { userData } = useUser();
+  const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
+    userName: userData?.nome,
+  });
   const { isDesktop } = useResponsive();
+  const pageMeta = getGestorPageMeta('motoristas');
   const { toast: toastState, showToast, hideToast, withToast } = useToast();
   const [motoristas, setMotoristas] = useState<MotoristaDetalhado[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +56,8 @@ export default function MotoristasGestor() {
   const [salvando, setSalvando] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [motoristaParaToggle, setMotoristaParaToggle] = useState<MotoristaDetalhado | null>(null);
+  const totalMotoristas = motoristas.length;
+  const ativosMotoristas = motoristas.filter((motorista) => motorista.ativo).length;
 
   // Form state
   const [formNome, setFormNome] = useState('');
@@ -783,21 +791,23 @@ export default function MotoristasGestor() {
     {
       key: 'nome',
       label: 'Nome',
-      width: 180,
+      width: 240,
       sortable: true,
-      render: (motorista) => motorista.nome,
+      noWrap: true,
+      render: (motorista) => <Text>{motorista.nome}</Text>,
     },
     {
       key: 'email',
       label: 'E-mail',
-      width: 200,
-      render: (motorista) => motorista.email,
+      width: 260,
+      noWrap: true,
+      render: (motorista) => <Text>{motorista.email}</Text>,
     },
     {
       key: 'telefone',
       label: 'Telefone',
       width: 130,
-      render: (motorista) => motorista.telefone || '-',
+      render: (motorista) => <Text>{motorista.telefone || '-'}</Text>,
     },
     {
       key: 'rotas_total',
@@ -805,14 +815,14 @@ export default function MotoristasGestor() {
       width: 80,
       align: 'center',
       sortable: true,
-      render: (motorista) => motorista.rotas_stats?.total?.toString() || '0',
+      render: (motorista) => <Text>{motorista.rotas_stats?.total?.toString() || '0'}</Text>,
     },
     {
       key: 'rotas_concluidas',
       label: 'Concluídas',
       width: 100,
       align: 'center',
-      render: (motorista) => motorista.rotas_stats?.concluidas?.toString() || '0',
+      render: (motorista) => <Text>{motorista.rotas_stats?.concluidas?.toString() || '0'}</Text>,
     },
     {
       key: 'rotas_em_andamento',
@@ -820,58 +830,84 @@ export default function MotoristasGestor() {
       width: 130,
       align: 'center',
       desktopOnly: true,
-      render: (motorista) => motorista.rotas_stats?.em_andamento?.toString() || '0',
+      render: (motorista) => <Text>{motorista.rotas_stats?.em_andamento?.toString() || '0'}</Text>,
     },
     {
       key: 'created_at',
       label: 'Cadastrado em',
       width: 130,
       desktopOnly: true,
-      render: (motorista) => new Date(motorista.created_at).toLocaleDateString('pt-BR'),
+      render: (motorista) => <Text>{new Date(motorista.created_at).toLocaleDateString('pt-BR')}</Text>,
     },
     {
       key: 'ativo',
       label: 'Status',
       width: 90,
-      render: (motorista) => (motorista.ativo ? '✅ Ativo' : '❌ Inativo'),
+      render: (motorista) => <Text>{motorista.ativo ? '✅ Ativo' : '❌ Inativo'}</Text>,
     },
   ];
 
   const actions: DataTableAction<MotoristaDetalhado>[] = [
     {
       label: 'Editar',
-      icon: '✏️',
+      icon: 'create-outline',
       type: 'primary',
       onPress: abrirModalEditar,
     },
     {
       label: (motorista) => (motorista.ativo ? 'Desativar' : 'Ativar'),
-      icon: (motorista) => (motorista.ativo ? '🚫' : '✅'),
+      icon: (motorista) => (motorista.ativo ? 'close-circle-outline' : 'checkmark-circle-outline'),
       type: 'secondary',
       onPress: toggleAtivo,
     },
   ];
+
+  const desktopStats = (
+    <View style={styles.headerStats}>
+      <View style={styles.headerStat}>
+        <Text style={styles.headerStatValue}>{totalMotoristas}</Text>
+        <Text style={styles.headerStatLabel}>Cadastrados</Text>
+      </View>
+      <View style={styles.headerStat}>
+        <Text style={[styles.headerStatValue, styles.headerStatValueSuccess]}>
+          {ativosMotoristas}
+        </Text>
+        <Text style={styles.headerStatLabel}>Ativos</Text>
+      </View>
+    </View>
+  );
+
+  const tableHeaderActions = isDesktop ? (
+    <View style={styles.cardHeaderActions}>
+      {desktopStats}
+      <TouchableOpacity style={styles.cardAddButton} onPress={abrirModalAdicionar}>
+        <Ionicons name="add-circle-outline" size={18} color={theme.colors.white} />
+        <Text style={styles.cardAddButtonText}>Adicionar Motorista</Text>
+      </TouchableOpacity>
+    </View>
+  ) : undefined;
 
   // Desktop Layout
   if (isDesktop) {
     return (
       <>
         <DesktopPageLayout
-          title="Motoristas"
-          subtitle={`${motoristas.length} ${motoristas.length === 1 ? 'motorista' : 'motoristas'} cadastrados`}
-          actions={[
-            {
-              label: 'Adicionar Motorista',
-              icon: 'add-circle-outline',
-              onPress: abrirModalAdicionar,
-              variant: 'primary'
-            }
-          ]}
+          title={pageMeta.title}
+          subtitle={pageMeta.subtitle}
+          breadcrumbs={pageMeta.breadcrumbs}
+          userMenuTrigger={userMenuTrigger}
+          userMenuItems={userMenuItems}
           loading={loading}
           loadingText="Carregando motoristas..."
         >
-          {motoristas.length === 0 ? (
-            <DesktopCard variant="elevated">
+          <DesktopCard
+            title="Lista de Motoristas"
+            icon="people"
+            variant="elevated"
+            actions={tableHeaderActions}
+            noPadding={motoristas.length > 0}
+          >
+            {motoristas.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <Ionicons name="people-outline" size={64} color={theme.colors.gray400} />
                 <Text style={styles.emptyText}>Nenhum motorista cadastrado</Text>
@@ -879,14 +915,7 @@ export default function MotoristasGestor() {
                   Adicione o primeiro motorista usando o botão acima
                 </Text>
               </View>
-            </DesktopCard>
-          ) : (
-            <DesktopCard
-              title="Lista de Motoristas"
-              icon="people"
-              variant="elevated"
-              noPadding
-            >
+            ) : (
               <DataTable
                 data={motoristas}
                 columns={columns}
@@ -897,8 +926,8 @@ export default function MotoristasGestor() {
                 isLoading={loading}
                 skeletonRows={10}
               />
-            </DesktopCard>
-          )}
+            )}
+          </DesktopCard>
         </DesktopPageLayout>
 
         {/* Modals usando DesktopModal */}
@@ -941,6 +970,7 @@ export default function MotoristasGestor() {
         />
 
         <Toast {...toastState} onDismiss={hideToast} />
+        {logoutModal}
       </>
     );
   }
@@ -948,10 +978,13 @@ export default function MotoristasGestor() {
   // Mobile Layout (existing)
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primaryDark} />
-        <Text style={styles.loadingText}>Carregando motoristas...</Text>
-      </View>
+      <>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primaryDark} />
+          <Text style={styles.loadingText}>Carregando motoristas...</Text>
+        </View>
+        {logoutModal}
+      </>
     );
   }
 
@@ -1023,6 +1056,7 @@ export default function MotoristasGestor() {
 
       {/* Toast de Feedback */}
       <Toast {...toastState} onDismiss={hideToast} />
+      {logoutModal}
     </>
   );
 }
@@ -1344,7 +1378,45 @@ const styles = StyleSheet.create(theme => ({
   disabledButton: {
     opacity: 0.6,
   },
+  headerStats: {
+    flexDirection: 'row',
+    gap: theme.spacing.xl,
+    alignItems: 'flex-end',
+  },
+  headerStat: {
+    alignItems: 'flex-end',
+  },
+  headerStatValue: {
+    fontSize: theme.typography['2xl'],
+    fontFamily: theme.typography.fontSansBold,
+    color: theme.colors.gray900,
+  },
+  headerStatValueSuccess: {
+    color: theme.colors.success,
+  },
+  headerStatLabel: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray500,
+  },
+  cardHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: theme.spacing.xl,
+    flexWrap: 'wrap',
+  },
+  cardAddButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.primary,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.full,
+  },
+  cardAddButtonText: {
+    color: theme.colors.white,
+    fontFamily: theme.typography.fontSansSemiBold,
+    fontSize: theme.typography.sm,
+  },
 }));
-
-
-

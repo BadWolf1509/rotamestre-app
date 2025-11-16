@@ -7,45 +7,75 @@ import type { RotaResumo } from '../../dashboard/_hooks/useDashboardData';
 
 interface RotasTableProps {
   rotas: RotaResumo[];
-  onRotaPress?: (rotaId: string) => void;
-  onDeletePress?: (rotaId: string) => void;
+  onViewDetails?: (rotaId: string) => void;
+  onDelete?: (rotaId: string) => void;
 }
 
-function getStatusColor(status: string, theme: any): string {
-  switch (status) {
-    case 'em_andamento':
-      return theme.colors.secondary;
-    case 'concluida':
-      return theme.colors.success;
-    case 'pendente':
-      return theme.colors.gray500;
-    case 'cancelada':
-      return theme.colors.error;
-    default:
-      return theme.colors.gray500;
-  }
+const statusVariants = (theme: any) => ({
+  pendente: {
+    label: 'Pendente',
+    badge: {
+      backgroundColor: theme.colors.warningBg,
+      borderColor: theme.colors.warning,
+      color: theme.colors.warning,
+    },
+  },
+  em_andamento: {
+    label: 'Em andamento',
+    badge: {
+      backgroundColor: theme.colors.infoBg,
+      borderColor: theme.colors.info,
+      color: theme.colors.info,
+    },
+  },
+  concluida: {
+    label: 'Concluída',
+    badge: {
+      backgroundColor: theme.colors.successBg,
+      borderColor: theme.colors.success,
+      color: theme.colors.success,
+    },
+  },
+  cancelada: {
+    label: 'Cancelada',
+    badge: {
+      backgroundColor: theme.colors.errorBg,
+      borderColor: theme.colors.error,
+      color: theme.colors.error,
+    },
+  },
+  default: {
+    label: 'Indefinido',
+    badge: {
+      backgroundColor: theme.colors.gray100,
+      borderColor: theme.colors.gray300,
+      color: theme.colors.gray700,
+    },
+  },
+});
+
+const getStatusMeta = (status: string, theme: any) => {
+  const variants = statusVariants(theme);
+  return variants[status as keyof typeof variants] ?? variants.default;
+};
+
+function parseLocalDate(dateStr?: string): Date | null {
+  if (!dateStr) return null;
+  const [year, month, day] = dateStr.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
 }
 
-function getStatusLabel(status: string): string {
-  switch (status) {
-    case 'em_andamento':
-      return 'Em Andamento';
-    case 'concluida':
-      return 'Concluída';
-    case 'pendente':
-      return 'Pendente';
-    case 'cancelada':
-      return 'Cancelada';
-    default:
-      return status;
-  }
+function formatDate(dateStr?: string): string {
+  const date = parseLocalDate(dateStr);
+  return date ? date.toLocaleDateString('pt-BR') : '-';
 }
 
 /**
  * Tabela de rotas estilo desktop
  * Layout inspirado no rotamestre-painel
  */
-export function RotasTable({ rotas, onRotaPress, onDeletePress }: RotasTableProps) {
+export function RotasTable({ rotas, onViewDetails, onDelete }: RotasTableProps) {
   const { theme } = useUnistyles();
 
   if (rotas.length === 0) {
@@ -98,7 +128,7 @@ export function RotasTable({ rotas, onRotaPress, onDeletePress }: RotasTableProp
               ? (rota.paradas_concluidas / rota.total_paradas) * 100
               : 0;
 
-            const statusColor = getStatusColor(rota.status, theme);
+            const statusMeta = getStatusMeta(rota.status, theme);
 
             return (
               <View
@@ -114,15 +144,25 @@ export function RotasTable({ rotas, onRotaPress, onDeletePress }: RotasTableProp
                     {rota.motorista_nome}
                   </Text>
                   <Text style={styles.rotaData}>
-                    {new Date(rota.data).toLocaleDateString('pt-BR')}
+                    {formatDate(rota.data)}
                   </Text>
                 </View>
 
                 {/* Status */}
                 <View style={styles.colStatusContent}>
-                  <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-                    <Text style={styles.statusText}>
-                      {getStatusLabel(rota.status)}
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      {
+                        backgroundColor: statusMeta.badge.backgroundColor,
+                        borderColor: statusMeta.badge.borderColor,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.statusText, { color: statusMeta.badge.color }]}
+                    >
+                      {statusMeta.label}
                     </Text>
                   </View>
                 </View>
@@ -138,7 +178,7 @@ export function RotasTable({ rotas, onRotaPress, onDeletePress }: RotasTableProp
                         styles.progressBar,
                         {
                           width: `${progressPercent}%`,
-                          backgroundColor: statusColor,
+                          backgroundColor: statusMeta.badge.color,
                         },
                       ]}
                     />
@@ -155,7 +195,7 @@ export function RotasTable({ rotas, onRotaPress, onDeletePress }: RotasTableProp
                 {/* Ações */}
                 <View style={[styles.colAcoes, styles.colAcoesContent]}>
                   <TouchableOpacity
-                    onPress={() => onRotaPress?.(rota.id)}
+                    onPress={() => onViewDetails?.(rota.id)}
                     style={{
                       paddingHorizontal: 12,
                       paddingVertical: 6,
@@ -171,7 +211,7 @@ export function RotasTable({ rotas, onRotaPress, onDeletePress }: RotasTableProp
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    onPress={() => onDeletePress?.(rota.id)}
+                    onPress={() => onDelete?.(rota.id)}
                     style={{
                       paddingHorizontal: 12,
                       paddingVertical: 6,
@@ -308,14 +348,17 @@ const styles = StyleSheet.create(theme => ({
     marginTop: 4,
   },
   statusBadge: {
-    paddingHorizontal: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
     paddingVertical: 4,
-    borderRadius: theme.borderRadius.md,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 1,
+    backgroundColor: theme.colors.gray100,
+    borderColor: theme.colors.gray300,
   },
   statusText: {
     fontSize: theme.typography.xs,
     fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.white,
+    color: theme.colors.gray700,
   },
   progressText: {
     fontSize: theme.typography.sm,

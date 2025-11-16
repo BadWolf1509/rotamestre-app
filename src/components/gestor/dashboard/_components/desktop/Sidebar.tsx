@@ -27,9 +27,9 @@ export function Sidebar({ onNavigate, userData }: SidebarProps) {
 
   const navItems = [
     {
-      label: 'Dashboard',
+      label: 'Início',
       icon: '🏠',
-      path: '/gestor/dashboard',
+      path: '/gestor/inicio',
       show: true,
     },
     {
@@ -45,15 +45,15 @@ export function Sidebar({ onNavigate, userData }: SidebarProps) {
       show: true,
     },
     {
-      label: 'Motoristas',
-      icon: '👥',
-      path: '/gestor/motoristas',
+      label: 'Incidentes',
+      icon: '⚠️',
+      path: '/gestor/incidentes',
       show: true,
     },
     {
-      label: 'Meu Perfil',
-      icon: '👤',
-      path: '/perfil',
+      label: 'Motoristas',
+      icon: '👥',
+      path: '/gestor/motoristas',
       show: true,
     },
     {
@@ -128,17 +128,6 @@ export function Sidebar({ onNavigate, userData }: SidebarProps) {
           </View>
         </ScrollView>
 
-        {/* Logout Button */}
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={() => setShowLogoutDialog(true)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.logoutIcon}>🚪</Text>
-            <Text style={styles.logoutText}>Sair da Conta</Text>
-          </TouchableOpacity>
-        </View>
       </View>
 
       {/* Dialogs */}
@@ -225,29 +214,6 @@ const styles = StyleSheet.create(theme => ({
     color: theme.colors.primary,
     fontFamily: theme.typography.fontSansSemiBold,
   },
-  footer: {
-    padding: theme.spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.gray200,
-    marginTop: 'auto',
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    backgroundColor: `${theme.colors.error}10`, // 10 = ~6% opacity
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: `${theme.colors.error}30`, // 30 = ~19% opacity
-  },
-  logoutIcon: {
-    fontSize: 20,
-  },
-  logoutText: {
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.error,
-  },
 }));
+
+

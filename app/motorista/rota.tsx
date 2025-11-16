@@ -96,8 +96,9 @@ export default function RotaMotoristaWeb() {
 
       const { data: paradasData, error: paradasError } = await supabase
         .from('paradas')
-        .select('id, endereco, ordem, status, tipo, latitude, longitude, foto_url')
+        .select('id, endereco, ordem, status, tipo, latitude, longitude, foto_url, is_checkpoint')
         .eq('rota_id', rotasData.id)
+        .or('is_checkpoint.is.null,is_checkpoint.eq.true')
         .order('ordem');
 
       if (paradasError) throw paradasError;
@@ -162,9 +163,11 @@ export default function RotaMotoristaWeb() {
     );
   }
 
-  const paradasConcluidas = paradas.filter((p) => p.status === 'concluida').length;
-  const paradasPendentes = paradas.filter((p) => p.status !== 'concluida').length;
-  const progresso = paradas.length > 0 ? Math.round((paradasConcluidas / paradas.length) * 100) : 0;
+  // Filtrar apenas paradas reais (excluindo checkpoints de partida/chegada)
+  const paradasReais = paradas.filter(p => p.is_checkpoint !== false);
+  const paradasConcluidas = paradasReais.filter((p) => p.status === 'concluida').length;
+  const paradasPendentes = paradasReais.filter((p) => p.status !== 'concluida').length;
+  const progresso = paradasReais.length > 0 ? Math.round((paradasConcluidas / paradasReais.length) * 100) : 0;
 
   // Feature 9: Calcula tempo estimado de conclusão
   const tempoEstimado = calcularTempoEstimado(paradas, userLocation || undefined);
@@ -193,7 +196,7 @@ export default function RotaMotoristaWeb() {
 
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{paradas.length}</Text>
+            <Text style={styles.statValue}>{paradasReais.length}</Text>
             <Text style={styles.statLabel}>Paradas</Text>
           </View>
           <View style={styles.statItem}>

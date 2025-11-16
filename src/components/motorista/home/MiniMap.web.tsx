@@ -12,6 +12,7 @@ interface MiniMapProps {
   expanded?: boolean;
   onToggleExpand?: () => void;
   onOpenPiP?: () => void;
+  route?: any;
 }
 
 export function MiniMap({
@@ -20,32 +21,49 @@ export function MiniMap({
   expanded = false,
   onToggleExpand,
   onOpenPiP,
+  route,
 }: MiniMapProps) {
   const { theme } = useUnistyles();
   const height = expanded ? 300 : 150;
 
-  // Filtrar apenas paradas pendentes
-  const paradasPendentes = paradas.filter(p => p.status === 'pendente');
-  const paradasConcluidas = paradas.filter(p => p.status === 'concluida');
+  // Filtrar paradas por status (mas manter checkpoints separados)
+  const paradasPendentes = paradas.filter(p => p.status === 'pendente' && p.is_checkpoint !== false);
+  const paradasConcluidas = paradas.filter(p => p.status === 'concluida' && p.is_checkpoint !== false);
 
-  // Generate Google Maps URL
+  // Generate Google Maps URL - incluindo checkpoints (partida e chegada)
   const generateMapsUrl = () => {
-    if (paradasPendentes.length === 0) return '#';
+    // Buscar todas as paradas ordenadas (incluindo checkpoints)
+    const todasParadas = [...paradas].sort((a, b) => a.ordem - b.ordem);
 
-    const origin = userLocation
-      ? `${userLocation.latitude},${userLocation.longitude}`
-      : `${paradasPendentes[0].latitude},${paradasPendentes[0].longitude}`;
+    if (todasParadas.length === 0) {
+      console.warn('⚠️ MiniMap: Nenhuma parada disponível para gerar URL');
+      return '#';
+    }
 
-    const destination = paradasPendentes.length > 0
-      ? `${paradasPendentes[paradasPendentes.length - 1].latitude},${paradasPendentes[paradasPendentes.length - 1].longitude}`
-      : origin;
+    // Debug: Verificar checkpoints
+    const checkpoints = todasParadas.filter(p => p.is_checkpoint === false);
+    console.log('📍 MiniMap: Gerando URL Google Maps');
+    console.log(`   Total de paradas: ${todasParadas.length}`);
+    console.log(`   Checkpoints encontrados: ${checkpoints.length}`);
+    console.log(`   Primeira parada (ordem ${todasParadas[0].ordem}):`, todasParadas[0].endereco, `is_checkpoint=${todasParadas[0].is_checkpoint}`);
+    console.log(`   Última parada (ordem ${todasParadas[todasParadas.length - 1].ordem}):`, todasParadas[todasParadas.length - 1].endereco, `is_checkpoint=${todasParadas[todasParadas.length - 1].is_checkpoint}`);
 
-    const waypoints = paradasPendentes
+    // Origem: SEMPRE o primeiro ponto (checkpoint de partida ou primeira parada)
+    const origin = `${todasParadas[0].latitude},${todasParadas[0].longitude}`;
+
+    // Destino: SEMPRE o último ponto (checkpoint de chegada ou última parada)
+    const destination = `${todasParadas[todasParadas.length - 1].latitude},${todasParadas[todasParadas.length - 1].longitude}`;
+
+    // Waypoints: TODAS as paradas intermediárias (entre primeira e última)
+    const waypoints = todasParadas
       .slice(1, -1)
       .map(p => `${p.latitude},${p.longitude}`)
       .join('|');
 
-    return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ''}&travelmode=driving`;
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ''}&travelmode=driving`;
+    console.log('🗺️ URL gerada:', url);
+
+    return url;
   };
 
   const openGoogleMaps = () => {
@@ -61,9 +79,7 @@ export function MiniMap({
         onPress={openGoogleMaps}
         activeOpacity={0.95}
       >
-        {/* Map Placeholder for Web */}
         <View style={[styles.mapPlaceholder, { height }]}>
-          {/* Simulated route visualization */}
           <View style={styles.routeInfo}>
             <View style={styles.routeHeader}>
               <Ionicons name="map" size={32} color={theme.colors.primary} />
@@ -83,7 +99,7 @@ export function MiniMap({
               </View>
               <View style={styles.statBox}>
                 <Text style={styles.statValue}>
-                  {Math.round(paradas.length * 2.5)}
+                  {route?.distancia_total ? Math.round(route.distancia_total) : '-'}
                 </Text>
                 <Text style={styles.statLabel}>km total</Text>
               </View>
@@ -109,17 +125,14 @@ export function MiniMap({
             )}
           </View>
 
-          {/* Overlay with info */}
           <View style={styles.overlay}>
             <View style={styles.infoBox}>
             <Text style={styles.infoText}>
-                {paradasPendentes.length} paradas • {Math.round(paradas.length * 2.5)} km
+                {paradasPendentes.length} paradas • {route?.distancia_total ? `${Math.round(route.distancia_total)} km` : '-'}
               </Text>
             </View>
 
-            {/* Control buttons */}
             <View style={styles.controlButtons}>
-              {/* PiP button */}
               <TouchableOpacity
                 style={styles.pipButton}
                 onPress={(e) => {
@@ -135,7 +148,6 @@ export function MiniMap({
                 />
               </TouchableOpacity>
 
-              {/* Expand button */}
               <TouchableOpacity
                 style={styles.expandButton}
                 onPress={(e) => {
@@ -155,7 +167,6 @@ export function MiniMap({
         </View>
       </TouchableOpacity>
 
-      {/* Hint text */}
       <Text style={styles.hint}>Toque para abrir no Google Maps</Text>
     </View>
   );

@@ -12,6 +12,8 @@ import {
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { Toast } from '@/components/Toast';
+import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 // REMOVIDO: import { useUser } from '@/hooks/useUser'; // Agora recebe userData como prop
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
@@ -42,6 +44,8 @@ export function DashboardDesktop({
   const router = useRouter();
   // REMOVIDO: const { userData } = useUser(); // Evitar chamada duplicada
 
+  const pageMeta = getGestorPageMeta('inicio');
+
   // Estado para modal de confirmação
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [rotaToDelete, setRotaToDelete] = useState<string | null>(null);
@@ -60,6 +64,10 @@ export function DashboardDesktop({
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
     setToast({ visible: true, message, type });
   };
+
+  const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
+    userName: userData?.nome,
+  });
 
   const handleDeleteRota = async (rotaId: string) => {
     // Web: usar modal customizado
@@ -126,25 +134,14 @@ export function DashboardDesktop({
     setRotaToDelete(null);
   };
 
-  const headerExtra = (
-    <View style={styles.userSection}>
-      <Text style={styles.userGreeting}>
-        Olá, <Text style={styles.userName}>{userData?.nome}</Text>
-      </Text>
-      <View style={styles.userAvatar}>
-        <Text style={styles.userAvatarText}>
-          {userData?.nome?.charAt(0).toUpperCase()}
-        </Text>
-      </View>
-    </View>
-  );
-
   return (
     <>
       <DesktopPageLayout
-        title="Dashboard"
-        subtitle={userData?.unidades?.nome || ''}
-        headerExtra={headerExtra}
+        title={pageMeta.title}
+        subtitle={userData?.unidades?.nome || pageMeta.subtitle}
+        breadcrumbs={pageMeta.breadcrumbs}
+        userMenuTrigger={userMenuTrigger}
+        userMenuItems={userMenuItems}
         loading={loading}
         scrollViewProps={{
           refreshControl: (
@@ -182,6 +179,17 @@ export function DashboardDesktop({
                 backgroundColor={theme.colors.purple}
               />
             </View>
+            <TouchableOpacity
+              style={styles.statCard}
+              onPress={() => router.push('/gestor/incidentes')}
+              activeOpacity={0.8}
+            >
+              <StatsCard
+                value={stats.incidentesAbertos || 0}
+                label="Incidentes Abertos"
+                backgroundColor={theme.colors.error}
+              />
+            </TouchableOpacity>
           </View>
 
           <View style={styles.section}>
@@ -233,36 +241,12 @@ export function DashboardDesktop({
         type={toast.type}
         onDismiss={() => setToast({ ...toast, visible: false })}
       />
+      {logoutModal}
     </>
   );
 }
 
 const styles = StyleSheet.create(theme => ({
-  userSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.lg,
-  },
-  userGreeting: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray700,
-  },
-  userName: {
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
-  userAvatar: {
-    width: 40,
-    height: 40,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  userAvatarText: {
-    color: theme.colors.white,
-    fontSize: theme.typography.lg,
-    fontFamily: theme.typography.fontSansBold,
-  },
   content: {
     paddingHorizontal: theme.spacing['3xl'],
     paddingVertical: theme.spacing['2xl'],

@@ -30,6 +30,7 @@ interface Parada {
   destinatario?: string;
   telefone?: string;
   observacoes?: string;
+  is_checkpoint?: boolean;
 }
 
 interface Rota {
@@ -82,10 +83,11 @@ export default function CheckpointsMotorista() {
 
       setRota(rotasData as Rota);
 
-      const { data: paradasData, error: paradasError } = await supabase
+      const { data: paradasData, error: paradasError} = await supabase
         .from('paradas')
         .select('*')
         .eq('rota_id', rotasData.id)
+        .or('is_checkpoint.is.null,is_checkpoint.eq.true')
         .order('ordem');
 
       if (paradasError) throw paradasError;
@@ -155,13 +157,16 @@ export default function CheckpointsMotorista() {
                   })
                   .eq('id', rota!.id);
 
+                // Filtrar apenas paradas reais (excluindo checkpoints)
+                const paradasReais = paradas.filter(p => p.is_checkpoint !== false);
+
                 // Criar log da conclusao da rota
                 await supabase.from('logs').insert({
                   usuario_id: userData!.id,
                   rota_id: rota!.id,
                   evento: 'rota_concluida',
                   detalhes: {
-                    total_paradas: paradas.length,
+                    total_paradas: paradasReais.length,
                   },
                 });
 
@@ -264,9 +269,11 @@ export default function CheckpointsMotorista() {
     );
   }
 
-  const paradasPendentes = paradas.filter((p) => p.status === 'pendente').length;
-  const paradasConcluidas = paradas.filter((p) => p.status === 'concluida').length;
-  const paradasPuladas = paradas.filter((p) => p.status === 'pulada').length;
+  // Filtrar apenas paradas reais (excluindo checkpoints de partida/chegada)
+  const paradasReais = paradas.filter(p => p.is_checkpoint !== false);
+  const paradasPendentes = paradasReais.filter((p) => p.status === 'pendente').length;
+  const paradasConcluidas = paradasReais.filter((p) => p.status === 'concluida').length;
+  const paradasPuladas = paradasReais.filter((p) => p.status === 'pulada').length;
 
   const renderParada = ({ item }: { item: Parada }) => {
     const isConcluida = item.status === 'concluida';
@@ -456,7 +463,7 @@ export default function CheckpointsMotorista() {
 
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{paradas.length}</Text>
+            <Text style={styles.statValue}>{paradasReais.length}</Text>
             <Text style={styles.statLabel}>Total</Text>
           </View>
           <View style={styles.statItem}>
@@ -484,13 +491,13 @@ export default function CheckpointsMotorista() {
         {/* Barra de Progresso */}
         <View style={styles.progressSection}>
           <Text style={styles.progressLabel}>
-            Progresso: {Math.round((paradasConcluidas / paradas.length) * 100)}%
+            Progresso: {paradasReais.length > 0 ? Math.round((paradasConcluidas / paradasReais.length) * 100) : 0}%
           </Text>
           <View style={styles.progressContainer}>
             <View
               style={[
                 styles.progressBar,
-                { width: `${(paradasConcluidas / paradas.length) * 100}%` },
+                { width: `${paradasReais.length > 0 ? (paradasConcluidas / paradasReais.length) * 100 : 0}%` },
               ]}
             />
           </View>

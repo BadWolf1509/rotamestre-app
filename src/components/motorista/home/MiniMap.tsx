@@ -14,6 +14,7 @@ interface MiniMapProps {
   onToggleExpand?: () => void;
   onOpenFullMap?: () => void;
   onOpenPiP?: () => void;
+  route?: any;
 }
 
 export function MiniMap({
@@ -23,12 +24,13 @@ export function MiniMap({
   onToggleExpand,
   onOpenFullMap,
   onOpenPiP,
+  route,
 }: MiniMapProps) {
   const height = expanded ? 300 : 150;
 
-  // Filtrar apenas paradas pendentes
-  const paradasPendentes = paradas.filter(p => p.status === 'pendente');
-  const paradasConcluidas = paradas.filter(p => p.status === 'concluida');
+  // Filtrar paradas por status (excluindo checkpoints)
+  const paradasPendentes = paradas.filter(p => p.status === 'pendente' && p.is_checkpoint !== false);
+  const paradasConcluidas = paradas.filter(p => p.status === 'concluida' && p.is_checkpoint !== false);
 
   // Calcular região do mapa
   const getMapRegion = () => {
@@ -98,7 +100,6 @@ export function MiniMap({
           rotateEnabled={false}
           pitchEnabled={false}
         >
-          {/* Marcador da localização atual */}
           {userLocation && (
             <Marker
               coordinate={userLocation}
@@ -110,7 +111,6 @@ export function MiniMap({
             </Marker>
           )}
 
-          {/* Marcadores das paradas concluídas */}
           {paradasConcluidas.map((parada) => (
             <Marker
               key={`concluida-${parada.id}`}
@@ -126,7 +126,6 @@ export function MiniMap({
             </Marker>
           ))}
 
-          {/* Marcadores das paradas pendentes */}
           {paradasPendentes.map((parada, index) => (
             <Marker
               key={`pendente-${parada.id}`}
@@ -146,7 +145,6 @@ export function MiniMap({
             </Marker>
           ))}
 
-          {/* Linha da rota */}
           {getRouteCoordinates().length > 1 && (
             <Polyline
               coordinates={getRouteCoordinates()}
@@ -157,17 +155,14 @@ export function MiniMap({
           )}
         </MapView>
 
-        {/* Overlay com informações */}
         <View style={styles.overlay}>
           <View style={styles.infoBox}>
             <Text style={styles.infoText}>
-              {paradasPendentes.length} paradas • {Math.round(paradas.length * 2.5)} km
+              {paradasPendentes.length} paradas • {route?.distancia_total ? `${Math.round(route.distancia_total)} km` : '-'}
             </Text>
           </View>
 
-          {/* Botões de controle */}
           <View style={styles.controlButtons}>
-            {/* Botão PiP */}
             <TouchableOpacity
               style={styles.pipButton}
               onPress={(e) => {
@@ -183,7 +178,6 @@ export function MiniMap({
               />
             </TouchableOpacity>
 
-            {/* Botão de expandir */}
             <TouchableOpacity
               style={styles.expandButton}
               onPress={(e) => {
@@ -203,7 +197,6 @@ export function MiniMap({
 
       </TouchableOpacity>
 
-      {/* Hint text */}
       <Text style={styles.hint}>Toque para abrir o mapa completo</Text>
     </View>
   );

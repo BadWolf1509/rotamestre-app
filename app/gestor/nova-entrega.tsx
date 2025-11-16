@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState, useEffect, memo, useCallback } from 'react';
 import { useForm, Controller, Control, FieldErrors } from 'react-hook-form';
@@ -15,6 +16,8 @@ import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import { DesktopCard } from '@/components/desktop/DesktopCard';
 import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { Toast } from '@/components/Toast';
+import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
@@ -324,8 +327,14 @@ export default function NovaEntrega() {
   const { theme } = useUnistyles();
   const styles = createStyles(theme);
   const { userData, unidade } = useUser();
+  const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
+    userName: userData?.nome,
+  });
   const { toast: toastState, showToast, hideToast } = useToast();
   const { isDesktop } = useResponsive();
+  const pageMeta = getGestorPageMeta('novaRota');
+  const unidadeDisplayName = unidade?.nome || userData?.unidades?.nome || '';
+  const pageSubtitle = unidadeDisplayName || pageMeta.subtitle || 'Carregando...';
   const [paradas, setParadas] = useState<Parada[]>([]);
   const [motoristas, setMotoristas] = useState<any[]>([]);
   const [motoristaSelecionado, setMotoristaSelecionado] = useState<string>('');
@@ -592,8 +601,9 @@ export default function NovaEntrega() {
 
     setIsLoading(true);
     try {
-      // Data de hoje no formato ISO (YYYY-MM-DD)
-      const dataHoje = new Date().toISOString().split('T')[0];
+      // Data de hoje no formato ISO (YYYY-MM-DD) usando horário local
+      const hoje = new Date();
+      const dataHoje = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
 
       const distanciaKm =
         rotaOtimizada?.distancia_total_metros != null
@@ -742,9 +752,12 @@ export default function NovaEntrega() {
 
   if (isLoadingMotoristas) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primaryDark} />
-      </View>
+      <>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primaryDark} />
+        </View>
+        {logoutModal}
+      </>
     );
   }
 
@@ -908,21 +921,11 @@ export default function NovaEntrega() {
     return (
       <>
         <DesktopPageLayout
-          title="Nova Rota de Entrega"
-          subtitle={userData?.unidades?.nome || 'Carregando...'}
-          breadcrumbs={[
-            { label: 'Dashboard', route: '/gestor' },
-            { label: 'Nova Entrega' }
-          ]}
-          actions={[
-            {
-              label: 'Limpar Formulário',
-              icon: 'refresh-outline',
-              onPress: limparFormulario,
-              variant: 'secondary',
-              disabled: paradas.length === 0
-            }
-          ]}
+          title={pageMeta.title}
+          subtitle={pageSubtitle}
+          breadcrumbs={pageMeta.breadcrumbs}
+          userMenuTrigger={userMenuTrigger}
+          userMenuItems={userMenuItems}
           loading={isLoadingMotoristas}
           loadingText="Carregando dados..."
         >
@@ -954,6 +957,23 @@ export default function NovaEntrega() {
                 icon="list-outline"
                 iconColor={theme.colors.secondary}
                 variant="elevated"
+                actions={
+                  <TouchableOpacity
+                    style={[
+                      styles.clearCardButton,
+                      paradas.length === 0 && styles.clearCardButtonDisabled,
+                    ]}
+                    onPress={limparFormulario}
+                    disabled={paradas.length === 0}
+                  >
+                    <Ionicons
+                      name="refresh-outline"
+                      size={18}
+                      color={theme.colors.primary}
+                    />
+                    <Text style={styles.clearCardButtonText}>Limpar formulário</Text>
+                  </TouchableOpacity>
+                }
               >
                 <ParadasListAndActions />
               </DesktopCard>
@@ -963,15 +983,13 @@ export default function NovaEntrega() {
 
         {/* Toast de Feedback */}
         <Toast {...toastState} onDismiss={hideToast} />
+        {logoutModal}
+        {logoutModal}
       </>
     );
   }
 
   // Mobile Layout (original)
-  const breadcrumbs = [
-    { label: 'Dashboard', route: '/gestor/dashboard' },
-    { label: 'Nova Rota de Entrega' },
-  ];
 
   const renderMainContent = () => (
     <View style={styles.content}>
@@ -987,45 +1005,13 @@ export default function NovaEntrega() {
     </View>
   );
 
-  if (isDesktop) {
-    return (
-      <>
-        <DesktopPageLayout
-          title="Nova Rota de Entrega"
-          subtitle={unidade?.nome || userData?.unidades?.nome || ''}
-          breadcrumbs={breadcrumbs}
-          actions={[
-            {
-              label: 'Limpar Formulário',
-              icon: 'refresh-outline',
-              onPress: limparFormulario,
-              variant: 'ghost',
-              disabled: paradas.length === 0 && !motoristaSelecionado,
-            },
-          ]}
-          loading={isLoadingMotoristas}
-        >
-          {renderMainContent()}
-        </DesktopPageLayout>
-        <Toast {...toastState} onDismiss={hideToast} />
-      </>
-    );
-  }
-
-  if (isLoadingMotoristas) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primaryDark} />
-      </View>
-    );
-  }
-
   return (
     <>
       <ScrollView style={styles.scrollView}>
         {renderMainContent()}
       </ScrollView>
       <Toast {...toastState} onDismiss={hideToast} />
+      {logoutModal}
     </>
   );
 }
@@ -1080,6 +1066,25 @@ const createStyles = (theme: any) => StyleSheet.create({
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
     marginBottom: theme.spacing['2xl'],
+  },
+  clearCardButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
+    backgroundColor: theme.colors.white,
+  },
+  clearCardButtonDisabled: {
+    opacity: 0.5,
+  },
+  clearCardButtonText: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.primary,
   },
   radioGroup: {
     flexDirection: 'row',

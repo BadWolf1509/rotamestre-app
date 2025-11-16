@@ -55,8 +55,7 @@ rota-mestre/
 
 # Testing
 coverage/
-__tests__/
-__mocks__/
+# Note: __tests__/ and __mocks__/ are now versioned for CI/CD
 
 # Claude Code local settings
 .claude/settings.local.json

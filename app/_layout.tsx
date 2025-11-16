@@ -14,7 +14,6 @@ import React, { useEffect } from 'react';
 import { Platform, Text, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 
-import { DevOverlay } from '@/components/DevOverlay';
 import { DevToolsInitializer } from '@/components/DevToolsInitializer';
 import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -175,8 +174,6 @@ export default function RootLayout() {
       />
       {/* DevTools Initializer */}
       <DevToolsInitializer />
-      {/* DevOverlay apenas em desenvolvimento web */}
-      {__DEV__ && Platform.OS === 'web' && <DevOverlay />}
     </>
   );
 }

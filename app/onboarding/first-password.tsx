@@ -82,7 +82,7 @@ export default function FirstPasswordScreen() {
       if (profile.primeira_senha !== true) {
         console.warn('⚠️ Usuário tentou acessar first-password sem estar marcado como primeira_senha');
         // Redirecionar para a área apropriada
-        const targetRoute = profile.papel === 'gestor' ? '/gestor/dashboard' : '/motorista/rota';
+        const targetRoute = profile.papel === 'gestor' ? '/gestor/inicio' : '/motorista/rota';
         router.replace(targetRoute);
         return;
       }
@@ -122,7 +122,7 @@ export default function FirstPasswordScreen() {
 
       // Determinar rota de destino baseado no papel
       const targetRoute = profile.papel === 'gestor'
-        ? '/gestor/dashboard'
+        ? '/gestor/inicio'
         : '/motorista/rota';
 
       const papelNome = profile.papel === 'gestor' ? 'Gestor' : 'Motorista';

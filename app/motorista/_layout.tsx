@@ -59,9 +59,9 @@ function MobileStack() {
       }}
     >
       <Stack.Screen
-        name="home"
+        name="inicio"
         options={{
-          title: 'Home',
+          title: 'Início',
         }}
       />
       <Stack.Screen

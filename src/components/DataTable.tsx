@@ -7,9 +7,10 @@ import {
   Platform,
   Animated,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { useResponsive } from '@/hooks/useResponsive';
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 // ============================================
 // TYPES
@@ -131,6 +132,7 @@ export function DataTable<T = any>({
   skeletonRows = 5,
 }: DataTableProps<T>) {
   const { isMobile, isTablet } = useResponsive();
+  const { theme } = useUnistyles();
 
   // Paginação
   const [currentPage, setCurrentPage] = useState(1);
@@ -271,14 +273,23 @@ export function DataTable<T = any>({
               {/* Dados do card */}
               {columns
                 .filter(col => !col.desktopOnly)
-                .map((column) => (
-                  <View key={column.key} style={styles.cardRow}>
-                    <Text style={styles.cardLabel}>{column.label}:</Text>
-                    <Text style={styles.cardValue}>
-                      {column.render ? column.render(item) : (item as any)[column.key]}
-                    </Text>
-                  </View>
-                ))}
+                .map((column) => {
+                  const renderedContent = column.render ? column.render(item) : (item as any)[column.key];
+                  const isReactElement = typeof renderedContent === 'object' && renderedContent !== null && typeof renderedContent !== 'string';
+
+                  return (
+                    <View key={column.key} style={styles.cardRow}>
+                      <Text style={styles.cardLabel}>{column.label}:</Text>
+                      {isReactElement ? (
+                        renderedContent
+                      ) : (
+                        <Text style={styles.cardValue}>
+                          {renderedContent}
+                        </Text>
+                      )}
+                    </View>
+                  );
+                })}
 
               {/* Ações */}
               {actions && actions.length > 0 && (
@@ -293,14 +304,28 @@ export function DataTable<T = any>({
                         style={[
                           styles.cardActionButton,
                           action.type === 'danger' && styles.cardActionButtonDanger,
+                          action.type === 'secondary' && styles.cardActionButtonSecondary,
                         ]}
                         onPress={() => action.onPress(item)}
                       >
-                        {icon && <Text style={styles.cardActionIcon}>{icon}</Text>}
+                        {icon && (
+                          <Ionicons
+                            name={icon as any}
+                            size={16}
+                            color={
+                              action.type === 'danger'
+                                ? theme.colors.error
+                                : action.type === 'secondary'
+                                ? theme.colors.gray600
+                                : theme.colors.primary
+                            }
+                          />
+                        )}
                         <Text
                           style={[
                             styles.cardActionText,
                             action.type === 'danger' && styles.cardActionTextDanger,
+                            action.type === 'secondary' && styles.cardActionTextSecondary,
                           ]}
                         >
                           {label}
@@ -397,16 +422,20 @@ export function DataTable<T = any>({
                       column.align === 'right' && { alignItems: 'flex-end' },
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.tableCellText,
-                        column.noWrap && styles.tableCellTextNoWrap,
-                      ]}
-                      numberOfLines={column.noWrap ? 1 : undefined}
-                      ellipsizeMode={column.noWrap ? 'tail' : undefined}
-                    >
-                      {column.render ? column.render(item) : (item as any)[column.key]}
-                    </Text>
+                    {column.render ? (
+                      column.render(item)
+                    ) : (
+                      <Text
+                        style={[
+                          styles.tableCellText,
+                          column.noWrap && styles.tableCellTextNoWrap,
+                        ]}
+                        numberOfLines={column.noWrap ? 1 : undefined}
+                        ellipsizeMode={column.noWrap ? 'tail' : undefined}
+                      >
+                        {(item as any)[column.key]}
+                      </Text>
+                    )}
                   </View>
                 ))}
 
@@ -423,14 +452,28 @@ export function DataTable<T = any>({
                           style={[
                             styles.tableActionButton,
                             action.type === 'danger' && styles.tableActionButtonDanger,
+                            action.type === 'secondary' && styles.tableActionButtonSecondary,
                           ]}
                           onPress={() => action.onPress(item)}
                         >
-                          {icon && <Text>{icon}</Text>}
+                          {icon && (
+                            <Ionicons
+                              name={icon as any}
+                              size={16}
+                              color={
+                                action.type === 'danger'
+                                  ? theme.colors.error
+                                  : action.type === 'secondary'
+                                  ? theme.colors.gray600
+                                  : theme.colors.primary
+                              }
+                            />
+                          )}
                           <Text
                             style={[
                               styles.tableActionText,
                               action.type === 'danger' && styles.tableActionTextDanger,
+                              action.type === 'secondary' && styles.tableActionTextSecondary,
                             ]}
                           >
                             {label}
@@ -491,7 +534,7 @@ const styles = StyleSheet.create(theme => ({
   },
   title: {
     fontSize: 20,
-    fontWeight: '700',
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.gray900,
     marginBottom: theme.spacing.md,
   },
@@ -506,6 +549,7 @@ const styles = StyleSheet.create(theme => ({
   emptyText: {
     color: theme.colors.gray500,
     fontSize: 16,
+    fontFamily: theme.typography.fontSans,
   },
 
   // ============================================
@@ -534,12 +578,13 @@ const styles = StyleSheet.create(theme => ({
   },
   cardLabel: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray500,
     flex: 1,
   },
   cardValue: {
     fontSize: 14,
+    fontFamily: theme.typography.fontSans,
     color: theme.colors.gray900,
     flex: 2,
     textAlign: 'right',
@@ -566,16 +611,21 @@ const styles = StyleSheet.create(theme => ({
   cardActionButtonDanger: {
     backgroundColor: `${theme.colors.error}20`,
   },
-  cardActionIcon: {
-    fontSize: 14,
+  cardActionButtonSecondary: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: theme.colors.gray300,
   },
   cardActionText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.primary,
   },
   cardActionTextDanger: {
     color: theme.colors.error,
+  },
+  cardActionTextSecondary: {
+    color: theme.colors.gray600,
   },
 
   // ============================================
@@ -601,11 +651,12 @@ const styles = StyleSheet.create(theme => ({
   },
   tableHeaderText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.gray700,
   },
   sortIndicator: {
     fontSize: 12,
+    fontFamily: theme.typography.fontSans,
     color: theme.colors.primary,
     marginLeft: 4,
   },
@@ -634,6 +685,7 @@ const styles = StyleSheet.create(theme => ({
   },
   tableCellText: {
     fontSize: 14,
+    fontFamily: theme.typography.fontSans,
     color: theme.colors.gray900,
   },
   tableCellTextNoWrap: {
@@ -674,13 +726,21 @@ const styles = StyleSheet.create(theme => ({
   tableActionButtonDanger: {
     backgroundColor: `${theme.colors.error}20`,
   },
+  tableActionButtonSecondary: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: theme.colors.gray300,
+  },
   tableActionText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.primary,
   },
   tableActionTextDanger: {
     color: theme.colors.error,
+  },
+  tableActionTextSecondary: {
+    color: theme.colors.gray600,
   },
 
   // ============================================
@@ -725,15 +785,16 @@ const styles = StyleSheet.create(theme => ({
   pageButtonText: {
     color: theme.colors.background,
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   pageInfo: {
     fontSize: 14,
+    fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.gray500,
-    fontWeight: '500',
   },
   pageInfoDesktop: {
     fontSize: 14,
+    fontFamily: theme.typography.fontSans,
     color: theme.colors.gray500,
   },
 

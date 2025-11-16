@@ -13,10 +13,13 @@ import {
 
 import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { Toast } from '@/components/Toast';
+import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
+import { cleanPhone, formatPhone } from '@/utils/phoneValidation';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface UnidadeData {
@@ -30,12 +33,25 @@ interface UnidadeData {
   cep: string;
 }
 
+const formatCnpj = (value?: string | null): string => {
+  if (!value) return '';
+  const digits = value.replace(/\D/g, '');
+  if (digits.length !== 14) {
+    return value;
+  }
+  return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+};
+
 export default function UnidadeScreen() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { userData, loading: userLoading } = useUser();
+  const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
+    userName: userData?.nome,
+  });
   const { toast: toastState, showToast, hideToast } = useToast();
   const { isDesktop, isLargeDesktop } = useBreakpoint();
+  const pageMeta = getGestorPageMeta('minhaUnidade');
   const [unidade, setUnidade] = useState<UnidadeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
@@ -72,7 +88,7 @@ export default function UnidadeScreen() {
 
       setUnidade(data);
       setNome(data.nome || '');
-      setTelefone(data.telefone || '');
+      setTelefone(formatPhone(data.telefone || ''));
       setEndereco(data.endereco || '');
       setCidade(data.cidade || '');
       setEstado(data.uf || '');
@@ -123,7 +139,7 @@ export default function UnidadeScreen() {
         .from('unidades')
         .update({
           nome: nome.trim(),
-          telefone: telefone.trim(),
+        telefone: cleanPhone(telefone),
           endereco: endereco.trim(),
           cidade: cidade.trim(),
           uf: estado.trim(),
@@ -146,7 +162,7 @@ export default function UnidadeScreen() {
 
   function handleCancel() {
     setNome(unidade?.nome || '');
-    setTelefone(unidade?.telefone || '');
+    setTelefone(formatPhone(unidade?.telefone || ''));
     setEndereco(unidade?.endereco || '');
     setCidade(unidade?.cidade || '');
     setEstado(unidade?.uf || '');
@@ -174,7 +190,9 @@ export default function UnidadeScreen() {
           style={styles.linkButton}
           onPress={() => router.push('/unidade/equipe')}
         >
-          <Text style={styles.linkButtonText}>Ver equipe →</Text>
+          <Text style={styles.linkButtonText}>
+            Ver equipe {'>'}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -201,16 +219,13 @@ export default function UnidadeScreen() {
           {/* CNPJ (sempre bloqueado) */}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>CNPJ</Text>
-            <TextInput
-              style={[styles.input, styles.inputDisabled]}
-              value={unidade?.cnpj || ''}
-              editable={false}
-              placeholder="Não informado"
-            />
-            <Text style={styles.helperText}>
-              O CNPJ não pode ser alterado. Entre em contato com o suporte.
-            </Text>
-          </View>
+          <TextInput
+            style={[styles.input, styles.inputDisabled]}
+            value={formatCnpj(unidade?.cnpj)}
+            editable={false}
+            placeholder="Não informado"
+          />
+        </View>
 
           {/* Telefone */}
           <View style={styles.inputGroup}>
@@ -218,7 +233,7 @@ export default function UnidadeScreen() {
             <TextInput
               style={[styles.input, !editMode && styles.inputDisabled]}
               value={telefone}
-              onChangeText={setTelefone}
+              onChangeText={(text) => setTelefone(formatPhone(text))}
               editable={editMode}
               placeholder="(00) 00000-0000"
               keyboardType="phone-pad"
@@ -337,8 +352,11 @@ export default function UnidadeScreen() {
     return (
       <>
         <DesktopPageLayout
-          title="Minha Unidade"
+          title={pageMeta.title}
           subtitle="Informações e Configurações"
+          breadcrumbs={pageMeta.breadcrumbs}
+          userMenuTrigger={userMenuTrigger}
+          userMenuItems={userMenuItems}
           loading={isLoading}
           actions={desktopActions}
         >
@@ -352,16 +370,20 @@ export default function UnidadeScreen() {
           </View>
         </DesktopPageLayout>
         <Toast {...toastState} onDismiss={hideToast} />
+        {logoutModal}
       </>
     );
   }
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>Carregando...</Text>
-      </View>
+      <>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>Carregando...</Text>
+        </View>
+        {logoutModal}
+      </>
     );
   }
 
@@ -385,6 +407,7 @@ export default function UnidadeScreen() {
       </ScrollView>
 
       <Toast {...toastState} onDismiss={hideToast} />
+      {logoutModal}
     </>
   );
 }
@@ -494,6 +517,10 @@ const styles = StyleSheet.create(theme => ({
   },
   linkButton: {
     paddingVertical: 8,
+    flexDirection: 'row',
+    gap: theme.spacing.xs,
+    alignItems: 'center',
+    alignSelf: 'flex-start',
   },
   linkButtonText: {
     fontSize: 14,

@@ -1,0 +1,44 @@
+# Fluxo E2E: Login como Gestor
+# Testa autenticação e redirecionamento para dashboard
+appId: br.tec.rotamestre
+---
+
+- launchApp
+- assertVisible: "RotaMestre"
+- assertVisible: "Bem-vindo"
+
+# Preencher formulário de login
+- tapOn: "E-mail"
+- inputText: "gestor@test.com"
+
+- tapOn: "Senha"
+- inputText: "senha123"
+
+# Fazer login
+- tapOn: "Entrar"
+
+# Aguardar redirecionamento (loading)
+- waitForAnimationToEnd
+
+# Verificar tela de dashboard (gestor)
+- assertVisible: "Dashboard"
+- assertVisible: "Rotas Ativas"
+- assertVisible: "Nova Entrega"
+- assertVisible: "Histórico"
+
+# Verificar cards de estatísticas
+- assertVisible: "Total de Rotas"
+- assertVisible: "Em Andamento"
+- assertVisible: "Concluídas"
+
+# Verificar menu drawer
+- tapOn:
+    id: "drawer-button"
+- assertVisible: "Início"
+- assertVisible: "Nova Rota"
+- assertVisible: "Motoristas"
+- assertVisible: "Incidentes"
+
+# Voltar ao dashboard
+- tapOn: "Início"
+- assertVisible: "Dashboard"

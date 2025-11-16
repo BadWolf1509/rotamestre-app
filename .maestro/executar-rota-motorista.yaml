@@ -1,0 +1,179 @@
+# Fluxo E2E: Executar Rota (Motorista)
+# Testa fluxo completo de execução de rota pelo motorista
+appId: br.tec.rotamestre
+---
+
+- launchApp
+- assertVisible: "RotaMestre"
+
+# Login como motorista
+- tapOn: "E-mail"
+- inputText: "motorista@test.com"
+
+- tapOn: "Senha"
+- inputText: "senha123"
+
+- tapOn: "Entrar"
+- waitForAnimationToEnd
+
+# Verificar dashboard do motorista
+- assertVisible: "Minhas Rotas"
+- assertVisible: "Rotas Disponíveis"
+
+# ============================================
+# INICIAR ROTA
+# ============================================
+
+# Selecionar primeira rota disponível
+- tapOn:
+    index: 0
+    id: "rota-card"
+
+# Verificar detalhes da rota
+- assertVisible: "Detalhes da Rota"
+- assertVisible: "Paradas:"
+- assertVisible: "Distância Total:"
+
+# Iniciar rota
+- tapOn: "Iniciar Rota"
+- waitForAnimationToEnd
+
+# Verificar transição para modo de execução
+- assertVisible: "Parada Atual"
+- assertVisible: "Navegar"
+
+# ============================================
+# COMPLETAR PRIMEIRA PARADA
+# ============================================
+
+# Ver informações da parada
+- assertVisible: "Destinatário:"
+- assertVisible: "Telefone:"
+- assertVisible: "Endereço:"
+
+# Navegar (abre app externo - apenas verificar botão)
+- assertVisible: "Abrir no Waze"
+- assertVisible: "Abrir no Google Maps"
+
+# Completar parada
+- tapOn: "Concluir Parada"
+- waitForAnimationToEnd
+
+# ============================================
+# TIRAR FOTO DE COMPROVAÇÃO
+# ============================================
+
+# Modal de foto deve abrir
+- assertVisible: "Comprovante de Entrega"
+- assertVisible: "Tire uma foto do comprovante"
+
+# Tirar foto (simulado)
+- tapOn:
+    id: "camera-button"
+- waitForAnimationToEnd:
+    timeout: 2000
+
+# Confirmar foto
+- tapOn: "Confirmar"
+- waitForAnimationToEnd
+
+# Verificar upload da foto
+- assertVisible: "Foto enviada com sucesso"
+
+# ============================================
+# AVANÇAR PARA PRÓXIMA PARADA
+# ============================================
+
+# Verificar que parada foi marcada como concluída
+- assertVisible: "✅ Concluída"
+
+# Avançar para próxima parada
+- tapOn: "Próxima Parada"
+- waitForAnimationToEnd
+
+# Verificar nova parada atual
+- assertVisible: "Parada 2 de "
+
+# ============================================
+# REPORTAR INCIDENTE (OPCIONAL)
+# ============================================
+
+# Abrir menu de opções
+- tapOn:
+    id: "menu-button"
+
+# Reportar incidente
+- tapOn: "Reportar Incidente"
+- assertVisible: "Reportar Problema"
+
+# Selecionar categoria
+- tapOn: "Veículo quebrado"
+
+# Descrição
+- tapOn:
+    id: "descricao-input"
+- inputText: "Pneu furado na Av. Paulista"
+
+# Tirar foto do incidente
+- tapOn:
+    id: "foto-incidente-button"
+- waitForAnimationToEnd:
+    timeout: 2000
+
+# Enviar incidente
+- tapOn: "Enviar Reporte"
+- waitForAnimationToEnd
+
+# Verificar confirmação
+- assertVisible: "Incidente reportado"
+- assertVisible: "Seu gestor foi notificado"
+
+# Voltar para rota
+- tapOn: "Voltar para Rota"
+- waitForAnimationToEnd
+
+# ============================================
+# COMPLETAR TODAS AS PARADAS RESTANTES
+# ============================================
+
+# Loop simplificado (assumindo 3 paradas totais)
+# Parada 2
+- tapOn: "Concluir Parada"
+- waitForAnimationToEnd
+- tapOn:
+    id: "camera-button"
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn: "Confirmar"
+- waitForAnimationToEnd
+- tapOn: "Próxima Parada"
+- waitForAnimationToEnd
+
+# Parada 3 (última)
+- assertVisible: "Última Parada"
+- tapOn: "Concluir Parada"
+- waitForAnimationToEnd
+- tapOn:
+    id: "camera-button"
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn: "Confirmar"
+- waitForAnimationToEnd
+
+# ============================================
+# FINALIZAR ROTA
+# ============================================
+
+- tapOn: "Finalizar Rota"
+- waitForAnimationToEnd
+
+# Confirmação de conclusão
+- assertVisible: "Rota Concluída!"
+- assertVisible: "Todas as paradas foram realizadas"
+
+- tapOn: "Voltar para Minhas Rotas"
+- waitForAnimationToEnd
+
+# Verificar rota na lista de concluídas
+- assertVisible: "Rotas Concluídas"
+- assertVisible: "100% completada"
