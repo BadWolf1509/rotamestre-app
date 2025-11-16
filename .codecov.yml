@@ -1,0 +1,47 @@
+# Codecov Configuration
+# https://docs.codecov.com/docs/codecov-yaml
+
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
+
+  status:
+    project:
+      default:
+        target: 80%
+        threshold: 2%
+        if_ci_failed: error
+
+    patch:
+      default:
+        target: 70%
+        threshold: 5%
+
+comment:
+  layout: "reach,diff,flags,tree"
+  behavior: default
+  require_changes: false
+  require_base: false
+  require_head: true
+
+ignore:
+  - "**/__tests__/**"
+  - "**/__mocks__/**"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.spec.ts"
+  - "**/*.spec.tsx"
+  - "**/node_modules/**"
+  - "android/**"
+  - "ios/**"
+  - ".expo/**"
+  - "dist/**"
+  - "web-build/**"
+
+flags:
+  unittests:
+    paths:
+      - src/
+      - app/
+    carryforward: true

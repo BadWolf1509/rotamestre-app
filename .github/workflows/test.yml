@@ -24,30 +24,27 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
-          cache-dependency-path: rotamestre-app/package-lock.json
 
       - name: Cache dependencies
         uses: actions/cache@v4
         with:
           path: |
             ~/.npm
-            rotamestre-app/node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('rotamestre-app/package-lock.json') }}
+            node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
 
       - name: Install dependencies
-        working-directory: rotamestre-app
         run: npm ci
 
       - name: Run tests
-        working-directory: rotamestre-app
         run: npm test -- --coverage --maxWorkers=2
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
-          directory: rotamestre-app/coverage
+          directory: coverage
           flags: unittests
           fail_ci_if_error: false
           verbose: true
@@ -60,6 +57,6 @@ jobs:
         with:
           name: test-results
           path: |
-            rotamestre-app/coverage
-            rotamestre-app/jest-results.json
+            coverage
+            jest-results.json
           retention-days: 30
