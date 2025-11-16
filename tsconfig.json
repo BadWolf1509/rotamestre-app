@@ -11,5 +11,13 @@
       "@types/*": ["./src/types/*"],
       "@config/*": ["./src/config/*"]
     }
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "supabase/functions",
+    "**/__mocks__",
+    "coverage",
+    "dist",
+    "web-build"
+  ]
 }
