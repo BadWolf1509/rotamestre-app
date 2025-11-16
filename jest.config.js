@@ -21,9 +21,10 @@ module.exports = {
     },
   },
   moduleNameMapper: {
+    // Mock para todos os assets de imagem (deve vir ANTES do alias @/)
+    '\\.(png|jpg|jpeg|gif|svg|webp|bmp|ico)$': '<rootDir>/__mocks__/fileMock.js',
+    // Alias @/ para src/
     '^@/(.*)$': '<rootDir>/src/$1',
-    // Mock para assets de marketing (ignorados pelo git)
-    '^@/\\.\\./assets/marketing/(.*)\\.(png|jpg|jpeg|gif|svg)$': '<rootDir>/__mocks__/fileMock.js',
   },
   testPathIgnorePatterns: ['/node_modules/', '/android/', '/ios/'],
   testMatch: ['**/__tests__/**/*.test.{ts,tsx}', '**/?(*.)+(spec|test).{ts,tsx}'],
