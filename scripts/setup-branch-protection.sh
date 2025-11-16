@@ -39,8 +39,8 @@ for BRANCH in "${BRANCHES[@]}"; do
         -H "X-GitHub-Api-Version: 2022-11-28" \
         "/repos/$REPO/branches/$BRANCH/protection" \
         -f required_status_checks[strict]=true \
-        -f required_status_checks[contexts][]=test \
-        -f required_status_checks[contexts][]=quality \
+        -f "required_status_checks[contexts][]=Run Tests (20.x)" \
+        -f "required_status_checks[contexts][]=TypeScript & Linting" \
         -f enforce_admins=false \
         -f required_pull_request_reviews[dismiss_stale_reviews]=true \
         -f required_pull_request_reviews[require_code_owner_reviews]=false \

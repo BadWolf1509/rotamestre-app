@@ -16,6 +16,7 @@
     "test:verbose": "jest --verbose",
     "type-check": "tsc --noEmit",
     "verify-ci": "node scripts/verify-ci-setup.js",
+    "coverage-report": "node scripts/coverage-report.js",
     "mcp:git": "node tools/mcp-git-rotamestre/src/index.js",
     "mcp:git:test": "node tools/mcp-git-rotamestre/test-mcp.js",
     "mcp:db": "node tools/mcp-server/src/index.js",

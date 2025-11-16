@@ -40,7 +40,7 @@ foreach ($BRANCH in $BRANCHES) {
     $config = @{
         required_status_checks = @{
             strict = $true
-            contexts = @("test", "quality")
+            contexts = @("Run Tests (20.x)", "TypeScript & Linting")
         }
         enforce_admins = $false
         required_pull_request_reviews = @{
