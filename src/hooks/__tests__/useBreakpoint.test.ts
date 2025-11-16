@@ -1,7 +1,7 @@
-import { renderHook } from '@testing-library/react-native';
+import { act, renderHook } from '@testing-library/react-native';
 import { Dimensions } from 'react-native';
 
-import { useBreakpoint } from '../useBreakpoint';
+import { useBreakpoint, useResponsiveValue } from '../useBreakpoint';
 
 // Mock do Dimensions.get
 jest.spyOn(Dimensions, 'get').mockReturnValue({ width: 375, height: 667, scale: 2, fontScale: 1 });
@@ -105,5 +105,175 @@ describe('useBreakpoint', () => {
 
       expect(typeof result.current.isWeb).toBe('boolean');
     });
+  });
+
+  describe('Mudança de Dimensões', () => {
+    it('deve atualizar dimensões quando a janela muda de tamanho', () => {
+      // Salvar referência ao listener
+      let changeHandler: any;
+
+      const mockAddEventListener = jest.spyOn(Dimensions, 'addEventListener').mockImplementation((event, handler) => {
+        changeHandler = handler;
+        return { remove: jest.fn() };
+      });
+
+      // Mock inicial - mobile
+      jest.spyOn(Dimensions, 'get').mockReturnValue({ width: 375, height: 667, scale: 2, fontScale: 1 });
+
+      const { result } = renderHook(() => useBreakpoint());
+
+      expect(result.current.isMobile).toBe(true);
+      expect(result.current.width).toBe(375);
+      expect(mockAddEventListener).toHaveBeenCalledWith('change', expect.any(Function));
+
+      // Simular mudança para desktop
+      act(() => {
+        changeHandler({
+          window: { width: 1024, height: 768, scale: 2, fontScale: 1 },
+          screen: { width: 1024, height: 768, scale: 2, fontScale: 1 },
+        });
+      });
+
+      expect(result.current.isDesktop).toBe(true);
+      expect(result.current.isMobile).toBe(false);
+      expect(result.current.width).toBe(1024);
+      expect(result.current.height).toBe(768);
+
+      mockAddEventListener.mockRestore();
+    });
+
+    it('deve limpar o listener ao desmontar', () => {
+      const mockRemove = jest.fn();
+      const mockSubscription = { remove: mockRemove };
+
+      jest.spyOn(Dimensions, 'addEventListener').mockReturnValue(mockSubscription);
+
+      const { unmount } = renderHook(() => useBreakpoint());
+
+      unmount();
+
+      expect(mockRemove).toHaveBeenCalled();
+    });
+  });
+});
+
+describe('useResponsiveValue', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('deve retornar valor mobile quando em mobile', () => {
+    jest.spyOn(Dimensions, 'get').mockReturnValue({ width: 375, height: 667, scale: 2, fontScale: 1 });
+
+    const { result } = renderHook(() =>
+      useResponsiveValue({
+        mobile: 16,
+        tablet: 24,
+        desktop: 32,
+        largeDesktop: 40,
+      })
+    );
+
+    expect(result.current).toBe(16);
+  });
+
+  it('deve retornar valor tablet quando em tablet', () => {
+    jest.spyOn(Dimensions, 'get').mockReturnValue({ width: 768, height: 1024, scale: 2, fontScale: 1 });
+
+    const { result } = renderHook(() =>
+      useResponsiveValue({
+        mobile: 16,
+        tablet: 24,
+        desktop: 32,
+        largeDesktop: 40,
+      })
+    );
+
+    expect(result.current).toBe(24);
+  });
+
+  it('deve retornar valor desktop quando em desktop', () => {
+    jest.spyOn(Dimensions, 'get').mockReturnValue({ width: 1024, height: 768, scale: 2, fontScale: 1 });
+
+    const { result } = renderHook(() =>
+      useResponsiveValue({
+        mobile: 16,
+        tablet: 24,
+        desktop: 32,
+        largeDesktop: 40,
+      })
+    );
+
+    expect(result.current).toBe(32);
+  });
+
+  it('deve retornar valor largeDesktop quando em large desktop', () => {
+    jest.spyOn(Dimensions, 'get').mockReturnValue({ width: 1920, height: 1080, scale: 2, fontScale: 1 });
+
+    const { result } = renderHook(() =>
+      useResponsiveValue({
+        mobile: 16,
+        tablet: 24,
+        desktop: 32,
+        largeDesktop: 40,
+      })
+    );
+
+    expect(result.current).toBe(40);
+  });
+
+  it('deve usar fallback mobile quando tablet não está definido', () => {
+    jest.spyOn(Dimensions, 'get').mockReturnValue({ width: 768, height: 1024, scale: 2, fontScale: 1 });
+
+    const { result } = renderHook(() =>
+      useResponsiveValue({
+        mobile: 16,
+        desktop: 32,
+      })
+    );
+
+    expect(result.current).toBe(16);
+  });
+
+  it('deve usar fallback mobile quando desktop não está definido', () => {
+    jest.spyOn(Dimensions, 'get').mockReturnValue({ width: 1024, height: 768, scale: 2, fontScale: 1 });
+
+    const { result } = renderHook(() =>
+      useResponsiveValue({
+        mobile: 16,
+        tablet: 24,
+      })
+    );
+
+    expect(result.current).toBe(16);
+  });
+
+  it('deve usar fallback mobile quando largeDesktop não está definido', () => {
+    jest.spyOn(Dimensions, 'get').mockReturnValue({ width: 1920, height: 1080, scale: 2, fontScale: 1 });
+
+    const { result } = renderHook(() =>
+      useResponsiveValue({
+        mobile: 16,
+        tablet: 24,
+        desktop: 32,
+      })
+    );
+
+    expect(result.current).toBe(16);
+  });
+
+  it('deve funcionar com tipos não numéricos', () => {
+    jest.spyOn(Dimensions, 'get').mockReturnValue({ width: 1024, height: 768, scale: 2, fontScale: 1 });
+
+    const { result } = renderHook(() =>
+      useResponsiveValue({
+        mobile: 'small',
+        tablet: 'medium',
+        desktop: 'large',
+        largeDesktop: 'xlarge',
+      })
+    );
+
+    expect(result.current).toBe('large');
   });
 });
