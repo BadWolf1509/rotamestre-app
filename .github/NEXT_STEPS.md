@@ -84,40 +84,43 @@ gh pr comment 12 --body "@dependabot rebase"
 
 ---
 
-### 3. Habilitar Branch Protection (5 minutos)
+### 3. Habilitar Branch Protection (5 minutos) ⚠️ Requer GitHub Pro
 
 **Por que:** Garantir que código só entra em `main` após testes passarem e code review.
 
-**Como fazer:**
+**⚠️ IMPORTANTE:** Branch Protection Rules em repositórios privados requerem GitHub Pro ou tornar o repositório público.
 
-**Opção A - Automática (Recomendado):**
-```powershell
-# Windows PowerShell
-cd rotamestre-app
-.\scripts\setup-branch-protection.ps1
-```
+**Opções disponíveis:**
 
+**Opção A - Tornar repositório público (Grátis):**
 ```bash
-# Linux/macOS
-cd rotamestre-app
-chmod +x scripts/setup-branch-protection.sh
-./scripts/setup-branch-protection.sh
+# GitHub → rotamestre-app → Settings → Danger Zone → Change visibility → Public
 ```
 
-**Opção B - Manual:**
-- Seguir instruções detalhadas em [.github/BRANCH_PROTECTION.md](.github/BRANCH_PROTECTION.md)
+**Opção B - Upgrade para GitHub Pro ($4/mês):**
+- Acesse: https://github.com/settings/billing
+- Branch Protection + Features avançados
 
-**Configuração aplicada:**
-- ✅ Require pull request antes de merge (1 approval)
-- ✅ Require status checks: Tests + Quality
-- ✅ Require conversation resolution
-- ✅ Require linear history (main)
-- ✅ Block force pushes
-- ✅ Block branch deletion
+**Opção C - Proteção Manual (Alternativa grátis):**
+- Criar regra de proteção básica via GitHub UI:
+  - Settings → Branches → Add rule
+  - Branch name pattern: `main`
+  - ✅ Require a pull request before merging
+  - ✅ Require status checks to pass before merging
+    - Selecione: `Run Tests (20.x)` e `TypeScript & Linting`
 
-**Validação:**
-- Tentar push direto para `main` deve falhar
-- Ver proteção em: https://github.com/BadWolf1509/rotamestre-app/settings/branches
+**Opção D - Workflow Discipline (Sem custo):**
+- Seguir workflow de PRs manualmente
+- Nunca fazer push direto para `main`
+- Sempre criar branch → PR → Merge após testes
+
+**Se você tiver GitHub Pro:**
+```bash
+cd rotamestre-app
+bash scripts/setup-branch-protection.sh
+```
+
+**Documentação:** [.github/BRANCH_PROTECTION.md](.github/BRANCH_PROTECTION.md)
 
 ---
 
