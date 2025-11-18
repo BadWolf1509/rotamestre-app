@@ -169,7 +169,7 @@ export default function MapaWeb({ paradas }: MapaWebProps) {
           position: { lat: parada.latitude!, lng: parada.longitude! },
           title: parada.ordem === 1 ? 'Ponto de Partida' : 'Ponto de Chegada',
           icon: {
-            url: 'http://maps.google.com/mapfiles/ms/icons/blue.png',
+            url: 'https://maps.google.com/mapfiles/ms/icons/blue.png',
           },
         });
       }
