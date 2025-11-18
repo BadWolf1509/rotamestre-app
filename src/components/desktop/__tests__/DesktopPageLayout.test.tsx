@@ -352,6 +352,27 @@ describe('DesktopPageLayout', () => {
   });
 
   describe('User Menu', () => {
+    let mockDocument: any;
+
+    beforeEach(() => {
+      // Mock document for web-specific code
+      mockDocument = {
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+      };
+      (global as any).document = mockDocument;
+    });
+
+    afterEach(() => {
+      // Keep document mock during cleanup to prevent errors
+      jest.clearAllMocks();
+    });
+
+    afterAll(() => {
+      // Clean up document mock after all tests
+      delete (global as any).document;
+    });
+
     it('deve renderizar userMenuTrigger quando fornecido', () => {
       const userMenuItems: UserMenuItem[] = [
         { label: 'Profile', icon: 'person', onPress: jest.fn() },
@@ -384,9 +405,249 @@ describe('DesktopPageLayout', () => {
       expect(queryByText('User Menu')).toBeNull();
     });
 
-    // NOTA: Testes de interação do userMenu (abrir/fechar/clicar) não são testáveis
-    // no ambiente React Native Testing Library porque usam document.addEventListener
-    // (linhas 82-86, 94-95 do componente - código web-specific)
+    it('deve abrir menu ao clicar no trigger', () => {
+      const userMenuItems: UserMenuItem[] = [
+        { label: 'Profile', icon: 'person', onPress: jest.fn() },
+      ];
+
+      const { getByText } = render(
+        <DesktopPageLayout
+          title="Title"
+          userMenuTrigger={<Text>User Menu</Text>}
+          userMenuItems={userMenuItems}
+        >
+          <Text>Content</Text>
+        </DesktopPageLayout>
+      );
+
+      // Clicar no trigger - deve abrir o menu
+      fireEvent.press(getByText('User Menu'));
+
+      // Menu deve estar aberto (Profile renderizado)
+      expect(getByText('Profile')).toBeTruthy();
+    });
+
+    it('deve fechar menu ao clicar novamente no trigger', () => {
+      const userMenuItems: UserMenuItem[] = [
+        { label: 'Profile', icon: 'person', onPress: jest.fn() },
+      ];
+
+      const { getByText, queryByText } = render(
+        <DesktopPageLayout
+          title="Title"
+          userMenuTrigger={<Text>User Menu</Text>}
+          userMenuItems={userMenuItems}
+        >
+          <Text>Content</Text>
+        </DesktopPageLayout>
+      );
+
+      // Abrir menu
+      fireEvent.press(getByText('User Menu'));
+      expect(getByText('Profile')).toBeTruthy();
+
+      // Clicar novamente no trigger
+      fireEvent.press(getByText('User Menu'));
+
+      // Menu deve estar fechado
+      expect(queryByText('Profile')).toBeNull();
+    });
+
+    it('deve chamar onPress do menu item ao clicar', () => {
+      const mockOnPress = jest.fn();
+      const userMenuItems: UserMenuItem[] = [
+        { label: 'Profile', icon: 'person', onPress: mockOnPress },
+      ];
+
+      const { getByText } = render(
+        <DesktopPageLayout
+          title="Title"
+          userMenuTrigger={<Text>User Menu</Text>}
+          userMenuItems={userMenuItems}
+        >
+          <Text>Content</Text>
+        </DesktopPageLayout>
+      );
+
+      // Abrir menu
+      fireEvent.press(getByText('User Menu'));
+
+      // Clicar no item
+      fireEvent.press(getByText('Profile'));
+
+      expect(mockOnPress).toHaveBeenCalledTimes(1);
+    });
+
+    it('deve fechar menu após clicar em item', () => {
+      const userMenuItems: UserMenuItem[] = [
+        { label: 'Profile', icon: 'person', onPress: jest.fn() },
+      ];
+
+      const { getByText, queryByText } = render(
+        <DesktopPageLayout
+          title="Title"
+          userMenuTrigger={<Text>User Menu</Text>}
+          userMenuItems={userMenuItems}
+        >
+          <Text>Content</Text>
+        </DesktopPageLayout>
+      );
+
+      // Abrir menu
+      fireEvent.press(getByText('User Menu'));
+      expect(getByText('Profile')).toBeTruthy();
+
+      // Clicar no item
+      fireEvent.press(getByText('Profile'));
+
+      // Menu deve estar fechado
+      expect(queryByText('Profile')).toBeNull();
+    });
+
+    it('deve renderizar menu item com ícone', () => {
+      const userMenuItems: UserMenuItem[] = [
+        { label: 'Profile', icon: 'person', onPress: jest.fn() },
+      ];
+
+      const { getByText, UNSAFE_getAllByType } = render(
+        <DesktopPageLayout
+          title="Title"
+          userMenuTrigger={<Text>User Menu</Text>}
+          userMenuItems={userMenuItems}
+        >
+          <Text>Content</Text>
+        </DesktopPageLayout>
+      );
+
+      // Abrir menu
+      fireEvent.press(getByText('User Menu'));
+
+      const icons = UNSAFE_getAllByType(Ionicons);
+      const personIcon = icons.find((icon) => icon.props.name === 'person');
+      expect(personIcon).toBeTruthy();
+    });
+
+    it('deve renderizar menu item destructive', () => {
+      const userMenuItems: UserMenuItem[] = [
+        { label: 'Logout', icon: 'log-out', onPress: jest.fn(), destructive: true },
+      ];
+
+      const { getByText } = render(
+        <DesktopPageLayout
+          title="Title"
+          userMenuTrigger={<Text>User Menu</Text>}
+          userMenuItems={userMenuItems}
+        >
+          <Text>Content</Text>
+        </DesktopPageLayout>
+      );
+
+      // Abrir menu
+      fireEvent.press(getByText('User Menu'));
+
+      expect(getByText('Logout')).toBeTruthy();
+    });
+
+    it('deve renderizar trigger como função', () => {
+      const userMenuItems: UserMenuItem[] = [
+        { label: 'Profile', onPress: jest.fn() },
+      ];
+
+      const { getByText } = render(
+        <DesktopPageLayout
+          title="Title"
+          userMenuTrigger={(isOpen) => <Text>{isOpen ? 'Close' : 'Open'}</Text>}
+          userMenuItems={userMenuItems}
+        >
+          <Text>Content</Text>
+        </DesktopPageLayout>
+      );
+
+      // Estado inicial (fechado)
+      expect(getByText('Open')).toBeTruthy();
+
+      // Abrir menu
+      fireEvent.press(getByText('Open'));
+      expect(getByText('Close')).toBeTruthy();
+    });
+
+    it('deve adicionar event listener quando menu abre', () => {
+      const userMenuItems: UserMenuItem[] = [
+        { label: 'Profile', onPress: jest.fn() },
+      ];
+
+      const { getByText } = render(
+        <DesktopPageLayout
+          title="Title"
+          userMenuTrigger={<Text>User Menu</Text>}
+          userMenuItems={userMenuItems}
+        >
+          <Text>Content</Text>
+        </DesktopPageLayout>
+      );
+
+      // Abrir menu
+      fireEvent.press(getByText('User Menu'));
+
+      // Verificar que event listener foi adicionado
+      expect((global as any).document.addEventListener).toHaveBeenCalledWith(
+        'mousedown',
+        expect.any(Function)
+      );
+    });
+
+    it('deve remover event listener quando componente desmonta', () => {
+      const userMenuItems: UserMenuItem[] = [
+        { label: 'Profile', onPress: jest.fn() },
+      ];
+
+      const { getByText, unmount } = render(
+        <DesktopPageLayout
+          title="Title"
+          userMenuTrigger={<Text>User Menu</Text>}
+          userMenuItems={userMenuItems}
+        >
+          <Text>Content</Text>
+        </DesktopPageLayout>
+      );
+
+      // Abrir menu
+      fireEvent.press(getByText('User Menu'));
+
+      // Desmontar componente
+      unmount();
+
+      // Verificar que event listener foi removido
+      expect((global as any).document.removeEventListener).toHaveBeenCalledWith(
+        'mousedown',
+        expect.any(Function)
+      );
+    });
+
+    it('deve renderizar múltiplos menu items', () => {
+      const userMenuItems: UserMenuItem[] = [
+        { label: 'Profile', icon: 'person', onPress: jest.fn() },
+        { label: 'Settings', icon: 'settings', onPress: jest.fn() },
+        { label: 'Logout', icon: 'log-out', onPress: jest.fn(), destructive: true },
+      ];
+
+      const { getByText } = render(
+        <DesktopPageLayout
+          title="Title"
+          userMenuTrigger={<Text>User Menu</Text>}
+          userMenuItems={userMenuItems}
+        >
+          <Text>Content</Text>
+        </DesktopPageLayout>
+      );
+
+      // Abrir menu
+      fireEvent.press(getByText('User Menu'));
+
+      expect(getByText('Profile')).toBeTruthy();
+      expect(getByText('Settings')).toBeTruthy();
+      expect(getByText('Logout')).toBeTruthy();
+    });
   });
 
   describe('Header Extra', () => {
