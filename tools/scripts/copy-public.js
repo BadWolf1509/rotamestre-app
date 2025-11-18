@@ -4,7 +4,7 @@
  * Script para copiar arquivos públicos (favicons, manifest, etc) para dist/
  */
 
-import { copyFileSync, existsSync, readdirSync, statSync } from 'fs';
+import { copyFileSync, existsSync, readdirSync, statSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -45,12 +45,42 @@ function copyPublicFiles() {
 
   console.log('🔄 Copiando arquivos...\n');
 
+  // Função recursiva para copiar diretórios
+  function copyDirectory(sourceDir, destDir) {
+    if (!existsSync(destDir)) {
+      mkdirSync(destDir, { recursive: true });
+    }
+
+    const items = readdirSync(sourceDir);
+    items.forEach(item => {
+      const sourcePath = join(sourceDir, item);
+      const destPath = join(destDir, item);
+
+      if (statSync(sourcePath).isDirectory()) {
+        copyDirectory(sourcePath, destPath);
+      } else {
+        try {
+          copyFileSync(sourcePath, destPath);
+          console.log(`   ${sourcePath.replace(publicDir, '')}... ✅`);
+          copiedCount++;
+        } catch (error) {
+          console.log(`   ${sourcePath.replace(publicDir, '')}... ❌`);
+          console.error(`      Erro: ${error.message}`);
+          errorCount++;
+        }
+      }
+    });
+  }
+
   files.forEach(file => {
     const sourcePath = join(publicDir, file);
     const destPath = join(distDir, file);
 
-    // Pular diretórios
+    // Copiar diretórios recursivamente (especificamente o diretório assets)
     if (statSync(sourcePath).isDirectory()) {
+      if (file === 'assets') {
+        copyDirectory(sourcePath, destPath);
+      }
       return;
     }
 

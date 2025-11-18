@@ -1,10 +1,13 @@
 import { useMemo } from 'react';
-import { ImageBackground } from 'react-native';
+import { ImageBackground, Platform } from 'react-native';
 
 import { StyleSheet, Theme, useUnistyles } from '@/utils/styles';
 
 // Static import for the background image
-const loginBackgroundImage = require('../../../assets/marketing/login-background.png');
+// Use public path for web in production (Vercel), local path for development
+const loginBackgroundImage = Platform.OS === 'web' && process.env.NODE_ENV === 'production'
+  ? { uri: '/assets/marketing/login-background.png' }
+  : require('../../../assets/marketing/login-background.png');
 
 export type AuthBrandPanelProps = Record<string, never>;
 
