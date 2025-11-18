@@ -4,7 +4,7 @@ import { ImageBackground } from 'react-native';
 import { StyleSheet, Theme, useUnistyles } from '@/utils/styles';
 
 // Static import for the background image
-import loginBackgroundImage from '@/../assets/marketing/login-background.png';
+import loginBackgroundImage from '@assets/marketing/login-background.png';
 
 export type AuthBrandPanelProps = Record<string, never>;
 
