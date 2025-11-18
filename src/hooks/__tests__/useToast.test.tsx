@@ -100,4 +100,79 @@ describe('useToast Hook', () => {
     expect(result.current.toast.message).toBe('Segunda mensagem');
     expect(result.current.toast.type).toBe('error');
   });
+
+  describe('withToast Helper', () => {
+    it('deve mostrar toast de loading e success em operação bem-sucedida', async () => {
+      const { result } = renderHook(() => useToast());
+
+      const mockAsyncFn = jest.fn().mockResolvedValue('resultado');
+
+      await act(async () => {
+        const returnValue = await result.current.withToast(mockAsyncFn, {
+          loading: 'Carregando...',
+          success: 'Sucesso!',
+          error: 'Erro!',
+        });
+
+        expect(returnValue).toBe('resultado');
+      });
+
+      // Verifica que mockAsyncFn foi chamado
+      expect(mockAsyncFn).toHaveBeenCalled();
+
+      // Verifica que o toast final é de sucesso
+      expect(result.current.toast.visible).toBe(true);
+      expect(result.current.toast.message).toBe('Sucesso!');
+      expect(result.current.toast.type).toBe('success');
+    });
+
+    it('deve mostrar toast de erro quando operação assíncrona falha', async () => {
+      const { result } = renderHook(() => useToast());
+
+      const mockError = new Error('Falha na operação');
+      const mockAsyncFn = jest.fn().mockRejectedValue(mockError);
+
+      await act(async () => {
+        try {
+          await result.current.withToast(mockAsyncFn, {
+            loading: 'Carregando...',
+            success: 'Sucesso!',
+            error: 'Erro customizado',
+          });
+        } catch (error) {
+          // Espera-se que o erro seja re-lançado
+          expect(error).toBe(mockError);
+        }
+      });
+
+      // Verifica que o toast final é de erro
+      expect(result.current.toast.visible).toBe(true);
+      expect(result.current.toast.message).toBe('Erro customizado');
+      expect(result.current.toast.type).toBe('error');
+      expect(result.current.toast.duration).toBe(5000);
+    });
+
+    it('deve usar mensagem de erro padrão quando error message não é fornecida', async () => {
+      const { result } = renderHook(() => useToast());
+
+      const mockError = new Error('Erro interno');
+      const mockAsyncFn = jest.fn().mockRejectedValue(mockError);
+
+      await act(async () => {
+        try {
+          await result.current.withToast(mockAsyncFn, {
+            loading: 'Carregando...',
+            success: 'Sucesso!',
+          });
+        } catch (error) {
+          expect(error).toBe(mockError);
+        }
+      });
+
+      // Verifica que usa a mensagem do erro original
+      expect(result.current.toast.visible).toBe(true);
+      expect(result.current.toast.message).toBe('Erro interno');
+      expect(result.current.toast.type).toBe('error');
+    });
+  });
 });

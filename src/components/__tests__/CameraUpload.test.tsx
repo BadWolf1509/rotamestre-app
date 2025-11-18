@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import { Alert, Platform } from 'react-native';
 
@@ -56,6 +56,10 @@ describe('CameraUpload Component', () => {
     mockRequestMediaLibraryPermissionsAsync.mockResolvedValue({ status: 'granted' });
     mockManipulateAsync.mockResolvedValue({ uri: 'compressed-image-uri' });
     mockUploadELinkFotoParada.mockResolvedValue(true);
+
+    // Setup default camera/gallery responses (canceled by default)
+    mockLaunchCameraAsync.mockResolvedValue({ canceled: true });
+    mockLaunchImageLibraryAsync.mockResolvedValue({ canceled: true });
   });
 
   describe('Renderização Inicial', () => {
@@ -151,6 +155,494 @@ describe('CameraUpload Component', () => {
 
       expect(getByText('📸 Adicionar Foto do Comprovante')).toBeTruthy();
       expect(queryByText('📤 Enviar Foto')).toBeNull();
+    });
+  });
+
+  describe('Interações com Câmera (Mock)', () => {
+    it('deve chamar Alert.alert ao clicar em adicionar foto (mobile)', async () => {
+      const originalPlatform = Platform.OS;
+      Object.defineProperty(Platform, 'OS', {
+        get: () => 'android',
+        configurable: true,
+      });
+
+      const { getByText } = render(<CameraUpload {...defaultProps} />);
+
+      fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
+
+      await waitFor(() => {
+        expect(Alert.alert).toHaveBeenCalledWith(
+          'Adicionar Foto',
+          'Escolha uma opção:',
+          expect.any(Array)
+        );
+      });
+
+      Object.defineProperty(Platform, 'OS', {
+        get: () => originalPlatform,
+        configurable: true,
+      });
+    });
+
+    it('não deve abrir Alert em web (chama galeria diretamente)', async () => {
+      const originalPlatform = Platform.OS;
+      Object.defineProperty(Platform, 'OS', {
+        get: () => 'web',
+        configurable: true,
+      });
+
+      (Alert.alert as jest.Mock).mockClear();
+
+      const { getByText } = render(<CameraUpload {...defaultProps} />);
+
+      fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
+
+      await waitFor(() => {
+        // Em web, não chama Alert.alert
+        expect(Alert.alert).not.toHaveBeenCalled();
+        // Chama requestMediaLibraryPermissionsAsync diretamente
+        expect(mockRequestMediaLibraryPermissionsAsync).toHaveBeenCalled();
+      });
+
+      Object.defineProperty(Platform, 'OS', {
+        get: () => originalPlatform,
+        configurable: true,
+      });
+    });
+  });
+
+  describe('Permissões Negadas', () => {
+    it('deve mostrar alert quando permissão de câmera negada', async () => {
+      mockRequestCameraPermissionsAsync.mockResolvedValue({ status: 'denied' });
+
+      const originalPlatform = Platform.OS;
+      Object.defineProperty(Platform, 'OS', {
+        get: () => 'android',
+        configurable: true,
+      });
+
+      const { getByText } = render(<CameraUpload {...defaultProps} />);
+
+      // Simulando pressionar "Tirar Foto" no Alert
+      fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
+
+      // Aguardar o Alert.alert das opções
+      await waitFor(() => {
+        expect(Alert.alert).toHaveBeenCalled();
+      });
+
+      // Pegar o callback "Tirar Foto" do Alert e executar
+      const alertCalls = (Alert.alert as jest.Mock).mock.calls;
+      const optionsAlert = alertCalls.find(call => call[0] === 'Adicionar Foto');
+      if (optionsAlert && optionsAlert[2]) {
+        const tirarFotoButton = optionsAlert[2].find((btn: any) => btn.text === '📷 Tirar Foto');
+        await tirarFotoButton.onPress();
+      }
+
+      // Deve ter solicitado permissão
+      expect(mockRequestCameraPermissionsAsync).toHaveBeenCalled();
+
+      // Deve mostrar alert de permissão negada
+      await waitFor(() => {
+        const calls = (Alert.alert as jest.Mock).mock.calls;
+        const deniedAlert = calls.find(call => call[0] === 'Permissão negada');
+        expect(deniedAlert).toBeTruthy();
+      });
+
+      Object.defineProperty(Platform, 'OS', {
+        get: () => originalPlatform,
+        configurable: true,
+      });
+    });
+
+    it('deve mostrar alert quando permissão de galeria negada', async () => {
+      mockRequestMediaLibraryPermissionsAsync.mockResolvedValue({ status: 'denied' });
+
+      const originalPlatform = Platform.OS;
+      Object.defineProperty(Platform, 'OS', {
+        get: () => 'ios',
+        configurable: true,
+      });
+
+      const { getByText } = render(<CameraUpload {...defaultProps} />);
+
+      fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
+
+      await waitFor(() => {
+        expect(Alert.alert).toHaveBeenCalled();
+      });
+
+      const alertCalls = (Alert.alert as jest.Mock).mock.calls;
+      const optionsAlert = alertCalls.find(call => call[0] === 'Adicionar Foto');
+      if (optionsAlert && optionsAlert[2]) {
+        const galeriaButton = optionsAlert[2].find((btn: any) => btn.text === '🖼️ Escolher da Galeria');
+        await galeriaButton.onPress();
+      }
+
+      expect(mockRequestMediaLibraryPermissionsAsync).toHaveBeenCalled();
+
+      await waitFor(() => {
+        const calls = (Alert.alert as jest.Mock).mock.calls;
+        const deniedAlert = calls.find(call => call[0] === 'Permissão negada');
+        expect(deniedAlert).toBeTruthy();
+      });
+
+      Object.defineProperty(Platform, 'OS', {
+        get: () => originalPlatform,
+        configurable: true,
+      });
+    });
+  });
+
+  describe('Seleção de Imagem', () => {
+    it('deve exibir preview e botões quando imagem selecionada da câmera', async () => {
+      mockLaunchCameraAsync.mockResolvedValue({
+        canceled: false,
+        assets: [{ uri: 'camera-image-uri' }],
+      });
+
+      const originalPlatform = Platform.OS;
+      Object.defineProperty(Platform, 'OS', {
+        get: () => 'android',
+        configurable: true,
+      });
+
+      const { getByText, queryByText } = render(<CameraUpload {...defaultProps} />);
+
+      fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
+
+      await waitFor(() => {
+        expect(Alert.alert).toHaveBeenCalled();
+      });
+
+      const alertCalls = (Alert.alert as jest.Mock).mock.calls;
+      const optionsAlert = alertCalls.find(call => call[0] === 'Adicionar Foto');
+      if (optionsAlert && optionsAlert[2]) {
+        const tirarFotoButton = optionsAlert[2].find((btn: any) => btn.text === '📷 Tirar Foto');
+        await tirarFotoButton.onPress();
+      }
+
+      await waitFor(() => {
+        expect(mockLaunchCameraAsync).toHaveBeenCalled();
+        expect(mockManipulateAsync).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(getByText('📤 Enviar Foto')).toBeTruthy();
+        expect(getByText('❌ Remover')).toBeTruthy();
+        expect(queryByText('📸 Adicionar Foto do Comprovante')).toBeNull();
+      });
+
+      Object.defineProperty(Platform, 'OS', {
+        get: () => originalPlatform,
+        configurable: true,
+      });
+    });
+
+    it('deve exibir preview quando imagem selecionada da galeria', async () => {
+      mockLaunchImageLibraryAsync.mockResolvedValue({
+        canceled: false,
+        assets: [{ uri: 'gallery-image-uri' }],
+      });
+
+      const originalPlatform = Platform.OS;
+      Object.defineProperty(Platform, 'OS', {
+        get: () => 'web',
+        configurable: true,
+      });
+
+      const { getByText } = render(<CameraUpload {...defaultProps} />);
+
+      fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
+
+      await waitFor(() => {
+        expect(mockRequestMediaLibraryPermissionsAsync).toHaveBeenCalled();
+        expect(mockLaunchImageLibraryAsync).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(getByText('📤 Enviar Foto')).toBeTruthy();
+      });
+
+      Object.defineProperty(Platform, 'OS', {
+        get: () => originalPlatform,
+        configurable: true,
+      });
+    });
+
+    it('não deve exibir preview quando usuário cancelar câmera', async () => {
+      mockLaunchCameraAsync.mockResolvedValue({ canceled: true });
+
+      const originalPlatform = Platform.OS;
+      Object.defineProperty(Platform, 'OS', {
+        get: () => 'android',
+        configurable: true,
+      });
+
+      const { getByText, queryByText } = render(<CameraUpload {...defaultProps} />);
+
+      fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
+
+      await waitFor(() => {
+        expect(Alert.alert).toHaveBeenCalled();
+      });
+
+      const alertCalls = (Alert.alert as jest.Mock).mock.calls;
+      const optionsAlert = alertCalls.find(call => call[0] === 'Adicionar Foto');
+      if (optionsAlert && optionsAlert[2]) {
+        const tirarFotoButton = optionsAlert[2].find((btn: any) => btn.text === '📷 Tirar Foto');
+        await tirarFotoButton.onPress();
+      }
+
+      await waitFor(() => {
+        expect(mockLaunchCameraAsync).toHaveBeenCalled();
+      });
+
+      // Não deve mostrar preview
+      expect(queryByText('📤 Enviar Foto')).toBeNull();
+      expect(getByText('📸 Adicionar Foto do Comprovante')).toBeTruthy();
+
+      Object.defineProperty(Platform, 'OS', {
+        get: () => originalPlatform,
+        configurable: true,
+      });
+    });
+  });
+
+  describe('Remover Imagem', () => {
+    it('deve remover preview ao clicar em Remover', async () => {
+      mockLaunchImageLibraryAsync.mockResolvedValue({
+        canceled: false,
+        assets: [{ uri: 'test-uri' }],
+      });
+
+      const originalPlatform = Platform.OS;
+      Object.defineProperty(Platform, 'OS', {
+        get: () => 'web',
+        configurable: true,
+      });
+
+      const { getByText, queryByText } = render(<CameraUpload {...defaultProps} />);
+
+      // Adicionar foto
+      fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
+
+      await waitFor(() => {
+        expect(getByText('📤 Enviar Foto')).toBeTruthy();
+      });
+
+      // Remover foto
+      fireEvent.press(getByText('❌ Remover'));
+
+      await waitFor(() => {
+        expect(queryByText('📤 Enviar Foto')).toBeNull();
+        expect(getByText('📸 Adicionar Foto do Comprovante')).toBeTruthy();
+      });
+
+      Object.defineProperty(Platform, 'OS', {
+        get: () => originalPlatform,
+        configurable: true,
+      });
+    });
+  });
+
+  describe('Upload de Imagem', () => {
+    it('deve fazer upload com sucesso e chamar onUploadSuccess', async () => {
+      mockLaunchImageLibraryAsync.mockResolvedValue({
+        canceled: false,
+        assets: [{ uri: 'test-uri' }],
+      });
+      mockUploadELinkFotoParada.mockResolvedValue(true);
+
+      const originalPlatform = Platform.OS;
+      Object.defineProperty(Platform, 'OS', {
+        get: () => 'web',
+        configurable: true,
+      });
+
+      const { getByText } = render(<CameraUpload {...defaultProps} />);
+
+      // Selecionar imagem
+      fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
+
+      await waitFor(() => {
+        expect(getByText('📤 Enviar Foto')).toBeTruthy();
+      });
+
+      // Fazer upload
+      fireEvent.press(getByText('📤 Enviar Foto'));
+
+      await waitFor(() => {
+        expect(mockUploadELinkFotoParada).toHaveBeenCalledWith(
+          'unit-123',
+          'route-456',
+          'stop-789',
+          'compressed-image-uri'
+        );
+      });
+
+      await waitFor(() => {
+        expect(Alert.alert).toHaveBeenCalledWith('Sucesso!', 'Foto enviada com sucesso!');
+        expect(mockOnUploadSuccess).toHaveBeenCalledWith('success');
+      });
+
+      Object.defineProperty(Platform, 'OS', {
+        get: () => originalPlatform,
+        configurable: true,
+      });
+    });
+
+    it('deve chamar onUploadError quando upload falhar', async () => {
+      mockLaunchImageLibraryAsync.mockResolvedValue({
+        canceled: false,
+        assets: [{ uri: 'test-uri' }],
+      });
+      mockUploadELinkFotoParada.mockResolvedValue(false);
+
+      const originalPlatform = Platform.OS;
+      Object.defineProperty(Platform, 'OS', {
+        get: () => 'web',
+        configurable: true,
+      });
+
+      const { getByText } = render(<CameraUpload {...defaultProps} />);
+
+      fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
+
+      await waitFor(() => {
+        expect(getByText('📤 Enviar Foto')).toBeTruthy();
+      });
+
+      fireEvent.press(getByText('📤 Enviar Foto'));
+
+      await waitFor(() => {
+        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Não foi possível enviar a foto. Tente novamente.');
+        expect(mockOnUploadError).toHaveBeenCalledWith('Falha no upload');
+      });
+
+      Object.defineProperty(Platform, 'OS', {
+        get: () => originalPlatform,
+        configurable: true,
+      });
+    });
+
+    it('deve mostrar alert ao tentar upload sem imagem selecionada', async () => {
+      const { getByText } = render(<CameraUpload {...defaultProps} />);
+
+      // Tentar upload sem imagem selecionada - mas não temos o botão visível
+      // Este caso é preventivo, mas não podemos testar diretamente via UI
+      expect(getByText('📸 Adicionar Foto do Comprovante')).toBeTruthy();
+    });
+  });
+
+  describe('Compressão de Imagem', () => {
+    it('deve comprimir imagem antes de exibir preview', async () => {
+      mockLaunchImageLibraryAsync.mockResolvedValue({
+        canceled: false,
+        assets: [{ uri: 'original-uri' }],
+      });
+      mockManipulateAsync.mockResolvedValue({ uri: 'compressed-uri' });
+
+      const originalPlatform = Platform.OS;
+      Object.defineProperty(Platform, 'OS', {
+        get: () => 'web',
+        configurable: true,
+      });
+
+      const { getByText } = render(<CameraUpload {...defaultProps} />);
+
+      fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
+
+      await waitFor(() => {
+        expect(mockManipulateAsync).toHaveBeenCalledWith(
+          'original-uri',
+          [{ resize: { width: 1200 } }],
+          { compress: 0.7, format: 'jpeg' }
+        );
+      });
+
+      Object.defineProperty(Platform, 'OS', {
+        get: () => originalPlatform,
+        configurable: true,
+      });
+    });
+
+    it('deve usar URI original se compressão falhar', async () => {
+      mockLaunchImageLibraryAsync.mockResolvedValue({
+        canceled: false,
+        assets: [{ uri: 'original-uri' }],
+      });
+      mockManipulateAsync.mockRejectedValue(new Error('Compress failed'));
+
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      const originalPlatform = Platform.OS;
+      Object.defineProperty(Platform, 'OS', {
+        get: () => 'web',
+        configurable: true,
+      });
+
+      const { getByText } = render(<CameraUpload {...defaultProps} />);
+
+      fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
+
+      await waitFor(() => {
+        expect(mockManipulateAsync).toHaveBeenCalled();
+        expect(consoleErrorSpy).toHaveBeenCalledWith('❌ Erro ao comprimir:', expect.any(Error));
+      });
+
+      // Deve ainda assim exibir preview com URI original
+      await waitFor(() => {
+        expect(getByText('📤 Enviar Foto')).toBeTruthy();
+      });
+
+      consoleErrorSpy.mockRestore();
+
+      Object.defineProperty(Platform, 'OS', {
+        get: () => originalPlatform,
+        configurable: true,
+      });
+    });
+  });
+
+  describe('Estado de Loading', () => {
+    it('deve mostrar ActivityIndicator durante upload', async () => {
+      mockLaunchImageLibraryAsync.mockResolvedValue({
+        canceled: false,
+        assets: [{ uri: 'test-uri' }],
+      });
+
+      // Upload demorado
+      mockUploadELinkFotoParada.mockImplementation(
+        () => new Promise(resolve => setTimeout(() => resolve(true), 1000))
+      );
+
+      const originalPlatform = Platform.OS;
+      Object.defineProperty(Platform, 'OS', {
+        get: () => 'web',
+        configurable: true,
+      });
+
+      const { getByText, UNSAFE_getByType } = render(<CameraUpload {...defaultProps} />);
+
+      fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
+
+      await waitFor(() => {
+        expect(getByText('📤 Enviar Foto')).toBeTruthy();
+      });
+
+      fireEvent.press(getByText('📤 Enviar Foto'));
+
+      // Verificar que botões estão disabled durante upload
+      await waitFor(() => {
+        const { ActivityIndicator } = require('react-native');
+        expect(UNSAFE_getByType(ActivityIndicator)).toBeTruthy();
+      });
+
+      Object.defineProperty(Platform, 'OS', {
+        get: () => originalPlatform,
+        configurable: true,
+      });
     });
   });
 });

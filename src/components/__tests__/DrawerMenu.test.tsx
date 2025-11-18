@@ -323,6 +323,106 @@ describe('DrawerMenu Component', () => {
         expect(mockReplace).toHaveBeenCalledWith('/auth/login');
       });
     });
+
+    it('deve exibir dialog de erro quando logout falhar', async () => {
+      const { supabase } = require('@/lib/supabase');
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      // Simular erro no signOut
+      supabase.auth.signOut.mockRejectedValueOnce(new Error('Erro de rede'));
+
+      const { getByText, getAllByText } = render(
+        <DrawerMenu visible={true} onClose={mockOnClose} />
+      );
+
+      await waitFor(() => {
+        fireEvent.press(getByText('Sair'));
+      });
+
+      // Clicar no botão de confirmação
+      await waitFor(() => {
+        const sairButtons = getAllByText('Sair');
+        fireEvent.press(sairButtons[sairButtons.length - 1]);
+      });
+
+      // Aguardar erro ser processado
+      await waitFor(() => {
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          'Erro ao fazer logout:',
+          expect.any(Error)
+        );
+      });
+
+      // Verificar que o dialog de erro apareceu
+      await waitFor(() => {
+        expect(getByText('Erro ao sair')).toBeTruthy();
+        expect(getByText('Não foi possível encerrar sua sessão. Tente novamente.')).toBeTruthy();
+      });
+
+      // Fechar dialog de erro clicando em "Entendi"
+      await waitFor(() => {
+        fireEvent.press(getByText('Entendi'));
+      });
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('deve fechar dialog de erro ao clicar em Fechar', async () => {
+      const { supabase } = require('@/lib/supabase');
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      supabase.auth.signOut.mockRejectedValueOnce(new Error('Erro de rede'));
+
+      const { getByText, getAllByText, queryByText } = render(
+        <DrawerMenu visible={true} onClose={mockOnClose} />
+      );
+
+      await waitFor(() => {
+        fireEvent.press(getByText('Sair'));
+      });
+
+      await waitFor(() => {
+        const sairButtons = getAllByText('Sair');
+        fireEvent.press(sairButtons[sairButtons.length - 1]);
+      });
+
+      await waitFor(() => {
+        expect(getByText('Erro ao sair')).toBeTruthy();
+      });
+
+      // Fechar dialog clicando em "Fechar"
+      await waitFor(() => {
+        fireEvent.press(getByText('Fechar'));
+      });
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('deve cancelar dialog de logout', async () => {
+      const { supabase } = require('@/lib/supabase');
+
+      const { getByText, getAllByText } = render(
+        <DrawerMenu visible={true} onClose={mockOnClose} />
+      );
+
+      // Abrir dialog de logout
+      await waitFor(() => {
+        fireEvent.press(getByText('Sair'));
+      });
+
+      // Verificar que dialog apareceu
+      await waitFor(() => {
+        expect(getByText('Sair da conta')).toBeTruthy();
+      });
+
+      // Clicar em Cancelar
+      await waitFor(() => {
+        fireEvent.press(getByText('Cancelar'));
+      });
+
+      // Verificar que signOut NÃO foi chamado
+      expect(supabase.auth.signOut).not.toHaveBeenCalled();
+    });
   });
 
   describe('Visibilidade', () => {
@@ -383,6 +483,65 @@ describe('DrawerMenu Component', () => {
         expect(modal.props.onRequestClose).toBe(mockOnClose);
         expect(modal.props.visible).toBe(true);
       });
+    });
+
+    it('deve impedir propagação ao clicar dentro do drawer', async () => {
+      const { UNSAFE_getAllByType, getByText } = render(
+        <DrawerMenu visible={true} onClose={mockOnClose} />
+      );
+
+      await waitFor(() => {
+        // Aguardar profile carregar
+        expect(getByText('João Silva')).toBeTruthy();
+      });
+
+      const TouchableOpacity = require('react-native').TouchableOpacity;
+      const touchables = UNSAFE_getAllByType(TouchableOpacity);
+
+      // O drawer interno tem activeOpacity=1 e onPress com stopPropagation
+      // É o segundo TouchableOpacity (primeiro é overlay)
+      const drawerTouchable = touchables.find(
+        (t, index) =>
+          index > 0 &&
+          t.props.activeOpacity === 1 &&
+          typeof t.props.onPress === 'function'
+      );
+
+      expect(drawerTouchable).toBeTruthy();
+
+      const mockEvent = {
+        stopPropagation: jest.fn(),
+      };
+      drawerTouchable.props.onPress(mockEvent);
+
+      expect(mockEvent.stopPropagation).toHaveBeenCalled();
+
+      // Verificar que onClose NÃO foi chamado (stopPropagation funcionou)
+      expect(mockOnClose).not.toHaveBeenCalled();
+    });
+
+    it('deve fechar ao clicar no overlay (fora do drawer)', async () => {
+      const { UNSAFE_getAllByType, getByText } = render(
+        <DrawerMenu visible={true} onClose={mockOnClose} />
+      );
+
+      await waitFor(() => {
+        expect(getByText('João Silva')).toBeTruthy();
+      });
+
+      const TouchableOpacity = require('react-native').TouchableOpacity;
+      const touchables = UNSAFE_getAllByType(TouchableOpacity);
+
+      // O primeiro TouchableOpacity é o overlay
+      const overlayTouchable = touchables[0];
+
+      expect(overlayTouchable).toBeTruthy();
+      expect(overlayTouchable.props.onPress).toBe(mockOnClose);
+
+      // Clicar no overlay
+      fireEvent.press(overlayTouchable);
+
+      expect(mockOnClose).toHaveBeenCalled();
     });
   });
 });

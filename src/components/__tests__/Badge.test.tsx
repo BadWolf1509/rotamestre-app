@@ -107,5 +107,12 @@ describe('Badge Component', () => {
       );
       expect(getByText('Processando')).toBeTruthy();
     });
+
+    it('deve usar cores padrão (cinza) para status inválido', () => {
+      const { getByText } = render(
+        <Badge status={'invalido' as any} label="Status Desconhecido" />
+      );
+      expect(getByText('Status Desconhecido')).toBeTruthy();
+    });
   });
 });

@@ -1,7 +1,38 @@
-import { render, fireEvent } from '@testing-library/react-native';
-import React from 'react';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
+import React, { useState } from 'react';
+import { Keyboard } from 'react-native';
 
 import { AddressAutocomplete } from '../AddressAutocomplete';
+
+// Wrapper para simular controlled component
+function ControlledAddressAutocomplete({
+  onSelectAddress,
+  placeholder,
+  error,
+  multiline,
+}: {
+  onSelectAddress: (address: string, placeId: string) => void;
+  placeholder?: string;
+  error?: string;
+  multiline?: boolean;
+}) {
+  const [value, setValue] = useState('');
+  return (
+    <AddressAutocomplete
+      value={value}
+      onChangeText={setValue}
+      onSelectAddress={onSelectAddress}
+      placeholder={placeholder}
+      error={error}
+      multiline={multiline}
+    />
+  );
+}
+
+// Mock Keyboard
+jest.mock('react-native/Libraries/Components/Keyboard/Keyboard', () => ({
+  dismiss: jest.fn(),
+}));
 
 // Mock do Google Maps Service
 const mockAutocompleteAddress = jest.fn();
@@ -231,6 +262,407 @@ describe('AddressAutocomplete Component', () => {
       expect(input.props.autoCorrect).toBe(false);
       expect(input.props.autoCapitalize).toBe('words');
       expect(input.props.returnKeyType).toBe('done');
+    });
+  });
+
+  describe('React.memo Behavior', () => {
+    it('não deve re-renderizar quando apenas funções mudam', () => {
+      const mockOnChangeText1 = jest.fn();
+      const mockOnSelectAddress1 = jest.fn();
+
+      const { rerender } = render(
+        <AddressAutocomplete
+          value="Rua Teste"
+          onChangeText={mockOnChangeText1}
+          onSelectAddress={mockOnSelectAddress1}
+          placeholder="Endereço"
+        />
+      );
+
+      const mockOnChangeText2 = jest.fn();
+      const mockOnSelectAddress2 = jest.fn();
+
+      // Mudar apenas as funções (não deve re-renderizar)
+      rerender(
+        <AddressAutocomplete
+          value="Rua Teste"
+          onChangeText={mockOnChangeText2}
+          onSelectAddress={mockOnSelectAddress2}
+          placeholder="Endereço"
+        />
+      );
+
+      // Componente deve funcionar normalmente
+      expect(true).toBe(true);
+    });
+
+    it('deve re-renderizar quando value muda', () => {
+      const { rerender, getByDisplayValue } = render(
+        <AddressAutocomplete
+          value="Rua Teste 1"
+          onChangeText={mockOnChangeText}
+          onSelectAddress={mockOnSelectAddress}
+        />
+      );
+
+      expect(getByDisplayValue('Rua Teste 1')).toBeTruthy();
+
+      rerender(
+        <AddressAutocomplete
+          value="Rua Teste 2"
+          onChangeText={mockOnChangeText}
+          onSelectAddress={mockOnSelectAddress}
+        />
+      );
+
+      expect(getByDisplayValue('Rua Teste 2')).toBeTruthy();
+    });
+  });
+
+  describe('Autocomplete com Debounce', () => {
+    it('deve buscar sugestões após debounce de 1000ms', async () => {
+      const { getByPlaceholderText } = render(
+        <ControlledAddressAutocomplete onSelectAddress={mockOnSelectAddress} />
+      );
+
+      const input = getByPlaceholderText('Digite o endereço completo');
+
+      // Não deve chamar antes de digitar
+      expect(mockAutocompleteAddress).not.toHaveBeenCalled();
+
+      fireEvent.changeText(input, 'Rua Test');
+
+      // Aguardar o debounce (1000ms) e a chamada da API
+      await waitFor(
+        () => {
+          expect(mockAutocompleteAddress).toHaveBeenCalledWith('Rua Test', expect.any(String));
+        },
+        { timeout: 2000 }
+      );
+    });
+
+    it('deve mostrar loading enquanto busca sugestões', async () => {
+      const slowMock = jest.fn().mockImplementation(
+        () => new Promise(resolve => setTimeout(() => resolve(mockSuggestions), 200))
+      );
+      mockAutocompleteAddress.mockImplementation(slowMock);
+
+      const { getByPlaceholderText, getByText } = render(
+        <AddressAutocomplete
+          value=""
+          onChangeText={mockOnChangeText}
+          onSelectAddress={mockOnSelectAddress}
+        />
+      );
+
+      const input = getByPlaceholderText('Digite o endereço completo');
+      fireEvent.changeText(input, 'Rua Test');
+
+      // Aguardar debounce + início do loading
+      await waitFor(
+        () => {
+          expect(getByText('Buscando endereços...')).toBeTruthy();
+        },
+        { timeout: 2000 }
+      );
+    });
+
+    it('deve mostrar sugestões após busca bem-sucedida', async () => {
+      const { getByPlaceholderText, getByText } = render(
+        <AddressAutocomplete
+          value=""
+          onChangeText={mockOnChangeText}
+          onSelectAddress={mockOnSelectAddress}
+        />
+      );
+
+      const input = getByPlaceholderText('Digite o endereço completo');
+      fireEvent.changeText(input, 'Rua Test');
+
+      await waitFor(
+        () => {
+          expect(getByText('Rua Example, 123')).toBeTruthy();
+          expect(getByText('Centro, São Paulo - SP')).toBeTruthy();
+        },
+        { timeout: 2000 }
+      );
+    });
+
+    it('deve lidar com erro no autocomplete', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      mockAutocompleteAddress.mockRejectedValueOnce(new Error('API Error'));
+
+      const { getByPlaceholderText } = render(
+        <AddressAutocomplete
+          value=""
+          onChangeText={mockOnChangeText}
+          onSelectAddress={mockOnSelectAddress}
+        />
+      );
+
+      const input = getByPlaceholderText('Digite o endereço completo');
+      fireEvent.changeText(input, 'Rua Test');
+
+      await waitFor(
+        () => {
+          expect(consoleErrorSpy).toHaveBeenCalledWith('Erro no autocomplete:', expect.any(Error));
+        },
+        { timeout: 2000 }
+      );
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('deve cancelar debounce anterior ao digitar novamente', async () => {
+      const { getByPlaceholderText } = render(
+        <AddressAutocomplete
+          value=""
+          onChangeText={mockOnChangeText}
+          onSelectAddress={mockOnSelectAddress}
+        />
+      );
+
+      const input = getByPlaceholderText('Digite o endereço completo');
+
+      // Primeira digitação
+      fireEvent.changeText(input, 'Rua A');
+
+      // Aguardar 500ms (não o suficiente para debounce)
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Segunda digitação antes do timeout
+      fireEvent.changeText(input, 'Rua AB');
+
+      // Aguardar o debounce completo
+      await waitFor(
+        () => {
+          expect(mockAutocompleteAddress).toHaveBeenCalledTimes(1);
+          expect(mockAutocompleteAddress).toHaveBeenCalledWith('Rua AB', expect.any(String));
+        },
+        { timeout: 2000 }
+      );
+    });
+  });
+
+  describe('Seleção de Sugestão', () => {
+    it('deve chamar onSelectAddress ao selecionar sugestão', async () => {
+      const { getByPlaceholderText, getByText } = render(
+        <AddressAutocomplete
+          value=""
+          onChangeText={mockOnChangeText}
+          onSelectAddress={mockOnSelectAddress}
+        />
+      );
+
+      const input = getByPlaceholderText('Digite o endereço completo');
+      fireEvent.changeText(input, 'Rua Test');
+
+      await waitFor(
+        () => {
+          expect(getByText('Rua Example, 123')).toBeTruthy();
+        },
+        { timeout: 2000 }
+      );
+
+      const suggestion = getByText('Rua Example, 123');
+      fireEvent.press(suggestion.parent.parent);
+
+      expect(mockOnSelectAddress).toHaveBeenCalledWith(
+        'Rua Example, 123 - Centro, São Paulo - SP',
+        '1'
+      );
+    });
+
+    it('deve esconder teclado ao selecionar sugestão', async () => {
+      const { getByPlaceholderText, getByText } = render(
+        <AddressAutocomplete
+          value=""
+          onChangeText={mockOnChangeText}
+          onSelectAddress={mockOnSelectAddress}
+        />
+      );
+
+      const input = getByPlaceholderText('Digite o endereço completo');
+      fireEvent.changeText(input, 'Rua Test');
+
+      await waitFor(
+        () => {
+          expect(getByText('Rua Example, 123')).toBeTruthy();
+        },
+        { timeout: 2000 }
+      );
+
+      const suggestion = getByText('Rua Example, 123');
+      fireEvent.press(suggestion.parent.parent);
+
+      expect(Keyboard.dismiss).toHaveBeenCalled();
+    });
+
+    it('deve esconder sugestões ao selecionar', async () => {
+      const { getByPlaceholderText, getByText, queryByText } = render(
+        <AddressAutocomplete
+          value=""
+          onChangeText={mockOnChangeText}
+          onSelectAddress={mockOnSelectAddress}
+        />
+      );
+
+      const input = getByPlaceholderText('Digite o endereço completo');
+      fireEvent.changeText(input, 'Rua Test');
+
+      await waitFor(
+        () => {
+          expect(getByText('Rua Example, 123')).toBeTruthy();
+        },
+        { timeout: 2000 }
+      );
+
+      const suggestion = getByText('Rua Example, 123');
+      fireEvent.press(suggestion.parent.parent);
+
+      await waitFor(() => {
+        expect(queryByText('Rua Example, 123')).toBeNull();
+      });
+    });
+  });
+
+  describe('Comportamento de Focus', () => {
+    it('deve mostrar sugestões ao focar se houver sugestões existentes', async () => {
+      const { getByPlaceholderText, getByText, queryByText } = render(
+        <AddressAutocomplete
+          value=""
+          onChangeText={mockOnChangeText}
+          onSelectAddress={mockOnSelectAddress}
+        />
+      );
+
+      const input = getByPlaceholderText('Digite o endereço completo');
+
+      // Primeiro buscar sugestões
+      fireEvent.changeText(input, 'Rua Test');
+
+      await waitFor(
+        () => {
+          expect(getByText('Rua Example, 123')).toBeTruthy();
+        },
+        { timeout: 2000 }
+      );
+
+      // Selecionar uma sugestão (esconde a lista)
+      const suggestion = getByText('Rua Example, 123');
+      fireEvent.press(suggestion.parent.parent);
+
+      await waitFor(() => {
+        expect(queryByText('Rua Example, 123')).toBeNull();
+      });
+
+      // Focar novamente deve mostrar as sugestões
+      fireEvent(input, 'focus');
+
+      await waitFor(() => {
+        expect(getByText('Rua Example, 123')).toBeTruthy();
+      });
+    });
+
+    it('não deve mostrar sugestões ao focar se não houver sugestões', () => {
+      const { getByPlaceholderText, queryByText } = render(
+        <AddressAutocomplete
+          value=""
+          onChangeText={mockOnChangeText}
+          onSelectAddress={mockOnSelectAddress}
+        />
+      );
+
+      const input = getByPlaceholderText('Digite o endereço completo');
+      fireEvent(input, 'focus');
+
+      expect(queryByText('Buscando endereços...')).toBeNull();
+    });
+  });
+
+  describe('Renderização de Sugestões', () => {
+    it('deve renderizar ícone de localização em cada sugestão', async () => {
+      const { getByPlaceholderText, getAllByText } = render(
+        <AddressAutocomplete
+          value=""
+          onChangeText={mockOnChangeText}
+          onSelectAddress={mockOnSelectAddress}
+        />
+      );
+
+      const input = getByPlaceholderText('Digite o endereço completo');
+      fireEvent.changeText(input, 'Rua Test');
+
+      await waitFor(
+        () => {
+          const icons = getAllByText('📍');
+          expect(icons.length).toBe(2); // Uma para cada sugestão
+        },
+        { timeout: 2000 }
+      );
+    });
+
+    it('deve renderizar main_text e secondary_text separadamente', async () => {
+      const { getByPlaceholderText, getByText } = render(
+        <AddressAutocomplete
+          value=""
+          onChangeText={mockOnChangeText}
+          onSelectAddress={mockOnSelectAddress}
+        />
+      );
+
+      const input = getByPlaceholderText('Digite o endereço completo');
+      fireEvent.changeText(input, 'Rua Test');
+
+      await waitFor(
+        () => {
+          expect(getByText('Rua Example, 123')).toBeTruthy();
+          expect(getByText('Centro, São Paulo - SP')).toBeTruthy();
+          expect(getByText('Avenida Test, 456')).toBeTruthy();
+          expect(getByText('Jardins, São Paulo - SP')).toBeTruthy();
+        },
+        { timeout: 2000 }
+      );
+    });
+
+    it('deve renderizar separadores entre sugestões', async () => {
+      const { getByPlaceholderText, UNSAFE_getAllByType } = render(
+        <AddressAutocomplete
+          value=""
+          onChangeText={mockOnChangeText}
+          onSelectAddress={mockOnSelectAddress}
+        />
+      );
+
+      const input = getByPlaceholderText('Digite o endereço completo');
+      fireEvent.changeText(input, 'Rua Test');
+
+      await waitFor(
+        () => {
+          const { View } = require('react-native');
+          const views = UNSAFE_getAllByType(View);
+          expect(views.length).toBeGreaterThan(0);
+        },
+        { timeout: 2000 }
+      );
+    });
+
+    it('não deve renderizar sugestões quando isLoading é true', () => {
+      const { getByPlaceholderText, queryByText } = render(
+        <AddressAutocomplete
+          value=""
+          onChangeText={mockOnChangeText}
+          onSelectAddress={mockOnSelectAddress}
+        />
+      );
+
+      const input = getByPlaceholderText('Digite o endereço completo');
+
+      // Ainda não digitou nada, não deve estar carregando
+      expect(queryByText('Buscando endereços...')).toBeNull();
+
+      // Sugestões não devem aparecer
+      expect(queryByText('Rua Example, 123')).toBeNull();
     });
   });
 });

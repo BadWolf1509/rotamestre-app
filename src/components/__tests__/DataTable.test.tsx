@@ -162,6 +162,29 @@ describe('DataTable Component', () => {
 
       expect(root).toBeTruthy();
     });
+
+    it('deve renderizar skeleton mobile com título quando isLoading=true', () => {
+      useResponsive.mockReturnValue({
+        isMobile: true,
+        isTablet: false,
+        isDesktop: false,
+        width: 375,
+        height: 667,
+      });
+
+      const { getByText } = render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+          isLoading={true}
+          skeletonRows={3}
+          title="Carregando..."
+        />
+      );
+
+      expect(getByText('Carregando...')).toBeTruthy();
+    });
   });
 
   describe('Ações', () => {
@@ -406,6 +429,22 @@ describe('DataTable Component', () => {
 
       expect(getAllByText('Editar').length).toBe(3);
       expect(getAllByText('Excluir').length).toBe(3);
+    });
+
+    it('deve chamar callback ao clicar em ação no mobile', () => {
+      const { getAllByText } = render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+          actions={sampleActions}
+        />
+      );
+
+      const deleteButtons = getAllByText('Excluir');
+      fireEvent.press(deleteButtons[1]); // Segunda ação do segundo item
+
+      expect(mockDelete).toHaveBeenCalledWith(sampleData[1]);
     });
   });
 

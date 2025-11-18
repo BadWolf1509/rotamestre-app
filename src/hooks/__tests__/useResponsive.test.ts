@@ -1,13 +1,15 @@
 import { renderHook } from '@testing-library/react-native';
+import * as RN from 'react-native';
 
 import { useResponsive } from '../useResponsive';
 
-// Mock básico para useWindowDimensions retornar valores padrão
-jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => {
-  return {
-    default: jest.fn(() => ({ width: 375, height: 667 })),
-  };
-});
+// Mock para useWindowDimensions
+const mockUseWindowDimensions = jest.fn(() => ({
+  width: 375,
+  height: 667,
+}));
+
+jest.spyOn(RN, 'useWindowDimensions').mockImplementation(mockUseWindowDimensions);
 
 describe('useResponsive', () => {
   it('deve retornar propriedades básicas do hook', () => {

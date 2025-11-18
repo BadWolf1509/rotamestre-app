@@ -63,6 +63,9 @@ describe('GestorSidebar Component', () => {
       userData: mockUserData,
       loading: false,
     });
+
+    // Mock signOut padrão para resolver sucesso
+    mockSignOut.mockResolvedValue({ error: null });
   });
 
   describe('Renderização Básica', () => {
@@ -177,17 +180,6 @@ describe('GestorSidebar Component', () => {
       const { getByText } = render(<GestorSidebar />);
       expect(getByText('Sair')).toBeTruthy();
       expect(getByText('🚪')).toBeTruthy();
-    });
-
-    it('deve chamar handleLogout ao clicar no botão', () => {
-      const { getByText } = render(<GestorSidebar />);
-      const logoutButton = getByText('Sair');
-
-      // Verifica que o botão existe e pode ser clicado
-      expect(logoutButton).toBeTruthy();
-      fireEvent.press(logoutButton);
-
-      // O teste passa se não houver erros ao clicar
     });
 
     it('deve tratar erro no logout', async () => {

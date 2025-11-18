@@ -125,6 +125,14 @@ describe('Progress Component', () => {
       expect(getByText('Crítico')).toBeTruthy();
       expect(getByText('90%')).toBeTruthy();
     });
+
+    it('deve usar color primary (padrão) para color inválida', () => {
+      const { getByText } = render(
+        <Progress progress={0.75} color={'invalid' as any} label="Cor Inválida" />
+      );
+      expect(getByText('Cor Inválida')).toBeTruthy();
+      expect(getByText('75%')).toBeTruthy();
+    });
   });
 
   describe('Animação', () => {

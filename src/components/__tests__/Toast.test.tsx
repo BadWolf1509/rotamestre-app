@@ -121,4 +121,66 @@ describe('Toast Component', () => {
     expect(mockDismiss).toHaveBeenCalled();
     jest.useRealTimers();
   });
+
+  it('deve auto-dismiss após duration quando não é loading', () => {
+    jest.useFakeTimers();
+    const mockDismiss = jest.fn();
+
+    render(
+      <Toast
+        visible={true}
+        message="Auto dismiss test"
+        type="success"
+        onDismiss={mockDismiss}
+        duration={3000}
+      />
+    );
+
+    // Avançar o tempo até o duration
+    act(() => {
+      jest.advanceTimersByTime(3000);
+    });
+
+    // Avançar mais tempo para a animação de dismissal
+    act(() => {
+      jest.advanceTimersByTime(250);
+    });
+
+    expect(mockDismiss).toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+
+  it('deve chamar handleDismiss quando visible muda de true para false', () => {
+    jest.useFakeTimers();
+    const mockDismiss = jest.fn();
+
+    const { rerender } = render(
+      <Toast
+        visible={true}
+        message="Teste"
+        type="success"
+        onDismiss={mockDismiss}
+        duration={0} // Sem auto-dismiss
+      />
+    );
+
+    // Mudar visible para false
+    rerender(
+      <Toast
+        visible={false}
+        message="Teste"
+        type="success"
+        onDismiss={mockDismiss}
+        duration={0}
+      />
+    );
+
+    // Avançar tempo para animação
+    act(() => {
+      jest.advanceTimersByTime(250);
+    });
+
+    expect(mockDismiss).toHaveBeenCalled();
+    jest.useRealTimers();
+  });
 });

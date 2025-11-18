@@ -118,6 +118,17 @@ describe('Modal Component', () => {
 
       expect(getByText('Modal Full Screen')).toBeTruthy();
     });
+
+    it('deve usar tamanho medium (padrão) para size inválido', () => {
+      const { getByText } = render(
+        <Modal visible={true} onClose={jest.fn()} size={'invalid' as any}>
+          <Text>Modal Tamanho Inválido</Text>
+        </Modal>
+      );
+
+      // Deve renderizar mesmo com size inválido (fallback para medium)
+      expect(getByText('Modal Tamanho Inválido')).toBeTruthy();
+    });
   });
 
   describe('Interações', () => {

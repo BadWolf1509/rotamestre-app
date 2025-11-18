@@ -218,6 +218,35 @@ describe('useProfile', () => {
       // Deve ter chamado select novamente para recarregar
       expect(selectCallCount).toBeGreaterThan(initialCallCount);
     });
+
+    it('deve lançar erro quando update falha', async () => {
+      const updateError = new Error('Falha ao atualizar no banco');
+
+      (mockSupabase.from as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({
+          data: mockProfile,
+          error: null,
+        }),
+        update: jest.fn().mockReturnValue({
+          eq: jest.fn().mockResolvedValue({
+            data: null,
+            error: updateError,
+          }),
+        }),
+      });
+
+      const { result } = renderHook(() => useProfile(mockUser));
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      await expect(
+        result.current.updateProfile({ nome: 'Novo Nome' })
+      ).rejects.toThrow('Falha ao atualizar no banco');
+    });
   });
 
   describe('changePassword', () => {
