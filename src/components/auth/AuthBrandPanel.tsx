@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { ImageBackground } from 'react-native';
 
-import LoginBackground from '@/../assets/marketing/login-background.png';
+import LoginBackground from '../../../assets/marketing/login-background.png';
 import { StyleSheet, Theme, useUnistyles } from '@/utils/styles';
 
 export type AuthBrandPanelProps = Record<string, never>;
