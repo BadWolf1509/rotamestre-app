@@ -4,6 +4,8 @@ import { View, Text } from 'react-native';
 
 import { CustomDrawerContent } from '../CustomDrawerContent';
 
+import { authService } from '@/lib/auth';
+
 // Mock @react-navigation/drawer BEFORE importing component
 jest.mock('@react-navigation/drawer', () => {
   const React = require('react');
@@ -12,12 +14,15 @@ jest.mock('@react-navigation/drawer', () => {
     DrawerContentScrollView: ({ children, ...props }: any) =>
       React.createElement(View, { ...props, testID: 'drawer-scroll-view' }, children),
     DrawerItemList: () => React.createElement(View, { testID: 'drawer-item-list' }, null),
-    DrawerItem: ({ label, onPress }: any) => {
-      const { TouchableOpacity, Text } = require('react-native');
+    DrawerItem: ({ label, onPress, icon }: any) => {
+      const { TouchableOpacity, Text, View } = require('react-native');
       return React.createElement(
         TouchableOpacity,
         { onPress, testID: `drawer-item-${label}` },
-        React.createElement(Text, null, label)
+        [
+          icon ? React.createElement(View, { key: 'icon' }, icon()) : null,
+          React.createElement(Text, { key: 'label' }, label)
+        ]
       );
     },
   };
@@ -33,31 +38,20 @@ jest.mock('expo-router', () => ({
   }),
 }));
 
-// Mock authService
-const mockSignOut = jest.fn();
-const mockGetSession = jest.fn();
-const mockGetUsuario = jest.fn();
-jest.mock('@/lib/auth', () => ({
-  authService: {
-    signOut: mockSignOut,
-    getSession: mockGetSession,
-    getUsuario: mockGetUsuario,
-  },
-}));
-
 // Mock ConfirmDialog
-jest.mock('@/components/ConfirmDialog', () => ({
-  ConfirmDialog: ({ visible, title, onConfirm, onCancel }: any) => {
+// Mock ConfirmDialog
+jest.mock('../ConfirmDialog', () => ({
+  ConfirmDialog: ({ visible, title, onConfirm, onCancel, confirmText, cancelText }: any) => {
     const { View, Text, TouchableOpacity } = require('react-native');
     if (!visible) return null;
     return (
       <View>
         <Text>{title}</Text>
         <TouchableOpacity onPress={onConfirm}>
-          <Text>Confirmar</Text>
+          <Text>{confirmText || 'Confirmar'}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={onCancel}>
-          <Text>Cancelar</Text>
+          <Text>{cancelText || 'Cancelar'}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -78,17 +72,29 @@ const mockDrawerProps = {
 };
 
 describe('CustomDrawerContent', () => {
+  let mockGetSession: jest.SpyInstance;
+  let mockGetUsuario: jest.SpyInstance;
+  let mockSignOut: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetSession.mockResolvedValue({
+
+    mockGetSession = jest.spyOn(authService, 'getSession').mockResolvedValue({
       user: { id: 'user-123', email: 'motorista@test.com' },
-    });
-    mockGetUsuario.mockResolvedValue({
+    } as any);
+
+    mockGetUsuario = jest.spyOn(authService, 'getUsuario').mockResolvedValue({
       id: 'user-123',
       nome: 'João Silva',
       email: 'motorista@test.com',
       papel: 'motorista',
-    });
+    } as any);
+
+    mockSignOut = jest.spyOn(authService, 'signOut').mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe('Renderização Básica', () => {
@@ -233,7 +239,7 @@ describe('CustomDrawerContent', () => {
         expect(getByText('Sair da conta')).toBeTruthy();
       }, { timeout: 300 });
 
-      fireEvent.press(getByText('Confirmar'));
+      fireEvent.press(getByText('Sair'));
 
       await waitFor(() => {
         expect(mockSignOut).toHaveBeenCalledTimes(1);
@@ -252,7 +258,7 @@ describe('CustomDrawerContent', () => {
       });
 
       await waitFor(() => {
-        fireEvent.press(getByText('Confirmar'));
+        fireEvent.press(getByText('Sair'));
       }, { timeout: 300 });
 
       await waitFor(() => {
@@ -271,6 +277,8 @@ describe('CustomDrawerContent', () => {
 
       await waitFor(() => {
         expect(getByText('Sair da conta')).toBeTruthy();
+        expect(getByText('Sair')).toBeTruthy();
+        expect(getByText('Cancelar')).toBeTruthy();
       }, { timeout: 300 });
 
       fireEvent.press(getByText('Cancelar'));
@@ -292,7 +300,7 @@ describe('CustomDrawerContent', () => {
       });
 
       await waitFor(() => {
-        fireEvent.press(getByText('Confirmar'));
+        fireEvent.press(getByText('Sair'));
       }, { timeout: 300 });
 
       await waitFor(() => {
@@ -344,6 +352,36 @@ describe('CustomDrawerContent', () => {
         expect(getByText('Ajuda')).toBeTruthy();
       });
     });
+
+    it('deve fechar drawer e logar ao clicar em "Configurações"', async () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const { getByText } = render(
+        <CustomDrawerContent {...mockDrawerProps} />
+      );
+
+      await waitFor(() => {
+        fireEvent.press(getByText('Configurações'));
+      });
+
+      expect(mockCloseDrawer).toHaveBeenCalled();
+      expect(consoleSpy).toHaveBeenCalledWith('Configurações - Em desenvolvimento');
+      consoleSpy.mockRestore();
+    });
+
+    it('deve fechar drawer e logar ao clicar em "Ajuda"', async () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const { getByText } = render(
+        <CustomDrawerContent {...mockDrawerProps} />
+      );
+
+      await waitFor(() => {
+        fireEvent.press(getByText('Ajuda'));
+      });
+
+      expect(mockCloseDrawer).toHaveBeenCalled();
+      expect(consoleSpy).toHaveBeenCalledWith('Ajuda - Em desenvolvimento');
+      consoleSpy.mockRestore();
+    });
   });
 
   describe('Error Handling', () => {
@@ -381,7 +419,7 @@ describe('CustomDrawerContent', () => {
       });
 
       await waitFor(() => {
-        fireEvent.press(getByText('Confirmar'));
+        fireEvent.press(getByText('Sair'));
       }, { timeout: 300 });
 
       await waitFor(() => {
@@ -393,6 +431,58 @@ describe('CustomDrawerContent', () => {
       });
 
       consoleErrorSpy.mockRestore();
+    });
+
+    it('deve fechar dialog de erro ao clicar em "Entendi"', async () => {
+      mockSignOut.mockRejectedValue(new Error('Network error'));
+
+      const { getByText, queryByText } = render(
+        <CustomDrawerContent {...mockDrawerProps} />
+      );
+
+      await waitFor(() => {
+        fireEvent.press(getByText('Sair da Conta'));
+      });
+
+      await waitFor(() => {
+        fireEvent.press(getByText('Sair'));
+      }, { timeout: 300 });
+
+      await waitFor(() => {
+        expect(getByText('Erro ao sair')).toBeTruthy();
+      });
+
+      fireEvent.press(getByText('Entendi'));
+
+      await waitFor(() => {
+        expect(queryByText('Erro ao sair')).toBeNull();
+      });
+    });
+
+    it('deve fechar dialog de erro ao clicar em "Fechar"', async () => {
+      mockSignOut.mockRejectedValue(new Error('Network error'));
+
+      const { getByText, queryByText } = render(
+        <CustomDrawerContent {...mockDrawerProps} />
+      );
+
+      await waitFor(() => {
+        fireEvent.press(getByText('Sair da Conta'));
+      });
+
+      await waitFor(() => {
+        fireEvent.press(getByText('Sair'));
+      }, { timeout: 300 });
+
+      await waitFor(() => {
+        expect(getByText('Erro ao sair')).toBeTruthy();
+      });
+
+      fireEvent.press(getByText('Fechar'));
+
+      await waitFor(() => {
+        expect(queryByText('Erro ao sair')).toBeNull();
+      });
     });
   });
 

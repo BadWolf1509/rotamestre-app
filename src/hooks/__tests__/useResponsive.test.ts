@@ -1,63 +1,101 @@
+/**
+ * BLOQUEIO CONHECIDO (2025-11-20):
+ * 
+ * Este teste suite está bloqueado devido a erro de TurboModuleRegistry ao tentar
+ * mockar react-native em ambiente Jest:
+ * 
+ * "TurboModuleRegistry.getEnforcing(...): 'DevMenu' could not be found"
+ * 
+ * Tentativas realizadas:
+ * 1. Remoção de mock global de jest.setup.js ❌
+ * 2. Simplificação de mocks (apenas useWindowDimensions) ❌
+ * 3. Uso de jest.requireActual para evitar conflitos ❌
+ * 
+ * O erro persiste ao tentar mockar react-native, independente da abordagem.
+ * 
+ * Solução Recomendada:
+ * - Testar apenas createResponsiveStyles (função pura, não depende de RN)
+ * - Considerar testes E2E para o hook useResponsive
+ * - OU refatorar ambiente Jest para lidar melhor com TurboModules
+ * 
+ * Status: BLOQUEADO - Requer investigação dedicada ou mudança de estratégia
+ */
+
 import { renderHook } from '@testing-library/react-native';
-import * as RN from 'react-native';
+import { useResponsive, createResponsiveStyles } from '../useResponsive';
 
-import { useResponsive } from '../useResponsive';
+// Mock apenas useWindowDimensions
+const mockUseWindowDimensions = jest.fn();
 
-// Mock para useWindowDimensions
-const mockUseWindowDimensions = jest.fn(() => ({
-  width: 375,
-  height: 667,
-}));
-
-jest.spyOn(RN, 'useWindowDimensions').mockImplementation(mockUseWindowDimensions);
+jest.mock('react-native', () => {
+  const actualRN = jest.requireActual('react-native');
+  return {
+    ...actualRN,
+    useWindowDimensions: mockUseWindowDimensions,
+  };
+});
 
 describe('useResponsive', () => {
-  it('deve retornar propriedades básicas do hook', () => {
-    const { result } = renderHook(() => useResponsive());
+  const mockDimensions = (width: number, height: number = 800) => {
+    mockUseWindowDimensions.mockReturnValue({ width, height, scale: 1, fontScale: 1 });
+  };
 
-    // Verifica que o hook retorna as propriedades principais
-    expect(result.current).toHaveProperty('width');
-    expect(result.current).toHaveProperty('height');
-    expect(result.current).toHaveProperty('isMobile');
-    expect(result.current).toHaveProperty('isTablet');
-    expect(result.current).toHaveProperty('isDesktop');
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockDimensions(375); // Default mobile
   });
 
-  it('deve retornar valores booleanos para flags de breakpoint', () => {
+  it('deve detectar mobile', () => {
+    mockDimensions(375);
     const { result } = renderHook(() => useResponsive());
 
-    expect(typeof result.current.isMobile).toBe('boolean');
-    expect(typeof result.current.isTablet).toBe('boolean');
-    expect(typeof result.current.isDesktop).toBe('boolean');
-  });
-
-  it('deve retornar width e height como números', () => {
-    const { result } = renderHook(() => useResponsive());
-
-    expect(typeof result.current.width).toBe('number');
-    expect(typeof result.current.height).toBe('number');
-    expect(result.current.width).toBeGreaterThan(0);
-    expect(result.current.height).toBeGreaterThan(0);
-  });
-
-  it('deve ter apenas um breakpoint ativo por vez', () => {
-    const { result } = renderHook(() => useResponsive());
-
-    const activeBreakpoints = [
-      result.current.isMobile,
-      result.current.isTablet,
-      result.current.isDesktop,
-    ].filter(Boolean);
-
-    expect(activeBreakpoints.length).toBe(1);
-  });
-
-  it('deve retornar isMobile como true para width < 768', () => {
-    const { result } = renderHook(() => useResponsive());
-
-    // O mock retorna width: 375
     expect(result.current.isMobile).toBe(true);
+    expect(result.current.breakpoint).toBe('mobile');
     expect(result.current.isTablet).toBe(false);
     expect(result.current.isDesktop).toBe(false);
+  });
+
+  it('deve detectar tablet', () => {
+    mockDimensions(800);
+    const { result } = renderHook(() => useResponsive());
+
+    expect(result.current.isTablet).toBe(true);
+    expect(result.current.breakpoint).toBe('tablet');
+  });
+
+  it('deve detectar desktop', () => {
+    mockDimensions(1200);
+    const { result } = renderHook(() => useResponsive());
+
+    expect(result.current.isDesktop).toBe(true);
+    expect(result.current.breakpoint).toBe('desktop');
+  });
+
+  it('deve detectar orientação portrait', () => {
+    mockDimensions(400, 800);
+    const { result } = renderHook(() => useResponsive());
+    expect(result.current.orientation).toBe('portrait');
+  });
+
+  it('deve detectar orientação landscape', () => {
+    mockDimensions(800, 400);
+    const { result } = renderHook(() => useResponsive());
+    expect(result.current.orientation).toBe('landscape');
+  });
+});
+
+describe('createResponsiveStyles', () => {
+  it('deve criar estilos para mobile', () => {
+    const styles = createResponsiveStyles(375);
+    expect(styles.isMobile).toBe(true);
+    expect(styles.gridColumns).toBe(1);
+    expect(styles.containerMaxWidth).toBe('100%');
+  });
+
+  it('deve criar estilos para desktop', () => {
+    const styles = createResponsiveStyles(1200);
+    expect(styles.isDesktop).toBe(true);
+    expect(styles.gridColumns).toBe(4);
+    expect(styles.containerMaxWidth).toBe(1280);
   });
 });
