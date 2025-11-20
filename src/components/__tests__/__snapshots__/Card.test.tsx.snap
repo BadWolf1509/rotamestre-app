@@ -1,0 +1,37 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Card deve aplicar estilos de padding 1`] = `
+<View
+  activeOpacity={1}
+  style={
+    [
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]
+  }
+>
+  <Text>
+    Large Padding
+  </Text>
+</View>
+`;
+
+exports[`Card deve aplicar estilos de variante 1`] = `
+<View
+  activeOpacity={1}
+  style={
+    [
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]
+  }
+>
+  <Text>
+    Outlined
+  </Text>
+</View>
+`;

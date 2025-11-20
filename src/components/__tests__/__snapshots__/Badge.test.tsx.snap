@@ -1,0 +1,85 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Badge deve aplicar tamanho small 1`] = `
+<View
+  style={
+    [
+      {
+        "alignItems": "center",
+        "alignSelf": "flex-start",
+        "borderRadius": 4,
+        "justifyContent": "center",
+      },
+      {
+        "paddingHorizontal": 8,
+        "paddingVertical": 4,
+      },
+      {
+        "backgroundColor": undefined,
+      },
+      undefined,
+    ]
+  }
+>
+  <Text
+    style={
+      [
+        {
+          "fontFamily": "System",
+        },
+        {
+          "fontSize": 12,
+        },
+        {
+          "color": "#f7a02a",
+        },
+      ]
+    }
+  >
+    Pendente
+  </Text>
+</View>
+`;
+
+exports[`Badge deve aplicar variante outlined 1`] = `
+<View
+  style={
+    [
+      {
+        "alignItems": "center",
+        "alignSelf": "flex-start",
+        "borderRadius": 4,
+        "justifyContent": "center",
+      },
+      {
+        "paddingHorizontal": 12,
+        "paddingVertical": 6,
+      },
+      {
+        "backgroundColor": "transparent",
+        "borderColor": "#f7a02a",
+        "borderWidth": 1,
+      },
+      undefined,
+    ]
+  }
+>
+  <Text
+    style={
+      [
+        {
+          "fontFamily": "System",
+        },
+        {
+          "fontSize": 14,
+        },
+        {
+          "color": "#f7a02a",
+        },
+      ]
+    }
+  >
+    Pendente
+  </Text>
+</View>
+`;
