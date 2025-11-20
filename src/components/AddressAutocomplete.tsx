@@ -112,6 +112,28 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
     }
   }, [suggestions.length]);
 
+  // Memoizar renderItem para estabilizar callbacks em testes
+  const renderSuggestionItem = useCallback(({ item }: { item: PlaceSuggestion }) => (
+    <TouchableOpacity
+      testID="suggestion-item"
+      style={styles.suggestionItem}
+      onPress={() => handleSelectSuggestion(item)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.suggestionIcon}>
+        <Text style={styles.suggestionIconText}>📍</Text>
+      </View>
+      <View style={styles.suggestionTextContainer}>
+        <Text style={styles.suggestionMainText}>
+          {item.structured_formatting.main_text}
+        </Text>
+        <Text style={styles.suggestionSecondaryText}>
+          {item.structured_formatting.secondary_text}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  ), [handleSelectSuggestion]);
+
   return (
     <View style={styles.container}>
       <View style={styles.inputContainer}>
@@ -160,25 +182,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
           <FlatList
             data={suggestions}
             keyExtractor={(item) => item.place_id}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.suggestionItem}
-                onPress={() => handleSelectSuggestion(item)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.suggestionIcon}>
-                  <Text style={styles.suggestionIconText}>📍</Text>
-                </View>
-                <View style={styles.suggestionTextContainer}>
-                  <Text style={styles.suggestionMainText}>
-                    {item.structured_formatting.main_text}
-                  </Text>
-                  <Text style={styles.suggestionSecondaryText}>
-                    {item.structured_formatting.secondary_text}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
+            renderItem={renderSuggestionItem}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
             style={styles.suggestionsList}
             keyboardShouldPersistTaps="handled"
@@ -365,4 +369,3 @@ const styles = StyleSheet.create(theme => ({
     fontStyle: 'italic',
   },
 }));
-
