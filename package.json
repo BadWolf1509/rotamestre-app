@@ -67,6 +67,7 @@
     "react-native-safe-area-context": "^5.6.1",
     "react-native-screens": "~4.18.0",
     "react-native-toast-message": "^2.3.3",
+    "react-native-ui-datepicker": "^3.1.2",
     "react-native-unistyles": "^3.0.17",
     "react-native-url-polyfill": "^3.0.0",
     "react-native-web": "^0.21.2",

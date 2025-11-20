@@ -6,7 +6,7 @@
 
 > Sistema completo de gestão de rotas para gestores e motoristas
 
-**Stack:** React Native 0.81.5 • Expo 54 • TypeScript • Supabase • Unistyles • Google Maps
+**Stack:** React Native • Expo SDK 54 • TypeScript • Supabase • Unistyles • Google Maps
 
 **Produção:** https://app.rotamestre.tec.br
 
@@ -23,7 +23,6 @@ npm install
 # 2. Configure variáveis de ambiente
 cp .env.example .env
 # Preencha: SUPABASE_URL, SUPABASE_ANON_KEY, GOOGLE_MAPS_API_KEY
-# (Opcional) EXPO_PUBLIC_GOOGLE_MAPS_MAP_ID para habilitar AdvancedMarkerElement no mapa web
 
 # 3. Rode o app
 npm start              # Dev mode (Expo)
@@ -34,7 +33,6 @@ npm run web            # Web (localhost:8081)
 
 **URLs Locais:**
 - 📱 **App (mobile/web):** http://localhost:8081
-- 🗺️ **Painel admin:** (futuro)
 
 ---
 
@@ -44,7 +42,7 @@ npm run web            # Web (localhost:8081)
 rotamestre-app/
 ├── app/                    # Telas (Expo Router)
 │   ├── auth/              # Login, registro
-│   ├── gestor/            # Dashboard, rotas, motoristas
+│   ├── gestor/            # Dashboard, rotas, motoristas, incidentes
 │   ├── motorista/         # Rotas ativas, checkpoints
 │   ├── perfil/            # Perfil do usuário
 │   └── unidade/           # Gestão de unidade
@@ -69,7 +67,7 @@ rotamestre-app/
 ```bash
 npm start                  # Dev mode (Expo)
 npm run typecheck          # Verificar erros TypeScript
-npm test                   # Rodar testes (futuro)
+npm test                   # Rodar testes
 npm run lint               # Lint do código
 ```
 
@@ -93,7 +91,7 @@ node apply-migration.js    # Aplicar migrations
 Utilizamos **React Native Unistyles v3** com design tokens centralizados:
 
 ```typescript
-// src/styles/unistyles.ts
+// unistyles.ts
 const theme = {
   colors: {
     primary: '#1e5aa8',
@@ -101,27 +99,16 @@ const theme = {
     gray50: '#f9fafb',
     // ... +40 cores
   },
-  spacing: {
-    sm: 8,
-    md: 12,
-    lg: 16,
-    // ... 10 tamanhos
-  },
+  spacing: { sm: 8, md: 12, lg: 16, ... },
   typography: { /* fonts, sizes */ },
-  shadows: { /* sm, md, lg */ },
-  borderRadius: { /* sm, md, lg, full */ },
+  shadows: { /* elevações */ },
+  borderRadius: { /* bordas */ },
 };
 ```
 
 **Uso:**
 ```tsx
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
-
-export function MyComponent() {
-  const { theme } = useUnistyles();
-
-  return <View style={styles.container} />;
-}
 
 const styles = StyleSheet.create(theme => ({
   container: {
@@ -139,15 +126,16 @@ const styles = StyleSheet.create(theme => ({
 
 | Tabela | Descrição |
 |--------|-----------|
-| `profiles` | Usuários (gestor, motorista, master) |
+| `usuarios` | Usuários (gestor, motorista, master) |
 | `unidades` | Unidades operacionais |
 | `rotas` | Rotas de entrega |
 | `paradas` | Paradas (checkpoints) de cada rota |
+| `incidentes` | Incidentes reportados durante rotas |
 
 ### Migrations
 
-Todas as migrations SQL estão consolidadas em:
-- 📄 [database/MIGRATIONS.md](database/MIGRATIONS.md) ← **Ver aqui**
+Todas as migrations SQL estão documentadas em:
+- 📄 [database/MIGRATIONS.md](database/MIGRATIONS.md)
 
 Para aplicar uma migration:
 ```bash
@@ -178,21 +166,23 @@ Sistema de auth com Supabase:
 ### ✅ Implementado
 
 - ✅ **Auth completo** (login, logout, recuperação de senha)
-- ✅ **Dashboard gestor** (desktop e mobile)
-- ✅ **Gestão de rotas** (criar, editar, excluir)
+- ✅ **Dashboard gestor** (desktop e mobile responsivo)
+- ✅ **Gestão de rotas** (criar, editar, excluir, visualizar mapa)
 - ✅ **Gestão de motoristas** (CRUD completo)
+- ✅ **Gestão de incidentes** (reportar e gerenciar)
 - ✅ **App do motorista** (visualizar rotas, marcar checkpoints)
 - ✅ **Upload de fotos** (comprovantes de entrega)
 - ✅ **Mapas** (Google Maps web, react-native-maps mobile)
+- ✅ **Filtros avançados** (período com presets, status, motorista)
 - ✅ **Responsivo** (mobile-first com melhorias desktop)
 - ✅ **Design system** (Unistyles v3)
+- ✅ **Testes automatizados** (Jest + Maestro E2E)
 
 ### 🚧 Em Desenvolvimento
 
 - 🚧 Notificações push
 - 🚧 Relatórios e analytics
-- 🚧 Histórico detalhado
-- 🚧 Testes automatizados
+- 🚧 Histórico detalhado avançado
 
 ---
 
@@ -200,10 +190,11 @@ Sistema de auth com Supabase:
 
 Para informações técnicas detalhadas, consulte:
 
-- 📄 [CHANGELOG](CHANGELOG.md) - Histórico de mudanças
-- 📄 [CONTRIBUTING.md](CONTRIBUTING.md) - Guia de desenvolvimento
+- 📄 [DEVELOPMENT.md](DEVELOPMENT.md) - Guia de desenvolvimento
+- 📄 [CLAUDE.md](CLAUDE.md) - Contexto técnico completo
+- 📄 [TESTING_SUMMARY.md](TESTING_SUMMARY.md) - Estrutura de testes
 - 📄 [database/MIGRATIONS.md](database/MIGRATIONS.md) - Migrations SQL
-- 📂 [docs/archive/](docs/archive/) - Documentação histórica
+- 📄 [docs/SUSPENDED_FEATURES.md](docs/SUSPENDED_FEATURES.md) - Features suspensas
 
 ---
 
@@ -251,4 +242,4 @@ Proprietário - Rota Mestre © 2025
 
 ---
 
-**Última atualização:** 05/11/2025
+**Última atualização:** 19/11/2025

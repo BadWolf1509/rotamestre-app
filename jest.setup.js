@@ -247,19 +247,82 @@ const mockSupabaseClient = {
     })),
   },
   from: jest.fn((table) => createMockQueryBuilder()),
+  channel: jest.fn(() => ({
+    on: jest.fn().mockReturnThis(),
+    subscribe: jest.fn().mockReturnValue({
+      unsubscribe: jest.fn(),
+    }),
+  })),
 };
 
 jest.mock('@/lib/supabase', () => ({
   supabase: mockSupabaseClient,
 }));
 
-// Mock useResponsive hook
-jest.mock('@/hooks/useResponsive', () => ({
-  useResponsive: () => ({
-    isDesktop: false,
-    isMobile: true,
-    isTablet: false,
-    width: 375,
-    height: 667,
-  }),
+// Mock useResponsive removido daqui para permitir testes unitários do hook.
+// Deve ser mockado individualmente nos testes de componentes que o utilizam.
+
+// Mock Expo vector icons
+jest.mock('@expo/vector-icons', () => {
+  const React = require('react');
+  return {
+    Ionicons: jest.fn((props) => React.createElement('Ionicons', props)),
+    MaterialIcons: jest.fn((props) => React.createElement('MaterialIcons', props)),
+    FontAwesome: jest.fn((props) => React.createElement('FontAwesome', props)),
+  };
+});
+
+// Mock DateTimePicker
+jest.mock('@react-native-community/datetimepicker', () => {
+  const React = require('react');
+  return jest.fn((props) => React.createElement('DateTimePicker', props));
+});
+
+// Mock NetInfo
+jest.mock('@react-native-community/netinfo', () => ({
+  fetch: jest.fn(() => Promise.resolve({
+    isConnected: true,
+    isInternetReachable: true,
+    type: 'wifi',
+  })),
+  addEventListener: jest.fn(() => jest.fn()),
+  useNetInfo: jest.fn(() => ({
+    isConnected: true,
+    isInternetReachable: true,
+    type: 'wifi',
+  })),
+}));
+
+// Mock AsyncStorage
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  setItem: jest.fn(() => Promise.resolve(null)),
+  getItem: jest.fn(() => Promise.resolve(null)),
+  removeItem: jest.fn(() => Promise.resolve(null)),
+  clear: jest.fn(() => Promise.resolve(null)),
+  getAllKeys: jest.fn(() => Promise.resolve([])),
+  multiGet: jest.fn(() => Promise.resolve([])),
+  multiSet: jest.fn(() => Promise.resolve(null)),
+  multiRemove: jest.fn(() => Promise.resolve(null)),
+}));
+
+// Mock Linking
+jest.mock('react-native/Libraries/Linking/Linking', () => ({
+  openURL: jest.fn(() => Promise.resolve(true)),
+  canOpenURL: jest.fn(() => Promise.resolve(true)),
+  openSettings: jest.fn(() => Promise.resolve()),
+  getInitialURL: jest.fn(() => Promise.resolve(null)),
+  addEventListener: jest.fn(() => ({ remove: jest.fn() })),
+}));
+
+// Mock expo-speech
+jest.mock('expo-speech', () => ({
+  speak: jest.fn(),
+  stop: jest.fn(),
+  isSpeakingAsync: jest.fn(() => Promise.resolve(false)),
+}));
+
+// Mock @mapbox/polyline
+jest.mock('@mapbox/polyline', () => ({
+  decode: jest.fn(() => [[0, 0], [1, 1]]),
+  encode: jest.fn(() => 'encoded-polyline'),
 }));
