@@ -25,21 +25,43 @@ interface Parada {
 
 interface MapaAdapterProps {
   paradas: Parada[];
+  rotaId?: string;
+  motoristaNome?: string;
+  showMotoristaMarker?: boolean;
 }
 
 /**
  * Componente principal que adapta o mapa para cada plataforma
  */
-export function MapaAdapter({ paradas }: MapaAdapterProps) {
+export function MapaAdapter({
+  paradas,
+  rotaId,
+  motoristaNome,
+  showMotoristaMarker = false,
+}: MapaAdapterProps) {
   // Web: Usa MapaWeb (Google Maps JavaScript API)
   if (Platform.OS === 'web') {
-    return <MapaWeb paradas={paradas} />;
+    return (
+      <MapaWeb
+        paradas={paradas}
+        rotaId={rotaId}
+        motoristaNome={motoristaNome}
+        showMotoristaMarker={showMotoristaMarker}
+      />
+    );
   }
 
   // Mobile: Usa MapaMobile (react-native-maps)
   // Metro automaticamente resolve para:
   // - Web: MapaMobile.web.tsx (stub sem react-native-maps)
   // - Native: MapaMobile.tsx (com react-native-maps completo)
-  return <MapaMobile paradas={paradas} />;
+  return (
+    <MapaMobile
+      paradas={paradas}
+      rotaId={rotaId}
+      motoristaNome={motoristaNome}
+      showMotoristaMarker={showMotoristaMarker}
+    />
+  );
 }
 

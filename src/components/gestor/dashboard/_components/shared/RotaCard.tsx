@@ -65,6 +65,7 @@ export function RotaCard({ rota, onPress }: RotaCardProps) {
 
   return (
     <TouchableOpacity
+      testID={`rota-card-${rota.id}`}
       onPress={onPress}
       style={styles.container}
       activeOpacity={0.7}

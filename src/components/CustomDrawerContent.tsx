@@ -70,75 +70,75 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
         <View style={{ flexGrow: 1, justifyContent: 'space-between' }}>
           {/* Seção de Perfil (topo) */}
           <View style={styles(theme).header}>
-          <View style={styles(theme).avatar}>
-            <Text style={styles(theme).avatarText}>
-              {usuario?.nome?.charAt(0)?.toUpperCase() || '?'}
+            <View style={styles(theme).avatar}>
+              <Text style={styles(theme).avatarText}>
+                {usuario?.nome?.charAt(0)?.toUpperCase() || '?'}
+              </Text>
+            </View>
+            <Text style={styles(theme).userName} numberOfLines={1}>
+              {usuario?.nome || 'Carregando...'}
             </Text>
+            <Text style={styles(theme).userEmail} numberOfLines={1}>
+              {usuario?.email || ''}
+            </Text>
+            <View style={styles(theme).roleBadge}>
+              <Text style={styles(theme).roleBadgeText}>Motorista</Text>
+            </View>
           </View>
-          <Text style={styles(theme).userName} numberOfLines={1}>
-            {usuario?.nome || 'Carregando...'}
-          </Text>
-          <Text style={styles(theme).userEmail} numberOfLines={1}>
-            {usuario?.email || ''}
-          </Text>
-          <View style={styles(theme).roleBadge}>
-            <Text style={styles(theme).roleBadgeText}>Motorista</Text>
+
+          {/* Navegação Principal */}
+          <View style={styles(theme).menuSection}>
+            <DrawerItemList {...props} />
+            <DrawerItem
+              label="Meu Perfil"
+              icon={() => <Text style={styles(theme).menuIcon}>👤</Text>}
+              onPress={() => {
+                props.navigation.closeDrawer();
+                router.push('/motorista/perfil');
+              }}
+              labelStyle={styles(theme).drawerLabel}
+              activeTintColor={theme.colors.primary}
+              inactiveTintColor={theme.colors.gray700}
+            />
           </View>
-        </View>
 
-        {/* Navegação Principal */}
-        <View style={styles(theme).menuSection}>
-          <DrawerItemList {...props} />
-          <DrawerItem
-            label="Meu Perfil"
-            icon={() => <Text style={styles(theme).menuIcon}>👤</Text>}
-            onPress={() => {
-              props.navigation.closeDrawer();
-              router.push('/motorista/perfil');
-            }}
-            labelStyle={styles(theme).drawerLabel}
-            activeTintColor={theme.colors.primary}
-            inactiveTintColor={theme.colors.gray700}
-          />
-        </View>
+          {/* Itens Secundários */}
+          <View style={styles(theme).secondarySection}>
+            <DrawerItem
+              label="Configurações"
+              icon={() => <Text style={styles(theme).menuIcon}>⚙️</Text>}
+              onPress={() => {
+                props.navigation.closeDrawer();
+                console.log('Configurações - Em desenvolvimento');
+              }}
+              labelStyle={styles(theme).drawerLabel}
+              activeTintColor={theme.colors.primary}
+              inactiveTintColor={theme.colors.gray700}
+            />
+            <DrawerItem
+              label="Ajuda"
+              icon={() => <Text style={styles(theme).menuIcon}>❓</Text>}
+              onPress={() => {
+                props.navigation.closeDrawer();
+                console.log('Ajuda - Em desenvolvimento');
+              }}
+              labelStyle={styles(theme).drawerLabel}
+              activeTintColor={theme.colors.primary}
+              inactiveTintColor={theme.colors.gray700}
+            />
+          </View>
 
-        {/* Itens Secundários */}
-        <View style={styles(theme).secondarySection}>
-          <DrawerItem
-            label="Configurações"
-            icon={() => <Text style={styles(theme).menuIcon}>⚙️</Text>}
-            onPress={() => {
-              props.navigation.closeDrawer();
-              console.log('Configurações - Em desenvolvimento');
-            }}
-            labelStyle={styles(theme).drawerLabel}
-            activeTintColor={theme.colors.primary}
-            inactiveTintColor={theme.colors.gray700}
-          />
-          <DrawerItem
-            label="Ajuda"
-            icon={() => <Text style={styles(theme).menuIcon}>❓</Text>}
-            onPress={() => {
-              props.navigation.closeDrawer();
-              console.log('Ajuda - Em desenvolvimento');
-            }}
-            labelStyle={styles(theme).drawerLabel}
-            activeTintColor={theme.colors.primary}
-            inactiveTintColor={theme.colors.gray700}
-          />
-        </View>
-
-        {/* Botão Sair (footer) */}
-        <View style={styles(theme).footer}>
-          <TouchableOpacity
-            style={styles(theme).logoutButton}
-            onPress={handleLogoutPress}
-            activeOpacity={0.8}
-          >
-            <Text style={styles(theme).logoutIcon}>🚪</Text>
-            <Text style={styles(theme).logoutText}>Sair da Conta</Text>
-          </TouchableOpacity>
-        </View>
+          {/* Botão Sair (footer) */}
+          <View style={styles(theme).footer}>
+            <TouchableOpacity
+              style={styles(theme).logoutButton}
+              onPress={handleLogoutPress}
+              activeOpacity={0.8}
+            >
+              <Text style={styles(theme).logoutIcon}>🚪</Text>
+              <Text style={styles(theme).logoutText}>Sair da Conta</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </DrawerContentScrollView>
 

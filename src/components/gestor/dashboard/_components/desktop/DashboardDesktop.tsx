@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
 
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
+import { RouteFilters } from '@/components/RouteFilters';
+import type { RouteFilters as RouteFiltersType } from '@/components/RouteFilters';
 import { Toast } from '@/components/Toast';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
@@ -26,7 +28,10 @@ import { StatsCard } from '../shared/StatsCard';
 import type { DashboardData } from '../../dashboard/_hooks/useDashboardData';
 
 
-interface DashboardDesktopProps extends DashboardData {}
+interface DashboardDesktopProps extends DashboardData {
+  filters: RouteFiltersType;
+  onFiltersChange: (filters: RouteFiltersType) => void;
+}
 
 /**
  * Layout desktop do Dashboard do Gestor
@@ -34,17 +39,42 @@ interface DashboardDesktopProps extends DashboardData {}
  */
 export function DashboardDesktop({
   stats,
+  todayStats, // ✅ Stats de hoje (ignora filtros)
   rotas,
   loading,
   refreshing,
   onRefresh,
   userData, // Receber userData como prop ao invés de usar useUser
+  filters,
+  onFiltersChange,
 }: DashboardDesktopProps) {
   const { theme } = useUnistyles();
   const router = useRouter();
   // REMOVIDO: const { userData } = useUser(); // Evitar chamada duplicada
 
   const pageMeta = getGestorPageMeta('inicio');
+
+  // Carregar lista de motoristas para o filtro
+  const [motoristas, setMotoristas] = useState<Array<{ id: string; nome: string }>>([]);
+
+  useEffect(() => {
+    const loadMotoristas = async () => {
+      if (!userData?.unidade_id) return;
+
+      const { data } = await supabase
+        .from('usuarios')
+        .select('id, nome')
+        .eq('unidade_id', userData.unidade_id)
+        .eq('papel', 'motorista')
+        .order('nome');
+
+      if (data) {
+        setMotoristas(data);
+      }
+    };
+
+    loadMotoristas();
+  }, [userData?.unidade_id]);
 
   // Estado para modal de confirmação
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -153,7 +183,7 @@ export function DashboardDesktop({
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
               <StatsCard
-                value={stats.total}
+                value={todayStats.totalHoje}
                 label="Total Hoje"
                 backgroundColor={theme.colors.primaryDark}
               />
@@ -216,6 +246,15 @@ export function DashboardDesktop({
             </View>
           </View>
 
+          <View style={styles.filtersSection}>
+            <RouteFilters
+              filters={filters}
+              onFiltersChange={onFiltersChange}
+              motoristas={motoristas}
+              variant="desktop"
+            />
+          </View>
+
           <RotasTable
             rotas={rotas}
             onViewDetails={(rotaId) => router.push(`/gestor/mapa-rota?id=${rotaId}`)}
@@ -270,6 +309,9 @@ const styles = StyleSheet.create(theme => ({
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
     marginBottom: theme.spacing.lg,
+  },
+  filtersSection: {
+    marginBottom: theme.spacing['2xl'],
   },
   actionsRow: {
     flexDirection: 'row',

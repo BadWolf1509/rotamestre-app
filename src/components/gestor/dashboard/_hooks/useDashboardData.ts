@@ -1,5 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
+import type { RouteFilters } from '@/components/RouteFilters';
+import { useRealtimeRoutes } from '@/hooks/useRealtimeRoutes';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 
@@ -11,11 +13,16 @@ export interface Stats {
   incidentesAbertos?: number;
 }
 
+export interface TodayStats {
+  totalHoje: number; // Sempre reflete rotas de hoje, ignorando filtros
+}
+
 export interface RotaResumo {
   id: string;
   data: string;
   status: string;
   motorista_nome: string;
+  motorista_id: string | null;
   total_paradas: number;
   paradas_concluidas: number;
   distancia_total: number;
@@ -23,6 +30,7 @@ export interface RotaResumo {
 
 export interface DashboardData {
   stats: Stats;
+  todayStats: TodayStats; // ✅ Stats de hoje (ignora filtros)
   rotas: RotaResumo[];
   loading: boolean;
   refreshing: boolean;
@@ -30,11 +38,16 @@ export interface DashboardData {
   userData: any; // Incluir userData para evitar chamadas duplicadas de useUser
 }
 
+export interface UseDashboardDataOptions {
+  filters?: RouteFilters;
+}
+
 /**
  * Hook compartilhado para dados do dashboard
  * Usado tanto na versão mobile quanto desktop
  */
-export function useDashboardData(): DashboardData {
+export function useDashboardData(options: UseDashboardDataOptions = {}): DashboardData {
+  const { filters } = options;
   const { userData } = useUser();
   const unidadeId = userData?.unidade_id;
 
@@ -44,6 +57,9 @@ export function useDashboardData(): DashboardData {
     concluidas: 0,
     distanciaTotal: 0,
   });
+  const [todayStats, setTodayStats] = useState<TodayStats>({
+    totalHoje: 0,
+  });
   const [rotas, setRotas] = useState<RotaResumo[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -51,6 +67,17 @@ export function useDashboardData(): DashboardData {
   // ✅ FIX DEFINITIVO: Usar ref para evitar recriações
   const loadingRef = useRef(false);
   const mountedRef = useRef(true);
+
+  // ✅ Realtime: Escutar mudanças em rotas e paradas
+  const { updateTrigger } = useRealtimeRoutes({
+    enabled: !!unidadeId,
+    onRouteUpdate: () => {
+      // Quando houver atualização via realtime, recarregar dados
+      if (!loadingRef.current && mountedRef.current) {
+        onRefresh();
+      }
+    },
+  });
 
   // ✅ FIX: useEffect com controle rigoroso para evitar loops
   useEffect(() => {
@@ -92,21 +119,66 @@ export function useDashboardData(): DashboardData {
           setLoading(true);
         }
 
-        // Buscar rotas da unidade (hoje)
+        // Buscar rotas da unidade com filtros
         const hoje = new Date().toISOString().split('T')[0];
 
-        const { data: rotasData, error: rotasError } = await supabase
+        let query = supabase
           .from('rotas')
           .select(`
             id,
             data,
             status,
             distancia_total,
+            motorista_id,
             usuarios!motorista_id (nome)
           `)
-          .eq('unidade_id', unidadeId)
-          .gte('data', hoje)
-          .order('created_at', { ascending: false });
+          .eq('unidade_id', unidadeId);
+
+        // Aplicar filtros de data
+        console.log('[useDashboardData] Filtros recebidos:', {
+          dataInicio: filters?.dataInicio,
+          dataFim: filters?.dataFim,
+          status: filters?.status,
+          motoristaId: filters?.motoristaId,
+        });
+
+        if (filters?.dataInicio) {
+          const dataInicio = new Date(filters.dataInicio);
+          // ✅ Validar se a data é válida antes de usar
+          if (!isNaN(dataInicio.getTime())) {
+            const dataInicioStr = dataInicio.toISOString().split('T')[0];
+            console.log('[useDashboardData] Aplicando filtro dataInicio:', dataInicioStr);
+            query = query.gte('data', dataInicioStr);
+          }
+        } else {
+          // Por padrão, mostrar apenas rotas de hoje
+          console.log('[useDashboardData] Usando filtro padrão (hoje):', hoje);
+          query = query.gte('data', hoje);
+        }
+
+        if (filters?.dataFim) {
+          const dataFim = new Date(filters.dataFim);
+          // ✅ Validar se a data é válida antes de usar
+          if (!isNaN(dataFim.getTime())) {
+            const dataFimStr = dataFim.toISOString().split('T')[0];
+            console.log('[useDashboardData] Aplicando filtro dataFim:', dataFimStr);
+            query = query.lte('data', dataFimStr);
+          }
+        }
+
+        // Aplicar filtro de status
+        if (filters?.status) {
+          query = query.eq('status', filters.status);
+        }
+
+        // Aplicar filtro de motorista
+        if (filters?.motoristaId) {
+          query = query.eq('motorista_id', filters.motoristaId);
+        }
+
+        query = query.order('created_at', { ascending: false });
+
+        const { data: rotasData, error: rotasError } = await query;
 
         if (rotasError) throw rotasError;
 
@@ -130,6 +202,7 @@ export function useDashboardData(): DashboardData {
               data: rota.data,
               status: rota.status,
               motorista_nome: rota.usuarios?.nome || 'Sem motorista',
+              motorista_id: rota.motorista_id,
               total_paradas: paradasReais.length,
               paradas_concluidas: paradasReais.filter((p: any) => p.status === 'concluida').length,
               distancia_total: rota.distancia_total || 0,
@@ -173,6 +246,21 @@ export function useDashboardData(): DashboardData {
         if (mountedRef.current) {
           setStats(statsData);
         }
+
+        // ✅ Buscar stats de HOJE (ignorando filtros de data)
+        const queryHoje = supabase
+          .from('rotas')
+          .select('id, status')
+          .eq('unidade_id', unidadeId)
+          .gte('data', hoje);
+
+        const { data: rotasHoje, error: errorHoje } = await queryHoje;
+
+        if (!errorHoje && rotasHoje && mountedRef.current) {
+          setTodayStats({
+            totalHoje: rotasHoje.length,
+          });
+        }
       } catch (error) {
         console.error('Erro ao carregar dashboard:', error);
       } finally {
@@ -185,7 +273,7 @@ export function useDashboardData(): DashboardData {
     };
 
     loadDashboard();
-  }, [unidadeId]); // Apenas unidadeId
+  }, [unidadeId, filters]); // unidadeId e filters
 
   // ✅ FIX: onRefresh com useCallback para evitar recriação
   const onRefresh = useCallback(async () => {
@@ -201,21 +289,66 @@ export function useDashboardData(): DashboardData {
         return;
       }
 
-      // Buscar rotas da unidade (hoje)
+      // Buscar rotas da unidade com filtros
       const hoje = new Date().toISOString().split('T')[0];
 
-      const { data: rotasData, error: rotasError } = await supabase
+      let query = supabase
         .from('rotas')
         .select(`
           id,
           data,
           status,
           distancia_total,
+          motorista_id,
           usuarios!motorista_id (nome)
         `)
-        .eq('unidade_id', unidadeId)
-        .gte('data', hoje)
-        .order('created_at', { ascending: false });
+        .eq('unidade_id', unidadeId);
+
+      // Aplicar filtros de data
+      console.log('[onRefresh] Filtros recebidos:', {
+        dataInicio: filters?.dataInicio,
+        dataFim: filters?.dataFim,
+        status: filters?.status,
+        motoristaId: filters?.motoristaId,
+      });
+
+      if (filters?.dataInicio) {
+        const dataInicio = new Date(filters.dataInicio);
+        // ✅ Validar se a data é válida antes de usar
+        if (!isNaN(dataInicio.getTime())) {
+          const dataInicioStr = dataInicio.toISOString().split('T')[0];
+          console.log('[onRefresh] Aplicando filtro dataInicio:', dataInicioStr);
+          query = query.gte('data', dataInicioStr);
+        }
+      } else {
+        // Por padrão, mostrar apenas rotas de hoje
+        console.log('[onRefresh] Usando filtro padrão (hoje):', hoje);
+        query = query.gte('data', hoje);
+      }
+
+      if (filters?.dataFim) {
+        const dataFim = new Date(filters.dataFim);
+        // ✅ Validar se a data é válida antes de usar
+        if (!isNaN(dataFim.getTime())) {
+          const dataFimStr = dataFim.toISOString().split('T')[0];
+          console.log('[onRefresh] Aplicando filtro dataFim:', dataFimStr);
+          query = query.lte('data', dataFimStr);
+        }
+      }
+
+      // Aplicar filtro de status
+      if (filters?.status) {
+        query = query.eq('status', filters.status);
+      }
+
+      // Aplicar filtro de motorista
+      if (filters?.motoristaId) {
+        query = query.eq('motorista_id', filters.motoristaId);
+      }
+
+      query = query.order('created_at', { ascending: false });
+
+      const { data: rotasData, error: rotasError } = await query;
 
       if (rotasError) throw rotasError;
 
@@ -238,6 +371,7 @@ export function useDashboardData(): DashboardData {
             data: rota.data,
             status: rota.status,
             motorista_nome: rota.usuarios?.nome || 'Sem motorista',
+            motorista_id: rota.motorista_id,
             total_paradas: paradasReais.length,
             paradas_concluidas: paradasReais.filter((p: any) => p.status === 'concluida').length,
             distancia_total: rota.distancia_total || 0,
@@ -280,6 +414,22 @@ export function useDashboardData(): DashboardData {
       if (mountedRef.current) {
         setStats(statsData);
       }
+
+      // ✅ Buscar stats de HOJE (ignorando filtros de data)
+      // Reutilizar variável 'hoje' já declarada no início da função
+      const queryHoje = supabase
+        .from('rotas')
+        .select('id, status')
+        .eq('unidade_id', unidadeId)
+        .gte('data', hoje);
+
+      const { data: rotasHoje, error: errorHoje } = await queryHoje;
+
+      if (!errorHoje && rotasHoje && mountedRef.current) {
+        setTodayStats({
+          totalHoje: rotasHoje.length,
+        });
+      }
     } catch (error) {
       console.error('Erro ao atualizar dashboard:', error);
     } finally {
@@ -288,12 +438,34 @@ export function useDashboardData(): DashboardData {
       }
       loadingRef.current = false;
     }
-  }, [unidadeId]); // Dependência estável
+  }, [unidadeId, filters]); // Dependências estáveis
+
+  // ✅ Otimização: Calcular stats usando useMemo para evitar recálculos desnecessários
+  const calculatedStats = useMemo<Stats>(() => {
+    if (rotas.length === 0) {
+      return {
+        total: 0,
+        emAndamento: 0,
+        concluidas: 0,
+        distanciaTotal: 0,
+        incidentesAbertos: stats.incidentesAbertos || 0,
+      };
+    }
+
+    return {
+      total: rotas.length,
+      emAndamento: rotas.filter((r) => r.status === 'em_andamento').length,
+      concluidas: rotas.filter((r) => r.status === 'concluida').length,
+      distanciaTotal: rotas.reduce((sum, r) => sum + r.distancia_total, 0),
+      incidentesAbertos: stats.incidentesAbertos || 0,
+    };
+  }, [rotas, stats.incidentesAbertos]);
 
   // Retornar diretamente sem memoização do objeto
   // A memoização está causando problemas com dependências
   return {
-    stats,
+    stats: calculatedStats,
+    todayStats, // ✅ Stats de hoje (ignora filtros)
     rotas,
     loading,
     refreshing,

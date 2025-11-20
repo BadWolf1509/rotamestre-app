@@ -11,6 +11,7 @@ import {
   ScrollViewProps,
 } from 'react-native';
 
+import { NotificationBell } from '@/components/NotificationBell';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 export interface BreadcrumbItem {
@@ -193,6 +194,7 @@ export function DesktopPageLayout({
 
         {(headerExtra || userMenuTrigger || (actions && actions.length > 0)) && (
           <View style={styles.headerRight}>
+            <NotificationBell variant="desktop" />
             {headerExtra && <View style={styles.headerExtra}>{headerExtra}</View>}
             {userMenuTrigger && userMenuItems?.length ? (
               <View style={styles.headerExtra} ref={userMenuRef}>
@@ -274,6 +276,7 @@ export function DesktopPageLayout({
 
       {/* Content */}
       <ScrollView
+        testID="desktop-page-scroll-view"
         style={[styles.scrollView, scrollStyle]}
         contentContainerStyle={[
           styles.contentContainer,
