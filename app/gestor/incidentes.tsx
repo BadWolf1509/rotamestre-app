@@ -253,7 +253,7 @@ export default function IncidentesScreen() {
       {
         key: 'motorista_nome',
         label: 'Motorista',
-        width: 150,
+        width: 220,
         render: (item) => <Text style={styles.tableText}>{item.motorista_nome}</Text>,
       },
       {
@@ -273,7 +273,7 @@ export default function IncidentesScreen() {
       {
         key: 'endereco',
         label: 'Local',
-        width: 200,
+        width: 280,
         render: (item) => (
           <Text style={styles.tableText} numberOfLines={2}>
             {item.endereco}
@@ -404,9 +404,9 @@ export default function IncidentesScreen() {
     if (incidentes.length === 0) {
       return (
         <MobileEmptyState
-          icon="alert-circle-outline"
+          icon="⚠️"
           title="Nenhum incidente"
-          message="Não há incidentes reportados no momento."
+          subtitle="Não há incidentes reportados no momento."
         />
       );
     }

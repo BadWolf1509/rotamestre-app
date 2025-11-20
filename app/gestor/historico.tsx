@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   Alert,
   Platform,
@@ -17,7 +18,9 @@ import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { MobileCard, MobileEmptyState, MobileLoading } from '@/components/mobile';
 import { Toast } from '@/components/Toast';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import { useDebounce } from '@/hooks/useDebounce';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
+import { useRealtimeRoutes } from '@/hooks/useRealtimeRoutes';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
@@ -66,10 +69,22 @@ export default function HistoricoGestor() {
   const [rotasFiltradas, setRotasFiltradas] = useState<RotaHistorico[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('todas');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // ✅ Otimização: Debounce no search para evitar filtragens excessivas
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // Estado para modal de confirmação
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [rotaToDelete, setRotaToDelete] = useState<RotaHistorico | null>(null);
+
+  // ✅ Realtime: Atualizar quando rotas/paradas mudarem
+  useRealtimeRoutes({
+    enabled: !!userData?.unidade_id,
+    onRouteUpdate: () => {
+      loadHistorico();
+    },
+  });
 
   const loadHistorico = useCallback(async () => {
     if (!userData?.unidade_id) return;
@@ -123,13 +138,27 @@ export default function HistoricoGestor() {
     loadHistorico();
   }, [loadHistorico]);
 
+  // ✅ Otimização: Usar debouncedSearchQuery para evitar filtragens excessivas
   useEffect(() => {
     let resultado = [...rotas];
+
+    // Filtrar por status
     if (filtroStatus !== 'todas') {
       resultado = resultado.filter((rota) => rota.status === filtroStatus);
     }
+
+    // Filtrar por busca de texto (motorista ou data) - usando debounced value
+    if (debouncedSearchQuery.trim()) {
+      const query = debouncedSearchQuery.toLowerCase().trim();
+      resultado = resultado.filter((rota) => {
+        const motoristaNome = rota.motorista?.nome?.toLowerCase() || '';
+        const dataFormatada = formatarData(rota.data).toLowerCase();
+        return motoristaNome.includes(query) || dataFormatada.includes(query);
+      });
+    }
+
     setRotasFiltradas(resultado);
-  }, [rotas, filtroStatus]);
+  }, [rotas, filtroStatus, debouncedSearchQuery]); // ✅ Usar debouncedSearchQuery ao invés de searchQuery
 
   // ============================================
   // DATA LOADING
@@ -514,6 +543,19 @@ export default function HistoricoGestor() {
             icon="filter-outline"
             iconColor={theme.colors.primary}
           >
+            {/* Search Input */}
+            <View style={styles.searchContainer}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Buscar por motorista ou data..."
+                placeholderTextColor={theme.colors.gray400}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+            </View>
+
+            {/* Status Filters */}
+            <Text style={styles.filtrosLabel}>Filtrar por Status:</Text>
             <View style={styles.filtrosButtons}>
               {(['todas', 'pendente', 'em_andamento', 'concluida', 'cancelada'] as FiltroStatus[]).map((status) => (
                 <TouchableOpacity
@@ -656,6 +698,17 @@ export default function HistoricoGestor() {
           title="Filtros"
           subtitle={`${rotasFiltradas.length} rota(s) encontrada(s)`}
         >
+          {/* Search Input */}
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar por motorista ou data..."
+              placeholderTextColor={theme.colors.gray400}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+
           <Text style={styles.filtrosLabel}>Filtrar por Status:</Text>
           <View style={styles.filtrosButtons}>
             {(['todas', 'pendente', 'em_andamento', 'concluida', 'cancelada'] as FiltroStatus[]).map((status) => (
@@ -810,6 +863,19 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   filtrosContainer: {
     marginBottom: theme.spacing['2xl'],
+  },
+  searchContainer: {
+    marginBottom: theme.spacing.lg,
+  },
+  searchInput: {
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: theme.colors.white,
+    borderWidth: 1,
+    borderColor: theme.colors.gray300,
+    fontSize: theme.typography.base,
+    color: theme.colors.gray900,
   },
   filtrosLabel: {
     fontSize: theme.typography.sm,
