@@ -141,7 +141,7 @@ export function NotificationList({ onClose }: NotificationListProps) {
               <Text style={styles.headerButtonText}>Marcar todas como lidas</Text>
             </Pressable>
           )}
-          <Pressable onPress={onClose} style={styles.closeButton}>
+          <Pressable onPress={onClose} style={styles.closeButton} testID="close-button">
             <Ionicons name="close" size={24} color="#64748b" />
           </Pressable>
         </View>

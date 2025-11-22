@@ -7,7 +7,6 @@ import {
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
-  Pressable,
   ScrollViewProps,
 } from 'react-native';
 

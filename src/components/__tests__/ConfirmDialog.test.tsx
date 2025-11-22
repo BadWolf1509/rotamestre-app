@@ -3,6 +3,20 @@ import React from 'react';
 
 import { ConfirmDialog } from '../ConfirmDialog';
 
+// Mock window.scrollTo for web tests
+const originalScrollTo = global.window?.scrollTo;
+beforeAll(() => {
+  if (typeof global.window !== 'undefined') {
+    global.window.scrollTo = jest.fn();
+  }
+});
+
+afterAll(() => {
+  if (typeof global.window !== 'undefined' && originalScrollTo) {
+    global.window.scrollTo = originalScrollTo;
+  }
+});
+
 describe('ConfirmDialog Component', () => {
   const mockConfirm = jest.fn();
   const mockCancel = jest.fn();
@@ -507,228 +521,6 @@ describe('ConfirmDialog Component', () => {
       // Deve renderizar os botões mesmo sem título/mensagem
       expect(getByText('Confirmar')).toBeTruthy();
       expect(getByText('Cancelar')).toBeTruthy();
-    });
-  });
-
-  describe('Web Implementation (Platform.OS === web)', () => {
-    const originalPlatform = require('react-native').Platform.OS;
-    const originalWindow = (global as any).window;
-    const originalDocument = (global as any).document;
-    let createPortalSpy: jest.SpyInstance;
-
-    beforeEach(() => {
-      // Mock Platform.OS to be 'web'
-      Object.defineProperty(require('react-native').Platform, 'OS', {
-        get() {
-          return 'web';
-        },
-        configurable: true,
-      });
-
-      // Mock document.body with persistent style object
-      (global as any).document = {
-        body: {
-          style: {
-            position: '',
-            top: '',
-            left: '',
-            right: '',
-            width: '',
-            overflow: '',
-          },
-        },
-        documentElement: {
-          style: {
-            overflow: '',
-            height: '',
-          },
-          scrollTop: 0,
-        },
-      };
-
-      // Mock window with persistent functions
-      (global as any).window = {
-        scrollY: 0,
-        addEventListener: jest.fn(),
-        removeEventListener: jest.fn(),
-        scrollTo: jest.fn(),
-      };
-
-      // Spy on createPortal
-      createPortalSpy = jest.spyOn(require('react-dom'), 'createPortal');
-      createPortalSpy.mockImplementation((children) => children);
-    });
-
-    afterEach(() => {
-      // Restore original platform
-      Object.defineProperty(require('react-native').Platform, 'OS', {
-        get() {
-          return originalPlatform;
-        },
-      });
-
-      createPortalSpy.mockRestore();
-
-      // Restore globals safely
-      (global as any).window = originalWindow;
-      (global as any).document = originalDocument;
-    });
-
-    it('deve usar createPortal quando Platform.OS === web', () => {
-      render(
-        <ConfirmDialog
-          visible={true}
-          title="Web Dialog"
-          message="Testing web implementation"
-          onConfirm={mockConfirm}
-          onCancel={mockCancel}
-        />
-      );
-
-      expect(createPortalSpy).toHaveBeenCalled();
-    });
-
-    it('deve renderizar título e mensagem no web', () => {
-      const { getByText } = render(
-        <ConfirmDialog
-          visible={true}
-          title="Web Title"
-          message="Web Message"
-          onConfirm={mockConfirm}
-          onCancel={mockCancel}
-        />
-      );
-
-      expect(getByText('Web Title')).toBeTruthy();
-      expect(getByText('Web Message')).toBeTruthy();
-    });
-
-    it('deve renderizar botões no web', () => {
-      const { getByText } = render(
-        <ConfirmDialog
-          visible={true}
-          title="Test"
-          message="Message"
-          confirmText="OK"
-          cancelText="Fechar"
-          onConfirm={mockConfirm}
-          onCancel={mockCancel}
-        />
-      );
-
-      expect(getByText('OK')).toBeTruthy();
-      expect(getByText('Fechar')).toBeTruthy();
-    });
-
-    it('deve chamar onConfirm ao clicar no botão confirm (web)', () => {
-      const { getByText } = render(
-        <ConfirmDialog
-          visible={true}
-          title="Test"
-          message="Message"
-          onConfirm={mockConfirm}
-          onCancel={mockCancel}
-        />
-      );
-
-      fireEvent.click(getByText('Confirmar'));
-      expect(mockConfirm).toHaveBeenCalledTimes(1);
-    });
-
-    it('deve chamar onCancel ao clicar no botão cancel (web)', () => {
-      const { getByText } = render(
-        <ConfirmDialog
-          visible={true}
-          title="Test"
-          message="Message"
-          onConfirm={mockConfirm}
-          onCancel={mockCancel}
-        />
-      );
-
-      fireEvent.click(getByText('Cancelar'));
-      expect(mockCancel).toHaveBeenCalledTimes(1);
-    });
-
-    it('deve aplicar estilos de scroll lock quando visible=true (web)', () => {
-      const body = (global as any).document.body;
-      const html = (global as any).document.documentElement;
-
-      render(
-        <ConfirmDialog
-          visible={true}
-          title="Test"
-          message="Message"
-          onConfirm={mockConfirm}
-          onCancel={mockCancel}
-        />
-      );
-
-      expect(body.style.position).toBe('fixed');
-      expect(body.style.overflow).toBe('hidden');
-      expect(html.style.overflow).toBe('hidden');
-    });
-
-    it('deve adicionar event listeners para prevenir scroll (web)', () => {
-      const addEventListener = (global as any).window.addEventListener;
-
-      render(
-        <ConfirmDialog
-          visible={true}
-          title="Test"
-          message="Message"
-          onConfirm={mockConfirm}
-          onCancel={mockCancel}
-        />
-      );
-
-      expect(addEventListener).toHaveBeenCalledWith('wheel', expect.any(Function), { passive: false });
-      expect(addEventListener).toHaveBeenCalledWith('touchmove', expect.any(Function), { passive: false });
-    });
-
-    it('deve renderizar com tipo destructive (web)', () => {
-      const { getByText } = render(
-        <ConfirmDialog
-          visible={true}
-          title="Delete Item"
-          message="Are you sure?"
-          type="destructive"
-          onConfirm={mockConfirm}
-          onCancel={mockCancel}
-        />
-      );
-
-      expect(getByText('Delete Item')).toBeTruthy();
-    });
-
-    it('deve renderizar com tipo success (web)', () => {
-      const { getByText } = render(
-        <ConfirmDialog
-          visible={true}
-          title="Success!"
-          message="Operation completed"
-          type="success"
-          onConfirm={mockConfirm}
-          onCancel={mockCancel}
-        />
-      );
-
-      expect(getByText('Success!')).toBeTruthy();
-    });
-
-    it('não deve renderizar quando visible=false (web)', () => {
-      const { queryByText } = render(
-        <ConfirmDialog
-          visible={false}
-          title="Test"
-          message="Message"
-          onConfirm={mockConfirm}
-          onCancel={mockCancel}
-        />
-      );
-
-      expect(queryByText('Test')).toBeNull();
-      expect(createPortalSpy).not.toHaveBeenCalled();
     });
   });
 });

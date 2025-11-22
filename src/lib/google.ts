@@ -245,32 +245,79 @@ export const googleMapsService = {
     }
   },
 
-  // Calcular matriz de distâncias
+  // Calcular matriz de distâncias usando Routes API (Compute Route Matrix)
+  // Migrado da Distance Matrix API (deprecated em 01/03/2025)
   async getDistanceMatrix(origins: Coordenadas[], destinations: Coordenadas[]) {
     try {
-      const originsStr = origins.map((o) => `${o.latitude},${o.longitude}`).join('|');
-      const destinationsStr = destinations
-        .map((d) => `${d.latitude},${d.longitude}`)
-        .join('|');
+      // Construir request body para Routes API
+      const requestBody = {
+        origins: origins.map((coord) => ({
+          waypoint: {
+            location: {
+              latLng: {
+                latitude: coord.latitude,
+                longitude: coord.longitude,
+              },
+            },
+          },
+        })),
+        destinations: destinations.map((coord) => ({
+          waypoint: {
+            location: {
+              latLng: {
+                latitude: coord.latitude,
+                longitude: coord.longitude,
+              },
+            },
+          },
+        })),
+        travelMode: 'DRIVE',
+        routingPreference: 'TRAFFIC_AWARE',
+      };
 
       const response = await fetch(
-        `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${originsStr}&destinations=${destinationsStr}&key=${GOOGLE_MAPS_API_KEY}`
+        'https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
+            'X-Goog-FieldMask': 'originIndex,destinationIndex,duration,distanceMeters,status,condition',
+          },
+          body: JSON.stringify(requestBody),
+        }
       );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
       const data = await response.json();
 
-      if (data.status === 'OK') {
-        return data.rows.map((row: any, i: number) => ({
-          origem: origins[i],
-          destinos: row.elements.map((element: any, j: number) => ({
-            destino: destinations[j],
-            distancia: element.distance?.value || 0,
-            tempo: element.duration?.value || 0,
-          })),
-        }));
-      }
+      // Reorganizar resposta em formato de matriz (compatível com código existente)
+      const matrix: any[] = [];
 
-      return null;
+      origins.forEach((origin, i) => {
+        const row = {
+          origem: origin,
+          destinos: destinations.map((destination, j) => {
+            // Encontrar o elemento correspondente na resposta
+            const element = data.find(
+              (item: any) => item.originIndex === i && item.destinationIndex === j
+            );
+
+            return {
+              destino: destination,
+              distancia: element?.distanceMeters || 0, // Já vem em metros
+              tempo: element?.duration ? parseInt(element.duration.replace('s', '')) : 0, // Converter "160s" para 160
+            };
+          }),
+        };
+
+        matrix.push(row);
+      });
+
+      return matrix;
     } catch (error) {
       console.error('Erro na matriz de distâncias:', error);
       return null;

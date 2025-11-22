@@ -55,6 +55,7 @@ module.exports = [
         ...globals.es2021,
         ...globals.node,
         __DEV__: 'readonly',
+        NodeJS: 'readonly',
       },
     },
     plugins: sharedPlugins,
@@ -125,6 +126,7 @@ module.exports = [
       'jest.config.js',
       'app.config.js',
       'eas.json',
+      'jest.setup.js',
     ],
     languageOptions: {
       parser: typescriptParser,
@@ -163,7 +165,7 @@ module.exports = [
     },
   },
   {
-    files: ['__mocks__/**/*.{ts,tsx,js,jsx}'],
+    files: ['__mocks__/**/*.{ts,tsx,js,jsx}', 'jest.mocks/**/*.{js,ts}'],
     languageOptions: {
       globals: {
         ...globals.jest,

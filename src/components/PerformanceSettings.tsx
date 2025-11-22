@@ -139,7 +139,7 @@ export function PerformanceSettings({ visible, onClose }: PerformanceSettingsPro
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Configurações de Performance</Text>
-        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+        <TouchableOpacity onPress={onClose} style={styles.closeButton} testID="close-button">
           <Ionicons name="close" size={24} color={theme.colors.text} />
         </TouchableOpacity>
       </View>

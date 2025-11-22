@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { ImageBackground, Platform } from 'react-native';
 
-import { StyleSheet, Theme, useUnistyles } from '@/utils/styles';
+import { StyleSheet } from '@/utils/styles';
 
 // Static import for the background image
 // Use public path for web in production (Vercel), local path for development
@@ -11,9 +11,8 @@ const loginBackgroundImage = Platform.OS === 'web' && process.env.NODE_ENV === '
 
 export type AuthBrandPanelProps = Record<string, never>;
 
-export function AuthBrandPanel({}: AuthBrandPanelProps) {
-  const { theme } = useUnistyles();
-  const styles = useMemo(() => createStyles(theme), [theme]);
+export function AuthBrandPanel(_props: AuthBrandPanelProps) {
+  const styles = useMemo(() => createStyles(), []);
 
   return (
     <ImageBackground
@@ -26,7 +25,7 @@ export function AuthBrandPanel({}: AuthBrandPanelProps) {
   );
 }
 
-const createStyles = (theme: Theme) =>
+const createStyles = () =>
   StyleSheet.create({
     container: {
       flex: 1,

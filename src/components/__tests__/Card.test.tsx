@@ -1,7 +1,9 @@
-import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import { Card } from '../Card';
+import React from 'react';
 import { Text } from 'react-native';
+
+import { Card } from '../Card';
+
 
 describe('Card', () => {
   it('deve renderizar children corretamente', () => {

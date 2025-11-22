@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
@@ -24,61 +24,7 @@ export function RouteTimeline({ rotaId, realtime = true }: RouteTimelineProps) {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadTimeline();
-  }, [rotaId]);
-
-  useEffect(() => {
-    if (!realtime) return;
-
-    // Subscrever atualizações de logs
-    const channel = supabase
-      .channel(`route-timeline-${rotaId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'logs',
-          filter: `rota_id=eq.${rotaId}`,
-        },
-        () => {
-          // Recarregar timeline quando novo log for criado
-          loadTimeline();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'paradas',
-          filter: `rota_id=eq.${rotaId}`,
-        },
-        () => {
-          loadTimeline();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'incidentes',
-          filter: `rota_id=eq.${rotaId}`,
-        },
-        () => {
-          loadTimeline();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [rotaId, realtime]);
-
-  const loadTimeline = async () => {
+  const loadTimeline = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -208,7 +154,61 @@ export function RouteTimeline({ rotaId, realtime = true }: RouteTimelineProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [rotaId]);
+
+  useEffect(() => {
+    loadTimeline();
+  }, [loadTimeline]);
+
+  useEffect(() => {
+    if (!realtime) return;
+
+    // Subscrever atualizações de logs
+    const channel = supabase
+      .channel(`route-timeline-${rotaId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'logs',
+          filter: `rota_id=eq.${rotaId}`,
+        },
+        () => {
+          // Recarregar timeline quando novo log for criado
+          loadTimeline();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'paradas',
+          filter: `rota_id=eq.${rotaId}`,
+        },
+        () => {
+          loadTimeline();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'incidentes',
+          filter: `rota_id=eq.${rotaId}`,
+        },
+        () => {
+          loadTimeline();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [rotaId, realtime, loadTimeline]);
 
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);

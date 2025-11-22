@@ -4,9 +4,9 @@
  * Script para gerar relatório de cobertura e identificar prioridades
  */
 
+const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
 
 console.log('📊 Gerando relatório de cobertura...\n');
 
@@ -16,7 +16,7 @@ try {
     stdio: 'inherit',
     cwd: path.join(__dirname, '..')
   });
-} catch (error) {
+} catch {
   console.log('\n⚠️  Alguns testes falharam, mas continuando com o relatório...\n');
 }
 
@@ -45,7 +45,7 @@ const files = Object.entries(coverage)
 
 // Classificar arquivos
 const noCoverage = files.filter(f => f.avg === 0);
-const lowCoverage = files.filter(f => f.avg > 0 && f.avg < 30);
+const _lowCoverage = files.filter(f => f.avg > 0 && f.avg < 30);
 const mediumCoverage = files.filter(f => f.avg >= 30 && f.avg < 70);
 const goodCoverage = files.filter(f => f.avg >= 70);
 

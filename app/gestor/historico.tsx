@@ -138,6 +138,11 @@ export default function HistoricoGestor() {
     loadHistorico();
   }, [loadHistorico]);
 
+  const formatarData = useCallback((dataStr: string): string => {
+    const data = parseLocalDate(dataStr);
+    return data ? data.toLocaleDateString('pt-BR') : '-';
+  }, []);
+
   // ✅ Otimização: Usar debouncedSearchQuery para evitar filtragens excessivas
   useEffect(() => {
     let resultado = [...rotas];
@@ -158,7 +163,7 @@ export default function HistoricoGestor() {
     }
 
     setRotasFiltradas(resultado);
-  }, [rotas, filtroStatus, debouncedSearchQuery]); // ✅ Usar debouncedSearchQuery ao invés de searchQuery
+  }, [rotas, filtroStatus, debouncedSearchQuery, formatarData]); // ✅ Usar debouncedSearchQuery ao invés de searchQuery
 
   // ============================================
   // DATA LOADING
@@ -360,12 +365,7 @@ export default function HistoricoGestor() {
     return new Date(year, month - 1, day);
   }
 
-  function formatarData(dataStr: string): string {
-    const data = parseLocalDate(dataStr);
-    return data ? data.toLocaleDateString('pt-BR') : '-';
-  }
-
-  // ============================================
+    // ============================================
   // DATA TABLE CONFIG
   // ============================================
 

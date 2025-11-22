@@ -12,7 +12,7 @@ interface RouteControlPanelProps {
 }
 
 export function RouteControlPanel({
-  rotaId,
+  rotaId: _rotaId,
   status,
   onReatribuir,
   onCancelar,
@@ -21,8 +21,8 @@ export function RouteControlPanel({
 }: RouteControlPanelProps) {
   const isPendente = status === 'pendente';
   const isEmAndamento = status === 'em_andamento';
-  const isConcluida = status === 'concluida';
-  const isCancelada = status === 'cancelada';
+  const _isConcluida = status === 'concluida';
+  const _isCancelada = status === 'cancelada';
 
   const actions = [
     {

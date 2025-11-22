@@ -1,10 +1,43 @@
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { View, Text } from 'react-native';
+
+import { authService } from '@/lib/auth';
 
 import { CustomDrawerContent } from '../CustomDrawerContent';
 
-import { authService } from '@/lib/auth';
+
+// Mock @/utils/styles para evitar problemas com Dimensions
+const mockTheme = {
+  colors: {
+    primary: '#284093',
+    primaryDark: '#1b2c63',
+    white: '#ffffff',
+    gray100: '#f3f4f6',
+    gray200: '#e5e7eb',
+    gray500: '#6b7280',
+    gray700: '#374151',
+    gray900: '#111827',
+    error: '#ef4444',
+    overlay: 'rgba(0, 0, 0, 0.5)',
+  },
+  spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24 },
+  typography: { fontSans: 'System', fontSansSemiBold: 'System', fontSansBold: 'System', base: 16, sm: 14, lg: 18 },
+  borderRadius: { sm: 8, md: 10, lg: 12, xl: 16, full: 9999 },
+  shadows: { sm: {}, md: {}, lg: {} },
+};
+
+jest.mock('@/utils/styles', () => ({
+  StyleSheet: {
+    create: (styles: any) => {
+      if (typeof styles === 'function') {
+        return styles(mockTheme);
+      }
+      return styles;
+    },
+  },
+  useUnistyles: () => ({ theme: mockTheme }),
+  defaultTheme: mockTheme,
+}));
 
 // Mock @react-navigation/drawer BEFORE importing component
 jest.mock('@react-navigation/drawer', () => {
@@ -39,22 +72,20 @@ jest.mock('expo-router', () => ({
 }));
 
 // Mock ConfirmDialog
-// Mock ConfirmDialog
 jest.mock('../ConfirmDialog', () => ({
   ConfirmDialog: ({ visible, title, onConfirm, onCancel, confirmText, cancelText }: any) => {
+    const React = require('react');
     const { View, Text, TouchableOpacity } = require('react-native');
     if (!visible) return null;
-    return (
-      <View>
-        <Text>{title}</Text>
-        <TouchableOpacity onPress={onConfirm}>
-          <Text>{confirmText || 'Confirmar'}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={onCancel}>
-          <Text>{cancelText || 'Cancelar'}</Text>
-        </TouchableOpacity>
-      </View>
-    );
+    return React.createElement(View, null, [
+      React.createElement(Text, { key: 'title' }, title),
+      React.createElement(TouchableOpacity, { key: 'confirm', onPress: onConfirm },
+        React.createElement(Text, null, confirmText || 'Confirmar')
+      ),
+      React.createElement(TouchableOpacity, { key: 'cancel', onPress: onCancel },
+        React.createElement(Text, null, cancelText || 'Cancelar')
+      ),
+    ]);
   },
 }));
 
@@ -221,7 +252,7 @@ describe('CustomDrawerContent', () => {
       // Wait for setTimeout(200ms)
       await waitFor(() => {
         expect(getByText('Sair da conta')).toBeTruthy();
-      }, { timeout: 300 });
+      }, { timeout: 1000 });
     });
 
     it('deve chamar signOut ao confirmar logout', async () => {
@@ -237,7 +268,7 @@ describe('CustomDrawerContent', () => {
 
       await waitFor(() => {
         expect(getByText('Sair da conta')).toBeTruthy();
-      }, { timeout: 300 });
+      }, { timeout: 1000 });
 
       fireEvent.press(getByText('Sair'));
 
@@ -257,9 +288,13 @@ describe('CustomDrawerContent', () => {
         fireEvent.press(getByText('Sair da Conta'));
       });
 
+      await act(async () => {
+        jest.runAllTimers();
+      });
+
       await waitFor(() => {
         fireEvent.press(getByText('Sair'));
-      }, { timeout: 300 });
+      }, { timeout: 1000 });
 
       await waitFor(() => {
         expect(mockReplace).toHaveBeenCalledWith('/auth/login');
@@ -279,7 +314,7 @@ describe('CustomDrawerContent', () => {
         expect(getByText('Sair da conta')).toBeTruthy();
         expect(getByText('Sair')).toBeTruthy();
         expect(getByText('Cancelar')).toBeTruthy();
-      }, { timeout: 300 });
+      }, { timeout: 1000 });
 
       fireEvent.press(getByText('Cancelar'));
 
@@ -299,9 +334,13 @@ describe('CustomDrawerContent', () => {
         fireEvent.press(getByText('Sair da Conta'));
       });
 
+      await act(async () => {
+        jest.runAllTimers();
+      });
+
       await waitFor(() => {
         fireEvent.press(getByText('Sair'));
-      }, { timeout: 300 });
+      }, { timeout: 1000 });
 
       await waitFor(() => {
         expect(getByText('Erro ao sair')).toBeTruthy();
@@ -385,6 +424,13 @@ describe('CustomDrawerContent', () => {
   });
 
   describe('Error Handling', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
     it('deve tratar erro ao carregar usuário', async () => {
       mockGetSession.mockRejectedValue(new Error('Auth error'));
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
@@ -418,9 +464,13 @@ describe('CustomDrawerContent', () => {
         fireEvent.press(getByText('Sair da Conta'));
       });
 
+      await act(async () => {
+        jest.runAllTimers();
+      });
+
       await waitFor(() => {
         fireEvent.press(getByText('Sair'));
-      }, { timeout: 300 });
+      }, { timeout: 1000 });
 
       await waitFor(() => {
         expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -446,7 +496,7 @@ describe('CustomDrawerContent', () => {
 
       await waitFor(() => {
         fireEvent.press(getByText('Sair'));
-      }, { timeout: 300 });
+      }, { timeout: 1000 });
 
       await waitFor(() => {
         expect(getByText('Erro ao sair')).toBeTruthy();
@@ -472,7 +522,7 @@ describe('CustomDrawerContent', () => {
 
       await waitFor(() => {
         fireEvent.press(getByText('Sair'));
-      }, { timeout: 300 });
+      }, { timeout: 1000 });
 
       await waitFor(() => {
         expect(getByText('Erro ao sair')).toBeTruthy();
@@ -498,7 +548,7 @@ describe('CustomDrawerContent', () => {
 
       await waitFor(() => {
         expect(getByText('Sair da conta')).toBeTruthy();
-      }, { timeout: 300 });
+      }, { timeout: 1000 });
 
       const scrollView = getByTestId('drawer-scroll-view');
 

@@ -17,7 +17,6 @@ import { DesktopModal } from '@/components/desktop/DesktopModal';
 import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { SplitView } from '@/components/desktop/SplitView';
 import { MapaAdapter } from '@/components/MapaAdapter';
-import { MotoristaMarker } from '@/components/MotoristaMarker';
 import { RouteTimeline } from '@/components/RouteTimeline';
 import { Toast } from '@/components/Toast';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
@@ -85,7 +84,7 @@ interface ParadaCardProps {
 }
 
 const ParadaCard = React.memo<ParadaCardProps>(
-  ({ parada, index, onImagePress, theme }) => {
+  ({ parada, index, onImagePress }) => {
     return (
       <View style={styles.paradaCard}>
         <View style={styles.paradaHeader}>
@@ -302,7 +301,7 @@ export default function MapaRota() {
 
       setRota({
         ...rotaData,
-        motorista: rotaData.usuarios,
+        motorista: Array.isArray(rotaData.usuarios) ? rotaData.usuarios[0] : rotaData.usuarios,
       });
 
       // Buscar paradas da rota
@@ -554,9 +553,7 @@ export default function MapaRota() {
             index={index}
             onImagePress={(url) => {
               setFotoSelecionada(url);
-              setFotoModalVisible(true);
             }}
-            theme={theme}
           />
         ))
       )}
@@ -739,7 +736,7 @@ export default function MapaRota() {
           visible={fotoModalVisible}
           onClose={() => setFotoModalVisible(false)}
           title="Foto da Entrega"
-          size="lg"
+          maxWidth={800}
         >
           {fotoSelecionada && (
             <View style={{ padding: 20, alignItems: 'center' }}>

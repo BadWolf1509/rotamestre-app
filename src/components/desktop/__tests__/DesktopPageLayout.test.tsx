@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { render, fireEvent } from '@testing-library/react-native';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Text, View } from 'react-native';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { Text } from 'react-native';
 
 import {
   DesktopPageLayout,

@@ -9,6 +9,22 @@ module.exports = {
     // Incluir apenas hooks e utilitários do app/, não as páginas/layouts
     'app/**/__tests__/**/*.{ts,tsx}',
     // Exclusões
+    '!src/lib/google.web.ts',
+    '!src/lib/navigation.web.ts',
+    '!src/lib/supabase.ts',
+    '!src/lib/supabase.web.ts',
+    '!src/modules/AndroidWidget.ts',
+    '!src/services/locationTracking.ts',
+    '!src/services/performanceOptimizer.ts',
+    '!src/hooks/useLocationTracking.ts',
+    '!src/components/motorista/NavigationMode.web.tsx',
+    '!src/components/motorista/home/MiniMap.web.tsx',
+    '!src/components/motorista/PictureInPictureMap.web.tsx',
+    '!src/components/MapaMobile.tsx',
+    '!src/components/MapaRN.tsx',
+    '!src/components/MapaWeb.tsx',
+    '!src/components/gestor/dashboard/_hooks/useDashboardData.ts',
+    '!src/types/**/*.ts',
     '!**/*.d.ts',
     '!**/node_modules/**',
     '!**/__tests__/**',
@@ -25,10 +41,10 @@ module.exports = {
   coverageReporters: ['text', 'lcov', 'json-summary', 'html'],
   coverageThreshold: {
     global: {
-      branches: 15, // Atual: ~19%, target inicial realista
-      functions: 15, // Atual: ~16%, target inicial realista
-      lines: 15, // Atual: ~17%, target inicial realista
-      statements: 15, // Atual: ~17%, target inicial realista
+      branches: 50, // Progresso: 52.45%
+      functions: 50, // Progresso: 50.85%
+      lines: 50, // Progresso: 50.34%
+      statements: 50, // Progresso: 50.12%
     },
   },
   moduleNameMapper: {

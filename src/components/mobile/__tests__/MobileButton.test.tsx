@@ -1,7 +1,6 @@
-import React from 'react';
-import { Text } from 'react-native';
-import { render, fireEvent } from '@testing-library/react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { render, fireEvent } from '@testing-library/react-native';
+import React from 'react';
 
 import { MobileButton } from '../MobileButton';
 

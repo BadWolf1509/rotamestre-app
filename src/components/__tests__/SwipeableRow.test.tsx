@@ -1,6 +1,5 @@
-import React from 'react';
-import { Text, View } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
+import { Text, View } from 'react-native';
 
 import { SwipeableRow } from '../SwipeableRow';
 
@@ -10,7 +9,7 @@ jest.mock('react-native-gesture-handler', () => {
   const { View } = require('react-native');
 
   return {
-    Swipeable: React.forwardRef(({ children, renderLeftActions, renderRightActions, onSwipeableOpen }: any, ref: any) => {
+    Swipeable: React.forwardRef(({ children, renderLeftActions, renderRightActions, _onSwipeableOpen }: any, ref: any) => {
       // Simular animação progress
       const mockProgress = {
         interpolate: jest.fn(() => ({ _value: 0 })),

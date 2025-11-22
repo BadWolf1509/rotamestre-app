@@ -1,6 +1,6 @@
+import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
 import { Text, View } from 'react-native';
-import { render, fireEvent } from '@testing-library/react-native';
 
 import { DesktopModal } from '../DesktopModal';
 
@@ -138,7 +138,7 @@ describe('DesktopModal', () => {
       );
 
       // Importar Pressable do React Native
-      const { Pressable } = require('react-native');
+      const { _Pressable } = require('react-native');
 
       // Criar uma instância de Pressable mockada para testar o callback
       const mockEvent = { stopPropagation: jest.fn() };

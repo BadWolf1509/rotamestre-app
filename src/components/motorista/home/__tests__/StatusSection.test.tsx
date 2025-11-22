@@ -1,5 +1,5 @@
-import React from 'react';
 import { render } from '@testing-library/react-native';
+import React from 'react';
 
 import { StatusSection } from '../StatusSection';
 
@@ -66,7 +66,7 @@ describe('StatusSection', () => {
     });
 
     it('não deve renderizar unitName quando undefined', () => {
-      const { getByText, queryByText } = render(<StatusSection userName="João" />);
+      const { getByText } = render(<StatusSection userName="João" />);
 
       expect(getByText('Olá, João!')).toBeTruthy();
       // Verificar que não há segundo Text com nome de unidade
@@ -77,7 +77,7 @@ describe('StatusSection', () => {
     });
 
     it('não deve renderizar unitName quando null', () => {
-      const { getByText, queryByText } = render(
+      const { getByText } = render(
         <StatusSection userName="João" unitName={undefined} />
       );
 
@@ -85,7 +85,7 @@ describe('StatusSection', () => {
     });
 
     it('não deve renderizar unitName quando string vazia', () => {
-      const { getByText, queryByText } = render(
+      const { getByText } = render(
         <StatusSection userName="João" unitName="" />
       );
 
@@ -99,45 +99,35 @@ describe('StatusSection', () => {
       expect(texts.length).toBe(1);
     });
 
-    it('deve renderizar unitName longo', () => {
-      const { getByText } = render(
-        <StatusSection
-          userName="João"
-          unitName="WJX Locações e Equipamentos Ltda - Filial São Paulo"
-        />
-      );
-
-      expect(getByText('WJX Locações e Equipamentos Ltda - Filial São Paulo')).toBeTruthy();
-    });
   });
 
-  describe('Combinações de Props', () => {
-    it('deve renderizar userName customizado + unitName', () => {
-      const { getByText } = render(
-        <StatusSection userName="João Silva" unitName="WJX Locações" />
-      );
+  it('deve renderizar status online corretamente', () => {
+    const { getByText } = render(
+      <StatusSection
+        unitName="WJX Locações e Equipamentos Ltda - Filial São Paulo"
+      />
+    );
 
-      expect(getByText('Olá, João Silva!')).toBeTruthy();
-      expect(getByText('WJX Locações')).toBeTruthy();
-    });
-
-    it('deve renderizar apenas userName quando unitName ausente', () => {
-      const { getByText, queryByText } = render(
-        <StatusSection userName="Maria Santos" />
-      );
-
-      expect(getByText('Olá, Maria Santos!')).toBeTruthy();
-    });
-
-    it('deve renderizar userName padrão + unitName', () => {
-      const { getByText } = render(
-        <StatusSection unitName="ABC Equipamentos" />
-      );
-
-      expect(getByText('Olá, Motorista!')).toBeTruthy();
-      expect(getByText('ABC Equipamentos')).toBeTruthy();
-    });
+    expect(getByText('WJX Locações e Equipamentos Ltda - Filial São Paulo')).toBeTruthy();
   });
+
+  it('deve renderizar apenas userName quando unitName ausente', () => {
+    const { getByText } = render(
+      <StatusSection userName="Maria Santos" />
+    );
+
+    expect(getByText('Olá, Maria Santos!')).toBeTruthy();
+  });
+
+  it('deve renderizar userName padrão + unitName', () => {
+    const { getByText } = render(
+      <StatusSection unitName="ABC Equipamentos" />
+    );
+
+    expect(getByText('Olá, Motorista!')).toBeTruthy();
+    expect(getByText('ABC Equipamentos')).toBeTruthy();
+  });
+
 
   describe('Estrutura do Componente', () => {
     it('deve renderizar dois Views aninhados', () => {

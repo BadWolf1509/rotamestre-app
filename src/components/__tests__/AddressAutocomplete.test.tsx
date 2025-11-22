@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
-import { AddressAutocomplete } from '../AddressAutocomplete';
+import React, { useState } from 'react';
+
 import { googleMapsService } from '@/lib/google';
-import { Keyboard } from 'react-native';
+
+import { AddressAutocomplete } from '../AddressAutocomplete';
+
+
 
 // Mock do googleMapsService
 jest.mock('@/lib/google', () => ({
@@ -140,6 +143,7 @@ describe('AddressAutocomplete', () => {
    * Conclusão: Limitação do react-test-renderer com TouchableOpacity em FlatList.
    * Solução futura: Extrair lógica em hook customizado (useAddressSearch) testá vel independentemente.
    */
+  // eslint-disable-next-line jest/no-disabled-tests
   it.skip('deve selecionar um endereço e esconder sugestões', async () => {
     const mockSuggestions = [
       {

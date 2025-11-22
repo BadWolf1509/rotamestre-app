@@ -1,6 +1,6 @@
+
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
-import type { RouteFilters } from '@/components/RouteFilters';
 import { useRealtimeRoutes } from '@/hooks/useRealtimeRoutes';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
@@ -39,7 +39,7 @@ export interface DashboardData {
 }
 
 export interface UseDashboardDataOptions {
-  filters?: RouteFilters;
+  filters?: any;
 }
 
 /**
@@ -69,7 +69,7 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
   const mountedRef = useRef(true);
 
   // ✅ Realtime: Escutar mudanças em rotas e paradas
-  const { updateTrigger } = useRealtimeRoutes({
+  const { updateTrigger: _updateTrigger } = useRealtimeRoutes({
     enabled: !!unidadeId,
     onRouteUpdate: () => {
       // Quando houver atualização via realtime, recarregar dados
@@ -125,13 +125,13 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
         let query = supabase
           .from('rotas')
           .select(`
-            id,
-            data,
-            status,
-            distancia_total,
-            motorista_id,
-            usuarios!motorista_id (nome)
-          `)
+id,
+  data,
+  status,
+  distancia_total,
+  motorista_id,
+  usuarios!motorista_id(nome)
+    `)
           .eq('unidade_id', unidadeId);
 
         // Aplicar filtros de data
@@ -295,13 +295,13 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
       let query = supabase
         .from('rotas')
         .select(`
-          id,
-          data,
-          status,
-          distancia_total,
-          motorista_id,
-          usuarios!motorista_id (nome)
-        `)
+id,
+  data,
+  status,
+  distancia_total,
+  motorista_id,
+  usuarios!motorista_id(nome)
+    `)
         .eq('unidade_id', unidadeId);
 
       // Aplicar filtros de data

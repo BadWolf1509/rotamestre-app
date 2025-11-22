@@ -1,5 +1,6 @@
-import { validatePasswordStrength, isPasswordValid } from '../passwordValidation';
 import { defaultTheme } from '@/utils/styles';
+
+import { validatePasswordStrength, isPasswordValid } from '../passwordValidation';
 
 describe('passwordValidation', () => {
   describe('validatePasswordStrength', () => {

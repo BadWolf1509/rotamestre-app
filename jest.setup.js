@@ -1,14 +1,30 @@
 /* global jest */
 // Setup para Jest
+
 import '@testing-library/jest-native/extend-expect';
 
 global.fetch = jest.fn();
 
+// Aumentar timeout global para evitar falhas intermitentes em integra��o
+jest.setTimeout(20000);
+
+// Modulariza mocks principais de React Native / window
+require('./jest.mocks/reactNative').setupReactNativeMocks();
+// Modulariza mocks de Expo
+require('./jest.mocks/expo').setupExpoMocks();
+// Modulariza mocks de Supabase
+require('./jest.mocks/supabase').setupSupabaseMocks();
+
+// Mock window event listeners para web (usado por ConfirmDialog etc)
+// (mantido por compatibilidade, mas agora configurado em jest.mocks/reactNative)
+
 // Mock do console para testes mais limpos
 global.console = {
   ...console,
+  log: jest.fn(),
   error: jest.fn(),
   warn: jest.fn(),
+
 };
 
 // Mock NativeEventEmitter (requerido pelo Unistyles)
@@ -34,24 +50,29 @@ jest.mock('react-native/Libraries/Alert/Alert', () => ({
   default: {
     alert: mockAlertFn,
   },
+  alert: mockAlertFn,
 }));
 
-// Mock Expo modules
-jest.mock('expo-font', () => ({
-  loadAsync: jest.fn(),
-  isLoaded: jest.fn(() => true),
+jest.mock('react-native/Libraries/Components/Keyboard/Keyboard', () => ({
+  addListener: jest.fn(() => ({ remove: jest.fn() })),
+  removeListener: jest.fn(),
+  isVisible: jest.fn(() => false),
+  dismiss: jest.fn(),
 }));
 
-jest.mock('expo-asset', () => ({
-  Asset: {
-    loadAsync: jest.fn(),
-  },
-}));
+// Garantir que Alert/Keyboard existam mesmo em ambiente de teste
+const ReactNative = require('react-native');
+if (!ReactNative.Alert || typeof ReactNative.Alert.alert !== 'function') {
+  ReactNative.Alert = { alert: mockAlertFn };
+}
 
-jest.mock('expo-splash-screen', () => ({
-  preventAutoHideAsync: jest.fn(),
-  hideAsync: jest.fn(),
-}));
+const keyboardListener = { remove: jest.fn() };
+ReactNative.Keyboard = {
+  addListener: jest.fn(() => keyboardListener),
+  removeListener: jest.fn(),
+  dismiss: jest.fn(),
+  ...(ReactNative.Keyboard || {}),
+};
 
 // Mock react-native-unistyles
 const mockTheme = {
@@ -235,18 +256,18 @@ const createMockQueryBuilder = () => {
 
 const mockSupabaseClient = {
   auth: {
-    signInWithPassword: jest.fn(),
-    signUp: jest.fn(),
-    signOut: jest.fn(),
-    resetPasswordForEmail: jest.fn(),
-    updateUser: jest.fn(),
-    getSession: jest.fn(),
-    getUser: jest.fn(),
+    signInWithPassword: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
+    signUp: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
+    signOut: jest.fn().mockResolvedValue({ error: null }),
+    resetPasswordForEmail: jest.fn().mockResolvedValue({ data: {}, error: null }),
+    updateUser: jest.fn().mockResolvedValue({ data: {}, error: null }),
+    getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
+    getUser: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
     onAuthStateChange: jest.fn(() => ({
       data: { subscription: { unsubscribe: jest.fn() } },
     })),
   },
-  from: jest.fn((table) => createMockQueryBuilder()),
+  from: jest.fn((_table) => createMockQueryBuilder()),
   channel: jest.fn(() => ({
     on: jest.fn().mockReturnThis(),
     subscribe: jest.fn().mockReturnValue({
@@ -303,15 +324,6 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   multiGet: jest.fn(() => Promise.resolve([])),
   multiSet: jest.fn(() => Promise.resolve(null)),
   multiRemove: jest.fn(() => Promise.resolve(null)),
-}));
-
-// Mock Linking
-jest.mock('react-native/Libraries/Linking/Linking', () => ({
-  openURL: jest.fn(() => Promise.resolve(true)),
-  canOpenURL: jest.fn(() => Promise.resolve(true)),
-  openSettings: jest.fn(() => Promise.resolve()),
-  getInitialURL: jest.fn(() => Promise.resolve(null)),
-  addEventListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
 
 // Mock expo-speech

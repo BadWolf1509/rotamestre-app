@@ -1,5 +1,6 @@
-import TurnByTurnNavigationService from '../turnByTurnNavigation';
 import * as Speech from 'expo-speech';
+
+import TurnByTurnNavigationService from '../turnByTurnNavigation';
 
 // Mocks já configurados em jest.setup.js:
 // - fetch

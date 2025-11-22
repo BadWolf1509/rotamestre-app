@@ -2,9 +2,10 @@ import { act, render, renderHook } from '@testing-library/react-native';
 import { useRouter } from 'expo-router';
 import React from 'react';
 
+import { authService } from '@/lib/auth';
+
 import { useLogoutConfirmation } from '../useLogoutConfirmation';
 
-import { authService } from '@/lib/auth';
 
 // Mock dependencies
 jest.mock('expo-router', () => ({
@@ -193,7 +194,7 @@ describe('useLogoutConfirmation', () => {
       await act(async () => {
         await onConfirm();
       });
-    } catch (err) {
+    } catch {
       // Expected to fail
     }
 
@@ -213,7 +214,7 @@ describe('useLogoutConfirmation', () => {
       await act(async () => {
         await onConfirm();
       });
-    } catch (err) {
+    } catch {
       // Expected to fail
     }
 
@@ -251,7 +252,7 @@ describe('useLogoutConfirmation', () => {
 
     expect(result.current.showLogoutModal).toBeInstanceOf(Function);
 
-    rerender();
+    rerender(undefined);
 
     expect(result.current.showLogoutModal).toBeInstanceOf(Function);
   });

@@ -1,6 +1,6 @@
+import { render } from '@testing-library/react-native';
 import React from 'react';
 import { Text, View } from 'react-native';
-import { render } from '@testing-library/react-native';
 
 import { MobileHeader } from '../MobileHeader';
 
@@ -62,7 +62,7 @@ describe('MobileHeader Component', () => {
     });
 
     it('não deve renderizar subtitle quando não fornecido', () => {
-      const { queryByText, UNSAFE_getAllByType } = render(
+      const { UNSAFE_getAllByType } = render(
         <MobileHeader title="Dashboard" />
       );
 

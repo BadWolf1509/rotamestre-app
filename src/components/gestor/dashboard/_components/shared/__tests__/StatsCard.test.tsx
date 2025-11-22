@@ -1,6 +1,6 @@
-import React from 'react';
-import { render } from '@testing-library/react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { render } from '@testing-library/react-native';
+import React from 'react';
 
 import { StatsCard } from '../StatsCard';
 

@@ -91,7 +91,13 @@ export function RotasTable({ rotas, onViewDetails, onDelete }: RotasTableProps) 
 
   return (
     <View style={styles.tableContainer}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator
+        persistentScrollbar
+        style={styles.horizontalScroll}
+        contentContainerStyle={styles.scrollContent}
+      >
         <View style={styles.table}>
           {/* Header */}
           <View style={styles.tableHeader}>
@@ -240,7 +246,17 @@ const styles = StyleSheet.create(theme => ({
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
     borderColor: theme.colors.gray200,
-    overflow: 'hidden',
+    overflow: Platform.OS === 'web' ? 'visible' : 'hidden',
+  },
+  horizontalScroll: {
+    ...(Platform.OS === 'web' && {
+      overflowX: 'auto',
+      overscrollBehaviorX: 'contain',
+      scrollbarWidth: 'thin',
+    }),
+  },
+  scrollContent: {
+    minWidth: 1120, // soma das larguras das colunas, garante overflow e barra horizontal
   },
   table: {
     minWidth: '100%',

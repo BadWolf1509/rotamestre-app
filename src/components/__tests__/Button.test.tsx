@@ -1,7 +1,9 @@
-import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import { Button } from '../Button';
+import React from 'react';
 import { ActivityIndicator } from 'react-native';
+
+import { Button } from '../Button';
+
 
 describe('Button', () => {
   it('deve renderizar título corretamente', () => {
@@ -32,16 +34,12 @@ describe('Button', () => {
 
   it('não deve chamar onPress quando loading', () => {
     const onPress = jest.fn();
-    const { getByRole } = render(<Button title="Loading" onPress={onPress} loading />);
+    const { UNSAFE_getByType } = render(<Button title="Loading" onPress={onPress} loading />);
 
-    // Em loading, o TouchableOpacity pode estar desabilitado ou o conteúdo mudou.
-    // O componente Button define disabled={isDisabled} onde isDisabled = disabled || loading
-    // Vamos tentar achar o botão e clicar
-    // Como o texto some no loading, pegamos pelo componente pai ou testamos a prop disabled
+    const { TouchableOpacity } = require('react-native');
+    const touchable = UNSAFE_getByType(TouchableOpacity);
 
-    // Abordagem alternativa: verificar se o touchable está disabled
-    // Mas fireEvent.press em elemento disabled geralmente não dispara evento no handler mockado pelo RNTL? 
-    // Vamos confiar na prop disabled do componente.
+    expect(touchable.props.disabled).toBe(true);
   });
 
   it('deve renderizar ícone se fornecido', () => {

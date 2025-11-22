@@ -373,7 +373,7 @@ describe('DrawerMenu Component', () => {
 
       supabase.auth.signOut.mockRejectedValueOnce(new Error('Erro de rede'));
 
-      const { getByText, getAllByText, queryByText } = render(
+      const { getByText, getAllByText, queryByText: _queryByText } = render(
         <DrawerMenu visible={true} onClose={mockOnClose} />
       );
 
@@ -401,7 +401,7 @@ describe('DrawerMenu Component', () => {
     it('deve cancelar dialog de logout', async () => {
       const { supabase } = require('@/lib/supabase');
 
-      const { getByText, getAllByText } = render(
+      const { getByText } = render(
         <DrawerMenu visible={true} onClose={mockOnClose} />
       );
 

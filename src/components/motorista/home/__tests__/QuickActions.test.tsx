@@ -1,9 +1,10 @@
-import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { render, fireEvent } from '@testing-library/react-native';
+import React from 'react';
+
+import { RouteStatus } from '@/context/RouteStatusContext';
 
 import { QuickActions, FloatingActionButton } from '../QuickActions';
-import { RouteStatus } from '@/context/RouteStatusContext';
 
 describe('QuickActions', () => {
   const mockOnViewAllStops = jest.fn();

@@ -7,7 +7,7 @@ import Login from '../../../auth/login';
 
 // Mock do Alert está configurado globalmente no jest.setup.js
 // Acessar via global.mockAlert
-const Alert = { alert: (global as any).mockAlert };
+const _Alert = { alert: (global as any).mockAlert };
 
 // Mock do expo-router já está configurado globalmente no jest.setup.js
 const mockRouter = require('expo-router').useRouter();

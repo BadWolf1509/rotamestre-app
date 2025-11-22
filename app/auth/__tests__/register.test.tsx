@@ -1,12 +1,14 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
+import * as ReactNative from 'react-native';
 
 import { authService } from '@/lib/auth';
 
-import Register from '../register';
+(ReactNative as any).Alert = (ReactNative as any).Alert || { alert: (global as any).mockAlert };
+(ReactNative as any).Alert.alert = (global as any).mockAlert;
 
-// Use global mockAlert instead of importing Alert
-const Alert = { alert: (global as any).mockAlert };
+const Register = require('../register').default;
+const Alert = ReactNative.Alert;
 
 // Mock expo-router
 const mockBack = jest.fn();
@@ -368,9 +370,7 @@ describe('Register Screen', () => {
 
   describe('Loading State', () => {
     it('deve mostrar ActivityIndicator durante registro', async () => {
-      (authService.signUp as jest.Mock).mockImplementation(
-        () => new Promise(resolve => setTimeout(resolve, 100))
-      );
+      (authService.signUp as jest.Mock).mockResolvedValue(undefined);
 
       const { getByPlaceholderText, getAllByText, queryByText } = render(<Register />);
 
@@ -386,12 +386,14 @@ describe('Register Screen', () => {
         expect(getAllByText('Criar Conta').length).toBe(1); // Apenas título
         expect(queryByText('Criar Conta')).toBeTruthy();
       });
+
+      await waitFor(() => {
+        expect(getAllByText('Criar Conta').length).toBe(2);
+      });
     });
 
     it('deve chamar authService durante loading', async () => {
-      (authService.signUp as jest.Mock).mockImplementation(
-        () => new Promise(resolve => setTimeout(resolve, 100))
-      );
+      (authService.signUp as jest.Mock).mockResolvedValue(undefined);
 
       const { getByPlaceholderText, getAllByText } = render(<Register />);
 
@@ -406,6 +408,10 @@ describe('Register Screen', () => {
       // Verifica que authService foi chamado
       await waitFor(() => {
         expect(authService.signUp).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(getAllByText('Criar Conta').length).toBe(2);
       });
     });
   });

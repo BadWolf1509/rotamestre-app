@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -7,7 +8,6 @@ import {
   Platform,
   Animated,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
 import { useResponsive } from '@/hooks/useResponsive';
 import { StyleSheet, useUnistyles } from '@/utils/styles';

@@ -17,7 +17,7 @@ interface MiniMapProps {
 
 export function MiniMap({
   paradas,
-  userLocation,
+  userLocation: _userLocation,
   expanded = false,
   onToggleExpand,
   onOpenPiP,
@@ -127,7 +127,7 @@ export function MiniMap({
 
           <View style={styles.overlay}>
             <View style={styles.infoBox}>
-            <Text style={styles.infoText}>
+              <Text style={styles.infoText}>
                 {paradasPendentes.length} paradas • {route?.distancia_total ? `${Math.round(route.distancia_total)} km` : '-'}
               </Text>
             </View>

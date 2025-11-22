@@ -1,5 +1,5 @@
-import React from 'react';
 import { render } from '@testing-library/react-native';
+import React from 'react';
 
 import { AuthBrandPanel } from '../AuthBrandPanel';
 
@@ -13,7 +13,7 @@ describe('AuthBrandPanel', () => {
   });
 
   it('deve renderizar ImageBackground', () => {
-    const { getByTestId, UNSAFE_root } = render(<AuthBrandPanel />);
+    const { UNSAFE_root } = render(<AuthBrandPanel />);
 
     // Verificar que o componente renderiza
     expect(UNSAFE_root).toBeTruthy();

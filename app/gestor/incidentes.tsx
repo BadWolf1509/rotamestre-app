@@ -11,7 +11,6 @@ import {
   TextInput,
 } from 'react-native';
 
-import { ConfirmModal } from '@/components/ConfirmModal';
 import { DataTable, DataTableAction, DataTableColumn } from '@/components/DataTable';
 import { DesktopCard } from '@/components/desktop/DesktopCard';
 import { DesktopModal } from '@/components/desktop/DesktopModal';
@@ -75,7 +74,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 // ============================================
 
 export default function IncidentesScreen() {
-  const router = useRouter();
+  const _router = useRouter();
   const { userData } = useUser();
   const { isDesktop } = useResponsive();
   const { theme } = useUnistyles();
@@ -180,7 +179,7 @@ export default function IncidentesScreen() {
     } finally {
       setLoading(false);
     }
-  }, [userData?.unidade_id, filtroStatus, filtroCategoria, showToast]);
+  }, [userData?.unidade_id, userData?.unidades?.nome, filtroStatus, filtroCategoria, showToast]);
 
   useEffect(() => {
     fetchIncidentes();

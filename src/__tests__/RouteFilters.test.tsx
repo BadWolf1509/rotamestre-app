@@ -1,8 +1,10 @@
+import { render, fireEvent, act } from '@testing-library/react-native';
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { Platform } from 'react-native';
-import { RouteFilters } from '@/components/RouteFilters';
-import type { RouteFilters as RouteFiltersType } from '@/components/RouteFilters';
+import DateTimePickerModal from 'react-native-ui-datepicker';
+
+import { RouteFilters, getPresetDates } from '@/components/RouteFilters';
+import type { RouteFiltersState } from '@/components/RouteFilters';
 
 describe('RouteFilters Component', () => {
   const mockOnFiltersChange = jest.fn();
@@ -11,7 +13,7 @@ describe('RouteFilters Component', () => {
     { id: 'motorista-2', nome: 'Maria Santos' },
   ];
 
-  const defaultFilters: RouteFiltersType = {
+  const defaultFilters: RouteFiltersState = {
     status: null,
     dataInicio: null,
     dataFim: null,
@@ -24,7 +26,60 @@ describe('RouteFilters Component', () => {
     (Platform as any).OS = 'web';
   });
 
+  describe('Helpers', () => {
+    it('deve calcular datas padrao dos presets', () => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const hoje = getPresetDates('hoje');
+      expect(hoje?.startDate.toDateString()).toBe(today.toDateString());
+      expect(hoje?.endDate.toDateString()).toBe(today.toDateString());
+
+      const ultimaSemana = getPresetDates('ultima_semana');
+      expect(ultimaSemana?.endDate.toDateString()).toBe(today.toDateString());
+      expect(ultimaSemana?.startDate.getTime()).toBeLessThan(ultimaSemana!.endDate.getTime());
+
+      const ultimoMes = getPresetDates('ultimo_mes');
+      expect(ultimoMes?.endDate.toDateString()).toBe(today.toDateString());
+      expect(ultimoMes?.startDate.getTime()).toBeLessThan(ultimoMes!.endDate.getTime());
+
+      const esteMes = getPresetDates('este_mes');
+      expect(esteMes?.startDate.getDate()).toBe(1);
+      expect(esteMes?.endDate.toDateString()).toBe(today.toDateString());
+    });
+  });
+
   describe('Desktop Variant', () => {
+    it('deve aplicar intervalo de data no fluxo web', () => {
+      (Platform as any).OS = 'web';
+      const start = new Date('2025-02-01');
+      const end = new Date('2025-02-05');
+
+      const { getByTestId, getByText, UNSAFE_getByType } = render(
+        <RouteFilters
+          filters={defaultFilters}
+          onFiltersChange={mockOnFiltersChange}
+          motoristas={mockMotoristas}
+          variant="desktop"
+        />
+      );
+
+      fireEvent.press(getByTestId('filter-date-range'));
+
+      const datePicker = UNSAFE_getByType(DateTimePickerModal);
+      act(() => {
+        datePicker.props.onChange({ startDate: start, endDate: end });
+      });
+
+      fireEvent.press(getByText('Aplicar'));
+
+      expect(mockOnFiltersChange).toHaveBeenCalledWith({
+        ...defaultFilters,
+        dataInicio: start,
+        dataFim: end,
+      });
+    });
+
     it('deve renderizar todos os campos de filtro', () => {
       const { getByText } = render(
         <RouteFilters
@@ -60,7 +115,7 @@ describe('RouteFilters Component', () => {
     });
 
     it('deve limpar filtro de status ao clicar novamente (toggle)', () => {
-      const filtersWithStatus: RouteFiltersType = {
+      const filtersWithStatus: RouteFiltersState = {
         ...defaultFilters,
         status: 'em_andamento',
       };
@@ -103,7 +158,7 @@ describe('RouteFilters Component', () => {
     });
 
     it('deve limpar filtro de motorista ao clicar novamente (toggle)', () => {
-      const filtersWithMotorista: RouteFiltersType = {
+      const filtersWithMotorista: RouteFiltersState = {
         ...defaultFilters,
         motoristaId: 'motorista-1',
       };
@@ -127,7 +182,7 @@ describe('RouteFilters Component', () => {
     });
 
     it('deve limpar todos os filtros ao clicar em "Limpar Filtros"', () => {
-      const filtersWithData: RouteFiltersType = {
+      const filtersWithData: RouteFiltersState = {
         status: 'em_andamento',
         dataInicio: new Date('2025-01-01'),
         dataFim: new Date('2025-01-31'),
@@ -163,7 +218,7 @@ describe('RouteFilters Component', () => {
       );
 
       // Simular aplicação de filtro de data externamente
-      const newFilters: RouteFiltersType = {
+      const newFilters: RouteFiltersState = {
         ...defaultFilters,
         dataInicio: new Date('2025-01-15'),
       };
@@ -182,7 +237,7 @@ describe('RouteFilters Component', () => {
     });
 
     it('deve aplicar período completo (dataInicio + dataFim)', () => {
-      const filtersWithPeriod: RouteFiltersType = {
+      const filtersWithPeriod: RouteFiltersState = {
         ...defaultFilters,
         dataInicio: new Date('2025-01-01'),
         dataFim: new Date('2025-01-31'),
@@ -203,7 +258,7 @@ describe('RouteFilters Component', () => {
     });
 
     it('deve limpar filtro de data ao definir como null', () => {
-      const filtersWithDate: RouteFiltersType = {
+      const filtersWithDate: RouteFiltersState = {
         ...defaultFilters,
         dataInicio: new Date('2025-01-15'),
       };
@@ -218,7 +273,7 @@ describe('RouteFilters Component', () => {
       );
 
       // Simular limpeza de filtro
-      const clearedFilters: RouteFiltersType = {
+      const clearedFilters: RouteFiltersState = {
         ...filtersWithDate,
         dataInicio: null,
       };
@@ -270,7 +325,7 @@ describe('RouteFilters Component', () => {
 
   describe('Filter Counter Badge', () => {
     it('deve mostrar badge com contagem quando filtros ativos', () => {
-      const filtersWithData: RouteFiltersType = {
+      const filtersWithData: RouteFiltersState = {
         status: 'em_andamento',
         dataInicio: new Date('2025-01-01'),
         dataFim: null,
@@ -304,7 +359,7 @@ describe('RouteFilters Component', () => {
     });
 
     it('deve contar todos os filtros ativos corretamente', () => {
-      const filtersWithAllActive: RouteFiltersType = {
+      const filtersWithAllActive: RouteFiltersState = {
         status: 'em_andamento',
         dataInicio: new Date('2025-01-01'),
         dataFim: new Date('2025-01-31'),
@@ -327,7 +382,7 @@ describe('RouteFilters Component', () => {
 
   describe('Multiple Filters', () => {
     it('deve aplicar múltiplos filtros simultaneamente', () => {
-      const multipleFilters: RouteFiltersType = {
+      const multipleFilters: RouteFiltersState = {
         status: 'em_andamento',
         dataInicio: new Date('2025-01-01'),
         dataFim: new Date('2025-01-31'),
@@ -351,14 +406,14 @@ describe('RouteFilters Component', () => {
     });
 
     it('deve limpar filtros individuais mantendo os outros', () => {
-      const filtersWithMultiple: RouteFiltersType = {
+      const filtersWithMultiple: RouteFiltersState = {
         status: 'em_andamento',
         dataInicio: new Date('2025-01-01'),
         dataFim: new Date('2025-01-31'),
         motoristaId: 'motorista-1',
       };
 
-      const { getByTestId, rerender } = render(
+      const { getByTestId, rerender: _rerender } = render(
         <RouteFilters
           filters={filtersWithMultiple}
           onFiltersChange={mockOnFiltersChange}

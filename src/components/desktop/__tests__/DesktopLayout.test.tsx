@@ -1,6 +1,6 @@
+import { render } from '@testing-library/react-native';
 import React from 'react';
 import { Text, View, ScrollView } from 'react-native';
-import { render } from '@testing-library/react-native';
 
 import { DesktopLayout } from '../DesktopLayout';
 

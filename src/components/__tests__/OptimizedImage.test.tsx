@@ -1,6 +1,6 @@
+import { render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import { Platform } from 'react-native';
-import { render, waitFor } from '@testing-library/react-native';
 
 import { OptimizedImage } from '../OptimizedImage';
 
@@ -14,19 +14,18 @@ jest.mock('@/services/performanceOptimizer', () => ({
 }));
 
 // Mock expo-file-system
-const mockFileSystem = {
-  cacheDirectory: 'file:///cache/',
+const _mockFileSystem = {
   getInfoAsync: jest.fn(),
   makeDirectoryAsync: jest.fn(),
   downloadAsync: jest.fn(),
+  createDownloadResumable: jest.fn(),
+  cacheDirectory: 'file:///cache/',
 };
 
 // Mock expo-crypto
-const mockCrypto = {
+const _mockCrypto = {
   digestStringAsync: jest.fn(),
-  CryptoDigestAlgorithm: {
-    MD5: 'MD5',
-  },
+  CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
 };
 
 describe('OptimizedImage', () => {

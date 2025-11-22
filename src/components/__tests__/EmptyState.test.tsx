@@ -1,5 +1,6 @@
-import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
+import React from 'react';
+
 import { EmptyState } from '../EmptyState';
 
 describe('EmptyState', () => {
@@ -33,12 +34,10 @@ describe('EmptyState', () => {
   });
 
   it('não deve renderizar botão se actionLabel não for fornecido', () => {
-    const { queryByRole, queryByText } = render(
+    const { queryByText } = render(
       <EmptyState title="Vazio" onActionPress={() => { }} />
     );
-    // Button usa TouchableOpacity
-    // Melhor procurar por texto de botão genérico ou verificar snapshot
-    // Como não passamos label, não deve ter botão visível com texto
-    // Vamos assumir que sem label o componente Button não é renderizado (lógica do componente: actionLabel && onActionPress)
+
+    expect(queryByText('Tentar Novamente')).toBeNull();
   });
 });

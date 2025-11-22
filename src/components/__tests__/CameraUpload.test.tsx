@@ -1,4 +1,4 @@
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import React from 'react';
 import { Alert, Platform } from 'react-native';
 
@@ -607,6 +607,8 @@ describe('CameraUpload Component', () => {
 
   describe('Estado de Loading', () => {
     it('deve mostrar ActivityIndicator durante upload', async () => {
+      jest.useFakeTimers();
+
       mockLaunchImageLibraryAsync.mockResolvedValue({
         canceled: false,
         assets: [{ uri: 'test-uri' }],
@@ -638,6 +640,12 @@ describe('CameraUpload Component', () => {
         const { ActivityIndicator } = require('react-native');
         expect(UNSAFE_getByType(ActivityIndicator)).toBeTruthy();
       });
+
+      await act(async () => {
+        jest.runAllTimers();
+      });
+
+      jest.useRealTimers();
 
       Object.defineProperty(Platform, 'OS', {
         get: () => originalPlatform,

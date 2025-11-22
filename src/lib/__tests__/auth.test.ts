@@ -96,6 +96,61 @@ describe('AuthService - Unit Tests', () => {
       expect(result.session).toEqual(mockSession);
       expect(result.usuario).toBeNull();
     });
+
+    it('deve atualizar ultimo_login após login bem-sucedido', async () => {
+      const mockSession = {
+        access_token: 'mock-token-123',
+        user: { id: 'user-123', email: 'teste@rotamestre.com' },
+      };
+
+      const mockUsuario = {
+        id: 'user-123',
+        email: 'teste@rotamestre.com',
+        nome: 'Usuário Teste',
+        papel: 'gestor' as const,
+      };
+
+      mockSupabase.auth.signInWithPassword.mockResolvedValue({
+        data: { session: mockSession, user: mockSession.user } as any,
+        error: null,
+      });
+
+      const mockUpdate = jest.fn().mockReturnThis();
+      const mockEq = jest.fn().mockReturnThis();
+
+      const mockQueryBuilder = {
+        select: jest.fn().mockReturnThis(),
+        update: mockUpdate,
+        eq: mockEq,
+        single: jest.fn().mockResolvedValue({
+          data: mockUsuario,
+          error: null,
+        }),
+      };
+      mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
+
+      await authService.signIn('teste@rotamestre.com', 'senha123');
+
+      // Verificar que update foi chamado com campo ultimo_login
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ultimo_login: expect.any(String),
+        })
+      );
+      expect(mockEq).toHaveBeenCalledWith('id', 'user-123');
+    });
+
+    it('deve retornar usuario null quando data.user é null', async () => {
+      mockSupabase.auth.signInWithPassword.mockResolvedValue({
+        data: { session: { access_token: 'token' } as any, user: null } as any,
+        error: null,
+      });
+
+      const result = await authService.signIn('teste@rotamestre.com', 'senha123');
+
+      expect(result.session).toBeDefined();
+      expect(result.usuario).toBeNull();
+    });
   });
 
   // ============================================
@@ -191,6 +246,29 @@ describe('AuthService - Unit Tests', () => {
           'motorista'
         )
       ).rejects.toThrow('Erro ao criar registro do usuário');
+    });
+
+    it('deve não tentar inserir na tabela usuarios quando data.user é null', async () => {
+      mockSupabase.auth.signUp.mockResolvedValue({
+        data: { user: null, session: null } as any,
+        error: null,
+      });
+
+      const mockInsert = jest.fn();
+      mockSupabase.from.mockReturnValue({
+        insert: mockInsert,
+      } as any);
+
+      const result = await authService.signUp(
+        'novo@rotamestre.com',
+        'senha123',
+        'Novo Usuário',
+        'gestor'
+      );
+
+      expect(mockSupabase.from).not.toHaveBeenCalled();
+      expect(mockInsert).not.toHaveBeenCalled();
+      expect(result.user).toBeNull();
     });
   });
 
@@ -400,6 +478,44 @@ describe('AuthService - Unit Tests', () => {
       await authService.getUsuario('user-specific-id');
 
       expect(mockEq).toHaveBeenCalledWith('id', 'user-specific-id');
+    });
+
+    it('deve incluir dados da unidade na consulta', async () => {
+      const mockSelect = jest.fn().mockReturnThis();
+
+      mockSupabase.from.mockReturnValue({
+        select: mockSelect,
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({
+          data: {},
+          error: null,
+        }),
+      } as any);
+
+      await authService.getUsuario('user-123');
+
+      expect(mockSelect).toHaveBeenCalledWith('*, unidades(nome)');
+    });
+
+    it('deve logar erro no console quando busca falha', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      const mockError = new Error('Database error');
+      mockSupabase.from.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({
+          data: null,
+          error: mockError,
+        }),
+      } as any);
+
+      const result = await authService.getUsuario('user-123');
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Erro ao buscar usuário:', mockError);
+      expect(result).toBeNull();
+
+      consoleErrorSpy.mockRestore();
     });
   });
 

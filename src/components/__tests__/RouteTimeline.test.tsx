@@ -1,7 +1,10 @@
-import React from 'react';
 import { render, waitFor } from '@testing-library/react-native';
-import { RouteTimeline } from '../RouteTimeline';
+import React from 'react';
+
 import { supabase } from '@/lib/supabase';
+
+import { RouteTimeline } from '../RouteTimeline';
+
 
 // Mock Supabase
 jest.mock('@/lib/supabase', () => ({

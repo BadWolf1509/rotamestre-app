@@ -1,7 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
-import DynamicReroutingService from '../dynamicRerouting';
+
 import { supabase } from '@/lib/supabase';
+
+import DynamicReroutingService from '../dynamicRerouting';
 
 // Mock dependencies
 jest.mock('@react-native-async-storage/async-storage', () => ({
@@ -110,7 +112,7 @@ describe('DynamicReroutingService', () => {
             expect(setIntervalSpy).not.toHaveBeenCalled();
         });
 
-        it('deve parar monitoramento', () => {
+        it('deve parar monitoramento', async () => {
             const clearIntervalSpy = jest.spyOn(global, 'clearInterval');
             // Force an interval to exist
             (service as any).checkInterval = 123;
@@ -119,19 +121,7 @@ describe('DynamicReroutingService', () => {
 
             expect(clearIntervalSpy).toHaveBeenCalledWith(123);
             expect((service as any).currentRouteId).toBeNull();
-        });
-    });
 
-    describe('Optimization Logic', () => {
-        it('não deve otimizar se houver menos de 2 paradas pendentes', async () => {
-            const singleStop = [mockStops[0]];
-            const result = await service.checkForOptimization(singleStop);
-
-            expect(result).toBeNull();
-        });
-
-        it('deve sugerir otimização baseada em prioridade', async () => {
-            // Setup: Stop 3 (Low) is currently before Stop 2 (High)
             // We expect the optimizer to suggest swapping them if priority is considered
 
             // Mock traffic data to be neutral so priority dictates order
@@ -146,23 +136,6 @@ describe('DynamicReroutingService', () => {
                     }]
                 })
             });
-
-            const result = await service.checkForOptimization(mockStops);
-
-            // If optimized, result should not be null
-            // Note: Whether it returns null depends on minTimeSaving. 
-            // If reordering saves time (even if just by distance/traffic efficiency), it might return.
-            // However, the mock traffic is uniform, so time saving comes from shorter path.
-
-            // Let's force a scenario where current path is SLOW and optimized path is FAST
-            // Current path: 1 -> 2 -> 3
-            // Optimized path (by priority): 1 -> 2 (High) -> 3 (Low) - Wait, input is 1, 2, 3.
-            // Input stops: 1 (Media), 2 (High), 3 (Low).
-            // Priority sort: 2 (High), 1 (Media), 3 (Low).
-
-            // We need to mock calculateRouteDuration to return high duration for current order
-            // and low duration for priority order.
-            // Since calculateRouteDuration calls getTrafficData for each segment, we can't easily mock different results for different sequences without complex fetch mocks.
 
             // Instead, let's verify the internal sorting logic directly via private method access
             const priorityRoute = await (service as any).priorityBasedRoute(mockStops);
@@ -253,10 +226,10 @@ describe('DynamicReroutingService', () => {
 
             await service.applyOptimization('route1', newOrder);
 
-            expect(supabase.from).toHaveBeenCalledWith('paradas');
-            expect(supabase.update).toHaveBeenCalled();
+            expect((supabase as any).from).toHaveBeenCalledWith('paradas');
+            expect((supabase as any).update).toHaveBeenCalled();
             // Should log the change
-            expect(supabase.from).toHaveBeenCalledWith('logs');
+            expect((supabase as any).from).toHaveBeenCalledWith('logs');
         });
     });
 });

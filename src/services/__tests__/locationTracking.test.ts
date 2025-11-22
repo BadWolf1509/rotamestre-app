@@ -1,17 +1,46 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import locationTrackingService from '../locationTracking';
+// Mock dependencies BEFORE imports
+jest.mock('expo-location', () => ({
+    requestForegroundPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+    requestBackgroundPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+    watchPositionAsync: jest.fn().mockResolvedValue({ remove: jest.fn() }),
+    startLocationUpdatesAsync: jest.fn().mockResolvedValue(undefined),
+    stopLocationUpdatesAsync: jest.fn().mockResolvedValue(undefined),
+    Accuracy: { BestForNavigation: 6, High: 4 },
+}));
 
-// Mock dependencies
-jest.mock('@react-native-async-storage/async-storage');
-jest.mock('expo-location');
-jest.mock('expo-task-manager');
-jest.mock('@/lib/supabase');
+jest.mock('expo-task-manager', () => ({
+    defineTask: jest.fn(),
+    isTaskRegisteredAsync: jest.fn().mockResolvedValue(false),
+    unregisterTaskAsync: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('@react-native-async-storage/async-storage', () => ({
+    getItem: jest.fn().mockResolvedValue(null),
+    setItem: jest.fn().mockResolvedValue(undefined),
+    removeItem: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('@/lib/supabase', () => ({
+    supabase: {
+        from: jest.fn(() => ({
+            insert: jest.fn().mockResolvedValue({ error: null }),
+            upsert: jest.fn().mockResolvedValue({ error: null }),
+        })),
+    },
+}));
+
 jest.mock('react-native', () => ({
     Alert: { alert: jest.fn() },
+    Platform: { OS: 'ios' },
 }));
+
 jest.mock('@/utils/styles', () => ({
     defaultTheme: { colors: { primary: '#000' } },
 }));
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import locationTrackingService from '../locationTracking';
 
 describe('LocationTrackingService', () => {
     beforeEach(() => {
@@ -87,11 +116,13 @@ describe('LocationTrackingService', () => {
 
         it('deve tratar erro ao atualizar preferências', async () => {
             const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-            (AsyncStorage.getItem as jest.Mock).mockRejectedValue(new Error('Storage error'));
+            // getNavigationPreferences trata seu próprio erro, então fazemos setItem falhar
+            (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+            (AsyncStorage.setItem as jest.Mock).mockRejectedValue(new Error('Storage error'));
 
             await locationTrackingService.updateNavigationPreferences({ autoAdvance: true });
 
-            expect(consoleSpy).toHaveBeenCalled();
+            expect(consoleSpy).toHaveBeenCalledWith('Error updating preferences:', expect.any(Error));
             consoleSpy.mockRestore();
         });
     });

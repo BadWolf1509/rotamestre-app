@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   Image,
   KeyboardAvoidingView,
@@ -17,6 +19,7 @@ import {
 } from 'react-native';
 
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { googleMapsService } from '@/lib/google';
 import { storageService } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { defaultTheme, useUnistyles } from '@/utils/styles';
@@ -172,7 +175,23 @@ export function IncidentReportWizard({
 
     try {
       let uploadedPhotoUrl = '';
-      const finalEndereco = endereco || manualEndereco || 'Localização não informada';
+      let _finalEndereco = endereco || manualEndereco || 'Localização não informada';
+
+      if (!_finalEndereco) {
+        try {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status === 'granted') {
+            const location = await Location.getCurrentPositionAsync({});
+            const result = await googleMapsService.reverseGeocode({
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude
+            });
+            if (result) _finalEndereco = result;
+          }
+        } catch (e) {
+          console.warn('Erro ao obter localização:', e);
+        }
+      }
 
       // Upload da foto se existir
       if (photoUri) {
@@ -188,7 +207,7 @@ export function IncidentReportWizard({
         categoria: selectedCategory,
         descricao: description,
         foto_url: uploadedPhotoUrl,
-        endereco: finalEndereco,
+        endereco: _finalEndereco,
         status: 'aberto',
         created_at: new Date().toISOString(),
       });
@@ -206,19 +225,19 @@ export function IncidentReportWizard({
             descricao: description,
             tem_foto: !!photoUri,
             parada_id: paradaId || null,
-            endereco: finalEndereco,
+            endereco: _finalEndereco,
           },
         });
       }
 
-      const report: IncidentReport = {
+      const _report: IncidentReport = {
         category: selectedCategory,
         description,
         photoUri: uploadedPhotoUrl,
         paradaId,
         rotaId,
         motoristaId,
-        endereco: finalEndereco,
+        endereco: _finalEndereco,
         timestamp: new Date().toISOString(),
       };
 
@@ -376,7 +395,6 @@ export function IncidentReportWizard({
 
   const renderReviewStep = () => {
     const category = INCIDENT_CATEGORIES.find(c => c.value === selectedCategory);
-    const finalEndereco = endereco || manualEndereco;
 
     return (
       <View style={styles.stepContent}>

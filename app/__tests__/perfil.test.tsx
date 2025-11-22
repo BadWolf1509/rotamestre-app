@@ -1,12 +1,10 @@
+
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
 import { supabase } from '@/lib/supabase';
 
 import PerfilScreen from '../perfil/index';
-
-// Usar global.mockAlert ao invés de importar Alert
-const Alert = { alert: (global as any).mockAlert };
 
 // Mock dos módulos
 jest.mock('@/lib/supabase');

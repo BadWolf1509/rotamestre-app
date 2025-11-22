@@ -1,4 +1,5 @@
 import { Dimensions } from 'react-native';
+
 import {
   getCurrentBreakpoint,
   isBreakpoint,

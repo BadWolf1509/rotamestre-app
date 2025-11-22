@@ -1,6 +1,6 @@
+import { render, renderHook, act } from '@testing-library/react-native';
 import React from 'react';
 import { Text, View } from 'react-native';
-import { render, renderHook, act } from '@testing-library/react-native';
 
 import { DrawerMenuProvider, useDrawerMenu } from '../DrawerMenuContext';
 

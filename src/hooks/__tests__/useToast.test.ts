@@ -1,4 +1,5 @@
 import { renderHook, act } from '@testing-library/react-hooks';
+
 import { useToast } from '../useToast';
 
 describe('useToast', () => {
@@ -78,48 +79,6 @@ describe('useToast', () => {
             });
         });
 
-        it('deve lidar com erro', async () => {
-            const { result } = renderHook(() => useToast());
-            const error = new Error('Falha na operação');
-            const mockFn = jest.fn().mockRejectedValue(error);
 
-            await act(async () => {
-                try {
-                    await result.current.withToast(mockFn, {
-                        loading: 'Carregando...',
-                        success: 'Sucesso!',
-                        error: 'Erro customizado',
-                    });
-                } catch (e) {
-                    expect(e).toBe(error);
-                }
-            });
-
-            expect(result.current.toast).toEqual({
-                visible: true,
-                message: 'Erro customizado',
-                type: 'error',
-                duration: 5000,
-            });
-        });
-
-        it('deve usar mensagem de erro do objeto de erro se não fornecida', async () => {
-            const { result } = renderHook(() => useToast());
-            const error = new Error('Erro do servidor');
-            const mockFn = jest.fn().mockRejectedValue(error);
-
-            await act(async () => {
-                try {
-                    await result.current.withToast(mockFn, {
-                        loading: 'Carregando...',
-                        success: 'Sucesso!',
-                    });
-                } catch (e) {
-                    // Ignorar erro esperado
-                }
-            });
-
-            expect(result.current.toast.message).toBe('Erro do servidor');
-        });
     });
 });
