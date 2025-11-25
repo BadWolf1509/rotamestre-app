@@ -16,7 +16,7 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { id: 'inicio', label: 'Início', icon: '📊', path: '/gestor/inicio' },
   { id: 'nova-rota', label: 'Nova Rota', icon: '➕', path: '/gestor/nova-entrega' },
-  { id: 'historico', label: 'Histórico', icon: '📋', path: '/gestor/historico' },
+  { id: 'gestao-rotas', label: 'Gestão de Rotas', icon: '📋', path: '/gestor/gestao-rotas' },
   { id: 'motoristas', label: 'Motoristas', icon: '👥', path: '/gestor/motoristas' },
 ];
 

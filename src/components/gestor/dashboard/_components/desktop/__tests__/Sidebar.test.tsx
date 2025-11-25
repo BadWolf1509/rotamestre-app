@@ -93,7 +93,7 @@ describe('Sidebar', () => {
 
             expect(getByText('Início')).toBeTruthy();
             expect(getByText('Nova Rota')).toBeTruthy();
-            expect(getByText('Histórico')).toBeTruthy();
+            expect(getByText('Gestão de Rotas')).toBeTruthy();
             expect(getByText('Incidentes')).toBeTruthy();
             expect(getByText('Motoristas')).toBeTruthy();
         });
@@ -135,12 +135,12 @@ describe('Sidebar', () => {
             expect(mockPush).toHaveBeenCalledWith('/gestor/nova-entrega');
         });
 
-        it('deve navegar para Histórico ao clicar', () => {
+        it('deve navegar para Gestão de Rotas ao clicar', () => {
             const { getByText } = render(<Sidebar {...defaultProps} />);
 
-            fireEvent.press(getByText('Histórico'));
+            fireEvent.press(getByText('Gestão de Rotas'));
 
-            expect(mockPush).toHaveBeenCalledWith('/gestor/historico');
+            expect(mockPush).toHaveBeenCalledWith('/gestor/gestao-rotas');
         });
 
         it('deve navegar para Incidentes ao clicar', () => {

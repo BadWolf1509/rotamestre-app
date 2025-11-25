@@ -18,9 +18,11 @@ interface RouteTimelineProps {
   rotaId: string;
   /** Se true, subscreve a realtime updates */
   realtime?: boolean;
+  /** Notifica o pai sobre loading/quantidade para habilitar colapsar o card */
+  onStateChange?: (state: { loading: boolean; events: number }) => void;
 }
 
-export function RouteTimeline({ rotaId, realtime = true }: RouteTimelineProps) {
+export function RouteTimeline({ rotaId, realtime = true, onStateChange }: RouteTimelineProps) {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -209,6 +211,10 @@ export function RouteTimeline({ rotaId, realtime = true }: RouteTimelineProps) {
       supabase.removeChannel(channel);
     };
   }, [rotaId, realtime, loadTimeline]);
+
+  useEffect(() => {
+    onStateChange?.({ loading, events: events.length });
+  }, [loading, events.length, onStateChange]);
 
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);

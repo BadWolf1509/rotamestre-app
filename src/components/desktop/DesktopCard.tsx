@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface DesktopCardProps {
   title?: string;
@@ -15,6 +15,7 @@ interface DesktopCardProps {
   variant?: 'default' | 'outlined' | 'elevated';
   noPadding?: boolean;
   className?: string;
+  style?: ViewStyle;
 }
 
 export function DesktopCard({
@@ -27,6 +28,7 @@ export function DesktopCard({
   onPress,
   variant = 'default',
   noPadding = false,
+  style,
 }: DesktopCardProps) {
   const { theme } = useUnistyles();
 
@@ -34,6 +36,7 @@ export function DesktopCard({
     styles.card,
     variant === 'outlined' && styles.cardOutlined,
     variant === 'elevated' && styles.cardElevated,
+    style,
   ];
 
   const CardWrapper = onPress ? TouchableOpacity : View;
@@ -87,7 +90,7 @@ export function DesktopCardGrid({
 }
 
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   // Card Styles
   card: {
     backgroundColor: theme.colors.white,

@@ -39,9 +39,9 @@ export function Sidebar({ onNavigate, userData }: SidebarProps) {
       show: true,
     },
     {
-      label: 'Histórico',
+      label: 'Gestão de Rotas',
       icon: '📋',
-      path: '/gestor/historico',
+      path: '/gestor/gestao-rotas',
       show: true,
     },
     {

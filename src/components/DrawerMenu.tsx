@@ -79,7 +79,7 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
   const gestorMenuItems = [
     { icon: '🏠', label: 'Início', path: '/gestor/inicio', show: true },
     { icon: '📦', label: 'Nova Rota', path: '/gestor/nova-entrega', show: true },
-    { icon: '📋', label: 'Histórico', path: '/gestor/historico', show: true },
+    { icon: '📋', label: 'Gestão de Rotas', path: '/gestor/gestao-rotas', show: true },
     { icon: '⚠️', label: 'Incidentes', path: '/gestor/incidentes', show: true },
     { icon: '🧑‍✈️', label: 'Motoristas', path: '/gestor/motoristas', show: true },
     { icon: '🏢', label: 'Minha Unidade', path: '/unidade', show: profile?.papel === 'gestor' },

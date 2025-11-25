@@ -37,7 +37,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   value,
   onChangeText,
   onSelectAddress,
-  placeholder = 'Digite o endereço completo',
+  placeholder = 'Digite o endereÃ§o completo',
   error,
   multiline = false,
 }: AddressAutocompleteProps) {
@@ -48,7 +48,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   const [sessionToken] = useState(() => generateSessionToken());
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Limpar suggestions quando value é limpo externamente
+  // Limpar suggestions quando value Ã© limpo externamente
   useEffect(() => {
     if (value === '') {
       setSuggestions([]);
@@ -56,7 +56,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
     }
   }, [value]);
 
-  // Buscar sugestões com debounce
+  // Buscar sugestÃµes com debounce
   useEffect(() => {
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
@@ -69,7 +69,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
       return;
     }
 
-    // Não mostrar loading imediatamente - só após o debounce
+    // NÃ£o mostrar loading imediatamente - sÃ³ apÃ³s o debounce
     debounceTimer.current = setTimeout(async () => {
       setIsLoading(true);
       setShowSuggestions(true);
@@ -83,7 +83,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
       } finally {
         setIsLoading(false);
       }
-    }, 1000); // 1000ms de debounce (1 segundo = sem interrupções)
+    }, 1000); // 1000ms de debounce (1 segundo = sem interrupÃ§Ãµes)
 
     return () => {
       if (debounceTimer.current) {
@@ -113,26 +113,29 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   }, [suggestions.length]);
 
   // Memoizar renderItem para estabilizar callbacks em testes
-  const renderSuggestionItem = useCallback(({ item }: { item: PlaceSuggestion }) => (
-    <TouchableOpacity
-      testID="suggestion-item"
-      style={styles.suggestionItem}
-      onPress={() => handleSelectSuggestion(item)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.suggestionIcon}>
-        <Text style={styles.suggestionIconText}>📍</Text>
-      </View>
-      <View style={styles.suggestionTextContainer}>
-        <Text style={styles.suggestionMainText}>
-          {item.structured_formatting.main_text}
-        </Text>
-        <Text style={styles.suggestionSecondaryText}>
-          {item.structured_formatting.secondary_text}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  ), [handleSelectSuggestion]);
+  const renderSuggestionItem = useCallback(
+    ({ item }: { item: PlaceSuggestion }) => (
+      <TouchableOpacity
+        testID="suggestion-item"
+        style={styles.suggestionItem}
+        onPress={() => handleSelectSuggestion(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.suggestionIcon}>
+          <Text style={styles.suggestionIconText}>📍</Text>
+        </View>
+        <View style={styles.suggestionTextContainer}>
+          <Text style={styles.suggestionMainText}>
+            {item.structured_formatting.main_text}
+          </Text>
+          <Text style={styles.suggestionSecondaryText}>
+            {item.structured_formatting.secondary_text}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    ),
+    [handleSelectSuggestion]
+  );
 
   return (
     <View style={styles.container}>
@@ -161,7 +164,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
             onPress={handleClearInput}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Text style={styles.clearButtonText}>✕</Text>
+            <Text style={styles.clearButtonText}>×</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -216,7 +219,7 @@ export const AddressAutocomplete = React.memo(
   AddressAutocompleteComponent,
   (prevProps, nextProps) => {
     // Comparar apenas value, placeholder, error e multiline
-    // Ignorar funções (onChangeText, onSelectAddress) para evitar re-renders
+    // Ignorar funÃ§Ãµes (onChangeText, onSelectAddress) para evitar re-renders
     return (
       prevProps.value === nextProps.value &&
       prevProps.placeholder === nextProps.placeholder &&
@@ -226,7 +229,7 @@ export const AddressAutocomplete = React.memo(
   }
 );
 
-// Gerar session token único para agrupar chamadas
+// Gerar session token Ãºnico para agrupar chamadas
 function generateSessionToken(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
@@ -369,3 +372,5 @@ const styles = StyleSheet.create(theme => ({
     fontStyle: 'italic',
   },
 }));
+
+

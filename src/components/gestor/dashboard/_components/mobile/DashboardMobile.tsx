@@ -163,11 +163,11 @@ export function DashboardMobile({
 
           <TouchableOpacity
             style={styles.secondaryButton}
-            onPress={() => router.push('/gestor/historico')}
+            onPress={() => router.push('/gestor/gestao-rotas')}
             activeOpacity={0.8}
           >
             <Text style={styles.secondaryButtonText}>
-              📋 Ver Histórico
+              📋 Gestão de Rotas
             </Text>
           </TouchableOpacity>
         </View>

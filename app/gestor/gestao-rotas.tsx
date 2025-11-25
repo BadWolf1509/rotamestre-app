@@ -54,7 +54,7 @@ type FiltroStatus = 'todas' | 'pendente' | 'em_andamento' | 'concluida' | 'cance
 // COMPONENT
 // ============================================
 
-export default function HistoricoGestor() {
+export default function GestaoRotas() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { userData } = useUser();
@@ -63,7 +63,7 @@ export default function HistoricoGestor() {
   });
   const { toast: toastState, hideToast, withToast } = useToast();
   const { isDesktop } = useResponsive();
-  const pageMeta = getGestorPageMeta('historico');
+  const pageMeta = getGestorPageMeta('gestao-rotas');
 
   const [rotas, setRotas] = useState<RotaHistorico[]>([]);
   const [rotasFiltradas, setRotasFiltradas] = useState<RotaHistorico[]>([]);
@@ -82,11 +82,11 @@ export default function HistoricoGestor() {
   useRealtimeRoutes({
     enabled: !!userData?.unidade_id,
     onRouteUpdate: () => {
-      loadHistorico();
+      loadRotas();
     },
   });
 
-  const loadHistorico = useCallback(async () => {
+  const loadRotas = useCallback(async () => {
     if (!userData?.unidade_id) return;
 
     try {
@@ -127,16 +127,16 @@ export default function HistoricoGestor() {
 
       setRotas(rotasComParadas as RotaHistorico[]);
     } catch (error) {
-      console.error('Erro ao carregar histórico:', error);
-      Alert.alert('Erro', 'Não foi possível carregar o histórico');
+      console.error('Erro ao carregar rotas:', error);
+      Alert.alert('Erro', 'Não foi possível carregar as rotas');
     } finally {
       setLoading(false);
     }
   }, [userData?.unidade_id]);
 
   useEffect(() => {
-    loadHistorico();
-  }, [loadHistorico]);
+    loadRotas();
+  }, [loadRotas]);
 
   const formatarData = useCallback((dataStr: string): string => {
     const data = parseLocalDate(dataStr);
@@ -174,7 +174,18 @@ export default function HistoricoGestor() {
   // ============================================
 
   function verDetalhes(rota: RotaHistorico) {
-    router.push(`/gestor/mapa-rota?id=${rota.id}`);
+    console.log('🗺️ Navegando para mapa-rota com ID:', rota.id);
+    try {
+      router.push({
+        pathname: '/gestor/mapa-rota',
+        params: { id: rota.id }
+      });
+      console.log('✅ Navegação executada com sucesso');
+    } catch (error) {
+      console.error('❌ Erro na navegação:', error);
+      // Fallback: tentar com string
+      router.push(`/gestor/mapa-rota?id=${rota.id}`);
+    }
   }
 
   async function excluirRota(rota: RotaHistorico) {
@@ -230,7 +241,7 @@ export default function HistoricoGestor() {
             rota_id: rota.id,
             evento: 'rota_excluida',
             detalhes: {
-              motivo: 'Excluída pelo gestor no histórico',
+              motivo: 'Excluída pelo gestor',
               motorista: rota.motorista?.nome,
               paradas_count: rota.paradas_count,
               status_anterior: rota.status,
@@ -244,8 +255,8 @@ export default function HistoricoGestor() {
         }
       );
 
-      // Recarregar histórico
-      loadHistorico();
+      // Recarregar rotas
+      loadRotas();
     } catch (error) {
       console.error('Erro ao excluir rota:', error);
     }
@@ -305,7 +316,7 @@ export default function HistoricoGestor() {
       const url = URL.createObjectURL(blob);
 
       const dataAtual = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
-      const nomeArquivo = `historico-rotas-${dataAtual}.csv`;
+      const nomeArquivo = `gestao-rotas-${dataAtual}.csv`;
 
       link.setAttribute('href', url);
       link.setAttribute('download', nomeArquivo);
@@ -318,7 +329,7 @@ export default function HistoricoGestor() {
       if (userData?.id) {
         supabase.from('logs').insert({
           usuario_id: userData.id,
-          evento: 'exportacao_historico',
+          evento: 'exportacao_rotas',
           detalhes: {
             total_rotas: rotasFiltradas.length,
             filtro_status: filtroStatus,
@@ -534,7 +545,7 @@ export default function HistoricoGestor() {
           userMenuTrigger={userMenuTrigger}
           userMenuItems={userMenuItems}
           loading={loading}
-          loadingText="Carregando histórico..."
+          loadingText="Carregando rotas..."
         >
           {/* Filtros */}
           <DesktopCard
@@ -682,7 +693,7 @@ export default function HistoricoGestor() {
   if (loading) {
     return (
       <>
-        <MobileLoading message="Carregando histórico..." />
+        <MobileLoading message="Carregando rotas..." />
         {logoutModal}
       </>
     );

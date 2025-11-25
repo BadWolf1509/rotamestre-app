@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   Dimensions,
 } from 'react-native';
 
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { DesktopCard } from '@/components/desktop/DesktopCard';
 import { DesktopModal } from '@/components/desktop/DesktopModal';
 import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
@@ -27,6 +28,8 @@ import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 import type { Theme } from '@/utils/styles';
+
+const MAP_HEIGHT = 600;
 
 interface Parada {
   id: string;
@@ -81,64 +84,80 @@ interface ParadaCardProps {
   index: number;
   onImagePress: (url: string) => void;
   theme: Theme;
+  selected?: boolean;
+  onPress?: (id: string) => void;
+  onLayoutCapture?: (id: string, y: number) => void;
 }
 
 const ParadaCard = React.memo<ParadaCardProps>(
-  ({ parada, index, onImagePress }) => {
+  ({ parada, index, onImagePress, selected, onPress, onLayoutCapture }) => {
     return (
-      <View style={styles.paradaCard}>
-        <View style={styles.paradaHeader}>
+      <View
+        style={[styles.paradaCard, selected && styles.paradaCardSelected]}
+        onLayout={(e) => onLayoutCapture?.(parada.id, e.nativeEvent.layout.y)}
+      >
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => onPress?.(parada.id)}
+          style={styles.paradaHeader}
+        >
           <View style={styles.paradaNumero}>
             <Text style={styles.paradaNumeroText}>{index + 1}</Text>
           </View>
           <View style={styles.paradaHeaderInfo}>
-            <Text style={styles.paradaEndereco}>{parada.endereco}</Text>
-            <View style={styles.paradaTags}>
-              <View
-                style={[
-                  styles.tipoTag,
-                  parada.tipo === 'entrega' ? styles.tipoTagEntrega : styles.tipoTagRetirada,
-                ]}
-              >
-                <Text style={styles.tipoTagText}>
-                  {parada.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.statusTag,
-                  parada.status === 'concluida' && styles.statusTagConcluida,
-                  parada.status === 'pendente' && styles.statusTagPendente,
-                  parada.status === 'em_andamento' && styles.statusTagEmAndamento,
-                ]}
-              >
-                <Text style={styles.statusTagText}>
-                  {parada.status === 'concluida' && 'Concluida'}
-                  {parada.status === 'pendente' && 'Pendente'}
-                  {parada.status === 'em_andamento' && 'Em andamento'}
-                </Text>
+            <View style={styles.paradaHeaderTop}>
+              <Text style={styles.paradaEndereco} numberOfLines={2}>
+                {parada.endereco}
+              </Text>
+              <View style={styles.paradaTags}>
+                <View
+                  style={[
+                    styles.tipoTag,
+                    parada.tipo === 'entrega' ? styles.tipoTagEntrega : styles.tipoTagRetirada,
+                  ]}
+                >
+                  <Text style={styles.tipoTagText}>
+                    {parada.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.statusTag,
+                    parada.status === 'concluida' && styles.statusTagConcluida,
+                    parada.status === 'pendente' && styles.statusTagPendente,
+                    parada.status === 'em_andamento' && styles.statusTagEmAndamento,
+                  ]}
+                >
+                  <Text style={styles.statusTagText}>
+                    {parada.status === 'concluida' && 'Concluida'}
+                    {parada.status === 'pendente' && 'Pendente'}
+                    {parada.status === 'em_andamento' && 'Em andamento'}
+                  </Text>
+                </View>
               </View>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {(parada.destinatario || parada.telefone || parada.observacoes) && (
           <View style={styles.paradaDetalhes}>
-            {parada.destinatario && (
-              <View style={styles.paradaMetaRow}>
-                <Text style={styles.paradaMetaLabel}>Destinatario</Text>
-                <Text style={styles.paradaMetaValue}>{parada.destinatario}</Text>
-              </View>
-            )}
-            {parada.telefone && (
-              <View style={styles.paradaMetaRow}>
-                <Text style={styles.paradaMetaLabel}>Telefone</Text>
-                <Text style={styles.paradaMetaValue}>{parada.telefone}</Text>
-              </View>
-            )}
+            <View style={styles.paradaMetaGrid}>
+              {parada.destinatario && (
+                <View style={styles.paradaMetaItem}>
+                  <Text style={styles.paradaMetaLabel}>Destinatario</Text>
+                  <Text style={styles.paradaMetaValue}>{parada.destinatario}</Text>
+                </View>
+              )}
+              {parada.telefone && (
+                <View style={styles.paradaMetaItem}>
+                  <Text style={styles.paradaMetaLabel}>Telefone</Text>
+                  <Text style={styles.paradaMetaValue}>{parada.telefone}</Text>
+                </View>
+              )}
+            </View>
             {parada.observacoes && (
-              <View style={styles.paradaMetaRow}>
-                <Text style={styles.paradaMetaLabel}>Observações</Text>
+              <View style={[styles.paradaMetaItem, styles.paradaMetaItemFull]}>
+                <Text style={styles.paradaMetaLabel}>Observacoes</Text>
                 <Text style={styles.paradaMetaValue}>{parada.observacoes}</Text>
               </View>
             )}
@@ -161,12 +180,13 @@ const ParadaCard = React.memo<ParadaCardProps>(
     );
   },
   (prevProps, nextProps) => {
-    // ✅ Comparação customizada para otimizar re-renders
+    // Comparacao customizada para otimizar re-renders
     return (
       prevProps.parada.id === nextProps.parada.id &&
       prevProps.parada.status === nextProps.parada.status &&
       prevProps.parada.foto_url === nextProps.parada.foto_url &&
-      prevProps.index === nextProps.index
+      prevProps.index === nextProps.index &&
+      prevProps.selected === nextProps.selected
     );
   }
 );
@@ -195,23 +215,28 @@ function getStatusBadgeVariant(theme: Theme, status?: string) {
       border: theme.colors.error,
       text: theme.colors.error,
     },
-    default: {
-      bg: theme.colors.gray100,
-      border: theme.colors.gray300,
-      text: theme.colors.gray700,
-    },
-  } as const;
+  };
 
-  const normalized = (status ?? 'default').toLowerCase() as keyof typeof palette;
-  const variant = palette[normalized] || palette.default;
+  if (status && palette[status as keyof typeof palette]) {
+    const paletteData = palette[status as keyof typeof palette];
+    return {
+      container: {
+        backgroundColor: paletteData.bg,
+        borderColor: paletteData.border,
+      },
+      text: {
+        color: paletteData.text,
+      },
+    };
+  }
 
   return {
     container: {
-      backgroundColor: variant.bg,
-      borderColor: variant.border,
+      backgroundColor: theme.colors.gray100,
+      borderColor: theme.colors.gray200,
     },
     text: {
-      color: variant.text,
+      color: theme.colors.gray700,
     },
   };
 }
@@ -248,6 +273,14 @@ export default function MapaRota() {
   const [paradas, setParadas] = useState<Parada[]>([]);
   const [fotoModalVisible, setFotoModalVisible] = useState(false);
   const [fotoSelecionada, setFotoSelecionada] = useState<string | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [selectedParadaId, setSelectedParadaId] = useState<string | null>(null);
+  const [timelineState, setTimelineState] = useState<{ loading: boolean; events: number }>({
+    loading: true,
+    events: 0,
+  });
+  const listaParadasRef = useRef<ScrollView | null>(null);
+  const paradaPositions = useRef<Record<string, number>>({});
   const pageMeta = getGestorPageMeta('mapaRota');
 
   const statusBadgeVariant = useMemo(
@@ -283,6 +316,8 @@ export default function MapaRota() {
     if (pontosBase.length === 0) return null;
     return pontosBase.reduce((prev, curr) => (curr.ordem > prev.ordem ? curr : prev));
   }, [pontosBase]);
+
+  const showTimelineCard = timelineState.loading || timelineState.events > 0;
 
   const loadRotaEParadas = useCallback(async () => {
     if (!id) return;
@@ -323,6 +358,20 @@ export default function MapaRota() {
     }
   }, [id, router, showToast]);
 
+  const handleConfirmCancel = useCallback(async () => {
+    if (!id) return;
+    try {
+      const rotaId = Array.isArray(id) ? id[0] : id;
+      await supabase.from('rotas').update({ status: 'cancelada' }).eq('id', rotaId);
+      showToast('Rota cancelada com sucesso', 'success');
+      setShowCancelModal(false);
+      await loadRotaEParadas();
+    } catch (error) {
+      console.error('Erro ao cancelar rota:', error);
+      showToast('Erro ao cancelar rota', 'error');
+    }
+  }, [id, loadRotaEParadas, showToast]);
+
   useEffect(() => {
     if (id) {
       loadRotaEParadas();
@@ -330,6 +379,35 @@ export default function MapaRota() {
       setLoading(false);
     }
   }, [id, loadRotaEParadas]);
+
+  const scrollToParada = useCallback(
+    (paradaId: string) => {
+      const positionY = paradaPositions.current[paradaId];
+      if (positionY != null && listaParadasRef.current) {
+        listaParadasRef.current.scrollTo({ y: Math.max(positionY - 12, 0), animated: true });
+      }
+    },
+    []
+  );
+
+  const handleMarkerPress = useCallback(
+    (paradaId: string) => {
+      setSelectedParadaId(paradaId);
+      scrollToParada(paradaId);
+    },
+    [scrollToParada]
+  );
+
+  const handleParadaPress = useCallback(
+    (paradaId: string) => {
+      setSelectedParadaId(paradaId);
+    },
+    []
+  );
+
+  const handleParadaLayout = useCallback((idParada: string, y: number) => {
+    paradaPositions.current[idParada] = y;
+  }, []);
 
   if (loading) {
     return (
@@ -361,7 +439,7 @@ export default function MapaRota() {
 
             <TouchableOpacity
               style={styles.primaryButton}
-              onPress={() => router.push('/gestor/historico')}
+              onPress={() => router.push('/gestor/gestao-rotas')}
             >
               <Text style={styles.primaryButtonText}>* Ver Minhas Rotas</Text>
             </TouchableOpacity>
@@ -399,7 +477,11 @@ export default function MapaRota() {
   const MapView = () => {
     return (
       <View style={isDesktop ? styles.mapContainerSplit : styles.mapContainer}>
-        <MapaAdapter paradas={paradas} />
+        <MapaAdapter
+          paradas={paradas}
+          selectedParadaId={selectedParadaId}
+          onMarkerPress={handleMarkerPress}
+        />
       </View>
     );
   };
@@ -554,6 +636,9 @@ export default function MapaRota() {
             onImagePress={(url) => {
               setFotoSelecionada(url);
             }}
+            selected={selectedParadaId === parada.id}
+            onPress={handleParadaPress}
+            onLayoutCapture={handleParadaLayout}
           />
         ))
       )}
@@ -590,46 +675,65 @@ export default function MapaRota() {
           noPadding
         >
           {/* Info da Rota */}
-          <View style={{ padding: 24, backgroundColor: theme.colors.white, borderRadius: 12, marginBottom: 24 }}>
-            <View style={{ flexDirection: 'row', gap: 32, alignItems: 'center' }}>
-              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                <Text style={{ fontSize: 14, color: theme.colors.gray600 }}>Status:</Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    styles.statusBadgeDesktop,
-                    statusBadgeVariant.container,
-                  ]}
-                >
-                  <Text
+          <View style={styles.infoHeaderBar}>
+            <View style={styles.infoHeaderRow}>
+              <View style={styles.driverChip}>
+                <Ionicons name="person-circle-outline" size={20} color={theme.colors.primary} />
+                <View>
+                  <Text style={styles.driverLabel}>Motorista</Text>
+                  <Text style={styles.driverName}>{rota?.motorista?.nome || 'Sem motorista'}</Text>
+                </View>
+              </View>
+              <View style={styles.infoHeaderChipGroup}>
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 14, color: theme.colors.gray600 }}>Status:</Text>
+                  <View
                     style={[
-                      styles.statusBadgeText,
-                      styles.statusBadgeTextDesktop,
-                      statusBadgeVariant.text,
+                      styles.statusBadge,
+                      styles.statusBadgeDesktop,
+                      statusBadgeVariant.container,
                     ]}
                   >
-                    {statusLabel}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.statusBadgeText,
+                        styles.statusBadgeTextDesktop,
+                        statusBadgeVariant.text,
+                      ]}
+                    >
+                      {statusLabel}
+                    </Text>
+                  </View>
                 </View>
-              </View>
 
-              {rota!.distancia_total && (
+                {rota!.distancia_total && (
+                  <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 14, color: theme.colors.gray600 }}>Distancia Total:</Text>
+                    <Text style={{ fontSize: 14, color: theme.colors.gray900, fontWeight: '600' }}>
+                      {rota!.distancia_total.toFixed(1)} km
+                    </Text>
+                  </View>
+                )}
+
                 <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                  <Text style={{ fontSize: 14, color: theme.colors.gray600 }}>Distancia Total:</Text>
+                  <Text style={{ fontSize: 14, color: theme.colors.gray600 }}>Paradas:</Text>
                   <Text style={{ fontSize: 14, color: theme.colors.gray900, fontWeight: '600' }}>
-                    {rota!.distancia_total.toFixed(1)} km
+                    {resumoParadas.total > 0
+                      ? `${resumoParadas.concluidas}/${resumoParadas.total} concluidas`
+                      : 'Sem entregas'}
                   </Text>
                 </View>
-              )}
-
-              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                <Text style={{ fontSize: 14, color: theme.colors.gray600 }}>Paradas:</Text>
-                <Text style={{ fontSize: 14, color: theme.colors.gray900, fontWeight: '600' }}>
-                  {resumoParadas.total > 0
-                    ? `${resumoParadas.concluidas}/${resumoParadas.total} concluidas`
-                    : 'Sem entregas'}
-                </Text>
               </View>
+              {rota?.status !== 'cancelada' && rota?.status !== 'concluida' && (
+                <TouchableOpacity
+                  onPress={() => setShowCancelModal(true)}
+                  style={styles.cancelChip}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="close-circle-outline" size={16} color={theme.colors.error} />
+                  <Text style={styles.cancelChipText}>Cancelar rota</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 
@@ -644,12 +748,14 @@ export default function MapaRota() {
                   variant="elevated"
                   noPadding
                 >
-                  <View style={{ height: 600 }}>
+                  <View style={{ height: MAP_HEIGHT }}>
                     <MapaAdapter
                       paradas={paradas}
                       rotaId={id as string}
                       motoristaNome={rota?.motorista?.nome}
                       showMotoristaMarker={rota?.status === 'em_andamento'}
+                      selectedParadaId={selectedParadaId}
+                      onMarkerPress={handleMarkerPress}
                     />
                   </View>
                 </DesktopCard>
@@ -667,7 +773,7 @@ export default function MapaRota() {
                     iconColor={theme.colors.secondary}
                     variant="outlined"
                   >
-                    <ScrollView style={{ maxHeight: 300 }}>
+                    <ScrollView style={{ maxHeight: MAP_HEIGHT }} ref={listaParadasRef}>
                       <ParadasList variant="desktop" />
                     </ScrollView>
                   </DesktopCard>
@@ -677,14 +783,25 @@ export default function MapaRota() {
                     icon="time-outline"
                     iconColor={theme.colors.info}
                     variant="outlined"
+                    actions={
+                      !timelineState.loading && timelineState.events === 0 ? (
+                        <View style={styles.timelineChip}>
+                          <Text style={styles.timelineChipText}>Sem eventos</Text>
+                        </View>
+                      ) : undefined
+                    }
                   >
-                    <View style={{ height: 280 }}>
-                      <RouteTimeline rotaId={id as string} realtime={true} />
+                    <View style={{ height: showTimelineCard ? 280 : 0, overflow: 'hidden' }}>
+                      <RouteTimeline
+                        rotaId={id as string}
+                        realtime={true}
+                        onStateChange={setTimelineState}
+                      />
                     </View>
                   </DesktopCard>
                 </View>
               }
-              leftFlex={2}
+              leftFlex={1.5}
               rightFlex={1}
               gap={24}
             />
@@ -748,6 +865,17 @@ export default function MapaRota() {
             </View>
           )}
         </DesktopModal>
+
+        <ConfirmModal
+          visible={showCancelModal}
+          title="Cancelar rota"
+          message="Tem certeza que deseja cancelar esta rota? Esta acao nao pode ser desfeita."
+          confirmText="Sim, cancelar"
+          cancelText="Nao"
+          onConfirm={handleConfirmCancel}
+          onCancel={() => setShowCancelModal(false)}
+          type="danger"
+        />
 
         {/* Toast de Feedback */}
         <Toast {...toast} onDismiss={hideToast} />
@@ -932,6 +1060,52 @@ const styles = StyleSheet.create(theme => ({
     marginHorizontal: 'auto',
     width: '100%',
   },
+  infoHeaderBar: {
+    backgroundColor: theme.colors.white,
+    padding: 24,
+    borderRadius: 12,
+    marginBottom: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.gray100,
+  },
+  infoHeaderRow: {
+    flexDirection: 'row',
+    gap: 32,
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  infoHeaderChipGroup: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  driverChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.gray100,
+    backgroundColor: theme.colors.gray50,
+  },
+  driverLabel: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray500,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  driverName: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray900,
+    fontFamily: theme.typography.fontSansSemiBold,
+  },
   desktopInfoRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1055,13 +1229,16 @@ const styles = StyleSheet.create(theme => ({
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.md,
-    borderLeftWidth: 4,
-    borderLeftColor: theme.colors.primaryDark,
     ...theme.shadows.sm,
+  },
+  paradaCardSelected: {
+    borderWidth: 1.5,
+    borderColor: theme.colors.primary,
   },
   paradaHeader: {
     flexDirection: 'row',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+    alignItems: 'flex-start',
   },
   paradaNumero: {
     width: 36,
@@ -1080,16 +1257,23 @@ const styles = StyleSheet.create(theme => ({
   paradaHeaderInfo: {
     flex: 1,
   },
+  paradaHeaderTop: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+    alignItems: 'flex-start',
+  },
   paradaEndereco: {
+    flex: 1,
     fontSize: theme.typography.fontSize.sm + 1,
     fontWeight: '600',
     color: theme.colors.gray900,
-    marginBottom: theme.spacing.sm,
+    lineHeight: 20,
   },
   paradaTags: {
     flexDirection: 'row',
-    gap: theme.spacing.sm,
+    gap: theme.spacing.xs,
     flexWrap: 'wrap',
+    alignItems: 'center',
   },
   tipoTag: {
     paddingHorizontal: theme.spacing.sm + 2,
@@ -1127,11 +1311,20 @@ const styles = StyleSheet.create(theme => ({
     color: theme.colors.gray900,
   },
   paradaDetalhes: {
-    gap: theme.spacing.sm,
+    gap: theme.spacing.xs,
     marginTop: theme.spacing.sm,
   },
-  paradaMetaRow: {
-    marginBottom: theme.spacing.xs,
+  paradaMetaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.md,
+  },
+  paradaMetaItem: {
+    flex: 1,
+    minWidth: 220,
+  },
+  paradaMetaItemFull: {
+    width: '100%',
   },
   paradaMetaLabel: {
     fontSize: theme.typography.fontSize.xs,
@@ -1442,6 +1635,33 @@ const styles = StyleSheet.create(theme => ({
     width: '100%',
     height: '100%',
     borderRadius: theme.borderRadius.lg,
+  },
+  timelineChip: {
+    backgroundColor: theme.colors.gray100,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.lg,
+  },
+  timelineChipText: {
+    color: theme.colors.gray600,
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
+  },
+  cancelChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs + 2,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 1,
+    borderColor: `${theme.colors.error}55`,
+    backgroundColor: `${theme.colors.errorBg}50`,
+  },
+  cancelChipText: {
+    color: theme.colors.error,
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
 }));
 

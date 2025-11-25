@@ -99,9 +99,9 @@ describe('GestorSidebar Component', () => {
       expect(getByText('➕')).toBeTruthy();
     });
 
-    it('deve renderizar item Histórico', () => {
+    it('deve renderizar item Gestão de Rotas', () => {
       const { getByText } = render(<GestorSidebar />);
-      expect(getByText('Histórico')).toBeTruthy();
+      expect(getByText('Gestão de Rotas')).toBeTruthy();
       expect(getByText('📋')).toBeTruthy();
     });
 
@@ -125,10 +125,10 @@ describe('GestorSidebar Component', () => {
       expect(mockPush).toHaveBeenCalledWith('/gestor/nova-entrega');
     });
 
-    it('deve navegar ao clicar em Histórico', () => {
+    it('deve navegar ao clicar em Gestão de Rotas', () => {
       const { getByText } = render(<GestorSidebar />);
-      fireEvent.press(getByText('Histórico'));
-      expect(mockPush).toHaveBeenCalledWith('/gestor/historico');
+      fireEvent.press(getByText('Gestão de Rotas'));
+      expect(mockPush).toHaveBeenCalledWith('/gestor/gestao-rotas');
     });
 
     it('deve navegar ao clicar em Motoristas', () => {
@@ -246,7 +246,7 @@ describe('GestorSidebar Component', () => {
 
       expect(getByText('Início')).toBeTruthy();
       expect(getByText('Nova Rota')).toBeTruthy();
-      expect(getByText('Histórico')).toBeTruthy();
+      expect(getByText('Gestão de Rotas')).toBeTruthy();
       expect(getByText('Motoristas')).toBeTruthy();
     });
 

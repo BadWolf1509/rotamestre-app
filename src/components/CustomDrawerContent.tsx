@@ -63,8 +63,7 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
         overScrollMode="never"
         alwaysBounceVertical={false}
         scrollEnabled={!isDialogOpen}
-        pointerEvents={isDialogOpen ? 'none' : 'auto'}
-        style={styles(theme).container}
+        style={[styles(theme).container, { pointerEvents: isDialogOpen ? 'none' : 'auto' }]}
         contentContainerStyle={styles(theme).contentContainer}
       >
         <View style={{ flexGrow: 1, justifyContent: 'space-between' }}>

@@ -233,7 +233,7 @@ const FormularioParadaMemoized = memo(function FormularioParada({
                 setValue('longitude', details.coordenadas.longitude);
               }
             }}
-            placeholder="Digite o endereço completo *"
+            placeholder="Digite o endereço completo"
             error={errors.endereco?.message}
             multiline
           />
@@ -250,7 +250,7 @@ const FormularioParadaMemoized = memo(function FormularioParada({
                 styles.input,
                 errors.destinatario && styles.inputError,
               ]}
-              placeholder="Nome do destinatário *"
+              placeholder="Nome do destinatário"
               value={value}
               onChangeText={onChange}
               accessibilityLabel="Campo de nome do destinatário"
@@ -273,7 +273,7 @@ const FormularioParadaMemoized = memo(function FormularioParada({
                 styles.input,
                 errors.telefone && styles.inputError,
               ]}
-              placeholder="Telefone de contato *"
+              placeholder="Telefone de contato"
               value={value}
               onChangeText={(text) => onChange(maskPhone(text))}
               keyboardType="phone-pad"

@@ -239,9 +239,9 @@ export function DashboardDesktop({
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.secondaryAction}
-                onPress={() => router.push('/gestor/historico')}
+                onPress={() => router.push('/gestor/gestao-rotas')}
               >
-                <Text style={styles.secondaryActionText}>Ver Histórico</Text>
+                <Text style={styles.secondaryActionText}>Gestão de Rotas</Text>
               </TouchableOpacity>
             </View>
           </View>

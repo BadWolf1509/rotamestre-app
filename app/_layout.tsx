@@ -18,12 +18,16 @@ import { DevToolsInitializer } from '@/components/DevToolsInitializer';
 import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUser } from '@/hooks/useUser';
+import { configureLogBox } from '@/utils/configureLogBox';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 // Inicializar Unistyles v3 ANTES de qualquer componente (apenas native)
 if (Platform.OS !== 'web') {
   require('../unistyles');
 }
+
+// Configurar LogBox para ignorar warnings de desenvolvimento conhecidos
+configureLogBox();
 
 // Inicializar DevTools para desenvolvimento web
 // Removido temporariamente para evitar erro de import dinâmico

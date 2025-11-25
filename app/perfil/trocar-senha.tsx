@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+﻿import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   View,
@@ -33,7 +33,7 @@ export default function AlterarSenha() {
   const [showConfirmarSenha, setShowConfirmarSenha] = useState(false);
 
   async function handleSave() {
-    // Validações
+    // ValidaÃ§Ãµes
     if (!senhaAtual) {
       Alert.alert('Erro', 'Digite sua senha atual');
       return;
@@ -45,12 +45,12 @@ export default function AlterarSenha() {
     }
 
     if (novaSenha.length < 6) {
-      Alert.alert('Erro', 'A nova senha deve ter no mínimo 6 caracteres');
+      Alert.alert('Erro', 'A nova senha deve ter no mÃ­nimo 6 caracteres');
       return;
     }
 
     if (novaSenha !== confirmarSenha) {
-      Alert.alert('Erro', 'As senhas não coincidem');
+      Alert.alert('Erro', 'As senhas nÃ£o coincidem');
       return;
     }
 
@@ -65,7 +65,7 @@ export default function AlterarSenha() {
       // Verificar senha atual fazendo login novamente
       const session = await authService.getSession();
       if (!session?.user?.email) {
-        throw new Error('Sessão não encontrada');
+        throw new Error('SessÃ£o nÃ£o encontrada');
       }
 
       // Tentar fazer login com a senha atual para validar
@@ -78,7 +78,7 @@ export default function AlterarSenha() {
       // Atualizar senha
       await authService.updatePassword(novaSenha);
 
-      // Marcar primeira_senha como false se ainda não estiver
+      // Marcar primeira_senha como false se ainda nÃ£o estiver
       await supabase
         .from('usuarios')
         .update({
@@ -95,7 +95,7 @@ export default function AlterarSenha() {
       ]);
     } catch (error: any) {
       console.error('Erro ao alterar senha:', error);
-      Alert.alert('Erro', error.message || 'Não foi possível alterar a senha');
+      Alert.alert('Erro', error.message || 'NÃ£o foi possÃ­vel alterar a senha');
     } finally {
       setSaving(false);
     }
@@ -106,13 +106,13 @@ export default function AlterarSenha() {
     message: string;
   } {
     if (password.length < 6) {
-      return { isValid: false, message: 'Mínimo 6 caracteres' };
+      return { isValid: false, message: 'MÃ­nimo 6 caracteres' };
     }
     if (password.length >= 6 && password.length < 8) {
       return { isValid: true, message: 'Senha fraca' };
     }
     if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
-      return { isValid: true, message: 'Senha média' };
+      return { isValid: true, message: 'Senha mÃ©dia' };
     }
     return { isValid: true, message: 'Senha forte' };
   }
@@ -149,7 +149,7 @@ export default function AlterarSenha() {
         onChange: setConfirmarSenha,
         autoCapitalize: 'none' as const,
         helperText: confirmarSenha ? (passwordsMatch ? 'Senhas coincidem' : undefined) : undefined,
-        error: confirmarSenha && !passwordsMatch ? 'Senhas não coincidem' : undefined,
+        error: confirmarSenha && !passwordsMatch ? 'Senhas n├úo coincidem' : undefined,
       },
     ];
 
@@ -158,10 +158,10 @@ export default function AlterarSenha() {
         <View style={desktopStyles(theme).tipsCard}>
           <Text style={desktopStyles(theme).tipsTitle}>Dicas para uma senha forte:</Text>
           <View style={desktopStyles(theme).tipsList}>
-            <Text style={desktopStyles(theme).tipText}>✓ Mínimo de 6 caracteres</Text>
-            <Text style={desktopStyles(theme).tipText}>✓ Use letras maiúsculas e minúsculas</Text>
-            <Text style={desktopStyles(theme).tipText}>✓ Inclua números</Text>
-            <Text style={desktopStyles(theme).tipText}>✓ Adicione caracteres especiais (@, #, $, etc.)</Text>
+            <Text style={desktopStyles(theme).tipText}>âœ“ MÃ­nimo de 6 caracteres</Text>
+            <Text style={desktopStyles(theme).tipText}>âœ“ Use letras maiÃºsculas e minÃºsculas</Text>
+            <Text style={desktopStyles(theme).tipText}>âœ“ Inclua nÃºmeros</Text>
+            <Text style={desktopStyles(theme).tipText}>âœ“ Adicione caracteres especiais (@, #, $, etc.)</Text>
           </View>
         </View>
       </View>
@@ -196,7 +196,7 @@ export default function AlterarSenha() {
           </View>
         </View>
 
-        {/* Formulário */}
+        {/* FormulÃ¡rio */}
         <View style={styles(theme).form}>
           {/* Senha Atual */}
           <View style={styles(theme).inputGroup}>
@@ -218,7 +218,7 @@ export default function AlterarSenha() {
                 onPress={() => setShowSenhaAtual(!showSenhaAtual)}
               >
                 <Text style={styles(theme).passwordToggleText}>
-                  {showSenhaAtual ? '👁️' : '👁️‍🗨️'}
+                  {showSenhaAtual ? 'ðŸ‘ï¸' : 'ðŸ‘ï¸â€ðŸ—¨ï¸'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -244,7 +244,7 @@ export default function AlterarSenha() {
                 onPress={() => setShowNovaSenha(!showNovaSenha)}
               >
                 <Text style={styles(theme).passwordToggleText}>
-                  {showNovaSenha ? '👁️' : '👁️‍🗨️'}
+                  {showNovaSenha ? 'ðŸ‘ï¸' : 'ðŸ‘ï¸â€ðŸ—¨ï¸'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -254,7 +254,7 @@ export default function AlterarSenha() {
                   styles(theme).helperText,
                   passwordStrength.message === 'Senha forte' &&
                     styles(theme).helperTextSuccess,
-                  passwordStrength.message === 'Senha média' &&
+                  passwordStrength.message === 'Senha mÃ©dia' &&
                     styles(theme).helperTextWarning,
                   !passwordStrength.isValid && styles(theme).helperTextError,
                 ]}
@@ -284,7 +284,7 @@ export default function AlterarSenha() {
                 onPress={() => setShowConfirmarSenha(!showConfirmarSenha)}
               >
                 <Text style={styles(theme).passwordToggleText}>
-                  {showConfirmarSenha ? '👁️' : '👁️‍🗨️'}
+                  {showConfirmarSenha ? 'ðŸ‘ï¸' : 'ðŸ‘ï¸â€ðŸ—¨ï¸'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -297,25 +297,25 @@ export default function AlterarSenha() {
                     : styles(theme).helperTextError,
                 ]}
               >
-                {passwordsMatch ? 'Senhas coincidem' : 'Senhas não coincidem'}
+                {passwordsMatch ? 'Senhas coincidem' : 'Senhas nÃ£o coincidem'}
               </Text>
             )}
           </View>
 
-          {/* Dicas de Segurança */}
+          {/* Dicas de SeguranÃ§a */}
           <View style={styles(theme).tipsContainer}>
             <Text style={styles(theme).tipsTitle}>Dicas para uma senha forte:</Text>
-            <Text style={styles(theme).tipText}>• Mínimo de 6 caracteres</Text>
+            <Text style={styles(theme).tipText}>â€¢ MÃ­nimo de 6 caracteres</Text>
             <Text style={styles(theme).tipText}>
-              • Use letras maiúsculas e minúsculas
+              â€¢ Use letras maiÃºsculas e minÃºsculas
             </Text>
-            <Text style={styles(theme).tipText}>• Inclua números</Text>
+            <Text style={styles(theme).tipText}>â€¢ Inclua nÃºmeros</Text>
             <Text style={styles(theme).tipText}>
-              • Adicione caracteres especiais (@, #, $, etc.)
+              â€¢ Adicione caracteres especiais (@, #, $, etc.)
             </Text>
           </View>
 
-          {/* Botões inline */}
+          {/* BotÃµes inline */}
           <View style={styles(theme).buttonsContainer}>
             <TouchableOpacity
               style={styles(theme).buttonSecondary}
@@ -513,4 +513,6 @@ const styles = (theme: any) =>
       opacity: 0.6,
     },
   });
+
+
 

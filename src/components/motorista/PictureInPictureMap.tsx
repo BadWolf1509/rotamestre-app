@@ -198,7 +198,7 @@ export function PictureInPictureMap({
     >
       {/* Map */}
       <MapView
-        style={styles.map}
+        style={[styles.map, { pointerEvents: isExpanded ? 'auto' : 'none' }]}
         provider={PROVIDER_GOOGLE}
         region={region}
         showsUserLocation
@@ -208,7 +208,6 @@ export function PictureInPictureMap({
         scrollEnabled={isExpanded}
         zoomEnabled={isExpanded}
         toolbarEnabled={false}
-        pointerEvents={isExpanded ? 'auto' : 'none'}
       >
         {destination && (
           <Marker
@@ -223,7 +222,7 @@ export function PictureInPictureMap({
       </MapView>
 
       {/* Controls overlay */}
-      <View style={styles.controls} pointerEvents="box-none">
+      <View style={[styles.controls, { pointerEvents: 'box-none' }]}>
         {/* Expand/Collapse button */}
         <TouchableOpacity
           style={[

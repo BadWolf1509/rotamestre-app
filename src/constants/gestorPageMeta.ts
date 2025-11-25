@@ -3,7 +3,7 @@ import type { BreadcrumbItem } from '@/components/desktop/DesktopPageLayout';
 export type GestorPageKey =
   | 'inicio'
   | 'novaRota'
-  | 'historico'
+  | 'gestao-rotas'
   | 'motoristas'
   | 'mapaRota'
   | 'perfil'
@@ -32,12 +32,12 @@ export const gestorPageMeta: Record<GestorPageKey, PageMeta> = {
       { label: 'Nova Rota' },
     ],
   },
-  historico: {
-    title: 'Histórico de Rotas',
-    subtitle: 'Acompanhe rotas passadas e exporte relatórios',
+  'gestao-rotas': {
+    title: 'Gestão de Rotas',
+    subtitle: 'Gerencie todas as rotas da sua unidade',
     breadcrumbs: [
       { label: 'Início', route: '/gestor/inicio' },
-      { label: 'Histórico' },
+      { label: 'Gestão de Rotas' },
     ],
   },
   motoristas: {
@@ -53,7 +53,7 @@ export const gestorPageMeta: Record<GestorPageKey, PageMeta> = {
     subtitle: 'Visualização geográfica e detalhes do trajeto',
     breadcrumbs: [
       { label: 'Início', route: '/gestor/inicio' },
-      { label: 'Histórico', route: '/gestor/historico' },
+      { label: 'Gestão de Rotas', route: '/gestor/gestao-rotas' },
       { label: 'Mapa da Rota' },
     ],
   },

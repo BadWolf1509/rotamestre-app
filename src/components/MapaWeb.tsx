@@ -13,11 +13,16 @@ interface Parada {
   latitude: number | null;
   longitude: number | null;
   status: string;
+  destinatario?: string;
+  telefone?: string;
+  tipo?: string;
   is_checkpoint?: boolean;
 }
 
 interface MapaWebProps {
   paradas: Parada[];
+  selectedParadaId?: string | null;
+  onMarkerPress?: (paradaId: string) => void;
 }
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
@@ -78,12 +83,17 @@ function createMarkerContent(parada: Parada) {
   return wrapper;
 }
 
-export default function MapaWeb({ paradas }: MapaWebProps) {
+export default function MapaWeb({ paradas, selectedParadaId, onMarkerPress }: MapaWebProps) {
   const [directions, setDirections] = React.useState<google.maps.DirectionsResult | null>(null);
   const mapRef = React.useRef<google.maps.Map | null>(null);
   const advancedMarkersRef = React.useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const fallbackMarkersRef = React.useRef<google.maps.Marker[]>([]);
+  const markerMapRef = React.useRef<Map<string, google.maps.marker.AdvancedMarkerElement | google.maps.Marker>>(new Map());
+  const infoWindowRef = React.useRef<google.maps.InfoWindow | null>(null);
   const [mapReady, setMapReady] = React.useState(false);
+  const boundsRef = React.useRef<google.maps.LatLngBounds | null>(null);
+  const legendControlRef = React.useRef<HTMLDivElement | null>(null);
+  const recenterControlRef = React.useRef<HTMLDivElement | null>(null);
 
   const mapLibraries = React.useMemo(() => ['marker'] as google.maps.libraryName[], []);
 
@@ -113,16 +123,8 @@ export default function MapaWeb({ paradas }: MapaWebProps) {
     (mapInstance: google.maps.Map) => {
       mapRef.current = mapInstance;
       setMapReady(true);
-      // Ajustar bounds para mostrar todas as paradas
-      if (paradasComCoord.length > 0) {
-        const bounds = new window.google.maps.LatLngBounds();
-        paradasComCoord.forEach((p) => {
-          bounds.extend({ lat: p.latitude!, lng: p.longitude! });
-        });
-        mapInstance.fitBounds(bounds);
-      }
     },
-    [paradasComCoord]
+    []
   );
 
   const clearMarkers = useCallback(() => {
@@ -137,12 +139,54 @@ export default function MapaWeb({ paradas }: MapaWebProps) {
     fallbackMarkersRef.current = [];
   }, []);
 
+  const buildInfoContent = useCallback((parada: Parada) => {
+    const statusLabel =
+      parada.status === 'concluida'
+        ? 'Concluida'
+        : parada.status === 'pendente'
+          ? 'Pendente'
+          : parada.status === 'em_andamento'
+            ? 'Em andamento'
+            : parada.status;
+
+    const statusColor = getStatusColor(parada.status);
+
+    return `
+      <div style="max-width:240px;font-family:sans-serif;">
+        <div style="font-weight:700;margin-bottom:6px;font-size:14px;">Parada ${parada.ordem}</div>
+        <div style="font-size:13px;margin-bottom:8px;line-height:18px;">${parada.endereco}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+          <span style="padding:4px 8px;border-radius:12px;background:${statusColor}15;color:${statusColor};font-weight:600;font-size:12px;">${statusLabel}</span>
+          ${parada.tipo ? `<span style="padding:4px 8px;border-radius:12px;background:#e0f2fe;color:#0f172a;font-weight:600;font-size:12px;text-transform:capitalize;">${parada.tipo}</span>` : ''}
+        </div>
+        ${parada.destinatario ? `<div style="font-size:12px;color:#475569;margin-bottom:4px;"><strong>Destinatario:</strong> ${parada.destinatario}</div>` : ''}
+        ${parada.telefone ? `<div style="font-size:12px;color:#475569;margin-bottom:6px;"><strong>Telefone:</strong> ${parada.telefone}</div>` : ''}
+        <button id="go-to-${parada.id}" style="margin-top:4px;padding:8px 10px;border-radius:10px;border:1px solid #e2e8f0;background:#f8fafc;color:#0f172a;cursor:pointer;font-weight:600;font-size:12px;">Ver na lista</button>
+      </div>
+    `;
+  }, []);
+
+  const openInfoWindow = useCallback(
+    (parada: Parada, marker: google.maps.marker.AdvancedMarkerElement | google.maps.Marker | null) => {
+      if (!marker || !mapRef.current) return;
+      if (!infoWindowRef.current) infoWindowRef.current = new google.maps.InfoWindow();
+      infoWindowRef.current.setContent(buildInfoContent(parada));
+      infoWindowRef.current.open(mapRef.current, marker);
+      google.maps.event.addListenerOnce(infoWindowRef.current, 'domready', () => {
+        const btn = document.getElementById(`go-to-${parada.id}`);
+        if (btn) btn.addEventListener('click', () => onMarkerPress?.(parada.id));
+      });
+    },
+    [buildInfoContent, onMarkerPress]
+  );
+
   React.useEffect(() => {
     if (!isLoaded || !mapReady || !mapRef.current) return;
 
     clearMarkers();
 
     if (paradasComCoord.length === 0) return;
+    boundsRef.current = new window.google.maps.LatLngBounds();
 
     const AdvancedMarker = google.maps.marker?.AdvancedMarkerElement;
     const canUseAdvancedMarkers = Boolean(GOOGLE_MAPS_MAP_ID && AdvancedMarker);
@@ -155,6 +199,12 @@ export default function MapaWeb({ paradas }: MapaWebProps) {
           title: `Parada ${parada.ordem}: ${parada.endereco}`,
           content: createMarkerContent(parada),
         });
+        markerMapRef.current.set(parada.id, marker);
+        marker.addListener('gmp-click', () => {
+          onMarkerPress?.(parada.id);
+          openInfoWindow(parada, marker);
+        });
+        boundsRef.current?.extend({ lat: parada.latitude!, lng: parada.longitude! });
         return marker;
       });
       return;
@@ -164,7 +214,7 @@ export default function MapaWeb({ paradas }: MapaWebProps) {
     fallbackMarkersRef.current = paradasComCoord.map((parada) => {
       // Checkpoint (partida/chegada): marcador azul primário
       if (parada.is_checkpoint === false) {
-        return new google.maps.Marker({
+        const marker = new google.maps.Marker({
           map: mapRef.current!,
           position: { lat: parada.latitude!, lng: parada.longitude! },
           title: parada.ordem === 1 ? 'Ponto de Partida' : 'Ponto de Chegada',
@@ -172,10 +222,13 @@ export default function MapaWeb({ paradas }: MapaWebProps) {
             url: 'https://maps.google.com/mapfiles/ms/icons/blue.png',
           },
         });
+        markerMapRef.current.set(parada.id, marker);
+        boundsRef.current?.extend({ lat: parada.latitude!, lng: parada.longitude! });
+        return marker;
       }
 
       // Parada normal: círculo colorido com número
-      return new google.maps.Marker({
+      const marker = new google.maps.Marker({
         map: mapRef.current!,
         position: { lat: parada.latitude!, lng: parada.longitude! },
         title: `Parada ${parada.ordem}: ${parada.endereco}`,
@@ -193,8 +246,18 @@ export default function MapaWeb({ paradas }: MapaWebProps) {
           scale: 16,
         },
       });
+      markerMapRef.current.set(parada.id, marker);
+      marker.addListener('click', () => {
+        onMarkerPress?.(parada.id);
+        openInfoWindow(parada, marker);
+      });
+      boundsRef.current?.extend({ lat: parada.latitude!, lng: parada.longitude! });
+      return marker;
     });
-  }, [isLoaded, mapReady, paradasComCoord, clearMarkers]);
+    if (boundsRef.current && !boundsRef.current.isEmpty() && mapRef.current) {
+      mapRef.current.fitBounds(boundsRef.current);
+    }
+  }, [isLoaded, mapReady, paradasComCoord, clearMarkers, onMarkerPress, openInfoWindow]);
 
   React.useEffect(
     () => () => {
@@ -202,6 +265,21 @@ export default function MapaWeb({ paradas }: MapaWebProps) {
     },
     [clearMarkers]
   );
+
+  React.useEffect(() => {
+    if (!selectedParadaId || !mapRef.current) return;
+    const marker = markerMapRef.current.get(selectedParadaId);
+    const parada = paradasComCoord.find((p) => p.id === selectedParadaId);
+    if (!marker || !parada) return;
+    openInfoWindow(parada, marker);
+    // Ajustar centro para o marcador selecionado
+    // AdvancedMarkerElement usa .position, google.maps.Marker usa getPosition()
+    // @ts-expect-error - AdvancedMarkerElement usa property position
+    const pos = marker.position || marker.getPosition?.();
+    if (pos && mapRef.current) {
+      mapRef.current.panTo(pos);
+    }
+  }, [selectedParadaId, paradasComCoord, openInfoWindow]);
 
   // Calcular direções
   React.useEffect(() => {
@@ -241,6 +319,64 @@ export default function MapaWeb({ paradas }: MapaWebProps) {
       }
     );
   }, [isLoaded, paradasComCoord]);
+
+  React.useEffect(() => {
+    if (!mapReady || !mapRef.current || !google?.maps) return;
+
+    // Legend
+    const legend = document.createElement('div');
+    legend.style.background = '#ffffff';
+    legend.style.border = '1px solid #e2e8f0';
+    legend.style.borderRadius = '10px';
+    legend.style.padding = '8px 10px';
+    legend.style.margin = '8px';
+    legend.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
+    legend.innerHTML = `
+      <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:#0f172a;">Legenda</div>
+      <div style="display:flex;gap:10px;font-size:12px;color:#475569;align-items:center;">
+        <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>Pendente</span>
+        <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:50%;background:#3b82f6;display:inline-block;"></span>Em andamento</span>
+        <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:50%;background:#10b981;display:inline-block;"></span>Concluida</span>
+      </div>
+    `;
+    legendControlRef.current = legend;
+    mapRef.current.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(legend);
+
+    // Recenter
+    const recenter = document.createElement('div');
+    recenter.style.background = '#ffffff';
+    recenter.style.border = '1px solid #e2e8f0';
+    recenter.style.borderRadius = '10px';
+    recenter.style.padding = '10px';
+    recenter.style.margin = '8px';
+    recenter.style.cursor = 'pointer';
+    recenter.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
+    recenter.innerText = 'Recentrar rota';
+    recenterControlRef.current = recenter;
+    recenter.addEventListener('click', () => {
+      if (boundsRef.current && !boundsRef.current.isEmpty()) {
+        mapRef.current?.fitBounds(boundsRef.current);
+      } else if (paradasComCoord.length > 0 && mapRef.current) {
+        mapRef.current.panTo(center);
+      }
+    });
+    mapRef.current.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(recenter);
+
+    return () => {
+      if (legendControlRef.current) {
+        const idx = mapRef.current?.controls[google.maps.ControlPosition.LEFT_BOTTOM].getArray().indexOf(legendControlRef.current);
+        if (idx != null && idx >= 0) {
+          mapRef.current?.controls[google.maps.ControlPosition.LEFT_BOTTOM].removeAt(idx);
+        }
+      }
+      if (recenterControlRef.current) {
+        const idx = mapRef.current?.controls[google.maps.ControlPosition.RIGHT_BOTTOM].getArray().indexOf(recenterControlRef.current);
+        if (idx != null && idx >= 0) {
+          mapRef.current?.controls[google.maps.ControlPosition.RIGHT_BOTTOM].removeAt(idx);
+        }
+      }
+    };
+  }, [center, mapReady, isLoaded, paradasComCoord.length]);
 
   if (loadError) {
     return (

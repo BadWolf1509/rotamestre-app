@@ -232,12 +232,12 @@ describe('DashboardMobile', () => {
             expect(mockPush).toHaveBeenCalledWith('/gestor/motoristas');
         });
 
-        it('deve navegar para histórico ao clicar no botão', () => {
+        it('deve navegar para gestão de rotas ao clicar no botão', () => {
             const { getByText } = render(<DashboardMobile {...defaultProps} />);
 
-            fireEvent.press(getByText('📋 Ver Histórico'));
+            fireEvent.press(getByText('📋 Gestão de Rotas'));
 
-            expect(mockPush).toHaveBeenCalledWith('/gestor/historico');
+            expect(mockPush).toHaveBeenCalledWith('/gestor/gestao-rotas');
         });
 
         it('deve navegar para incidentes ao clicar no stats card', () => {

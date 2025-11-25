@@ -86,9 +86,9 @@ function GestorStack() {
         }}
       />
       <Stack.Screen
-        name="historico"
+        name="gestao-rotas"
         options={{
-          title: 'Histórico',
+          title: 'Gestão de Rotas',
         }}
       />
       <Stack.Screen

@@ -553,7 +553,10 @@ describe('CustomDrawerContent', () => {
       const scrollView = getByTestId('drawer-scroll-view');
 
       expect(scrollView.props.scrollEnabled).toBe(false);
-      expect(scrollView.props.pointerEvents).toBe('none');
+      // pointerEvents agora está dentro de style
+      const styles = Array.isArray(scrollView.props.style) ? scrollView.props.style : [scrollView.props.style];
+      const hasPointerEventsNone = styles.some(style => style?.pointerEvents === 'none');
+      expect(hasPointerEventsNone).toBe(true);
     });
 
     it('deve habilitar scroll quando dialog fechado', async () => {
@@ -564,7 +567,10 @@ describe('CustomDrawerContent', () => {
       await waitFor(() => {
         const scrollView = getByTestId('drawer-scroll-view');
         expect(scrollView.props.scrollEnabled).toBe(true);
-        expect(scrollView.props.pointerEvents).toBe('auto');
+        // pointerEvents agora está dentro de style
+        const styles = Array.isArray(scrollView.props.style) ? scrollView.props.style : [scrollView.props.style];
+        const hasPointerEventsAuto = styles.some(style => style?.pointerEvents === 'auto');
+        expect(hasPointerEventsAuto).toBe(true);
       });
     });
   });

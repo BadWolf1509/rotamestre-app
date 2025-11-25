@@ -28,6 +28,8 @@ interface MapaAdapterProps {
   rotaId?: string;
   motoristaNome?: string;
   showMotoristaMarker?: boolean;
+  selectedParadaId?: string | null;
+  onMarkerPress?: (paradaId: string) => void;
 }
 
 /**
@@ -38,6 +40,8 @@ export function MapaAdapter({
   rotaId,
   motoristaNome,
   showMotoristaMarker = false,
+  selectedParadaId,
+  onMarkerPress,
 }: MapaAdapterProps) {
   // Web: Usa MapaWeb (Google Maps JavaScript API)
   if (Platform.OS === 'web') {
@@ -47,6 +51,8 @@ export function MapaAdapter({
         rotaId={rotaId}
         motoristaNome={motoristaNome}
         showMotoristaMarker={showMotoristaMarker}
+        selectedParadaId={selectedParadaId}
+        onMarkerPress={onMarkerPress}
       />
     );
   }
