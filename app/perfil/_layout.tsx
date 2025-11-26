@@ -2,12 +2,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, Slot } from 'expo-router';
 import { Pressable } from 'react-native';
 
+import { AuthLoadingScreen } from '@/components/AuthLoadingScreen';
 import { DrawerMenuProvider, useDrawerMenu } from '@/context/DrawerMenuContext';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUnistyles } from '@/utils/styles';
 
 export default function PerfilGestorLayout() {
+  const { isReady, isAuthorized } = useRequireAuth({ role: 'any' });
   const { isDesktop } = useResponsive();
+
+  // Aguardar verificação de autenticação
+  if (!isReady) {
+    return <AuthLoadingScreen />;
+  }
+
+  // Se não autorizado, retorna null (redirect já aconteceu)
+  if (!isAuthorized) {
+    return null;
+  }
 
   // Desktop - sem header, usa o layout global
   if (isDesktop) {

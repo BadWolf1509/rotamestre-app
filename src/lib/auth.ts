@@ -54,8 +54,20 @@ export const authService = {
 
   // Logout
   async signOut() {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    try {
+      const { error } = await supabase.auth.signOut();
+      // Ignora erro "Auth session missing" pois o objetivo é deslogar
+      // Se não há sessão, o usuário já está deslogado
+      if (error && !error.message?.includes('Auth session missing')) {
+        throw error;
+      }
+    } catch (err: any) {
+      // Trata graciosamente erros de sessão inexistente
+      if (!err.message?.includes('Auth session missing')) {
+        throw err;
+      }
+      console.log('[Auth] Sessão já estava encerrada');
+    }
   },
 
   // Recuperar senha

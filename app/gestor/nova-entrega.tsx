@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState, useEffect, memo, useCallback } from 'react';
-import { useForm, Controller, Control, FieldErrors } from 'react-hook-form';
+import { useState, useEffect, memo, useCallback, useMemo } from 'react';
+import { useForm, Controller, Control, FieldErrors, UseFormWatch } from 'react-hook-form';
 import {
   View,
   Text,
@@ -22,10 +22,21 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { googleMapsService } from '@/lib/google';
+import {
+  otimizarRotaComDependencias,
+  formatarDescricaoVinculo,
+  encontrarRetiradasDisponiveis,
+  ParadaParaOtimizar,
+} from '@/lib/routeOptimization';
 import { supabase } from '@/lib/supabase';
 import { GoogleDirectionsLeg } from '@/types/google-directions';
 import { maskPhone } from '@/utils/phoneValidation';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
+
+// Função para gerar ID único
+function generateUniqueId(): string {
+  return `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
 
 // Schema de validação
 const paradaSchema = z.object({
@@ -51,9 +62,12 @@ const paradaSchema = z.object({
 type ParadaFormData = z.infer<typeof paradaSchema>;
 
 interface Parada extends ParadaFormData {
+  id: string; // ID temporário para vincular antes de salvar
   latitude?: number;
   longitude?: number;
   ordem: number;
+  /** ID da retirada que deve ser feita antes (apenas para entregas) */
+  vinculo_parada_id?: string;
 }
 
 interface RotaOtimizadaState {
@@ -150,8 +164,12 @@ interface FormularioParadaProps {
   errors: FieldErrors<ParadaFormData>;
   setValue: any;
   handleSubmit: any;
-  onAddParada: (data: ParadaFormData) => void;
+  watch: UseFormWatch<ParadaFormData>;
+  onAddParada: (data: ParadaFormData, vinculoId?: string) => void;
   isLoading: boolean;
+  retiradasDisponiveis: Parada[];
+  vinculoSelecionado: string;
+  setVinculoSelecionado: (id: string) => void;
 }
 
 const FormularioParadaMemoized = memo(function FormularioParada({
@@ -159,11 +177,17 @@ const FormularioParadaMemoized = memo(function FormularioParada({
   errors,
   setValue,
   handleSubmit,
+  watch,
   onAddParada,
   isLoading,
+  retiradasDisponiveis,
+  vinculoSelecionado,
+  setVinculoSelecionado,
 }: FormularioParadaProps) {
   const { theme } = useUnistyles();
   const styles = createStyles(theme);
+  // Usar watch para observar o valor real do campo tipo
+  const tipoAtual = watch('tipo');
 
   return (
     <View style={styles.form}>
@@ -198,7 +222,10 @@ const FormularioParadaMemoized = memo(function FormularioParada({
                 styles.radioButton,
                 value === 'retirada' && styles.radioButtonActive,
               ]}
-              onPress={() => onChange('retirada')}
+              onPress={() => {
+                onChange('retirada');
+                setVinculoSelecionado(''); // Limpa vínculo se mudar para retirada
+              }}
               accessibilityLabel="Selecionar tipo retirada"
               accessibilityRole="radio"
               accessibilityState={{ checked: value === 'retirada' }}
@@ -215,6 +242,56 @@ const FormularioParadaMemoized = memo(function FormularioParada({
           </View>
         )}
       />
+
+      {/* Seletor de Vínculo - aparece apenas para entregas quando há retiradas disponíveis */}
+      {tipoAtual === 'entrega' && retiradasDisponiveis.length > 0 && (
+        <View style={styles.vinculoSection}>
+          <Text style={styles.vinculoLabel}>
+            Vincular a uma retirada? (equipamento locado)
+          </Text>
+          <Text style={styles.vinculoHint}>
+            Se esta entrega usa equipamento que será retirado de outro cliente, selecione a retirada correspondente
+          </Text>
+          <View style={styles.vinculoOptions}>
+            <TouchableOpacity
+              style={[
+                styles.vinculoOption,
+                !vinculoSelecionado && styles.vinculoOptionActive,
+              ]}
+              onPress={() => setVinculoSelecionado('')}
+            >
+              <Text
+                style={[
+                  styles.vinculoOptionText,
+                  !vinculoSelecionado && styles.vinculoOptionTextActive,
+                ]}
+              >
+                Sem vínculo
+              </Text>
+            </TouchableOpacity>
+            {retiradasDisponiveis.map((retirada) => (
+              <TouchableOpacity
+                key={retirada.id}
+                style={[
+                  styles.vinculoOption,
+                  vinculoSelecionado === retirada.id && styles.vinculoOptionActive,
+                ]}
+                onPress={() => setVinculoSelecionado(retirada.id)}
+              >
+                <Text
+                  style={[
+                    styles.vinculoOptionText,
+                    vinculoSelecionado === retirada.id && styles.vinculoOptionTextActive,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {retirada.destinatario || retirada.endereco.substring(0, 30)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
 
       <Controller
         control={control}
@@ -307,7 +384,10 @@ const FormularioParadaMemoized = memo(function FormularioParada({
 
       <TouchableOpacity
         style={styles.addButton}
-        onPress={handleSubmit(onAddParada)}
+        onPress={handleSubmit((data: ParadaFormData) => {
+          onAddParada(data, vinculoSelecionado || undefined);
+          setVinculoSelecionado(''); // Limpa seleção após adicionar
+        })}
         disabled={isLoading}
         accessibilityLabel="Adicionar parada à lista"
         accessibilityRole="button"
@@ -338,6 +418,7 @@ export default function NovaEntrega() {
   const [paradas, setParadas] = useState<Parada[]>([]);
   const [motoristas, setMotoristas] = useState<any[]>([]);
   const [motoristaSelecionado, setMotoristaSelecionado] = useState<string>('');
+  const [vinculoSelecionado, setVinculoSelecionado] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMotoristas, setIsLoadingMotoristas] = useState(true);
   const [isOptimizing, setIsOptimizing] = useState(false);
@@ -348,11 +429,18 @@ export default function NovaEntrega() {
     endereco: string;
   } | null>(null);
 
+  // Lista de retiradas disponíveis para vincular
+  const retiradasDisponiveis = useMemo(
+    () => paradas.filter((p) => p.tipo === 'retirada'),
+    [paradas]
+  );
+
   const {
     control,
     handleSubmit,
     reset,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<ParadaFormData>({
     resolver: zodResolver(paradaSchema),
@@ -462,11 +550,14 @@ export default function NovaEntrega() {
   }, [loadEnderecoUnidade, unidade]);
 
   // Adicionar parada à lista (coordenadas já obtidas pelo autocomplete)
-  async function onAddParada(paradaData: ParadaFormData) {
+  async function onAddParada(paradaData: ParadaFormData, vinculoId?: string) {
     setIsLoading(true);
     try {
+      // Coordenadas podem ter sido adicionadas pelo autocomplete via setValue
+      const extendedData = paradaData as ParadaFormData & { latitude?: number; longitude?: number };
+
       // Se não tem coordenadas, tentar geocodificar manualmente
-      if (!paradaData.latitude || !paradaData.longitude) {
+      if (!extendedData.latitude || !extendedData.longitude) {
         const result = await googleMapsService.geocodeAddress(paradaData.endereco);
 
         if (!result) {
@@ -474,18 +565,33 @@ export default function NovaEntrega() {
           return;
         }
 
-        paradaData.latitude = result.coordenadas.latitude;
-        paradaData.longitude = result.coordenadas.longitude;
+        extendedData.latitude = result.coordenadas.latitude;
+        extendedData.longitude = result.coordenadas.longitude;
       }
 
       const novaParada: Parada = {
-        ...paradaData,
+        ...extendedData,
+        id: generateUniqueId(), // ID temporário para vinculação
+        latitude: extendedData.latitude,
+        longitude: extendedData.longitude,
         ordem: paradas.length + 1,
+        vinculo_parada_id: vinculoId, // Vínculo com retirada (se houver)
       };
 
       setParadas([...paradas, novaParada]);
       reset();
-      showToast('Parada adicionada à lista!', 'success');
+
+      // Mensagem de sucesso diferente se houver vínculo
+      if (vinculoId) {
+        const retiradaVinculada = paradas.find((p) => p.id === vinculoId);
+        showToast(
+          `Entrega vinculada! A retirada em "${retiradaVinculada?.destinatario || 'cliente'}" será feita primeiro.`,
+          'success',
+          4000
+        );
+      } else {
+        showToast('Parada adicionada à lista!', 'success');
+      }
     } catch (error) {
       console.error('Erro ao adicionar parada:', error);
       showToast('Não foi possível adicionar a parada', 'error');
@@ -496,14 +602,26 @@ export default function NovaEntrega() {
 
   // Remover parada da lista
   function removeParada(index: number) {
-    const novasParadas = paradas.filter((_, i) => i !== index);
+    const paradaRemovida = paradas[index];
+    let novasParadas = paradas.filter((_, i) => i !== index);
+
+    // Se removeu uma retirada, limpar vínculos das entregas que dependiam dela
+    if (paradaRemovida.tipo === 'retirada') {
+      novasParadas = novasParadas.map((p) => {
+        if (p.vinculo_parada_id === paradaRemovida.id) {
+          return { ...p, vinculo_parada_id: undefined };
+        }
+        return p;
+      });
+    }
+
     // Reordenar
     const reordenadas = novasParadas.map((p, i) => ({ ...p, ordem: i + 1 }));
     setParadas(reordenadas);
     setRotaOtimizada(null); // Limpar otimização ao remover parada
   }
 
-  // Otimizar rota usando Google Directions API
+  // Otimizar rota usando Google Directions API (com suporte a dependências)
   async function otimizarRota() {
     if (paradas.length < 1) {
       showToast('Adicione pelo menos 1 parada para otimizar a rota', 'info');
@@ -523,52 +641,103 @@ export default function NovaEntrega() {
         longitude: enderecoUnidade.longitude,
       };
 
-      // Todas as paradas são waypoints a serem otimizados
-      const waypoints = paradas.map((p) => ({
-        latitude: p.latitude!,
-        longitude: p.longitude!,
-      }));
+      // Verificar se há vínculos (dependências entre paradas)
+      const temVinculos = paradas.some((p) => p.vinculo_parada_id);
 
       console.log('🗺️ Otimizando rota circular da unidade:', {
         unidade: enderecoUnidade.endereco,
         paradas: paradas.length,
+        temVinculos,
       });
 
-      // Chamar API Google Directions com optimize:true
-      const resultado = await googleMapsService.getDirections(
-        pontoUnidade, // Origem: Unidade
-        pontoUnidade, // Destino: Unidade (rota circular)
-        waypoints
-      );
+      if (temVinculos) {
+        // Usar otimização com dependências
+        const paradasParaOtimizar: ParadaParaOtimizar[] = paradas.map((p) => ({
+          id: p.id,
+          tipo: p.tipo,
+          endereco: p.endereco,
+          latitude: p.latitude!,
+          longitude: p.longitude!,
+          ordem: p.ordem,
+          destinatario: p.destinatario,
+          telefone: p.telefone,
+          observacoes: p.observacoes,
+          vinculo_parada_id: p.vinculo_parada_id,
+        }));
 
-      if (!resultado) {
-        showToast('Não foi possível otimizar a rota', 'error');
-        return;
+        const resultado = await otimizarRotaComDependencias(
+          pontoUnidade,
+          paradasParaOtimizar,
+          pontoUnidade // Rota circular
+        );
+
+        if (!resultado) {
+          showToast('Não foi possível otimizar a rota', 'error');
+          return;
+        }
+
+        // Atualizar paradas com a ordem otimizada
+        const paradasAtualizadas = resultado.paradasOrdenadas.map((pOtimizada, i) => {
+          const paradaOriginal = paradas.find((p) => p.id === pOtimizada.id)!;
+          return {
+            ...paradaOriginal,
+            ordem: i + 1,
+          };
+        });
+
+        setParadas(paradasAtualizadas);
+        setRotaOtimizada({
+          distancia_total_metros: resultado.distanciaTotalMetros,
+          duracao_total_segundos: resultado.duracaoTotalSegundos,
+          legs: [], // Não temos legs detalhados neste modo
+          polyline: resultado.polyline,
+        });
+
+        showToast(
+          `Rota otimizada com dependências! ${(resultado.distanciaTotalMetros / 1000).toFixed(1)} km - ${Math.round(resultado.duracaoTotalSegundos / 60)} min`,
+          'success',
+          4000
+        );
+      } else {
+        // Otimização simples (sem dependências)
+        const waypoints = paradas.map((p) => ({
+          latitude: p.latitude!,
+          longitude: p.longitude!,
+        }));
+
+        const resultado = await googleMapsService.getDirections(
+          pontoUnidade,
+          pontoUnidade,
+          waypoints
+        );
+
+        if (!resultado) {
+          showToast('Não foi possível otimizar a rota', 'error');
+          return;
+        }
+
+        const ordemOtimizada = resultado.ordem_otimizada || [];
+        const paradasReordenadas = ordenarParadasPorRota(paradas, ordemOtimizada, resultado.legs);
+
+        const paradasComNovaOrdem = paradasReordenadas.map((p, i) => ({
+          ...p,
+          ordem: i + 1,
+        }));
+
+        setParadas(paradasComNovaOrdem);
+        setRotaOtimizada({
+          distancia_total_metros: resultado.distancia_total_metros,
+          duracao_total_segundos: resultado.duracao_total_segundos,
+          legs: resultado.legs,
+          polyline: resultado.polyline,
+        });
+
+        showToast(
+          `Rota otimizada! ${(resultado.distancia_total_metros / 1000).toFixed(1)} km - ${Math.round(resultado.duracao_total_segundos / 60)} min`,
+          'success',
+          4000
+        );
       }
-
-      // Reordenar paradas conforme ordem otimizada retornada pela API
-      const ordemOtimizada = resultado.ordem_otimizada || [];
-      const paradasReordenadas = ordenarParadasPorRota(paradas, ordemOtimizada, resultado.legs);
-
-      // Atualizar ordem das paradas
-      const paradasComNovaOrdem = paradasReordenadas.map((p, i) => ({
-        ...p,
-        ordem: i + 1,
-      }));
-
-      setParadas(paradasComNovaOrdem);
-      setRotaOtimizada({
-        distancia_total_metros: resultado.distancia_total_metros,
-        duracao_total_segundos: resultado.duracao_total_segundos,
-        legs: resultado.legs,
-        polyline: resultado.polyline,
-      });
-
-      showToast(
-        `Rota otimizada! ${(resultado.distancia_total_metros / 1000).toFixed(1)} km - ${Math.round(resultado.duracao_total_segundos / 60)} min`,
-        'success',
-        4000
-      );
     } catch (error) {
       console.error('Erro ao otimizar rota:', error);
       showToast('Não foi possível otimizar a rota', 'error');
@@ -665,11 +834,17 @@ export default function NovaEntrega() {
       }
 
       // Paradas 1 a N: Entregas/coletas do usuário
+      // Manter referência do temp_id para mapear vínculos depois
+      const tempIdToIndex: Record<string, number> = {};
+
       paradas.forEach((p, index) => {
         // index = 0 corresponde ao leg 1 (base -> primeira entrega já foi usada acima)
         // Precisamos do leg para ir desta parada até a próxima
         const legIndex = index + 1; // leg 1 = da primeira entrega para a segunda
         const leg = rotaOtimizada?.legs?.[legIndex];
+
+        // Guardar índice (considerando a parada 0 da unidade)
+        tempIdToIndex[p.id] = paradasParaInserir.length;
 
         paradasParaInserir.push({
           rota_id: rotaData.id,
@@ -682,6 +857,9 @@ export default function NovaEntrega() {
           telefone: p.telefone,
           observacoes: p.observacoes,
           status: 'pendente',
+          // Guardar temp_id para mapear vínculos (será removido antes de salvar)
+          _temp_id: p.id,
+          _temp_vinculo_id: p.vinculo_parada_id,
         });
       });
 
@@ -706,13 +884,58 @@ export default function NovaEntrega() {
         });
       }
 
-      const { error: paradasError } = await supabase
+      // Verificar se há vínculos a serem mapeados
+      const temVinculos = paradasParaInserir.some((p: any) => p._temp_vinculo_id);
+
+      // Preparar paradas para inserção (sem campos temporários)
+      const paradasLimpas = paradasParaInserir.map((p: any) => {
+        const { _temp_id, _temp_vinculo_id, ...paradaLimpa } = p;
+        return paradaLimpa;
+      });
+
+      // Inserir todas as paradas e obter IDs
+      const { data: paradasInseridas, error: paradasError } = await supabase
         .from('paradas')
-        .insert(paradasParaInserir);
+        .insert(paradasLimpas)
+        .select('id, ordem');
 
       if (paradasError) {
         console.error('❌ Erro ao inserir paradas:', paradasError);
         throw paradasError;
+      }
+
+      // Se há vínculos, atualizar as paradas com os IDs corretos
+      if (temVinculos && paradasInseridas) {
+        // Criar mapa de temp_id para real_id
+        const tempIdToRealId: Record<string, string> = {};
+        paradasParaInserir.forEach((p: any, index: number) => {
+          if (p._temp_id && paradasInseridas[index]) {
+            tempIdToRealId[p._temp_id] = paradasInseridas[index].id;
+          }
+        });
+
+        // Atualizar paradas que têm vínculos
+        const updatePromises = paradasParaInserir
+          .map((p: any, index: number) => {
+            if (p._temp_vinculo_id && tempIdToRealId[p._temp_vinculo_id]) {
+              const realVinculoId = tempIdToRealId[p._temp_vinculo_id];
+              const realParadaId = paradasInseridas[index]?.id;
+
+              if (realParadaId) {
+                return supabase
+                  .from('paradas')
+                  .update({ vinculo_parada_id: realVinculoId })
+                  .eq('id', realParadaId);
+              }
+            }
+            return null;
+          })
+          .filter(Boolean);
+
+        if (updatePromises.length > 0) {
+          await Promise.all(updatePromises);
+          console.log(`✅ ${updatePromises.length} vínculo(s) de paradas atualizado(s)`);
+        }
       }
 
       // 3. Log da ação
@@ -774,24 +997,45 @@ export default function NovaEntrega() {
           <Text style={styles.sectionTitle}>
             Paradas Adicionadas ({paradas.length})
           </Text>
-          {paradas.map((parada, index) => (
-            <View key={index} style={styles.paradaCard}>
-              <View style={styles.paradaHeader}>
-                <Text style={styles.paradaTipo}>
-                  {`${parada.ordem}. ${parada.tipo.toUpperCase()}`}
-                </Text>
-                <TouchableOpacity onPress={() => removeParada(index)}>
-                  <Text style={styles.removeButton}>Remover</Text>
-                </TouchableOpacity>
+          {paradas.map((parada, index) => {
+            // Encontrar a retirada vinculada (se houver)
+            const retiradaVinculada = parada.vinculo_parada_id
+              ? paradas.find((p) => p.id === parada.vinculo_parada_id)
+              : null;
+
+            return (
+              <View
+                key={parada.id || index}
+                style={[
+                  styles.paradaCard,
+                  parada.vinculo_parada_id && styles.paradaCardVinculada,
+                ]}
+              >
+                <View style={styles.paradaHeader}>
+                  <Text style={styles.paradaTipo}>
+                    {`${parada.ordem}. ${parada.tipo.toUpperCase()}`}
+                  </Text>
+                  <TouchableOpacity onPress={() => removeParada(index)}>
+                    <Text style={styles.removeButton}>Remover</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.paradaEndereco}>{parada.endereco}</Text>
+                {parada.destinatario && (
+                  <Text style={styles.paradaDetail}>
+                    Destinatario: {parada.destinatario}
+                  </Text>
+                )}
+                {/* Mostrar vínculo com retirada */}
+                {retiradaVinculada && (
+                  <View style={styles.vinculoBadge}>
+                    <Text style={styles.vinculoBadgeText}>
+                      Depende de: Retirada em {retiradaVinculada.destinatario || retiradaVinculada.endereco.substring(0, 25)}
+                    </Text>
+                  </View>
+                )}
               </View>
-              <Text style={styles.paradaEndereco}>{parada.endereco}</Text>
-              {parada.destinatario && (
-                <Text style={styles.paradaDetail}>
-                  Destinatário: {parada.destinatario}
-                </Text>
-              )}
-            </View>
-          ))}
+            );
+          })}
 
           {/* Botão Otimizar Rota */}
           {paradas.length >= 1 && (
@@ -943,8 +1187,12 @@ export default function NovaEntrega() {
                   errors={errors}
                   setValue={setValue}
                   handleSubmit={handleSubmit}
+                  watch={watch}
                   onAddParada={onAddParada}
                   isLoading={isLoading}
+                  retiradasDisponiveis={retiradasDisponiveis}
+                  vinculoSelecionado={vinculoSelecionado}
+                  setVinculoSelecionado={setVinculoSelecionado}
                 />
               </DesktopCard>
             </View>
@@ -998,8 +1246,12 @@ export default function NovaEntrega() {
         errors={errors}
         setValue={setValue}
         handleSubmit={handleSubmit}
+        watch={watch}
         onAddParada={onAddParada}
         isLoading={isLoading}
+        retiradasDisponiveis={retiradasDisponiveis}
+        vinculoSelecionado={vinculoSelecionado}
+        setVinculoSelecionado={setVinculoSelecionado}
       />
       <ParadasListAndActions />
     </View>
@@ -1182,6 +1434,71 @@ const createStyles = (theme: any) => StyleSheet.create({
   paradaDetail: {
     fontSize: theme.typography.xs,
     color: theme.colors.gray500,
+  },
+  paradaCardVinculada: {
+    borderLeftColor: theme.colors.info,
+    backgroundColor: theme.colors.info + '08',
+  },
+  vinculoBadge: {
+    marginTop: theme.spacing.md,
+    backgroundColor: theme.colors.info + '15',
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    borderLeftWidth: 3,
+    borderLeftColor: theme.colors.info,
+  },
+  vinculoBadgeText: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.info,
+    fontFamily: theme.typography.fontSansSemiBold,
+  },
+  vinculoSection: {
+    marginBottom: theme.spacing['2xl'],
+    padding: theme.spacing.lg,
+    backgroundColor: theme.colors.info + '08',
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.info + '30',
+  },
+  vinculoLabel: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.sm,
+  },
+  vinculoHint: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray500,
+    marginBottom: theme.spacing.lg,
+    lineHeight: 16,
+  },
+  vinculoOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+  },
+  vinculoOption: {
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.gray300,
+    backgroundColor: theme.colors.white,
+    minWidth: 100,
+  },
+  vinculoOptionActive: {
+    borderColor: theme.colors.info,
+    backgroundColor: theme.colors.info + '15',
+  },
+  vinculoOptionText: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray700,
+    textAlign: 'center',
+  },
+  vinculoOptionTextActive: {
+    color: theme.colors.info,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   motoristaSection: {
     marginBottom: theme.spacing['2xl'],

@@ -14,6 +14,14 @@ export interface Checkpoint {
   observacoes?: string;
   timestamp_conclusao?: string;
   created_at: string;
+  /** ID da parada que deve ser executada ANTES desta (ex: retirada antes da entrega) */
+  vinculo_parada_id?: string;
+  /** Dados da parada vinculada (populated em queries) */
+  vinculo_parada?: {
+    id: string;
+    endereco: string;
+    destinatario?: string;
+  };
 }
 
 export interface Rota {

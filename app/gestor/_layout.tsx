@@ -2,17 +2,27 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, Slot } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
+import { AuthLoadingScreen } from '@/components/AuthLoadingScreen';
 import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
 import { DrawerMenuProvider, useDrawerMenu } from '@/context/DrawerMenuContext';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useResponsive } from '@/hooks/useResponsive';
-import { useUser } from '@/hooks/useUser';
 import { useUnistyles } from '@/utils/styles';
 
 export default function GestorLayout() {
+  const { isReady, isAuthorized, userData } = useRequireAuth({ role: 'gestor' });
   const { isDesktop } = useResponsive();
-  const { userData } = useUser();
-  
   const { theme } = useUnistyles();
+
+  // Aguardar verificação de autenticação
+  if (!isReady) {
+    return <AuthLoadingScreen />;
+  }
+
+  // Se não autorizado, retorna null (redirect já aconteceu)
+  if (!isAuthorized) {
+    return null;
+  }
 
   // Desktop Layout - Sidebar fixa + conteúdo
   if (isDesktop) {

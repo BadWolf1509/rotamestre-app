@@ -13,9 +13,13 @@ export function useLogoutConfirmation() {
     try {
       setLoading(true);
       await authService.signOut();
-      router.replace('/auth/login');
+    } catch (error) {
+      // Ignora erros - o objetivo é redirecionar para login de qualquer forma
+      console.warn('[Logout] Erro ao encerrar sessão:', error);
     } finally {
       setLoading(false);
+      // Sempre redireciona para login, independente de erros
+      router.replace('/auth/login');
     }
   };
 
