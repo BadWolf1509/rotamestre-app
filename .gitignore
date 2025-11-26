@@ -68,7 +68,7 @@ check-*.js
 
 # Marketing assets (not needed in builds)
 assets/branding/
-assets/marketing/
+# assets/marketing/ # Commented out - needed for EAS builds!
 
 # Build outputs (APK, AAB, IPA)
 *.apk
