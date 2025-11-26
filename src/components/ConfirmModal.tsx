@@ -7,7 +7,7 @@ import {
   Platform,
 } from 'react-native';
 
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export interface ConfirmModalProps {
   visible: boolean;
@@ -17,7 +17,8 @@ export interface ConfirmModalProps {
   cancelText?: string;
   onConfirm: () => void;
   onCancel: () => void;
-  type?: 'danger' | 'warning' | 'info';
+  type?: 'danger' | 'warning' | 'info' | 'success';
+  loading?: boolean;
 }
 
 /**
@@ -53,6 +54,8 @@ export function ConfirmModal({
         return theme.colors.error;
       case 'warning':
         return theme.colors.warning;
+      case 'success':
+        return theme.colors.success;
       case 'info':
       default:
         return theme.colors.primary;
@@ -65,6 +68,8 @@ export function ConfirmModal({
         return '🗑️';
       case 'warning':
         return '⚠️';
+      case 'success':
+        return '✅';
       case 'info':
       default:
         return 'ℹ️';
@@ -121,7 +126,7 @@ export function ConfirmModal({
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

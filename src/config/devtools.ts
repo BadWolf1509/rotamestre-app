@@ -118,7 +118,7 @@ export const monitorNetwork = () => {
     window.fetch = async (...args: Parameters<typeof fetch>) => {
       const [resource, config] = args;
       const method = config?.method || 'GET';
-      const url = typeof resource === 'string' ? resource : resource.url;
+      const url = typeof resource === 'string' ? resource : (resource instanceof Request ? resource.url : resource.href);
 
       console.group(`🌐 ${method} ${url}`);
       const startTime = performance.now();
@@ -264,12 +264,12 @@ export const initializeDevTools = () => {
       clearCache: () => {
         localStorage.clear();
         sessionStorage.clear();
-        console.success('Cache cleared!');
+        console.log('✅ Cache cleared!');
       },
       toggleDebug: () => {
         const current = localStorage.getItem('debug') === 'true';
         localStorage.setItem('debug', (!current).toString());
-        console.success(`Debug mode ${!current ? 'enabled' : 'disabled'}`);
+        console.log(`✅ Debug mode ${!current ? 'enabled' : 'disabled'}`);
       },
       routes: () => {
         console.log('Available routes:', window.location.origin);

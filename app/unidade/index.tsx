@@ -20,7 +20,7 @@ import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { cleanPhone, formatPhone } from '@/utils/phoneValidation';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface UnidadeData {
   id: string;
@@ -412,7 +412,7 @@ export default function UnidadeScreen() {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,

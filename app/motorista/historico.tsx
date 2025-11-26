@@ -11,7 +11,7 @@ import {
 
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface RotaHistorico {
   id: string;
@@ -84,7 +84,7 @@ export default function HistoricoMotorista() {
         })
       );
 
-      setRotas(rotasComParadas as RotaHistorico[]);
+      setRotas(rotasComParadas as unknown as RotaHistorico[]);
     } catch (error) {
       console.error('Erro ao carregar histórico:', error);
       Alert.alert('Erro', 'Não foi possível carregar o histórico');
@@ -322,7 +322,7 @@ export default function HistoricoMotorista() {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,

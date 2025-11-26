@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, ViewStyle } from 'react-native';
 
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 import { MobileButton } from './MobileButton';
 
@@ -51,7 +51,7 @@ export function MobileEmptyState({
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     padding: theme.spacing['3xl'],
     alignItems: 'center',

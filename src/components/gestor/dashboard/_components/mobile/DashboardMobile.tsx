@@ -3,17 +3,17 @@ import { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 
 import { RouteFilters } from '@/components/RouteFilters';
-import type { RouteFilters as RouteFiltersType } from '@/components/RouteFilters';
+import type { RouteFiltersState as RouteFiltersType } from '@/components/RouteFilters';
 import { Toast } from '@/components/Toast';
 import { useToast } from '@/hooks/useToast';
 // REMOVIDO: import { useUser } from '@/hooks/useUser'; // Agora recebe userData como prop
 import { supabase } from '@/lib/supabase';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import { RotaCard } from '../shared/RotaCard';
 import { StatsCard } from '../shared/StatsCard';
 
-import type { DashboardData } from '../../dashboard/_hooks/useDashboardData';
+import type { DashboardData } from '../../_hooks/useDashboardData';
 
 interface DashboardMobileProps extends DashboardData {
   filters: RouteFiltersType;
@@ -215,7 +215,7 @@ export function DashboardMobile({
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,

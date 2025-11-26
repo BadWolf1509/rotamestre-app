@@ -10,7 +10,7 @@ import {
   Pressable,
 } from 'react-native';
 
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface AlertDialogProps {
   visible: boolean;
@@ -248,7 +248,7 @@ export function AlertDialog({
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

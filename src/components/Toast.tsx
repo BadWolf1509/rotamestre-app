@@ -7,7 +7,7 @@ import {
   Platform,
 } from 'react-native';
 
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export type ToastType = 'success' | 'error' | 'info' | 'loading';
 
@@ -16,6 +16,8 @@ export interface ToastProps {
   type?: ToastType;
   duration?: number;
   onDismiss?: () => void;
+  /** Alias for onDismiss */
+  onHide?: () => void;
   visible: boolean;
 }
 
@@ -32,11 +34,12 @@ export interface ToastProps {
  * />
  * ```
  */
-export function Toast({ message, type = 'info', duration = 3000, onDismiss, visible }: ToastProps) {
+export function Toast({ message, type = 'info', duration = 3000, onDismiss, onHide, visible }: ToastProps) {
   const { theme } = useUnistyles();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-100)).current;
   const wasVisibleRef = useRef(false);
+  const dismissCallback = onDismiss || onHide;
 
   const handleDismiss = useCallback(() => {
     Animated.parallel([
@@ -51,9 +54,9 @@ export function Toast({ message, type = 'info', duration = 3000, onDismiss, visi
         useNativeDriver: true,
       }),
     ]).start(() => {
-      onDismiss?.();
+      dismissCallback?.();
     });
-  }, [fadeAnim, onDismiss, translateY]);
+  }, [fadeAnim, dismissCallback, translateY]);
 
   useEffect(() => {
     if (visible) {
@@ -86,7 +89,7 @@ export function Toast({ message, type = 'info', duration = 3000, onDismiss, visi
     wasVisibleRef.current = visible;
   }, [duration, handleDismiss, type, translateY, visible, fadeAnim]);
 
-  if (!visible && fadeAnim._value === 0) return null;
+  if (!visible) return null;
 
   const getIcon = () => {
     switch (type) {
@@ -143,7 +146,7 @@ export function Toast({ message, type = 'info', duration = 3000, onDismiss, visi
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     position: Platform.OS === 'web' ? ('fixed' as any) : 'absolute',
     top: Platform.OS === 'web' ? 20 : 60,

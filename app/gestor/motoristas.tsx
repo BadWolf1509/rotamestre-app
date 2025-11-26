@@ -22,7 +22,7 @@ import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { maskPhone, validatePhone, getPhoneErrorMessage } from '@/utils/phoneValidation';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 import { toast } from '@/utils/toast';
 
 interface MotoristaDetalhado {
@@ -466,8 +466,8 @@ export default function MotoristasGestor() {
               const maskedPhone = maskPhone(text);
               setFormTelefone(maskedPhone);
               if (maskedPhone) {
-                const validation = validatePhone(maskedPhone);
-                setTelefoneError(validation.isValid ? '' : getPhoneErrorMessage(validation.error));
+                const isValid = validatePhone(maskedPhone);
+                setTelefoneError(isValid ? '' : getPhoneErrorMessage(maskedPhone) || 'Telefone inválido');
               } else {
                 setTelefoneError('');
               }
@@ -559,8 +559,8 @@ export default function MotoristasGestor() {
               const maskedPhone = maskPhone(text);
               setFormTelefone(maskedPhone);
               if (maskedPhone) {
-                const validation = validatePhone(maskedPhone);
-                setTelefoneError(validation.isValid ? '' : getPhoneErrorMessage(validation.error));
+                const isValid = validatePhone(maskedPhone);
+                setTelefoneError(isValid ? '' : getPhoneErrorMessage(maskedPhone) || 'Telefone inválido');
               } else {
                 setTelefoneError('');
               }
@@ -1061,7 +1061,7 @@ export default function MotoristasGestor() {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,

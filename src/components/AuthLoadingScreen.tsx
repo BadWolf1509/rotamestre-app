@@ -1,6 +1,6 @@
 import { View, Text, ActivityIndicator } from 'react-native';
 
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 /**
  * Tela de loading exibida enquanto verifica autenticação.
@@ -17,7 +17,7 @@ export function AuthLoadingScreen() {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     justifyContent: 'center',

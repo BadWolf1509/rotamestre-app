@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface ResponsiveGridProps {
   children: React.ReactNode;
@@ -170,7 +170,7 @@ export function MetricCard({ title, value, subtitle, icon, trend, color }: Metri
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { DashboardDesktop } from '@/components/gestor/dashboard/_components/desktop/DashboardDesktop';
 import { DashboardMobile } from '@/components/gestor/dashboard/_components/mobile/DashboardMobile';
 import { useDashboardData } from '@/components/gestor/dashboard/_hooks/useDashboardData';
-import type { RouteFilters } from '@/components/RouteFilters';
+import type { RouteFiltersState as RouteFilters } from '@/components/RouteFilters';
 import { useResponsive } from '@/hooks/useResponsive';
 
 /**

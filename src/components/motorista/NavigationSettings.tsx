@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 
 import LocationTrackingService from '@/services/locationTracking';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface NavigationSettingsProps {
   visible: boolean;
@@ -77,6 +77,7 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
               showSpeedometer: true,
               preventScreenSleep: true,
               voiceNavigation: false,
+              internalNavigation: false,
             };
             setSettings(defaults);
             await LocationTrackingService.updateNavigationPreferences(defaults);
@@ -301,7 +302,7 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     position: 'absolute',
     top: 0,

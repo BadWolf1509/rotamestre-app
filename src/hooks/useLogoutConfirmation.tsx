@@ -30,7 +30,7 @@ export function useLogoutConfirmation() {
       message="Deseja realmente encerrar sua sessao?"
       confirmText="Sair"
       cancelText="Cancelar"
-      type="destructive"
+      type="danger"
       loading={loading}
       onConfirm={async () => {
         await handleLogout();

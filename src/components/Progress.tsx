@@ -10,7 +10,7 @@
 import { useEffect, useRef } from 'react';
 import { View, Text, ViewStyle, Animated } from 'react-native';
 
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 type ProgressSize = 'small' | 'medium' | 'large';
 type ProgressColor = 'primary' | 'success' | 'warning' | 'error';
@@ -101,7 +101,7 @@ export function Progress({
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     width: '100%',
   },

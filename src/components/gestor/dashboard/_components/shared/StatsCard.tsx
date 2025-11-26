@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { View, Text } from 'react-native';
 
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface StatsCardProps {
   value: string | number;
@@ -91,7 +91,7 @@ export function StatsCard({
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   // Modo detalhado (padrão)
   container: {
     backgroundColor: theme.colors.white,

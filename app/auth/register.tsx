@@ -14,7 +14,7 @@ import { ResponsiveContainer } from '@/components/ResponsiveContainer';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { TipoUsuario } from '@/types/usuario';
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 
 export default function Register() {
@@ -185,7 +185,7 @@ export default function Register() {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,

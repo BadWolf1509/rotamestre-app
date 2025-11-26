@@ -8,7 +8,7 @@ import {
   TextStyle,
 } from 'react-native';
 
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface MobileButtonProps extends TouchableOpacityProps {
   title: string;
@@ -79,7 +79,7 @@ export function MobileButton({
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   // Base
   button: {
     flexDirection: 'row',

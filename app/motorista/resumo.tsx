@@ -5,7 +5,7 @@ import { Alert, ScrollView, Text, View } from 'react-native';
 import { MobileHeader, MobileCard, MobileLoading, MobileEmptyState, MobileButton } from '@/components/mobile';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface Parada {
   id: string;
@@ -14,6 +14,7 @@ interface Parada {
   status: string;
   tipo: string;
   concluida_em?: string;
+  is_checkpoint?: boolean;
 }
 
 interface Rota {
@@ -72,7 +73,7 @@ export default function ResumoMotorista() {
         return;
       }
 
-      setRota(rotasData as Rota);
+      setRota(rotasData as unknown as Rota);
 
       const { data: paradasData, error: paradasError } = await supabase
         .from('paradas')
@@ -356,7 +357,7 @@ export default function ResumoMotorista() {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,

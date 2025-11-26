@@ -1,9 +1,9 @@
 import { View, Text, TouchableOpacity, ScrollView, Platform } from 'react-native';
 
 import EmptyState from '@/components/EmptyState';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-import type { RotaResumo } from '../../dashboard/_hooks/useDashboardData';
+import type { RotaResumo } from '../../_hooks/useDashboardData';
 
 interface RotasTableProps {
   rotas: RotaResumo[];
@@ -240,7 +240,7 @@ export function RotasTable({ rotas, onViewDetails, onDelete }: RotasTableProps) 
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   tableContainer: {
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.lg,

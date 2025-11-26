@@ -57,6 +57,110 @@ export function TurnByTurnNavigation({
     voiceEnabledRef.current = voiceEnabled;
   }, [voiceEnabled]);
 
+  // Calculate distance - defined early for use in useEffect
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const EARTH_RADIUS = 6371000;
+    const phi1 = (lat1 * Math.PI) / 180;
+    const phi2 = (lat2 * Math.PI) / 180;
+    const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+    const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+
+    const a =
+      Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+      Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return EARTH_RADIUS * c;
+  };
+
+  // Handle arrival at destination - defined before useEffect that uses it
+  const handleArrival = useCallback(() => {
+    Speech.speak('Voce chegou ao seu destino', {
+      language: 'pt-BR',
+      pitch: 1.0,
+      rate: 0.9,
+    });
+
+    setTimeout(() => {
+      onArrive();
+    }, 2000);
+  }, [onArrive]);
+
+  // Update navigation based on position - defined before useEffect that uses it
+  const updateNavigation = useCallback(
+    async (
+      currentLocation: { latitude: number; longitude: number },
+      speedMs: number
+    ) => {
+      const update = await TurnByTurnNavigationService.updateNavigation(
+        currentLocation,
+        speedMs * 3.6 // Convert to km/h
+      );
+
+      setCurrentInstruction(update.currentInstruction);
+      setNextInstruction(update.nextInstruction);
+      setDistanceToTurn(update.distanceToNextTurn);
+      setProgress(TurnByTurnNavigationService.getProgress());
+      setRemainingDistance(TurnByTurnNavigationService.getRemainingDistance());
+      setRemainingTime(TurnByTurnNavigationService.getRemainingTime());
+
+      // Speak instruction if needed
+      if (
+        update.shouldSpeak &&
+        update.currentInstruction?.voiceInstruction &&
+        voiceEnabledRef.current
+      ) {
+        TurnByTurnNavigationService.speakInstruction(update.currentInstruction.voiceInstruction);
+      }
+    },
+    [voiceEnabledRef]
+  );
+
+  // Initialize navigation with directions - defined before useEffect that uses it
+  const initializeNavigation = useCallback(async () => {
+    setIsLoading(true);
+
+    const route = await TurnByTurnNavigationService.getDirections(
+      origin,
+      destination,
+      waypoints
+    );
+
+    if (!route) {
+      Alert.alert('Erro', 'Não foi possível calcular a rota');
+      onExit();
+      return;
+    }
+
+    // Set route polyline
+    const coordinates = TurnByTurnNavigationService.getRouteCoordinates();
+    setRouteCoordinates(coordinates);
+
+    // Set initial values
+    setRemainingDistance(route.distance);
+    setRemainingTime(route.duration);
+
+    // Get first instruction
+    const firstInstruction = TurnByTurnNavigationService.getCurrentInstruction();
+    setCurrentInstruction(firstInstruction);
+
+    const secondInstruction = TurnByTurnNavigationService.getNextInstruction();
+    setNextInstruction(secondInstruction);
+
+    setIsLoading(false);
+
+    // Speak initial instruction
+    if (firstInstruction?.voiceInstruction && voiceEnabledRef.current) {
+      setTimeout(() => {
+        Speech.speak(`Iniciando navegação. ${firstInstruction.voiceInstruction}`, {
+          language: 'pt-BR',
+          pitch: 1.0,
+          rate: 0.9,
+        });
+      }, 1000);
+    }
+  }, [destination, onExit, origin, voiceEnabledRef, waypoints]);
+
   // Initialize navigation
   useEffect(() => {
     initializeNavigation();
@@ -114,111 +218,7 @@ export function TurnByTurnNavigation({
     return () => {
       subscription?.remove();
     };
-  }, [destination, handleArrival, updateNavigation]);
-
-  // Initialize navigation with directions
-  const initializeNavigation = useCallback(async () => {
-    setIsLoading(true);
-
-    const route = await TurnByTurnNavigationService.getDirections(
-      origin,
-      destination,
-      waypoints
-    );
-
-    if (!route) {
-      Alert.alert('Erro', 'Não foi possível calcular a rota');
-      onExit();
-      return;
-    }
-
-    // Set route polyline
-    const coordinates = TurnByTurnNavigationService.getRouteCoordinates();
-    setRouteCoordinates(coordinates);
-
-    // Set initial values
-    setRemainingDistance(route.distance);
-    setRemainingTime(route.duration);
-
-    // Get first instruction
-    const firstInstruction = TurnByTurnNavigationService.getCurrentInstruction();
-    setCurrentInstruction(firstInstruction);
-
-    const secondInstruction = TurnByTurnNavigationService.getNextInstruction();
-    setNextInstruction(secondInstruction);
-
-    setIsLoading(false);
-
-    // Speak initial instruction
-    if (firstInstruction?.voiceInstruction && voiceEnabledRef.current) {
-      setTimeout(() => {
-        Speech.speak(`Iniciando navegação. ${firstInstruction.voiceInstruction}`, {
-          language: 'pt-BR',
-          pitch: 1.0,
-          rate: 0.9,
-        });
-      }, 1000);
-    }
-  }, [destination, onExit, origin, voiceEnabledRef, waypoints]);
-
-  // Update navigation based on position
-  const updateNavigation = useCallback(
-    async (
-      currentLocation: { latitude: number; longitude: number },
-      speedMs: number
-    ) => {
-      const update = await TurnByTurnNavigationService.updateNavigation(
-        currentLocation,
-        speedMs * 3.6 // Convert to km/h
-      );
-
-    setCurrentInstruction(update.currentInstruction);
-    setNextInstruction(update.nextInstruction);
-    setDistanceToTurn(update.distanceToNextTurn);
-    setProgress(TurnByTurnNavigationService.getProgress());
-    setRemainingDistance(TurnByTurnNavigationService.getRemainingDistance());
-    setRemainingTime(TurnByTurnNavigationService.getRemainingTime());
-
-    // Speak instruction if needed
-    if (
-      update.shouldSpeak &&
-      update.currentInstruction?.voiceInstruction &&
-      voiceEnabledRef.current
-    ) {
-      TurnByTurnNavigationService.speakInstruction(update.currentInstruction.voiceInstruction);
-    }
-  },
-    [voiceEnabledRef]
-  );
-
-  // Handle arrival at destination
-  const handleArrival = useCallback(() => {
-    Speech.speak('Voce chegou ao seu destino', {
-      language: 'pt-BR',
-      pitch: 1.0,
-      rate: 0.9,
-    });
-
-    setTimeout(() => {
-      onArrive();
-    }, 2000);
-  }, [onArrive]);
-
-  // Calculate distance
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const EARTH_RADIUS = 6371000;
-    const phi1 = (lat1 * Math.PI) / 180;
-    const phi2 = (lat2 * Math.PI) / 180;
-    const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
-    const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
-
-    const a =
-      Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-      Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return EARTH_RADIUS * c;
-  };
+  }, [destination, handleArrival, updateNavigation, calculateDistance]);
 
   // Format distance
   const formatDistance = (meters: number): string => {

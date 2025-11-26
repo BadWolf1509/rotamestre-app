@@ -39,17 +39,14 @@ function generateUniqueId(): string {
 // Schema de validação
 const paradaSchema = z.object({
   endereco: z
-    .string({ required_error: 'Endereço é obrigatório' })
+    .string()
     .min(5, 'Endereço deve ter no mínimo 5 caracteres'),
   tipo: z.enum(['entrega', 'retirada']),
   destinatario: z
-    .string({ required_error: 'Nome do destinatário é obrigatório' })
-    .min(1, 'Nome do destinatário é obrigatório')
-    .refine((val) => val.trim().length >= 3, {
-      message: 'Nome do destinatário deve ter no mínimo 3 caracteres',
-    }),
+    .string()
+    .min(3, 'Nome do destinatário deve ter no mínimo 3 caracteres'),
   telefone: z
-    .string({ required_error: 'Telefone é obrigatório' })
+    .string()
     .min(1, 'Telefone de contato é obrigatório')
     .refine((val) => val.replace(/\D/g, '').length >= 10, {
       message: 'Telefone deve ter no mínimo 10 dígitos',

@@ -16,7 +16,7 @@ import {
   Platform
 } from 'react-native';
 
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import { uploadELinkFotoParada } from '../lib/storage';
 
@@ -178,7 +178,7 @@ export default function CameraUpload({
       Alert.alert('Erro', 'Não foi possível enviar a foto. Tente novamente.');
 
       if (onUploadError) {
-        onUploadError(error.message || 'Erro desconhecido');
+        onUploadError(error instanceof Error ? error.message : 'Erro desconhecido');
       }
     } finally {
       setUploading(false);
@@ -257,7 +257,7 @@ export default function CameraUpload({
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     marginVertical: 16,
   },

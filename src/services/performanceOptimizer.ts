@@ -107,6 +107,11 @@ class PerformanceOptimizer {
     }
   }
 
+  // Get current settings
+  getSettings(): OptimizationSettings {
+    return { ...this.settings };
+  }
+
   // Save settings to AsyncStorage
   async updateSettings(settings: Partial<OptimizationSettings>) {
     this.settings = { ...this.settings, ...settings };

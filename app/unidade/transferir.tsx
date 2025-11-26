@@ -18,7 +18,7 @@ import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface GestorElegivel {
   id: string;
@@ -393,7 +393,7 @@ export default function TransferirGestaoScreen() {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,

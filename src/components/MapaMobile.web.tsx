@@ -8,7 +8,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface Parada {
   id: string;
@@ -39,7 +39,7 @@ export function MapaMobile({ paradas: _paradas }: MapaMobileProps) {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     height: 400,
     justifyContent: 'center',

@@ -15,7 +15,7 @@ import { AlertDialog } from '@/components/AlertDialog';
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export default function Login() {
   const { theme } = useUnistyles();
@@ -262,7 +262,7 @@ export default function Login() {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   containerDesktop: {
     flex: 1,
     flexDirection: 'row',

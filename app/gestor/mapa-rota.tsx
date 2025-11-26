@@ -26,8 +26,7 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
-import type { Theme } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 const MAP_HEIGHT = 600;
 
@@ -83,7 +82,7 @@ interface ParadaCardProps {
   parada: Parada;
   index: number;
   onImagePress: (url: string) => void;
-  theme: Theme;
+  theme?: Theme;
   selected?: boolean;
   onPress?: (id: string) => void;
   onLayoutCapture?: (id: string, y: number) => void;
@@ -963,7 +962,7 @@ export default function MapaRota() {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,

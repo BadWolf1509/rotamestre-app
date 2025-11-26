@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 export type ButtonSize = 'small' | 'medium' | 'large';
@@ -97,7 +97,7 @@ export function Button({
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   button: {
     flexDirection: 'row',
     alignItems: 'center',

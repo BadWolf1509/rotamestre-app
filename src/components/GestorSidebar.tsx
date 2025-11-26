@@ -4,7 +4,7 @@ import { View, Text, TouchableOpacity, Platform, Image } from 'react-native';
 
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface MenuItem {
   id: string;
@@ -98,7 +98,7 @@ export function GestorSidebar() {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   sidebar: {
     width: 260,
     height: '100%',

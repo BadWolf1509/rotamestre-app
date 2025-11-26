@@ -111,7 +111,7 @@ export async function salvarFotoParada(
     return true;
   } catch (error) {
     console.error('❌ Erro ao salvar foto na parada:', error);
-    return null;
+    return false;
   }
 }
 

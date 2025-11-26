@@ -6,7 +6,6 @@ import {
   Alert,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -30,7 +29,7 @@ import { useUser } from '@/hooks/useUser';
 import { abrirNavegacao } from '@/lib/navigation';
 import DynamicReroutingService from '@/services/dynamicRerouting';
 import LocationTrackingService from '@/services/locationTracking';
-import { useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 function MotoristaInicioContent() {
   const router = useRouter();
@@ -465,7 +464,7 @@ function MotoristaInicioContent() {
           <ProgressBar
             completed={progress.completed}
             total={progress.total}
-            timeElapsed={getElapsedTime()}
+            timeElapsed={getElapsedTime() ?? undefined}
             estimatedTime={route?.tempo_total ? `~${route.tempo_total}h` : undefined}
           />
         )}
@@ -474,7 +473,7 @@ function MotoristaInicioContent() {
         {route && routeStatus !== 'no-route' && routeStatus !== 'completed' && (
           <MiniMap
             paradas={paradas}
-            userLocation={location}
+            userLocation={location ?? undefined}
             expanded={miniMapExpanded}
             onToggleExpand={() => setMiniMapExpanded(!miniMapExpanded)}
             onOpenFullMap={() => router.push('/motorista/mapa')}
@@ -613,7 +612,7 @@ export default function MotoristaInicio() {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,

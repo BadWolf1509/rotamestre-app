@@ -6,7 +6,7 @@ import LogoHorizontal from '@/../assets/logo-horizontal1.png';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 // REMOVIDO: import { useUser } from '@/hooks/useUser'; // userData agora vem como prop
 import { authService } from '@/lib/auth';
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface SidebarProps {
   onNavigate?: () => void;
@@ -156,7 +156,7 @@ export function Sidebar({ onNavigate, userData }: SidebarProps) {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     width: theme.layout.sidebarWidth,
     backgroundColor: theme.colors.white,

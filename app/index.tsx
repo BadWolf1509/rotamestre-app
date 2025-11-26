@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 
 import { authService } from '@/lib/auth';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 /**
  * Index - Redirect Inteligente
@@ -75,7 +75,7 @@ export default function Index() {
   return null;
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

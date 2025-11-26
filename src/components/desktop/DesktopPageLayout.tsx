@@ -12,24 +12,24 @@ import {
 } from 'react-native';
 
 import { NotificationBell } from '@/components/NotificationBell';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export interface BreadcrumbItem {
   label: string;
   route?: string;
 }
 
-interface ActionButton {
+export interface ActionButton {
   label: string;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | string;
   disabled?: boolean;
 }
 
 export interface UserMenuItem {
   label: string;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: string;
   onPress: () => void;
   destructive?: boolean;
 }
@@ -37,6 +37,7 @@ export interface UserMenuItem {
 interface DesktopPageLayoutProps {
   title: string;
   subtitle?: string;
+  icon?: string;
   breadcrumbs?: BreadcrumbItem[];
   actions?: ActionButton[];
   children: React.ReactNode;
@@ -114,7 +115,7 @@ export function DesktopPageLayout({
     );
   }
 
-  const getButtonStyle = (variant?: 'primary' | 'secondary' | 'ghost') => {
+  const getButtonStyle = (variant?: string) => {
     switch (variant) {
       case 'secondary':
         return styles.buttonSecondary;
@@ -125,7 +126,7 @@ export function DesktopPageLayout({
     }
   };
 
-  const getButtonTextStyle = (variant?: 'primary' | 'secondary' | 'ghost') => {
+  const getButtonTextStyle = (variant?: string) => {
     switch (variant) {
       case 'secondary':
       case 'ghost':
@@ -219,7 +220,7 @@ export function DesktopPageLayout({
                       >
                         {item.icon && (
                           <Ionicons
-                            name={item.icon}
+                            name={item.icon as keyof typeof Ionicons.glyphMap}
                             size={16}
                             color={item.destructive ? theme.colors.error : theme.colors.gray700}
                           />
@@ -253,7 +254,7 @@ export function DesktopPageLayout({
                   >
                     {action.icon && (
                       <Ionicons
-                        name={action.icon}
+                        name={action.icon as keyof typeof Ionicons.glyphMap}
                         size={18}
                         color={
                           action.variant === 'primary'
@@ -295,7 +296,7 @@ export function DesktopPageLayout({
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,

@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, ViewStyle } from 'react-native';
+import { View, Text, ViewStyle, TouchableOpacity } from 'react-native';
 
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface MobileCardProps {
   children: React.ReactNode;
@@ -10,6 +10,7 @@ interface MobileCardProps {
   style?: ViewStyle;
   variant?: 'default' | 'highlight' | 'bordered';
   noPadding?: boolean;
+  onPress?: () => void;
 }
 
 /**
@@ -22,16 +23,11 @@ export function MobileCard({
   subtitle,
   style,
   variant = 'default',
-  noPadding = false
+  noPadding = false,
+  onPress
 }: MobileCardProps) {
-  return (
-    <View style={[
-      styles.card,
-      variant === 'highlight' && styles.cardHighlight,
-      variant === 'bordered' && styles.cardBordered,
-      noPadding && styles.noPadding,
-      style,
-    ]}>
+  const content = (
+    <>
       {(title || subtitle) && (
         <View style={styles.cardHeader}>
           {title && <Text style={styles.cardTitle}>{title}</Text>}
@@ -39,11 +35,29 @@ export function MobileCard({
         </View>
       )}
       {children}
-    </View>
+    </>
   );
+
+  const cardStyle = [
+    styles.card,
+    variant === 'highlight' && styles.cardHighlight,
+    variant === 'bordered' && styles.cardBordered,
+    noPadding && styles.noPadding,
+    style,
+  ];
+
+  if (onPress) {
+    return (
+      <TouchableOpacity style={cardStyle} onPress={onPress} activeOpacity={0.7}>
+        {content}
+      </TouchableOpacity>
+    );
+  }
+
+  return <View style={cardStyle}>{content}</View>;
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   card: {
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.lg,

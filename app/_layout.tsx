@@ -19,7 +19,7 @@ import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sideb
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUser } from '@/hooks/useUser';
 import { configureLogBox } from '@/utils/configureLogBox';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // Inicializar Unistyles v3 ANTES de qualquer componente (apenas native)
 if (Platform.OS !== 'web') {
@@ -192,7 +192,7 @@ function renderToast(backgroundColor: string, title?: string, message?: string) 
 }
 
 // Estilos para o layout desktop com Sidebar
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   desktopLayout: {
     flex: 1,
     flexDirection: 'row',

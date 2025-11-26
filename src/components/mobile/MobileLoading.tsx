@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, ActivityIndicator, ViewStyle } from 'react-native';
 
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface MobileLoadingProps {
   message?: string;
@@ -47,7 +47,7 @@ export function MobileLoading({
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     padding: theme.spacing.xl,
     alignItems: 'center',

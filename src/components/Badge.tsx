@@ -100,7 +100,7 @@ export function Badge({
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   badge: {
     alignSelf: 'flex-start',
     borderRadius: theme.borderRadius.sm,

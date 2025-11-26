@@ -16,7 +16,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useResponsive } from '@/hooks/useResponsive';
 import { supabase } from '@/lib/supabase';
 import { isPasswordValid } from '@/utils/passwordValidation';
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 export default function FirstPasswordScreen() {
   const router = useRouter();
@@ -246,7 +246,7 @@ export default function FirstPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,

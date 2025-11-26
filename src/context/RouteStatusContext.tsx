@@ -161,9 +161,10 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
           .single();
 
         if (lastRoute) {
+          const unidade = lastRoute.unidades as unknown as { nome: string } | null;
           setRoute({
             ...lastRoute,
-            unidade_nome: lastRoute.unidades?.nome || '',
+            unidade_nome: unidade?.nome || '',
           } as RouteData);
 
           // Carrega TODAS as paradas da rota concluída (incluindo checkpoints)
@@ -179,9 +180,10 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
           setParadas([]);
         }
       } else {
+        const unidadeData = rotaData.unidades as unknown as { nome: string } | null;
         setRoute({
           ...rotaData,
-          unidade_nome: rotaData.unidades?.nome || '',
+          unidade_nome: unidadeData?.nome || '',
         } as RouteData);
 
         // Carrega TODAS as paradas (incluindo checkpoints de partida/chegada)

@@ -48,9 +48,6 @@ export function MapaAdapter({
     return (
       <MapaWeb
         paradas={paradas}
-        rotaId={rotaId}
-        motoristaNome={motoristaNome}
-        showMotoristaMarker={showMotoristaMarker}
         selectedParadaId={selectedParadaId}
         onMarkerPress={onMarkerPress}
       />
@@ -61,13 +58,6 @@ export function MapaAdapter({
   // Metro automaticamente resolve para:
   // - Web: MapaMobile.web.tsx (stub sem react-native-maps)
   // - Native: MapaMobile.tsx (com react-native-maps completo)
-  return (
-    <MapaMobile
-      paradas={paradas}
-      rotaId={rotaId}
-      motoristaNome={motoristaNome}
-      showMotoristaMarker={showMotoristaMarker}
-    />
-  );
+  return <MapaMobile paradas={paradas} />;
 }
 

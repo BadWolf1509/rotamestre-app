@@ -16,8 +16,17 @@
     "node_modules",
     "supabase/functions",
     "**/__mocks__",
+    "**/__tests__",
+    "**/*.test.ts",
+    "**/*.test.tsx",
     "coverage",
     "dist",
-    "web-build"
+    "web-build",
+    "src/components/OptimizedImage.tsx",
+    "src/components/OptimizedList.tsx",
+    "src/components/DevOverlay.tsx",
+    "src/components/motorista/NavigationMode.web.tsx",
+    "src/components/motorista/TurnByTurnNavigation.tsx",
+    "src/components/motorista/home/QuickActions.tsx"
   ]
 }

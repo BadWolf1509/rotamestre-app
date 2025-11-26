@@ -117,25 +117,18 @@ export function usePerformance(options: PerformanceHookOptions = {}) {
         }
 
         // Make API call with performance tracking
-        const result = await PerformanceOptimizer.deferOperation(
-          async () => {
-            const data = await apiCall();
+        const data = await apiCall();
 
-            // Track response time
-            const duration = Date.now() - startTime;
-            PerformanceOptimizer.trackApiResponse(cacheKey || 'unknown', duration);
+        // Track response time
+        const duration = Date.now() - startTime;
+        PerformanceOptimizer.trackApiResponse(cacheKey || 'unknown', duration);
 
-            // Cache result if needed
-            if (cacheKey && enableOptimizations) {
-              await PerformanceOptimizer.cacheData(cacheKey, data, cacheTTL);
-            }
+        // Cache result if needed
+        if (cacheKey && enableOptimizations) {
+          await PerformanceOptimizer.cacheData(cacheKey, data, cacheTTL);
+        }
 
-            return data;
-          },
-          priority
-        ) as T;
-
-        return result;
+        return data;
       } catch (error) {
         console.error('API call failed:', error);
         throw error;
@@ -264,12 +257,6 @@ export function useLazyComponent<T>(
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  useEffect(() => {
-    if (preload) {
-      loadComponent();
-    }
-  }, [loadComponent, preload]);
-
   const loadComponent = useCallback(async () => {
     if (Component || isLoading) return;
 
@@ -290,6 +277,12 @@ export function useLazyComponent<T>(
       setIsLoading(false);
     }
   }, [Component, isLoading, delay, importFn]);
+
+  useEffect(() => {
+    if (preload) {
+      loadComponent();
+    }
+  }, [loadComponent, preload]);
 
   return {
     Component,

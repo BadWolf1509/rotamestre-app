@@ -10,7 +10,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { View, Text, TextInput, ViewStyle, TextInputProps } from 'react-native';
 
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 type InputSize = 'small' | 'medium' | 'large';
 
@@ -102,7 +102,7 @@ export function Input({
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     marginBottom: theme.spacing.md,
   },

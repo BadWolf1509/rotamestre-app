@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text } from 'react-native';
 
 import { validatePasswordStrength } from '@/utils/passwordValidation';
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface Props {
   password: string;
@@ -41,7 +41,7 @@ export function PasswordStrengthIndicator({ password }: Props) {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     marginTop: theme.spacing.xs,
   },

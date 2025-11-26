@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 
 import { authService } from '@/lib/auth';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export default function ForgotPassword() {
   const { theme } = useUnistyles();
@@ -101,7 +101,7 @@ export default function ForgotPassword() {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   screen: {
     flex: 1,
     backgroundColor: theme.colors.background,

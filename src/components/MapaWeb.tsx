@@ -4,7 +4,7 @@ import { GoogleMap, useJsApiLoader, DirectionsRenderer } from '@react-google-map
 import React, { useCallback } from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
 
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface Parada {
   id: string;
@@ -95,7 +95,7 @@ export default function MapaWeb({ paradas, selectedParadaId, onMarkerPress }: Ma
   const legendControlRef = React.useRef<HTMLDivElement | null>(null);
   const recenterControlRef = React.useRef<HTMLDivElement | null>(null);
 
-  const mapLibraries = React.useMemo(() => ['marker'] as google.maps.libraryName[], []);
+  const mapLibraries = React.useMemo(() => ['marker'] as ('marker')[], []);
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
@@ -426,7 +426,7 @@ export default function MapaWeb({ paradas, selectedParadaId, onMarkerPress }: Ma
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   loadingContainer: {
     height: 400,
     justifyContent: 'center',

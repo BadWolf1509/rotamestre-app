@@ -11,7 +11,7 @@ import {
 
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { supabase } from '@/lib/supabase';
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface DrawerMenuProps {
   visible: boolean;
@@ -220,7 +220,7 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

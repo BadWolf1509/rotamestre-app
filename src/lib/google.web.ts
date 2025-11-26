@@ -288,8 +288,8 @@ export const googleMapsService = {
         const tempoTotal = legs.reduce((acc, leg) => acc + leg.duracao_segundos, 0);
 
         const encodedPolyline =
-          route.overview_polyline?.encodedPath ||
           (route.overview_polyline as any)?.points ||
+          (route.overview_polyline as any)?.encoded_path ||
           '';
 
         return {

@@ -115,12 +115,12 @@ export function FloatingActionButton({
 
   return (
     <TouchableOpacity
-      style={[fabStyles(theme).fab, { backgroundColor: color }]}
+      style={[fabStyles.fab, { backgroundColor: color, shadowColor: theme.colors.black }]}
       onPress={onPress}
       activeOpacity={0.8}
     >
       <Ionicons name={icon as any} size={28} color={theme.colors.white} />
-      {label && <Text style={fabStyles(theme).fabLabel}>{label}</Text>}
+      {label && <Text style={[fabStyles.fabLabel, { color: theme.colors.white }]}>{label}</Text>}
     </TouchableOpacity>
   );
 }
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
   },
 });
 
-const fabStyles = StyleSheet.create((theme) => ({
+const fabStyles = StyleSheet.create({
   fab: {
     position: 'absolute',
     bottom: 120,
@@ -170,7 +170,6 @@ const fabStyles = StyleSheet.create((theme) => ({
     borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -178,9 +177,8 @@ const fabStyles = StyleSheet.create((theme) => ({
     zIndex: 15,
   },
   fabLabel: {
-    color: theme.colors.white,
     fontSize: 10,
     marginTop: 2,
     fontWeight: '600',
   },
-}));
+});

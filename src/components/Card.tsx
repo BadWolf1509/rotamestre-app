@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, ViewStyle, TouchableOpacity } from 'react-native';
 
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface CardProps {
   children: React.ReactNode;
@@ -36,7 +36,7 @@ export function Card({
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   card: {
     borderRadius: theme.borderRadius.lg,
     backgroundColor: theme.colors.white,

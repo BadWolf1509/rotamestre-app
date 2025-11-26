@@ -13,7 +13,7 @@ import CameraUpload from '@/components/CameraUpload';
 import { useUser } from '@/hooks/useUser';
 import { abrirNavegacao } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 import {
   calcularTempoEstimado,
   formatarTempo,
@@ -30,6 +30,7 @@ interface Parada {
   latitude: number;
   longitude: number;
   foto_url?: string | null;
+  is_checkpoint?: boolean;
 }
 
 interface Rota {
@@ -92,7 +93,7 @@ export default function RotaMotoristaWeb() {
         return;
       }
 
-      setRota(rotasData as Rota);
+      setRota(rotasData as unknown as Rota);
 
       const { data: paradasData, error: paradasError } = await supabase
         .from('paradas')
@@ -359,7 +360,7 @@ export default function RotaMotoristaWeb() {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,

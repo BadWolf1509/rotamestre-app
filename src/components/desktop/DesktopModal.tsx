@@ -3,7 +3,7 @@ import React from 'react';
 import { Modal, View, Text, TouchableOpacity, Pressable, ViewStyle } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 /**
  * DesktopModal - Modal responsivo adaptativo
@@ -34,6 +34,8 @@ interface DesktopModalProps {
   children: React.ReactNode;
   /** Largura máxima no desktop (default: 600) */
   maxWidth?: number;
+  /** Largura (alias para maxWidth) */
+  width?: number;
   /** Altura máxima (default: 80% da tela) */
   maxHeight?: string;
   /** Permitir fechar clicando fora (default: true) */
@@ -48,6 +50,7 @@ export function DesktopModal({
   title,
   children,
   maxWidth = 600,
+  width,
   maxHeight = '80%',
   closeOnOverlayPress = true,
   contentStyle,
@@ -69,7 +72,7 @@ export function DesktopModal({
           style={[
             styles.modalContainer,
             isDesktop ? styles.desktopModal : styles.mobileModal,
-            isDesktop && { maxWidth, maxHeight },
+            isDesktop && { maxWidth: width || maxWidth, maxHeight },
             contentStyle,
           ]}
           onPress={(e) => e.stopPropagation()} // Previne fechar ao clicar dentro
@@ -97,7 +100,7 @@ export function DesktopModal({
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

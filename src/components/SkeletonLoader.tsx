@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Animated, ViewStyle } from 'react-native';
 
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface SkeletonProps {
   width?: number | string;
@@ -101,7 +101,7 @@ export function SkeletonDashboard() {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   skeleton: {
     backgroundColor: theme.colors.gray200,
   },

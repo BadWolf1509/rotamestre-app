@@ -2,7 +2,7 @@ import React from 'react';
 import { View, ScrollView, ViewStyle } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 /**
  * DesktopLayout - Wrapper responsivo para conteúdo
@@ -78,7 +78,7 @@ export function DesktopLayout({
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,

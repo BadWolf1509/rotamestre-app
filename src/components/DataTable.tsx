@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // ============================================
 // TYPES
@@ -528,7 +528,7 @@ export function DataTable<T = any>({
 // STYLES
 // ============================================
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
   },

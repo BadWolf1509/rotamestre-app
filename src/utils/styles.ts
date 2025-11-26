@@ -52,6 +52,28 @@ export interface Theme {
     overlay: string;
     transparent: string;
     purple: string;
+    purple600: string;
+    // Extended colors for status indicators
+    blue50: string;
+    blue100: string;
+    blue500: string;
+    green50: string;
+    green100: string;
+    green500: string;
+    red50: string;
+    red100: string;
+    red500: string;
+    yellow100: string;
+    yellow500: string;
+    indigo100: string;
+    // Additional colors used in components
+    orange: string;
+    blue300: string;
+    green800: string;
+    warningLight: string;
+    warningDark: string;
+    errorLight: string;
+    successLight: string;
   };
   spacing: {
     xs: number;
@@ -87,6 +109,7 @@ export interface Theme {
     };
     xs: number;
     sm: number;
+    md: number;
     base: number;
     lg: number;
     xl: number;
@@ -96,6 +119,7 @@ export interface Theme {
     '4xl': number;
   };
   borderRadius: {
+    xs: number;
     sm: number;
     md: number;
     lg: number;
@@ -157,6 +181,28 @@ export const defaultTheme: Theme = {
     overlay: 'rgba(0, 0, 0, 0.5)',
     transparent: 'transparent',
     purple: '#8b5cf6',
+    purple600: '#7c3aed',
+    // Extended colors for status indicators
+    blue50: '#eff6ff',
+    blue100: '#dbeafe',
+    blue500: '#3b82f6',
+    green50: '#f0fdf4',
+    green100: '#dcfce7',
+    green500: '#22c55e',
+    red50: '#fef2f2',
+    red100: '#fee2e2',
+    red500: '#ef4444',
+    yellow100: '#fef9c3',
+    yellow500: '#eab308',
+    indigo100: '#e0e7ff',
+    // Additional colors used in components
+    orange: '#f97316',
+    blue300: '#93c5fd',
+    green800: '#166534',
+    warningLight: '#fef3c7',
+    warningDark: '#d97706',
+    errorLight: '#fee2e2',
+    successLight: '#d1fae5',
   },
   spacing: {
     xs: 4,
@@ -192,6 +238,7 @@ export const defaultTheme: Theme = {
     },
     xs: 12,
     sm: 14,
+    md: 15,
     base: 16,
     lg: 18,
     xl: 20,
@@ -201,6 +248,7 @@ export const defaultTheme: Theme = {
     '4xl': 36,
   },
   borderRadius: {
+    xs: 4,
     sm: 8,
     md: 10,
     lg: 12,

@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useMemo } from 'react';
 import { View, Text } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface Parada {
   id: string;
@@ -171,7 +171,7 @@ export function MapaMobile({ paradas }: MapaMobileProps) {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     height: 400,
     borderRadius: 12,

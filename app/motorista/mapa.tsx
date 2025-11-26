@@ -4,7 +4,7 @@ import { View, Text, ActivityIndicator, Alert } from 'react-native';
 import { MapaAdapter } from '@/components/MapaAdapter';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface Parada {
   id: string;
@@ -61,7 +61,7 @@ export default function MapaMotorista() {
         return;
       }
 
-      setRota(rotasData as Rota);
+      setRota(rotasData as unknown as Rota);
 
       // Buscar TODAS as paradas (incluindo checkpoints de partida/chegada)
       const { data: paradasData, error: paradasError } = await supabase
@@ -140,7 +140,7 @@ export default function MapaMotorista() {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface MobileHeaderProps {
   title: string;
@@ -27,7 +27,7 @@ export function MobileHeader({ title, subtitle, rightContent }: MobileHeaderProp
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   header: {
     backgroundColor: theme.colors.white,
     borderBottomWidth: 1,

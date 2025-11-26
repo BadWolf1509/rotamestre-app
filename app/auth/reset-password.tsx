@@ -13,7 +13,7 @@ import {
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
-import { StyleSheet } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 export default function ResetPassword() {
   const router = useRouter();
@@ -191,7 +191,7 @@ export default function ResetPassword() {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   containerDesktop: {
     flex: 1,
     flexDirection: 'row',

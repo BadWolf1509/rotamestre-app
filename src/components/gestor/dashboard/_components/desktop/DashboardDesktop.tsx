@@ -12,20 +12,20 @@ import {
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { RouteFilters } from '@/components/RouteFilters';
-import type { RouteFilters as RouteFiltersType } from '@/components/RouteFilters';
+import type { RouteFiltersState as RouteFiltersType } from '@/components/RouteFilters';
 import { Toast } from '@/components/Toast';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 // REMOVIDO: import { useUser } from '@/hooks/useUser'; // Agora recebe userData como prop
 import { supabase } from '@/lib/supabase';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 
 
 import { RotasTable } from './RotasTable';
 import { StatsCard } from '../shared/StatsCard';
 
-import type { DashboardData } from '../../dashboard/_hooks/useDashboardData';
+import type { DashboardData } from '../../_hooks/useDashboardData';
 
 
 interface DashboardDesktopProps extends DashboardData {
@@ -269,7 +269,7 @@ export function DashboardDesktop({
         message="Tem certeza que deseja excluir esta rota? Esta ação não pode ser desfeita."
         confirmText="Excluir"
         cancelText="Cancelar"
-        type="destructive"
+        type="danger"
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
       />
@@ -285,7 +285,7 @@ export function DashboardDesktop({
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   content: {
     paddingHorizontal: theme.spacing['3xl'],
     paddingVertical: theme.spacing['2xl'],

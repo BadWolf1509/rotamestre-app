@@ -13,10 +13,12 @@ interface MainCardProps {
   state: RouteStatus;
   route: any;
   paradas: any[];
-  currentStop?: any;
-  onSwipeLeft?: () => void;
-  onSwipeRight?: () => void;
-  onPress?: () => void;
+  currentStop?: any | null;
+  nextStop?: any | null;
+  location?: { latitude: number; longitude: number } | null;
+  onSwipeLeft?: () => void | Promise<void>;
+  onSwipeRight?: (fotoUrl?: string) => void | Promise<void>;
+  onPress?: () => void | Promise<void>;
 }
 
 interface MotoristaStats {

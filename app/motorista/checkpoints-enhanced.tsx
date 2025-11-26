@@ -15,7 +15,7 @@ import {
 import { useUser } from '@/hooks/useUser';
 import { abrirNavegacao } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface Parada {
   id: string;
@@ -85,7 +85,7 @@ export default function CheckpointsMotoristaEnhanced() {
         return;
       }
 
-      setRota(rotasData as Rota);
+      setRota(rotasData as unknown as Rota);
 
       const { data: paradasData, error: paradasError } = await supabase
         .from('paradas')
@@ -721,7 +721,7 @@ export default function CheckpointsMotoristaEnhanced() {
   );
 }
 
-const styles = StyleSheet.create((theme) => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: { flex: 1, backgroundColor: theme.colors.gray50 },
   loadingContainer: {
     flex: 1,

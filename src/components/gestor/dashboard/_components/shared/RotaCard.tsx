@@ -1,8 +1,8 @@
 import { View, Text, TouchableOpacity } from 'react-native';
 
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-import type { RotaResumo } from '../../dashboard/_hooks/useDashboardData';
+import type { RotaResumo } from '../../_hooks/useDashboardData';
 
 interface RotaCardProps {
   rota: RotaResumo;
@@ -117,7 +117,7 @@ export function RotaCard({ rota, onPress }: RotaCardProps) {
   );
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     backgroundColor: theme.colors.white,
     padding: theme.spacing.lg,

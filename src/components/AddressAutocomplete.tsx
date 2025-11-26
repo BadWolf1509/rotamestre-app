@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 
 import { googleMapsService, PlaceSuggestion } from '@/lib/google';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface AddressAutocompleteProps {
   value: string;
@@ -234,7 +234,7 @@ function generateSessionToken(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
-const styles = StyleSheet.create(theme => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     marginBottom: 12,
     zIndex: 1000,
