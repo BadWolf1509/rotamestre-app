@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import {
   ActivityIndicator,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -17,12 +18,16 @@ interface FormField {
   value: string;
   placeholder?: string;
   secureTextEntry?: boolean;
+  showPasswordToggle?: boolean;
+  isPasswordVisible?: boolean;
+  onTogglePassword?: () => void;
   editable?: boolean;
   multiline?: boolean;
   numberOfLines?: number;
   keyboardType?: any;
   autoCapitalize?: any;
   helperText?: string;
+  helperTextType?: 'success' | 'warning';
   error?: string;
   onChange: (text: string) => void;
 }
@@ -38,6 +43,7 @@ interface FormDesktopLayoutProps {
   onSecondaryPress?: () => void;
   loading?: boolean;
   sidePanel?: React.ReactNode;
+  backPath?: string;
 }
 
 export function FormDesktopLayout({
@@ -51,6 +57,7 @@ export function FormDesktopLayout({
   onSecondaryPress,
   loading,
   sidePanel,
+  backPath,
 }: FormDesktopLayoutProps) {
   const { theme } = useUnistyles();
   const router = useRouter();
@@ -69,13 +76,13 @@ export function FormDesktopLayout({
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={Platform.OS === 'web'}
       >
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => backPath ? router.push(backPath as any) : router.back()}
           >
             <Ionicons name="arrow-back" size={24} color={theme.colors.gray600} />
             <Text style={styles.backButtonText}>Voltar</Text>
@@ -95,25 +102,46 @@ export function FormDesktopLayout({
               {fields.map((field, index) => (
                 <View key={index} style={styles.fieldGroup}>
                   <Text style={styles.fieldLabel}>{field.label}</Text>
-                  <TextInput
-                    style={[
-                      styles.fieldInput,
-                      field.multiline && styles.fieldTextArea,
-                      field.error && styles.fieldInputError,
-                    ]}
-                    value={field.value}
-                    onChangeText={field.onChange}
-                    placeholder={field.placeholder}
-                    placeholderTextColor={theme.colors.gray400}
-                    secureTextEntry={field.secureTextEntry}
-                    editable={field.editable !== false}
-                    multiline={field.multiline}
-                    numberOfLines={field.numberOfLines}
-                    keyboardType={field.keyboardType}
-                    autoCapitalize={field.autoCapitalize}
-                  />
+                  <View style={field.showPasswordToggle ? styles.passwordContainer : undefined}>
+                    <TextInput
+                      style={[
+                        styles.fieldInput,
+                        field.multiline && styles.fieldTextArea,
+                        field.error && styles.fieldInputError,
+                        field.showPasswordToggle && styles.fieldInputWithToggle,
+                      ]}
+                      value={field.value}
+                      onChangeText={field.onChange}
+                      placeholder={field.placeholder}
+                      placeholderTextColor={theme.colors.gray400}
+                      secureTextEntry={field.secureTextEntry}
+                      editable={field.editable !== false}
+                      multiline={field.multiline}
+                      numberOfLines={field.numberOfLines}
+                      keyboardType={field.keyboardType}
+                      autoCapitalize={field.autoCapitalize}
+                    />
+                    {field.showPasswordToggle && (
+                      <TouchableOpacity
+                        style={styles.passwordToggle}
+                        onPress={field.onTogglePassword}
+                      >
+                        <Ionicons
+                          name={field.isPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
+                          size={22}
+                          color={theme.colors.gray500}
+                        />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                   {field.helperText && !field.error && (
-                    <Text style={styles.helperText}>{field.helperText}</Text>
+                    <Text style={[
+                      styles.helperText,
+                      field.helperTextType === 'success' && styles.helperTextSuccess,
+                      field.helperTextType === 'warning' && styles.helperTextWarning,
+                    ]}>
+                      {field.helperText}
+                    </Text>
                   )}
                   {field.error && (
                     <Text style={styles.errorText}>{field.error}</Text>
@@ -253,6 +281,9 @@ const styles = StyleSheet.create(theme => ({
     color: theme.colors.gray900,
     backgroundColor: theme.colors.white,
   },
+  fieldInputWithToggle: {
+    paddingRight: 48,
+  },
   fieldTextArea: {
     minHeight: 100,
     textAlignVertical: 'top',
@@ -260,10 +291,25 @@ const styles = StyleSheet.create(theme => ({
   fieldInputError: {
     borderColor: theme.colors.error,
   },
+  passwordContainer: {
+    position: 'relative',
+  },
+  passwordToggle: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    padding: 4,
+  },
   helperText: {
     fontSize: 12,
     color: theme.colors.gray500,
     marginTop: 4,
+  },
+  helperTextSuccess: {
+    color: theme.colors.success,
+  },
+  helperTextWarning: {
+    color: theme.colors.warning,
   },
   errorText: {
     fontSize: 12,

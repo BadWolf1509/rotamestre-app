@@ -99,7 +99,7 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={Platform.OS === 'web'}>
         {/* Auto-advance Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Modo Automático</Text>

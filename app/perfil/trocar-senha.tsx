@@ -1,4 +1,5 @@
-﻿import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   View,
@@ -33,7 +34,7 @@ export default function AlterarSenha() {
   const [showConfirmarSenha, setShowConfirmarSenha] = useState(false);
 
   async function handleSave() {
-    // ValidaÃ§Ãµes
+    // Validações
     if (!senhaAtual) {
       Alert.alert('Erro', 'Digite sua senha atual');
       return;
@@ -44,13 +45,14 @@ export default function AlterarSenha() {
       return;
     }
 
-    if (novaSenha.length < 6) {
-      Alert.alert('Erro', 'A nova senha deve ter no mÃ­nimo 6 caracteres');
+    const validation = validatePassword(novaSenha);
+    if (!validation.isValid) {
+      Alert.alert('Erro', validation.message);
       return;
     }
 
     if (novaSenha !== confirmarSenha) {
-      Alert.alert('Erro', 'As senhas nÃ£o coincidem');
+      Alert.alert('Erro', 'As senhas não coincidem');
       return;
     }
 
@@ -65,7 +67,7 @@ export default function AlterarSenha() {
       // Verificar senha atual fazendo login novamente
       const session = await authService.getSession();
       if (!session?.user?.email) {
-        throw new Error('SessÃ£o nÃ£o encontrada');
+        throw new Error('Sessão não encontrada');
       }
 
       // Tentar fazer login com a senha atual para validar
@@ -78,7 +80,7 @@ export default function AlterarSenha() {
       // Atualizar senha
       await authService.updatePassword(novaSenha);
 
-      // Marcar primeira_senha como false se ainda nÃ£o estiver
+      // Marcar primeira_senha como false se ainda não estiver
       await supabase
         .from('usuarios')
         .update({
@@ -95,7 +97,7 @@ export default function AlterarSenha() {
       ]);
     } catch (error: any) {
       console.error('Erro ao alterar senha:', error);
-      Alert.alert('Erro', error.message || 'NÃ£o foi possÃ­vel alterar a senha');
+      Alert.alert('Erro', error.message || 'Não foi possível alterar a senha');
     } finally {
       setSaving(false);
     }
@@ -104,17 +106,41 @@ export default function AlterarSenha() {
   function validatePassword(password: string): {
     isValid: boolean;
     message: string;
+    strength: 'weak' | 'medium' | 'strong' | 'invalid';
   } {
-    if (password.length < 6) {
-      return { isValid: false, message: 'MÃ­nimo 6 caracteres' };
+    // Mínimo 8 caracteres
+    if (password.length < 8) {
+      return { isValid: false, message: 'Mínimo 8 caracteres', strength: 'invalid' };
     }
-    if (password.length >= 6 && password.length < 8) {
-      return { isValid: true, message: 'Senha fraca' };
+
+    // Deve ter pelo menos uma letra maiúscula
+    if (!/[A-Z]/.test(password)) {
+      return { isValid: false, message: 'Deve conter letra maiúscula', strength: 'invalid' };
     }
-    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
-      return { isValid: true, message: 'Senha mÃ©dia' };
+
+    // Deve ter pelo menos uma letra minúscula
+    if (!/[a-z]/.test(password)) {
+      return { isValid: false, message: 'Deve conter letra minúscula', strength: 'invalid' };
     }
-    return { isValid: true, message: 'Senha forte' };
+
+    // Deve ter pelo menos um número
+    if (!/[0-9]/.test(password)) {
+      return { isValid: false, message: 'Deve conter número', strength: 'invalid' };
+    }
+
+    // Verificar força da senha
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    const isLong = password.length >= 12;
+
+    if (hasSpecialChar && isLong) {
+      return { isValid: true, message: 'Senha forte', strength: 'strong' };
+    }
+
+    if (hasSpecialChar || isLong) {
+      return { isValid: true, message: 'Senha média', strength: 'medium' };
+    }
+
+    return { isValid: true, message: 'Senha válida', strength: 'weak' };
   }
 
   const passwordStrength = novaSenha ? validatePassword(novaSenha) : null;
@@ -127,7 +153,10 @@ export default function AlterarSenha() {
         label: 'Senha Atual',
         value: senhaAtual,
         placeholder: 'Digite sua senha atual',
-        secureTextEntry: true,
+        secureTextEntry: !showSenhaAtual,
+        showPasswordToggle: true,
+        isPasswordVisible: showSenhaAtual,
+        onTogglePassword: () => setShowSenhaAtual(!showSenhaAtual),
         onChange: setSenhaAtual,
         autoCapitalize: 'none' as const,
       },
@@ -135,33 +164,100 @@ export default function AlterarSenha() {
         label: 'Nova Senha',
         value: novaSenha,
         placeholder: 'Digite a nova senha',
-        secureTextEntry: true,
+        secureTextEntry: !showNovaSenha,
+        showPasswordToggle: true,
+        isPasswordVisible: showNovaSenha,
+        onTogglePassword: () => setShowNovaSenha(!showNovaSenha),
         onChange: setNovaSenha,
         autoCapitalize: 'none' as const,
-        helperText: passwordStrength?.message,
+        helperText: passwordStrength?.isValid ? passwordStrength.message : undefined,
+        helperTextType: passwordStrength?.strength === 'strong' ? 'success' as const : passwordStrength?.strength === 'medium' ? 'warning' as const : undefined,
         error: passwordStrength && !passwordStrength.isValid ? passwordStrength.message : undefined,
       },
       {
         label: 'Confirmar Nova Senha',
         value: confirmarSenha,
         placeholder: 'Digite a senha novamente',
-        secureTextEntry: true,
+        secureTextEntry: !showConfirmarSenha,
+        showPasswordToggle: true,
+        isPasswordVisible: showConfirmarSenha,
+        onTogglePassword: () => setShowConfirmarSenha(!showConfirmarSenha),
         onChange: setConfirmarSenha,
         autoCapitalize: 'none' as const,
-        helperText: confirmarSenha ? (passwordsMatch ? 'Senhas coincidem' : undefined) : undefined,
-        error: confirmarSenha && !passwordsMatch ? 'Senhas n├úo coincidem' : undefined,
+        helperText: confirmarSenha && passwordsMatch ? 'Senhas coincidem' : undefined,
+        helperTextType: passwordsMatch ? 'success' as const : undefined,
+        error: confirmarSenha && !passwordsMatch ? 'Senhas não coincidem' : undefined,
       },
     ];
 
     const sidePanel = (
       <View style={desktopStyles(theme).sidePanel}>
         <View style={desktopStyles(theme).tipsCard}>
-          <Text style={desktopStyles(theme).tipsTitle}>Dicas para uma senha forte:</Text>
+          <Text style={desktopStyles(theme).tipsTitle}>Requisitos obrigatórios:</Text>
           <View style={desktopStyles(theme).tipsList}>
-            <Text style={desktopStyles(theme).tipText}>âœ“ MÃ­nimo de 6 caracteres</Text>
-            <Text style={desktopStyles(theme).tipText}>âœ“ Use letras maiÃºsculas e minÃºsculas</Text>
-            <Text style={desktopStyles(theme).tipText}>âœ“ Inclua nÃºmeros</Text>
-            <Text style={desktopStyles(theme).tipText}>âœ“ Adicione caracteres especiais (@, #, $, etc.)</Text>
+            <View style={desktopStyles(theme).tipRow}>
+              <Ionicons
+                name={novaSenha.length >= 8 ? 'checkmark-circle' : 'ellipse-outline'}
+                size={16}
+                color={novaSenha.length >= 8 ? theme.colors.success : theme.colors.gray400}
+              />
+              <Text style={[desktopStyles(theme).tipText, novaSenha.length >= 8 && desktopStyles(theme).tipTextValid]}>
+                Mínimo de 8 caracteres
+              </Text>
+            </View>
+            <View style={desktopStyles(theme).tipRow}>
+              <Ionicons
+                name={/[A-Z]/.test(novaSenha) ? 'checkmark-circle' : 'ellipse-outline'}
+                size={16}
+                color={/[A-Z]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
+              />
+              <Text style={[desktopStyles(theme).tipText, /[A-Z]/.test(novaSenha) && desktopStyles(theme).tipTextValid]}>
+                Letra maiúscula
+              </Text>
+            </View>
+            <View style={desktopStyles(theme).tipRow}>
+              <Ionicons
+                name={/[a-z]/.test(novaSenha) ? 'checkmark-circle' : 'ellipse-outline'}
+                size={16}
+                color={/[a-z]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
+              />
+              <Text style={[desktopStyles(theme).tipText, /[a-z]/.test(novaSenha) && desktopStyles(theme).tipTextValid]}>
+                Letra minúscula
+              </Text>
+            </View>
+            <View style={desktopStyles(theme).tipRow}>
+              <Ionicons
+                name={/[0-9]/.test(novaSenha) ? 'checkmark-circle' : 'ellipse-outline'}
+                size={16}
+                color={/[0-9]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
+              />
+              <Text style={[desktopStyles(theme).tipText, /[0-9]/.test(novaSenha) && desktopStyles(theme).tipTextValid]}>
+                Número
+              </Text>
+            </View>
+          </View>
+          <Text style={desktopStyles(theme).tipsSectionTitle}>Para senha forte:</Text>
+          <View style={desktopStyles(theme).tipsList}>
+            <View style={desktopStyles(theme).tipRow}>
+              <Ionicons
+                name={/[!@#$%^&*(),.?":{}|<>]/.test(novaSenha) ? 'checkmark-circle' : 'ellipse-outline'}
+                size={16}
+                color={/[!@#$%^&*(),.?":{}|<>]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
+              />
+              <Text style={[desktopStyles(theme).tipText, /[!@#$%^&*(),.?":{}|<>]/.test(novaSenha) && desktopStyles(theme).tipTextValid]}>
+                Caractere especial (@, #, $, etc.)
+              </Text>
+            </View>
+            <View style={desktopStyles(theme).tipRow}>
+              <Ionicons
+                name={novaSenha.length >= 12 ? 'checkmark-circle' : 'ellipse-outline'}
+                size={16}
+                color={novaSenha.length >= 12 ? theme.colors.success : theme.colors.gray400}
+              />
+              <Text style={[desktopStyles(theme).tipText, novaSenha.length >= 12 && desktopStyles(theme).tipTextValid]}>
+                12 ou mais caracteres
+              </Text>
+            </View>
           </View>
         </View>
       </View>
@@ -179,6 +275,7 @@ export default function AlterarSenha() {
         onSecondaryPress={() => router.push('/perfil')}
         loading={saving}
         sidePanel={sidePanel}
+        backPath="/perfil"
       />
     );
   }
@@ -196,7 +293,7 @@ export default function AlterarSenha() {
           </View>
         </View>
 
-        {/* FormulÃ¡rio */}
+        {/* Formulário */}
         <View style={styles(theme).form}>
           {/* Senha Atual */}
           <View style={styles(theme).inputGroup}>
@@ -217,9 +314,11 @@ export default function AlterarSenha() {
                 style={styles(theme).passwordToggle}
                 onPress={() => setShowSenhaAtual(!showSenhaAtual)}
               >
-                <Text style={styles(theme).passwordToggleText}>
-                  {showSenhaAtual ? 'ðŸ‘ï¸' : 'ðŸ‘ï¸â€ðŸ—¨ï¸'}
-                </Text>
+                <Ionicons
+                  name={showSenhaAtual ? 'eye-off-outline' : 'eye-outline'}
+                  size={22}
+                  color={theme.colors.gray500}
+                />
               </TouchableOpacity>
             </View>
           </View>
@@ -243,19 +342,19 @@ export default function AlterarSenha() {
                 style={styles(theme).passwordToggle}
                 onPress={() => setShowNovaSenha(!showNovaSenha)}
               >
-                <Text style={styles(theme).passwordToggleText}>
-                  {showNovaSenha ? 'ðŸ‘ï¸' : 'ðŸ‘ï¸â€ðŸ—¨ï¸'}
-                </Text>
+                <Ionicons
+                  name={showNovaSenha ? 'eye-off-outline' : 'eye-outline'}
+                  size={22}
+                  color={theme.colors.gray500}
+                />
               </TouchableOpacity>
             </View>
             {passwordStrength && (
               <Text
                 style={[
                   styles(theme).helperText,
-                  passwordStrength.message === 'Senha forte' &&
-                    styles(theme).helperTextSuccess,
-                  passwordStrength.message === 'Senha mÃ©dia' &&
-                    styles(theme).helperTextWarning,
+                  passwordStrength.strength === 'strong' && styles(theme).helperTextSuccess,
+                  passwordStrength.strength === 'medium' && styles(theme).helperTextWarning,
                   !passwordStrength.isValid && styles(theme).helperTextError,
                 ]}
               >
@@ -283,9 +382,11 @@ export default function AlterarSenha() {
                 style={styles(theme).passwordToggle}
                 onPress={() => setShowConfirmarSenha(!showConfirmarSenha)}
               >
-                <Text style={styles(theme).passwordToggleText}>
-                  {showConfirmarSenha ? 'ðŸ‘ï¸' : 'ðŸ‘ï¸â€ðŸ—¨ï¸'}
-                </Text>
+                <Ionicons
+                  name={showConfirmarSenha ? 'eye-off-outline' : 'eye-outline'}
+                  size={22}
+                  color={theme.colors.gray500}
+                />
               </TouchableOpacity>
             </View>
             {confirmarSenha && (
@@ -297,25 +398,79 @@ export default function AlterarSenha() {
                     : styles(theme).helperTextError,
                 ]}
               >
-                {passwordsMatch ? 'Senhas coincidem' : 'Senhas nÃ£o coincidem'}
+                {passwordsMatch ? 'Senhas coincidem' : 'Senhas não coincidem'}
               </Text>
             )}
           </View>
 
-          {/* Dicas de SeguranÃ§a */}
+          {/* Requisitos de Senha */}
           <View style={styles(theme).tipsContainer}>
-            <Text style={styles(theme).tipsTitle}>Dicas para uma senha forte:</Text>
-            <Text style={styles(theme).tipText}>â€¢ MÃ­nimo de 6 caracteres</Text>
-            <Text style={styles(theme).tipText}>
-              â€¢ Use letras maiÃºsculas e minÃºsculas
-            </Text>
-            <Text style={styles(theme).tipText}>â€¢ Inclua nÃºmeros</Text>
-            <Text style={styles(theme).tipText}>
-              â€¢ Adicione caracteres especiais (@, #, $, etc.)
-            </Text>
+            <Text style={styles(theme).tipsTitle}>Requisitos obrigatórios:</Text>
+            <View style={styles(theme).tipRow}>
+              <Ionicons
+                name={novaSenha.length >= 8 ? 'checkmark-circle' : 'ellipse-outline'}
+                size={16}
+                color={novaSenha.length >= 8 ? theme.colors.success : theme.colors.gray400}
+              />
+              <Text style={[styles(theme).tipText, novaSenha.length >= 8 && styles(theme).tipTextValid]}>
+                Mínimo de 8 caracteres
+              </Text>
+            </View>
+            <View style={styles(theme).tipRow}>
+              <Ionicons
+                name={/[A-Z]/.test(novaSenha) ? 'checkmark-circle' : 'ellipse-outline'}
+                size={16}
+                color={/[A-Z]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
+              />
+              <Text style={[styles(theme).tipText, /[A-Z]/.test(novaSenha) && styles(theme).tipTextValid]}>
+                Letra maiúscula
+              </Text>
+            </View>
+            <View style={styles(theme).tipRow}>
+              <Ionicons
+                name={/[a-z]/.test(novaSenha) ? 'checkmark-circle' : 'ellipse-outline'}
+                size={16}
+                color={/[a-z]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
+              />
+              <Text style={[styles(theme).tipText, /[a-z]/.test(novaSenha) && styles(theme).tipTextValid]}>
+                Letra minúscula
+              </Text>
+            </View>
+            <View style={styles(theme).tipRow}>
+              <Ionicons
+                name={/[0-9]/.test(novaSenha) ? 'checkmark-circle' : 'ellipse-outline'}
+                size={16}
+                color={/[0-9]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
+              />
+              <Text style={[styles(theme).tipText, /[0-9]/.test(novaSenha) && styles(theme).tipTextValid]}>
+                Número
+              </Text>
+            </View>
+
+            <Text style={[styles(theme).tipsTitle, { marginTop: 12 }]}>Para senha forte:</Text>
+            <View style={styles(theme).tipRow}>
+              <Ionicons
+                name={/[!@#$%^&*(),.?":{}|<>]/.test(novaSenha) ? 'checkmark-circle' : 'ellipse-outline'}
+                size={16}
+                color={/[!@#$%^&*(),.?":{}|<>]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
+              />
+              <Text style={[styles(theme).tipText, /[!@#$%^&*(),.?":{}|<>]/.test(novaSenha) && styles(theme).tipTextValid]}>
+                Caractere especial (@, #, $, etc.)
+              </Text>
+            </View>
+            <View style={styles(theme).tipRow}>
+              <Ionicons
+                name={novaSenha.length >= 12 ? 'checkmark-circle' : 'ellipse-outline'}
+                size={16}
+                color={novaSenha.length >= 12 ? theme.colors.success : theme.colors.gray400}
+              />
+              <Text style={[styles(theme).tipText, novaSenha.length >= 12 && styles(theme).tipTextValid]}>
+                12 ou mais caracteres
+              </Text>
+            </View>
           </View>
 
-          {/* BotÃµes inline */}
+          {/* Botões inline */}
           <View style={styles(theme).buttonsContainer}>
             <TouchableOpacity
               style={styles(theme).buttonSecondary}
@@ -328,10 +483,10 @@ export default function AlterarSenha() {
             <TouchableOpacity
               style={[
                 styles(theme).buttonPrimary,
-                saving && styles(theme).buttonDisabled,
+                (saving || !passwordStrength?.isValid || !passwordsMatch || !senhaAtual) && styles(theme).buttonDisabled,
               ]}
               onPress={handleSave}
-              disabled={saving}
+              disabled={saving || !passwordStrength?.isValid || !passwordsMatch || !senhaAtual}
             >
               {saving ? (
                 <ActivityIndicator color={theme.colors.white} />
@@ -364,13 +519,28 @@ const desktopStyles = (theme: any) =>
       color: theme.colors.primaryDark,
       marginBottom: 16,
     },
+    tipsSectionTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.gray600,
+      marginTop: 20,
+      marginBottom: 12,
+    },
     tipsList: {
       gap: 12,
     },
+    tipRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
     tipText: {
       fontSize: 14,
-      color: theme.colors.primary,
+      color: theme.colors.gray500,
       lineHeight: 20,
+    },
+    tipTextValid: {
+      color: theme.colors.success,
     },
   });
 
@@ -440,9 +610,6 @@ const styles = (theme: any) =>
       top: 12,
       padding: 4,
     },
-    passwordToggleText: {
-      fontSize: 20,
-    },
     helperText: {
       fontSize: 12,
       color: theme.colors.gray500,
@@ -452,7 +619,7 @@ const styles = (theme: any) =>
       color: theme.colors.success,
     },
     helperTextWarning: {
-      color: theme.colors.warning, // Amber 500
+      color: theme.colors.warning,
     },
     helperTextError: {
       color: theme.colors.error,
@@ -470,10 +637,18 @@ const styles = (theme: any) =>
       color: theme.colors.primary,
       marginBottom: 8,
     },
+    tipRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 6,
+    },
     tipText: {
       fontSize: 13,
-      color: theme.colors.gray700,
-      marginBottom: 4,
+      color: theme.colors.gray500,
+    },
+    tipTextValid: {
+      color: theme.colors.success,
     },
     buttonsContainer: {
       flexDirection: 'row',
@@ -513,6 +688,3 @@ const styles = (theme: any) =>
       opacity: 0.6,
     },
   });
-
-
-

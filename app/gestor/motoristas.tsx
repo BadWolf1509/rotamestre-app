@@ -425,7 +425,7 @@ export default function MotoristasGestor() {
   const handleEditarMotorista = () => editarMotorista();
 
   const renderAddModalContent = () => (
-    <ScrollView showsVerticalScrollIndicator={false}>
+    <ScrollView showsVerticalScrollIndicator={Platform.OS === 'web'}>
       <View style={styles.modalContent}>
         {/* Nome */}
         <View style={styles.inputGroup}>
@@ -522,7 +522,7 @@ export default function MotoristasGestor() {
   );
 
   const renderEditModalContent = () => (
-    <ScrollView showsVerticalScrollIndicator={false}>
+    <ScrollView showsVerticalScrollIndicator={Platform.OS === 'web'}>
       <View style={styles.modalContent}>
         {/* Nome */}
         <View style={styles.inputGroup}>

@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 
 import { usePerformance } from '@/hooks/usePerformance';
@@ -144,7 +145,7 @@ export function PerformanceSettings({ visible, onClose }: PerformanceSettingsPro
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={Platform.OS === 'web'}>
         {/* Performance Status */}
         <View style={styles.statusCard}>
           <View style={styles.statusRow}>

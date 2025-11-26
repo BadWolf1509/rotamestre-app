@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   ScrollViewProps,
+  Platform,
 } from 'react-native';
 
 import { NotificationBell } from '@/components/NotificationBell';
@@ -283,7 +284,7 @@ export function DesktopPageLayout({
           noPadding && styles.contentNoPadding,
           contentContainerStyle,
         ]}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={Platform.OS === 'web'}
         {...restScrollViewProps}
       >
         <View style={[styles.content, fullWidth && styles.contentInnerFullWidth]}>

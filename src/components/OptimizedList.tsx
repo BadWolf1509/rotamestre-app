@@ -198,7 +198,7 @@ function OptimizedListComponent<T>({
     onEndReached: debouncedOnEndReached,
     onEndReachedThreshold,
     refreshControl,
-    showsVerticalScrollIndicator: !horizontal,
+    showsVerticalScrollIndicator: Platform.OS === 'web' && !horizontal,
     showsHorizontalScrollIndicator: horizontal,
     ...optimizedProps,
   };
@@ -340,7 +340,7 @@ export function OptimizedSectionList<T>({
       SectionSeparatorComponent={SectionSeparatorComponent}
       contentContainerStyle={contentContainerStyle}
       style={style}
-      showsVerticalScrollIndicator={false}
+      showsVerticalScrollIndicator={Platform.OS === 'web'}
       initialNumToRender={5}
       maxToRenderPerBatch={3}
       windowSize={5}

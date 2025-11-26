@@ -213,6 +213,7 @@ export default function EditarPerfilGestor() {
           secondaryButtonText="Cancelar"
           onSecondaryPress={() => router.push('/perfil')}
           loading={saving}
+          backPath="/perfil"
         />
         <AlertDialog
           visible={alertConfig.visible}

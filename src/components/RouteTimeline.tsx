@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
 
@@ -243,7 +243,7 @@ export function RouteTimeline({ rotaId, realtime = true, onStateChange }: RouteT
   }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={Platform.OS === 'web'}>
       {events.map((event, index) => (
         <View key={event.id} style={styles.eventContainer}>
           {/* Timeline line */}

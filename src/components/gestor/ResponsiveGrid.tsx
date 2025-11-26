@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
+  Platform,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -65,7 +66,7 @@ export function ResponsiveGrid({
 
   const Container = scrollable ? ScrollView : View;
   const containerProps = scrollable
-    ? { showsVerticalScrollIndicator: false, contentContainerStyle: gridStyles }
+    ? { showsVerticalScrollIndicator: Platform.OS === 'web', contentContainerStyle: gridStyles }
     : { style: gridStyles };
 
   return (
