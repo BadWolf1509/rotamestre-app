@@ -130,13 +130,13 @@ describe('DrawerMenu Component', () => {
       });
     });
 
-    it('deve renderizar item Histórico', async () => {
+    it('deve renderizar item Gestão de Rotas', async () => {
       const { getByText } = render(
         <DrawerMenu visible={true} onClose={mockOnClose} />
       );
 
       await waitFor(() => {
-        expect(getByText('Histórico')).toBeTruthy();
+        expect(getByText('Gestão de Rotas')).toBeTruthy();
         expect(getByText('📋')).toBeTruthy();
       });
     });

@@ -48,10 +48,7 @@ jest.mock('@/utils/styles', () => ({
   },
 }));
 
-// Mock do Keyboard
-jest.mock('react-native/Libraries/Components/Keyboard/Keyboard', () => ({
-  dismiss: jest.fn(),
-}));
+// Keyboard mock está em jest.setup.js - não precisa duplicar aqui
 
 // Wrapper para gerenciar estado
 const TestWrapper = ({ onSelectAddress = () => { } }) => {
@@ -77,7 +74,7 @@ describe('AddressAutocomplete', () => {
 
   it('deve renderizar corretamente', () => {
     const { getByPlaceholderText } = render(<TestWrapper />);
-    expect(getByPlaceholderText('Digite o endereço completo')).toBeTruthy();
+    expect(getByPlaceholderText('Digite o endereco completo')).toBeTruthy();
   });
 
   it('deve buscar endereços após debounce', async () => {
@@ -96,7 +93,7 @@ describe('AddressAutocomplete', () => {
 
     const { getByPlaceholderText, getByText, queryByText } = render(<TestWrapper />);
 
-    const input = getByPlaceholderText('Digite o endereço completo');
+    const input = getByPlaceholderText('Digite o endereco completo');
 
     // Digitar texto - O Wrapper vai atualizar o estado value
     fireEvent.changeText(input, 'Rua Teste');
@@ -122,26 +119,27 @@ describe('AddressAutocomplete', () => {
   });
 
   /**
-   * LIMITAÇÃO CONFIRMADA (20/11/2025 - Após Pesquisa Extensiva):
-   * Teste skipado mesmo após pesquisa e aplicação de soluções recomendadas.
-   * 
-   * Tentativas de correção (total: 6):
+   * LIMITAÇÃO CONFIRMADA (26/11/2025):
+   * Teste skipado após múltiplas tentativas de correção.
+   *
+   * Tentativas de correção:
    * 1. TestWrapper com gerenciamento de estado interno
    * 2. Manual rerender após changeText
    * 3. TestWrapper com callback que atualiza setValue
    * 4. Act() wrapping de fireEvent.press
    * 5. waitFor com timeout estendido
-   * 6. ✅ Memoização de renderItem com useCallback (baseado em pesquisa web)
-   * 
-   * Pesquisa realizada:
-   * - React Native Testing Library docs sobre FlatList + React.memo
-   * - Stack Overflow: renderItem deve ser estável via useCallback
-   * - Solução aplicada no componente (AddressAutocomplete.tsx linha 115)
-   * 
-   * Resultado: Mesmo com renderItem memoizado, onPress ainda não é invocado.
-   * 
-   * Conclusão: Limitação do react-test-renderer com TouchableOpacity em FlatList.
-   * Solução futura: Extrair lógica em hook customizado (useAddressSearch) testá vel independentemente.
+   * 6. Memoização de renderItem com useCallback
+   * 7. UNSAFE_getAllByType para acessar TouchableOpacity diretamente
+   * 8. Mock do Keyboard.dismiss em jest.setup.js
+   *
+   * Problema raiz: O mock do Keyboard no jest-expo/jest.setup.js não está
+   * sendo aplicado corretamente quando o componente chama Keyboard.dismiss().
+   * Além disso, fireEvent.press em TouchableOpacity dentro de FlatList
+   * não dispara o onPress handler no react-test-renderer.
+   *
+   * Conclusão: Limitação conhecida do react-test-renderer com TouchableOpacity em FlatList.
+   * Solução futura: Extrair lógica em hook customizado (useAddressSearch) testável independentemente,
+   * ou usar Detox/Maestro para testes E2E.
    */
   // eslint-disable-next-line jest/no-disabled-tests
   it.skip('deve selecionar um endereço e esconder sugestões', async () => {
@@ -168,7 +166,7 @@ describe('AddressAutocomplete', () => {
           onChangeText={setValue}
           onSelectAddress={(desc, id) => {
             onSelectAddress(desc, id);
-            setValue(desc); // Simula atualização do pai
+            setValue(desc);
           }}
         />
       );
@@ -176,17 +174,13 @@ describe('AddressAutocomplete', () => {
 
     const { getByPlaceholderText, getByText, getAllByTestId, queryByTestId } = render(<TestWrapperWithCallback />);
 
-    const input = getByPlaceholderText('Digite o endereço completo');
-
-    // Digitar texto
+    const input = getByPlaceholderText('Digite o endereco completo');
     fireEvent.changeText(input, 'Rua Teste');
 
-    // Disparar debounce
     await act(async () => {
       jest.advanceTimersByTime(1000);
     });
 
-    // Esperar sugestão aparecer
     await waitFor(() => {
       expect(getByText('Rua Teste')).toBeTruthy();
     });
@@ -194,17 +188,14 @@ describe('AddressAutocomplete', () => {
     const suggestions = getAllByTestId('suggestion-item');
     expect(suggestions.length).toBeGreaterThan(0);
 
-    // Clicar na primeira sugestão
     await act(async () => {
       fireEvent.press(suggestions[0]);
     });
 
-    // Verificar efeitos observáveis: sugestões devem desaparecer
     await waitFor(() => {
       expect(queryByTestId('suggestion-item')).toBeNull();
     }, { timeout: 2000 });
 
-    // Se chegou aqui, teste passou! Verificar callback como bônus
     expect(onSelectAddress).toHaveBeenCalledWith('Rua Teste, 123', '1');
   });
 
@@ -213,8 +204,8 @@ describe('AddressAutocomplete', () => {
 
     const { getByPlaceholderText, getByText } = render(<TestWrapper />);
 
-    const input = getByPlaceholderText('Digite o endereço completo');
-    fireEvent.changeText(input, 'Endereço Inexistente');
+    const input = getByPlaceholderText('Digite o endereco completo');
+    fireEvent.changeText(input, 'Endereco Inexistente');
 
     await act(async () => {
       jest.advanceTimersByTime(1000);

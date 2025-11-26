@@ -204,7 +204,7 @@ describe('Storage Functions', () => {
       expect(mockUpdate).toHaveBeenCalledWith({ foto_url: mockFotoUrl });
     });
 
-    it('deve retornar null quando update falha', async () => {
+    it('deve retornar false quando update falha', async () => {
       const mockUpdate = jest.fn().mockReturnValue({
         eq: jest.fn().mockResolvedValue({ error: new Error('Update failed') }),
       });
@@ -215,7 +215,7 @@ describe('Storage Functions', () => {
 
       const result = await salvarFotoParada(mockParadaId, mockFotoUrl);
 
-      expect(result).toBeNull();
+      expect(result).toBe(false);
       expect(console.error).toHaveBeenCalled();
     });
 

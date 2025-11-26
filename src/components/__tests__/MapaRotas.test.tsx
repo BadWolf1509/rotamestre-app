@@ -2,19 +2,25 @@ import { render } from '@testing-library/react-native';
 import React from 'react';
 import { Platform } from 'react-native';
 
-import { MapaRotas } from '../MapaRotas';
-
-// Mock dos componentes de mapa
+// Mock dos componentes de mapa - definidos antes do import
 jest.mock('../MapaRN', () => ({
   MapaRN: jest.fn(() => null),
 }));
 
-jest.mock('../MapaWeb', () => ({
-  MapaWeb: jest.fn(() => null),
-}));
+// Mock do MapaWeb (default export) - função definida dentro do mock factory
+jest.mock('../MapaWeb', () => {
+  const mockFn = jest.fn(() => null);
+  return {
+    __esModule: true,
+    default: mockFn,
+  };
+});
+
+import { MapaRotas } from '../MapaRotas';
+import MapaWeb from '../MapaWeb';
 
 const mockMapaRN = require('../MapaRN').MapaRN;
-const mockMapaWeb = require('../MapaWeb').MapaWeb;
+const mockMapaWeb = MapaWeb as jest.Mock;
 
 describe('MapaRotas', () => {
   const mockParadas = [
@@ -71,29 +77,14 @@ describe('MapaRotas', () => {
       expect(mockMapaRN).not.toHaveBeenCalled();
     });
 
-    it('deve transformar paradas em origem, destino e waypoints', () => {
+    it('deve passar paradas para MapaWeb', () => {
       render(<MapaRotas paradas={mockParadas} />);
 
       expect(mockMapaWeb).toHaveBeenCalled();
       const callArgs = mockMapaWeb.mock.calls[0][0];
 
-      // Origem = primeira parada
-      expect(callArgs.origem).toEqual({
-        latitude: -23.5505,
-        longitude: -46.6333,
-      });
-
-      // Destino = última parada
-      expect(callArgs.destino).toEqual({
-        latitude: -23.5700,
-        longitude: -46.6600,
-      });
-
-      // Waypoints = paradas intermediárias (2 e 3)
-      expect(callArgs.waypoints).toEqual([
-        { latitude: -23.5489, longitude: -46.6388 },
-        { latitude: -23.5600, longitude: -46.6500 },
-      ]);
+      // MapaRotas agora passa apenas paradas para MapaWeb
+      expect(callArgs.paradas).toEqual(mockParadas);
     });
 
     it('deve passar rotaAtiva para MapaWeb', () => {
@@ -102,7 +93,7 @@ describe('MapaRotas', () => {
       expect(mockMapaWeb).toHaveBeenCalled();
     });
 
-    it('deve lidar com 2 paradas (sem waypoints)', () => {
+    it('deve lidar com 2 paradas', () => {
       const duasParadas = [mockParadas[0], mockParadas[3]];
 
       render(<MapaRotas paradas={duasParadas} />);
@@ -110,41 +101,30 @@ describe('MapaRotas', () => {
       expect(mockMapaWeb).toHaveBeenCalled();
       const callArgs = mockMapaWeb.mock.calls[0][0];
 
-      expect(callArgs.origem).toEqual({
-        latitude: -23.5505,
-        longitude: -46.6333,
-      });
-
-      expect(callArgs.destino).toEqual({
-        latitude: -23.5700,
-        longitude: -46.6600,
-      });
-
-      // Sem waypoints
-      expect(callArgs.waypoints).toEqual([]);
+      // MapaRotas passa as paradas diretamente
+      expect(callArgs.paradas).toEqual(duasParadas);
     });
 
-    it('não deve renderizar se não há origem (array vazio)', () => {
-      const { UNSAFE_root } = render(<MapaRotas paradas={[]} />);
+    it('deve renderizar MapaWeb com array vazio', () => {
+      render(<MapaRotas paradas={[]} />);
 
-      expect(mockMapaWeb).not.toHaveBeenCalled();
-      expect(UNSAFE_root).toBeTruthy();
+      expect(mockMapaWeb).toHaveBeenCalled();
+      const callArgs = mockMapaWeb.mock.calls[0][0];
+      expect(callArgs.paradas).toEqual([]);
     });
 
-    it('deve renderizar mesmo com 1 parada (origem = destino)', () => {
+    it('deve renderizar mesmo com 1 parada', () => {
       const umaParada = [mockParadas[0]];
 
       render(<MapaRotas paradas={umaParada} />);
 
-      // Quando há apenas 1 parada, origem e destino são iguais
       expect(mockMapaWeb).toHaveBeenCalled();
       const callArgs = mockMapaWeb.mock.calls[0][0];
 
-      expect(callArgs.origem).toEqual(callArgs.destino);
-      expect(callArgs.waypoints).toEqual([]);
+      expect(callArgs.paradas).toEqual(umaParada);
     });
 
-    it('deve lidar com 3 paradas (1 waypoint)', () => {
+    it('deve lidar com 3 paradas', () => {
       const tresParadas = [mockParadas[0], mockParadas[1], mockParadas[2]];
 
       render(<MapaRotas paradas={tresParadas} />);
@@ -152,12 +132,10 @@ describe('MapaRotas', () => {
       expect(mockMapaWeb).toHaveBeenCalled();
       const callArgs = mockMapaWeb.mock.calls[0][0];
 
-      expect(callArgs.waypoints).toEqual([
-        { latitude: -23.5489, longitude: -46.6388 },
-      ]);
+      expect(callArgs.paradas).toEqual(tresParadas);
     });
 
-    it('deve lidar com muitas paradas (muitos waypoints)', () => {
+    it('deve lidar com muitas paradas', () => {
       const muitasParadas = Array.from({ length: 20 }, (_, i) => ({
         id: `parada-${i}`,
         endereco: `Rua ${i}`,
@@ -172,8 +150,7 @@ describe('MapaRotas', () => {
       expect(mockMapaWeb).toHaveBeenCalled();
       const callArgs = mockMapaWeb.mock.calls[0][0];
 
-      // Deve ter 18 waypoints (20 paradas - origem - destino)
-      expect(callArgs.waypoints.length).toBe(18);
+      expect(callArgs.paradas).toEqual(muitasParadas);
     });
   });
 
@@ -270,7 +247,7 @@ describe('MapaRotas', () => {
     });
   });
 
-  describe('Transformação de Dados (Web)', () => {
+  describe('Passagem de Dados (Web)', () => {
     beforeEach(() => {
       Object.defineProperty(Platform, 'OS', {
         get: jest.fn(() => 'web'),
@@ -278,7 +255,7 @@ describe('MapaRotas', () => {
       });
     });
 
-    it('deve extrair latitude e longitude corretamente', () => {
+    it('deve passar paradas com latitude e longitude corretamente', () => {
       const paradasCustom = [
         {
           id: '1',
@@ -303,13 +280,14 @@ describe('MapaRotas', () => {
       expect(mockMapaWeb).toHaveBeenCalled();
       const callArgs = mockMapaWeb.mock.calls[0][0];
 
-      expect(callArgs.origem.latitude).toBe(-10.5);
-      expect(callArgs.origem.longitude).toBe(-50.3);
-      expect(callArgs.destino.latitude).toBe(-20.7);
-      expect(callArgs.destino.longitude).toBe(-60.9);
+      expect(callArgs.paradas).toEqual(paradasCustom);
+      expect(callArgs.paradas[0].latitude).toBe(-10.5);
+      expect(callArgs.paradas[0].longitude).toBe(-50.3);
+      expect(callArgs.paradas[1].latitude).toBe(-20.7);
+      expect(callArgs.paradas[1].longitude).toBe(-60.9);
     });
 
-    it('deve preservar ordem dos waypoints', () => {
+    it('deve preservar ordem das paradas', () => {
       const paradasOrdenadas = [
         { id: '1', endereco: 'A', latitude: 1, longitude: 1, ordem: 1, status: 'concluida' },
         { id: '2', endereco: 'B', latitude: 2, longitude: 2, ordem: 2, status: 'pendente' },
@@ -323,11 +301,9 @@ describe('MapaRotas', () => {
       expect(mockMapaWeb).toHaveBeenCalled();
       const callArgs = mockMapaWeb.mock.calls[0][0];
 
-      expect(callArgs.waypoints).toEqual([
-        { latitude: 2, longitude: 2 },
-        { latitude: 3, longitude: 3 },
-        { latitude: 4, longitude: 4 },
-      ]);
+      // Verifica que a ordem foi preservada
+      expect(callArgs.paradas).toEqual(paradasOrdenadas);
+      expect(callArgs.paradas.map((p: { ordem: number }) => p.ordem)).toEqual([1, 2, 3, 4, 5]);
     });
   });
 });

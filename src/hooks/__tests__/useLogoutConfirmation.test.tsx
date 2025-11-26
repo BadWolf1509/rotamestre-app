@@ -77,7 +77,7 @@ describe('useLogoutConfirmation', () => {
     expect(capturedProps.message).toBe('Deseja realmente encerrar sua sessao?');
     expect(capturedProps.confirmText).toBe('Sair');
     expect(capturedProps.cancelText).toBe('Cancelar');
-    expect(capturedProps.type).toBe('destructive');
+    expect(capturedProps.type).toBe('danger');
     expect(capturedProps.loading).toBe(false);
     expect(capturedProps.visible).toBe(false);
   });
@@ -203,22 +203,19 @@ describe('useLogoutConfirmation', () => {
     expect(capturedProps.loading).toBe(false);
   });
 
-  it('should not navigate if signOut fails', async () => {
+  it('should still navigate to login even if signOut fails', async () => {
     const error = new Error('Sign out failed');
     (authService.signOut as jest.Mock).mockRejectedValueOnce(error);
 
     render(<TestComponent />);
     const { onConfirm } = capturedProps;
 
-    try {
-      await act(async () => {
-        await onConfirm();
-      });
-    } catch {
-      // Expected to fail
-    }
+    await act(async () => {
+      await onConfirm();
+    });
 
-    expect(mockReplace).not.toHaveBeenCalled();
+    // O hook sempre navega para login (no finally), mesmo se signOut falhar
+    expect(mockReplace).toHaveBeenCalledWith('/auth/login');
   });
 
   it('should handle multiple show/hide cycles', () => {

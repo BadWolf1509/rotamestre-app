@@ -15,8 +15,8 @@ import { useUnistyles } from '@/utils/styles';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-// Substitua com sua chave de API do Google
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+// Função para obter API key (permite testes mockarem process.env)
+const getGoogleMapsApiKey = () => process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
 interface StreetViewPreviewProps {
   latitude: number;
@@ -48,6 +48,9 @@ export function StreetViewPreview({
 
   const currentSize = dimensions[size];
 
+  // Obter API key dinamicamente (permite testes)
+  const apiKey = getGoogleMapsApiKey();
+
   // URL da API Street View Static
   const getStreetViewUrl = (width: number, height: number, fov: number = 90) => {
     return `https://maps.googleapis.com/maps/api/streetview/static?` +
@@ -55,7 +58,7 @@ export function StreetViewPreview({
       `location=${latitude},${longitude}&` +
       `fov=${fov}&` +
       `pitch=10&` +
-      `key=${GOOGLE_MAPS_API_KEY}`;
+      `key=${apiKey}`;
   };
 
   const streetViewUrl = getStreetViewUrl(currentSize.width, currentSize.height);
@@ -78,7 +81,7 @@ export function StreetViewPreview({
     setLoading(false);
   };
 
-  if (!GOOGLE_MAPS_API_KEY) {
+  if (!apiKey) {
     return (
       <View style={[styles.container, currentSize, styles.errorContainer]}>
         <Ionicons name="image-outline" size={24} color={theme.colors.gray400} />

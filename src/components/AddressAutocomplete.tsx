@@ -37,7 +37,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   value,
   onChangeText,
   onSelectAddress,
-  placeholder = 'Digite o endereÃ§o completo',
+  placeholder = 'Digite o endereco completo',
   error,
   multiline = false,
 }: AddressAutocompleteProps) {
