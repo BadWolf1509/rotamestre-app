@@ -36,8 +36,8 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
   const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
-    // Aguardar carregamento completo
-    if (authLoading || userLoading) {
+    // Aguardar carregamento do auth
+    if (authLoading) {
       return;
     }
 
@@ -58,16 +58,23 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
       return;
     }
 
+    // Se user existe mas userData ainda está carregando, aguardar
+    // Isso evita race condition após login quando useUser ainda não carregou
+    if (userLoading || !userData) {
+      console.log('🔒 [RequireAuth] Aguardando dados do usuário...');
+      return;
+    }
+
     // Verificar papel se requerido
-    if (role !== 'any' && userData?.papel !== role) {
-      console.log(`🔒 [RequireAuth] Papel ${userData?.papel} não tem acesso a rota de ${role}`);
+    if (role !== 'any' && userData.papel !== role) {
+      console.log(`🔒 [RequireAuth] Papel ${userData.papel} não tem acesso a rota de ${role}`);
       setIsReady(true);
       setIsAuthorized(false);
 
       // Redirecionar para área correta baseado no papel do usuário
-      if (userData?.papel === 'gestor') {
+      if (userData.papel === 'gestor') {
         router.replace('/gestor/inicio');
-      } else if (userData?.papel === 'motorista') {
+      } else if (userData.papel === 'motorista') {
         router.replace('/motorista/inicio');
       } else {
         router.replace(redirectTo);

@@ -17,6 +17,9 @@ export function useUser() {
       return;
     }
 
+    // Iniciar loading ao carregar dados
+    setLoading(true);
+
     try {
       const { data, error } = await supabase
         .from('usuarios')
@@ -28,16 +31,17 @@ export function useUser() {
       setUserData(data);
     } catch (error) {
       console.error('Error loading user data:', error);
+      setUserData(null);
     } finally {
       setLoading(false);
     }
   }, [userId]);
 
-  // ✅ FIX: Usar userId diretamente ao invés de loadUserData
+  // Carregar dados quando userId mudar
   useEffect(() => {
     loadUserData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]); // Apenas userId, evita loop infinito
+  }, [userId]);
 
   return {
     userData,
