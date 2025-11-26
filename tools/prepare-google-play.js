@@ -5,9 +5,9 @@
  * Uso: node tools/prepare-google-play.js
  */
 
+const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
 
 // Cores para output
 const colors = {
@@ -111,7 +111,7 @@ class GooglePlayPreparer {
         const easVersion = execSync('eas --version', { encoding: 'utf8' }).trim();
         log.success(`EAS CLI instalado: ${easVersion}`);
         this.checks.push(`EAS CLI: ${easVersion}`);
-      } catch (e) {
+      } catch {
         this.warnings.push('EAS CLI não instalado (npm install -g eas-cli)');
         log.warning('EAS CLI não instalado - execute: npm install -g eas-cli');
       }
@@ -121,11 +121,11 @@ class GooglePlayPreparer {
         const whoami = execSync('eas whoami', { encoding: 'utf8' }).trim();
         log.success(`Logado como: ${whoami}`);
         this.checks.push(`Expo account: ${whoami}`);
-      } catch (e) {
+      } catch {
         this.warnings.push('Não está logado no Expo (eas login)');
         log.warning('Não está logado no Expo - execute: eas login');
       }
-    } catch (e) {
+    } catch {
       log.error('Erro verificando dependências');
     }
   }

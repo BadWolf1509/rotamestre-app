@@ -24,8 +24,6 @@ import { useUser } from '@/hooks/useUser';
 import { googleMapsService } from '@/lib/google';
 import {
   otimizarRotaComDependencias,
-  formatarDescricaoVinculo,
-  encontrarRetiradasDisponiveis,
   ParadaParaOtimizar,
 } from '@/lib/routeOptimization';
 import { supabase } from '@/lib/supabase';

@@ -6,8 +6,8 @@
  */
 
 import { Coordenadas } from '@/types/endereco';
+
 import { googleMapsService } from './google';
-import { GoogleDirectionsResult } from '@/types/google-directions';
 
 export interface ParadaParaOtimizar {
   id: string;
