@@ -249,7 +249,8 @@
       "Bash(keytool:*)",
       "Bash(\"$LOCALAPPDATA/Android/Sdk/build-tools/36.0.0/apksigner\" verify --print-certs /c/Users/welli/RotaMestre/rotamestre-app-release-20251128-1530.apk)",
       "Bash(/c/Users/welli/AppData/Local/Android/Sdk/build-tools/36.1.0/apksigner.bat:*)",
-      "Bash(git -C /c/Users/welli/RotaMestre/rotamestre-app status:*)"
+      "Bash(git -C /c/Users/welli/RotaMestre/rotamestre-app status:*)",
+      "Bash(npx eas update:configure)"
     ],
     "deny": [],
     "ask": []

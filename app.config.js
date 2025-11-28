@@ -10,6 +10,13 @@ module.exports = ({ config }) => {
     newArchEnabled: true,
     scheme: "rotamestre",
     description: "Sistema inteligente de gestão e rastreamento de rotas de entrega em tempo real. Otimize suas entregas, acompanhe motoristas e melhore a eficiência logística da sua empresa.",
+    // EAS Update configuration for OTA updates
+    updates: {
+      url: "https://u.expo.dev/1ea74080-a787-46db-abbf-d303d1b7a9d4"
+    },
+    runtimeVersion: {
+      policy: "appVersion"
+    },
     splash: {
       image: "./assets/splash.png",
       resizeMode: "contain",
