@@ -620,7 +620,7 @@ describe('Storage Functions', () => {
         expect.objectContaining({
           contentType: 'image/jpeg',
           cacheControl: '3600',
-          upsert: true,
+          upsert: false, // Mudou para false pois agora deleta foto antiga antes
         })
       );
     });

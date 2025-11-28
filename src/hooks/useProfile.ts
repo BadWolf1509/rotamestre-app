@@ -1,6 +1,9 @@
 import { User } from '@supabase/supabase-js';
+import * as ImagePicker from 'expo-image-picker';
 import { useState, useEffect, useCallback } from 'react';
+import { Alert, ActionSheetIOS, Platform } from 'react-native';
 
+import { storageService } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 
 interface UserProfile {
@@ -17,12 +20,17 @@ interface UserProfile {
   ultimo_login: string | null;
 }
 
+type PhotoSource = 'camera' | 'gallery';
+
 interface UseProfileReturn {
   profile: UserProfile | null;
   loading: boolean;
   error: string | null;
+  uploadingPhoto: boolean;
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  updateProfilePhoto: (source?: PhotoSource) => Promise<void>;
+  showPhotoOptions: () => void;
   isGestorPrincipal: boolean;
   refreshProfile: () => Promise<void>;
 }
@@ -33,6 +41,7 @@ export function useProfile(user: User | null): UseProfileReturn {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Carregar perfil
   const loadProfile = useCallback(async () => {
@@ -121,12 +130,128 @@ export function useProfile(user: User | null): UseProfileReturn {
     }
   }
 
+  // Atualizar foto de perfil
+  async function updateProfilePhoto(source: PhotoSource = 'gallery') {
+    if (!userId || !profile) {
+      Alert.alert('Erro', 'Usuário não autenticado');
+      return;
+    }
+
+    try {
+      // Solicitar permissão apropriada
+      if (source === 'camera') {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permissão necessária', 'Precisamos de permissão para acessar a câmera');
+          return;
+        }
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permissão necessária', 'Precisamos de permissão para acessar suas fotos');
+          return;
+        }
+      }
+
+      // Abrir câmera ou galeria
+      const launchFn = source === 'camera'
+        ? ImagePicker.launchCameraAsync
+        : ImagePicker.launchImageLibraryAsync;
+
+      const result = await launchFn({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets[0]) {
+        return;
+      }
+
+      // Confirmação antes do upload
+      Alert.alert(
+        'Atualizar foto',
+        'Deseja usar esta foto como sua foto de perfil?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Usar foto',
+            onPress: async () => {
+              setUploadingPhoto(true);
+              try {
+                const photoUri = result.assets[0].uri;
+
+                // Upload da foto (deletando antiga se existir)
+                const fotoUrl = await storageService.uploadFotoUsuario(
+                  userId,
+                  photoUri,
+                  profile.foto_url
+                );
+
+                if (fotoUrl) {
+                  // Atualizar estado local
+                  setProfile({ ...profile, foto_url: fotoUrl });
+                  Alert.alert('Sucesso', 'Foto de perfil atualizada!');
+                } else {
+                  throw new Error('Falha no upload');
+                }
+              } catch (uploadError) {
+                console.error('Erro ao fazer upload:', uploadError);
+                Alert.alert('Erro', 'Não foi possível atualizar a foto');
+              } finally {
+                setUploadingPhoto(false);
+              }
+            },
+          },
+        ]
+      );
+    } catch (err) {
+      console.error('Erro ao selecionar foto:', err);
+      Alert.alert('Erro', 'Não foi possível selecionar a foto');
+    }
+  }
+
+  // Mostrar opções de foto (câmera ou galeria)
+  function showPhotoOptions() {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancelar', 'Tirar Foto', 'Escolher da Galeria'],
+          cancelButtonIndex: 0,
+          title: 'Alterar foto de perfil',
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            updateProfilePhoto('camera');
+          } else if (buttonIndex === 2) {
+            updateProfilePhoto('gallery');
+          }
+        }
+      );
+    } else {
+      // Android - usar Alert
+      Alert.alert(
+        'Alterar foto de perfil',
+        'Como você deseja adicionar sua foto?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Tirar Foto', onPress: () => updateProfilePhoto('camera') },
+          { text: 'Escolher da Galeria', onPress: () => updateProfilePhoto('gallery') },
+        ]
+      );
+    }
+  }
+
   return {
     profile,
     loading,
     error,
+    uploadingPhoto,
     updateProfile,
     changePassword,
+    updateProfilePhoto,
+    showPhotoOptions,
     isGestorPrincipal: profile?.is_gestor_principal || false,
     refreshProfile: loadProfile,
   };

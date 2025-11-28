@@ -1,10 +1,7 @@
-import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
-  Image,
   Platform,
   ScrollView,
   Text,
@@ -12,13 +9,14 @@ import {
   View,
 } from 'react-native';
 
+import { AvatarEditable } from '@/components/AvatarEditable';
 import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { PerfilDesktopLayout } from '@/components/perfil/PerfilDesktopLayout';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
+import { useProfile } from '@/hooks/useProfile';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
-import { storageService } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { Usuario } from '@/types/usuario';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
@@ -47,9 +45,9 @@ export default function PerfilGestor() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { isDesktop } = useResponsive();
+  const [user, setUser] = useState<any>(null);
   const [usuario, setUsuario] = useState<UsuarioComUnidade | null>(null);
   const [loading, setLoading] = useState(true);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [atividadeRecente, setAtividadeRecente] = useState<{
     ultimoAcesso: string | null;
     dispositivosAtivos: number | null;
@@ -57,19 +55,37 @@ export default function PerfilGestor() {
     ultimoAcesso: null,
     dispositivosAtivos: null,
   });
+
+  // Hook centralizado para perfil
+  const {
+    profile,
+    uploadingPhoto,
+    showPhotoOptions,
+  } = useProfile(user);
+
   const pageMeta = getGestorPageMeta('perfil');
   const { userMenuTrigger, userMenuItems, logoutModal, openLogoutModal } = useDesktopHeaderMenu({
-    userName: usuario?.nome,
+    userName: usuario?.nome || profile?.nome,
   });
 
   useEffect(() => {
     loadUsuario();
   }, []);
 
+  // Sincronizar profile com usuario local (para dados extras como unidades)
+  useEffect(() => {
+    if (profile?.foto_url && usuario) {
+      setUsuario(prev => prev ? { ...prev, foto_url: profile.foto_url } : prev);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.foto_url]);
+
   async function loadUsuario() {
     try {
       const session = await authService.getSession();
       if (session?.user?.id) {
+        setUser(session.user);
+
         const { data, error } = await supabase
           .from('usuarios')
           .select('*, unidades(nome)')
@@ -100,43 +116,8 @@ export default function PerfilGestor() {
       }
     } catch (error) {
       console.error('Erro ao carregar usuário:', error);
-      Alert.alert('Erro', 'Não foi possível carregar os dados do perfil');
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleSelectPhoto() {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permissão necessária', 'Precisamos de acesso à sua galeria');
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0] && usuario?.id) {
-        setUploadingPhoto(true);
-        const fotoUrl = await storageService.uploadFotoUsuario(
-          usuario.id,
-          result.assets[0].uri
-        );
-
-        setUsuario({ ...usuario, foto_url: fotoUrl });
-
-        Alert.alert('Sucesso', 'Foto atualizada com sucesso!');
-      }
-    } catch (error) {
-      console.error('Erro ao selecionar foto:', error);
-      Alert.alert('Erro', 'Não foi possível atualizar a foto');
-    } finally {
-      setUploadingPhoto(false);
     }
   }
 
@@ -155,7 +136,7 @@ export default function PerfilGestor() {
           <PerfilDesktopLayout
             usuario={usuario}
             uploadingPhoto={uploadingPhoto}
-            onSelectPhoto={handleSelectPhoto}
+            onSelectPhoto={showPhotoOptions}
             atividade={atividadeRecente}
             onLogout={openLogoutModal}
           />
@@ -201,24 +182,13 @@ export default function PerfilGestor() {
     <>
       <ScrollView style={styles(theme).container}>
       <View style={styles(theme).header}>
-        <TouchableOpacity
-          onPress={handleSelectPhoto}
-          disabled={uploadingPhoto}
-          style={styles(theme).avatarContainer}
-        >
-          {usuario?.foto_url ? (
-            <Image source={{ uri: usuario.foto_url }} style={styles(theme).avatar} />
-          ) : (
-            <View style={styles(theme).avatarPlaceholder}>
-              <Text style={styles(theme).avatarPlaceholderText}>
-                {usuario?.nome?.charAt(0).toUpperCase() || '?'}
-              </Text>
-            </View>
-          )}
-          <View style={styles(theme).avatarBadge}>
-            <Text style={styles(theme).avatarBadgeText}>📷</Text>
-          </View>
-        </TouchableOpacity>
+        <AvatarEditable
+          name={usuario?.nome || 'Gestor'}
+          imageUrl={usuario?.foto_url}
+          size="xl"
+          onPress={showPhotoOptions}
+          uploading={uploadingPhoto}
+        />
 
         <Text style={styles(theme).nome}>{usuario?.nome || 'Gestor'}</Text>
         <Text style={styles(theme).email}>{usuario?.email || ''}</Text>
@@ -297,44 +267,6 @@ const styles = (theme: any) =>
       backgroundColor: theme.colors.white,
       borderBottomWidth: 1,
       borderBottomColor: theme.colors.gray200,
-    },
-    avatarContainer: {
-      position: 'relative',
-    },
-    avatar: {
-      width: 96,
-      height: 96,
-      borderRadius: 48,
-    },
-    avatarPlaceholder: {
-      width: 96,
-      height: 96,
-      borderRadius: 48,
-      backgroundColor: theme.colors.primaryBg,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    avatarPlaceholderText: {
-      fontSize: 36,
-      color: theme.colors.primary,
-      fontWeight: 'bold',
-    },
-    avatarBadge: {
-      position: 'absolute',
-      bottom: 0,
-      right: 0,
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      backgroundColor: theme.colors.secondary,
-      borderWidth: 2,
-      borderColor: theme.colors.white,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    avatarBadgeText: {
-      fontSize: 14,
-      color: theme.colors.white,
     },
     nome: {
       marginTop: theme.spacing.lg,

@@ -80,8 +80,8 @@ describe('PerfilDesktopLayout', () => {
         <PerfilDesktopLayout usuario={mockUsuario} />
       );
 
-      // Primeira letra do nome em uppercase
-      expect(getByText('J')).toBeTruthy();
+      // Iniciais do nome (primeiro + último nome) em uppercase - AvatarEditable
+      expect(getByText('JS')).toBeTruthy();
     });
 
     it('deve renderizar imagem quando foto_url existe', () => {
@@ -141,11 +141,12 @@ describe('PerfilDesktopLayout', () => {
       expect(UNSAFE_getByType(ActivityIndicator)).toBeTruthy();
     });
 
-    it('deve mostrar ícone de câmera quando uploadingPhoto=false', () => {
+    it('deve mostrar ícone de câmera quando uploadingPhoto=false e onSelectPhoto existe', () => {
       const { UNSAFE_getAllByType } = render(
         <PerfilDesktopLayout
           usuario={mockUsuario}
           uploadingPhoto={false}
+          onSelectPhoto={mockOnSelectPhoto}
         />
       );
 
@@ -215,13 +216,14 @@ describe('PerfilDesktopLayout', () => {
       expect(getByText('Usuário')).toBeTruthy();
     });
 
-    it('deve renderizar "?" como placeholder quando nome não existe', () => {
+    it('deve renderizar iniciais do nome padrão quando nome não existe', () => {
       const usuarioSemNome = { ...mockUsuario, nome: null };
       const { getByText } = render(
         <PerfilDesktopLayout usuario={usuarioSemNome} />
       );
 
-      expect(getByText('?')).toBeTruthy();
+      // AvatarEditable recebe "Usuário" como fallback e gera "US"
+      expect(getByText('US')).toBeTruthy();
     });
   });
 
@@ -460,12 +462,14 @@ describe('PerfilDesktopLayout', () => {
 
   describe('Edge Cases', () => {
     it('deve renderizar com usuario vazio', () => {
-      const { getByText } = render(
+      const { getByText, getAllByText } = render(
         <PerfilDesktopLayout usuario={{}} />
       );
 
-      expect(getByText('Usuário')).toBeTruthy();
-      expect(getByText('?')).toBeTruthy();
+      // Nome default é "Usuário" - pode aparecer mais de uma vez
+      expect(getAllByText('Usuário').length).toBeGreaterThan(0);
+      // AvatarEditable mostra "US" para "Usuário"
+      expect(getByText('US')).toBeTruthy();
     });
 
     it('deve renderizar sem atividade', () => {

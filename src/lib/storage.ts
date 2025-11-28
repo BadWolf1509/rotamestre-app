@@ -196,19 +196,82 @@ export async function deletarFoto(fotoUrl: string): Promise<boolean> {
 }
 
 /**
+ * Deletar foto de perfil antiga do storage
+ *
+ * @param usuarioId - UUID do usuário
+ * @returns true se deletou com sucesso ou não havia foto
+ */
+export async function deletarFotoPerfil(usuarioId: string): Promise<boolean> {
+  try {
+    console.log('🗑️  Buscando fotos antigas do perfil...');
+
+    // Listar arquivos no diretório de perfis do usuário
+    const { data: files, error: listError } = await supabase.storage
+      .from(BUCKET_FOTOS_ENTREGA)
+      .list('perfis', {
+        search: `perfil_${usuarioId}`,
+      });
+
+    if (listError) {
+      console.error('❌ Erro ao listar fotos:', listError);
+      return false;
+    }
+
+    if (!files || files.length === 0) {
+      console.log('ℹ️  Nenhuma foto antiga encontrada');
+      return true;
+    }
+
+    // Deletar todas as fotos antigas do usuário
+    const filesToDelete = files
+      .filter(f => f.name.startsWith(`perfil_${usuarioId}`))
+      .map(f => `perfis/${f.name}`);
+
+    if (filesToDelete.length > 0) {
+      console.log(`🗑️  Deletando ${filesToDelete.length} foto(s) antiga(s)...`);
+
+      const { error: deleteError } = await supabase.storage
+        .from(BUCKET_FOTOS_ENTREGA)
+        .remove(filesToDelete);
+
+      if (deleteError) {
+        console.error('❌ Erro ao deletar fotos antigas:', deleteError);
+        // Não bloqueia o upload, apenas loga o erro
+      } else {
+        console.log('✅ Fotos antigas deletadas!');
+      }
+    }
+
+    return true;
+  } catch (error) {
+    console.error('❌ Erro ao deletar foto de perfil:', error);
+    return false;
+  }
+}
+
+/**
  * Upload de foto de perfil de usuário
+ * Deleta foto antiga antes de fazer novo upload
  *
  * @param usuarioId - UUID do usuário
  * @param fotoUri - URI local da foto (file:// ou blob:)
+ * @param fotoAntigaUrl - URL da foto antiga para deletar (opcional)
  * @returns URL pública da foto ou null se houver erro
  */
 export async function uploadFotoUsuario(
   usuarioId: string,
-  fotoUri: string
+  fotoUri: string,
+  fotoAntigaUrl?: string | null
 ): Promise<string | null> {
   try {
     console.log('📸 Iniciando upload de foto de perfil...');
     console.log(`   Usuário: ${usuarioId}`);
+
+    // 1. Deletar foto antiga se existir
+    if (fotoAntigaUrl) {
+      console.log('🗑️  Deletando foto anterior...');
+      await deletarFotoPerfil(usuarioId);
+    }
 
     // Gerar nome único com timestamp
     const timestamp = Date.now();
@@ -235,7 +298,7 @@ export async function uploadFotoUsuario(
       .upload(filePath, blob, {
         contentType: 'image/jpeg',
         cacheControl: '3600', // Cache de 1 hora
-        upsert: true, // Sobrescrever se já existir
+        upsert: false, // Não sobrescrever (nome é único com timestamp)
       });
 
     if (error) {
@@ -343,6 +406,7 @@ export const storageService = {
   salvarFotoParada,
   uploadELinkFotoParada,
   deletarFoto,
+  deletarFotoPerfil,
   uploadFotoUsuario,
   uploadIncidentPhoto,
 };

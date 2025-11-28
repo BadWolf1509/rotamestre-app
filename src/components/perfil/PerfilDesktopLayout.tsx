@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, Image, Text, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 
+import { AvatarEditable } from '@/components/AvatarEditable';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface PerfilDesktopLayoutProps {
@@ -49,30 +50,13 @@ export function PerfilDesktopLayout({
     <View style={styles(theme).wrapper}>
       <View style={styles(theme).sidebar}>
         <View style={styles(theme).profileCard}>
-          <TouchableOpacity
+          <AvatarEditable
+            name={usuario?.nome || 'Usuário'}
+            imageUrl={usuario?.foto_url}
+            size="xxl"
             onPress={onSelectPhoto}
-            disabled={uploadingPhoto}
-            style={styles(theme).avatarContainer}
-          >
-            {usuario?.foto_url ? (
-              <Image source={{ uri: usuario.foto_url }} style={styles(theme).avatar} />
-            ) : (
-              <View style={styles(theme).avatarPlaceholder}>
-                <Text style={styles(theme).avatarPlaceholderText}>
-                  {usuario?.nome?.charAt(0).toUpperCase() || '?'}
-                </Text>
-              </View>
-            )}
-            {uploadingPhoto ? (
-              <View style={styles(theme).avatarOverlay}>
-                <ActivityIndicator size="small" color="#fff" />
-              </View>
-            ) : (
-              <View style={styles(theme).avatarBadge}>
-                <Ionicons name="camera" size={16} color="#fff" />
-              </View>
-            )}
-          </TouchableOpacity>
+            uploading={uploadingPhoto}
+          />
 
           <Text style={styles(theme).userName}>{usuario?.nome || 'Usuário'}</Text>
           <Text style={styles(theme).userEmail}>{usuario?.email || ''}</Text>
@@ -196,54 +180,6 @@ const styles = (theme: any) =>
       shadowOpacity: 0.05,
       shadowRadius: 4,
       elevation: 2,
-    },
-    avatarContainer: {
-      width: 120,
-      height: 120,
-      borderRadius: 60,
-      marginBottom: 16,
-      overflow: 'hidden',
-    },
-    avatar: {
-      width: '100%',
-      height: '100%',
-    },
-    avatarPlaceholder: {
-      width: '100%',
-      height: '100%',
-      borderRadius: 60,
-      backgroundColor: theme.colors.primary,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    avatarPlaceholderText: {
-      fontSize: 48,
-      color: theme.colors.white,
-      fontWeight: 'bold',
-    },
-    avatarOverlay: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      borderRadius: 60,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    avatarBadge: {
-      position: 'absolute',
-      bottom: 5,
-      right: 5,
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: theme.colors.primary,
-      borderWidth: 3,
-      borderColor: theme.colors.white,
-      justifyContent: 'center',
-      alignItems: 'center',
     },
     userName: {
       fontSize: 20,

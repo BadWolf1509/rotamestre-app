@@ -1,4 +1,3 @@
-import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import {
@@ -6,13 +5,12 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Image,
-  Alert,
   Platform,
 } from 'react-native';
 
+import { AvatarEditable } from '@/components/AvatarEditable';
+import { useProfile } from '@/hooks/useProfile';
 import { authService } from '@/lib/auth';
-import { storageService } from '@/lib/storage';
 import { Usuario } from '@/types/usuario';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
@@ -40,72 +38,41 @@ type UsuarioComUnidade = Usuario & {
 export default function PerfilMotorista() {
   const { theme } = useUnistyles();
   const router = useRouter();
+  const [user, setUser] = useState<any>(null);
   const [usuario, setUsuario] = useState<UsuarioComUnidade | null>(null);
   const [loading, setLoading] = useState(true);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  // Hook centralizado para perfil
+  const {
+    profile,
+    uploadingPhoto,
+    showPhotoOptions,
+  } = useProfile(user);
 
   useEffect(() => {
     loadUsuario();
   }, []);
 
+  // Sincronizar profile com usuario local
+  useEffect(() => {
+    if (profile?.foto_url && usuario) {
+      setUsuario(prev => prev ? { ...prev, foto_url: profile.foto_url } : prev);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.foto_url]);
+
   async function loadUsuario() {
     try {
       const session = await authService.getSession();
       if (session?.user) {
+        setUser(session.user);
         const userData = await authService.getUsuario(session.user.id);
         setUsuario(userData);
       }
     } catch (error) {
       console.error('Erro ao carregar usuário:', error);
-      Alert.alert('Erro', 'Não foi possível carregar os dados do perfil');
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleSelectPhoto() {
-    try {
-      // Solicitar permissão
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (status !== 'granted') {
-        Alert.alert(
-          'Permissão necessária',
-          'Precisamos de permissão para acessar suas fotos'
-        );
-        return;
-      }
-
-      // Abrir galeria
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setUploadingPhoto(true);
-        const photoUri = result.assets[0].uri;
-
-        // Upload da foto
-        if (usuario?.id) {
-          const fotoUrl = await storageService.uploadFotoUsuario(
-            usuario.id,
-            photoUri
-          );
-
-          // Atualizar estado local
-          setUsuario({ ...usuario, foto_url: fotoUrl });
-
-          Alert.alert('Sucesso', 'Foto de perfil atualizada!');
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao selecionar foto:', error);
-      Alert.alert('Erro', 'Não foi possível atualizar a foto');
-    } finally {
-      setUploadingPhoto(false);
     }
   }
 
@@ -142,27 +109,13 @@ export default function PerfilMotorista() {
     <ScrollView style={styles(theme).container}>
       {/* Header com Avatar */}
       <View style={styles(theme).header}>
-        <TouchableOpacity
-          onPress={handleSelectPhoto}
-          disabled={uploadingPhoto}
-          style={styles(theme).avatarContainer}
-        >
-          {usuario?.foto_url ? (
-            <Image
-              source={{ uri: usuario.foto_url }}
-              style={styles(theme).avatar}
-            />
-          ) : (
-            <View style={styles(theme).avatarPlaceholder}>
-              <Text style={styles(theme).avatarPlaceholderText}>
-                {usuario?.nome?.charAt(0).toUpperCase() || '?'}
-              </Text>
-            </View>
-          )}
-          <View style={styles(theme).avatarBadge}>
-            <Text style={styles(theme).avatarBadgeText}>✏️</Text>
-          </View>
-        </TouchableOpacity>
+        <AvatarEditable
+          name={usuario?.nome || 'Motorista'}
+          imageUrl={usuario?.foto_url}
+          size="xl"
+          onPress={showPhotoOptions}
+          uploading={uploadingPhoto}
+        />
 
         <Text style={styles(theme).nome}>{usuario?.nome || 'Usuário'}</Text>
         <Text style={styles(theme).email}>{usuario?.email || ''}</Text>
@@ -242,45 +195,6 @@ const styles = (theme: any) =>
       borderBottomWidth: 1,
       borderBottomColor: theme.colors.gray200,
       marginBottom: 16,
-    },
-    avatarContainer: {
-      position: 'relative',
-      marginBottom: 16,
-    },
-    avatar: {
-      width: 100,
-      height: 100,
-      borderRadius: 50,
-      backgroundColor: theme.colors.gray200,
-    },
-    avatarPlaceholder: {
-      width: 100,
-      height: 100,
-      borderRadius: 50,
-      backgroundColor: theme.colors.primary,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    avatarPlaceholderText: {
-      fontSize: 40,
-      fontWeight: 'bold',
-      color: theme.colors.white,
-    },
-    avatarBadge: {
-      position: 'absolute',
-      bottom: 0,
-      right: 0,
-      backgroundColor: theme.colors.secondary,
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderWidth: 3,
-      borderColor: theme.colors.white,
-    },
-    avatarBadgeText: {
-      fontSize: 16,
     },
     nome: {
       fontSize: 22,
