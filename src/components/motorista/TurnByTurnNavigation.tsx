@@ -18,6 +18,23 @@ import { defaultTheme, useUnistyles } from '@/utils/styles';
 
 const colors = defaultTheme.colors;
 
+// Calculate distance between two coordinates (Haversine formula)
+// Moved outside component to avoid useEffect dependency issues
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const EARTH_RADIUS = 6371000;
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return EARTH_RADIUS * c;
+};
+
 interface TurnByTurnNavigationProps {
   origin: { latitude: number; longitude: number };
   destination: { latitude: number; longitude: number; address: string };
@@ -56,22 +73,6 @@ export function TurnByTurnNavigation({
   useEffect(() => {
     voiceEnabledRef.current = voiceEnabled;
   }, [voiceEnabled]);
-
-  // Calculate distance - defined early for use in useEffect
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const EARTH_RADIUS = 6371000;
-    const phi1 = (lat1 * Math.PI) / 180;
-    const phi2 = (lat2 * Math.PI) / 180;
-    const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
-    const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
-
-    const a =
-      Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-      Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return EARTH_RADIUS * c;
-  };
 
   // Handle arrival at destination - defined before useEffect that uses it
   const handleArrival = useCallback(() => {
@@ -218,7 +219,7 @@ export function TurnByTurnNavigation({
     return () => {
       subscription?.remove();
     };
-  }, [destination, handleArrival, updateNavigation, calculateDistance]);
+  }, [destination, handleArrival, updateNavigation]);
 
   // Format distance
   const formatDistance = (meters: number): string => {

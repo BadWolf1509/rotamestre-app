@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useRef, useEffect, useMemo } from 'react';
 import { View, Text } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region } from 'react-native-maps';
@@ -11,6 +12,7 @@ interface Parada {
   latitude: number | null;
   longitude: number | null;
   status: string;
+  is_checkpoint?: boolean;
 }
 
 interface MapaMobileProps {
@@ -24,6 +26,17 @@ export function MapaMobile({ paradas }: MapaMobileProps) {
   const paradasComCoord = useMemo(
     () => paradas.filter((p) => p.latitude !== null && p.longitude !== null),
     [paradas]
+  );
+
+  // Separar paradas reais de checkpoints (pontos da unidade)
+  const paradasReais = useMemo(
+    () => paradasComCoord.filter((p) => p.is_checkpoint !== false),
+    [paradasComCoord]
+  );
+
+  const checkpoints = useMemo(
+    () => paradasComCoord.filter((p) => p.is_checkpoint === false),
+    [paradasComCoord]
   );
 
   // Ajustar mapa para mostrar todas as paradas após carregar
@@ -138,8 +151,30 @@ export function MapaMobile({ paradas }: MapaMobileProps) {
           />
         )}
 
-        {/* Marcadores das paradas */}
-        {paradasComCoord.map((parada) => (
+        {/* Marcadores dos checkpoints (pontos da unidade - partida/chegada) */}
+        {checkpoints.map((parada) => (
+          <Marker
+            key={parada.id}
+            coordinate={{
+              latitude: parada.latitude!,
+              longitude: parada.longitude!,
+            }}
+            title={parada.ordem === 0 ? 'Ponto de Partida' : 'Ponto de Chegada'}
+            description={parada.endereco}
+          >
+            {/* Marcador especial para checkpoints (pin azul) */}
+            <View style={styles.checkpointMarker}>
+              <Ionicons
+                name={parada.ordem === 0 ? 'location' : 'flag'}
+                size={24}
+                color="#284093"
+              />
+            </View>
+          </Marker>
+        ))}
+
+        {/* Marcadores das paradas reais (entregas/retiradas) */}
+        {paradasReais.map((parada) => (
           <Marker
             key={parada.id}
             coordinate={{
@@ -161,10 +196,10 @@ export function MapaMobile({ paradas }: MapaMobileProps) {
         ))}
       </MapView>
 
-      {/* Info Badge */}
+      {/* Info Badge - mostra apenas paradas reais */}
       <View style={styles.infoBadge}>
         <Text style={styles.infoBadgeText}>
-          📍 {paradasComCoord.length} parada{paradasComCoord.length > 1 ? 's' : ''}
+          📍 {paradasReais.length} parada{paradasReais.length !== 1 ? 's' : ''}
         </Text>
       </View>
     </View>
@@ -207,6 +242,21 @@ const styles = StyleSheet.create((theme: Theme) => ({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
+  },
+  checkpointMarker: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(40, 64, 147, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#284093',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
   },
   markerText: {
     color: theme.colors.surface,

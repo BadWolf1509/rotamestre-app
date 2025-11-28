@@ -249,11 +249,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
     overflow: Platform.OS === 'web' ? 'visible' : 'hidden',
   },
   horizontalScroll: {
-    ...(Platform.OS === 'web' && {
+    ...(Platform.OS === 'web' && ({
       overflowX: 'auto',
       overscrollBehaviorX: 'contain',
       scrollbarWidth: 'thin',
-    }),
+    } as any)),
   },
   scrollContent: {
     minWidth: 1120, // soma das larguras das colunas, garante overflow e barra horizontal

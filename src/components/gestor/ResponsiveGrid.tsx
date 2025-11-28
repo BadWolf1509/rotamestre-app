@@ -6,6 +6,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  DimensionValue,
 } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
@@ -102,8 +103,8 @@ export function GridItem({ children, span = {}, order = {} }: GridItemProps) {
     return '100%';
   };
 
-  // Calcular ordem
-  const getOrder = () => {
+  // Calcular ordem (web-only, kept for future use)
+  const _getOrder = () => {
     if (isMobile) return order.mobile || 0;
     if (isTablet) return order.tablet || 0;
     if (isDesktop) return order.desktop || 0;
@@ -115,8 +116,8 @@ export function GridItem({ children, span = {}, order = {} }: GridItemProps) {
       style={[
         styles.gridItem,
         {
-          width: getWidth(),
-          order: getOrder(),
+          width: getWidth() as DimensionValue,
+          // order is web-only, handled by flexbox
         },
       ]}
     >

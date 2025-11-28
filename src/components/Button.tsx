@@ -105,12 +105,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.md,
     minHeight: 44,
     // Web-only: Smooth transitions and cursor
-    ...(Platform.OS === 'web' && {
+    ...(Platform.OS === 'web' && ({
       cursor: 'pointer',
       transitionProperty: 'all',
       transitionDuration: '0.2s',
       transitionTimingFunction: 'ease-in-out',
-    }),
+    } as any)),
   },
 
   primary: {
@@ -222,14 +222,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
 
   disabled: {
     opacity: 0.5,
-    ...(Platform.OS === 'web' && {
+    ...(Platform.OS === 'web' && ({
       cursor: 'not-allowed',
-      // @ts-ignore
       ':hover': {
         transform: 'none',
         boxShadow: 'none',
       },
-    }),
+    } as any)),
   },
   fullWidth: {
     width: '100%',

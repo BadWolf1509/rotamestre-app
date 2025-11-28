@@ -37,9 +37,9 @@ interface MapaAdapterProps {
  */
 export function MapaAdapter({
   paradas,
-  rotaId,
-  motoristaNome,
-  showMotoristaMarker = false,
+  rotaId: _rotaId,
+  motoristaNome: _motoristaNome,
+  showMotoristaMarker: _showMotoristaMarker = false,
   selectedParadaId,
   onMarkerPress,
 }: MapaAdapterProps) {

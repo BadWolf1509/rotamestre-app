@@ -45,8 +45,8 @@ export function MobileButton({
     <TouchableOpacity
       style={[
         styles.button,
-        styles[`button${variant.charAt(0).toUpperCase()}${variant.slice(1)}` as keyof typeof styles],
-        styles[`button${size.charAt(0).toUpperCase()}${size.slice(1)}` as keyof typeof styles],
+        styles[`button${variant.charAt(0).toUpperCase()}${variant.slice(1)}` as keyof typeof styles] as ViewStyle,
+        styles[`button${size.charAt(0).toUpperCase()}${size.slice(1)}` as keyof typeof styles] as ViewStyle,
         fullWidth && styles.buttonFullWidth,
         isDisabled && styles.buttonDisabled,
         style,

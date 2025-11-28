@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, DimensionValue } from 'react-native';
 
 import { validatePasswordStrength } from '@/utils/passwordValidation';
 import { StyleSheet, type Theme } from '@/utils/styles';
@@ -19,7 +19,7 @@ export function PasswordStrengthIndicator({ password }: Props) {
     <View style={styles.container}>
       {/* Barra de progresso */}
       <View style={styles.barContainer}>
-        <View style={[styles.bar, { width: barWidth, backgroundColor: color }]} />
+        <View style={[styles.bar, { width: barWidth as DimensionValue, backgroundColor: color }]} />
       </View>
 
       {/* Label */}

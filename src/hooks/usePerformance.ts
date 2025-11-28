@@ -98,7 +98,7 @@ export function usePerformance(options: PerformanceHookOptions = {}) {
         priority?: 'high' | 'normal' | 'low';
       } = {}
     ): Promise<T> => {
-      const { cacheKey, cacheTTL, priority = 'normal' } = options;
+      const { cacheKey, cacheTTL, priority: _priority = 'normal' } = options;
 
       if (!trackApiCalls) {
         return apiCall();

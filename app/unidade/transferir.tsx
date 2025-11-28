@@ -647,6 +647,43 @@ const styles = StyleSheet.create((theme: Theme) => ({
   buttonTextSecondary: {
     color: theme.colors.text,
   },
+  listSection: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  listTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginBottom: 16,
+  },
+  gestorItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: theme.colors.background,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  gestorItemSelected: {
+    borderColor: theme.colors.primary,
+    borderWidth: 2,
+    backgroundColor: theme.colors.primaryBg,
+  },
+  avatarGestor: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: theme.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
 }));
 
 

@@ -7,6 +7,7 @@ import {
   ScrollView,
   Platform,
   Animated,
+  DimensionValue,
 } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
@@ -201,7 +202,7 @@ export function DataTable<T = any>({
                 key={column.key}
                 style={[
                   styles.tableHeaderCell,
-                  { width: column.width || 'auto', minWidth: 100 },
+                  { width: (column.width || 'auto') as DimensionValue, minWidth: 100 },
                 ]}
               >
                 <Text style={styles.tableHeaderText}>{column.label}</Text>
@@ -225,7 +226,7 @@ export function DataTable<T = any>({
                   key={column.key}
                   style={[
                     styles.tableCell,
-                    { width: column.width || 'auto', minWidth: 100 },
+                    { width: (column.width || 'auto') as DimensionValue, minWidth: 100 },
                   ]}
                 >
                   <SkeletonLoader />
@@ -384,7 +385,7 @@ export function DataTable<T = any>({
                   key={column.key}
                   style={[
                     styles.tableHeaderCell,
-                    { width: column.width || 'auto', minWidth: 100 },
+                    { width: (column.width || 'auto') as DimensionValue, minWidth: 100 },
                     column.align === 'center' && { alignItems: 'center' },
                     column.align === 'right' && { alignItems: 'flex-end' },
                   ]}
@@ -417,7 +418,7 @@ export function DataTable<T = any>({
                     key={column.key}
                     style={[
                       styles.tableCell,
-                      { width: column.width || 'auto', minWidth: 100 },
+                      { width: (column.width || 'auto') as DimensionValue, minWidth: 100 },
                       column.align === 'center' && { alignItems: 'center' },
                       column.align === 'right' && { alignItems: 'flex-end' },
                     ]}
@@ -665,16 +666,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray200,
     // Web-only hover state
-    ...(Platform.OS === 'web' && {
+    ...(Platform.OS === 'web' && ({
       cursor: 'default',
       transitionProperty: 'background-color',
       transitionDuration: '0.15s',
       transitionTimingFunction: 'ease-in-out',
-      // @ts-ignore - web-only CSS
       ':hover': {
         backgroundColor: theme.colors.primary + '08', // 8% opacity
       },
-    }),
+    } as any)),
   },
   tableRowEven: {
     backgroundColor: theme.colors.gray50,
@@ -710,18 +710,17 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.gray100,
     gap: 4,
     // Web-only hover state
-    ...(Platform.OS === 'web' && {
+    ...(Platform.OS === 'web' && ({
       cursor: 'pointer',
       transitionProperty: 'all',
       transitionDuration: '0.2s',
       transitionTimingFunction: 'ease-in-out',
-      // @ts-ignore - web-only CSS
       ':hover': {
         backgroundColor: theme.colors.primary + '15', // 15% opacity
         transform: 'translateY(-1px)',
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
       },
-    }),
+    } as any)),
   },
   tableActionButtonDanger: {
     backgroundColor: `${theme.colors.error}20`,

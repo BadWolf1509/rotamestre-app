@@ -3,7 +3,13 @@ module.exports = function(api) {
   return {
     presets: ['babel-preset-expo'],
     plugins: [
-      ['react-native-unistyles/plugin', { root: 'app' }],
+      [
+        'react-native-unistyles/plugin',
+        {
+          root: 'src',
+          autoProcessImports: ['@/utils/styles'],
+        },
+      ],
     ],
   };
 };

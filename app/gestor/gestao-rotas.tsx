@@ -1005,4 +1005,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray700,
     fontFamily: theme.typography.fontSansSemiBold,
   },
+  tableCellText: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
+  },
 }));

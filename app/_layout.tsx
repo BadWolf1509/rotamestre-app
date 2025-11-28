@@ -19,12 +19,8 @@ import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sideb
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUser } from '@/hooks/useUser';
 import { configureLogBox } from '@/utils/configureLogBox';
+// NOTA: Unistyles é configurado automaticamente em @/utils/styles (linha 312)
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
-// Inicializar Unistyles v3 ANTES de qualquer componente (apenas native)
-if (Platform.OS !== 'web') {
-  require('../unistyles');
-}
 
 // Configurar LogBox para ignorar warnings de desenvolvimento conhecidos
 configureLogBox();

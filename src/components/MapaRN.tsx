@@ -11,6 +11,7 @@ interface Parada {
   longitude: number;
   ordem: number;
   status: string;
+  is_checkpoint?: boolean;
 }
 
 interface MapaRNProps {

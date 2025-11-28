@@ -56,7 +56,7 @@ export function DesktopLayout({
 
   const contentStyles = [
     styles.content,
-    isDesktop && { maxWidth, marginHorizontal: 'auto' },
+    isDesktop && { maxWidth, alignSelf: 'center' as const },
     isDesktop && styles.desktopPadding,
     isTablet && styles.tabletPadding,
     !isDesktop && !isTablet && styles.mobilePadding,

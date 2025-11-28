@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Modal, View, Text, TouchableOpacity, Pressable, ViewStyle } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, Pressable, ViewStyle, DimensionValue } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
 import { StyleSheet, type Theme } from '@/utils/styles';
@@ -72,7 +72,7 @@ export function DesktopModal({
           style={[
             styles.modalContainer,
             isDesktop ? styles.desktopModal : styles.mobileModal,
-            isDesktop && { maxWidth: width || maxWidth, maxHeight },
+            isDesktop && { maxWidth: width || maxWidth, maxHeight: maxHeight as DimensionValue },
             contentStyle,
           ]}
           onPress={(e) => e.stopPropagation()} // Previne fechar ao clicar dentro
@@ -119,7 +119,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   desktopModal: {
     width: '90%',
-    marginHorizontal: 'auto',
+    alignSelf: 'center',
   },
   mobileModal: {
     width: '100%',

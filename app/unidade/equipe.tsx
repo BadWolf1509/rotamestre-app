@@ -551,9 +551,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
     }),
   },
   membroCardGrid: {
-    // 3 colunas no desktop: (100% - 2 gaps) / 3
-    // gap: 16px, então: calc((100% - 32px) / 3)
-    width: 'calc((100% - 32px) / 3)',
+    // 3 colunas no desktop using flexBasis for RN compatibility
+    // gap: 16px is handled by gridContainer
+    flexBasis: '31%' as const,
+    flexGrow: 0,
+    flexShrink: 0,
     minWidth: 280,
     marginBottom: 0, // Gap já gerencia espaçamento
   },

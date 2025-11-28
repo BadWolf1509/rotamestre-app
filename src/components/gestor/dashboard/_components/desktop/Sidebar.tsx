@@ -1,6 +1,6 @@
 import { useRouter, usePathname } from 'expo-router';
 import { useState } from 'react';
-import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, Text, TouchableOpacity, View, ImageStyle } from 'react-native';
 
 import LogoHorizontal from '@/../assets/logo-horizontal1.png';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -91,7 +91,7 @@ export function Sidebar({ onNavigate, userData }: SidebarProps) {
       <View style={styles.container}>
         {/* Logo / Brand */}
         <View style={styles.header}>
-          <Image source={LogoHorizontal} style={styles.logoImage} />
+          <Image source={LogoHorizontal} style={styles.logoImage as ImageStyle} />
           <Text style={styles.brandSubtitle}>Painel do Gestor</Text>
         </View>
 
@@ -162,8 +162,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.white,
     borderRightWidth: 1,
     borderRightColor: theme.colors.gray200,
-    minHeight: '100vh',
-    display: 'flex',
+    flex: 1,
     flexDirection: 'column',
   },
   header: {

@@ -1662,6 +1662,24 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.sm,
     fontFamily: theme.typography.fontSansSemiBold,
   },
+  paradaFotoContainer: {
+    marginTop: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+    overflow: 'hidden',
+  },
+  paradaFoto: {
+    width: '100%',
+    height: 120,
+    resizeMode: 'cover',
+  },
+  paradaFotoOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 30,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
 }));
 
 

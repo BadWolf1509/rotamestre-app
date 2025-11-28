@@ -8,6 +8,8 @@ import {
   FlatList,
   Platform,
   TextInput,
+  DimensionValue,
+  FlexAlignType,
 } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
@@ -133,7 +135,7 @@ export function ResponsiveDataDisplay({
               key={col.key}
               style={[
                 styles.tableHeaderCell,
-                { width: col.width || 'auto', flex: col.width ? 0 : 1 }
+                { width: (col.width || 'auto') as DimensionValue, flex: col.width ? 0 : 1 }
               ]}
               onPress={() => handleSort(col.key)}
             >
@@ -172,9 +174,9 @@ export function ResponsiveDataDisplay({
                   style={[
                     styles.tableCell,
                     {
-                      width: col.width || 'auto',
+                      width: (col.width || 'auto') as DimensionValue,
                       flex: col.width ? 0 : 1,
-                      alignItems: col.align || 'left',
+                      alignItems: (col.align === 'left' ? 'flex-start' : col.align === 'right' ? 'flex-end' : col.align || 'flex-start') as FlexAlignType,
                     }
                   ]}
                 >
