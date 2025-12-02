@@ -18,6 +18,7 @@ export function AuthBrandPanel(_props: AuthBrandPanelProps) {
     <ImageBackground
       source={loginBackgroundImage}
       style={styles.container}
+      imageStyle={styles.image}
       resizeMode="cover"
     >
       {/* A imagem já contém todo o conteúdo visual (logo, textos, estatísticas) */}
@@ -29,6 +30,15 @@ const createStyles = () =>
   StyleSheet.create({
     container: {
       flex: 1,
+      width: '100%',
+      height: '100%',
+    },
+    image: {
+      // Posicionar imagem à esquerda (conteúdo importante fica visível)
+      resizeMode: 'cover',
+      position: 'absolute',
+      left: 0,
+      top: 0,
       width: '100%',
       height: '100%',
     },

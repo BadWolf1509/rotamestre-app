@@ -1316,11 +1316,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
   paradaMetaGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
   paradaMetaItem: {
     flex: 1,
-    minWidth: 220,
+    minWidth: 100,
   },
   paradaMetaItemFull: {
     width: '100%',

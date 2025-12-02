@@ -68,6 +68,12 @@ export interface Theme {
     warningDark: string;
     errorLight: string;
     successLight: string;
+    // KPI Card Colors (Brand-compliant)
+    kpiTotalHoje: string;
+    kpiEmAndamento: string;
+    kpiConcluidas: string;
+    kpiDistancia: string;
+    kpiIncidentes: string;
   };
   spacing: {
     xs: number;

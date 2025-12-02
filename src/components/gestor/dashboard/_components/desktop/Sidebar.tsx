@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
 import { useState } from 'react';
 import { Image, ScrollView, Text, TouchableOpacity, View, ImageStyle } from 'react-native';
@@ -6,7 +7,7 @@ import LogoHorizontal from '@/../assets/logo-horizontal1.png';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 // REMOVIDO: import { useUser } from '@/hooks/useUser'; // userData agora vem como prop
 import { authService } from '@/lib/auth';
-import { StyleSheet, type Theme } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface SidebarProps {
   onNavigate?: () => void;
@@ -19,52 +20,58 @@ interface SidebarProps {
  * Compatível com DrawerMenu mobile
  */
 export function Sidebar({ onNavigate, userData }: SidebarProps) {
+  const { theme } = useUnistyles();
   const router = useRouter();
   const pathname = usePathname();
   // REMOVIDO: const { userData } = useUser(); // Evitar chamada duplicada
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
 
-  const navItems = [
+  const navItems: Array<{
+    label: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    path: string;
+    show: boolean;
+  }> = [
     {
       label: 'Início',
-      icon: '🏠',
+      icon: 'home-outline',
       path: '/gestor/inicio',
       show: true,
     },
     {
       label: 'Nova Rota',
-      icon: '📦',
+      icon: 'add-circle-outline',
       path: '/gestor/nova-entrega',
       show: true,
     },
     {
       label: 'Gestão de Rotas',
-      icon: '📋',
+      icon: 'clipboard-outline',
       path: '/gestor/gestao-rotas',
       show: true,
     },
     {
       label: 'Incidentes',
-      icon: '⚠️',
+      icon: 'warning-outline',
       path: '/gestor/incidentes',
       show: true,
     },
     {
       label: 'Motoristas',
-      icon: '👥',
+      icon: 'people-outline',
       path: '/gestor/motoristas',
       show: true,
     },
     {
       label: 'Minha Unidade',
-      icon: '🏢',
+      icon: 'business-outline',
       path: '/unidade',
       show: userData?.papel === 'gestor',
     },
     {
       label: 'Equipe',
-      icon: '👥',
+      icon: 'people-circle-outline',
       path: '/unidade/equipe',
       show: userData?.papel === 'gestor',
     },
@@ -113,7 +120,11 @@ export function Sidebar({ onNavigate, userData }: SidebarProps) {
                     ]}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.navIcon}>{item.icon}</Text>
+                    <Ionicons
+                      name={item.icon}
+                      size={22}
+                      color={isActive ? theme.colors.primary : theme.colors.gray500}
+                    />
                     <Text
                       style={[
                         styles.navLabel,
@@ -159,11 +170,13 @@ export function Sidebar({ onNavigate, userData }: SidebarProps) {
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     width: theme.layout.sidebarWidth,
+    minWidth: theme.layout.sidebarWidth,
+    maxWidth: theme.layout.sidebarWidth,
     backgroundColor: theme.colors.white,
     borderRightWidth: 1,
     borderRightColor: theme.colors.gray200,
-    flex: 1,
     flexDirection: 'column',
+    height: '100%',
   },
   header: {
     padding: theme.spacing['2xl'],
@@ -173,8 +186,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: theme.spacing.sm,
   },
   logoImage: {
-    width: 270,
-    height: 72,
+    width: 180,
+    height: 60,
     resizeMode: 'contain',
   },
   brandSubtitle: {
@@ -200,9 +213,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   navItemActive: {
     backgroundColor: `${theme.colors.primary}15`, // 15 = ~10% opacity
-  },
-  navIcon: {
-    fontSize: 20,
+    borderLeftWidth: 3,
+    borderLeftColor: theme.colors.secondary, // Borda laranja (cor da marca)
   },
   navLabel: {
     fontSize: theme.typography.sm,

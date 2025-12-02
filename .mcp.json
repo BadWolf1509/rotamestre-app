@@ -1,30 +1,30 @@
 {
   "mcpServers": {
-    "rotamestre": {
+    "rotamestre-db": {
       "type": "stdio",
       "command": "node",
       "args": [
-        "C:\\Users\\welli\\rotamestre-app\\tools\\mcp-server\\src\\index.js"
+        "C:\\Users\\welli\\RotaMestre\\tools\\mcp-database\\src\\index.js"
       ],
       "env": {
-        "SUPABASE_URL": "https://your-project.supabase.co",
-        "SUPABASE_SERVICE_ROLE_KEY": "your-service-role-key-here"
+        "SUPABASE_URL": "https://xezslsyxjivunmhhyxtd.supabase.co",
+        "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhlenNsc3l4aml2dW5taGh5eHRkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDkwOTQ1NywiZXhwIjoyMDc2NDg1NDU3fQ.HRBlXp4cGD4sio2I7F4ZLBeGakHSYcGXrJevVoZQk_c"
       }
     },
     "rotamestre-git": {
       "type": "stdio",
       "command": "node",
       "args": [
-        "C:\\Users\\welli\\rotamestre-app\\tools\\mcp-git-rotamestre\\src\\index.js"
+        "C:\\Users\\welli\\RotaMestre\\tools\\mcp-git-rotamestre\\src\\index.js"
       ]
     },
-    "filesystem-rotamestre": {
+    "rotamestre-fs": {
       "type": "stdio",
       "command": "npx",
       "args": [
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "C:\\Users\\welli\\rotamestre-app"
+        "C:\\Users\\welli\\RotaMestre\\rotamestre-app"
       ]
     }
   }

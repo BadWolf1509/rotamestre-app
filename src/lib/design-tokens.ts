@@ -26,6 +26,16 @@ export const colors = {
     main: '#f7a02a',   // Laranja RotaMestre
     dark: '#c87704',   // Laranja Escuro
     light: '#ffbf14',  // Laranja Claro
+    accent: '#fbad02', // Laranja Accent (do manual da marca)
+  },
+
+  // Paleta KPI (cores da marca para cards do dashboard)
+  kpi: {
+    totalHoje: '#284093',    // Azul Principal
+    emAndamento: '#f7a02a',  // Laranja Principal
+    concluidas: '#34699f',   // Azul Claro
+    distancia: '#ffbf14',    // Laranja Claro
+    incidentes: '#1b2c63',   // Azul Escuro
   },
 
   // Cores Semânticas (Status)

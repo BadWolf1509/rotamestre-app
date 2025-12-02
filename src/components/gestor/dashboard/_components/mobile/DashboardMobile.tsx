@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
@@ -111,14 +112,14 @@ export function DashboardMobile({
           <StatsCard
             value={stats.concluidas}
             label="Concluídas"
-            backgroundColor={theme.colors.success}
+            backgroundColor={theme.colors.kpiConcluidas}
           />
         </View>
         <View style={styles.statsCardWrapper}>
           <StatsCard
             value={stats.distanciaTotal.toFixed(1)}
             label="km Total"
-            backgroundColor={theme.colors.purple}
+            backgroundColor={theme.colors.kpiDistancia}
           />
         </View>
         <TouchableOpacity
@@ -129,7 +130,7 @@ export function DashboardMobile({
           <StatsCard
             value={stats.incidentesAbertos || 0}
             label="Incidentes Abertos"
-            backgroundColor={theme.colors.error}
+            backgroundColor={theme.colors.kpiIncidentes}
           />
         </TouchableOpacity>
       </View>
@@ -146,9 +147,12 @@ export function DashboardMobile({
             onPress={() => router.push('/gestor/nova-entrega')}
             activeOpacity={0.8}
           >
-            <Text style={styles.primaryButtonText}>
-              + Nova Rota de Entrega
-            </Text>
+            <View style={styles.buttonContent}>
+              <Ionicons name="add-circle" size={20} color={theme.colors.white} />
+              <Text style={styles.primaryButtonText}>
+                Nova Rota de Entrega
+              </Text>
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -156,9 +160,12 @@ export function DashboardMobile({
             onPress={() => router.push('/gestor/motoristas')}
             activeOpacity={0.8}
           >
-            <Text style={styles.secondaryButtonText}>
-              👥 Gerenciar Motoristas
-            </Text>
+            <View style={styles.buttonContent}>
+              <Ionicons name="people" size={20} color={theme.colors.primary} />
+              <Text style={styles.secondaryButtonText}>
+                Gerenciar Motoristas
+              </Text>
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -166,9 +173,12 @@ export function DashboardMobile({
             onPress={() => router.push('/gestor/gestao-rotas')}
             activeOpacity={0.8}
           >
-            <Text style={styles.secondaryButtonText}>
-              📋 Gestão de Rotas
-            </Text>
+            <View style={styles.buttonContent}>
+              <Ionicons name="clipboard" size={20} color={theme.colors.primary} />
+              <Text style={styles.secondaryButtonText}>
+                Gestão de Rotas
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -275,6 +285,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
   actionsContainer: {
     gap: theme.spacing.sm,
   },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
+  },
   primaryButton: {
     backgroundColor: theme.colors.primary,
     padding: theme.spacing.lg,
@@ -282,7 +298,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   primaryButtonText: {
     color: theme.colors.white,
-    textAlign: 'center',
     fontFamily: theme.typography.fontSansSemiBold,
     fontSize: theme.typography.base,
   },
@@ -291,11 +306,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
     padding: theme.spacing.lg,
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
-    borderColor: theme.colors.gray300,
+    borderColor: theme.colors.gray200,
   },
   secondaryButtonText: {
-    color: theme.colors.gray900,
-    textAlign: 'center',
+    color: theme.colors.primary,
     fontFamily: theme.typography.fontSansSemiBold,
     fontSize: theme.typography.base,
   },

@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import {
@@ -199,14 +200,14 @@ export function DashboardDesktop({
               <StatsCard
                 value={stats.concluidas}
                 label="Concluídas"
-                backgroundColor={theme.colors.success}
+                backgroundColor={theme.colors.kpiConcluidas}
               />
             </View>
             <View style={styles.statCard}>
               <StatsCard
                 value={stats.distanciaTotal.toFixed(1)}
                 label="km Total"
-                backgroundColor={theme.colors.purple}
+                backgroundColor={theme.colors.kpiDistancia}
               />
             </View>
             <TouchableOpacity
@@ -217,7 +218,7 @@ export function DashboardDesktop({
               <StatsCard
                 value={stats.incidentesAbertos || 0}
                 label="Incidentes Abertos"
-                backgroundColor={theme.colors.error}
+                backgroundColor={theme.colors.kpiIncidentes}
               />
             </TouchableOpacity>
           </View>
@@ -229,19 +230,28 @@ export function DashboardDesktop({
                 style={styles.primaryAction}
                 onPress={() => router.push('/gestor/nova-entrega')}
               >
-                <Text style={styles.primaryActionText}>+ Nova Rota de Entrega</Text>
+                <View style={styles.actionContent}>
+                  <Ionicons name="add-circle" size={20} color={theme.colors.white} />
+                  <Text style={styles.primaryActionText}>Nova Rota de Entrega</Text>
+                </View>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.secondaryAction}
                 onPress={() => router.push('/gestor/motoristas')}
               >
-                <Text style={styles.secondaryActionText}>Gerenciar Motoristas</Text>
+                <View style={styles.actionContent}>
+                  <Ionicons name="people" size={20} color={theme.colors.primary} />
+                  <Text style={styles.secondaryActionText}>Gerenciar Motoristas</Text>
+                </View>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.secondaryAction}
                 onPress={() => router.push('/gestor/gestao-rotas')}
               >
-                <Text style={styles.secondaryActionText}>Gestão de Rotas</Text>
+                <View style={styles.actionContent}>
+                  <Ionicons name="clipboard" size={20} color={theme.colors.primary} />
+                  <Text style={styles.secondaryActionText}>Gestão de Rotas</Text>
+                </View>
               </TouchableOpacity>
             </View>
           </View>
@@ -317,6 +327,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     gap: theme.spacing.lg,
   },
+  actionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
+  },
   primaryAction: {
     flex: 1,
     backgroundColor: theme.colors.primary,
@@ -335,11 +351,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
     padding: theme.spacing.lg,
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
-    borderColor: theme.colors.gray300,
+    borderColor: theme.colors.gray200,
     alignItems: 'center',
   },
   secondaryActionText: {
-    color: theme.colors.gray900,
+    color: theme.colors.primary,
     fontFamily: theme.typography.fontSansSemiBold,
     fontSize: theme.typography.base,
   },

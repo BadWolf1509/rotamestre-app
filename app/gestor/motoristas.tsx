@@ -9,6 +9,7 @@ import {
   ScrollView,
   Modal,
   Platform,
+  Image,
 } from 'react-native';
 
 import { ConfirmModal } from '@/components/ConfirmModal';
@@ -30,6 +31,7 @@ interface MotoristaDetalhado {
   nome: string;
   email: string;
   telefone?: string;
+  foto_url?: string;
   ativo: boolean;
   created_at: string;
   rotas_stats?: {
@@ -77,7 +79,7 @@ export default function MotoristasGestor() {
 
       const { data: motoristasData, error: motoristasError } = await supabase
         .from('usuarios')
-        .select('id, nome, email, telefone, ativo, created_at')
+        .select('id, nome, email, telefone, foto_url, ativo, created_at')
         .eq('unidade_id', userData.unidade_id)
         .eq('papel', 'motorista')
         .order('nome');
@@ -789,9 +791,27 @@ export default function MotoristasGestor() {
 
   const columns: DataTableColumn<MotoristaDetalhado>[] = [
     {
+      key: 'avatar',
+      label: '',
+      width: 60,
+      render: (motorista) => (
+        <View style={styles.avatarCell}>
+          {motorista.foto_url ? (
+            <Image source={{ uri: motorista.foto_url }} style={styles.avatarImage} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarInitial}>
+                {motorista.nome?.charAt(0).toUpperCase() || 'M'}
+              </Text>
+            </View>
+          )}
+        </View>
+      ),
+    },
+    {
       key: 'nome',
       label: 'Nome',
-      width: 240,
+      width: 200,
       sortable: true,
       noWrap: true,
       render: (motorista) => <Text>{motorista.nome}</Text>,
@@ -1418,5 +1438,28 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.white,
     fontFamily: theme.typography.fontSansSemiBold,
     fontSize: theme.typography.sm,
+  },
+  // Avatar styles
+  avatarCell: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  avatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitial: {
+    color: theme.colors.white,
+    fontSize: 16,
+    fontFamily: theme.typography.fontSansBold,
   },
 }));

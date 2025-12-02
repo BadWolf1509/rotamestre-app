@@ -74,6 +74,12 @@ export const defaultTheme: Theme = {
     warningDark: '#d97706',
     errorLight: '#fee2e2',
     successLight: '#d1fae5',
+    // KPI Card Colors (Brand-compliant)
+    kpiTotalHoje: '#284093',    // Azul Principal
+    kpiEmAndamento: '#f7a02a',  // Laranja Principal
+    kpiConcluidas: '#34699f',   // Azul Claro
+    kpiDistancia: '#ffbf14',    // Laranja Claro
+    kpiIncidentes: '#1b2c63',   // Azul Escuro
   },
   spacing: {
     xs: 4,

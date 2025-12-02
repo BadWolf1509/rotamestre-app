@@ -308,6 +308,90 @@ export const googleMapsService = {
     }
   },
 
+  // Calcular rota segmento por segmento usando JS API (respeita ordem manual)
+  async getDirectionsSequential(
+    origin: Coordenadas,
+    destination: Coordenadas,
+    waypoints: Coordenadas[]
+  ): Promise<GoogleDirectionsResult | null> {
+    try {
+      await loadGoogleMapsAPI();
+
+      if (typeof window === 'undefined' || !window.google?.maps) {
+        throw new Error('Google Maps API não está carregada');
+      }
+
+      const directionsService = new google.maps.DirectionsService();
+      const allPoints = [origin, ...waypoints, destination];
+
+      let totalDistanceMeters = 0;
+      let totalDurationSeconds = 0;
+      const allLegs: GoogleDirectionsLeg[] = [];
+      let combinedPolyline = '';
+
+      for (let i = 0; i < allPoints.length - 1; i++) {
+        const segmentOrigin = allPoints[i];
+        const segmentDestination = allPoints[i + 1];
+
+        const request: google.maps.DirectionsRequest = {
+          origin: new google.maps.LatLng(segmentOrigin.latitude, segmentOrigin.longitude),
+          destination: new google.maps.LatLng(segmentDestination.latitude, segmentDestination.longitude),
+          travelMode: google.maps.TravelMode.DRIVING,
+        };
+
+        const result = await new Promise<google.maps.DirectionsResult>((resolve, reject) => {
+          directionsService.route(request, (routeResult, status) => {
+            if (status === google.maps.DirectionsStatus.OK && routeResult) {
+              resolve(routeResult);
+            } else {
+              reject(new Error(`Directions request failed: ${status}`));
+            }
+          });
+        });
+
+        if (result.routes && result.routes.length > 0) {
+          const route = result.routes[0];
+          const leg = route.legs[0];
+
+          totalDistanceMeters += leg.distance?.value || 0;
+          totalDurationSeconds += leg.duration?.value || 0;
+
+          allLegs.push({
+            distancia_metros: leg.distance?.value || 0,
+            duracao_segundos: leg.duration?.value || 0,
+            endereco_inicio: leg.start_address || '',
+            endereco_fim: leg.end_address || '',
+            coordenadas_inicio: {
+              latitude: leg.start_location?.lat() || 0,
+              longitude: leg.start_location?.lng() || 0,
+            },
+            coordenadas_fim: {
+              latitude: leg.end_location?.lat() || 0,
+              longitude: leg.end_location?.lng() || 0,
+            },
+          });
+
+          const encodedPolyline =
+            (route.overview_polyline as any)?.points ||
+            (route.overview_polyline as any)?.encoded_path ||
+            '';
+
+          combinedPolyline += encodedPolyline || '';
+        }
+      }
+
+      return {
+        polyline: combinedPolyline,
+        distancia_total_metros: totalDistanceMeters,
+        duracao_total_segundos: totalDurationSeconds,
+        ordem_otimizada: [],
+        legs: allLegs,
+      };
+    } catch (error) {
+      console.error('Erro ao calcular rota sequencial:', error);
+      return null;
+    }
+  },
   // Calcular matriz de distâncias
   async getDistanceMatrix(origins: Coordenadas[], destinations: Coordenadas[]) {
     try {

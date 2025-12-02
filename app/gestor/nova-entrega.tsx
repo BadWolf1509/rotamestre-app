@@ -418,6 +418,12 @@ export default function NovaEntrega() {
   const [isLoadingMotoristas, setIsLoadingMotoristas] = useState(true);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [rotaOtimizada, setRotaOtimizada] = useState<RotaOtimizadaState | null>(null);
+  const [ordemManual, setOrdemManual] = useState(false); // Rastreia se ordem foi alterada manualmente
+  const [distanciaManualReal, setDistanciaManualReal] = useState<{
+    metros: number;
+    segundos: number;
+  } | null>(null); // Distância real calculada via API após alteração manual
+  const [isCalculandoReal, setIsCalculandoReal] = useState(false); // Loading do cálculo real
   const [enderecoUnidade, setEnderecoUnidade] = useState<{
     latitude: number;
     longitude: number;
@@ -616,6 +622,153 @@ export default function NovaEntrega() {
     setRotaOtimizada(null); // Limpar otimização ao remover parada
   }
 
+  // Mover parada para cima (trocar com a anterior)
+  function moveParadaUp(index: number) {
+    if (index <= 0) return; // Já está no topo
+
+    const novasParadas = [...paradas];
+    // Trocar posições
+    [novasParadas[index - 1], novasParadas[index]] = [novasParadas[index], novasParadas[index - 1]];
+
+    // Atualizar ordem
+    const reordenadas = novasParadas.map((p, i) => ({ ...p, ordem: i + 1 }));
+    setParadas(reordenadas);
+
+    // Marcar como ordem manual (diferente da otimizada)
+    if (rotaOtimizada) {
+      setOrdemManual(true);
+      setDistanciaManualReal(null); // Resetar distância real ao alterar ordem
+    }
+  }
+
+  // Mover parada para baixo (trocar com a próxima)
+  function moveParadaDown(index: number) {
+    if (index >= paradas.length - 1) return; // Já está no final
+
+    const novasParadas = [...paradas];
+    // Trocar posições
+    [novasParadas[index], novasParadas[index + 1]] = [novasParadas[index + 1], novasParadas[index]];
+
+    // Atualizar ordem
+    const reordenadas = novasParadas.map((p, i) => ({ ...p, ordem: i + 1 }));
+    setParadas(reordenadas);
+
+    // Marcar como ordem manual (diferente da otimizada)
+    if (rotaOtimizada) {
+      setOrdemManual(true);
+      setDistanciaManualReal(null); // Resetar distância real ao alterar ordem
+    }
+  }
+
+  // Calcular distância total da rota atual usando Haversine (linha reta - aproximado)
+  // Rota circular: Unidade → Parada 1 → Parada 2 → ... → Unidade
+  const calcularDistanciaAproximada = useCallback(() => {
+    if (!enderecoUnidade || paradas.length === 0) return 0;
+
+    let distanciaTotal = 0;
+    let pontoAnterior = { latitude: enderecoUnidade.latitude, longitude: enderecoUnidade.longitude };
+
+    // Percorrer todas as paradas na ordem atual
+    for (const parada of paradas) {
+      if (parada.latitude && parada.longitude) {
+        // Calcular distância do ponto anterior até esta parada
+        const distancia = distanceInMeters(
+          { ...parada, latitude: parada.latitude, longitude: parada.longitude } as Parada,
+          pontoAnterior
+        );
+        if (distancia !== Number.POSITIVE_INFINITY) {
+          distanciaTotal += distancia;
+        }
+        pontoAnterior = { latitude: parada.latitude, longitude: parada.longitude };
+      }
+    }
+
+    // Adicionar retorno à unidade (última parada → unidade)
+    const distanciaRetorno = distanceInMeters(
+      { latitude: enderecoUnidade.latitude, longitude: enderecoUnidade.longitude } as unknown as Parada,
+      pontoAnterior
+    );
+    if (distanciaRetorno !== Number.POSITIVE_INFINITY) {
+      distanciaTotal += distanciaRetorno;
+    }
+
+    return distanciaTotal;
+  }, [enderecoUnidade, paradas]);
+
+  // Calcular distância real via Google Directions API (considera ruas)
+  // Usa chamadas segmentadas para garantir que a ordem manual seja respeitada
+  // (Google API ignora optimize:false em rotas circulares)
+  async function calcularDistanciaReal() {
+    console.log('🚨 calcularDistanciaReal() INICIADA');
+
+    if (!enderecoUnidade || paradas.length === 0) return;
+
+    setIsCalculandoReal(true);
+    try {
+      const pontoUnidade = {
+        latitude: enderecoUnidade.latitude,
+        longitude: enderecoUnidade.longitude,
+      };
+
+      // Criar waypoints na ordem atual das paradas
+      const waypoints = paradas
+        .filter((p) => p.latitude && p.longitude)
+        .map((p) => ({
+          latitude: p.latitude!,
+          longitude: p.longitude!,
+        }));
+
+      // Log ordem das paradas sendo enviadas
+      console.log('📍 calcularDistanciaReal - Ordem das paradas:');
+      paradas.forEach((p, i) => {
+        console.log(`  ${i + 1}. ${p.destinatario || p.endereco.substring(0, 30)} (ordem: ${p.ordem})`);
+      });
+
+      // Usar método sequencial para garantir que a ordem seja respeitada
+      // (Cada segmento é calculado separadamente: unidade→p1, p1→p2, ..., pN→unidade)
+      console.log('🚨 CHAMANDO API SEQUENCIAL (garante ordem manual)');
+      const resultado = await googleMapsService.getDirectionsSequential(
+        pontoUnidade,
+        pontoUnidade, // Rota circular: destino = origem
+        waypoints
+      );
+      console.log('🚨 RESULTADO RECEBIDO:', resultado ? 'OK' : 'NULL');
+
+      if (resultado) {
+        console.log('📍 Resultado da API SEQUENCIAL:', {
+          distancia: (resultado.distancia_total_metros / 1000).toFixed(1) + ' km',
+          duracao: Math.round(resultado.duracao_total_segundos / 60) + ' min',
+          segmentos: resultado.legs.length,
+        });
+        setDistanciaManualReal({
+          metros: resultado.distancia_total_metros,
+          segundos: resultado.duracao_total_segundos,
+        });
+        showToast('Distância real calculada!', 'success');
+      } else {
+        showToast('Não foi possível calcular a distância real', 'error');
+      }
+    } catch (error) {
+      console.error('Erro ao calcular distância real:', error);
+      showToast('Erro ao calcular distância', 'error');
+    } finally {
+      setIsCalculandoReal(false);
+    }
+  }
+
+  // Calcular distância aproximada quando ordem manual é detectada
+  const distanciaManualAproximada = useMemo(() => {
+    if (!ordemManual || !rotaOtimizada) return null;
+    const distanciaMetros = calcularDistanciaAproximada();
+    // Fator de correção: Haversine subestima ~20-30% em áreas urbanas
+    const distanciaCorrigida = distanciaMetros * 1.3; // Fator de 1.3 para aproximar da realidade
+    return {
+      metros: distanciaCorrigida,
+      diferenca: distanciaCorrigida - rotaOtimizada.distancia_total_metros,
+      percentual: ((distanciaCorrigida - rotaOtimizada.distancia_total_metros) / rotaOtimizada.distancia_total_metros) * 100,
+    };
+  }, [ordemManual, rotaOtimizada, calcularDistanciaAproximada]);
+
   // Otimizar rota usando Google Directions API (com suporte a dependências)
   async function otimizarRota() {
     if (paradas.length < 1) {
@@ -687,6 +840,7 @@ export default function NovaEntrega() {
           legs: [], // Não temos legs detalhados neste modo
           polyline: resultado.polyline,
         });
+        setOrdemManual(false); // Resetar flag de ordem manual
 
         showToast(
           `Rota otimizada com dependências! ${(resultado.distanciaTotalMetros / 1000).toFixed(1)} km - ${Math.round(resultado.duracaoTotalSegundos / 60)} min`,
@@ -726,6 +880,7 @@ export default function NovaEntrega() {
           legs: resultado.legs,
           polyline: resultado.polyline,
         });
+        setOrdemManual(false); // Resetar flag de ordem manual
 
         showToast(
           `Rota otimizada! ${(resultado.distancia_total_metros / 1000).toFixed(1)} km - ${Math.round(resultado.duracao_total_segundos / 60)} min`,
@@ -965,6 +1120,9 @@ export default function NovaEntrega() {
   function limparFormulario() {
     setParadas([]);
     setMotoristaSelecionado('');
+    setRotaOtimizada(null);
+    setOrdemManual(false);
+    setDistanciaManualReal(null);
     reset();
   }
 
@@ -1006,28 +1164,67 @@ export default function NovaEntrega() {
                   parada.vinculo_parada_id && styles.paradaCardVinculada,
                 ]}
               >
-                <View style={styles.paradaHeader}>
-                  <Text style={styles.paradaTipo}>
-                    {`${parada.ordem}. ${parada.tipo.toUpperCase()}`}
-                  </Text>
-                  <TouchableOpacity onPress={() => removeParada(index)}>
-                    <Text style={styles.removeButton}>Remover</Text>
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.paradaEndereco}>{parada.endereco}</Text>
-                {parada.destinatario && (
-                  <Text style={styles.paradaDetail}>
-                    Destinatario: {parada.destinatario}
-                  </Text>
-                )}
-                {/* Mostrar vínculo com retirada */}
-                {retiradaVinculada && (
-                  <View style={styles.vinculoBadge}>
-                    <Text style={styles.vinculoBadgeText}>
-                      Depende de: Retirada em {retiradaVinculada.destinatario || retiradaVinculada.endereco.substring(0, 25)}
-                    </Text>
+                <View style={styles.paradaCardContent}>
+                  {/* Botões de reordenação (setas) */}
+                  {paradas.length > 1 && (
+                    <View style={styles.reorderButtons}>
+                      <TouchableOpacity
+                        style={[
+                          styles.reorderButton,
+                          index === 0 && styles.reorderButtonDisabled,
+                        ]}
+                        onPress={() => moveParadaUp(index)}
+                        disabled={index === 0}
+                      >
+                        <Ionicons
+                          name="chevron-up"
+                          size={18}
+                          color={index === 0 ? theme.colors.gray300 : theme.colors.gray600}
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.reorderButton,
+                          index === paradas.length - 1 && styles.reorderButtonDisabled,
+                        ]}
+                        onPress={() => moveParadaDown(index)}
+                        disabled={index === paradas.length - 1}
+                      >
+                        <Ionicons
+                          name="chevron-down"
+                          size={18}
+                          color={index === paradas.length - 1 ? theme.colors.gray300 : theme.colors.gray600}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {/* Conteúdo do card */}
+                  <View style={styles.paradaInfo}>
+                    <View style={styles.paradaHeader}>
+                      <Text style={styles.paradaTipo}>
+                        {`${parada.ordem}. ${parada.tipo.toUpperCase()}`}
+                      </Text>
+                      <TouchableOpacity onPress={() => removeParada(index)}>
+                        <Text style={styles.removeButton}>Remover</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.paradaEndereco}>{parada.endereco}</Text>
+                    {parada.destinatario && (
+                      <Text style={styles.paradaDetail}>
+                        Destinatario: {parada.destinatario}
+                      </Text>
+                    )}
+                    {/* Mostrar vínculo com retirada */}
+                    {retiradaVinculada && (
+                      <View style={styles.vinculoBadge}>
+                        <Text style={styles.vinculoBadgeText}>
+                          Depende de: Retirada em {retiradaVinculada.destinatario || retiradaVinculada.endereco.substring(0, 25)}
+                        </Text>
+                      </View>
+                    )}
                   </View>
-                )}
+                </View>
               </View>
             );
           })}
@@ -1072,14 +1269,160 @@ export default function NovaEntrega() {
               </Text>
             </View>
           )}
+
+          {/* Banner de Ordem Manual com Comparativo */}
+          {ordemManual && rotaOtimizada && (
+            <View style={styles.ordemManualBanner}>
+              {/* Cabeçalho do Banner */}
+              <View style={styles.ordemManualHeader}>
+                <View style={styles.ordemManualTitleRow}>
+                  <Ionicons name="swap-vertical" size={20} color={theme.colors.warning} />
+                  <Text style={styles.ordemManualTitle}>Ordem alterada manualmente</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.reotimizarButton}
+                  onPress={otimizarRota}
+                  disabled={isOptimizing}
+                >
+                  {isOptimizing ? (
+                    <ActivityIndicator size="small" color={theme.colors.white} />
+                  ) : (
+                    <>
+                      <Ionicons name="refresh" size={14} color={theme.colors.white} />
+                      <Text style={styles.reotimizarButtonText}>Re-otimizar</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {/* Comparativo de Distâncias */}
+              <View style={styles.comparativoContainer}>
+                {/* Rota Otimizada (Original) */}
+                <View style={styles.comparativoItem}>
+                  <View style={styles.comparativoLabelRow}>
+                    <Ionicons name="checkmark-circle" size={16} color={theme.colors.success} />
+                    <Text style={styles.comparativoLabel}>Rota Otimizada:</Text>
+                  </View>
+                  <Text style={styles.comparativoValueSuccess}>
+                    {(rotaOtimizada.distancia_total_metros / 1000).toFixed(1)} km
+                  </Text>
+                  <Text style={styles.comparativoTime}>
+                    ~{Math.round(rotaOtimizada.duracao_total_segundos / 60)} min
+                  </Text>
+                </View>
+
+                {/* Separador */}
+                <View style={styles.comparativoSeparator}>
+                  <Ionicons name="arrow-forward" size={16} color={theme.colors.gray400} />
+                </View>
+
+                {/* Ordem Atual */}
+                <View style={styles.comparativoItem}>
+                  <View style={styles.comparativoLabelRow}>
+                    <Ionicons name="navigate" size={16} color={theme.colors.warning} />
+                    <Text style={styles.comparativoLabel}>Ordem Atual:</Text>
+                  </View>
+                  {distanciaManualReal ? (
+                    <>
+                      <Text style={[
+                        styles.comparativoValue,
+                        distanciaManualReal.metros > rotaOtimizada.distancia_total_metros && styles.comparativoValueWarning,
+                      ]}>
+                        {(distanciaManualReal.metros / 1000).toFixed(1)} km
+                      </Text>
+                      <Text style={styles.comparativoTime}>
+                        ~{Math.round(distanciaManualReal.segundos / 60)} min
+                      </Text>
+                    </>
+                  ) : distanciaManualAproximada ? (
+                    <>
+                      <Text style={[
+                        styles.comparativoValue,
+                        distanciaManualAproximada.diferenca > 0 && styles.comparativoValueWarning,
+                      ]}>
+                        ~{(distanciaManualAproximada.metros / 1000).toFixed(1)} km*
+                      </Text>
+                      <Text style={styles.comparativoAproximado}>*aproximado</Text>
+                    </>
+                  ) : (
+                    <Text style={styles.comparativoValue}>--</Text>
+                  )}
+                </View>
+
+                {/* Diferença */}
+                <View style={styles.comparativoItem}>
+                  <Text style={styles.comparativoLabel}>Diferença:</Text>
+                  {distanciaManualReal ? (
+                    <Text style={[
+                      styles.comparativoDiferenca,
+                      distanciaManualReal.metros > rotaOtimizada.distancia_total_metros
+                        ? styles.comparativoDiferencaNegativa
+                        : styles.comparativoDiferencaPositiva,
+                    ]}>
+                      {distanciaManualReal.metros > rotaOtimizada.distancia_total_metros ? '+' : ''}
+                      {((distanciaManualReal.metros - rotaOtimizada.distancia_total_metros) / 1000).toFixed(1)} km
+                      {' '}
+                      ({distanciaManualReal.metros > rotaOtimizada.distancia_total_metros ? '+' : ''}
+                      {(((distanciaManualReal.metros - rotaOtimizada.distancia_total_metros) / rotaOtimizada.distancia_total_metros) * 100).toFixed(0)}%)
+                    </Text>
+                  ) : distanciaManualAproximada ? (
+                    <Text style={[
+                      styles.comparativoDiferenca,
+                      distanciaManualAproximada.diferenca > 0
+                        ? styles.comparativoDiferencaNegativa
+                        : styles.comparativoDiferencaPositiva,
+                    ]}>
+                      {distanciaManualAproximada.diferenca > 0 ? '+' : ''}
+                      {(distanciaManualAproximada.diferenca / 1000).toFixed(1)} km*
+                      {' '}
+                      ({distanciaManualAproximada.percentual > 0 ? '+' : ''}
+                      {distanciaManualAproximada.percentual.toFixed(0)}%)
+                    </Text>
+                  ) : (
+                    <Text style={styles.comparativoDiferenca}>--</Text>
+                  )}
+                </View>
+              </View>
+
+              {/* Botão Calcular Distância Real */}
+              {!distanciaManualReal && (
+                <TouchableOpacity
+                  style={styles.calcularRealButton}
+                  onPress={calcularDistanciaReal}
+                  disabled={isCalculandoReal}
+                >
+                  {isCalculandoReal ? (
+                    <ActivityIndicator size="small" color={theme.colors.info} />
+                  ) : (
+                    <>
+                      <Ionicons name="navigate-circle-outline" size={18} color={theme.colors.info} />
+                      <Text style={styles.calcularRealButtonText}>Calcular distância real</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </View>
       ) : (
         <View style={styles.emptyParadasState}>
-          <Text style={styles.emptyParadasIcon}>📦</Text>
+          <View style={styles.emptyParadasIconContainer}>
+            <Ionicons name="cube-outline" size={48} color={theme.colors.gray400} />
+          </View>
           <Text style={styles.emptyParadasTitle}>Nenhuma parada adicionada</Text>
           <Text style={styles.emptyParadasText}>
-            Adicione paradas ao formulário ao lado para começar a criar sua rota de entrega
+            {isDesktop
+              ? 'Adicione paradas ao formulário ao lado para começar a criar sua rota de entrega'
+              : 'Adicione paradas usando o formulário acima para criar sua rota de entrega'}
           </Text>
+          {isDesktop && (
+            <View style={styles.emptyParadasCta}>
+              <Ionicons name="arrow-back" size={16} color={theme.colors.secondary} />
+              <Text style={styles.emptyParadasCtaText}>
+                Preencha o formulário à esquerda
+              </Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -1621,8 +1964,13 @@ const createStyles = (theme: any) => StyleSheet.create({
     justifyContent: 'center',
     minHeight: 400,
   },
-  emptyParadasIcon: {
-    fontSize: 64,
+  emptyParadasIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: theme.colors.gray100,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: theme.spacing['2xl'],
   },
   emptyParadasTitle: {
@@ -1638,5 +1986,174 @@ const createStyles = (theme: any) => StyleSheet.create({
     textAlign: 'center',
     maxWidth: 300,
     lineHeight: 20,
+    marginBottom: theme.spacing.xl,
+  },
+  emptyParadasCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.xl,
+    backgroundColor: theme.colors.secondary + '15',
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.secondary + '30',
+  },
+  emptyParadasCtaText: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.secondary,
+  },
+  // Estilos para reordenação de paradas
+  paradaCardContent: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: theme.spacing.md,
+  },
+  reorderButtons: {
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    paddingRight: theme.spacing.sm,
+    borderRightWidth: 1,
+    borderRightColor: theme.colors.gray200,
+  },
+  reorderButton: {
+    width: 28,
+    height: 28,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.gray100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reorderButtonDisabled: {
+    backgroundColor: theme.colors.gray50,
+    opacity: 0.5,
+  },
+  paradaInfo: {
+    flex: 1,
+  },
+  // Banner de ordem manual com comparativo
+  ordemManualBanner: {
+    backgroundColor: theme.colors.warning + '10',
+    borderWidth: 1,
+    borderColor: theme.colors.warning + '40',
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    marginTop: theme.spacing.lg,
+    marginBottom: theme.spacing.lg,
+  },
+  ordemManualHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.lg,
+  },
+  ordemManualTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  ordemManualTitle: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.warning,
+  },
+  reotimizarButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    backgroundColor: theme.colors.warning,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+  },
+  reotimizarButtonText: {
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.white,
+  },
+  // Comparativo de distâncias
+  comparativoContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+  },
+  comparativoItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  comparativoLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    marginBottom: theme.spacing.sm,
+  },
+  comparativoLabel: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray600,
+    fontFamily: theme.typography.fontSansMedium,
+  },
+  comparativoValue: {
+    fontSize: theme.typography.lg,
+    fontFamily: theme.typography.fontSansBold,
+    color: theme.colors.gray900,
+  },
+  comparativoValueSuccess: {
+    fontSize: theme.typography.lg,
+    fontFamily: theme.typography.fontSansBold,
+    color: theme.colors.success,
+  },
+  comparativoValueWarning: {
+    color: theme.colors.warning,
+  },
+  comparativoTime: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray500,
+    marginTop: theme.spacing.xs,
+  },
+  comparativoAproximado: {
+    fontSize: 10,
+    color: theme.colors.gray400,
+    fontStyle: 'italic',
+  },
+  comparativoSeparator: {
+    paddingHorizontal: theme.spacing.sm,
+    paddingTop: theme.spacing.xl,
+  },
+  comparativoDiferenca: {
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansBold,
+    color: theme.colors.gray700,
+    textAlign: 'center',
+  },
+  comparativoDiferencaNegativa: {
+    color: theme.colors.error,
+  },
+  comparativoDiferencaPositiva: {
+    color: theme.colors.success,
+  },
+  // Botão calcular distância real
+  calcularRealButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.info + '15',
+    borderWidth: 1,
+    borderColor: theme.colors.info + '40',
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  calcularRealButtonText: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansMedium,
+    color: theme.colors.info,
   },
 });
