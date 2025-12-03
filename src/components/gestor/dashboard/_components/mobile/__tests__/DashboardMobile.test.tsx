@@ -219,7 +219,7 @@ describe('DashboardMobile', () => {
         it('deve navegar para nova entrega ao clicar no botão', () => {
             const { getByText } = render(<DashboardMobile {...defaultProps} />);
 
-            fireEvent.press(getByText('+ Nova Rota de Entrega'));
+            fireEvent.press(getByText('Nova Rota de Entrega'));
 
             expect(mockPush).toHaveBeenCalledWith('/gestor/nova-entrega');
         });
@@ -227,7 +227,7 @@ describe('DashboardMobile', () => {
         it('deve navegar para motoristas ao clicar no botão', () => {
             const { getByText } = render(<DashboardMobile {...defaultProps} />);
 
-            fireEvent.press(getByText('👥 Gerenciar Motoristas'));
+            fireEvent.press(getByText('Gerenciar Motoristas'));
 
             expect(mockPush).toHaveBeenCalledWith('/gestor/motoristas');
         });
@@ -235,7 +235,7 @@ describe('DashboardMobile', () => {
         it('deve navegar para gestão de rotas ao clicar no botão', () => {
             const { getByText } = render(<DashboardMobile {...defaultProps} />);
 
-            fireEvent.press(getByText('📋 Gestão de Rotas'));
+            fireEvent.press(getByText('Gestão de Rotas'));
 
             expect(mockPush).toHaveBeenCalledWith('/gestor/gestao-rotas');
         });

@@ -39,27 +39,31 @@ jest.mock('@/components/ConfirmDialog', () => ({
     },
 }));
 
-// Mock styles
-jest.mock('@/utils/styles', () => ({
-    StyleSheet: {
-        create: (fn: any) => {
-            const theme = {
-                colors: {
-                    white: '#fff',
-                    gray200: '#e5e7eb',
-                    gray500: '#6b7280',
-                    gray700: '#374151',
-                    primary: '#007AFF',
-                },
-                spacing: { sm: 8, md: 12, lg: 16, '2xl': 24 },
-                typography: { xs: 12, sm: 14, fontSansMedium: 'System', fontSansSemiBold: 'System' },
-                borderRadius: { lg: 12 },
-                layout: { sidebarWidth: 280 },
-            };
-            return typeof fn === 'function' ? fn(theme) : fn;
+// Mock styles with useUnistyles
+jest.mock('@/utils/styles', () => {
+    const mockTheme = {
+        colors: {
+            white: '#fff',
+            gray200: '#e5e7eb',
+            gray500: '#6b7280',
+            gray700: '#374151',
+            primary: '#007AFF',
+            secondary: '#f7a02a',
         },
-    },
-}));
+        spacing: { sm: 8, md: 12, lg: 16, '2xl': 24 },
+        typography: { xs: 12, sm: 14, fontSansMedium: 'System', fontSansSemiBold: 'System' },
+        borderRadius: { lg: 12 },
+        layout: { sidebarWidth: 280 },
+    };
+    return {
+        useUnistyles: () => ({ theme: mockTheme }),
+        StyleSheet: {
+            create: (fn: any) => {
+                return typeof fn === 'function' ? fn(mockTheme) : fn;
+            },
+        },
+    };
+});
 
 describe('Sidebar', () => {
     const defaultProps = {
@@ -177,13 +181,13 @@ describe('Sidebar', () => {
     });
 
     describe('Icons', () => {
-        it('deve mostrar ícones nos itens', () => {
-            const { getByText } = render(<Sidebar {...defaultProps} />);
+        it('deve mostrar Ionicons nos itens de navegação', () => {
+            const { UNSAFE_getAllByType } = render(<Sidebar {...defaultProps} />);
+            const { Ionicons } = require('@expo/vector-icons');
 
-            expect(getByText('🏠')).toBeTruthy();
-            expect(getByText('📦')).toBeTruthy();
-            expect(getByText('📋')).toBeTruthy();
-            expect(getByText('⚠️')).toBeTruthy();
+            // Sidebar agora usa Ionicons ao invés de emojis
+            const icons = UNSAFE_getAllByType(Ionicons);
+            expect(icons.length).toBeGreaterThan(0);
         });
     });
 
