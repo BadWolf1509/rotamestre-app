@@ -17,10 +17,18 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
-// Mock do useUser
-jest.mock('../useUser', () => ({
-  useUser: () => ({
-    userData: { id: 'user-1', papel: 'gestor', unidade_id: 'unit-1' },
+// Mock do useAuth
+jest.mock('../useAuth', () => ({
+  useAuth: () => ({
+    session: { access_token: 'mock-token' },
+    user: { id: 'user-1' },
+  }),
+}));
+
+// Mock do useUnidadeAtiva
+jest.mock('../useUnidadeAtiva', () => ({
+  useUnidadeAtiva: () => ({
+    unidadeAtiva: 'unit-1',
   }),
 }));
 
@@ -85,9 +93,22 @@ describe('useRealtimeRoutes', () => {
   });
 
   it('não deve criar subscrição quando não há unidade_id', () => {
-    // Mock sem unidade_id
-    jest.spyOn(require('../useUser'), 'useUser').mockReturnValue({
-      userData: { id: 'user-1', papel: 'gestor', unidade_id: null },
+    // Mock sem unidadeAtiva
+    jest.spyOn(require('../useUnidadeAtiva'), 'useUnidadeAtiva').mockReturnValue({
+      unidadeAtiva: null,
+    });
+
+    renderHook(() => useRealtimeRoutes({ enabled: true }));
+
+    const { supabase } = require('@/lib/supabase');
+    expect(supabase.channel).not.toHaveBeenCalled();
+  });
+
+  it('não deve criar subscrição quando não há session', () => {
+    // Mock sem session
+    jest.spyOn(require('../useAuth'), 'useAuth').mockReturnValue({
+      session: null,
+      user: null,
     });
 
     renderHook(() => useRealtimeRoutes({ enabled: true }));
