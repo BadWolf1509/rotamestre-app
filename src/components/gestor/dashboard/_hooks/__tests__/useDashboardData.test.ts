@@ -16,6 +16,16 @@ jest.mock('@/hooks/useRealtimeRoutes', () => ({
     }),
 }));
 
+// Mock useUnidadeAtiva
+jest.mock('@/hooks/useUnidadeAtiva', () => ({
+    useUnidadeAtiva: () => ({
+        unidadeAtiva: 'unidade-1',
+        setUnidadeAtiva: jest.fn(),
+        vinculacoes: [],
+        loading: false,
+    }),
+}));
+
 // Mock supabase with complete chain
 jest.mock('@/lib/supabase', () => {
     const createQueryMock = () => {

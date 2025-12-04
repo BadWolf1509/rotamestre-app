@@ -141,7 +141,13 @@ describe('useUser', () => {
       renderHook(() => useUser());
 
       await waitFor(() => {
-        expect(mockSelect).toHaveBeenCalledWith('*, unidades(*)');
+        // Verifica que a query inclui unidades e usuario_unidades (multi-unidade)
+        expect(mockSelect).toHaveBeenCalledWith(
+          expect.stringContaining('unidades(*)')
+        );
+        expect(mockSelect).toHaveBeenCalledWith(
+          expect.stringContaining('usuario_unidades(')
+        );
       });
     });
   });
