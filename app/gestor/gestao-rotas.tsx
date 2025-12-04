@@ -23,6 +23,7 @@ import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useRealtimeRoutes } from '@/hooks/useRealtimeRoutes';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
+import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -58,6 +59,7 @@ export default function GestaoRotas() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { userData } = useUser();
+  const { unidadeAtiva } = useUnidadeAtiva();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
   });
@@ -80,14 +82,14 @@ export default function GestaoRotas() {
 
   // ✅ Realtime: Atualizar quando rotas/paradas mudarem
   useRealtimeRoutes({
-    enabled: !!userData?.unidade_id,
+    enabled: !!unidadeAtiva,
     onRouteUpdate: () => {
       loadRotas();
     },
   });
 
   const loadRotas = useCallback(async () => {
-    if (!userData?.unidade_id) return;
+    if (!unidadeAtiva) return;
 
     try {
       setLoading(true);
@@ -97,7 +99,7 @@ export default function GestaoRotas() {
         .select(
           'id, data, status, distancia_total, iniciada_em, concluida_em, motorista_id, usuarios!rotas_motorista_id_fkey(id, nome)'
         )
-        .eq('unidade_id', userData.unidade_id)
+        .eq('unidade_id', unidadeAtiva)
         .order('data', { ascending: false })
         .limit(100);
 
@@ -132,7 +134,7 @@ export default function GestaoRotas() {
     } finally {
       setLoading(false);
     }
-  }, [userData?.unidade_id]);
+  }, [unidadeAtiva]);
 
   useEffect(() => {
     loadRotas();

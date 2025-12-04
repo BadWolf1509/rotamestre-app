@@ -20,6 +20,7 @@ import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
+import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { maskPhone, validatePhone, getPhoneErrorMessage } from '@/utils/phoneValidation';
@@ -44,6 +45,7 @@ interface MotoristaDetalhado {
 export default function MotoristasGestor() {
   const { theme } = useUnistyles();
   const { userData } = useUser();
+  const { unidadeAtiva } = useUnidadeAtiva();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
   });
@@ -72,19 +74,31 @@ export default function MotoristasGestor() {
   const [telefoneError, setTelefoneError] = useState('');
 
   const loadMotoristas = useCallback(async () => {
-    if (!userData?.unidade_id) return;
+    if (!unidadeAtiva) return;
 
     try {
       setLoading(true);
 
-      const { data: motoristasData, error: motoristasError } = await supabase
-        .from('usuarios')
-        .select('id, nome, email, telefone, foto_url, ativo, created_at')
-        .eq('unidade_id', userData.unidade_id)
+      // Buscar motoristas vinculados à unidade ativa via usuario_unidades
+      const { data: vinculacoesData, error: vinculacoesError } = await supabase
+        .from('usuario_unidades')
+        .select(`
+          usuario_id,
+          usuarios (
+            id, nome, email, telefone, foto_url, ativo, created_at
+          )
+        `)
+        .eq('unidade_id', unidadeAtiva)
         .eq('papel', 'motorista')
-        .order('nome');
+        .eq('ativo', true);
 
-      if (motoristasError) throw motoristasError;
+      if (vinculacoesError) throw vinculacoesError;
+
+      // Extrair os usuários das vinculações
+      const motoristasData = vinculacoesData
+        ?.map((v) => v.usuarios)
+        .filter((u): u is NonNullable<typeof u> => u !== null)
+        .sort((a, b) => a.nome.localeCompare(b.nome));
 
       const motoristasComStats = await Promise.all(
         (motoristasData || []).map(async (motorista) => {
@@ -120,7 +134,7 @@ export default function MotoristasGestor() {
     } finally {
       setLoading(false);
     }
-  }, [showToast, userData?.unidade_id]);
+  }, [showToast, unidadeAtiva]);
 
   useEffect(() => {
     loadMotoristas();

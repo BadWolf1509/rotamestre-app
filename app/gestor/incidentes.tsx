@@ -21,6 +21,7 @@ import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
+import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -76,6 +77,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 export default function IncidentesScreen() {
   const _router = useRouter();
   const { userData } = useUser();
+  const { unidadeAtiva } = useUnidadeAtiva();
   const { isDesktop } = useResponsive();
   const { theme } = useUnistyles();
   const { toast, showToast, hideToast } = useToast();
@@ -102,19 +104,22 @@ export default function IncidentesScreen() {
     try {
       setLoading(true);
 
-      if (!userData?.unidade_id) {
-        console.warn('⚠️ Usuário sem unidade_id');
+      if (!unidadeAtiva) {
+        console.warn('⚠️ Usuário sem unidade ativa');
         setLoading(false);
         return;
       }
 
       // Buscar incidentes da unidade do gestor
-      // Primeiro buscar IDs dos motoristas da unidade
-      const { data: motoristas } = await supabase
-        .from('usuarios')
-        .select('id')
-        .eq('unidade_id', userData.unidade_id)
-        .eq('papel', 'motorista');
+      // Primeiro buscar IDs dos motoristas da unidade via usuario_unidades
+      const { data: vinculacoes } = await supabase
+        .from('usuario_unidades')
+        .select('usuario_id')
+        .eq('unidade_id', unidadeAtiva)
+        .eq('papel', 'motorista')
+        .eq('ativo', true);
+
+      const motoristas = vinculacoes?.map((v) => ({ id: v.usuario_id })) || [];
 
       if (!motoristas || motoristas.length === 0) {
         setIncidentes([]);
@@ -179,7 +184,7 @@ export default function IncidentesScreen() {
     } finally {
       setLoading(false);
     }
-  }, [userData?.unidade_id, userData?.unidades?.nome, filtroStatus, filtroCategoria, showToast]);
+  }, [unidadeAtiva, userData?.unidades?.nome, filtroStatus, filtroCategoria, showToast]);
 
   useEffect(() => {
     fetchIncidentes();

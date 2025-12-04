@@ -20,6 +20,7 @@ import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
+import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { googleMapsService } from '@/lib/google';
 import {
@@ -402,6 +403,7 @@ export default function NovaEntrega() {
   const { theme } = useUnistyles();
   const styles = createStyles(theme);
   const { userData, unidade } = useUser();
+  const { unidadeAtiva, unidadeAtivaData } = useUnidadeAtiva();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
   });
@@ -512,23 +514,32 @@ export default function NovaEntrega() {
   }, [showToast, unidade]);
 
   const loadMotoristas = useCallback(async () => {
-    const unidadeId = userData?.unidade_id;
-    if (!unidadeId) {
+    if (!unidadeAtiva) {
       setIsLoadingMotoristas(false);
       return;
     }
 
     try {
       setIsLoadingMotoristas(true);
-      const { data: motoristasData, error } = await supabase
-        .from('usuarios')
-        .select('id, nome, email')
+      // Buscar motoristas vinculados à unidade ativa via usuario_unidades
+      const { data: vinculacoesData, error: vinculacoesError } = await supabase
+        .from('usuario_unidades')
+        .select(`
+          usuario_id,
+          usuarios (id, nome, email, ativo)
+        `)
+        .eq('unidade_id', unidadeAtiva)
         .eq('papel', 'motorista')
-        .eq('unidade_id', unidadeId)
-        .eq('ativo', true)
-        .order('nome');
+        .eq('ativo', true);
 
-      if (error) throw error;
+      if (vinculacoesError) throw vinculacoesError;
+
+      // Extrair usuários ativos
+      const motoristasData = vinculacoesData
+        ?.map((v) => v.usuarios)
+        .filter((u): u is NonNullable<typeof u> => u !== null && u.ativo)
+        .sort((a, b) => a.nome.localeCompare(b.nome));
+
       setMotoristas(motoristasData || []);
     } catch (error) {
       console.error('Erro ao carregar motoristas:', error);
@@ -536,7 +547,7 @@ export default function NovaEntrega() {
     } finally {
       setIsLoadingMotoristas(false);
     }
-  }, [showToast, userData?.unidade_id]);
+  }, [showToast, unidadeAtiva]);
 
   // Carregar motoristas da unidade
   useEffect(() => {
@@ -934,7 +945,7 @@ export default function NovaEntrega() {
           : null;
 
       const rotaPayload: Record<string, any> = {
-        unidade_id: userData!.unidade_id,
+        unidade_id: unidadeAtiva,
         motorista_id: motoristaSelecionado,
         status: 'pendente',
         data: dataHoje,

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 import { useRealtimeRoutes } from '@/hooks/useRealtimeRoutes';
+import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 
@@ -49,7 +50,8 @@ export interface UseDashboardDataOptions {
 export function useDashboardData(options: UseDashboardDataOptions = {}): DashboardData {
   const { filters } = options;
   const { userData } = useUser();
-  const unidadeId = userData?.unidade_id;
+  const { unidadeAtiva } = useUnidadeAtiva();
+  const unidadeId = unidadeAtiva;
 
   const [stats, setStats] = useState<Stats>({
     total: 0,
@@ -215,15 +217,17 @@ id,
 
         setRotas(rotasComDetalhes);
 
-        // Buscar incidentes abertos da unidade
-        const { data: motoristas } = await supabase
-          .from('usuarios')
-          .select('id')
+        // Buscar incidentes abertos da unidade via usuario_unidades
+        const { data: vinculacoes } = await supabase
+          .from('usuario_unidades')
+          .select('usuario_id')
           .eq('unidade_id', unidadeId)
-          .eq('papel', 'motorista');
+          .eq('papel', 'motorista')
+          .eq('ativo', true);
 
         let incidentesAbertos = 0;
-        if (motoristas && motoristas.length > 0) {
+        const motoristas = vinculacoes?.map((v) => ({ id: v.usuario_id })) || [];
+        if (motoristas.length > 0) {
           const motoristasIds = motoristas.map(m => m.id);
           const { count } = await supabase
             .from('incidentes')
@@ -383,16 +387,18 @@ id,
 
       setRotas(rotasComDetalhes);
 
-      // Buscar incidentes abertos da unidade
-      const { data: motoristas } = await supabase
-        .from('usuarios')
-        .select('id')
+      // Buscar incidentes abertos da unidade via usuario_unidades
+      const { data: vinculacoesRefresh } = await supabase
+        .from('usuario_unidades')
+        .select('usuario_id')
         .eq('unidade_id', unidadeId)
-        .eq('papel', 'motorista');
+        .eq('papel', 'motorista')
+        .eq('ativo', true);
 
       let incidentesAbertos = 0;
-      if (motoristas && motoristas.length > 0) {
-        const motoristasIds = motoristas.map(m => m.id);
+      const motoristasRefresh = vinculacoesRefresh?.map((v) => ({ id: v.usuario_id })) || [];
+      if (motoristasRefresh.length > 0) {
+        const motoristasIds = motoristasRefresh.map(m => m.id);
         const { count } = await supabase
           .from('incidentes')
           .select('*', { count: 'exact', head: true })

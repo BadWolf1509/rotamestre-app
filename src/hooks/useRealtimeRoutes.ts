@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { supabase } from '@/lib/supabase';
 
-import { useUser } from './useUser';
+import { useUnidadeAtiva } from './useUnidadeAtiva';
 
 interface UseRealtimeRoutesOptions {
   enabled?: boolean;
@@ -17,7 +17,7 @@ interface UseRealtimeRoutesOptions {
  */
 export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
   const { enabled = true, onRouteUpdate, debounceMs = 1000 } = options;
-  const { userData } = useUser();
+  const { unidadeAtiva } = useUnidadeAtiva();
   const [updateTrigger, setUpdateTrigger] = useState(0);
 
   // ✅ Ref para controlar debounce
@@ -45,7 +45,7 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
   }, [onRouteUpdate, debounceMs]);
 
   useEffect(() => {
-    if (!enabled || !userData?.unidade_id) return;
+    if (!enabled || !unidadeAtiva) return;
 
     const channel = supabase
       .channel('rotas-updates')
@@ -55,7 +55,7 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
           event: '*', // INSERT, UPDATE, DELETE
           schema: 'public',
           table: 'rotas',
-          filter: `unidade_id=eq.${userData.unidade_id}`,
+          filter: `unidade_id=eq.${unidadeAtiva}`,
         },
         (payload) => {
           console.log('[Realtime] Rota atualizada:', payload.eventType, payload.new);
@@ -88,7 +88,7 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
         debounceTimer.current = null;
       }
     };
-  }, [enabled, userData?.unidade_id, triggerUpdate]);
+  }, [enabled, unidadeAtiva, triggerUpdate]);
 
   return { updateTrigger };
 }

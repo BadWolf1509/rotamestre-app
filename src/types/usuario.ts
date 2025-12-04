@@ -16,6 +16,23 @@ export interface UnidadeDB {
   updated_at: string;
 }
 
+/**
+ * Vinculação entre usuário e unidade (tabela usuario_unidades)
+ * Permite que um usuário pertença a múltiplas unidades
+ */
+export interface UsuarioUnidade {
+  id: string;
+  usuario_id: string;
+  unidade_id: string;
+  papel: TipoUsuario;
+  is_principal: boolean;
+  ativo: boolean;
+  created_at: string;
+  updated_at?: string;
+  // Join opcional com unidade
+  unidades?: UnidadeDB;
+}
+
 export interface Usuario {
   id: string;
   email: string;
@@ -34,7 +51,12 @@ export interface Usuario {
   foto_url?: string | null;
 
   // Dados da unidade quando faz join com select('*, unidades(*)')
+  // LEGACY: Unidade ativa atual (cache)
   unidades?: UnidadeDB;
+
+  // NOVO: Todas as vinculações do usuário com unidades
+  // Retornado quando faz join com select('*, usuario_unidades(*)')
+  usuario_unidades?: UsuarioUnidade[];
 }
 
 export interface AuthState {

@@ -23,7 +23,20 @@ export function useUser() {
     try {
       const { data, error } = await supabase
         .from('usuarios')
-        .select('*, unidades(*)')
+        .select(`
+          *,
+          unidades(*),
+          usuario_unidades(
+            id,
+            usuario_id,
+            unidade_id,
+            papel,
+            is_principal,
+            ativo,
+            created_at,
+            unidades(id, nome, cnpj, cidade, ativa)
+          )
+        `)
         .eq('id', userId)
         .single();
 
@@ -43,12 +56,19 @@ export function useUser() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
+  // Verificar se tem múltiplas unidades
+  const vinculacoes = userData?.usuario_unidades?.filter(v => v.ativo) || [];
+  const temMultiplasUnidades = vinculacoes.length > 1;
+
   return {
     userData,
     loading,
     isGestor: userData?.papel === 'gestor',
     isMotorista: userData?.papel === 'motorista',
     unidade: userData?.unidades,
+    // NOVO: Suporte a múltiplas unidades
+    vinculacoes,
+    temMultiplasUnidades,
     refresh: loadUserData,
   };
 }
