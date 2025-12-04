@@ -47,9 +47,9 @@ describe('useRealtimeRoutes', () => {
       expect(result.current.updateTrigger).toBe(0);
     });
 
-    // Verificar que o canal foi criado
+    // Verificar que o canal foi criado (nome inclui unidade)
     const { supabase } = require('@/lib/supabase');
-    expect(supabase.channel).toHaveBeenCalledWith('rotas-updates');
+    expect(supabase.channel).toHaveBeenCalledWith('rotas-unit-1');
 
     // Verificar que on() foi chamado para rotas
     expect(mockOn).toHaveBeenCalledWith(

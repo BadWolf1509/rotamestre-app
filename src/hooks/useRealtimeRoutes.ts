@@ -16,16 +16,20 @@ interface UseRealtimeRoutesOptions {
  * Automaticamente recarrega dados quando há mudanças no banco
  * ✅ Otimizado com debounce para evitar múltiplas atualizações simultâneas
  * ✅ Aguarda autenticação antes de subscrever (fix para produção)
+ * ✅ Usa refs para evitar reconexões desnecessárias
  */
 export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
   const { enabled = true, onRouteUpdate, debounceMs = 1000 } = options;
   const { unidadeAtiva } = useUnidadeAtiva();
-  const { session } = useAuth(); // ✅ Verificar se usuário está autenticado
+  const { session } = useAuth();
   const [updateTrigger, setUpdateTrigger] = useState(0);
 
-  // ✅ Ref para controlar debounce
+  // ✅ Refs para controlar estado
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const pendingUpdate = useRef(false);
+  const isSubscribed = useRef(false);
+  const currentUnidade = useRef<string | null>(null);
+  const accessTokenRef = useRef<string | null>(null);
 
   const triggerUpdate = useCallback(() => {
     // ✅ Se já houver um timer ativo, cancelar
@@ -47,6 +51,13 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
     }, debounceMs);
   }, [onRouteUpdate, debounceMs]);
 
+  // ✅ Atualizar ref do token quando mudar
+  useEffect(() => {
+    if (session?.access_token) {
+      accessTokenRef.current = session.access_token;
+    }
+  }, [session?.access_token]);
+
   useEffect(() => {
     // ✅ Só subscrever se autenticado E com unidade ativa
     if (!enabled || !unidadeAtiva || !session?.access_token) {
@@ -54,23 +65,33 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
       return;
     }
 
-    console.log('[Realtime] Iniciando subscrição com token válido');
+    // ✅ Evitar reconexão se já estiver subscrito na mesma unidade
+    if (isSubscribed.current && currentUnidade.current === unidadeAtiva) {
+      console.log('[Realtime] Já subscrito nesta unidade, ignorando...');
+      return;
+    }
 
-    // ✅ Definir token de autenticação para o Realtime explicitamente
+    console.log('[Realtime] Iniciando subscrição para unidade:', unidadeAtiva);
+
+    // ✅ Definir token de autenticação para o Realtime
     supabase.realtime.setAuth(session.access_token);
 
+    // ✅ Marcar como subscrito
+    isSubscribed.current = true;
+    currentUnidade.current = unidadeAtiva;
+
     const channel = supabase
-      .channel('rotas-updates')
+      .channel(`rotas-${unidadeAtiva}`) // ✅ Canal único por unidade
       .on(
         'postgres_changes',
         {
-          event: '*', // INSERT, UPDATE, DELETE
+          event: '*',
           schema: 'public',
           table: 'rotas',
           filter: `unidade_id=eq.${unidadeAtiva}`,
         },
         (payload) => {
-          console.log('[Realtime] Rota atualizada:', payload.eventType, payload.new);
+          console.log('[Realtime] Rota atualizada:', payload.eventType);
           triggerUpdate();
         }
       )
@@ -82,25 +103,29 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
           table: 'paradas',
         },
         (payload) => {
-          console.log('[Realtime] Parada atualizada:', payload.new);
+          console.log('[Realtime] Parada atualizada');
           triggerUpdate();
         }
       )
       .subscribe((status) => {
-        console.log('[Realtime] Status da subscrição:', status);
+        console.log('[Realtime] Status:', status);
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          isSubscribed.current = false;
+        }
       });
 
     return () => {
-      console.log('[Realtime] Removendo canal de subscrição');
+      console.log('[Realtime] Removendo canal');
+      isSubscribed.current = false;
+      currentUnidade.current = null;
       supabase.removeChannel(channel);
 
-      // ✅ Limpar timer de debounce ao desmontar
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);
         debounceTimer.current = null;
       }
     };
-  }, [enabled, unidadeAtiva, triggerUpdate, session?.access_token]);
+  }, [enabled, unidadeAtiva, triggerUpdate]); // ✅ Removido session.access_token das deps
 
   return { updateTrigger };
 }
