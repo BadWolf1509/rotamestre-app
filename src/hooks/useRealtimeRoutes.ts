@@ -72,9 +72,7 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
     }
 
     console.log('[Realtime] Iniciando subscrição para unidade:', unidadeAtiva);
-
-    // ✅ Definir token de autenticação para o Realtime
-    supabase.realtime.setAuth(session.access_token);
+    // Nota: Token do Realtime é sincronizado automaticamente em supabase.ts
 
     // ✅ Marcar como subscrito
     isSubscribed.current = true;

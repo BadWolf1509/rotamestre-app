@@ -18,3 +18,21 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     },
   },
 });
+
+// ✅ Sincronizar token de auth com Realtime no nível do módulo
+// Isso garante que o token seja configurado ANTES de qualquer hook tentar subscrever
+supabase.auth.onAuthStateChange((event, session) => {
+  console.log('[Supabase] Auth state changed:', event);
+  if (session?.access_token) {
+    console.log('[Supabase] Configurando token do Realtime');
+    supabase.realtime.setAuth(session.access_token);
+  }
+});
+
+// ✅ Também configurar token inicial se já houver sessão armazenada
+supabase.auth.getSession().then(({ data: { session } }) => {
+  if (session?.access_token) {
+    console.log('[Supabase] Token inicial configurado para Realtime');
+    supabase.realtime.setAuth(session.access_token);
+  }
+});

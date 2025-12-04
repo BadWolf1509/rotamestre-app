@@ -14,24 +14,13 @@ export function useAuth() {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-
-      // ✅ Sincronizar token com Realtime imediatamente
-      if (session?.access_token) {
-        console.log('[Auth] Sincronizando token com Realtime');
-        supabase.realtime.setAuth(session.access_token);
-      }
     });
 
     // Listen for auth changes
+    // Nota: O token do Realtime é sincronizado automaticamente em supabase.ts
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-
-      // ✅ Atualizar token do Realtime quando sessão mudar
-      if (session?.access_token) {
-        console.log('[Auth] Sessão mudou, atualizando Realtime auth');
-        supabase.realtime.setAuth(session.access_token);
-      }
     });
 
     return () => subscription.unsubscribe();
