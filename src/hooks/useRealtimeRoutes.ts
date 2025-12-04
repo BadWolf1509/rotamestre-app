@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { supabase } from '@/lib/supabase';
 
+import { useAuth } from './useAuth';
 import { useUnidadeAtiva } from './useUnidadeAtiva';
 
 interface UseRealtimeRoutesOptions {
@@ -14,10 +15,12 @@ interface UseRealtimeRoutesOptions {
  * Hook para subscrever atualizações em tempo real de rotas e paradas
  * Automaticamente recarrega dados quando há mudanças no banco
  * ✅ Otimizado com debounce para evitar múltiplas atualizações simultâneas
+ * ✅ Aguarda autenticação antes de subscrever (fix para produção)
  */
 export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
   const { enabled = true, onRouteUpdate, debounceMs = 1000 } = options;
   const { unidadeAtiva } = useUnidadeAtiva();
+  const { session } = useAuth(); // ✅ Verificar se usuário está autenticado
   const [updateTrigger, setUpdateTrigger] = useState(0);
 
   // ✅ Ref para controlar debounce
@@ -45,8 +48,13 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
   }, [onRouteUpdate, debounceMs]);
 
   useEffect(() => {
-    if (!enabled || !unidadeAtiva) return;
+    // ✅ Só subscrever se autenticado E com unidade ativa
+    if (!enabled || !unidadeAtiva || !session?.access_token) {
+      console.log('[Realtime] Aguardando autenticação ou unidade ativa...');
+      return;
+    }
 
+    console.log('[Realtime] Iniciando subscrição com token válido');
     const channel = supabase
       .channel('rotas-updates')
       .on(
@@ -88,7 +96,7 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
         debounceTimer.current = null;
       }
     };
-  }, [enabled, unidadeAtiva, triggerUpdate]);
+  }, [enabled, unidadeAtiva, triggerUpdate, session?.access_token]);
 
   return { updateTrigger };
 }
