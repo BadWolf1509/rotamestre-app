@@ -55,6 +55,10 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
     }
 
     console.log('[Realtime] Iniciando subscrição com token válido');
+
+    // ✅ Definir token de autenticação para o Realtime explicitamente
+    supabase.realtime.setAuth(session.access_token);
+
     const channel = supabase
       .channel('rotas-updates')
       .on(

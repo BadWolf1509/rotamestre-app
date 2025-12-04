@@ -14,6 +14,9 @@ jest.mock('@/lib/supabase', () => ({
   supabase: {
     channel: jest.fn(() => mockChannel),
     removeChannel: jest.fn(),
+    realtime: {
+      setAuth: jest.fn(),
+    },
   },
 }));
 
