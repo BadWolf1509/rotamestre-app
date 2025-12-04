@@ -442,175 +442,177 @@ export default function MotoristasGestor() {
 
   const renderAddModalContent = () => (
     <ScrollView showsVerticalScrollIndicator={Platform.OS === 'web'}>
-      <View style={styles.modalContent}>
-        {/* Nome */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Nome Completo</Text>
-          <TextInput
-            style={styles.input}
-            value={formNome}
-            onChangeText={setFormNome}
-            placeholder="Digite o nome completo"
-            autoCapitalize="words"
-          />
-        </View>
+      {/* Nome */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Nome Completo</Text>
+        <TextInput
+          style={styles.input}
+          value={formNome}
+          onChangeText={setFormNome}
+          placeholder="Digite o nome completo"
+          placeholderTextColor={theme.colors.gray400}
+          autoCapitalize="words"
+        />
+      </View>
 
-        {/* Email */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Email</Text>
-          <TextInput
-            style={[styles.input, emailError && styles.inputError]}
-            value={formEmail}
-            onChangeText={(text) => {
-              setFormEmail(text.toLowerCase());
-              setEmailError('');
-            }}
-            placeholder="email@exemplo.com"
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
-        </View>
+      {/* Email */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Email</Text>
+        <TextInput
+          style={[styles.input, emailError && styles.inputError]}
+          value={formEmail}
+          onChangeText={(text) => {
+            setFormEmail(text.toLowerCase());
+            setEmailError('');
+          }}
+          placeholder="email@exemplo.com"
+          placeholderTextColor={theme.colors.gray400}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+        {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+      </View>
 
-        {/* Telefone */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Telefone (opcional)</Text>
-          <TextInput
-            style={[styles.input, telefoneError && styles.inputError]}
-            value={formTelefone}
-            onChangeText={(text) => {
-              const maskedPhone = maskPhone(text);
-              setFormTelefone(maskedPhone);
-              if (maskedPhone) {
-                const isValid = validatePhone(maskedPhone);
-                setTelefoneError(isValid ? '' : getPhoneErrorMessage(maskedPhone) || 'Telefone inválido');
-              } else {
-                setTelefoneError('');
-              }
-            }}
-            placeholder="(00) 00000-0000"
-            keyboardType="phone-pad"
-          />
-          {telefoneError ? <Text style={styles.errorText}>{telefoneError}</Text> : null}
-        </View>
+      {/* Telefone */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Telefone (opcional)</Text>
+        <TextInput
+          style={[styles.input, telefoneError && styles.inputError]}
+          value={formTelefone}
+          onChangeText={(text) => {
+            const maskedPhone = maskPhone(text);
+            setFormTelefone(maskedPhone);
+            if (maskedPhone) {
+              const isValid = validatePhone(maskedPhone);
+              setTelefoneError(isValid ? '' : getPhoneErrorMessage(maskedPhone) || 'Telefone inválido');
+            } else {
+              setTelefoneError('');
+            }
+          }}
+          placeholder="(00) 00000-0000"
+          placeholderTextColor={theme.colors.gray400}
+          keyboardType="phone-pad"
+        />
+        {telefoneError ? <Text style={styles.errorText}>{telefoneError}</Text> : null}
+      </View>
 
-        {/* Senha */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Senha Inicial</Text>
-          <TextInput
-            style={styles.input}
-            value={formSenha}
-            onChangeText={setFormSenha}
-            placeholder="Mínimo 6 caracteres"
-            secureTextEntry
-            autoCapitalize="none"
-          />
-          <Text style={styles.helperText}>
-            O motorista poderá alterar a senha no primeiro acesso
-          </Text>
-        </View>
+      {/* Senha */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Senha Inicial</Text>
+        <TextInput
+          style={styles.input}
+          value={formSenha}
+          onChangeText={setFormSenha}
+          placeholder="Mínimo 6 caracteres"
+          placeholderTextColor={theme.colors.gray400}
+          secureTextEntry
+          autoCapitalize="none"
+        />
+        <Text style={styles.helperText}>
+          O motorista poderá alterar a senha no primeiro acesso
+        </Text>
+      </View>
 
-        {/* Botões */}
-        <View style={styles.modalFooter}>
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={() => {
-              setShowAddModal(false);
-              resetFormulario();
-            }}
-          >
-            <Text style={styles.cancelButtonText}>Cancelar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.confirmButton, salvando && styles.disabledButton]}
-            onPress={handleAdicionarMotorista}
-            disabled={salvando}
-          >
-            {salvando ? (
-              <ActivityIndicator color={theme.colors.white} />
-            ) : (
-              <Text style={styles.confirmButtonText}>Adicionar</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+      {/* Botões */}
+      <View style={styles.modalFooter}>
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={() => {
+            setShowAddModal(false);
+            resetFormulario();
+          }}
+        >
+          <Text style={styles.cancelButtonText}>Cancelar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.confirmButton, salvando && styles.disabledButton]}
+          onPress={handleAdicionarMotorista}
+          disabled={salvando}
+        >
+          {salvando ? (
+            <ActivityIndicator color={theme.colors.white} />
+          ) : (
+            <Text style={styles.confirmButtonText}>Adicionar</Text>
+          )}
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
 
   const renderEditModalContent = () => (
     <ScrollView showsVerticalScrollIndicator={Platform.OS === 'web'}>
-      <View style={styles.modalContent}>
-        {/* Nome */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Nome Completo</Text>
-          <TextInput
-            style={styles.input}
-            value={formNome}
-            onChangeText={setFormNome}
-            placeholder="Digite o nome completo"
-            autoCapitalize="words"
-          />
-        </View>
+      {/* Nome */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Nome Completo</Text>
+        <TextInput
+          style={styles.input}
+          value={formNome}
+          onChangeText={setFormNome}
+          placeholder="Digite o nome completo"
+          placeholderTextColor={theme.colors.gray400}
+          autoCapitalize="words"
+        />
+      </View>
 
-        {/* Email - Não editável */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Email</Text>
-          <TextInput
-            style={[styles.input, styles.inputDisabled]}
-            value={motoristaEditando?.email}
-            editable={false}
-          />
-          <Text style={styles.helperText}>
-            Email não pode ser alterado
-          </Text>
-        </View>
+      {/* Email - Não editável */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Email</Text>
+        <TextInput
+          style={[styles.input, styles.inputDisabled]}
+          value={motoristaEditando?.email}
+          editable={false}
+        />
+        <Text style={styles.helperText}>
+          Email não pode ser alterado
+        </Text>
+      </View>
 
-        {/* Telefone */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Telefone (opcional)</Text>
-          <TextInput
-            style={[styles.input, telefoneError && styles.inputError]}
-            value={formTelefone}
-            onChangeText={(text) => {
-              const maskedPhone = maskPhone(text);
-              setFormTelefone(maskedPhone);
-              if (maskedPhone) {
-                const isValid = validatePhone(maskedPhone);
-                setTelefoneError(isValid ? '' : getPhoneErrorMessage(maskedPhone) || 'Telefone inválido');
-              } else {
-                setTelefoneError('');
-              }
-            }}
-            placeholder="(00) 00000-0000"
-            keyboardType="phone-pad"
-          />
-          {telefoneError ? <Text style={styles.errorText}>{telefoneError}</Text> : null}
-        </View>
+      {/* Telefone */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Telefone (opcional)</Text>
+        <TextInput
+          style={[styles.input, telefoneError && styles.inputError]}
+          value={formTelefone}
+          onChangeText={(text) => {
+            const maskedPhone = maskPhone(text);
+            setFormTelefone(maskedPhone);
+            if (maskedPhone) {
+              const isValid = validatePhone(maskedPhone);
+              setTelefoneError(isValid ? '' : getPhoneErrorMessage(maskedPhone) || 'Telefone inválido');
+            } else {
+              setTelefoneError('');
+            }
+          }}
+          placeholder="(00) 00000-0000"
+          placeholderTextColor={theme.colors.gray400}
+          keyboardType="phone-pad"
+        />
+        {telefoneError ? <Text style={styles.errorText}>{telefoneError}</Text> : null}
+      </View>
 
-        {/* Botões */}
-        <View style={styles.modalFooter}>
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={() => {
-              setShowEditModal(false);
-              setMotoristaEditando(null);
-              resetFormulario();
-            }}
-          >
-            <Text style={styles.cancelButtonText}>Cancelar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.confirmButton, salvando && styles.disabledButton]}
-            onPress={handleEditarMotorista}
-            disabled={salvando}
-          >
-            {salvando ? (
-              <ActivityIndicator color={theme.colors.white} />
-            ) : (
-              <Text style={styles.confirmButtonText}>Salvar</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+      {/* Botões */}
+      <View style={styles.modalFooter}>
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={() => {
+            setShowEditModal(false);
+            setMotoristaEditando(null);
+            resetFormulario();
+          }}
+        >
+          <Text style={styles.cancelButtonText}>Cancelar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.confirmButton, salvando && styles.disabledButton]}
+          onPress={handleEditarMotorista}
+          disabled={salvando}
+        >
+          {salvando ? (
+            <ActivityIndicator color={theme.colors.white} />
+          ) : (
+            <Text style={styles.confirmButtonText}>Salvar</Text>
+          )}
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );

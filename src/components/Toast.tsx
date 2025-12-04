@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
+import { createPortal } from 'react-dom';
 
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -119,7 +120,7 @@ export function Toast({ message, type = 'info', duration = 3000, onDismiss, onHi
     }
   };
 
-  return (
+  const toastContent = (
     <Animated.View
       style={[
         styles.container,
@@ -144,6 +145,14 @@ export function Toast({ message, type = 'info', duration = 3000, onDismiss, onHi
       )}
     </Animated.View>
   );
+
+  // ✅ No web, usar Portal para renderizar fora da hierarquia do Modal
+  // Isso garante que o Toast apareça acima de qualquer Modal
+  if (Platform.OS === 'web' && typeof document !== 'undefined') {
+    return createPortal(toastContent, document.body);
+  }
+
+  return toastContent;
 }
 
 const styles = StyleSheet.create((theme: Theme) => ({
@@ -155,7 +164,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     ...(Platform.OS === 'web' && {
       transform: 'translateX(-50%)' as any,
       marginLeft: 0,
-      zIndex: 9999,
+      zIndex: 999999, // Maior que o Modal para aparecer na frente
     }),
     maxWidth: 500,
     minWidth: 300,
