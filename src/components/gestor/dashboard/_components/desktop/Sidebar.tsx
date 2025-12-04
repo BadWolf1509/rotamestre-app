@@ -187,7 +187,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   logoImage: {
     width: 180,
-    height: 60,
+    height: 75,
     resizeMode: 'contain',
   },
   brandSubtitle: {

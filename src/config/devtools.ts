@@ -5,6 +5,13 @@
 
 import { Platform } from 'react-native';
 
+const isFlagEnabled = (flag: string) => {
+  if (typeof window === 'undefined') return false;
+  if (process.env[`EXPO_PUBLIC_${flag}`] === 'true') return true;
+  if (localStorage.getItem(flag.toLowerCase()) === 'true') return true;
+  return false;
+};
+
 // Enable React DevTools
 if (__DEV__ && Platform.OS === 'web') {
   // Enable React DevTools profiling
@@ -22,6 +29,9 @@ if (__DEV__ && Platform.OS === 'web') {
 // Performance monitoring for web
 export const enablePerformanceMonitoring = () => {
   if (__DEV__ && Platform.OS === 'web' && typeof window !== 'undefined') {
+    const perfEnabled = isFlagEnabled('ENABLE_PERF_MONITOR') || isFlagEnabled('ENABLE_PERF');
+    if (!perfEnabled) return;
+
     // Log performance metrics
     const observer = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
@@ -45,8 +55,9 @@ export const enablePerformanceMonitoring = () => {
 
     observer.observe({ entryTypes: ['navigation', 'measure'] });
 
-    // Log long tasks (blocking the main thread)
-    if ('PerformanceObserver' in window && 'PerformanceLongTaskTiming' in window) {
+    // Log long tasks (blocking the main thread) - opt-in separado
+    const longTasksEnabled = isFlagEnabled('LOG_LONG_TASKS');
+    if (longTasksEnabled && 'PerformanceObserver' in window && 'PerformanceLongTaskTiming' in window) {
       const longTaskObserver = new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
           console.warn('⚠️ Long Task detected:', {
