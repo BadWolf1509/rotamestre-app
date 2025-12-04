@@ -11,7 +11,11 @@ jest.mock('../../lib/supabase', () => ({
       onAuthStateChange: jest.fn(),
       signOut: jest.fn(),
     },
+    realtime: {
+      setAuth: jest.fn(),
+    },
   },
+  updateRealtimeAuth: jest.fn(),
 }));
 
 describe('useAuth', () => {
