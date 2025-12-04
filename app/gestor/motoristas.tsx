@@ -972,6 +972,7 @@ export default function MotoristasGestor() {
             setShowAddModal(false);
             resetFormulario();
           }}
+          closeOnOverlayPress={false}
         >
           {renderAddModalContent()}
         </DesktopModal>
@@ -984,6 +985,7 @@ export default function MotoristasGestor() {
             setMotoristaEditando(null);
             resetFormulario();
           }}
+          closeOnOverlayPress={false}
         >
           {renderEditModalContent()}
         </DesktopModal>
