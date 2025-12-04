@@ -72,7 +72,11 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
     }
 
     console.log('[Realtime] Iniciando subscrição para unidade:', unidadeAtiva);
-    // Nota: Token do Realtime é sincronizado automaticamente em supabase.ts
+
+    // ✅ CRÍTICO: Definir token ANTES de criar o canal (workaround para Issue #1304)
+    // https://github.com/supabase/supabase-js/issues/1304
+    console.log('[Realtime] Configurando auth token antes de subscrever');
+    supabase.realtime.setAuth(session.access_token);
 
     // ✅ Marcar como subscrito
     isSubscribed.current = true;
