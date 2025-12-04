@@ -18,13 +18,3 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     },
   },
 });
-
-/**
- * Atualiza o token de autenticação do Realtime
- * Deve ser chamado após login/refresh de sessão
- */
-export function updateRealtimeAuth(accessToken: string | null) {
-  if (accessToken) {
-    supabase.realtime.setAuth(accessToken);
-  }
-}
