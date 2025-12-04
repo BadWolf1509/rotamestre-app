@@ -5,6 +5,8 @@ import { Modal, View, Text, TouchableOpacity, Pressable, ViewStyle, DimensionVal
 import { useResponsive } from '@/hooks/useResponsive';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
+import { Toast, type ToastProps } from '../Toast';
+
 /**
  * DesktopModal - Modal responsivo adaptativo
  *
@@ -42,6 +44,8 @@ interface DesktopModalProps {
   closeOnOverlayPress?: boolean;
   /** Estilo adicional para o container de conteúdo */
   contentStyle?: ViewStyle;
+  /** Props do Toast para renderizar DENTRO do modal (acima de tudo) */
+  toast?: ToastProps;
 }
 
 export function DesktopModal({
@@ -54,6 +58,7 @@ export function DesktopModal({
   maxHeight = '80%',
   closeOnOverlayPress = true,
   contentStyle,
+  toast,
 }: DesktopModalProps) {
   const { isDesktop } = useResponsive();
 
@@ -95,6 +100,9 @@ export function DesktopModal({
           {/* Content */}
           <View style={styles.content}>{children}</View>
         </Pressable>
+
+        {/* Toast renderizado no overlay (fora do container) para aparecer acima de tudo */}
+        {toast && <Toast {...toast} disablePortal={false} />}
       </Pressable>
     </Modal>
   );

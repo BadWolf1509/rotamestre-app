@@ -104,6 +104,24 @@ export default function Root({ children }: PropsWithChildren) {
               justify-content: center;
               height: 100%;
             }
+
+            /* ✅ FIX: Reset z-index:0 do react-native-web para permitir stacking contexts corretos */
+            /* Isso resolve o problema de Toast/Tooltips ficarem atrás de Modais */
+            /* Ref: https://github.com/necolas/react-native-web/discussions/2547 */
+            [class^="css-view-"] {
+              z-index: auto !important;
+            }
+
+            /* Container para Toasts - z-index máximo para aparecer acima de modais */
+            #toast-root {
+              position: fixed;
+              top: 0;
+              left: 0;
+              right: 0;
+              bottom: 0;
+              pointer-events: none;
+              z-index: 2147483647;
+            }
           `
         }} />
       </head>
@@ -126,6 +144,8 @@ export default function Root({ children }: PropsWithChildren) {
           </div>
         </noscript>
         {children}
+        {/* Container para Toasts - renderizado por último para ficar acima de tudo */}
+        <div id="toast-root" />
       </body>
     </html>
   );

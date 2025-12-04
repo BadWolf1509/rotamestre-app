@@ -75,17 +75,59 @@ serve(async (req) => {
       )
     }
 
-    // Verificar se email já existe na tabela usuarios (verificação na aplicação)
+    // Verificar se email já existe na tabela usuarios
     const { data: existingUser } = await supabaseAdmin
       .from('usuarios')
-      .select('id, email')
+      .select('id, email, nome, telefone, papel')
       .eq('email', email.trim())
       .single()
 
     if (existingUser) {
+      // ✅ MULTI-UNIDADE: Usuário existe, verificar se já está vinculado a esta unidade
+      const { data: existingVinculo } = await supabaseAdmin
+        .from('usuario_unidades')
+        .select('id')
+        .eq('usuario_id', existingUser.id)
+        .eq('unidade_id', gestorData.unidade_id)
+        .single()
+
+      if (existingVinculo) {
+        // Já tem vínculo com esta unidade
+        return new Response(
+          JSON.stringify({ error: 'Este motorista já está vinculado a esta unidade.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Criar apenas o vínculo (usuário já existe em outra unidade)
+      const { error: vinculoError } = await supabaseAdmin
+        .from('usuario_unidades')
+        .insert({
+          usuario_id: existingUser.id,
+          unidade_id: gestorData.unidade_id,
+          papel: 'motorista',
+          ativo: true,
+        })
+
+      if (vinculoError) {
+        return new Response(
+          JSON.stringify({ error: `Erro ao vincular motorista: ${vinculoError.message}` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Retornar sucesso com flag indicando que foi vinculação (não criação)
       return new Response(
-        JSON.stringify({ error: 'Este email já está cadastrado no sistema. Use outro email.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          success: true,
+          motorista: existingUser,
+          vinculado: true, // Flag para o frontend saber que foi vinculação
+          message: 'Motorista vinculado com sucesso a esta unidade.'
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
       )
     }
 
@@ -157,6 +199,22 @@ serve(async (req) => {
         JSON.stringify({ error: `Erro ao criar registro: ${insertError.message}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
+    }
+
+    // ✅ MULTI-UNIDADE: Criar vínculo em usuario_unidades
+    const { error: vinculoError } = await supabaseAdmin
+      .from('usuario_unidades')
+      .insert({
+        usuario_id: authData.user.id,
+        unidade_id: gestorData.unidade_id,
+        papel: 'motorista',
+        ativo: true,
+      })
+
+    if (vinculoError) {
+      console.error('Erro ao criar vínculo em usuario_unidades:', vinculoError.message)
+      // Não falhar - o registro principal foi criado
+      // A migration já migra dados de usuarios.unidade_id
     }
 
     return new Response(

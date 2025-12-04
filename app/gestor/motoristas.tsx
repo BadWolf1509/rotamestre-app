@@ -25,7 +25,6 @@ import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { maskPhone, validatePhone, getPhoneErrorMessage } from '@/utils/phoneValidation';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-import { toast } from '@/utils/toast';
 
 interface MotoristaDetalhado {
   id: string;
@@ -274,7 +273,7 @@ export default function MotoristasGestor() {
 
       if (!response.ok) {
         console.error('❌ Resposta com erro:', result);
-        toast.error(result.error || 'Erro desconhecido', 'Erro ao Criar Motorista');
+        showToast(result.error || 'Erro desconhecido', 'error');
         return;
       }
 

@@ -106,6 +106,7 @@ export default function RootLayout() {
             document.head.appendChild(metaDescription);
           }
           metaDescription.setAttribute('content', 'Sistema completo de gestão de rotas de entrega com rastreamento em tempo real.');
+          // Nota: CSS fix para z-index e toast-root estão em +html.tsx
         }
       } catch (error) {
         // Ignorar erros de manipulação do DOM

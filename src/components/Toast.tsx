@@ -10,6 +10,28 @@ import { createPortal } from 'react-dom';
 
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
+// Container global para Toasts (z-index máximo, acima de qualquer Modal)
+const TOAST_ROOT_ID = 'toast-root';
+
+function getToastRoot(): HTMLElement {
+  let root = document.getElementById(TOAST_ROOT_ID);
+  if (!root) {
+    root = document.createElement('div');
+    root.id = TOAST_ROOT_ID;
+    root.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: 2147483647;
+    `;
+    document.body.appendChild(root);
+  }
+  return root;
+}
+
 export type ToastType = 'success' | 'error' | 'info' | 'loading';
 
 export interface ToastProps {
@@ -20,6 +42,8 @@ export interface ToastProps {
   /** Alias for onDismiss */
   onHide?: () => void;
   visible: boolean;
+  /** Desabilitar portal (usar quando Toast está dentro de Modal) */
+  disablePortal?: boolean;
 }
 
 /**
@@ -35,7 +59,7 @@ export interface ToastProps {
  * />
  * ```
  */
-export function Toast({ message, type = 'info', duration = 3000, onDismiss, onHide, visible }: ToastProps) {
+export function Toast({ message, type = 'info', duration = 3000, onDismiss, onHide, visible, disablePortal = false }: ToastProps) {
   const { theme } = useUnistyles();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-100)).current;
@@ -146,10 +170,11 @@ export function Toast({ message, type = 'info', duration = 3000, onDismiss, onHi
     </Animated.View>
   );
 
-  // ✅ No web, usar Portal para renderizar fora da hierarquia do Modal
+  // ✅ No web, usar Portal com container dedicado (z-index máximo)
   // Isso garante que o Toast apareça acima de qualquer Modal
-  if (Platform.OS === 'web' && typeof document !== 'undefined') {
-    return createPortal(toastContent, document.body);
+  // Exceto quando disablePortal=true (Toast já está dentro de um Modal)
+  if (Platform.OS === 'web' && typeof document !== 'undefined' && !disablePortal) {
+    return createPortal(toastContent, getToastRoot());
   }
 
   return toastContent;
@@ -161,10 +186,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     top: Platform.OS === 'web' ? 20 : 60,
     left: Platform.OS === 'web' ? '50%' : 20,
     right: Platform.OS === 'web' ? undefined : 20,
+    // Garantir que o toast fique acima de modais/overlays
+    zIndex: 2147483647,
     ...(Platform.OS === 'web' && {
       transform: 'translateX(-50%)' as any,
       marginLeft: 0,
-      zIndex: 999999, // Maior que o Modal para aparecer na frente
+      pointerEvents: 'auto' as any, // Habilitar cliques (container pai tem pointer-events: none)
     }),
     maxWidth: 500,
     minWidth: 300,
