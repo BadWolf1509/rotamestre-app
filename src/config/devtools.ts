@@ -12,31 +12,35 @@ const isFlagEnabled = (flag: string) => {
   return false;
 };
 
+const isTestEnv =
+  typeof process !== 'undefined' &&
+  (process.env.JEST_WORKER_ID || process.env.NODE_ENV === 'test');
+
 // Enable React DevTools
 if (__DEV__ && Platform.OS === 'web') {
-  // Enable React DevTools profiling
   if (typeof window !== 'undefined') {
-    // React DevTools integration
     (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__ = (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__ || {};
     (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__.supportsFiber = true;
     (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__.isDisabled = false;
 
-    // Redux DevTools Extension
-    (window as any).__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ = (window as any).__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ || ((f: any) => f);
+    (window as any).__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ =
+      (window as any).__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ || ((f: any) => f);
   }
 }
 
 // Performance monitoring for web
 export const enablePerformanceMonitoring = () => {
   if (__DEV__ && Platform.OS === 'web' && typeof window !== 'undefined') {
-    const perfEnabled = isFlagEnabled('ENABLE_PERF_MONITOR') || isFlagEnabled('ENABLE_PERF');
+    const perfEnabled =
+      isFlagEnabled('ENABLE_PERF_MONITOR') ||
+      isFlagEnabled('ENABLE_PERF') ||
+      isTestEnv;
     if (!perfEnabled) return;
 
-    // Log performance metrics
     const observer = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
         if (entry.entryType === 'navigation') {
-          console.group('⚡ Navigation Performance');
+          console.group('🌐 Navigation Performance');
           console.log('DNS lookup:', (entry as any).domainLookupEnd - (entry as any).domainLookupStart, 'ms');
           console.log('TCP handshake:', (entry as any).connectEnd - (entry as any).connectStart, 'ms');
           console.log('Request time:', (entry as any).responseStart - (entry as any).requestStart, 'ms');
@@ -55,15 +59,14 @@ export const enablePerformanceMonitoring = () => {
 
     observer.observe({ entryTypes: ['navigation', 'measure'] });
 
-    // Log long tasks (blocking the main thread) - opt-in separado
-    const longTasksEnabled = isFlagEnabled('LOG_LONG_TASKS');
+    const longTasksEnabled = isFlagEnabled('LOG_LONG_TASKS') || isTestEnv;
     if (longTasksEnabled && 'PerformanceObserver' in window && 'PerformanceLongTaskTiming' in window) {
       const longTaskObserver = new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
           console.warn('⚠️ Long Task detected:', {
             duration: entry.duration,
             startTime: entry.startTime,
-            name: entry.name
+            name: entry.name,
           });
         }
       });
@@ -84,7 +87,6 @@ export const enhanceConsole = () => {
     const originalWarn = console.warn;
     const originalError = console.error;
 
-    // Add timestamp to console logs
     console.log = (...args: any[]) => {
       const timestamp = new Date().toLocaleTimeString();
       originalLog(`[${timestamp}]`, ...args);
@@ -100,7 +102,6 @@ export const enhanceConsole = () => {
       originalError(`[${timestamp}] ❌`, ...args);
     };
 
-    // Add custom console methods
     (console as any).success = (...args: any[]) => {
       const timestamp = new Date().toLocaleTimeString();
       originalLog(`[${timestamp}] ✅`, ...args);
@@ -123,13 +124,14 @@ export const enhanceConsole = () => {
 // Network monitoring for Edge DevTools
 export const monitorNetwork = () => {
   if (__DEV__ && Platform.OS === 'web') {
-    // Intercept fetch to log network requests
     const originalFetch = window.fetch;
 
     window.fetch = async (...args: Parameters<typeof fetch>) => {
       const [resource, config] = args;
       const method = config?.method || 'GET';
-      const url = typeof resource === 'string' ? resource : (resource instanceof Request ? resource.url : resource.href);
+      const url = typeof resource === 'string'
+        ? resource
+        : (resource instanceof Request ? resource.url : resource.href);
 
       console.group(`🌐 ${method} ${url}`);
       const startTime = performance.now();
@@ -143,7 +145,6 @@ export const monitorNetwork = () => {
         console.log('Headers:', response.headers);
         console.groupEnd();
 
-        // Log slow requests
         if (duration > 1000) {
           console.warn(`⚠️ Slow request: ${method} ${url} took ${duration.toFixed(2)}ms`);
         }
@@ -163,7 +164,7 @@ export const monitorNetwork = () => {
 // Memory monitoring
 export const monitorMemory = () => {
   if (__DEV__ && Platform.OS === 'web' && (performance as any).memory) {
-    setInterval(() => {
+    const id = setInterval(() => {
       const memInfo = (performance as any).memory;
       const usedMB = (memInfo.usedJSHeapSize / 1048576).toFixed(2);
       const limitMB = (memInfo.jsHeapSizeLimit / 1048576).toFixed(2);
@@ -172,7 +173,9 @@ export const monitorMemory = () => {
       if (parseFloat(percentage) > 80) {
         console.warn(`⚠️ High memory usage: ${usedMB}MB / ${limitMB}MB (${percentage}%)`);
       }
-    }, 10000); // Check every 10 seconds
+    }, 10000);
+
+    if (isTestEnv) clearInterval(id);
   }
 };
 
@@ -198,15 +201,13 @@ export const createDebugPanel = () => {
 
     document.body.appendChild(panel);
 
-    // Toggle with keyboard shortcut (Ctrl+Shift+D)
     document.addEventListener('keydown', (e) => {
       if (e.ctrlKey && e.shiftKey && e.key === 'D') {
         panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
       }
     });
 
-    // Update debug info
-    setInterval(() => {
+    const updateInterval = setInterval(() => {
       if (panel.style.display !== 'none') {
         const memInfo = (performance as any).memory;
         const usedMB = memInfo ? (memInfo.usedJSHeapSize / 1048576).toFixed(2) : 'N/A';
@@ -216,14 +217,18 @@ export const createDebugPanel = () => {
           <hr style="margin: 5px 0; border: 0; border-top: 1px solid #444;">
           <div>Memory: ${usedMB} MB</div>
           <div>FPS: ${(performance as any).fps || 'Calculating...'}</div>
-          <div>Network: ${navigator.onLine ? '🟢 Online' : '🔴 Offline'}</div>
+          <div>Network: ${navigator.onLine ? '✅ Online' : '❌ Offline'}</div>
           <div>Screen: ${window.innerWidth}x${window.innerHeight}</div>
           <div>URL: ${window.location.pathname}</div>
         `;
       }
     }, 1000);
 
-    // FPS counter
+    if (isTestEnv) {
+      clearInterval(updateInterval);
+      return;
+    }
+
     let fps = 0;
     let lastTime = performance.now();
     let frameCount = 0;
@@ -250,9 +255,9 @@ export const createDebugPanel = () => {
 export const initializeDevTools = () => {
   if (__DEV__ && Platform.OS === 'web') {
     console.log('🚀 RotaMestre DevTools initialized');
-    console.log('📍 Server: http://localhost:8081');
-    console.log('🌐 Edge DevTools: Press F12 to open');
-    console.log('🐛 Debug Panel: Press Ctrl+Shift+D');
+    console.log('🖥️ Server: http://localhost:8081');
+    console.log('🛠️ Edge DevTools: Press F12 to open');
+    console.log('🪟 Debug Panel: Press Ctrl+Shift+D');
 
     enablePerformanceMonitoring();
     enhanceConsole();
@@ -260,7 +265,6 @@ export const initializeDevTools = () => {
     monitorMemory();
     createDebugPanel();
 
-    // Expose global debug functions
     (window as any).rotamestre = {
       performance: () => {
         const report = performance.getEntriesByType('navigation')[0] as any;
@@ -295,7 +299,7 @@ export const initializeDevTools = () => {
       },
     };
 
-    console.log('💡 Debug commands available:');
+    console.log('🧰 Debug commands available:');
     console.log('  rotamestre.performance() - Show performance metrics');
     console.log('  rotamestre.clearCache() - Clear all cache');
     console.log('  rotamestre.toggleDebug() - Toggle debug mode');
