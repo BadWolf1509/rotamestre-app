@@ -4,9 +4,9 @@
  * e decodifica a polyline para uso no react-native-maps
  * Com cache em AsyncStorage para modo offline
  */
+import polyline from '@mapbox/polyline';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useEffect, useCallback } from 'react';
-import polyline from '@mapbox/polyline';
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 const CACHE_PREFIX = 'route_cache_';

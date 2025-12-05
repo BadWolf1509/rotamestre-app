@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import React, { useRef, useEffect, useMemo, useCallback, useState } from 'react';
 import { View, Text, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region, Callout } from 'react-native-maps';
-import * as Location from 'expo-location';
 
 import { useRouteDirections } from '@/hooks/useRouteDirections';
 import { showNavigationOptions } from '@/utils/navigation';
@@ -29,7 +29,6 @@ interface MapaMobileProps {
 
 export function MapaMobile({ paradas, selectedParadaId, onMarkerPress, statusFilter = 'all' }: MapaMobileProps) {
   const mapRef = useRef<MapView>(null);
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
 
   // Filtrar paradas com coordenadas válidas
@@ -37,6 +36,7 @@ export function MapaMobile({ paradas, selectedParadaId, onMarkerPress, statusFil
     () => paradas.filter((p) => p.latitude !== null && p.longitude !== null),
     [paradas]
   );
+  const hasParadasComCoordenadas = paradasComCoord.length > 0;
 
   // Separar paradas reais de checkpoints (pontos da unidade)
   const paradasReais = useMemo(
@@ -60,7 +60,7 @@ export function MapaMobile({ paradas, selectedParadaId, onMarkerPress, statusFil
     paradasComCoord as Parada[]
   );
 
-  // Ajustar mapa para mostrar todas as paradas após carregar
+    // Ajustar mapa para mostrar todas as paradas após carregar
   useEffect(() => {
     if (paradasComCoord.length > 1 && mapRef.current) {
       const timer = setTimeout(() => {
@@ -81,19 +81,17 @@ export function MapaMobile({ paradas, selectedParadaId, onMarkerPress, statusFil
     return undefined;
   }, [paradasComCoord]);
 
-  // Se não houver paradas com coordenadas
-  if (paradasComCoord.length === 0) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>
-          📍 Nenhuma parada com localização disponível
-        </Text>
-      </View>
-    );
-  }
-
   // Calcular região inicial (centro das paradas)
-  const calculateRegion = (): Region => {
+  const initialRegion = useMemo<Region>(() => {
+    if (!hasParadasComCoordenadas) {
+      return {
+        latitude: 0,
+        longitude: 0,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      };
+    }
+
     if (paradasComCoord.length === 1) {
       return {
         latitude: paradasComCoord[0].latitude!,
@@ -109,7 +107,7 @@ export function MapaMobile({ paradas, selectedParadaId, onMarkerPress, statusFil
     let minLng = paradasComCoord[0].longitude!;
     let maxLng = paradasComCoord[0].longitude!;
 
-    paradasComCoord.forEach(p => {
+    paradasComCoord.forEach((p) => {
       minLat = Math.min(minLat, p.latitude!);
       maxLat = Math.max(maxLat, p.latitude!);
       minLng = Math.min(minLng, p.longitude!);
@@ -127,11 +125,9 @@ export function MapaMobile({ paradas, selectedParadaId, onMarkerPress, statusFil
       latitudeDelta: Math.max(deltaLat, 0.01),
       longitudeDelta: Math.max(deltaLng, 0.01),
     };
-  };
+  }, [hasParadasComCoordenadas, paradasComCoord]);
 
-  const initialRegion = calculateRegion();
-
-  // Função para determinar cor do marcador baseado no status
+// Função para determinar cor do marcador baseado no status
   const getMarkerColor = (status: string): string => {
     switch (status) {
       case 'concluida':
@@ -170,8 +166,6 @@ export function MapaMobile({ paradas, selectedParadaId, onMarkerPress, statusFil
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
       };
-
-      setUserLocation(newUserLocation);
 
       mapRef.current?.animateToRegion({
         ...newUserLocation,
@@ -215,6 +209,16 @@ export function MapaMobile({ paradas, selectedParadaId, onMarkerPress, statusFil
       );
     }
   }, [paradasComCoord]);
+
+  if (!hasParadasComCoordenadas) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>
+          📍 Nenhuma parada com localização disponível
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

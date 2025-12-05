@@ -4,8 +4,6 @@
  */
 
 const { Client } = require('pg');
-const fs = require('fs');
-const path = require('path');
 
 // Connection string do Supabase (pooler mode)
 // Formato: postgresql://postgres.[project-ref]:[password]@[host]:6543/postgres

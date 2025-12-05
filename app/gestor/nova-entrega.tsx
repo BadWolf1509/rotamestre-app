@@ -32,6 +32,18 @@ import { GoogleDirectionsLeg } from '@/types/google-directions';
 import { maskPhone } from '@/utils/phoneValidation';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
+type MotoristaResumo = {
+  id: string;
+  nome: string;
+  email: string;
+  ativo: boolean;
+};
+
+type VinculacaoMotorista = {
+  usuario_id: string;
+  usuarios: MotoristaResumo | null;
+};
+
 // Função para gerar ID único
 function generateUniqueId(): string {
   return `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -403,7 +415,7 @@ export default function NovaEntrega() {
   const { theme } = useUnistyles();
   const styles = createStyles(theme);
   const { userData, unidade } = useUser();
-  const { unidadeAtiva, unidadeAtivaData } = useUnidadeAtiva();
+  const { unidadeAtiva } = useUnidadeAtiva();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
   });
@@ -413,7 +425,7 @@ export default function NovaEntrega() {
   const unidadeDisplayName = unidade?.nome || userData?.unidades?.nome || '';
   const pageSubtitle = unidadeDisplayName || pageMeta.subtitle || 'Carregando...';
   const [paradas, setParadas] = useState<Parada[]>([]);
-  const [motoristas, setMotoristas] = useState<any[]>([]);
+  const [motoristas, setMotoristas] = useState<MotoristaResumo[]>([]);
   const [motoristaSelecionado, setMotoristaSelecionado] = useState<string>('');
   const [vinculoSelecionado, setVinculoSelecionado] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -530,14 +542,15 @@ export default function NovaEntrega() {
         `)
         .eq('unidade_id', unidadeAtiva)
         .eq('papel', 'motorista')
-        .eq('ativo', true);
+        .eq('ativo', true)
+        .returns<VinculacaoMotorista[]>();
 
       if (vinculacoesError) throw vinculacoesError;
 
       // Extrair usuários ativos
       const motoristasData = vinculacoesData
         ?.map((v) => v.usuarios)
-        .filter((u): u is NonNullable<typeof u> => u !== null && u.ativo)
+        .filter((u): u is MotoristaResumo => u !== null && u.ativo)
         .sort((a, b) => a.nome.localeCompare(b.nome));
 
       setMotoristas(motoristasData || []);

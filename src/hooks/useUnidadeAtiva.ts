@@ -1,11 +1,15 @@
-import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useCallback, useEffect, useState } from 'react';
 
-import { supabase } from '../lib/supabase';
 import { useUser } from './useUser';
+import { supabase } from '../lib/supabase';
 import { UsuarioUnidade, UnidadeDB } from '../types/usuario';
 
 const STORAGE_KEY = '@rotamestre:unidade_ativa';
+
+type VinculacaoComUnidade = UsuarioUnidade & {
+  unidades: UnidadeDB | UnidadeDB[] | null;
+};
 
 interface UseUnidadeAtivaReturn {
   /** ID da unidade ativa atual */
@@ -72,7 +76,8 @@ export function useUnidadeAtiva(): UseUnidadeAtivaReturn {
         `)
         .eq('usuario_id', userData.id)
         .eq('ativo', true)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true })
+        .returns<VinculacaoComUnidade[]>();
 
       if (error) {
         console.error('Erro ao carregar vinculações:', error);
@@ -83,22 +88,29 @@ export function useUnidadeAtiva(): UseUnidadeAtivaReturn {
         return;
       }
 
-      setVinculacoes(data || []);
+      const vinculacoesNormalizadas = (data || []).map((vinculo) => ({
+        ...vinculo,
+        unidades: Array.isArray(vinculo.unidades) ? vinculo.unidades[0] : vinculo.unidades,
+      }));
+
+      setVinculacoes(vinculacoesNormalizadas);
 
       // Determinar unidade ativa
-      if (data && data.length > 0) {
+      if (vinculacoesNormalizadas.length > 0) {
         // Tentar recuperar do AsyncStorage
         const storedUnidadeId = await AsyncStorage.getItem(STORAGE_KEY);
 
         // Verificar se a unidade armazenada ainda é válida
-        const unidadeValida = data.find(v => v.unidade_id === storedUnidadeId);
+        const unidadeValida = vinculacoesNormalizadas.find(
+          (v) => v.unidade_id === storedUnidadeId
+        );
 
         if (unidadeValida) {
           setUnidadeAtiva(storedUnidadeId);
         } else {
           // Usar a primeira unidade disponível ou a que tem is_principal
-          const principal = data.find(v => v.is_principal);
-          const primeiraUnidade = principal || data[0];
+          const principal = vinculacoesNormalizadas.find((v) => v.is_principal);
+          const primeiraUnidade = principal || vinculacoesNormalizadas[0];
           setUnidadeAtiva(primeiraUnidade.unidade_id);
           await AsyncStorage.setItem(STORAGE_KEY, primeiraUnidade.unidade_id);
         }

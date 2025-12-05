@@ -104,7 +104,7 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
           schema: 'public',
           table: 'paradas',
         },
-        (payload) => {
+        (_payload) => {
           console.log('[Realtime] Parada atualizada');
           triggerUpdate();
         }
@@ -127,7 +127,7 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
         debounceTimer.current = null;
       }
     };
-  }, [enabled, unidadeAtiva, triggerUpdate]); // ✅ Removido session.access_token das deps
+  }, [enabled, session?.access_token, triggerUpdate, unidadeAtiva]);
 
   return { updateTrigger };
 }

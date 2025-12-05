@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   View,
   Text,
@@ -6,7 +7,6 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
-import { createPortal } from 'react-dom';
 
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 

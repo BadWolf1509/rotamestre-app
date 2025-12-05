@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 /* eslint-env node */
-/* global __dirname, process, console */
 
 /**
  * Script para verificar se as funções têm search_path definido

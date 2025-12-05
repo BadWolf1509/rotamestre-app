@@ -9,19 +9,6 @@ const supabase = createClient(
   }
 );
 
-async function executeSql(sql) {
-  // Supabase doesn't have direct SQL execution via JS client
-  // We need to use the Management API or execute via their SQL Editor
-  // For now, let's use the postgres connection directly if available
-
-  const { data, error } = await supabase.rpc('exec_sql', { sql });
-  if (error) {
-    console.log('RPC exec_sql not available, trying alternative...');
-    return { error };
-  }
-  return { data };
-}
-
 async function main() {
   console.log('Testing current trigger state...\n');
 
@@ -31,6 +18,11 @@ async function main() {
     .select('id, status')
     .eq('status', 'pendente')
     .limit(1);
+
+  if (rotasError) {
+    console.error('Erro ao buscar rotas:', rotasError);
+    return;
+  }
 
   if (rotas && rotas.length > 0) {
     console.log('Found pending route:', rotas[0].id);

@@ -17,10 +17,11 @@ import {
   ActivityIndicator,
 } from 'react-native';
 
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-import { Modal } from './Modal';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { UsuarioUnidade } from '@/types/usuario';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+
+import { Modal } from './Modal';
 
 interface SeletorUnidadeProps {
   /** Mostrar apenas o trigger (para uso em headers) */
@@ -277,7 +278,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   unidadeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: theme.spacing.xxs,
+    marginBottom: theme.spacing.xs,
   },
   unidadeNome: {
     fontFamily: theme.typography.fontSansMedium,
@@ -300,7 +301,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   unidadeMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: theme.spacing.xxs,
+    marginTop: theme.spacing.xs,
     marginLeft: 28,
   },
   unidadePapel: {

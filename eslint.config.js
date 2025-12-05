@@ -173,4 +173,12 @@ module.exports = [
       },
     },
   },
+  {
+    files: ['tools/scripts/**/*.cjs'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
 ];

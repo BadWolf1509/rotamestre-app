@@ -12,12 +12,6 @@ export interface NavigationDestination {
 
 type NavigationApp = 'waze' | 'google-maps' | 'apple-maps';
 
-const NAV_APP_NAMES: Record<NavigationApp, string> = {
-  'waze': 'Waze',
-  'google-maps': 'Google Maps',
-  'apple-maps': 'Apple Maps',
-};
-
 /**
  * Gera URL para abrir app de navegação
  */
@@ -34,9 +28,10 @@ function getNavigationUrl(app: NavigationApp, destination: NavigationDestination
         return `google.navigation:q=${latitude},${longitude}`;
       }
       return `comgooglemaps://?daddr=${latitude},${longitude}&directionsmode=driving`;
-    case 'apple-maps':
+    case 'apple-maps': {
       const encodedLabel = label ? encodeURIComponent(label) : '';
       return `maps://?daddr=${latitude},${longitude}&q=${encodedLabel}`;
+    }
     default:
       return `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
   }
@@ -95,6 +90,7 @@ export async function openNavigation(destination: NavigationDestination): Promis
       'Não foi possível abrir nenhum app de navegação. Verifique se você tem o Waze ou Google Maps instalado.',
       [{ text: 'OK' }]
     );
+    console.warn('[Navigation] Erro ao abrir fallback:', error);
   }
 }
 

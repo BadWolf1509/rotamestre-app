@@ -9,7 +9,6 @@ import {
   Text,
   TouchableOpacity,
   Animated,
-  Dimensions,
   PanResponder,
   Modal,
 } from 'react-native';
@@ -17,7 +16,6 @@ import {
 import { showNavigationOptions } from '@/utils/navigation';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SHEET_HEIGHT = 320;
 
 interface Parada {

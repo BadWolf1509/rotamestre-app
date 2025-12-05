@@ -41,6 +41,11 @@ interface MotoristaDetalhado {
   };
 }
 
+type VinculacaoComUsuario = {
+  usuario_id: string;
+  usuarios: MotoristaDetalhado | null;
+};
+
 export default function MotoristasGestor() {
   const { theme } = useUnistyles();
   const { userData } = useUser();
@@ -89,17 +94,18 @@ export default function MotoristasGestor() {
         `)
         .eq('unidade_id', unidadeAtiva)
         .eq('papel', 'motorista')
-        .eq('ativo', true);
+        .eq('ativo', true)
+        .returns<VinculacaoComUsuario[]>();
 
       if (vinculacoesError) throw vinculacoesError;
 
       // Extrair os usuários das vinculações
       const motoristasData = vinculacoesData
         ?.map((v) => v.usuarios)
-        .filter((u): u is NonNullable<typeof u> => u !== null)
+        .filter((u): u is MotoristaDetalhado => u !== null)
         .sort((a, b) => a.nome.localeCompare(b.nome));
 
-      const motoristasComStats = await Promise.all(
+      const motoristasComStats: MotoristaDetalhado[] = await Promise.all(
         (motoristasData || []).map(async (motorista) => {
           const { data: rotasData, error: rotasError } = await supabase
             .from('rotas')
