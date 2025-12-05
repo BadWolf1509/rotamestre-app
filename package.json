@@ -76,7 +76,7 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.3.1",
+    "@eslint/eslintrc": "^3.3.3",
     "@eslint/js": "^9.39.1",
     "@react-native-community/eslint-config": "^3.2.0",
     "@react-native/eslint-plugin": "^0.82.1",
@@ -104,8 +104,8 @@
     "jest-expo": "^54.0.13",
     "jest-junit": "^16.0.0",
     "postcss": "^8.5.6",
-    "prettier": "^3.6.2",
-    "supabase": "^2.51.0",
+    "prettier": "^3.7.3",
+    "supabase": "^2.64.2",
     "typescript": "~5.9.2"
   },
   "private": true
