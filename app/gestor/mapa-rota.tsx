@@ -750,9 +750,6 @@ export default function MapaRota() {
                   <View style={{ height: MAP_HEIGHT }}>
                     <MapaAdapter
                       paradas={paradas}
-                      rotaId={id as string}
-                      motoristaNome={rota?.motorista?.nome}
-                      showMotoristaMarker={rota?.status === 'em_andamento'}
                       selectedParadaId={selectedParadaId}
                       onMarkerPress={handleMarkerPress}
                     />

@@ -38,6 +38,8 @@ export function StreetViewPreview({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [modalLoading, setModalLoading] = useState(true);
+  const [modalError, setModalError] = useState(false);
 
   // Dimensões baseadas no tamanho
   const dimensions = {
@@ -53,8 +55,11 @@ export function StreetViewPreview({
 
   // URL da API Street View Static
   const getStreetViewUrl = (width: number, height: number, fov: number = 90) => {
-    return `https://maps.googleapis.com/maps/api/streetview/static?` +
-      `size=${width}x${height}&` +
+    // Arredondar dimensões para inteiros (API requer valores inteiros)
+    const w = Math.round(Math.min(width, 640));
+    const h = Math.round(Math.min(height, 640));
+    return `https://maps.googleapis.com/maps/api/streetview?` +
+      `size=${w}x${h}&` +
       `location=${latitude},${longitude}&` +
       `fov=${fov}&` +
       `pitch=10&` +
@@ -62,12 +67,16 @@ export function StreetViewPreview({
   };
 
   const streetViewUrl = getStreetViewUrl(currentSize.width, currentSize.height);
-  const modalStreetViewUrl = getStreetViewUrl(screenWidth, 400, 110);
+  // Modal usa tamanho fixo de 600x400 para garantir compatibilidade
+  const modalStreetViewUrl = getStreetViewUrl(600, 400, 110);
 
   const handlePress = () => {
     if (onPress) {
       onPress();
     } else {
+      // Reset modal state ao abrir
+      setModalLoading(true);
+      setModalError(false);
       setModalVisible(true);
     }
   };
@@ -160,11 +169,30 @@ export function StreetViewPreview({
             </View>
 
             {/* Imagem expandida */}
-            <Image
-              source={{ uri: modalStreetViewUrl }}
-              style={styles.modalImage}
-              resizeMode="cover"
-            />
+            <View style={styles.modalImageContainer}>
+              {modalLoading && (
+                <View style={styles.modalLoadingOverlay}>
+                  <ActivityIndicator size="large" color={theme.colors.primary} />
+                </View>
+              )}
+              {modalError ? (
+                <View style={styles.modalErrorContainer}>
+                  <Ionicons name="eye-off-outline" size={48} color={theme.colors.gray400} />
+                  <Text style={styles.modalErrorText}>Street View indisponível</Text>
+                </View>
+              ) : (
+                <Image
+                  source={{ uri: modalStreetViewUrl }}
+                  style={styles.modalImage}
+                  resizeMode="cover"
+                  onLoad={() => setModalLoading(false)}
+                  onError={() => {
+                    setModalLoading(false);
+                    setModalError(true);
+                  }}
+                />
+              )}
+            </View>
 
             {/* Endereço */}
             {address && (
@@ -274,9 +302,37 @@ const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
       fontWeight: '600',
       color: theme.colors.gray800,
     },
+    modalImageContainer: {
+      width: '100%',
+      height: 300,
+      position: 'relative',
+      backgroundColor: theme.colors.gray100,
+    },
     modalImage: {
       width: '100%',
-      height: 400,
+      height: 300,
+    },
+    modalLoadingOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.colors.gray100,
+      zIndex: 1,
+    },
+    modalErrorContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.colors.gray100,
+    },
+    modalErrorText: {
+      fontSize: 14,
+      color: theme.colors.gray600,
+      marginTop: 8,
     },
     modalAddress: {
       flexDirection: 'row',

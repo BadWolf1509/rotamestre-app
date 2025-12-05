@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, Slot } from 'expo-router';
 import { Pressable } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AuthLoadingScreen } from '@/components/AuthLoadingScreen';
 import { DrawerMenuProvider, useDrawerMenu } from '@/context/DrawerMenuContext';
@@ -23,13 +24,19 @@ export default function MotoristaLayout() {
   }
 
   if (isDesktop) {
-    return <Slot />;
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <Slot />
+      </GestureHandlerRootView>
+    );
   }
 
   return (
-    <DrawerMenuProvider>
-      <MobileStack />
-    </DrawerMenuProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <DrawerMenuProvider>
+        <MobileStack />
+      </DrawerMenuProvider>
+    </GestureHandlerRootView>
   );
 }
 

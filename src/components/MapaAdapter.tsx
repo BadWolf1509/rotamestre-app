@@ -19,17 +19,17 @@ interface Parada {
   latitude: number | null;
   longitude: number | null;
   status: string;
-  tipo?: string;
+  tipo?: string | null;
   is_checkpoint?: boolean;
 }
 
+type StatusFilter = 'all' | 'pendente' | 'em_andamento' | 'concluida';
+
 interface MapaAdapterProps {
   paradas: Parada[];
-  rotaId?: string;
-  motoristaNome?: string;
-  showMotoristaMarker?: boolean;
   selectedParadaId?: string | null;
   onMarkerPress?: (paradaId: string) => void;
+  statusFilter?: StatusFilter;
 }
 
 /**
@@ -37,17 +37,15 @@ interface MapaAdapterProps {
  */
 export function MapaAdapter({
   paradas,
-  rotaId: _rotaId,
-  motoristaNome: _motoristaNome,
-  showMotoristaMarker: _showMotoristaMarker = false,
   selectedParadaId,
   onMarkerPress,
+  statusFilter,
 }: MapaAdapterProps) {
   // Web: Usa MapaWeb (Google Maps JavaScript API)
   if (Platform.OS === 'web') {
     return (
       <MapaWeb
-        paradas={paradas}
+        paradas={paradas as any}
         selectedParadaId={selectedParadaId}
         onMarkerPress={onMarkerPress}
       />
@@ -58,6 +56,13 @@ export function MapaAdapter({
   // Metro automaticamente resolve para:
   // - Web: MapaMobile.web.tsx (stub sem react-native-maps)
   // - Native: MapaMobile.tsx (com react-native-maps completo)
-  return <MapaMobile paradas={paradas} />;
+  return (
+    <MapaMobile
+      paradas={paradas as any}
+      selectedParadaId={selectedParadaId}
+      onMarkerPress={onMarkerPress}
+      statusFilter={statusFilter}
+    />
+  );
 }
 

@@ -30,6 +30,7 @@ import { abrirNavegacao } from '@/lib/navigation';
 import DynamicReroutingService from '@/services/dynamicRerouting';
 import LocationTrackingService from '@/services/locationTracking';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { formatarTempo } from '@/utils/timeEstimation';
 
 function MotoristaInicioContent() {
   const router = useRouter();
@@ -465,7 +466,7 @@ function MotoristaInicioContent() {
             completed={progress.completed}
             total={progress.total}
             timeElapsed={getElapsedTime() ?? undefined}
-            estimatedTime={route?.tempo_total ? `~${route.tempo_total}h` : undefined}
+            estimatedTime={route?.tempo_total ? `~${formatarTempo(route.tempo_total)}` : undefined}
           />
         )}
 

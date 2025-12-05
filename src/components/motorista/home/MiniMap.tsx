@@ -1,20 +1,36 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
+import { useRouteDirections } from '@/hooks/useRouteDirections';
 import { defaultTheme } from '@/utils/styles';
 
 const colors = defaultTheme.colors;
 
+interface Parada {
+  id: string;
+  ordem: number;
+  endereco: string;
+  latitude: number;
+  longitude: number;
+  status: string;
+  is_checkpoint?: boolean;
+}
+
+interface Rota {
+  id: string;
+  distancia_total?: number;
+}
+
 interface MiniMapProps {
-  paradas: any[];
+  paradas: Parada[];
   userLocation?: { latitude: number; longitude: number };
   expanded?: boolean;
   onToggleExpand?: () => void;
   onOpenFullMap?: () => void;
   onOpenPiP?: () => void;
-  route?: any;
+  route?: Rota;
 }
 
 export function MiniMap({
@@ -27,62 +43,112 @@ export function MiniMap({
   route,
 }: MiniMapProps) {
   const height = expanded ? 300 : 150;
+  const mapRef = useRef<MapView>(null);
+  const [mapReady, setMapReady] = useState(false);
 
   // Filtrar paradas por status (excluindo checkpoints)
-  const paradasPendentes = paradas.filter(p => p.status === 'pendente' && p.is_checkpoint !== false);
-  const paradasConcluidas = paradas.filter(p => p.status === 'concluida' && p.is_checkpoint !== false);
+  const paradasPendentes = useMemo(
+    () => paradas.filter(p => p.status === 'pendente' && p.is_checkpoint !== false),
+    [paradas]
+  );
+  const paradasConcluidas = useMemo(
+    () => paradas.filter(p => p.status === 'concluida' && p.is_checkpoint !== false),
+    [paradas]
+  );
 
-  // Calcular região do mapa
-  const getMapRegion = () => {
-    if (paradasPendentes.length === 0) {
+  // Todas as paradas com coordenadas válidas (para centralização)
+  const todasParadasComCoord = useMemo(
+    () => paradas.filter(p => p.latitude && p.longitude && !isNaN(p.latitude) && !isNaN(p.longitude)),
+    [paradas]
+  );
+
+  // Checkpoints (pontos de partida/chegada da unidade) - NÃO são paradas de entrega
+  const checkpoints = useMemo(
+    () => todasParadasComCoord.filter(p => p.is_checkpoint === false),
+    [todasParadasComCoord]
+  );
+
+  // Preparar paradas para o hook de rota
+  // INCLUI checkpoints (partida/chegada da unidade) para calcular a rota completa
+  const paradasParaRota = useMemo(() => {
+    // Usar TODAS as paradas com coordenadas (incluindo checkpoints) para a rota
+    const todasOrdenadas = [...todasParadasComCoord].sort((a, b) => a.ordem - b.ordem);
+
+    return todasOrdenadas.map((p, idx) => ({
+      id: p.id,
+      ordem: idx,
+      latitude: p.latitude,
+      longitude: p.longitude,
+    }));
+  }, [todasParadasComCoord]);
+
+  // Usar hook para buscar rota real do Google Directions API
+  const { routeCoordinates, routeInfo, isLoading: isLoadingRoute } = useRouteDirections(paradasParaRota);
+
+  // Calcular região do mapa baseada APENAS nas paradas (não na localização do usuário)
+  const mapRegion = useMemo(() => {
+    // Se não tem paradas, usar localização padrão (São Paulo)
+    if (todasParadasComCoord.length === 0) {
       return {
-        latitude: userLocation?.latitude || -23.550520,
-        longitude: userLocation?.longitude || -46.633308,
+        latitude: -23.550520,
+        longitude: -46.633308,
         latitudeDelta: 0.02,
         longitudeDelta: 0.02,
       };
     }
 
-    const lats = paradasPendentes.map(p => p.latitude);
-    const longs = paradasPendentes.map(p => p.longitude);
-
-    if (userLocation) {
-      lats.push(userLocation.latitude);
-      longs.push(userLocation.longitude);
-    }
+    // Centralizar APENAS nas paradas, não na localização do usuário
+    // Isso evita que o mapa faça zoom out quando o usuário está longe das paradas
+    const lats = todasParadasComCoord.map(p => p.latitude);
+    const longs = todasParadasComCoord.map(p => p.longitude);
 
     const minLat = Math.min(...lats);
     const maxLat = Math.max(...lats);
     const minLong = Math.min(...longs);
     const maxLong = Math.max(...longs);
 
+    // Calcular deltas com padding mínimo
+    const latDelta = Math.max((maxLat - minLat) * 1.5, 0.01);
+    const longDelta = Math.max((maxLong - minLong) * 1.5, 0.01);
+
     return {
       latitude: (minLat + maxLat) / 2,
       longitude: (minLong + maxLong) / 2,
-      latitudeDelta: (maxLat - minLat) * 1.5,
-      longitudeDelta: (maxLong - minLong) * 1.5,
+      latitudeDelta: latDelta,
+      longitudeDelta: longDelta,
     };
-  };
+  }, [todasParadasComCoord]);
 
-  // Criar polyline para rota
-  const getRouteCoordinates = () => {
-    const coords = [];
+  // Função para centralizar o mapa nas paradas (SEM incluir userLocation)
+  const fitMapToParadas = useCallback(() => {
+    if (todasParadasComCoord.length === 0 || !mapRef.current) return;
 
-    if (userLocation) {
-      coords.push(userLocation);
+    // Centralizar APENAS nas paradas, não na localização do usuário
+    // Isso evita zoom out excessivo quando o usuário está longe das paradas
+    const coordinates = todasParadasComCoord.map(p => ({
+      latitude: p.latitude,
+      longitude: p.longitude,
+    }));
+
+    mapRef.current.fitToCoordinates(coordinates, {
+      edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+      animated: false,
+    });
+  }, [todasParadasComCoord]);
+
+  // Ajustar mapa quando estiver pronto E quando paradas carregarem
+  useEffect(() => {
+    if (mapReady && todasParadasComCoord.length > 0) {
+      // Pequeno delay para garantir que o mapa está totalmente renderizado
+      const timer = setTimeout(fitMapToParadas, 200);
+      return () => clearTimeout(timer);
     }
+  }, [mapReady, todasParadasComCoord, fitMapToParadas]);
 
-    paradasPendentes
-      .sort((a, b) => a.ordem - b.ordem)
-      .forEach(p => {
-        coords.push({
-          latitude: p.latitude,
-          longitude: p.longitude,
-        });
-      });
-
-    return coords;
-  };
+  // Callback quando o mapa estiver pronto
+  const handleMapReady = useCallback(() => {
+    setMapReady(true);
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -92,9 +158,11 @@ export function MiniMap({
         activeOpacity={0.95}
       >
         <MapView
+          ref={mapRef}
           provider={PROVIDER_GOOGLE}
           style={[styles.map, { height }]}
-          initialRegion={getMapRegion()}
+          initialRegion={mapRegion}
+          onMapReady={handleMapReady}
           scrollEnabled={false}
           zoomEnabled={false}
           rotateEnabled={false}
@@ -104,6 +172,7 @@ export function MiniMap({
             <Marker
               coordinate={userLocation}
               title="Você está aqui"
+              tracksViewChanges={false}
             >
               <View style={styles.userMarker}>
                 <View style={styles.userMarkerDot} />
@@ -119,6 +188,7 @@ export function MiniMap({
                 longitude: parada.longitude,
               }}
               opacity={0.5}
+              tracksViewChanges={false}
             >
               <View style={[styles.marker, styles.markerConcluida]}>
                 <Ionicons name="checkmark" size={12} color={colors.white} />
@@ -135,6 +205,7 @@ export function MiniMap({
               }}
               title={`Parada ${parada.ordem}`}
               description={parada.endereco}
+              tracksViewChanges={false}
             >
               <View style={[
                 styles.marker,
@@ -145,21 +216,54 @@ export function MiniMap({
             </Marker>
           ))}
 
-          {getRouteCoordinates().length > 1 && (
+          {/* Checkpoints - Pontos de partida/chegada da unidade (não são paradas de entrega) */}
+          {checkpoints.map((checkpoint) => (
+            <Marker
+              key={`checkpoint-${checkpoint.id}`}
+              coordinate={{
+                latitude: checkpoint.latitude,
+                longitude: checkpoint.longitude,
+              }}
+              title={checkpoint.ordem === 0 ? 'Partida (Unidade)' : 'Chegada (Unidade)'}
+              description={checkpoint.endereco}
+              tracksViewChanges={false}
+            >
+              <View style={styles.checkpointMarker}>
+                <Ionicons
+                  name={checkpoint.ordem === 0 ? 'location' : 'flag'}
+                  size={20}
+                  color={colors.primary}
+                />
+              </View>
+            </Marker>
+          ))}
+
+          {routeCoordinates.length > 1 && (
             <Polyline
-              coordinates={getRouteCoordinates()}
+              coordinates={routeCoordinates}
               strokeColor={defaultTheme.colors.primary}
               strokeWidth={3}
-              lineDashPattern={[10, 5]}
             />
           )}
         </MapView>
 
         <View style={styles.overlay}>
           <View style={styles.infoBox}>
-            <Text style={styles.infoText}>
-              {paradasPendentes.length} paradas • {route?.distancia_total ? `${Math.round(route.distancia_total)} km` : '-'}
-            </Text>
+            {isLoadingRoute ? (
+              <View style={styles.infoBoxLoading}>
+                <ActivityIndicator size="small" color={colors.white} />
+                <Text style={styles.infoText}>Calculando...</Text>
+              </View>
+            ) : (
+              <Text style={styles.infoText}>
+                {paradasPendentes.length} paradas
+                {routeInfo
+                  ? ` • ${(routeInfo.distanceMeters / 1000).toFixed(1)} km • ${Math.round(routeInfo.durationSeconds / 60)} min`
+                  : route?.distancia_total
+                    ? ` • ${Math.round(route.distancia_total)} km`
+                    : ''}
+              </Text>
+            )}
           </View>
 
           <View style={styles.controlButtons}>
@@ -232,6 +336,11 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 6,
   },
+  infoBoxLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   infoText: {
     color: colors.white,
     fontSize: 12,
@@ -296,6 +405,21 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 12,
     fontWeight: '700',
+  },
+  checkpointMarker: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.primary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
   },
   hint: {
     fontSize: 11,

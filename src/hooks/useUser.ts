@@ -21,6 +21,7 @@ export function useUser() {
     setLoading(true);
 
     try {
+      // Query com usuario_unidades para suporte multi-unidade
       const { data, error } = await supabase
         .from('usuarios')
         .select(`
@@ -34,7 +35,7 @@ export function useUser() {
             is_principal,
             ativo,
             created_at,
-            unidades(id, nome, cnpj, cidade, ativa)
+            unidades(id, nome, cidade, ativa)
           )
         `)
         .eq('id', userId)

@@ -561,6 +561,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    minHeight: '70%',
     maxHeight: '90%',
   },
   header: {
@@ -616,6 +617,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
+    paddingBottom: 10,
   },
   stepContent: {
     flex: 1,
@@ -631,7 +633,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   categoriesContainer: {
-    maxHeight: 300,
+    flexGrow: 1,
   },
   categoryCard: {
     flexDirection: 'row',

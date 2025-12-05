@@ -1,8 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useRef, useEffect, useMemo } from 'react';
-import { View, Text } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import React, { useRef, useEffect, useMemo, useCallback, useState } from 'react';
+import { View, Text, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region, Callout } from 'react-native-maps';
+import * as Location from 'expo-location';
 
+import { useRouteDirections } from '@/hooks/useRouteDirections';
+import { showNavigationOptions } from '@/utils/navigation';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface Parada {
@@ -15,12 +18,19 @@ interface Parada {
   is_checkpoint?: boolean;
 }
 
+type StatusFilter = 'all' | 'pendente' | 'em_andamento' | 'concluida';
+
 interface MapaMobileProps {
   paradas: Parada[];
+  selectedParadaId?: string | null;
+  onMarkerPress?: (paradaId: string) => void;
+  statusFilter?: StatusFilter;
 }
 
-export function MapaMobile({ paradas }: MapaMobileProps) {
+export function MapaMobile({ paradas, selectedParadaId, onMarkerPress, statusFilter = 'all' }: MapaMobileProps) {
   const mapRef = useRef<MapView>(null);
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
 
   // Filtrar paradas com coordenadas válidas
   const paradasComCoord = useMemo(
@@ -34,9 +44,20 @@ export function MapaMobile({ paradas }: MapaMobileProps) {
     [paradasComCoord]
   );
 
+  // Paradas filtradas por status
+  const paradasFiltradas = useMemo(() => {
+    if (statusFilter === 'all') return paradasReais;
+    return paradasReais.filter((p) => p.status === statusFilter);
+  }, [paradasReais, statusFilter]);
+
   const checkpoints = useMemo(
     () => paradasComCoord.filter((p) => p.is_checkpoint === false),
     [paradasComCoord]
+  );
+
+  // Buscar rota real usando Google Directions API
+  const { routeCoordinates, routeInfo, isLoading: isLoadingRoute } = useRouteDirections(
+    paradasComCoord as Parada[]
   );
 
   // Ajustar mapa para mostrar todas as paradas após carregar
@@ -124,6 +145,77 @@ export function MapaMobile({ paradas }: MapaMobileProps) {
     }
   };
 
+  // Próxima parada pendente (para navegação)
+  const proximaParadaPendente = useMemo(() => {
+    return paradasReais
+      .filter((p) => p.status === 'pendente' || p.status === 'em_andamento')
+      .sort((a, b) => a.ordem - b.ordem)[0];
+  }, [paradasReais]);
+
+  // Centralizar no usuário
+  const handleCenterOnUser = useCallback(async () => {
+    setIsLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permissão negada', 'Permita o acesso à localização para usar esta função.');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const newUserLocation = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      };
+
+      setUserLocation(newUserLocation);
+
+      mapRef.current?.animateToRegion({
+        ...newUserLocation,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      }, 500);
+    } catch (error) {
+      console.error('[MapaMobile] Erro ao obter localização:', error);
+      Alert.alert('Erro', 'Não foi possível obter sua localização.');
+    } finally {
+      setIsLocating(false);
+    }
+  }, []);
+
+  // Navegar para próxima parada usando app externo
+  const handleNavigate = useCallback(() => {
+    if (!proximaParadaPendente) {
+      Alert.alert('Nenhuma parada', 'Não há paradas pendentes para navegar.');
+      return;
+    }
+
+    showNavigationOptions({
+      latitude: proximaParadaPendente.latitude!,
+      longitude: proximaParadaPendente.longitude!,
+      label: `Parada ${proximaParadaPendente.ordem} - ${proximaParadaPendente.endereco}`,
+    });
+  }, [proximaParadaPendente]);
+
+  // Ajustar mapa para mostrar todas as paradas
+  const handleFitAll = useCallback(() => {
+    if (paradasComCoord.length > 0 && mapRef.current) {
+      mapRef.current.fitToCoordinates(
+        paradasComCoord.map((p) => ({
+          latitude: p.latitude!,
+          longitude: p.longitude!,
+        })),
+        {
+          edgePadding: { top: 80, right: 50, bottom: 120, left: 50 },
+          animated: true,
+        }
+      );
+    }
+  }, [paradasComCoord]);
+
   return (
     <View style={styles.container}>
       <MapView
@@ -138,16 +230,12 @@ export function MapaMobile({ paradas }: MapaMobileProps) {
         loadingIndicatorColor="#0D5A9C"
         loadingBackgroundColor="#ffffff"
       >
-        {/* Linha conectando todas as paradas */}
-        {paradasComCoord.length > 1 && (
+        {/* Rota real (via Google Directions API) ou fallback para linhas retas */}
+        {routeCoordinates.length > 1 && (
           <Polyline
-            coordinates={paradasComCoord.map(p => ({
-              latitude: p.latitude!,
-              longitude: p.longitude!,
-            }))}
+            coordinates={routeCoordinates}
             strokeColor="#0D5A9C"
             strokeWidth={4}
-            lineDashPattern={[1]}
           />
         )}
 
@@ -161,6 +249,7 @@ export function MapaMobile({ paradas }: MapaMobileProps) {
             }}
             title={parada.ordem === 0 ? 'Ponto de Partida' : 'Ponto de Chegada'}
             description={parada.endereco}
+            tracksViewChanges={false}
           >
             {/* Marcador especial para checkpoints (pin azul) */}
             <View style={styles.checkpointMarker}>
@@ -173,34 +262,94 @@ export function MapaMobile({ paradas }: MapaMobileProps) {
           </Marker>
         ))}
 
-        {/* Marcadores das paradas reais (entregas/retiradas) */}
-        {paradasReais.map((parada) => (
+        {/* Marcadores das paradas reais (entregas/retiradas) - filtradas por status */}
+        {paradasFiltradas.map((parada) => (
           <Marker
             key={parada.id}
             coordinate={{
               latitude: parada.latitude!,
               longitude: parada.longitude!,
             }}
-            title={`Parada ${parada.ordem}`}
-            description={parada.endereco}
-            pinColor={getMarkerColor(parada.status)}
+            onPress={() => onMarkerPress?.(parada.id)}
+            tracksViewChanges={false}
           >
             {/* Customizar marcador com número da ordem */}
             <View style={[
               styles.markerContainer,
-              { backgroundColor: getMarkerColor(parada.status) }
+              { backgroundColor: getMarkerColor(parada.status) },
+              selectedParadaId === parada.id && styles.markerSelected,
             ]}>
               <Text style={styles.markerText}>{parada.ordem}</Text>
             </View>
+            {/* Callout com informações da parada */}
+            <Callout
+              tooltip
+              onPress={() => onMarkerPress?.(parada.id)}
+            >
+              <View style={styles.calloutContainer}>
+                <Text style={styles.calloutTitle}>Parada {parada.ordem}</Text>
+                <Text style={styles.calloutAddress} numberOfLines={2}>{parada.endereco}</Text>
+                <View style={[styles.calloutStatus, { backgroundColor: `${getMarkerColor(parada.status)}20` }]}>
+                  <Text style={[styles.calloutStatusText, { color: getMarkerColor(parada.status) }]}>
+                    {parada.status === 'concluida' ? 'Concluída' : parada.status === 'em_andamento' ? 'Em andamento' : 'Pendente'}
+                  </Text>
+                </View>
+              </View>
+            </Callout>
           </Marker>
         ))}
       </MapView>
 
-      {/* Info Badge - mostra apenas paradas reais */}
+      {/* Info Badge - mostra paradas e info da rota */}
       <View style={styles.infoBadge}>
-        <Text style={styles.infoBadgeText}>
-          📍 {paradasReais.length} parada{paradasReais.length !== 1 ? 's' : ''}
-        </Text>
+        {isLoadingRoute ? (
+          <View style={styles.infoBadgeLoading}>
+            <ActivityIndicator size="small" color="#0D5A9C" />
+            <Text style={styles.infoBadgeText}>Calculando rota...</Text>
+          </View>
+        ) : (
+          <Text style={styles.infoBadgeText}>
+            📍 {paradasFiltradas.length}{statusFilter !== 'all' ? `/${paradasReais.length}` : ''} parada{paradasFiltradas.length !== 1 ? 's' : ''}
+            {routeInfo && ` • ${(routeInfo.distanceMeters / 1000).toFixed(1)} km • ${Math.round(routeInfo.durationSeconds / 60)} min`}
+          </Text>
+        )}
+      </View>
+
+      {/* Botões flutuantes (FABs) */}
+      <View style={styles.fabContainer}>
+        {/* Botão de ajustar para mostrar todas as paradas */}
+        <TouchableOpacity
+          style={styles.fabSecondary}
+          onPress={handleFitAll}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="scan-outline" size={22} color="#0D5A9C" />
+        </TouchableOpacity>
+
+        {/* Botão de centralizar no usuário */}
+        <TouchableOpacity
+          style={styles.fabSecondary}
+          onPress={handleCenterOnUser}
+          activeOpacity={0.8}
+          disabled={isLocating}
+        >
+          {isLocating ? (
+            <ActivityIndicator size="small" color="#0D5A9C" />
+          ) : (
+            <Ionicons name="locate" size={22} color="#0D5A9C" />
+          )}
+        </TouchableOpacity>
+
+        {/* Botão principal de navegação */}
+        {proximaParadaPendente && (
+          <TouchableOpacity
+            style={styles.fabPrimary}
+            onPress={handleNavigate}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="navigate" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -208,7 +357,8 @@ export function MapaMobile({ paradas }: MapaMobileProps) {
 
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
-    height: 400,
+    flex: 1,
+    minHeight: 300,
     borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: theme.colors.disabled,
@@ -217,7 +367,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
   },
   emptyContainer: {
-    height: 400,
+    flex: 1,
+    minHeight: 300,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: theme.colors.disabled,
@@ -263,6 +414,45 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: 14,
     fontWeight: 'bold',
   },
+  markerSelected: {
+    borderWidth: 4,
+    borderColor: '#0D5A9C',
+    transform: [{ scale: 1.2 }],
+  },
+  calloutContainer: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 12,
+    padding: 12,
+    minWidth: 200,
+    maxWidth: 280,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  calloutTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginBottom: 4,
+  },
+  calloutAddress: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    marginBottom: 8,
+    lineHeight: 18,
+  },
+  calloutStatus: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  calloutStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
   infoBadge: {
     position: 'absolute',
     top: 10,
@@ -277,9 +467,48 @@ const styles = StyleSheet.create((theme: Theme) => ({
     shadowRadius: 4,
     elevation: 3,
   },
+  infoBadgeLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   infoBadgeText: {
     fontSize: 12,
     fontWeight: '600',
     color: theme.colors.text,
+  },
+  fabContainer: {
+    position: 'absolute',
+    bottom: 20,
+    right: 16,
+    gap: 12,
+  },
+  fabPrimary: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#0D5A9C',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  fabSecondary: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: theme.colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
   },
 }));

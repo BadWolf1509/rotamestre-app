@@ -3,7 +3,7 @@ module.exports = ({ config }) => {
     ...config,
     name: "Rota Mestre",
     slug: "rotamestre",
-    version: "1.0.0",
+    version: "1.1.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -50,7 +50,7 @@ module.exports = ({ config }) => {
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: "br.tec.rotamestre",
-      versionCode: 3004, // Incrementar +1 a cada build (3001, 3002, 3003...)
+      versionCode: 3005, // Incrementar +1 a cada build (3001, 3002, 3003...)
       permissions: [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
