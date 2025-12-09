@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { RouteStatus } from '@/context/RouteStatusContext';
+import { lightHaptic, mediumHaptic, heavyHaptic } from '@/utils/haptics';
 import { defaultTheme, useUnistyles } from '@/utils/styles';
 
 interface QuickActionsProps {
@@ -19,10 +20,19 @@ interface QuickActionsProps {
   onReportIncident?: () => void;
   onOpenSettings?: () => void;
   onViewSummary?: () => void;
+  onViewHistory?: () => void;
   style?: StyleProp<ViewStyle>;
 }
 
 const colors = defaultTheme.colors;
+
+interface ActionConfig {
+  icon: string;
+  label: string;
+  onPress?: () => void;
+  haptic: 'light' | 'medium' | 'heavy';
+  color?: string;
+}
 
 export function QuickActions({
   state,
@@ -31,46 +41,70 @@ export function QuickActions({
   onReportIncident,
   onOpenSettings,
   onViewSummary,
+  onViewHistory,
   style,
 }: QuickActionsProps) {
-  const getActions = () => {
+  const { theme } = useUnistyles();
+
+  const getActions = (): ActionConfig[] => {
     switch (state) {
       case 'no-route':
         return [
-          { icon: 'warning-outline', label: 'Reportar', onPress: onReportIncident },
-          { icon: 'help-circle-outline', label: 'Ajuda', onPress: onContactSupport },
-          { icon: 'bar-chart-outline', label: 'Estatisticas', onPress: onViewSummary },
+          { icon: 'time-outline', label: 'Histórico', onPress: onViewHistory, haptic: 'light' },
+          { icon: 'bar-chart-outline', label: 'Estatísticas', onPress: onViewSummary, haptic: 'light' },
+          { icon: 'settings-outline', label: 'Configurações', onPress: onOpenSettings, haptic: 'light' },
+          { icon: 'help-circle-outline', label: 'Suporte', onPress: onContactSupport, haptic: 'light' },
         ];
 
       case 'pending':
         return [
-          { icon: 'list-outline', label: 'Ver Paradas', onPress: onViewAllStops },
-          { icon: 'warning-outline', label: 'Reportar', onPress: onReportIncident },
-          { icon: 'call-outline', label: 'Suporte', onPress: onContactSupport },
+          { icon: 'list-outline', label: 'Ver Paradas', onPress: onViewAllStops, haptic: 'light' },
+          { icon: 'warning-outline', label: 'Reportar', onPress: onReportIncident, haptic: 'medium', color: theme.colors.warning },
+          { icon: 'call-outline', label: 'Suporte', onPress: onContactSupport, haptic: 'light' },
+          { icon: 'settings-outline', label: 'Navegação', onPress: onOpenSettings, haptic: 'light' },
         ];
 
       case 'active':
       case 'last-stop':
         return [
-          { icon: 'list-outline', label: 'Todas Paradas', onPress: onViewAllStops },
-          { icon: 'warning-outline', label: 'Reportar', onPress: onReportIncident },
-          { icon: 'settings-outline', label: 'Navegacao', onPress: onOpenSettings },
+          { icon: 'list-outline', label: 'Todas Paradas', onPress: onViewAllStops, haptic: 'light' },
+          { icon: 'warning-outline', label: 'Reportar', onPress: onReportIncident, haptic: 'medium', color: theme.colors.warning },
+          { icon: 'settings-outline', label: 'Navegação', onPress: onOpenSettings, haptic: 'light' },
+          { icon: 'call-outline', label: 'Suporte', onPress: onContactSupport, haptic: 'light' },
         ];
 
       case 'ready-to-complete':
         return [
-          { icon: 'checkmark-circle-outline', label: 'Ver Resumo', onPress: onViewSummary },
-          { icon: 'share-outline', label: 'Compartilhar', onPress: onContactSupport },
+          { icon: 'document-text-outline', label: 'Ver Resumo', onPress: onViewSummary, haptic: 'light' },
+          { icon: 'list-outline', label: 'Ver Paradas', onPress: onViewAllStops, haptic: 'light' },
+          { icon: 'share-outline', label: 'Compartilhar', onPress: onContactSupport, haptic: 'light' },
         ];
 
       case 'completed':
         return [
-          { icon: 'bar-chart-outline', label: 'Ver Detalhes', onPress: onViewSummary },
-          { icon: 'share-outline', label: 'Compartilhar', onPress: onContactSupport },
+          { icon: 'bar-chart-outline', label: 'Detalhes', onPress: onViewSummary, haptic: 'light' },
+          { icon: 'time-outline', label: 'Histórico', onPress: onViewHistory, haptic: 'light' },
+          { icon: 'share-outline', label: 'Compartilhar', onPress: onContactSupport, haptic: 'light' },
         ];
 
       default:
         return [];
+    }
+  };
+
+  const handlePress = async (action: ActionConfig) => {
+    // Feedback háptico
+    if (action.haptic === 'heavy') {
+      await heavyHaptic();
+    } else if (action.haptic === 'medium') {
+      await mediumHaptic();
+    } else {
+      await lightHaptic();
+    }
+
+    // Executar ação
+    if (action.onPress) {
+      action.onPress();
     }
   };
 
@@ -82,15 +116,26 @@ export function QuickActions({
         <TouchableOpacity
           key={action.label}
           style={styles.actionButton}
-          onPress={() => {
-            if (action.onPress) {
-              action.onPress();
-            }
-          }}
+          onPress={() => handlePress(action)}
           activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name={action.icon as any} size={22} color={colors.primary} />
-          <Text style={styles.actionLabel}>{action.label}</Text>
+          <View style={[
+            styles.iconContainer,
+            action.color ? { backgroundColor: `${action.color}15` } : {}
+          ]}>
+            <Ionicons
+              name={action.icon as any}
+              size={24}
+              color={action.color || colors.primary}
+            />
+          </View>
+          <Text style={[
+            styles.actionLabel,
+            action.color ? { color: action.color } : {}
+          ]}>
+            {action.label}
+          </Text>
         </TouchableOpacity>
       ))}
     </View>
@@ -103,6 +148,7 @@ interface FloatingActionButtonProps {
   color: string;
   onPress: () => void;
   label?: string;
+  disabled?: boolean;
 }
 
 export function FloatingActionButton({
@@ -110,18 +156,66 @@ export function FloatingActionButton({
   color,
   onPress,
   label,
+  disabled = false,
 }: FloatingActionButtonProps) {
   const { theme } = useUnistyles();
 
+  const handlePress = async () => {
+    if (disabled) return;
+    await heavyHaptic();
+    onPress();
+  };
+
   return (
     <TouchableOpacity
-      style={[fabStyles.fab, { backgroundColor: color, shadowColor: theme.colors.black }]}
-      onPress={onPress}
+      style={[
+        fabStyles.fab,
+        { backgroundColor: disabled ? theme.colors.gray400 : color, shadowColor: theme.colors.black }
+      ]}
+      onPress={handlePress}
       activeOpacity={0.8}
+      disabled={disabled}
     >
       <Ionicons name={icon as any} size={28} color={theme.colors.white} />
       {label && <Text style={[fabStyles.fabLabel, { color: theme.colors.white }]}>{label}</Text>}
     </TouchableOpacity>
+  );
+}
+
+// Bottom Actions Bar - Fixo no bottom da tela
+interface BottomActionsBarProps {
+  state: RouteStatus;
+  onViewAllStops?: () => void;
+  onContactSupport?: () => void;
+  onReportIncident?: () => void;
+  onOpenSettings?: () => void;
+  onViewSummary?: () => void;
+  onViewHistory?: () => void;
+  bottomInset?: number;
+}
+
+export function BottomActionsBar({
+  state,
+  onViewAllStops,
+  onContactSupport,
+  onReportIncident,
+  onOpenSettings,
+  onViewSummary,
+  onViewHistory,
+  bottomInset = 0,
+}: BottomActionsBarProps) {
+  return (
+    <View style={[bottomBarStyles.container, { paddingBottom: bottomInset + 16 }]}>
+      <QuickActions
+        state={state}
+        onViewAllStops={onViewAllStops}
+        onContactSupport={onContactSupport}
+        onReportIncident={onReportIncident}
+        onOpenSettings={onOpenSettings}
+        onViewSummary={onViewSummary}
+        onViewHistory={onViewHistory}
+      />
+    </View>
   );
 }
 
@@ -130,32 +224,40 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    justifyContent: 'space-around',
+    paddingHorizontal: 8,
+    paddingVertical: 12,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.gray200,
     backgroundColor: colors.white,
     shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
   },
   actionButton: {
-    flexGrow: 1,
-    minWidth: 110,
+    minWidth: 72,
+    minHeight: 64, // Mínimo 48x48 + padding
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
-    marginHorizontal: 4,
-    marginVertical: 6,
+    paddingHorizontal: 8,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: `${colors.primary}10`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   actionLabel: {
     fontSize: 12,
+    fontWeight: '500',
     color: colors.gray700,
-    marginTop: 4,
     textAlign: 'center',
   },
 });
@@ -163,8 +265,8 @@ const styles = StyleSheet.create({
 const fabStyles = StyleSheet.create({
   fab: {
     position: 'absolute',
-    bottom: 120,
-    right: 24,
+    bottom: 100,
+    right: 20,
     width: 64,
     height: 64,
     borderRadius: 32,
@@ -177,8 +279,20 @@ const fabStyles = StyleSheet.create({
     zIndex: 15,
   },
   fabLabel: {
-    fontSize: 10,
+    fontSize: 12,
     marginTop: 2,
     fontWeight: '600',
+  },
+});
+
+const bottomBarStyles = StyleSheet.create({
+  container: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    backgroundColor: 'transparent',
   },
 });

@@ -1,13 +1,30 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View, Animated, ActivityIndicator } from 'react-native';
 
 import { StreetViewPreview } from '@/components/StreetViewPreview';
 import { SwipeableRow } from '@/components/SwipeableRow';
 import { RouteStatus } from '@/context/RouteStatusContext';
+import { useDistanceToStop } from '@/hooks/useDistanceToStop';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { defaultTheme, useUnistyles } from '@/utils/styles';
+
+/**
+ * Formata tempo decorrido entre dois timestamps (ou desde start até agora)
+ */
+function formatElapsedTime(startTime: number, endTime?: number): string {
+  const end = endTime || Date.now();
+  const elapsed = end - startTime;
+
+  const hours = Math.floor(elapsed / (1000 * 60 * 60));
+  const minutes = Math.floor((elapsed % (1000 * 60 * 60)) / (1000 * 60));
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}min`;
+  }
+  return `${minutes} min`;
+}
 
 interface MainCardProps {
   state: RouteStatus;
@@ -32,6 +49,8 @@ export function MainCard({
   route,
   paradas,
   currentStop,
+  nextStop,
+  location,
   onSwipeLeft,
   onSwipeRight,
   onPress,
@@ -44,6 +63,42 @@ export function MainCard({
     paradasOntem: 0,
     distanciaOntem: 0,
   });
+
+  // Animação de entrada do card
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [state, fadeAnim, slideAnim]);
+
+  // Calcular distância real até a parada atual ou próxima
+  const targetStop = currentStop || nextStop;
+  const distanceInfo = useDistanceToStop(
+    location,
+    targetStop ? { latitude: targetStop.latitude, longitude: targetStop.longitude } : null,
+    { enabled: !!targetStop && !!location }
+  );
+
+  // Calcular distância até primeira parada (para estado pending)
+  const firstStop = paradas.find(p => p.is_checkpoint !== false);
+  const firstStopDistance = useDistanceToStop(
+    location,
+    firstStop ? { latitude: firstStop.latitude, longitude: firstStop.longitude } : null,
+    { enabled: state === 'pending' && !!firstStop && !!location }
+  );
 
   // Filtrar apenas paradas reais (sem checkpoints)
   const paradasReais = paradas.filter(p => p.is_checkpoint !== false);
@@ -127,39 +182,81 @@ export function MainCard({
     }
   };
 
-  const renderNoRoute = () => (
-    <View style={styles.content}>
-      <Text style={styles.icon}>☕</Text>
-      <Text style={styles.title}>Nenhuma rota para hoje</Text>
-      <Text style={styles.subtitle}>Confira suas estatísticas de ontem</Text>
+  const renderNoRoute = () => {
+    const hasYesterdayStats = stats.rotasOntem > 0 || stats.paradasOntem > 0;
 
-      <View style={styles.statsRow}>
-        <View style={styles.stat}>
-          <Text style={styles.statLabel}>Ontem</Text>
-          <Text style={styles.statValue}>
-            {stats.rotasOntem} {stats.rotasOntem === 1 ? 'rota' : 'rotas'}
+    return (
+      <View style={styles.content}>
+        <View style={styles.noRouteHeader}>
+          <View style={[styles.noRouteIconContainer, { backgroundColor: theme.colors.gray100 }]}>
+            <Ionicons name="cafe-outline" size={32} color={theme.colors.gray500} />
+          </View>
+          <Text style={styles.title}>Sem rota no momento</Text>
+          <Text style={styles.subtitle}>
+            {hasYesterdayStats
+              ? 'Confira suas estatísticas de ontem'
+              : 'Aguardando atribuição de nova rota'}
           </Text>
         </View>
-        <View style={styles.stat}>
-          <Text style={styles.statLabel}>Paradas</Text>
-          <Text style={styles.statValue}>{stats.paradasOntem}</Text>
-        </View>
-        <View style={styles.stat}>
-          <Text style={styles.statLabel}>Distância</Text>
-          <Text style={styles.statValue}>{stats.distanciaOntem} km</Text>
-        </View>
+
+        {hasYesterdayStats ? (
+          <View style={styles.statsRow}>
+            <View style={styles.stat}>
+              <View style={[styles.statIconBg, { backgroundColor: theme.colors.primaryLight }]}>
+                <Ionicons name="map-outline" size={16} color={theme.colors.primary} />
+              </View>
+              <Text style={styles.statValue}>
+                {stats.rotasOntem} {stats.rotasOntem === 1 ? 'rota' : 'rotas'}
+              </Text>
+              <Text style={styles.statLabel}>Ontem</Text>
+            </View>
+            <View style={styles.stat}>
+              <View style={[styles.statIconBg, { backgroundColor: theme.colors.successBg }]}>
+                <Ionicons name="location-outline" size={16} color={theme.colors.success} />
+              </View>
+              <Text style={styles.statValue}>{stats.paradasOntem}</Text>
+              <Text style={styles.statLabel}>Paradas</Text>
+            </View>
+            <View style={styles.stat}>
+              <View style={[styles.statIconBg, { backgroundColor: theme.colors.infoBg }]}>
+                <Ionicons name="speedometer-outline" size={16} color={theme.colors.info} />
+              </View>
+              <Text style={styles.statValue}>{stats.distanciaOntem} km</Text>
+              <Text style={styles.statLabel}>Percorridos</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.noStatsContainer}>
+            <View style={styles.tipCard}>
+              <Ionicons name="bulb-outline" size={20} color={theme.colors.warning} />
+              <View style={styles.tipContent}>
+                <Text style={styles.tipTitle}>Dica do dia</Text>
+                <Text style={styles.tipText}>
+                  Verifique se há rotas disponíveis no menu "Minhas Rotas"
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderPending = () => {
-    const firstStop = paradas[0];
+    const pendingFirstStop = paradas.find(p => p.is_checkpoint !== false);
+    // Estimar tempo baseado na distância (média de 30km/h em área urbana)
+    const estimatedMinutes = route?.distancia_total
+      ? Math.round((route.distancia_total / 30) * 60)
+      : 0;
+    const estimatedTimeText = estimatedMinutes > 60
+      ? `~${Math.floor(estimatedMinutes / 60)}h ${estimatedMinutes % 60}min`
+      : `~${estimatedMinutes} min`;
 
     return (
       <View style={styles.content}>
         <View style={styles.header}>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>ROTA PENDENTE</Text>
+          <View style={[styles.badge, { backgroundColor: theme.colors.warning }]}>
+            <Text style={[styles.badgeText, styles.badgeTextDark]}>ROTA PENDENTE</Text>
           </View>
         </View>
 
@@ -176,15 +273,26 @@ export function MainCard({
           </View>
           <View style={styles.infoItem}>
             <Ionicons name="time-outline" size={16} color={theme.colors.gray500} />
-            <Text style={styles.infoValue}>~3h 20min</Text>
+            <Text style={styles.infoValue}>{estimatedTimeText}</Text>
           </View>
         </View>
 
-        {firstStop && (
+        {pendingFirstStop && (
           <View style={styles.firstStopSection}>
             <Text style={styles.sectionLabel}>PRIMEIRA PARADA</Text>
-            <Text style={styles.addressText}>{firstStop.endereco}</Text>
-            <Text style={styles.distanceText}>2.3 km daqui</Text>
+            <Text style={styles.addressText}>{pendingFirstStop.endereco}</Text>
+            <View style={styles.distanceRow}>
+              {firstStopDistance.isLoading ? (
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+              ) : (
+                <>
+                  <Ionicons name="navigate" size={14} color={theme.colors.primary} />
+                  <Text style={[styles.distanceText, { color: theme.colors.primary }]}>
+                    {firstStopDistance.distanceKm} • {firstStopDistance.durationText}
+                  </Text>
+                </>
+              )}
+            </View>
           </View>
         )}
       </View>
@@ -213,14 +321,25 @@ export function MainCard({
       <SwipeableRow {...swipeActions}>
         <TouchableOpacity style={styles.content} onPress={onPress} activeOpacity={0.9}>
           <View style={styles.header}>
-            <View style={styles.badge}>
+            <View style={[
+              styles.badge,
+              state === 'last-stop' && { backgroundColor: theme.colors.success }
+            ]}>
               <Text style={styles.badgeText}>
                 {state === 'last-stop' ? 'ÚLTIMA PARADA! 🎯' : `PARADA ${currentStop.ordem}/${paradasReais.length}`}
               </Text>
             </View>
             <View style={styles.timer}>
-              <Ionicons name="time-outline" size={14} color={theme.colors.gray500} />
-              <Text style={styles.timerText}>2 min</Text>
+              {distanceInfo.isLoading ? (
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+              ) : (
+                <>
+                  <Ionicons name="time-outline" size={14} color={theme.colors.primary} />
+                  <Text style={[styles.timerText, { color: theme.colors.primary, fontWeight: '600' }]}>
+                    {distanceInfo.durationText}
+                  </Text>
+                </>
+              )}
             </View>
           </View>
 
@@ -255,64 +374,105 @@ export function MainCard({
             />
           </View>
 
-          <View style={styles.distanceBar}>
-            <Ionicons name="navigate" size={16} color={theme.colors.primary} />
-            <Text style={styles.distanceText}>800m • 2 min de carro</Text>
+          <View style={[styles.distanceBar, { backgroundColor: theme.colors.primary }]}>
+            {distanceInfo.isLoading ? (
+              <ActivityIndicator size="small" color={theme.colors.white} />
+            ) : (
+              <>
+                <Ionicons name="navigate" size={16} color={theme.colors.white} />
+                <Text style={[styles.distanceText, { color: theme.colors.white, fontWeight: '600' }]}>
+                  {distanceInfo.distanceKm} • {distanceInfo.durationText}
+                </Text>
+              </>
+            )}
           </View>
         </TouchableOpacity>
       </SwipeableRow>
     );
   };
 
-  const renderReadyToComplete = () => (
-    <View style={styles.content}>
-      <Text style={styles.icon}>🎉</Text>
-      <Text style={styles.title}>Todas as paradas concluídas!</Text>
-      <Text style={styles.subtitle}>Você pode finalizar a rota agora</Text>
+  const renderReadyToComplete = () => {
+    // Calcular tempo real baseado em iniciada_em
+    const elapsedTime = route?.iniciada_em
+      ? formatElapsedTime(new Date(route.iniciada_em).getTime())
+      : '--';
 
-      <View style={styles.summaryBox}>
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>Tempo total</Text>
-          <Text style={styles.summaryValue}>3h 15min</Text>
-        </View>
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>Distância</Text>
-          <Text style={styles.summaryValue}>{route?.distancia_total} km</Text>
+    return (
+      <View style={styles.content}>
+        <Text style={styles.icon}>🎉</Text>
+        <Text style={styles.title}>Todas as paradas concluídas!</Text>
+        <Text style={styles.subtitle}>Você pode finalizar a rota agora</Text>
+
+        <View style={styles.summaryBox}>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>Tempo total</Text>
+            <Text style={styles.summaryValue}>{elapsedTime}</Text>
+          </View>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>Distância</Text>
+            <Text style={styles.summaryValue}>{route?.distancia_total || 0} km</Text>
+          </View>
         </View>
       </View>
-    </View>
-  );
+    );
+  };
 
-  const renderCompleted = () => (
-    <View style={styles.content}>
-      <Text style={styles.icon}>✅</Text>
-      <Text style={styles.title}>Rota Concluída</Text>
+  const renderCompleted = () => {
+    // Calcular tempo real baseado em iniciada_em e concluida_em
+    const totalTime = route?.iniciada_em && route?.concluida_em
+      ? formatElapsedTime(
+          new Date(route.iniciada_em).getTime(),
+          new Date(route.concluida_em).getTime()
+        )
+      : '--';
 
-      <View style={styles.statsGrid}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>3h 15min</Text>
-          <Text style={styles.statLabel}>Tempo Total</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{paradasReais.length}</Text>
-          <Text style={styles.statLabel}>Paradas</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{route?.distancia_total} km</Text>
-          <Text style={styles.statLabel}>Distância</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={[styles.statNumber, { color: theme.colors.success }]}>12 min</Text>
-          <Text style={styles.statLabel}>Economia</Text>
+    // Calcular economia (estimado - real)
+    const estimatedMinutes = route?.tempo_total ? route.tempo_total : 0;
+    const actualMinutes = route?.iniciada_em && route?.concluida_em
+      ? Math.floor((new Date(route.concluida_em).getTime() - new Date(route.iniciada_em).getTime()) / 60000)
+      : 0;
+    const savedMinutes = Math.max(0, estimatedMinutes - actualMinutes);
+    const savedText = savedMinutes > 0 ? `${savedMinutes} min` : '--';
+
+    return (
+      <View style={styles.content}>
+        <Text style={styles.icon}>✅</Text>
+        <Text style={styles.title}>Rota Concluída</Text>
+
+        <View style={styles.statsGrid}>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{totalTime}</Text>
+            <Text style={styles.statLabel}>Tempo Total</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{paradasReais.length}</Text>
+            <Text style={styles.statLabel}>Paradas</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{route?.distancia_total || 0} km</Text>
+            <Text style={styles.statLabel}>Distância</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={[styles.statNumber, { color: theme.colors.success }]}>{savedText}</Text>
+            <Text style={styles.statLabel}>Economia</Text>
+          </View>
         </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
-    <View style={styles.card}>
+    <Animated.View
+      style={[
+        styles.card,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        },
+      ]}
+    >
       {renderContent()}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -350,6 +510,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.5,
+  },
+  badgeTextDark: {
+    color: '#78350f', // amber-900 para alto contraste em fundo warning (7:1)
   },
   timer: {
     flexDirection: 'row',
@@ -390,23 +553,75 @@ const styles = StyleSheet.create({
     color: colors.gray900,
     marginBottom: 8,
   },
+  noRouteHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  noRouteIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginTop: 16,
+    marginTop: 8,
   },
   stat: {
     alignItems: 'center',
+    flex: 1,
+  },
+  statIconBg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.gray500,
-    marginBottom: 4,
+    marginTop: 2,
   },
   statValue: {
     fontSize: 16,
+    fontWeight: '700',
+    color: colors.gray900,
+  },
+  noStatsContainer: {
+    marginTop: 8,
+  },
+  tipCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: colors.warningBg,
+    borderRadius: 8,
+    gap: 10,
+  },
+  tipContent: {
+    flex: 1,
+  },
+  tipTitle: {
+    fontSize: 13,
     fontWeight: '600',
     color: colors.gray900,
+    marginBottom: 2,
+  },
+  tipText: {
+    fontSize: 12,
+    color: colors.gray600,
+    lineHeight: 16,
+  },
+  distanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
   },
   infoGrid: {
     flexDirection: 'row',

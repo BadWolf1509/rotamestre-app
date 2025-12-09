@@ -23,8 +23,10 @@ export interface Theme {
     textTertiary: string;
     textInverse: string;
     success: string;
+    successDark: string;
     successBg: string;
     warning: string;
+    warningText: string;
     warningBg: string;
     error: string;
     errorBg: string;

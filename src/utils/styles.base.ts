@@ -29,8 +29,10 @@ export const defaultTheme: Theme = {
     textTertiary: '#9ca3af',
     textInverse: '#ffffff',
     success: '#10b981',
+    successDark: '#047857', // Alto contraste para texto (5.9:1)
     successBg: '#d1fae5',
     warning: '#f59e0b',
+    warningText: '#b45309', // Alto contraste para texto (5.1:1)
     warningBg: '#fef3c7',
     error: '#ef4444',
     errorBg: '#fee2e2',
