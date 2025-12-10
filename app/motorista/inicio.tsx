@@ -17,7 +17,7 @@ import { IncidentReportWizard } from '@/components/IncidentReportWizard';
 import { MainCard } from '@/components/motorista/home/MainCard';
 import { MiniMap } from '@/components/motorista/home/MiniMap';
 import { ProgressBar } from '@/components/motorista/home/ProgressBar';
-import { FloatingActionButton, QuickActions } from '@/components/motorista/home/QuickActions';
+import { FloatingActionButton, BottomActionsBar } from '@/components/motorista/home/QuickActions';
 import { StatusSection } from '@/components/motorista/home/StatusSection';
 import { NavigationMode } from '@/components/motorista/NavigationMode';
 import { NavigationSettings } from '@/components/motorista/NavigationSettings';
@@ -69,36 +69,54 @@ function MotoristaInicioContent() {
 
   // Load user location
   useEffect(() => {
+    let subscription: Location.LocationSubscription | null = null;
+
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        console.log('Permission to access location was denied');
-        return;
-      }
-
-      const location = await Location.getCurrentPositionAsync({});
-      setLocation({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      });
-
-      // Subscribe to location updates
-      const subscription = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 10000,
-          distanceInterval: 50,
-        },
-        (newLocation) => {
-          setLocation({
-            latitude: newLocation.coords.latitude,
-            longitude: newLocation.coords.longitude,
-          });
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          console.log('[Location] Permission to access location was denied');
+          return;
         }
-      );
 
-      return () => subscription.remove();
+        // Try to get current position with timeout
+        try {
+          const location = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          setLocation({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          });
+        } catch (positionError) {
+          console.warn('[Location] Could not get current position:', positionError);
+          // Continue anyway - will try to get location from watcher
+        }
+
+        // Subscribe to location updates
+        subscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.BestForNavigation,
+            timeInterval: 10000,
+            distanceInterval: 50,
+          },
+          (newLocation) => {
+            setLocation({
+              latitude: newLocation.coords.latitude,
+              longitude: newLocation.coords.longitude,
+            });
+          }
+        );
+      } catch (error) {
+        console.error('[Location] Error setting up location tracking:', error);
+      }
     })();
+
+    return () => {
+      if (subscription) {
+        subscription.remove();
+      }
+    };
   }, []);
 
   // SUSPENDED: Dynamic route optimization (Google Distance Matrix API has high cost)
@@ -445,6 +463,10 @@ function MotoristaInicioContent() {
         <StatusSection
           userName={userData?.nome}
           unitName={userData?.unidades?.nome}
+          userPhoto={userData?.foto_url}
+          routeStatus={routeStatus}
+          completedStops={progress.completed}
+          totalStops={progress.total}
         />
 
         {/* Main Card */}
@@ -467,6 +489,7 @@ function MotoristaInicioContent() {
             total={progress.total}
             timeElapsed={getElapsedTime() ?? undefined}
             estimatedTime={route?.tempo_total ? `~${formatarTempo(route.tempo_total)}` : undefined}
+            currentStopIndex={currentStop?.ordem}
           />
         )}
 
@@ -483,34 +506,19 @@ function MotoristaInicioContent() {
           />
         )}
 
-        {/* Quick Actions - moved inside ScrollView */}
-        <View style={{ paddingHorizontal: 16, paddingBottom: 16 + insets.bottom }}>
-          <QuickActions
-            state={routeStatus}
-            onViewAllStops={() => {
-              console.log('?? Navegando para checkpoints');
-              router.push('/motorista/checkpoints');
-            }}
-            onContactSupport={() => {
-              console.log('?? Abrindo modal de suporte');
-              setShowSupportModal(true);
-            }}
-            onReportIncident={() => {
-              console.log('?? Abrindo wizard de incidente');
-              setShowIncidentWizard(true);
-            }}
-            onOpenSettings={() => {
-              console.log('?? Abrindo configuracoes de navegacao');
-              setShowNavigationSettings(true);
-            }}
-            onViewSummary={() => {
-              console.log('?? Navegando para resumo');
-              router.push('/motorista/resumo');
-            }}
-          />
-        </View>
-
       </ScrollView>
+
+      {/* Bottom Actions Bar - fixo no bottom */}
+      <BottomActionsBar
+        state={routeStatus}
+        bottomInset={insets.bottom}
+        onViewAllStops={() => router.push('/motorista/checkpoints')}
+        onContactSupport={() => setShowSupportModal(true)}
+        onReportIncident={() => setShowIncidentWizard(true)}
+        onOpenSettings={() => setShowNavigationSettings(true)}
+        onViewSummary={() => router.push('/motorista/resumo')}
+        onViewHistory={() => router.push('/motorista/historico')}
+      />
 
       {/* Floating Action Button - absolute positioned outside ScrollView */}
       <FloatingActionButton

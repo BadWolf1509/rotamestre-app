@@ -300,8 +300,6 @@ export function MiniMap({
         </View>
 
       </TouchableOpacity>
-
-      <Text style={styles.hint}>Toque para abrir o mapa completo</Text>
     </View>
   );
 }
@@ -420,13 +418,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 3,
-  },
-  hint: {
-    fontSize: 11,
-    color: colors.gray500,
-    textAlign: 'center',
-    marginTop: 4,
-    fontStyle: 'italic',
   },
 });
 

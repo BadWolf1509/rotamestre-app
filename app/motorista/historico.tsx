@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,9 @@ import {
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+
+type FiltroStatus = 'todos' | 'concluida' | 'pendente' | 'em_andamento' | 'cancelada';
+type FiltroPeriodo = 'todos' | 'hoje' | 'semana' | 'mes';
 
 interface RotaHistorico {
   id: string;
@@ -27,6 +30,17 @@ interface RotaHistorico {
   paradas_concluidas?: number;
 }
 
+interface Metricas {
+  rotasTotais: number;
+  rotasConcluidas: number;
+  rotasMes: number;
+  paradasTotais: number;
+  paradasConcluidas: number;
+  distanciaTotal: number;
+  tempoMedioMinutos: number;
+  taxaSucesso: number;
+}
+
 export default function HistoricoMotorista() {
   const { theme } = useUnistyles();
   const { userData } = useUser();
@@ -34,6 +48,119 @@ export default function HistoricoMotorista() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedRotaId, setExpandedRotaId] = useState<string | null>(null);
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('todos');
+  const [filtroPeriodo, setFiltroPeriodo] = useState<FiltroPeriodo>('todos');
+
+  // Calcular métricas a partir das rotas
+  const metricas = useMemo((): Metricas => {
+    if (rotas.length === 0) {
+      return {
+        rotasTotais: 0,
+        rotasConcluidas: 0,
+        rotasMes: 0,
+        paradasTotais: 0,
+        paradasConcluidas: 0,
+        distanciaTotal: 0,
+        tempoMedioMinutos: 0,
+        taxaSucesso: 0,
+      };
+    }
+
+    const agora = new Date();
+    const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+
+    let totalParadas = 0;
+    let paradasConcluidas = 0;
+    let distanciaTotal = 0;
+    let tempoTotalMinutos = 0;
+    let rotasComTempo = 0;
+    let rotasMes = 0;
+    let rotasConcluidas = 0;
+
+    rotas.forEach((rota) => {
+      totalParadas += rota.paradas_count || 0;
+      paradasConcluidas += rota.paradas_concluidas || 0;
+      distanciaTotal += rota.distancia_total || 0;
+
+      if (rota.status === 'concluida') {
+        rotasConcluidas++;
+      }
+
+      // Contar rotas do mês
+      const dataRota = parseLocalDate(rota.data);
+      if (dataRota && dataRota >= inicioMes) {
+        rotasMes++;
+      }
+
+      // Calcular tempo médio
+      if (rota.iniciada_em && rota.concluida_em) {
+        const inicio = new Date(rota.iniciada_em);
+        const fim = new Date(rota.concluida_em);
+        const diffMinutos = (fim.getTime() - inicio.getTime()) / (1000 * 60);
+        if (diffMinutos > 0 && diffMinutos < 1440) {
+          // Menos de 24h
+          tempoTotalMinutos += diffMinutos;
+          rotasComTempo++;
+        }
+      }
+    });
+
+    const taxaSucesso =
+      totalParadas > 0 ? Math.round((paradasConcluidas / totalParadas) * 100) : 0;
+
+    const tempoMedioMinutos =
+      rotasComTempo > 0 ? Math.round(tempoTotalMinutos / rotasComTempo) : 0;
+
+    return {
+      rotasTotais: rotas.length,
+      rotasConcluidas,
+      rotasMes,
+      paradasTotais: totalParadas,
+      paradasConcluidas,
+      distanciaTotal: Math.round(distanciaTotal * 10) / 10,
+      tempoMedioMinutos,
+      taxaSucesso,
+    };
+  }, [rotas]);
+
+  // Filtrar rotas baseado nos filtros selecionados
+  const rotasFiltradas = useMemo(() => {
+    let resultado = [...rotas];
+
+    // Filtrar por status
+    if (filtroStatus !== 'todos') {
+      resultado = resultado.filter((r) => r.status === filtroStatus);
+    }
+
+    // Filtrar por período
+    if (filtroPeriodo !== 'todos') {
+      const agora = new Date();
+      const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+
+      resultado = resultado.filter((r) => {
+        const dataRota = parseLocalDate(r.data);
+        if (!dataRota) return false;
+
+        switch (filtroPeriodo) {
+          case 'hoje':
+            return dataRota >= hoje;
+          case 'semana': {
+            const inicioSemana = new Date(hoje);
+            inicioSemana.setDate(hoje.getDate() - hoje.getDay());
+            return dataRota >= inicioSemana;
+          }
+          case 'mes': {
+            const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+            return dataRota >= inicioMes;
+          }
+          default:
+            return true;
+        }
+      });
+    }
+
+    return resultado;
+  }, [rotas, filtroStatus, filtroPeriodo]);
 
   const loadHistorico = useCallback(async () => {
     if (!userData?.id) {
@@ -285,19 +412,129 @@ export default function HistoricoMotorista() {
     );
   }
 
+  // Formatar tempo em horas e minutos
+  function formatarTempo(minutos: number): string {
+    if (minutos === 0) return '-';
+    const horas = Math.floor(minutos / 60);
+    const mins = minutos % 60;
+    if (horas === 0) return `${mins}min`;
+    return `${horas}h ${mins}min`;
+  }
+
+  // Renderizar card de métrica
+  const renderMetricCard = (
+    label: string,
+    value: string | number,
+    color?: string
+  ) => (
+    <View style={styles.metricCard}>
+      <Text
+        style={[styles.metricValue, color ? { color } : null]}
+      >
+        {value}
+      </Text>
+      <Text style={styles.metricLabel}>{label}</Text>
+    </View>
+  );
+
+  // Renderizar botão de filtro
+  const renderFilterButton = (
+    label: string,
+    isActive: boolean,
+    onPress: () => void
+  ) => (
+    <TouchableOpacity
+      style={[styles.filterButton, isActive && styles.filterButtonActive]}
+      onPress={onPress}
+    >
+      <Text
+        style={[styles.filterButtonText, isActive && styles.filterButtonTextActive]}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Header com Métricas */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Histórico de Rotas</Text>
         <Text style={styles.headerSubtitle}>
           {rotas.length} {rotas.length === 1 ? 'rota' : 'rotas'} registradas
         </Text>
+
+        {/* Cards de Métricas */}
+        <View style={styles.metricsContainer}>
+          {renderMetricCard('Rotas Mês', metricas.rotasMes, theme.colors.primary)}
+          {renderMetricCard('Concluídas', metricas.rotasConcluidas, theme.colors.success)}
+          {renderMetricCard('Taxa', `${metricas.taxaSucesso}%`, theme.colors.purple600)}
+          {renderMetricCard('Tempo Médio', formatarTempo(metricas.tempoMedioMinutos))}
+        </View>
+
+        {/* Estatísticas Adicionais */}
+        <View style={styles.statsRow}>
+          <View style={styles.statPill}>
+            <Text style={styles.statPillText}>
+              📍 {metricas.paradasConcluidas}/{metricas.paradasTotais} paradas
+            </Text>
+          </View>
+          <View style={styles.statPill}>
+            <Text style={styles.statPillText}>
+              🚗 {metricas.distanciaTotal} km
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Filtros */}
+      <View style={styles.filtersContainer}>
+        {/* Filtro por Período */}
+        <View style={styles.filterGroup}>
+          <Text style={styles.filterGroupLabel}>Período:</Text>
+          <View style={styles.filterButtons}>
+            {renderFilterButton('Todos', filtroPeriodo === 'todos', () =>
+              setFiltroPeriodo('todos')
+            )}
+            {renderFilterButton('Hoje', filtroPeriodo === 'hoje', () =>
+              setFiltroPeriodo('hoje')
+            )}
+            {renderFilterButton('Semana', filtroPeriodo === 'semana', () =>
+              setFiltroPeriodo('semana')
+            )}
+            {renderFilterButton('Mês', filtroPeriodo === 'mes', () =>
+              setFiltroPeriodo('mes')
+            )}
+          </View>
+        </View>
+
+        {/* Filtro por Status */}
+        <View style={styles.filterGroup}>
+          <Text style={styles.filterGroupLabel}>Status:</Text>
+          <View style={styles.filterButtons}>
+            {renderFilterButton('Todos', filtroStatus === 'todos', () =>
+              setFiltroStatus('todos')
+            )}
+            {renderFilterButton('Concluída', filtroStatus === 'concluida', () =>
+              setFiltroStatus('concluida')
+            )}
+            {renderFilterButton('Pendente', filtroStatus === 'pendente', () =>
+              setFiltroStatus('pendente')
+            )}
+          </View>
+        </View>
+
+        {/* Contador de resultados filtrados */}
+        {(filtroStatus !== 'todos' || filtroPeriodo !== 'todos') && (
+          <Text style={styles.filterResultCount}>
+            Mostrando {rotasFiltradas.length} de {rotas.length} rotas
+          </Text>
+        )}
       </View>
 
       {/* Lista de Rotas */}
       <FlatList
-        data={rotas}
+        data={rotasFiltradas}
         keyExtractor={(item) => item.id}
         renderItem={renderRota}
         contentContainerStyle={styles.listContainer}
@@ -345,14 +582,102 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderBottomColor: theme.colors.gray300,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: theme.typography.xxl,
     fontWeight: 'bold',
     color: theme.colors.gray900,
     marginBottom: 4,
   },
   headerSubtitle: {
-    fontSize: 14,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray500,
+    marginBottom: 16,
+  },
+  metricsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  metricCard: {
+    flex: 1,
+    backgroundColor: theme.colors.gray50,
+    borderRadius: 8,
+    padding: 12,
+    marginHorizontal: 4,
+    alignItems: 'center',
+  },
+  metricValue: {
+    fontSize: theme.typography.xl,
+    fontWeight: 'bold',
+    color: theme.colors.gray900,
+    marginBottom: 2,
+  },
+  metricLabel: {
+    fontSize: 10,
+    color: theme.colors.gray500,
+    textAlign: 'center',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  statPill: {
+    backgroundColor: theme.colors.gray100,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  statPillText: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray700,
+    fontWeight: '500',
+  },
+  filtersContainer: {
+    backgroundColor: theme.colors.white,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.gray200,
+  },
+  filterGroup: {
+    marginBottom: 8,
+  },
+  filterGroupLabel: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray500,
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  filterButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: theme.colors.gray100,
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
+  },
+  filterButtonActive: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  filterButtonText: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray600,
+    fontWeight: '500',
+  },
+  filterButtonTextActive: {
+    color: theme.colors.white,
+  },
+  filterResultCount: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray500,
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   listContainer: {
     padding: 16,

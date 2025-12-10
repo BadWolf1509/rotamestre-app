@@ -77,10 +77,10 @@
       ]
     },
     {
-      "name": "Rotas",
-      "short_name": "Rotas",
-      "description": "Visualizar rotas ativas",
-      "url": "/motorista/rota",
+      "name": "Início (Motorista)",
+      "short_name": "Início",
+      "description": "Acessar painel principal do motorista",
+      "url": "/motorista/inicio",
       "icons": [
         {
           "src": "/favicon-96x96.png",

@@ -18,6 +18,19 @@ export interface TodayStats {
   totalHoje: number; // Sempre reflete rotas de hoje, ignorando filtros
 }
 
+export interface KPIs {
+  rotasSemana: number;
+  rotasMes: number;
+  taxaSucesso: number; // Percentual de paradas concluídas
+  tempoMedioMinutos: number;
+  totalParadas: number;
+  paradasConcluidas: number;
+  motoristaDestaque: {
+    nome: string;
+    rotasConcluidas: number;
+  } | null;
+}
+
 export interface RotaResumo {
   id: string;
   data: string;
@@ -32,6 +45,7 @@ export interface RotaResumo {
 export interface DashboardData {
   stats: Stats;
   todayStats: TodayStats; // ✅ Stats de hoje (ignora filtros)
+  kpis: KPIs; // ✅ KPIs avançados
   rotas: RotaResumo[];
   loading: boolean;
   refreshing: boolean;
@@ -61,6 +75,15 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
   });
   const [todayStats, setTodayStats] = useState<TodayStats>({
     totalHoje: 0,
+  });
+  const [kpis, setKpis] = useState<KPIs>({
+    rotasSemana: 0,
+    rotasMes: 0,
+    taxaSucesso: 0,
+    tempoMedioMinutos: 0,
+    totalParadas: 0,
+    paradasConcluidas: 0,
+    motoristaDestaque: null,
   });
   const [rotas, setRotas] = useState<RotaResumo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -263,6 +286,82 @@ id,
         if (!errorHoje && rotasHoje && mountedRef.current) {
           setTodayStats({
             totalHoje: rotasHoje.length,
+          });
+        }
+
+        // ✅ Buscar KPIs avançados (semana e mês)
+        const agora = new Date();
+        const inicioSemana = new Date(agora);
+        inicioSemana.setDate(agora.getDate() - agora.getDay());
+        const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+
+        const [kpiSemana, kpiMes] = await Promise.all([
+          supabase
+            .from('rotas')
+            .select('id, status, iniciada_em, concluida_em, motorista_id, usuarios!motorista_id(nome)')
+            .eq('unidade_id', unidadeId)
+            .gte('data', inicioSemana.toISOString().split('T')[0]),
+          supabase
+            .from('rotas')
+            .select('id, status, iniciada_em, concluida_em, motorista_id, usuarios!motorista_id(nome)')
+            .eq('unidade_id', unidadeId)
+            .gte('data', inicioMes.toISOString().split('T')[0]),
+        ]);
+
+        if (mountedRef.current) {
+          const rotasSemanaData = kpiSemana.data || [];
+          const rotasMesData = kpiMes.data || [];
+
+          // Calcular tempo médio de conclusão (apenas rotas concluídas)
+          let tempoTotalMinutos = 0;
+          let rotasComTempo = 0;
+          rotasMesData.forEach((rota: any) => {
+            if (rota.status === 'concluida' && rota.iniciada_em && rota.concluida_em) {
+              const inicio = new Date(rota.iniciada_em);
+              const fim = new Date(rota.concluida_em);
+              const diffMinutos = (fim.getTime() - inicio.getTime()) / (1000 * 60);
+              if (diffMinutos > 0 && diffMinutos < 1440) {
+                tempoTotalMinutos += diffMinutos;
+                rotasComTempo++;
+              }
+            }
+          });
+          const tempoMedio = rotasComTempo > 0 ? Math.round(tempoTotalMinutos / rotasComTempo) : 0;
+
+          // Calcular motorista destaque (mais rotas concluídas no mês)
+          const motoristasCount: Record<string, { nome: string; count: number }> = {};
+          rotasMesData.forEach((rota: any) => {
+            if (rota.status === 'concluida' && rota.motorista_id) {
+              const nome = rota.usuarios?.nome || 'Desconhecido';
+              if (!motoristasCount[rota.motorista_id]) {
+                motoristasCount[rota.motorista_id] = { nome, count: 0 };
+              }
+              motoristasCount[rota.motorista_id].count++;
+            }
+          });
+
+          let motoristaDestaque: { nome: string; rotasConcluidas: number } | null = null;
+          let maxRotas = 0;
+          Object.values(motoristasCount).forEach((m) => {
+            if (m.count > maxRotas) {
+              maxRotas = m.count;
+              motoristaDestaque = { nome: m.nome, rotasConcluidas: m.count };
+            }
+          });
+
+          // Calcular taxa de sucesso
+          const totalParadas = rotasComDetalhes.reduce((sum, r) => sum + r.total_paradas, 0);
+          const paradasConcluidas = rotasComDetalhes.reduce((sum, r) => sum + r.paradas_concluidas, 0);
+          const taxaSucesso = totalParadas > 0 ? Math.round((paradasConcluidas / totalParadas) * 100) : 0;
+
+          setKpis({
+            rotasSemana: rotasSemanaData.length,
+            rotasMes: rotasMesData.length,
+            taxaSucesso,
+            tempoMedioMinutos: tempoMedio,
+            totalParadas,
+            paradasConcluidas,
+            motoristaDestaque,
           });
         }
       } catch (error) {
@@ -472,6 +571,7 @@ id,
   return {
     stats: calculatedStats,
     todayStats, // ✅ Stats de hoje (ignora filtros)
+    kpis, // ✅ KPIs avançados
     rotas,
     loading,
     refreshing,

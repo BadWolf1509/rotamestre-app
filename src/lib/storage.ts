@@ -1,9 +1,49 @@
 /**
  * Supabase Storage - Upload de Fotos de Comprovante de Entrega
  * Sprint 1.3 - Upload de Fotos
+ * Updated: Using expo-file-system legacy API for Expo SDK 54
  */
 
+// Use legacy API for expo-file-system (new API deprecated readAsStringAsync)
+import * as FileSystem from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
+
 import { supabase } from './supabase';
+
+/**
+ * Helper to read file and convert to ArrayBuffer for Supabase upload
+ * Works on both native (via expo-file-system) and web (via fetch)
+ */
+async function getFileData(
+  uri: string
+): Promise<{ data: ArrayBuffer; size: number }> {
+  if (Platform.OS === 'web') {
+    // Web: use fetch + blob
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    const arrayBuffer = await blob.arrayBuffer();
+    return { data: arrayBuffer, size: blob.size };
+  }
+
+  // Native: use expo-file-system legacy API to read as base64
+  console.log('📁 [Storage] Using expo-file-system (legacy) for native file reading');
+  console.log('📁 [Storage] URI:', uri);
+
+  const base64 = await FileSystem.readAsStringAsync(uri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  console.log('📁 [Storage] File read successfully, base64 length:', base64.length);
+
+  // Convert base64 to ArrayBuffer
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  return { data: bytes.buffer, size: bytes.length };
+}
 
 /**
  * Bucket names no Supabase Storage
@@ -39,14 +79,13 @@ export async function uploadFotoEntrega(
 
     console.log(`   Caminho: ${filePath}`);
 
-    // Converter URI para blob
-    const response = await fetch(fotoUri);
-    const blob = await response.blob();
+    // Ler arquivo usando expo-file-system (nativo) ou fetch (web)
+    const { data: fileData, size } = await getFileData(fotoUri);
 
-    console.log(`   Tamanho: ${(blob.size / 1024).toFixed(2)} KB`);
+    console.log(`   Tamanho: ${(size / 1024).toFixed(2)} KB`);
 
     // Validar tamanho (máx 5MB)
-    if (blob.size > 5 * 1024 * 1024) {
+    if (size > 5 * 1024 * 1024) {
       console.error('❌ Foto muito grande! Máximo: 5MB');
       throw new Error('Foto muito grande. Máximo: 5MB');
     }
@@ -54,7 +93,7 @@ export async function uploadFotoEntrega(
     // Upload para Supabase Storage
     const { data, error } = await supabase.storage
       .from(BUCKET_FOTOS_ENTREGA)
-      .upload(filePath, blob, {
+      .upload(filePath, fileData, {
         contentType: 'image/jpeg',
         cacheControl: '3600', // Cache de 1 hora
         upsert: false // Não sobrescrever se já existir
@@ -280,14 +319,13 @@ export async function uploadFotoUsuario(
 
     console.log(`   Caminho: ${filePath}`);
 
-    // Converter URI para blob
-    const response = await fetch(fotoUri);
-    const blob = await response.blob();
+    // Ler arquivo usando expo-file-system (nativo) ou fetch (web)
+    const { data: fileData, size } = await getFileData(fotoUri);
 
-    console.log(`   Tamanho: ${(blob.size / 1024).toFixed(2)} KB`);
+    console.log(`   Tamanho: ${(size / 1024).toFixed(2)} KB`);
 
     // Validar tamanho (máx 2MB para perfil)
-    if (blob.size > 2 * 1024 * 1024) {
+    if (size > 2 * 1024 * 1024) {
       console.error('❌ Foto muito grande! Máximo: 2MB');
       throw new Error('Foto muito grande. Máximo: 2MB');
     }
@@ -295,7 +333,7 @@ export async function uploadFotoUsuario(
     // Upload para Supabase Storage
     const { data, error } = await supabase.storage
       .from(BUCKET_FOTOS_ENTREGA)
-      .upload(filePath, blob, {
+      .upload(filePath, fileData, {
         contentType: 'image/jpeg',
         cacheControl: '3600', // Cache de 1 hora
         upsert: false, // Não sobrescrever (nome é único com timestamp)
@@ -352,14 +390,13 @@ export async function uploadIncidentPhoto(
   try {
     console.log('📸 Iniciando upload de foto de incidente...');
 
-    // Converter URI para blob
-    const response = await fetch(fotoUri);
-    const blob = await response.blob();
+    // Ler arquivo usando expo-file-system (nativo) ou fetch (web)
+    const { data: fileData, size } = await getFileData(fotoUri);
 
-    console.log(`   Tamanho: ${(blob.size / 1024).toFixed(2)} KB`);
+    console.log(`   Tamanho: ${(size / 1024).toFixed(2)} KB`);
 
     // Validar tamanho (máx 5MB)
-    if (blob.size > 5 * 1024 * 1024) {
+    if (size > 5 * 1024 * 1024) {
       console.error('❌ Foto muito grande! Máximo: 5MB');
       throw new Error('Foto muito grande. Máximo: 5MB');
     }
@@ -375,7 +412,7 @@ export async function uploadIncidentPhoto(
     // Upload para o bucket
     const { error } = await supabase.storage
       .from(BUCKET_INCIDENTES)
-      .upload(fileName, blob, {
+      .upload(fileName, fileData, {
         contentType: 'image/jpeg',
         upsert: true,
       });

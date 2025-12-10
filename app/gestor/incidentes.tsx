@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -75,7 +75,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 // ============================================
 
 export default function IncidentesScreen() {
-  const _router = useRouter();
+  const router = useRouter();
   const { userData } = useUser();
   const { unidadeAtiva } = useUnidadeAtiva();
   const { isDesktop } = useResponsive();
@@ -90,6 +90,9 @@ export default function IncidentesScreen() {
   const [incidenteSelecionado, setIncidenteSelecionado] = useState<Incidente | null>(null);
   const [showDetalhesModal, setShowDetalhesModal] = useState(false);
   const [showAlterarStatusModal, setShowAlterarStatusModal] = useState(false);
+  const [showHistoricoMotoristaModal, setShowHistoricoMotoristaModal] = useState(false);
+  const [motoristaSelecionado, setMotoristaSelecionado] = useState<{ id: string; nome: string } | null>(null);
+  const [incidentesMotorista, setIncidentesMotorista] = useState<Incidente[]>([]);
   const [novoStatus, setNovoStatus] = useState<string>('');
   const [observacoes, setObservacoes] = useState('');
   const [atualizando, setAtualizando] = useState(false);
@@ -233,6 +236,76 @@ export default function IncidentesScreen() {
     }
   };
 
+  // Estatísticas por motorista (calculado a partir dos incidentes carregados)
+  const estatisticasMotorista = useMemo(() => {
+    const stats: Record<string, { nome: string; total: number; abertos: number; resolvidos: number }> = {};
+
+    incidentes.forEach((inc) => {
+      if (!stats[inc.motorista_id]) {
+        stats[inc.motorista_id] = {
+          nome: inc.motorista_nome,
+          total: 0,
+          abertos: 0,
+          resolvidos: 0,
+        };
+      }
+      stats[inc.motorista_id].total++;
+      if (inc.status === 'aberto' || inc.status === 'em_analise') {
+        stats[inc.motorista_id].abertos++;
+      }
+      if (inc.status === 'resolvido' || inc.status === 'fechado') {
+        stats[inc.motorista_id].resolvidos++;
+      }
+    });
+
+    return Object.entries(stats)
+      .map(([id, data]) => ({ id, ...data }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5); // Top 5
+  }, [incidentes]);
+
+  // Resumo geral
+  const resumoGeral = useMemo(() => {
+    const abertos = incidentes.filter(i => i.status === 'aberto').length;
+    const emAnalise = incidentes.filter(i => i.status === 'em_analise').length;
+    const resolvidos = incidentes.filter(i => i.status === 'resolvido').length;
+    const fechados = incidentes.filter(i => i.status === 'fechado').length;
+
+    // Contar por categoria
+    const porCategoria: Record<string, number> = {};
+    incidentes.forEach((inc) => {
+      porCategoria[inc.categoria] = (porCategoria[inc.categoria] || 0) + 1;
+    });
+
+    return {
+      total: incidentes.length,
+      abertos,
+      emAnalise,
+      resolvidos,
+      fechados,
+      porCategoria,
+    };
+  }, [incidentes]);
+
+  // Ver histórico de incidentes de um motorista
+  const handleVerHistoricoMotorista = async (motoristaId: string, motoristaNome: string) => {
+    setMotoristaSelecionado({ id: motoristaId, nome: motoristaNome });
+    // Filtrar incidentes do motorista
+    const incidentesDoMotorista = incidentes.filter(inc => inc.motorista_id === motoristaId);
+    setIncidentesMotorista(incidentesDoMotorista);
+    setShowHistoricoMotoristaModal(true);
+  };
+
+  // Remarcar entrega (criar nova rota com o endereço do incidente)
+  const handleRemarcarEntrega = (incidente: Incidente) => {
+    // Fechar modal de detalhes
+    setShowDetalhesModal(false);
+    // Navegar para nova-entrega com endereço pré-preenchido
+    // O endereço é passado via query params
+    const enderecoEncoded = encodeURIComponent(incidente.endereco);
+    router.push(`/gestor/nova-entrega?endereco=${enderecoEncoded}`);
+  };
+
   // Formatar data
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -323,6 +396,52 @@ export default function IncidentesScreen() {
         userMenuTrigger={userMenuTrigger}
         userMenuItems={userMenuItems}
       >
+        {/* Cards de Resumo */}
+        <View style={styles.resumoRow}>
+          <View style={[styles.resumoCard, { backgroundColor: theme.colors.error + '15' }]}>
+            <Text style={[styles.resumoValue, { color: theme.colors.error }]}>{resumoGeral.abertos}</Text>
+            <Text style={styles.resumoLabel}>Abertos</Text>
+          </View>
+          <View style={[styles.resumoCard, { backgroundColor: theme.colors.warning + '15' }]}>
+            <Text style={[styles.resumoValue, { color: theme.colors.warning }]}>{resumoGeral.emAnalise}</Text>
+            <Text style={styles.resumoLabel}>Em Análise</Text>
+          </View>
+          <View style={[styles.resumoCard, { backgroundColor: theme.colors.success + '15' }]}>
+            <Text style={[styles.resumoValue, { color: theme.colors.success }]}>{resumoGeral.resolvidos}</Text>
+            <Text style={styles.resumoLabel}>Resolvidos</Text>
+          </View>
+          <View style={[styles.resumoCard, { backgroundColor: theme.colors.gray400 + '15' }]}>
+            <Text style={[styles.resumoValue, { color: theme.colors.gray600 }]}>{resumoGeral.total}</Text>
+            <Text style={styles.resumoLabel}>Total</Text>
+          </View>
+        </View>
+
+        {/* Incidentes por Motorista */}
+        {estatisticasMotorista.length > 0 && (
+          <DesktopCard title="Incidentes por Motorista" subtitle="Top 5 motoristas com mais incidentes">
+            <View style={styles.motoristaStatsContainer}>
+              {estatisticasMotorista.map((stat, index) => (
+                <TouchableOpacity
+                  key={stat.id}
+                  style={styles.motoristaStat}
+                  onPress={() => handleVerHistoricoMotorista(stat.id, stat.nome)}
+                >
+                  <View style={styles.motoristaRank}>
+                    <Text style={styles.motoristaRankText}>{index + 1}</Text>
+                  </View>
+                  <View style={styles.motoristaInfo}>
+                    <Text style={styles.motoristaNome}>{stat.nome}</Text>
+                    <Text style={styles.motoristaStats}>
+                      {stat.total} incidentes ({stat.abertos} abertos, {stat.resolvidos} resolvidos)
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={theme.colors.gray400} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </DesktopCard>
+        )}
+
         <DesktopCard title="Incidentes Reportados">
           {/* Filtros */}
           <View style={styles.filtrosContainer}>
@@ -532,15 +651,38 @@ export default function IncidentesScreen() {
             </View>
           )}
 
+          {/* Botões de Ação */}
+          <View style={styles.detalhesActionsRow}>
+            <TouchableOpacity
+              style={styles.remarcarButton}
+              onPress={() => handleRemarcarEntrega(incidenteSelecionado)}
+            >
+              <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
+              <Text style={styles.remarcarButtonText}>Remarcar Entrega</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.alterarStatusButton}
+              onPress={() => {
+                setShowDetalhesModal(false);
+                setTimeout(() => handleAlterarStatus(incidenteSelecionado), 300);
+              }}
+            >
+              <Ionicons name="create-outline" size={20} color="#fff" />
+              <Text style={styles.alterarStatusButtonText}>Alterar Status</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Link para histórico do motorista */}
           <TouchableOpacity
-            style={styles.alterarStatusButton}
+            style={styles.verHistoricoLink}
             onPress={() => {
               setShowDetalhesModal(false);
-              setTimeout(() => handleAlterarStatus(incidenteSelecionado), 300);
+              setTimeout(() => handleVerHistoricoMotorista(incidenteSelecionado.motorista_id, incidenteSelecionado.motorista_nome), 300);
             }}
           >
-            <Ionicons name="create-outline" size={20} color="#fff" />
-            <Text style={styles.alterarStatusButtonText}>Alterar Status</Text>
+            <Ionicons name="time-outline" size={16} color={theme.colors.primary} />
+            <Text style={styles.verHistoricoLinkText}>Ver histórico de incidentes deste motorista</Text>
           </TouchableOpacity>
         </ScrollView>
       </DesktopModal>
@@ -618,11 +760,58 @@ export default function IncidentesScreen() {
     );
   };
 
+  // Modal de histórico de incidentes do motorista
+  const renderHistoricoMotoristaModal = () => {
+    if (!motoristaSelecionado) return null;
+
+    return (
+      <DesktopModal
+        visible={showHistoricoMotoristaModal}
+        onClose={() => setShowHistoricoMotoristaModal(false)}
+        title={`Histórico de Incidentes - ${motoristaSelecionado.nome}`}
+        width={800}
+      >
+        <ScrollView style={styles.modalContent}>
+          {incidentesMotorista.length === 0 ? (
+            <View style={styles.emptyHistorico}>
+              <Text style={styles.emptyHistoricoText}>Nenhum incidente encontrado para este motorista</Text>
+            </View>
+          ) : (
+            incidentesMotorista.map((inc) => {
+              const cat = CATEGORIA_LABELS[inc.categoria];
+              const st = STATUS_LABELS[inc.status];
+
+              return (
+                <View key={inc.id} style={styles.historicoItem}>
+                  <View style={styles.historicoHeader}>
+                    <View style={styles.historicoCategoria}>
+                      <Ionicons name={cat.icon as any} size={16} color={cat.color} />
+                      <Text style={styles.historicoCategoriaText}>{cat.label}</Text>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: st.color + '20' }]}>
+                      <Text style={[styles.statusText, { color: st.color }]}>{st.label}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.historicoEndereco}>{inc.endereco}</Text>
+                  <Text style={styles.historicoData}>{formatDate(inc.created_at)}</Text>
+                  {inc.descricao && (
+                    <Text style={styles.historicoDescricao} numberOfLines={2}>{inc.descricao}</Text>
+                  )}
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
+      </DesktopModal>
+    );
+  };
+
   return (
     <>
       {isDesktop ? renderDesktop() : renderMobile()}
       {renderDetalhesModal()}
       {renderAlterarStatusModal()}
+      {renderHistoricoMotoristaModal()}
       <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={hideToast} />
       {logoutModal}
     </>
@@ -877,5 +1066,150 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   buttonDisabled: {
     opacity: 0.5,
+  },
+
+  // Resumo cards
+  resumoRow: {
+    flexDirection: 'row',
+    gap: theme.spacing.lg,
+    marginBottom: theme.spacing.xl,
+    paddingHorizontal: theme.spacing['3xl'],
+  },
+  resumoCard: {
+    flex: 1,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
+    alignItems: 'center',
+  },
+  resumoValue: {
+    fontSize: theme.typography['3xl'],
+    fontFamily: theme.typography.fontSansBold,
+    marginBottom: 4,
+  },
+  resumoLabel: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray600,
+  },
+
+  // Estatísticas por motorista
+  motoristaStatsContainer: {
+    gap: theme.spacing.sm,
+  },
+  motoristaStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.gray50,
+    borderRadius: theme.borderRadius.md,
+    gap: theme.spacing.md,
+  },
+  motoristaRank: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  motoristaRankText: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansBold,
+    color: theme.colors.white,
+  },
+  motoristaInfo: {
+    flex: 1,
+  },
+  motoristaNome: {
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray900,
+  },
+  motoristaStats: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
+    marginTop: 2,
+  },
+
+  // Botões de ação nos detalhes
+  detalhesActionsRow: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+    marginTop: theme.spacing.xl,
+  },
+  remarcarButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.white,
+  },
+  remarcarButtonText: {
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.primary,
+  },
+  verHistoricoLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.xs,
+    marginTop: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
+  },
+  verHistoricoLinkText: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.primary,
+  },
+
+  // Modal de histórico
+  emptyHistorico: {
+    padding: theme.spacing['2xl'],
+    alignItems: 'center',
+  },
+  emptyHistoricoText: {
+    fontSize: theme.typography.base,
+    color: theme.colors.gray500,
+  },
+  historicoItem: {
+    backgroundColor: theme.colors.gray50,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.md,
+    marginBottom: theme.spacing.md,
+  },
+  historicoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  historicoCategoria: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
+  historicoCategoriaText: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray700,
+  },
+  historicoEndereco: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray900,
+    marginBottom: 4,
+  },
+  historicoData: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray500,
+    marginBottom: theme.spacing.sm,
+  },
+  historicoDescricao: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray600,
+    fontStyle: 'italic',
   },
 }));

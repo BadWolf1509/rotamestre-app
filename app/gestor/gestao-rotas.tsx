@@ -1,4 +1,6 @@
+import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import { useCallback, useEffect, useState } from 'react';
 import {
   View,
@@ -264,8 +266,13 @@ export default function GestaoRotas() {
     }
   }
 
-  function exportarParaCSV() {
+  async function exportarParaCSV() {
     try {
+      if (rotasFiltradas.length === 0) {
+        Alert.alert('Atenção', 'Não há rotas para exportar');
+        return;
+      }
+
       // Cabeçalho do CSV
       const headers = [
         'Data',
@@ -306,26 +313,51 @@ export default function GestaoRotas() {
         getStatusLabel(rota.status)
       ]);
 
-      // Montar CSV
-      const csvContent = [
+      // Montar CSV com BOM para UTF-8
+      const csvContent = '\uFEFF' + [
         headers.join(','),
         ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
       ].join('\n');
 
-      // Criar blob e fazer download
-      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-
       const dataAtual = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
       const nomeArquivo = `gestao-rotas-${dataAtual}.csv`;
 
-      link.setAttribute('href', url);
-      link.setAttribute('download', nomeArquivo);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      if (Platform.OS === 'web') {
+        // Web: Usar Blob e download
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+
+        link.setAttribute('href', url);
+        link.setAttribute('download', nomeArquivo);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } else {
+        // Mobile: Usar FileSystem e Sharing
+        const fileUri = FileSystem.documentDirectory + nomeArquivo;
+
+        await FileSystem.writeAsStringAsync(fileUri, csvContent, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+
+        // Verificar se compartilhamento está disponível
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: 'text/csv',
+            dialogTitle: 'Exportar Relatório de Rotas',
+            UTI: 'public.comma-separated-values-text',
+          });
+        } else {
+          Alert.alert(
+            'Arquivo Salvo',
+            `O arquivo foi salvo em: ${fileUri}`
+          );
+        }
+      }
 
       // Log da ação
       if (userData?.id) {
@@ -335,12 +367,15 @@ export default function GestaoRotas() {
           detalhes: {
             total_rotas: rotasFiltradas.length,
             filtro_status: filtroStatus,
-            formato: 'csv'
+            formato: 'csv',
+            plataforma: Platform.OS,
           },
         });
       }
 
-      Alert.alert('Sucesso', `${rotasFiltradas.length} rotas exportadas com sucesso!`);
+      if (Platform.OS === 'web') {
+        Alert.alert('Sucesso', `${rotasFiltradas.length} rotas exportadas com sucesso!`);
+      }
     } catch (error) {
       console.error('Erro ao exportar:', error);
       Alert.alert('Erro', 'Não foi possível exportar os dados');
@@ -744,6 +779,22 @@ export default function GestaoRotas() {
               </TouchableOpacity>
             ))}
           </View>
+
+          {/* Botões de Ação */}
+          <View style={styles.mobileActionsRow}>
+            <TouchableOpacity
+              style={styles.mobileActionButtonSecondary}
+              onPress={exportarParaCSV}
+            >
+              <Text style={styles.mobileActionButtonSecondaryText}>Exportar CSV</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.mobileActionButtonPrimary}
+              onPress={() => router.push('/gestor/nova-entrega')}
+            >
+              <Text style={styles.mobileActionButtonPrimaryText}>Nova Rota</Text>
+            </TouchableOpacity>
+          </View>
         </MobileCard>
 
         {/* DataTable */}
@@ -1010,5 +1061,36 @@ const styles = StyleSheet.create((theme: Theme) => ({
   tableCellText: {
     fontSize: theme.typography.sm,
     color: theme.colors.gray500,
+  },
+  mobileActionsRow: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+    marginTop: theme.spacing.lg,
+  },
+  mobileActionButtonPrimary: {
+    flex: 1,
+    backgroundColor: theme.colors.primary,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    alignItems: 'center',
+  },
+  mobileActionButtonPrimaryText: {
+    color: theme.colors.white,
+    fontFamily: theme.typography.fontSansSemiBold,
+    fontSize: theme.typography.sm,
+  },
+  mobileActionButtonSecondary: {
+    flex: 1,
+    backgroundColor: theme.colors.white,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.gray300,
+    alignItems: 'center',
+  },
+  mobileActionButtonSecondaryText: {
+    color: theme.colors.gray700,
+    fontFamily: theme.typography.fontSansSemiBold,
+    fontSize: theme.typography.sm,
   },
 }));

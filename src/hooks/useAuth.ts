@@ -1,6 +1,7 @@
 import { Session, User } from '@supabase/supabase-js';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
+import { clearAllCache, cleanExpiredCache } from '../lib/cache';
 import { supabase } from '../lib/supabase';
 
 export function useAuth() {
@@ -14,6 +15,9 @@ export function useAuth() {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+
+      // ✅ Limpar cache expirado na inicialização
+      cleanExpiredCache();
     });
 
     // Listen for auth changes
@@ -26,10 +30,16 @@ export function useAuth() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // ✅ Logout com limpeza de cache
+  const signOut = useCallback(async () => {
+    await clearAllCache(); // Limpar todo o cache ao fazer logout
+    return supabase.auth.signOut();
+  }, []);
+
   return {
     session,
     user,
     loading,
-    signOut: () => supabase.auth.signOut(),
+    signOut,
   };
 }

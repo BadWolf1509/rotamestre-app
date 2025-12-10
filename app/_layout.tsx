@@ -18,6 +18,8 @@ import { DevToolsInitializer } from '@/components/DevToolsInitializer';
 import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUser } from '@/hooks/useUser';
+import { initializeNotifications } from '@/lib/notifications';
+import { setupOfflineSync } from '@/lib/offline';
 import { configureLogBox } from '@/utils/configureLogBox';
 // NOTA: Unistyles é configurado automaticamente em @/utils/styles (linha 312)
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -90,6 +92,21 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
+
+  // Inicializar notificações e sync offline (apenas mobile)
+  useEffect(() => {
+    if (Platform.OS !== 'web') {
+      // Inicializar sistema de notificações
+      initializeNotifications();
+
+      // Configurar sync automático quando conexão mudar
+      const unsubscribe = setupOfflineSync();
+
+      return () => {
+        unsubscribe();
+      };
+    }
+  }, []);
 
   // Configurar título da página para web apenas
   useEffect(() => {

@@ -1,14 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 
 import { RouteFilters } from '@/components/RouteFilters';
 import type { RouteFiltersState as RouteFiltersType } from '@/components/RouteFilters';
 import { Toast } from '@/components/Toast';
+import { useMotoristas } from '@/hooks/useMotoristas';
 import { useToast } from '@/hooks/useToast';
-// REMOVIDO: import { useUser } from '@/hooks/useUser'; // Agora recebe userData como prop
-import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import { RotaCard } from '../shared/RotaCard';
@@ -28,6 +26,7 @@ interface DashboardMobileProps extends DashboardData {
 export function DashboardMobile({
   stats,
   todayStats, // ✅ Stats de hoje (ignora filtros)
+  kpis, // ✅ KPIs avançados
   rotas,
   loading,
   refreshing,
@@ -38,30 +37,10 @@ export function DashboardMobile({
 }: DashboardMobileProps) {
   const { theme } = useUnistyles();
   const router = useRouter();
-  // REMOVIDO: const { userData } = useUser(); // Evitar chamada duplicada
   const { toast: toastState, hideToast } = useToast();
 
-  // Carregar lista de motoristas para o filtro
-  const [motoristas, setMotoristas] = useState<Array<{ id: string; nome: string }>>([]);
-
-  useEffect(() => {
-    const loadMotoristas = async () => {
-      if (!userData?.unidade_id) return;
-
-      const { data } = await supabase
-        .from('usuarios')
-        .select('id, nome')
-        .eq('unidade_id', userData.unidade_id)
-        .eq('papel', 'motorista')
-        .order('nome');
-
-      if (data) {
-        setMotoristas(data);
-      }
-    };
-
-    loadMotoristas();
-  }, [userData?.unidade_id]);
+  // ✅ Usar hook com cache para motoristas (evita recarregar a cada navegação)
+  const { motoristas } = useMotoristas();
 
   if (loading) {
     return (
@@ -133,6 +112,52 @@ export function DashboardMobile({
             backgroundColor={theme.colors.kpiIncidentes}
           />
         </TouchableOpacity>
+      </View>
+
+      {/* KPIs Avançados */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>
+          Performance do Mês
+        </Text>
+
+        <View style={styles.kpisGrid}>
+          <View style={styles.kpiCard}>
+            <Text style={styles.kpiValue}>{kpis.rotasMes}</Text>
+            <Text style={styles.kpiLabel}>Rotas no Mês</Text>
+          </View>
+          <View style={styles.kpiCard}>
+            <Text style={[styles.kpiValue, { color: theme.colors.success }]}>
+              {kpis.taxaSucesso}%
+            </Text>
+            <Text style={styles.kpiLabel}>Taxa Sucesso</Text>
+          </View>
+          <View style={styles.kpiCard}>
+            <Text style={styles.kpiValue}>
+              {kpis.tempoMedioMinutos > 0
+                ? `${Math.floor(kpis.tempoMedioMinutos / 60)}h ${kpis.tempoMedioMinutos % 60}m`
+                : '-'}
+            </Text>
+            <Text style={styles.kpiLabel}>Tempo Médio</Text>
+          </View>
+          <View style={styles.kpiCard}>
+            <Text style={styles.kpiValue}>{kpis.rotasSemana}</Text>
+            <Text style={styles.kpiLabel}>Esta Semana</Text>
+          </View>
+        </View>
+
+        {/* Motorista Destaque */}
+        {kpis.motoristaDestaque && (
+          <View style={styles.destaqueCard}>
+            <Ionicons name="trophy" size={20} color={theme.colors.secondary} />
+            <View style={styles.destaqueContent}>
+              <Text style={styles.destaqueLabel}>Motorista Destaque</Text>
+              <Text style={styles.destaqueNome}>{kpis.motoristaDestaque.nome}</Text>
+              <Text style={styles.destaqueStats}>
+                {kpis.motoristaDestaque.rotasConcluidas} rotas concluídas
+              </Text>
+            </View>
+          </View>
+        )}
       </View>
 
       {/* Ações Rápidas */}
@@ -331,5 +356,57 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray500,
     textAlign: 'center',
     marginTop: theme.spacing.sm,
+  },
+  kpisGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  kpiCard: {
+    width: '48%',
+    backgroundColor: theme.colors.white,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
+    alignItems: 'center',
+  },
+  kpiValue: {
+    fontSize: theme.typography['2xl'],
+    fontFamily: theme.typography.fontSansBold,
+    color: theme.colors.gray900,
+    marginBottom: 4,
+  },
+  kpiLabel: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray500,
+    textAlign: 'center',
+  },
+  destaqueCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.secondaryBg,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
+    gap: theme.spacing.md,
+  },
+  destaqueContent: {
+    flex: 1,
+  },
+  destaqueLabel: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray500,
+    marginBottom: 2,
+  },
+  destaqueNome: {
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray900,
+  },
+  destaqueStats: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.secondary,
+    marginTop: 2,
   },
 }));

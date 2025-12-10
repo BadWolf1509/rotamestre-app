@@ -82,7 +82,7 @@ export default function FirstPasswordScreen() {
       if (profile.primeira_senha !== true) {
         console.warn('⚠️ Usuário tentou acessar first-password sem estar marcado como primeira_senha');
         // Redirecionar para a área apropriada
-        const targetRoute = profile.papel === 'gestor' ? '/gestor/inicio' : '/motorista/rota';
+        const targetRoute = profile.papel === 'gestor' ? '/gestor/inicio' : '/motorista/inicio';
         router.replace(targetRoute);
         return;
       }

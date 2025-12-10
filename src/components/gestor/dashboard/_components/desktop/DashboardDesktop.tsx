@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,7 @@ import type { RouteFiltersState as RouteFiltersType } from '@/components/RouteFi
 import { Toast } from '@/components/Toast';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
-// REMOVIDO: import { useUser } from '@/hooks/useUser'; // Agora recebe userData como prop
+import { useMotoristas } from '@/hooks/useMotoristas';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -41,6 +41,7 @@ interface DashboardDesktopProps extends DashboardData {
 export function DashboardDesktop({
   stats,
   todayStats, // ✅ Stats de hoje (ignora filtros)
+  kpis, // ✅ KPIs avançados
   rotas,
   loading,
   refreshing,
@@ -51,31 +52,11 @@ export function DashboardDesktop({
 }: DashboardDesktopProps) {
   const { theme } = useUnistyles();
   const router = useRouter();
-  // REMOVIDO: const { userData } = useUser(); // Evitar chamada duplicada
 
   const pageMeta = getGestorPageMeta('inicio');
 
-  // Carregar lista de motoristas para o filtro
-  const [motoristas, setMotoristas] = useState<Array<{ id: string; nome: string }>>([]);
-
-  useEffect(() => {
-    const loadMotoristas = async () => {
-      if (!userData?.unidade_id) return;
-
-      const { data } = await supabase
-        .from('usuarios')
-        .select('id, nome')
-        .eq('unidade_id', userData.unidade_id)
-        .eq('papel', 'motorista')
-        .order('nome');
-
-      if (data) {
-        setMotoristas(data);
-      }
-    };
-
-    loadMotoristas();
-  }, [userData?.unidade_id]);
+  // ✅ Usar hook com cache para motoristas (evita recarregar a cada navegação)
+  const { motoristas } = useMotoristas();
 
   // Estado para modal de confirmação
   const [showConfirmModal, setShowConfirmModal] = useState(false);

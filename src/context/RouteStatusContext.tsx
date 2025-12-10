@@ -12,7 +12,7 @@ import { supabase } from '@/lib/supabase';
 
 export type RouteStatus = 'no-route' | 'pending' | 'active' | 'last-stop' | 'ready-to-complete' | 'completed';
 
-interface RouteData {
+export interface RouteData {
   id: string;
   status: string;
   unidade_nome: string;
@@ -22,7 +22,7 @@ interface RouteData {
   concluida_em?: string;
 }
 
-interface ParadaData {
+export interface ParadaData {
   id: string;
   endereco: string;
   ordem: number;
@@ -34,7 +34,12 @@ interface ParadaData {
   telefone?: string;
   observacoes?: string;
   foto_url?: string | null;
+  /** false = checkpoint de partida/chegada, true/undefined = entrega real */
   is_checkpoint?: boolean;
+  /** Timestamp quando a parada foi concluída */
+  concluida_em?: string;
+  /** true se a parada foi concluída automaticamente pelo sistema de tracking */
+  auto_concluida?: boolean;
 }
 
 interface RouteStatusContextData {

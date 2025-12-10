@@ -18,11 +18,10 @@
 2. System optimizes route order (Google Directions API)
 3. Motorista sees route → Navigates to each stop → Marks complete + uploads photo proof
 
-### ✅ Migration Complete (2025-11-11)
+### ✅ Migration Complete (2025-12-06)
 **Motorista home screen updated to advanced version:**
 - **`/motorista/inicio`** - Main screen with state machine, CameraUpload, PiP, NavigationMode
 - **`/motorista/checkpoints`** - Detailed list of stops with swipe actions
-- **`/motorista/rota`** - Legacy (can be removed after validation)
 
 **Key Features Added:**
 - 6-state adaptive UI (no-route, pending, active, last-stop, ready-to-complete, completed)

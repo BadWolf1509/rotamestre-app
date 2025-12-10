@@ -1,11 +1,12 @@
 /**
  * Componente CameraUpload - Capturar/Selecionar foto para comprovante de entrega
  * Sprint 1.3 - Upload de Fotos
+ * Atualizado: Suporte offline para fotos
  */
 
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,6 +20,7 @@ import {
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import { uploadELinkFotoParada } from '../lib/storage';
+import { isOnline, queuePhotoUpload, hasOfflinePhoto, getOfflinePhotoPath } from '../lib/offline';
 
 interface CameraUploadProps {
   unidadeId: string;
@@ -38,6 +40,23 @@ export default function CameraUpload({
   const { theme } = useUnistyles();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [pendingSync, setPendingSync] = useState(false);
+  const [offlinePhotoPath, setOfflinePhotoPath] = useState<string | null>(null);
+
+  // Verificar se já existe foto offline para esta parada
+  useEffect(() => {
+    const checkOfflinePhoto = async () => {
+      if (Platform.OS === 'web') return;
+
+      const hasPending = await hasOfflinePhoto(paradaId);
+      if (hasPending) {
+        setPendingSync(true);
+        const path = await getOfflinePhotoPath(paradaId);
+        setOfflinePhotoPath(path);
+      }
+    };
+    checkOfflinePhoto();
+  }, [paradaId]);
 
   /**
    * Solicitar permissões de câmera
@@ -142,7 +161,7 @@ export default function CameraUpload({
   };
 
   /**
-   * Fazer upload da foto
+   * Fazer upload da foto (online) ou salvar para sync (offline)
    */
   const handleUpload = async () => {
     if (!selectedImage) {
@@ -153,28 +172,84 @@ export default function CameraUpload({
     setUploading(true);
 
     try {
-      const success = await uploadELinkFotoParada(
-        unidadeId,
-        rotaId,
-        paradaId,
-        selectedImage
-      );
+      // Verificar se está online
+      const online = await isOnline();
 
-      if (success) {
-        Alert.alert('Sucesso!', 'Foto enviada com sucesso!');
+      if (online) {
+        // Upload direto
+        const success = await uploadELinkFotoParada(
+          unidadeId,
+          rotaId,
+          paradaId,
+          selectedImage
+        );
+
+        if (success) {
+          Alert.alert('Sucesso!', 'Foto enviada com sucesso!');
+
+          if (onUploadSuccess) {
+            onUploadSuccess('success');
+          }
+
+          setSelectedImage(null);
+        } else {
+          throw new Error('Falha no upload');
+        }
+      } else {
+        // Modo offline - salvar localmente para sync posterior
+        if (Platform.OS === 'web') {
+          Alert.alert(
+            'Sem conexão',
+            'Você está offline. Conecte-se à internet para enviar a foto.'
+          );
+          return;
+        }
+
+        await queuePhotoUpload(unidadeId, rotaId, paradaId, selectedImage);
+
+        Alert.alert(
+          'Foto salva',
+          'Você está offline. A foto será enviada automaticamente quando a conexão for restaurada.',
+          [{ text: 'OK' }]
+        );
+
+        setPendingSync(true);
+        setOfflinePhotoPath(selectedImage);
 
         if (onUploadSuccess) {
-          // Não temos a URL aqui, mas sabemos que foi salvo
-          // A função uploadELinkFotoParada já salvou no banco
-          onUploadSuccess('success');
+          onUploadSuccess('pending_sync');
         }
 
         setSelectedImage(null);
-      } else {
-        throw new Error('Falha no upload');
       }
     } catch (error) {
       console.error('Erro no upload:', error);
+
+      // Se falhou online, tentar salvar offline (apenas native)
+      if (Platform.OS !== 'web') {
+        try {
+          await queuePhotoUpload(unidadeId, rotaId, paradaId, selectedImage);
+
+          Alert.alert(
+            'Erro de conexão',
+            'Não foi possível enviar a foto agora. Ela será enviada automaticamente quando a conexão for restaurada.',
+            [{ text: 'OK' }]
+          );
+
+          setPendingSync(true);
+          setOfflinePhotoPath(selectedImage);
+
+          if (onUploadSuccess) {
+            onUploadSuccess('pending_sync');
+          }
+
+          setSelectedImage(null);
+          return;
+        } catch {
+          // Se falhou até salvar offline, mostrar erro
+        }
+      }
+
       Alert.alert('Erro', 'Não foi possível enviar a foto. Tente novamente.');
 
       if (onUploadError) {
@@ -213,6 +288,25 @@ export default function CameraUpload({
       );
     }
   };
+
+  // Mostrar indicador de foto pendente de sync
+  if (pendingSync && offlinePhotoPath) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.pendingSyncContainer}>
+          <Image source={{ uri: offlinePhotoPath }} style={styles.previewImage} />
+          <View style={styles.pendingSyncBadge}>
+            <Text style={styles.pendingSyncText}>
+              📷 Foto aguardando sincronização
+            </Text>
+            <Text style={styles.pendingSyncSubtext}>
+              Será enviada automaticamente quando conectar
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -313,6 +407,28 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.secondary,
     fontSize: 16,
     fontWeight: '600',
+  },
+  pendingSyncContainer: {
+    gap: 8,
+  },
+  pendingSyncBadge: {
+    backgroundColor: theme.colors.warning + '20',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.warning,
+  },
+  pendingSyncText: {
+    color: theme.colors.warning,
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  pendingSyncSubtext: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 4,
   },
 }));
 

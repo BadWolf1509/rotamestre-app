@@ -445,7 +445,7 @@ export function IncidentReportWizard({
       onRequestClose={handleClose}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.modalOverlay}
       >
         <View style={styles.modalContent}>
@@ -561,8 +561,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    minHeight: '70%',
-    maxHeight: '90%',
+    height: '80%', // Fixed height to prevent resizing between steps
   },
   header: {
     flexDirection: 'row',
