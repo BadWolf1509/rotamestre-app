@@ -250,14 +250,33 @@ export default function CheckpointsMotoristaEnhanced() {
   // Feature 2: Função separada para finalizar rota
   async function finalizarRota() {
     try {
+      const now = new Date().toISOString();
+
+      // 1. Atualizar status da rota
       await supabase
         .from('rotas')
         .update({
           status: 'concluida',
-          concluida_em: new Date().toISOString(),
+          concluida_em: now,
         })
         .eq('id', rota!.id);
 
+      // 2. Marcar checkpoint de chegada (última parada com is_checkpoint=false) como concluído
+      const checkpointChegada = paradas
+        .filter(p => p.is_checkpoint === false)
+        .sort((a, b) => b.ordem - a.ordem)[0]; // Pega a de maior ordem
+
+      if (checkpointChegada) {
+        await supabase
+          .from('paradas')
+          .update({
+            status: 'concluida',
+            concluida_em: now,
+          })
+          .eq('id', checkpointChegada.id);
+      }
+
+      // 3. Criar log de conclusão
       // Filtrar apenas paradas reais (excluindo checkpoints)
       const paradasReais = paradas.filter(p => p.is_checkpoint !== false);
 

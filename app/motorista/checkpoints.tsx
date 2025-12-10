@@ -148,19 +148,36 @@ export default function CheckpointsMotorista() {
               );
 
               if (paradasRestantes.length === 0) {
-                // Todas as paradas concluidas - atualizar status da rota
+                const now = new Date().toISOString();
+
+                // 1. Atualizar status da rota
                 await supabase
                   .from('rotas')
                   .update({
                     status: 'concluida',
-                    concluida_em: new Date().toISOString(),
+                    concluida_em: now,
                   })
                   .eq('id', rota!.id);
 
-                // Filtrar apenas paradas reais (excluindo checkpoints)
+                // 2. Marcar checkpoint de chegada (última parada com is_checkpoint=false) como concluído
+                const checkpointChegada = paradas
+                  .filter(p => p.is_checkpoint === false)
+                  .sort((a, b) => b.ordem - a.ordem)[0];
+
+                if (checkpointChegada) {
+                  await supabase
+                    .from('paradas')
+                    .update({
+                      status: 'concluida',
+                      concluida_em: now,
+                    })
+                    .eq('id', checkpointChegada.id);
+                }
+
+                // 3. Filtrar apenas paradas reais (excluindo checkpoints)
                 const paradasReais = paradas.filter(p => p.is_checkpoint !== false);
 
-                // Criar log da conclusao da rota
+                // 4. Criar log da conclusao da rota
                 await supabase.from('logs').insert({
                   usuario_id: userData!.id,
                   rota_id: rota!.id,

@@ -214,15 +214,30 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     if (!route) return;
 
     try {
+      const now = new Date().toISOString();
+
+      // 1. Atualizar status da rota
       const { error } = await supabase
         .from('rotas')
         .update({
           status: 'em_andamento',
-          iniciada_em: new Date().toISOString(),
+          iniciada_em: now,
         })
         .eq('id', route.id);
 
       if (error) throw error;
+
+      // 2. Marcar checkpoint de partida (ordem 0, is_checkpoint=false) como concluído
+      const checkpointPartida = paradas.find(p => p.is_checkpoint === false && p.ordem === 0);
+      if (checkpointPartida) {
+        await supabase
+          .from('paradas')
+          .update({
+            status: 'concluida',
+            concluida_em: now,
+          })
+          .eq('id', checkpointPartida.id);
+      }
 
       await loadActiveRoute();
     } catch (error) {
@@ -281,15 +296,33 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     if (!route) return;
 
     try {
+      const now = new Date().toISOString();
+
+      // 1. Atualizar status da rota
       const { error } = await supabase
         .from('rotas')
         .update({
           status: 'concluida',
-          concluida_em: new Date().toISOString(),
+          concluida_em: now,
         })
         .eq('id', route.id);
 
       if (error) throw error;
+
+      // 2. Marcar checkpoint de chegada (última parada com is_checkpoint=false) como concluído
+      const checkpointChegada = paradas
+        .filter(p => p.is_checkpoint === false)
+        .sort((a, b) => b.ordem - a.ordem)[0]; // Pega a de maior ordem
+
+      if (checkpointChegada) {
+        await supabase
+          .from('paradas')
+          .update({
+            status: 'concluida',
+            concluida_em: now,
+          })
+          .eq('id', checkpointChegada.id);
+      }
 
       await loadActiveRoute();
     } catch (error) {
