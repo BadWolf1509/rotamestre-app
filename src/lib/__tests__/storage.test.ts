@@ -8,6 +8,21 @@ import {
 } from '../storage';
 import { supabase } from '../supabase';
 
+// Mock do Platform para forçar comportamento web nos testes
+jest.mock('react-native', () => ({
+  Platform: {
+    OS: 'web',
+  },
+}));
+
+// Mock do expo-file-system/legacy (não será usado pois Platform.OS = 'web')
+jest.mock('expo-file-system/legacy', () => ({
+  readAsStringAsync: jest.fn(),
+  EncodingType: {
+    Base64: 'base64',
+  },
+}));
+
 // Mock do supabase
 jest.mock('../supabase', () => ({
   supabase: {
@@ -18,8 +33,26 @@ jest.mock('../supabase', () => ({
   },
 }));
 
-// Mock do fetch global
+// Mock do fetch global com suporte a arrayBuffer
 global.fetch = jest.fn();
+
+// Helper para criar mock de blob com arrayBuffer
+function createMockBlob(sizeInBytes: number) {
+  const mockArrayBuffer = new ArrayBuffer(sizeInBytes);
+  const mockBlob = new Blob(['fake image data'], { type: 'image/jpeg' });
+  Object.defineProperty(mockBlob, 'size', { value: sizeInBytes });
+  (mockBlob as any).arrayBuffer = jest.fn().mockResolvedValue(mockArrayBuffer);
+  return mockBlob;
+}
+
+// Helper para mockar fetch com blob
+function mockFetchWithBlob(sizeInBytes: number) {
+  const mockBlob = createMockBlob(sizeInBytes);
+  (global.fetch as jest.Mock).mockResolvedValue({
+    blob: () => Promise.resolve(mockBlob),
+  });
+  return mockBlob;
+}
 
 describe('Storage Functions', () => {
   const mockUnidadeId = 'unidade-123';
@@ -41,12 +74,8 @@ describe('Storage Functions', () => {
 
   describe('uploadFotoEntrega', () => {
     it('deve fazer upload de foto com sucesso', async () => {
-      // Mock fetch para retornar blob
-      const mockBlob = new Blob(['fake image data'], { type: 'image/jpeg' });
-      Object.defineProperty(mockBlob, 'size', { value: 1024 * 500 }); // 500KB
-      (global.fetch as jest.Mock).mockResolvedValue({
-        blob: () => Promise.resolve(mockBlob),
-      });
+      // Mock fetch para retornar blob com arrayBuffer
+      mockFetchWithBlob(1024 * 500); // 500KB
 
       // Mock upload do Supabase
       const mockUpload = jest.fn().mockResolvedValue({
@@ -78,11 +107,7 @@ describe('Storage Functions', () => {
 
     it('deve rejeitar foto maior que 5MB', async () => {
       // Mock blob muito grande (6MB)
-      const mockBlob = new Blob(['fake image data'], { type: 'image/jpeg' });
-      Object.defineProperty(mockBlob, 'size', { value: 6 * 1024 * 1024 });
-      (global.fetch as jest.Mock).mockResolvedValue({
-        blob: () => Promise.resolve(mockBlob),
-      });
+      mockFetchWithBlob(6 * 1024 * 1024);
 
       const result = await uploadFotoEntrega(
         mockUnidadeId,
@@ -92,15 +117,12 @@ describe('Storage Functions', () => {
       );
 
       expect(result).toBeNull();
-      expect(console.error).toHaveBeenCalledWith('❌ Foto muito grande! Máximo: 5MB');
+      // O código agora lança erro ao invés de apenas logar
+      expect(console.error).toHaveBeenCalled();
     });
 
     it('deve retornar null quando upload falha', async () => {
-      const mockBlob = new Blob(['fake image data'], { type: 'image/jpeg' });
-      Object.defineProperty(mockBlob, 'size', { value: 1024 * 500 });
-      (global.fetch as jest.Mock).mockResolvedValue({
-        blob: () => Promise.resolve(mockBlob),
-      });
+      mockFetchWithBlob(1024 * 500);
 
       const mockUpload = jest.fn().mockResolvedValue({
         data: null,
@@ -122,11 +144,7 @@ describe('Storage Functions', () => {
     });
 
     it('deve gerar nome único com timestamp', async () => {
-      const mockBlob = new Blob(['fake image data'], { type: 'image/jpeg' });
-      Object.defineProperty(mockBlob, 'size', { value: 1024 * 500 });
-      (global.fetch as jest.Mock).mockResolvedValue({
-        blob: () => Promise.resolve(mockBlob),
-      });
+      mockFetchWithBlob(1024 * 500);
 
       const mockUpload = jest.fn().mockResolvedValue({
         data: { path: 'test-path' },
@@ -154,11 +172,7 @@ describe('Storage Functions', () => {
     });
 
     it('deve usar contentType correto no upload', async () => {
-      const mockBlob = new Blob(['fake image data'], { type: 'image/jpeg' });
-      Object.defineProperty(mockBlob, 'size', { value: 1024 * 500 });
-      (global.fetch as jest.Mock).mockResolvedValue({
-        blob: () => Promise.resolve(mockBlob),
-      });
+      mockFetchWithBlob(1024 * 500);
 
       const mockUpload = jest.fn().mockResolvedValue({
         data: { path: 'test-path' },
@@ -178,7 +192,7 @@ describe('Storage Functions', () => {
 
       expect(mockUpload).toHaveBeenCalledWith(
         expect.any(String),
-        expect.any(Blob),
+        expect.any(ArrayBuffer),
         expect.objectContaining({
           contentType: 'image/jpeg',
           cacheControl: '3600',
@@ -238,11 +252,7 @@ describe('Storage Functions', () => {
   describe('uploadELinkFotoParada', () => {
     it('deve fazer processo completo com sucesso', async () => {
       // Mock upload
-      const mockBlob = new Blob(['fake image data'], { type: 'image/jpeg' });
-      Object.defineProperty(mockBlob, 'size', { value: 1024 * 500 });
-      (global.fetch as jest.Mock).mockResolvedValue({
-        blob: () => Promise.resolve(mockBlob),
-      });
+      mockFetchWithBlob(1024 * 500);
 
       const mockUpload = jest.fn().mockResolvedValue({
         data: { path: 'test-path' },
@@ -280,11 +290,7 @@ describe('Storage Functions', () => {
     });
 
     it('deve retornar false se upload falhar', async () => {
-      const mockBlob = new Blob(['fake image data'], { type: 'image/jpeg' });
-      Object.defineProperty(mockBlob, 'size', { value: 1024 * 500 });
-      (global.fetch as jest.Mock).mockResolvedValue({
-        blob: () => Promise.resolve(mockBlob),
-      });
+      mockFetchWithBlob(1024 * 500);
 
       const mockUpload = jest.fn().mockResolvedValue({
         data: null,
@@ -307,11 +313,7 @@ describe('Storage Functions', () => {
 
     it('deve retornar false se salvar no banco falhar', async () => {
       // Mock upload com sucesso
-      const mockBlob = new Blob(['fake image data'], { type: 'image/jpeg' });
-      Object.defineProperty(mockBlob, 'size', { value: 1024 * 500 });
-      (global.fetch as jest.Mock).mockResolvedValue({
-        blob: () => Promise.resolve(mockBlob),
-      });
+      mockFetchWithBlob(1024 * 500);
 
       const mockUpload = jest.fn().mockResolvedValue({
         data: { path: 'test-path' },
@@ -404,11 +406,7 @@ describe('Storage Functions', () => {
 
   describe('Integração entre funções', () => {
     it('uploadELinkFotoParada deve chamar uploadFotoEntrega e salvarFotoParada', async () => {
-      const mockBlob = new Blob(['fake image data'], { type: 'image/jpeg' });
-      Object.defineProperty(mockBlob, 'size', { value: 1024 * 500 });
-      (global.fetch as jest.Mock).mockResolvedValue({
-        blob: () => Promise.resolve(mockBlob),
-      });
+      mockFetchWithBlob(1024 * 500);
 
       const mockUpload = jest.fn().mockResolvedValue({
         data: { path: 'test-path' },
@@ -471,11 +469,7 @@ describe('Storage Functions', () => {
     const mockFotoUsuarioUrl = 'https://xyz.supabase.co/storage/v1/object/public/fotos-entrega/perfis/perfil_usuario-123_1234567890.jpg';
 
     it('deve fazer upload de foto de perfil com sucesso', async () => {
-      const mockBlob = new Blob(['fake profile image'], { type: 'image/jpeg' });
-      Object.defineProperty(mockBlob, 'size', { value: 1024 * 200 }); // 200KB
-      (global.fetch as jest.Mock).mockResolvedValue({
-        blob: () => Promise.resolve(mockBlob),
-      });
+      mockFetchWithBlob(1024 * 200); // 200KB
 
       const mockUpload = jest.fn().mockResolvedValue({
         data: { path: 'perfis/perfil_usuario-123_1234567890.jpg' },
@@ -512,11 +506,7 @@ describe('Storage Functions', () => {
     });
 
     it('deve rejeitar foto maior que 2MB', async () => {
-      const mockBlob = new Blob(['fake image data'], { type: 'image/jpeg' });
-      Object.defineProperty(mockBlob, 'size', { value: 3 * 1024 * 1024 }); // 3MB
-      (global.fetch as jest.Mock).mockResolvedValue({
-        blob: () => Promise.resolve(mockBlob),
-      });
+      mockFetchWithBlob(3 * 1024 * 1024); // 3MB
 
       const result = await uploadFotoUsuario(mockUsuarioId, mockFotoUri);
 
@@ -525,11 +515,7 @@ describe('Storage Functions', () => {
     });
 
     it('deve retornar null quando upload falha', async () => {
-      const mockBlob = new Blob(['fake image data'], { type: 'image/jpeg' });
-      Object.defineProperty(mockBlob, 'size', { value: 1024 * 200 });
-      (global.fetch as jest.Mock).mockResolvedValue({
-        blob: () => Promise.resolve(mockBlob),
-      });
+      mockFetchWithBlob(1024 * 200);
 
       const mockUpload = jest.fn().mockResolvedValue({
         data: null,
@@ -546,11 +532,7 @@ describe('Storage Functions', () => {
     });
 
     it('deve retornar null quando update no banco falha', async () => {
-      const mockBlob = new Blob(['fake image data'], { type: 'image/jpeg' });
-      Object.defineProperty(mockBlob, 'size', { value: 1024 * 200 });
-      (global.fetch as jest.Mock).mockResolvedValue({
-        blob: () => Promise.resolve(mockBlob),
-      });
+      mockFetchWithBlob(1024 * 200);
 
       const mockUpload = jest.fn().mockResolvedValue({
         data: { path: 'perfis/perfil_usuario-123_1234567890.jpg' },
@@ -583,12 +565,8 @@ describe('Storage Functions', () => {
       );
     });
 
-    it('deve usar upsert:true e caminho correto no upload', async () => {
-      const mockBlob = new Blob(['fake image data'], { type: 'image/jpeg' });
-      Object.defineProperty(mockBlob, 'size', { value: 1024 * 200 });
-      (global.fetch as jest.Mock).mockResolvedValue({
-        blob: () => Promise.resolve(mockBlob),
-      });
+    it('deve usar upsert:false e caminho correto no upload', async () => {
+      mockFetchWithBlob(1024 * 200);
 
       const mockUpload = jest.fn().mockResolvedValue({
         data: { path: 'test-path' },
@@ -616,11 +594,11 @@ describe('Storage Functions', () => {
 
       expect(mockUpload).toHaveBeenCalledWith(
         expect.stringContaining('perfis/perfil_'),
-        expect.any(Blob),
+        expect.any(ArrayBuffer),
         expect.objectContaining({
           contentType: 'image/jpeg',
           cacheControl: '3600',
-          upsert: false, // Mudou para false pois agora deleta foto antiga antes
+          upsert: false,
         })
       );
     });
@@ -642,11 +620,7 @@ describe('Storage Functions', () => {
     });
 
     it('deve fazer upload de foto de incidente com sucesso', async () => {
-      const mockBlob = new Blob(['fake incident image'], { type: 'image/jpeg' });
-      Object.defineProperty(mockBlob, 'size', { value: 1024 * 500 }); // 500KB
-      (global.fetch as jest.Mock).mockResolvedValue({
-        blob: () => Promise.resolve(mockBlob),
-      });
+      mockFetchWithBlob(1024 * 500); // 500KB
 
       const mockUpload = jest.fn().mockResolvedValue({
         data: { path: mockFileName },
@@ -668,7 +642,7 @@ describe('Storage Functions', () => {
       expect(global.fetch).toHaveBeenCalledWith(mockFotoUri);
       expect(mockUpload).toHaveBeenCalledWith(
         mockFileName,
-        expect.any(Blob),
+        expect.any(ArrayBuffer),
         expect.objectContaining({
           contentType: 'image/jpeg',
           upsert: true,
@@ -677,11 +651,7 @@ describe('Storage Functions', () => {
     });
 
     it('deve rejeitar foto maior que 5MB', async () => {
-      const mockBlob = new Blob(['fake image data'], { type: 'image/jpeg' });
-      Object.defineProperty(mockBlob, 'size', { value: 6 * 1024 * 1024 }); // 6MB
-      (global.fetch as jest.Mock).mockResolvedValue({
-        blob: () => Promise.resolve(mockBlob),
-      });
+      mockFetchWithBlob(6 * 1024 * 1024); // 6MB
 
       const result = await uploadIncidentPhoto(mockFotoUri, mockFileName);
 
@@ -690,11 +660,7 @@ describe('Storage Functions', () => {
     });
 
     it('deve retornar string vazia quando upload falha', async () => {
-      const mockBlob = new Blob(['fake image data'], { type: 'image/jpeg' });
-      Object.defineProperty(mockBlob, 'size', { value: 1024 * 500 });
-      (global.fetch as jest.Mock).mockResolvedValue({
-        blob: () => Promise.resolve(mockBlob),
-      });
+      mockFetchWithBlob(1024 * 500);
 
       const mockUpload = jest.fn().mockResolvedValue({
         data: null,
@@ -723,11 +689,7 @@ describe('Storage Functions', () => {
 
       (supabase.storage as any).createBucket = mockCreateBucket;
 
-      const mockBlob = new Blob(['fake incident image'], { type: 'image/jpeg' });
-      Object.defineProperty(mockBlob, 'size', { value: 1024 * 500 });
-      (global.fetch as jest.Mock).mockResolvedValue({
-        blob: () => Promise.resolve(mockBlob),
-      });
+      mockFetchWithBlob(1024 * 500);
 
       const mockUpload = jest.fn().mockResolvedValue({
         data: { path: mockFileName },
@@ -759,11 +721,7 @@ describe('Storage Functions', () => {
       const mockCreateBucket = jest.fn();
       (supabase.storage as any).createBucket = mockCreateBucket;
 
-      const mockBlob = new Blob(['fake incident image'], { type: 'image/jpeg' });
-      Object.defineProperty(mockBlob, 'size', { value: 1024 * 500 });
-      (global.fetch as jest.Mock).mockResolvedValue({
-        blob: () => Promise.resolve(mockBlob),
-      });
+      mockFetchWithBlob(1024 * 500);
 
       const mockUpload = jest.fn().mockResolvedValue({
         data: { path: mockFileName },

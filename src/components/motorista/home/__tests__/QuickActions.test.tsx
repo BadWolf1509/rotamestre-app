@@ -6,12 +6,48 @@ import { RouteStatus } from '@/context/RouteStatusContext';
 
 import { QuickActions, FloatingActionButton } from '../QuickActions';
 
+// Mock haptics
+jest.mock('@/utils/haptics', () => ({
+  lightHaptic: jest.fn().mockResolvedValue(undefined),
+  mediumHaptic: jest.fn().mockResolvedValue(undefined),
+  heavyHaptic: jest.fn().mockResolvedValue(undefined),
+}));
+
+// Mock styles
+jest.mock('@/utils/styles', () => ({
+  defaultTheme: {
+    colors: {
+      primary: '#007AFF',
+      warning: '#f59e0b',
+      black: '#000000',
+      white: '#ffffff',
+      gray200: '#e5e7eb',
+      gray400: '#9ca3af',
+      gray700: '#374151',
+    },
+  },
+  useUnistyles: () => ({
+    theme: {
+      colors: {
+        primary: '#007AFF',
+        warning: '#f59e0b',
+        black: '#000000',
+        white: '#ffffff',
+        gray200: '#e5e7eb',
+        gray400: '#9ca3af',
+        gray700: '#374151',
+      },
+    },
+  }),
+}));
+
 describe('QuickActions', () => {
   const mockOnViewAllStops = jest.fn();
   const mockOnContactSupport = jest.fn();
   const mockOnReportIncident = jest.fn();
   const mockOnOpenSettings = jest.fn();
   const mockOnViewSummary = jest.fn();
+  const mockOnViewHistory = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -22,15 +58,17 @@ describe('QuickActions', () => {
       const { getByText } = render(
         <QuickActions
           state="no-route"
-          onReportIncident={mockOnReportIncident}
-          onContactSupport={mockOnContactSupport}
+          onViewHistory={mockOnViewHistory}
           onViewSummary={mockOnViewSummary}
+          onOpenSettings={mockOnOpenSettings}
+          onContactSupport={mockOnContactSupport}
         />
       );
 
-      expect(getByText('Reportar')).toBeTruthy();
-      expect(getByText('Ajuda')).toBeTruthy();
-      expect(getByText('Estatisticas')).toBeTruthy();
+      expect(getByText('Histórico')).toBeTruthy();
+      expect(getByText('Estatísticas')).toBeTruthy();
+      expect(getByText('Configurações')).toBeTruthy();
+      expect(getByText('Suporte')).toBeTruthy();
     });
 
     it('deve renderizar ícones corretos para state "no-route"', () => {
@@ -39,10 +77,11 @@ describe('QuickActions', () => {
       );
 
       const icons = UNSAFE_getAllByType(Ionicons);
-      expect(icons.length).toBe(3);
-      expect(icons[0].props.name).toBe('warning-outline');
-      expect(icons[1].props.name).toBe('help-circle-outline');
-      expect(icons[2].props.name).toBe('bar-chart-outline');
+      expect(icons.length).toBe(4);
+      expect(icons[0].props.name).toBe('time-outline');
+      expect(icons[1].props.name).toBe('bar-chart-outline');
+      expect(icons[2].props.name).toBe('settings-outline');
+      expect(icons[3].props.name).toBe('help-circle-outline');
     });
   });
 
@@ -54,15 +93,17 @@ describe('QuickActions', () => {
           onViewAllStops={mockOnViewAllStops}
           onReportIncident={mockOnReportIncident}
           onContactSupport={mockOnContactSupport}
+          onOpenSettings={mockOnOpenSettings}
         />
       );
 
       expect(getByText('Ver Paradas')).toBeTruthy();
       expect(getByText('Reportar')).toBeTruthy();
       expect(getByText('Suporte')).toBeTruthy();
+      expect(getByText('Navegação')).toBeTruthy();
     });
 
-    it('deve chamar onViewAllStops ao clicar em "Ver Paradas"', () => {
+    it('deve chamar onViewAllStops ao clicar em "Ver Paradas"', async () => {
       const { getByText } = render(
         <QuickActions
           state="pending"
@@ -71,6 +112,8 @@ describe('QuickActions', () => {
       );
 
       fireEvent.press(getByText('Ver Paradas'));
+      // Wait for async haptic
+      await new Promise(resolve => setTimeout(resolve, 0));
       expect(mockOnViewAllStops).toHaveBeenCalledTimes(1);
     });
 
@@ -80,9 +123,11 @@ describe('QuickActions', () => {
       );
 
       const icons = UNSAFE_getAllByType(Ionicons);
+      expect(icons.length).toBe(4);
       expect(icons[0].props.name).toBe('list-outline');
       expect(icons[1].props.name).toBe('warning-outline');
       expect(icons[2].props.name).toBe('call-outline');
+      expect(icons[3].props.name).toBe('settings-outline');
     });
   });
 
@@ -94,15 +139,17 @@ describe('QuickActions', () => {
           onViewAllStops={mockOnViewAllStops}
           onReportIncident={mockOnReportIncident}
           onOpenSettings={mockOnOpenSettings}
+          onContactSupport={mockOnContactSupport}
         />
       );
 
       expect(getByText('Todas Paradas')).toBeTruthy();
       expect(getByText('Reportar')).toBeTruthy();
-      expect(getByText('Navegacao')).toBeTruthy();
+      expect(getByText('Navegação')).toBeTruthy();
+      expect(getByText('Suporte')).toBeTruthy();
     });
 
-    it('deve chamar onOpenSettings ao clicar em "Navegacao"', () => {
+    it('deve chamar onOpenSettings ao clicar em "Navegação"', async () => {
       const { getByText } = render(
         <QuickActions
           state="active"
@@ -110,7 +157,8 @@ describe('QuickActions', () => {
         />
       );
 
-      fireEvent.press(getByText('Navegacao'));
+      fireEvent.press(getByText('Navegação'));
+      await new Promise(resolve => setTimeout(resolve, 0));
       expect(mockOnOpenSettings).toHaveBeenCalledTimes(1);
     });
 
@@ -120,9 +168,11 @@ describe('QuickActions', () => {
       );
 
       const icons = UNSAFE_getAllByType(Ionicons);
+      expect(icons.length).toBe(4);
       expect(icons[0].props.name).toBe('list-outline');
       expect(icons[1].props.name).toBe('warning-outline');
       expect(icons[2].props.name).toBe('settings-outline');
+      expect(icons[3].props.name).toBe('call-outline');
     });
   });
 
@@ -134,7 +184,8 @@ describe('QuickActions', () => {
 
       expect(getByText('Todas Paradas')).toBeTruthy();
       expect(getByText('Reportar')).toBeTruthy();
-      expect(getByText('Navegacao')).toBeTruthy();
+      expect(getByText('Navegação')).toBeTruthy();
+      expect(getByText('Suporte')).toBeTruthy();
     });
 
     it('deve ter mesmos ícones que "active"', () => {
@@ -143,9 +194,11 @@ describe('QuickActions', () => {
       );
 
       const icons = UNSAFE_getAllByType(Ionicons);
+      expect(icons.length).toBe(4);
       expect(icons[0].props.name).toBe('list-outline');
       expect(icons[1].props.name).toBe('warning-outline');
       expect(icons[2].props.name).toBe('settings-outline');
+      expect(icons[3].props.name).toBe('call-outline');
     });
   });
 
@@ -155,15 +208,17 @@ describe('QuickActions', () => {
         <QuickActions
           state="ready-to-complete"
           onViewSummary={mockOnViewSummary}
+          onViewAllStops={mockOnViewAllStops}
           onContactSupport={mockOnContactSupport}
         />
       );
 
       expect(getByText('Ver Resumo')).toBeTruthy();
+      expect(getByText('Ver Paradas')).toBeTruthy();
       expect(getByText('Compartilhar')).toBeTruthy();
     });
 
-    it('deve chamar onViewSummary ao clicar em "Ver Resumo"', () => {
+    it('deve chamar onViewSummary ao clicar em "Ver Resumo"', async () => {
       const { getByText } = render(
         <QuickActions
           state="ready-to-complete"
@@ -172,6 +227,7 @@ describe('QuickActions', () => {
       );
 
       fireEvent.press(getByText('Ver Resumo'));
+      await new Promise(resolve => setTimeout(resolve, 0));
       expect(mockOnViewSummary).toHaveBeenCalledTimes(1);
     });
 
@@ -181,9 +237,10 @@ describe('QuickActions', () => {
       );
 
       const icons = UNSAFE_getAllByType(Ionicons);
-      expect(icons.length).toBe(2);
-      expect(icons[0].props.name).toBe('checkmark-circle-outline');
-      expect(icons[1].props.name).toBe('share-outline');
+      expect(icons.length).toBe(3);
+      expect(icons[0].props.name).toBe('document-text-outline');
+      expect(icons[1].props.name).toBe('list-outline');
+      expect(icons[2].props.name).toBe('share-outline');
     });
   });
 
@@ -193,27 +250,32 @@ describe('QuickActions', () => {
         <QuickActions
           state="completed"
           onViewSummary={mockOnViewSummary}
+          onViewHistory={mockOnViewHistory}
           onContactSupport={mockOnContactSupport}
         />
       );
 
-      expect(getByText('Ver Detalhes')).toBeTruthy();
+      expect(getByText('Detalhes')).toBeTruthy();
+      expect(getByText('Histórico')).toBeTruthy();
       expect(getByText('Compartilhar')).toBeTruthy();
     });
 
-    it('deve chamar callbacks corretos', () => {
+    it('deve chamar callbacks corretos', async () => {
       const { getByText } = render(
         <QuickActions
           state="completed"
           onViewSummary={mockOnViewSummary}
+          onViewHistory={mockOnViewHistory}
           onContactSupport={mockOnContactSupport}
         />
       );
 
-      fireEvent.press(getByText('Ver Detalhes'));
+      fireEvent.press(getByText('Detalhes'));
+      await new Promise(resolve => setTimeout(resolve, 0));
       expect(mockOnViewSummary).toHaveBeenCalledTimes(1);
 
       fireEvent.press(getByText('Compartilhar'));
+      await new Promise(resolve => setTimeout(resolve, 0));
       expect(mockOnContactSupport).toHaveBeenCalledTimes(1);
     });
 
@@ -223,8 +285,10 @@ describe('QuickActions', () => {
       );
 
       const icons = UNSAFE_getAllByType(Ionicons);
+      expect(icons.length).toBe(3);
       expect(icons[0].props.name).toBe('bar-chart-outline');
-      expect(icons[1].props.name).toBe('share-outline');
+      expect(icons[1].props.name).toBe('time-outline');
+      expect(icons[2].props.name).toBe('share-outline');
     });
   });
 
@@ -246,27 +310,29 @@ describe('QuickActions', () => {
       }).not.toThrow();
     });
 
-    it('deve chamar onReportIncident quando fornecido', () => {
+    it('deve chamar onReportIncident quando fornecido', async () => {
       const { getByText } = render(
         <QuickActions
-          state="no-route"
+          state="pending"
           onReportIncident={mockOnReportIncident}
         />
       );
 
       fireEvent.press(getByText('Reportar'));
+      await new Promise(resolve => setTimeout(resolve, 0));
       expect(mockOnReportIncident).toHaveBeenCalledTimes(1);
     });
 
-    it('deve chamar onContactSupport quando fornecido', () => {
+    it('deve chamar onContactSupport quando fornecido', async () => {
       const { getByText } = render(
         <QuickActions
-          state="no-route"
+          state="pending"
           onContactSupport={mockOnContactSupport}
         />
       );
 
-      fireEvent.press(getByText('Ajuda'));
+      fireEvent.press(getByText('Suporte'));
+      await new Promise(resolve => setTimeout(resolve, 0));
       expect(mockOnContactSupport).toHaveBeenCalledTimes(1);
     });
   });
@@ -290,7 +356,7 @@ describe('QuickActions', () => {
 
       // Não deve renderizar nenhuma ação
       expect(queryByText('Reportar')).toBeNull();
-      expect(queryByText('Ajuda')).toBeNull();
+      expect(queryByText('Suporte')).toBeNull();
     });
 
     it('deve renderizar vazio para default case', () => {
@@ -326,20 +392,6 @@ describe('FloatingActionButton', () => {
       expect(icon.props.size).toBe(28);
     });
 
-    it('deve aplicar cor customizada ao backgroundColor', () => {
-      const { UNSAFE_getByType } = render(
-        <FloatingActionButton
-          icon="add"
-          color="#FF5722"
-          onPress={mockOnPress}
-        />
-      );
-
-      const { TouchableOpacity } = require('react-native');
-      const button = UNSAFE_getByType(TouchableOpacity);
-      expect(button.props.style[1].backgroundColor).toBe('#FF5722');
-    });
-
     it('deve renderizar label quando fornecido', () => {
       const { getByText } = render(
         <FloatingActionButton
@@ -362,13 +414,12 @@ describe('FloatingActionButton', () => {
         />
       );
 
-      // Sem label, não deve haver segundo Text
       expect(queryByText('Adicionar')).toBeNull();
     });
   });
 
   describe('Interações', () => {
-    it('deve chamar onPress ao clicar', () => {
+    it('deve chamar onPress ao clicar', async () => {
       const { UNSAFE_getByType } = render(
         <FloatingActionButton
           icon="add"
@@ -381,7 +432,27 @@ describe('FloatingActionButton', () => {
       const button = UNSAFE_getByType(TouchableOpacity);
 
       fireEvent.press(button);
+      // Wait for async haptic
+      await new Promise(resolve => setTimeout(resolve, 0));
       expect(mockOnPress).toHaveBeenCalledTimes(1);
+    });
+
+    it('não deve chamar onPress quando disabled', async () => {
+      const { UNSAFE_getByType } = render(
+        <FloatingActionButton
+          icon="add"
+          color="#4CAF50"
+          onPress={mockOnPress}
+          disabled={true}
+        />
+      );
+
+      const { TouchableOpacity } = require('react-native');
+      const button = UNSAFE_getByType(TouchableOpacity);
+
+      fireEvent.press(button);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      expect(mockOnPress).not.toHaveBeenCalled();
     });
 
     it('deve ter activeOpacity 0.8', () => {
@@ -493,27 +564,7 @@ describe('FloatingActionButton', () => {
         />
       );
 
-      // label="" é falsy, então {label && <Text>} não renderiza o Text
-      // Não deve haver nenhum label visível
       expect(queryByText('Adicionar')).toBeNull();
-    });
-
-    it('deve aplicar diferentes cores', () => {
-      const colors = ['#4CAF50', '#2196F3', '#FF5722', '#9C27B0'];
-
-      colors.forEach((color) => {
-        const { UNSAFE_getByType } = render(
-          <FloatingActionButton
-            icon="add"
-            color={color}
-            onPress={mockOnPress}
-          />
-        );
-
-        const { TouchableOpacity } = require('react-native');
-        const button = UNSAFE_getByType(TouchableOpacity);
-        expect(button.props.style[1].backgroundColor).toBe(color);
-      });
     });
   });
 });

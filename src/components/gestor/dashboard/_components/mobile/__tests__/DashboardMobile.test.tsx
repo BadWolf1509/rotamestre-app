@@ -52,6 +52,8 @@ jest.mock('@/utils/styles', () => ({
                 gray700: '#374151',
                 gray900: '#111827',
                 primary: '#007AFF',
+                kpiConcluidas: '#10b981',
+                kpiKm: '#3b82f6',
             },
             spacing: {
                 sm: 8,
@@ -107,6 +109,16 @@ jest.mock('@/components/Toast', () => ({
     Toast: () => null,
 }));
 
+// Mock useMotoristas
+jest.mock('@/hooks/useMotoristas', () => ({
+    useMotoristas: () => ({
+        motoristas: [],
+        loading: false,
+        error: null,
+        refresh: jest.fn(),
+    }),
+}));
+
 // Mock RotaCard
 jest.mock('../../shared/RotaCard', () => ({
     RotaCard: ({ rota, onPress }: any) => {
@@ -144,6 +156,12 @@ describe('DashboardMobile', () => {
         },
         todayStats: {
             totalHoje: 8,
+        },
+        kpis: {
+            rotasMes: 45,
+            kmMes: 1250.5,
+            tempoMedio: '2h 15min',
+            taxaSucesso: 98.5,
         },
         rotas: [
             { id: 'rota-1', motorista_nome: 'João Silva', status: 'em_andamento' },

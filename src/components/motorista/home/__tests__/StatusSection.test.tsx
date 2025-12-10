@@ -3,20 +3,77 @@ import React from 'react';
 
 import { StatusSection } from '../StatusSection';
 
+// Mock styles
+jest.mock('@/utils/styles', () => ({
+  StyleSheet: {
+    create: (fn: any) => {
+      const theme = {
+        colors: {
+          white: '#fff',
+          primary: '#007AFF',
+          success: '#10b981',
+          warning: '#f59e0b',
+          info: '#3b82f6',
+          gray100: '#f3f4f6',
+          gray200: '#e5e7eb',
+          gray500: '#6b7280',
+          gray700: '#374151',
+          gray900: '#111827',
+          successBg: '#d1fae5',
+          warningBg: '#fef3c7',
+          primaryLight: '#dbeafe',
+          infoBg: '#dbeafe',
+        },
+        spacing: { sm: 8, md: 12, lg: 16 },
+        typography: { sm: 14, xs: 12, '2xl': 24, fontDisplay: 'System' },
+      };
+      return typeof fn === 'function' ? fn(theme) : fn;
+    },
+  },
+  useUnistyles: () => ({
+    theme: {
+      colors: {
+        white: '#fff',
+        primary: '#007AFF',
+        success: '#10b981',
+        warning: '#f59e0b',
+        info: '#3b82f6',
+        gray100: '#f3f4f6',
+        gray200: '#e5e7eb',
+        gray500: '#6b7280',
+        gray700: '#374151',
+        gray900: '#111827',
+        successBg: '#d1fae5',
+        warningBg: '#fef3c7',
+        primaryLight: '#dbeafe',
+        infoBg: '#dbeafe',
+      },
+      spacing: { sm: 8, md: 12, lg: 16 },
+      typography: { sm: 14, xs: 12, '2xl': 24, fontDisplay: 'System' },
+    },
+  }),
+}));
+
+// Mock ConnectivityIndicator
+jest.mock('@/components/ConnectivityBanner', () => ({
+  ConnectivityIndicator: () => null,
+}));
+
 describe('StatusSection', () => {
   describe('Renderização Básica', () => {
     it('deve renderizar com userName padrão "Motorista"', () => {
       const { getByText } = render(<StatusSection />);
 
-      expect(getByText('Olá, Motorista!')).toBeTruthy();
+      // Componente agora mostra saudação baseada na hora e o primeiro nome
+      expect(getByText('Motorista')).toBeTruthy();
+      // Deve mostrar saudação (Bom dia, Boa tarde ou Boa noite)
+      expect(getByText(/Bom dia|Boa tarde|Boa noite/)).toBeTruthy();
     });
 
-    it('deve renderizar sem unitName por padrão', () => {
-      const { getByText, queryByText } = render(<StatusSection />);
+    it('deve renderizar status badge padrão "Sem rota"', () => {
+      const { getByText } = render(<StatusSection />);
 
-      expect(getByText('Olá, Motorista!')).toBeTruthy();
-      // Não deve renderizar unitName
-      expect(queryByText(/Unidade/)).toBeNull();
+      expect(getByText('Sem rota')).toBeTruthy();
     });
 
     it('deve renderizar View container', () => {
@@ -28,30 +85,31 @@ describe('StatusSection', () => {
   });
 
   describe('UserName Prop', () => {
-    it('deve renderizar userName customizado', () => {
+    it('deve renderizar primeiro nome do userName', () => {
       const { getByText } = render(<StatusSection userName="João Silva" />);
 
-      expect(getByText('Olá, João Silva!')).toBeTruthy();
+      // Componente mostra apenas o primeiro nome
+      expect(getByText('João')).toBeTruthy();
     });
 
     it('deve renderizar diferentes userNames', () => {
       const { getByText } = render(<StatusSection userName="Maria Santos" />);
 
-      expect(getByText('Olá, Maria Santos!')).toBeTruthy();
+      expect(getByText('Maria')).toBeTruthy();
     });
 
-    it('deve renderizar userName com caracteres especiais', () => {
-      const { getByText } = render(<StatusSection userName="José O'Brien" />);
+    it('deve gerar iniciais corretas para avatar com dois nomes', () => {
+      const { getByText } = render(<StatusSection userName="José Carlos" />);
 
-      expect(getByText("Olá, José O'Brien!")).toBeTruthy();
+      // Iniciais "JC" no avatar fallback
+      expect(getByText('JC')).toBeTruthy();
     });
 
-    it('deve renderizar userName longo', () => {
-      const { getByText } = render(
-        <StatusSection userName="Maria da Silva Santos Oliveira" />
-      );
+    it('deve gerar iniciais corretas para avatar com nome único', () => {
+      const { getByText } = render(<StatusSection userName="Motorista" />);
 
-      expect(getByText('Olá, Maria da Silva Santos Oliveira!')).toBeTruthy();
+      // Iniciais "M" no avatar fallback
+      expect(getByText('M')).toBeTruthy();
     });
   });
 
@@ -61,76 +119,140 @@ describe('StatusSection', () => {
         <StatusSection userName="João" unitName="WJX Locações" />
       );
 
-      expect(getByText('Olá, João!')).toBeTruthy();
+      expect(getByText('João')).toBeTruthy();
       expect(getByText('WJX Locações')).toBeTruthy();
     });
 
     it('não deve renderizar unitName quando undefined', () => {
-      const { getByText } = render(<StatusSection userName="João" />);
+      const { queryByText } = render(<StatusSection userName="João" />);
 
-      expect(getByText('Olá, João!')).toBeTruthy();
-      // Verificar que não há segundo Text com nome de unidade
-      const { Text } = require('react-native');
-      const { UNSAFE_getAllByType } = render(<StatusSection userName="João" />);
-      const texts = UNSAFE_getAllByType(Text);
-      expect(texts.length).toBe(1); // Apenas o título
+      expect(queryByText('WJX Locações')).toBeNull();
     });
 
-    it('não deve renderizar unitName quando null', () => {
+    it('deve renderizar unitName longo', () => {
       const { getByText } = render(
-        <StatusSection userName="João" unitName={undefined} />
+        <StatusSection
+          unitName="WJX Locações e Equipamentos Ltda - Filial São Paulo"
+        />
       );
 
-      expect(getByText('Olá, João!')).toBeTruthy();
+      expect(getByText('WJX Locações e Equipamentos Ltda - Filial São Paulo')).toBeTruthy();
     });
+  });
 
-    it('não deve renderizar unitName quando string vazia', () => {
+  describe('RouteStatus Prop', () => {
+    it('deve renderizar status "pending" corretamente', () => {
       const { getByText } = render(
-        <StatusSection userName="João" unitName="" />
+        <StatusSection routeStatus="pending" />
       );
 
-      expect(getByText('Olá, João!')).toBeTruthy();
-      // String vazia é falsy, não deve renderizar
-      const { Text } = require('react-native');
-      const { UNSAFE_getAllByType } = render(
-        <StatusSection userName="João" unitName="" />
-      );
-      const texts = UNSAFE_getAllByType(Text);
-      expect(texts.length).toBe(1);
+      expect(getByText('Rota pendente')).toBeTruthy();
     });
 
+    it('deve renderizar status "active" corretamente', () => {
+      const { getByText } = render(
+        <StatusSection routeStatus="active" />
+      );
+
+      expect(getByText('Em rota')).toBeTruthy();
+    });
+
+    it('deve renderizar status "last-stop" corretamente', () => {
+      const { getByText } = render(
+        <StatusSection routeStatus="last-stop" />
+      );
+
+      expect(getByText('Última parada')).toBeTruthy();
+    });
+
+    it('deve renderizar status "ready-to-complete" corretamente', () => {
+      const { getByText } = render(
+        <StatusSection routeStatus="ready-to-complete" />
+      );
+
+      expect(getByText('Pronto para finalizar')).toBeTruthy();
+    });
+
+    it('deve renderizar status "completed" corretamente', () => {
+      const { getByText } = render(
+        <StatusSection routeStatus="completed" />
+      );
+
+      expect(getByText('Rota concluída')).toBeTruthy();
+    });
   });
 
-  it('deve renderizar status online corretamente', () => {
-    const { getByText } = render(
-      <StatusSection
-        unitName="WJX Locações e Equipamentos Ltda - Filial São Paulo"
-      />
-    );
+  describe('Progress Indicator', () => {
+    it('deve mostrar progresso quando em rota ativa', () => {
+      const { getByText } = render(
+        <StatusSection
+          routeStatus="active"
+          completedStops={3}
+          totalStops={10}
+        />
+      );
 
-    expect(getByText('WJX Locações e Equipamentos Ltda - Filial São Paulo')).toBeTruthy();
+      expect(getByText('3/10')).toBeTruthy();
+    });
+
+    it('deve mostrar progresso quando na última parada', () => {
+      const { getByText } = render(
+        <StatusSection
+          routeStatus="last-stop"
+          completedStops={9}
+          totalStops={10}
+        />
+      );
+
+      expect(getByText('9/10')).toBeTruthy();
+    });
+
+    it('não deve mostrar progresso quando no-route', () => {
+      const { queryByText } = render(
+        <StatusSection
+          routeStatus="no-route"
+          completedStops={3}
+          totalStops={10}
+        />
+      );
+
+      expect(queryByText('3/10')).toBeNull();
+    });
+
+    it('não deve mostrar progresso quando totalStops é 0', () => {
+      const { queryByText } = render(
+        <StatusSection
+          routeStatus="active"
+          completedStops={0}
+          totalStops={0}
+        />
+      );
+
+      expect(queryByText('0/0')).toBeNull();
+    });
   });
 
-  it('deve renderizar apenas userName quando unitName ausente', () => {
-    const { getByText } = render(
-      <StatusSection userName="Maria Santos" />
-    );
+  describe('UserPhoto Prop', () => {
+    it('deve renderizar iniciais quando não há foto', () => {
+      const { getByText } = render(
+        <StatusSection userName="Maria Santos" />
+      );
 
-    expect(getByText('Olá, Maria Santos!')).toBeTruthy();
+      expect(getByText('MS')).toBeTruthy();
+    });
+
+    it('deve limitar iniciais a 2 caracteres', () => {
+      const { getByText } = render(
+        <StatusSection userName="Ana Maria Santos Silva" />
+      );
+
+      // Apenas AS (primeiras 2 iniciais)
+      expect(getByText('AM')).toBeTruthy();
+    });
   });
-
-  it('deve renderizar userName padrão + unitName', () => {
-    const { getByText } = render(
-      <StatusSection unitName="ABC Equipamentos" />
-    );
-
-    expect(getByText('Olá, Motorista!')).toBeTruthy();
-    expect(getByText('ABC Equipamentos')).toBeTruthy();
-  });
-
 
   describe('Estrutura do Componente', () => {
-    it('deve renderizar dois Views aninhados', () => {
+    it('deve renderizar múltiplos Views aninhados', () => {
       const { UNSAFE_getAllByType } = render(
         <StatusSection userName="João" unitName="WJX" />
       );
@@ -140,22 +262,12 @@ describe('StatusSection', () => {
       expect(views.length).toBeGreaterThanOrEqual(2);
     });
 
-    it('deve renderizar Text com título sempre', () => {
+    it('deve renderizar Text elements', () => {
       const { UNSAFE_getAllByType } = render(<StatusSection />);
 
       const { Text } = require('react-native');
       const texts = UNSAFE_getAllByType(Text);
       expect(texts.length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('deve renderizar dois Texts quando tem unitName', () => {
-      const { UNSAFE_getAllByType } = render(
-        <StatusSection unitName="WJX Locações" />
-      );
-
-      const { Text } = require('react-native');
-      const texts = UNSAFE_getAllByType(Text);
-      expect(texts.length).toBe(2);
     });
   });
 
@@ -165,20 +277,20 @@ describe('StatusSection', () => {
         <StatusSection userName="João Silva" unitName="WJX Locações" />
       );
 
-      expect(getByText('Olá, João Silva!')).toBeTruthy();
+      expect(getByText('João')).toBeTruthy();
       expect(getByText('WJX Locações')).toBeTruthy();
     });
 
     it('deve renderizar tela inicial sem dados de unidade', () => {
       const { getByText } = render(<StatusSection userName="Maria Santos" />);
 
-      expect(getByText('Olá, Maria Santos!')).toBeTruthy();
+      expect(getByText('Maria')).toBeTruthy();
     });
 
     it('deve renderizar estado inicial sem dados do usuário', () => {
       const { getByText } = render(<StatusSection />);
 
-      expect(getByText('Olá, Motorista!')).toBeTruthy();
+      expect(getByText('Motorista')).toBeTruthy();
     });
 
     it('deve renderizar para motorista de múltiplas unidades', () => {
@@ -189,7 +301,7 @@ describe('StatusSection', () => {
         />
       );
 
-      expect(getByText('Olá, Carlos Oliveira!')).toBeTruthy();
+      expect(getByText('Carlos')).toBeTruthy();
       expect(getByText('Mestre da Obra - Unidade Centro')).toBeTruthy();
     });
   });
@@ -198,26 +310,8 @@ describe('StatusSection', () => {
     it('deve renderizar com userName vazio (usa default)', () => {
       const { getByText } = render(<StatusSection userName="" />);
 
-      // userName vazio ainda usa o default no destructuring? Não, passa vazio
-      expect(getByText('Olá, !')).toBeTruthy();
-    });
-
-    it('deve renderizar com apenas espaços no userName', () => {
-      const { getByText } = render(<StatusSection userName="   " />);
-
-      expect(getByText('Olá,    !')).toBeTruthy();
-    });
-
-    it('deve renderizar com userName numérico', () => {
-      const { getByText } = render(<StatusSection userName="123" />);
-
-      expect(getByText('Olá, 123!')).toBeTruthy();
-    });
-
-    it('deve renderizar com emojis no userName', () => {
-      const { getByText } = render(<StatusSection userName="João 🚗" />);
-
-      expect(getByText('Olá, João 🚗!')).toBeTruthy();
+      // userName vazio mostra string vazia (sem crash)
+      expect(getByText(/Bom dia|Boa tarde|Boa noite/)).toBeTruthy();
     });
 
     it('deve renderizar com unitName com caracteres especiais', () => {

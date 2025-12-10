@@ -86,16 +86,14 @@ describe('MainCard', () => {
     it('deve renderizar estado no-route', () => {
         const { getByText } = render(<MainCard {...defaultProps} />);
 
-        expect(getByText('Nenhuma rota para hoje')).toBeTruthy();
-        expect(getByText('Confira suas estatísticas de ontem')).toBeTruthy();
+        expect(getByText('Sem rota no momento')).toBeTruthy();
+        expect(getByText('Aguardando atribuição de nova rota')).toBeTruthy();
     });
 
-    it('deve mostrar estatísticas de ontem em no-route', () => {
+    it('deve mostrar dica do dia em no-route', () => {
         const { getByText } = render(<MainCard {...defaultProps} />);
 
-        expect(getByText('Ontem')).toBeTruthy();
-        expect(getByText('Paradas')).toBeTruthy();
-        expect(getByText('Distância')).toBeTruthy();
+        expect(getByText('Dica do dia')).toBeTruthy();
     });
 
     it('deve renderizar estado pending', () => {

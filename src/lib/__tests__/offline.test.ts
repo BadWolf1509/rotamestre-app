@@ -436,20 +436,26 @@ describe('offline', () => {
             expect(mockAsyncStorage.getItem).toHaveBeenCalled();
         });
 
-        it('não deve processar quando desconectado', async () => {
+        it('não deve processar fila quando desconectado, mas verifica pendências para notificação', async () => {
             let connectionCallback: any;
             mockNetInfo.addEventListener.mockImplementation((callback) => {
                 connectionCallback = callback;
                 return jest.fn();
             });
 
+            // Mock para retornar fila vazia
+            mockAsyncStorage.getItem.mockResolvedValue(null);
+
             setupOfflineSync();
 
             // Simula desconexão
             await connectionCallback({ isConnected: false, isInternetReachable: false });
 
-            // Não deve chamar getItem pois está offline
-            expect(mockAsyncStorage.getItem).not.toHaveBeenCalled();
+            // Deve chamar getItem para verificar pendências (para notificação offline)
+            // mas não deve processar a fila
+            expect(mockAsyncStorage.getItem).toHaveBeenCalled();
+            // Não deve chamar setItem (que seria chamado se processasse a fila)
+            expect(mockAsyncStorage.setItem).not.toHaveBeenCalled();
         });
     });
 });
