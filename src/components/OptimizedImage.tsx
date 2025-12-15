@@ -1,4 +1,3 @@
-import { BlurView } from 'expo-blur';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Image,
@@ -8,9 +7,19 @@ import {
   ImageProps,
   Animated,
   Platform,
+  Text,
 } from 'react-native';
 
 import PerformanceOptimizer from '@/services/performanceOptimizer';
+
+// Conditional import for expo-blur (only used on iOS)
+let BlurView: React.ComponentType<{ intensity: number; style: any }> | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  BlurView = require('expo-blur').BlurView;
+} catch {
+  // expo-blur not available
+}
 
 // Import file system conditionally for native only
 const FileSystem = Platform.OS !== 'web' ? require('expo-file-system') : null;
@@ -61,6 +70,77 @@ export function OptimizedImage({
       mountedRef.current = false;
     };
   }, []);
+
+  // Declare helper functions BEFORE loadImage to avoid "used before declaration" errors
+  const animateImageLoad = useCallback(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
+
+  const getCachedImage = useCallback(async (uri: string): Promise<string | null> => {
+    if (Platform.OS === 'web' || !FileSystem || !Crypto) {
+      return null;
+    }
+
+    try {
+      // Generate cache key
+      const cacheKey = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.MD5,
+        uri
+      );
+      const cacheFilePath = `${CACHE_DIR}${cacheKey}.jpg`;
+
+      // Check if cached file exists
+      const fileInfo = await FileSystem.getInfoAsync(cacheFilePath);
+      if (fileInfo.exists && !fileInfo.isDirectory) {
+        // Check if cache is not too old (7 days)
+        const age = Date.now() - (fileInfo.modificationTime || 0) * 1000;
+        if (age < 7 * 24 * 60 * 60 * 1000) {
+          return cacheFilePath;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking cache:', error);
+    }
+    return null;
+  }, []);
+
+  const downloadAndCacheImage = useCallback(
+    async (uri: string): Promise<string | null> => {
+      if (Platform.OS === 'web' || !FileSystem || !Crypto) {
+        return null;
+      }
+
+      try {
+        // Ensure cache directory exists
+        const dirInfo = await FileSystem.getInfoAsync(CACHE_DIR);
+        if (!dirInfo.exists) {
+          await FileSystem.makeDirectoryAsync(CACHE_DIR, { intermediates: true });
+        }
+
+        // Generate cache key
+        const cacheKey = await Crypto.digestStringAsync(
+          Crypto.CryptoDigestAlgorithm.MD5,
+          uri
+        );
+        const cacheFilePath = `${CACHE_DIR}${cacheKey}.jpg`;
+
+        // Download image
+        const downloadResult = await FileSystem.downloadAsync(uri, cacheFilePath);
+
+        if (downloadResult.status === 200) {
+          return downloadResult.uri;
+        }
+      } catch (error) {
+        console.error('Error caching image:', error);
+      }
+      return null;
+    },
+    []
+  );
 
   const loadImage = useCallback(async () => {
     if (typeof source === 'number') return;
@@ -153,70 +233,6 @@ export function OptimizedImage({
     width,
   ]);
 
-  const getCachedImage = useCallback(async (uri: string): Promise<string | null> => {
-    if (Platform.OS === 'web' || !FileSystem || !Crypto) {
-      return null;
-    }
-
-    try {
-      // Generate cache key
-      const cacheKey = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.MD5,
-        uri
-      );
-      const cacheFilePath = `${CACHE_DIR}${cacheKey}.jpg`;
-
-      // Check if cached file exists
-      const fileInfo = await FileSystem.getInfoAsync(cacheFilePath);
-      if (fileInfo.exists && !fileInfo.isDirectory) {
-        // Check if cache is not too old (7 days)
-        const age = Date.now() - (fileInfo.modificationTime || 0) * 1000;
-        if (age < 7 * 24 * 60 * 60 * 1000) {
-          return cacheFilePath;
-        }
-      }
-    } catch (error) {
-      console.error('Error checking cache:', error);
-    }
-    return null;
-  }, []);
-
-  const downloadAndCacheImage = useCallback(
-    async (
-      uri: string
-    ): Promise<string | null> => {
-      if (Platform.OS === 'web' || !FileSystem || !Crypto) {
-        return null;
-      }
-
-      try {
-        // Ensure cache directory exists
-        const dirInfo = await FileSystem.getInfoAsync(CACHE_DIR);
-        if (!dirInfo.exists) {
-          await FileSystem.makeDirectoryAsync(CACHE_DIR, { intermediates: true });
-        }
-
-        // Generate cache key
-        const cacheKey = await Crypto.digestStringAsync(
-          Crypto.CryptoDigestAlgorithm.MD5,
-          uri
-        );
-        const cacheFilePath = `${CACHE_DIR}${cacheKey}.jpg`;
-
-        // Download image
-        const downloadResult = await FileSystem.downloadAsync(uri, cacheFilePath);
-
-        if (downloadResult.status === 200) {
-          return downloadResult.uri;
-        }
-      } catch (error) {
-        console.error('Error caching image:', error);
-      }
-      return null;
-    },
-    []
-  );
-
   useEffect(() => {
     if (typeof source === 'number') {
       // Local image, no optimization needed
@@ -227,14 +243,6 @@ export function OptimizedImage({
 
     loadImage();
   }, [loadImage, source]);
-
-  const animateImageLoad = useCallback(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [fadeAnim]);
 
   const handleError = (err: any) => {
     setError(true);
@@ -279,7 +287,7 @@ export function OptimizedImage({
             blurRadius={blurRadius}
             {...props}
           />
-          {Platform.OS === 'ios' && (
+          {Platform.OS === 'ios' && BlurView && (
             <BlurView intensity={80} style={StyleSheet.absoluteFillObject} />
           )}
           <ActivityIndicator

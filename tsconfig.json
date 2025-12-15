@@ -21,12 +21,6 @@
     "**/*.test.tsx",
     "coverage",
     "dist",
-    "web-build",
-    "src/components/OptimizedImage.tsx",
-    "src/components/OptimizedList.tsx",
-    "src/components/DevOverlay.tsx",
-    "src/components/motorista/NavigationMode.web.tsx",
-    "src/components/motorista/TurnByTurnNavigation.tsx",
-    "src/components/motorista/home/QuickActions.tsx"
+    "web-build"
   ]
 }

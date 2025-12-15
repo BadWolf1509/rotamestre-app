@@ -40,84 +40,11 @@ export function NavigationMode({
   });
   const { autoAdvance, proximityRadius } = settings;
 
-  useEffect(() => {
-    loadSettings();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // loadSettings é estável (useCallback com deps vazias)
-
-  useEffect(() => {
-    let cleanup: (() => void) | undefined;
-
-    const initialize = async () => {
-      cleanup = await startLocationTracking();
-    };
-
-    initialize();
-
-    return () => {
-      cleanup?.();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // startLocationTracking é estável (useCallback)
-
+  // Declare helper functions BEFORE they are used to avoid "used before declaration" errors
   const loadSettings = useCallback(async () => {
     const prefs = await LocationTrackingService.getNavigationPreferences();
     setSettings(prefs as any);
   }, []);
-
-  const startLocationTracking = useCallback(async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Erro', 'Permissão de localização negada');
-      return;
-    }
-
-    // Get initial location
-    const location = await Location.getCurrentPositionAsync({});
-    const initialCoords = {
-      latitude: location.coords.latitude,
-      longitude: location.coords.longitude,
-    };
-    checkProximityToStop(initialCoords);
-
-    // Watch location updates
-    const subscription = await Location.watchPositionAsync(
-      {
-        accuracy: Location.Accuracy.BestForNavigation,
-        timeInterval: 1000,
-        distanceInterval: 10,
-      },
-      (location) => {
-        const coords = {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        };
-        checkProximityToStop(coords);
-      }
-    );
-
-    return () => subscription.remove();
-  }, [checkProximityToStop]);
-
-  const checkProximityToStop = useCallback(
-    (userCoords: { latitude: number; longitude: number }) => {
-      if (!currentStop) return;
-
-      const distance = calculateDistance(
-        userCoords.latitude,
-        userCoords.longitude,
-        currentStop.latitude,
-        currentStop.longitude
-      );
-
-      setDistanceToStop(distance);
-
-      if (distance < proximityRadius && autoAdvance) {
-        handleArrival();
-      }
-    },
-    [autoAdvance, calculateDistance, currentStop, handleArrival, proximityRadius]
-  );
 
   const calculateDistance = useCallback(
     (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -157,6 +84,80 @@ export function NavigationMode({
       ]
     );
   }, [currentStop, onComplete, onSkip]);
+
+  const checkProximityToStop = useCallback(
+    (userCoords: { latitude: number; longitude: number }) => {
+      if (!currentStop) return;
+
+      const distance = calculateDistance(
+        userCoords.latitude,
+        userCoords.longitude,
+        currentStop.latitude,
+        currentStop.longitude
+      );
+
+      setDistanceToStop(distance);
+
+      if (distance < proximityRadius && autoAdvance) {
+        handleArrival();
+      }
+    },
+    [autoAdvance, calculateDistance, currentStop, handleArrival, proximityRadius]
+  );
+
+  const startLocationTracking = useCallback(async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Erro', 'Permissão de localização negada');
+      return;
+    }
+
+    // Get initial location
+    const location = await Location.getCurrentPositionAsync({});
+    const initialCoords = {
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude,
+    };
+    checkProximityToStop(initialCoords);
+
+    // Watch location updates
+    const subscription = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.BestForNavigation,
+        timeInterval: 1000,
+        distanceInterval: 10,
+      },
+      (location) => {
+        const coords = {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        };
+        checkProximityToStop(coords);
+      }
+    );
+
+    return () => subscription.remove();
+  }, [checkProximityToStop]);
+
+  useEffect(() => {
+    loadSettings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // loadSettings é estável (useCallback com deps vazias)
+
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+
+    const initialize = async () => {
+      cleanup = await startLocationTracking();
+    };
+
+    initialize();
+
+    return () => {
+      cleanup?.();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // startLocationTracking é estável (useCallback)
 
   const formatDistance = (meters: number): string => {
     if (meters < 1000) {

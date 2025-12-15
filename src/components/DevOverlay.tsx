@@ -288,7 +288,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(17, 24, 39, 0.95)',
     borderRadius: 12,
     padding: 16,
-    backdropFilter: 'blur(10px)' as any,
   },
   header: {
     flexDirection: 'row',
@@ -351,6 +350,9 @@ const styles = StyleSheet.create({
   routeButtonText: {
     color: '#fff',
     fontSize: 12,
+  },
+  activeRouteText: {
+    color: defaultTheme.colors.primary,
   },
   actionGrid: {
     flexDirection: 'row',

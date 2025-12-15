@@ -30,12 +30,12 @@ interface OptimizedListProps<T> {
   onEndReached?: () => void;
   onRefresh?: () => void;
   refreshing?: boolean;
-  ListHeaderComponent?: React.ComponentType<any> | React.ReactElement;
-  ListFooterComponent?: React.ComponentType<any> | React.ReactElement;
-  ListEmptyComponent?: React.ComponentType<any> | React.ReactElement;
-  ItemSeparatorComponent?: React.ComponentType<any> | React.ReactElement;
+  ListHeaderComponent?: React.ComponentType<any> | React.ReactElement | null;
+  ListFooterComponent?: React.ComponentType<any> | React.ReactElement | null;
+  ListEmptyComponent?: React.ComponentType<any> | React.ReactElement | null;
+  ItemSeparatorComponent?: React.ComponentType<any> | null;
   onViewableItemsChanged?: (info: { viewableItems: ViewToken[]; changed: ViewToken[] }) => void;
-  getItemLayout?: (data: T[] | null | undefined, index: number) => { length: number; offset: number; index: number };
+  getItemLayout?: (data: ArrayLike<T> | null | undefined, index: number) => { length: number; offset: number; index: number };
   horizontal?: boolean;
   numColumns?: number;
   columnWrapperStyle?: any;
@@ -204,19 +204,38 @@ function OptimizedListComponent<T>({
   };
 
   // Use FlashList for best performance (only on native)
-  if (type === 'flash' && Platform.OS !== 'web') {
+  // FlashList is not available on web, so we check against native platforms
+  const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
+  if (type === 'flash' && isNative) {
+    // FlashList has different prop types, so we use type assertion
+    const FlashListAny = FlashList as any;
     return (
-      <FlashList
-        {...commonProps}
+      <FlashListAny
+        ref={listRef}
+        data={data}
+        renderItem={optimizedRenderItem}
+        keyExtractor={memoizedKeyExtractor}
+        horizontal={horizontal}
+        contentContainerStyle={contentContainerStyle}
+        style={style}
+        ListHeaderComponent={ListHeaderComponent}
+        ListFooterComponent={ListFooterComponent}
+        ListEmptyComponent={EmptyComponent}
+        ItemSeparatorComponent={ItemSeparatorComponent}
+        onEndReached={debouncedOnEndReached}
+        onEndReachedThreshold={onEndReachedThreshold}
+        refreshControl={refreshControl}
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={horizontal}
         estimatedItemSize={estimatedItemSize}
         viewabilityConfig={viewabilityConfigRef.current}
         onViewableItemsChanged={onViewableItemsChanged}
-        getItemLayout={getItemLayout}
         drawDistance={200}
         estimatedListSize={{
           height: 600,
           width: horizontal ? undefined : 400,
         }}
+        {...optimizedProps}
       />
     );
   }
@@ -230,7 +249,7 @@ function OptimizedListComponent<T>({
         columnWrapperStyle={numColumns > 1 ? columnWrapperStyle : undefined}
         viewabilityConfig={viewabilityConfigRef.current}
         onViewableItemsChanged={onViewableItemsChanged}
-        getItemLayout={getItemLayout}
+        getItemLayout={getItemLayout as any}
         legacyImplementation={false}
         maintainVisibleContentPosition={
           Platform.OS === 'ios'
@@ -247,12 +266,28 @@ function OptimizedListComponent<T>({
   // Default to VirtualizedList for maximum control
   return (
     <VirtualizedList
-      {...commonProps}
+      ref={listRef}
+      data={data}
+      renderItem={optimizedRenderItem}
+      keyExtractor={memoizedKeyExtractor}
+      horizontal={horizontal}
+      contentContainerStyle={contentContainerStyle}
+      style={style}
+      ListHeaderComponent={ListHeaderComponent}
+      ListFooterComponent={ListFooterComponent}
+      ListEmptyComponent={EmptyComponent}
+      ItemSeparatorComponent={ItemSeparatorComponent}
+      onEndReached={debouncedOnEndReached}
+      onEndReachedThreshold={onEndReachedThreshold}
+      refreshControl={refreshControl}
+      showsVerticalScrollIndicator={Platform.OS === 'web' && !horizontal}
+      showsHorizontalScrollIndicator={horizontal}
       getItemCount={() => data.length}
       getItem={(items: T[], index: number) => items[index]}
       viewabilityConfig={viewabilityConfigRef.current}
       onViewableItemsChanged={onViewableItemsChanged}
-      getItemLayout={getItemLayout}
+      getItemLayout={getItemLayout as any}
+      {...optimizedProps}
     />
   );
 }
@@ -272,11 +307,11 @@ interface OptimizedSectionListProps<T> {
   stickySectionHeadersEnabled?: boolean;
   onRefresh?: () => void;
   refreshing?: boolean;
-  ListHeaderComponent?: React.ComponentType<any> | React.ReactElement;
-  ListFooterComponent?: React.ComponentType<any> | React.ReactElement;
-  ListEmptyComponent?: React.ComponentType<any> | React.ReactElement;
-  ItemSeparatorComponent?: React.ComponentType<any> | React.ReactElement;
-  SectionSeparatorComponent?: React.ComponentType<any> | React.ReactElement;
+  ListHeaderComponent?: React.ComponentType<any> | React.ReactElement | null;
+  ListFooterComponent?: React.ComponentType<any> | React.ReactElement | null;
+  ListEmptyComponent?: React.ComponentType<any> | React.ReactElement | null;
+  ItemSeparatorComponent?: React.ComponentType<any> | null;
+  SectionSeparatorComponent?: React.ComponentType<any> | null;
   contentContainerStyle?: any;
   style?: any;
 }
