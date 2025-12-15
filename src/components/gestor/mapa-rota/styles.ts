@@ -493,6 +493,45 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.gray200,
   },
 
+  // Skeleton - Novo layout otimizado
+  skeletonCardCompact: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.sm + 4,
+    borderWidth: 1,
+    borderColor: theme.colors.gray100,
+  },
+  skeletonHeaderCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.white,
+    paddingVertical: theme.spacing.sm + 2,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.gray100,
+    marginBottom: theme.spacing.lg,
+    gap: theme.spacing.md,
+  },
+  skeletonResumoInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.gray50,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.sm + 2,
+    gap: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.gray100,
+  },
+  skeletonTimelineCollapsible: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.gray100,
+    padding: theme.spacing.md,
+  },
+
   // ===== General / Layout =====
   loadingContainer: {
     flex: 1,

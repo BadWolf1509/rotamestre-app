@@ -19,8 +19,8 @@ import {
 
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-import { uploadELinkFotoParada } from '../lib/storage';
 import { isOnline, queuePhotoUpload, hasOfflinePhoto, getOfflinePhotoPath } from '../lib/offline';
+import { uploadELinkFotoParada } from '../lib/storage';
 
 interface CameraUploadProps {
   unidadeId: string;

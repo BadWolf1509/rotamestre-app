@@ -83,6 +83,8 @@ export function useUser() {
       }
       fetchingRef.current = false;
     }
+  // userData omitido intencionalmente para evitar loop infinito
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, fetchUserData]);
 
   // Carregar dados quando userId mudar

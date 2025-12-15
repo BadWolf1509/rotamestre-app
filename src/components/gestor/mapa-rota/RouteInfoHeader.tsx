@@ -9,6 +9,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { useUnistyles, type Theme } from '@/utils/styles';
 
 import { styles } from './styles';
+
 import type { Rota, ResumoParadas } from './types';
 
 interface RouteInfoHeaderProps {

@@ -5,9 +5,10 @@
 
 import { useCallback, useEffect, useState, useRef } from 'react';
 
-import { useUnidadeAtiva } from './useUnidadeAtiva';
 import { getCache, setCache, clearCache, CACHE_TTL, CACHE_KEYS } from '@/lib/cache';
 import { supabase } from '@/lib/supabase';
+
+import { useUnidadeAtiva } from './useUnidadeAtiva';
 
 export interface Motorista {
   id: string;

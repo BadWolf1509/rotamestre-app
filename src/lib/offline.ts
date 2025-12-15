@@ -1,12 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
-import { supabase } from './supabase';
-import { uploadELinkFotoParada } from './storage';
 import { notifySyncComplete, notifyOfflineMode } from './notifications';
+import { uploadELinkFotoParada } from './storage';
+import { supabase } from './supabase';
 
-import * as FileSystem from 'expo-file-system/legacy';
 
 const OFFLINE_QUEUE_KEY = '@rotamestre:offline_queue';
 const OFFLINE_DATA_KEY = '@rotamestre:offline_data';

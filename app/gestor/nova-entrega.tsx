@@ -948,14 +948,50 @@ export default function NovaEntrega() {
       const hoje = new Date();
       const dataHoje = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
 
-      const distanciaKm =
-        rotaOtimizada?.distancia_total_metros != null
-          ? Number((rotaOtimizada.distancia_total_metros / 1000).toFixed(2))
-          : null;
-      const tempoMin =
-        rotaOtimizada?.duracao_total_segundos != null
-          ? Math.round(rotaOtimizada.duracao_total_segundos / 60)
-          : null;
+      // Calcular distância e tempo
+      let distanciaKm: number | null = null;
+      let tempoMin: number | null = null;
+      let polyline: string | undefined;
+      let legsCalculados: GoogleDirectionsLeg[] = [];
+
+      if (rotaOtimizada) {
+        // ✅ Rota já foi otimizada - usar dados existentes (0 chamadas API extras)
+        console.log('📊 Usando dados da otimização existente');
+        distanciaKm = Number((rotaOtimizada.distancia_total_metros / 1000).toFixed(2));
+        tempoMin = Math.round(rotaOtimizada.duracao_total_segundos / 60);
+        polyline = rotaOtimizada.polyline;
+        legsCalculados = rotaOtimizada.legs;
+      } else if (paradas.length > 0 && enderecoUnidade) {
+        // ⚡ Rota não foi otimizada - calcular distância mantendo ordem manual
+        console.log('📊 Calculando distância da rota (sem reordenar)...');
+
+        const pontoUnidade = {
+          latitude: enderecoUnidade.latitude,
+          longitude: enderecoUnidade.longitude,
+        };
+
+        const waypoints = paradas.map((p) => ({
+          latitude: p.latitude!,
+          longitude: p.longitude!,
+        }));
+
+        const resultado = await googleMapsService.getDirections(
+          pontoUnidade,
+          pontoUnidade, // Rota circular - volta para a base
+          waypoints,
+          false // ← IMPORTANTE: não reordenar, manter ordem manual do usuário
+        );
+
+        if (resultado) {
+          distanciaKm = Number((resultado.distancia_total_metros / 1000).toFixed(2));
+          tempoMin = Math.round(resultado.duracao_total_segundos / 60);
+          polyline = resultado.polyline;
+          legsCalculados = resultado.legs;
+          console.log(`✅ Distância calculada: ${distanciaKm} km, ${tempoMin} min`);
+        } else {
+          console.warn('⚠️ Não foi possível calcular distância da rota');
+        }
+      }
 
       const rotaPayload: Record<string, any> = {
         unidade_id: unidadeAtiva,
@@ -972,8 +1008,8 @@ export default function NovaEntrega() {
         rotaPayload.tempo_total = tempoMin;
       }
 
-      if (rotaOtimizada?.polyline) {
-        rotaPayload.polyline = rotaOtimizada.polyline;
+      if (polyline) {
+        rotaPayload.polyline = polyline;
       }
 
       const { data: rotaData, error: rotaError } = await supabase
@@ -990,7 +1026,7 @@ export default function NovaEntrega() {
       // Parada 0: Unidade (início da rota)
       if (enderecoUnidade) {
         // Para a primeira parada, usar o leg 0 para distância/tempo até a próxima
-        const leg0 = rotaOtimizada?.legs?.[0];
+        const leg0 = legsCalculados?.[0];
 
         paradasParaInserir.push({
           rota_id: rotaData.id,
@@ -1015,7 +1051,7 @@ export default function NovaEntrega() {
         // index = 0 corresponde ao leg 1 (base -> primeira entrega já foi usada acima)
         // Precisamos do leg para ir desta parada até a próxima
         const legIndex = index + 1; // leg 1 = da primeira entrega para a segunda
-        const leg = rotaOtimizada?.legs?.[legIndex];
+        const leg = legsCalculados?.[legIndex];
 
         // Guardar índice (considerando a parada 0 da unidade)
         tempIdToIndex[p.id] = paradasParaInserir.length;
@@ -1041,7 +1077,7 @@ export default function NovaEntrega() {
       if (enderecoUnidade) {
         // Última parada não tem "próxima parada", então distância/tempo são null
         const ultimoLegIndex = paradas.length; // leg que chega na última parada (volta para base)
-        const ultimoLeg = rotaOtimizada?.legs?.[ultimoLegIndex];
+        const ultimoLeg = legsCalculados?.[ultimoLegIndex];
 
         paradasParaInserir.push({
           rota_id: rotaData.id,

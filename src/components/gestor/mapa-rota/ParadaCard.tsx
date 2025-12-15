@@ -11,6 +11,7 @@ import { View, Text, TouchableOpacity, Image, Platform } from 'react-native';
 import { useUnistyles } from '@/utils/styles';
 
 import { styles } from './styles';
+
 import type { Parada } from './types';
 
 interface ParadaCardProps {

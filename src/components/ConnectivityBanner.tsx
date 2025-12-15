@@ -191,7 +191,7 @@ export function ConnectivityIndicator() {
 export function ConnectionStatusBadge() {
   const { theme } = useUnistyles();
   const isOnline = useIsOnline();
-  const { connectionType, isWifi, isCellular } = useNetworkStatus();
+  const { isWifi, isCellular } = useNetworkStatus();
 
   const getLabel = (): string => {
     if (!isOnline) return 'Offline';

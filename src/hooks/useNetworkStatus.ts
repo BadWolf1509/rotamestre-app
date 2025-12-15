@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
 import NetInfo, { NetInfoState, NetInfoStateType } from '@react-native-community/netinfo';
+import { useEffect, useState, useCallback } from 'react';
 
 export type ConnectionType = 'wifi' | 'cellular' | 'ethernet' | 'none' | 'unknown';
 

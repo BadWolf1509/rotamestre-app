@@ -106,8 +106,8 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
                 </TouchableOpacity>
               )}
               <View style={[styles.typeTag, parada.tipo === 'entrega' ? styles.typeTagEntrega : styles.typeTagRetirada]}>
-                <Text style={styles.typeTagText}>
-                  {parada.tipo === 'entrega' ? 'E' : 'R'}
+                <Text style={[styles.typeTagText, parada.tipo === 'entrega' ? styles.typeTagTextEntrega : styles.typeTagTextRetirada]}>
+                  {parada.tipo === 'entrega' ? 'ENTREGA' : 'RETIRADA'}
                 </Text>
               </View>
             </View>
@@ -120,7 +120,7 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
               onPress={() => onImagePress(parada.foto_url!)}
             >
               <Image
-                source={{ uri: parada.foto_url }}
+                source={{ uri: parada.foto_url ?? undefined }}
                 style={styles.thumbnailImage}
                 onError={() => setImageError(true)}
               />
@@ -285,8 +285,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontWeight: '500',
   },
   typeTag: {
-    width: 18,
-    height: 18,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 4,
     justifyContent: 'center',
     alignItems: 'center',
@@ -298,9 +298,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.warningBg,
   },
   typeTagText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
-    color: theme.colors.gray700,
+    letterSpacing: 0.3,
+  },
+  typeTagTextEntrega: {
+    color: theme.colors.info,
+  },
+  typeTagTextRetirada: {
+    color: theme.colors.warning,
   },
   thumbnail: {
     width: 40,

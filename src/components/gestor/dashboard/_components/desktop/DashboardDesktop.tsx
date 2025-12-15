@@ -41,7 +41,7 @@ interface DashboardDesktopProps extends DashboardData {
 export function DashboardDesktop({
   stats,
   todayStats, // ✅ Stats de hoje (ignora filtros)
-  kpis, // ✅ KPIs avançados
+  kpis: _kpis, // ✅ KPIs avançados
   rotas,
   loading,
   refreshing,

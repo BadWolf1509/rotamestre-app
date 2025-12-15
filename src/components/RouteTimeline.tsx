@@ -60,33 +60,47 @@ export function RouteTimeline({ rotaId, realtime = true, onStateChange }: RouteT
         logsRes.data.forEach((log: any) => {
           const evento = log.evento.toLowerCase();
 
-          if (evento.includes('iniciou') || evento.includes('start')) {
+          // Detectar evento de início de rota
+          if (evento.includes('iniciou') || evento.includes('start') || evento === 'motorista_iniciou_rota') {
+            const detalhes = typeof log.detalhes === 'object' ? log.detalhes : null;
             timelineEvents.push({
               id: `log-${log.id}`,
               type: 'status_change',
               timestamp: log.created_at,
               title: 'Rota Iniciada',
-              description: log.detalhes || 'Motorista iniciou a rota',
+              description: detalhes?.timestamp
+                ? `Motorista iniciou a rota às ${new Date(detalhes.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                : 'Motorista iniciou a rota',
               icon: 'play-circle',
               color: '#3b82f6',
             });
-          } else if (evento.includes('concluiu') || evento.includes('finaliz')) {
+          }
+          // Detectar evento de conclusão de rota
+          else if (evento.includes('concluiu') || evento.includes('finaliz') || evento === 'motorista_concluiu_rota') {
+            const detalhes = typeof log.detalhes === 'object' ? log.detalhes : null;
             timelineEvents.push({
               id: `log-${log.id}`,
               type: 'status_change',
               timestamp: log.created_at,
               title: 'Rota Concluída',
-              description: log.detalhes || 'Motorista finalizou a rota',
+              description: detalhes?.timestamp
+                ? `Motorista finalizou a rota às ${new Date(detalhes.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                : 'Motorista finalizou a rota',
               icon: 'checkmark-circle',
               color: '#22c55e',
             });
-          } else if (evento.includes('cancelou') || evento.includes('cancel')) {
+          }
+          // Detectar evento de cancelamento de rota
+          else if (evento.includes('cancelou') || evento.includes('cancel') || evento === 'rota_cancelada') {
+            const detalhes = typeof log.detalhes === 'object' ? log.detalhes : null;
             timelineEvents.push({
               id: `log-${log.id}`,
               type: 'status_change',
               timestamp: log.created_at,
               title: 'Rota Cancelada',
-              description: log.detalhes || 'Rota foi cancelada',
+              description: detalhes?.timestamp
+                ? `Rota cancelada às ${new Date(detalhes.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                : 'Rota foi cancelada',
               icon: 'close-circle',
               color: '#ef4444',
             });

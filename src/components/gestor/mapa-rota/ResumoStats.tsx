@@ -10,6 +10,7 @@ import { View, Text } from 'react-native';
 import { useUnistyles } from '@/utils/styles';
 
 import { styles } from './styles';
+
 import type { ResumoParadas } from './types';
 
 interface ResumoStatsProps {

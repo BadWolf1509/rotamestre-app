@@ -39,7 +39,7 @@ export function ResumoInline({ resumoParadas }: ResumoInlineProps) {
         <Text style={[styles.value, { color: theme.colors.success }]}>
           {resumoParadas.concluidas}
         </Text>
-        <Text style={styles.label}>ok</Text>
+        <Text style={styles.label}>concluído</Text>
       </View>
 
       <View style={styles.divider} />
@@ -52,7 +52,7 @@ export function ResumoInline({ resumoParadas }: ResumoInlineProps) {
         <Text style={[styles.value, { color: theme.colors.warning }]}>
           {resumoParadas.pendentes}
         </Text>
-        <Text style={styles.label}>pend</Text>
+        <Text style={styles.label}>pendente</Text>
       </View>
 
       {/* Em andamento (se houver) */}
