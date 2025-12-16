@@ -204,6 +204,8 @@ export default function CheckpointsMotoristaEnhanced() {
           ordem: parada.ordem,
           com_foto: !!parada.foto_url,
           observacoes_motorista: parada.observacoes_motorista,
+          vinculo_parada_id: parada.vinculo_parada_id || null,
+          tem_vinculo: !!parada.vinculo_parada_id,
         },
       });
 

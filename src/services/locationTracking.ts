@@ -213,6 +213,13 @@ class LocationTrackingService {
     if (!this.navigationState?.currentStopId || !this.navigationState?.rotaId) return;
 
     try {
+      // Buscar informações completas da parada atual para o log
+      const { data: paradaAtual } = await supabase
+        .from('paradas')
+        .select('id, endereco, tipo, ordem, vinculo_parada_id')
+        .eq('id', this.navigationState.currentStopId)
+        .single();
+
       // Mark current stop as completed
       await supabase
         .from('paradas')
@@ -222,6 +229,26 @@ class LocationTrackingService {
           auto_concluida: true,
         })
         .eq('id', this.navigationState.currentStopId);
+
+      // Criar log para auto-conclusão
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && paradaAtual) {
+        await supabase.from('logs').insert({
+          usuario_id: user.id,
+          rota_id: this.navigationState.rotaId,
+          parada_id: this.navigationState.currentStopId,
+          evento: 'parada_concluida',
+          detalhes: {
+            endereco: paradaAtual.endereco,
+            tipo: paradaAtual.tipo,
+            ordem: paradaAtual.ordem,
+            vinculo_parada_id: paradaAtual.vinculo_parada_id || null,
+            tem_vinculo: !!paradaAtual.vinculo_parada_id,
+            auto_concluida: true,
+            metodo: 'localizacao_automatica',
+          },
+        });
+      }
 
       // Get next pending stop
       const { data: nextStop } = await supabase

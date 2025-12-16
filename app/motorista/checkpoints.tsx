@@ -129,7 +129,7 @@ export default function CheckpointsMotorista() {
 
               if (updateError) throw updateError;
 
-              // Criar log
+              // Criar log (incluindo info de vínculo se existir)
               await supabase.from('logs').insert({
                 usuario_id: userData!.id,
                 rota_id: rota!.id,
@@ -139,6 +139,8 @@ export default function CheckpointsMotorista() {
                   endereco: parada.endereco,
                   tipo: parada.tipo,
                   ordem: parada.ordem,
+                  vinculo_parada_id: parada.vinculo_parada_id || null,
+                  tem_vinculo: !!parada.vinculo_parada_id,
                 },
               });
 

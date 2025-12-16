@@ -1148,7 +1148,8 @@ export default function NovaEntrega() {
         }
       }
 
-      // 3. Log da ação
+      // 3. Log da ação (com informações detalhadas de vínculos e otimização)
+      const totalVinculos = paradasParaInserir.filter((p: any) => p._temp_vinculo_id).length;
       await supabase.from('logs').insert({
         usuario_id: userData!.id,
         rota_id: rotaData.id,
@@ -1156,6 +1157,13 @@ export default function NovaEntrega() {
         detalhes: {
           total_paradas: paradas.length,
           motorista_id: motoristaSelecionado,
+          foi_otimizada: rotaOtimizada !== null && !ordemManual,
+          ordem_manual: ordemManual,
+          tem_vinculos: temVinculos,
+          total_vinculos: totalVinculos,
+          distancia_km: distanciaKm,
+          tempo_min: tempoMin,
+          rota_circular: enderecoUnidade !== null,
         },
       });
 
