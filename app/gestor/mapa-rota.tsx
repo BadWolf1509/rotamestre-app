@@ -301,6 +301,9 @@ export default function MapaRota() {
                       paradas={paradas}
                       selectedParadaId={selectedParadaId}
                       onMarkerPress={handleMarkerPress}
+                      rotaId={rota?.id}
+                      motoristaNome={rota?.motorista?.nome}
+                      showMotorista={rota?.status === 'em_andamento'}
                     />
                   </View>
                 </DesktopCard>
@@ -448,6 +451,9 @@ export default function MapaRota() {
                   paradas={paradas}
                   selectedParadaId={selectedParadaId}
                   onMarkerPress={handleMarkerPress}
+                  rotaId={rota?.id}
+                  motoristaNome={rota?.motorista?.nome}
+                  showMotorista={rota?.status === 'em_andamento'}
                 />
               </View>
 

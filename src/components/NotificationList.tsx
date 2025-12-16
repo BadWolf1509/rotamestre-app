@@ -54,6 +54,10 @@ export function NotificationList({ onClose }: NotificationListProps) {
         return 'time';
       case 'parada_pulada':
         return 'close-circle';
+      case 'sos_acionado':
+        return 'warning';
+      case 'parada_reaberta':
+        return 'refresh-circle';
       default:
         return 'notifications';
     }
@@ -73,6 +77,10 @@ export function NotificationList({ onClose }: NotificationListProps) {
         return '#f59e0b'; // amber
       case 'parada_pulada':
         return '#f97316'; // orange
+      case 'sos_acionado':
+        return '#dc2626'; // red-600 (emergência)
+      case 'parada_reaberta':
+        return '#f59e0b'; // amber
       default:
         return '#64748b'; // gray
     }

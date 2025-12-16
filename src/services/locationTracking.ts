@@ -355,20 +355,26 @@ class LocationTrackingService {
     if (!this.navigationState?.rotaId) return;
 
     try {
-      await supabase
-        .from('rotas')
-        .update({
-          ultima_localizacao: {
-            latitude: location.latitude,
-            longitude: location.longitude,
-            timestamp: location.timestamp,
-            accuracy: location.accuracy,
-            speed: location.speed,
-            heading: location.heading,
-          },
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', this.navigationState.rotaId);
+      // Obter usuário atual
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Inserir em motorista_locations para histórico e rastreamento em tempo real
+      const { error } = await supabase
+        .from('motorista_locations')
+        .insert({
+          motorista_id: user.id,
+          rota_id: this.navigationState.rotaId,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          velocidade: location.speed ? location.speed * 3.6 : null, // m/s para km/h
+          precisao: location.accuracy,
+          heading: location.heading,
+        });
+
+      if (error) {
+        console.error('[LocationTracking] Erro ao salvar localização:', error);
+      }
     } catch (error) {
       console.error('Error updating driver position:', error);
     }

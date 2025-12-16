@@ -59,10 +59,28 @@ export function RouteTimeline({ rotaId, realtime = true, onStateChange }: RouteT
       if (logsRes.data) {
         logsRes.data.forEach((log: any) => {
           const evento = log.evento.toLowerCase();
+          const detalhes = typeof log.detalhes === 'object' ? log.detalhes : null;
 
+          // Detectar evento de CRIAÇÃO de rota
+          if (evento === 'rota_criada') {
+            const totalParadas = detalhes?.total_paradas || 0;
+            const temVinculos = detalhes?.tem_vinculos;
+            let description = `Rota criada com ${totalParadas} parada(s)`;
+            if (temVinculos) {
+              description += ` • ${detalhes?.total_vinculos || 0} vínculo(s)`;
+            }
+            timelineEvents.push({
+              id: `log-${log.id}`,
+              type: 'status_change',
+              timestamp: log.created_at,
+              title: 'Rota Criada',
+              description,
+              icon: 'add-circle',
+              color: '#8b5cf6', // roxo
+            });
+          }
           // Detectar evento de início de rota
-          if (evento.includes('iniciou') || evento.includes('start') || evento === 'motorista_iniciou_rota') {
-            const detalhes = typeof log.detalhes === 'object' ? log.detalhes : null;
+          else if (evento.includes('iniciou') || evento.includes('start') || evento === 'motorista_iniciou_rota') {
             timelineEvents.push({
               id: `log-${log.id}`,
               type: 'status_change',
@@ -77,7 +95,6 @@ export function RouteTimeline({ rotaId, realtime = true, onStateChange }: RouteT
           }
           // Detectar evento de conclusão de rota
           else if (evento.includes('concluiu') || evento.includes('finaliz') || evento === 'motorista_concluiu_rota') {
-            const detalhes = typeof log.detalhes === 'object' ? log.detalhes : null;
             timelineEvents.push({
               id: `log-${log.id}`,
               type: 'status_change',
@@ -92,7 +109,6 @@ export function RouteTimeline({ rotaId, realtime = true, onStateChange }: RouteT
           }
           // Detectar evento de cancelamento de rota
           else if (evento.includes('cancelou') || evento.includes('cancel') || evento === 'rota_cancelada') {
-            const detalhes = typeof log.detalhes === 'object' ? log.detalhes : null;
             timelineEvents.push({
               id: `log-${log.id}`,
               type: 'status_change',
@@ -103,6 +119,44 @@ export function RouteTimeline({ rotaId, realtime = true, onStateChange }: RouteT
                 : 'Rota foi cancelada',
               icon: 'close-circle',
               color: '#ef4444',
+            });
+          }
+          // Detectar evento de PARADA REABERTA
+          else if (evento === 'parada_reaberta') {
+            timelineEvents.push({
+              id: `log-${log.id}`,
+              type: 'parada_update',
+              timestamp: log.created_at,
+              title: 'Parada Reaberta',
+              description: detalhes?.endereco || 'Parada voltou para pendente',
+              icon: 'refresh-circle',
+              color: '#f59e0b', // amarelo/laranja
+            });
+          }
+          // Detectar evento de SOS ACIONADO (CRÍTICO)
+          else if (evento === 'sos_acionado') {
+            timelineEvents.push({
+              id: `log-${log.id}`,
+              type: 'status_change',
+              timestamp: log.created_at,
+              title: '🚨 SOS Acionado',
+              description: detalhes?.motivo || 'Motorista acionou botão de emergência',
+              icon: 'warning',
+              color: '#dc2626', // vermelho intenso
+            });
+          }
+          // Detectar evento de RESUMO CONFIRMADO (motorista viu o resumo final)
+          else if (evento === 'rota_finalizada') {
+            const concluidas = detalhes?.paradas_concluidas || 0;
+            const puladas = detalhes?.paradas_puladas || 0;
+            timelineEvents.push({
+              id: `log-${log.id}`,
+              type: 'status_change',
+              timestamp: log.created_at,
+              title: 'Resumo Confirmado',
+              description: `${concluidas} concluída(s), ${puladas} pulada(s)`,
+              icon: 'document-text',
+              color: '#06b6d4', // ciano
             });
           }
         });

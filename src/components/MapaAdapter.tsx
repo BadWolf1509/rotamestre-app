@@ -30,6 +30,12 @@ interface MapaAdapterProps {
   selectedParadaId?: string | null;
   onMarkerPress?: (paradaId: string) => void;
   statusFilter?: StatusFilter;
+  /** ID da rota para rastreamento em tempo real do motorista */
+  rotaId?: string;
+  /** Nome do motorista para exibir no marcador */
+  motoristaNome?: string;
+  /** Se true e rota em andamento, mostra posição do motorista em tempo real */
+  showMotorista?: boolean;
 }
 
 /**
@@ -40,6 +46,9 @@ export function MapaAdapter({
   selectedParadaId,
   onMarkerPress,
   statusFilter,
+  rotaId,
+  motoristaNome,
+  showMotorista,
 }: MapaAdapterProps) {
   // Web: Usa MapaWeb (Google Maps JavaScript API)
   if (Platform.OS === 'web') {
@@ -48,6 +57,9 @@ export function MapaAdapter({
         paradas={paradas as any}
         selectedParadaId={selectedParadaId}
         onMarkerPress={onMarkerPress}
+        rotaId={rotaId}
+        motoristaNome={motoristaNome}
+        showMotorista={showMotorista}
       />
     );
   }
@@ -62,6 +74,9 @@ export function MapaAdapter({
       selectedParadaId={selectedParadaId}
       onMarkerPress={onMarkerPress}
       statusFilter={statusFilter}
+      rotaId={rotaId}
+      motoristaNome={motoristaNome}
+      showMotorista={showMotorista}
     />
   );
 }

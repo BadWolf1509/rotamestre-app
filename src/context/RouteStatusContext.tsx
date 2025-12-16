@@ -6,9 +6,15 @@ import React, {
   useState,
   ReactNode,
 } from 'react';
+import { Platform } from 'react-native';
 
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
+import {
+  startBackgroundTracking,
+  stopBackgroundTracking,
+  requestAndStartTracking,
+} from '@/services/unifiedLocationTracking';
 
 export type RouteStatus = 'no-route' | 'pending' | 'active' | 'last-stop' | 'ready-to-complete' | 'completed';
 
@@ -211,7 +217,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
 
   // Inicia rota
   const startRoute = async () => {
-    if (!route) return;
+    if (!route || !userData) return;
 
     try {
       const now = new Date().toISOString();
@@ -237,6 +243,16 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
             concluida_em: now,
           })
           .eq('id', checkpointPartida.id);
+      }
+
+      // 3. Iniciar rastreamento de localização em background (apenas mobile)
+      if (Platform.OS !== 'web') {
+        await requestAndStartTracking({
+          rotaId: route.id,
+          motoristaId: userData.id,
+          motoristaNome: userData.nome || 'Motorista',
+          startedAt: now,
+        });
       }
 
       await loadActiveRoute();
@@ -298,7 +314,12 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     try {
       const now = new Date().toISOString();
 
-      // 1. Atualizar status da rota
+      // 1. Parar rastreamento de localização em background
+      if (Platform.OS !== 'web') {
+        await stopBackgroundTracking();
+      }
+
+      // 2. Atualizar status da rota
       const { error } = await supabase
         .from('rotas')
         .update({
@@ -309,7 +330,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // 2. Marcar checkpoint de chegada (última parada com is_checkpoint=false) como concluído
+      // 3. Marcar checkpoint de chegada (última parada com is_checkpoint=false) como concluído
       const checkpointChegada = paradas
         .filter(p => p.is_checkpoint === false)
         .sort((a, b) => b.ordem - a.ordem)[0]; // Pega a de maior ordem

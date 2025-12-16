@@ -4,6 +4,7 @@ import React, { useRef, useEffect, useMemo, useCallback, useState } from 'react'
 import { View, Text, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region, Callout } from 'react-native-maps';
 
+import { MotoristaMarker } from '@/components/MotoristaMarker';
 import { useRouteDirections } from '@/hooks/useRouteDirections';
 import { showNavigationOptions } from '@/utils/navigation';
 import { StyleSheet, type Theme } from '@/utils/styles';
@@ -25,9 +26,23 @@ interface MapaMobileProps {
   selectedParadaId?: string | null;
   onMarkerPress?: (paradaId: string) => void;
   statusFilter?: StatusFilter;
+  /** ID da rota para rastreamento em tempo real do motorista */
+  rotaId?: string;
+  /** Nome do motorista para exibir no marcador */
+  motoristaNome?: string;
+  /** Se true e rota em andamento, mostra posição do motorista em tempo real */
+  showMotorista?: boolean;
 }
 
-export function MapaMobile({ paradas, selectedParadaId, onMarkerPress, statusFilter = 'all' }: MapaMobileProps) {
+export function MapaMobile({
+  paradas,
+  selectedParadaId,
+  onMarkerPress,
+  statusFilter = 'all',
+  rotaId,
+  motoristaNome,
+  showMotorista = false,
+}: MapaMobileProps) {
   const mapRef = useRef<MapView>(null);
   const [isLocating, setIsLocating] = useState(false);
 
@@ -302,6 +317,15 @@ export function MapaMobile({ paradas, selectedParadaId, onMarkerPress, statusFil
             </Callout>
           </Marker>
         ))}
+
+        {/* Marcador do motorista em tempo real */}
+        {showMotorista && rotaId && (
+          <MotoristaMarker
+            rotaId={rotaId}
+            motoristaNome={motoristaNome}
+            realtime={true}
+          />
+        )}
       </MapView>
 
       {/* Info Badge - mostra paradas e info da rota */}

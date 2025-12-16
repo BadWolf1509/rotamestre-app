@@ -1,9 +1,11 @@
 /* global google */
 
 import { GoogleMap, useJsApiLoader, DirectionsRenderer } from '@react-google-maps/api';
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
 
+import { supabase } from '@/lib/supabase';
+import type { MotoristaLocation } from '@/types/notifications';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface Parada {
@@ -23,6 +25,12 @@ interface MapaWebProps {
   paradas: Parada[];
   selectedParadaId?: string | null;
   onMarkerPress?: (paradaId: string) => void;
+  /** ID da rota para rastreamento em tempo real do motorista */
+  rotaId?: string;
+  /** Nome do motorista para exibir no marcador */
+  motoristaNome?: string;
+  /** Se true e rota em andamento, mostra posição do motorista em tempo real */
+  showMotorista?: boolean;
 }
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
@@ -83,7 +91,14 @@ function createMarkerContent(parada: Parada) {
   return wrapper;
 }
 
-export default function MapaWeb({ paradas, selectedParadaId, onMarkerPress }: MapaWebProps) {
+export default function MapaWeb({
+  paradas,
+  selectedParadaId,
+  onMarkerPress,
+  rotaId,
+  motoristaNome,
+  showMotorista = false,
+}: MapaWebProps) {
   const [directions, setDirections] = React.useState<google.maps.DirectionsResult | null>(null);
   const mapRef = React.useRef<google.maps.Map | null>(null);
   const advancedMarkersRef = React.useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
@@ -94,6 +109,10 @@ export default function MapaWeb({ paradas, selectedParadaId, onMarkerPress }: Ma
   const boundsRef = React.useRef<google.maps.LatLngBounds | null>(null);
   const legendControlRef = React.useRef<HTMLDivElement | null>(null);
   const recenterControlRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Estado para localização do motorista em tempo real
+  const [motoristaLocation, setMotoristaLocation] = useState<MotoristaLocation | null>(null);
+  const motoristaMarkerRef = React.useRef<google.maps.Marker | null>(null);
 
   const mapLibraries = React.useMemo(() => ['marker'] as ('marker')[], []);
 
@@ -319,6 +338,179 @@ export default function MapaWeb({ paradas, selectedParadaId, onMarkerPress }: Ma
       }
     );
   }, [isLoaded, paradasComCoord]);
+
+  // ========================================
+  // RASTREAMENTO DO MOTORISTA EM TEMPO REAL
+  // ========================================
+
+  // Carregar última localização conhecida do motorista
+  useEffect(() => {
+    if (!showMotorista || !rotaId) {
+      setMotoristaLocation(null);
+      return;
+    }
+
+    const loadLastLocation = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('motorista_locations')
+          .select('*')
+          .eq('rota_id', rotaId)
+          .order('timestamp', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (error) {
+          if (error.code !== 'PGRST116') {
+            console.error('[MapaWeb] Erro ao carregar localização:', error);
+          }
+          return;
+        }
+
+        if (data) {
+          setMotoristaLocation(data as MotoristaLocation);
+        }
+      } catch (err) {
+        console.error('[MapaWeb] Erro:', err);
+      }
+    };
+
+    loadLastLocation();
+  }, [showMotorista, rotaId]);
+
+  // Subscrever atualizações em tempo real do motorista
+  useEffect(() => {
+    if (!showMotorista || !rotaId) return;
+
+    const channel = supabase
+      .channel(`motorista-web-${rotaId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'motorista_locations',
+          filter: `rota_id=eq.${rotaId}`,
+        },
+        (payload) => {
+          console.log('[MapaWeb] Nova localização do motorista:', payload.new);
+          setMotoristaLocation(payload.new as MotoristaLocation);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [showMotorista, rotaId]);
+
+  // Criar/atualizar marcador do motorista no mapa
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !isLoaded) return;
+
+    // Se não deve mostrar motorista ou não tem localização, remover marcador existente
+    if (!showMotorista || !motoristaLocation) {
+      if (motoristaMarkerRef.current) {
+        motoristaMarkerRef.current.setMap(null);
+        motoristaMarkerRef.current = null;
+      }
+      return;
+    }
+
+    // Calcular cor baseado na velocidade
+    const getMarkerColor = () => {
+      if (!motoristaLocation.velocidade) return '#3b82f6'; // azul padrão
+      if (motoristaLocation.velocidade === 0) return '#6b7280'; // cinza (parado)
+      if (motoristaLocation.velocidade > 60) return '#ef4444'; // vermelho (rápido)
+      if (motoristaLocation.velocidade > 30) return '#f59e0b'; // laranja (moderado)
+      return '#22c55e'; // verde (lento)
+    };
+
+    // Calcular tempo desde última atualização
+    const getTimeSinceUpdate = () => {
+      const now = new Date();
+      const locationTime = new Date(motoristaLocation.timestamp);
+      const diffMs = now.getTime() - locationTime.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      if (diffMins < 1) return 'agora';
+      if (diffMins < 60) return `${diffMins}m atrás`;
+      const diffHours = Math.floor(diffMins / 60);
+      return `${diffHours}h atrás`;
+    };
+
+    const position = {
+      lat: Number(motoristaLocation.latitude),
+      lng: Number(motoristaLocation.longitude),
+    };
+
+    const markerColor = getMarkerColor();
+
+    // Criar SVG do ícone do carro
+    const carIcon = {
+      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+        <svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="24" cy="24" r="20" fill="${markerColor}" stroke="white" stroke-width="3"/>
+          <path d="M24 14 L30 20 L30 28 L24 34 L18 28 L18 20 Z" fill="white"/>
+          <circle cx="24" cy="24" r="4" fill="${markerColor}"/>
+        </svg>
+      `)}`,
+      scaledSize: new google.maps.Size(48, 48),
+      anchor: new google.maps.Point(24, 24),
+    };
+
+    if (motoristaMarkerRef.current) {
+      // Atualizar posição do marcador existente
+      motoristaMarkerRef.current.setPosition(position);
+      motoristaMarkerRef.current.setIcon(carIcon);
+    } else {
+      // Criar novo marcador
+      motoristaMarkerRef.current = new google.maps.Marker({
+        map: mapRef.current,
+        position,
+        icon: carIcon,
+        title: motoristaNome || 'Motorista',
+        zIndex: 9999, // Sempre no topo
+      });
+
+      // Adicionar InfoWindow com detalhes
+      const infoWindow = new google.maps.InfoWindow();
+      motoristaMarkerRef.current.addListener('click', () => {
+        const speed = motoristaLocation.velocidade !== null
+          ? `${Math.round(motoristaLocation.velocidade)} km/h`
+          : 'N/A';
+
+        infoWindow.setContent(`
+          <div style="font-family: sans-serif; padding: 8px; min-width: 150px;">
+            <div style="font-weight: 700; font-size: 14px; margin-bottom: 6px; color: #0f172a;">
+              🚗 ${motoristaNome || 'Motorista'}
+            </div>
+            <div style="font-size: 13px; color: #475569; margin-bottom: 4px;">
+              <strong>Velocidade:</strong> ${speed}
+            </div>
+            <div style="font-size: 12px; color: #64748b;">
+              Atualizado ${getTimeSinceUpdate()}
+            </div>
+          </div>
+        `);
+        infoWindow.open(mapRef.current, motoristaMarkerRef.current);
+      });
+    }
+
+    // Cleanup
+    return () => {
+      // Não remover aqui para manter o marcador entre re-renders
+    };
+  }, [mapReady, isLoaded, showMotorista, motoristaLocation, motoristaNome]);
+
+  // Limpar marcador do motorista quando componente desmonta
+  useEffect(() => {
+    return () => {
+      if (motoristaMarkerRef.current) {
+        motoristaMarkerRef.current.setMap(null);
+        motoristaMarkerRef.current = null;
+      }
+    };
+  }, []);
 
   React.useEffect(() => {
     if (!mapReady || !mapRef.current || !google?.maps) return;

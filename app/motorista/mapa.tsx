@@ -3,6 +3,7 @@ import { View, Text, ActivityIndicator, Alert, TouchableOpacity } from 'react-na
 
 import { MapaAdapter } from '@/components/MapaAdapter';
 import { ParadaBottomSheet } from '@/components/motorista/ParadaBottomSheet';
+import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -36,6 +37,12 @@ export default function MapaMotorista() {
   const [selectedParadaId, setSelectedParadaId] = useState<string | null>(null);
   const [bottomSheetVisible, setBottomSheetVisible] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pendente' | 'em_andamento' | 'concluida'>('all');
+
+  // Broadcast localização do motorista quando a rota está em andamento
+  useDriverLocationBroadcast({
+    rotaId: rota?.id,
+    rotaStatus: rota?.status,
+  });
 
   const loadRotaAtiva = useCallback(async () => {
     const motoristaId = userData?.id;
@@ -140,13 +147,44 @@ export default function MapaMotorista() {
 
   // Marcar parada como concluída
   const handleMarkComplete = useCallback(async (parada: Parada) => {
+    // Validar se a rota foi iniciada
+    if (rota?.status !== 'em_andamento') {
+      Alert.alert(
+        'Rota não iniciada',
+        'Você precisa iniciar a rota antes de concluir paradas.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     try {
+      const now = new Date().toISOString();
+
+      // Atualizar status da parada com timestamp
       const { error } = await supabase
         .from('paradas')
-        .update({ status: 'concluida' })
+        .update({
+          status: 'concluida',
+          concluida_em: now,
+        })
         .eq('id', parada.id);
 
       if (error) throw error;
+
+      // Criar log da conclusão
+      if (userData?.id) {
+        await supabase.from('logs').insert({
+          usuario_id: userData.id,
+          rota_id: rota.id,
+          parada_id: parada.id,
+          evento: 'parada_concluida',
+          detalhes: {
+            endereco: parada.endereco,
+            tipo: parada.tipo,
+            ordem: parada.ordem,
+          },
+        });
+      }
 
       // Atualiza localmente
       setParadas((prev) =>
@@ -160,7 +198,7 @@ export default function MapaMotorista() {
       console.error('Erro ao marcar parada como concluída:', error);
       Alert.alert('Erro', 'Não foi possível atualizar a parada.');
     }
-  }, []);
+  }, [rota, userData]);
 
   if (loading) {
     return (

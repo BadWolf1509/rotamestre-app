@@ -14,6 +14,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
 import { StreetViewPreview } from '@/components/StreetViewPreview';
 import { SwipeableRow } from '@/components/SwipeableRow';
+import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
 import { abrirNavegacao } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
@@ -31,6 +32,7 @@ interface Parada {
   telefone?: string;
   observacoes?: string;
   is_checkpoint?: boolean;
+  vinculo_parada_id?: string | null;
 }
 
 interface Rota {
@@ -52,6 +54,12 @@ export default function CheckpointsMotorista() {
   const [pulandoParada, setPulandoParada] = useState<string | null>(null);
   const [showIncidentWizard, setShowIncidentWizard] = useState(false);
   const [selectedParadaForIncident, setSelectedParadaForIncident] = useState<Parada | null>(null);
+
+  // Broadcast localização do motorista quando a rota está em andamento
+  useDriverLocationBroadcast({
+    rotaId: rota?.id,
+    rotaStatus: rota?.status,
+  });
 
   const loadRotaEParadas = useCallback(async () => {
     if (!userData?.id) {
@@ -107,6 +115,16 @@ export default function CheckpointsMotorista() {
   }, [loadRotaEParadas]);
 
   async function concluirParada(parada: Parada) {
+    // Validar se a rota foi iniciada
+    if (rota?.status !== 'em_andamento') {
+      Alert.alert(
+        'Rota não iniciada',
+        'Você precisa iniciar a rota antes de concluir paradas.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     Alert.alert(
       'Concluir Parada',
       `Confirma a conclusão desta ${parada.tipo}?\n\n${parada.endereco}`,

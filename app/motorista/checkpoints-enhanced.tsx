@@ -12,6 +12,7 @@ import {
   Linking,
 } from 'react-native';
 
+import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
 import { abrirNavegacao } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
@@ -31,6 +32,7 @@ interface Parada {
   foto_url?: string | null;
   observacoes_motorista?: string;
   is_checkpoint?: boolean;
+  vinculo_parada_id?: string | null;
 }
 
 interface Rota {
@@ -56,6 +58,12 @@ export default function CheckpointsMotoristaEnhanced() {
   const [modalObservacoes, setModalObservacoes] = useState(false);
   const [paradaSelecionada, setParadaSelecionada] = useState<Parada | null>(null);
   const [observacaoTexto, setObservacaoTexto] = useState('');
+
+  // Broadcast localização do motorista quando a rota está em andamento
+  useDriverLocationBroadcast({
+    rotaId: rota?.id,
+    rotaStatus: rota?.status,
+  });
 
   const loadRotaEParadas = useCallback(async () => {
     if (!userData?.id) {
@@ -140,6 +148,16 @@ export default function CheckpointsMotoristaEnhanced() {
   }
 
   async function concluirParada(parada: Parada) {
+    // Validar se a rota foi iniciada
+    if (rota?.status !== 'em_andamento') {
+      Alert.alert(
+        'Rota não iniciada',
+        'Você precisa iniciar a rota antes de concluir paradas.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     // Feature 1: Validar foto obrigatória
     const validacaoFoto = validarFotoObrigatoria(parada);
     if (!validacaoFoto.valido) {

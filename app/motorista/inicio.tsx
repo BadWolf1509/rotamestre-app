@@ -25,6 +25,7 @@ import { OptimizationAlert } from '@/components/motorista/OptimizationAlert';
 import { PictureInPictureMap } from '@/components/motorista/PictureInPictureMap';
 import { SupportModal } from '@/components/SupportModal';
 import { RouteStatusProvider, useRouteStatus } from '@/context/RouteStatusContext';
+import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
 import { abrirNavegacao } from '@/lib/navigation';
 import DynamicReroutingService from '@/services/dynamicRerouting';
@@ -52,6 +53,12 @@ function MotoristaInicioContent() {
     skipStop,
     completeRoute,
   } = useRouteStatus();
+
+  // Broadcast localização do motorista quando a rota está em andamento
+  useDriverLocationBroadcast({
+    rotaId: route?.id,
+    rotaStatus: route?.status,
+  });
 
   // Local state
   const [refreshing, setRefreshing] = useState(false);

@@ -8,7 +8,9 @@ export type NotificationType =
   | 'parada_concluida'
   | 'incidente_reportado'
   | 'rota_atrasada'
-  | 'parada_pulada';
+  | 'parada_pulada'
+  | 'sos_acionado'
+  | 'parada_reaberta';
 
 export interface Notificacao {
   id: string;
