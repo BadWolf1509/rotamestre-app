@@ -12,7 +12,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
-import { Platform, Alert } from 'react-native';
+import { Alert } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
 
@@ -307,7 +307,6 @@ export async function requestAndStartTracking(
   return { started, hasBackgroundPermission: permissions.background };
 }
 
-// ========================================
-// TIPOS EXPORTADOS
-// ========================================
-export type { TrackingContext, LocationPermissions };
+// Tipos já exportados no início do arquivo:
+// - TrackingContext (linha 45)
+// - LocationPermissions (linha 52)
