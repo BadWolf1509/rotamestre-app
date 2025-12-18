@@ -98,47 +98,15 @@ describe('StatusSection', () => {
       expect(getByText('Maria')).toBeTruthy();
     });
 
-    it('deve gerar iniciais corretas para avatar com dois nomes', () => {
+    it('deve renderizar primeiro nome com dois nomes', () => {
       const { getByText } = render(<StatusSection userName="José Carlos" />);
 
-      // Iniciais "JC" no avatar fallback
-      expect(getByText('JC')).toBeTruthy();
-    });
-
-    it('deve gerar iniciais corretas para avatar com nome único', () => {
-      const { getByText } = render(<StatusSection userName="Motorista" />);
-
-      // Iniciais "M" no avatar fallback
-      expect(getByText('M')).toBeTruthy();
+      // Componente simplificado mostra apenas o primeiro nome
+      expect(getByText('José')).toBeTruthy();
     });
   });
 
-  describe('UnitName Prop', () => {
-    it('deve renderizar unitName quando fornecido', () => {
-      const { getByText } = render(
-        <StatusSection userName="João" unitName="WJX Locações" />
-      );
-
-      expect(getByText('João')).toBeTruthy();
-      expect(getByText('WJX Locações')).toBeTruthy();
-    });
-
-    it('não deve renderizar unitName quando undefined', () => {
-      const { queryByText } = render(<StatusSection userName="João" />);
-
-      expect(queryByText('WJX Locações')).toBeNull();
-    });
-
-    it('deve renderizar unitName longo', () => {
-      const { getByText } = render(
-        <StatusSection
-          unitName="WJX Locações e Equipamentos Ltda - Filial São Paulo"
-        />
-      );
-
-      expect(getByText('WJX Locações e Equipamentos Ltda - Filial São Paulo')).toBeTruthy();
-    });
-  });
+  // Nota: unitName e avatar com iniciais foram removidos do componente simplificado
 
   describe('RouteStatus Prop', () => {
     it('deve renderizar status "pending" corretamente', () => {
@@ -232,29 +200,12 @@ describe('StatusSection', () => {
     });
   });
 
-  describe('UserPhoto Prop', () => {
-    it('deve renderizar iniciais quando não há foto', () => {
-      const { getByText } = render(
-        <StatusSection userName="Maria Santos" />
-      );
-
-      expect(getByText('MS')).toBeTruthy();
-    });
-
-    it('deve limitar iniciais a 2 caracteres', () => {
-      const { getByText } = render(
-        <StatusSection userName="Ana Maria Santos Silva" />
-      );
-
-      // Apenas AS (primeiras 2 iniciais)
-      expect(getByText('AM')).toBeTruthy();
-    });
-  });
+  // Nota: UserPhoto e avatar com iniciais foram removidos do componente simplificado
 
   describe('Estrutura do Componente', () => {
     it('deve renderizar múltiplos Views aninhados', () => {
       const { UNSAFE_getAllByType } = render(
-        <StatusSection userName="João" unitName="WJX" />
+        <StatusSection userName="João" />
       );
 
       const { View } = require('react-native');
@@ -272,16 +223,15 @@ describe('StatusSection', () => {
   });
 
   describe('Casos de Uso Reais', () => {
-    it('deve renderizar tela inicial do motorista com dados completos', () => {
+    it('deve renderizar tela inicial do motorista com userName', () => {
       const { getByText } = render(
-        <StatusSection userName="João Silva" unitName="WJX Locações" />
+        <StatusSection userName="João Silva" />
       );
 
       expect(getByText('João')).toBeTruthy();
-      expect(getByText('WJX Locações')).toBeTruthy();
     });
 
-    it('deve renderizar tela inicial sem dados de unidade', () => {
+    it('deve renderizar primeiro nome de userName composto', () => {
       const { getByText } = render(<StatusSection userName="Maria Santos" />);
 
       expect(getByText('Maria')).toBeTruthy();
@@ -293,16 +243,12 @@ describe('StatusSection', () => {
       expect(getByText('Motorista')).toBeTruthy();
     });
 
-    it('deve renderizar para motorista de múltiplas unidades', () => {
+    it('deve renderizar primeiro nome para nomes longos', () => {
       const { getByText } = render(
-        <StatusSection
-          userName="Carlos Oliveira"
-          unitName="Mestre da Obra - Unidade Centro"
-        />
+        <StatusSection userName="Carlos Oliveira Santos" />
       );
 
       expect(getByText('Carlos')).toBeTruthy();
-      expect(getByText('Mestre da Obra - Unidade Centro')).toBeTruthy();
     });
   });
 
@@ -314,12 +260,13 @@ describe('StatusSection', () => {
       expect(getByText(/Bom dia|Boa tarde|Boa noite/)).toBeTruthy();
     });
 
-    it('deve renderizar com unitName com caracteres especiais', () => {
+    it('deve renderizar com userName com caracteres especiais', () => {
       const { getByText } = render(
-        <StatusSection userName="João" unitName="WJX & Cia Ltda." />
+        <StatusSection userName="João & Maria" />
       );
 
-      expect(getByText('WJX & Cia Ltda.')).toBeTruthy();
+      // Apenas primeiro nome é mostrado
+      expect(getByText('João')).toBeTruthy();
     });
   });
 });

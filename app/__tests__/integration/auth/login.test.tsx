@@ -189,7 +189,7 @@ describe('Login Screen - Integration Tests', () => {
           'motorista@rotamestre.com',
           'senha123'
         );
-        expect(mockRouter.replace).toHaveBeenCalledWith('/motorista/inicio');
+        expect(mockRouter.replace).toHaveBeenCalledWith('/motorista');
       });
     });
 
