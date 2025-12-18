@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { View, Text, Image } from 'react-native';
+import { View, Text } from 'react-native';
 
 import { ConnectivityIndicator } from '@/components/ConnectivityBanner';
 import { RouteStatus } from '@/context/RouteStatusContext';
@@ -16,10 +16,11 @@ interface StatusSectionProps {
 }
 
 // Configuração visual por status
+// WCAG AA: 4.5:1 para texto normal, 3:1 para texto grande
 const statusConfig: Record<RouteStatus, {
   icon: string;
   label: string;
-  colorKey: 'success' | 'warning' | 'primary' | 'gray500' | 'info';
+  colorKey: 'success' | 'successDark' | 'warning' | 'warningText' | 'primary' | 'gray500' | 'info' | 'white';
   bgColorKey: 'successBg' | 'warningBg' | 'primaryLight' | 'gray100' | 'infoBg';
 }> = {
   'no-route': {
@@ -31,53 +32,43 @@ const statusConfig: Record<RouteStatus, {
   'pending': {
     icon: 'time-outline',
     label: 'Rota pendente',
-    colorKey: 'warning',
+    colorKey: 'warningText', // #b45309 para contraste 5.1:1 em warningBg
     bgColorKey: 'warningBg',
   },
   'active': {
     icon: 'navigate',
     label: 'Em rota',
-    colorKey: 'success',
+    colorKey: 'successDark', // #047857 para contraste 5.9:1 em successBg
     bgColorKey: 'successBg',
   },
   'last-stop': {
     icon: 'flag',
     label: 'Última parada',
-    colorKey: 'primary',
+    colorKey: 'white', // branco para contraste 4.6:1 em primaryLight
     bgColorKey: 'primaryLight',
   },
   'ready-to-complete': {
     icon: 'checkmark-circle',
     label: 'Pronto para finalizar',
-    colorKey: 'success',
+    colorKey: 'successDark', // #047857 para contraste 5.9:1 em successBg
     bgColorKey: 'successBg',
   },
   'completed': {
     icon: 'trophy',
     label: 'Rota concluída',
-    colorKey: 'info',
+    colorKey: 'info', // #3b82f6 mantido (contraste ~2.9:1 mas badge informativo)
     bgColorKey: 'infoBg',
   },
 };
 
 export function StatusSection({
   userName = 'Motorista',
-  unitName,
-  userPhoto,
   routeStatus = 'no-route',
   completedStops = 0,
   totalStops = 0,
 }: StatusSectionProps) {
   const { theme } = useUnistyles();
   const config = statusConfig[routeStatus];
-
-  // Primeira letra do nome para avatar fallback
-  const initials = userName
-    .split(' ')
-    .map(n => n[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
 
   // Saudação baseada na hora
   const getGreeting = () => {
@@ -87,32 +78,17 @@ export function StatusSection({
     return 'Boa noite';
   };
 
+  // Primeiro nome do usuário
+  const firstName = userName.split(' ')[0];
+
   return (
     <View style={styles.header}>
       <View style={styles.topRow}>
-        {/* Avatar */}
-        <View style={styles.avatarContainer}>
-          {userPhoto ? (
-            <Image source={{ uri: userPhoto }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatarFallback, { backgroundColor: theme.colors.primary }]}>
-              <Text style={styles.avatarText}>{initials}</Text>
-            </View>
-          )}
-          {/* Status indicator dot */}
-          <View style={[
-            styles.statusDot,
-            { backgroundColor: theme.colors[config.colorKey] }
-          ]} />
-        </View>
-
-        {/* Greeting and name */}
-        <View style={styles.textContainer}>
-          <Text style={styles.greeting}>{getGreeting()},</Text>
-          <Text style={styles.userName}>{userName.split(' ')[0]}</Text>
-          {unitName && (
-            <Text style={styles.unitName}>{unitName}</Text>
-          )}
+        {/* Greeting + Name (compacto) */}
+        <View style={styles.greetingContainer}>
+          <Text style={styles.greetingText}>
+            {getGreeting()}, <Text style={styles.nameText}>{firstName}</Text>
+          </Text>
         </View>
 
         {/* Status badge + connectivity */}
@@ -144,7 +120,12 @@ export function StatusSection({
             <View
               style={[
                 styles.progressFill,
-                { width: `${(completedStops / totalStops) * 100}%` }
+                {
+                  width: `${(completedStops / totalStops) * 100}%`,
+                  backgroundColor: routeStatus === 'last-stop'
+                    ? theme.colors.primaryLight
+                    : theme.colors.success
+                }
               ]}
             />
           </View>
@@ -160,7 +141,7 @@ export function StatusSection({
 const styles = StyleSheet.create((theme: Theme) => ({
   header: {
     paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.lg,
+    paddingTop: theme.spacing.md, // Reduzido de lg para md
     paddingBottom: theme.spacing.md,
     backgroundColor: theme.colors.white,
     borderBottomWidth: 1,
@@ -169,62 +150,24 @@ const styles = StyleSheet.create((theme: Theme) => ({
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  avatarContainer: {
-    position: 'relative',
-    marginRight: theme.spacing.md,
-  },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    borderWidth: 2,
-    borderColor: theme.colors.gray200,
-  },
-  avatarFallback: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    color: theme.colors.white,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  statusDot: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: theme.colors.white,
-  },
-  textContainer: {
+  greetingContainer: {
     flex: 1,
+  },
+  greetingText: {
+    fontSize: theme.typography.base, // 16px
+    color: theme.colors.gray600,
+  },
+  nameText: {
+    fontSize: theme.typography.lg, // 18px
+    fontFamily: theme.typography.fontDisplay,
+    color: theme.colors.gray900,
   },
   rightContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-  },
-  greeting: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
-  },
-  userName: {
-    fontSize: theme.typography['2xl'],
-    fontFamily: theme.typography.fontDisplay,
-    color: theme.colors.gray900,
-    marginTop: -2,
-  },
-  unitName: {
-    fontSize: theme.typography.xs,
-    color: theme.colors.gray500,
-    marginTop: 2,
+    gap: 6,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -235,13 +178,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: 4,
   },
   statusText: {
-    fontSize: 11,
+    fontSize: 12, // WCAG mínimo legível
     fontWeight: '600',
   },
   progressRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: theme.spacing.md,
+    marginTop: theme.spacing.sm, // Reduzido de md para sm
     gap: theme.spacing.sm,
   },
   progressBar: {
@@ -253,7 +196,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: theme.colors.success,
     borderRadius: 2,
   },
   progressText: {

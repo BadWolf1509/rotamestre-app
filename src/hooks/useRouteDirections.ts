@@ -7,6 +7,9 @@
 import polyline from '@mapbox/polyline';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useEffect, useCallback } from 'react';
+import { Platform } from 'react-native';
+
+import { supabase } from '@/lib/supabase';
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 const CACHE_PREFIX = 'route_cache_';
@@ -201,18 +204,40 @@ export function useRouteDirections(paradas: Parada[]): UseRouteDirectionsResult 
       const destination = validParadas[validParadas.length - 1];
       const waypoints = validParadas.slice(1, -1);
 
-      let waypointsParam = '';
+      let waypointsStr: string | undefined;
       if (waypoints.length > 0) {
-        const waypointsStr = waypoints
+        waypointsStr = waypoints
           .map((wp) => `${wp.latitude},${wp.longitude}`)
           .join('|');
-        waypointsParam = `&waypoints=${waypointsStr}`;
       }
 
-      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}${waypointsParam}&key=${GOOGLE_MAPS_API_KEY}`;
+      let data;
 
-      const response = await fetch(url);
-      const data = await response.json();
+      if (Platform.OS === 'web') {
+        // Web: usar Edge Function para evitar CORS
+        const { data: edgeData, error } = await supabase.functions.invoke('google-directions', {
+          body: {
+            origin: `${origin.latitude},${origin.longitude}`,
+            destination: `${destination.latitude},${destination.longitude}`,
+            waypoints: waypointsStr,
+            mode: 'driving',
+          },
+        });
+
+        if (error) throw error;
+        data = edgeData;
+      } else {
+        // Mobile: chamar API diretamente (sem CORS)
+        let waypointsParam = '';
+        if (waypointsStr) {
+          waypointsParam = `&waypoints=${waypointsStr}`;
+        }
+
+        const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}${waypointsParam}&key=${GOOGLE_MAPS_API_KEY}`;
+
+        const response = await fetch(url);
+        data = await response.json();
+      }
 
       if (data.status === 'OK' && data.routes.length > 0) {
         const route = data.routes[0];

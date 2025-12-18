@@ -67,7 +67,7 @@ export default function Login() {
         if (usuario.papel === 'gestor') {
           router.replace('/gestor/inicio');
         } else if (usuario.papel === 'motorista') {
-          router.replace('/motorista/inicio');
+          router.replace('/motorista');
         }
       } else {
         showAlert('Usuário não encontrado', 'Não encontramos sua conta. Verifique seus dados e tente novamente.', 'error');

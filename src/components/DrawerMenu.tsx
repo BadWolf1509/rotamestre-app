@@ -7,23 +7,46 @@ import {
   Modal,
   ScrollView,
   SafeAreaView,
+  Linking,
+  Alert,
+  Platform,
+  Image,
+  ActionSheetIOS,
 } from 'react-native';
 
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { useRouteStatus } from '@/context/RouteStatusContext';
+import { getVersionString } from '@/lib/appVersion';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, type Theme } from '@/utils/styles';
+
+// Motivos de contato com o gestor
+const CONTACT_REASONS = [
+  { id: 'route_problem', label: '🚗 Problema na rota', message: 'problema na rota atual' },
+  { id: 'wrong_address', label: '📍 Endereço incorreto', message: 'endereço incorreto/não encontrado' },
+  { id: 'delivery_issue', label: '📦 Problema com entrega', message: 'problema com a entrega' },
+  { id: 'question', label: '❓ Dúvida geral', message: 'uma dúvida' },
+  { id: 'emergency', label: '🆘 Emergência', message: 'uma emergência' },
+] as const;
 
 interface DrawerMenuProps {
   visible: boolean;
   onClose: () => void;
 }
 
+// Tipo para dados do gestor
+type GestorData = { nome: string; telefone: string | null; email: string | null };
+
 export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { route: rotaAtiva, currentStop } = useRouteStatus();
   const [profile, setProfile] = useState<any>(null);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
+  // Estado para modal de contato (web)
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [gestorDataForModal, setGestorDataForModal] = useState<GestorData | null>(null);
 
   useEffect(() => {
     loadProfile();
@@ -86,12 +109,168 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
     { icon: '👥', label: 'Equipe', path: '/unidade/equipe', show: profile?.papel === 'gestor' },
   ];
 
+  // Gera mensagem contextualizada para o gestor
+  function buildContactMessage(reason: typeof CONTACT_REASONS[number]): string {
+    const motoristaNome = profile?.nome || 'Motorista';
+    const hasActiveRoute = rotaAtiva && rotaAtiva.status === 'em_andamento';
+
+    let message = `Olá! Sou ${motoristaNome}, motorista.`;
+
+    if (hasActiveRoute) {
+      message = `Olá! Sou ${motoristaNome}, motorista da rota #${rotaAtiva.id.slice(0, 8)}.`;
+
+      if (currentStop) {
+        message += `\n📍 Endereço atual: ${currentStop.endereco}`;
+      }
+    }
+
+    message += `\n\n🔔 Motivo: ${reason.message}`;
+    message += '\n\nPreciso de ajuda.';
+
+    return message;
+  }
+
+  // Abre WhatsApp ou ligação com mensagem contextualizada
+  async function openContactWithReason(
+    gestorData: { nome: string; telefone: string | null; email: string | null },
+    reason: typeof CONTACT_REASONS[number]
+  ) {
+    const telefone = gestorData.telefone?.replace(/\D/g, '');
+
+    if (!telefone) {
+      Alert.alert(
+        'Telefone não cadastrado',
+        `O gestor ${gestorData.nome} não possui telefone cadastrado. Entre em contato por email: ${gestorData.email || 'não informado'}`
+      );
+      return;
+    }
+
+    const message = buildContactMessage(reason);
+
+    // Tentar abrir WhatsApp primeiro
+    const whatsappUrl = Platform.select({
+      ios: `whatsapp://send?phone=55${telefone}&text=${encodeURIComponent(message)}`,
+      android: `whatsapp://send?phone=55${telefone}&text=${encodeURIComponent(message)}`,
+      default: `https://wa.me/55${telefone}?text=${encodeURIComponent(message)}`,
+    });
+
+    const canOpenWhatsApp = await Linking.canOpenURL(whatsappUrl);
+
+    if (canOpenWhatsApp) {
+      await Linking.openURL(whatsappUrl);
+      onClose();
+    } else {
+      // Fallback: Oferece opções de ligação ou email
+      const options: { text: string; onPress?: () => void; style?: 'cancel' | 'default' | 'destructive' }[] = [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: '📞 Ligar',
+          onPress: () => {
+            Linking.openURL(`tel:${telefone}`);
+            onClose();
+          },
+        },
+      ];
+
+      if (gestorData.email) {
+        options.push({
+          text: '📧 Email',
+          onPress: () => {
+            Linking.openURL(`mailto:${gestorData.email}?subject=Contato%20Motorista&body=${encodeURIComponent(message)}`);
+            onClose();
+          },
+        });
+      }
+
+      Alert.alert(
+        'WhatsApp não disponível',
+        `Como deseja contatar ${gestorData.nome}?`,
+        options
+      );
+    }
+  }
+
+  // Handler para seleção de motivo no modal web
+  function handleWebReasonSelect(reason: typeof CONTACT_REASONS[number]) {
+    setShowContactModal(false);
+    if (gestorDataForModal) {
+      openContactWithReason(gestorDataForModal, reason);
+    }
+  }
+
+  // Mostra menu de motivos (iOS: ActionSheet, Android: Alert, Web: Modal)
+  function showReasonMenu(gestorData: GestorData) {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          title: `Contatar ${gestorData.nome}\nQual o motivo do contato?`,
+          options: [...CONTACT_REASONS.map(r => r.label), 'Cancelar'],
+          cancelButtonIndex: CONTACT_REASONS.length,
+          userInterfaceStyle: 'light',
+        },
+        (buttonIndex) => {
+          if (buttonIndex < CONTACT_REASONS.length) {
+            openContactWithReason(gestorData, CONTACT_REASONS[buttonIndex]);
+          }
+        }
+      );
+    } else if (Platform.OS === 'web') {
+      // Web: usa modal customizado com botões
+      setGestorDataForModal(gestorData);
+      setShowContactModal(true);
+    } else {
+      // Android: usa Alert com botões
+      Alert.alert(
+        `Contatar ${gestorData.nome}`,
+        'Qual o motivo do contato?',
+        [
+          ...CONTACT_REASONS.map(reason => ({
+            text: reason.label,
+            onPress: () => openContactWithReason(gestorData, reason),
+          })),
+          { text: 'Cancelar', style: 'cancel' },
+        ]
+      );
+    }
+  }
+
+  // Função principal para abrir contato com gestor
+  async function handleContactGestor() {
+    try {
+      // Usar função RPC segura que bypassa RLS para motoristas
+      const { data: gestorData, error } = await supabase
+        .rpc('get_gestor_contato')
+        .single<{ nome: string; telefone: string | null; email: string | null }>();
+
+      if (error) {
+        console.error('Erro ao buscar gestor:', error);
+        Alert.alert('Erro', 'Não foi possível obter os dados do gestor');
+        return;
+      }
+
+      if (!gestorData) {
+        Alert.alert('Erro', 'Gestor não encontrado para esta unidade');
+        return;
+      }
+
+      // Mostrar menu de motivos
+      showReasonMenu(gestorData);
+    } catch (error) {
+      console.error('Erro ao contatar gestor:', error);
+      Alert.alert('Erro', 'Não foi possível contatar o gestor');
+    }
+  }
+
+  // Itens do menu para motorista
+  // Ações principais (Início, Paradas, Mapa, Histórico) estão nas tabs
+  // Aqui mostramos apenas ações secundárias
   const motoristaMenuItems = [
-    { icon: '🏠', label: 'Início', path: '/motorista/inicio', show: true },
-    { icon: '📍', label: 'Paradas', path: '/motorista/checkpoints', show: true },
-    { icon: '🗺️', label: 'Mapa', path: '/motorista/mapa', show: true },
-    { icon: '📑', label: 'Histórico', path: '/motorista/historico', show: true },
-    { icon: '📊', label: 'Resumo', path: '/motorista/resumo', show: true },
+    { icon: '👤', label: 'Meu Perfil', path: '/motorista/perfil', show: true },
+    { icon: '📊', label: 'Meu Desempenho', path: '/motorista/desempenho', show: true },
+    { icon: '📞', label: 'Falar com Gestor', path: null, action: 'contactGestor', show: true },
+    { icon: '🆘', label: 'SOS / Emergência', path: '/motorista/sos', show: true, danger: true },
+    { icon: '❓', label: 'Ajuda', path: '/motorista/ajuda', show: true },
+    { icon: '⚙️', label: 'Configurações', path: '/motorista/perfil/configuracoes', show: true },
   ];
 
   const isMotorista = profile?.papel === 'motorista';
@@ -119,11 +298,18 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
             <ScrollView style={styles.content}>
               {/* Header */}
               <View style={styles.header}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {profile?.nome?.charAt(0) || '?'}
-                  </Text>
-                </View>
+                {profile?.foto_url ? (
+                  <Image
+                    source={{ uri: profile.foto_url }}
+                    style={styles.avatarImage}
+                  />
+                ) : (
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>
+                      {profile?.nome?.charAt(0) || '?'}
+                    </Text>
+                  </View>
+                )}
                 <Text style={styles.userName}>{profile?.nome}</Text>
                 <Text style={styles.userEmail}>{profile?.email}</Text>
                 {profile?.unidades && (
@@ -147,18 +333,34 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
                 {menuItems
                   .filter((item) => item.show)
                   .map((item, index) => {
-                    const isActive = pathname === item.path;
+                    const isActive = item.path ? pathname === item.path : false;
+                    const isDanger = 'danger' in item && item.danger;
+                    const hasAction = 'action' in item && item.action;
+
                     return (
                       <TouchableOpacity
                         key={index}
-                        style={[styles.menuItem, isActive && styles.menuItemActive]}
-                        onPress={() => navigate(item.path)}
+                        style={[
+                          styles.menuItem,
+                          isActive && styles.menuItemActive,
+                          isDanger && styles.menuItemDanger,
+                        ]}
+                        onPress={() => {
+                          if (hasAction && item.action === 'contactGestor') {
+                            handleContactGestor();
+                          } else if (item.path) {
+                            navigate(item.path);
+                          }
+                        }}
                       >
-                        <Text style={styles.menuIcon}>{item.icon}</Text>
+                        <Text style={[styles.menuIcon, isDanger && styles.menuIconDanger]}>
+                          {item.icon}
+                        </Text>
                         <Text
                           style={[
                             styles.menuLabel,
                             isActive && styles.menuLabelActive,
+                            isDanger && styles.menuLabelDanger,
                           ]}
                         >
                           {item.label}
@@ -170,14 +372,17 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
 
               {/* Footer Actions */}
               <View style={styles.footer}>
-                <TouchableOpacity
-                  style={styles.footerItem}
-                  onPress={() => navigate(isMotorista ? '/motorista/perfil' : '/perfil')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.footerIcon}>👤</Text>
-                  <Text style={styles.footerLabel}>Meu Perfil</Text>
-                </TouchableOpacity>
+                {/* Meu Perfil apenas para gestor (motorista já tem no menu) */}
+                {!isMotorista && (
+                  <TouchableOpacity
+                    style={styles.footerItem}
+                    onPress={() => navigate('/perfil')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.footerIcon}>👤</Text>
+                    <Text style={styles.footerLabel}>Meu Perfil</Text>
+                  </TouchableOpacity>
+                )}
 
                 <TouchableOpacity
                   style={styles.footerItem}
@@ -189,7 +394,7 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
                 </TouchableOpacity>
 
                 <View style={styles.versionContainer}>
-                  <Text style={styles.versionText}>Versão 1.0.0</Text>
+                  <Text style={styles.versionText}>{getVersionString()}</Text>
                 </View>
               </View>
             </ScrollView>
@@ -216,6 +421,56 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
         onConfirm={() => setShowErrorDialog(false)}
         onCancel={() => setShowErrorDialog(false)}
       />
+
+      {/* Modal de contato com gestor (Web) */}
+      <Modal
+        visible={showContactModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowContactModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.contactModalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowContactModal(false)}
+        >
+          <View style={styles.contactModalContainer}>
+            <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.contactModalContent}>
+                <Text style={styles.contactModalTitle}>
+                  📞 Contatar {gestorDataForModal?.nome}
+                </Text>
+                <Text style={styles.contactModalSubtitle}>
+                  Qual o motivo do contato?
+                </Text>
+
+                <View style={styles.contactModalOptions}>
+                  {CONTACT_REASONS.map((reason) => (
+                    <TouchableOpacity
+                      key={reason.id}
+                      style={styles.contactModalOption}
+                      onPress={() => handleWebReasonSelect(reason)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.contactModalOptionText}>
+                        {reason.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <TouchableOpacity
+                  style={styles.contactModalCancel}
+                  onPress={() => setShowContactModal(false)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.contactModalCancelText}>Cancelar</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </Modal>
   );
 }
@@ -257,6 +512,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: theme.spacing.md,
+  },
+  avatarImage: {
+    width: 64,
+    height: 64,
+    borderRadius: theme.borderRadius.full,
+    marginBottom: theme.spacing.md,
+    borderWidth: 2,
+    borderColor: theme.colors.gray200,
   },
   avatarText: {
     fontSize: theme.typography['2xl'],
@@ -312,10 +575,20 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderLeftWidth: 4,
     borderLeftColor: theme.colors.primary,
   },
+  menuItemDanger: {
+    backgroundColor: `${theme.colors.error}10`,
+    borderLeftWidth: 4,
+    borderLeftColor: theme.colors.error,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
   menuIcon: {
     fontSize: 20,
     marginRight: theme.spacing.lg,
     width: 24,
+  },
+  menuIconDanger: {
+    fontSize: 24,
   },
   menuLabel: {
     fontSize: theme.typography.base,
@@ -325,6 +598,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
   menuLabelActive: {
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.primary,
+  },
+  menuLabelDanger: {
+    fontFamily: theme.typography.fontSansBold,
+    color: theme.colors.error,
   },
   footer: {
     paddingHorizontal: theme.spacing.lg,
@@ -363,6 +640,68 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.xs,
     color: theme.colors.gray400,
     fontFamily: theme.typography.fontSansMedium,
+  },
+  // Estilos do modal de contato (Web)
+  contactModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  contactModalContainer: {
+    width: '90%',
+    maxWidth: 400,
+  },
+  contactModalContent: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.xl,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  contactModalTitle: {
+    fontSize: theme.typography.xl,
+    fontFamily: theme.typography.fontSansBold,
+    color: theme.colors.gray900,
+    textAlign: 'center',
+    marginBottom: theme.spacing.xs,
+  },
+  contactModalSubtitle: {
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansMedium,
+    color: theme.colors.gray500,
+    textAlign: 'center',
+    marginBottom: theme.spacing.lg,
+  },
+  contactModalOptions: {
+    gap: theme.spacing.sm,
+  },
+  contactModalOption: {
+    backgroundColor: theme.colors.gray50,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
+  },
+  contactModalOptionText: {
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansMedium,
+    color: theme.colors.gray700,
+    textAlign: 'center',
+  },
+  contactModalCancel: {
+    marginTop: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+  },
+  contactModalCancelText: {
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansMedium,
+    color: theme.colors.gray500,
+    textAlign: 'center',
   },
 }));
 

@@ -136,7 +136,12 @@ export function useLocationTracking(options: UseLocationTrackingOptions = {}) {
   // Parar rastreamento
   const stopTracking = useCallback(() => {
     if (locationSubscription.current) {
-      locationSubscription.current.remove();
+      try {
+        locationSubscription.current.remove();
+      } catch (error) {
+        // expo-location remove() não funciona corretamente na web
+        console.warn('[LocationTracking] Error removing subscription:', error);
+      }
       locationSubscription.current = null;
     }
 

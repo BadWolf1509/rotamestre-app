@@ -1,0 +1,147 @@
+import { Page, Locator, expect } from '@playwright/test';
+
+/**
+ * Page Object for Motorista (Driver) screens
+ */
+export class MotoristaPage {
+  readonly page: Page;
+
+  // Tab Bar
+  readonly tabBar: Locator;
+  readonly inicioTab: Locator;
+  readonly paradasTab: Locator;
+  readonly mapaTab: Locator;
+  readonly historicoTab: Locator;
+
+  // Header
+  readonly header: Locator;
+  readonly menuButton: Locator;
+
+  // Home screen elements
+  readonly welcomeText: Locator;
+  readonly activeRouteCard: Locator;
+  readonly startRouteButton: Locator;
+  readonly noRouteMessage: Locator;
+
+  // FAB (Floating Action Button)
+  readonly fab: Locator;
+
+  // Drawer menu
+  readonly drawerMenu: Locator;
+  readonly drawerProfileName: Locator;
+  readonly drawerLogoutButton: Locator;
+
+  constructor(page: Page) {
+    this.page = page;
+
+    // Tab Bar locators
+    this.tabBar = page.locator('[data-testid="tab-bar"], [role="tablist"]');
+    this.inicioTab = page.getByRole('tab', { name: /in[ií]cio/i }).or(
+      page.locator('[data-testid="tab-inicio"]')
+    );
+    this.paradasTab = page.getByRole('tab', { name: /paradas/i }).or(
+      page.locator('[data-testid="tab-paradas"]')
+    );
+    this.mapaTab = page.getByRole('tab', { name: /mapa/i }).or(
+      page.locator('[data-testid="tab-mapa"]')
+    );
+    this.historicoTab = page.getByRole('tab', { name: /hist[oó]rico/i }).or(
+      page.locator('[data-testid="tab-historico"]')
+    );
+
+    // Header
+    this.header = page.locator('header, [data-testid="header"]');
+    this.menuButton = page.locator('[data-testid="menu-button"], [aria-label*="menu"]').first();
+
+    // Home screen
+    this.welcomeText = page.getByText(/bem.?vindo|ol[áa]/i).first();
+    this.activeRouteCard = page.locator('[data-testid="active-route-card"], .route-card').first();
+    this.startRouteButton = page.getByRole('button', { name: /iniciar.*rota/i });
+    this.noRouteMessage = page.getByText(/nenhuma.*rota|sem.*rota/i);
+
+    // FAB
+    this.fab = page.locator('[data-testid="fab"], .fab, [role="button"][aria-label*="ação"]');
+
+    // Drawer
+    this.drawerMenu = page.locator('[data-testid="drawer-menu"], .drawer-menu, [role="dialog"]');
+    this.drawerProfileName = this.drawerMenu.locator('[data-testid="profile-name"], .profile-name');
+    this.drawerLogoutButton = page.getByText(/sair/i);
+  }
+
+  async goto() {
+    await this.page.goto('/motorista');
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async expectOnMotoristaDashboard() {
+    await expect(this.page).toHaveURL(/.*motorista.*/);
+    // Should see either tab bar (mobile) or sidebar content (desktop)
+    await this.page.waitForTimeout(1000); // Wait for UI to settle
+  }
+
+  // Tab navigation
+  async navigateToInicio() {
+    await this.inicioTab.click();
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async navigateToParadas() {
+    await this.paradasTab.click();
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async navigateToMapa() {
+    await this.mapaTab.click();
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async navigateToHistorico() {
+    await this.historicoTab.click();
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  // Tab visibility checks
+  async expectTabBarVisible() {
+    await expect(this.tabBar).toBeVisible({ timeout: 10000 });
+  }
+
+  async expectAllTabsVisible() {
+    await expect(this.inicioTab).toBeVisible();
+    await expect(this.paradasTab).toBeVisible();
+    await expect(this.mapaTab).toBeVisible();
+    await expect(this.historicoTab).toBeVisible();
+  }
+
+  // Drawer menu
+  async openDrawerMenu() {
+    await this.menuButton.click();
+    await expect(this.drawerMenu).toBeVisible({ timeout: 5000 });
+  }
+
+  async closeDrawerMenu() {
+    // Click outside drawer or press escape
+    await this.page.keyboard.press('Escape');
+    await expect(this.drawerMenu).not.toBeVisible();
+  }
+
+  async logout() {
+    await this.openDrawerMenu();
+    await this.drawerLogoutButton.click();
+    // May need to confirm logout
+    const confirmButton = this.page.getByRole('button', { name: /confirmar|sair/i });
+    if (await confirmButton.isVisible()) {
+      await confirmButton.click();
+    }
+    await this.page.waitForURL('**/auth/login**', { timeout: 10000 });
+  }
+
+  // Route interactions
+  async hasActiveRoute(): Promise<boolean> {
+    return await this.activeRouteCard.isVisible();
+  }
+
+  async startRoute() {
+    await this.startRouteButton.click();
+    await this.page.waitForLoadState('networkidle');
+  }
+}

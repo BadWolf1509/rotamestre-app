@@ -143,12 +143,17 @@ export function QuickActions({
 }
 
 // FAB Component
+// Altura padrão da Tab Bar (60px base + ~20px para safe area média)
+const DEFAULT_TAB_BAR_HEIGHT = 80;
+
 interface FloatingActionButtonProps {
   icon: string;
   color: string;
   onPress: () => void;
   label?: string;
   disabled?: boolean;
+  /** Altura da tab bar (para posicionar o FAB acima dela). Default: 80 */
+  tabBarHeight?: number;
 }
 
 export function FloatingActionButton({
@@ -157,6 +162,7 @@ export function FloatingActionButton({
   onPress,
   label,
   disabled = false,
+  tabBarHeight = DEFAULT_TAB_BAR_HEIGHT,
 }: FloatingActionButtonProps) {
   const { theme } = useUnistyles();
 
@@ -166,11 +172,18 @@ export function FloatingActionButton({
     onPress();
   };
 
+  // FAB fica 16px acima da tab bar
+  const fabBottom = tabBarHeight + 16;
+
   return (
     <TouchableOpacity
       style={[
         fabStyles.fab,
-        { backgroundColor: disabled ? theme.colors.gray400 : color, shadowColor: theme.colors.black }
+        {
+          backgroundColor: disabled ? theme.colors.gray400 : color,
+          shadowColor: theme.colors.black,
+          bottom: fabBottom,
+        }
       ]}
       onPress={handlePress}
       activeOpacity={0.8}
@@ -265,7 +278,7 @@ const styles = StyleSheet.create({
 const fabStyles = StyleSheet.create({
   fab: {
     position: 'absolute',
-    bottom: 100,
+    // bottom é definido dinamicamente via prop tabBarHeight
     right: 20,
     width: 64,
     height: 64,

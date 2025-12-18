@@ -1,3 +1,6 @@
+import { Platform } from 'react-native';
+
+import { supabase } from '@/lib/supabase';
 import { Coordenadas, EnderecoGeocodificado } from '../types/endereco';
 import { GoogleDirectionsLeg, GoogleDirectionsResult } from '../types/google-directions';
 
@@ -189,19 +192,12 @@ export const googleMapsService = {
     optimize: boolean = true
   ): Promise<GoogleDirectionsResult | null> {
     try {
-      let waypointsParam = '';
+      let waypointsStr = '';
       if (waypoints && waypoints.length > 0) {
-        const waypointsStr = waypoints
+        waypointsStr = waypoints
           .map((wp) => `${wp.latitude},${wp.longitude}`)
           .join('|');
-        // Usar optimize:true ou apenas listar os waypoints (ordem fornecida)
-        // IMPORTANTE: Sem "optimize:true", a API usa a ordem fornecida
-        waypointsParam = optimize
-          ? `&waypoints=optimize:true|${waypointsStr}`
-          : `&waypoints=${waypointsStr}`;
       }
-
-      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}${waypointsParam}&key=${GOOGLE_MAPS_API_KEY}`;
 
       // Debug: Log completo da chamada
       console.log('🗺️ ========================================');
@@ -210,7 +206,7 @@ export const googleMapsService = {
       console.log('🗺️   waypointsCount:', waypoints?.length || 0);
       console.log('🗺️   origin:', `${origin.latitude},${origin.longitude}`);
       console.log('🗺️   destination:', `${destination.latitude},${destination.longitude}`);
-      console.log('🗺️   waypointsParam:', waypointsParam.includes('optimize:true') ? 'COM optimize:true' : 'SEM optimize (ordem fornecida)');
+      console.log('🗺️   waypointsParam:', optimize ? 'COM optimize:true' : 'SEM optimize (ordem fornecida)');
       // Log primeiras coordenadas para verificar ordem
       if (waypoints && waypoints.length > 0) {
         console.log('🗺️   Ordem dos waypoints:');
@@ -220,8 +216,39 @@ export const googleMapsService = {
       }
       console.log('🗺️ ========================================');
 
-      const response = await fetch(url);
-      const data = await response.json();
+      let data;
+
+      if (Platform.OS === 'web') {
+        // Web: usar Edge Function para evitar CORS
+        const waypointsParam = waypointsStr
+          ? (optimize ? `optimize:true|${waypointsStr}` : waypointsStr)
+          : undefined;
+
+        const { data: edgeData, error } = await supabase.functions.invoke('google-directions', {
+          body: {
+            origin: `${origin.latitude},${origin.longitude}`,
+            destination: `${destination.latitude},${destination.longitude}`,
+            waypoints: waypointsParam,
+            mode: 'driving',
+          },
+        });
+
+        if (error) throw error;
+        data = edgeData;
+      } else {
+        // Mobile: chamar API diretamente (sem CORS)
+        let waypointsParam = '';
+        if (waypointsStr) {
+          waypointsParam = optimize
+            ? `&waypoints=optimize:true|${waypointsStr}`
+            : `&waypoints=${waypointsStr}`;
+        }
+
+        const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}${waypointsParam}&key=${GOOGLE_MAPS_API_KEY}`;
+
+        const response = await fetch(url);
+        data = await response.json();
+      }
 
       if (data.status === 'OK' && data.routes.length > 0) {
         const route = data.routes[0];
@@ -319,10 +346,27 @@ export const googleMapsService = {
 
         console.log(`🔄   Segmento ${i + 1}/${allPoints.length - 1}: (${segmentOrigin.latitude.toFixed(4)},${segmentOrigin.longitude.toFixed(4)}) → (${segmentDestination.latitude.toFixed(4)},${segmentDestination.longitude.toFixed(4)})`);
 
-        const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${segmentOrigin.latitude},${segmentOrigin.longitude}&destination=${segmentDestination.latitude},${segmentDestination.longitude}&key=${GOOGLE_MAPS_API_KEY}`;
+        let data;
 
-        const response = await fetch(url);
-        const data = await response.json();
+        if (Platform.OS === 'web') {
+          // Web: usar Edge Function para evitar CORS
+          const { data: edgeData, error } = await supabase.functions.invoke('google-directions', {
+            body: {
+              origin: `${segmentOrigin.latitude},${segmentOrigin.longitude}`,
+              destination: `${segmentDestination.latitude},${segmentDestination.longitude}`,
+              mode: 'driving',
+            },
+          });
+
+          if (error) throw error;
+          data = edgeData;
+        } else {
+          // Mobile: chamar API diretamente (sem CORS)
+          const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${segmentOrigin.latitude},${segmentOrigin.longitude}&destination=${segmentDestination.latitude},${segmentDestination.longitude}&key=${GOOGLE_MAPS_API_KEY}`;
+
+          const response = await fetch(url);
+          data = await response.json();
+        }
 
         if (data.status === 'OK' && data.routes.length > 0) {
           const route = data.routes[0];

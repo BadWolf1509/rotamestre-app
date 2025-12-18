@@ -1,13 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { Pressable } from 'react-native';
 
-import { useDrawerMenu } from '@/context/DrawerMenuContext';
 import { useUnistyles } from '@/utils/styles';
 
 export default function PerfilLayout() {
   const { theme } = useUnistyles();
-  const { openDrawer } = useDrawerMenu();
+  const router = useRouter();
+
+  // Helper para voltar com fallback para home do motorista
+  const handleGoBack = (navigation: any) => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      // Fallback: navegar para home do motorista
+      router.replace('/motorista/(tabs)');
+    }
+  };
 
   return (
     <Stack
@@ -24,18 +33,18 @@ export default function PerfilLayout() {
       >
         <Stack.Screen
           name="index"
-          options={{
+          options={({ navigation }) => ({
             title: 'Meu Perfil',
             headerLeft: () => (
               <Pressable
-                onPress={openDrawer}
+                onPress={() => handleGoBack(navigation)}
                 style={{ paddingHorizontal: 12, paddingVertical: 4 }}
                 hitSlop={8}
               >
-                <Ionicons name="menu" size={22} color={theme.colors.white} />
+                <Ionicons name="chevron-back" size={22} color={theme.colors.white} />
               </Pressable>
             ),
-          }}
+          })}
         />
         <Stack.Screen
           name="editar"
@@ -43,7 +52,7 @@ export default function PerfilLayout() {
             title: 'Editar Perfil',
             headerLeft: () => (
               <Pressable
-                onPress={() => navigation.goBack()}
+                onPress={() => handleGoBack(navigation)}
                 style={{ paddingHorizontal: 12, paddingVertical: 4 }}
                 hitSlop={8}
               >
@@ -58,7 +67,22 @@ export default function PerfilLayout() {
             title: 'Alterar Senha',
             headerLeft: () => (
               <Pressable
-                onPress={() => navigation.goBack()}
+                onPress={() => handleGoBack(navigation)}
+                style={{ paddingHorizontal: 12, paddingVertical: 4 }}
+                hitSlop={8}
+              >
+                <Ionicons name="chevron-back" size={22} color={theme.colors.white} />
+              </Pressable>
+            ),
+          })}
+        />
+        <Stack.Screen
+          name="configuracoes"
+          options={({ navigation }) => ({
+            title: 'Configurações',
+            headerLeft: () => (
+              <Pressable
+                onPress={() => handleGoBack(navigation)}
                 style={{ paddingHorizontal: 12, paddingVertical: 4 }}
                 hitSlop={8}
               >

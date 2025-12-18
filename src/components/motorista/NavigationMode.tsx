@@ -158,7 +158,12 @@ export function NavigationMode({
     })();
 
     return () => {
-      subscription?.remove();
+      try {
+        subscription?.remove();
+      } catch (error) {
+        // expo-location remove() não funciona corretamente na web
+        console.warn('[NavigationMode] Error removing subscription:', error);
+      }
     };
   }, [calculateDistance, currentStop]);
 

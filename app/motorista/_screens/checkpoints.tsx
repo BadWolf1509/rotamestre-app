@@ -8,12 +8,15 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
+import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
 import { StreetViewPreview } from '@/components/StreetViewPreview';
 import { SwipeableRow } from '@/components/SwipeableRow';
+import { useRouteStatus, ParadaData } from '@/context/RouteStatusContext';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
 import { abrirNavegacao } from '@/lib/navigation';
@@ -52,8 +55,15 @@ export default function CheckpointsMotorista() {
   const [refreshing, setRefreshing] = useState(false);
   const [concluindoParada, setConcluindoParada] = useState<string | null>(null);
   const [pulandoParada, setPulandoParada] = useState<string | null>(null);
+  const [retomandoParada, setRetomandoParada] = useState<string | null>(null);
   const [showIncidentWizard, setShowIncidentWizard] = useState(false);
   const [selectedParadaForIncident, setSelectedParadaForIncident] = useState<Parada | null>(null);
+  // Estado para o modal de conclusão de parada (com foto)
+  const [showCompletionFlow, setShowCompletionFlow] = useState(false);
+  const [selectedParadaForCompletion, setSelectedParadaForCompletion] = useState<ParadaData | null>(null);
+
+  // Usar contexto para refresh centralizado
+  const { refreshRoute } = useRouteStatus();
 
   // Broadcast localização do motorista quando a rota está em andamento
   useDriverLocationBroadcast({
@@ -114,7 +124,8 @@ export default function CheckpointsMotorista() {
     loadRotaEParadas();
   }, [loadRotaEParadas]);
 
-  async function concluirParada(parada: Parada) {
+  // Abre o modal de conclusão com foto
+  function concluirParada(parada: Parada) {
     // Validar se a rota foi iniciada
     if (rota?.status !== 'em_andamento') {
       Alert.alert(
@@ -125,159 +136,138 @@ export default function CheckpointsMotorista() {
       return;
     }
 
-    Alert.alert(
-      'Concluir Parada',
-      `Confirma a conclusão desta ${parada.tipo}?\n\n${parada.endereco}`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Concluir',
-          style: 'default',
-          onPress: async () => {
-            setConcluindoParada(parada.id);
-            try {
-              // Atualizar status da parada
-              const { error: updateError } = await supabase
-                .from('paradas')
-                .update({
-                  status: 'concluida',
-                  concluida_em: new Date().toISOString(),
-                })
-                .eq('id', parada.id);
+    // Converter para ParadaData e abrir modal de conclusão
+    setSelectedParadaForCompletion(parada as ParadaData);
+    setShowCompletionFlow(true);
+  }
 
-              if (updateError) throw updateError;
-
-              // Criar log (incluindo info de vínculo se existir)
-              await supabase.from('logs').insert({
-                usuario_id: userData!.id,
-                rota_id: rota!.id,
-                parada_id: parada.id,
-                evento: 'parada_concluida',
-                detalhes: {
-                  endereco: parada.endereco,
-                  tipo: parada.tipo,
-                  ordem: parada.ordem,
-                  vinculo_parada_id: parada.vinculo_parada_id || null,
-                  tem_vinculo: !!parada.vinculo_parada_id,
-                },
-              });
-
-              // Verificar se todas as paradas foram concluidas
-              const paradasRestantes = paradas.filter(
-                (p) => p.id !== parada.id && p.status !== 'concluida'
-              );
-
-              if (paradasRestantes.length === 0) {
-                const now = new Date().toISOString();
-
-                // 1. Atualizar status da rota
-                await supabase
-                  .from('rotas')
-                  .update({
-                    status: 'concluida',
-                    concluida_em: now,
-                  })
-                  .eq('id', rota!.id);
-
-                // 2. Marcar checkpoint de chegada (última parada com is_checkpoint=false) como concluído
-                const checkpointChegada = paradas
-                  .filter(p => p.is_checkpoint === false)
-                  .sort((a, b) => b.ordem - a.ordem)[0];
-
-                if (checkpointChegada) {
-                  await supabase
-                    .from('paradas')
-                    .update({
-                      status: 'concluida',
-                      concluida_em: now,
-                    })
-                    .eq('id', checkpointChegada.id);
-                }
-
-                // 3. Filtrar apenas paradas reais (excluindo checkpoints)
-                const paradasReais = paradas.filter(p => p.is_checkpoint !== false);
-
-                // 4. Criar log da conclusao da rota
-                await supabase.from('logs').insert({
-                  usuario_id: userData!.id,
-                  rota_id: rota!.id,
-                  evento: 'rota_concluida',
-                  detalhes: {
-                    total_paradas: paradasReais.length,
-                  },
-                });
-
-                Alert.alert(
-                  'Rota Concluída!',
-                  'Parabéns! Você concluiu todas as paradas desta rota.',
-                  [
-                    {
-                      text: 'OK',
-                      onPress: () => loadRotaEParadas(),
-                    },
-                  ]
-                );
-              } else {
-                Alert.alert('Sucesso', 'Parada concluída com sucesso!');
-                loadRotaEParadas();
-              }
-            } catch (error) {
-              console.error('Erro ao concluir parada:', error);
-              Alert.alert('Erro', 'Não foi possível concluir a parada');
-            } finally {
-              setConcluindoParada(null);
-            }
-          },
-        },
-      ]
-    );
+  // Handler quando conclusão é bem-sucedida
+  function handleCompletionSuccess() {
+    // Recarregar dados locais e do contexto
+    loadRotaEParadas();
+    refreshRoute();
   }
 
   async function pularParada(parada: Parada) {
-    Alert.alert(
-      'Pular Parada',
-      `Deseja pular esta ${parada.tipo}?\n\n${parada.endereco}\n\nEsta parada ficará marcada como "pulada" e poderá ser retomada depois.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Pular',
-          style: 'destructive',
-          onPress: async () => {
-            setPulandoParada(parada.id);
-            try {
-              // Atualizar status da parada
-              const { error: updateError } = await supabase
-                .from('paradas')
-                .update({ status: 'pulada' })
-                .eq('id', parada.id);
+    // Função que executa a ação de pular
+    const executePular = async () => {
+      setPulandoParada(parada.id);
+      try {
+        // Atualizar status da parada
+        const { error: updateError } = await supabase
+          .from('paradas')
+          .update({ status: 'pulada' })
+          .eq('id', parada.id);
 
-              if (updateError) throw updateError;
+        if (updateError) throw updateError;
 
-              // Criar log
-              await supabase.from('logs').insert({
-                usuario_id: userData!.id,
-                rota_id: rota!.id,
-                parada_id: parada.id,
-                evento: 'parada_pulada',
-                detalhes: {
-                  endereco: parada.endereco,
-                  tipo: parada.tipo,
-                  ordem: parada.ordem,
-                },
-              });
-
-              Alert.alert('Parada Pulada', 'Parada marcada como pulada');
-              loadRotaEParadas();
-            } catch (error) {
-              console.error('Erro ao pular parada:', error);
-              Alert.alert('Erro', 'Não foi possível pular a parada');
-            } finally {
-              setPulandoParada(null);
-            }
+        // Criar log
+        await supabase.from('logs').insert({
+          usuario_id: userData!.id,
+          rota_id: rota!.id,
+          parada_id: parada.id,
+          evento: 'parada_pulada',
+          detalhes: {
+            endereco: parada.endereco,
+            tipo: parada.tipo,
+            ordem: parada.ordem,
           },
-        },
-      ]
-    );
+        });
+
+        Alert.alert('Parada Pulada', 'Parada marcada como pulada');
+        loadRotaEParadas();
+      } catch (error) {
+        console.error('Erro ao pular parada:', error);
+        Alert.alert('Erro', 'Não foi possível pular a parada');
+      } finally {
+        setPulandoParada(null);
+      }
+    };
+
+    // Na web, usa window.confirm
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(
+        `Deseja pular esta ${parada.tipo}?\n\n${parada.endereco}\n\nEsta parada ficará marcada como "pulada" e poderá ser retomada depois.`
+      );
+      if (confirmed) {
+        executePular();
+      }
+    } else {
+      // No mobile, usa Alert.alert
+      Alert.alert(
+        'Pular Parada',
+        `Deseja pular esta ${parada.tipo}?\n\n${parada.endereco}\n\nEsta parada ficará marcada como "pulada" e poderá ser retomada depois.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Pular',
+            style: 'destructive',
+            onPress: executePular,
+          },
+        ]
+      );
+    }
+  }
+
+  async function retomarParada(parada: Parada) {
+    // Função que executa a ação de retomar
+    const executeRetomar = async () => {
+      setRetomandoParada(parada.id);
+      try {
+        // Atualizar status da parada para pendente
+        const { error: updateError } = await supabase
+          .from('paradas')
+          .update({ status: 'pendente' })
+          .eq('id', parada.id);
+
+        if (updateError) throw updateError;
+
+        // Criar log
+        await supabase.from('logs').insert({
+          usuario_id: userData!.id,
+          rota_id: rota!.id,
+          parada_id: parada.id,
+          evento: 'parada_retomada',
+          detalhes: {
+            endereco: parada.endereco,
+            tipo: parada.tipo,
+            ordem: parada.ordem,
+          },
+        });
+
+        Alert.alert('Parada Retomada', 'Parada voltou para pendente');
+        loadRotaEParadas();
+      } catch (error) {
+        console.error('Erro ao retomar parada:', error);
+        Alert.alert('Erro', 'Não foi possível retomar a parada');
+      } finally {
+        setRetomandoParada(null);
+      }
+    };
+
+    // Na web, usa window.confirm
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(
+        `Deseja retomar esta ${parada.tipo}?\n\n${parada.endereco}\n\nA parada voltará para o status "pendente".`
+      );
+      if (confirmed) {
+        executeRetomar();
+      }
+    } else {
+      // No mobile, usa Alert.alert
+      Alert.alert(
+        'Retomar Parada',
+        `Deseja retomar esta ${parada.tipo}?\n\n${parada.endereco}\n\nA parada voltará para o status "pendente".`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Retomar',
+            style: 'default',
+            onPress: executeRetomar,
+          },
+        ]
+      );
+    }
   }
 
   const onRefresh = useCallback(() => {
@@ -318,6 +308,7 @@ export default function CheckpointsMotorista() {
     const isPendente = item.status === 'pendente';
     const isConcluindo = concluindoParada === item.id;
     const isPulando = pulandoParada === item.id;
+    const isRetomando = retomandoParada === item.id;
 
     // Swipe actions para paradas pendentes
     const leftActions = isPendente ? [
@@ -449,9 +440,8 @@ export default function CheckpointsMotorista() {
           </View>
         )}
 
-        {/* Botões de Ação - Removidos pois agora usamos swipe */}
-        {/* Mantemos apenas para fallback quando swipe está desabilitado */}
-        {!isConcluida && !isPendente && (
+        {/* Botões de Ação para paradas PENDENTES (fallback quando swipe não disponível) */}
+        {isPendente && (
           <View style={styles.acoesContainer}>
             <TouchableOpacity
               style={[styles.botaoPular, isPulando && styles.botaoDisabled]}
@@ -474,6 +464,27 @@ export default function CheckpointsMotorista() {
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
                 <Text style={styles.botaoConcluirTexto}>✓ Concluir Parada</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Botão Retomar para paradas PULADAS */}
+        {isPulada && (
+          <View style={styles.retornarContainer}>
+            <TouchableOpacity
+              style={[styles.botaoRetomar, isRetomando && styles.botaoDisabled]}
+              onPress={() => retomarParada(item)}
+              disabled={isRetomando}
+              activeOpacity={0.7}
+            >
+              {isRetomando ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <Ionicons name="refresh" size={18} color="#fff" />
+                  <Text style={styles.botaoRetomarTexto}>Retomar Parada</Text>
+                </>
               )}
             </TouchableOpacity>
           </View>
@@ -579,6 +590,18 @@ export default function CheckpointsMotorista() {
           endereco={selectedParadaForIncident.endereco}
         />
       )}
+
+      {/* Modal de Conclusão de Parada (com foto) */}
+      <StopCompletionFlow
+        parada={selectedParadaForCompletion}
+        visible={showCompletionFlow}
+        onClose={() => {
+          setShowCompletionFlow(false);
+          setSelectedParadaForCompletion(null);
+        }}
+        onSuccess={handleCompletionSuccess}
+        allowSkipPhoto={true}
+      />
     </GestureHandlerRootView>
   );
 }
@@ -678,6 +701,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   listContainer: {
     padding: theme.spacing.md,
+    paddingBottom: 100, // Account for tab bar (60) + safe area
   },
   emptyListContainer: {
     padding: theme.spacing.xl,
@@ -820,6 +844,23 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   botaoDisabled: {
     opacity: 0.6,
+  },
+  retornarContainer: {
+    marginTop: theme.spacing.sm,
+  },
+  botaoRetomar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.blue500,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+    gap: theme.spacing.xs,
+  },
+  botaoRetomarTexto: {
+    color: theme.colors.white,
+    fontSize: theme.typography.sm,
+    fontWeight: '600',
   },
   botaoNavegar: {
     flex: 1,

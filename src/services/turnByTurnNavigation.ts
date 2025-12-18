@@ -1,5 +1,8 @@
 import { decode } from '@mapbox/polyline';
 import * as Speech from 'expo-speech';
+import { Platform } from 'react-native';
+
+import { supabase } from '@/lib/supabase';
 
 // Types
 export interface NavigationInstruction {
@@ -75,20 +78,42 @@ class TurnByTurnNavigationService {
       const originStr = `${origin.latitude},${origin.longitude}`;
       const destStr = `${destination.latitude},${destination.longitude}`;
 
-      let url = `https://maps.googleapis.com/maps/api/directions/json?` +
-        `origin=${originStr}&destination=${destStr}` +
-        `&mode=driving&language=pt-BR&key=${this.googleMapsApiKey}`;
-
-      // Add waypoints if provided
+      let waypointsParam: string | undefined;
       if (waypoints && waypoints.length > 0) {
         const waypointsStr = waypoints
           .map(w => `${w.latitude},${w.longitude}`)
           .join('|');
-        url += `&waypoints=optimize:true|${waypointsStr}`;
+        waypointsParam = `optimize:true|${waypointsStr}`;
       }
 
-      const response = await fetch(url);
-      const data: DirectionsAPIResponse = await response.json();
+      let data: DirectionsAPIResponse;
+
+      if (Platform.OS === 'web') {
+        // Web: usar Edge Function para evitar CORS
+        const { data: edgeData, error } = await supabase.functions.invoke('google-directions', {
+          body: {
+            origin: originStr,
+            destination: destStr,
+            waypoints: waypointsParam,
+            mode: 'driving',
+          },
+        });
+
+        if (error) throw error;
+        data = edgeData;
+      } else {
+        // Mobile: chamar API diretamente (sem CORS)
+        let url = `https://maps.googleapis.com/maps/api/directions/json?` +
+          `origin=${originStr}&destination=${destStr}` +
+          `&mode=driving&language=pt-BR&key=${this.googleMapsApiKey}`;
+
+        if (waypointsParam) {
+          url += `&waypoints=${waypointsParam}`;
+        }
+
+        const response = await fetch(url);
+        data = await response.json();
+      }
 
       if (!data.routes || data.routes.length === 0) {
         throw new Error('Nenhuma rota encontrada');

@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  Platform,
 } from 'react-native';
 
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
@@ -38,20 +39,29 @@ export default function FirstPasswordScreen() {
     loadUser();
   }, []);
 
+  // Helper para mostrar alertas cross-platform
+  const showAlert = (title: string, message: string) => {
+    if (Platform.OS === 'web') {
+      window.alert(`${title}\n\n${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
+
   async function handleSetPassword() {
     // Validações
     if (!newPassword || !confirmPassword) {
-      Alert.alert('Erro', 'Preencha todos os campos');
+      showAlert('Erro', 'Preencha todos os campos');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert('Erro', 'As senhas não coincidem');
+      showAlert('Erro', 'As senhas não coincidem');
       return;
     }
 
     if (!isPasswordValid(newPassword)) {
-      Alert.alert(
+      showAlert(
         'Senha Fraca',
         'A senha não atende aos requisitos mínimos de segurança. Por favor, crie uma senha mais forte.'
       );
@@ -65,7 +75,7 @@ export default function FirstPasswordScreen() {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
-        Alert.alert('Erro', 'Sessão expirada. Por favor, faça login novamente.');
+        showAlert('Erro', 'Sessão expirada. Por favor, faça login novamente.');
         await supabase.auth.signOut();
         router.replace('/auth/login');
         return;
@@ -73,7 +83,7 @@ export default function FirstPasswordScreen() {
 
       // Verificar se o perfil está carregado
       if (!user || !profile) {
-        Alert.alert('Erro', 'Não foi possível carregar os dados do usuário.');
+        showAlert('Erro', 'Não foi possível carregar os dados do usuário.');
         setLoading(false);
         return;
       }
@@ -82,7 +92,7 @@ export default function FirstPasswordScreen() {
       if (profile.primeira_senha !== true) {
         console.warn('⚠️ Usuário tentou acessar first-password sem estar marcado como primeira_senha');
         // Redirecionar para a área apropriada
-        const targetRoute = profile.papel === 'gestor' ? '/gestor/inicio' : '/motorista/inicio';
+        const targetRoute = profile.papel === 'gestor' ? '/gestor/inicio' : '/motorista';
         router.replace(targetRoute);
         return;
       }
@@ -97,7 +107,7 @@ export default function FirstPasswordScreen() {
         // usar a mesma senha temporária. Vamos orientá-lo.
         if (updateError.message.includes('should be different') ||
             updateError.message.includes('same')) {
-          Alert.alert(
+          showAlert(
             'Senha Inválida',
             'A nova senha não pode ser igual à senha temporária que você recebeu. Por favor, escolha uma senha diferente.'
           );
@@ -123,25 +133,33 @@ export default function FirstPasswordScreen() {
       // Determinar rota de destino baseado no papel
       const targetRoute = profile.papel === 'gestor'
         ? '/gestor/inicio'
-        : '/motorista/rota';
+        : '/motorista';
 
       const papelNome = profile.papel === 'gestor' ? 'Gestor' : 'Motorista';
 
-      Alert.alert(
-        'Senha Definida com Sucesso!',
-        `Bem-vindo ao Rota Mestre, ${profile.nome}! Você será redirecionado para sua área de ${papelNome}.`,
-        [
-          {
-            text: 'Continuar',
-            onPress: () => {
-              router.replace(targetRoute);
+      // Sucesso - mostrar mensagem e redirecionar
+      const successMessage = `Bem-vindo ao Rota Mestre, ${profile.nome}! Você será redirecionado para sua área de ${papelNome}.`;
+
+      if (Platform.OS === 'web') {
+        // Web: usar window.alert e redirecionar diretamente
+        window.alert(`Senha Definida com Sucesso!\n\n${successMessage}`);
+        router.replace(targetRoute);
+      } else {
+        // Mobile: usar Alert.alert com callback
+        Alert.alert(
+          'Senha Definida com Sucesso!',
+          successMessage,
+          [
+            {
+              text: 'Continuar',
+              onPress: () => router.replace(targetRoute),
             },
-          },
-        ]
-      );
+          ]
+        );
+      }
     } catch (error: any) {
       console.error('Erro completo:', error);
-      Alert.alert('Erro', error.message || 'Erro ao definir senha. Tente novamente.');
+      showAlert('Erro', error.message || 'Erro ao definir senha. Tente novamente.');
     } finally {
       setLoading(false);
     }

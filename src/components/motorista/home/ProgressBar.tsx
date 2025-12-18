@@ -175,13 +175,13 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     backgroundColor: colors.white,
     marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 12,
+    marginVertical: 16, // Unificado para 16px (8pt grid system)
+    borderRadius: 16, // Aumentado de 12 para 16 (consistência)
     shadowColor: colors.black,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.1, // Unificado com MainCard
+    shadowRadius: 8, // Unificado com MainCard
+    elevation: 3, // Unificado com MainCard
   },
   header: {
     flexDirection: 'row',

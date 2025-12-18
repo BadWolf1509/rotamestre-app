@@ -219,6 +219,12 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
   const startRoute = async () => {
     if (!route || !userData) return;
 
+    // Validar se a rota está em status pendente (evita reiniciar rota já concluída/cancelada)
+    if (route.status !== 'pendente') {
+      console.warn(`[startRoute] Tentativa de iniciar rota com status '${route.status}' - ignorado`);
+      return;
+    }
+
     try {
       const now = new Date().toISOString();
 
@@ -233,7 +239,19 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // 2. Marcar checkpoint de partida (ordem 0, is_checkpoint=false) como concluído
+      // 2. Registrar log de início da rota
+      await supabase.from('logs').insert({
+        usuario_id: userData.id,
+        rota_id: route.id,
+        evento: 'motorista_iniciou_rota',
+        detalhes: {
+          motorista_id: userData.id,
+          motorista_nome: userData.nome,
+          unidade_nome: route.unidade_nome,
+        },
+      });
+
+      // 3. Marcar checkpoint de partida (ordem 0, is_checkpoint=false) como concluído
       const checkpointPartida = paradas.find(p => p.is_checkpoint === false && p.ordem === 0);
       if (checkpointPartida) {
         await supabase
@@ -245,7 +263,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
           .eq('id', checkpointPartida.id);
       }
 
-      // 3. Iniciar rastreamento de localização em background (apenas mobile)
+      // 4. Iniciar rastreamento de localização em background (apenas mobile)
       if (Platform.OS !== 'web') {
         await requestAndStartTracking({
           rotaId: route.id,
@@ -264,6 +282,12 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
 
   // Completa parada
   const completeStop = async (paradaId: string, fotoUrl?: string) => {
+    // Validar se a rota está em andamento
+    if (!route || route.status !== 'em_andamento') {
+      console.warn(`[completeStop] Tentativa de concluir parada com rota em status '${route?.status}' - ignorado`);
+      throw new Error('A rota precisa estar em andamento para concluir paradas');
+    }
+
     try {
       const updateData: any = {
         status: 'concluida',
@@ -290,6 +314,12 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
 
   // Pula parada
   const skipStop = async (paradaId: string) => {
+    // Validar se a rota está em andamento
+    if (!route || route.status !== 'em_andamento') {
+      console.warn(`[skipStop] Tentativa de pular parada com rota em status '${route?.status}' - ignorado`);
+      throw new Error('A rota precisa estar em andamento para pular paradas');
+    }
+
     try {
       const { error } = await supabase
         .from('paradas')

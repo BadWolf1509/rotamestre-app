@@ -217,7 +217,12 @@ export function TurnByTurnNavigation({
     })();
 
     return () => {
-      subscription?.remove();
+      try {
+        subscription?.remove();
+      } catch (error) {
+        // expo-location remove() não funciona corretamente na web
+        console.warn('[TurnByTurn] Error removing subscription:', error);
+      }
     };
   }, [destination, handleArrival, updateNavigation]);
 

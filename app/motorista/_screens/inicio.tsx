@@ -12,19 +12,19 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import CameraUpload from '@/components/CameraUpload';
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
 import { MainCard } from '@/components/motorista/home/MainCard';
 import { MiniMap } from '@/components/motorista/home/MiniMap';
 import { ProgressBar } from '@/components/motorista/home/ProgressBar';
-import { FloatingActionButton, BottomActionsBar } from '@/components/motorista/home/QuickActions';
+import { FloatingActionButton } from '@/components/motorista/home/QuickActions';
 import { StatusSection } from '@/components/motorista/home/StatusSection';
 import { NavigationMode } from '@/components/motorista/NavigationMode';
 import { NavigationSettings } from '@/components/motorista/NavigationSettings';
 import { OptimizationAlert } from '@/components/motorista/OptimizationAlert';
 import { PictureInPictureMap } from '@/components/motorista/PictureInPictureMap';
+import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
 import { SupportModal } from '@/components/SupportModal';
-import { RouteStatusProvider, useRouteStatus } from '@/context/RouteStatusContext';
+import { useRouteStatus } from '@/context/RouteStatusContext';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
 import { abrirNavegacao } from '@/lib/navigation';
@@ -70,8 +70,7 @@ function MotoristaInicioContent() {
   const [showPiPMap, setShowPiPMap] = useState(false);
   const [optimization, setOptimization] = useState<any>(null);
   const [showOptimization, setShowOptimization] = useState(false);
-  const [showCameraUpload, setShowCameraUpload] = useState(false);
-  const [pendingStopToComplete, setPendingStopToComplete] = useState<string | null>(null);
+  const [showCompletionFlow, setShowCompletionFlow] = useState(false);
   const [showSupportModal, setShowSupportModal] = useState(false);
 
   // Load user location
@@ -121,7 +120,12 @@ function MotoristaInicioContent() {
 
     return () => {
       if (subscription) {
-        subscription.remove();
+        try {
+          subscription.remove();
+        } catch (error) {
+          // expo-location remove() não funciona corretamente na web
+          console.warn('[Location] Error removing subscription:', error);
+        }
       }
     };
   }, []);
@@ -178,11 +182,26 @@ function MotoristaInicioContent() {
 
   // Start route
   const handleStartRoute = async () => {
+    // Verificar se a rota pode ser iniciada
+    if (route?.status !== 'pendente') {
+      const statusMessages: Record<string, string> = {
+        em_andamento: 'Esta rota já está em andamento.',
+        concluida: 'Esta rota já foi concluída.',
+        cancelada: 'Esta rota foi cancelada.',
+      };
+      Alert.alert(
+        'Rota não pode ser iniciada',
+        statusMessages[route?.status || ''] || 'Status da rota inválido.'
+      );
+      return;
+    }
+
     try {
       await startRoute();
       Alert.alert('Rota Iniciada', 'Boa viagem! Dirija com segurança.');
-    } catch {
-      Alert.alert('Erro', 'Não foi possível iniciar a rota');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Não foi possível iniciar a rota';
+      Alert.alert('Erro', message);
     }
   };
 
@@ -206,81 +225,10 @@ function MotoristaInicioContent() {
     }
   };
 
-  // Complete current stop
-  const handleCompleteStop = async (fotoUrl?: string) => {
+  // Complete current stop - abre o modal de conclusão com foto
+  const handleCompleteStop = async () => {
     if (!currentStop) return;
-
-    // Se não tem foto, abrir camera upload
-    if (!fotoUrl) {
-      setPendingStopToComplete(currentStop.id);
-      setShowCameraUpload(true);
-      return;
-    }
-
-    // Se tem foto, confirmar e concluir
-    Alert.alert(
-      'Confirmar Entrega',
-      `Confirma a entrega em:\n${currentStop.endereco}?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Confirmar',
-          onPress: async () => {
-            try {
-              await completeStop(currentStop.id, fotoUrl);
-              Alert.alert('Sucesso', 'Parada concluída com foto de comprovante!');
-              setPendingStopToComplete(null);
-            } catch {
-              Alert.alert('Erro', 'Não foi possível concluir a parada');
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  // Handle photo upload success
-  const handlePhotoUploadSuccess = (fotoUrl: string) => {
-    setShowCameraUpload(false);
-    if (pendingStopToComplete) {
-      handleCompleteStop(fotoUrl);
-    }
-  };
-
-  // Handle photo upload error
-  const handlePhotoUploadError = (error: string) => {
-    Alert.alert('Erro no Upload', error, [
-      {
-        text: 'Continuar sem foto',
-        onPress: () => {
-          setShowCameraUpload(false);
-          if (pendingStopToComplete && currentStop) {
-            // Allow completing without photo
-            Alert.alert(
-              'Confirmar sem foto',
-              'Deseja concluir a parada sem foto de comprovante?',
-              [
-                { text: 'Cancelar', style: 'cancel' },
-                {
-                  text: 'Confirmar',
-                  style: 'destructive',
-                  onPress: async () => {
-                    try {
-                      await completeStop(currentStop.id);
-                      Alert.alert('Sucesso', 'Parada concluída (sem foto)');
-                      setPendingStopToComplete(null);
-                    } catch {
-                      Alert.alert('Erro', 'Não foi possível concluir a parada');
-                    }
-                  }
-                }
-              ]
-            );
-          }
-        }
-      },
-      { text: 'Tentar novamente', style: 'cancel' }
-    ]);
+    setShowCompletionFlow(true);
   };
 
   // Skip current stop
@@ -299,8 +247,9 @@ function MotoristaInicioContent() {
             try {
               await skipStop(currentStop.id);
               Alert.alert('Parada Pulada', 'Você pode voltar a ela mais tarde');
-            } catch {
-              Alert.alert('Erro', 'Não foi possível pular a parada');
+            } catch (error) {
+              const message = error instanceof Error ? error.message : 'Não foi possível pular a parada';
+              Alert.alert('Erro', message);
             }
           }
         }
@@ -451,11 +400,12 @@ function MotoristaInicioContent() {
 
   return (
     <>
+      {/* Padding considera: Tab Bar (60) + FAB margin (16) + FAB height (64) + content margin (20) = 160 */}
       <ScrollView
         style={styles.container}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: 100 + insets.bottom },
+          { paddingBottom: 160 },
         ]}
         refreshControl={
           <RefreshControl
@@ -515,19 +465,8 @@ function MotoristaInicioContent() {
 
       </ScrollView>
 
-      {/* Bottom Actions Bar - fixo no bottom */}
-      <BottomActionsBar
-        state={routeStatus}
-        bottomInset={insets.bottom}
-        onViewAllStops={() => router.push('/motorista/checkpoints')}
-        onContactSupport={() => setShowSupportModal(true)}
-        onReportIncident={() => setShowIncidentWizard(true)}
-        onOpenSettings={() => setShowNavigationSettings(true)}
-        onViewSummary={() => router.push('/motorista/resumo')}
-        onViewHistory={() => router.push('/motorista/historico')}
-      />
-
       {/* Floating Action Button - absolute positioned outside ScrollView */}
+      {/* Posicionado acima da Tab Bar (60px + safe area + margin) */}
       <FloatingActionButton
         icon={fabProps.icon}
         color={fabProps.color}
@@ -584,32 +523,14 @@ function MotoristaInicioContent() {
         onClose={() => setShowOptimization(false)}
       />
 
-      {showCameraUpload && currentStop && route && userData && (
-        <View style={styles.cameraUploadOverlay}>
-          <View style={styles.cameraUploadContainer}>
-            <View style={styles.cameraUploadHeader}>
-              <Text style={styles.cameraUploadTitle}>📸 Foto de Comprovante</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setShowCameraUpload(false);
-                  setPendingStopToComplete(null);
-                }}
-                style={styles.cameraUploadClose}
-              >
-                <Ionicons name="close" size={24} color={theme.colors.gray500} />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.cameraUploadAddress}>{currentStop.endereco}</Text>
-            <CameraUpload
-              unidadeId={userData.unidade_id!}
-              rotaId={route.id}
-              paradaId={currentStop.id}
-              onUploadSuccess={handlePhotoUploadSuccess}
-              onUploadError={handlePhotoUploadError}
-            />
-          </View>
-        </View>
-      )}
+      {/* Modal de Conclusão de Parada (com foto) */}
+      <StopCompletionFlow
+        parada={currentStop}
+        visible={showCompletionFlow}
+        onClose={() => setShowCompletionFlow(false)}
+        onSuccess={() => refreshRoute()}
+        allowSkipPhoto={true}
+      />
 
       <SupportModal
         visible={showSupportModal}
@@ -619,13 +540,9 @@ function MotoristaInicioContent() {
   );
 }
 
-// Main component with provider
+// Main component - RouteStatusProvider já está no _layout.tsx
 export default function MotoristaInicio() {
-  return (
-    <RouteStatusProvider>
-      <MotoristaInicioContent />
-    </RouteStatusProvider>
-  );
+  return <MotoristaInicioContent />;
 }
 
 const styles = StyleSheet.create((theme: Theme) => ({
@@ -634,45 +551,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.gray50,
   },
   scrollContent: {
-    paddingBottom: 180,
-  },
-  cameraUploadOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 999,
-  },
-  cameraUploadContainer: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
-    width: '90%',
-    maxWidth: 400,
-    maxHeight: '80%',
-  },
-  cameraUploadHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  cameraUploadTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.colors.gray900,
-  },
-  cameraUploadClose: {
-    padding: 4,
-  },
-  cameraUploadAddress: {
-    fontSize: 14,
-    color: theme.colors.gray500,
-    marginBottom: 16,
+    // Padding is set inline to account for Tab Bar + FAB
   },
 }));
 

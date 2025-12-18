@@ -251,7 +251,15 @@
       "Bash(/c/Users/welli/AppData/Local/Android/Sdk/build-tools/36.1.0/apksigner.bat:*)",
       "Bash(git -C /c/Users/welli/RotaMestre/rotamestre-app status:*)",
       "Bash(npx eas update:configure)",
-      "Bash(start \"\" \"https://supabase.com/dashboard/project/xezslsyxjivunmhhyxtd/sql/new\")"
+      "Bash(start \"\" \"https://supabase.com/dashboard/project/xezslsyxjivunmhhyxtd/sql/new\")",
+      "Bash(npx supabase:*)",
+      "Bash(ping:*)",
+      "Bash(npx playwright install chromium)",
+      "Bash(npm run test:e2e:*)",
+      "Bash(npx playwright test:*)",
+      "Bash(npx expo start --clear --web)",
+      "Bash(node scripts/create-test-users.js:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

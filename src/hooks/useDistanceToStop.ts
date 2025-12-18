@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 
+import { supabase } from '@/lib/supabase';
+
 interface DistanceInfo {
   distanceMeters: number;
   distanceKm: string;
@@ -13,8 +15,6 @@ interface Location {
   latitude: number;
   longitude: number;
 }
-
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
 // Cache para evitar chamadas repetidas
 const distanceCache = new Map<string, { data: DistanceInfo; timestamp: number }>();
@@ -81,13 +81,20 @@ export function useDistanceToStop(
     setDistanceInfo(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      // Usar Directions API simples (sem waypoints) - mais barato
-      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${userLocation.latitude},${userLocation.longitude}&destination=${destination.latitude},${destination.longitude}&key=${GOOGLE_MAPS_API_KEY}&mode=driving`;
+      // Usar Edge Function do Supabase para evitar CORS
+      const { data, error: fnError } = await supabase.functions.invoke('google-directions', {
+        body: {
+          origin: `${userLocation.latitude},${userLocation.longitude}`,
+          destination: `${destination.latitude},${destination.longitude}`,
+          mode: 'driving',
+        },
+      });
 
-      const response = await fetch(url);
-      const data = await response.json();
+      if (fnError) {
+        throw new Error(fnError.message || 'Erro ao chamar Edge Function');
+      }
 
-      if (data.status === 'OK' && data.routes.length > 0) {
+      if (data?.status === 'OK' && data.routes?.length > 0) {
         const leg = data.routes[0].legs[0];
         const distanceMeters = leg.distance.value;
         const durationSeconds = leg.duration.value;

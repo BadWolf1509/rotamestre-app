@@ -37,7 +37,7 @@ export function RouteTimeline({ rotaId, realtime = true, onStateChange }: RouteT
           .from('logs')
           .select('*')
           .eq('rota_id', rotaId)
-          .order('created_at', { ascending: false }),
+          .order('timestamp', { ascending: false }),
 
         // Paradas atualizadas
         supabase
@@ -72,7 +72,7 @@ export function RouteTimeline({ rotaId, realtime = true, onStateChange }: RouteT
             timelineEvents.push({
               id: `log-${log.id}`,
               type: 'status_change',
-              timestamp: log.created_at,
+              timestamp: log.timestamp,
               title: 'Rota Criada',
               description,
               icon: 'add-circle',
@@ -84,7 +84,7 @@ export function RouteTimeline({ rotaId, realtime = true, onStateChange }: RouteT
             timelineEvents.push({
               id: `log-${log.id}`,
               type: 'status_change',
-              timestamp: log.created_at,
+              timestamp: log.timestamp,
               title: 'Rota Iniciada',
               description: detalhes?.timestamp
                 ? `Motorista iniciou a rota às ${new Date(detalhes.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
@@ -98,7 +98,7 @@ export function RouteTimeline({ rotaId, realtime = true, onStateChange }: RouteT
             timelineEvents.push({
               id: `log-${log.id}`,
               type: 'status_change',
-              timestamp: log.created_at,
+              timestamp: log.timestamp,
               title: 'Rota Concluída',
               description: detalhes?.timestamp
                 ? `Motorista finalizou a rota às ${new Date(detalhes.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
@@ -112,7 +112,7 @@ export function RouteTimeline({ rotaId, realtime = true, onStateChange }: RouteT
             timelineEvents.push({
               id: `log-${log.id}`,
               type: 'status_change',
-              timestamp: log.created_at,
+              timestamp: log.timestamp,
               title: 'Rota Cancelada',
               description: detalhes?.timestamp
                 ? `Rota cancelada às ${new Date(detalhes.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
@@ -126,7 +126,7 @@ export function RouteTimeline({ rotaId, realtime = true, onStateChange }: RouteT
             timelineEvents.push({
               id: `log-${log.id}`,
               type: 'parada_update',
-              timestamp: log.created_at,
+              timestamp: log.timestamp,
               title: 'Parada Reaberta',
               description: detalhes?.endereco || 'Parada voltou para pendente',
               icon: 'refresh-circle',
@@ -138,7 +138,7 @@ export function RouteTimeline({ rotaId, realtime = true, onStateChange }: RouteT
             timelineEvents.push({
               id: `log-${log.id}`,
               type: 'status_change',
-              timestamp: log.created_at,
+              timestamp: log.timestamp,
               title: '🚨 SOS Acionado',
               description: detalhes?.motivo || 'Motorista acionou botão de emergência',
               icon: 'warning',
@@ -152,7 +152,7 @@ export function RouteTimeline({ rotaId, realtime = true, onStateChange }: RouteT
             timelineEvents.push({
               id: `log-${log.id}`,
               type: 'status_change',
-              timestamp: log.created_at,
+              timestamp: log.timestamp,
               title: 'Resumo Confirmado',
               description: `${concluidas} concluída(s), ${puladas} pulada(s)`,
               icon: 'document-text',

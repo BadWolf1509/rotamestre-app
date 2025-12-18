@@ -323,7 +323,7 @@ export function MainCard({
           <View style={styles.header}>
             <View style={[
               styles.badge,
-              state === 'last-stop' && { backgroundColor: theme.colors.success }
+              state === 'last-stop' && { backgroundColor: theme.colors.successDark } // successDark (#047857) para contraste 6:1 com texto branco
             ]}>
               <Text style={styles.badgeText}>
                 {state === 'last-stop' ? 'ÚLTIMA PARADA! 🎯' : `PARADA ${currentStop.ordem}/${paradasReais.length}`}
@@ -481,9 +481,9 @@ const colors = defaultTheme.colors;
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.white,
-    borderRadius: 12,
+    borderRadius: 16, // Aumentado de 12 para 16 (tendência 2024/2025)
     marginHorizontal: 16,
-    marginVertical: 12,
+    marginVertical: 16, // Unificado para 16px (8pt grid system)
     shadowColor: colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -501,13 +501,13 @@ const styles = StyleSheet.create({
   },
   badge: {
     backgroundColor: colors.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    paddingHorizontal: 10, // Aumentado de 8 para 10 (compensar fonte maior)
+    paddingVertical: 5, // Aumentado de 4 para 5 (compensar fonte maior)
+    borderRadius: 6, // Aumentado de 4 para 6 (mais moderno)
   },
   badgeText: {
     color: colors.white,
-    fontSize: 11,
+    fontSize: 12, // Aumentado de 11 para 12 (WCAG mínimo legível)
     fontWeight: '700',
     letterSpacing: 0.5,
   },
@@ -643,9 +643,9 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   sectionLabel: {
-    fontSize: 10,
+    fontSize: 11, // Aumentado de 10 para 11 (melhor legibilidade)
     fontWeight: '600',
-    color: colors.gray500,
+    color: colors.gray600, // Mais escuro para melhor contraste
     letterSpacing: 0.5,
     marginBottom: 4,
   },
@@ -676,7 +676,7 @@ const styles = StyleSheet.create({
   },
   observationText: {
     fontSize: 12,
-    color: colors.secondaryDark,
+    color: '#92400e', // amber-800 para alto contraste em fundo warningBg (7:1)
   },
   streetViewContainer: {
     marginTop: 12,

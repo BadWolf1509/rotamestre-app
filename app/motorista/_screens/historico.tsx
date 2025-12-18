@@ -681,6 +681,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   listContainer: {
     padding: 16,
+    paddingBottom: 100, // Account for tab bar (60) + safe area
   },
   emptyContainer: {
     padding: 60,

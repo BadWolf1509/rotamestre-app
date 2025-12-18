@@ -307,10 +307,10 @@ export function MiniMap({
 const styles = StyleSheet.create({
   container: {
     marginHorizontal: 16,
-    marginVertical: 8,
+    marginVertical: 16, // Unificado para 16px (8pt grid system)
   },
   mapContainer: {
-    borderRadius: 12,
+    borderRadius: 16, // Aumentado de 12 para 16 (consistência)
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.gray200,

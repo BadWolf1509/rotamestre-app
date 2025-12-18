@@ -57,6 +57,13 @@ rota-mestre/
 coverage/
 # Note: __tests__/ and __mocks__/ are now versioned for CI/CD
 
+# Playwright E2E
+e2e-report/
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
+
 # Claude Code local settings
 .claude/settings.local.json
 

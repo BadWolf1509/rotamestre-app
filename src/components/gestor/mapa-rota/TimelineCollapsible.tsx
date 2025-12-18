@@ -48,9 +48,9 @@ export function TimelineCollapsible({ rotaId, initialExpanded = false }: Timelin
         const [logsRes, paradasRes, incidentesRes] = await Promise.all([
           supabase
             .from('logs')
-            .select('id, evento, created_at')
+            .select('id, evento, timestamp')
             .eq('rota_id', rotaId)
-            .order('created_at', { ascending: false })
+            .order('timestamp', { ascending: false })
             .limit(5),
           supabase
             .from('paradas')
@@ -66,9 +66,9 @@ export function TimelineCollapsible({ rotaId, initialExpanded = false }: Timelin
         // Calcular total de eventos
         const logsCount = logsRes.data?.filter((log: any) => {
           const evento = log.evento.toLowerCase();
-          return evento.includes('iniciou') || evento.includes('concluiu') ||
+          return evento.includes('iniciou') || evento.includes('concluiu') || evento.includes('concluida') ||
                  evento.includes('cancelou') || evento === 'motorista_iniciou_rota' ||
-                 evento === 'motorista_concluiu_rota' || evento === 'rota_cancelada';
+                 evento === 'motorista_concluiu_rota' || evento === 'rota_concluida' || evento === 'rota_cancelada';
         }).length || 0;
         const paradasCount = paradasRes.data?.length || 0;
         const incidentesCount = incidentesRes.data?.length || 0;
@@ -82,11 +82,11 @@ export function TimelineCollapsible({ rotaId, initialExpanded = false }: Timelin
         logsRes.data?.forEach((log: any) => {
           const evento = log.evento.toLowerCase();
           if (evento.includes('iniciou') || evento === 'motorista_iniciou_rota') {
-            allEvents.push({ timestamp: log.created_at, title: 'Rota iniciada', type: 'inicio' });
-          } else if (evento.includes('concluiu') || evento === 'motorista_concluiu_rota') {
-            allEvents.push({ timestamp: log.created_at, title: 'Rota concluída', type: 'conclusao' });
+            allEvents.push({ timestamp: log.timestamp, title: 'Rota iniciada', type: 'inicio' });
+          } else if (evento.includes('concluiu') || evento === 'motorista_concluiu_rota' || evento === 'rota_concluida') {
+            allEvents.push({ timestamp: log.timestamp, title: 'Rota concluída', type: 'conclusao' });
           } else if (evento.includes('cancelou') || evento === 'rota_cancelada') {
-            allEvents.push({ timestamp: log.created_at, title: 'Rota cancelada', type: 'outro' });
+            allEvents.push({ timestamp: log.timestamp, title: 'Rota cancelada', type: 'outro' });
           }
         });
 

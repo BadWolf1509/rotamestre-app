@@ -39,8 +39,8 @@ export default function Index() {
           console.log('✅ Usuário autenticado como gestor → /gestor/inicio');
           router.replace('/gestor/inicio');
         } else if (tipo === 'motorista') {
-          console.log('✅ Usuário autenticado como motorista → /motorista/inicio');
-          router.replace('/motorista/inicio');
+          console.log('✅ Usuário autenticado como motorista → /motorista');
+          router.replace('/motorista');
         } else {
           // Tipo desconhecido, vai para login
           console.warn('⚠️ Tipo de usuário desconhecido, redirecionando para login');

@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, Slot } from 'expo-router';
+import { Stack, Slot, useRouter } from 'expo-router';
 import { Pressable } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AuthLoadingScreen } from '@/components/AuthLoadingScreen';
 import { DrawerMenuProvider, useDrawerMenu } from '@/context/DrawerMenuContext';
+import { RouteStatusProvider } from '@/context/RouteStatusContext';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUnistyles } from '@/utils/styles';
@@ -26,37 +27,49 @@ export default function MotoristaLayout() {
   if (isDesktop) {
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <Slot />
+        <DrawerMenuProvider>
+          <RouteStatusProvider>
+            <Slot />
+          </RouteStatusProvider>
+        </DrawerMenuProvider>
       </GestureHandlerRootView>
     );
   }
 
+  // Mobile: Stack com Tabs + telas secundárias
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <DrawerMenuProvider>
-        <MobileStack />
+        <RouteStatusProvider>
+          <MobileNavigation />
+        </RouteStatusProvider>
       </DrawerMenuProvider>
     </GestureHandlerRootView>
   );
 }
 
-function MobileStack() {
+/**
+ * Navegação Mobile com Bottom Tabs como tela principal
+ * Stack Navigator para telas secundárias (resumo, perfil, mapa-rota)
+ */
+function MobileNavigation() {
   const { theme } = useUnistyles();
   const { openDrawer } = useDrawerMenu();
+  const router = useRouter();
 
-  const renderMenuButton = (tintColor?: string) => (
-    <Pressable
-      onPress={openDrawer}
-      style={{ paddingHorizontal: 12, paddingVertical: 4 }}
-      hitSlop={8}
-    >
-      <Ionicons name="menu" size={22} color={tintColor ?? theme.colors.white} />
-    </Pressable>
-  );
+  // Helper para voltar com fallback para home do motorista
+  const handleGoBack = (navigation: any) => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      // Fallback: navegar para home do motorista
+      router.replace('/motorista/(tabs)');
+    }
+  };
 
   const renderBackButton = (navigation: any) => (
     <Pressable
-      onPress={() => navigation.goBack()}
+      onPress={() => handleGoBack(navigation)}
       style={{ paddingHorizontal: 12, paddingVertical: 4 }}
       hitSlop={8}
     >
@@ -75,64 +88,60 @@ function MobileStack() {
           fontWeight: 'bold',
         },
         animation: 'slide_from_right',
-        headerLeft: ({ tintColor }) => renderMenuButton(tintColor),
       }}
     >
+      {/* Tabs como tela principal - header gerenciado pelo TabLayout */}
       <Stack.Screen
-        name="inicio"
+        name="(tabs)"
         options={{
-          title: 'Início',
+          headerShown: false,
         }}
       />
-      <Stack.Screen
-        name="rota"
-        options={{
-          title: 'Rota Atual',
-        }}
-      />
-      <Stack.Screen
-        name="checkpoints"
-        options={{
-          title: 'Paradas',
-        }}
-      />
-      <Stack.Screen
-        name="checkpoints-enhanced"
-        options={{
-          title: 'Checkpoints 2.0',
-        }}
-      />
-      <Stack.Screen
-        name="mapa"
-        options={{
-          title: 'Mapa',
-        }}
-      />
-      <Stack.Screen
-        name="historico"
-        options={{
-          title: 'Histórico',
-        }}
-      />
+
+      {/* Telas de Stack (fora das tabs) */}
       <Stack.Screen
         name="resumo"
-        options={{
+        options={({ navigation }) => ({
           title: 'Resumo',
-        }}
+          headerLeft: () => renderBackButton(navigation),
+        })}
       />
+
       <Stack.Screen
         name="perfil"
         options={{
           headerShown: false,
         }}
       />
+
       <Stack.Screen
-        name="mapa-rota"
+        name="sos"
         options={({ navigation }) => ({
-          title: 'Mapa da Rota',
+          title: 'SOS / Emergência',
           headerLeft: () => renderBackButton(navigation),
         })}
       />
+
+      <Stack.Screen
+        name="desempenho"
+        options={({ navigation }) => ({
+          title: 'Meu Desempenho',
+          headerLeft: () => renderBackButton(navigation),
+        })}
+      />
+
+      <Stack.Screen
+        name="ajuda"
+        options={({ navigation }) => ({
+          title: 'Ajuda',
+          headerLeft: () => renderBackButton(navigation),
+        })}
+      />
+
+      {/*
+        Nota: Telas de tabs (_screens/) são acessadas via (tabs)/.
+        O mapa-rota do motorista é a tab Mapa, não uma tela separada.
+      */}
     </Stack>
   );
 }

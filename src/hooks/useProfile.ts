@@ -130,26 +130,51 @@ export function useProfile(user: User | null): UseProfileReturn {
     }
   }
 
+  // Helper para alertas compatíveis com web
+  const showAlert = (title: string, message: string) => {
+    if (Platform.OS === 'web') {
+      window.alert(`${title}\n\n${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
+
+  // Helper para confirmação compatível com web
+  const showConfirm = (title: string, message: string, onConfirm: () => void) => {
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title}\n\n${message}`)) {
+        onConfirm();
+      }
+    } else {
+      Alert.alert(title, message, [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Confirmar', onPress: onConfirm },
+      ]);
+    }
+  };
+
   // Atualizar foto de perfil
   async function updateProfilePhoto(source: PhotoSource = 'gallery') {
     if (!userId || !profile) {
-      Alert.alert('Erro', 'Usuário não autenticado');
+      showAlert('Erro', 'Usuário não autenticado');
       return;
     }
 
     try {
-      // Solicitar permissão apropriada
-      if (source === 'camera') {
-        const { status } = await ImagePicker.requestCameraPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert('Permissão necessária', 'Precisamos de permissão para acessar a câmera');
-          return;
-        }
-      } else {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert('Permissão necessária', 'Precisamos de permissão para acessar suas fotos');
-          return;
+      // Solicitar permissão apropriada (não necessário na web)
+      if (Platform.OS !== 'web') {
+        if (source === 'camera') {
+          const { status } = await ImagePicker.requestCameraPermissionsAsync();
+          if (status !== 'granted') {
+            showAlert('Permissão necessária', 'Precisamos de permissão para acessar a câmera');
+            return;
+          }
+        } else {
+          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (status !== 'granted') {
+            showAlert('Permissão necessária', 'Precisamos de permissão para acessar suas fotos');
+            return;
+          }
         }
       }
 
@@ -169,52 +194,52 @@ export function useProfile(user: User | null): UseProfileReturn {
         return;
       }
 
+      // Função de upload
+      const doUpload = async () => {
+        setUploadingPhoto(true);
+        try {
+          const photoUri = result.assets[0].uri;
+
+          // Upload da foto (deletando antiga se existir)
+          const fotoUrl = await storageService.uploadFotoUsuario(
+            userId,
+            photoUri,
+            profile.foto_url
+          );
+
+          if (fotoUrl) {
+            // Atualizar estado local
+            setProfile({ ...profile, foto_url: fotoUrl });
+            showAlert('Sucesso', 'Foto de perfil atualizada!');
+          } else {
+            throw new Error('Falha no upload');
+          }
+        } catch (uploadError) {
+          console.error('Erro ao fazer upload:', uploadError);
+          showAlert('Erro', 'Não foi possível atualizar a foto');
+        } finally {
+          setUploadingPhoto(false);
+        }
+      };
+
       // Confirmação antes do upload
-      Alert.alert(
+      showConfirm(
         'Atualizar foto',
         'Deseja usar esta foto como sua foto de perfil?',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Usar foto',
-            onPress: async () => {
-              setUploadingPhoto(true);
-              try {
-                const photoUri = result.assets[0].uri;
-
-                // Upload da foto (deletando antiga se existir)
-                const fotoUrl = await storageService.uploadFotoUsuario(
-                  userId,
-                  photoUri,
-                  profile.foto_url
-                );
-
-                if (fotoUrl) {
-                  // Atualizar estado local
-                  setProfile({ ...profile, foto_url: fotoUrl });
-                  Alert.alert('Sucesso', 'Foto de perfil atualizada!');
-                } else {
-                  throw new Error('Falha no upload');
-                }
-              } catch (uploadError) {
-                console.error('Erro ao fazer upload:', uploadError);
-                Alert.alert('Erro', 'Não foi possível atualizar a foto');
-              } finally {
-                setUploadingPhoto(false);
-              }
-            },
-          },
-        ]
+        doUpload
       );
     } catch (err) {
       console.error('Erro ao selecionar foto:', err);
-      Alert.alert('Erro', 'Não foi possível selecionar a foto');
+      showAlert('Erro', 'Não foi possível selecionar a foto');
     }
   }
 
   // Mostrar opções de foto (câmera ou galeria)
   function showPhotoOptions() {
-    if (Platform.OS === 'ios') {
+    if (Platform.OS === 'web') {
+      // Web: Abre galeria diretamente (câmera não é confiável na web)
+      updateProfilePhoto('gallery');
+    } else if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
           options: ['Cancelar', 'Tirar Foto', 'Escolher da Galeria'],

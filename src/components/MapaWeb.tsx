@@ -112,7 +112,8 @@ export default function MapaWeb({
 
   // Estado para localização do motorista em tempo real
   const [motoristaLocation, setMotoristaLocation] = useState<MotoristaLocation | null>(null);
-  const motoristaMarkerRef = React.useRef<google.maps.Marker | null>(null);
+  const motoristaMarkerRef = React.useRef<google.maps.marker.AdvancedMarkerElement | google.maps.Marker | null>(null);
+  const motoristaInfoWindowRef = React.useRef<google.maps.InfoWindow | null>(null);
 
   const mapLibraries = React.useMemo(() => ['marker'] as ('marker')[], []);
 
@@ -352,17 +353,19 @@ export default function MapaWeb({
 
     const loadLastLocation = async () => {
       try {
+        // Usar maybeSingle() para evitar erro quando não há dados
         const { data, error } = await supabase
           .from('motorista_locations')
           .select('*')
           .eq('rota_id', rotaId)
           .order('timestamp', { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (error) {
-          if (error.code !== 'PGRST116') {
-            console.error('[MapaWeb] Erro ao carregar localização:', error);
+          // PGRST116 = no rows, 406 = RLS blocking - ambos são normais quando não há dados
+          if (error.code !== 'PGRST116' && error.message !== 'JSON object requested, multiple (or no) rows returned') {
+            console.warn('[MapaWeb] Localização não disponível:', error.code);
           }
           return;
         }
@@ -371,7 +374,8 @@ export default function MapaWeb({
           setMotoristaLocation(data as MotoristaLocation);
         }
       } catch (err) {
-        console.error('[MapaWeb] Erro:', err);
+        // Silenciar erros de localização - não é crítico
+        console.warn('[MapaWeb] Localização indisponível');
       }
     };
 
@@ -408,12 +412,20 @@ export default function MapaWeb({
   useEffect(() => {
     if (!mapReady || !mapRef.current || !isLoaded) return;
 
-    // Se não deve mostrar motorista ou não tem localização, remover marcador existente
-    if (!showMotorista || !motoristaLocation) {
+    // Função para remover marcador existente
+    const removeMarker = () => {
       if (motoristaMarkerRef.current) {
-        motoristaMarkerRef.current.setMap(null);
+        // AdvancedMarkerElement usa .map = null, Marker usa setMap(null)
+        if ('map' in motoristaMarkerRef.current) {
+          motoristaMarkerRef.current.map = null;
+        }
         motoristaMarkerRef.current = null;
       }
+    };
+
+    // Se não deve mostrar motorista ou não tem localização, remover marcador existente
+    if (!showMotorista || !motoristaLocation) {
+      removeMarker();
       return;
     }
 
@@ -445,69 +457,130 @@ export default function MapaWeb({
 
     const markerColor = getMarkerColor();
 
-    // Criar SVG do ícone do carro
-    const carIcon = {
-      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+    // Criar elemento DOM para o marcador do motorista
+    const createMotoristaMarkerContent = () => {
+      const wrapper = document.createElement('div');
+      wrapper.style.width = '48px';
+      wrapper.style.height = '48px';
+      wrapper.style.cursor = 'pointer';
+      wrapper.innerHTML = `
         <svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
           <circle cx="24" cy="24" r="20" fill="${markerColor}" stroke="white" stroke-width="3"/>
           <path d="M24 14 L30 20 L30 28 L24 34 L18 28 L18 20 Z" fill="white"/>
           <circle cx="24" cy="24" r="4" fill="${markerColor}"/>
         </svg>
-      `)}`,
-      scaledSize: new google.maps.Size(48, 48),
-      anchor: new google.maps.Point(24, 24),
+      `;
+      return wrapper;
     };
 
+    // InfoWindow content
+    const getInfoWindowContent = () => {
+      const speed = motoristaLocation.velocidade !== null
+        ? `${Math.round(motoristaLocation.velocidade)} km/h`
+        : 'N/A';
+
+      return `
+        <div style="font-family: sans-serif; padding: 8px; min-width: 150px;">
+          <div style="font-weight: 700; font-size: 14px; margin-bottom: 6px; color: #0f172a;">
+            🚗 ${motoristaNome || 'Motorista'}
+          </div>
+          <div style="font-size: 13px; color: #475569; margin-bottom: 4px;">
+            <strong>Velocidade:</strong> ${speed}
+          </div>
+          <div style="font-size: 12px; color: #64748b;">
+            Atualizado ${getTimeSinceUpdate()}
+          </div>
+        </div>
+      `;
+    };
+
+    const AdvancedMarker = google.maps.marker?.AdvancedMarkerElement;
+    const canUseAdvancedMarkers = Boolean(GOOGLE_MAPS_MAP_ID && AdvancedMarker);
+
+    // Se já existe marcador, atualizar posição
     if (motoristaMarkerRef.current) {
-      // Atualizar posição do marcador existente
-      motoristaMarkerRef.current.setPosition(position);
-      motoristaMarkerRef.current.setIcon(carIcon);
+      if (canUseAdvancedMarkers && 'position' in motoristaMarkerRef.current) {
+        // AdvancedMarkerElement
+        motoristaMarkerRef.current.position = position;
+        motoristaMarkerRef.current.content = createMotoristaMarkerContent();
+      } else if ('setPosition' in motoristaMarkerRef.current) {
+        // Marker antigo (fallback)
+        const marker = motoristaMarkerRef.current as google.maps.Marker;
+        marker.setPosition(position);
+      }
+      return;
+    }
+
+    // Criar novo marcador
+    if (canUseAdvancedMarkers && AdvancedMarker) {
+      // Usar AdvancedMarkerElement
+      const marker = new AdvancedMarker({
+        map: mapRef.current,
+        position,
+        content: createMotoristaMarkerContent(),
+        title: motoristaNome || 'Motorista',
+        zIndex: 9999,
+      });
+
+      // InfoWindow para AdvancedMarkerElement
+      if (!motoristaInfoWindowRef.current) {
+        motoristaInfoWindowRef.current = new google.maps.InfoWindow();
+      }
+
+      marker.addListener('gmp-click', () => {
+        motoristaInfoWindowRef.current!.setContent(getInfoWindowContent());
+        motoristaInfoWindowRef.current!.open(mapRef.current, marker);
+      });
+
+      motoristaMarkerRef.current = marker;
     } else {
-      // Criar novo marcador
-      motoristaMarkerRef.current = new google.maps.Marker({
+      // Fallback para Marker antigo (browsers sem suporte)
+      const carIcon = {
+        url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+          <svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="24" cy="24" r="20" fill="${markerColor}" stroke="white" stroke-width="3"/>
+            <path d="M24 14 L30 20 L30 28 L24 34 L18 28 L18 20 Z" fill="white"/>
+            <circle cx="24" cy="24" r="4" fill="${markerColor}"/>
+          </svg>
+        `)}`,
+        scaledSize: new google.maps.Size(48, 48),
+        anchor: new google.maps.Point(24, 24),
+      };
+
+      // Fallback: google.maps.Marker é deprecated mas mantido para compatibilidade
+      const marker = new google.maps.Marker({
         map: mapRef.current,
         position,
         icon: carIcon,
         title: motoristaNome || 'Motorista',
-        zIndex: 9999, // Sempre no topo
+        zIndex: 9999,
       });
 
-      // Adicionar InfoWindow com detalhes
-      const infoWindow = new google.maps.InfoWindow();
-      motoristaMarkerRef.current.addListener('click', () => {
-        const speed = motoristaLocation.velocidade !== null
-          ? `${Math.round(motoristaLocation.velocidade)} km/h`
-          : 'N/A';
+      if (!motoristaInfoWindowRef.current) {
+        motoristaInfoWindowRef.current = new google.maps.InfoWindow();
+      }
 
-        infoWindow.setContent(`
-          <div style="font-family: sans-serif; padding: 8px; min-width: 150px;">
-            <div style="font-weight: 700; font-size: 14px; margin-bottom: 6px; color: #0f172a;">
-              🚗 ${motoristaNome || 'Motorista'}
-            </div>
-            <div style="font-size: 13px; color: #475569; margin-bottom: 4px;">
-              <strong>Velocidade:</strong> ${speed}
-            </div>
-            <div style="font-size: 12px; color: #64748b;">
-              Atualizado ${getTimeSinceUpdate()}
-            </div>
-          </div>
-        `);
-        infoWindow.open(mapRef.current, motoristaMarkerRef.current);
+      marker.addListener('click', () => {
+        motoristaInfoWindowRef.current!.setContent(getInfoWindowContent());
+        motoristaInfoWindowRef.current!.open(mapRef.current, marker);
       });
+
+      motoristaMarkerRef.current = marker;
     }
-
-    // Cleanup
-    return () => {
-      // Não remover aqui para manter o marcador entre re-renders
-    };
   }, [mapReady, isLoaded, showMotorista, motoristaLocation, motoristaNome]);
 
   // Limpar marcador do motorista quando componente desmonta
   useEffect(() => {
     return () => {
       if (motoristaMarkerRef.current) {
-        motoristaMarkerRef.current.setMap(null);
+        if ('map' in motoristaMarkerRef.current) {
+          motoristaMarkerRef.current.map = null;
+        }
         motoristaMarkerRef.current = null;
+      }
+      if (motoristaInfoWindowRef.current) {
+        motoristaInfoWindowRef.current.close();
+        motoristaInfoWindowRef.current = null;
       }
     };
   }, []);

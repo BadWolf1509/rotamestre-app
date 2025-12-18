@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 
 import { StyleSheet, type Theme } from '@/utils/styles';
 
@@ -7,16 +7,27 @@ interface MobileHeaderProps {
   title: string;
   subtitle?: string;
   rightContent?: React.ReactNode;
+  showBack?: boolean;
+  onBack?: () => void;
 }
 
 /**
  * Componente padronizado para headers em telas mobile
  * Segue o padrão de design estabelecido para o RotaMestre
  */
-export function MobileHeader({ title, subtitle, rightContent }: MobileHeaderProps) {
+export function MobileHeader({ title, subtitle, rightContent, showBack, onBack }: MobileHeaderProps) {
   return (
     <View style={styles.header}>
       <View style={styles.headerContent}>
+        {showBack && onBack && (
+          <TouchableOpacity
+            onPress={onBack}
+            style={styles.backButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.backIcon}>←</Text>
+          </TouchableOpacity>
+        )}
         <View style={styles.textContainer}>
           <Text style={styles.headerTitle}>{title}</Text>
           {subtitle && <Text style={styles.headerSubtitle}>{subtitle}</Text>}
@@ -39,6 +50,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  backButton: {
+    marginRight: theme.spacing.md,
+    padding: theme.spacing.xs,
+  },
+  backIcon: {
+    fontSize: 24,
+    color: theme.colors.gray700,
+    fontWeight: '600',
   },
   textContainer: {
     flex: 1,
