@@ -336,7 +336,7 @@ export function NavigationMode({
       {/* Top Bar */}
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.exitButton} onPress={handleExitNavigation}>
-          <Ionicons name="close" size={24} color="#fff" />
+          <Ionicons name="close" size={24} color={colors.white} />
         </TouchableOpacity>
 
         {isTracking && (
@@ -350,7 +350,7 @@ export function NavigationMode({
           style={styles.settingsButton}
           onPress={() => setShowSettings(true)}
         >
-          <Ionicons name="settings-outline" size={24} color="#fff" />
+          <Ionicons name="settings-outline" size={24} color={colors.white} />
         </TouchableOpacity>
       </View>
 
@@ -422,7 +422,7 @@ export function NavigationMode({
             style={[styles.actionButton, styles.mapsButton]}
             onPress={handleOpenInMaps}
           >
-            <Ionicons name="navigate" size={20} color="#fff" />
+            <Ionicons name="navigate" size={20} color={colors.white} />
             <Text style={styles.mapsButtonText}>
               {internalNavEnabled ? 'Navegar' : 'Abrir no Maps'}
             </Text>
@@ -432,7 +432,7 @@ export function NavigationMode({
             style={[styles.actionButton, styles.completeButton]}
             onPress={handleCompleteStop}
           >
-            <Ionicons name="checkmark-circle" size={20} color="#fff" />
+            <Ionicons name="checkmark-circle" size={20} color={colors.white} />
             <Text style={styles.completeButtonText}>Concluir</Text>
           </TouchableOpacity>
         </View>
@@ -653,6 +653,10 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '600',
     fontSize: 14,
+    // Brand guideline: text shadow for white text on colored background
+    textShadowColor: 'rgba(0, 0, 0, 0.25)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   completeButton: {
     backgroundColor: colors.success,
@@ -661,6 +665,10 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '600',
     fontSize: 14,
+    // Brand guideline: text shadow for white text on colored background
+    textShadowColor: 'rgba(0, 0, 0, 0.25)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   destinationMarker: {
     backgroundColor: colors.white,

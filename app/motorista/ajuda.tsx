@@ -81,7 +81,7 @@ const SUPPORT_OPTIONS = [
     id: 'email',
     icon: '📧',
     label: 'Email',
-    description: 'suporte@rotamestre.tec.br',
+    description: 'contato@rotamestre.tec.br',
     action: 'email',
   },
   {
@@ -103,7 +103,7 @@ export default function AjudaScreen() {
 
   async function handleSupportAction(action: string) {
     const supportPhone = '5511999999999'; // Número de suporte
-    const supportEmail = 'suporte@rotamestre.tec.br';
+    const supportEmail = 'contato@rotamestre.tec.br';
 
     switch (action) {
       case 'whatsapp':
@@ -193,7 +193,7 @@ export default function AjudaScreen() {
           <View style={styles.linksList}>
             <TouchableOpacity
               style={styles.linkItem}
-              onPress={() => Linking.openURL('https://rotamestre.tec.br/termos')}
+              onPress={() => Linking.openURL('https://rotamestre.tec.br/termos-de-uso')}
             >
               <Text style={styles.linkIcon}>📄</Text>
               <Text style={styles.linkLabel}>Termos de Uso</Text>
@@ -201,7 +201,7 @@ export default function AjudaScreen() {
 
             <TouchableOpacity
               style={styles.linkItem}
-              onPress={() => Linking.openURL('https://rotamestre.tec.br/privacidade')}
+              onPress={() => Linking.openURL('https://rotamestre.tec.br/politica-de-privacidade')}
             >
               <Text style={styles.linkIcon}>🔐</Text>
               <Text style={styles.linkLabel}>Política de Privacidade</Text>

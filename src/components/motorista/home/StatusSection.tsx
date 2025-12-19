@@ -13,6 +13,7 @@ interface StatusSectionProps {
   routeStatus?: RouteStatus;
   completedStops?: number;
   totalStops?: number;
+  timeElapsed?: string;
 }
 
 // Configuração visual por status
@@ -66,6 +67,7 @@ export function StatusSection({
   routeStatus = 'no-route',
   completedStops = 0,
   totalStops = 0,
+  timeElapsed,
 }: StatusSectionProps) {
   const { theme } = useUnistyles();
   const config = statusConfig[routeStatus];
@@ -132,6 +134,9 @@ export function StatusSection({
           <Text style={styles.progressText}>
             {completedStops}/{totalStops}
           </Text>
+          {timeElapsed && (
+            <Text style={styles.timeText}>· {timeElapsed}</Text>
+          )}
         </View>
       )}
     </View>
@@ -204,5 +209,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray700,
     minWidth: 32,
     textAlign: 'right',
+  },
+  timeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: theme.colors.gray500,
+    marginLeft: theme.spacing.xs,
   },
 }));

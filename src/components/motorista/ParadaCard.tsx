@@ -71,6 +71,9 @@ export const ParadaCard = memo<ParadaCardProps>(
 
     // Estado para observações expansíveis
     const [obsExpandida, setObsExpandida] = useState(false);
+
+    // Estado para Street View indisponível (para esconder quando não há imagem)
+    const [streetViewUnavailable, setStreetViewUnavailable] = useState(false);
     const LIMITE_OBS = 80;
     const temObsLonga = parada.observacoes && parada.observacoes.length > LIMITE_OBS;
 
@@ -277,14 +280,19 @@ export const ParadaCard = memo<ParadaCardProps>(
           {!isProcessada && (
             <>
               {/* Street View Preview - lazy loading: só carrega para pendentes */}
-              <View style={styles.streetViewContainer}>
-                <StreetViewPreview
-                  latitude={parada.latitude}
-                  longitude={parada.longitude}
-                  address={parada.endereco}
-                  size="medium"
-                />
-              </View>
+              {/* Esconde completamente quando não há imagem disponível para o local */}
+              {!streetViewUnavailable && (
+                <View style={styles.streetViewContainer}>
+                  <StreetViewPreview
+                    latitude={parada.latitude}
+                    longitude={parada.longitude}
+                    address={parada.endereco}
+                    size="medium"
+                    onUnavailable={() => setStreetViewUnavailable(true)}
+                    fallback="none"
+                  />
+                </View>
+              )}
 
               {/* Detalhes */}
               {(parada.destinatario || parada.telefone) && (

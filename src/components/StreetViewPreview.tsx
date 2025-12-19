@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -24,6 +24,10 @@ interface StreetViewPreviewProps {
   address?: string;
   size?: 'small' | 'medium' | 'large';
   onPress?: () => void;
+  /** Callback quando Street View não está disponível para o local */
+  onUnavailable?: () => void;
+  /** Comportamento quando Street View falha: 'compact' (default), 'static-map', 'none' */
+  fallback?: 'compact' | 'static-map' | 'none';
 }
 
 export function StreetViewPreview({
@@ -32,11 +36,14 @@ export function StreetViewPreview({
   address,
   size = 'medium',
   onPress,
+  onUnavailable,
+  fallback = 'compact',
 }: StreetViewPreviewProps) {
   const { theme } = useUnistyles();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [available, setAvailable] = useState<boolean | null>(null); // null = checking
   const [modalVisible, setModalVisible] = useState(false);
   const [modalLoading, setModalLoading] = useState(true);
   const [modalError, setModalError] = useState(false);
@@ -52,6 +59,37 @@ export function StreetViewPreview({
 
   // Obter API key dinamicamente (permite testes)
   const apiKey = getGoogleMapsApiKey();
+
+  // Verificar disponibilidade do Street View via Metadata API
+  useEffect(() => {
+    if (!apiKey) {
+      setAvailable(false);
+      return;
+    }
+
+    const checkAvailability = async () => {
+      try {
+        const metadataUrl = `https://maps.googleapis.com/maps/api/streetview/metadata?location=${latitude},${longitude}&key=${apiKey}`;
+        const response = await fetch(metadataUrl);
+        const data = await response.json();
+
+        // Status "OK" significa que há imagery disponível
+        const isAvailable = data.status === 'OK';
+        setAvailable(isAvailable);
+
+        if (!isAvailable) {
+          setError(true);
+          setLoading(false);
+          onUnavailable?.();
+        }
+      } catch {
+        // Em caso de erro na verificação, tenta carregar a imagem mesmo assim
+        setAvailable(true);
+      }
+    };
+
+    checkAvailability();
+  }, [latitude, longitude, apiKey, onUnavailable]);
 
   // URL da API Street View Static
   const getStreetViewUrl = (width: number, height: number, fov: number = 90) => {
@@ -70,6 +108,21 @@ export function StreetViewPreview({
   // Modal usa tamanho fixo de 600x400 para garantir compatibilidade
   const modalStreetViewUrl = getStreetViewUrl(600, 400, 110);
 
+  // URL do mapa estático (fallback quando Street View não disponível)
+  const getStaticMapUrl = (width: number, height: number) => {
+    const w = Math.round(Math.min(width, 640));
+    const h = Math.round(Math.min(height, 640));
+    return `https://maps.googleapis.com/maps/api/staticmap?` +
+      `center=${latitude},${longitude}&` +
+      `zoom=17&` +
+      `size=${w}x${h}&` +
+      `maptype=roadmap&` +
+      `markers=color:red|${latitude},${longitude}&` +
+      `key=${apiKey}`;
+  };
+
+  const staticMapUrl = getStaticMapUrl(currentSize.width, currentSize.height);
+
   const handlePress = () => {
     if (onPress) {
       onPress();
@@ -84,6 +137,7 @@ export function StreetViewPreview({
   const handleImageError = () => {
     setError(true);
     setLoading(false);
+    onUnavailable?.();
   };
 
   const handleImageLoad = () => {
@@ -112,13 +166,32 @@ export function StreetViewPreview({
           </View>
         )}
 
-        {error ? (
-          <View style={styles.errorContainer}>
-            <Ionicons name="image-outline" size={28} color={theme.colors.gray400} />
-            <Text style={styles.errorText}>Imagem não disponível</Text>
-            <Text style={styles.errorSubtext}>para este local</Text>
-          </View>
-        ) : (
+        {error || available === false ? (
+          // Renderiza fallback baseado na prop (Street View indisponível)
+          fallback === 'none' ? null :
+          fallback === 'static-map' ? (
+            <>
+              <Image
+                source={{ uri: staticMapUrl }}
+                style={[styles.image, currentSize]}
+                resizeMode="cover"
+              />
+              <View style={styles.staticMapOverlay}>
+                <View style={styles.staticMapBadge}>
+                  <Ionicons name="map" size={12} color={theme.colors.white} />
+                  <Text style={styles.staticMapBadgeText}>Mapa</Text>
+                </View>
+              </View>
+            </>
+          ) : (
+            // fallback === 'compact' (default)
+            <View style={styles.errorContainer}>
+              <Ionicons name="location" size={20} color={theme.colors.gray400} />
+              <Text style={styles.errorText}>Street View indisponível</Text>
+            </View>
+          )
+        ) : available === true ? (
+          // Street View disponível - carrega imagem
           <>
             <Image
               source={{ uri: streetViewUrl }}
@@ -142,7 +215,7 @@ export function StreetViewPreview({
               )}
             </View>
           </>
-        )}
+        ) : null /* available === null: ainda verificando, mostra loading */}
       </TouchableOpacity>
 
       {/* Modal de visualização expandida */}
@@ -253,6 +326,30 @@ const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
       fontSize: 11,
       color: theme.colors.gray500,
       marginTop: 2,
+    },
+    staticMapOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+    },
+    staticMapBadge: {
+      position: 'absolute',
+      top: 8,
+      right: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      borderRadius: 4,
+      paddingHorizontal: 6,
+      paddingVertical: 3,
+      gap: 4,
+    },
+    staticMapBadgeText: {
+      fontSize: 10,
+      fontWeight: '600',
+      color: theme.colors.white,
     },
     overlay: {
       position: 'absolute',

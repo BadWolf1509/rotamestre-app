@@ -618,7 +618,7 @@ export default function CheckpointsMotoristaEnhanced() {
               disabled={isReabrindo}
             >
               {isReabrindo ? (
-                <ActivityIndicator color="#fff" size="small" />
+                <ActivityIndicator color={theme.colors.white} size="small" />
               ) : (
                 <Text style={styles.botaoReabrirTexto}>↺ Reabrir</Text>
               )}
@@ -633,7 +633,7 @@ export default function CheckpointsMotoristaEnhanced() {
                 disabled={isPulando || isConcluindo}
               >
                 {isPulando ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={theme.colors.white} size="small" />
                 ) : (
                   <Text style={styles.botaoPularTexto}>Pular</Text>
                 )}
@@ -645,7 +645,7 @@ export default function CheckpointsMotoristaEnhanced() {
                 disabled={isConcluindo || isPulando}
               >
                 {isConcluindo ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={theme.colors.white} size="small" />
                 ) : (
                   <Text style={styles.botaoConcluirTexto}>✓ Concluir Parada</Text>
                 )}

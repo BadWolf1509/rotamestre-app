@@ -21,10 +21,14 @@ interface Parada {
   is_checkpoint?: boolean;
 }
 
+type StatusFilter = 'all' | 'pendente' | 'em_andamento' | 'concluida';
+
 interface MapaWebProps {
   paradas: Parada[];
   selectedParadaId?: string | null;
   onMarkerPress?: (paradaId: string) => void;
+  /** Filtro de status para exibir apenas paradas com determinado status */
+  statusFilter?: StatusFilter;
   /** ID da rota para rastreamento em tempo real do motorista */
   rotaId?: string;
   /** Nome do motorista para exibir no marcador */
@@ -95,6 +99,7 @@ export default function MapaWeb({
   paradas,
   selectedParadaId,
   onMarkerPress,
+  statusFilter = 'all',
   rotaId,
   motoristaNome,
   showMotorista = false,
@@ -123,10 +128,29 @@ export default function MapaWeb({
     libraries: mapLibraries,
   });
 
+  // Paradas com coordenadas válidas
   const paradasComCoord = React.useMemo(
     () => paradas.filter((p) => p.latitude != null && p.longitude != null),
     [paradas]
   );
+
+  // Separar paradas reais de checkpoints (pontos da unidade)
+  const paradasReais = React.useMemo(
+    () => paradasComCoord.filter((p) => p.is_checkpoint !== false),
+    [paradasComCoord]
+  );
+
+  // Checkpoints (partida/chegada) - sempre visíveis
+  const checkpoints = React.useMemo(
+    () => paradasComCoord.filter((p) => p.is_checkpoint === false),
+    [paradasComCoord]
+  );
+
+  // Paradas filtradas por status
+  const paradasFiltradas = React.useMemo(() => {
+    if (statusFilter === 'all') return paradasReais;
+    return paradasReais.filter((p) => p.status === statusFilter);
+  }, [paradasReais, statusFilter]);
 
   // Calcular centro do mapa
   const center = React.useMemo(() => {
@@ -208,11 +232,19 @@ export default function MapaWeb({
     if (paradasComCoord.length === 0) return;
     boundsRef.current = new window.google.maps.LatLngBounds();
 
+    // Usar todas as paradas para calcular bounds (para manter a visualização da rota)
+    paradasComCoord.forEach((p) => {
+      boundsRef.current?.extend({ lat: p.latitude!, lng: p.longitude! });
+    });
+
+    // Combinar checkpoints (sempre visíveis) + paradas filtradas por status
+    const paradasParaExibir = [...checkpoints, ...paradasFiltradas];
+
     const AdvancedMarker = google.maps.marker?.AdvancedMarkerElement;
     const canUseAdvancedMarkers = Boolean(GOOGLE_MAPS_MAP_ID && AdvancedMarker);
 
     if (canUseAdvancedMarkers && AdvancedMarker) {
-      advancedMarkersRef.current = paradasComCoord.map((parada) => {
+      advancedMarkersRef.current = paradasParaExibir.map((parada) => {
         const marker = new AdvancedMarker({
           map: mapRef.current!,
           position: { lat: parada.latitude!, lng: parada.longitude! },
@@ -224,14 +256,13 @@ export default function MapaWeb({
           onMarkerPress?.(parada.id);
           openInfoWindow(parada, marker);
         });
-        boundsRef.current?.extend({ lat: parada.latitude!, lng: parada.longitude! });
         return marker;
       });
       return;
     }
 
     // Fallback para browsers que ainda não suportam AdvancedMarkerElement
-    fallbackMarkersRef.current = paradasComCoord.map((parada) => {
+    fallbackMarkersRef.current = paradasParaExibir.map((parada) => {
       // Checkpoint (partida/chegada): marcador azul primário
       if (parada.is_checkpoint === false) {
         const marker = new google.maps.Marker({
@@ -243,7 +274,6 @@ export default function MapaWeb({
           },
         });
         markerMapRef.current.set(parada.id, marker);
-        boundsRef.current?.extend({ lat: parada.latitude!, lng: parada.longitude! });
         return marker;
       }
 
@@ -271,13 +301,12 @@ export default function MapaWeb({
         onMarkerPress?.(parada.id);
         openInfoWindow(parada, marker);
       });
-      boundsRef.current?.extend({ lat: parada.latitude!, lng: parada.longitude! });
       return marker;
     });
     if (boundsRef.current && !boundsRef.current.isEmpty() && mapRef.current) {
       mapRef.current.fitBounds(boundsRef.current);
     }
-  }, [isLoaded, mapReady, paradasComCoord, clearMarkers, onMarkerPress, openInfoWindow]);
+  }, [isLoaded, mapReady, paradasComCoord, checkpoints, paradasFiltradas, statusFilter, clearMarkers, onMarkerPress, openInfoWindow]);
 
   React.useEffect(
     () => () => {

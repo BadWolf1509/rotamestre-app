@@ -1,14 +1,15 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   FlatList,
   TouchableOpacity,
-  ActivityIndicator,
   Alert,
   RefreshControl,
 } from 'react-native';
 
+import { RotaCardSkeleton } from '@/components/motorista/RotaCardSkeleton';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -173,6 +174,7 @@ export default function HistoricoMotorista() {
     try {
       setLoading(true);
 
+      // 1. Buscar todas as rotas do motorista
       const { data: rotasData, error: rotasError } = await supabase
         .from('rotas')
         .select('id, data, status, distancia_total, iniciada_em, concluida_em, unidades(nome)')
@@ -181,35 +183,46 @@ export default function HistoricoMotorista() {
 
       if (rotasError) throw rotasError;
 
-      const rotasComParadas = await Promise.all(
-        (rotasData || []).map(async (rota) => {
-          const { data: paradasData, error: paradasError } = await supabase
-            .from('paradas')
-            .select('id, status, is_checkpoint')
-            .eq('rota_id', rota.id);
+      if (!rotasData || rotasData.length === 0) {
+        setRotas([]);
+        return;
+      }
 
-          if (paradasError) {
-            console.error('Erro ao buscar paradas:', paradasError);
-            return {
-              ...rota,
-              paradas_count: 0,
-              paradas_concluidas: 0,
-            };
-          }
+      // 2. Buscar TODAS as paradas em UMA única query (resolve N+1)
+      const rotaIds = rotasData.map((r) => r.id);
+      const { data: todasParadas, error: paradasError } = await supabase
+        .from('paradas')
+        .select('rota_id, id, status, is_checkpoint')
+        .in('rota_id', rotaIds);
 
-          // Filtrar apenas paradas reais (sem checkpoints base)
-          const paradasReais = (paradasData || []).filter(
-            (parada) => parada.is_checkpoint !== false
-          );
+      if (paradasError) {
+        console.error('Erro ao buscar paradas:', paradasError);
+      }
 
-          return {
-            ...rota,
-            paradas_count: paradasReais.length,
-            paradas_concluidas:
-              paradasReais.filter((p) => p.status === 'concluida').length,
-          };
-        })
-      );
+      // 3. Agrupar paradas por rota_id no JavaScript
+      type ParadaItem = { rota_id: string; id: string; status: string; is_checkpoint: boolean | null };
+      const paradasPorRota: Record<string, ParadaItem[]> = {};
+      (todasParadas || []).forEach((parada) => {
+        if (!paradasPorRota[parada.rota_id]) {
+          paradasPorRota[parada.rota_id] = [];
+        }
+        paradasPorRota[parada.rota_id].push(parada);
+      });
+
+      // 4. Montar rotas com contagem de paradas
+      const rotasComParadas = rotasData.map((rota) => {
+        const paradasDaRota = paradasPorRota[rota.id] || [];
+        // Filtrar apenas paradas reais (sem checkpoints base)
+        const paradasReais = paradasDaRota.filter(
+          (parada) => parada.is_checkpoint !== false
+        );
+
+        return {
+          ...rota,
+          paradas_count: paradasReais.length,
+          paradas_concluidas: paradasReais.filter((p) => p.status === 'concluida').length,
+        };
+      });
 
       setRotas(rotasComParadas as unknown as RotaHistorico[]);
     } catch (error) {
@@ -265,6 +278,14 @@ export default function HistoricoMotorista() {
 
     const tempoTotal = calcularTempoTotal(item);
 
+    const statusLabel = isPendente
+      ? 'pendente'
+      : isEmAndamento
+        ? 'em andamento'
+        : isConcluida
+          ? 'concluída'
+          : 'cancelada';
+
     return (
       <TouchableOpacity
         style={[
@@ -276,6 +297,9 @@ export default function HistoricoMotorista() {
         ]}
         onPress={() => toggleExpand(item.id)}
         activeOpacity={0.7}
+        accessibilityLabel={`Rota ${statusLabel} de ${item.unidades.nome}, ${item.paradas_count || 0} paradas`}
+        accessibilityRole="button"
+        accessibilityHint={isExpanded ? 'Toque para recolher detalhes' : 'Toque para ver mais detalhes'}
       >
         {/* Header do Card */}
         <View style={styles.rotaHeader}>
@@ -395,8 +419,13 @@ export default function HistoricoMotorista() {
 
         {/* Indicador de Expansão */}
         <View style={styles.expandIndicator}>
+          <Ionicons
+            name={isExpanded ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={theme.colors.primary}
+          />
           <Text style={styles.expandIndicatorText}>
-            {isExpanded ? '▲ Menos detalhes' : '▼ Mais detalhes'}
+            {isExpanded ? 'Menos detalhes' : 'Mais detalhes'}
           </Text>
         </View>
       </TouchableOpacity>
@@ -405,9 +434,15 @@ export default function HistoricoMotorista() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>Carregando histórico...</Text>
+      <View style={styles.container}>
+        <View style={styles.headerCompact}>
+          <Text style={styles.headerTitle}>Carregando...</Text>
+        </View>
+        <View style={styles.listContainer}>
+          <RotaCardSkeleton />
+          <RotaCardSkeleton />
+          <RotaCardSkeleton />
+        </View>
       </View>
     );
   }
@@ -421,22 +456,6 @@ export default function HistoricoMotorista() {
     return `${horas}h ${mins}min`;
   }
 
-  // Renderizar card de métrica
-  const renderMetricCard = (
-    label: string,
-    value: string | number,
-    color?: string
-  ) => (
-    <View style={styles.metricCard}>
-      <Text
-        style={[styles.metricValue, color ? { color } : null]}
-      >
-        {value}
-      </Text>
-      <Text style={styles.metricLabel}>{label}</Text>
-    </View>
-  );
-
   // Renderizar botão de filtro
   const renderFilterButton = (
     label: string,
@@ -446,6 +465,9 @@ export default function HistoricoMotorista() {
     <TouchableOpacity
       style={[styles.filterButton, isActive && styles.filterButtonActive]}
       onPress={onPress}
+      accessibilityLabel={`Filtrar por ${label}`}
+      accessibilityRole="button"
+      accessibilityState={{ selected: isActive }}
     >
       <Text
         style={[styles.filterButtonText, isActive && styles.filterButtonTextActive]}
@@ -457,34 +479,27 @@ export default function HistoricoMotorista() {
 
   return (
     <View style={styles.container}>
-      {/* Header com Métricas */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Histórico de Rotas</Text>
-        <Text style={styles.headerSubtitle}>
-          {rotas.length} {rotas.length === 1 ? 'rota' : 'rotas'} registradas
+      {/* Header Compacto - sem repetir título (já está no header azul) */}
+      <View style={styles.headerCompact}>
+        {/* Linha 1: Contagem de rotas */}
+        <Text style={styles.headerTitle}>
+          {rotas.length} {rotas.length === 1 ? 'rota' : 'rotas'}
         </Text>
 
-        {/* Cards de Métricas */}
-        <View style={styles.metricsContainer}>
-          {renderMetricCard('Rotas Mês', metricas.rotasMes, theme.colors.primary)}
-          {renderMetricCard('Concluídas', metricas.rotasConcluidas, theme.colors.success)}
-          {renderMetricCard('Taxa', `${metricas.taxaSucesso}%`, theme.colors.purple600)}
-          {renderMetricCard('Tempo Médio', formatarTempo(metricas.tempoMedioMinutos))}
+        {/* Linha 2: Stats inline */}
+        <View style={styles.statsInline}>
+          <Text style={styles.statsInlineText}>
+            {metricas.rotasMes} este mês ·{' '}
+            <Text style={{ color: theme.colors.success }}>{metricas.rotasConcluidas}✓</Text> ·{' '}
+            <Text style={{ color: theme.colors.purple600 }}>{metricas.taxaSucesso}%</Text> ·{' '}
+            {formatarTempo(metricas.tempoMedioMinutos)} média
+          </Text>
         </View>
 
-        {/* Estatísticas Adicionais */}
-        <View style={styles.statsRow}>
-          <View style={styles.statPill}>
-            <Text style={styles.statPillText}>
-              📍 {metricas.paradasConcluidas}/{metricas.paradasTotais} paradas
-            </Text>
-          </View>
-          <View style={styles.statPill}>
-            <Text style={styles.statPillText}>
-              🚗 {metricas.distanciaTotal} km
-            </Text>
-          </View>
-        </View>
+        {/* Linha 3: Stats secundários */}
+        <Text style={styles.statsSecondaryText}>
+          📍 {metricas.paradasConcluidas}/{metricas.paradasTotais} paradas · 🚗 {metricas.distanciaTotal} km
+        </Text>
       </View>
 
       {/* Filtros */}
@@ -520,6 +535,9 @@ export default function HistoricoMotorista() {
             )}
             {renderFilterButton('Pendente', filtroStatus === 'pendente', () =>
               setFiltroStatus('pendente')
+            )}
+            {renderFilterButton('Cancelada', filtroStatus === 'cancelada', () =>
+              setFiltroStatus('cancelada')
             )}
           </View>
         </View>
@@ -572,91 +590,60 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   loadingText: {
     marginTop: theme.spacing.lg,
-    fontSize: 14,
-    color: theme.colors.gray500,
-  },
-  header: {
-    backgroundColor: theme.colors.white,
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray300,
-  },
-  headerTitle: {
-    fontSize: theme.typography.xxl,
-    fontWeight: 'bold',
-    color: theme.colors.gray900,
-    marginBottom: 4,
-  },
-  headerSubtitle: {
     fontSize: theme.typography.sm,
     color: theme.colors.gray500,
-    marginBottom: 16,
   },
-  metricsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
+  // Header compacto (padrão Checkpoints)
+  headerCompact: {
+    backgroundColor: theme.colors.white,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.gray200,
   },
-  metricCard: {
-    flex: 1,
-    backgroundColor: theme.colors.gray50,
-    borderRadius: 8,
-    padding: 12,
-    marginHorizontal: 4,
-    alignItems: 'center',
-  },
-  metricValue: {
+  headerTitle: {
+    fontFamily: theme.typography.fontDisplay,
     fontSize: theme.typography.xl,
-    fontWeight: 'bold',
+    fontWeight: '400',
     color: theme.colors.gray900,
-    marginBottom: 2,
+    marginBottom: theme.spacing.xs,
   },
-  metricLabel: {
-    fontSize: 10,
-    color: theme.colors.gray500,
-    textAlign: 'center',
+  statsInline: {
+    marginBottom: theme.spacing.xs,
   },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 12,
+  statsInlineText: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray600,
   },
-  statPill: {
-    backgroundColor: theme.colors.gray100,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  statPillText: {
+  statsSecondaryText: {
     fontSize: theme.typography.xs,
-    color: theme.colors.gray700,
-    fontWeight: '500',
+    color: theme.colors.gray500,
   },
   filtersContainer: {
     backgroundColor: theme.colors.white,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray200,
   },
   filterGroup: {
-    marginBottom: 8,
+    marginBottom: theme.spacing.xs,
   },
   filterGroupLabel: {
     fontSize: theme.typography.xs,
     color: theme.colors.gray500,
-    marginBottom: 6,
+    marginBottom: theme.spacing.xs,
     fontWeight: '500',
   },
   filterButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: theme.spacing.xs,
   },
   filterButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.full,
     backgroundColor: theme.colors.gray100,
     borderWidth: 1,
     borderColor: theme.colors.gray200,
@@ -672,49 +659,49 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   filterButtonTextActive: {
     color: theme.colors.white,
+    fontWeight: '600',
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   filterResultCount: {
     fontSize: theme.typography.xs,
     color: theme.colors.gray500,
-    marginTop: 8,
+    marginTop: theme.spacing.sm,
     fontStyle: 'italic',
   },
   listContainer: {
-    padding: 16,
-    paddingBottom: theme.spacing.md, // Margem de respiro (tab bar não sobrepõe)
+    padding: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
   },
   emptyContainer: {
-    padding: 60,
+    padding: theme.spacing.xxl,
     alignItems: 'center',
   },
   emptyTitle: {
     fontSize: 64,
-    marginBottom: 16,
+    marginBottom: theme.spacing.lg,
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: theme.typography.lg,
     fontWeight: '600',
     color: theme.colors.gray900,
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
     textAlign: 'center',
   },
   emptySubtext: {
-    fontSize: 14,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray500,
     textAlign: 'center',
   },
   rotaCard: {
     backgroundColor: theme.colors.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
     borderLeftWidth: 4,
     borderLeftColor: theme.colors.gray300,
-    shadowColor: theme.colors.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    ...theme.shadows.sm,
   },
   rotaCardPendente: {
     borderLeftColor: theme.colors.warning,
@@ -733,26 +720,25 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: theme.spacing.md,
   },
   rotaHeaderLeft: {
     flex: 1,
   },
   rotaData: {
-    fontSize: 16,
+    fontSize: theme.typography.base,
     fontWeight: 'bold',
     color: theme.colors.gray900,
-    marginBottom: 4,
-    textTransform: 'capitalize',
+    marginBottom: theme.spacing.xs,
   },
   rotaUnidade: {
-    fontSize: 14,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray500,
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
   },
   statusBadgePendente: {
     backgroundColor: theme.colors.yellow100,
@@ -767,49 +753,49 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.red100,
   },
   statusBadgeText: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     fontWeight: '600',
     color: theme.colors.gray900,
   },
   rotaStats: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingVertical: 8,
+    paddingVertical: theme.spacing.sm,
   },
   statItem: {
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 20,
+    fontSize: theme.typography.xl,
     fontWeight: 'bold',
     color: theme.colors.primary,
-    marginBottom: 4,
+    marginBottom: theme.spacing.xs,
   },
   statLabel: {
     fontSize: 11,
     color: theme.colors.gray500,
   },
   rotaDetalhes: {
-    marginTop: 8,
+    marginTop: theme.spacing.sm,
   },
   divider: {
     height: 1,
     backgroundColor: theme.colors.gray300,
-    marginVertical: 12,
+    marginVertical: theme.spacing.md,
   },
   detalheRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: theme.spacing.sm,
   },
   detalheLabel: {
-    fontSize: 13,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray500,
     fontWeight: '500',
   },
   detalheValue: {
-    fontSize: 13,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray900,
     fontWeight: '600',
   },
@@ -817,21 +803,24 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
     height: 6,
     backgroundColor: theme.colors.gray300,
-    borderRadius: 3,
-    marginLeft: 12,
+    borderRadius: theme.borderRadius.sm,
+    marginLeft: theme.spacing.md,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
     backgroundColor: theme.colors.success,
-    borderRadius: 3,
+    borderRadius: theme.borderRadius.sm,
   },
   expandIndicator: {
-    marginTop: 12,
+    marginTop: theme.spacing.md,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.xs,
   },
   expandIndicatorText: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.primary,
     fontWeight: '600',
   },

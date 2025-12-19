@@ -14,7 +14,9 @@ import {
 } from 'react-native';
 
 import { showNavigationOptions } from '@/utils/navigation';
-import { StyleSheet, type Theme } from '@/utils/styles';
+import { StyleSheet, defaultTheme, type Theme } from '@/utils/styles';
+
+const colors = defaultTheme.colors;
 
 const SHEET_HEIGHT = 320;
 
@@ -99,13 +101,13 @@ export function ParadaBottomSheet({
   const getStatusColor = (status: string): string => {
     switch (status) {
       case 'concluida':
-        return '#10b981';
+        return colors.success;
       case 'em_andamento':
-        return '#3b82f6';
+        return colors.primary;
       case 'pendente':
-        return '#f59e0b';
+        return colors.warning;
       default:
-        return '#6b7280';
+        return colors.gray500;
     }
   };
 
@@ -189,13 +191,13 @@ export function ParadaBottomSheet({
               </View>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#6b7280" />
+              <Ionicons name="close" size={24} color={colors.gray500} />
             </TouchableOpacity>
           </View>
 
           {/* Endereço */}
           <View style={styles.addressContainer}>
-            <Ionicons name="location-outline" size={20} color="#6b7280" />
+            <Ionicons name="location-outline" size={20} color={colors.gray500} />
             <Text style={styles.addressText}>{parada.endereco}</Text>
           </View>
 
@@ -205,7 +207,7 @@ export function ParadaBottomSheet({
               <Ionicons
                 name={parada.tipo === 'entrega' ? 'cube-outline' : 'arrow-up-circle-outline'}
                 size={18}
-                color="#6b7280"
+                color={colors.gray500}
               />
               <Text style={styles.tipoText}>
                 {parada.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
@@ -222,8 +224,8 @@ export function ParadaBottomSheet({
                 onPress={handleNavigate}
                 activeOpacity={0.8}
               >
-                <View style={[styles.actionIcon, { backgroundColor: '#0D5A9C' }]}>
-                  <Ionicons name="navigate" size={20} color="#FFFFFF" />
+                <View style={[styles.actionIcon, { backgroundColor: colors.primary }]}>
+                  <Ionicons name="navigate" size={20} color={colors.white} />
                 </View>
                 <Text style={styles.actionText}>Navegar</Text>
               </TouchableOpacity>
@@ -239,8 +241,8 @@ export function ParadaBottomSheet({
                 }}
                 activeOpacity={0.8}
               >
-                <View style={[styles.actionIcon, { backgroundColor: '#10b981' }]}>
-                  <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+                <View style={[styles.actionIcon, { backgroundColor: colors.success }]}>
+                  <Ionicons name="checkmark" size={20} color={colors.white} />
                 </View>
                 <Text style={styles.actionText}>Concluir</Text>
               </TouchableOpacity>
@@ -256,8 +258,8 @@ export function ParadaBottomSheet({
                 }}
                 activeOpacity={0.8}
               >
-                <View style={[styles.actionIcon, { backgroundColor: '#6b7280' }]}>
-                  <Ionicons name="information-circle-outline" size={20} color="#FFFFFF" />
+                <View style={[styles.actionIcon, { backgroundColor: colors.gray500 }]}>
+                  <Ionicons name="information-circle-outline" size={20} color={colors.white} />
                 </View>
                 <Text style={styles.actionText}>Detalhes</Text>
               </TouchableOpacity>
@@ -323,7 +325,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'center',
   },
   orderText: {
-    color: '#FFFFFF',
+    color: theme.colors.white,
     fontSize: 18,
     fontWeight: 'bold',
   },

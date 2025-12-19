@@ -42,6 +42,9 @@ interface MotoristaStats {
   rotasOntem: number;
   paradasOntem: number;
   distanciaOntem: number;
+  rotasHoje: number;
+  paradasHoje: number;
+  distanciaHoje: number;
 }
 
 export function MainCard({
@@ -62,7 +65,11 @@ export function MainCard({
     rotasOntem: 0,
     paradasOntem: 0,
     distanciaOntem: 0,
+    rotasHoje: 0,
+    paradasHoje: 0,
+    distanciaHoje: 0,
   });
+  const [streak, setStreak] = useState(0);
 
   // Animação de entrada do card
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -139,29 +146,120 @@ export function MainCard({
           .eq('status', 'concluida');
 
         if (!paradasError) {
-          setStats({
+          setStats(prev => ({
+            ...prev,
             rotasOntem: rotasCount,
             paradasOntem: paradas?.length || 0,
             distanciaOntem: Math.round(distanciaTotal),
-          });
+          }));
         }
       } else {
-        setStats({
+        setStats(prev => ({
+          ...prev,
           rotasOntem: 0,
           paradasOntem: 0,
           distanciaOntem: 0,
-        });
+        }));
       }
     } catch (error) {
       console.error('Error loading yesterday stats:', error);
     }
   }, [motoristaId]);
 
+  // Load today's stats
+  const loadTodayStats = useCallback(async () => {
+    if (!motoristaId) return;
+
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Get today's completed routes
+      const { data: rotas, error } = await supabase
+        .from('rotas')
+        .select('id, distancia_total')
+        .eq('motorista_id', motoristaId)
+        .eq('status', 'concluida')
+        .gte('concluida_em', today.toISOString());
+
+      if (error) throw error;
+
+      const rotasCount = rotas?.length || 0;
+      const distanciaTotal = rotas?.reduce((sum, r) => sum + (r.distancia_total || 0), 0) || 0;
+
+      // Get today's completed stops
+      let paradasCount = 0;
+      if (rotas && rotas.length > 0) {
+        const rotaIds = rotas.map(r => r.id);
+        const { data: paradas, error: paradasError } = await supabase
+          .from('paradas')
+          .select('id')
+          .in('rota_id', rotaIds)
+          .eq('status', 'concluida');
+
+        if (!paradasError) {
+          paradasCount = paradas?.length || 0;
+        }
+      }
+
+      setStats(prev => ({
+        ...prev,
+        rotasHoje: rotasCount,
+        paradasHoje: paradasCount,
+        distanciaHoje: Math.round(distanciaTotal),
+      }));
+    } catch (error) {
+      console.error('Error loading today stats:', error);
+    }
+  }, [motoristaId]);
+
+  // Load streak (consecutive days with at least 1 completed route)
+  const loadStreak = useCallback(async () => {
+    if (!motoristaId) return;
+
+    try {
+      // Get last 30 days of completed routes
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+      const { data: rotas, error } = await supabase
+        .from('rotas')
+        .select('concluida_em')
+        .eq('motorista_id', motoristaId)
+        .eq('status', 'concluida')
+        .gte('concluida_em', thirtyDaysAgo.toISOString())
+        .order('concluida_em', { ascending: false });
+
+      if (error) throw error;
+
+      // Calculate consecutive days with at least 1 route
+      let currentStreak = 0;
+      let checkDate = new Date();
+      checkDate.setHours(0, 0, 0, 0);
+
+      const routeDates = new Set(
+        rotas?.map(r => new Date(r.concluida_em).toDateString()) || []
+      );
+
+      while (routeDates.has(checkDate.toDateString())) {
+        currentStreak++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      }
+
+      setStreak(currentStreak);
+    } catch (error) {
+      console.error('Error loading streak:', error);
+    }
+  }, [motoristaId]);
+
   useEffect(() => {
     if (state === 'no-route' && motoristaId) {
       loadYesterdayStats();
+      loadTodayStats();
+      loadStreak();
     }
-  }, [loadYesterdayStats, motoristaId, state]);
+  }, [loadYesterdayStats, loadTodayStats, loadStreak, motoristaId, state]);
 
   // Renderização baseada no estado
   const renderContent = () => {
@@ -183,7 +281,7 @@ export function MainCard({
   };
 
   const renderNoRoute = () => {
-    const hasYesterdayStats = stats.rotasOntem > 0 || stats.paradasOntem > 0;
+    const hasAnyStats = stats.rotasOntem > 0 || stats.paradasOntem > 0 || stats.rotasHoje > 0 || stats.paradasHoje > 0;
 
     return (
       <View style={styles.content}>
@@ -193,36 +291,75 @@ export function MainCard({
           </View>
           <Text style={styles.title}>Sem rota no momento</Text>
           <Text style={styles.subtitle}>
-            {hasYesterdayStats
-              ? 'Confira suas estatísticas de ontem'
+            {hasAnyStats
+              ? 'Confira suas estatísticas'
               : 'Aguardando atribuição de nova rota'}
           </Text>
         </View>
 
-        {hasYesterdayStats ? (
-          <View style={styles.statsRow}>
-            <View style={styles.stat}>
-              <View style={[styles.statIconBg, { backgroundColor: theme.colors.primaryLight }]}>
-                <Ionicons name="map-outline" size={16} color={theme.colors.primary} />
+        {/* Streak Badge */}
+        {streak > 0 && (
+          <View style={[styles.streakBadge, { backgroundColor: theme.colors.warningBg }]}>
+            <Ionicons name="flame" size={18} color={theme.colors.warning} />
+            <Text style={[styles.streakText, { color: theme.colors.warningText }]}>
+              {streak} {streak === 1 ? 'dia' : 'dias'} seguidos!
+            </Text>
+          </View>
+        )}
+
+        {hasAnyStats ? (
+          <View style={styles.statsComparison}>
+            {/* Coluna HOJE */}
+            <View style={styles.statsColumn}>
+              <Text style={[styles.statsColumnHeader, { color: theme.colors.primary }]}>HOJE</Text>
+              <View style={styles.statsColumnContent}>
+                <View style={styles.miniStat}>
+                  <Ionicons name="map-outline" size={14} color={theme.colors.gray500} />
+                  <Text style={styles.miniStatValue}>
+                    {stats.rotasHoje} {stats.rotasHoje === 1 ? 'rota' : 'rotas'}
+                  </Text>
+                </View>
+                <View style={styles.miniStat}>
+                  <Ionicons name="location-outline" size={14} color={theme.colors.gray500} />
+                  <Text style={styles.miniStatValue}>
+                    {stats.paradasHoje > 0 ? `${stats.paradasHoje} paradas` : '--'}
+                  </Text>
+                </View>
+                <View style={styles.miniStat}>
+                  <Ionicons name="speedometer-outline" size={14} color={theme.colors.gray500} />
+                  <Text style={styles.miniStatValue}>
+                    {stats.distanciaHoje > 0 ? `${stats.distanciaHoje} km` : '--'}
+                  </Text>
+                </View>
               </View>
-              <Text style={styles.statValue}>
-                {stats.rotasOntem} {stats.rotasOntem === 1 ? 'rota' : 'rotas'}
-              </Text>
-              <Text style={styles.statLabel}>Ontem</Text>
             </View>
-            <View style={styles.stat}>
-              <View style={[styles.statIconBg, { backgroundColor: theme.colors.successBg }]}>
-                <Ionicons name="location-outline" size={16} color={theme.colors.success} />
+
+            {/* Divider */}
+            <View style={styles.statsDivider} />
+
+            {/* Coluna ONTEM */}
+            <View style={styles.statsColumn}>
+              <Text style={[styles.statsColumnHeader, { color: theme.colors.gray500 }]}>ONTEM</Text>
+              <View style={styles.statsColumnContent}>
+                <View style={styles.miniStat}>
+                  <Ionicons name="map-outline" size={14} color={theme.colors.gray400} />
+                  <Text style={[styles.miniStatValue, { color: theme.colors.gray600 }]}>
+                    {stats.rotasOntem > 0 ? `${stats.rotasOntem} ${stats.rotasOntem === 1 ? 'rota' : 'rotas'}` : '--'}
+                  </Text>
+                </View>
+                <View style={styles.miniStat}>
+                  <Ionicons name="location-outline" size={14} color={theme.colors.gray400} />
+                  <Text style={[styles.miniStatValue, { color: theme.colors.gray600 }]}>
+                    {stats.paradasOntem > 0 ? `${stats.paradasOntem} paradas` : '--'}
+                  </Text>
+                </View>
+                <View style={styles.miniStat}>
+                  <Ionicons name="speedometer-outline" size={14} color={theme.colors.gray400} />
+                  <Text style={[styles.miniStatValue, { color: theme.colors.gray600 }]}>
+                    {stats.distanciaOntem > 0 ? `${stats.distanciaOntem} km` : '--'}
+                  </Text>
+                </View>
               </View>
-              <Text style={styles.statValue}>{stats.paradasOntem}</Text>
-              <Text style={styles.statLabel}>Paradas</Text>
-            </View>
-            <View style={styles.stat}>
-              <View style={[styles.statIconBg, { backgroundColor: theme.colors.infoBg }]}>
-                <Ionicons name="speedometer-outline" size={16} color={theme.colors.info} />
-              </View>
-              <Text style={styles.statValue}>{stats.distanciaOntem} km</Text>
-              <Text style={styles.statLabel}>Percorridos</Text>
             </View>
           </View>
         ) : (
@@ -371,6 +508,7 @@ export function MainCard({
               longitude={currentStop.longitude}
               address={currentStop.endereco}
               size="large"
+              fallback="static-map"
             />
           </View>
 
@@ -385,6 +523,12 @@ export function MainCard({
                 </Text>
               </>
             )}
+          </View>
+
+          {/* Indicador de swipe */}
+          <View style={styles.swipeHint}>
+            <Ionicons name="swap-horizontal" size={16} color={theme.colors.gray400} />
+            <Text style={styles.swipeHintText}>Deslize para ações rápidas</Text>
           </View>
         </TouchableOpacity>
       </SwipeableRow>
@@ -617,6 +761,53 @@ const styles = StyleSheet.create({
     color: colors.gray600,
     lineHeight: 16,
   },
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 16,
+    alignSelf: 'center',
+  },
+  streakText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  statsComparison: {
+    flexDirection: 'row',
+    marginTop: 8,
+  },
+  statsColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statsColumnHeader: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  statsColumnContent: {
+    gap: 6,
+  },
+  statsDivider: {
+    width: 1,
+    backgroundColor: colors.gray200,
+    marginHorizontal: 12,
+  },
+  miniStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  miniStatValue: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.gray900,
+  },
   distanceRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -691,6 +882,22 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray100,
     borderRadius: 6,
     marginTop: 8,
+  },
+  swipeHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: colors.gray50,
+    borderRadius: 4,
+    marginTop: 8,
+  },
+  swipeHintText: {
+    fontSize: 12,
+    color: colors.gray500,
+    fontWeight: '500',
   },
   summaryBox: {
     flexDirection: 'row',

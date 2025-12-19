@@ -70,7 +70,7 @@ interface RouteStatusContextData {
 const RouteStatusContext = createContext<RouteStatusContextData>({} as RouteStatusContextData);
 
 export function RouteStatusProvider({ children }: { children: ReactNode }) {
-  const { userData } = useUser();
+  const { userData, loading: userLoading } = useUser();
   const motoristaId = userData?.id;
   const [route, setRoute] = useState<RouteData | null>(null);
   const [paradas, setParadas] = useState<ParadaData[]>([]);
@@ -122,20 +122,25 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     return pendingStops[1] || null;
   };
 
-  // Carrega rota ativa
+  // Carrega rota ativa (aguarda userData estar carregado para evitar 406)
+  // OTIMIZAÇÃO: Usa única query para buscar rotas ativas OU última concluída
   const loadActiveRoute = useCallback(async () => {
-    if (!motoristaId) {
-      setRoute(null);
-      setParadas([]);
-      setLoading(false);
+    // Aguardar carregamento completo do userData antes de fazer queries
+    if (userLoading || !motoristaId) {
+      if (!userLoading && !motoristaId) {
+        setRoute(null);
+        setParadas([]);
+        setLoading(false);
+      }
       return;
     }
 
     try {
       setLoading(true);
 
-      // Busca rota ativa
-      const { data: rotaData, error: rotaError } = await supabase
+      // OTIMIZAÇÃO: Única query que busca rotas ativas E última concluída
+      // Prioriza ativas sobre concluídas no JavaScript
+      const { data: rotasData, error: rotasError } = await supabase
         .from('rotas')
         .select(`
           id,
@@ -144,68 +149,54 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
           tempo_total,
           iniciada_em,
           concluida_em,
+          created_at,
           unidades (nome)
         `)
         .eq('motorista_id', motoristaId)
-        .in('status', ['pendente', 'em_andamento'])
+        .in('status', ['pendente', 'em_andamento', 'concluida'])
         .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+        .limit(10);
 
-      if (rotaError || !rotaData) {
-        // Busca última rota concluída para mostrar resumo
-        const { data: lastRoute } = await supabase
-          .from('rotas')
-          .select(`
-            id,
-            status,
-            distancia_total,
-            tempo_total,
-            iniciada_em,
-            concluida_em,
-            unidades (nome)
-          `)
-        .eq('motorista_id', motoristaId)
-          .eq('status', 'concluida')
-          .order('concluida_em', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (lastRoute) {
-          const unidade = lastRoute.unidades as unknown as { nome: string } | null;
-          setRoute({
-            ...lastRoute,
-            unidade_nome: unidade?.nome || '',
-          } as RouteData);
-
-          // Carrega TODAS as paradas da rota concluída (incluindo checkpoints)
-          const { data: paradasData } = await supabase
-            .from('paradas')
-            .select('*')
-            .eq('rota_id', lastRoute.id)
-            .order('ordem');
-
-          setParadas(paradasData || []);
-        } else {
-          setRoute(null);
-          setParadas([]);
-        }
-      } else {
-        const unidadeData = rotaData.unidades as unknown as { nome: string } | null;
-        setRoute({
-          ...rotaData,
-          unidade_nome: unidadeData?.nome || '',
-        } as RouteData);
-
-        // Carrega TODAS as paradas (incluindo checkpoints de partida/chegada)
-        const { data: paradasData } = await supabase
-          .from('paradas')
-          .select('*')
-          .eq('rota_id', rotaData.id)
-          .order('ordem');
-
-        setParadas(paradasData || []);
+      if (rotasError || !rotasData || rotasData.length === 0) {
+        setRoute(null);
+        setParadas([]);
+        setLoading(false);
+        return;
       }
+
+      // Priorizar rota ativa (pendente/em_andamento) sobre concluída
+      const activeStatuses = ['pendente', 'em_andamento'];
+      const activeRoute = rotasData.find(r => activeStatuses.includes(r.status));
+
+      // Se não houver ativa, pegar a última concluída (ordenada por concluida_em)
+      const completedRoutes = rotasData.filter(r => r.status === 'concluida');
+      const lastCompletedRoute = completedRoutes.sort((a, b) =>
+        new Date(b.concluida_em || 0).getTime() - new Date(a.concluida_em || 0).getTime()
+      )[0];
+
+      const selectedRoute = activeRoute || lastCompletedRoute;
+
+      if (!selectedRoute) {
+        setRoute(null);
+        setParadas([]);
+        setLoading(false);
+        return;
+      }
+
+      const unidadeData = selectedRoute.unidades as unknown as { nome: string } | null;
+      setRoute({
+        ...selectedRoute,
+        unidade_nome: unidadeData?.nome || '',
+      } as RouteData);
+
+      // Carrega paradas da rota selecionada
+      const { data: paradasData } = await supabase
+        .from('paradas')
+        .select('*')
+        .eq('rota_id', selectedRoute.id)
+        .order('ordem');
+
+      setParadas(paradasData || []);
     } catch (error) {
       console.error('Erro ao carregar rota:', error);
       setRoute(null);
@@ -213,7 +204,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [motoristaId]);
+  }, [userLoading, motoristaId]);
 
   // Inicia rota
   const startRoute = async () => {

@@ -15,7 +15,9 @@ import { useRouteStatus } from '@/context/RouteStatusContext';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { heavyHaptic, warningHaptic } from '@/utils/haptics';
-import { StyleSheet, type Theme } from '@/utils/styles';
+import { StyleSheet, defaultTheme, type Theme } from '@/utils/styles';
+
+const colors = defaultTheme.colors;
 
 // Contatos de emergência
 const EMERGENCY_CONTACTS = [
@@ -26,7 +28,7 @@ const EMERGENCY_CONTACTS = [
 ];
 
 export default function SOSScreen() {
-  const { userData } = useUser();
+  const { userData, loading: userLoading } = useUser();
   const routeStatus = useRouteStatus();
 
   const [descricao, setDescricao] = useState('');
@@ -59,18 +61,25 @@ export default function SOSScreen() {
     getLocation();
   }, []);
 
-  // Carregar dados do gestor
+  // Carregar dados do gestor (aguarda userData estar carregado para evitar 406)
   useEffect(() => {
     async function loadGestor() {
-      if (!userData?.unidade_id) return;
+      // Aguardar carregamento completo do userData antes de fazer query
+      if (userLoading || !userData?.unidade_id) return;
 
-      const { data } = await supabase
+      // Usar maybeSingle() em vez de single() para evitar erro 406 quando não há gestor
+      const { data, error } = await supabase
         .from('usuarios')
         .select('nome, telefone')
         .eq('unidade_id', userData.unidade_id)
         .eq('papel', 'gestor')
         .limit(1)
-        .single();
+        .maybeSingle();
+
+      if (error) {
+        console.warn('[SOS] Erro ao carregar gestor:', error.message);
+        return;
+      }
 
       if (data) {
         setGestorNome(data.nome);
@@ -78,7 +87,7 @@ export default function SOSScreen() {
       }
     }
     loadGestor();
-  }, [userData?.unidade_id]);
+  }, [userLoading, userData?.unidade_id]);
 
   async function handleEmergencyCall(contactId: string, number: string | null) {
     await warningHaptic();
@@ -194,7 +203,7 @@ export default function SOSScreen() {
             activeOpacity={0.8}
           >
             {enviando ? (
-              <ActivityIndicator size="large" color="#fff" />
+              <ActivityIndicator size="large" color={colors.white} />
             ) : (
               <>
                 <Text style={styles.emergencyIcon}>🆘</Text>
@@ -227,7 +236,7 @@ export default function SOSScreen() {
           <Text style={styles.sectionTitle}>Sua localização</Text>
           {loadingLocation ? (
             <View style={styles.locationLoading}>
-              <ActivityIndicator size="small" color="#666" />
+              <ActivityIndicator size="small" color={colors.gray500} />
               <Text style={styles.locationLoadingText}>Obtendo localização...</Text>
             </View>
           ) : location ? (
@@ -323,6 +332,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.white,
     fontSize: 18,
     fontWeight: 'bold',
+    // Brand guideline: text shadow for white text on colored background
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   emergencySubtext: {
     marginTop: theme.spacing.md,

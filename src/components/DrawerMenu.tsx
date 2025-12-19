@@ -1,5 +1,5 @@
 import { useRouter, usePathname } from 'expo-router';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import {
 
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useRouteStatus } from '@/context/RouteStatusContext';
+import { useUser } from '@/hooks/useUser';
 import { getVersionString } from '@/lib/appVersion';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, type Theme } from '@/utils/styles';
@@ -41,28 +42,13 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { route: rotaAtiva, currentStop } = useRouteStatus();
-  const [profile, setProfile] = useState<any>(null);
+  // Usar useUser para obter perfil (aguarda auth estar pronto, evita 406)
+  const { userData: profile, unidade } = useUser();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   // Estado para modal de contato (web)
   const [showContactModal, setShowContactModal] = useState(false);
   const [gestorDataForModal, setGestorDataForModal] = useState<GestorData | null>(null);
-
-  useEffect(() => {
-    loadProfile();
-  }, [visible]);
-
-  async function loadProfile() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data } = await supabase
-        .from('usuarios')
-        .select('*, unidades(nome)')
-        .eq('id', user.id)
-        .single();
-      setProfile(data);
-    }
-  }
 
   function navigate(path: string) {
     onClose();
@@ -312,10 +298,10 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
                 )}
                 <Text style={styles.userName}>{profile?.nome}</Text>
                 <Text style={styles.userEmail}>{profile?.email}</Text>
-                {profile?.unidades && (
+                {unidade && (
                   <View style={styles.unitBadge}>
                     <Text style={styles.unitBadgeText}>
-                      {profile.unidades.nome}
+                      {unidade.nome}
                     </Text>
                   </View>
                 )}

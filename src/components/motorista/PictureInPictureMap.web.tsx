@@ -53,10 +53,10 @@ export function PictureInPictureMap({
     <Animated.View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onExpand} style={styles.expandButton}>
-          <Ionicons name="expand" size={18} color="#fff" />
+          <Ionicons name="expand" size={18} color={colors.white} />
         </TouchableOpacity>
         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <Ionicons name="close" size={18} color="#fff" />
+          <Ionicons name="close" size={18} color={colors.white} />
         </TouchableOpacity>
       </View>
 

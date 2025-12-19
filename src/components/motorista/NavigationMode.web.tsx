@@ -257,7 +257,7 @@ export function NavigationMode({
             onPress={onComplete}
           >
             <Ionicons name="checkmark-circle" size={24} color={colors.white} />
-            <Text style={[styles.actionButtonText, { color: '#fff' }]}>
+            <Text style={[styles.actionButtonText, { color: colors.white }]}>
               Concluir
             </Text>
           </TouchableOpacity>
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   openMapButtonText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 16,
     fontWeight: '600',
   },

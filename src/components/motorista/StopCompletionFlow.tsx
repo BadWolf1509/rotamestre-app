@@ -257,7 +257,7 @@ export function StopCompletionFlow({
           disabled={isCompleting}
         >
           {isCompleting ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <ActivityIndicator color={theme.colors.white} size="small" />
           ) : (
             <Text style={styles.buttonPrimaryText}>
               ✓ Concluir

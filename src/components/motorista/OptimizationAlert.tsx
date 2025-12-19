@@ -226,7 +226,7 @@ export function OptimizationAlert({
               style={[styles.actionButton, styles.acceptButton]}
               onPress={handleAccept}
             >
-              <Ionicons name="checkmark-circle" size={20} color="#fff" />
+              <Ionicons name="checkmark-circle" size={20} color={colors.white} />
               <Text style={styles.acceptButtonText}>
                 {autoAcceptTimer ? `Aceitar (${autoAcceptTimer}s)` : 'Aceitar'}
               </Text>
@@ -501,6 +501,10 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 14,
     fontWeight: '600',
+    // Brand guideline: text shadow for white text on colored background
+    textShadowColor: 'rgba(0, 0, 0, 0.25)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   modalOverlay: {
     flex: 1,

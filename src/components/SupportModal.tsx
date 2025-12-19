@@ -35,7 +35,7 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
   };
 
   const handleEmail = () => {
-    const email = 'suporte@rotamestre.tec.br';
+    const email = 'contato@rotamestre.tec.br';
     const url = `mailto:${email}`;
 
     Linking.canOpenURL(url).then((supported) => {
@@ -117,7 +117,7 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
               </View>
               <View style={styles.contactInfo}>
                 <Text style={styles.contactLabel}>E-mail</Text>
-                <Text style={styles.contactValue}>suporte@rotamestre.tec.br</Text>
+                <Text style={styles.contactValue}>contato@rotamestre.tec.br</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
             </TouchableOpacity>

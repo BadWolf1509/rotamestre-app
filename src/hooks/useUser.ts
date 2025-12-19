@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import { Usuario } from '../types/usuario';
 
 export function useUser() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const userId = user?.id ?? null;
   const [userData, setUserData] = useState<Usuario | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,6 +41,9 @@ export function useUser() {
   }, [userId]);
 
   const loadUserData = useCallback(async (forceRefresh = false) => {
+    // Aguardar auth estar pronto antes de fazer queries (evita 406)
+    if (authLoading) return;
+
     if (!userId) {
       setUserData(null);
       setLoading(false);
@@ -54,17 +57,18 @@ export function useUser() {
 
     try {
       // 1. Verificar cache primeiro (se não for refresh forçado)
+      // IMPORTANTE: Não definir loading=false do cache para evitar que
+      // outros componentes façam queries antes da sessão Supabase estar validada
       if (!forceRefresh) {
         const cached = await getCache<Usuario>(cacheKey);
         if (cached !== null && mountedRef.current) {
           setUserData(cached);
           setFromCache(true);
-          setLoading(false);
-          // Continua para revalidar em background (SWR)
+          // NÃO definir loading=false aqui - aguardar query Supabase validar sessão
         }
       }
 
-      // 2. Buscar dados frescos
+      // 2. Buscar dados frescos (valida que a sessão Supabase está funcionando)
       const freshData = await fetchUserData();
 
       if (freshData && mountedRef.current) {
@@ -85,9 +89,9 @@ export function useUser() {
     }
   // userData omitido intencionalmente para evitar loop infinito
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, fetchUserData]);
+  }, [authLoading, userId, fetchUserData]);
 
-  // Carregar dados quando userId mudar
+  // Carregar dados quando userId ou authLoading mudar
   useEffect(() => {
     mountedRef.current = true;
     loadUserData();
@@ -96,7 +100,7 @@ export function useUser() {
       mountedRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [authLoading, userId]);
 
   // Invalidar cache quando logout
   useEffect(() => {
@@ -114,7 +118,7 @@ export function useUser() {
 
   return {
     userData,
-    loading,
+    loading: authLoading || loading, // ✅ Inclui authLoading para evitar queries prematuras
     fromCache, // ✅ Indica se dados vieram do cache
     isGestor: userData?.papel === 'gestor',
     isMotorista: userData?.papel === 'motorista',

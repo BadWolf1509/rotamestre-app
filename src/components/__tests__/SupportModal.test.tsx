@@ -36,7 +36,7 @@ describe('SupportModal', () => {
       render(<SupportModal visible={true} onClose={mockOnClose} />);
 
       expect(screen.getAllByText('(83) 98715-6206')).toHaveLength(2); // WhatsApp e Telefone
-      expect(screen.getByText('suporte@rotamestre.tec.br')).toBeTruthy();
+      expect(screen.getByText('contato@rotamestre.tec.br')).toBeTruthy();
     });
 
     it('deve exibir botão de fechar', () => {
@@ -165,7 +165,7 @@ describe('SupportModal', () => {
 
       await waitFor(() => {
         expect(mockOpenURL).toHaveBeenCalledWith(
-          expect.stringContaining('mailto:suporte@rotamestre.tec.br')
+          expect.stringContaining('mailto:contato@rotamestre.tec.br')
         );
       });
     });

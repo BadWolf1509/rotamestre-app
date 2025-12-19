@@ -245,8 +245,8 @@ export default function MapaMotorista() {
           style={[styles.filterChip, statusFilter === 'pendente' && styles.filterChipActivePendente]}
           onPress={() => setStatusFilter('pendente')}
         >
-          <View style={[styles.filterDot, { backgroundColor: '#f59e0b' }]} />
-          <Text style={[styles.filterChipText, statusFilter === 'pendente' && { color: '#b45309' }]}>
+          <View style={[styles.filterDot, { backgroundColor: theme.colors.warning }]} />
+          <Text style={[styles.filterChipText, statusFilter === 'pendente' && { color: theme.colors.warningDark }]}>
             Pendentes
           </Text>
         </TouchableOpacity>
@@ -254,8 +254,8 @@ export default function MapaMotorista() {
           style={[styles.filterChip, statusFilter === 'em_andamento' && styles.filterChipActiveAndamento]}
           onPress={() => setStatusFilter('em_andamento')}
         >
-          <View style={[styles.filterDot, { backgroundColor: '#3b82f6' }]} />
-          <Text style={[styles.filterChipText, statusFilter === 'em_andamento' && { color: '#1d4ed8' }]}>
+          <View style={[styles.filterDot, { backgroundColor: theme.colors.primary }]} />
+          <Text style={[styles.filterChipText, statusFilter === 'em_andamento' && { color: theme.colors.primaryDark }]}>
             Andamento
           </Text>
         </TouchableOpacity>
@@ -263,8 +263,8 @@ export default function MapaMotorista() {
           style={[styles.filterChip, statusFilter === 'concluida' && styles.filterChipActiveConcluida]}
           onPress={() => setStatusFilter('concluida')}
         >
-          <View style={[styles.filterDot, { backgroundColor: '#10b981' }]} />
-          <Text style={[styles.filterChipText, statusFilter === 'concluida' && { color: '#047857' }]}>
+          <View style={[styles.filterDot, { backgroundColor: theme.colors.success }]} />
+          <Text style={[styles.filterChipText, statusFilter === 'concluida' && { color: theme.colors.successDark }]}>
             Concluídas
           </Text>
         </TouchableOpacity>
@@ -374,19 +374,19 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.primary,
   },
   filterChipActivePendente: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: theme.colors.warningBg,
     borderWidth: 1,
-    borderColor: '#f59e0b',
+    borderColor: theme.colors.warning,
   },
   filterChipActiveAndamento: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: theme.colors.infoBg,
     borderWidth: 1,
-    borderColor: '#3b82f6',
+    borderColor: theme.colors.primary,
   },
   filterChipActiveConcluida: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: theme.colors.successBg,
     borderWidth: 1,
-    borderColor: '#10b981',
+    borderColor: theme.colors.success,
   },
   filterChipText: {
     fontSize: 12,

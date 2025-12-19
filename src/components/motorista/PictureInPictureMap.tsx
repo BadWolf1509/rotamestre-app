@@ -235,7 +235,7 @@ export function PictureInPictureMap({
           <Ionicons
             name={isExpanded ? 'contract' : 'expand'}
             size={16}
-            color="#fff"
+            color={colors.white}
           />
         </TouchableOpacity>
 
@@ -246,7 +246,7 @@ export function PictureInPictureMap({
             onPress={onExpand}
             activeOpacity={0.8}
           >
-            <Ionicons name="navigate" size={16} color="#fff" />
+            <Ionicons name="navigate" size={16} color={colors.white} />
           </TouchableOpacity>
         )}
 
@@ -256,7 +256,7 @@ export function PictureInPictureMap({
           onPress={onClose}
           activeOpacity={0.8}
         >
-          <Ionicons name="close" size={16} color="#fff" />
+          <Ionicons name="close" size={16} color={colors.white} />
         </TouchableOpacity>
       </View>
 

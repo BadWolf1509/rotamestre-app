@@ -297,6 +297,8 @@ function MotoristaInicioContent() {
     const hours = Math.floor(elapsed / (1000 * 60 * 60));
     const minutes = Math.floor((elapsed % (1000 * 60 * 60)) / (1000 * 60));
 
+    // Não mostrar "0h" quando menos de 1 hora
+    if (hours === 0) return `${minutes}min`;
     return `${hours}h ${minutes}min`;
   };
 
@@ -425,6 +427,7 @@ function MotoristaInicioContent() {
           routeStatus={routeStatus}
           completedStops={progress.completed}
           totalStops={progress.total}
+          timeElapsed={getElapsedTime() ?? undefined}
         />
 
         {/* Main Card */}
@@ -440,19 +443,8 @@ function MotoristaInicioContent() {
           onPress={handleMainAction}
         />
 
-        {/* Progress Bar */}
-        {(routeStatus === 'active' || routeStatus === 'last-stop') && (
-          <ProgressBar
-            completed={progress.completed}
-            total={progress.total}
-            timeElapsed={getElapsedTime() ?? undefined}
-            estimatedTime={route?.tempo_total ? `~${formatarTempo(route.tempo_total)}` : undefined}
-            currentStopIndex={currentStop?.ordem}
-          />
-        )}
-
-        {/* Mini Map */}
-        {route && routeStatus !== 'no-route' && routeStatus !== 'completed' && (
+        {/* Mini Map - Apenas no estado pending para preview da rota */}
+        {route && routeStatus === 'pending' && (
           <MiniMap
             paradas={paradas}
             userLocation={location ?? undefined}
@@ -467,12 +459,13 @@ function MotoristaInicioContent() {
       </ScrollView>
 
       {/* Floating Action Button - absolute positioned outside ScrollView */}
-      {/* Posicionado acima da Tab Bar (60px + safe area + margin) */}
+      {/* Posicionado logo acima da Tab Bar (mais próximo para melhor alcance) */}
       <FloatingActionButton
         icon={fabProps.icon}
         color={fabProps.color}
         onPress={handleMainAction}
         label={fabProps.label}
+        tabBarHeight={16}
       />
 
       {/* Modals - rendered outside ScrollView */}

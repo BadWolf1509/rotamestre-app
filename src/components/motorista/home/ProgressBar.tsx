@@ -44,25 +44,35 @@ export function ProgressBar({
     }
   }
 
+  /**
+   * Converte string de tempo para minutos totais.
+   * Suporta formatos: "5min", "30min", "1h 30min", "2h", "~45min", "~1h 30min"
+   */
+  const parseTimeToMinutes = (timeStr: string): number => {
+    if (!timeStr) return 0;
+
+    // Remove prefixo "~" se existir
+    const cleanStr = timeStr.replace(/^~/, '').trim();
+
+    // Tenta extrair horas e minutos
+    const hoursMatch = cleanStr.match(/(\d+)\s*h/i);
+    const minutesMatch = cleanStr.match(/(\d+)\s*min/i);
+
+    const hours = hoursMatch ? parseInt(hoursMatch[1], 10) : 0;
+    const minutes = minutesMatch ? parseInt(minutesMatch[1], 10) : 0;
+
+    return hours * 60 + minutes;
+  };
+
   // Calcular tempo restante estimado
   const getTimeRemaining = () => {
     if (!timeElapsed || !estimatedTime) return null;
 
-    // Parse timeElapsed (formato "Xh Ymin" ou "Ymin")
-    const elapsedMatch = timeElapsed.match(/(\d+)h?\s*(\d+)?min?/);
-    if (!elapsedMatch) return estimatedTime;
+    const elapsedTotalMinutes = parseTimeToMinutes(timeElapsed);
+    const estTotalMinutes = parseTimeToMinutes(estimatedTime);
 
-    const elapsedHours = parseInt(elapsedMatch[1]) || 0;
-    const elapsedMinutes = parseInt(elapsedMatch[2]) || 0;
-    const elapsedTotalMinutes = elapsedHours * 60 + elapsedMinutes;
-
-    // Parse estimatedTime (formato "~Xh Ymin" ou "~Ymin")
-    const estMatch = estimatedTime.match(/~?(\d+)h?\s*(\d+)?min?/);
-    if (!estMatch) return estimatedTime;
-
-    const estHours = parseInt(estMatch[1]) || 0;
-    const estMinutes = parseInt(estMatch[2]) || 0;
-    const estTotalMinutes = estHours * 60 + estMinutes;
+    // Se não conseguiu parsear, retorna estimado original
+    if (estTotalMinutes === 0) return null;
 
     const remainingMinutes = Math.max(0, estTotalMinutes - elapsedTotalMinutes);
 

@@ -133,20 +133,27 @@ export const monitorNetwork = () => {
         ? resource
         : (resource instanceof Request ? resource.url : resource.href);
 
-      console.group(`🌐 ${method} ${url}`);
       const startTime = performance.now();
 
       try {
         const response = await originalFetch(...args);
         const duration = performance.now() - startTime;
 
-        console.log('Status:', response.status, response.statusText);
-        console.log('Duration:', duration.toFixed(2), 'ms');
-        console.log('Headers:', response.headers);
-        console.groupEnd();
+        // Verificar se é erro esperado do Supabase (RLS blocking)
+        const isSupabaseUrl = url.includes('supabase.co');
+        const isExpectedRLSError = isSupabaseUrl && response.status === 406;
 
-        if (duration > 1000) {
-          console.warn(`⚠️ Slow request: ${method} ${url} took ${duration.toFixed(2)}ms`);
+        // Não logar erros esperados de RLS do Supabase
+        if (!isExpectedRLSError) {
+          console.group(`🌐 ${method} ${url}`);
+          console.log('Status:', response.status, response.statusText);
+          console.log('Duration:', duration.toFixed(2), 'ms');
+          console.log('Headers:', response.headers);
+          console.groupEnd();
+
+          if (duration > 1000) {
+            console.warn(`⚠️ Slow request: ${method} ${url} took ${duration.toFixed(2)}ms`);
+          }
         }
 
         return response;

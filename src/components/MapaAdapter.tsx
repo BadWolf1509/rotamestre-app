@@ -57,6 +57,7 @@ export function MapaAdapter({
         paradas={paradas as any}
         selectedParadaId={selectedParadaId}
         onMarkerPress={onMarkerPress}
+        statusFilter={statusFilter}
         rotaId={rotaId}
         motoristaNome={motoristaNome}
         showMotorista={showMotorista}
