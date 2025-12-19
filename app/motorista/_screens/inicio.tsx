@@ -400,12 +400,13 @@ function MotoristaInicioContent() {
 
   return (
     <>
-      {/* Padding considera: Tab Bar (60) + FAB margin (16) + FAB height (64) + content margin (20) = 160 */}
+      {/* Padding: FAB margin (16) + FAB height (64) + content margin (16) = 96 */}
+      {/* Nota: Tab bar NÃO sobrepõe conteúdo no Expo Router */}
       <ScrollView
         style={styles.container}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: 160 },
+          { paddingBottom: 96 },
         ]}
         refreshControl={
           <RefreshControl

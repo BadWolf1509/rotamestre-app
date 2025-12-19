@@ -1,11 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   FlatList,
-  TouchableOpacity,
-  ActivityIndicator,
   Alert,
   RefreshControl,
   Platform,
@@ -13,9 +10,9 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
+import { ParadaCard, Parada } from '@/components/motorista/ParadaCard';
+import { ParadaCardSkeletonList } from '@/components/motorista/ParadaCardSkeleton';
 import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
-import { StreetViewPreview } from '@/components/StreetViewPreview';
-import { SwipeableRow } from '@/components/SwipeableRow';
 import { useRouteStatus, ParadaData } from '@/context/RouteStatusContext';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
@@ -23,24 +20,12 @@ import { abrirNavegacao } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-interface Parada {
-  id: string;
-  endereco: string;
-  latitude: number;
-  longitude: number;
-  ordem: number;
-  status: string;
-  tipo: string;
-  destinatario?: string;
-  telefone?: string;
-  observacoes?: string;
-  is_checkpoint?: boolean;
-  vinculo_parada_id?: string | null;
-}
+// Tipo para status da rota
+type RotaStatus = 'pendente' | 'em_andamento' | 'concluida' | 'cancelada';
 
 interface Rota {
   id: string;
-  status: string;
+  status: RotaStatus;
   unidades: {
     nome: string;
   };
@@ -275,11 +260,110 @@ export default function CheckpointsMotorista() {
     loadRotaEParadas();
   }, [loadRotaEParadas]);
 
+  // IMPORTANTE: Todos os hooks DEVEM estar antes de qualquer early return
+  // Filtrar apenas paradas reais (excluindo checkpoints de partida/chegada) - memoizado
+  const paradasReais = useMemo(
+    () => paradas.filter(p => p.is_checkpoint !== false),
+    [paradas]
+  );
+  const paradasPendentes = useMemo(
+    () => paradasReais.filter((p) => p.status === 'pendente').length,
+    [paradasReais]
+  );
+  const paradasConcluidas = useMemo(
+    () => paradasReais.filter((p) => p.status === 'concluida').length,
+    [paradasReais]
+  );
+  const paradasPuladas = useMemo(
+    () => paradasReais.filter((p) => p.status === 'pulada').length,
+    [paradasReais]
+  );
+
+  // Memoizar keyExtractor
+  const keyExtractor = useCallback((item: Parada) => item.id, []);
+
+  // Calcular ID da próxima parada pendente (primeira na ordem)
+  const proximaParadaId = useMemo(() => {
+    const pendentes = paradas.filter((p) => p.status === 'pendente');
+    return pendentes.length > 0 ? pendentes[0].id : null;
+  }, [paradas]);
+
+  // Handlers para o ParadaCard
+  const handleNavegar = useCallback((parada: Parada) => {
+    abrirNavegacao({
+      latitude: parada.latitude,
+      longitude: parada.longitude,
+      endereco: parada.endereco,
+    });
+  }, []);
+
+  const handleReportar = useCallback((parada: Parada) => {
+    setSelectedParadaForIncident(parada);
+    setShowIncidentWizard(true);
+  }, []);
+
+  // Memoizar renderItem usando o novo ParadaCard
+  const renderParada = useCallback(
+    ({ item }: { item: Parada }) => (
+      <ParadaCard
+        parada={item}
+        rotaEmAndamento={rota?.status === 'em_andamento'}
+        onConcluir={concluirParada}
+        onPular={pularParada}
+        onRetomar={retomarParada}
+        onNavegar={handleNavegar}
+        onReportar={handleReportar}
+        concluindo={concluindoParada === item.id}
+        pulando={pulandoParada === item.id}
+        retomando={retomandoParada === item.id}
+        isProxima={item.id === proximaParadaId}
+      />
+    ),
+    [
+      concluindoParada,
+      pulandoParada,
+      retomandoParada,
+      rota?.status,
+      proximaParadaId,
+      concluirParada,
+      pularParada,
+      retomarParada,
+      handleNavegar,
+      handleReportar,
+    ]
+  );
+
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>Carregando checkpoints...</Text>
+      <View style={styles.container}>
+        {/* Skeleton Header */}
+        <View style={styles.header}>
+          <View style={{ width: 200, height: 28, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm }} />
+          <View style={{ width: 150, height: 14, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm, marginTop: theme.spacing.xs }} />
+        </View>
+
+        {/* Skeleton Stats */}
+        <View style={styles.statsRow}>
+          {[1, 2, 3].map((i) => (
+            <View key={i} style={styles.statItem}>
+              <View style={{ width: 40, height: 28, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm }} />
+              <View style={{ width: 60, height: 12, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm, marginTop: theme.spacing.xs }} />
+            </View>
+          ))}
+        </View>
+
+        {/* Skeleton Progress */}
+        <View style={styles.progressSection}>
+          <View style={{ width: 120, height: 14, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm }} />
+          <View style={[styles.progressContainer, { marginTop: theme.spacing.xs }]}>
+            <View style={{ width: '30%', height: '100%', backgroundColor: theme.colors.gray300, borderRadius: theme.borderRadius.full }} />
+          </View>
+        </View>
+
+        {/* Skeleton Cards */}
+        <View style={styles.listContainer}>
+          <ParadaCardSkeletonList count={3} />
+        </View>
       </View>
     );
   }
@@ -296,266 +380,49 @@ export default function CheckpointsMotorista() {
     );
   }
 
-  // Filtrar apenas paradas reais (excluindo checkpoints de partida/chegada)
-  const paradasReais = paradas.filter(p => p.is_checkpoint !== false);
-  const paradasPendentes = paradasReais.filter((p) => p.status === 'pendente').length;
-  const paradasConcluidas = paradasReais.filter((p) => p.status === 'concluida').length;
-  const paradasPuladas = paradasReais.filter((p) => p.status === 'pulada').length;
-
-  const renderParada = ({ item }: { item: Parada }) => {
-    const isConcluida = item.status === 'concluida';
-    const isPulada = item.status === 'pulada';
-    const isPendente = item.status === 'pendente';
-    const isConcluindo = concluindoParada === item.id;
-    const isPulando = pulandoParada === item.id;
-    const isRetomando = retomandoParada === item.id;
-
-    // Swipe actions para paradas pendentes
-    const leftActions = isPendente ? [
-      {
-        icon: 'checkmark-circle',
-        label: 'Concluir',
-        color: theme.colors.success,
-        onPress: () => concluirParada(item),
-      }
-    ] : [];
-
-    const rightActions = isPendente ? [
-      {
-        icon: 'arrow-forward-circle',
-        label: 'Pular',
-        color: theme.colors.warning,
-        onPress: () => pularParada(item),
-      }
-    ] : [];
-
-    return (
-      <SwipeableRow
-        leftActions={leftActions}
-        rightActions={rightActions}
-        enabled={isPendente && !isConcluindo && !isPulando}
-      >
-        <View
-          style={[
-            styles.paradaCard,
-            isConcluida && styles.paradaCardConcluida,
-            isPulada && styles.paradaCardPulada,
-          ]}
-        >
-        {/* Ordem e Status */}
-        <View style={styles.paradaHeader}>
-          <View style={styles.ordemBadge}>
-            <Text style={styles.ordemText}>{item.ordem}</Text>
-          </View>
-          <View
-            style={[
-              styles.statusBadge,
-              isConcluida && styles.statusBadgeConcluida,
-              isPulada && styles.statusBadgePulada,
-              isPendente && styles.statusBadgePendente,
-            ]}
-          >
-            <Text style={styles.statusBadgeText}>
-              {isConcluida ? '✓ Concluída' : isPulada ? '⊘ Pulada' : '○ Pendente'}
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.tipoBadge,
-              item.tipo === 'entrega' ? styles.tipoBadgeEntrega : styles.tipoBadgeRetirada,
-            ]}
-          >
-            <Text style={styles.tipoBadgeText}>
-              {item.tipo === 'entrega' ? '📦 Entrega' : '📥 Retirada'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Endereco */}
-        <Text style={styles.paradaEndereco}>{item.endereco}</Text>
-
-        {/* Street View Preview */}
-        {isPendente && (
-          <View style={styles.streetViewContainer}>
-            <StreetViewPreview
-              latitude={item.latitude}
-              longitude={item.longitude}
-              address={item.endereco}
-              size="medium"
-            />
-          </View>
-        )}
-
-        {/* Destinatario e Telefone */}
-        {(item.destinatario || item.telefone) && (
-          <View style={styles.paradaDetalhes}>
-            {item.destinatario && (
-              <Text style={styles.paradaDetalheTexto}>
-                👤 {item.destinatario}
-              </Text>
-            )}
-            {item.telefone && (
-              <Text style={styles.paradaDetalheTexto}>
-                📞 {item.telefone}
-              </Text>
-            )}
-          </View>
-        )}
-
-        {/* Observacoes */}
-        {item.observacoes && (
-          <View style={styles.observacoesContainer}>
-            <Text style={styles.observacoesLabel}>Observações:</Text>
-            <Text style={styles.observacoesTexto}>{item.observacoes}</Text>
-          </View>
-        )}
-
-        {/* Botões de Ação Primários */}
-        {!isConcluida && !isPulada && (
-          <View style={styles.primaryActionsContainer}>
-            <TouchableOpacity
-              style={styles.botaoNavegar}
-              onPress={() => abrirNavegacao({
-                latitude: item.latitude,
-                longitude: item.longitude,
-                endereco: item.endereco
-              })}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.botaoNavegarIcone}>🧭</Text>
-              <Text style={styles.botaoNavegarTexto}>Como Chegar</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.botaoReportar}
-              onPress={() => {
-                setSelectedParadaForIncident(item);
-                setShowIncidentWizard(true);
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="warning-outline" size={20} color="#fff" />
-              <Text style={styles.botaoReportarTexto}>Reportar Problema</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Botões de Ação para paradas PENDENTES (fallback quando swipe não disponível) */}
-        {isPendente && (
-          <View style={styles.acoesContainer}>
-            <TouchableOpacity
-              style={[styles.botaoPular, isPulando && styles.botaoDisabled]}
-              onPress={() => pularParada(item)}
-              disabled={isPulando || isConcluindo}
-            >
-              {isPulando ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.botaoPularTexto}>Pular</Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.botaoConcluir, isConcluindo && styles.botaoDisabled]}
-              onPress={() => concluirParada(item)}
-              disabled={isConcluindo || isPulando}
-            >
-              {isConcluindo ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.botaoConcluirTexto}>✓ Concluir Parada</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Botão Retomar para paradas PULADAS */}
-        {isPulada && (
-          <View style={styles.retornarContainer}>
-            <TouchableOpacity
-              style={[styles.botaoRetomar, isRetomando && styles.botaoDisabled]}
-              onPress={() => retomarParada(item)}
-              disabled={isRetomando}
-              activeOpacity={0.7}
-            >
-              {isRetomando ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="refresh" size={18} color="#fff" />
-                  <Text style={styles.botaoRetomarTexto}>Retomar Parada</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Indicador visual de swipe para paradas pendentes */}
-        {isPendente && (
-          <View style={styles.swipeHint}>
-            <Ionicons name="swap-horizontal" size={16} color={theme.colors.gray400} />
-            <Text style={styles.swipeHintText}>Deslize para ações</Text>
-          </View>
-        )}
-      </View>
-    </SwipeableRow>
-    );
-  };
-
   return (
     <GestureHandlerRootView style={styles.container}>
-      {/* Header com estatísticas */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Checkpoints</Text>
-        <Text style={styles.headerSubtitle}>{rota.unidades.nome}</Text>
+      {/* Header Compacto */}
+      <View style={styles.headerCompact}>
+        {/* Linha 1: Título e unidade */}
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>Checkpoints</Text>
+          <Text style={styles.headerDivider}>·</Text>
+          <Text style={styles.headerSubtitleCompact} numberOfLines={1}>
+            {rota.unidades.nome}
+          </Text>
+        </View>
 
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{paradasReais.length}</Text>
-            <Text style={styles.statLabel}>Total</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.colors.green500 }]}>
-              {paradasConcluidas}
-            </Text>
-            <Text style={styles.statLabel}>Concluídas</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.colors.yellow500 }]}>
-              {paradasPendentes}
-            </Text>
-            <Text style={styles.statLabel}>Pendentes</Text>
-          </View>
-          {paradasPuladas > 0 && (
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: theme.colors.red500 }]}>
-                {paradasPuladas}
-              </Text>
-              <Text style={styles.statLabel}>Puladas</Text>
-            </View>
-          )}
+        {/* Linha 2: Stats inline */}
+        <View style={styles.statsInline}>
+          <Text style={styles.statsInlineText}>
+            {paradasReais.length} paradas ·{' '}
+            <Text style={{ color: theme.colors.success }}>{paradasConcluidas}✓</Text> ·{' '}
+            <Text style={{ color: theme.colors.warning }}>{paradasPendentes}○</Text>
+            {paradasPuladas > 0 && (
+              <>
+                {' '}· <Text style={{ color: theme.colors.error }}>{paradasPuladas}↷</Text>
+              </>
+            )}
+            {' '}· {paradasReais.length > 0 ? Math.round((paradasConcluidas / paradasReais.length) * 100) : 0}%
+          </Text>
         </View>
 
         {/* Barra de Progresso */}
-        <View style={styles.progressSection}>
-          <Text style={styles.progressLabel}>
-            Progresso: {paradasReais.length > 0 ? Math.round((paradasConcluidas / paradasReais.length) * 100) : 0}%
-          </Text>
-          <View style={styles.progressContainer}>
-            <View
-              style={[
-                styles.progressBar,
-                { width: `${paradasReais.length > 0 ? (paradasConcluidas / paradasReais.length) * 100 : 0}%` },
-              ]}
-            />
-          </View>
+        <View style={styles.progressContainer}>
+          <View
+            style={[
+              styles.progressBar,
+              { width: `${paradasReais.length > 0 ? (paradasConcluidas / paradasReais.length) * 100 : 0}%` },
+            ]}
+          />
         </View>
       </View>
 
       {/* Lista de Paradas */}
       <FlatList
         data={paradas}
-        keyExtractor={(item) => item.id}
+        keyExtractor={keyExtractor}
         renderItem={renderParada}
         contentContainerStyle={styles.listContainer}
         refreshControl={
@@ -651,16 +518,45 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray200,
   },
+  headerCompact: {
+    backgroundColor: theme.colors.white,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.gray200,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.xs,
+  },
   headerTitle: {
-    fontSize: theme.typography['2xl'],
-    fontWeight: 'bold',
+    fontFamily: theme.typography.fontDisplay,
+    fontSize: theme.typography.xl,
+    fontWeight: '400',
     color: theme.colors.gray900,
-    marginBottom: 4,
+  },
+  headerDivider: {
+    fontSize: theme.typography.lg,
+    color: theme.colors.gray400,
+    marginHorizontal: theme.spacing.sm,
+  },
+  headerSubtitleCompact: {
+    flex: 1,
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
   },
   headerSubtitle: {
     fontSize: theme.typography.sm,
     color: theme.colors.gray500,
     marginBottom: theme.spacing.md,
+  },
+  statsInline: {
+    marginBottom: theme.spacing.sm,
+  },
+  statsInlineText: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray600,
   },
   statsRow: {
     flexDirection: 'row',
@@ -672,13 +568,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   statValue: {
     fontSize: theme.typography['2xl'],
-    fontWeight: 'bold',
+    fontWeight: '800',
     color: theme.colors.primary,
   },
   statLabel: {
     fontSize: theme.typography.xs,
     color: theme.colors.gray500,
-    marginTop: 4,
+    marginTop: theme.spacing.xs,
   },
   progressSection: {
     marginTop: theme.spacing.xs,
@@ -690,18 +586,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.xs,
   },
   progressContainer: {
-    height: 8,
+    height: theme.spacing.sm,
     backgroundColor: theme.colors.gray200,
     borderRadius: theme.borderRadius.sm,
     overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
-    backgroundColor: theme.colors.green500,
+    backgroundColor: theme.colors.success,
   },
   listContainer: {
     padding: theme.spacing.md,
-    paddingBottom: 100, // Account for tab bar (60) + safe area
+    paddingBottom: theme.spacing.md, // Margem de respiro (tab bar não sobrepõe)
   },
   emptyListContainer: {
     padding: theme.spacing.xl,
@@ -710,217 +606,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
   emptyListText: {
     fontSize: theme.typography.sm,
     color: theme.colors.gray500,
-  },
-  paradaCard: {
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-    borderWidth: 2,
-    borderColor: theme.colors.gray200,
-  },
-  paradaCardConcluida: {
-    borderColor: theme.colors.green500,
-    backgroundColor: theme.colors.green50,
-  },
-  paradaCardPulada: {
-    borderColor: theme.colors.red500,
-    backgroundColor: theme.colors.red50,
-    opacity: 0.7,
-  },
-  paradaHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-    gap: theme.spacing.xs,
-  },
-  ordemBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  ordemText: {
-    color: theme.colors.white,
-    fontSize: theme.typography.md,
-    fontWeight: 'bold',
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: theme.borderRadius.xl,
-    flex: 1,
-  },
-  statusBadgePendente: {
-    backgroundColor: theme.colors.yellow100,
-  },
-  statusBadgeConcluida: {
-    backgroundColor: theme.colors.green100,
-  },
-  statusBadgePulada: {
-    backgroundColor: theme.colors.red100,
-  },
-  statusBadgeText: {
-    fontSize: theme.typography.xs,
-    fontWeight: '600',
-    color: theme.colors.gray900,
-  },
-  tipoBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: theme.borderRadius.xl,
-  },
-  tipoBadgeEntrega: {
-    backgroundColor: theme.colors.blue100,
-  },
-  tipoBadgeRetirada: {
-    backgroundColor: theme.colors.indigo100,
-  },
-  tipoBadgeText: {
-    fontSize: theme.typography.xs,
-    fontWeight: '600',
-    color: theme.colors.gray900,
-  },
-  paradaEndereco: {
-    fontSize: theme.typography.md,
-    fontWeight: '600',
-    color: theme.colors.gray900,
-    marginBottom: theme.spacing.xs,
-  },
-  paradaDetalhes: {
-    marginBottom: theme.spacing.xs,
-  },
-  paradaDetalheTexto: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
-    marginBottom: 4,
-  },
-  observacoesContainer: {
-    backgroundColor: theme.colors.gray50,
-    padding: 10,
-    borderRadius: theme.borderRadius.md,
-    marginBottom: theme.spacing.sm,
-  },
-  observacoesLabel: {
-    fontSize: theme.typography.xs,
-    fontWeight: '600',
-    color: theme.colors.gray500,
-    marginBottom: 4,
-  },
-  observacoesTexto: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray900,
-    fontStyle: 'italic',
-  },
-  acoesContainer: {
-    flexDirection: 'row',
-    gap: theme.spacing.xs,
-  },
-  botaoPular: {
-    flex: 1,
-    backgroundColor: theme.colors.red500,
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.md,
-    alignItems: 'center',
-  },
-  botaoPularTexto: {
-    color: theme.colors.white,
-    fontSize: theme.typography.sm,
-    fontWeight: '600',
-  },
-  botaoConcluir: {
-    flex: 2,
-    backgroundColor: theme.colors.green500,
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.md,
-    alignItems: 'center',
-  },
-  botaoConcluirTexto: {
-    color: theme.colors.white,
-    fontSize: theme.typography.md,
-    fontWeight: 'bold',
-  },
-  botaoDisabled: {
-    opacity: 0.6,
-  },
-  retornarContainer: {
-    marginTop: theme.spacing.sm,
-  },
-  botaoRetomar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.blue500,
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.md,
-    gap: theme.spacing.xs,
-  },
-  botaoRetomarTexto: {
-    color: theme.colors.white,
-    fontSize: theme.typography.sm,
-    fontWeight: '600',
-  },
-  botaoNavegar: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.secondary,
-    paddingVertical: 12,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    gap: theme.spacing.xs,
-    ...theme.shadows.sm,
-  },
-  botaoNavegarIcone: {
-    fontSize: 20,
-  },
-  botaoNavegarTexto: {
-    color: theme.colors.white,
-    fontSize: theme.typography.md,
-    fontWeight: '600',
-  },
-  swipeHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.xs,
-    paddingTop: theme.spacing.xs,
-    opacity: 0.6,
-  },
-  swipeHintText: {
-    fontSize: theme.typography.xs,
-    color: theme.colors.gray400,
-    fontStyle: 'italic',
-  },
-  streetViewContainer: {
-    marginTop: theme.spacing.sm,
-    alignItems: 'center',
-  },
-  primaryActionsContainer: {
-    flexDirection: 'row',
-    gap: theme.spacing.xs,
-    marginTop: theme.spacing.sm,
-    marginBottom: theme.spacing.xs,
-  },
-  botaoReportar: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.warning,
-    paddingVertical: 12,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    gap: theme.spacing.xs,
-    ...theme.shadows.sm,
-  },
-  botaoReportarTexto: {
-    color: theme.colors.white,
-    fontSize: theme.typography.sm,
-    fontWeight: '600',
   },
 }));
 

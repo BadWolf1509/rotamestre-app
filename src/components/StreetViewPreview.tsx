@@ -45,7 +45,7 @@ export function StreetViewPreview({
   const dimensions = {
     small: { width: 120, height: 80 },
     medium: { width: 200, height: 120 },
-    large: { width: screenWidth - 32, height: 200 },
+    large: { width: screenWidth - 64, height: 200 },
   };
 
   const currentSize = dimensions[size];
@@ -114,8 +114,9 @@ export function StreetViewPreview({
 
         {error ? (
           <View style={styles.errorContainer}>
-            <Ionicons name="eye-off-outline" size={24} color={theme.colors.gray400} />
-            <Text style={styles.errorText}>Street View indisponível</Text>
+            <Ionicons name="image-outline" size={28} color={theme.colors.gray400} />
+            <Text style={styles.errorText}>Imagem não disponível</Text>
+            <Text style={styles.errorSubtext}>para este local</Text>
           </View>
         ) : (
           <>
@@ -246,6 +247,12 @@ const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
       fontSize: 12,
       color: theme.colors.gray600,
       marginTop: 4,
+      fontWeight: '500',
+    },
+    errorSubtext: {
+      fontSize: 11,
+      color: theme.colors.gray500,
+      marginTop: 2,
     },
     overlay: {
       position: 'absolute',

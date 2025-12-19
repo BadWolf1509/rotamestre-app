@@ -132,6 +132,7 @@ export interface Theme {
     sm: any;
     md: any;
     lg: any;
+    card: any;
   };
   layout: {
     sidebarWidth: number;

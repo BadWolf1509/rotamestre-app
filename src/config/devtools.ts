@@ -152,8 +152,15 @@ export const monitorNetwork = () => {
         return response;
       } catch (error) {
         const duration = performance.now() - startTime;
-        console.error('Failed after', duration.toFixed(2), 'ms');
-        console.error('Error:', error);
+
+        // Ignorar AbortErrors silenciosamente - são esperados de connectivity checks
+        const isAbortError = error instanceof Error &&
+          (error.name === 'AbortError' || error.message.includes('abort'));
+
+        if (!isAbortError) {
+          console.error('Failed after', duration.toFixed(2), 'ms');
+          console.error('Error:', error);
+        }
         console.groupEnd();
         throw error;
       }

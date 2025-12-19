@@ -1,5 +1,10 @@
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { Text, View } from 'react-native';
+
+// Mock haptics
+jest.mock('@/utils/haptics', () => ({
+  mediumHaptic: jest.fn().mockResolvedValue(undefined),
+}));
 
 import { SwipeableRow } from '../SwipeableRow';
 
@@ -137,7 +142,7 @@ describe('SwipeableRow', () => {
       expect(checkmarkIcon).toBeTruthy();
     });
 
-    it('deve chamar onPress quando leftAction é clicado', () => {
+    it('deve chamar onPress quando leftAction é clicado', async () => {
       const leftActions = [
         { icon: 'checkmark', label: 'Done', color: '#4CAF50', onPress: mockAction },
       ];
@@ -149,7 +154,9 @@ describe('SwipeableRow', () => {
       );
 
       fireEvent.press(getByText('Done'));
-      expect(mockAction).toHaveBeenCalledTimes(1);
+      await waitFor(() => {
+        expect(mockAction).toHaveBeenCalledTimes(1);
+      });
     });
 
     it('não deve renderizar leftActions quando array vazio', () => {
@@ -216,7 +223,7 @@ describe('SwipeableRow', () => {
       expect(trashIcon).toBeTruthy();
     });
 
-    it('deve chamar onPress quando rightAction é clicado', () => {
+    it('deve chamar onPress quando rightAction é clicado', async () => {
       const rightActions = [
         { icon: 'trash', label: 'Delete', color: '#F44336', onPress: mockAction },
       ];
@@ -228,7 +235,9 @@ describe('SwipeableRow', () => {
       );
 
       fireEvent.press(getByText('Delete'));
-      expect(mockAction).toHaveBeenCalledTimes(1);
+      await waitFor(() => {
+        expect(mockAction).toHaveBeenCalledTimes(1);
+      });
     });
 
     it('não deve renderizar rightActions quando array vazio', () => {

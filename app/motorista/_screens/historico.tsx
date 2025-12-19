@@ -681,7 +681,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   listContainer: {
     padding: 16,
-    paddingBottom: 100, // Account for tab bar (60) + safe area
+    paddingBottom: theme.spacing.md, // Margem de respiro (tab bar não sobrepõe)
   },
   emptyContainer: {
     padding: 60,

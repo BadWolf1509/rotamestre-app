@@ -7,8 +7,11 @@ import {
   Animated,
   TouchableOpacity,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
+
+import { mediumHaptic } from '@/utils/haptics';
 
 const { width: screenWidth } = Dimensions.get('window');
 const SWIPE_THRESHOLD = screenWidth * 0.25;
@@ -17,7 +20,8 @@ interface SwipeAction {
   icon: string;
   label: string;
   color: string;
-  onPress: () => void;
+  onPress: () => void | Promise<void>;
+  loading?: boolean;
 }
 
 interface SwipeableRowProps {
@@ -64,16 +68,22 @@ export function SwipeableRow({
             >
               <TouchableOpacity
                 style={styles.actionContent}
-                onPress={() => {
+                onPress={async () => {
+                  await mediumHaptic();
                   swipeableRef.current?.close();
                   action.onPress();
                 }}
+                disabled={action.loading}
               >
-                <Ionicons
-                  name={action.icon as any}
-                  size={24}
-                  color="#fff"
-                />
+                {action.loading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Ionicons
+                    name={action.icon as any}
+                    size={24}
+                    color="#fff"
+                  />
+                )}
                 <Text style={styles.actionText}>{action.label}</Text>
               </TouchableOpacity>
             </Animated.View>
@@ -110,16 +120,22 @@ export function SwipeableRow({
             >
               <TouchableOpacity
                 style={styles.actionContent}
-                onPress={() => {
+                onPress={async () => {
+                  await mediumHaptic();
                   swipeableRef.current?.close();
                   action.onPress();
                 }}
+                disabled={action.loading}
               >
-                <Ionicons
-                  name={action.icon as any}
-                  size={24}
-                  color="#fff"
-                />
+                {action.loading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Ionicons
+                    name={action.icon as any}
+                    size={24}
+                    color="#fff"
+                  />
+                )}
                 <Text style={styles.actionText}>{action.label}</Text>
               </TouchableOpacity>
             </Animated.View>

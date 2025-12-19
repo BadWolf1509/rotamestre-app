@@ -48,7 +48,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   const [sessionToken] = useState(() => generateSessionToken());
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Limpar suggestions quando value Ã© limpo externamente
+  // Limpar suggestions quando value é limpo externamente
   useEffect(() => {
     if (value === '') {
       setSuggestions([]);
@@ -56,7 +56,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
     }
   }, [value]);
 
-  // Buscar sugestÃµes com debounce
+  // Buscar sugestões com debounce
   useEffect(() => {
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
@@ -69,7 +69,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
       return;
     }
 
-    // NÃ£o mostrar loading imediatamente - sÃ³ apÃ³s o debounce
+    // Não mostrar loading imediatamente - só após o debounce
     debounceTimer.current = setTimeout(async () => {
       setIsLoading(true);
       setShowSuggestions(true);
@@ -83,7 +83,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
       } finally {
         setIsLoading(false);
       }
-    }, 1000); // 1000ms de debounce (1 segundo = sem interrupÃ§Ãµes)
+    }, 1000); // 1000ms de debounce (1 segundo = sem interrupções)
 
     return () => {
       if (debounceTimer.current) {
@@ -219,7 +219,7 @@ export const AddressAutocomplete = React.memo(
   AddressAutocompleteComponent,
   (prevProps, nextProps) => {
     // Comparar apenas value, placeholder, error e multiline
-    // Ignorar funÃ§Ãµes (onChangeText, onSelectAddress) para evitar re-renders
+    // Ignorar funções (onChangeText, onSelectAddress) para evitar re-renders
     return (
       prevProps.value === nextProps.value &&
       prevProps.placeholder === nextProps.placeholder &&
@@ -229,7 +229,7 @@ export const AddressAutocomplete = React.memo(
   }
 );
 
-// Gerar session token Ãºnico para agrupar chamadas
+// Gerar session token único para agrupar chamadas
 function generateSessionToken(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
