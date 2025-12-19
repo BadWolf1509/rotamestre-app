@@ -25,7 +25,11 @@ jest.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
       getUser: jest.fn(),
+      getSession: jest.fn(),
       signOut: jest.fn(),
+      onAuthStateChange: jest.fn(() => ({
+        data: { subscription: { unsubscribe: jest.fn() } },
+      })),
     },
     from: jest.fn(),
   },
@@ -61,6 +65,10 @@ describe('DrawerMenu Component', () => {
     mockSelect.mockReturnValue({ eq: mockEq });
 
     supabase.auth.getUser.mockResolvedValue(mockUserData);
+    supabase.auth.getSession.mockResolvedValue({
+      data: { session: { user: { id: '123' } } },
+      error: null,
+    });
     supabase.from.mockReturnValue({ select: mockSelect });
     supabase.auth.signOut.mockResolvedValue({ error: null });
   });
@@ -429,7 +437,7 @@ describe('DrawerMenu Component', () => {
     it('deve carregar perfil quando drawer fica visível', async () => {
       const { supabase } = require('@/lib/supabase');
 
-      const { rerender } = render(
+      const { rerender, getByText } = render(
         <DrawerMenu visible={false} onClose={mockOnClose} />
       );
 
@@ -438,8 +446,9 @@ describe('DrawerMenu Component', () => {
 
       rerender(<DrawerMenu visible={true} onClose={mockOnClose} />);
 
+      // Verifica que o perfil foi carregado (nome aparece)
       await waitFor(() => {
-        expect(supabase.auth.getUser).toHaveBeenCalled();
+        expect(getByText('João Silva')).toBeTruthy();
       });
     });
   });
