@@ -10,7 +10,9 @@ export type NotificationType =
   | 'rota_atrasada'
   | 'parada_pulada'
   | 'sos_acionado'
-  | 'parada_reaberta';
+  | 'parada_reaberta'
+  | 'nova_rota_atribuida'
+  | 'rota_nao_executada';
 
 export interface Notificacao {
   id: string;

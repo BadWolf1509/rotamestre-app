@@ -103,7 +103,7 @@ export function ParadaBottomSheet({
       case 'concluida':
         return colors.success;
       case 'em_andamento':
-        return colors.primary;
+        return colors.info;
       case 'pendente':
         return colors.warning;
       default:

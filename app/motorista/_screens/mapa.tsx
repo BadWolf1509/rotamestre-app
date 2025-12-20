@@ -63,7 +63,7 @@ export default function MapaMotorista() {
         .in('status', ['pendente', 'em_andamento'])
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (rotasError || !rotasData) {
         setRota(null);

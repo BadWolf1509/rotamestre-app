@@ -170,7 +170,7 @@ function MotoristaInicioContent() {
         break;
 
       case 'completed':
-        refreshRoute();
+        router.push('/motorista/resumo');
         break;
 
       case 'no-route':
@@ -329,9 +329,9 @@ function MotoristaInicioContent() {
 
       case 'completed':
         return {
-          icon: 'refresh',
-          color: theme.colors.gray500,
-          label: 'Atualizar',
+          icon: 'document-text',
+          color: theme.colors.primary,
+          label: 'Detalhes',
         };
 
       case 'no-route':

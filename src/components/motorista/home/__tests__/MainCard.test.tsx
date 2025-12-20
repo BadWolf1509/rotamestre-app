@@ -282,8 +282,10 @@ describe('MainCard', () => {
 
         const { getByText } = render(<MainCard {...props} />);
 
-        expect(getByText('Rota Concluída')).toBeTruthy();
+        // UI atualizada: agora mostra "Parabéns!" com métricas em 3 colunas
+        expect(getByText('Parabéns!')).toBeTruthy();
         expect(getByText('40 km')).toBeTruthy();
+        expect(getByText('Ver Detalhes da Rota')).toBeTruthy();
     });
 
     it('deve chamar onPress quando tocado em active', () => {

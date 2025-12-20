@@ -58,6 +58,10 @@ export function NotificationList({ onClose }: NotificationListProps) {
         return 'warning';
       case 'parada_reaberta':
         return 'refresh-circle';
+      case 'nova_rota_atribuida':
+        return 'car';
+      case 'rota_nao_executada':
+        return 'alert-circle';
       default:
         return 'notifications';
     }
@@ -81,6 +85,10 @@ export function NotificationList({ onClose }: NotificationListProps) {
         return '#dc2626'; // red-600 (emergência)
       case 'parada_reaberta':
         return '#f59e0b'; // amber
+      case 'nova_rota_atribuida':
+        return '#FF8C42'; // primary (laranja)
+      case 'rota_nao_executada':
+        return '#f59e0b'; // amber (aviso)
       default:
         return '#64748b'; // gray
     }

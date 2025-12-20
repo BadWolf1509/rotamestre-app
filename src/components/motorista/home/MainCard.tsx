@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Animated, ActivityIndicator } from 'react-native';
 
@@ -8,6 +9,7 @@ import { RouteStatus } from '@/context/RouteStatusContext';
 import { useDistanceToStop } from '@/hooks/useDistanceToStop';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
+import { successHaptic } from '@/utils/haptics';
 import { defaultTheme, useUnistyles } from '@/utils/styles';
 
 /**
@@ -59,6 +61,7 @@ export function MainCard({
   onPress,
 }: MainCardProps) {
   const { theme } = useUnistyles();
+  const router = useRouter();
   const { userData } = useUser();
   const motoristaId = userData?.id;
   const [stats, setStats] = useState<MotoristaStats>({
@@ -70,10 +73,15 @@ export function MainCard({
     distanciaHoje: 0,
   });
   const [streak, setStreak] = useState(0);
+  const [celebrationTriggered, setCelebrationTriggered] = useState(false);
 
   // Animação de entrada do card
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
+
+  // Animação de celebração (checkmark)
+  const celebrationScale = useRef(new Animated.Value(0)).current;
+  const celebrationOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -253,13 +261,47 @@ export function MainCard({
     }
   }, [motoristaId]);
 
+  // Carregar stats e streak para estados relevantes
   useEffect(() => {
     if (state === 'no-route' && motoristaId) {
       loadYesterdayStats();
       loadTodayStats();
       loadStreak();
+    } else if (state === 'completed' && motoristaId) {
+      // Também carregar streak no estado completed
+      loadStreak();
     }
   }, [loadYesterdayStats, loadTodayStats, loadStreak, motoristaId, state]);
+
+  // Animação de celebração quando rota é concluída
+  useEffect(() => {
+    if (state === 'completed' && !celebrationTriggered) {
+      setCelebrationTriggered(true);
+
+      // Haptic feedback de sucesso
+      successHaptic();
+
+      // Animar checkmark
+      Animated.parallel([
+        Animated.spring(celebrationScale, {
+          toValue: 1,
+          tension: 50,
+          friction: 3,
+          useNativeDriver: true,
+        }),
+        Animated.timing(celebrationOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else if (state !== 'completed' && celebrationTriggered) {
+      // Reset quando sair do estado completed
+      setCelebrationTriggered(false);
+      celebrationScale.setValue(0);
+      celebrationOpacity.setValue(0);
+    }
+  }, [state, celebrationTriggered, celebrationScale, celebrationOpacity]);
 
   // Renderização baseada no estado
   const renderContent = () => {
@@ -507,7 +549,7 @@ export function MainCard({
               latitude={currentStop.latitude}
               longitude={currentStop.longitude}
               address={currentStop.endereco}
-              size="large"
+              size="medium"
               fallback="static-map"
             />
           </View>
@@ -570,37 +612,82 @@ export function MainCard({
         )
       : '--';
 
-    // Calcular economia (estimado - real)
-    const estimatedMinutes = route?.tempo_total ? route.tempo_total : 0;
-    const actualMinutes = route?.iniciada_em && route?.concluida_em
-      ? Math.floor((new Date(route.concluida_em).getTime() - new Date(route.iniciada_em).getTime()) / 60000)
-      : 0;
-    const savedMinutes = Math.max(0, estimatedMinutes - actualMinutes);
-    const savedText = savedMinutes > 0 ? `${savedMinutes} min` : '--';
+    // Contar paradas concluídas vs total
+    const paradasConcluidas = paradasReais.filter(p => p.status === 'concluida').length;
+    const taxaSucesso = paradasReais.length > 0
+      ? Math.round((paradasConcluidas / paradasReais.length) * 100)
+      : 100;
+
+    // Mensagem motivacional baseada em performance
+    const getMensagemMotivacional = () => {
+      if (taxaSucesso === 100) return 'Todas as entregas concluídas!';
+      if (taxaSucesso >= 90) return 'Excelente trabalho!';
+      return 'Bom trabalho!';
+    };
 
     return (
       <View style={styles.content}>
-        <Text style={styles.icon}>✅</Text>
-        <Text style={styles.title}>Rota Concluída</Text>
+        {/* Checkmark animado */}
+        <View style={styles.celebrationContainer}>
+          <Animated.View
+            style={[
+              styles.celebrationCircle,
+              {
+                backgroundColor: theme.colors.successBg,
+                opacity: celebrationOpacity,
+                transform: [{ scale: celebrationScale }],
+              },
+            ]}
+          >
+            <Ionicons name="checkmark-circle" size={56} color={theme.colors.success} />
+          </Animated.View>
+        </View>
 
-        <View style={styles.statsGrid}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{totalTime}</Text>
-            <Text style={styles.statLabel}>Tempo Total</Text>
+        <Text style={styles.title}>Parabéns!</Text>
+        <Text style={styles.subtitle}>{getMensagemMotivacional()}</Text>
+
+        {/* Streak Badge */}
+        {streak > 0 && (
+          <View style={[styles.streakBadge, { backgroundColor: theme.colors.warningBg }]}>
+            <Ionicons name="flame" size={18} color={theme.colors.warning} />
+            <Text style={[styles.streakText, { color: theme.colors.warningText }]}>
+              {streak} {streak === 1 ? 'dia' : 'dias'} seguidos!
+            </Text>
           </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{paradasReais.length}</Text>
-            <Text style={styles.statLabel}>Paradas</Text>
+        )}
+
+        {/* Stats em 3 colunas */}
+        <View style={styles.completedStatsRow}>
+          <View style={styles.completedStatItem}>
+            <Ionicons name="time-outline" size={20} color={theme.colors.gray500} />
+            <Text style={styles.completedStatValue}>{totalTime}</Text>
+            <Text style={styles.completedStatLabel}>Tempo</Text>
           </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{route?.distancia_total || 0} km</Text>
-            <Text style={styles.statLabel}>Distância</Text>
+          <View style={[styles.completedStatDivider, { backgroundColor: theme.colors.gray200 }]} />
+          <View style={styles.completedStatItem}>
+            <Ionicons name="location-outline" size={20} color={theme.colors.gray500} />
+            <Text style={styles.completedStatValue}>{paradasConcluidas}/{paradasReais.length}</Text>
+            <Text style={styles.completedStatLabel}>Paradas</Text>
           </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statNumber, { color: theme.colors.success }]}>{savedText}</Text>
-            <Text style={styles.statLabel}>Economia</Text>
+          <View style={[styles.completedStatDivider, { backgroundColor: theme.colors.gray200 }]} />
+          <View style={styles.completedStatItem}>
+            <Ionicons name="speedometer-outline" size={20} color={theme.colors.gray500} />
+            <Text style={styles.completedStatValue}>{route?.distancia_total || 0} km</Text>
+            <Text style={styles.completedStatLabel}>Distância</Text>
           </View>
         </View>
+
+        {/* Botão Ver Detalhes */}
+        <TouchableOpacity
+          style={[styles.detailsButton, { backgroundColor: theme.colors.primary }]}
+          onPress={() => router.push('/motorista/resumo')}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="document-text-outline" size={18} color={theme.colors.white} />
+          <Text style={[styles.detailsButtonText, { color: theme.colors.white }]}>
+            Ver Detalhes da Rota
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -936,6 +1023,60 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.gray900,
     marginBottom: 4,
+  },
+  // Estilos para estado completed (celebração)
+  celebrationContainer: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  celebrationCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  completedStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingVertical: 12,
+    backgroundColor: colors.gray50,
+    borderRadius: 12,
+  },
+  completedStatItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  completedStatValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.gray900,
+  },
+  completedStatLabel: {
+    fontSize: 11,
+    color: colors.gray500,
+    fontWeight: '500',
+  },
+  completedStatDivider: {
+    width: 1,
+    height: 40,
+  },
+  detailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  detailsButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

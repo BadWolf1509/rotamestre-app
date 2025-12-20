@@ -26,6 +26,8 @@ export interface RouteData {
   tempo_total?: number;
   iniciada_em?: string;
   concluida_em?: string;
+  data?: string;
+  created_at?: string;
 }
 
 export interface ParadaData {
@@ -77,8 +79,17 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   // Determina o status da rota (excluindo checkpoints da contagem)
+  // Inclui reset diário às 00:00 e timeout de 1h para estado completed
   const getRouteStatus = (): RouteStatus => {
     if (!route) return 'no-route';
+
+    // Reset diário: rotas de dias anteriores não são exibidas
+    const hoje = new Date().toISOString().split('T')[0]; // "2025-12-19"
+    const rotaData = route.data || route.created_at?.split('T')[0];
+
+    if (rotaData && rotaData < hoje) {
+      return 'no-route'; // Rota expirada (dia anterior)
+    }
 
     if (route.status === 'pendente') return 'pending';
 
@@ -91,7 +102,19 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
       return 'active';
     }
 
-    if (route.status === 'concluida') return 'completed';
+    if (route.status === 'concluida') {
+      // Timeout de 1 hora: após esse período, mostrar no-route
+      if (route.concluida_em) {
+        const concluidaEm = new Date(route.concluida_em).getTime();
+        const agora = Date.now();
+        const umaHoraMs = 60 * 60 * 1000; // 1 hora em milissegundos
+
+        if (agora - concluidaEm > umaHoraMs) {
+          return 'no-route'; // Celebração expirou
+        }
+      }
+      return 'completed';
+    }
 
     return 'no-route';
   };
@@ -150,6 +173,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
           iniciada_em,
           concluida_em,
           created_at,
+          data,
           unidades (nome)
         `)
         .eq('motorista_id', motoristaId)

@@ -170,8 +170,9 @@ COMMENT ON TABLE spatial_ref_sys IS
 | **Críticas** | 3 | ✅ Aplicadas |
 | **Performance** | 1 | ⏳ Pendente |
 | **Opcionais** | 1 | ℹ️ Ignorável |
+| **Notificações** | 2 | ✅ Aplicadas |
 
-**Total Aplicado:** 3/5 migrations (60%)
+**Total Aplicado:** 5/7 migrations (71%)
 **Avisos Resolvidos:** 13 avisos críticos ✅
 
 ---
@@ -224,4 +225,44 @@ SELECT * FROM rotas WHERE motorista_id = auth.uid();
 
 ---
 
-**Última atualização:** 05/11/2025
+---
+
+### ✅ Migration 6: Notificação "Nova Rota Atribuída"
+
+**Data:** 19/12/2025
+**Arquivo:** `20251219000000_add_nova_rota_notification.sql`
+**Objetivo:** Notificar motorista automaticamente quando gestor atribui rota
+
+**Funções criadas:**
+- `notify_motorista_nova_rota()` - Trigger para UPDATE (rota atribuída depois)
+- `notify_motorista_nova_rota_insert()` - Trigger para INSERT (rota criada com motorista)
+
+**Triggers:**
+- `trigger_nova_rota_atribuida` - Dispara no UPDATE de rotas
+- `trigger_nova_rota_atribuida_insert` - Dispara no INSERT de rotas
+
+**Tipo de notificação:** `nova_rota_atribuida`
+
+**Status:** ✅ Aplicado em produção
+
+---
+
+### ✅ Migration 7: Expirar Rotas Pendentes de Dias Anteriores
+
+**Data:** 19/12/2025
+**Arquivo:** `20251219000001_expire_old_pending_routes.sql`
+**Objetivo:** Marcar rotas pendentes de ontem como `nao_executada` e notificar gestor
+
+**Função criada:**
+- `expire_old_pending_routes()` - Retorna `expired_count` e `notifications_sent`
+
+**Edge Function:** `supabase/functions/expire-routes/index.ts`
+**Cron Job:** GitHub Actions `.github/workflows/expire-routes.yml` (07:00 Brasília)
+
+**Tipo de notificação:** `rota_nao_executada`
+
+**Status:** ✅ Aplicado em produção
+
+---
+
+**Última atualização:** 19/12/2025

@@ -64,7 +64,7 @@ export default function ResumoMotorista() {
         .eq('status', 'concluida')
         .order('concluida_em', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (rotasError || !rotasData) {
         setRota(null);

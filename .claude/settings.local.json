@@ -261,7 +261,13 @@
       "Bash(node scripts/create-test-users.js:*)",
       "Bash(grep:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat\\(motorista\\): centraliza fluxo de conclusão de parada com foto\n\nImplementa componente StopCompletionFlow que unifica a lógica de conclusão\nde paradas em todas as telas do motorista, garantindo que a foto de\ncomprovante seja sempre solicitada.\n\nMudanças principais:\n- Novo componente StopCompletionFlow com fluxo foto → confirmação → conclusão\n- DrawerMenu: \"Falar com Gestor\" com menu de motivos e suporte web\n- Novas telas: SOS/Emergência, Meu Desempenho, Ajuda, Configurações\n- Corrige Alert.alert para funcionar na web \\(window.confirm\\)\n- Reorganiza navegação do motorista em tabs\n- Adiciona testes E2E com Playwright\n- Migration: função get_gestor_contato para bypass de RLS\n\nArquivos criados:\n- src/components/motorista/StopCompletionFlow.tsx\n- src/lib/appVersion.ts\n- app/motorista/sos.tsx, desempenho.tsx, ajuda.tsx\n- app/motorista/perfil/configuracoes.tsx\n- database/migrations/20251218000000_fn_get_gestor_contato.sql\n- e2e/* \\(testes end-to-end\\)\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(npx cspell:*)"
+      "Bash(npx cspell:*)",
+      "Bash(cd:*)",
+      "Bash(supabase --version:*)",
+      "Bash(node database/apply-migration-direct.js:*)",
+      "Bash(gh --version:*)",
+      "Bash(gh secret set:*)",
+      "Bash(gh secret:*)"
     ],
     "deny": [],
     "ask": []

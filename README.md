@@ -232,7 +232,7 @@ EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=your-google-maps-api-key-here
 
 **Issues:** https://github.com/BadWolf1509/rotamestre-app/issues
 
-**Dev:** Wellinton Ribeiro (dev solo)
+**Dev:** Wellington Ribeiro (dev solo)
 
 ---
 
