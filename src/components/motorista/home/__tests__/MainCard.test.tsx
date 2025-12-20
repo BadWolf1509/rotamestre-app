@@ -75,6 +75,52 @@ jest.mock('@expo/vector-icons', () => ({
     Ionicons: 'Ionicons',
 }));
 
+// Mock expo-router
+jest.mock('expo-router', () => ({
+    useRouter: () => ({
+        push: jest.fn(),
+        back: jest.fn(),
+    }),
+}));
+
+// Mock useMilestones
+jest.mock('@/hooks/useMilestones', () => ({
+    useMilestones: () => ({
+        isLoading: false,
+        totalEntregas: 0,
+        currentMilestone: null,
+        nextMilestone: null,
+        progressToNext: 0,
+        averagePerDay: 0,
+        weeklyData: [],
+    }),
+}));
+
+// Mock useSwipeHint
+jest.mock('@/hooks/useSwipeHint', () => ({
+    useSwipeHint: () => ({
+        showFullHint: false,
+        hideCompletely: true,
+    }),
+}));
+
+// Mock useDistanceToStop
+jest.mock('@/hooks/useDistanceToStop', () => ({
+    useDistanceToStop: () => ({
+        isLoading: false,
+        distanceKm: '2.5 km',
+        durationText: '5 min',
+        distanceMeters: 2500,
+        durationSeconds: 300,
+    }),
+}));
+
+// Mock haptics
+jest.mock('@/utils/haptics', () => ({
+    successHaptic: jest.fn(),
+    warningHaptic: jest.fn(),
+}));
+
 describe('MainCard', () => {
     const defaultProps = {
         state: 'no-route' as const,
@@ -86,8 +132,9 @@ describe('MainCard', () => {
     it('deve renderizar estado no-route', () => {
         const { getByText } = render(<MainCard {...defaultProps} />);
 
-        expect(getByText('Sem rota no momento')).toBeTruthy();
-        expect(getByText('Aguardando atribuição de nova rota')).toBeTruthy();
+        // UI atualizada: agora mostra mensagens motivacionais dinâmicas
+        // Verifica elemento que sempre está presente
+        expect(getByText('Aguardando nova rota...')).toBeTruthy();
     });
 
     it('deve mostrar dica do dia em no-route', () => {
@@ -275,15 +322,15 @@ describe('MainCard', () => {
             state: 'completed' as const,
             route: { distancia_total: 40 },
             paradas: [
-                { id: '1' },
-                { id: '2' },
+                { id: '1', status: 'concluida' },
+                { id: '2', status: 'concluida' },
             ],
         };
 
         const { getByText } = render(<MainCard {...props} />);
 
-        // UI atualizada: agora mostra "Parabéns!" com métricas em 3 colunas
-        expect(getByText('Parabéns!')).toBeTruthy();
+        // UI atualizada: com 100% de sucesso mostra "Perfeição!"
+        expect(getByText('Perfeição!')).toBeTruthy();
         expect(getByText('40 km')).toBeTruthy();
         expect(getByText('Ver Detalhes da Rota')).toBeTruthy();
     });

@@ -10,6 +10,15 @@ jest.mock('@/hooks/useUser', () => ({
     useUser: () => ({ userData: mockUserData }),
 }));
 
+// Mock useAuth
+jest.mock('@/hooks/useAuth', () => ({
+    useAuth: () => ({
+        session: { access_token: 'mock-token' },
+        user: { id: 'motorista-1' },
+        loading: false,
+    }),
+}));
+
 // Mock supabase
 jest.mock('@/lib/supabase', () => {
     const mockOn = jest.fn().mockReturnThis();
@@ -37,9 +46,36 @@ jest.mock('@/lib/supabase', () => {
             from: jest.fn(() => createQueryMock()),
             channel: mockChannel,
             removeChannel: jest.fn(),
+            realtime: {
+                setAuth: jest.fn(),
+            },
         },
     };
 });
+
+// Mock utilities used by RouteStatusContext
+jest.mock('@/utils/browserNotification', () => ({
+    notifyNewRouteWeb: jest.fn(),
+}));
+
+jest.mock('@/utils/haptics', () => ({
+    warningHaptic: jest.fn(),
+    successHaptic: jest.fn(),
+}));
+
+jest.mock('@/utils/notificationSound', () => ({
+    playNotificationSound: jest.fn(),
+}));
+
+jest.mock('@/lib/notifications', () => ({
+    notifyRoutePending: jest.fn(),
+}));
+
+jest.mock('@/services/unifiedLocationTracking', () => ({
+    startBackgroundTracking: jest.fn(),
+    stopBackgroundTracking: jest.fn(),
+    requestAndStartTracking: jest.fn(),
+}));
 
 // Test component to access context
 function TestComponent() {

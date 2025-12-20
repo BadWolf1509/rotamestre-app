@@ -51,6 +51,9 @@ jest.mock('@/lib/supabase', () => ({
       subscribe: jest.fn(),
     })),
     removeChannel: jest.fn(),
+    realtime: {
+      setAuth: jest.fn(),
+    },
   },
 }));
 
@@ -61,10 +64,33 @@ jest.mock('../useUser', () => ({
   }),
 }));
 
-jest.mock('../useToast', () => ({
-  useToast: () => ({
-    showToast: jest.fn(),
+jest.mock('../useAuth', () => ({
+  useAuth: () => ({
+    session: { access_token: 'mock-token' },
+    user: { id: 'user-1' },
+    loading: false,
   }),
+}));
+
+// Mock utilities
+jest.mock('@/utils/browserNotification', () => ({
+  notifyGenericWeb: jest.fn(),
+}));
+
+jest.mock('@/utils/haptics', () => ({
+  warningHaptic: jest.fn(),
+}));
+
+jest.mock('@/utils/notificationSound', () => ({
+  playNotificationSound: jest.fn(),
+}));
+
+jest.mock('@/utils/toast', () => ({
+  toast: {
+    info: jest.fn(),
+    error: jest.fn(),
+    success: jest.fn(),
+  },
 }));
 
 describe('useNotifications', () => {

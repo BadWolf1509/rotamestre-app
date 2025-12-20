@@ -270,7 +270,9 @@
       "Bash(gh secret:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat\\(motorista\\): melhora estado ''rota concluída'' com celebração e notificações\n\n- Adiciona animação de celebração \\(checkmark animado + haptic feedback\\)\n- Novo layout 3 colunas: Tempo | Paradas | Distância\n- Adiciona streak badge no estado completed\n- FAB agora mostra \"Detalhes\" ao invés de \"Atualizar\"\n- Implementa reset diário \\(rotas de dias anteriores = no-route\\)\n- Implementa timeout de 1 hora para estado completed\n- Adiciona notificação ''nova_rota_atribuida'' \\(trigger no banco\\)\n- Adiciona notificação ''rota_nao_executada'' para gestores\n- Cria Edge Function expire-routes para expirar rotas pendentes antigas\n- Configura cron job via GitHub Actions \\(07:00 Brasília\\)\n- Atualiza testes do MainCard\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(npx supabase db execute:*)",
-      "Bash(npx expo:*)"
+      "Bash(npx expo:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat\\(notificacoes\\): sistema completo de notificações em tempo real\n\n- Adiciona Supabase Realtime para notificações e rotas\n- Implementa feedback multi-plataforma \\(som, haptic, browser notification\\)\n- Cria browserNotification.ts para notificações web\n- Cria notificationSound.ts com Web Audio API e expo-av\n- Adiciona NotificationBell responsivo ao header do motorista\n- Configura Toast com tipos info e warning\n- Adiciona migrations para habilitar Realtime nas tabelas\n- Cria Edge Function send-push-notification para push mobile\n- Adiciona componentes MilestoneCard, NextStopPreview, WeeklyChart\n- Implementa hooks useMilestones e useSwipeHint\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git tag:*)"
     ],
     "deny": [],
     "ask": []
