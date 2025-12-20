@@ -1,6 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { useNotifications } from '@/hooks/useNotifications';
 
@@ -13,9 +21,22 @@ interface NotificationBellProps {
 export function NotificationBell({ variant = 'desktop' }: NotificationBellProps) {
   const { naoLidas } = useNotifications();
   const [modalVisible, setModalVisible] = useState(false);
+  const { width: windowWidth } = useWindowDimensions();
 
   const iconSize = variant === 'desktop' ? 24 : 26;
   const badgeSize = variant === 'desktop' ? 18 : 20;
+
+  // Responsividade: mobile < 480px, tablet < 768px
+  const isMobileWidth = windowWidth < 480;
+  const isTabletWidth = windowWidth < 768;
+
+  // Modal width responsivo
+  const getModalWidth = () => {
+    if (Platform.OS !== 'web') return '90%';
+    if (isMobileWidth) return '95%';
+    if (isTabletWidth) return '85%';
+    return 480;
+  };
 
   return (
     <>
@@ -55,7 +76,7 @@ export function NotificationBell({ variant = 'desktop' }: NotificationBellProps)
           testID="modal-overlay"
         >
           <Pressable
-            style={styles.modalContent}
+            style={[styles.modalContent, { width: getModalWidth() }]}
             onPress={(e) => e.stopPropagation()}
             testID="modal-content"
           >
@@ -104,7 +125,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    width: Platform.OS === 'web' ? 480 : '90%',
     maxWidth: 600,
     maxHeight: '80%',
     backgroundColor: '#FFFFFF',

@@ -7,6 +7,7 @@ import { Tabs } from 'expo-router';
 import { Platform, Pressable, View, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { NotificationBell } from '@/components/NotificationBell';
 import { useDrawerMenu } from '@/context/DrawerMenuContext';
 import { useRouteStatus } from '@/context/RouteStatusContext';
 import { colors } from '@/lib/design-tokens';
@@ -89,6 +90,7 @@ export default function TabLayout() {
             <Ionicons name="menu" size={24} color={colors.white} />
           </Pressable>
         ),
+        headerRight: () => <NotificationBell variant="mobile" />,
       }}
     >
       <Tabs.Screen

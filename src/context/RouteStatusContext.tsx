@@ -4,17 +4,23 @@ import React, {
   useContext,
   useEffect,
   useState,
+  useRef,
   ReactNode,
 } from 'react';
 import { Platform } from 'react-native';
 
+import { useAuth } from '@/hooks/useAuth';
 import { useUser } from '@/hooks/useUser';
+import { notifyRoutePending } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import {
   startBackgroundTracking,
   stopBackgroundTracking,
   requestAndStartTracking,
 } from '@/services/unifiedLocationTracking';
+import { notifyNewRouteWeb } from '@/utils/browserNotification';
+import { warningHaptic } from '@/utils/haptics';
+import { playNotificationSound } from '@/utils/notificationSound';
 
 export type RouteStatus = 'no-route' | 'pending' | 'active' | 'last-stop' | 'ready-to-complete' | 'completed';
 
@@ -73,10 +79,18 @@ const RouteStatusContext = createContext<RouteStatusContextData>({} as RouteStat
 
 export function RouteStatusProvider({ children }: { children: ReactNode }) {
   const { userData, loading: userLoading } = useUser();
+  const { session } = useAuth();
   const motoristaId = userData?.id;
   const [route, setRoute] = useState<RouteData | null>(null);
   const [paradas, setParadas] = useState<ParadaData[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Refs para controle do Realtime
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const isSubscribed = useRef(false);
+
+  // DEBUG: Verificar se o código está carregado
+  console.log('[RouteStatusProvider] Render - motoristaId:', motoristaId, 'hasSession:', !!session?.access_token);
 
   // Determina o status da rota (excluindo checkpoints da contagem)
   // Inclui reset diário às 00:00 e timeout de 1h para estado completed
@@ -401,22 +415,96 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     loadActiveRoute();
   }, [loadActiveRoute]);
 
-  // Realtime subscription
+  // Realtime subscription com autenticação e debounce
   useEffect(() => {
-    if (!motoristaId) return;
+    // Aguardar autenticação E motorista ID
+    if (!motoristaId || !session?.access_token) {
+      console.log('[Realtime:Motorista] Aguardando autenticação...');
+      return;
+    }
+
+    // Evitar reconexão desnecessária
+    if (isSubscribed.current) {
+      console.log('[Realtime:Motorista] Já subscrito, ignorando...');
+      return;
+    }
+
+    console.log('[Realtime:Motorista] Iniciando subscription para motorista:', motoristaId);
+
+    // CRÍTICO: Configurar token ANTES de criar o canal
+    // Sem isso, RLS bloqueia os eventos
+    supabase.realtime.setAuth(session.access_token);
+
+    isSubscribed.current = true;
+
+    // Função de debounce para evitar múltiplas chamadas
+    const debouncedReload = () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+      debounceTimer.current = setTimeout(() => {
+        console.log('[Realtime:Motorista] Recarregando rota...');
+        loadActiveRoute();
+      }, 500); // 500ms debounce
+    };
 
     const channel = supabase
-      .channel('route-updates')
+      .channel(`motorista-routes-${motoristaId}`)
+      // INSERT e UPDATE usam filtro (mais eficiente)
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'rotas',
           filter: `motorista_id=eq.${motoristaId}`,
         },
-        () => {
-          loadActiveRoute();
+        async (payload) => {
+          console.log('[Realtime:Motorista] Nova rota atribuída:', payload.new);
+
+          // Feedback imediato para o motorista
+          const unidadeNome = (payload.new as any).unidades?.nome || 'Nova rota';
+
+          if (Platform.OS === 'web') {
+            // Web: Browser notification + som
+            notifyNewRouteWeb(unidadeNome);
+            playNotificationSound();
+          } else {
+            // Mobile: Haptic + Local notification + som
+            warningHaptic();
+            playNotificationSound();
+            notifyRoutePending(unidadeNome);
+          }
+
+          debouncedReload();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'rotas',
+          filter: `motorista_id=eq.${motoristaId}`,
+        },
+        (payload) => {
+          console.log('[Realtime:Motorista] Rota atualizada:', payload.new);
+          debouncedReload();
+        }
+      )
+      // DELETE sem filtro (Replica Identity não está FULL)
+      // Verifica se a rota deletada é a atual
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'rotas',
+        },
+        (payload) => {
+          console.log('[Realtime:Motorista] Rota deletada:', payload.old);
+          // Sempre recarregar em DELETE - pode ser a rota atual
+          debouncedReload();
         }
       )
       .on(
@@ -426,16 +514,28 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
           schema: 'public',
           table: 'paradas',
         },
-        () => {
-          loadActiveRoute();
+        (payload) => {
+          console.log('[Realtime:Motorista] Parada alterada:', payload.eventType);
+          debouncedReload();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[Realtime:Motorista] Status:', status);
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error('[Realtime:Motorista] Erro na conexão');
+          isSubscribed.current = false;
+        }
+      });
 
     return () => {
+      console.log('[Realtime:Motorista] Removendo subscription');
+      isSubscribed.current = false;
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
       supabase.removeChannel(channel);
     };
-  }, [loadActiveRoute, motoristaId]);
+  }, [loadActiveRoute, motoristaId, session?.access_token]);
 
   return (
     <RouteStatusContext.Provider

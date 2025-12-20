@@ -1,10 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
 import type { Notificacao, NotificacaoComDetalhes } from '@/types/notifications';
+import { notifyGenericWeb } from '@/utils/browserNotification';
+import { warningHaptic } from '@/utils/haptics';
+import { playNotificationSound } from '@/utils/notificationSound';
+import { toast } from '@/utils/toast';
 
-import { useToast } from './useToast';
+import { useAuth } from './useAuth';
 import { useUser } from './useUser';
 
 interface UseNotificationsReturn {
@@ -18,10 +22,13 @@ interface UseNotificationsReturn {
 
 export function useNotifications(): UseNotificationsReturn {
   const { userData } = useUser();
-  const { showToast } = useToast();
+  const { session } = useAuth();
   const [notificacoes, setNotificacoes] = useState<NotificacaoComDetalhes[]>([]);
   const [naoLidas, setNaoLidas] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  // Ref para controle do Realtime (evita múltiplas subscriptions)
+  const isSubscribed = useRef(false);
 
   const loadNotifications = useCallback(async () => {
     if (!userData?.id) {
@@ -60,10 +67,27 @@ export function useNotifications(): UseNotificationsReturn {
 
   // Realtime subscription para novas notificações
   useEffect(() => {
-    if (!userData?.id) return;
+    if (!userData?.id || !session?.access_token) {
+      console.log('[Realtime:Notificacoes] Aguardando userData ou session...');
+      return;
+    }
+
+    // Evitar reconexão desnecessária
+    if (isSubscribed.current) {
+      console.log('[Realtime:Notificacoes] Já subscrito, ignorando...');
+      return;
+    }
+
+    console.log('[Realtime:Notificacoes] Iniciando subscription para usuario:', userData.id);
+
+    // CRÍTICO: Configurar token ANTES de criar o canal
+    // Sem isso, RLS bloqueia os eventos
+    supabase.realtime.setAuth(session.access_token);
+
+    isSubscribed.current = true;
 
     const channel = supabase
-      .channel('notificacoes-realtime')
+      .channel(`notificacoes-${userData.id}`)
       .on(
         'postgres_changes',
         {
@@ -73,16 +97,26 @@ export function useNotifications(): UseNotificationsReturn {
           filter: `usuario_id=eq.${userData.id}`,
         },
         (payload) => {
+          console.log('[Realtime:Notificacoes] Nova notificação recebida:', payload.new);
           const nova = payload.new as Notificacao;
 
           // Adicionar ao topo da lista
           setNotificacoes((prev) => [nova as NotificacaoComDetalhes, ...prev]);
           setNaoLidas((prev) => prev + 1);
 
-          // Toast notification
+          // Feedback multi-plataforma
           if (Platform.OS === 'web') {
-            showToast(nova.titulo, 'info');
+            // Web: Browser notification + som + toast
+            notifyGenericWeb(nova.titulo, nova.mensagem || 'Nova notificação');
+            playNotificationSound();
+          } else {
+            // Mobile: Haptic + som (push notification já é enviado pelo backend)
+            warningHaptic();
+            playNotificationSound();
           }
+
+          // Toast notification (funciona em todas as plataformas)
+          toast.info(nova.mensagem || 'Nova notificação', nova.titulo);
         }
       )
       .on(
@@ -94,6 +128,7 @@ export function useNotifications(): UseNotificationsReturn {
           filter: `usuario_id=eq.${userData.id}`,
         },
         (payload) => {
+          console.log('[Realtime:Notificacoes] Notificação atualizada:', payload.new);
           const atualizada = payload.new as Notificacao;
 
           setNotificacoes((prev) =>
@@ -107,12 +142,20 @@ export function useNotifications(): UseNotificationsReturn {
           });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[Realtime:Notificacoes] Status:', status);
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error('[Realtime:Notificacoes] Erro na conexão:', status);
+          isSubscribed.current = false;
+        }
+      });
 
     return () => {
+      console.log('[Realtime:Notificacoes] Removendo subscription');
+      isSubscribed.current = false;
       supabase.removeChannel(channel);
     };
-  }, [userData?.id, showToast]);
+  }, [userData?.id, session?.access_token]);
 
   const marcarComoLida = useCallback(
     async (id: string) => {
@@ -128,10 +171,10 @@ export function useNotifications(): UseNotificationsReturn {
         // Atualização local será feita pelo realtime
       } catch (error) {
         console.error('Erro ao marcar notificação como lida:', error);
-        showToast('Erro ao marcar notificação como lida', 'error');
+        toast.error('Erro ao marcar notificação como lida');
       }
     },
-    [userData, showToast]
+    [userData]
   );
 
   const marcarTodasComoLidas = useCallback(async () => {
@@ -148,9 +191,9 @@ export function useNotifications(): UseNotificationsReturn {
       setNaoLidas(0);
     } catch (error) {
       console.error('Erro ao marcar todas como lidas:', error);
-      showToast('Erro ao marcar notificações como lidas', 'error');
+      toast.error('Erro ao marcar notificações como lidas');
     }
-  }, [userData, showToast]);
+  }, [userData]);
 
   const refresh = useCallback(async () => {
     setLoading(true);

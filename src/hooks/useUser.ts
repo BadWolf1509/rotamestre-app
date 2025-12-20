@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
+import { Platform } from 'react-native';
 
 import { useAuth } from './useAuth';
 import { getCache, setCache, clearCache, CACHE_TTL, CACHE_KEYS } from '../lib/cache';
+import { initializePushNotifications, unregisterPushToken } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
 import { Usuario } from '../types/usuario';
 
@@ -108,6 +110,27 @@ export function useUser() {
       clearCache(CACHE_KEYS.USER_DATA(userData.id));
     }
   }, [userId, userData]);
+
+  // Registrar push token quando usuário carregar (mobile only)
+  const pushTokenRegistered = useRef(false);
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+
+    // Registrar token quando usuário estiver carregado
+    if (userData?.id && !pushTokenRegistered.current) {
+      pushTokenRegistered.current = true;
+      initializePushNotifications(userData.id).catch((error) => {
+        console.error('[Push] Erro ao inicializar push:', error);
+      });
+    }
+
+    // Remover token quando logout
+    if (!userId && pushTokenRegistered.current) {
+      pushTokenRegistered.current = false;
+      // Nota: unregisterPushToken precisa do userId, então usamos o último userData
+      // Isso é handled no signOut do useAuth
+    }
+  }, [userData?.id, userId]);
 
   // Verificar se tem múltiplas unidades
   const vinculacoes = userData?.usuario_unidades?.filter(v => v.ativo) || [];

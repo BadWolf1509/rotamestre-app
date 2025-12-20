@@ -7,10 +7,21 @@ import { StreetViewPreview } from '@/components/StreetViewPreview';
 import { SwipeableRow } from '@/components/SwipeableRow';
 import { RouteStatus } from '@/context/RouteStatusContext';
 import { useDistanceToStop } from '@/hooks/useDistanceToStop';
+import { useMilestones } from '@/hooks/useMilestones';
+import { useSwipeHint } from '@/hooks/useSwipeHint';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { successHaptic } from '@/utils/haptics';
+import {
+  getMotivationalMessage,
+  getCompletedMessage,
+  getMilestoneMessage,
+} from '@/utils/motivationalMessages';
 import { defaultTheme, useUnistyles } from '@/utils/styles';
+
+import { MilestoneCard } from './MilestoneCard';
+import { NextStopPreview } from './NextStopPreview';
+import { WeeklyChart } from './WeeklyChart';
 
 /**
  * Formata tempo decorrido entre dois timestamps (ou desde start até agora)
@@ -117,6 +128,22 @@ export function MainCard({
 
   // Filtrar apenas paradas reais (sem checkpoints)
   const paradasReais = paradas.filter(p => p.is_checkpoint !== false);
+
+  // Hook de milestones para estado no-route e completed
+  const milestoneData = useMilestones({
+    motoristaId,
+    enabled: state === 'no-route' || state === 'completed',
+  });
+
+  // Hook para swipe hint inteligente
+  const swipeHint = useSwipeHint();
+
+  // Encontrar próxima parada (para preview) - usa prop nextStop se disponível, senão calcula
+  const upcomingStop = nextStop || paradas.find(p =>
+    p.is_checkpoint !== false &&
+    p.status === 'pendente' &&
+    p.id !== currentStop?.id
+  );
 
   // Load yesterday's stats when no route
   const loadYesterdayStats = useCallback(async () => {
@@ -325,18 +352,23 @@ export function MainCard({
   const renderNoRoute = () => {
     const hasAnyStats = stats.rotasOntem > 0 || stats.paradasOntem > 0 || stats.rotasHoje > 0 || stats.paradasHoje > 0;
 
+    // Mensagem motivacional dinâmica
+    const motivationalMsg = getMotivationalMessage({
+      streak,
+      rotasHoje: stats.rotasHoje,
+      paradasHoje: stats.paradasHoje,
+      isAboveAverage: milestoneData.averagePerDay > 0 && stats.paradasHoje > milestoneData.averagePerDay,
+    });
+
     return (
       <View style={styles.content}>
+        {/* Header com mensagem motivacional */}
         <View style={styles.noRouteHeader}>
           <View style={[styles.noRouteIconContainer, { backgroundColor: theme.colors.gray100 }]}>
-            <Ionicons name="cafe-outline" size={32} color={theme.colors.gray500} />
+            <Text style={styles.motivationalEmoji}>{motivationalMsg.emoji || '☕'}</Text>
           </View>
-          <Text style={styles.title}>Sem rota no momento</Text>
-          <Text style={styles.subtitle}>
-            {hasAnyStats
-              ? 'Confira suas estatísticas'
-              : 'Aguardando atribuição de nova rota'}
-          </Text>
+          <Text style={styles.title}>{motivationalMsg.title}</Text>
+          <Text style={styles.subtitle}>{motivationalMsg.subtitle}</Text>
         </View>
 
         {/* Streak Badge */}
@@ -349,7 +381,22 @@ export function MainCard({
           </View>
         )}
 
-        {hasAnyStats ? (
+        {/* Card de Milestone */}
+        {milestoneData.nextMilestone && (
+          <MilestoneCard data={milestoneData} compact />
+        )}
+
+        {/* Gráfico Semanal */}
+        {milestoneData.weeklyData.length > 0 && (
+          <WeeklyChart
+            data={milestoneData.weeklyData}
+            averagePerDay={milestoneData.averagePerDay}
+            isLoading={milestoneData.isLoading}
+          />
+        )}
+
+        {/* Stats comparativos (HOJE vs ONTEM) */}
+        {hasAnyStats && (
           <View style={styles.statsComparison}>
             {/* Coluna HOJE */}
             <View style={styles.statsColumn}>
@@ -404,7 +451,10 @@ export function MainCard({
               </View>
             </View>
           </View>
-        ) : (
+        )}
+
+        {/* Dica do dia (só se não tiver stats) */}
+        {!hasAnyStats && !milestoneData.nextMilestone && (
           <View style={styles.noStatsContainer}>
             <View style={styles.tipCard}>
               <Ionicons name="bulb-outline" size={20} color={theme.colors.warning} />
@@ -417,6 +467,12 @@ export function MainCard({
             </View>
           </View>
         )}
+
+        {/* Indicador de aguardando rota */}
+        <View style={styles.waitingContainer}>
+          <Ionicons name="time-outline" size={16} color={theme.colors.gray400} />
+          <Text style={styles.waitingText}>Aguardando nova rota...</Text>
+        </View>
       </View>
     );
   };
@@ -567,11 +623,24 @@ export function MainCard({
             )}
           </View>
 
-          {/* Indicador de swipe */}
-          <View style={styles.swipeHint}>
-            <Ionicons name="swap-horizontal" size={16} color={theme.colors.gray400} />
-            <Text style={styles.swipeHintText}>Deslize para ações rápidas</Text>
-          </View>
+          {/* Indicador de swipe inteligente */}
+          {!swipeHint.hideCompletely && (
+            <View style={styles.swipeHint}>
+              <Ionicons name="swap-horizontal" size={16} color={theme.colors.gray400} />
+              {swipeHint.showFullHint && (
+                <Text style={styles.swipeHintText}>Deslize para ações rápidas</Text>
+              )}
+            </View>
+          )}
+
+          {/* Preview da próxima parada */}
+          {upcomingStop && state !== 'last-stop' && (
+            <NextStopPreview
+              nextStop={upcomingStop}
+              currentLocation={location}
+              totalStops={paradasReais.length}
+            />
+          )}
         </TouchableOpacity>
       </SwipeableRow>
     );
@@ -583,11 +652,41 @@ export function MainCard({
       ? formatElapsedTime(new Date(route.iniciada_em).getTime())
       : '--';
 
+    // Calcular resumo das paradas
+    const paradasConcluidas = paradasReais.filter(p => p.status === 'concluida').length;
+    const paradasPuladas = paradasReais.filter(p => p.status === 'pulada').length;
+    const taxaSucesso = paradasReais.length > 0
+      ? Math.round((paradasConcluidas / paradasReais.length) * 100)
+      : 100;
+
     return (
       <View style={styles.content}>
         <Text style={styles.icon}>🎉</Text>
         <Text style={styles.title}>Todas as paradas concluídas!</Text>
         <Text style={styles.subtitle}>Você pode finalizar a rota agora</Text>
+
+        {/* Resumo Executivo */}
+        <View style={styles.executiveSummary}>
+          <View style={styles.executiveRow}>
+            <View style={styles.executiveItem}>
+              <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
+              <Text style={styles.executiveValue}>{paradasConcluidas}</Text>
+              <Text style={styles.executiveLabel}>concluídas</Text>
+            </View>
+            {paradasPuladas > 0 && (
+              <View style={styles.executiveItem}>
+                <Ionicons name="arrow-forward-circle" size={20} color={theme.colors.warning} />
+                <Text style={styles.executiveValue}>{paradasPuladas}</Text>
+                <Text style={styles.executiveLabel}>puladas</Text>
+              </View>
+            )}
+            <View style={styles.executiveItem}>
+              <Ionicons name="trophy" size={20} color={theme.colors.primary} />
+              <Text style={styles.executiveValue}>{taxaSucesso}%</Text>
+              <Text style={styles.executiveLabel}>sucesso</Text>
+            </View>
+          </View>
+        </View>
 
         <View style={styles.summaryBox}>
           <View style={styles.summaryItem}>
@@ -598,6 +697,12 @@ export function MainCard({
             <Text style={styles.summaryLabel}>Distância</Text>
             <Text style={styles.summaryValue}>{route?.distancia_total || 0} km</Text>
           </View>
+        </View>
+
+        {/* Indicador de finalização */}
+        <View style={styles.readyIndicator}>
+          <Ionicons name="checkmark-done-circle" size={16} color={theme.colors.success} />
+          <Text style={styles.readyText}>Pronto para finalizar a rota</Text>
         </View>
       </View>
     );
@@ -618,12 +723,12 @@ export function MainCard({
       ? Math.round((paradasConcluidas / paradasReais.length) * 100)
       : 100;
 
-    // Mensagem motivacional baseada em performance
-    const getMensagemMotivacional = () => {
-      if (taxaSucesso === 100) return 'Todas as entregas concluídas!';
-      if (taxaSucesso >= 90) return 'Excelente trabalho!';
-      return 'Bom trabalho!';
-    };
+    // Mensagem motivacional usando utilitário
+    const completedMsg = getCompletedMessage(paradasConcluidas, taxaSucesso);
+
+    // Verificar se atingiu um milestone
+    const milestoneReached = milestoneData.currentMilestone;
+    const milestoneMsg = milestoneReached ? getMilestoneMessage(milestoneReached) : null;
 
     return (
       <View style={styles.content}>
@@ -643,8 +748,23 @@ export function MainCard({
           </Animated.View>
         </View>
 
-        <Text style={styles.title}>Parabéns!</Text>
-        <Text style={styles.subtitle}>{getMensagemMotivacional()}</Text>
+        <Text style={styles.title}>{completedMsg.title}</Text>
+        <Text style={styles.subtitle}>{completedMsg.subtitle}</Text>
+
+        {/* Milestone Alcançado */}
+        {milestoneReached && milestoneReached >= 10 && (
+          <View style={[styles.milestoneBadge, { backgroundColor: theme.colors.primaryBg }]}>
+            <Text style={styles.milestoneEmoji}>{milestoneMsg?.emoji}</Text>
+            <View>
+              <Text style={[styles.milestoneTitle, { color: theme.colors.primary }]}>
+                {milestoneMsg?.title}
+              </Text>
+              <Text style={styles.milestoneSubtitle}>
+                {milestoneData.totalEntregas} entregas no total
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Streak Badge */}
         {streak > 0 && (
@@ -786,15 +906,33 @@ const styles = StyleSheet.create({
   },
   noRouteHeader: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   noRouteIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+  motivationalEmoji: {
+    fontSize: 24,
+  },
+  waitingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray100,
+  },
+  waitingText: {
+    fontSize: 13,
+    color: colors.gray500,
+    fontStyle: 'italic',
   },
   statsRow: {
     flexDirection: 'row',
@@ -854,9 +992,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: 20,
-    marginBottom: 16,
+    marginBottom: 10,
     alignSelf: 'center',
   },
   streakText: {
@@ -875,10 +1013,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.5,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   statsColumnContent: {
-    gap: 6,
+    gap: 4,
   },
   statsDivider: {
     width: 1,
@@ -1004,6 +1142,47 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.gray900,
   },
+  executiveSummary: {
+    backgroundColor: colors.gray50,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  executiveRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  executiveItem: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  executiveValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.gray900,
+  },
+  executiveLabel: {
+    fontSize: 11,
+    color: colors.gray500,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  readyIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray100,
+  },
+  readyText: {
+    fontSize: 13,
+    color: colors.success,
+    fontWeight: '500',
+  },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1035,6 +1214,26 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  milestoneBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  milestoneEmoji: {
+    fontSize: 28,
+  },
+  milestoneTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  milestoneSubtitle: {
+    fontSize: 12,
+    color: colors.gray600,
+    marginTop: 2,
   },
   completedStatsRow: {
     flexDirection: 'row',

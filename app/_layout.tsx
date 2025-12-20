@@ -188,6 +188,8 @@ export default function RootLayout() {
         config={{
           success: ({ text1, text2 }) => renderToast(theme.colors.success, text1, text2),
           error: ({ text1, text2 }) => renderToast(theme.colors.error, text1, text2),
+          info: ({ text1, text2 }) => renderToast(theme.colors.primary, text1, text2),
+          warning: ({ text1, text2 }) => renderToast(theme.colors.secondary, text1, text2),
         }}
       />
       {/* DevTools Initializer */}

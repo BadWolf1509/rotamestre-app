@@ -402,13 +402,13 @@ function MotoristaInicioContent() {
 
   return (
     <>
-      {/* Padding: FAB margin (16) + FAB height (64) + content margin (16) = 96 */}
-      {/* Nota: Tab bar NÃO sobrepõe conteúdo no Expo Router */}
+      {/* Padding condicional: no-route precisa de menos espaço pois não tem MiniMap */}
+      {/* Estados com mais conteúdo: FAB margin (16) + FAB height (64) + content margin (16) = 96 */}
       <ScrollView
         style={styles.container}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: 96 },
+          { paddingBottom: routeStatus === 'no-route' ? 16 : 96 },
         ]}
         refreshControl={
           <RefreshControl

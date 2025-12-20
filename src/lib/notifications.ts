@@ -1,13 +1,19 @@
 /**
- * Serviço de Notificações Locais
+ * Serviço de Notificações Locais e Push
  * Usa expo-notifications para notificações no dispositivo
+ * Integra com Expo Push Notification Service para push remoto
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import { supabase } from './supabase';
+
 const NOTIFICATION_SETTINGS_KEY = '@rotamestre:notification_settings';
+const PUSH_TOKEN_KEY = '@rotamestre:push_token';
 
 interface NotificationSettings {
   routeReminder: boolean;
@@ -262,11 +268,159 @@ export function addNotificationResponseListener(
   return Notifications.addNotificationResponseReceivedListener(callback);
 }
 
+// ============================================================
+// PUSH TOKEN REGISTRATION (Expo Push Notification Service)
+// ============================================================
+
+/**
+ * Obtém o Expo Push Token do dispositivo
+ * Requer que o app esteja rodando em um dispositivo físico
+ */
+export async function getExpoPushToken(): Promise<string | null> {
+  // Push tokens não funcionam na web
+  if (Platform.OS === 'web') {
+    console.log('[Push] Push tokens não suportados na web');
+    return null;
+  }
+
+  // Push tokens não funcionam no emulador (apenas dispositivo físico)
+  if (!Device.isDevice) {
+    console.log('[Push] Push tokens requerem dispositivo físico');
+    return null;
+  }
+
+  try {
+    // Verificar permissões primeiro
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+
+    if (finalStatus !== 'granted') {
+      console.log('[Push] Permissão de notificações não concedida');
+      return null;
+    }
+
+    // Obter o token usando projectId do app.json/app.config.js
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+    if (!projectId) {
+      console.error('[Push] EAS projectId não encontrado em Constants.expoConfig');
+      // Tentar alternativa
+      const tokenData = await Notifications.getExpoPushTokenAsync();
+      console.log('[Push] Token obtido (sem projectId):', tokenData.data);
+      return tokenData.data;
+    }
+
+    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+    console.log('[Push] Token obtido:', tokenData.data);
+    return tokenData.data;
+  } catch (error) {
+    console.error('[Push] Erro ao obter push token:', error);
+    return null;
+  }
+}
+
+/**
+ * Registra o push token no banco de dados (tabela usuarios)
+ * Deve ser chamado após o login do usuário
+ */
+export async function registerPushToken(userId: string): Promise<boolean> {
+  if (Platform.OS === 'web') return false;
+
+  try {
+    const token = await getExpoPushToken();
+    if (!token) {
+      console.log('[Push] Sem token para registrar');
+      return false;
+    }
+
+    // Verificar se o token mudou
+    const storedToken = await AsyncStorage.getItem(PUSH_TOKEN_KEY);
+    if (storedToken === token) {
+      console.log('[Push] Token não mudou, pulando atualização');
+      return true;
+    }
+
+    // Atualizar token no banco
+    const { error } = await supabase
+      .from('usuarios')
+      .update({ push_token: token })
+      .eq('id', userId);
+
+    if (error) {
+      console.error('[Push] Erro ao salvar token:', error);
+      return false;
+    }
+
+    // Salvar token localmente para comparação futura
+    await AsyncStorage.setItem(PUSH_TOKEN_KEY, token);
+    console.log('[Push] Token registrado com sucesso');
+    return true;
+  } catch (error) {
+    console.error('[Push] Erro ao registrar token:', error);
+    return false;
+  }
+}
+
+/**
+ * Remove o push token do banco de dados (logout)
+ */
+export async function unregisterPushToken(userId: string): Promise<void> {
+  if (Platform.OS === 'web') return;
+
+  try {
+    // Remover token do banco
+    await supabase
+      .from('usuarios')
+      .update({ push_token: null })
+      .eq('id', userId);
+
+    // Limpar token local
+    await AsyncStorage.removeItem(PUSH_TOKEN_KEY);
+    console.log('[Push] Token removido');
+  } catch (error) {
+    console.error('[Push] Erro ao remover token:', error);
+  }
+}
+
+/**
+ * Configura canais de notificação para Android
+ * Diferentes canais para diferentes prioridades
+ */
+async function setupNotificationChannels(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+
+  // Canal padrão
+  await Notifications.setNotificationChannelAsync('default', {
+    name: 'Notificações Gerais',
+    importance: Notifications.AndroidImportance.DEFAULT,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#FF8C42',
+  });
+
+  // Canal de emergência (SOS, incidentes)
+  await Notifications.setNotificationChannelAsync('emergencia', {
+    name: 'Emergências',
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 500, 250, 500],
+    lightColor: '#FF0000',
+    sound: 'default',
+    bypassDnd: true, // Ignora "Não Perturbe"
+  });
+}
+
 /**
  * Inicializar sistema de notificações
+ * Inclui setup de canais Android e registro de push token
  */
 export async function initializeNotifications(): Promise<void> {
   if (Platform.OS === 'web') return;
+
+  // Configurar canais Android
+  await setupNotificationChannels();
 
   const hasPermission = await requestNotificationPermissions();
   if (hasPermission) {
@@ -274,19 +428,47 @@ export async function initializeNotifications(): Promise<void> {
   }
 }
 
+/**
+ * Inicializar push notifications para usuário logado
+ * Chame esta função após o login
+ */
+export async function initializePushNotifications(userId: string): Promise<void> {
+  if (Platform.OS === 'web') return;
+
+  const registered = await registerPushToken(userId);
+  if (registered) {
+    console.log('[Push] Push notifications inicializadas');
+  }
+}
+
 // Export service object
 export const notificationService = {
+  // Permissões e configurações
   requestPermissions: requestNotificationPermissions,
   getSettings: getNotificationSettings,
   saveSettings: saveNotificationSettings,
+
+  // Notificações locais
   send: sendLocalNotification,
   notifyRoutePending,
   notifyRouteComplete,
   notifyOfflineMode,
   notifySyncComplete,
+
+  // Lembretes
   scheduleRouteReminder,
   cancelRouteReminder,
+
+  // Listeners
   addReceivedListener: addNotificationReceivedListener,
   addResponseListener: addNotificationResponseListener,
+
+  // Inicialização
   initialize: initializeNotifications,
+
+  // Push notifications
+  getExpoPushToken,
+  registerPushToken,
+  unregisterPushToken,
+  initializePush: initializePushNotifications,
 };
