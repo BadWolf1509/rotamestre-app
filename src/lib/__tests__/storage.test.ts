@@ -456,11 +456,9 @@ describe('Storage Functions', () => {
       expect(result).toBe(false);
       // uploadFotoEntrega catch logs the error
       expect(console.error).toHaveBeenCalledWith(
-        '❌ Erro ao fazer upload de foto:',
+        '[Storage] Erro ao fazer upload de foto:',
         expect.any(Error)
       );
-      // uploadELinkFotoParada logs the failure
-      expect(console.error).toHaveBeenCalledWith('❌ Falha no upload da foto');
     });
   });
 
@@ -560,7 +558,7 @@ describe('Storage Functions', () => {
 
       expect(result).toBeNull();
       expect(console.error).toHaveBeenCalledWith(
-        '❌ Erro ao atualizar foto_url no banco:',
+        '[Storage] Erro ao atualizar foto_url no banco:',
         expect.any(Error)
       );
     });

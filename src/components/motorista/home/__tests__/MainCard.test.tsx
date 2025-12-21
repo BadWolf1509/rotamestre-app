@@ -3,6 +3,26 @@ import React from 'react';
 
 import { MainCard } from '../MainCard';
 
+// Mock expo-battery (usado por PreRouteChecklist)
+jest.mock('expo-battery', () => ({
+    getBatteryLevelAsync: jest.fn().mockResolvedValue(0.8),
+}));
+
+// Mock expo-location (usado por PreRouteChecklist)
+jest.mock('expo-location', () => ({
+    getForegroundPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+    requestForegroundPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+    hasServicesEnabledAsync: jest.fn().mockResolvedValue(true),
+}));
+
+// Mock expo-network (usado por PreRouteChecklist)
+jest.mock('expo-network', () => ({
+    getNetworkStateAsync: jest.fn().mockResolvedValue({
+        isConnected: true,
+        isInternetReachable: true,
+    }),
+}));
+
 // Mock useUser
 jest.mock('@/hooks/useUser', () => ({
     useUser: () => ({
@@ -41,18 +61,8 @@ jest.mock('@/components/SwipeableRow', () => ({
 }));
 
 // Mock unistyles
-jest.mock('@/utils/styles', () => ({
-    useUnistyles: () => ({
-        theme: {
-            colors: {
-                gray500: '#6b7280',
-                primary: '#007AFF',
-                success: '#34C759',
-                warning: '#FF9500',
-            },
-        },
-    }),
-    defaultTheme: {
+jest.mock('@/utils/styles', () => {
+    const mockTheme = {
         colors: {
             white: '#fff',
             black: '#000',
@@ -60,15 +70,36 @@ jest.mock('@/utils/styles', () => ({
             gray50: '#f9fafb',
             gray100: '#f3f4f6',
             gray200: '#e5e7eb',
+            gray400: '#9ca3af',
             gray500: '#6b7280',
+            gray600: '#4b5563',
             gray700: '#374151',
             gray900: '#111827',
             warningBg: '#fef3c7',
             secondaryDark: '#92400e',
             success: '#34C759',
+            warning: '#FF9500',
+            error: '#FF3B30',
         },
-    },
-}));
+    };
+
+    return {
+        useUnistyles: () => ({
+            theme: mockTheme,
+        }),
+        defaultTheme: mockTheme,
+        StyleSheet: {
+            create: (styleFn: (theme: any) => any) => {
+                // Se for função, executa com o tema mock
+                if (typeof styleFn === 'function') {
+                    return styleFn(mockTheme);
+                }
+                // Se for objeto, retorna diretamente
+                return styleFn;
+            },
+        },
+    };
+});
 
 // Mock Ionicons
 jest.mock('@expo/vector-icons', () => ({
@@ -159,9 +190,11 @@ describe('MainCard', () => {
 
         const { getByText } = render(<MainCard {...props} />);
 
-        expect(getByText('ROTA PENDENTE')).toBeTruthy();
+        // Badge "ROTA PENDENTE" foi removido - StatusSection já mostra o status
         expect(getByText('Empresa Teste')).toBeTruthy();
-        expect(getByText('2 paradas')).toBeTruthy();
+        // Stats agora mostram número e label separados
+        expect(getByText('2')).toBeTruthy();
+        expect(getByText('paradas')).toBeTruthy();
     });
 
     it('deve mostrar primeira parada em pending', () => {
@@ -384,8 +417,10 @@ describe('MainCard', () => {
 
         const { getByText } = render(<MainCard {...props} />);
 
-        // Deve mostrar apenas paradas não-checkpoint
-        expect(getByText('2 paradas')).toBeTruthy();
+        // Deve mostrar apenas paradas não-checkpoint (2 paradas: Rua B e Rua C)
+        // Stats agora mostram número e label separados
+        expect(getByText('2')).toBeTruthy();
+        expect(getByText('paradas')).toBeTruthy();
     });
 
     it('deve retornar null em active sem currentStop', () => {

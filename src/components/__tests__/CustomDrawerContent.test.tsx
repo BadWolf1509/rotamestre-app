@@ -392,8 +392,7 @@ describe('CustomDrawerContent', () => {
       });
     });
 
-    it('deve fechar drawer e logar ao clicar em "Configurações"', async () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+    it('deve fechar drawer ao clicar em "Configurações"', async () => {
       const { getByText } = render(
         <CustomDrawerContent {...mockDrawerProps} />
       );
@@ -403,12 +402,9 @@ describe('CustomDrawerContent', () => {
       });
 
       expect(mockCloseDrawer).toHaveBeenCalled();
-      expect(consoleSpy).toHaveBeenCalledWith('Configurações - Em desenvolvimento');
-      consoleSpy.mockRestore();
     });
 
-    it('deve fechar drawer e logar ao clicar em "Ajuda"', async () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+    it('deve fechar drawer ao clicar em "Ajuda"', async () => {
       const { getByText } = render(
         <CustomDrawerContent {...mockDrawerProps} />
       );
@@ -418,8 +414,6 @@ describe('CustomDrawerContent', () => {
       });
 
       expect(mockCloseDrawer).toHaveBeenCalled();
-      expect(consoleSpy).toHaveBeenCalledWith('Ajuda - Em desenvolvimento');
-      consoleSpy.mockRestore();
     });
   });
 

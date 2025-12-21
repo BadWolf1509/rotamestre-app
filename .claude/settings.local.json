@@ -272,7 +272,8 @@
       "Bash(npx supabase db execute:*)",
       "Bash(npx expo:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat\\(notificacoes\\): sistema completo de notificações em tempo real\n\n- Adiciona Supabase Realtime para notificações e rotas\n- Implementa feedback multi-plataforma \\(som, haptic, browser notification\\)\n- Cria browserNotification.ts para notificações web\n- Cria notificationSound.ts com Web Audio API e expo-av\n- Adiciona NotificationBell responsivo ao header do motorista\n- Configura Toast com tipos info e warning\n- Adiciona migrations para habilitar Realtime nas tabelas\n- Cria Edge Function send-push-notification para push mobile\n- Adiciona componentes MilestoneCard, NextStopPreview, WeeklyChart\n- Implementa hooks useMilestones e useSwipeHint\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git tag:*)"
+      "Bash(git tag:*)",
+      "Bash(npm run test:*)"
     ],
     "deny": [],
     "ask": []
