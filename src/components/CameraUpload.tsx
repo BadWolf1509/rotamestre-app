@@ -78,8 +78,6 @@ export default function CameraUpload({
    * Comprimir imagem para <500KB
    */
   const compressImage = async (uri: string): Promise<string> => {
-    console.log('🗜️  Comprimindo imagem...');
-
     try {
       // Primeiro resize para max 1200px (mantém qualidade razoável)
       const resized = await ImageManipulator.manipulateAsync(
@@ -96,8 +94,6 @@ export default function CameraUpload({
           format: ImageManipulator.SaveFormat.JPEG,
         }
       );
-
-      console.log(`   Tamanho reduzido para: ${(resized.uri.length / 1024).toFixed(2)} KB`);
 
       return resized.uri;
     } catch (error) {

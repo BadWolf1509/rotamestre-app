@@ -41,7 +41,7 @@ export function usePerformance(options: PerformanceHookOptions = {}) {
       // App came to foreground - refresh data if needed
       if (enableOptimizations) {
         PerformanceOptimizer.deferOperation(() => {
-          console.log('App resumed - checking for updates');
+          // Refresh data if needed
         });
       }
     }
@@ -111,7 +111,6 @@ export function usePerformance(options: PerformanceHookOptions = {}) {
         if (cacheKey && enableOptimizations) {
           const cached = await PerformanceOptimizer.getCachedData(cacheKey);
           if (cached) {
-            console.log(`Cache hit for ${cacheKey}`);
             return cached as T;
           }
         }

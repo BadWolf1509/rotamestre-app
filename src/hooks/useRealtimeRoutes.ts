@@ -61,21 +61,16 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
   useEffect(() => {
     // ✅ Só subscrever se autenticado E com unidade ativa
     if (!enabled || !unidadeAtiva || !session?.access_token) {
-      console.log('[Realtime] Aguardando autenticação ou unidade ativa...');
       return;
     }
 
     // ✅ Evitar reconexão se já estiver subscrito na mesma unidade
     if (isSubscribed.current && currentUnidade.current === unidadeAtiva) {
-      console.log('[Realtime] Já subscrito nesta unidade, ignorando...');
       return;
     }
 
-    console.log('[Realtime] Iniciando subscrição para unidade:', unidadeAtiva);
-
     // ✅ CRÍTICO: Definir token ANTES de criar o canal (workaround para Issue #1304)
     // https://github.com/supabase/supabase-js/issues/1304
-    console.log('[Realtime] Configurando auth token antes de subscrever');
     supabase.realtime.setAuth(session.access_token);
 
     // ✅ Marcar como subscrito
@@ -92,8 +87,7 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
           table: 'rotas',
           filter: `unidade_id=eq.${unidadeAtiva}`,
         },
-        (payload) => {
-          console.log('[Realtime] Rota atualizada:', payload.eventType);
+        () => {
           triggerUpdate();
         }
       )
@@ -104,20 +98,17 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
           schema: 'public',
           table: 'paradas',
         },
-        (_payload) => {
-          console.log('[Realtime] Parada atualizada');
+        () => {
           triggerUpdate();
         }
       )
       .subscribe((status) => {
-        console.log('[Realtime] Status:', status);
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           isSubscribed.current = false;
         }
       });
 
     return () => {
-      console.log('[Realtime] Removendo canal');
       isSubscribed.current = false;
       currentUnidade.current = null;
       supabase.removeChannel(channel);

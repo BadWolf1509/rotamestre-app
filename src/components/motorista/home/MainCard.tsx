@@ -21,6 +21,7 @@ import { defaultTheme, useUnistyles } from '@/utils/styles';
 
 import { MilestoneCard } from './MilestoneCard';
 import { NextStopPreview } from './NextStopPreview';
+import { PreRouteChecklist } from './PreRouteChecklist';
 import { WeeklyChart } from './WeeklyChart';
 
 /**
@@ -49,6 +50,8 @@ interface MainCardProps {
   onSwipeLeft?: () => void | Promise<void>;
   onSwipeRight?: (fotoUrl?: string) => void | Promise<void>;
   onPress?: () => void | Promise<void>;
+  /** Callback quando o status do checklist pré-rota muda */
+  onChecklistChange?: (canStart: boolean, allOk: boolean) => void;
 }
 
 interface MotoristaStats {
@@ -70,6 +73,7 @@ export function MainCard({
   onSwipeLeft,
   onSwipeRight,
   onPress,
+  onChecklistChange,
 }: MainCardProps) {
   const { theme } = useUnistyles();
   const router = useRouter();
@@ -489,33 +493,39 @@ export function MainCard({
 
     return (
       <View style={styles.content}>
-        <View style={styles.header}>
-          <View style={[styles.badge, { backgroundColor: theme.colors.warning }]}>
-            <Text style={[styles.badgeText, styles.badgeTextDark]}>ROTA PENDENTE</Text>
+        {/* Nome da empresa (sem badge redundante - StatusSection já mostra status) */}
+        <Text style={styles.empresa}>{route?.unidade_nome || 'Rota Atribuída'}</Text>
+
+        {/* Stats inline - mais compacto */}
+        <View style={styles.pendingStatsRow}>
+          <View style={styles.pendingStatItem}>
+            <Ionicons name="location" size={18} color={theme.colors.primary} />
+            <Text style={styles.pendingStatValue}>{paradasReais.length}</Text>
+            <Text style={styles.pendingStatLabel}>
+              {paradasReais.length === 1 ? 'parada' : 'paradas'}
+            </Text>
+          </View>
+          <View style={[styles.pendingStatDivider, { backgroundColor: theme.colors.gray200 }]} />
+          <View style={styles.pendingStatItem}>
+            <Ionicons name="speedometer" size={18} color={theme.colors.primary} />
+            <Text style={styles.pendingStatValue}>{route?.distancia_total || 0}</Text>
+            <Text style={styles.pendingStatLabel}>km</Text>
+          </View>
+          <View style={[styles.pendingStatDivider, { backgroundColor: theme.colors.gray200 }]} />
+          <View style={styles.pendingStatItem}>
+            <Ionicons name="time" size={18} color={theme.colors.primary} />
+            <Text style={styles.pendingStatValue}>{estimatedTimeText}</Text>
+            <Text style={styles.pendingStatLabel}>estimado</Text>
           </View>
         </View>
 
-        <Text style={styles.empresa}>{route?.unidade_nome}</Text>
-
-        <View style={styles.infoGrid}>
-          <View style={styles.infoItem}>
-            <Ionicons name="location-outline" size={16} color={theme.colors.gray500} />
-            <Text style={styles.infoValue}>{paradasReais.length} paradas</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Ionicons name="navigate-outline" size={16} color={theme.colors.gray500} />
-            <Text style={styles.infoValue}>{route?.distancia_total || '0'} km</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Ionicons name="time-outline" size={16} color={theme.colors.gray500} />
-            <Text style={styles.infoValue}>{estimatedTimeText}</Text>
-          </View>
-        </View>
-
+        {/* Primeira parada */}
         {pendingFirstStop && (
           <View style={styles.firstStopSection}>
             <Text style={styles.sectionLabel}>PRIMEIRA PARADA</Text>
-            <Text style={styles.addressText}>{pendingFirstStop.endereco}</Text>
+            <Text style={styles.addressText} numberOfLines={2}>
+              {pendingFirstStop.endereco}
+            </Text>
             <View style={styles.distanceRow}>
               {firstStopDistance.isLoading ? (
                 <ActivityIndicator size="small" color={theme.colors.primary} />
@@ -530,6 +540,9 @@ export function MainCard({
             </View>
           </View>
         )}
+
+        {/* Checklist Pré-Rota */}
+        <PreRouteChecklist onStatusChange={onChecklistChange} />
       </View>
     );
   };
@@ -1052,6 +1065,36 @@ const styles = StyleSheet.create({
   infoValue: {
     fontSize: 14,
     color: colors.gray700,
+  },
+  // Estilos para o novo layout pending
+  pendingStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    backgroundColor: colors.gray50,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    marginBottom: 12,
+  },
+  pendingStatItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  pendingStatValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.gray900,
+  },
+  pendingStatLabel: {
+    fontSize: 11,
+    color: colors.gray500,
+    fontWeight: '500',
+  },
+  pendingStatDivider: {
+    width: 1,
+    height: 32,
   },
   firstStopSection: {
     borderTopWidth: 1,

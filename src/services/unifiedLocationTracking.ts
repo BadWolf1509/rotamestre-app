@@ -89,7 +89,6 @@ async function saveLocationToDatabase(
   try {
     const contextStr = await AsyncStorage.getItem(TRACKING_CONTEXT_KEY);
     if (!contextStr) {
-      console.log('[LocationTracking] Sem contexto de tracking');
       return;
     }
 
@@ -108,8 +107,6 @@ async function saveLocationToDatabase(
 
     if (error) {
       console.error('[LocationTracking] Erro ao salvar:', error);
-    } else {
-      console.log(`[LocationTracking] Localização salva (${fonte})`);
     }
   } catch (err) {
     console.error('[LocationTracking] Erro:', err);
@@ -172,14 +169,12 @@ export async function startBackgroundTracking(context: TrackingContext): Promise
     // Verificar se já está rastreando
     const isTracking = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
     if (isTracking) {
-      console.log('[LocationTracking] Já está rastreando');
       return true;
     }
 
     // Se não tem permissão de background, apenas salvar contexto
     // O hook useDriverLocationBroadcast cuidará do foreground
     if (!permissions.background) {
-      console.log('[LocationTracking] Sem permissão background, usando apenas foreground');
       return true;
     }
 
@@ -205,7 +200,6 @@ export async function startBackgroundTracking(context: TrackingContext): Promise
 
     await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, options);
 
-    console.log('[LocationTracking] Background tracking iniciado para rota:', context.rotaId);
     return true;
   } catch (err) {
     console.error('[LocationTracking] Erro ao iniciar:', err);
@@ -222,7 +216,6 @@ export async function stopBackgroundTracking(): Promise<void> {
     const isTracking = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
     if (isTracking) {
       await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
-      console.log('[LocationTracking] Background tracking parado');
     }
     await AsyncStorage.removeItem(TRACKING_CONTEXT_KEY);
   } catch (err) {

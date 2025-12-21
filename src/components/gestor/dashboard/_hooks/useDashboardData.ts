@@ -160,24 +160,15 @@ id,
           .eq('unidade_id', unidadeId);
 
         // Aplicar filtros de data
-        console.log('[useDashboardData] Filtros recebidos:', {
-          dataInicio: filters?.dataInicio,
-          dataFim: filters?.dataFim,
-          status: filters?.status,
-          motoristaId: filters?.motoristaId,
-        });
-
         if (filters?.dataInicio) {
           const dataInicio = new Date(filters.dataInicio);
           // ✅ Validar se a data é válida antes de usar
           if (!isNaN(dataInicio.getTime())) {
             const dataInicioStr = dataInicio.toISOString().split('T')[0];
-            console.log('[useDashboardData] Aplicando filtro dataInicio:', dataInicioStr);
             query = query.gte('data', dataInicioStr);
           }
         } else {
           // Por padrão, mostrar apenas rotas de hoje
-          console.log('[useDashboardData] Usando filtro padrão (hoje):', hoje);
           query = query.gte('data', hoje);
         }
 
@@ -186,7 +177,6 @@ id,
           // ✅ Validar se a data é válida antes de usar
           if (!isNaN(dataFim.getTime())) {
             const dataFimStr = dataFim.toISOString().split('T')[0];
-            console.log('[useDashboardData] Aplicando filtro dataFim:', dataFimStr);
             query = query.lte('data', dataFimStr);
           }
         }
@@ -408,24 +398,15 @@ id,
         .eq('unidade_id', unidadeId);
 
       // Aplicar filtros de data
-      console.log('[onRefresh] Filtros recebidos:', {
-        dataInicio: filters?.dataInicio,
-        dataFim: filters?.dataFim,
-        status: filters?.status,
-        motoristaId: filters?.motoristaId,
-      });
-
       if (filters?.dataInicio) {
         const dataInicio = new Date(filters.dataInicio);
         // ✅ Validar se a data é válida antes de usar
         if (!isNaN(dataInicio.getTime())) {
           const dataInicioStr = dataInicio.toISOString().split('T')[0];
-          console.log('[onRefresh] Aplicando filtro dataInicio:', dataInicioStr);
           query = query.gte('data', dataInicioStr);
         }
       } else {
         // Por padrão, mostrar apenas rotas de hoje
-        console.log('[onRefresh] Usando filtro padrão (hoje):', hoje);
         query = query.gte('data', hoje);
       }
 
@@ -434,7 +415,6 @@ id,
         // ✅ Validar se a data é válida antes de usar
         if (!isNaN(dataFim.getTime())) {
           const dataFimStr = dataFim.toISOString().split('T')[0];
-          console.log('[onRefresh] Aplicando filtro dataFim:', dataFimStr);
           query = query.lte('data', dataFimStr);
         }
       }

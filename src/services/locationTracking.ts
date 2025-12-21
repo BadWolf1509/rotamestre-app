@@ -114,7 +114,6 @@ class LocationTrackingService {
         showsBackgroundLocationIndicator: true,
       });
 
-      console.log('Location tracking started');
       return true;
     } catch (error) {
       console.error('Error starting location tracking:', error);
@@ -139,7 +138,6 @@ class LocationTrackingService {
         this.arrivalTimeout = null;
       }
 
-      console.log('Location tracking stopped');
       return true;
     } catch (error) {
       console.error('Error stopping location tracking:', error);
@@ -184,8 +182,6 @@ class LocationTrackingService {
   // Handle arrival at stop
   private async handleArrival(distance: number) {
     if (!this.navigationState || this.arrivalTimeout) return;
-
-    console.log(`Arrived at stop! Distance: ${distance}m`);
 
     // Notify arrival
     if (this.navigationState.vibrationAlerts) {
@@ -290,8 +286,6 @@ class LocationTrackingService {
           `Próxima parada: ${nextStop.endereco}`,
           true
         );
-
-        console.log('Auto-advanced to next stop:', nextStop.id);
       } else {
         // No more stops - route complete
         await this.handleRouteComplete();
@@ -397,9 +391,8 @@ class LocationTrackingService {
   }
 
   // Send notification (placeholder - would use expo-notifications)
-  private async sendNotification(title: string, body: string, _priority: boolean) {
+  private async sendNotification(_title: string, _body: string, _priority: boolean) {
     // In a real implementation, would use expo-notifications
-    console.log(`Notification: ${title} - ${body}`);
   }
 
   // Get navigation preferences

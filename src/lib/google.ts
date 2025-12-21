@@ -199,23 +199,6 @@ export const googleMapsService = {
           .join('|');
       }
 
-      // Debug: Log completo da chamada
-      console.log('🗺️ ========================================');
-      console.log('🗺️ getDirections chamado:');
-      console.log('🗺️   optimize:', optimize);
-      console.log('🗺️   waypointsCount:', waypoints?.length || 0);
-      console.log('🗺️   origin:', `${origin.latitude},${origin.longitude}`);
-      console.log('🗺️   destination:', `${destination.latitude},${destination.longitude}`);
-      console.log('🗺️   waypointsParam:', optimize ? 'COM optimize:true' : 'SEM optimize (ordem fornecida)');
-      // Log primeiras coordenadas para verificar ordem
-      if (waypoints && waypoints.length > 0) {
-        console.log('🗺️   Ordem dos waypoints:');
-        waypoints.forEach((wp, i) => {
-          console.log(`🗺️     ${i}: ${wp.latitude.toFixed(6)},${wp.longitude.toFixed(6)}`);
-        });
-      }
-      console.log('🗺️ ========================================');
-
       let data;
 
       if (Platform.OS === 'web') {
@@ -253,21 +236,7 @@ export const googleMapsService = {
       if (data.status === 'OK' && data.routes.length > 0) {
         const route = data.routes[0];
 
-        // Debug: Verificar se a API reordenou (waypoint_order só existe se optimize:true)
         const waypointOrder = data.routes[0].waypoint_order;
-        console.log('🗺️ ========================================');
-        console.log('🗺️ Resposta da API:');
-        console.log('🗺️   status:', data.status);
-        console.log('🗺️   waypoint_order presente?:', waypointOrder ? 'SIM (API REORDENOU!)' : 'NÃO (ordem mantida)');
-        if (waypointOrder) {
-          console.log('🗺️   waypoint_order:', JSON.stringify(waypointOrder));
-        }
-        console.log('🗺️   legsCount:', route.legs.length);
-        // Log endereços dos legs para verificar ordem real
-        route.legs.forEach((leg: any, i: number) => {
-          console.log(`🗺️   Leg ${i}: ${leg.start_address?.substring(0, 40)} → ${leg.end_address?.substring(0, 40)}`);
-        });
-        console.log('🗺️ ========================================');
 
         // Extrair informações de cada leg (segmento entre paradas consecutivas)
         const legs: GoogleDirectionsLeg[] = route.legs.map((leg: any) => ({
@@ -295,11 +264,6 @@ export const googleMapsService = {
           0
         );
 
-        console.log('🗺️ Resultado:', {
-          distanciaKm: (distancia_total / 1000).toFixed(1),
-          duracaoMin: Math.round(tempo_total / 60),
-        });
-
         return {
           polyline: route.overview_polyline.points,
           distancia_total_metros: distancia_total,
@@ -326,11 +290,6 @@ export const googleMapsService = {
     waypoints: Coordenadas[]
   ): Promise<GoogleDirectionsResult | null> {
     try {
-      console.log('🔄 getDirectionsSequential: Calculando rota segmento por segmento');
-      console.log('🔄   Origin:', `${origin.latitude.toFixed(6)},${origin.longitude.toFixed(6)}`);
-      console.log('🔄   Waypoints:', waypoints.length);
-      console.log('🔄   Destination:', `${destination.latitude.toFixed(6)},${destination.longitude.toFixed(6)}`);
-
       // Montar lista de pontos na ordem: origin → waypoints → destination
       const allPoints = [origin, ...waypoints, destination];
 
@@ -343,8 +302,6 @@ export const googleMapsService = {
       for (let i = 0; i < allPoints.length - 1; i++) {
         const segmentOrigin = allPoints[i];
         const segmentDestination = allPoints[i + 1];
-
-        console.log(`🔄   Segmento ${i + 1}/${allPoints.length - 1}: (${segmentOrigin.latitude.toFixed(4)},${segmentOrigin.longitude.toFixed(4)}) → (${segmentDestination.latitude.toFixed(4)},${segmentDestination.longitude.toFixed(4)})`);
 
         let data;
 
@@ -396,20 +353,11 @@ export const googleMapsService = {
           } else {
             combinedPolyline = route.overview_polyline.points;
           }
-
-          console.log(`🔄     ✓ ${(leg.distance.value / 1000).toFixed(1)} km, ${Math.round(leg.duration.value / 60)} min`);
         } else {
-          console.warn(`🔄     ✗ Erro no segmento ${i + 1}: ${data.status}`);
+          console.warn(`[Google] Erro no segmento ${i + 1}: ${data.status}`);
           // Continuar com os outros segmentos mesmo se um falhar
         }
       }
-
-      console.log('🔄 ========================================');
-      console.log('🔄 Resultado SEQUENCIAL (ordem manual respeitada):');
-      console.log(`🔄   Distância total: ${(totalDistanceMeters / 1000).toFixed(1)} km`);
-      console.log(`🔄   Duração total: ${Math.round(totalDurationSeconds / 60)} min`);
-      console.log(`🔄   Segmentos: ${allLegs.length}`);
-      console.log('🔄 ========================================');
 
       return {
         polyline: combinedPolyline,

@@ -51,7 +51,6 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
 
     // Verificar autenticação
     if (!user) {
-      console.log('🔒 [RequireAuth] Usuário não autenticado, redirecionando para login');
       setIsReady(true);
       setIsAuthorized(false);
       router.replace(redirectTo);
@@ -61,13 +60,11 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
     // Se user existe mas userData ainda está carregando, aguardar
     // Isso evita race condition após login quando useUser ainda não carregou
     if (userLoading || !userData) {
-      console.log('🔒 [RequireAuth] Aguardando dados do usuário...');
       return;
     }
 
     // Verificar papel se requerido
     if (role !== 'any' && userData.papel !== role) {
-      console.log(`🔒 [RequireAuth] Papel ${userData.papel} não tem acesso a rota de ${role}`);
       setIsReady(true);
       setIsAuthorized(false);
 

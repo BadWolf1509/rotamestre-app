@@ -96,7 +96,6 @@ class DynamicReroutingService {
     await this.loadSettings();
 
     if (!this.settings.enabled) {
-      console.log('Dynamic rerouting is disabled');
       return;
     }
 

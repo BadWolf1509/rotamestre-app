@@ -1,19 +1,66 @@
-name: Expire Pending Routes
+name: Route Reminders and Expiration
 
 on:
   schedule:
-    # Rodar às 07:00 horário de Brasília (10:00 UTC)
-    - cron: '0 10 * * *'
+    # Lembrete às 16:00 Brasília (19:00 UTC) - Segunda a Sexta
+    - cron: '0 19 * * 1-5'
+    # Expiração às 22:00 Brasília (01:00 UTC do dia seguinte) - Segunda a Sexta
+    # Segunda 22:00 BRT = Terça 01:00 UTC, então 2-6 (Terça a Sábado)
+    - cron: '0 1 * * 2-6'
   workflow_dispatch: # Permite execução manual
+    inputs:
+      action:
+        description: 'Action to run'
+        required: true
+        default: 'remind'
+        type: choice
+        options:
+          - remind
+          - expire
 
 jobs:
-  expire-routes:
-    name: Expire Old Pending Routes
+  # Job para lembrete das 16:00 (19:00 UTC)
+  remind-routes:
+    name: Remind Pending Routes (16:00 BRT)
     runs-on: ubuntu-latest
+    # Só executa às 19:00 UTC OU se for dispatch manual com action=remind
+    if: github.event.schedule == '0 19 * * 1-5' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'remind')
 
     steps:
-      - name: Call Edge Function
+      - name: Call Remind Edge Function
         run: |
+          echo "🕐 Sending route reminders at 16:00 BRT..."
+
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://xezslsyxjivunmhhyxtd.supabase.co/functions/v1/remind-routes" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Content-Type: application/json")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "❌ Error: Edge Function returned $http_code"
+            exit 1
+          fi
+
+          echo "✅ Reminders sent successfully"
+
+  # Job para expiração das 22:00 (01:00 UTC)
+  expire-routes:
+    name: Expire Pending Routes (22:00 BRT)
+    runs-on: ubuntu-latest
+    # Só executa às 01:00 UTC OU se for dispatch manual com action=expire
+    if: github.event.schedule == '0 1 * * 2-6' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'expire')
+
+    steps:
+      - name: Call Expire Edge Function
+        run: |
+          echo "🕙 Expiring pending routes at 22:00 BRT..."
+
           response=$(curl -s -w "\n%{http_code}" -X POST \
             "https://xezslsyxjivunmhhyxtd.supabase.co/functions/v1/expire-routes" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
@@ -26,8 +73,8 @@ jobs:
           echo "HTTP Code: $http_code"
 
           if [ "$http_code" != "200" ]; then
-            echo "Error: Edge Function returned $http_code"
+            echo "❌ Error: Edge Function returned $http_code"
             exit 1
           fi
 
-          echo "✅ Edge Function executed successfully"
+          echo "✅ Routes expired successfully"

@@ -426,7 +426,6 @@ export default function MapaWeb({
           filter: `rota_id=eq.${rotaId}`,
         },
         (payload) => {
-          console.log('[MapaWeb] Nova localização do motorista:', payload.new);
           setMotoristaLocation(payload.new as MotoristaLocation);
         }
       )

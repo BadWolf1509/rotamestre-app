@@ -68,17 +68,13 @@ export function useNotifications(): UseNotificationsReturn {
   // Realtime subscription para novas notificações
   useEffect(() => {
     if (!userData?.id || !session?.access_token) {
-      console.log('[Realtime:Notificacoes] Aguardando userData ou session...');
       return;
     }
 
     // Evitar reconexão desnecessária
     if (isSubscribed.current) {
-      console.log('[Realtime:Notificacoes] Já subscrito, ignorando...');
       return;
     }
-
-    console.log('[Realtime:Notificacoes] Iniciando subscription para usuario:', userData.id);
 
     // CRÍTICO: Configurar token ANTES de criar o canal
     // Sem isso, RLS bloqueia os eventos
@@ -97,7 +93,6 @@ export function useNotifications(): UseNotificationsReturn {
           filter: `usuario_id=eq.${userData.id}`,
         },
         (payload) => {
-          console.log('[Realtime:Notificacoes] Nova notificação recebida:', payload.new);
           const nova = payload.new as Notificacao;
 
           // Adicionar ao topo da lista
@@ -128,7 +123,6 @@ export function useNotifications(): UseNotificationsReturn {
           filter: `usuario_id=eq.${userData.id}`,
         },
         (payload) => {
-          console.log('[Realtime:Notificacoes] Notificação atualizada:', payload.new);
           const atualizada = payload.new as Notificacao;
 
           setNotificacoes((prev) =>
@@ -143,7 +137,6 @@ export function useNotifications(): UseNotificationsReturn {
         }
       )
       .subscribe((status) => {
-        console.log('[Realtime:Notificacoes] Status:', status);
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.error('[Realtime:Notificacoes] Erro na conexão:', status);
           isSubscribed.current = false;
@@ -151,7 +144,6 @@ export function useNotifications(): UseNotificationsReturn {
       });
 
     return () => {
-      console.log('[Realtime:Notificacoes] Removendo subscription');
       isSubscribed.current = false;
       supabase.removeChannel(channel);
     };

@@ -108,7 +108,7 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
               icon={() => <Text style={styles(theme).menuIcon}>⚙️</Text>}
               onPress={() => {
                 props.navigation.closeDrawer();
-                console.log('Configurações - Em desenvolvimento');
+                // TODO: Implementar tela de configurações
               }}
               labelStyle={styles(theme).drawerLabel}
               activeTintColor={theme.colors.primary}
@@ -119,7 +119,7 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
               icon={() => <Text style={styles(theme).menuIcon}>❓</Text>}
               onPress={() => {
                 props.navigation.closeDrawer();
-                console.log('Ajuda - Em desenvolvimento');
+                // TODO: Implementar tela de ajuda
               }}
               labelStyle={styles(theme).drawerLabel}
               activeTintColor={theme.colors.primary}

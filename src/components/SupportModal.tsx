@@ -28,8 +28,6 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
     Linking.canOpenURL(url).then((supported) => {
       if (supported) {
         Linking.openURL(url);
-      } else {
-        console.log('Cannot open phone dialer');
       }
     });
   };
@@ -41,8 +39,6 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
     Linking.canOpenURL(url).then((supported) => {
       if (supported) {
         Linking.openURL(url);
-      } else {
-        console.log('Cannot open email client');
       }
     });
   };
@@ -55,8 +51,6 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
     Linking.canOpenURL(url).then((supported) => {
       if (supported) {
         Linking.openURL(url);
-      } else {
-        console.log('Cannot open WhatsApp');
       }
     });
   };

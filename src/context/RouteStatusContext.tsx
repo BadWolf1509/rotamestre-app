@@ -89,16 +89,15 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const isSubscribed = useRef(false);
 
-  // DEBUG: Verificar se o código está carregado
-  console.log('[RouteStatusProvider] Render - motoristaId:', motoristaId, 'hasSession:', !!session?.access_token);
-
   // Determina o status da rota (excluindo checkpoints da contagem)
   // Inclui reset diário às 00:00 e timeout de 1h para estado completed
   const getRouteStatus = (): RouteStatus => {
     if (!route) return 'no-route';
 
     // Reset diário: rotas de dias anteriores não são exibidas
-    const hoje = new Date().toISOString().split('T')[0]; // "2025-12-19"
+    // IMPORTANTE: Usar data LOCAL, não UTC (evita problema de timezone)
+    const now = new Date();
+    const hoje = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const rotaData = route.data || route.created_at?.split('T')[0];
 
     if (rotaData && rotaData < hoje) {
@@ -195,7 +194,15 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
         .order('created_at', { ascending: false })
         .limit(10);
 
-      if (rotasError || !rotasData || rotasData.length === 0) {
+      if (rotasError) {
+        console.error('[RouteStatus] Query error:', rotasError);
+        setRoute(null);
+        setParadas([]);
+        setLoading(false);
+        return;
+      }
+
+      if (!rotasData || rotasData.length === 0) {
         setRoute(null);
         setParadas([]);
         setLoading(false);
@@ -419,17 +426,13 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Aguardar autenticação E motorista ID
     if (!motoristaId || !session?.access_token) {
-      console.log('[Realtime:Motorista] Aguardando autenticação...');
       return;
     }
 
     // Evitar reconexão desnecessária
     if (isSubscribed.current) {
-      console.log('[Realtime:Motorista] Já subscrito, ignorando...');
       return;
     }
-
-    console.log('[Realtime:Motorista] Iniciando subscription para motorista:', motoristaId);
 
     // CRÍTICO: Configurar token ANTES de criar o canal
     // Sem isso, RLS bloqueia os eventos
@@ -443,7 +446,6 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
         clearTimeout(debounceTimer.current);
       }
       debounceTimer.current = setTimeout(() => {
-        console.log('[Realtime:Motorista] Recarregando rota...');
         loadActiveRoute();
       }, 500); // 500ms debounce
     };
@@ -460,8 +462,6 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
           filter: `motorista_id=eq.${motoristaId}`,
         },
         async (payload) => {
-          console.log('[Realtime:Motorista] Nova rota atribuída:', payload.new);
-
           // Feedback imediato para o motorista
           const unidadeNome = (payload.new as any).unidades?.nome || 'Nova rota';
 
@@ -487,13 +487,11 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
           table: 'rotas',
           filter: `motorista_id=eq.${motoristaId}`,
         },
-        (payload) => {
-          console.log('[Realtime:Motorista] Rota atualizada:', payload.new);
+        () => {
           debouncedReload();
         }
       )
       // DELETE sem filtro (Replica Identity não está FULL)
-      // Verifica se a rota deletada é a atual
       .on(
         'postgres_changes',
         {
@@ -501,9 +499,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
           schema: 'public',
           table: 'rotas',
         },
-        (payload) => {
-          console.log('[Realtime:Motorista] Rota deletada:', payload.old);
-          // Sempre recarregar em DELETE - pode ser a rota atual
+        () => {
           debouncedReload();
         }
       )
@@ -514,13 +510,11 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
           schema: 'public',
           table: 'paradas',
         },
-        (payload) => {
-          console.log('[Realtime:Motorista] Parada alterada:', payload.eventType);
+        () => {
           debouncedReload();
         }
       )
       .subscribe((status) => {
-        console.log('[Realtime:Motorista] Status:', status);
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.error('[Realtime:Motorista] Erro na conexão');
           isSubscribed.current = false;
@@ -528,7 +522,6 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
       });
 
     return () => {
-      console.log('[Realtime:Motorista] Removendo subscription');
       isSubscribed.current = false;
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);

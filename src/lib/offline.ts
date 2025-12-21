@@ -49,10 +49,8 @@ async function ensureOfflinePhotosDir(): Promise<void> {
     const dirInfo = await FileSystem.getInfoAsync(OFFLINE_PHOTOS_DIR);
     if (!dirInfo.exists) {
       await FileSystem.makeDirectoryAsync(OFFLINE_PHOTOS_DIR, { intermediates: true });
-      console.log('📁 [Offline] Diretório de fotos criado:', OFFLINE_PHOTOS_DIR);
     }
   } catch (error) {
-    console.error('❌ [Offline] Erro ao criar diretório de fotos:', error);
     throw error;
   }
 }
@@ -90,8 +88,6 @@ export async function savePhotoOffline(
       to: localPath,
     });
 
-    console.log('📸 [Offline] Foto salva localmente:', localPath);
-
     const photoData: OfflinePhotoData = {
       localPath,
       unidadeId,
@@ -106,7 +102,6 @@ export async function savePhotoOffline(
 
     return photoData;
   } catch (error) {
-    console.error('❌ [Offline] Erro ao salvar foto offline:', error);
     throw error;
   }
 }
@@ -119,8 +114,8 @@ async function addToPhotosIndex(photoData: OfflinePhotoData): Promise<void> {
     const index = await getOfflinePhotosIndex();
     index.push(photoData);
     await AsyncStorage.setItem(OFFLINE_PHOTOS_INDEX_KEY, JSON.stringify(index));
-  } catch (error) {
-    console.error('❌ [Offline] Erro ao adicionar ao índice de fotos:', error);
+  } catch {
+    // Silently fail - não crítico
   }
 }
 
@@ -131,8 +126,7 @@ export async function getOfflinePhotosIndex(): Promise<OfflinePhotoData[]> {
   try {
     const indexStr = await AsyncStorage.getItem(OFFLINE_PHOTOS_INDEX_KEY);
     return indexStr ? JSON.parse(indexStr) : [];
-  } catch (error) {
-    console.error('❌ [Offline] Erro ao obter índice de fotos:', error);
+  } catch {
     return [];
   }
 }
@@ -145,8 +139,8 @@ async function removeFromPhotosIndex(paradaId: string): Promise<void> {
     const index = await getOfflinePhotosIndex();
     const filtered = index.filter(p => p.paradaId !== paradaId);
     await AsyncStorage.setItem(OFFLINE_PHOTOS_INDEX_KEY, JSON.stringify(filtered));
-  } catch (error) {
-    console.error('❌ [Offline] Erro ao remover do índice de fotos:', error);
+  } catch {
+    // Silently fail - não crítico
   }
 }
 
@@ -160,10 +154,9 @@ async function deleteLocalPhoto(localPath: string): Promise<void> {
     const fileInfo = await FileSystem.getInfoAsync(localPath);
     if (fileInfo.exists) {
       await FileSystem.deleteAsync(localPath, { idempotent: true });
-      console.log('🗑️ [Offline] Foto local removida:', localPath);
     }
-  } catch (error) {
-    console.error('❌ [Offline] Erro ao remover foto local:', error);
+  } catch {
+    // Silently fail - não crítico
   }
 }
 
@@ -191,8 +184,6 @@ export async function queuePhotoUpload(
     data: photoData,
   });
 
-  console.log('📤 [Offline] Upload de foto enfileirado:', paradaId);
-
   return photoData.localPath;
 }
 
@@ -215,7 +206,6 @@ export async function processOfflinePhotos(): Promise<{ success: number; failed:
       if (Platform.OS !== 'web') {
         const fileInfo = await FileSystem.getInfoAsync(photo.localPath);
         if (!fileInfo.exists) {
-          console.warn('⚠️ [Offline] Foto não encontrada:', photo.localPath);
           await removeFromPhotosIndex(photo.paradaId);
           continue;
         }
@@ -234,14 +224,11 @@ export async function processOfflinePhotos(): Promise<{ success: number; failed:
         await deleteLocalPhoto(photo.localPath);
         await removeFromPhotosIndex(photo.paradaId);
         success++;
-        console.log('✅ [Offline] Foto sincronizada:', photo.paradaId);
       } else {
         failed++;
-        console.error('❌ [Offline] Falha no upload:', photo.paradaId);
       }
-    } catch (error) {
+    } catch {
       failed++;
-      console.error('❌ [Offline] Erro ao processar foto:', error);
     }
   }
 
@@ -299,7 +286,6 @@ export async function addToOfflineQueue(action: Omit<OfflineAction, 'id' | 'time
     queue.push(newAction);
     await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
   } catch (error) {
-    console.error('Erro ao adicionar ação à fila offline:', error);
     throw error;
   }
 }
@@ -311,8 +297,7 @@ export async function getOfflineQueue(): Promise<OfflineAction[]> {
   try {
     const queueStr = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);
     return queueStr ? JSON.parse(queueStr) : [];
-  } catch (error) {
-    console.error('Erro ao obter fila offline:', error);
+  } catch {
     return [];
   }
 }
@@ -323,8 +308,8 @@ export async function getOfflineQueue(): Promise<OfflineAction[]> {
 export async function clearOfflineQueue(): Promise<void> {
   try {
     await AsyncStorage.removeItem(OFFLINE_QUEUE_KEY);
-  } catch (error) {
-    console.error('Erro ao limpar fila offline:', error);
+  } catch {
+    // Silently fail
   }
 }
 
@@ -351,7 +336,6 @@ export async function processOfflineQueue(): Promise<{ success: number; failed: 
     } catch (error) {
       failedCount++;
       errors.push({ action, error });
-      console.error(`Erro ao processar ação offline ${action.id}:`, error);
     }
   }
 
@@ -404,7 +388,6 @@ async function executeOfflineAction(action: OfflineAction): Promise<void> {
       if (Platform.OS !== 'web') {
         const fileInfo = await FileSystem.getInfoAsync(photoData.localPath);
         if (!fileInfo.exists) {
-          console.warn('⚠️ [Offline] Foto não encontrada:', photoData.localPath);
           // Remover do índice mesmo assim
           await removeFromPhotosIndex(photoData.paradaId);
           return; // Não é um erro, apenas foto não existe mais
@@ -426,8 +409,6 @@ async function executeOfflineAction(action: OfflineAction): Promise<void> {
       // Limpar arquivo local e índice
       await deleteLocalPhoto(photoData.localPath);
       await removeFromPhotosIndex(photoData.paradaId);
-
-      console.log('✅ [Offline] Foto sincronizada via queue:', photoData.paradaId);
       break;
     }
 
@@ -449,7 +430,6 @@ export async function saveOfflineData(data: OfflineData): Promise<void> {
     };
     await AsyncStorage.setItem(OFFLINE_DATA_KEY, JSON.stringify(updatedData));
   } catch (error) {
-    console.error('Erro ao salvar dados offline:', error);
     throw error;
   }
 }
@@ -461,8 +441,7 @@ export async function getOfflineData(): Promise<OfflineData> {
   try {
     const dataStr = await AsyncStorage.getItem(OFFLINE_DATA_KEY);
     return dataStr ? JSON.parse(dataStr) : {};
-  } catch (error) {
-    console.error('Erro ao obter dados offline:', error);
+  } catch {
     return {};
   }
 }
@@ -473,8 +452,8 @@ export async function getOfflineData(): Promise<OfflineData> {
 export async function clearOfflineData(): Promise<void> {
   try {
     await AsyncStorage.removeItem(OFFLINE_DATA_KEY);
-  } catch (error) {
-    console.error('Erro ao limpar dados offline:', error);
+  } catch {
+    // Silently fail
   }
 }
 
@@ -485,8 +464,7 @@ export async function hasOfflineData(): Promise<boolean> {
   try {
     const data = await getOfflineData();
     return Boolean(data.rota || (data.paradas && data.paradas.length > 0));
-  } catch (error) {
-    console.error('Erro ao verificar dados offline:', error);
+  } catch {
     return false;
   }
 }
@@ -498,8 +476,7 @@ export async function getOfflineQueueSize(): Promise<number> {
   try {
     const queue = await getOfflineQueue();
     return queue.length;
-  } catch (error) {
-    console.error('Erro ao obter tamanho da fila offline:', error);
+  } catch {
     return 0;
   }
 }
@@ -521,10 +498,8 @@ export function setupOfflineSync(): () => void {
       let actionsSuccess = 0;
 
       if (queueSize > 0) {
-        console.log(`📤 [Offline] Processando ${queueSize} ações offline...`);
         const result = await processOfflineQueue();
         actionsSuccess = result.success;
-        console.log(`✅ [Offline] Processamento: ${result.success} sucesso, ${result.failed} falhas`);
       }
 
       // Processar fotos pendentes (separadamente para melhor tracking)
@@ -532,10 +507,8 @@ export function setupOfflineSync(): () => void {
       let photosSuccess = 0;
 
       if (photosCount > 0) {
-        console.log(`📷 [Offline] Sincronizando ${photosCount} fotos pendentes...`);
         const photoResult = await processOfflinePhotos();
         photosSuccess = photoResult.success;
-        console.log(`✅ [Offline] Fotos: ${photoResult.success} sucesso, ${photoResult.failed} falhas`);
       }
 
       // Notificar se houve sincronização

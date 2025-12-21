@@ -80,8 +80,8 @@ export function NavigationMode({
           setNavigationMode('turn-by-turn');
         }
       }
-    } catch (error) {
-      console.log('Error loading nav preferences:', error);
+    } catch {
+      // Falha ao carregar preferências - usar padrão
     }
   }, []);
 

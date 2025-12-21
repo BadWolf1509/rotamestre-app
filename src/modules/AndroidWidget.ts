@@ -42,7 +42,6 @@ class AndroidWidgetModule {
    */
   async updateWidget(data: WidgetData): Promise<void> {
     if (!this.isAvailable()) {
-      console.log('Android widget not available on this platform');
       return;
     }
 

@@ -24,7 +24,8 @@ export function MiniMap({
   route,
 }: MiniMapProps) {
   const { theme } = useUnistyles();
-  const height = expanded ? 300 : 150;
+  // Altura compacta (56px) igual ao botão Iniciar Rota, expandido mostra paradas
+  const height = expanded ? 200 : 56;
 
   // Filtrar paradas por status (mas manter checkpoints separados)
   const paradasPendentes = paradas.filter(p => p.status === 'pendente' && p.is_checkpoint !== false);
@@ -36,17 +37,8 @@ export function MiniMap({
     const todasParadas = [...paradas].sort((a, b) => a.ordem - b.ordem);
 
     if (todasParadas.length === 0) {
-      console.warn('⚠️ MiniMap: Nenhuma parada disponível para gerar URL');
       return '#';
     }
-
-    // Debug: Verificar checkpoints
-    const checkpoints = todasParadas.filter(p => p.is_checkpoint === false);
-    console.log('📍 MiniMap: Gerando URL Google Maps');
-    console.log(`   Total de paradas: ${todasParadas.length}`);
-    console.log(`   Checkpoints encontrados: ${checkpoints.length}`);
-    console.log(`   Primeira parada (ordem ${todasParadas[0].ordem}):`, todasParadas[0].endereco, `is_checkpoint=${todasParadas[0].is_checkpoint}`);
-    console.log(`   Última parada (ordem ${todasParadas[todasParadas.length - 1].ordem}):`, todasParadas[todasParadas.length - 1].endereco, `is_checkpoint=${todasParadas[todasParadas.length - 1].is_checkpoint}`);
 
     // Origem: SEMPRE o primeiro ponto (checkpoint de partida ou primeira parada)
     const origin = `${todasParadas[0].latitude},${todasParadas[0].longitude}`;
@@ -61,7 +53,6 @@ export function MiniMap({
       .join('|');
 
     const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ''}&travelmode=driving`;
-    console.log('🗺️ URL gerada:', url);
 
     return url;
   };
@@ -80,94 +71,69 @@ export function MiniMap({
         activeOpacity={0.95}
       >
         <View style={[styles.mapPlaceholder, { height }]}>
-          <View style={styles.routeInfo}>
-            <View style={styles.routeHeader}>
-              <Ionicons name="map" size={32} color={theme.colors.primary} />
-              <Text style={styles.routeTitle}>Visualização de Rota</Text>
-            </View>
-
-            <View style={styles.statsContainer}>
-              <View style={styles.statBox}>
-                <Text style={styles.statValue}>{paradasPendentes.length}</Text>
-                <Text style={styles.statLabel}>Pendentes</Text>
-              </View>
-              <View style={styles.statBox}>
-                <Text style={[styles.statValue, { color: theme.colors.success }]}>
-                  {paradasConcluidas.length}
-                </Text>
-                <Text style={styles.statLabel}>Concluídas</Text>
-              </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statValue}>
-                  {route?.distancia_total ? Math.round(route.distancia_total) : '-'}
-                </Text>
-                <Text style={styles.statLabel}>km total</Text>
-              </View>
-            </View>
-
-            {expanded && (
-              <View style={styles.stopsPreview}>
-                <Text style={styles.stopsTitle}>Próximas Paradas:</Text>
-                {paradasPendentes.slice(0, 3).map((parada, index) => (
-                  <View key={parada.id} style={styles.stopItem}>
-                    <View style={[
-                      styles.stopMarker,
-                      index === 0 && { backgroundColor: colors.warning }
-                    ]}>
-                      <Text style={styles.stopNumber}>{parada.ordem}</Text>
-                    </View>
-                    <Text style={styles.stopAddress} numberOfLines={1}>
-                      {parada.endereco}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-
-          <View style={styles.overlay}>
-            <View style={styles.infoBox}>
-              <Text style={styles.infoText}>
-                {paradasPendentes.length} paradas • {route?.distancia_total ? `${Math.round(route.distancia_total)} km` : '-'}
-              </Text>
-            </View>
-
-            <View style={styles.controlButtons}>
+          {/* Layout compacto inline quando não expandido */}
+          {!expanded ? (
+            <View style={styles.compactRow}>
+              <Ionicons name="map-outline" size={20} color={theme.colors.primary} />
+              <Text style={styles.compactText}>Ver rota no Google Maps</Text>
               <TouchableOpacity
-                style={styles.pipButton}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  onOpenPiP?.();
-                }}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons
-                  name="copy-outline"
-                  size={18}
-                  color={colors.white}
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.expandButton}
+                style={styles.expandChevron}
                 onPress={(e) => {
                   e.stopPropagation();
                   onToggleExpand?.();
                 }}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Ionicons
-                  name={expanded ? 'contract' : 'expand'}
-                  size={20}
-                  color={colors.white}
-                />
+                <Ionicons name="chevron-down" size={18} color={colors.gray400} />
               </TouchableOpacity>
             </View>
-          </View>
+          ) : (
+            /* Layout expandido com preview de paradas */
+            <View style={styles.expandedContent}>
+              <View style={styles.routeHeader}>
+                <Ionicons name="map" size={24} color={theme.colors.primary} />
+                <View style={styles.routeHeaderText}>
+                  <Text style={styles.routeTitle}>Visualizar no Google Maps</Text>
+                  <Text style={styles.routeSubtitle}>Toque para ver a rota</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.collapseButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    onToggleExpand?.();
+                  }}
+                >
+                  <Ionicons name="chevron-up" size={18} color={colors.gray400} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Preview de paradas */}
+              {paradasPendentes.length > 0 && (
+                <View style={styles.stopsPreview}>
+                  {paradasPendentes.slice(0, 3).map((parada, index) => (
+                    <View key={parada.id} style={styles.stopItem}>
+                      <View style={[
+                        styles.stopMarker,
+                        index === 0 && { backgroundColor: colors.warning }
+                      ]}>
+                        <Text style={styles.stopNumber}>{parada.ordem}</Text>
+                      </View>
+                      <Text style={styles.stopAddress} numberOfLines={1}>
+                        {parada.endereco}
+                      </Text>
+                    </View>
+                  ))}
+                  {paradasPendentes.length > 3 && (
+                    <Text style={styles.moreStops}>
+                      +{paradasPendentes.length - 3} mais...
+                    </Text>
+                  )}
+                </View>
+              )}
+            </View>
+          )}
         </View>
       </TouchableOpacity>
-
-      <Text style={styles.hint}>Toque para abrir no Google Maps</Text>
     </View>
   );
 }
@@ -175,74 +141,78 @@ export function MiniMap({
 const styles = StyleSheet.create({
   container: {
     marginHorizontal: 16,
-    marginVertical: 8,
+    marginTop: 0,
+    marginBottom: 8,
   },
   mapContainer: {
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.gray200,
+    backgroundColor: colors.white,
   },
   mapPlaceholder: {
     width: '100%',
-    backgroundColor: colors.gray50,
-    position: 'relative',
+    backgroundColor: colors.white,
   },
-  routeInfo: {
+  // Layout compacto (56px)
+  compactRow: {
     flex: 1,
-    padding: 16,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  compactText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.gray700,
+  },
+  expandChevron: {
+    padding: 4,
+  },
+  // Layout expandido
+  expandedContent: {
+    flex: 1,
+    padding: 12,
   },
   routeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
+    gap: 10,
+  },
+  routeHeaderText: {
+    flex: 1,
   },
   routeTitle: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.gray900,
   },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 16,
-  },
-  statBox: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: defaultTheme.colors.primary,
-  },
-  statLabel: {
-    fontSize: 12,
+  routeSubtitle: {
+    fontSize: 11,
     color: colors.gray500,
-    marginTop: 4,
+    marginTop: 1,
+  },
+  collapseButton: {
+    padding: 4,
   },
   stopsPreview: {
-    marginTop: 16,
-    paddingTop: 16,
+    marginTop: 10,
+    paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: colors.gray200,
-  },
-  stopsTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.gray700,
-    marginBottom: 8,
+    borderTopColor: colors.gray100,
   },
   stopItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 4,
+    marginVertical: 3,
   },
   stopMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: colors.gray500,
     justifyContent: 'center',
     alignItems: 'center',
@@ -250,60 +220,20 @@ const styles = StyleSheet.create({
   },
   stopNumber: {
     color: colors.white,
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
   },
   stopAddress: {
     flex: 1,
     fontSize: 12,
-    color: colors.gray600,
+    color: colors.gray700,
   },
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 8,
-  },
-  infoBox: {
-    backgroundColor: 'rgba(30, 90, 168, 0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  infoText: {
-    color: colors.white,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  controlButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  expandButton: {
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pipButton: {
-    backgroundColor: 'rgba(30, 90, 168, 0.8)',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  hint: {
+  moreStops: {
     fontSize: 11,
     color: colors.gray500,
-    textAlign: 'center',
-    marginTop: 4,
     fontStyle: 'italic',
+    marginTop: 2,
+    marginLeft: 28,
   },
 });
 

@@ -57,11 +57,9 @@ export async function requestNotificationPermissions(): Promise<boolean> {
   }
 
   if (finalStatus !== 'granted') {
-    console.log('🔔 Permissão de notificações não concedida');
     return false;
   }
 
-  console.log('🔔 Permissão de notificações concedida');
   return true;
 }
 
@@ -103,7 +101,6 @@ export async function sendLocalNotification(
   data?: Record<string, unknown>
 ): Promise<string | null> {
   if (Platform.OS === 'web') {
-    console.log(`🔔 [Web] ${title}: ${body}`);
     return null;
   }
 
@@ -118,7 +115,6 @@ export async function sendLocalNotification(
       trigger: null, // Imediato
     });
 
-    console.log(`🔔 Notificação enviada: ${id}`);
     return id;
   } catch (error) {
     console.error('Erro ao enviar notificação:', error);
@@ -224,7 +220,6 @@ export async function scheduleRouteReminder(): Promise<string | null> {
       },
     });
 
-    console.log(`🔔 Lembrete diário agendado para ${settings.reminderTime}: ${id}`);
     return id;
   } catch (error) {
     console.error('Erro ao agendar lembrete:', error);
@@ -279,13 +274,11 @@ export function addNotificationResponseListener(
 export async function getExpoPushToken(): Promise<string | null> {
   // Push tokens não funcionam na web
   if (Platform.OS === 'web') {
-    console.log('[Push] Push tokens não suportados na web');
     return null;
   }
 
   // Push tokens não funcionam no emulador (apenas dispositivo físico)
   if (!Device.isDevice) {
-    console.log('[Push] Push tokens requerem dispositivo físico');
     return null;
   }
 
@@ -300,22 +293,18 @@ export async function getExpoPushToken(): Promise<string | null> {
     }
 
     if (finalStatus !== 'granted') {
-      console.log('[Push] Permissão de notificações não concedida');
       return null;
     }
 
     // Obter o token usando projectId do app.json/app.config.js
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
     if (!projectId) {
-      console.error('[Push] EAS projectId não encontrado em Constants.expoConfig');
       // Tentar alternativa
       const tokenData = await Notifications.getExpoPushTokenAsync();
-      console.log('[Push] Token obtido (sem projectId):', tokenData.data);
       return tokenData.data;
     }
 
     const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
-    console.log('[Push] Token obtido:', tokenData.data);
     return tokenData.data;
   } catch (error) {
     console.error('[Push] Erro ao obter push token:', error);
@@ -333,14 +322,12 @@ export async function registerPushToken(userId: string): Promise<boolean> {
   try {
     const token = await getExpoPushToken();
     if (!token) {
-      console.log('[Push] Sem token para registrar');
       return false;
     }
 
     // Verificar se o token mudou
     const storedToken = await AsyncStorage.getItem(PUSH_TOKEN_KEY);
     if (storedToken === token) {
-      console.log('[Push] Token não mudou, pulando atualização');
       return true;
     }
 
@@ -357,7 +344,6 @@ export async function registerPushToken(userId: string): Promise<boolean> {
 
     // Salvar token localmente para comparação futura
     await AsyncStorage.setItem(PUSH_TOKEN_KEY, token);
-    console.log('[Push] Token registrado com sucesso');
     return true;
   } catch (error) {
     console.error('[Push] Erro ao registrar token:', error);
@@ -380,7 +366,6 @@ export async function unregisterPushToken(userId: string): Promise<void> {
 
     // Limpar token local
     await AsyncStorage.removeItem(PUSH_TOKEN_KEY);
-    console.log('[Push] Token removido');
   } catch (error) {
     console.error('[Push] Erro ao remover token:', error);
   }
@@ -435,10 +420,7 @@ export async function initializeNotifications(): Promise<void> {
 export async function initializePushNotifications(userId: string): Promise<void> {
   if (Platform.OS === 'web') return;
 
-  const registered = await registerPushToken(userId);
-  if (registered) {
-    console.log('[Push] Push notifications inicializadas');
-  }
+  await registerPushToken(userId);
 }
 
 // Export service object

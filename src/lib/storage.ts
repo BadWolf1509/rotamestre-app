@@ -26,13 +26,9 @@ async function getFileData(
   }
 
   // Native: use expo-file-system legacy API to read as base64
-  console.log('📁 [Storage] Using expo-file-system (legacy) for native file reading');
-  console.log('📁 [Storage] URI:', uri);
-
   const base64 = await FileSystem.readAsStringAsync(uri, {
     encoding: FileSystem.EncodingType.Base64,
   });
-  console.log('📁 [Storage] File read successfully, base64 length:', base64.length);
 
   // Convert base64 to ArrayBuffer
   const binaryString = atob(base64);
@@ -67,22 +63,13 @@ export async function uploadFotoEntrega(
   fotoUri: string
 ): Promise<string | null> {
   try {
-    console.log('📸 Iniciando upload de foto...');
-    console.log(`   Unidade: ${unidadeId}`);
-    console.log(`   Rota: ${rotaId}`);
-    console.log(`   Parada: ${paradaId}`);
-
     // Gerar nome único com timestamp
     const timestamp = Date.now();
     const fileName = `${paradaId}_${timestamp}.jpg`;
     const filePath = `${unidadeId}/${rotaId}/${fileName}`;
 
-    console.log(`   Caminho: ${filePath}`);
-
     // Ler arquivo usando expo-file-system (nativo) ou fetch (web)
     const { data: fileData, size } = await getFileData(fotoUri);
-
-    console.log(`   Tamanho: ${(size / 1024).toFixed(2)} KB`);
 
     // Validar tamanho (máx 5MB)
     if (size > 5 * 1024 * 1024) {
@@ -100,22 +87,18 @@ export async function uploadFotoEntrega(
       });
 
     if (error) {
-      console.error('❌ Erro no upload:', error);
+      console.error('[Storage] Erro no upload:', error);
       throw error;
     }
-
-    console.log('✅ Upload concluído:', data.path);
 
     // Obter URL pública
     const { data: { publicUrl } } = supabase.storage
       .from(BUCKET_FOTOS_ENTREGA)
       .getPublicUrl(filePath);
 
-    console.log('🔗 URL pública:', publicUrl);
-
     return publicUrl;
   } catch (error) {
-    console.error('❌ Erro ao fazer upload de foto:', error);
+    console.error('[Storage] Erro ao fazer upload de foto:', error);
     return null;
   }
 }
@@ -132,24 +115,19 @@ export async function salvarFotoParada(
   fotoUrl: string
 ): Promise<boolean> {
   try {
-    console.log('💾 Salvando foto_url no banco...');
-    console.log(`   Parada: ${paradaId}`);
-    console.log(`   URL: ${fotoUrl}`);
-
     const { error } = await supabase
       .from('paradas')
       .update({ foto_url: fotoUrl })
       .eq('id', paradaId);
 
     if (error) {
-      console.error('❌ Erro ao salvar foto_url:', error);
+      console.error('[Storage] Erro ao salvar foto_url:', error);
       throw error;
     }
 
-    console.log('✅ foto_url salva com sucesso!');
     return true;
   } catch (error) {
-    console.error('❌ Erro ao salvar foto na parada:', error);
+    console.error('[Storage] Erro ao salvar foto na parada:', error);
     return false;
   }
 }
@@ -170,13 +148,10 @@ export async function uploadELinkFotoParada(
   fotoUri: string
 ): Promise<boolean> {
   try {
-    console.log('🚀 Iniciando processo completo de upload...');
-
     // 1. Upload da foto
     const fotoUrl = await uploadFotoEntrega(unidadeId, rotaId, paradaId, fotoUri);
 
     if (!fotoUrl) {
-      console.error('❌ Falha no upload da foto');
       return false;
     }
 
@@ -184,15 +159,13 @@ export async function uploadELinkFotoParada(
     const salvou = await salvarFotoParada(paradaId, fotoUrl);
 
     if (!salvou) {
-      console.error('❌ Falha ao salvar foto_url no banco');
       // TODO: Implementar rollback (deletar foto do storage)
       return false;
     }
 
-    console.log('✅ Processo completo! Foto enviada e salva no banco.');
     return true;
   } catch (error) {
-    console.error('❌ Erro no processo de upload:', error);
+    console.error('[Storage] Erro no processo de upload:', error);
     return false;
   }
 }
@@ -206,8 +179,6 @@ export async function uploadELinkFotoParada(
 export async function deletarFoto(fotoUrl: string): Promise<boolean> {
   try {
     // Extrair caminho da URL
-    // Exemplo: https://xyz.supabase.co/storage/v1/object/public/fotos-entrega/unidade/rota/parada.jpg
-    // Queremos: unidade/rota/parada.jpg
     const urlParts = fotoUrl.split('/fotos-entrega/');
     if (urlParts.length !== 2) {
       throw new Error('URL inválida');
@@ -215,21 +186,18 @@ export async function deletarFoto(fotoUrl: string): Promise<boolean> {
 
     const filePath = urlParts[1];
 
-    console.log('🗑️  Deletando foto:', filePath);
-
     const { error } = await supabase.storage
       .from(BUCKET_FOTOS_ENTREGA)
       .remove([filePath]);
 
     if (error) {
-      console.error('❌ Erro ao deletar:', error);
+      console.error('[Storage] Erro ao deletar:', error);
       throw error;
     }
 
-    console.log('✅ Foto deletada com sucesso!');
     return true;
   } catch (error) {
-    console.error('❌ Erro ao deletar foto:', error);
+    console.error('[Storage] Erro ao deletar foto:', error);
     return false;
   }
 }
@@ -242,8 +210,6 @@ export async function deletarFoto(fotoUrl: string): Promise<boolean> {
  */
 export async function deletarFotoPerfil(usuarioId: string): Promise<boolean> {
   try {
-    console.log('🗑️  Buscando fotos antigas do perfil...');
-
     // Listar arquivos no diretório de perfis do usuário
     const { data: files, error: listError } = await supabase.storage
       .from(BUCKET_FOTOS_ENTREGA)
@@ -252,12 +218,11 @@ export async function deletarFotoPerfil(usuarioId: string): Promise<boolean> {
       });
 
     if (listError) {
-      console.error('❌ Erro ao listar fotos:', listError);
+      console.error('[Storage] Erro ao listar fotos:', listError);
       return false;
     }
 
     if (!files || files.length === 0) {
-      console.log('ℹ️  Nenhuma foto antiga encontrada');
       return true;
     }
 
@@ -267,23 +232,18 @@ export async function deletarFotoPerfil(usuarioId: string): Promise<boolean> {
       .map(f => `perfis/${f.name}`);
 
     if (filesToDelete.length > 0) {
-      console.log(`🗑️  Deletando ${filesToDelete.length} foto(s) antiga(s)...`);
-
       const { error: deleteError } = await supabase.storage
         .from(BUCKET_FOTOS_ENTREGA)
         .remove(filesToDelete);
 
       if (deleteError) {
-        console.error('❌ Erro ao deletar fotos antigas:', deleteError);
-        // Não bloqueia o upload, apenas loga o erro
-      } else {
-        console.log('✅ Fotos antigas deletadas!');
+        console.error('[Storage] Erro ao deletar fotos antigas:', deleteError);
       }
     }
 
     return true;
   } catch (error) {
-    console.error('❌ Erro ao deletar foto de perfil:', error);
+    console.error('[Storage] Erro ao deletar foto de perfil:', error);
     return false;
   }
 }
@@ -303,12 +263,8 @@ export async function uploadFotoUsuario(
   fotoAntigaUrl?: string | null
 ): Promise<string | null> {
   try {
-    console.log('📸 Iniciando upload de foto de perfil...');
-    console.log(`   Usuário: ${usuarioId}`);
-
     // 1. Deletar foto antiga se existir
     if (fotoAntigaUrl) {
-      console.log('🗑️  Deletando foto anterior...');
       await deletarFotoPerfil(usuarioId);
     }
 
@@ -317,12 +273,8 @@ export async function uploadFotoUsuario(
     const fileName = `perfil_${usuarioId}_${timestamp}.jpg`;
     const filePath = `perfis/${fileName}`;
 
-    console.log(`   Caminho: ${filePath}`);
-
     // Ler arquivo usando expo-file-system (nativo) ou fetch (web)
     const { data: fileData, size } = await getFileData(fotoUri);
-
-    console.log(`   Tamanho: ${(size / 1024).toFixed(2)} KB`);
 
     // Validar tamanho (máx 2MB para perfil)
     if (size > 2 * 1024 * 1024) {
@@ -340,18 +292,14 @@ export async function uploadFotoUsuario(
       });
 
     if (error) {
-      console.error('❌ Erro no upload:', error);
+      console.error('[Storage] Erro no upload:', error);
       throw error;
     }
-
-    console.log('✅ Upload concluído:', data.path);
 
     // Obter URL pública
     const { data: { publicUrl } } = supabase.storage
       .from(BUCKET_FOTOS_ENTREGA)
       .getPublicUrl(filePath);
-
-    console.log('🔗 URL pública:', publicUrl);
 
     // Atualizar tabela usuarios com a nova foto_url
     const { error: updateError } = await supabase
@@ -363,15 +311,13 @@ export async function uploadFotoUsuario(
       .eq('id', usuarioId);
 
     if (updateError) {
-      console.error('❌ Erro ao atualizar foto_url no banco:', updateError);
+      console.error('[Storage] Erro ao atualizar foto_url no banco:', updateError);
       throw updateError;
     }
 
-    console.log('✅ foto_url atualizada no banco!');
-
     return publicUrl;
   } catch (error) {
-    console.error('❌ Erro ao fazer upload de foto de perfil:', error);
+    console.error('[Storage] Erro ao fazer upload de foto de perfil:', error);
     return null;
   }
 }
@@ -388,12 +334,8 @@ export async function uploadIncidentPhoto(
   fileName: string
 ): Promise<string> {
   try {
-    console.log('📸 Iniciando upload de foto de incidente...');
-
     // Ler arquivo usando expo-file-system (nativo) ou fetch (web)
     const { data: fileData, size } = await getFileData(fotoUri);
-
-    console.log(`   Tamanho: ${(size / 1024).toFixed(2)} KB`);
 
     // Validar tamanho (máx 5MB)
     if (size > 5 * 1024 * 1024) {
@@ -418,7 +360,7 @@ export async function uploadIncidentPhoto(
       });
 
     if (error) {
-      console.error('❌ Erro no upload:', error);
+      console.error('[Storage] Erro no upload de incidente:', error);
       throw error;
     }
 
@@ -427,12 +369,9 @@ export async function uploadIncidentPhoto(
       .from(BUCKET_INCIDENTES)
       .getPublicUrl(fileName);
 
-    console.log('✅ Upload de incidente concluído!');
-    console.log(`   URL: ${urlData.publicUrl}`);
-
     return urlData.publicUrl;
   } catch (error) {
-    console.error('❌ Erro ao fazer upload de foto de incidente:', error);
+    console.error('[Storage] Erro ao fazer upload de foto de incidente:', error);
     return '';
   }
 }

@@ -106,19 +106,6 @@ export async function otimizarRotaComDependencias(
   // Agrupar paradas por dependência
   const { grupos, independentes } = agruparPorDependencia(paradas);
 
-  // Log de rastreabilidade para vínculos
-  if (grupos.length > 0) {
-    console.log('[RouteOptimization] Otimizando rota com vínculos:');
-    console.log(`  - Total de paradas: ${paradas.length}`);
-    console.log(`  - Grupos com vínculo: ${grupos.length}`);
-    console.log(`  - Paradas independentes: ${independentes.length}`);
-    grupos.forEach((grupo, idx) => {
-      const retirada = grupo[0];
-      const entregas = grupo.slice(1);
-      console.log(`  - Grupo ${idx + 1}: Retirada "${retirada.endereco.substring(0, 30)}..." → ${entregas.length} entrega(s) vinculada(s)`);
-    });
-  }
-
   // Criar lista de "representantes" para otimização
   // Cada grupo é representado pela sua retirada (primeiro elemento)
   // Paradas independentes são representadas por si mesmas
@@ -189,16 +176,6 @@ export async function otimizarRotaComDependencias(
   paradasOrdenadas.forEach((parada, idx) => {
     parada.ordem = idx + 1;
   });
-
-  // Log final da otimização
-  if (grupos.length > 0) {
-    console.log('[RouteOptimization] Ordem final otimizada:');
-    paradasOrdenadas.forEach((parada, idx) => {
-      const vinculoInfo = parada.vinculo_parada_id ? ' (vinculada)' : '';
-      console.log(`  ${idx + 1}. [${parada.tipo.toUpperCase()}] ${parada.endereco.substring(0, 40)}...${vinculoInfo}`);
-    });
-    console.log(`[RouteOptimization] Distância total: ${(resultado.distancia_total_metros / 1000).toFixed(1)} km`);
-  }
 
   return {
     paradasOrdenadas,

@@ -16,7 +16,6 @@ export function isBrowserNotificationSupported(): boolean {
  */
 export async function requestBrowserNotificationPermission(): Promise<boolean> {
   if (!isBrowserNotificationSupported()) {
-    console.log('[BrowserNotification] Not supported in this environment');
     return false;
   }
 
@@ -25,7 +24,6 @@ export async function requestBrowserNotificationPermission(): Promise<boolean> {
   }
 
   if (Notification.permission === 'denied') {
-    console.log('[BrowserNotification] Permission previously denied');
     return false;
   }
 
@@ -65,12 +63,10 @@ export function sendBrowserNotification(
   }
 ): Notification | null {
   if (!isBrowserNotificationSupported()) {
-    console.log('[BrowserNotification] Not supported');
     return null;
   }
 
   if (Notification.permission !== 'granted') {
-    console.log('[BrowserNotification] Permission not granted');
     return null;
   }
 

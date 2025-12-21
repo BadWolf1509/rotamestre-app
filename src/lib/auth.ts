@@ -66,7 +66,6 @@ export const authService = {
       if (!err.message?.includes('Auth session missing')) {
         throw err;
       }
-      console.log('[Auth] Sessão já estava encerrada');
     }
   },
 

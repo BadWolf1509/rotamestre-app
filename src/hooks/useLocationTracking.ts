@@ -73,7 +73,6 @@ export function useLocationTracking(options: UseLocationTrackingOptions = {}) {
         if (dbError) throw dbError;
 
         lastSentLocation.current = location;
-        console.log('[GPS] Localização enviada:', location);
       } catch (err) {
         console.error('[GPS] Erro ao enviar localização:', err);
       }
@@ -117,7 +116,6 @@ export function useLocationTracking(options: UseLocationTrackingOptions = {}) {
       }, interval);
 
       setTracking(true);
-      console.log('[GPS] Rastreamento iniciado');
     } catch (err) {
       console.error('[GPS] Erro ao iniciar rastreamento:', err);
       setError('Erro ao iniciar rastreamento GPS');
@@ -151,7 +149,6 @@ export function useLocationTracking(options: UseLocationTrackingOptions = {}) {
     }
 
     setTracking(false);
-    console.log('[GPS] Rastreamento parado');
   }, []);
 
   // Iniciar/parar automaticamente quando enabled/rotaId mudar

@@ -88,7 +88,6 @@ export function useDriverLocationBroadcast({
           console.error('[LocationBroadcast] Erro ao enviar localização:', error);
         } else {
           lastUpdateRef.current = now;
-          console.log('[LocationBroadcast] Localização enviada (foreground)');
         }
       } catch (err) {
         console.error('[LocationBroadcast] Erro:', err);
@@ -181,7 +180,6 @@ export function useDriverLocationBroadcast({
           }
         );
 
-        console.log('[LocationBroadcast] Tracking iniciado para rota:', rotaId);
       } catch (err) {
         console.error('[LocationBroadcast] Erro ao iniciar tracking:', err);
       }
@@ -191,7 +189,6 @@ export function useDriverLocationBroadcast({
 
     return () => {
       cleanup();
-      console.log('[LocationBroadcast] Tracking parado');
     };
   }, [enabled, rotaId, rotaStatus, updateInterval, broadcastLocation]);
 

@@ -17,6 +17,7 @@ import { MainCard } from '@/components/motorista/home/MainCard';
 import { MiniMap } from '@/components/motorista/home/MiniMap';
 import { ProgressBar } from '@/components/motorista/home/ProgressBar';
 import { FloatingActionButton } from '@/components/motorista/home/QuickActions';
+import { StartRouteButton } from '@/components/motorista/home/StartRouteButton';
 import { StatusSection } from '@/components/motorista/home/StatusSection';
 import { NavigationMode } from '@/components/motorista/NavigationMode';
 import { NavigationSettings } from '@/components/motorista/NavigationSettings';
@@ -72,6 +73,8 @@ function MotoristaInicioContent() {
   const [showOptimization, setShowOptimization] = useState(false);
   const [showCompletionFlow, setShowCompletionFlow] = useState(false);
   const [showSupportModal, setShowSupportModal] = useState(false);
+  const [canStartRoute, setCanStartRoute] = useState(true);
+  const [isStartingRoute, setIsStartingRoute] = useState(false);
 
   // Load user location
   useEffect(() => {
@@ -180,8 +183,22 @@ function MotoristaInicioContent() {
     }
   };
 
+  // Handler para mudança no checklist pré-rota
+  const handleChecklistChange = (canStart: boolean, _allOk: boolean) => {
+    setCanStartRoute(canStart);
+  };
+
   // Start route
   const handleStartRoute = async () => {
+    // Verificar checklist
+    if (!canStartRoute) {
+      Alert.alert(
+        'GPS Necessário',
+        'Ative o GPS do seu dispositivo para iniciar a rota.'
+      );
+      return;
+    }
+
     // Verificar se a rota pode ser iniciada
     if (route?.status !== 'pendente') {
       const statusMessages: Record<string, string> = {
@@ -197,11 +214,14 @@ function MotoristaInicioContent() {
     }
 
     try {
+      setIsStartingRoute(true);
       await startRoute();
       Alert.alert('Rota Iniciada', 'Boa viagem! Dirija com segurança.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Não foi possível iniciar a rota';
       Alert.alert('Erro', message);
+    } finally {
+      setIsStartingRoute(false);
     }
   };
 
@@ -402,13 +422,19 @@ function MotoristaInicioContent() {
 
   return (
     <>
-      {/* Padding condicional: no-route precisa de menos espaço pois não tem MiniMap */}
-      {/* Estados com mais conteúdo: FAB margin (16) + FAB height (64) + content margin (16) = 96 */}
+      {/* Padding condicional baseado no estado:
+          - no-route: sem FAB flutuante, padding mínimo
+          - pending: botão dentro do scroll, padding mínimo
+          - outros: FAB flutuante, precisa de espaço extra (96px) */}
       <ScrollView
         style={styles.container}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: routeStatus === 'no-route' ? 16 : 96 },
+          {
+            paddingBottom: (routeStatus === 'no-route' || routeStatus === 'pending')
+              ? 16
+              : 96
+          },
         ]}
         refreshControl={
           <RefreshControl
@@ -441,9 +467,10 @@ function MotoristaInicioContent() {
           onSwipeLeft={handleSkipStop}
           onSwipeRight={handleCompleteStop}
           onPress={handleMainAction}
+          onChecklistChange={handleChecklistChange}
         />
 
-        {/* Mini Map - Apenas no estado pending para preview da rota */}
+        {/* Mini Map - Apenas no estado pending para preview da rota (colapsado por padrão) */}
         {route && routeStatus === 'pending' && (
           <MiniMap
             paradas={paradas}
@@ -456,17 +483,30 @@ function MotoristaInicioContent() {
           />
         )}
 
+        {/* Botão Iniciar Rota - full-width no estado pending */}
+        {routeStatus === 'pending' && (
+          <StartRouteButton
+            onPress={handleStartRoute}
+            disabled={!canStartRoute}
+            loading={isStartingRoute}
+            label="Iniciar Rota"
+            errorMessage={!canStartRoute ? 'GPS necessário' : undefined}
+            variant="start"
+          />
+        )}
+
       </ScrollView>
 
-      {/* Floating Action Button - absolute positioned outside ScrollView */}
-      {/* Posicionado logo acima da Tab Bar (mais próximo para melhor alcance) */}
-      <FloatingActionButton
-        icon={fabProps.icon}
-        color={fabProps.color}
-        onPress={handleMainAction}
-        label={fabProps.label}
-        tabBarHeight={16}
-      />
+      {/* Floating Action Button - apenas quando NÃO é pending (pending usa StartRouteButton) */}
+      {routeStatus !== 'pending' && (
+        <FloatingActionButton
+          icon={fabProps.icon}
+          color={fabProps.color}
+          onPress={handleMainAction}
+          label={fabProps.label}
+          tabBarHeight={16}
+        />
+      )}
 
       {/* Modals - rendered outside ScrollView */}
       {showIncidentWizard && (

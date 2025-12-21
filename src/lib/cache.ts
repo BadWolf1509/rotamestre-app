@@ -161,7 +161,6 @@ export async function cleanExpiredCache(): Promise<void> {
 
     if (toRemove.length > 0) {
       await AsyncStorage.multiRemove(toRemove);
-      console.log(`[Cache] Removidas ${toRemove.length} entradas expiradas`);
     }
   } catch (error) {
     console.warn('[Cache] Erro ao limpar cache expirado:', error);

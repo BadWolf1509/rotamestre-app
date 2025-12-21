@@ -66,7 +66,6 @@ export function MotoristaMarker({
           filter: `rota_id=eq.${rotaId}`,
         },
         (payload) => {
-          console.log('[MotoristaMarker] Nova localização:', payload.new);
           setLocation(payload.new as MotoristaLocation);
         }
       )

@@ -147,7 +147,6 @@ export function useRouteDirections(paradas: Parada[]): UseRouteDirectionsResult 
       // Tentar carregar do cache primeiro
       const cachedData = await loadFromCache(cacheKey);
       if (cachedData) {
-        console.log('[useRouteDirections] Usando rota do cache');
         setRouteCoordinates(cachedData.coordinates);
         setRouteInfo(cachedData.routeInfo);
         setIsFromCache(true);
@@ -172,7 +171,6 @@ export function useRouteDirections(paradas: Parada[]): UseRouteDirectionsResult 
           setRouteCoordinates(data.coordinates);
           setRouteInfo(data.routeInfo);
           setIsFromCache(true);
-          console.log('[useRouteDirections] Usando cache expirado como fallback offline');
           setIsLoading(false);
           return;
         }
