@@ -80,7 +80,7 @@
       "name": "Início (Motorista)",
       "short_name": "Início",
       "description": "Acessar painel principal do motorista",
-      "url": "/motorista/inicio",
+      "url": "/motorista",
       "icons": [
         {
           "src": "/favicon-96x96.png",

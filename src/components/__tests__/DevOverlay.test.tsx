@@ -257,7 +257,7 @@ describe('DevOverlay', () => {
                 { name: 'Gestor', path: '/gestor' },
                 { name: 'Mapa', path: '/motorista/mapa' },
                 { name: 'Histórico', path: '/motorista/historico' },
-                { name: 'Config', path: '/motorista/configuracoes' },
+                { name: 'Config', path: '/motorista/perfil/configuracoes' },
             ];
 
             expect(routes).toHaveLength(6);

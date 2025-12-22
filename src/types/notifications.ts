@@ -3,16 +3,21 @@
 // ============================================
 
 export type NotificationType =
-  | 'rota_iniciada'
-  | 'rota_concluida'
-  | 'parada_concluida'
-  | 'incidente_reportado'
-  | 'rota_atrasada'
-  | 'parada_pulada'
-  | 'sos_acionado'
-  | 'parada_reaberta'
-  | 'nova_rota_atribuida'
-  | 'rota_nao_executada';
+  // Notificações para GESTOR (sobre ações do motorista)
+  | 'rota_iniciada' // Motorista iniciou uma rota
+  | 'rota_concluida' // Motorista finalizou uma rota
+  | 'parada_concluida' // Motorista concluiu uma parada
+  | 'parada_pulada' // Motorista pulou uma parada
+  | 'parada_reaberta' // Parada foi reaberta
+  | 'incidente_reportado' // Motorista reportou um incidente
+  | 'sos_acionado' // Motorista acionou emergência SOS
+  | 'rota_atrasada' // Rota está atrasada
+  // Notificações para MOTORISTA
+  | 'nova_rota_atribuida' // Nova rota foi atribuída ao motorista
+  | 'lembrete_rota_pendente' // Lembrete às 16h sobre rota pendente
+  | 'lembrete_rota_urgente' // Aviso urgente às 20h (2h antes expiração)
+  // Notificações para AMBOS (gestor e motorista)
+  | 'rota_nao_executada'; // Rota expirou sem ser executada
 
 export interface Notificacao {
   id: string;

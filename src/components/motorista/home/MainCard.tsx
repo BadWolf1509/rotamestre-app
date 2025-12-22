@@ -53,6 +53,8 @@ interface MainCardProps {
   currentStop?: any | null;
   nextStop?: any | null;
   location?: { latitude: number; longitude: number } | null;
+  /** Quantidade de outras rotas pendentes (além da atual) */
+  pendingRoutesCount?: number;
   onSwipeLeft?: () => void | Promise<void>;
   onSwipeRight?: (fotoUrl?: string) => void | Promise<void>;
   onPress?: () => void | Promise<void>;
@@ -76,6 +78,7 @@ export function MainCard({
   currentStop,
   nextStop,
   location,
+  pendingRoutesCount = 0,
   onSwipeLeft,
   onSwipeRight,
   onPress,
@@ -660,8 +663,15 @@ export function MainCard({
           <ExpirationWarning rotaData={route.data} />
         )}
 
-        {/* Nome da empresa (sem badge redundante - StatusSection já mostra status) */}
-        <Text style={styles.empresa}>{route?.unidade_nome || 'Rota Atribuída'}</Text>
+        {/* Nome da empresa + badge de rotas pendentes */}
+        <View style={styles.empresaRow}>
+          <Text style={styles.empresa}>{route?.unidade_nome || 'Rota Atribuída'}</Text>
+          {pendingRoutesCount > 0 && (
+            <View style={[styles.pendingBadge, { backgroundColor: theme.colors.secondary }]}>
+              <Text style={styles.pendingBadgeText}>+{pendingRoutesCount}</Text>
+            </View>
+          )}
+        </View>
 
         {/* Stats inline - mais compacto */}
         <View style={styles.pendingStatsRow}>
@@ -1080,11 +1090,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 16,
   },
+  empresaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
   empresa: {
     fontSize: 18,
     fontWeight: '600',
     color: colors.gray900,
-    marginBottom: 12,
+  },
+  pendingBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  pendingBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.white,
   },
   addressMain: {
     fontSize: 16,

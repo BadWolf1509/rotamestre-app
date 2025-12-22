@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 
 import { useNotifications } from '@/hooks/useNotifications';
+import { useUser } from '@/hooks/useUser';
 import type { NotificacaoComDetalhes } from '@/types/notifications';
 
 interface NotificationListProps {
@@ -22,6 +23,34 @@ interface NotificationListProps {
 export function NotificationList({ onClose }: NotificationListProps) {
   const { notificacoes, naoLidas, loading, marcarComoLida, marcarTodasComoLidas } =
     useNotifications();
+  const { userData } = useUser();
+
+  /**
+   * Determina a rota de navegação baseada no tipo de notificação e papel do usuário
+   *
+   * MOTORISTA:
+   * - nova_rota_atribuida → /motorista (ver nova rota na tela inicial)
+   * - lembrete_rota_pendente → /motorista (iniciar rota pendente)
+   * - lembrete_rota_urgente → /motorista (urgente: iniciar rota!)
+   * - rota_nao_executada → /motorista/historico (rota expirada está no histórico)
+   *
+   * GESTOR:
+   * - Todas as notificações → /gestor/mapa-rota?id= (ver detalhes da rota)
+   */
+  const getNavigationPath = (tipo: string, rotaId: string): string => {
+    if (userData?.papel === 'motorista') {
+      // Tipos que direcionam para histórico (rotas finalizadas/expiradas)
+      if (tipo === 'rota_nao_executada') {
+        return '/motorista/historico';
+      }
+      // Todos os outros tipos direcionam para tela inicial
+      // (nova_rota_atribuida, lembrete_rota_pendente, lembrete_rota_urgente)
+      return '/motorista';
+    }
+
+    // Gestor: sempre vai para detalhes da rota
+    return `/gestor/mapa-rota?id=${rotaId}`;
+  };
 
   const handleNotificationPress = (notificacao: NotificacaoComDetalhes) => {
     // Marcar como lida
@@ -32,7 +61,8 @@ export function NotificationList({ onClose }: NotificationListProps) {
     // Navegar para a tela relevante
     if (notificacao.rota_id) {
       onClose();
-      router.push(`/gestor/mapa-rota?id=${notificacao.rota_id}`);
+      const path = getNavigationPath(notificacao.tipo, notificacao.rota_id);
+      router.push(path as any);
     }
   };
 
@@ -42,24 +72,31 @@ export function NotificationList({ onClose }: NotificationListProps) {
 
   const getNotificationIcon = (tipo: string) => {
     switch (tipo) {
+      // Notificações para GESTOR
       case 'rota_iniciada':
         return 'play-circle';
       case 'rota_concluida':
         return 'checkmark-circle';
       case 'parada_concluida':
         return 'location';
-      case 'incidente_reportado':
-        return 'alert-circle';
-      case 'rota_atrasada':
-        return 'time';
       case 'parada_pulada':
         return 'close-circle';
-      case 'sos_acionado':
-        return 'warning';
       case 'parada_reaberta':
         return 'refresh-circle';
+      case 'incidente_reportado':
+        return 'alert-circle';
+      case 'sos_acionado':
+        return 'warning';
+      case 'rota_atrasada':
+        return 'time';
+      // Notificações para MOTORISTA
       case 'nova_rota_atribuida':
         return 'car';
+      case 'lembrete_rota_pendente':
+        return 'alarm';
+      case 'lembrete_rota_urgente':
+        return 'alarm';
+      // Notificação para AMBOS
       case 'rota_nao_executada':
         return 'alert-circle';
       default:
@@ -69,24 +106,31 @@ export function NotificationList({ onClose }: NotificationListProps) {
 
   const getNotificationIconColor = (tipo: string) => {
     switch (tipo) {
+      // Notificações para GESTOR
       case 'rota_iniciada':
         return '#3b82f6'; // blue
       case 'rota_concluida':
         return '#22c55e'; // green
       case 'parada_concluida':
         return '#10b981'; // emerald
-      case 'incidente_reportado':
-        return '#ef4444'; // red
-      case 'rota_atrasada':
-        return '#f59e0b'; // amber
       case 'parada_pulada':
         return '#f97316'; // orange
-      case 'sos_acionado':
-        return '#dc2626'; // red-600 (emergência)
       case 'parada_reaberta':
         return '#f59e0b'; // amber
+      case 'incidente_reportado':
+        return '#ef4444'; // red
+      case 'sos_acionado':
+        return '#dc2626'; // red-600 (emergência)
+      case 'rota_atrasada':
+        return '#f59e0b'; // amber
+      // Notificações para MOTORISTA
       case 'nova_rota_atribuida':
         return '#FF8C42'; // primary (laranja)
+      case 'lembrete_rota_pendente':
+        return '#3b82f6'; // blue (lembrete normal)
+      case 'lembrete_rota_urgente':
+        return '#dc2626'; // red (urgente!)
+      // Notificação para AMBOS
       case 'rota_nao_executada':
         return '#f59e0b'; // amber (aviso)
       default:

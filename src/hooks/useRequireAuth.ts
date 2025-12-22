@@ -72,7 +72,7 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
       if (userData.papel === 'gestor') {
         router.replace('/gestor/inicio');
       } else if (userData.papel === 'motorista') {
-        router.replace('/motorista/inicio');
+        router.replace('/motorista');
       } else {
         router.replace(redirectTo);
       }

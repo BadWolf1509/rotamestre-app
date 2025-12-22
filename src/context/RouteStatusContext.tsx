@@ -14,7 +14,6 @@ import { useUser } from '@/hooks/useUser';
 import { notifyRoutePending } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import {
-  startBackgroundTracking,
   stopBackgroundTracking,
   requestAndStartTracking,
 } from '@/services/unifiedLocationTracking';
@@ -67,6 +66,8 @@ interface RouteStatusContextData {
     total: number;
     percentage: number;
   };
+  /** Quantidade de outras rotas pendentes (além da atual) */
+  pendingRoutesCount: number;
   loading: boolean;
   refreshRoute: () => Promise<void>;
   startRoute: () => Promise<void>;
@@ -83,6 +84,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
   const motoristaId = userData?.id;
   const [route, setRoute] = useState<RouteData | null>(null);
   const [paradas, setParadas] = useState<ParadaData[]>([]);
+  const [pendingRoutesCount, setPendingRoutesCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   // Refs para controle do Realtime
@@ -160,12 +162,14 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
 
   // Carrega rota ativa (aguarda userData estar carregado para evitar 406)
   // OTIMIZAÇÃO: Usa única query para buscar rotas ativas OU última concluída
+  // PRIORIDADE: data ASC (rota de hoje antes de amanhã), created_at ASC
   const loadActiveRoute = useCallback(async () => {
     // Aguardar carregamento completo do userData antes de fazer queries
     if (userLoading || !motoristaId) {
       if (!userLoading && !motoristaId) {
         setRoute(null);
         setParadas([]);
+        setPendingRoutesCount(0);
         setLoading(false);
       }
       return;
@@ -175,7 +179,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
       setLoading(true);
 
       // OTIMIZAÇÃO: Única query que busca rotas ativas E última concluída
-      // Prioriza ativas sobre concluídas no JavaScript
+      // Ordenação por data ASC garante que rota de hoje tem prioridade sobre amanhã
       const { data: rotasData, error: rotasError } = await supabase
         .from('rotas')
         .select(`
@@ -191,13 +195,15 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
         `)
         .eq('motorista_id', motoristaId)
         .in('status', ['pendente', 'em_andamento', 'concluida'])
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .order('data', { ascending: true })
+        .order('created_at', { ascending: true })
+        .limit(20);
 
       if (rotasError) {
         console.error('[RouteStatus] Query error:', rotasError);
         setRoute(null);
         setParadas([]);
+        setPendingRoutesCount(0);
         setLoading(false);
         return;
       }
@@ -205,25 +211,39 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
       if (!rotasData || rotasData.length === 0) {
         setRoute(null);
         setParadas([]);
+        setPendingRoutesCount(0);
         setLoading(false);
         return;
       }
 
-      // Priorizar rota ativa (pendente/em_andamento) sobre concluída
+      // Separar rotas por status
       const activeStatuses = ['pendente', 'em_andamento'];
-      const activeRoute = rotasData.find(r => activeStatuses.includes(r.status));
-
-      // Se não houver ativa, pegar a última concluída (ordenada por concluida_em)
+      const activeRoutes = rotasData.filter(r => activeStatuses.includes(r.status));
       const completedRoutes = rotasData.filter(r => r.status === 'concluida');
+
+      // Prioridade: em_andamento > pendente (por data ASC) > concluída
+      const inProgressRoute = activeRoutes.find(r => r.status === 'em_andamento');
+      const pendingRoutes = activeRoutes.filter(r => r.status === 'pendente');
+      const firstPendingRoute = pendingRoutes[0]; // Já ordenada por data ASC
+
+      // Contar outras rotas pendentes (excluindo a selecionada)
+      const otherPendingCount = inProgressRoute
+        ? pendingRoutes.length // Se em andamento, todas as pendentes são "outras"
+        : Math.max(0, pendingRoutes.length - 1); // Se pendente, excluir a atual
+
+      setPendingRoutesCount(otherPendingCount);
+
+      // Selecionar rota: em_andamento > primeira pendente > última concluída
       const lastCompletedRoute = completedRoutes.sort((a, b) =>
         new Date(b.concluida_em || 0).getTime() - new Date(a.concluida_em || 0).getTime()
       )[0];
 
-      const selectedRoute = activeRoute || lastCompletedRoute;
+      const selectedRoute = inProgressRoute || firstPendingRoute || lastCompletedRoute;
 
       if (!selectedRoute) {
         setRoute(null);
         setParadas([]);
+        setPendingRoutesCount(0);
         setLoading(false);
         return;
       }
@@ -539,6 +559,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
         currentStop: getCurrentStop(),
         nextStop: getNextStop(),
         progress: getProgress(),
+        pendingRoutesCount,
         loading,
         refreshRoute: loadActiveRoute,
         startRoute,

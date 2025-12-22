@@ -308,7 +308,7 @@ export const initializeDevTools = () => {
           'Home (Gestor)': '/gestor',
           'Mapa': '/motorista/mapa',
           'Histórico': '/motorista/historico',
-          'Configurações': '/motorista/configuracoes',
+          'Configurações': '/motorista/perfil/configuracoes',
         });
       },
     };

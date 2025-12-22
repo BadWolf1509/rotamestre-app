@@ -49,7 +49,7 @@ export function DevOverlay({ enabled = __DEV__ }: DevOverlayProps) {
     { name: 'Gestor', path: '/gestor', icon: 'business' },
     { name: 'Mapa', path: '/motorista/mapa', icon: 'map' },
     { name: 'Histórico', path: '/motorista/historico', icon: 'time' },
-    { name: 'Config', path: '/motorista/configuracoes', icon: 'settings' },
+    { name: 'Config', path: '/motorista/perfil/configuracoes', icon: 'settings' },
   ];
 
   const performanceActions = [

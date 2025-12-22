@@ -48,6 +48,7 @@ function MotoristaInicioContent() {
     currentStop,
     nextStop,
     progress,
+    pendingRoutesCount,
     refreshRoute,
     startRoute,
     completeStop,
@@ -464,6 +465,7 @@ function MotoristaInicioContent() {
           currentStop={currentStop}
           nextStop={nextStop}
           location={location}
+          pendingRoutesCount={pendingRoutesCount}
           onSwipeLeft={handleSkipStop}
           onSwipeRight={handleCompleteStop}
           onPress={handleMainAction}

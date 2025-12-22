@@ -25,7 +25,7 @@ const FAQ_ITEMS: FAQItem[] = [
   {
     id: '2',
     question: 'Como marcar uma parada como concluída?',
-    answer: 'Quando chegar na parada, toque no botão "Concluir Parada". Você pode ser solicitado a tirar uma foto como comprovante de entrega. Deslize para o lado para ver mais opções.',
+    answer: 'Quando chegar na parada, deslize o card para a DIREITA para concluí-la. Você pode ser solicitado a tirar uma foto como comprovante. Alternativamente, toque no card para expandir e ver mais opções.',
   },
   {
     id: '3',
@@ -35,7 +35,7 @@ const FAQ_ITEMS: FAQItem[] = [
   {
     id: '4',
     question: 'O que fazer se não conseguir entregar?',
-    answer: 'Se não for possível completar uma entrega, você pode "Pular" a parada. Será solicitado um motivo. O gestor será notificado e poderá reprogramar a entrega.',
+    answer: 'Se não for possível completar uma entrega, deslize o card para a ESQUERDA para pular a parada. Será solicitado um motivo. O gestor será notificado e poderá reprogramar a entrega.',
   },
   {
     id: '5',
@@ -60,7 +60,7 @@ const FAQ_ITEMS: FAQItem[] = [
   {
     id: '9',
     question: 'Como usar a navegação integrada?',
-    answer: 'Ao visualizar uma parada, toque em "Navegar" para abrir o endereço no app de navegação de sua preferência (Waze, Google Maps ou Apple Maps).',
+    answer: 'Ao expandir uma parada, toque em "Como Chegar" para abrir o endereço no app de navegação de sua preferência (Waze, Google Maps ou Apple Maps).',
   },
   {
     id: '10',
