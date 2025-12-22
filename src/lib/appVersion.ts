@@ -1,16 +1,21 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
+// Importa versão diretamente do package.json (funciona em todas as plataformas)
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const packageJson = require('../../package.json');
+
 /**
  * Utilitário centralizado para informações de versão do app
- * Fonte única de verdade: app.config.js
+ * Fonte única de verdade: package.json
  */
 
 /**
- * Retorna a versão do app (ex: "1.1.0")
+ * Retorna a versão do app (lê diretamente do package.json)
  */
 export function getAppVersion(): string {
-  return Constants.expoConfig?.version || '1.0.0';
+  // Prioriza package.json (funciona em web), fallback para expo-constants
+  return packageJson.version || Constants.expoConfig?.version || '1.0.0';
 }
 
 /**
@@ -56,14 +61,14 @@ export function getVersionInfo() {
 }
 
 /**
- * Retorna string formatada para exibição (ex: "Versão 1.1.0")
+ * Retorna string formatada para exibição (ex: "Versão 1.4.0")
  */
 export function getVersionString(): string {
   return `Versão ${getAppVersion()}`;
 }
 
 /**
- * Retorna string completa para debug (ex: "1.1.0 (3005) - Android")
+ * Retorna string completa para debug (ex: "1.4.0 (3005) - Android")
  */
 export function getFullVersionString(): string {
   const info = getVersionInfo();
