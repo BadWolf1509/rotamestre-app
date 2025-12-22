@@ -1,6 +1,8 @@
 /**
  * Gerador de mensagens motivacionais dinâmicas para motoristas
  * Varia baseado em: hora do dia, dia da semana, performance recente, streak
+ *
+ * Horário de trabalho: 7h às 17h, segunda a sexta
  */
 
 interface MotivationalContext {
@@ -11,10 +13,46 @@ interface MotivationalContext {
   isAboveAverage?: boolean;
 }
 
-interface MotivationalMessage {
+export interface MotivationalMessage {
   title: string;
   subtitle: string;
   emoji?: string;
+}
+
+/**
+ * Contexto de horário de trabalho
+ */
+export interface WorkContext {
+  isWorkDay: boolean;        // seg-sex
+  isWorkHours: boolean;      // 7h-17h
+  period: 'before' | 'morning' | 'afternoon' | 'after' | 'weekend';
+}
+
+/**
+ * Retorna contexto de horário de trabalho (7h-17h, seg-sex)
+ */
+export function getWorkContext(): WorkContext {
+  const now = new Date();
+  const hour = now.getHours();
+  const day = now.getDay(); // 0=dom, 6=sab
+
+  const isWorkDay = day >= 1 && day <= 5;
+  const isWorkHours = hour >= 7 && hour < 17;
+
+  let period: WorkContext['period'];
+  if (!isWorkDay) {
+    period = 'weekend';
+  } else if (hour < 7) {
+    period = 'before';
+  } else if (hour < 12) {
+    period = 'morning';
+  } else if (hour < 17) {
+    period = 'afternoon';
+  } else {
+    period = 'after';
+  }
+
+  return { isWorkDay, isWorkHours, period };
 }
 
 /**
@@ -218,4 +256,118 @@ export function getStreakIncentive(streak: number): string {
   if (streak === 29) return 'Amanhã completa 1 mês!';
   if (streak >= 7) return `Mantenha a sequência de ${streak} dias!`;
   return `${streak} dias seguidos - continue!`;
+}
+
+/**
+ * Mensagens específicas para estado "sem rota" baseadas no contexto de trabalho
+ * Horário de trabalho: 7h-17h, segunda a sexta
+ */
+const noRouteWorkMessages: Record<WorkContext['period'], MotivationalMessage> = {
+  before: {
+    title: 'Bom dia!',
+    subtitle: 'Seu expediente começa às 7h',
+    emoji: '🌅',
+  },
+  morning: {
+    title: 'Sem rotas no momento',
+    subtitle: 'Você será notificado quando o gestor atribuir uma rota',
+    emoji: '☕',
+  },
+  afternoon: {
+    title: 'Sem rotas no momento',
+    subtitle: 'Você será notificado se surgir uma nova rota',
+    emoji: '☕',
+  },
+  after: {
+    title: 'Expediente encerrado',
+    subtitle: 'Bom descanso! Até amanhã',
+    emoji: '🌙',
+  },
+  weekend: {
+    title: 'Fim de semana',
+    subtitle: 'Aproveite o descanso. Volte na segunda!',
+    emoji: '🏖️',
+  },
+};
+
+/**
+ * Mensagens para dias especiais da semana (estado no-route)
+ */
+const weekdayNoRouteMessages: Record<number, MotivationalMessage> = {
+  1: { // Segunda
+    title: 'Nova semana!',
+    subtitle: 'Você será notificado quando o gestor atribuir uma rota',
+    emoji: '🚀',
+  },
+  5: { // Sexta
+    title: 'Último dia da semana',
+    subtitle: 'Você será notificado se surgir uma rota',
+    emoji: '🎉',
+  },
+};
+
+/**
+ * Interface para contexto completo do estado no-route
+ */
+export interface NoRouteContext extends MotivationalContext {
+  hasCompletedRouteToday?: boolean;
+  lastRouteTime?: string;
+}
+
+/**
+ * Mensagem específica para estado "sem rota" considerando horário de trabalho
+ * Esta é a função principal para o estado no-route
+ */
+export function getNoRouteMessage(context: NoRouteContext = {}): MotivationalMessage {
+  const { streak = 0, rotasHoje = 0, paradasHoje = 0, isAboveAverage } = context;
+  const workContext = getWorkContext();
+  const dayOfWeek = new Date().getDay();
+
+  // Prioridade 1: Fora do horário de trabalho
+  if (!workContext.isWorkHours) {
+    return noRouteWorkMessages[workContext.period];
+  }
+
+  // Prioridade 2: Performance excepcional hoje (já trabalhou bastante)
+  if (rotasHoje >= 3) {
+    return {
+      title: 'Excelente dia!',
+      subtitle: `${rotasHoje} rotas concluídas. Aguardando próxima`,
+      emoji: '⭐',
+    };
+  }
+
+  if (paradasHoje >= 15) {
+    return {
+      title: 'Ótimo progresso!',
+      subtitle: `${paradasHoje} entregas hoje. Aguardando rota`,
+      emoji: '📦',
+    };
+  }
+
+  // Prioridade 3: Streak ativo com contexto
+  if (streak >= 5) {
+    return {
+      title: `${streak} dias no ritmo!`,
+      subtitle: 'Você será notificado quando surgir rota',
+      emoji: '🔥',
+    };
+  }
+
+  // Prioridade 4: Acima da média
+  if (isAboveAverage && paradasHoje > 0) {
+    return {
+      title: 'Acima da média!',
+      subtitle: 'Ótimo trabalho. Aguardando próxima rota',
+      emoji: '📈',
+    };
+  }
+
+  // Prioridade 5: Dia especial (segunda ou sexta)
+  if (dayOfWeek === 1 || dayOfWeek === 5) {
+    return weekdayNoRouteMessages[dayOfWeek];
+  }
+
+  // Prioridade 6: Mensagem padrão do período
+  return noRouteWorkMessages[workContext.period];
 }

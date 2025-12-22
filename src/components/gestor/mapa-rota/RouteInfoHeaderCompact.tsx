@@ -15,6 +15,7 @@ interface RouteInfoHeaderCompactProps {
   rota: Rota;
   resumoParadas: ResumoParadas;
   onCancelPress?: () => void;
+  onReactivatePress?: () => void;
 }
 
 const STATUS_CONFIG = {
@@ -22,12 +23,14 @@ const STATUS_CONFIG = {
   em_andamento: { label: 'Em rota', color: 'info' as const, icon: 'navigate' as const },
   concluida: { label: 'Concluída', color: 'success' as const, icon: 'checkmark-circle' as const },
   cancelada: { label: 'Cancelada', color: 'error' as const, icon: 'close-circle' as const },
+  nao_executada: { label: 'Não Executada', color: 'warning' as const, icon: 'alert-circle' as const },
 };
 
 export function RouteInfoHeaderCompact({
   rota,
   resumoParadas,
   onCancelPress,
+  onReactivatePress,
 }: RouteInfoHeaderCompactProps) {
   const { theme } = useUnistyles();
 
@@ -37,7 +40,8 @@ export function RouteInfoHeaderCompact({
   }, [rota.status]);
 
   const statusColor = theme.colors[statusConfig.color];
-  const canCancel = rota.status !== 'cancelada' && rota.status !== 'concluida';
+  const canCancel = rota.status !== 'cancelada' && rota.status !== 'concluida' && rota.status !== 'nao_executada';
+  const canReactivate = rota.status === 'nao_executada';
 
   return (
     <View style={styles.container}>
@@ -92,6 +96,18 @@ export function RouteInfoHeaderCompact({
         >
           <Ionicons name="close-circle-outline" size={16} color={theme.colors.error} />
           <Text style={styles.cancelText}>Cancelar</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Botão Reativar (para rotas expiradas) */}
+      {canReactivate && onReactivatePress && (
+        <TouchableOpacity
+          style={styles.reactivateButton}
+          onPress={onReactivatePress}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="refresh-circle-outline" size={16} color={theme.colors.success} />
+          <Text style={styles.reactivateText}>Reativar</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -178,5 +194,21 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.fontSize.xs,
     fontWeight: '600',
     color: theme.colors.error,
+  },
+  reactivateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: theme.spacing.sm + 2,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 1,
+    borderColor: `${theme.colors.success}40`,
+    backgroundColor: `${theme.colors.success}08`,
+  },
+  reactivateText: {
+    fontSize: theme.typography.fontSize.xs,
+    fontWeight: '600',
+    color: theme.colors.success,
   },
 }));

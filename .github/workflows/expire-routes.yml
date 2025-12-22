@@ -4,6 +4,8 @@ on:
   schedule:
     # Lembrete às 16:00 Brasília (19:00 UTC) - Segunda a Sexta
     - cron: '0 19 * * 1-5'
+    # Aviso FINAL às 20:00 Brasília (23:00 UTC) - Segunda a Sexta - 2h antes da expiração
+    - cron: '0 23 * * 1-5'
     # Expiração às 22:00 Brasília (01:00 UTC do dia seguinte) - Segunda a Sexta
     # Segunda 22:00 BRT = Terça 01:00 UTC, então 2-6 (Terça a Sábado)
     - cron: '0 1 * * 2-6'
@@ -16,6 +18,7 @@ on:
         type: choice
         options:
           - remind
+          - final-warning
           - expire
 
 jobs:
@@ -48,6 +51,37 @@ jobs:
           fi
 
           echo "✅ Reminders sent successfully"
+
+  # Job para aviso FINAL às 20:00 (23:00 UTC) - 2h antes da expiração
+  final-warning-routes:
+    name: Final Warning - Routes Expiring Soon (20:00 BRT)
+    runs-on: ubuntu-latest
+    # Só executa às 23:00 UTC OU se for dispatch manual com action=final-warning
+    if: github.event.schedule == '0 23 * * 1-5' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'final-warning')
+
+    steps:
+      - name: Call Final Warning Edge Function
+        run: |
+          echo "⚠️ Sending FINAL warning - routes expire in 2 hours (20:00 BRT)..."
+
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://xezslsyxjivunmhhyxtd.supabase.co/functions/v1/remind-routes" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"urgency": "final"}')
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "❌ Error: Edge Function returned $http_code"
+            exit 1
+          fi
+
+          echo "✅ Final warnings sent successfully"
 
   # Job para expiração das 22:00 (01:00 UTC)
   expire-routes:

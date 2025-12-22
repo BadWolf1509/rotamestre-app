@@ -70,6 +70,7 @@ export default function MapaRota() {
   const [paradas, setParadas] = useState<Parada[]>([]);
   const [fotoSelecionada, setFotoSelecionada] = useState<string | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showReactivateModal, setShowReactivateModal] = useState(false);
   const [selectedParadaId, setSelectedParadaId] = useState<string | null>(null);
 
   // Refs
@@ -137,7 +138,7 @@ export default function MapaRota() {
       setParadas(paradasData || []);
     } catch (error) {
       console.error('Erro ao carregar rota:', error);
-      showToast('Nao foi possivel carregar os dados da rota', 'error');
+      showToast('Não foi possível carregar os dados da rota', 'error');
       router.back();
     } finally {
       setLoading(false);
@@ -157,6 +158,53 @@ export default function MapaRota() {
       showToast('Erro ao cancelar rota', 'error');
     }
   }, [id, loadRotaEParadas, showToast]);
+
+  const handleConfirmReactivate = useCallback(async () => {
+    if (!id) return;
+    try {
+      const rotaId = Array.isArray(id) ? id[0] : id;
+
+      // Obter data de hoje no formato YYYY-MM-DD
+      const today = new Date();
+      const todayStr = today.toISOString().split('T')[0];
+
+      // Reativar a rota: status volta para pendente, data atualizada para hoje
+      await supabase
+        .from('rotas')
+        .update({
+          status: 'pendente',
+          data: todayStr,
+          iniciada_em: null,
+          concluida_em: null,
+        })
+        .eq('id', rotaId);
+
+      // Resetar status das paradas pendentes
+      await supabase
+        .from('paradas')
+        .update({ status: 'pendente', concluida_em: null })
+        .eq('rota_id', rotaId)
+        .neq('status', 'concluida');
+
+      // Registrar log da reativação
+      await supabase.from('logs').insert({
+        usuario_id: userData?.id,
+        rota_id: rotaId,
+        evento: 'rota_reativada',
+        detalhes: {
+          nova_data: todayStr,
+          reativado_por: userData?.nome,
+        },
+      });
+
+      showToast('Rota reativada com sucesso', 'success');
+      setShowReactivateModal(false);
+      await loadRotaEParadas();
+    } catch (error) {
+      console.error('Erro ao reativar rota:', error);
+      showToast('Erro ao reativar rota', 'error');
+    }
+  }, [id, loadRotaEParadas, showToast, userData?.id, userData?.nome]);
 
   const scrollToParada = useCallback((paradaId: string) => {
     const positionY = paradaPositions.current[paradaId];
@@ -223,7 +271,7 @@ export default function MapaRota() {
             <Text style={styles.emptyStateIcon}>*</Text>
             <Text style={styles.emptyStateTitle}>Nenhuma Rota Selecionada</Text>
             <Text style={styles.emptyStateDescription}>
-              Voce precisa selecionar uma rota para visualizar o mapa e paradas.
+              Você precisa selecionar uma rota para visualizar o mapa e paradas.
             </Text>
 
             <TouchableOpacity
@@ -254,7 +302,7 @@ export default function MapaRota() {
     return (
       <>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Rota nao encontrada</Text>
+          <Text style={styles.errorText}>Rota não encontrada</Text>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>Voltar</Text>
           </TouchableOpacity>
@@ -283,6 +331,7 @@ export default function MapaRota() {
             rota={rota}
             resumoParadas={resumoParadas}
             onCancelPress={() => setShowCancelModal(true)}
+            onReactivatePress={() => setShowReactivateModal(true)}
           />
 
           {/* Split View: Mapa | Paradas */}
@@ -404,12 +453,24 @@ export default function MapaRota() {
         <ConfirmModal
           visible={showCancelModal}
           title="Cancelar rota"
-          message="Tem certeza que deseja cancelar esta rota? Esta acao nao pode ser desfeita."
+          message="Tem certeza que deseja cancelar esta rota? Esta ação não pode ser desfeita."
           confirmText="Sim, cancelar"
-          cancelText="Nao"
+          cancelText="Não"
           onConfirm={handleConfirmCancel}
           onCancel={() => setShowCancelModal(false)}
           type="danger"
+        />
+
+        {/* Reactivate Confirmation Modal */}
+        <ConfirmModal
+          visible={showReactivateModal}
+          title="Reativar rota"
+          message="Deseja reativar esta rota expirada? A rota será reprogramada para hoje e as paradas não concluídas voltarão ao status pendente."
+          confirmText="Sim, reativar"
+          cancelText="Cancelar"
+          onConfirm={handleConfirmReactivate}
+          onCancel={() => setShowReactivateModal(false)}
+          type="success"
         />
 
         <Toast {...toast} onDismiss={hideToast} />

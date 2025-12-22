@@ -14,9 +14,11 @@ interface WeeklyChartProps {
   data: WeeklyData[];
   averagePerDay: number;
   isLoading?: boolean;
+  /** Modo compacto com altura reduzida */
+  compact?: boolean;
 }
 
-export function WeeklyChart({ data, averagePerDay, isLoading = false }: WeeklyChartProps) {
+export function WeeklyChart({ data, averagePerDay, isLoading = false, compact = false }: WeeklyChartProps) {
   const { theme } = useUnistyles();
   const barAnims = useRef(data.map(() => new Animated.Value(0))).current;
 
@@ -77,21 +79,23 @@ export function WeeklyChart({ data, averagePerDay, isLoading = false }: WeeklyCh
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, compact && styles.containerCompact]}>
       {/* Header com título e totais */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Ionicons name="bar-chart-outline" size={16} color={theme.colors.gray500} />
-          <Text style={styles.title}>Última semana</Text>
+          <Ionicons name="bar-chart-outline" size={compact ? 14 : 16} color={theme.colors.gray500} />
+          <Text style={[styles.title, compact && styles.titleCompact]}>
+            {compact ? 'Semana' : 'Última semana'}
+          </Text>
         </View>
         <View style={styles.headerRight}>
-          <Text style={styles.totalValue}>{totalSemana}</Text>
+          <Text style={[styles.totalValue, compact && styles.totalValueCompact]}>{totalSemana}</Text>
           <Text style={styles.totalLabel}>entregas</Text>
         </View>
       </View>
 
       {/* Gráfico de barras */}
-      <View style={styles.chartContainer}>
+      <View style={[styles.chartContainer, compact && styles.chartContainerCompact]}>
         {data.map((item, index) => {
           const isToday = item.date === today;
           const barColor = isToday
@@ -115,8 +119,8 @@ export function WeeklyChart({ data, averagePerDay, isLoading = false }: WeeklyCh
                     },
                   ]}
                 />
-                {/* Linha de média */}
-                {averagePerDay > 0 && (
+                {/* Linha de média - oculta em modo compacto */}
+                {!compact && averagePerDay > 0 && (
                   <View
                     style={[
                       styles.averageLine,
@@ -129,11 +133,13 @@ export function WeeklyChart({ data, averagePerDay, isLoading = false }: WeeklyCh
               </View>
               <Text style={[
                 styles.dayLabel,
-                isToday && styles.dayLabelToday
+                isToday && styles.dayLabelToday,
+                compact && styles.dayLabelCompact,
               ]}>
                 {item.day}
               </Text>
-              {item.entregas > 0 && (
+              {/* Valores apenas no modo normal */}
+              {!compact && item.entregas > 0 && (
                 <Text style={[
                   styles.barValue,
                   isToday && styles.barValueToday
@@ -146,19 +152,21 @@ export function WeeklyChart({ data, averagePerDay, isLoading = false }: WeeklyCh
         })}
       </View>
 
-      {/* Legenda */}
-      <View style={styles.legendContainer}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: theme.colors.primary }]} />
-          <Text style={styles.legendText}>Hoje</Text>
-        </View>
-        {averagePerDay > 0 && (
+      {/* Legenda - oculta em modo compacto */}
+      {!compact && (
+        <View style={styles.legendContainer}>
           <View style={styles.legendItem}>
-            <View style={[styles.legendLine, { backgroundColor: theme.colors.warning }]} />
-            <Text style={styles.legendText}>Média: {averagePerDay}/dia</Text>
+            <View style={[styles.legendDot, { backgroundColor: theme.colors.primary }]} />
+            <Text style={styles.legendText}>Hoje</Text>
           </View>
-        )}
-      </View>
+          {averagePerDay > 0 && (
+            <View style={styles.legendItem}>
+              <View style={[styles.legendLine, { backgroundColor: theme.colors.warning }]} />
+              <Text style={styles.legendText}>Média: {averagePerDay}/dia</Text>
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -307,5 +315,22 @@ const styles = StyleSheet.create({
   legendText: {
     fontSize: 11,
     color: colors.gray500,
+  },
+  // Estilos para modo compacto
+  containerCompact: {
+    padding: 10,
+    marginBottom: 6,
+  },
+  titleCompact: {
+    fontSize: 12,
+  },
+  totalValueCompact: {
+    fontSize: 16,
+  },
+  chartContainerCompact: {
+    height: 40,
+  },
+  dayLabelCompact: {
+    fontSize: 9,
   },
 });

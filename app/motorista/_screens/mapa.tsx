@@ -56,11 +56,16 @@ export default function MapaMotorista() {
     try {
       setLoading(true);
 
+      // Obter data de hoje no formato YYYY-MM-DD (local, não UTC)
+      const now = new Date();
+      const hoje = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
       const { data: rotasData, error: rotasError } = await supabase
         .from('rotas')
-        .select('id, status, unidades(nome)')
+        .select('id, status, data, unidades(nome)')
         .eq('motorista_id', motoristaId)
         .in('status', ['pendente', 'em_andamento'])
+        .gte('data', hoje) // Apenas rotas de hoje ou futuras
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();

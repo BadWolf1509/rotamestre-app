@@ -40,6 +40,11 @@ function getStatusBadgeVariant(theme: Theme, status?: string) {
       border: theme.colors.error,
       text: theme.colors.error,
     },
+    nao_executada: {
+      bg: theme.colors.yellow100,
+      border: theme.colors.warning,
+      text: theme.colors.warning,
+    },
   };
 
   if (status && palette[status as keyof typeof palette]) {
@@ -74,6 +79,7 @@ function formatStatusLabel(status?: string) {
     em_andamento: 'em andamento',
     concluida: 'concluida',
     cancelada: 'cancelada',
+    nao_executada: 'não executada',
   };
 
   if (labels[normalized]) {

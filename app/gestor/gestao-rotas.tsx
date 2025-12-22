@@ -51,7 +51,7 @@ interface RotaHistorico {
   paradas_concluidas?: number;
 }
 
-type FiltroStatus = 'todas' | 'pendente' | 'em_andamento' | 'concluida' | 'cancelada';
+type FiltroStatus = 'todas' | 'pendente' | 'em_andamento' | 'concluida' | 'cancelada' | 'nao_executada';
 
 // ============================================
 // COMPONENT
@@ -392,6 +392,7 @@ export default function GestaoRotas() {
       case 'em_andamento': return 'Em Andamento';
       case 'concluida': return 'Concluída';
       case 'cancelada': return 'Cancelada';
+      case 'nao_executada': return 'Não Executada';
       default: return status;
     }
   }
@@ -402,6 +403,7 @@ export default function GestaoRotas() {
       case 'em_andamento': return theme.colors.info;
       case 'concluida': return theme.colors.success;
       case 'cancelada': return theme.colors.error;
+      case 'nao_executada': return '#f59e0b'; // Amber - indica rota expirada
       default: return theme.colors.gray500;
     }
   }
@@ -605,7 +607,7 @@ export default function GestaoRotas() {
             {/* Status Filters */}
             <Text style={styles.filtrosLabel}>Filtrar por Status:</Text>
             <View style={styles.filtrosButtons}>
-              {(['todas', 'pendente', 'em_andamento', 'concluida', 'cancelada'] as FiltroStatus[]).map((status) => (
+              {(['todas', 'pendente', 'em_andamento', 'concluida', 'nao_executada', 'cancelada'] as FiltroStatus[]).map((status) => (
                 <TouchableOpacity
                   key={status}
                   style={[
@@ -759,7 +761,7 @@ export default function GestaoRotas() {
 
           <Text style={styles.filtrosLabel}>Filtrar por Status:</Text>
           <View style={styles.filtrosButtons}>
-            {(['todas', 'pendente', 'em_andamento', 'concluida', 'cancelada'] as FiltroStatus[]).map((status) => (
+            {(['todas', 'pendente', 'em_andamento', 'concluida', 'nao_executada', 'cancelada'] as FiltroStatus[]).map((status) => (
               <TouchableOpacity
                 key={status}
                 style={[

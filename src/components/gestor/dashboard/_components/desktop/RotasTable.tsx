@@ -44,6 +44,14 @@ const statusVariants = (theme: any) => ({
       color: theme.colors.error,
     },
   },
+  nao_executada: {
+    label: 'Não Executada',
+    badge: {
+      backgroundColor: '#fef3c7', // amber-100
+      borderColor: '#f59e0b', // amber-500
+      color: '#d97706', // amber-600
+    },
+  },
   default: {
     label: 'Indefinido',
     badge: {

@@ -16,11 +16,17 @@ import {
   getMotivationalMessage,
   getCompletedMessage,
   getMilestoneMessage,
+  getNoRouteMessage,
+  getWorkContext,
 } from '@/utils/motivationalMessages';
 import { defaultTheme, useUnistyles } from '@/utils/styles';
 
+import { ExpirationWarning } from './ExpirationWarning';
+import { ExpiredRouteCard } from './ExpiredRouteCard';
+import { LastRouteCard } from './LastRouteCard';
 import { MilestoneCard } from './MilestoneCard';
 import { NextStopPreview } from './NextStopPreview';
+import { NoRouteStatus } from './NoRouteStatus';
 import { PreRouteChecklist } from './PreRouteChecklist';
 import { WeeklyChart } from './WeeklyChart';
 
@@ -89,6 +95,21 @@ export function MainCard({
   });
   const [streak, setStreak] = useState(0);
   const [celebrationTriggered, setCelebrationTriggered] = useState(false);
+  const [lastRoute, setLastRoute] = useState<{
+    concluida_em: string;
+    paradas_concluidas: number;
+    total_paradas: number;
+    distancia_km: number;
+    tempo_total: string;
+  } | null>(null);
+  const [expiredRoute, setExpiredRoute] = useState<{
+    rota_id: string;
+    data: string;
+    paradas_pendentes: number;
+    total_paradas: number;
+    paradas_concluidas: number;
+  } | null>(null);
+  const [expiredRouteDismissed, setExpiredRouteDismissed] = useState(false);
 
   // Animação de entrada do card
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -292,17 +313,142 @@ export function MainCard({
     }
   }, [motoristaId]);
 
+  // Load last completed route of the day
+  const loadLastRoute = useCallback(async () => {
+    if (!motoristaId) return;
+
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Get last completed route today
+      const { data: rota, error } = await supabase
+        .from('rotas')
+        .select('id, concluida_em, distancia_total, tempo_total, iniciada_em')
+        .eq('motorista_id', motoristaId)
+        .eq('status', 'concluida')
+        .gte('concluida_em', today.toISOString())
+        .order('concluida_em', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error || !rota) {
+        setLastRoute(null);
+        return;
+      }
+
+      // Get stops for this route
+      const { data: paradasData, error: paradasError } = await supabase
+        .from('paradas')
+        .select('status')
+        .eq('rota_id', rota.id);
+
+      if (paradasError) {
+        setLastRoute(null);
+        return;
+      }
+
+      const totalParadas = paradasData?.length || 0;
+      const paradasConcluidas = paradasData?.filter(p => p.status === 'concluida').length || 0;
+
+      // Calculate duration
+      let tempoTotal = '--';
+      if (rota.iniciada_em && rota.concluida_em) {
+        const inicio = new Date(rota.iniciada_em).getTime();
+        const fim = new Date(rota.concluida_em).getTime();
+        const diffMs = fim - inicio;
+        const diffMins = Math.floor(diffMs / 60000);
+        const hours = Math.floor(diffMins / 60);
+        const mins = diffMins % 60;
+        if (hours > 0) {
+          tempoTotal = `${hours}h ${mins}min`;
+        } else {
+          tempoTotal = `${mins}min`;
+        }
+      }
+
+      setLastRoute({
+        concluida_em: rota.concluida_em,
+        paradas_concluidas: paradasConcluidas,
+        total_paradas: totalParadas,
+        distancia_km: Math.round(rota.distancia_total || 0),
+        tempo_total: tempoTotal,
+      });
+    } catch (error) {
+      console.error('Error loading last route:', error);
+      setLastRoute(null);
+    }
+  }, [motoristaId]);
+
+  // Load last expired route (within last 24h)
+  const loadExpiredRoute = useCallback(async () => {
+    if (!motoristaId) return;
+
+    try {
+      // Get date 24h ago
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(0, 0, 0, 0);
+
+      // Find last expired route within 24h
+      const { data: rota, error } = await supabase
+        .from('rotas')
+        .select('id, data, updated_at')
+        .eq('motorista_id', motoristaId)
+        .eq('status', 'nao_executada')
+        .gte('data', yesterday.toISOString().split('T')[0])
+        .order('data', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error || !rota) {
+        setExpiredRoute(null);
+        return;
+      }
+
+      // Get stops for this route
+      const { data: paradasData, error: paradasError } = await supabase
+        .from('paradas')
+        .select('status, is_checkpoint')
+        .eq('rota_id', rota.id);
+
+      if (paradasError) {
+        setExpiredRoute(null);
+        return;
+      }
+
+      // Filter real stops (not checkpoints)
+      const paradasReais = paradasData?.filter(p => p.is_checkpoint !== false) || [];
+      const totalParadas = paradasReais.length;
+      const paradasConcluidas = paradasReais.filter(p => p.status === 'concluida').length;
+      const paradasPendentes = totalParadas - paradasConcluidas;
+
+      setExpiredRoute({
+        rota_id: rota.id,
+        data: rota.data,
+        paradas_pendentes: paradasPendentes,
+        total_paradas: totalParadas,
+        paradas_concluidas: paradasConcluidas,
+      });
+    } catch (error) {
+      console.error('Error loading expired route:', error);
+      setExpiredRoute(null);
+    }
+  }, [motoristaId]);
+
   // Carregar stats e streak para estados relevantes
   useEffect(() => {
     if (state === 'no-route' && motoristaId) {
       loadYesterdayStats();
       loadTodayStats();
       loadStreak();
+      loadLastRoute();
+      loadExpiredRoute();
     } else if (state === 'completed' && motoristaId) {
       // Também carregar streak no estado completed
       loadStreak();
     }
-  }, [loadYesterdayStats, loadTodayStats, loadStreak, motoristaId, state]);
+  }, [loadYesterdayStats, loadTodayStats, loadStreak, loadLastRoute, loadExpiredRoute, motoristaId, state]);
 
   // Animação de celebração quando rota é concluída
   useEffect(() => {
@@ -355,28 +501,44 @@ export function MainCard({
 
   const renderNoRoute = () => {
     const hasAnyStats = stats.rotasOntem > 0 || stats.paradasOntem > 0 || stats.rotasHoje > 0 || stats.paradasHoje > 0;
+    const workContext = getWorkContext();
 
-    // Mensagem motivacional dinâmica
-    const motivationalMsg = getMotivationalMessage({
+    // Contexto para mensagem personalizada
+    const noRouteContext = {
       streak,
       rotasHoje: stats.rotasHoje,
       paradasHoje: stats.paradasHoje,
       isAboveAverage: milestoneData.averagePerDay > 0 && stats.paradasHoje > milestoneData.averagePerDay,
-    });
+    };
 
     return (
       <View style={styles.content}>
-        {/* Header com mensagem motivacional */}
-        <View style={styles.noRouteHeader}>
-          <View style={[styles.noRouteIconContainer, { backgroundColor: theme.colors.gray100 }]}>
-            <Text style={styles.motivationalEmoji}>{motivationalMsg.emoji || '☕'}</Text>
-          </View>
-          <Text style={styles.title}>{motivationalMsg.title}</Text>
-          <Text style={styles.subtitle}>{motivationalMsg.subtitle}</Text>
-        </View>
+        {/* Card de rota expirada - exibe apenas se houver e não foi dispensado */}
+        {expiredRoute && !expiredRouteDismissed && (
+          <ExpiredRouteCard
+            data={expiredRoute}
+            onDismiss={() => setExpiredRouteDismissed(true)}
+          />
+        )}
 
-        {/* Streak Badge */}
-        {streak > 0 && (
+        {/* STATUS PRINCIPAL - Primeiro elemento (P0.1) */}
+        <NoRouteStatus
+          context={noRouteContext}
+          showWaitingIndicator={workContext.isWorkHours}
+        />
+
+        {/* Separador visual */}
+        {(hasAnyStats || milestoneData.nextMilestone || milestoneData.weeklyData.length > 0 || lastRoute || expiredRoute) && (
+          <View style={styles.noRouteDivider} />
+        )}
+
+        {/* Card da última rota concluída hoje (P1.1) */}
+        {lastRoute && workContext.isWorkHours && (
+          <LastRouteCard data={lastRoute} />
+        )}
+
+        {/* Streak Badge - Apenas durante horário de trabalho e se tiver streak */}
+        {streak > 0 && workContext.isWorkHours && (
           <View style={[styles.streakBadge, { backgroundColor: theme.colors.warningBg }]}>
             <Ionicons name="flame" size={18} color={theme.colors.warning} />
             <Text style={[styles.streakText, { color: theme.colors.warningText }]}>
@@ -385,22 +547,23 @@ export function MainCard({
           </View>
         )}
 
-        {/* Card de Milestone */}
-        {milestoneData.nextMilestone && (
-          <MilestoneCard data={milestoneData} compact />
-        )}
-
-        {/* Gráfico Semanal */}
-        {milestoneData.weeklyData.length > 0 && (
+        {/* Gráfico Semanal - compacto */}
+        {milestoneData.weeklyData.length > 0 && workContext.isWorkDay && (
           <WeeklyChart
             data={milestoneData.weeklyData}
             averagePerDay={milestoneData.averagePerDay}
             isLoading={milestoneData.isLoading}
+            compact
           />
         )}
 
-        {/* Stats comparativos (HOJE vs ONTEM) */}
-        {hasAnyStats && (
+        {/* Card de Milestone - apenas se tiver próximo milestone */}
+        {milestoneData.nextMilestone && workContext.isWorkDay && (
+          <MilestoneCard data={milestoneData} compact />
+        )}
+
+        {/* Stats comparativos (HOJE vs ONTEM) - apenas durante horário de trabalho */}
+        {hasAnyStats && workContext.isWorkHours && (
           <View style={styles.statsComparison}>
             {/* Coluna HOJE */}
             <View style={styles.statsColumn}>
@@ -457,26 +620,25 @@ export function MainCard({
           </View>
         )}
 
-        {/* Dica do dia (só se não tiver stats) */}
-        {!hasAnyStats && !milestoneData.nextMilestone && (
-          <View style={styles.noStatsContainer}>
-            <View style={styles.tipCard}>
-              <Ionicons name="bulb-outline" size={20} color={theme.colors.warning} />
-              <View style={styles.tipContent}>
-                <Text style={styles.tipTitle}>Dica do dia</Text>
-                <Text style={styles.tipText}>
-                  Verifique se há rotas disponíveis no menu "Minhas Rotas"
-                </Text>
-              </View>
-            </View>
+        {/* Links rápidos (P2.2) - apenas durante horário de trabalho */}
+        {workContext.isWorkHours && (
+          <View style={styles.quickLinks}>
+            <TouchableOpacity
+              style={styles.quickLink}
+              onPress={() => router.push('/motorista/historico')}
+            >
+              <Ionicons name="time-outline" size={16} color={theme.colors.gray500} />
+              <Text style={styles.quickLinkText}>Ver histórico</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.quickLink}
+              onPress={() => router.push('/motorista/desempenho')}
+            >
+              <Ionicons name="stats-chart-outline" size={16} color={theme.colors.gray500} />
+              <Text style={styles.quickLinkText}>Ver desempenho</Text>
+            </TouchableOpacity>
           </View>
         )}
-
-        {/* Indicador de aguardando rota */}
-        <View style={styles.waitingContainer}>
-          <Ionicons name="time-outline" size={16} color={theme.colors.gray400} />
-          <Text style={styles.waitingText}>Aguardando nova rota...</Text>
-        </View>
       </View>
     );
   };
@@ -493,6 +655,11 @@ export function MainCard({
 
     return (
       <View style={styles.content}>
+        {/* Aviso de expiração (a partir das 20:00) */}
+        {route?.data && (
+          <ExpirationWarning rotaData={route.data} />
+        )}
+
         {/* Nome da empresa (sem badge redundante - StatusSection já mostra status) */}
         <Text style={styles.empresa}>{route?.unidade_nome || 'Rota Atribuída'}</Text>
 
@@ -566,7 +733,14 @@ export function MainCard({
     };
 
     return (
-      <SwipeableRow {...swipeActions}>
+      <>
+        {/* Aviso de expiração (a partir das 20:00) */}
+        {route?.data && (
+          <View style={styles.expirationWarningContainer}>
+            <ExpirationWarning rotaData={route.data} />
+          </View>
+        )}
+        <SwipeableRow {...swipeActions}>
         <TouchableOpacity style={styles.content} onPress={onPress} activeOpacity={0.9}>
           <View style={styles.header}>
             <View style={[
@@ -656,6 +830,7 @@ export function MainCard({
           )}
         </TouchableOpacity>
       </SwipeableRow>
+      </>
     );
   };
 
@@ -946,6 +1121,35 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.gray500,
     fontStyle: 'italic',
+  },
+  noRouteDivider: {
+    height: 1,
+    backgroundColor: colors.gray100,
+    marginVertical: 12,
+  },
+  expirationWarningContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  quickLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 24,
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray100,
+  },
+  quickLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  quickLinkText: {
+    fontSize: 13,
+    color: colors.gray500,
   },
   statsRow: {
     flexDirection: 'row',

@@ -14,7 +14,7 @@ import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-type FiltroStatus = 'todos' | 'concluida' | 'pendente' | 'em_andamento' | 'cancelada';
+type FiltroStatus = 'todos' | 'concluida' | 'pendente' | 'em_andamento' | 'cancelada' | 'nao_executada';
 type FiltroPeriodo = 'todos' | 'hoje' | 'semana' | 'mes';
 
 interface RotaHistorico {
@@ -270,11 +270,15 @@ export default function HistoricoMotorista() {
     const isEmAndamento = item.status === 'em_andamento';
     const isConcluida = item.status === 'concluida';
     const isCancelada = item.status === 'cancelada';
+    const isNaoExecutada = item.status === 'nao_executada';
 
     const taxaConclusao =
       item.paradas_count && item.paradas_count > 0
         ? Math.round((item.paradas_concluidas! / item.paradas_count) * 100)
         : 0;
+
+    // Calcular paradas pendentes para rotas expiradas
+    const paradasPendentes = (item.paradas_count || 0) - (item.paradas_concluidas || 0);
 
     const tempoTotal = calcularTempoTotal(item);
 
@@ -284,7 +288,9 @@ export default function HistoricoMotorista() {
         ? 'em andamento'
         : isConcluida
           ? 'concluída'
-          : 'cancelada';
+          : isNaoExecutada
+            ? 'não executada'
+            : 'cancelada';
 
     return (
       <TouchableOpacity
@@ -294,6 +300,7 @@ export default function HistoricoMotorista() {
           isEmAndamento && styles.rotaCardEmAndamento,
           isConcluida && styles.rotaCardConcluida,
           isCancelada && styles.rotaCardCancelada,
+          isNaoExecutada && styles.rotaCardNaoExecutada,
         ]}
         onPress={() => toggleExpand(item.id)}
         activeOpacity={0.7}
@@ -321,13 +328,18 @@ export default function HistoricoMotorista() {
               isEmAndamento && styles.statusBadgeEmAndamento,
               isConcluida && styles.statusBadgeConcluida,
               isCancelada && styles.statusBadgeCancelada,
+              isNaoExecutada && styles.statusBadgeNaoExecutada,
             ]}
           >
-            <Text style={styles.statusBadgeText}>
+            <Text style={[
+              styles.statusBadgeText,
+              isNaoExecutada && styles.statusBadgeTextNaoExecutada,
+            ]}>
               {isPendente && 'Pendente'}
               {isEmAndamento && 'Em Andamento'}
               {isConcluida && 'Concluída'}
               {isCancelada && 'Cancelada'}
+              {isNaoExecutada && '⚠️ Não Executada'}
             </Text>
           </View>
         </View>
@@ -356,6 +368,16 @@ export default function HistoricoMotorista() {
         {isExpanded && (
           <View style={styles.rotaDetalhes}>
             <View style={styles.divider} />
+
+            {/* Aviso especial para rotas não executadas */}
+            {isNaoExecutada && paradasPendentes > 0 && (
+              <View style={styles.naoExecutadaInfo}>
+                <Ionicons name="warning" size={16} color={theme.colors.warning} />
+                <Text style={styles.naoExecutadaInfoText}>
+                  {paradasPendentes} {paradasPendentes === 1 ? 'parada ficou pendente' : 'paradas ficaram pendentes'}
+                </Text>
+              </View>
+            )}
 
             {item.iniciada_em && (
               <View style={styles.detalheRow}>
@@ -539,6 +561,9 @@ export default function HistoricoMotorista() {
             {renderFilterButton('Cancelada', filtroStatus === 'cancelada', () =>
               setFiltroStatus('cancelada')
             )}
+            {renderFilterButton('Expirada', filtroStatus === 'nao_executada', () =>
+              setFiltroStatus('nao_executada')
+            )}
           </View>
         </View>
 
@@ -716,6 +741,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderLeftColor: theme.colors.error,
     opacity: 0.7,
   },
+  rotaCardNaoExecutada: {
+    borderLeftColor: theme.colors.warning,
+    backgroundColor: '#fffbeb', // yellow-50
+  },
   rotaHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -752,10 +781,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
   statusBadgeCancelada: {
     backgroundColor: theme.colors.red100,
   },
+  statusBadgeNaoExecutada: {
+    backgroundColor: theme.colors.yellow100,
+    borderWidth: 1,
+    borderColor: theme.colors.warning,
+  },
   statusBadgeText: {
     fontSize: theme.typography.xs,
     fontWeight: '600',
     color: theme.colors.gray900,
+  },
+  statusBadgeTextNaoExecutada: {
+    color: theme.colors.warning,
   },
   rotaStats: {
     flexDirection: 'row',
@@ -823,5 +860,22 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.xs,
     color: theme.colors.primary,
     fontWeight: '600',
+  },
+  naoExecutadaInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.yellow100,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.warning,
+  },
+  naoExecutadaInfoText: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.warning,
+    fontWeight: '600',
+    flex: 1,
   },
 }));

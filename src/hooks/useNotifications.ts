@@ -29,6 +29,8 @@ export function useNotifications(): UseNotificationsReturn {
 
   // Ref para controle do Realtime (evita múltiplas subscriptions)
   const isSubscribed = useRef(false);
+  const pollingInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastNaoLidas = useRef<number>(0);
 
   const loadNotifications = useCallback(async () => {
     if (!userData?.id) {
@@ -68,13 +70,17 @@ export function useNotifications(): UseNotificationsReturn {
   // Realtime subscription para novas notificações
   useEffect(() => {
     if (!userData?.id || !session?.access_token) {
+      console.log('[Realtime:Notificacoes] Aguardando userData e session...');
       return;
     }
 
     // Evitar reconexão desnecessária
     if (isSubscribed.current) {
+      console.log('[Realtime:Notificacoes] Já inscrito, ignorando...');
       return;
     }
+
+    console.log('[Realtime:Notificacoes] Criando subscription para:', userData.id);
 
     // CRÍTICO: Configurar token ANTES de criar o canal
     // Sem isso, RLS bloqueia os eventos
@@ -82,8 +88,9 @@ export function useNotifications(): UseNotificationsReturn {
 
     isSubscribed.current = true;
 
+    const channelName = `notificacoes-${userData.id}-${Date.now()}`;
     const channel = supabase
-      .channel(`notificacoes-${userData.id}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -93,6 +100,7 @@ export function useNotifications(): UseNotificationsReturn {
           filter: `usuario_id=eq.${userData.id}`,
         },
         (payload) => {
+          console.log('[Realtime:Notificacoes] INSERT recebido:', payload.new);
           const nova = payload.new as Notificacao;
 
           // Adicionar ao topo da lista
@@ -123,6 +131,7 @@ export function useNotifications(): UseNotificationsReturn {
           filter: `usuario_id=eq.${userData.id}`,
         },
         (payload) => {
+          console.log('[Realtime:Notificacoes] UPDATE recebido:', payload.new);
           const atualizada = payload.new as Notificacao;
 
           setNotificacoes((prev) =>
@@ -136,18 +145,75 @@ export function useNotifications(): UseNotificationsReturn {
           });
         }
       )
-      .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error('[Realtime:Notificacoes] Erro na conexão:', status);
+      .subscribe((status, err) => {
+        console.log('[Realtime:Notificacoes] Status:', status, err ? `Erro: ${err.message}` : '');
+
+        if (status === 'SUBSCRIBED') {
+          console.log('[Realtime:Notificacoes] ✅ Conectado e ouvindo eventos');
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error('[Realtime:Notificacoes] ❌ Erro na conexão:', status, err);
+          isSubscribed.current = false;
+        } else if (status === 'CLOSED') {
+          console.log('[Realtime:Notificacoes] Canal fechado');
           isSubscribed.current = false;
         }
       });
 
     return () => {
+      console.log('[Realtime:Notificacoes] Limpando subscription...');
       isSubscribed.current = false;
       supabase.removeChannel(channel);
     };
   }, [userData?.id, session?.access_token]);
+
+  // Polling como fallback - verifica novas notificações a cada 30s
+  // Isso garante que o contador atualize mesmo se Realtime falhar
+  useEffect(() => {
+    if (!userData?.id) return;
+
+    // Função de polling silencioso (não mostra loading)
+    const pollNotifications = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('notificacoes')
+          .select('id, lida')
+          .eq('usuario_id', userData.id)
+          .eq('lida', false);
+
+        if (error) return;
+
+        const count = data?.length || 0;
+
+        // Só atualiza se a contagem mudou (evita re-renders desnecessários)
+        if (count !== lastNaoLidas.current) {
+          const previousCount = lastNaoLidas.current;
+          console.log('[Polling:Notificacoes] Contagem atualizada:', previousCount, '->', count);
+          lastNaoLidas.current = count;
+          setNaoLidas(count);
+
+          // Se aumentou, recarrega a lista completa para pegar novas notificações
+          if (count > previousCount) {
+            await loadNotifications();
+          }
+        }
+      } catch (error) {
+        // Silencioso - não interrompe o usuário
+      }
+    };
+
+    // Polling a cada 30 segundos
+    pollingInterval.current = setInterval(pollNotifications, 30000);
+
+    // Primeira verificação imediata
+    pollNotifications();
+
+    return () => {
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+        pollingInterval.current = null;
+      }
+    };
+  }, [userData?.id, loadNotifications]);
 
   const marcarComoLida = useCallback(
     async (id: string) => {

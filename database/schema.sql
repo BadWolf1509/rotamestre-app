@@ -54,7 +54,9 @@ CREATE TABLE IF NOT EXISTS rotas (
   motorista_id UUID REFERENCES usuarios(id) ON DELETE SET NULL,
   data DATE NOT NULL DEFAULT CURRENT_DATE,
   status VARCHAR(20) NOT NULL DEFAULT 'pendente'
-    CHECK (status IN ('pendente', 'em_andamento', 'concluida', 'cancelada')),
+    CHECK (status IN ('pendente', 'em_andamento', 'concluida', 'cancelada', 'nao_executada')),
+  -- Status: pendente (aguardando), em_andamento (executando), concluida (finalizada),
+  -- cancelada (pelo gestor), nao_executada (expirou às 22:00 sem conclusão)
   distancia_total DECIMAL(10, 2), -- em quilômetros
   tempo_total INTEGER, -- em minutos
   polyline TEXT, -- Polyline codificada do Google Maps
@@ -314,7 +316,7 @@ LEFT JOIN usuarios usr ON r.motorista_id = usr.id
 LEFT JOIN paradas p ON p.rota_id = r.id
 GROUP BY r.id, u.nome, usr.nome;
 
--- View com performance de motoristas
+-- View com KPIs de performance dos motoristas (incluindo taxa de execução)
 CREATE OR REPLACE VIEW vw_performance_motoristas AS
 SELECT
   u.id,
@@ -324,6 +326,18 @@ SELECT
   COUNT(r.id) as total_rotas,
   COUNT(r.id) FILTER (WHERE r.status = 'concluida') as rotas_concluidas,
   COUNT(r.id) FILTER (WHERE r.status = 'em_andamento') as rotas_em_andamento,
+  COUNT(r.id) FILTER (WHERE r.status = 'nao_executada') as rotas_nao_executadas,
+  COUNT(r.id) FILTER (WHERE r.status = 'cancelada') as rotas_canceladas,
+  -- Taxa de execução: rotas concluídas / (concluídas + não executadas) * 100
+  CASE
+    WHEN COUNT(r.id) FILTER (WHERE r.status IN ('concluida', 'nao_executada')) > 0
+    THEN ROUND(
+      COUNT(r.id) FILTER (WHERE r.status = 'concluida')::DECIMAL * 100 /
+      COUNT(r.id) FILTER (WHERE r.status IN ('concluida', 'nao_executada')),
+      1
+    )
+    ELSE 100.0
+  END as taxa_execucao,
   SUM(r.distancia_total) as distancia_total_km,
   AVG(r.tempo_total) as tempo_medio_minutos
 FROM usuarios u
