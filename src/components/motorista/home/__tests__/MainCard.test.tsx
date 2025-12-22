@@ -160,18 +160,32 @@ describe('MainCard', () => {
         currentStop: undefined,
     };
 
-    it('deve renderizar estado no-route', () => {
-        const { getByText } = render(<MainCard {...defaultProps} />);
+    // Mock de data fixa para testes consistentes (terça-feira, 10h)
+    const mockDate = new Date('2025-01-07T10:00:00'); // Terça-feira, 10h
+    const originalDate = global.Date;
 
-        // UI atualizada: agora mostra mensagens motivacionais dinâmicas
-        // Verifica elemento que sempre está presente
-        expect(getByText('Aguardando nova rota...')).toBeTruthy();
+    beforeAll(() => {
+        jest.useFakeTimers();
+        jest.setSystemTime(mockDate);
     });
 
-    it('deve mostrar dica do dia em no-route', () => {
+    afterAll(() => {
+        jest.useRealTimers();
+    });
+
+    it('deve renderizar estado no-route com mensagem contextual', () => {
         const { getByText } = render(<MainCard {...defaultProps} />);
 
-        expect(getByText('Dica do dia')).toBeTruthy();
+        // NoRouteStatus mostra mensagem contextual baseada no horário
+        // Em dia útil durante horário comercial (10h), mostra mensagem de manhã
+        expect(getByText('Sem rotas no momento')).toBeTruthy();
+    });
+
+    it('deve mostrar submensagem em no-route', () => {
+        const { getByText } = render(<MainCard {...defaultProps} />);
+
+        // A submensagem indica que será notificado quando gestor atribuir rota
+        expect(getByText(/Você será notificado/i)).toBeTruthy();
     });
 
     it('deve renderizar estado pending', () => {

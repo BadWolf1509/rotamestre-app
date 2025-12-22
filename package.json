@@ -1,12 +1,13 @@
 {
   "name": "rotamestre-app",
-  "version": "1.2.0",
+  "version": "1.4.0",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
     "version:patch": "npm version patch -m \"chore(release): v%s\"",
     "version:minor": "npm version minor -m \"chore(release): v%s\"",
     "version:major": "npm version major -m \"chore(release): v%s\"",
+    "version:sync": "node -e \"const pkg=require('./package.json'); const tag=require('child_process').execSync('git describe --tags --abbrev=0').toString().trim().replace('v',''); if(pkg.version!==tag){pkg.version=tag;require('fs').writeFileSync('./package.json',JSON.stringify(pkg,null,2)+'\\n');console.log('Versão atualizada para '+tag)}else{console.log('Versão já está em '+tag)}\"",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",

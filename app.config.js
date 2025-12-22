@@ -1,9 +1,11 @@
+const { version } = require('./package.json');
+
 module.exports = ({ config }) => {
   return {
     ...config,
     name: "Rota Mestre",
     slug: "rotamestre",
-    version: "1.1.0",
+    version, // Lê automaticamente do package.json
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
