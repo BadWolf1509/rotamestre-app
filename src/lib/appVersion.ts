@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 // Importa versão diretamente do package.json (funciona em todas as plataformas)
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const packageJson = require('../../package.json');
 
 /**

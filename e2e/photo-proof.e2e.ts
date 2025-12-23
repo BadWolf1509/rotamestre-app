@@ -1,7 +1,7 @@
 import { test, expect, testUsers } from './fixtures/test-fixtures';
+import { GestorPage } from './pages/gestor.page';
 import { LoginPage } from './pages/login.page';
 import { MotoristaPage } from './pages/motorista.page';
-import { GestorPage } from './pages/gestor.page';
 
 /**
  * E2E Tests for Photo Proof (Fotos de Comprovação)

@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 // Edge Function: Expirar Rotas Pendentes de Dias Anteriores
 // Deve ser chamada via cron job às 07:00 (horário de Brasília)
 //

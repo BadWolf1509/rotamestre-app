@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -6,16 +5,12 @@ import {
   Alert,
   RefreshControl,
   ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
 import { MainCard } from '@/components/motorista/home/MainCard';
 import { MiniMap } from '@/components/motorista/home/MiniMap';
-import { ProgressBar } from '@/components/motorista/home/ProgressBar';
 import { FloatingActionButton } from '@/components/motorista/home/QuickActions';
 import { StartRouteButton } from '@/components/motorista/home/StartRouteButton';
 import { StatusSection } from '@/components/motorista/home/StatusSection';
@@ -32,13 +27,12 @@ import { abrirNavegacao } from '@/lib/navigation';
 import DynamicReroutingService from '@/services/dynamicRerouting';
 import LocationTrackingService from '@/services/locationTracking';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-import { formatarTempo } from '@/utils/timeEstimation';
 
 function MotoristaInicioContent() {
   const router = useRouter();
   const { theme } = useUnistyles();
   const { userData } = useUser();
-  const insets = useSafeAreaInsets();
+  const _insets = useSafeAreaInsets();
 
   // Route context
   const {
@@ -51,7 +45,7 @@ function MotoristaInicioContent() {
     pendingRoutesCount,
     refreshRoute,
     startRoute,
-    completeStop,
+    completeStop: _completeStop,
     skipStop,
     completeRoute,
   } = useRouteStatus();
@@ -434,7 +428,7 @@ function MotoristaInicioContent() {
           {
             paddingBottom: (routeStatus === 'no-route' || routeStatus === 'pending')
               ? 16
-              : 96
+              : 72
           },
         ]}
         refreshControl={

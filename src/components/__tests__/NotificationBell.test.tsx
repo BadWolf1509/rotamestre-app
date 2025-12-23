@@ -1,4 +1,4 @@
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
 
 import { NotificationBell } from '../NotificationBell';
@@ -18,6 +18,17 @@ let mockReturn = { ...defaultMock };
 // Mock do useNotifications
 jest.mock('@/hooks/useNotifications', () => ({
   useNotifications: () => mockReturn,
+}));
+
+// Mock do NotificationModalContext
+const mockOpenModal = jest.fn();
+const mockCloseModal = jest.fn();
+jest.mock('@/context/NotificationModalContext', () => ({
+  useNotificationModal: () => ({
+    isOpen: false,
+    openModal: mockOpenModal,
+    closeModal: mockCloseModal,
+  }),
 }));
 
 describe('NotificationBell', () => {
@@ -58,14 +69,13 @@ describe('NotificationBell', () => {
   });
 
   it('deve abrir modal ao clicar', async () => {
-    const { getByLabelText, getByText } = render(<NotificationBell variant="desktop" />);
+    const { getByLabelText } = render(<NotificationBell variant="desktop" />);
 
     const bell = getByLabelText('Notificações');
     fireEvent.press(bell);
 
-    await waitFor(() => {
-      expect(getByText('Notificações')).toBeTruthy();
-    });
+    // Agora o modal é gerenciado pelo NotificationModalContext
+    expect(mockOpenModal).toHaveBeenCalledTimes(1);
   });
 
   it('deve usar ícone filled quando há não lidas', () => {
@@ -113,45 +123,9 @@ describe('NotificationBell', () => {
     expect(bell.props.accessibilityHint).toBe('3 notificações não lidas');
   });
 
-  it('deve fechar modal ao clicar no overlay', async () => {
-    const { getByLabelText, getByTestId, queryByTestId } = render(<NotificationBell variant="desktop" />);
-
-    // Abrir modal
-    const bell = getByLabelText('Notificações');
-    fireEvent.press(bell);
-
-    // Modal deve estar aberto
-    await waitFor(() => {
-      expect(getByTestId('modal-overlay')).toBeTruthy();
-    });
-
-    // Clicar no overlay (fora do conteúdo)
-    const overlay = getByTestId('modal-overlay');
-    fireEvent.press(overlay);
-
-    // Modal deve fechar - o testID não deve mais existir
-    await waitFor(() => {
-      expect(queryByTestId('modal-overlay')).toBeNull();
-    });
-  });
-
-  it('deve manter modal aberto ao clicar no conteúdo', async () => {
-    const { getByLabelText, getByTestId, queryByTestId } = render(<NotificationBell variant="desktop" />);
-
-    // Abrir modal
-    const bell = getByLabelText('Notificações');
-    fireEvent.press(bell);
-
-    await waitFor(() => {
-      expect(getByTestId('modal-content')).toBeTruthy();
-    });
-
-    // O conteúdo do modal tem stopPropagation para evitar fechar ao clicar nele
-    // Em testes, fireEvent.press não passa evento completo, então apenas verificamos
-    // que o modal existe e tem os testIDs corretos
-    expect(queryByTestId('modal-overlay')).toBeTruthy();
-    expect(queryByTestId('modal-content')).toBeTruthy();
-  });
+  // Nota: Os testes de overlay e conteúdo do modal foram removidos pois
+  // o modal agora é gerenciado pelo NotificationModalContext, não pelo NotificationBell.
+  // O NotificationBell apenas chama openModal() quando clicado.
 
   it('deve aplicar cor diferente para variant mobile com 0 notificações', () => {
     mockReturn = { ...defaultMock, naoLidas: 0 };

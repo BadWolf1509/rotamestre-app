@@ -1,9 +1,145 @@
 /* global google */
 
+import {
+  RouteError,
+  RouteResult,
+  parseGoogleError,
+  createNetworkError,
+  createApiNotLoadedError,
+  success,
+  failure,
+  formatErrorForLog,
+} from './routeErrors';
 import { Coordenadas, EnderecoGeocodificado } from '../types/endereco';
 import { GoogleDirectionsLeg, GoogleDirectionsResult } from '../types/google-directions';
 
+
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+
+/** Timeout para requisições em ms */
+const REQUEST_TIMEOUT = 30000;
+
+// ============================================================================
+// POLYLINE UTILITIES
+// ============================================================================
+
+/**
+ * Decodifica uma polyline encoded do Google para array de coordenadas.
+ * Baseado no algoritmo oficial do Google:
+ * https://developers.google.com/maps/documentation/utilities/polylinealgorithm
+ */
+export function decodePolyline(encoded: string): Coordenadas[] {
+  const points: Coordenadas[] = [];
+  let index = 0;
+  let lat = 0;
+  let lng = 0;
+
+  while (index < encoded.length) {
+    // Decode latitude
+    let shift = 0;
+    let result = 0;
+    let byte: number;
+
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+
+    const dlat = result & 1 ? ~(result >> 1) : result >> 1;
+    lat += dlat;
+
+    // Decode longitude
+    shift = 0;
+    result = 0;
+
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+
+    const dlng = result & 1 ? ~(result >> 1) : result >> 1;
+    lng += dlng;
+
+    points.push({
+      latitude: lat / 1e5,
+      longitude: lng / 1e5,
+    });
+  }
+
+  return points;
+}
+
+/**
+ * Codifica um array de coordenadas em polyline encoded.
+ */
+export function encodePolyline(points: Coordenadas[]): string {
+  let encoded = '';
+  let prevLat = 0;
+  let prevLng = 0;
+
+  for (const point of points) {
+    const lat = Math.round(point.latitude * 1e5);
+    const lng = Math.round(point.longitude * 1e5);
+
+    encoded += encodeNumber(lat - prevLat);
+    encoded += encodeNumber(lng - prevLng);
+
+    prevLat = lat;
+    prevLng = lng;
+  }
+
+  return encoded;
+}
+
+function encodeNumber(num: number): string {
+  let encoded = '';
+  let value = num < 0 ? ~(num << 1) : num << 1;
+
+  while (value >= 0x20) {
+    encoded += String.fromCharCode((0x20 | (value & 0x1f)) + 63);
+    value >>= 5;
+  }
+
+  encoded += String.fromCharCode(value + 63);
+  return encoded;
+}
+
+/**
+ * Combina múltiplas polylines em uma única polyline válida.
+ * Decodifica cada uma, concatena os pontos e recodifica.
+ */
+export function mergePolylines(polylines: string[]): string {
+  const allPoints: Coordenadas[] = [];
+
+  for (const polyline of polylines) {
+    if (!polyline) continue;
+
+    const points = decodePolyline(polyline);
+
+    // Se já temos pontos, verificar se precisa remover duplicata
+    if (allPoints.length > 0 && points.length > 0) {
+      const lastPoint = allPoints[allPoints.length - 1];
+      const firstPoint = points[0];
+
+      // Se o último ponto é muito próximo do primeiro, remover duplicata
+      const distance = Math.sqrt(
+        Math.pow(lastPoint.latitude - firstPoint.latitude, 2) +
+        Math.pow(lastPoint.longitude - firstPoint.longitude, 2)
+      );
+
+      if (distance < 0.0001) {
+        // ~11 metros
+        points.shift(); // Remove primeiro ponto duplicado
+      }
+    }
+
+    allPoints.push(...points);
+  }
+
+  return encodePolyline(allPoints);
+}
 
 // Interface para sugestões (mesma do google.ts)
 export interface PlaceSuggestion {
@@ -220,18 +356,31 @@ export const googleMapsService = {
   },
 
   // Calcular rota entre pontos usando Google Maps JavaScript API (resolve CORS)
+  // Retorna RouteResult com erro detalhado ou resultado
   async getDirections(
     origin: Coordenadas,
     destination: Coordenadas,
     waypoints?: Coordenadas[]
   ): Promise<GoogleDirectionsResult | null> {
+    return this.getDirectionsWithError(origin, destination, waypoints)
+      .then(result => result.success ? result.data! : null);
+  },
+
+  // Versão com erro detalhado
+  async getDirectionsWithError(
+    origin: Coordenadas,
+    destination: Coordenadas,
+    waypoints?: Coordenadas[]
+  ): Promise<RouteResult<GoogleDirectionsResult>> {
     try {
       // Carregar API do Google Maps se necessário
       await loadGoogleMapsAPI();
 
       // Verificar se google.maps está disponível
       if (typeof window === 'undefined' || !window.google?.maps) {
-        throw new Error('Google Maps API não está carregada');
+        const error = createApiNotLoadedError();
+        console.error('[Google] ' + formatErrorForLog(error));
+        return failure(error);
       }
 
       // Criar DirectionsService
@@ -254,16 +403,21 @@ export const googleMapsService = {
         travelMode: google.maps.TravelMode.DRIVING,
       };
 
-      // Fazer requisição usando promise
-      const result = await new Promise<google.maps.DirectionsResult>((resolve, reject) => {
-        directionsService.route(request, (result, status) => {
-          if (status === google.maps.DirectionsStatus.OK && result) {
-            resolve(result);
-          } else {
-            reject(new Error(`Directions request failed: ${status}`));
-          }
-        });
-      });
+      // Fazer requisição usando promise com timeout
+      const result = await Promise.race([
+        new Promise<google.maps.DirectionsResult>((resolve, reject) => {
+          directionsService.route(request, (result, status) => {
+            if (status === google.maps.DirectionsStatus.OK && result) {
+              resolve(result);
+            } else {
+              reject({ status, message: `Directions request failed: ${status}` });
+            }
+          });
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject({ status: 'TIMEOUT', message: 'Request timeout' }), REQUEST_TIMEOUT)
+        ),
+      ]);
 
       // Processar resultado
       if (result.routes && result.routes.length > 0) {
@@ -292,19 +446,36 @@ export const googleMapsService = {
           (route.overview_polyline as any)?.encoded_path ||
           '';
 
-        return {
+        return success({
           polyline: encodedPolyline,
           distancia_total_metros: distanciaTotal,
           duracao_total_segundos: tempoTotal,
           ordem_otimizada: route.waypoint_order || [],
           legs,
-        };
+        });
       }
 
-      return null;
-    } catch (error) {
-      console.error('Erro ao calcular rota:', error);
-      return null;
+      // Sem rotas encontradas
+      const error = parseGoogleError('ZERO_RESULTS');
+      console.error('[Google] ' + formatErrorForLog(error));
+      return failure(error);
+
+    } catch (err: any) {
+      // Tratar diferentes tipos de erro
+      let error: RouteError;
+
+      if (err?.status === 'TIMEOUT') {
+        error = parseGoogleError('TIMEOUT');
+      } else if (err?.status) {
+        error = parseGoogleError(err.status, err.message);
+      } else if (err instanceof TypeError || err?.message?.includes('fetch')) {
+        error = createNetworkError(err);
+      } else {
+        error = parseGoogleError('UNKNOWN_ERROR', err?.message);
+      }
+
+      console.error('[Google] ' + formatErrorForLog(error));
+      return failure(error);
     }
   },
 
@@ -314,11 +485,23 @@ export const googleMapsService = {
     destination: Coordenadas,
     waypoints: Coordenadas[]
   ): Promise<GoogleDirectionsResult | null> {
+    return this.getDirectionsSequentialWithError(origin, destination, waypoints)
+      .then(result => result.success ? result.data! : null);
+  },
+
+  // Versão com erro detalhado
+  async getDirectionsSequentialWithError(
+    origin: Coordenadas,
+    destination: Coordenadas,
+    waypoints: Coordenadas[]
+  ): Promise<RouteResult<GoogleDirectionsResult>> {
     try {
       await loadGoogleMapsAPI();
 
       if (typeof window === 'undefined' || !window.google?.maps) {
-        throw new Error('Google Maps API não está carregada');
+        const error = createApiNotLoadedError();
+        console.error('[Google Sequential] ' + formatErrorForLog(error));
+        return failure(error);
       }
 
       const directionsService = new google.maps.DirectionsService();
@@ -327,7 +510,7 @@ export const googleMapsService = {
       let totalDistanceMeters = 0;
       let totalDurationSeconds = 0;
       const allLegs: GoogleDirectionsLeg[] = [];
-      let combinedPolyline = '';
+      const polylineSegments: string[] = [];
 
       for (let i = 0; i < allPoints.length - 1; i++) {
         const segmentOrigin = allPoints[i];
@@ -339,15 +522,21 @@ export const googleMapsService = {
           travelMode: google.maps.TravelMode.DRIVING,
         };
 
-        const result = await new Promise<google.maps.DirectionsResult>((resolve, reject) => {
-          directionsService.route(request, (routeResult, status) => {
-            if (status === google.maps.DirectionsStatus.OK && routeResult) {
-              resolve(routeResult);
-            } else {
-              reject(new Error(`Directions request failed: ${status}`));
-            }
-          });
-        });
+        // Requisição com timeout
+        const result = await Promise.race([
+          new Promise<google.maps.DirectionsResult>((resolve, reject) => {
+            directionsService.route(request, (routeResult, status) => {
+              if (status === google.maps.DirectionsStatus.OK && routeResult) {
+                resolve(routeResult);
+              } else {
+                reject({ status, message: `Segment ${i + 1} failed: ${status}` });
+              }
+            });
+          }),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject({ status: 'TIMEOUT', message: `Segment ${i + 1} timeout` }), REQUEST_TIMEOUT)
+          ),
+        ]);
 
         if (result.routes && result.routes.length > 0) {
           const route = result.routes[0];
@@ -376,20 +565,37 @@ export const googleMapsService = {
             (route.overview_polyline as any)?.encoded_path ||
             '';
 
-          combinedPolyline += encodedPolyline || '';
+          if (encodedPolyline) {
+            polylineSegments.push(encodedPolyline);
+          }
         }
       }
 
-      return {
-        polyline: combinedPolyline,
+      // Usar mergePolylines para combinar corretamente as polylines
+      const mergedPolyline = mergePolylines(polylineSegments);
+
+      return success({
+        polyline: mergedPolyline,
         distancia_total_metros: totalDistanceMeters,
         duracao_total_segundos: totalDurationSeconds,
         ordem_otimizada: [],
         legs: allLegs,
-      };
-    } catch (error) {
-      console.error('Erro ao calcular rota sequencial:', error);
-      return null;
+      });
+    } catch (err: any) {
+      let error: RouteError;
+
+      if (err?.status === 'TIMEOUT') {
+        error = parseGoogleError('TIMEOUT', err.message);
+      } else if (err?.status) {
+        error = parseGoogleError(err.status, err.message);
+      } else if (err instanceof TypeError || err?.message?.includes('fetch')) {
+        error = createNetworkError(err);
+      } else {
+        error = parseGoogleError('UNKNOWN_ERROR', err?.message);
+      }
+
+      console.error('[Google Sequential] ' + formatErrorForLog(error));
+      return failure(error);
     }
   },
   // Calcular matriz de distâncias

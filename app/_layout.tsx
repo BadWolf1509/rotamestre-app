@@ -16,6 +16,7 @@ import Toast from 'react-native-toast-message';
 
 import { DevToolsInitializer } from '@/components/DevToolsInitializer';
 import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
+import { NotificationModalProvider } from '@/context/NotificationModalContext';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUser } from '@/hooks/useUser';
 import { initializeNotifications } from '@/lib/notifications';
@@ -143,7 +144,7 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <NotificationModalProvider>
       <ConditionalLayout>
         <Stack
           screenOptions={{
@@ -194,7 +195,7 @@ export default function RootLayout() {
       />
       {/* DevTools Initializer */}
       <DevToolsInitializer />
-    </>
+    </NotificationModalProvider>
   );
 }
 

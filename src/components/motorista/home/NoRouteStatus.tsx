@@ -12,7 +12,6 @@ import { Animated, StyleSheet, Text, View } from 'react-native';
 import {
   getNoRouteMessage,
   getWorkContext,
-  type MotivationalMessage,
   type NoRouteContext,
 } from '@/utils/motivationalMessages';
 import { defaultTheme, useUnistyles } from '@/utils/styles';

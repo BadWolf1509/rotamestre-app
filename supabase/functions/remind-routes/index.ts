@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 // Edge Function: Lembrete de Rotas Pendentes
 // Deve ser chamada via cron job às 16:00 e 20:00 (horário de Brasília)
 //

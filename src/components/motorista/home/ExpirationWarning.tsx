@@ -7,7 +7,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, StyleSheet, Text } from 'react-native';
 
 import { defaultTheme, useUnistyles } from '@/utils/styles';
 
@@ -157,7 +157,7 @@ export function ExpirationWarning({ rotaData, onExpire }: ExpirationWarningProps
   );
 }
 
-const colors = defaultTheme.colors;
+const _colors = defaultTheme.colors;
 
 const styles = StyleSheet.create({
   container: {

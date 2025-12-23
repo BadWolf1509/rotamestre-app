@@ -13,10 +13,8 @@ import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { successHaptic } from '@/utils/haptics';
 import {
-  getMotivationalMessage,
   getCompletedMessage,
   getMilestoneMessage,
-  getNoRouteMessage,
   getWorkContext,
 } from '@/utils/motivationalMessages';
 import { defaultTheme, useUnistyles } from '@/utils/styles';
@@ -340,10 +338,10 @@ export function MainCard({
         return;
       }
 
-      // Get stops for this route
+      // Get stops for this route (excluding checkpoints - departure/arrival points)
       const { data: paradasData, error: paradasError } = await supabase
         .from('paradas')
-        .select('status')
+        .select('status, is_checkpoint')
         .eq('rota_id', rota.id);
 
       if (paradasError) {
@@ -351,8 +349,10 @@ export function MainCard({
         return;
       }
 
-      const totalParadas = paradasData?.length || 0;
-      const paradasConcluidas = paradasData?.filter(p => p.status === 'concluida').length || 0;
+      // Filter out checkpoints (is_checkpoint: false means it's a checkpoint, not a delivery)
+      const deliveryStops = paradasData?.filter(p => p.is_checkpoint !== false) || [];
+      const totalParadas = deliveryStops.length;
+      const paradasConcluidas = deliveryStops.filter(p => p.status === 'concluida').length;
 
       // Calculate duration
       let tempoTotal = '--';

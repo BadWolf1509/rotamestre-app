@@ -79,9 +79,6 @@ describe('ParadaCardSkeleton', () => {
     });
 
     it('deve renderizar quantidade correta de skeletons', () => {
-      const { getAllByTestId } = render(
-        <ParadaCardSkeletonList count={2} />
-      );
       // Este teste verifica que múltiplos cards são renderizados
       // O componente não tem testID, então verificamos via snapshot
       const { toJSON } = render(<ParadaCardSkeletonList count={2} />);

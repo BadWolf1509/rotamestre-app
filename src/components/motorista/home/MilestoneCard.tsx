@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 
-import { MilestoneData, getMilestoneColor } from '@/hooks/useMilestones';
+import { MilestoneData } from '@/hooks/useMilestones';
 import { getMilestoneMessage } from '@/utils/motivationalMessages';
 import { defaultTheme, useUnistyles } from '@/utils/styles';
 
@@ -20,15 +20,20 @@ export function MilestoneCard({ data, compact = false }: MilestoneCardProps) {
   const { theme } = useUnistyles();
   const progressAnim = useRef(new Animated.Value(0)).current;
 
+  // Progresso proporcional para animação: totalEntregas/nextMilestone
+  const displayProgress = data.nextMilestone
+    ? Math.round((data.totalEntregas / data.nextMilestone) * 100)
+    : 100;
+
   // Animar a barra de progresso
   useEffect(() => {
     Animated.spring(progressAnim, {
-      toValue: data.progress,
+      toValue: displayProgress,
       useNativeDriver: false,
       tension: 50,
       friction: 7,
     }).start();
-  }, [data.progress, progressAnim]);
+  }, [displayProgress, progressAnim]);
 
   if (data.isLoading) {
     return (
@@ -57,21 +62,16 @@ export function MilestoneCard({ data, compact = false }: MilestoneCardProps) {
     );
   }
 
-  const colorKey = getMilestoneColor(data.progress);
   const milestoneMsg = data.nextMilestone ? getMilestoneMessage(data.nextMilestone) : null;
 
-  // Determinar cor baseada no progresso
-  const progressColor = colorKey === 'success'
-    ? theme.colors.success
-    : colorKey === 'primary'
-      ? theme.colors.primary
-      : theme.colors.warning;
+  // Cor baseada no progresso proporcional (displayProgress já calculado acima)
+  const getProgressColor = (pct: number) => {
+    if (pct >= 90) return { color: theme.colors.success, bg: theme.colors.successBg };
+    if (pct >= 50) return { color: theme.colors.primary, bg: theme.colors.primaryBg };
+    return { color: theme.colors.warning, bg: theme.colors.warningBg };
+  };
 
-  const bgColor = colorKey === 'success'
-    ? theme.colors.successBg
-    : colorKey === 'primary'
-      ? theme.colors.primaryBg
-      : theme.colors.warningBg;
+  const { color: progressColor, bg: bgColor } = getProgressColor(displayProgress);
 
   return (
     <View style={[styles.container, compact && styles.containerCompact]}>
@@ -85,14 +85,9 @@ export function MilestoneCard({ data, compact = false }: MilestoneCardProps) {
             {milestoneMsg?.emoji} {data.nextMilestone} entregas
           </Text>
         </View>
-        <View style={[styles.badge, { backgroundColor: bgColor }]}>
-          <Text style={[styles.badgeText, { color: progressColor }]}>
-            {data.progress}%
-          </Text>
-        </View>
       </View>
 
-      {/* Barra de progresso */}
+      {/* Barra de progresso - proporcional ao total */}
       <View style={styles.progressContainer}>
         <View style={styles.progressBar}>
           <Animated.View
@@ -109,21 +104,21 @@ export function MilestoneCard({ data, compact = false }: MilestoneCardProps) {
           />
         </View>
         <Text style={styles.progressText}>
-          {data.totalEntregas}/{data.nextMilestone}
+          {data.totalEntregas} de {data.nextMilestone}
         </Text>
       </View>
 
-      {/* Mensagem de incentivo */}
-      {!compact && (
-        <View style={styles.incentiveContainer}>
-          <Ionicons name="rocket-outline" size={14} color={theme.colors.gray500} />
-          <Text style={styles.incentiveText}>
-            {data.remaining === 1
-              ? 'Falta apenas 1 entrega!'
-              : `Faltam ${data.remaining} entregas para a conquista`}
-          </Text>
-        </View>
-      )}
+      {/* Mensagem de incentivo - sempre visível, versão curta no compact */}
+      <View style={[styles.incentiveContainer, compact && styles.incentiveContainerCompact]}>
+        <Ionicons name="rocket-outline" size={14} color={theme.colors.gray500} />
+        <Text style={styles.incentiveText}>
+          {data.remaining === 1
+            ? 'Falta apenas 1!'
+            : compact
+              ? `Faltam ${data.remaining}`
+              : `Faltam ${data.remaining} entregas`}
+        </Text>
+      </View>
 
       {/* Stats rápidos (apenas no modo completo) */}
       {!compact && data.averagePerDay > 0 && (
@@ -234,6 +229,10 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: colors.gray100,
+  },
+  incentiveContainerCompact: {
+    marginTop: 8,
+    paddingTop: 8,
   },
   incentiveText: {
     fontSize: 12,

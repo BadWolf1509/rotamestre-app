@@ -20,8 +20,8 @@ export function MiniMap({
   userLocation: _userLocation,
   expanded = false,
   onToggleExpand,
-  onOpenPiP,
-  route,
+  onOpenPiP: _onOpenPiP,
+  route: _route,
 }: MiniMapProps) {
   const { theme } = useUnistyles();
   // Altura compacta (56px) igual ao botão Iniciar Rota, expandido mostra paradas
@@ -29,7 +29,7 @@ export function MiniMap({
 
   // Filtrar paradas por status (mas manter checkpoints separados)
   const paradasPendentes = paradas.filter(p => p.status === 'pendente' && p.is_checkpoint !== false);
-  const paradasConcluidas = paradas.filter(p => p.status === 'concluida' && p.is_checkpoint !== false);
+  const _paradasConcluidas = paradas.filter(p => p.status === 'concluida' && p.is_checkpoint !== false);
 
   // Generate Google Maps URL - incluindo checkpoints (partida e chegada)
   const generateMapsUrl = () => {

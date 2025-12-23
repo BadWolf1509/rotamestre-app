@@ -108,6 +108,13 @@ function GestorStack() {
         }}
       />
       <Stack.Screen
+        name="motorista-perfil"
+        options={({ navigation }) => ({
+          title: 'Perfil do Motorista',
+          headerLeft: () => renderBackButton(navigation),
+        })}
+      />
+      <Stack.Screen
         name="mapa-rota"
         options={({ navigation }) => ({
           title: 'Mapa da Rota',

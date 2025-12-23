@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
-const { Client } = require('pg');
 const path = require('path');
+
+const { Client } = require('pg');
 require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
 async function main() {

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   View,
@@ -34,11 +35,6 @@ interface MotoristaDetalhado {
   foto_url?: string;
   ativo: boolean;
   created_at: string;
-  rotas_stats?: {
-    total: number;
-    concluidas: number;
-    em_andamento: number;
-  };
 }
 
 type VinculacaoComUsuario = {
@@ -48,6 +44,7 @@ type VinculacaoComUsuario = {
 
 export default function MotoristasGestor() {
   const { theme } = useUnistyles();
+  const router = useRouter();
   const { userData } = useUser();
   const { unidadeAtiva } = useUnidadeAtiva();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
@@ -99,40 +96,13 @@ export default function MotoristasGestor() {
 
       if (vinculacoesError) throw vinculacoesError;
 
-      // Extrair os usuários das vinculações
+      // Extrair os usuários das vinculações (sem N+1 queries para stats)
       const motoristasData = vinculacoesData
         ?.map((v) => v.usuarios)
         .filter((u): u is MotoristaDetalhado => u !== null)
         .sort((a, b) => a.nome.localeCompare(b.nome));
 
-      const motoristasComStats: MotoristaDetalhado[] = await Promise.all(
-        (motoristasData || []).map(async (motorista) => {
-          const { data: rotasData, error: rotasError } = await supabase
-            .from('rotas')
-            .select('id, status')
-            .eq('motorista_id', motorista.id);
-
-          if (rotasError) {
-            console.error('Erro ao buscar rotas do motorista:', rotasError);
-            return {
-              ...motorista,
-              rotas_stats: { total: 0, concluidas: 0, em_andamento: 0 },
-            };
-          }
-
-          return {
-            ...motorista,
-            rotas_stats: {
-              total: rotasData?.length || 0,
-              concluidas: rotasData?.filter((r) => r.status === 'concluida').length || 0,
-              em_andamento:
-                rotasData?.filter((r) => r.status === 'em_andamento').length || 0,
-            },
-          };
-        })
-      );
-
-      setMotoristas(motoristasComStats as MotoristaDetalhado[]);
+      setMotoristas(motoristasData || []);
     } catch (error) {
       console.error('Erro ao carregar motoristas:', error);
       showToast('Não foi possível carregar os motoristas', 'error');
@@ -851,29 +821,6 @@ export default function MotoristasGestor() {
       render: (motorista) => <Text>{motorista.telefone || '-'}</Text>,
     },
     {
-      key: 'rotas_total',
-      label: 'Rotas',
-      width: 80,
-      align: 'center',
-      sortable: true,
-      render: (motorista) => <Text>{motorista.rotas_stats?.total?.toString() || '0'}</Text>,
-    },
-    {
-      key: 'rotas_concluidas',
-      label: 'Concluídas',
-      width: 100,
-      align: 'center',
-      render: (motorista) => <Text>{motorista.rotas_stats?.concluidas?.toString() || '0'}</Text>,
-    },
-    {
-      key: 'rotas_em_andamento',
-      label: 'Em Andamento',
-      width: 130,
-      align: 'center',
-      desktopOnly: true,
-      render: (motorista) => <Text>{motorista.rotas_stats?.em_andamento?.toString() || '0'}</Text>,
-    },
-    {
       key: 'created_at',
       label: 'Cadastrado em',
       width: 130,
@@ -890,9 +837,15 @@ export default function MotoristasGestor() {
 
   const actions: DataTableAction<MotoristaDetalhado>[] = [
     {
+      label: 'Ver Perfil',
+      icon: 'person-outline',
+      type: 'primary',
+      onPress: (motorista) => router.push(`/gestor/motorista-perfil?id=${motorista.id}`),
+    },
+    {
       label: 'Editar',
       icon: 'create-outline',
-      type: 'primary',
+      type: 'secondary',
       onPress: abrirModalEditar,
     },
     {

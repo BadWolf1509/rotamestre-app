@@ -162,7 +162,7 @@ describe('MainCard', () => {
 
     // Mock de data fixa para testes consistentes (terça-feira, 10h)
     const mockDate = new Date('2025-01-07T10:00:00'); // Terça-feira, 10h
-    const originalDate = global.Date;
+    const _originalDate = global.Date;
 
     beforeAll(() => {
         jest.useFakeTimers();

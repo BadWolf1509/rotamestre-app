@@ -5,8 +5,9 @@
  * Executa: node database/migrations/execute-fk-indexes.js
  */
 
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
+
 const { Client } = require('pg');
 
 // Carregar variáveis de ambiente

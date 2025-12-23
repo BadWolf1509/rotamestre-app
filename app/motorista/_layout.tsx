@@ -54,7 +54,7 @@ export default function MotoristaLayout() {
  */
 function MobileNavigation() {
   const { theme } = useUnistyles();
-  const { openDrawer } = useDrawerMenu();
+  const { openDrawer: _openDrawer } = useDrawerMenu();
   const router = useRouter();
 
   // Helper para voltar com fallback para home do motorista

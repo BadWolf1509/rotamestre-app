@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 
 import { useAuth } from './useAuth';
 import { getCache, setCache, clearCache, CACHE_TTL, CACHE_KEYS } from '../lib/cache';
-import { initializePushNotifications, unregisterPushToken } from '../lib/notifications';
+import { initializePushNotifications } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
 import { Usuario } from '../types/usuario';
 

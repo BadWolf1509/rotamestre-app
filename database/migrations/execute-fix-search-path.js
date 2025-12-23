@@ -5,8 +5,9 @@
  * Executa: node database/migrations/execute-fix-search-path.js
  */
 
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
+
 const { Client } = require('pg');
 
 // Carregar variáveis de ambiente

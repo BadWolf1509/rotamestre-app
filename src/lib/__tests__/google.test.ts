@@ -399,7 +399,8 @@ describe('googleMapsService', () => {
             );
 
             expect(mockFetch).toHaveBeenCalledWith(
-                expect.stringContaining('waypoints=optimize:true|0.5,0.5|1.5,1.5')
+                expect.stringContaining('waypoints=optimize:true|0.5,0.5|1.5,1.5'),
+                expect.anything()
             );
         });
 

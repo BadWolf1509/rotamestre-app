@@ -1,6 +1,6 @@
 import { test, expect, testUsers } from './fixtures/test-fixtures';
-import { LoginPage } from './pages/login.page';
 import { GestorPage } from './pages/gestor.page';
+import { LoginPage } from './pages/login.page';
 
 /**
  * E2E Tests for Route Creation (Otimização Automática)

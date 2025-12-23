@@ -151,7 +151,8 @@ export function useNotifications(): UseNotificationsReturn {
         if (status === 'SUBSCRIBED') {
           console.log('[Realtime:Notificacoes] ✅ Conectado e ouvindo eventos');
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error('[Realtime:Notificacoes] ❌ Erro na conexão:', status, err);
+          // Timeout é comum na primeira conexão - fallback de polling está ativo
+          console.warn('[Realtime:Notificacoes] ⚠️ Conexão falhou:', status, '(polling ativo como fallback)');
           isSubscribed.current = false;
         } else if (status === 'CLOSED') {
           console.log('[Realtime:Notificacoes] Canal fechado');
@@ -196,7 +197,7 @@ export function useNotifications(): UseNotificationsReturn {
             await loadNotifications();
           }
         }
-      } catch (error) {
+      } catch {
         // Silencioso - não interrompe o usuário
       }
     };

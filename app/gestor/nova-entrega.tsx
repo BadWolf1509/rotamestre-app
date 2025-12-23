@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   TextInput,
 } from 'react-native';
-import { z } from 'zod';
+
 
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import { DesktopCard } from '@/components/desktop/DesktopCard';
@@ -26,8 +26,12 @@ import { googleMapsService } from '@/lib/google';
 import {
   otimizarRotaComDependencias,
   ParadaParaOtimizar,
+  validarRotaParaOtimizacao,
+  MAX_WAYPOINTS,
+  WAYPOINTS_RECOMENDADO,
 } from '@/lib/routeOptimization';
 import { supabase } from '@/lib/supabase';
+import { z } from '@/lib/zod';
 import { GoogleDirectionsLeg } from '@/types/google-directions';
 import { maskPhone } from '@/utils/phoneValidation';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
@@ -684,6 +688,37 @@ export default function NovaEntrega() {
     }
   }
 
+  // Status das paradas (contador com aviso de limite)
+  const paradasStatus = useMemo(() => {
+    const count = paradas.length;
+    const _restante = MAX_WAYPOINTS - count;
+
+    if (count > MAX_WAYPOINTS) {
+      return {
+        texto: `${count} paradas (excede limite de ${MAX_WAYPOINTS})`,
+        cor: 'error' as const,
+        icone: 'warning' as const,
+      };
+    } else if (count > WAYPOINTS_RECOMENDADO) {
+      return {
+        texto: `${count}/${MAX_WAYPOINTS} paradas (próximo do limite)`,
+        cor: 'warning' as const,
+        icone: 'alert-circle' as const,
+      };
+    } else if (count > 0) {
+      return {
+        texto: `${count} parada(s) na lista`,
+        cor: 'default' as const,
+        icone: null,
+      };
+    }
+    return {
+      texto: 'Nenhuma parada adicionada',
+      cor: 'default' as const,
+      icone: null,
+    };
+  }, [paradas.length]);
+
   // Calcular distância total da rota atual usando Haversine (linha reta - aproximado)
   // Rota circular: Unidade → Parada 1 → Parada 2 → ... → Unidade
   const calcularDistanciaAproximada = useCallback(() => {
@@ -805,6 +840,35 @@ export default function NovaEntrega() {
       return;
     }
 
+    // Validar rota antes de chamar API
+    const paradasParaValidar: ParadaParaOtimizar[] = paradas.map((p) => ({
+      id: p.id,
+      tipo: p.tipo,
+      endereco: p.endereco,
+      latitude: p.latitude!,
+      longitude: p.longitude!,
+      ordem: p.ordem,
+      destinatario: p.destinatario,
+      telefone: p.telefone,
+      observacoes: p.observacoes,
+      vinculo_parada_id: p.vinculo_parada_id,
+    }));
+
+    const validacao = validarRotaParaOtimizacao(paradasParaValidar);
+
+    // Mostrar erros se houver
+    if (!validacao.valido) {
+      const primeiroErro = validacao.erros[0];
+      showToast(primeiroErro, 'error');
+      console.error('[NovaEntrega] Validação falhou:', validacao.erros);
+      return;
+    }
+
+    // Mostrar avisos (mas continuar)
+    if (validacao.avisos.length > 0) {
+      showToast(validacao.avisos[0], 'info');
+    }
+
     setIsOptimizing(true);
     try {
       // Origem e destino: endereço da unidade (rota circular)
@@ -823,23 +887,10 @@ export default function NovaEntrega() {
       });
 
       if (temVinculos) {
-        // Usar otimização com dependências
-        const paradasParaOtimizar: ParadaParaOtimizar[] = paradas.map((p) => ({
-          id: p.id,
-          tipo: p.tipo,
-          endereco: p.endereco,
-          latitude: p.latitude!,
-          longitude: p.longitude!,
-          ordem: p.ordem,
-          destinatario: p.destinatario,
-          telefone: p.telefone,
-          observacoes: p.observacoes,
-          vinculo_parada_id: p.vinculo_parada_id,
-        }));
-
+        // Usar otimização com dependências (reutiliza paradas já validadas)
         const resultado = await otimizarRotaComDependencias(
           pontoUnidade,
-          paradasParaOtimizar,
+          paradasParaValidar,
           pontoUnidade // Rota circular
         );
 
@@ -1215,9 +1266,31 @@ export default function NovaEntrega() {
       {/* Lista de Paradas */}
       {paradas.length > 0 ? (
         <View style={styles.paradasList}>
-          <Text style={styles.sectionTitle}>
-            Paradas Adicionadas ({paradas.length})
-          </Text>
+          <View style={styles.paradasHeaderRow}>
+            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
+              Paradas Adicionadas ({paradas.length})
+            </Text>
+            {paradasStatus.cor !== 'default' && (
+              <View style={[
+                styles.paradasLimitBadge,
+                paradasStatus.cor === 'error' && styles.paradasLimitBadgeError,
+                paradasStatus.cor === 'warning' && styles.paradasLimitBadgeWarning,
+              ]}>
+                <Ionicons
+                  name={paradasStatus.icone || 'alert-circle'}
+                  size={14}
+                  color={paradasStatus.cor === 'error' ? theme.colors.error : theme.colors.warning}
+                />
+                <Text style={[
+                  styles.paradasLimitText,
+                  paradasStatus.cor === 'error' && styles.paradasLimitTextError,
+                  paradasStatus.cor === 'warning' && styles.paradasLimitTextWarning,
+                ]}>
+                  {paradas.length > MAX_WAYPOINTS ? 'Limite excedido' : 'Próximo do limite'}
+                </Text>
+              </View>
+            )}
+          </View>
           {paradas.map((parada, index) => {
             // Encontrar a retirada vinculada (se houver)
             const retiradaVinculada = parada.vinculo_parada_id
@@ -1607,9 +1680,9 @@ export default function NovaEntrega() {
             <View style={styles.previewColumn}>
               <DesktopCard
                 title="Paradas Adicionadas"
-                subtitle={`${paradas.length} parada(s) na lista`}
+                subtitle={paradasStatus.texto}
                 icon="list-outline"
-                iconColor={theme.colors.secondary}
+                iconColor={paradasStatus.cor === 'error' ? theme.colors.error : paradasStatus.cor === 'warning' ? theme.colors.warning : theme.colors.secondary}
                 variant="elevated"
                 actions={
                   <TouchableOpacity
@@ -1724,6 +1797,39 @@ const createStyles = (theme: any) => StyleSheet.create({
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
     marginBottom: theme.spacing['2xl'],
+  },
+  paradasHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.lg,
+    // Remove margin from child sectionTitle when inside this row
+  },
+  paradasLimitBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.gray100,
+  },
+  paradasLimitBadgeWarning: {
+    backgroundColor: theme.colors.warning + '20',
+  },
+  paradasLimitBadgeError: {
+    backgroundColor: theme.colors.error + '20',
+  },
+  paradasLimitText: {
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray600,
+  },
+  paradasLimitTextWarning: {
+    color: theme.colors.warning,
+  },
+  paradasLimitTextError: {
+    color: theme.colors.error,
   },
   clearCardButton: {
     flexDirection: 'row',

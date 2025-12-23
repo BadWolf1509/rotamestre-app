@@ -15,6 +15,15 @@ jest.mock('expo-router', () => ({
   useRouter: jest.fn(),
 }));
 
+// Mock NotificationModalContext
+jest.mock('@/context/NotificationModalContext', () => ({
+  useNotificationModal: jest.fn(() => ({
+    isOpen: false,
+    openModal: jest.fn(),
+    closeModal: jest.fn(),
+  })),
+}));
+
 // Mock useUnistyles
 jest.mock('@/utils/styles', () => ({
   StyleSheet: {

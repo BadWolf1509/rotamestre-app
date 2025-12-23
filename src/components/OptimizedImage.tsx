@@ -15,7 +15,7 @@ import PerformanceOptimizer from '@/services/performanceOptimizer';
 // Conditional import for expo-blur (only used on iOS)
 let BlurView: React.ComponentType<{ intensity: number; style: any }> | null = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+   
   BlurView = require('expo-blur').BlurView;
 } catch {
   // expo-blur not available

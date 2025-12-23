@@ -7,6 +7,7 @@
 
 const fs = require('fs');
 const path = require('path');
+
 const { Client } = require('pg');
 
 // Carregar variáveis de ambiente

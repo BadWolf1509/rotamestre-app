@@ -206,7 +206,7 @@ export function PreRouteChecklist({ onStatusChange, compact = false }: PreRouteC
   const allOk =
     status.gps === 'ok' && status.internet === 'ok' && status.battery === 'ok';
   const hasError = status.gps === 'error' || status.battery === 'error';
-  const hasWarning =
+  const _hasWarning =
     status.internet === 'warning' || status.battery === 'warning';
 
   // Versão compacta - apenas ícones inline

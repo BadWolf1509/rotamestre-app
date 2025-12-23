@@ -8,6 +8,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
+
 import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
 
 interface FAQItem {
@@ -94,7 +95,7 @@ const SUPPORT_OPTIONS = [
 ];
 
 export default function AjudaScreen() {
-  const { theme } = useUnistyles();
+  const { theme: _theme } = useUnistyles();
   const [expandedFAQ, setExpandedFAQ] = useState<string | null>(null);
 
   function toggleFAQ(id: string) {
@@ -106,7 +107,7 @@ export default function AjudaScreen() {
     const supportEmail = 'contato@rotamestre.tec.br';
 
     switch (action) {
-      case 'whatsapp':
+      case 'whatsapp': {
         const whatsappUrl = Platform.select({
           ios: `whatsapp://send?phone=${supportPhone}&text=${encodeURIComponent('Olá! Preciso de ajuda com o app RotaMestre.')}`,
           android: `whatsapp://send?phone=${supportPhone}&text=${encodeURIComponent('Olá! Preciso de ajuda com o app RotaMestre.')}`,
@@ -123,16 +124,19 @@ export default function AjudaScreen() {
           Alert.alert('Erro', 'Não foi possível abrir o WhatsApp.');
         }
         break;
+      }
 
-      case 'email':
+      case 'email': {
         const emailUrl = `mailto:${supportEmail}?subject=${encodeURIComponent('Suporte RotaMestre App')}&body=${encodeURIComponent('Olá,\n\nPreciso de ajuda com:\n\n')}`;
         await Linking.openURL(emailUrl);
         break;
+      }
 
-      case 'phone':
+      case 'phone': {
         const phoneUrl = `tel:${supportPhone.replace(/\D/g, '')}`;
         await Linking.openURL(phoneUrl);
         break;
+      }
     }
   }
 

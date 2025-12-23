@@ -38,7 +38,7 @@ export default function CheckpointsMotorista() {
   const [paradas, setParadas] = useState<Parada[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [concluindoParada, setConcluindoParada] = useState<string | null>(null);
+  const [concluindoParada, _setConcluindoParada] = useState<string | null>(null);
   const [pulandoParada, setPulandoParada] = useState<string | null>(null);
   const [retomandoParada, setRetomandoParada] = useState<string | null>(null);
   const [showIncidentWizard, setShowIncidentWizard] = useState(false);

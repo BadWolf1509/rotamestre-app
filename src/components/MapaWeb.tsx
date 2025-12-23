@@ -402,7 +402,7 @@ export default function MapaWeb({
         if (data) {
           setMotoristaLocation(data as MotoristaLocation);
         }
-      } catch (err) {
+      } catch {
         // Silenciar erros de localização - não é crítico
         console.warn('[MapaWeb] Localização indisponível');
       }

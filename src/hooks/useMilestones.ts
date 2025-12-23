@@ -77,12 +77,15 @@ export function useMilestones(options: UseMilestonesOptions = {}): MilestoneData
 
       if (rotasConcluidas && rotasConcluidas.length > 0) {
         const rotaIds = rotasConcluidas.map(r => r.id);
+        // IMPORTANTE: .neq('is_checkpoint', false) não funciona em PostgreSQL
+        // porque NULL != false retorna NULL (não true), excluindo entregas reais
+        // Usamos .or() para pegar is_checkpoint IS NULL ou is_checkpoint = true
         const { count, error: paradasError } = await supabase
           .from('paradas')
           .select('id', { count: 'exact', head: true })
           .in('rota_id', rotaIds)
           .eq('status', 'concluida')
-          .neq('is_checkpoint', false); // Apenas paradas reais
+          .or('is_checkpoint.is.null,is_checkpoint.eq.true');
 
         if (paradasError) throw paradasError;
         totalEntregas = count || 0;
@@ -161,12 +164,13 @@ export function useMilestones(options: UseMilestonesOptions = {}): MilestoneData
         // Contar entregas por rota
         if (rotasRecentes.length > 0) {
           const rotaIds = rotasRecentes.map(r => r.id);
+          // Mesma correção: usar .or() ao invés de .neq() para filtrar checkpoints
           const { data: paradasRecentes } = await supabase
             .from('paradas')
             .select('rota_id')
             .in('rota_id', rotaIds)
             .eq('status', 'concluida')
-            .neq('is_checkpoint', false);
+            .or('is_checkpoint.is.null,is_checkpoint.eq.true');
 
           if (paradasRecentes) {
             // Mapear paradas por rota

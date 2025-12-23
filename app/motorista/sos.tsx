@@ -11,6 +11,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
+
 import { useRouteStatus } from '@/context/RouteStatusContext';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';

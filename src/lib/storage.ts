@@ -78,7 +78,7 @@ export async function uploadFotoEntrega(
     }
 
     // Upload para Supabase Storage
-    const { data, error } = await supabase.storage
+    const { data: _data, error } = await supabase.storage
       .from(BUCKET_FOTOS_ENTREGA)
       .upload(filePath, fileData, {
         contentType: 'image/jpeg',
@@ -283,7 +283,7 @@ export async function uploadFotoUsuario(
     }
 
     // Upload para Supabase Storage
-    const { data, error } = await supabase.storage
+    const { data: _data2, error } = await supabase.storage
       .from(BUCKET_FOTOS_ENTREGA)
       .upload(filePath, fileData, {
         contentType: 'image/jpeg',

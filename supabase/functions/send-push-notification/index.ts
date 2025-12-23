@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 /**
  * Edge Function: send-push-notification
  * Envia push notifications via Expo Push Notification Service

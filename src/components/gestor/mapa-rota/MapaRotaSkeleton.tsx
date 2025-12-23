@@ -12,7 +12,7 @@ import { SplitView } from '@/components/desktop/SplitView';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import { useUnistyles } from '@/utils/styles';
 
-import { styles, MAP_HEIGHT } from './styles';
+import { styles } from './styles';
 
 interface MapaRotaSkeletonProps {
   isDesktop?: boolean;

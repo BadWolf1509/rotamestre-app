@@ -45,13 +45,9 @@ interface OfflineData {
 async function ensureOfflinePhotosDir(): Promise<void> {
   if (Platform.OS === 'web') return; // Web não usa FileSystem
 
-  try {
-    const dirInfo = await FileSystem.getInfoAsync(OFFLINE_PHOTOS_DIR);
-    if (!dirInfo.exists) {
-      await FileSystem.makeDirectoryAsync(OFFLINE_PHOTOS_DIR, { intermediates: true });
-    }
-  } catch (error) {
-    throw error;
+  const dirInfo = await FileSystem.getInfoAsync(OFFLINE_PHOTOS_DIR);
+  if (!dirInfo.exists) {
+    await FileSystem.makeDirectoryAsync(OFFLINE_PHOTOS_DIR, { intermediates: true });
   }
 }
 
@@ -74,36 +70,32 @@ export async function savePhotoOffline(
     throw new Error('Fotos offline não suportadas na web');
   }
 
-  try {
-    await ensureOfflinePhotosDir();
+  await ensureOfflinePhotosDir();
 
-    // Gerar nome único para a foto
-    const timestamp = Date.now();
-    const fileName = `${paradaId}_${timestamp}.jpg`;
-    const localPath = `${OFFLINE_PHOTOS_DIR}${fileName}`;
+  // Gerar nome único para a foto
+  const timestamp = Date.now();
+  const fileName = `${paradaId}_${timestamp}.jpg`;
+  const localPath = `${OFFLINE_PHOTOS_DIR}${fileName}`;
 
-    // Copiar foto para diretório persistente
-    await FileSystem.copyAsync({
-      from: photoUri,
-      to: localPath,
-    });
+  // Copiar foto para diretório persistente
+  await FileSystem.copyAsync({
+    from: photoUri,
+    to: localPath,
+  });
 
-    const photoData: OfflinePhotoData = {
-      localPath,
-      unidadeId,
-      rotaId,
-      paradaId,
-      originalUri: photoUri,
-      savedAt: new Date().toISOString(),
-    };
+  const photoData: OfflinePhotoData = {
+    localPath,
+    unidadeId,
+    rotaId,
+    paradaId,
+    originalUri: photoUri,
+    savedAt: new Date().toISOString(),
+  };
 
-    // Salvar índice de fotos offline
-    await addToPhotosIndex(photoData);
+  // Salvar índice de fotos offline
+  await addToPhotosIndex(photoData);
 
-    return photoData;
-  } catch (error) {
-    throw error;
-  }
+  return photoData;
 }
 
 /**
@@ -276,18 +268,14 @@ export async function isOnline(): Promise<boolean> {
  * Adiciona uma ação à fila offline para ser executada quando voltar a conexão
  */
 export async function addToOfflineQueue(action: Omit<OfflineAction, 'id' | 'timestamp'>): Promise<void> {
-  try {
-    const queue = await getOfflineQueue();
-    const newAction: OfflineAction = {
-      ...action,
-      id: `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: new Date().toISOString(),
-    };
-    queue.push(newAction);
-    await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
-  } catch (error) {
-    throw error;
-  }
+  const queue = await getOfflineQueue();
+  const newAction: OfflineAction = {
+    ...action,
+    id: `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    timestamp: new Date().toISOString(),
+  };
+  queue.push(newAction);
+  await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
 }
 
 /**
@@ -421,17 +409,13 @@ async function executeOfflineAction(action: OfflineAction): Promise<void> {
  * Salva dados offline para acesso posterior
  */
 export async function saveOfflineData(data: OfflineData): Promise<void> {
-  try {
-    const currentData = await getOfflineData();
-    const updatedData = {
-      ...currentData,
-      ...data,
-      lastSync: new Date().toISOString(),
-    };
-    await AsyncStorage.setItem(OFFLINE_DATA_KEY, JSON.stringify(updatedData));
-  } catch (error) {
-    throw error;
-  }
+  const currentData = await getOfflineData();
+  const updatedData = {
+    ...currentData,
+    ...data,
+    lastSync: new Date().toISOString(),
+  };
+  await AsyncStorage.setItem(OFFLINE_DATA_KEY, JSON.stringify(updatedData));
 }
 
 /**

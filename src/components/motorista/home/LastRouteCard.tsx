@@ -161,15 +161,16 @@ const styles = StyleSheet.create({
   stat: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
+    flexShrink: 1,
   },
   statValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: colors.gray800,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: colors.gray500,
   },
 });

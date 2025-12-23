@@ -4,7 +4,7 @@
  */
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { Platform, Pressable, View, Text } from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NotificationBell } from '@/components/NotificationBell';
@@ -90,7 +90,11 @@ export default function TabLayout() {
             <Ionicons name="menu" size={24} color={colors.white} />
           </Pressable>
         ),
-        headerRight: () => <NotificationBell variant="mobile" />,
+        headerRight: () => (
+          <View style={{ paddingRight: 8, paddingVertical: 4 }}>
+            <NotificationBell variant="mobile" />
+          </View>
+        ),
       }}
     >
       <Tabs.Screen
