@@ -183,5 +183,185 @@ describe('SupportModal', () => {
 
       expect(mockOpenURL).not.toHaveBeenCalled();
     });
+
+    it('não deve abrir email se canOpenURL retornar false', async () => {
+      mockCanOpenURL.mockResolvedValueOnce(false);
+
+      render(<SupportModal visible={true} onClose={mockOnClose} />);
+
+      fireEvent.press(screen.getByText('E-mail'));
+
+      await waitFor(() => {
+        expect(mockCanOpenURL).toHaveBeenCalled();
+      });
+
+      expect(mockOpenURL).not.toHaveBeenCalled();
+    });
+
+    it('não deve abrir telefone se canOpenURL retornar false', async () => {
+      mockCanOpenURL.mockResolvedValueOnce(false);
+
+      render(<SupportModal visible={true} onClose={mockOnClose} />);
+
+      fireEvent.press(screen.getByText('Telefone'));
+
+      await waitFor(() => {
+        expect(mockCanOpenURL).toHaveBeenCalled();
+      });
+
+      expect(mockOpenURL).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Modal Props', () => {
+    it('deve ter onRequestClose configurado para onClose', () => {
+      const { UNSAFE_getByType } = render(
+        <SupportModal visible={true} onClose={mockOnClose} />
+      );
+
+      const Modal = require('react-native').Modal;
+      const modal = UNSAFE_getByType(Modal);
+
+      expect(modal.props.onRequestClose).toBe(mockOnClose);
+    });
+
+    it('deve ter transparent=true', () => {
+      const { UNSAFE_getByType } = render(
+        <SupportModal visible={true} onClose={mockOnClose} />
+      );
+
+      const Modal = require('react-native').Modal;
+      const modal = UNSAFE_getByType(Modal);
+
+      expect(modal.props.transparent).toBe(true);
+    });
+
+    it('deve ter animationType fade', () => {
+      const { UNSAFE_getByType } = render(
+        <SupportModal visible={true} onClose={mockOnClose} />
+      );
+
+      const Modal = require('react-native').Modal;
+      const modal = UNSAFE_getByType(Modal);
+
+      expect(modal.props.animationType).toBe('fade');
+    });
+  });
+
+  describe('Fechamento via onRequestClose', () => {
+    it('deve ter onRequestClose configurado que chama onClose', () => {
+      const { UNSAFE_getByType } = render(
+        <SupportModal visible={true} onClose={mockOnClose} />
+      );
+
+      const Modal = require('react-native').Modal;
+      const modal = UNSAFE_getByType(Modal);
+
+      // onRequestClose deve chamar onClose (permite fechar com back button no Android)
+      expect(modal.props.onRequestClose).toBe(mockOnClose);
+    });
+  });
+
+  describe('Ícones', () => {
+    it('deve renderizar ícone de ajuda no header', () => {
+      const { UNSAFE_getAllByType } = render(
+        <SupportModal visible={true} onClose={mockOnClose} />
+      );
+
+      const Ionicons = require('@expo/vector-icons').Ionicons;
+      const icons = UNSAFE_getAllByType(Ionicons);
+
+      // Procurar o ícone help-circle
+      const helpIcon = icons.find((icon: any) => icon.props.name === 'help-circle');
+      expect(helpIcon).toBeTruthy();
+    });
+
+    it('deve renderizar ícone do WhatsApp', () => {
+      const { UNSAFE_getAllByType } = render(
+        <SupportModal visible={true} onClose={mockOnClose} />
+      );
+
+      const Ionicons = require('@expo/vector-icons').Ionicons;
+      const icons = UNSAFE_getAllByType(Ionicons);
+
+      const whatsappIcon = icons.find((icon: any) => icon.props.name === 'logo-whatsapp');
+      expect(whatsappIcon).toBeTruthy();
+    });
+
+    it('deve renderizar ícone de telefone', () => {
+      const { UNSAFE_getAllByType } = render(
+        <SupportModal visible={true} onClose={mockOnClose} />
+      );
+
+      const Ionicons = require('@expo/vector-icons').Ionicons;
+      const icons = UNSAFE_getAllByType(Ionicons);
+
+      const phoneIcon = icons.find((icon: any) => icon.props.name === 'call');
+      expect(phoneIcon).toBeTruthy();
+    });
+
+    it('deve renderizar ícone de email', () => {
+      const { UNSAFE_getAllByType } = render(
+        <SupportModal visible={true} onClose={mockOnClose} />
+      );
+
+      const Ionicons = require('@expo/vector-icons').Ionicons;
+      const icons = UNSAFE_getAllByType(Ionicons);
+
+      const mailIcon = icons.find((icon: any) => icon.props.name === 'mail');
+      expect(mailIcon).toBeTruthy();
+    });
+
+    it('deve renderizar ícones de seta (chevron-forward)', () => {
+      const { UNSAFE_getAllByType } = render(
+        <SupportModal visible={true} onClose={mockOnClose} />
+      );
+
+      const Ionicons = require('@expo/vector-icons').Ionicons;
+      const icons = UNSAFE_getAllByType(Ionicons);
+
+      const chevronIcons = icons.filter((icon: any) => icon.props.name === 'chevron-forward');
+      expect(chevronIcons.length).toBe(3); // 3 opções de contato
+    });
+  });
+
+  describe('URLs corretas', () => {
+    it('deve usar URL correta para WhatsApp com mensagem codificada', async () => {
+      render(<SupportModal visible={true} onClose={mockOnClose} />);
+
+      fireEvent.press(screen.getByText('WhatsApp'));
+
+      await waitFor(() => {
+        expect(mockCanOpenURL).toHaveBeenCalledWith(
+          expect.stringContaining('5583987156206')
+        );
+      });
+
+      await waitFor(() => {
+        expect(mockOpenURL).toHaveBeenCalledWith(
+          expect.stringContaining('text=')
+        );
+      });
+    });
+
+    it('deve usar número correto para telefone', async () => {
+      render(<SupportModal visible={true} onClose={mockOnClose} />);
+
+      fireEvent.press(screen.getByText('Telefone'));
+
+      await waitFor(() => {
+        expect(mockCanOpenURL).toHaveBeenCalledWith('tel:83987156206');
+      });
+    });
+
+    it('deve usar email correto', async () => {
+      render(<SupportModal visible={true} onClose={mockOnClose} />);
+
+      fireEvent.press(screen.getByText('E-mail'));
+
+      await waitFor(() => {
+        expect(mockCanOpenURL).toHaveBeenCalledWith('mailto:contato@rotamestre.tec.br');
+      });
+    });
   });
 });

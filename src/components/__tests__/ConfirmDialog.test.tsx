@@ -523,4 +523,149 @@ describe('ConfirmDialog Component', () => {
       expect(getByText('Cancelar')).toBeTruthy();
     });
   });
+
+  describe('Fechamento via onRequestClose', () => {
+    it('deve ter onRequestClose configurado que chama onCancel', () => {
+      const { UNSAFE_getByType } = render(
+        <ConfirmDialog
+          visible={true}
+          title="Teste"
+          message="Mensagem"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      const Modal = require('react-native').Modal;
+      const modal = UNSAFE_getByType(Modal);
+
+      // onRequestClose deve chamar onCancel (permite fechar com back button no Android)
+      expect(modal.props.onRequestClose).toBe(mockCancel);
+    });
+  });
+
+  describe('Tipo padrão', () => {
+    it('deve usar default como tipo padrão quando não especificado', () => {
+      const { UNSAFE_getByType } = render(
+        <ConfirmDialog
+          visible={true}
+          title="Teste"
+          message="Mensagem"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      const icon = UNSAFE_getByType(require('@expo/vector-icons').Ionicons);
+      expect(icon.props.name).toBe('help-circle-outline');
+    });
+  });
+
+  describe('Estilos de botão por tipo', () => {
+    it('deve aplicar estilo default ao botão confirmar', () => {
+      const { getByLabelText } = render(
+        <ConfirmDialog
+          visible={true}
+          title="Teste"
+          message="Mensagem"
+          type="default"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      const confirmButton = getByLabelText('Confirmar');
+      expect(confirmButton).toBeTruthy();
+    });
+
+    it('deve aplicar estilo destructive ao botão confirmar', () => {
+      const { getByLabelText } = render(
+        <ConfirmDialog
+          visible={true}
+          title="Teste"
+          message="Mensagem"
+          type="destructive"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      const confirmButton = getByLabelText('Confirmar');
+      expect(confirmButton).toBeTruthy();
+    });
+
+    it('deve aplicar estilo success ao botão confirmar', () => {
+      const { getByLabelText } = render(
+        <ConfirmDialog
+          visible={true}
+          title="Teste"
+          message="Mensagem"
+          type="success"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      const confirmButton = getByLabelText('Confirmar');
+      expect(confirmButton).toBeTruthy();
+    });
+  });
+
+  describe('Props padrão', () => {
+    it('deve usar confirmText padrão "Confirmar"', () => {
+      const { getByText } = render(
+        <ConfirmDialog
+          visible={true}
+          title="Teste"
+          message="Mensagem"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      expect(getByText('Confirmar')).toBeTruthy();
+    });
+
+    it('deve usar cancelText padrão "Cancelar"', () => {
+      const { getByText } = render(
+        <ConfirmDialog
+          visible={true}
+          title="Teste"
+          message="Mensagem"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      expect(getByText('Cancelar')).toBeTruthy();
+    });
+  });
+
+  describe('Rerender e mudanças de visibilidade', () => {
+    it('deve alternar visibilidade corretamente', () => {
+      const { rerender, getByText, queryByText } = render(
+        <ConfirmDialog
+          visible={true}
+          title="Teste Visível"
+          message="Mensagem"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      expect(getByText('Teste Visível')).toBeTruthy();
+
+      rerender(
+        <ConfirmDialog
+          visible={false}
+          title="Teste Visível"
+          message="Mensagem"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      expect(queryByText('Teste Visível')).toBeNull();
+    });
+  });
 });

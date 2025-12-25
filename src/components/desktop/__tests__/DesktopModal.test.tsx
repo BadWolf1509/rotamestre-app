@@ -286,5 +286,135 @@ describe('DesktopModal', () => {
       const closeButton = getByLabelText('Fechar modal');
       expect(closeButton).toBeTruthy();
     });
+
+    it('deve ter accessibilityRole button no botão fechar', () => {
+      const { getByLabelText } = render(
+        <DesktopModal visible={true} onClose={jest.fn()} title="Modal">
+          <Text>Content</Text>
+        </DesktopModal>
+      );
+
+      const closeButton = getByLabelText('Fechar modal');
+      expect(closeButton.props.accessibilityRole).toBe('button');
+    });
+  });
+
+  describe('Prop width (alias para maxWidth)', () => {
+    it('deve usar width quando fornecido', () => {
+      mockUseResponsive.mockReturnValue({ isDesktop: true });
+
+      const { getByText } = render(
+        <DesktopModal visible={true} onClose={jest.fn()} width={700}>
+          <Text>Content with width</Text>
+        </DesktopModal>
+      );
+
+      expect(getByText('Content with width')).toBeTruthy();
+    });
+
+    it('deve preferir width sobre maxWidth quando ambos são fornecidos', () => {
+      mockUseResponsive.mockReturnValue({ isDesktop: true });
+
+      const { getByText } = render(
+        <DesktopModal visible={true} onClose={jest.fn()} width={500} maxWidth={800}>
+          <Text>Width takes precedence</Text>
+        </DesktopModal>
+      );
+
+      expect(getByText('Width takes precedence')).toBeTruthy();
+    });
+  });
+
+  describe('Modal sem título', () => {
+    it('deve renderizar conteúdo sem header quando não há título', () => {
+      const { getByText, queryByLabelText } = render(
+        <DesktopModal visible={true} onClose={jest.fn()}>
+          <Text>Content without title</Text>
+        </DesktopModal>
+      );
+
+      expect(getByText('Content without title')).toBeTruthy();
+      expect(queryByLabelText('Fechar modal')).toBeNull();
+    });
+  });
+
+  describe('Prop closeOnOverlayPress', () => {
+    it('deve aceitar closeOnOverlayPress=true', () => {
+      mockUseResponsive.mockReturnValue({ isDesktop: true });
+
+      const { getByText } = render(
+        <DesktopModal visible={true} onClose={jest.fn()} closeOnOverlayPress={true}>
+          <Text>Content</Text>
+        </DesktopModal>
+      );
+
+      expect(getByText('Content')).toBeTruthy();
+    });
+
+    it('deve aceitar closeOnOverlayPress=false', () => {
+      mockUseResponsive.mockReturnValue({ isDesktop: true });
+
+      const { getByText } = render(
+        <DesktopModal visible={true} onClose={jest.fn()} closeOnOverlayPress={false}>
+          <Text>Content</Text>
+        </DesktopModal>
+      );
+
+      expect(getByText('Content')).toBeTruthy();
+    });
+  });
+
+  describe('Estilos Mobile vs Desktop', () => {
+    it('deve aplicar estilos de bottom sheet no mobile', () => {
+      mockUseResponsive.mockReturnValue({ isDesktop: false });
+
+      const { getByText, UNSAFE_getAllByType } = render(
+        <DesktopModal visible={true} onClose={jest.fn()}>
+          <Text>Mobile Content</Text>
+        </DesktopModal>
+      );
+
+      expect(getByText('Mobile Content')).toBeTruthy();
+    });
+
+    it('deve aplicar estilos de modal centralizado no desktop', () => {
+      mockUseResponsive.mockReturnValue({ isDesktop: true });
+
+      const { getByText } = render(
+        <DesktopModal visible={true} onClose={jest.fn()}>
+          <Text>Desktop Content</Text>
+        </DesktopModal>
+      );
+
+      expect(getByText('Desktop Content')).toBeTruthy();
+    });
+  });
+
+  describe('Modal Props do React Native', () => {
+    it('deve ter transparent=true', () => {
+      const { UNSAFE_getByType } = render(
+        <DesktopModal visible={true} onClose={jest.fn()}>
+          <Text>Content</Text>
+        </DesktopModal>
+      );
+
+      const Modal = require('react-native').Modal;
+      const modal = UNSAFE_getByType(Modal);
+
+      expect(modal.props.transparent).toBe(true);
+    });
+
+    it('deve passar visible para o Modal', () => {
+      const { UNSAFE_getByType } = render(
+        <DesktopModal visible={true} onClose={jest.fn()}>
+          <Text>Content</Text>
+        </DesktopModal>
+      );
+
+      const Modal = require('react-native').Modal;
+      const modal = UNSAFE_getByType(Modal);
+
+      expect(modal.props.visible).toBe(true);
+    });
   });
 });

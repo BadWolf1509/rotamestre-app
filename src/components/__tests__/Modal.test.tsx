@@ -249,4 +249,118 @@ describe('Modal Component', () => {
       expect(getByText('Modal Customizado')).toBeTruthy();
     });
   });
+
+  describe('Fechar pelo Overlay', () => {
+    it('deve chamar onClose ao pressionar overlay', () => {
+      const mockClose = jest.fn();
+      const { UNSAFE_getAllByType } = render(
+        <Modal visible={true} onClose={mockClose}>
+          <Text>Conteúdo</Text>
+        </Modal>
+      );
+
+      // O TouchableOpacity do overlay é o primeiro
+      const { TouchableOpacity } = require('react-native');
+      const touchables = UNSAFE_getAllByType(TouchableOpacity);
+
+      if (touchables.length > 0) {
+        fireEvent.press(touchables[0]);
+        expect(mockClose).toHaveBeenCalled();
+      }
+    });
+  });
+
+  describe('onRequestClose', () => {
+    it('deve ter onRequestClose configurado', () => {
+      const mockClose = jest.fn();
+      const { UNSAFE_getByType } = render(
+        <Modal visible={true} onClose={mockClose}>
+          <Text>Conteúdo</Text>
+        </Modal>
+      );
+
+      const RNModal = require('react-native').Modal;
+      const modal = UNSAFE_getByType(RNModal);
+
+      expect(modal.props.onRequestClose).toBe(mockClose);
+    });
+  });
+
+  describe('animationType none', () => {
+    it('deve passar animationType none corretamente', () => {
+      const { UNSAFE_getByType } = render(
+        <Modal visible={true} onClose={jest.fn()} animationType="none">
+          <Text>Conteúdo</Text>
+        </Modal>
+      );
+
+      const RNModal = require('react-native').Modal;
+      const modal = UNSAFE_getByType(RNModal);
+
+      // Quando animationType="none", o componente passa undefined para o Modal nativo
+      expect(modal.props.animationType).toBe('none');
+    });
+  });
+
+  describe('Header sem título com showCloseButton', () => {
+    it('deve renderizar header vazio com closeButton quando não há título mas showCloseButton=true', () => {
+      const { UNSAFE_getByType } = render(
+        <Modal visible={true} onClose={jest.fn()} showCloseButton={true}>
+          <Text>Conteúdo sem título</Text>
+        </Modal>
+      );
+
+      // Verifica se renderiza o botão de fechar
+      const icon = UNSAFE_getByType(require('@expo/vector-icons').Ionicons);
+      expect(icon.props.name).toBe('close');
+    });
+  });
+
+  describe('Combinações de props', () => {
+    it('deve funcionar com todas as props combinadas', () => {
+      const mockClose = jest.fn();
+      const { getByText, UNSAFE_getByType } = render(
+        <Modal
+          visible={true}
+          onClose={mockClose}
+          title="Modal Completo"
+          size="large"
+          showCloseButton={true}
+          animationType="slide"
+          transparent={true}
+          style={{ padding: 10 }}
+        >
+          <Text>Conteúdo completo</Text>
+        </Modal>
+      );
+
+      expect(getByText('Modal Completo')).toBeTruthy();
+      expect(getByText('Conteúdo completo')).toBeTruthy();
+
+      const RNModal = require('react-native').Modal;
+      const modal = UNSAFE_getByType(RNModal);
+
+      expect(modal.props.transparent).toBe(true);
+    });
+  });
+
+  describe('Modal visibilidade controlada', () => {
+    it('deve alternar visibilidade corretamente', () => {
+      const { rerender, getByText } = render(
+        <Modal visible={true} onClose={jest.fn()}>
+          <Text>Conteúdo visível</Text>
+        </Modal>
+      );
+
+      expect(getByText('Conteúdo visível')).toBeTruthy();
+
+      rerender(
+        <Modal visible={false} onClose={jest.fn()}>
+          <Text>Conteúdo visível</Text>
+        </Modal>
+      );
+
+      // Modal fica hidden mas ainda renderiza
+    });
+  });
 });

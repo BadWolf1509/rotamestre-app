@@ -375,7 +375,8 @@
       "Bash(npx supabase db pull:*)",
       "Bash(node scripts/update-google-web.js:*)",
       "Bash(npx eslint:*)",
-      "Bash(npm version:*)"
+      "Bash(npm version:*)",
+      "Bash(sort:*)"
     ],
     "deny": [],
     "ask": []

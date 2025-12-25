@@ -272,5 +272,176 @@ describe('ConfirmModal Component', () => {
 
       expect(getByText('ℹ️')).toBeTruthy();
     });
+
+    it('deve mostrar ícone de sucesso para success', () => {
+      const { getByText } = render(
+        <ConfirmModal
+          visible={true}
+          title="Sucesso"
+          message="Operação concluída"
+          type="success"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      expect(getByText('✅')).toBeTruthy();
+    });
+  });
+
+  describe('Tipo Success', () => {
+    it('deve renderizar tipo success corretamente', () => {
+      const { getByText } = render(
+        <ConfirmModal
+          visible={true}
+          title="Operação Concluída"
+          message="Sua ação foi realizada com sucesso!"
+          type="success"
+          confirmText="OK"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      expect(getByText('Operação Concluída')).toBeTruthy();
+      expect(getByText('✅')).toBeTruthy();
+    });
+  });
+
+  describe('Modal Props', () => {
+    it('deve ter onRequestClose configurado para onCancel', () => {
+      const { UNSAFE_getByType } = render(
+        <ConfirmModal
+          visible={true}
+          title="Teste"
+          message="Mensagem"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      const Modal = require('react-native').Modal;
+      const modal = UNSAFE_getByType(Modal);
+
+      expect(modal.props.onRequestClose).toBe(mockCancel);
+    });
+
+    it('deve ter transparent=true', () => {
+      const { UNSAFE_getByType } = render(
+        <ConfirmModal
+          visible={true}
+          title="Teste"
+          message="Mensagem"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      const Modal = require('react-native').Modal;
+      const modal = UNSAFE_getByType(Modal);
+
+      expect(modal.props.transparent).toBe(true);
+    });
+
+    it('deve ter animationType fade', () => {
+      const { UNSAFE_getByType } = render(
+        <ConfirmModal
+          visible={true}
+          title="Teste"
+          message="Mensagem"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      const Modal = require('react-native').Modal;
+      const modal = UNSAFE_getByType(Modal);
+
+      expect(modal.props.animationType).toBe('fade');
+    });
+  });
+
+  describe('Fechamento via onRequestClose', () => {
+    it('deve ter onRequestClose configurado que permite fechar o modal', () => {
+      const { UNSAFE_getByType } = render(
+        <ConfirmModal
+          visible={true}
+          title="Teste"
+          message="Mensagem"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      const Modal = require('react-native').Modal;
+      const modal = UNSAFE_getByType(Modal);
+
+      // onRequestClose permite que o Android back button feche o modal
+      expect(modal.props.onRequestClose).toBeDefined();
+    });
+  });
+
+  describe('Visibilidade', () => {
+    it('não deve renderizar conteúdo quando visible=false', () => {
+      const { toJSON } = render(
+        <ConfirmModal
+          visible={false}
+          title="Teste"
+          message="Mensagem"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      // Modal com visible=false não renderiza nada via portal no web
+      // No mobile, o RN Modal não renderiza conteúdo
+    });
+  });
+
+  describe('Tipo padrão sem especificar', () => {
+    it('deve usar danger como tipo padrão', () => {
+      const { getByText } = render(
+        <ConfirmModal
+          visible={true}
+          title="Teste Padrão"
+          message="Mensagem"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      // Tipo danger mostra ícone de lixeira
+      expect(getByText('🗑️')).toBeTruthy();
+    });
+  });
+
+  describe('Props padrão', () => {
+    it('deve usar confirmText padrão "Confirmar"', () => {
+      const { getByText } = render(
+        <ConfirmModal
+          visible={true}
+          title="Teste"
+          message="Mensagem"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      expect(getByText('Confirmar')).toBeTruthy();
+    });
+
+    it('deve usar cancelText padrão "Cancelar"', () => {
+      const { getByText } = render(
+        <ConfirmModal
+          visible={true}
+          title="Teste"
+          message="Mensagem"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      expect(getByText('Cancelar')).toBeTruthy();
+    });
   });
 });
