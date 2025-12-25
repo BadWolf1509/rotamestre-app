@@ -159,6 +159,83 @@ export function RouteTimeline({ rotaId, realtime = true, onStateChange }: RouteT
               color: '#06b6d4', // ciano
             });
           }
+          // Detectar evento de PARADA ADICIONADA (gestor adicionou parada)
+          else if (evento === 'parada_adicionada') {
+            timelineEvents.push({
+              id: `log-${log.id}`,
+              type: 'parada_update',
+              timestamp: log.timestamp,
+              title: 'Parada Adicionada',
+              description: detalhes?.endereco || 'Nova parada adicionada à rota',
+              icon: 'add-circle',
+              color: '#22c55e', // verde
+            });
+          }
+          // Detectar evento de PARADA EDITADA (gestor editou parada)
+          else if (evento === 'parada_editada') {
+            const camposAlterados = detalhes?.campos_alterados;
+            let descricao = 'Parada foi editada';
+            if (camposAlterados) {
+              const campos: string[] = [];
+              if (camposAlterados.endereco) campos.push('endereço');
+              if (camposAlterados.destinatario) campos.push('destinatário');
+              if (camposAlterados.telefone) campos.push('telefone');
+              if (camposAlterados.tipo) campos.push('tipo');
+              if (camposAlterados.observacoes) campos.push('observações');
+              if (campos.length > 0) {
+                descricao = `Alterado: ${campos.join(', ')}`;
+              }
+            }
+            timelineEvents.push({
+              id: `log-${log.id}`,
+              type: 'parada_update',
+              timestamp: log.timestamp,
+              title: 'Parada Editada',
+              description: descricao,
+              icon: 'create',
+              color: '#f59e0b', // amarelo
+            });
+          }
+          // Detectar evento de PARADA REMOVIDA (gestor removeu parada)
+          else if (evento === 'parada_removida') {
+            timelineEvents.push({
+              id: `log-${log.id}`,
+              type: 'parada_update',
+              timestamp: log.timestamp,
+              title: 'Parada Removida',
+              description: `${detalhes?.paradas_restantes || 0} parada(s) restante(s)`,
+              icon: 'trash',
+              color: '#ef4444', // vermelho
+            });
+          }
+          // Detectar evento de MOTORISTA ALTERADO (gestor trocou motorista)
+          else if (evento === 'motorista_alterado') {
+            timelineEvents.push({
+              id: `log-${log.id}`,
+              type: 'status_change',
+              timestamp: log.timestamp,
+              title: 'Motorista Alterado',
+              description: detalhes?.motorista_novo_nome
+                ? `Novo motorista: ${detalhes.motorista_novo_nome}`
+                : 'Motorista da rota foi alterado',
+              icon: 'person',
+              color: '#8b5cf6', // roxo
+            });
+          }
+          // Detectar evento de PARADAS REORDENADAS (gestor reordenou paradas)
+          else if (evento === 'paradas_reordenadas') {
+            timelineEvents.push({
+              id: `log-${log.id}`,
+              type: 'status_change',
+              timestamp: log.timestamp,
+              title: 'Rota Reordenada',
+              description: detalhes?.alterado_por
+                ? `Ordem alterada por ${detalhes.alterado_por}`
+                : 'Ordem das paradas foi alterada',
+              icon: 'swap-vertical',
+              color: '#6366f1', // indigo
+            });
+          }
         });
       }
 

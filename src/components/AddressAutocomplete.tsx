@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { googleMapsService, PlaceSuggestion } from '@/lib/google';
+import { useResponsive } from '@/hooks/useResponsive';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface AddressAutocompleteProps {
@@ -20,6 +21,8 @@ interface AddressAutocompleteProps {
   placeholder?: string;
   error?: string;
   multiline?: boolean;
+  /** Force compact mode (auto-detects desktop if not provided) */
+  compact?: boolean;
 }
 
 /**
@@ -40,13 +43,19 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   placeholder = 'Digite o endereco completo',
   error,
   multiline = false,
+  compact,
 }: AddressAutocompleteProps) {
   const { theme } = useUnistyles();
+  const { isDesktop } = useResponsive();
+  // Use explicit compact prop if provided, otherwise auto-detect from viewport
+  const useCompact = compact ?? isDesktop;
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [sessionToken] = useState(() => generateSessionToken());
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track if last value change was from selection (not typing)
+  const wasSelectedRef = useRef(false);
 
   // Limpar suggestions quando value é limpo externamente
   useEffect(() => {
@@ -60,6 +69,12 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   useEffect(() => {
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
+    }
+
+    // Skip search if value was set by selection (not typing)
+    if (wasSelectedRef.current) {
+      wasSelectedRef.current = false;
+      return;
     }
 
     if (!value || value.length < 3) {
@@ -94,6 +109,8 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
 
   // Memoizar handlers para evitar re-renders
   const handleSelectSuggestion = useCallback((suggestion: PlaceSuggestion) => {
+    // Mark that next value change is from selection, not typing
+    wasSelectedRef.current = true;
     onSelectAddress(suggestion.description, suggestion.place_id);
     setSuggestions([]);
     setShowSuggestions(false);
@@ -117,70 +134,39 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
     ({ item }: { item: PlaceSuggestion }) => (
       <TouchableOpacity
         testID="suggestion-item"
-        style={styles.suggestionItem}
+        style={[styles.suggestionItem, useCompact && styles.suggestionItemCompact]}
         onPress={() => handleSelectSuggestion(item)}
         activeOpacity={0.7}
       >
-        <View style={styles.suggestionIcon}>
-          <Text style={styles.suggestionIconText}>📍</Text>
+        <View style={[styles.suggestionIcon, useCompact && styles.suggestionIconCompact]}>
+          <Text style={[styles.suggestionIconText, useCompact && styles.suggestionIconTextCompact]}>📍</Text>
         </View>
         <View style={styles.suggestionTextContainer}>
-          <Text style={styles.suggestionMainText}>
+          <Text style={[styles.suggestionMainText, useCompact && styles.suggestionMainTextCompact]}>
             {item.structured_formatting.main_text}
           </Text>
-          <Text style={styles.suggestionSecondaryText}>
+          <Text style={[styles.suggestionSecondaryText, useCompact && styles.suggestionSecondaryTextCompact]}>
             {item.structured_formatting.secondary_text}
           </Text>
         </View>
       </TouchableOpacity>
     ),
-    [handleSelectSuggestion]
+    [handleSelectSuggestion, useCompact]
   );
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={[
-            styles.input,
-            error && styles.inputError,
-            multiline && styles.inputMultiline,
-          ]}
-          placeholder={placeholder}
-          value={value || ''}
-          onChangeText={onChangeText}
-          onFocus={handleFocus}
-          multiline={multiline}
-          numberOfLines={multiline ? 2 : 1}
-          textAlignVertical={multiline ? 'top' : 'center'}
-          autoCorrect={false}
-          autoCapitalize="words"
-          blurOnSubmit={false}
-          returnKeyType="done"
-        />
-        {value && value.length > 0 && (
-          <TouchableOpacity
-            style={styles.clearButton}
-            onPress={handleClearInput}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.clearButtonText}>×</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {error && <Text style={styles.errorText}>{error}</Text>}
-
-      {/* Indicador de carregamento - Só mostra se demorar mais de 300ms */}
-      {isLoading && (
+  // Conteúdo do dropdown (loading, sugestões, no results, hint)
+  const renderDropdownContent = () => {
+    if (isLoading) {
+      return (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={theme.colors.primary} />
           <Text style={styles.loadingText}>Buscando endereços...</Text>
         </View>
-      )}
+      );
+    }
 
-      {/* Lista de sugestões */}
-      {showSuggestions && suggestions.length > 0 && !isLoading && (
+    if (showSuggestions && suggestions.length > 0) {
+      return (
         <View style={styles.suggestionsContainer}>
           <FlatList
             data={suggestions}
@@ -192,23 +178,71 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
             nestedScrollEnabled
           />
         </View>
-      )}
+      );
+    }
 
-      {/* Mensagem quando não há resultados */}
-      {showSuggestions && suggestions.length === 0 && !isLoading && value && value.length >= 3 && (
+    if (showSuggestions && suggestions.length === 0 && value && value.length >= 3) {
+      return (
         <View style={styles.noResultsContainer}>
           <Text style={styles.noResultsText}>
             Nenhum endereço encontrado. Tente ser mais específico.
           </Text>
         </View>
-      )}
+      );
+    }
 
-      {/* Hint de uso */}
-      {!showSuggestions && value && value.length > 0 && value.length < 3 && (
+    if (!showSuggestions && value && value.length > 0 && value.length < 3) {
+      return (
         <View style={styles.hintContainer}>
           <Text style={styles.hintText}>Digite pelo menos 3 caracteres para buscar</Text>
         </View>
-      )}
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={[
+            styles.input,
+            useCompact && styles.inputCompact,
+            error && styles.inputError,
+            multiline && styles.inputMultiline,
+          ]}
+          placeholder={placeholder}
+          placeholderTextColor={theme.colors.gray400}
+          value={value || ''}
+          onChangeText={onChangeText}
+          onFocus={handleFocus}
+          multiline={multiline}
+          numberOfLines={multiline ? 2 : 1}
+          textAlignVertical={multiline ? 'top' : 'center'}
+          autoCorrect={false}
+          autoCapitalize="words"
+          blurOnSubmit={false}
+          returnKeyType="done"
+          editable={true}
+          selectTextOnFocus={false}
+          pointerEvents="auto"
+        />
+        {value && value.length > 0 && (
+          <TouchableOpacity
+            style={[styles.clearButton, useCompact && styles.clearButtonCompact]}
+            onPress={handleClearInput}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={[styles.clearButtonText, useCompact && styles.clearButtonTextCompact]}>×</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {error && <Text style={styles.errorText}>{error}</Text>}
+
+      {/* Dropdown com position absolute */}
+      {renderDropdownContent()}
     </View>
   );
 };
@@ -218,13 +252,14 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
 export const AddressAutocomplete = React.memo(
   AddressAutocompleteComponent,
   (prevProps, nextProps) => {
-    // Comparar apenas value, placeholder, error e multiline
+    // Comparar apenas value, placeholder, error, multiline e compact
     // Ignorar funções (onChangeText, onSelectAddress) para evitar re-renders
     return (
       prevProps.value === nextProps.value &&
       prevProps.placeholder === nextProps.placeholder &&
       prevProps.error === nextProps.error &&
-      prevProps.multiline === nextProps.multiline
+      prevProps.multiline === nextProps.multiline &&
+      prevProps.compact === nextProps.compact
     );
   }
 );
@@ -237,7 +272,6 @@ function generateSessionToken(): string {
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     marginBottom: 12,
-    zIndex: 1000,
   },
   inputContainer: {
     position: 'relative',
@@ -248,8 +282,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
+    fontFamily: theme.typography.fontSans,
     backgroundColor: theme.colors.surface,
+    color: theme.colors.text,
     paddingRight: 40,
+  },
+  inputCompact: {
+    padding: 8,
+    paddingRight: 32,
+    fontSize: theme.desktop.input.fontSize,
+    height: theme.desktop.input.height,
   },
   inputMultiline: {
     minHeight: 60,
@@ -269,14 +311,25 @@ const styles = StyleSheet.create((theme: Theme) => ({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  clearButtonCompact: {
+    right: 8,
+    top: 8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
   clearButtonText: {
     color: theme.colors.surface,
     fontSize: 14,
     fontWeight: 'bold',
   },
+  clearButtonTextCompact: {
+    fontSize: 12,
+  },
   errorText: {
     color: theme.colors.error,
     fontSize: 12,
+    fontFamily: theme.typography.fontSans,
     marginTop: 4,
   },
   loadingContainer: {
@@ -290,6 +343,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   loadingText: {
     marginLeft: 8,
     fontSize: 14,
+    fontFamily: theme.typography.fontSans,
     color: theme.colors.textSecondary,
   },
   suggestionsContainer: {
@@ -298,7 +352,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    maxHeight: 300,
+    maxHeight: 200,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -310,18 +364,21 @@ const styles = StyleSheet.create((theme: Theme) => ({
         elevation: 4,
       },
       web: {
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
       },
     }),
   },
   suggestionsList: {
-    maxHeight: 300,
+    maxHeight: 200,
   },
   suggestionItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
     backgroundColor: theme.colors.surface,
+  },
+  suggestionItemCompact: {
+    padding: 8,
   },
   suggestionIcon: {
     width: 32,
@@ -330,28 +387,44 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'center',
     marginRight: 12,
   },
+  suggestionIconCompact: {
+    width: 24,
+    height: 24,
+    marginRight: 8,
+  },
   suggestionIconText: {
     fontSize: 20,
+  },
+  suggestionIconTextCompact: {
+    fontSize: 16,
   },
   suggestionTextContainer: {
     flex: 1,
   },
   suggestionMainText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.text,
     marginBottom: 2,
   },
+  suggestionMainTextCompact: {
+    fontSize: theme.desktop.input.fontSize,
+    marginBottom: 1,
+  },
   suggestionSecondaryText: {
     fontSize: 13,
+    fontFamily: theme.typography.fontSans,
     color: theme.colors.textSecondary,
+  },
+  suggestionSecondaryTextCompact: {
+    fontSize: theme.typography.xs,
   },
   separator: {
     height: 1,
     backgroundColor: theme.colors.border,
   },
   noResultsContainer: {
-    padding: 16,
+    padding: 12,
     backgroundColor: theme.colors.errorLight,
     borderRadius: 8,
     marginTop: 8,
@@ -360,6 +433,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   noResultsText: {
     fontSize: 14,
+    fontFamily: theme.typography.fontSans,
     color: theme.colors.error,
     textAlign: 'center',
   },
@@ -368,6 +442,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   hintText: {
     fontSize: 12,
+    fontFamily: theme.typography.fontSans,
     color: theme.colors.textSecondary,
     fontStyle: 'italic',
   },

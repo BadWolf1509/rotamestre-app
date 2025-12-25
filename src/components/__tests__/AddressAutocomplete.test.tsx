@@ -14,39 +14,46 @@ jest.mock('@/lib/google', () => ({
   },
 }));
 
-// Mock do useUnistyles
-jest.mock('@/utils/styles', () => ({
-  useUnistyles: () => ({
-    theme: {
-      colors: {
-        surface: '#ffffff',
-        text: '#000000',
-        textSecondary: '#666666',
-        border: '#cccccc',
-        primary: '#0000ff',
-        error: '#ff0000',
-        errorLight: '#ffcccc',
-        disabled: '#eeeeee',
+// Mock do useUnistyles com tema completo inline (jest.mock é hoisted)
+jest.mock('@/utils/styles', () => {
+  const theme = {
+    colors: {
+      surface: '#ffffff',
+      text: '#000000',
+      textSecondary: '#666666',
+      border: '#cccccc',
+      primary: '#0000ff',
+      error: '#ff0000',
+      errorLight: '#ffcccc',
+      disabled: '#eeeeee',
+      gray400: '#9ca3af',
+    },
+    typography: {
+      fontSans: 'NunitoSans-Regular',
+      fontSansSemiBold: 'NunitoSans-SemiBold',
+      xs: 12,
+    },
+    desktop: {
+      input: {
+        fontSize: 14,
+        height: 36,
       },
     },
-  }),
-  StyleSheet: {
-    create: (styles: any) => styles(
-      {
-        colors: {
-          surface: '#ffffff',
-          text: '#000000',
-          textSecondary: '#666666',
-          border: '#cccccc',
-          primary: '#0000ff',
-          error: '#ff0000',
-          errorLight: '#ffcccc',
-          disabled: '#eeeeee',
-        }
-      }
-    ),
-  },
-}));
+    borderRadius: {
+      sm: 8,
+    },
+    spacing: {
+      sm: 8,
+    },
+  };
+
+  return {
+    useUnistyles: () => ({ theme }),
+    StyleSheet: {
+      create: (stylesFn: (t: typeof theme) => Record<string, unknown>) => stylesFn(theme),
+    },
+  };
+});
 
 // Keyboard mock está em jest.setup.js - não precisa duplicar aqui
 

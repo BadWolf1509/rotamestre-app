@@ -42,7 +42,7 @@ test.describe('Motorista Photo Proof E2E Tests', () => {
       const bodyText = await page.locator('body').textContent();
 
       // Look for photo/camera related content
-      const hasPhotoContent =
+      const _hasPhotoContent =
         bodyText?.includes('foto') ||
         bodyText?.includes('Foto') ||
         bodyText?.includes('câmera') ||
@@ -68,7 +68,7 @@ test.describe('Motorista Photo Proof E2E Tests', () => {
       const bodyText = await page.locator('body').textContent();
 
       // Should have completion-related content with photo option
-      const hasPhotoUploadUI =
+      const _hasPhotoUploadUI =
         bodyText?.includes('foto') ||
         bodyText?.includes('Foto') ||
         bodyText?.includes('Concluir') ||
@@ -94,7 +94,7 @@ test.describe('Motorista Photo Proof E2E Tests', () => {
       }
 
       // Look for camera/photo button
-      const photoButton = page
+      const _photoButton = page
         .locator('button, [role="button"]')
         .filter({ hasText: /foto|câmera|capturar/i })
         .first();
@@ -112,7 +112,7 @@ test.describe('Motorista Photo Proof E2E Tests', () => {
       await page.waitForTimeout(2000);
 
       // On web, camera access may fall back to file input
-      const fileInput = page.locator('input[type="file"]');
+      const _fileInput = page.locator('input[type="file"]');
 
       // File input may or may not be immediately visible (shown on action)
       // Just verify the page structure supports the flow
@@ -149,7 +149,7 @@ test.describe('Gestor Photo Viewing E2E Tests', () => {
       const bodyText = await page.locator('body').textContent();
 
       // Should show routes with potential for viewing details
-      const hasRouteViewUI =
+      const _hasRouteViewUI =
         bodyText?.includes('Ver') ||
         bodyText?.includes('Detalhes') ||
         bodyText?.includes('rota') ||
@@ -172,7 +172,7 @@ test.describe('Gestor Photo Viewing E2E Tests', () => {
         const bodyText = await page.locator('body').textContent();
 
         // Should show route details with photo viewing capability
-        const hasDetailView =
+        const _hasDetailView =
           bodyText?.includes('foto') ||
           bodyText?.includes('Foto') ||
           bodyText?.includes('comprovante') ||

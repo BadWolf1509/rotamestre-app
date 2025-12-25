@@ -138,4 +138,43 @@ export interface Theme {
     sidebarWidth: number;
     containerMaxWidth: number;
   };
+  desktop: {
+    input: {
+      height: number;
+      paddingHorizontal: number;
+      fontSize: number;
+    };
+    button: {
+      height: number;
+      paddingHorizontal: number;
+      fontSize: number;
+    };
+    field: {
+      marginBottom: number;
+    };
+    section: {
+      padding: number;
+      gap: number;
+    };
+    modal: {
+      headerPadding: number;
+      bodyPadding: number;
+      footerPadding: number;
+      footerGap: number;
+      titleFontSize: number;
+      closeButtonSize: number;
+    };
+    dialog: {
+      maxWidth: number;
+      containerPadding: number;
+      iconCircleSize: number;
+      iconSize: number;
+      titleFontSize: number;
+      messageFontSize: number;
+      buttonHeight: number;
+      buttonPaddingV: number;
+      buttonPaddingH: number;
+      buttonGap: number;
+    };
+  };
 }

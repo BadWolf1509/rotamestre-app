@@ -10,6 +10,7 @@ import {
   Pressable,
 } from 'react-native';
 
+import { useResponsive } from '@/hooks/useResponsive';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface ConfirmDialogProps {
@@ -23,6 +24,38 @@ interface ConfirmDialogProps {
   type?: 'default' | 'destructive' | 'success';
 }
 
+// Inject global styles for dialog backdrop (once)
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  const styleId = 'confirm-dialog-backdrop-styles';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      dialog.confirm-dialog::backdrop {
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+      dialog.confirm-dialog[open] {
+        animation: confirm-dialog-fade-in 0.15s ease-out;
+      }
+      @keyframes confirm-dialog-fade-in {
+        from {
+          opacity: 0;
+          transform: scale(0.95);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+}
+
+/**
+ * ConfirmDialog - Dialog de confirmação com botões Cancelar e Confirmar
+ * Web: Usa HTML5 <dialog> para focus trap nativo e ESC para fechar
+ */
 export function ConfirmDialog({
   visible,
   title,
@@ -34,59 +67,9 @@ export function ConfirmDialog({
   type = 'default',
 }: ConfirmDialogProps) {
   const { theme } = useUnistyles();
+  const { isDesktop } = useResponsive();
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const scrollPositionRef = useRef(0);
-
-  // Lock body scroll on web while modal is open (best practice for overlays)
-  useEffect(() => {
-    if (
-      Platform.OS !== 'web' ||
-      typeof document === 'undefined' ||
-      typeof window === 'undefined' ||
-      !visible
-    ) {
-      return;
-    }
-
-    const body = document.body;
-    const html = document.documentElement;
-
-    const preventScroll = (event: Event) => {
-      event.preventDefault();
-    };
-
-    scrollPositionRef.current =
-      window.scrollY || html.scrollTop || body.scrollTop || 0;
-
-    body.style.position = 'fixed';
-    body.style.top = `-${scrollPositionRef.current}px`;
-    body.style.left = '0';
-    body.style.right = '0';
-    body.style.width = '100%';
-    body.style.overflow = 'hidden';
-
-    html.style.overflow = 'hidden';
-    html.style.height = '100%';
-
-    window.addEventListener('wheel', preventScroll, { passive: false });
-    window.addEventListener('touchmove', preventScroll, { passive: false });
-
-    return () => {
-      window.removeEventListener('wheel', preventScroll);
-      window.removeEventListener('touchmove', preventScroll);
-
-      body.style.position = '';
-      body.style.top = '';
-      body.style.left = '';
-      body.style.right = '';
-      body.style.width = '';
-      body.style.overflow = '';
-
-      html.style.overflow = '';
-      html.style.height = '';
-
-      window.scrollTo(0, scrollPositionRef.current);
-    };
-  }, [visible]);
 
   const getIconName = () => {
     switch (type) {
@@ -110,6 +93,17 @@ export function ConfirmDialog({
     }
   };
 
+  const getConfirmButtonColor = () => {
+    switch (type) {
+      case 'destructive':
+        return theme.colors.error;
+      case 'success':
+        return theme.colors.success;
+      default:
+        return theme.colors.primary;
+    }
+  };
+
   const getConfirmButtonStyle = () => {
     switch (type) {
       case 'destructive':
@@ -121,97 +115,153 @@ export function ConfirmDialog({
     }
   };
 
-  if (!visible) return null;
+  // Web: Control dialog open/close state
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !dialogRef.current) return;
 
-  // Web-specific implementation using native divs to escape react-native-web z-index issues
+    const dialog = dialogRef.current;
+
+    if (visible) {
+      // Save scroll position and lock body
+      scrollPositionRef.current = window.scrollY;
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollPositionRef.current}px`;
+      document.body.style.width = '100%';
+
+      if (!dialog.open) {
+        dialog.showModal();
+      }
+    } else {
+      if (dialog.open) {
+        dialog.close();
+      }
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      window.scrollTo(0, scrollPositionRef.current);
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+    };
+  }, [visible]);
+
+  // Web: Handle ESC key and click outside
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !dialogRef.current) return;
+
+    const dialog = dialogRef.current;
+
+    const handleCancel = (e: Event) => {
+      e.preventDefault();
+      onCancel();
+    };
+
+    const handleBackdropClick = (e: MouseEvent) => {
+      if (e.target === dialog) {
+        onCancel();
+      }
+    };
+
+    dialog.addEventListener('cancel', handleCancel);
+    dialog.addEventListener('click', handleBackdropClick);
+
+    return () => {
+      dialog.removeEventListener('cancel', handleCancel);
+      dialog.removeEventListener('click', handleBackdropClick);
+    };
+  }, [onCancel]);
+
+  // ============================================
+  // WEB: HTML5 <dialog> with Portal
+  // ============================================
   if (Platform.OS === 'web' && typeof document !== 'undefined') {
     const dialogContent = (
-      <div
-        id="confirm-dialog-portal"
+      <dialog
+        ref={dialogRef}
+        className="confirm-dialog"
+        aria-labelledby="confirm-dialog-title"
+        aria-describedby="confirm-dialog-message"
+        aria-modal="true"
         style={{
           position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          width: '100vw',
-          height: '100vh',
-          zIndex: 2147483647, // Maximum z-index value
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          border: 'none',
           padding: 0,
-          margin: 0,
-          overscrollBehavior: 'contain',
-          touchAction: 'none',
+          margin: 'auto',
+          maxWidth: isDesktop ? theme.desktop.dialog.maxWidth : 360,
+          width: 'calc(100% - 48px)',
+          backgroundColor: 'transparent',
+          overflow: 'visible',
         }}
-        onClick={onCancel}
       >
         <div
           style={{
             backgroundColor: theme.colors.white,
             borderRadius: theme.borderRadius.xl,
-            padding: theme.spacing.xl,
-            width: 'calc(100% - 48px)',
-            maxWidth: 360,
-            maxHeight: '90vh',
-            overflow: 'auto',
+            padding: isDesktop ? theme.desktop.dialog.containerPadding : theme.spacing.xl,
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-            margin: '0 24px',
           }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Icon */}
           <div
             style={{
-              width: 56,
-              height: 56,
+              width: isDesktop ? theme.desktop.dialog.iconCircleSize : 56,
+              height: isDesktop ? theme.desktop.dialog.iconCircleSize : 56,
               borderRadius: theme.borderRadius.full,
               backgroundColor: `${getIconColor()}15`,
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
-              margin: `0 auto ${theme.spacing.md}px`,
+              margin: `0 auto ${isDesktop ? 10 : theme.spacing.md}px`,
             }}
           >
-            <Ionicons name={getIconName() as any} size={28} color={getIconColor()} />
+            <Ionicons name={getIconName() as any} size={isDesktop ? theme.desktop.dialog.iconSize : 28} color={getIconColor()} />
           </div>
 
           {/* Title */}
-          <div
+          <h2
+            id="confirm-dialog-title"
             style={{
+              margin: 0,
               fontFamily: theme.typography.fontSansBold,
-              fontSize: theme.typography.fontSize.xl,
-              lineHeight: `${theme.typography.fontSize.xl * 1.4}px`,
+              fontSize: isDesktop ? theme.desktop.dialog.titleFontSize : theme.typography.fontSize.xl,
+              lineHeight: `${(isDesktop ? theme.desktop.dialog.titleFontSize : theme.typography.fontSize.xl) * 1.4}px`,
               color: theme.colors.gray900,
               textAlign: 'center',
-              marginBottom: theme.spacing.sm,
+              marginBottom: isDesktop ? 6 : theme.spacing.sm,
             }}
           >
             {title}
-          </div>
+          </h2>
 
           {/* Message */}
-          <div
+          <p
+            id="confirm-dialog-message"
             style={{
+              margin: 0,
               fontFamily: theme.typography.fontSans,
-              fontSize: theme.typography.fontSize.sm,
-              lineHeight: `${theme.typography.fontSize.sm * 1.5}px`,
+              fontSize: isDesktop ? theme.desktop.dialog.messageFontSize : theme.typography.fontSize.sm,
+              lineHeight: `${(isDesktop ? theme.desktop.dialog.messageFontSize : theme.typography.fontSize.sm) * 1.5}px`,
               color: theme.colors.gray500,
               textAlign: 'center',
-              marginBottom: theme.spacing.lg,
+              marginBottom: isDesktop ? 14 : theme.spacing.lg,
             }}
           >
             {message}
-          </div>
+          </p>
 
           {/* Buttons */}
           <div
             style={{
               display: 'flex',
               flexDirection: 'row',
-              gap: 12,
+              gap: isDesktop ? theme.desktop.dialog.buttonGap : 12,
             }}
           >
             <button
@@ -219,16 +269,16 @@ export function ConfirmDialog({
               aria-label={cancelText}
               style={{
                 flex: 1,
-                padding: '10px 16px',
+                padding: isDesktop ? `${theme.desktop.dialog.buttonPaddingV}px ${theme.desktop.dialog.buttonPaddingH}px` : '10px 16px',
                 borderRadius: theme.borderRadius.md,
-                minHeight: 44,
+                minHeight: isDesktop ? theme.desktop.dialog.buttonHeight : 44,
                 backgroundColor: theme.colors.gray100,
                 border: `1px solid ${theme.colors.gray200}`,
-                fontSize: theme.typography.fontSize.base,
+                fontSize: isDesktop ? theme.desktop.button.fontSize : theme.typography.fontSize.base,
                 fontFamily: theme.typography.fontSansSemiBold,
                 color: theme.colors.gray900,
                 cursor: 'pointer',
-                transition: 'all 0.2s',
+                transition: 'background-color 0.2s',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = theme.colors.gray200;
@@ -245,22 +295,16 @@ export function ConfirmDialog({
               aria-label={confirmText}
               style={{
                 flex: 1,
-                padding: '10px 16px',
+                padding: isDesktop ? `${theme.desktop.dialog.buttonPaddingV}px ${theme.desktop.dialog.buttonPaddingH}px` : '10px 16px',
                 borderRadius: theme.borderRadius.md,
-                minHeight: 44,
-                backgroundColor:
-                  type === 'destructive'
-                    ? theme.colors.error
-                    : type === 'success'
-                    ? theme.colors.success
-                    : theme.colors.primary,
+                minHeight: isDesktop ? theme.desktop.dialog.buttonHeight : 44,
+                backgroundColor: getConfirmButtonColor(),
                 border: 'none',
-                fontSize: theme.typography.fontSize.base,
+                fontSize: isDesktop ? theme.desktop.button.fontSize : theme.typography.fontSize.base,
                 fontFamily: theme.typography.fontSansSemiBold,
                 color: theme.colors.white,
                 cursor: 'pointer',
-                transition: 'all 0.2s',
-                opacity: 1,
+                transition: 'opacity 0.2s',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.opacity = '0.9';
@@ -273,14 +317,17 @@ export function ConfirmDialog({
             </button>
           </div>
         </div>
-      </div>
+      </dialog>
     );
 
-    // Use portal to render directly into document.body, escaping the drawer hierarchy
-    return createPortal(dialogContent, document.body);
+    return visible ? createPortal(dialogContent, document.body) : null;
   }
 
-  // Mobile implementation using React Native Modal (works perfectly on mobile)
+  // ============================================
+  // MOBILE: React Native Modal
+  // ============================================
+  if (!visible) return null;
+
   return (
     <Modal
       visible={visible}

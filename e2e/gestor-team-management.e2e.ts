@@ -32,7 +32,7 @@ test.describe('Gestor Team Management E2E Tests', () => {
   });
 
   test.describe('Motoristas Page Access', () => {
-    test('should access motoristas page', async ({ page }) => {
+    test('should access motoristas page', async ({ page: _page }) => {
       await gestorPage.gotoMotoristas();
       await gestorPage.expectOnMotoristas();
     });
@@ -169,7 +169,7 @@ test.describe('Gestor Team Management E2E Tests', () => {
 
         // Look for required indicators (* or required text)
         const bodyText = await page.locator('body').textContent();
-        const hasRequiredIndicators =
+        const _hasRequiredIndicators =
           bodyText?.includes('*') ||
           bodyText?.includes('obrigatório') ||
           bodyText?.includes('Obrigatório');
@@ -188,7 +188,7 @@ test.describe('Gestor Team Management E2E Tests', () => {
       const bodyText = await page.locator('body').textContent();
 
       // Look for performance-related content
-      const hasPerformanceContent =
+      const _hasPerformanceContent =
         bodyText?.includes('Rotas') ||
         bodyText?.includes('Concluídas') ||
         bodyText?.includes('Em Andamento') ||
@@ -208,7 +208,7 @@ test.describe('Gestor Team Management E2E Tests', () => {
       const bodyText = await page.locator('body').textContent();
 
       // Look for status indicators
-      const hasStatusContent =
+      const _hasStatusContent =
         bodyText?.includes('Ativo') ||
         bodyText?.includes('Inativo') ||
         bodyText?.includes('Status') ||
@@ -239,7 +239,7 @@ test.describe('Gestão Rotas E2E Tests', () => {
   });
 
   test.describe('Gestão Rotas Page', () => {
-    test('should access gestao-rotas page', async ({ page }) => {
+    test('should access gestao-rotas page', async ({ page: _page }) => {
       await gestorPage.gotoGestaoRotas();
       await gestorPage.expectOnGestaoRotas();
     });
@@ -284,7 +284,7 @@ test.describe('Gestão Rotas E2E Tests', () => {
 
       // Look for search input
       const searchInput = page.locator('input[placeholder*="Buscar"], input[placeholder*="buscar"]');
-      const hasSearch = await searchInput.isVisible().catch(() => false);
+      const _hasSearch = await searchInput.isVisible().catch(() => false);
 
       // Search functionality should exist or page has filter UI
       const bodyText = await page.locator('body').textContent();
@@ -317,7 +317,7 @@ test.describe('Gestão Rotas E2E Tests', () => {
       const bodyText = await page.locator('body').textContent();
 
       // Should show statistics
-      const hasStats =
+      const _hasStats =
         bodyText?.includes('registrada') ||
         bodyText?.includes('encontrada') ||
         bodyText?.includes('Concluídas') ||

@@ -91,8 +91,9 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const isSubscribed = useRef(false);
 
-  // Determina o status da rota (excluindo checkpoints da contagem)
-  // Inclui reset diário às 00:00 e timeout de 1h para estado completed
+  // Determina o status da UI baseado na rota selecionada
+  // NOTA: A priorização (ativas > concluídas) é feita em loadActiveRoute()
+  // Este método apenas mapeia o status da rota para o estado da UI
   const getRouteStatus = (): RouteStatus => {
     if (!route) return 'no-route';
 
@@ -118,14 +119,14 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     }
 
     if (route.status === 'concluida') {
-      // Timeout de 1 hora: após esse período, mostrar no-route
+      // Fallback: verificar timeout de 1h (principal está na query de loadActiveRoute)
       if (route.concluida_em) {
         const concluidaEm = new Date(route.concluida_em).getTime();
         const agora = Date.now();
-        const umaHoraMs = 60 * 60 * 1000; // 1 hora em milissegundos
+        const umaHoraMs = 60 * 60 * 1000;
 
         if (agora - concluidaEm > umaHoraMs) {
-          return 'no-route'; // Celebração expirou
+          return 'no-route';
         }
       }
       return 'completed';
@@ -161,8 +162,9 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
   };
 
   // Carrega rota ativa (aguarda userData estar carregado para evitar 406)
-  // OTIMIZAÇÃO: Usa única query para buscar rotas ativas OU última concluída
-  // PRIORIDADE: data ASC (rota de hoje antes de amanhã), created_at ASC
+  // PRIORIDADE ABSOLUTA: Rotas ativas (pendente/em_andamento) > Rota concluída
+  // Isso garante que o motorista sempre veja trabalho pendente, nunca ficando
+  // "preso" na tela de rota concluída quando há nova rota atribuída.
   const loadActiveRoute = useCallback(async () => {
     // Aguardar carregamento completo do userData antes de fazer queries
     if (userLoading || !motoristaId) {
@@ -178,9 +180,20 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
 
-      // OTIMIZAÇÃO: Única query que busca rotas ativas E última concluída
-      // Ordenação por data ASC garante que rota de hoje tem prioridade sobre amanhã
-      const { data: rotasData, error: rotasError } = await supabase
+      // Helper para montar o objeto RouteData
+      const buildRouteData = (rota: any): RouteData => {
+        const unidadeData = rota.unidades as unknown as { nome: string } | null;
+        return {
+          ...rota,
+          unidade_nome: unidadeData?.nome || '',
+        } as RouteData;
+      };
+
+      // ========================================
+      // QUERY 1: Buscar rotas ATIVAS primeiro
+      // (pendente ou em_andamento)
+      // ========================================
+      const { data: rotasAtivas, error: errorAtivas } = await supabase
         .from('rotas')
         .select(`
           id,
@@ -194,13 +207,13 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
           unidades (nome)
         `)
         .eq('motorista_id', motoristaId)
-        .in('status', ['pendente', 'em_andamento', 'concluida'])
+        .in('status', ['pendente', 'em_andamento'])
         .order('data', { ascending: true })
         .order('created_at', { ascending: true })
-        .limit(20);
+        .limit(10);
 
-      if (rotasError) {
-        console.error('[RouteStatus] Query error:', rotasError);
+      if (errorAtivas) {
+        console.error('[RouteStatus] Erro ao buscar rotas ativas:', errorAtivas);
         setRoute(null);
         setParadas([]);
         setPendingRoutesCount(0);
@@ -208,62 +221,91 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (!rotasData || rotasData.length === 0) {
-        setRoute(null);
-        setParadas([]);
-        setPendingRoutesCount(0);
+      // Se tem rotas ativas, usa a de maior prioridade
+      if (rotasAtivas && rotasAtivas.length > 0) {
+        // Prioridade: em_andamento > pendente (por data ASC)
+        const inProgressRoute = rotasAtivas.find(r => r.status === 'em_andamento');
+        const pendingRoutes = rotasAtivas.filter(r => r.status === 'pendente');
+        const selectedRoute = inProgressRoute || pendingRoutes[0];
+
+        // Contar outras rotas pendentes (excluindo a selecionada)
+        const otherPendingCount = inProgressRoute
+          ? pendingRoutes.length
+          : Math.max(0, pendingRoutes.length - 1);
+
+        setPendingRoutesCount(otherPendingCount);
+        setRoute(buildRouteData(selectedRoute));
+
+        // Carrega paradas da rota selecionada
+        const { data: paradasData } = await supabase
+          .from('paradas')
+          .select('*')
+          .eq('rota_id', selectedRoute.id)
+          .order('ordem');
+
+        setParadas(paradasData || []);
         setLoading(false);
         return;
       }
 
-      // Separar rotas por status
-      const activeStatuses = ['pendente', 'em_andamento'];
-      const activeRoutes = rotasData.filter(r => activeStatuses.includes(r.status));
-      const completedRoutes = rotasData.filter(r => r.status === 'concluida');
+      // ========================================
+      // QUERY 2: Se NÃO tem rotas ativas,
+      // buscar última rota concluída (para celebração)
+      // ========================================
+      setPendingRoutesCount(0); // Sem rotas ativas = sem pendentes
 
-      // Prioridade: em_andamento > pendente (por data ASC) > concluída
-      const inProgressRoute = activeRoutes.find(r => r.status === 'em_andamento');
-      const pendingRoutes = activeRoutes.filter(r => r.status === 'pendente');
-      const firstPendingRoute = pendingRoutes[0]; // Já ordenada por data ASC
+      // Timeout de celebração: 1 hora
+      const umaHoraAtras = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
-      // Contar outras rotas pendentes (excluindo a selecionada)
-      const otherPendingCount = inProgressRoute
-        ? pendingRoutes.length // Se em andamento, todas as pendentes são "outras"
-        : Math.max(0, pendingRoutes.length - 1); // Se pendente, excluir a atual
+      const { data: rotaConcluida, error: errorConcluida } = await supabase
+        .from('rotas')
+        .select(`
+          id,
+          status,
+          distancia_total,
+          tempo_total,
+          iniciada_em,
+          concluida_em,
+          created_at,
+          data,
+          unidades (nome)
+        `)
+        .eq('motorista_id', motoristaId)
+        .eq('status', 'concluida')
+        .gte('concluida_em', umaHoraAtras) // Apenas concluídas há menos de 1h
+        .order('concluida_em', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      setPendingRoutesCount(otherPendingCount);
-
-      // Selecionar rota: em_andamento > primeira pendente > última concluída
-      const lastCompletedRoute = completedRoutes.sort((a, b) =>
-        new Date(b.concluida_em || 0).getTime() - new Date(a.concluida_em || 0).getTime()
-      )[0];
-
-      const selectedRoute = inProgressRoute || firstPendingRoute || lastCompletedRoute;
-
-      if (!selectedRoute) {
+      if (errorConcluida) {
+        console.error('[RouteStatus] Erro ao buscar rota concluída:', errorConcluida);
         setRoute(null);
         setParadas([]);
-        setPendingRoutesCount(0);
         setLoading(false);
         return;
       }
 
-      const unidadeData = selectedRoute.unidades as unknown as { nome: string } | null;
-      setRoute({
-        ...selectedRoute,
-        unidade_nome: unidadeData?.nome || '',
-      } as RouteData);
+      // Se tem rota concluída recente, mostra ela
+      if (rotaConcluida) {
+        setRoute(buildRouteData(rotaConcluida));
 
-      // Carrega paradas da rota selecionada
-      const { data: paradasData } = await supabase
-        .from('paradas')
-        .select('*')
-        .eq('rota_id', selectedRoute.id)
-        .order('ordem');
+        // Carrega paradas da rota concluída
+        const { data: paradasData } = await supabase
+          .from('paradas')
+          .select('*')
+          .eq('rota_id', rotaConcluida.id)
+          .order('ordem');
 
-      setParadas(paradasData || []);
+        setParadas(paradasData || []);
+        setLoading(false);
+        return;
+      }
+
+      // Sem rotas ativas nem concluídas recentes
+      setRoute(null);
+      setParadas([]);
     } catch (error) {
-      console.error('Erro ao carregar rota:', error);
+      console.error('[RouteStatus] Erro ao carregar rota:', error);
       setRoute(null);
       setParadas([]);
     } finally {

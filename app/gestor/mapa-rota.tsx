@@ -6,7 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Modal } from 'react-native';
 
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { DesktopCard } from '@/components/desktop/DesktopCard';
@@ -23,6 +23,10 @@ import {
   PhotoModal,
   MapaRotaSkeleton,
   TimelineCollapsible,
+  ChangeDriverModal,
+  EditStopModal,
+  AddStopModal,
+  DraggableStopList,
   getStatusBadgeVariant,
   formatStatusLabel,
   styles,
@@ -35,6 +39,7 @@ import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
+import { removerParadaERecalcular, reordenarParadas, recalcularRota, normalizarOrdemParadas, notificarMotoristaRotaEditada } from '@/lib/routeUtils';
 import { supabase } from '@/lib/supabase';
 import { useUnistyles } from '@/utils/styles';
 
@@ -71,6 +76,14 @@ export default function MapaRota() {
   const [fotoSelecionada, setFotoSelecionada] = useState<string | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showReactivateModal, setShowReactivateModal] = useState(false);
+  const [showChangeDriverModal, setShowChangeDriverModal] = useState(false);
+  const [showRemoveStopModal, setShowRemoveStopModal] = useState(false);
+  const [paradaToRemove, setParadaToRemove] = useState<Parada | null>(null);
+  const [showEditStopModal, setShowEditStopModal] = useState(false);
+  const [paradaToEdit, setParadaToEdit] = useState<Parada | null>(null);
+  const [showAddStopModal, setShowAddStopModal] = useState(false);
+  const [showReorderModal, setShowReorderModal] = useState(false);
+  const [isReordering, setIsReordering] = useState(false);
   const [selectedParadaId, setSelectedParadaId] = useState<string | null>(null);
 
   // Refs
@@ -116,7 +129,7 @@ export default function MapaRota() {
 
       const { data: rotaData, error: rotaError } = await supabase
         .from('rotas')
-        .select('id, data, status, distancia_total, updated_at, usuarios!rotas_motorista_id_fkey(nome)')
+        .select('id, data, status, distancia_total, updated_at, motorista_id, unidade_id, usuarios!rotas_motorista_id_fkey(nome)')
         .eq('id', id)
         .single();
 
@@ -134,6 +147,26 @@ export default function MapaRota() {
         .order('ordem');
 
       if (paradasError) throw paradasError;
+
+      // Check if order needs normalization (arrival checkpoint not at end)
+      if (paradasData && paradasData.length > 0) {
+        const chegada = paradasData.find((p) => p.is_checkpoint === false && p.ordem > 0);
+        const paradasReaisArr = paradasData.filter((p) => p.is_checkpoint !== false);
+        const expectedChegadaOrdem = paradasReaisArr.length + 1;
+
+        if (chegada && chegada.ordem !== expectedChegadaOrdem) {
+          console.log('[mapa-rota] Normalizing order: chegada at', chegada.ordem, 'expected', expectedChegadaOrdem);
+          await normalizarOrdemParadas(String(id));
+          // Reload paradas after normalization
+          const { data: reloadedParadas } = await supabase
+            .from('paradas')
+            .select('*')
+            .eq('rota_id', id)
+            .order('ordem');
+          setParadas(reloadedParadas || []);
+          return;
+        }
+      }
 
       setParadas(paradasData || []);
     } catch (error) {
@@ -206,6 +239,45 @@ export default function MapaRota() {
     }
   }, [id, loadRotaEParadas, showToast, userData?.id, userData?.nome]);
 
+  const handleChangeDriver = useCallback(
+    async (newMotoristaId: string, newMotoristaNome: string) => {
+      if (!id || !rota) return;
+      try {
+        const rotaId = Array.isArray(id) ? id[0] : id;
+
+        // Atualizar motorista_id na rota
+        const { error: updateError } = await supabase
+          .from('rotas')
+          .update({ motorista_id: newMotoristaId })
+          .eq('id', rotaId);
+
+        if (updateError) throw updateError;
+
+        // Registrar log da alteração
+        await supabase.from('logs').insert({
+          usuario_id: userData?.id,
+          rota_id: rotaId,
+          evento: 'motorista_alterado',
+          detalhes: {
+            motorista_anterior_id: rota.motorista_id,
+            motorista_anterior_nome: rota.motorista?.nome,
+            motorista_novo_id: newMotoristaId,
+            motorista_novo_nome: newMotoristaNome,
+            alterado_por: userData?.nome,
+          },
+        });
+
+        showToast('Motorista alterado com sucesso', 'success');
+        setShowChangeDriverModal(false);
+        await loadRotaEParadas();
+      } catch (error) {
+        console.error('Erro ao alterar motorista:', error);
+        showToast('Erro ao alterar motorista', 'error');
+      }
+    },
+    [id, rota, loadRotaEParadas, showToast, userData?.id, userData?.nome]
+  );
+
   const scrollToParada = useCallback((paradaId: string) => {
     const positionY = paradaPositions.current[paradaId];
     if (positionY != null && listaParadasRef.current) {
@@ -232,6 +304,213 @@ export default function MapaRota() {
   const handleImagePress = useCallback((url: string) => {
     setFotoSelecionada(url);
   }, []);
+
+  // Handler para iniciar remoção de parada (abre modal de confirmação)
+  const handleRemoveStopRequest = useCallback((parada: Parada) => {
+    setParadaToRemove(parada);
+    setShowRemoveStopModal(true);
+  }, []);
+
+  // Handler para confirmar remoção de parada
+  const handleConfirmRemoveStop = useCallback(async () => {
+    if (!paradaToRemove || !id || !rota) return;
+
+    try {
+      // Obter coordenadas da unidade a partir dos pontos base
+      const pontoBase = paradas.find((p) => p.is_checkpoint === false);
+      if (!pontoBase?.latitude || !pontoBase?.longitude) {
+        showToast('Erro: Coordenadas da unidade não encontradas', 'error');
+        return;
+      }
+
+      const enderecoUnidade = {
+        latitude: pontoBase.latitude,
+        longitude: pontoBase.longitude,
+      };
+
+      // Filtrar paradas restantes (excluir a removida)
+      const paradasRestantes = paradasReais
+        .filter((p) => p.id !== paradaToRemove.id)
+        .map((p, idx) => ({
+          ...p,
+          ordem: idx + 1,
+        }));
+
+      const result = await removerParadaERecalcular(
+        paradaToRemove.id,
+        Array.isArray(id) ? id[0] : id,
+        paradasRestantes,
+        enderecoUnidade,
+        userData?.id
+      );
+
+      if (result.success) {
+        // Notify motorista about the removal (if assigned)
+        if (rota.motorista_id) {
+          await notificarMotoristaRotaEditada({
+            rotaId: Array.isArray(id) ? id[0] : id,
+            motoristaId: rota.motorista_id,
+            tipo: 'rota_parada_removida',
+            titulo: '🗑️ Parada removida',
+            mensagem: `Uma parada foi removida da sua rota: ${paradaToRemove.endereco?.substring(0, 50)}${(paradaToRemove.endereco?.length || 0) > 50 ? '...' : ''}`,
+          });
+        }
+
+        showToast('Parada removida com sucesso', 'success');
+        setShowRemoveStopModal(false);
+        setParadaToRemove(null);
+        await loadRotaEParadas();
+      } else {
+        showToast(result.error || 'Erro ao remover parada', 'error');
+      }
+    } catch (error) {
+      console.error('Erro ao remover parada:', error);
+      showToast('Erro ao remover parada', 'error');
+    }
+  }, [paradaToRemove, id, rota, paradas, paradasReais, loadRotaEParadas, showToast, userData?.id]);
+
+  // Handler para editar parada
+  const handleEditStop = useCallback((parada: Parada) => {
+    setParadaToEdit(parada);
+    setShowEditStopModal(true);
+  }, []);
+
+  // Handler quando edição é salva
+  const handleEditStopSave = useCallback(async () => {
+    setShowEditStopModal(false);
+    setParadaToEdit(null);
+    showToast('Parada atualizada com sucesso', 'success');
+    await loadRotaEParadas();
+  }, [loadRotaEParadas, showToast]);
+
+  // Handler quando nova parada é adicionada
+  const handleAddStopSave = useCallback(async () => {
+    setShowAddStopModal(false);
+    showToast('Parada adicionada com sucesso', 'success');
+    await loadRotaEParadas();
+  }, [loadRotaEParadas, showToast]);
+
+  // Handler para reordenar paradas
+  const handleReorderParadas = useCallback(
+    async (newOrder: Parada[]) => {
+      if (!id || !rota) {
+        throw new Error('Rota não encontrada');
+      }
+
+      try {
+        setIsReordering(true);
+
+        // Obter coordenadas da unidade a partir dos pontos base
+        const pontoBase = paradas.find((p) => p.is_checkpoint === false);
+        if (!pontoBase?.latitude || !pontoBase?.longitude) {
+          const errorMsg = 'Erro: Coordenadas da unidade não encontradas';
+          showToast(errorMsg, 'error');
+          throw new Error(errorMsg);
+        }
+
+        const enderecoUnidade = {
+          latitude: pontoBase.latitude,
+          longitude: pontoBase.longitude,
+        };
+
+        // 1. Atualizar ordem no banco
+        const reorderResult = await reordenarParadas(
+          newOrder.map((p, idx) => ({
+            id: p.id,
+            ordem: idx + 1,
+            latitude: p.latitude,
+            longitude: p.longitude,
+            is_checkpoint: p.is_checkpoint,
+          }))
+        );
+
+        if (!reorderResult.success) {
+          const errorMsg = reorderResult.error || 'Erro ao reordenar paradas';
+          showToast(errorMsg, 'error');
+          throw new Error(errorMsg);
+        }
+
+        // 2. Recalcular rota com nova ordem
+        // Se falhar, a ordem já foi salva - mostrar aviso mas continuar
+        const rotaId = Array.isArray(id) ? id[0] : id;
+        let recalcWarning = false;
+        try {
+          const recalcResult = await recalcularRota(
+            rotaId,
+            newOrder.map((p, idx) => ({
+              id: p.id,
+              ordem: idx + 1,
+              latitude: p.latitude,
+              longitude: p.longitude,
+              is_checkpoint: p.is_checkpoint,
+            })),
+            enderecoUnidade
+          );
+
+          if (!recalcResult.success) {
+            console.warn('[handleReorderParadas] Recálculo falhou:', recalcResult.error);
+            recalcWarning = true;
+          }
+        } catch (recalcError) {
+          console.warn('[handleReorderParadas] Erro no recálculo:', recalcError);
+          recalcWarning = true;
+        }
+
+        // 3. Registrar log
+        await supabase.from('logs').insert({
+          usuario_id: userData?.id,
+          rota_id: rotaId,
+          evento: 'paradas_reordenadas',
+          detalhes: {
+            nova_ordem: newOrder.map((p) => ({ id: p.id, ordem: p.ordem })),
+            alterado_por: userData?.nome,
+          },
+        });
+
+        // 4. Notify motorista about the reorder (if assigned)
+        if (rota.motorista_id) {
+          await notificarMotoristaRotaEditada({
+            rotaId,
+            motoristaId: rota.motorista_id,
+            tipo: 'rota_reordenada',
+            titulo: '🔄 Rota reordenada',
+            mensagem: `A ordem das paradas da sua rota foi alterada. Verifique a nova sequência.`,
+          });
+        }
+
+        if (recalcWarning) {
+          showToast('Ordem salva! Distância/tempo podem estar desatualizados.', 'info');
+        } else {
+          showToast('Paradas reordenadas com sucesso', 'success');
+        }
+        setShowReorderModal(false);
+        await loadRotaEParadas();
+      } catch (error) {
+        console.error('Erro ao reordenar paradas:', error);
+        // Only show toast if it wasn't already shown (check if it's a new error)
+        if (error instanceof Error && !error.message.startsWith('Erro')) {
+          showToast('Erro ao reordenar paradas', 'error');
+        }
+        // Re-throw to signal failure to caller (DraggableStopList)
+        throw error;
+      } finally {
+        setIsReordering(false);
+      }
+    },
+    [id, rota, paradas, loadRotaEParadas, showToast, userData?.id, userData?.nome]
+  );
+
+  // Memoized enderecoUnidade para o modal de edição
+  const enderecoUnidadeMemo = useMemo(() => {
+    const pontoBase = paradas.find((p) => p.is_checkpoint === false);
+    if (pontoBase?.latitude && pontoBase?.longitude) {
+      return {
+        latitude: pontoBase.latitude,
+        longitude: pontoBase.longitude,
+      };
+    }
+    return null;
+  }, [paradas]);
 
   // Effects
   useEffect(() => {
@@ -332,6 +611,9 @@ export default function MapaRota() {
             resumoParadas={resumoParadas}
             onCancelPress={() => setShowCancelModal(true)}
             onReactivatePress={() => setShowReactivateModal(true)}
+            onChangeDriverPress={() => setShowChangeDriverModal(true)}
+            onAddStopPress={() => setShowAddStopModal(true)}
+            onReorderPress={() => setShowReorderModal(true)}
           />
 
           {/* Split View: Mapa | Paradas */}
@@ -387,6 +669,9 @@ export default function MapaRota() {
                             selected={selectedParadaId === parada.id}
                             onPress={handleParadaPress}
                             onLayoutCapture={handleParadaLayout}
+                            rotaStatus={rota?.status}
+                            onRemove={handleRemoveStopRequest}
+                            onEdit={handleEditStop}
                           />
                         ))
                       )}
@@ -472,6 +757,87 @@ export default function MapaRota() {
           onCancel={() => setShowReactivateModal(false)}
           type="success"
         />
+
+        {/* Change Driver Modal */}
+        <ChangeDriverModal
+          visible={showChangeDriverModal}
+          currentMotoristaId={rota.motorista_id}
+          currentMotoristaNome={rota.motorista?.nome}
+          unidadeId={rota.unidade_id || ''}
+          onConfirm={handleChangeDriver}
+          onCancel={() => setShowChangeDriverModal(false)}
+        />
+
+        {/* Remove Stop Confirmation Modal */}
+        <ConfirmModal
+          visible={showRemoveStopModal}
+          title="Remover parada"
+          message={`Tem certeza que deseja remover esta parada?\n\n${paradaToRemove?.endereco || ''}\n\nA rota será recalculada automaticamente.`}
+          confirmText="Sim, remover"
+          cancelText="Cancelar"
+          onConfirm={handleConfirmRemoveStop}
+          onCancel={() => {
+            setShowRemoveStopModal(false);
+            setParadaToRemove(null);
+          }}
+          type="danger"
+        />
+
+        {/* Edit Stop Modal */}
+        <EditStopModal
+          visible={showEditStopModal}
+          parada={paradaToEdit}
+          rotaId={Array.isArray(id) ? id[0] : (id || '')}
+          enderecoUnidade={enderecoUnidadeMemo}
+          allParadas={paradasReais}
+          onSave={handleEditStopSave}
+          onCancel={() => {
+            setShowEditStopModal(false);
+            setParadaToEdit(null);
+          }}
+          usuarioId={userData?.id}
+          motoristaId={rota?.motorista_id}
+        />
+
+        {/* Add Stop Modal */}
+        <AddStopModal
+          visible={showAddStopModal}
+          rotaId={Array.isArray(id) ? id[0] : (id || '')}
+          enderecoUnidade={enderecoUnidadeMemo}
+          currentParadasCount={paradasReais.length}
+          allParadas={paradasReais}
+          onSave={handleAddStopSave}
+          onCancel={() => setShowAddStopModal(false)}
+          usuarioId={userData?.id}
+          motoristaId={rota?.motorista_id}
+        />
+
+        {/* Reorder Stops Modal */}
+        <Modal
+          visible={showReorderModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowReorderModal(false)}
+        >
+          <View style={styles.reorderModalOverlay}>
+            <View style={styles.reorderModalContainer}>
+              <View style={styles.reorderModalHeader}>
+                <TouchableOpacity
+                  style={styles.reorderCloseButton}
+                  onPress={() => setShowReorderModal(false)}
+                >
+                  <Ionicons name="close" size={24} color={theme.colors.gray500} />
+                </TouchableOpacity>
+              </View>
+              <DraggableStopList
+                paradas={paradas}
+                onReorder={handleReorderParadas}
+                rotaStatus={rota?.status || ''}
+                isLoading={isReordering}
+              />
+            </View>
+          </View>
+        </Modal>
 
         <Toast {...toast} onDismiss={hideToast} />
         {logoutModal}

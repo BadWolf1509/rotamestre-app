@@ -59,7 +59,7 @@ export const ParadaCard = React.memo<ParadaCardProps>(
           style={styles.paradaHeader}
         >
           <View style={styles.paradaNumero}>
-            <Text style={styles.paradaNumeroText}>{index + 1}</Text>
+            <Text style={styles.paradaNumeroText}>{parada.ordem}</Text>
           </View>
           <View style={styles.paradaHeaderInfo}>
             <View style={styles.paradaHeaderTop}>

@@ -31,7 +31,7 @@ test.describe('Gestor Route Creation E2E Tests', () => {
   });
 
   test.describe('Nova Entrega Page Access', () => {
-    test('should access nova-entrega page', async ({ page }) => {
+    test('should access nova-entrega page', async ({ page: _page }) => {
       await gestorPage.gotoNovaEntrega();
       await gestorPage.expectOnNovaEntrega();
     });
@@ -86,8 +86,8 @@ test.describe('Gestor Route Creation E2E Tests', () => {
       const retiradaButton = page.getByText('Retirada');
 
       // At least one of these should exist
-      const hasEntrega = await entregaButton.isVisible().catch(() => false);
-      const hasRetirada = await retiradaButton.isVisible().catch(() => false);
+      const _hasEntrega = await entregaButton.isVisible().catch(() => false);
+      const _hasRetirada = await retiradaButton.isVisible().catch(() => false);
 
       // Page should have form content
       const bodyContent = await page.locator('body').textContent();
@@ -112,7 +112,7 @@ test.describe('Gestor Route Creation E2E Tests', () => {
 
         // Check if suggestions appeared (implementation-dependent)
         const suggestions = page.locator('[data-testid="suggestion"], .suggestion, [role="option"]');
-        const suggestionCount = await suggestions.count();
+        const _suggestionCount = await suggestions.count();
 
         // Autocomplete may or may not show results depending on API key
         // Just verify we can type in the field

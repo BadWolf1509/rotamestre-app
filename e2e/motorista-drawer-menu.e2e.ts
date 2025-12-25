@@ -20,11 +20,11 @@ import { MotoristaPage } from './pages/motorista.page';
  */
 test.describe('Motorista Drawer Menu E2E Tests', () => {
   let loginPage: LoginPage;
-  let motoristaPage: MotoristaPage;
+  let _motoristaPage: MotoristaPage;
 
   test.beforeEach(async ({ page }) => {
     loginPage = new LoginPage(page);
-    motoristaPage = new MotoristaPage(page);
+    _motoristaPage = new MotoristaPage(page);
 
     // Skip all tests if no motorista credentials
     if (!testUsers.motorista.email.includes('@')) {
@@ -89,7 +89,7 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
         await menuButton.click();
         await page.waitForTimeout(1000);
 
-        const drawerContent = await page.locator('[role="dialog"], .drawer').textContent();
+        const _drawerContent = await page.locator('[role="dialog"], .drawer').textContent();
 
         // Should NOT show Minha Unidade (as separate menu item)
         // Note: Unit info may still appear in header

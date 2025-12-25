@@ -16,6 +16,10 @@ export { ParadaCardCompact } from './ParadaCardCompact';
 export { ResumoInline } from './ResumoInline';
 export { TimelineCollapsible } from './TimelineCollapsible';
 export { RouteInfoHeaderCompact } from './RouteInfoHeaderCompact';
+export { ChangeDriverModal } from './ChangeDriverModal';
+export { EditStopModal } from './EditStopModal';
+export { AddStopModal } from './AddStopModal';
+export { DraggableStopList } from './DraggableStopList';
 
 // Estilos
 export { styles, MAP_HEIGHT } from './styles';

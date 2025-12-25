@@ -313,20 +313,20 @@ describe('googleMapsService', () => {
         });
     });
 
-    describe('getDirections', () => {
+    describe('getDirections (Routes API)', () => {
         it('deve retornar rota e detalhes', async () => {
+            // Mock Routes API response format
             mockFetch.mockResolvedValueOnce({
                 json: jest.fn().mockResolvedValue({
-                    status: 'OK',
                     routes: [{
-                        overview_polyline: { points: 'encoded_polyline' },
+                        duration: '600s',
+                        distanceMeters: 1000,
+                        polyline: { encodedPolyline: 'encoded_polyline' },
                         legs: [{
-                            distance: { value: 1000 },
-                            duration: { value: 600 },
-                            start_address: 'A',
-                            end_address: 'B',
-                            start_location: { lat: 0, lng: 0 },
-                            end_location: { lat: 1, lng: 1 },
+                            duration: '600s',
+                            distanceMeters: 1000,
+                            startLocation: { latLng: { latitude: 0, longitude: 0 } },
+                            endLocation: { latLng: { latitude: 1, longitude: 1 } },
                         }],
                     }],
                 }),
@@ -343,9 +343,28 @@ describe('googleMapsService', () => {
         });
 
         it('deve retornar null quando API retorna erro', async () => {
+            // Mock Routes API error response
             mockFetch.mockResolvedValueOnce({
                 json: jest.fn().mockResolvedValue({
-                    status: 'ZERO_RESULTS',
+                    error: {
+                        code: 400,
+                        message: 'No route found',
+                        status: 'NOT_FOUND',
+                    },
+                }),
+            });
+
+            const result = await googleMapsService.getDirections(
+                { latitude: 0, longitude: 0 },
+                { latitude: 1, longitude: 1 }
+            );
+
+            expect(result).toBeNull();
+        });
+
+        it('deve retornar null quando não há rotas', async () => {
+            mockFetch.mockResolvedValueOnce({
+                json: jest.fn().mockResolvedValue({
                     routes: [],
                 }),
             });
@@ -361,28 +380,25 @@ describe('googleMapsService', () => {
         it('deve incluir waypoints com otimização quando fornecidos', async () => {
             mockFetch.mockResolvedValueOnce({
                 json: jest.fn().mockResolvedValue({
-                    status: 'OK',
                     routes: [{
-                        overview_polyline: { points: 'polyline' },
+                        duration: '900s',
+                        distanceMeters: 3000,
+                        polyline: { encodedPolyline: 'polyline' },
                         legs: [
                             {
-                                distance: { value: 1000 },
-                                duration: { value: 300 },
-                                start_address: 'A',
-                                end_address: 'B',
-                                start_location: { lat: 0, lng: 0 },
-                                end_location: { lat: 1, lng: 1 },
+                                duration: '300s',
+                                distanceMeters: 1000,
+                                startLocation: { latLng: { latitude: 0, longitude: 0 } },
+                                endLocation: { latLng: { latitude: 1, longitude: 1 } },
                             },
                             {
-                                distance: { value: 2000 },
-                                duration: { value: 600 },
-                                start_address: 'B',
-                                end_address: 'C',
-                                start_location: { lat: 1, lng: 1 },
-                                end_location: { lat: 2, lng: 2 },
+                                duration: '600s',
+                                distanceMeters: 2000,
+                                startLocation: { latLng: { latitude: 1, longitude: 1 } },
+                                endLocation: { latLng: { latitude: 2, longitude: 2 } },
                             },
                         ],
-                        waypoint_order: [1, 0],
+                        optimizedIntermediateWaypointIndex: [1, 0],
                     }],
                 }),
             });
@@ -398,27 +414,33 @@ describe('googleMapsService', () => {
                 waypoints
             );
 
+            // Routes API usa POST com JSON body
             expect(mockFetch).toHaveBeenCalledWith(
-                expect.stringContaining('waypoints=optimize:true|0.5,0.5|1.5,1.5'),
-                expect.anything()
+                'https://routes.googleapis.com/directions/v2:computeRoutes',
+                expect.objectContaining({
+                    method: 'POST',
+                    headers: expect.objectContaining({
+                        'Content-Type': 'application/json',
+                        'X-Goog-Api-Key': expect.any(String),
+                    }),
+                })
             );
         });
 
         it('deve retornar ordem otimizada de waypoints', async () => {
             mockFetch.mockResolvedValueOnce({
                 json: jest.fn().mockResolvedValue({
-                    status: 'OK',
                     routes: [{
-                        overview_polyline: { points: 'polyline' },
+                        duration: '300s',
+                        distanceMeters: 1000,
+                        polyline: { encodedPolyline: 'polyline' },
                         legs: [{
-                            distance: { value: 1000 },
-                            duration: { value: 300 },
-                            start_address: 'A',
-                            end_address: 'B',
-                            start_location: { lat: 0, lng: 0 },
-                            end_location: { lat: 1, lng: 1 },
+                            duration: '300s',
+                            distanceMeters: 1000,
+                            startLocation: { latLng: { latitude: 0, longitude: 0 } },
+                            endLocation: { latLng: { latitude: 1, longitude: 1 } },
                         }],
-                        waypoint_order: [2, 0, 1],
+                        optimizedIntermediateWaypointIndex: [2, 0, 1],
                     }],
                 }),
             });
@@ -439,33 +461,28 @@ describe('googleMapsService', () => {
         it('deve somar distâncias de múltiplas legs corretamente', async () => {
             mockFetch.mockResolvedValueOnce({
                 json: jest.fn().mockResolvedValue({
-                    status: 'OK',
                     routes: [{
-                        overview_polyline: { points: 'polyline' },
+                        duration: '1350s',
+                        distanceMeters: 4500,
+                        polyline: { encodedPolyline: 'polyline' },
                         legs: [
                             {
-                                distance: { value: 1000 },
-                                duration: { value: 300 },
-                                start_address: 'A',
-                                end_address: 'B',
-                                start_location: { lat: 0, lng: 0 },
-                                end_location: { lat: 1, lng: 1 },
+                                duration: '300s',
+                                distanceMeters: 1000,
+                                startLocation: { latLng: { latitude: 0, longitude: 0 } },
+                                endLocation: { latLng: { latitude: 1, longitude: 1 } },
                             },
                             {
-                                distance: { value: 2000 },
-                                duration: { value: 600 },
-                                start_address: 'B',
-                                end_address: 'C',
-                                start_location: { lat: 1, lng: 1 },
-                                end_location: { lat: 2, lng: 2 },
+                                duration: '600s',
+                                distanceMeters: 2000,
+                                startLocation: { latLng: { latitude: 1, longitude: 1 } },
+                                endLocation: { latLng: { latitude: 2, longitude: 2 } },
                             },
                             {
-                                distance: { value: 1500 },
-                                duration: { value: 450 },
-                                start_address: 'C',
-                                end_address: 'D',
-                                start_location: { lat: 2, lng: 2 },
-                                end_location: { lat: 3, lng: 3 },
+                                duration: '450s',
+                                distanceMeters: 1500,
+                                startLocation: { latLng: { latitude: 2, longitude: 2 } },
+                                endLocation: { latLng: { latitude: 3, longitude: 3 } },
                             },
                         ],
                     }],
@@ -486,19 +503,18 @@ describe('googleMapsService', () => {
             expect(result?.legs).toHaveLength(3);
         });
 
-        it('deve não incluir waypoints quando não fornecidos', async () => {
+        it('deve usar POST para Routes API sem waypoints na URL', async () => {
             mockFetch.mockResolvedValueOnce({
                 json: jest.fn().mockResolvedValue({
-                    status: 'OK',
                     routes: [{
-                        overview_polyline: { points: 'polyline' },
+                        duration: '300s',
+                        distanceMeters: 1000,
+                        polyline: { encodedPolyline: 'polyline' },
                         legs: [{
-                            distance: { value: 1000 },
-                            duration: { value: 300 },
-                            start_address: 'A',
-                            end_address: 'B',
-                            start_location: { lat: 0, lng: 0 },
-                            end_location: { lat: 1, lng: 1 },
+                            duration: '300s',
+                            distanceMeters: 1000,
+                            startLocation: { latLng: { latitude: 0, longitude: 0 } },
+                            endLocation: { latLng: { latitude: 1, longitude: 1 } },
                         }],
                     }],
                 }),
@@ -509,24 +525,27 @@ describe('googleMapsService', () => {
                 { latitude: 1, longitude: 1 }
             );
 
-            const callUrl = (mockFetch.mock.calls[0] as any)[0];
-            expect(callUrl).not.toContain('waypoints=');
+            // Routes API usa POST, não GET com query params
+            expect(mockFetch).toHaveBeenCalledWith(
+                'https://routes.googleapis.com/directions/v2:computeRoutes',
+                expect.objectContaining({ method: 'POST' })
+            );
         });
 
         it('deve retornar array vazio para ordem_otimizada quando não há waypoints', async () => {
             mockFetch.mockResolvedValueOnce({
                 json: jest.fn().mockResolvedValue({
-                    status: 'OK',
                     routes: [{
-                        overview_polyline: { points: 'polyline' },
+                        duration: '300s',
+                        distanceMeters: 1000,
+                        polyline: { encodedPolyline: 'polyline' },
                         legs: [{
-                            distance: { value: 1000 },
-                            duration: { value: 300 },
-                            start_address: 'A',
-                            end_address: 'B',
-                            start_location: { lat: 0, lng: 0 },
-                            end_location: { lat: 1, lng: 1 },
+                            duration: '300s',
+                            distanceMeters: 1000,
+                            startLocation: { latLng: { latitude: 0, longitude: 0 } },
+                            endLocation: { latLng: { latitude: 1, longitude: 1 } },
                         }],
+                        // No optimizedIntermediateWaypointIndex when no waypoints
                     }],
                 }),
             });
@@ -542,16 +561,15 @@ describe('googleMapsService', () => {
         it('deve mapear corretamente todas as informações de cada leg', async () => {
             mockFetch.mockResolvedValueOnce({
                 json: jest.fn().mockResolvedValue({
-                    status: 'OK',
                     routes: [{
-                        overview_polyline: { points: 'polyline' },
+                        duration: '900s',
+                        distanceMeters: 5000,
+                        polyline: { encodedPolyline: 'polyline' },
                         legs: [{
-                            distance: { value: 5000 },
-                            duration: { value: 900 },
-                            start_address: 'Rua A, 123',
-                            end_address: 'Rua B, 456',
-                            start_location: { lat: -23.5505, lng: -46.6333 },
-                            end_location: { lat: -23.5615, lng: -46.6561 },
+                            duration: '900s',
+                            distanceMeters: 5000,
+                            startLocation: { latLng: { latitude: -23.5505, longitude: -46.6333 } },
+                            endLocation: { latLng: { latitude: -23.5615, longitude: -46.6561 } },
                         }],
                     }],
                 }),
@@ -562,11 +580,12 @@ describe('googleMapsService', () => {
                 { latitude: -23.5615, longitude: -46.6561 }
             );
 
+            // Routes API não retorna endereços formatados - usa coordenadas como fallback
             expect(result?.legs[0]).toEqual({
                 distancia_metros: 5000,
                 duracao_segundos: 900,
-                endereco_inicio: 'Rua A, 123',
-                endereco_fim: 'Rua B, 456',
+                endereco_inicio: '-23.550500, -46.633300',
+                endereco_fim: '-23.561500, -46.656100',
                 coordenadas_inicio: { latitude: -23.5505, longitude: -46.6333 },
                 coordenadas_fim: { latitude: -23.5615, longitude: -46.6561 },
             });

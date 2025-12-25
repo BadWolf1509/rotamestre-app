@@ -1370,6 +1370,7 @@ const styles = StyleSheet.create({
   streetViewContainer: {
     marginTop: 12,
     marginBottom: 8,
+    alignItems: 'center',
   },
   distanceBar: {
     flexDirection: 'row',

@@ -176,4 +176,46 @@ export const defaultTheme: Theme = {
     sidebarWidth: 264,
     containerMaxWidth: 1280,
   },
+  // Desktop density tokens for compact UI
+  desktop: {
+    input: {
+      height: 36,
+      paddingHorizontal: 10,
+      fontSize: 14,
+    },
+    button: {
+      height: 32,
+      paddingHorizontal: 12,
+      fontSize: 13,
+    },
+    field: {
+      marginBottom: 12,
+    },
+    section: {
+      padding: 12,
+      gap: 8,
+    },
+    // Modal tokens for form modals (Header-Body-Footer pattern)
+    modal: {
+      headerPadding: 12,
+      bodyPadding: 12,
+      footerPadding: 12,
+      footerGap: 8,
+      titleFontSize: 15,
+      closeButtonSize: 20,
+    },
+    // Dialog tokens for centered-icon dialogs (Alert/Confirm)
+    dialog: {
+      maxWidth: 320,
+      containerPadding: 16,
+      iconCircleSize: 44,
+      iconSize: 22,
+      titleFontSize: 16,
+      messageFontSize: 13,
+      buttonHeight: 36,
+      buttonPaddingV: 8,
+      buttonPaddingH: 14,
+      buttonGap: 10,
+    },
+  },
 };

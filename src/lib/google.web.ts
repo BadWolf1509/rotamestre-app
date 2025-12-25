@@ -151,47 +151,58 @@ export interface PlaceSuggestion {
   };
 }
 
-// Carregar Google Maps JavaScript API
-let googleMapsLoaded = false;
-let loadingPromise: Promise<void> | null = null;
+// Aguardar Google Maps JavaScript API (carregada pelo MapaWeb.tsx via useJsApiLoader)
+// NÃO criar script duplicado - usar a API já carregada
 
-async function loadGoogleMapsAPI(): Promise<void> {
-  if (googleMapsLoaded) return;
+let waitingForGooglePromise: Promise<void> | null = null;
 
-  if (loadingPromise) {
-    await loadingPromise;
+/**
+ * Aguarda a Google Maps API estar disponível.
+ * A API é carregada pelo MapaWeb.tsx via @react-google-maps/api useJsApiLoader.
+ * Esta função apenas espera que google.maps esteja disponível, sem criar script duplicado.
+ */
+async function waitForGoogleMapsAPI(): Promise<void> {
+  if (typeof window === 'undefined') {
+    throw new Error('Window not available');
+  }
+
+  // Se já está carregada, retornar imediatamente
+  if (window.google?.maps) {
     return;
   }
 
-  loadingPromise = new Promise((resolve, reject) => {
-    if (typeof window === 'undefined') {
-      reject(new Error('Window not available'));
-      return;
-    }
+  // Se já está aguardando, retornar a mesma promise
+  if (waitingForGooglePromise) {
+    return waitingForGooglePromise;
+  }
 
-    // Check if already loaded
-    if (window.google && window.google.maps && window.google.maps.places) {
-      googleMapsLoaded = true;
-      resolve();
-      return;
-    }
+  // Aguardar a API ser carregada (por MapaWeb ou outro componente)
+  waitingForGooglePromise = new Promise((resolve, reject) => {
+    const maxWaitTime = 15000; // 15 segundos max
+    const checkInterval = 100; // Verificar a cada 100ms
+    let elapsed = 0;
 
-    // Load script
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=pt-BR`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      googleMapsLoaded = true;
-      resolve();
+    const checkLoaded = () => {
+      if (window.google?.maps) {
+        waitingForGooglePromise = null;
+        resolve();
+        return;
+      }
+
+      elapsed += checkInterval;
+      if (elapsed >= maxWaitTime) {
+        waitingForGooglePromise = null;
+        reject(new Error('Timeout waiting for Google Maps API. Ensure MapaWeb is rendered.'));
+        return;
+      }
+
+      setTimeout(checkLoaded, checkInterval);
     };
-    script.onerror = () => {
-      reject(new Error('Failed to load Google Maps API'));
-    };
-    document.head.appendChild(script);
+
+    checkLoaded();
   });
 
-  await loadingPromise;
+  return waitingForGooglePromise;
 }
 
 export const googleMapsService = {
@@ -202,9 +213,9 @@ export const googleMapsService = {
     }
 
     try {
-      await loadGoogleMapsAPI();
+      await waitForGoogleMapsAPI();
 
-      // Importar a nova API Place
+      // Importar a nova API Place (importLibrary carrega dinamicamente se necessário)
       const { AutocompleteSuggestion } = await google.maps.importLibrary('places') as any;
 
       // Chamar a nova API fetchAutocompleteSuggestions
@@ -238,7 +249,7 @@ export const googleMapsService = {
   // Obter detalhes usando NOVA API Place (google.maps.places.Place.fetchFields)
   async getPlaceDetails(placeId: string): Promise<EnderecoGeocodificado | null> {
     try {
-      await loadGoogleMapsAPI();
+      await waitForGoogleMapsAPI();
 
       // Importar a nova API Place
       const { Place } = await google.maps.importLibrary('places') as any;
@@ -280,7 +291,7 @@ export const googleMapsService = {
   // Geocodificar endereço (endereço -> coordenadas)
   async geocodeAddress(endereco: string): Promise<EnderecoGeocodificado | null> {
     try {
-      await loadGoogleMapsAPI();
+      await waitForGoogleMapsAPI();
 
       const geocoder = new google.maps.Geocoder();
 
@@ -329,7 +340,7 @@ export const googleMapsService = {
   // Geocodificar reverso (coordenadas -> endereço)
   async reverseGeocode(coords: Coordenadas): Promise<string | null> {
     try {
-      await loadGoogleMapsAPI();
+      await waitForGoogleMapsAPI();
 
       const geocoder = new google.maps.Geocoder();
 
@@ -374,7 +385,7 @@ export const googleMapsService = {
   ): Promise<RouteResult<GoogleDirectionsResult>> {
     try {
       // Carregar API do Google Maps se necessário
-      await loadGoogleMapsAPI();
+      await waitForGoogleMapsAPI();
 
       // Verificar se google.maps está disponível
       if (typeof window === 'undefined' || !window.google?.maps) {
@@ -496,7 +507,7 @@ export const googleMapsService = {
     waypoints: Coordenadas[]
   ): Promise<RouteResult<GoogleDirectionsResult>> {
     try {
-      await loadGoogleMapsAPI();
+      await waitForGoogleMapsAPI();
 
       if (typeof window === 'undefined' || !window.google?.maps) {
         const error = createApiNotLoadedError();
@@ -507,6 +518,23 @@ export const googleMapsService = {
       const directionsService = new google.maps.DirectionsService();
       const allPoints = [origin, ...waypoints, destination];
 
+      // Validar todas as coordenadas antes de fazer requisições
+      for (let i = 0; i < allPoints.length; i++) {
+        const point = allPoints[i];
+        if (
+          !point ||
+          typeof point.latitude !== 'number' ||
+          typeof point.longitude !== 'number' ||
+          isNaN(point.latitude) ||
+          isNaN(point.longitude)
+        ) {
+          const pointName = i === 0 ? 'origin' : i === allPoints.length - 1 ? 'destination' : `waypoint ${i}`;
+          console.error(`[Google Sequential] Invalid coordinates at ${pointName}:`, point);
+          const error = parseGoogleError('INVALID_REQUEST', `Invalid coordinates at ${pointName}`);
+          return failure(error);
+        }
+      }
+
       let totalDistanceMeters = 0;
       let totalDurationSeconds = 0;
       const allLegs: GoogleDirectionsLeg[] = [];
@@ -516,9 +544,17 @@ export const googleMapsService = {
         const segmentOrigin = allPoints[i];
         const segmentDestination = allPoints[i + 1];
 
+        // Log debug para primeira execução
+        if (i === 0) {
+          console.log('[Google Sequential] First segment coords:', {
+            origin: { lat: segmentOrigin.latitude, lng: segmentOrigin.longitude },
+            dest: { lat: segmentDestination.latitude, lng: segmentDestination.longitude },
+          });
+        }
+
         const request: google.maps.DirectionsRequest = {
-          origin: new google.maps.LatLng(segmentOrigin.latitude, segmentOrigin.longitude),
-          destination: new google.maps.LatLng(segmentDestination.latitude, segmentDestination.longitude),
+          origin: { lat: segmentOrigin.latitude, lng: segmentOrigin.longitude },
+          destination: { lat: segmentDestination.latitude, lng: segmentDestination.longitude },
           travelMode: google.maps.TravelMode.DRIVING,
         };
 
@@ -598,32 +634,53 @@ export const googleMapsService = {
       return failure(error);
     }
   },
-  // Calcular matriz de distâncias
+  // Calcular matriz de distâncias usando Google Maps JavaScript API
+  // Migrado da REST API (deprecated em 01/03/2025) para evitar CORS e manter consistência
   async getDistanceMatrix(origins: Coordenadas[], destinations: Coordenadas[]) {
     try {
-      const originsStr = origins.map((o) => `${o.latitude},${o.longitude}`).join('|');
-      const destinationsStr = destinations
-        .map((d) => `${d.latitude},${d.longitude}`)
-        .join('|');
+      await waitForGoogleMapsAPI();
 
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${originsStr}&destinations=${destinationsStr}&key=${GOOGLE_MAPS_API_KEY}`
-      );
-
-      const data = await response.json();
-
-      if (data.status === 'OK') {
-        return data.rows.map((row: any, i: number) => ({
-          origem: origins[i],
-          destinos: row.elements.map((element: any, j: number) => ({
-            destino: destinations[j],
-            distancia: element.distance?.value || 0,
-            tempo: element.duration?.value || 0,
-          })),
-        }));
+      if (typeof window === 'undefined' || !window.google?.maps) {
+        console.error('[DistanceMatrix] Google Maps API not loaded');
+        return null;
       }
 
-      return null;
+      const service = new google.maps.DistanceMatrixService();
+
+      // Converter coordenadas para LatLng
+      const originsLatLng = origins.map(
+        (o) => new google.maps.LatLng(o.latitude, o.longitude)
+      );
+      const destinationsLatLng = destinations.map(
+        (d) => new google.maps.LatLng(d.latitude, d.longitude)
+      );
+
+      return new Promise((resolve) => {
+        service.getDistanceMatrix(
+          {
+            origins: originsLatLng,
+            destinations: destinationsLatLng,
+            travelMode: google.maps.TravelMode.DRIVING,
+            unitSystem: google.maps.UnitSystem.METRIC,
+          },
+          (response, status) => {
+            if (status === google.maps.DistanceMatrixStatus.OK && response) {
+              const matrix = response.rows.map((row, i) => ({
+                origem: origins[i],
+                destinos: row.elements.map((element, j) => ({
+                  destino: destinations[j],
+                  distancia: element.distance?.value || 0,
+                  tempo: element.duration?.value || 0,
+                })),
+              }));
+              resolve(matrix);
+            } else {
+              console.error('[DistanceMatrix] Error:', status);
+              resolve(null);
+            }
+          }
+        );
+      });
     } catch (error) {
       console.error('Erro na matriz de distâncias:', error);
       return null;

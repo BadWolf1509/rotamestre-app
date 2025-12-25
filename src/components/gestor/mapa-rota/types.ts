@@ -24,6 +24,8 @@ export interface Rota {
   status: string;
   distancia_total?: number;
   updated_at?: string;
+  motorista_id?: string;
+  unidade_id?: string;
   motorista?: {
     nome: string;
   };

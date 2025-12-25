@@ -120,7 +120,8 @@ export default function MapaWeb({
   const motoristaMarkerRef = React.useRef<google.maps.marker.AdvancedMarkerElement | google.maps.Marker | null>(null);
   const motoristaInfoWindowRef = React.useRef<google.maps.InfoWindow | null>(null);
 
-  const mapLibraries = React.useMemo(() => ['marker'] as ('marker')[], []);
+  // Carrega 'marker' para AdvancedMarkerElement e 'places' para autocomplete/geocoding
+  const mapLibraries = React.useMemo(() => ['marker', 'places'] as ('marker' | 'places')[], []);
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
@@ -241,24 +242,34 @@ export default function MapaWeb({
     const paradasParaExibir = [...checkpoints, ...paradasFiltradas];
 
     const AdvancedMarker = google.maps.marker?.AdvancedMarkerElement;
-    const canUseAdvancedMarkers = Boolean(GOOGLE_MAPS_MAP_ID && AdvancedMarker);
+    // Verificar se o mapa tem mapId configurado antes de usar AdvancedMarkerElement
+    // O mapId é necessário para AdvancedMarkerElement funcionar corretamente
+    // @ts-expect-error - getMapId() existe no Maps API mas não está nos tipos
+    const mapHasMapId = mapRef.current && typeof mapRef.current.getMapId === 'function' && mapRef.current.getMapId();
+    const canUseAdvancedMarkers = Boolean(GOOGLE_MAPS_MAP_ID && AdvancedMarker && mapHasMapId);
 
     if (canUseAdvancedMarkers && AdvancedMarker) {
-      advancedMarkersRef.current = paradasParaExibir.map((parada) => {
-        const marker = new AdvancedMarker({
-          map: mapRef.current!,
-          position: { lat: parada.latitude!, lng: parada.longitude! },
-          title: `Parada ${parada.ordem}: ${parada.endereco}`,
-          content: createMarkerContent(parada),
+      try {
+        advancedMarkersRef.current = paradasParaExibir.map((parada) => {
+          const marker = new AdvancedMarker({
+            map: mapRef.current!,
+            position: { lat: parada.latitude!, lng: parada.longitude! },
+            title: `Parada ${parada.ordem}: ${parada.endereco}`,
+            content: createMarkerContent(parada),
+          });
+          markerMapRef.current.set(parada.id, marker);
+          marker.addListener('gmp-click', () => {
+            onMarkerPress?.(parada.id);
+            openInfoWindow(parada, marker);
+          });
+          return marker;
         });
-        markerMapRef.current.set(parada.id, marker);
-        marker.addListener('gmp-click', () => {
-          onMarkerPress?.(parada.id);
-          openInfoWindow(parada, marker);
-        });
-        return marker;
-      });
-      return;
+        return;
+      } catch (error) {
+        // Se AdvancedMarkerElement falhar, usar fallback
+        console.warn('[MapaWeb] AdvancedMarkerElement failed, using fallback:', error);
+        clearMarkers();
+      }
     }
 
     // Fallback para browsers que ainda não suportam AdvancedMarkerElement
@@ -523,7 +534,10 @@ export default function MapaWeb({
     };
 
     const AdvancedMarker = google.maps.marker?.AdvancedMarkerElement;
-    const canUseAdvancedMarkers = Boolean(GOOGLE_MAPS_MAP_ID && AdvancedMarker);
+    // Verificar se o mapa tem mapId configurado antes de usar AdvancedMarkerElement
+    // @ts-expect-error - getMapId() existe no Maps API mas não está nos tipos
+    const mapHasMapId = mapRef.current && typeof mapRef.current.getMapId === 'function' && mapRef.current.getMapId();
+    const canUseAdvancedMarkers = Boolean(GOOGLE_MAPS_MAP_ID && AdvancedMarker && mapHasMapId);
 
     // Se já existe marcador, atualizar posição
     if (motoristaMarkerRef.current) {
@@ -541,27 +555,35 @@ export default function MapaWeb({
 
     // Criar novo marcador
     if (canUseAdvancedMarkers && AdvancedMarker) {
-      // Usar AdvancedMarkerElement
-      const marker = new AdvancedMarker({
-        map: mapRef.current,
-        position,
-        content: createMotoristaMarkerContent(),
-        title: motoristaNome || 'Motorista',
-        zIndex: 9999,
-      });
+      try {
+        // Usar AdvancedMarkerElement
+        const marker = new AdvancedMarker({
+          map: mapRef.current,
+          position,
+          content: createMotoristaMarkerContent(),
+          title: motoristaNome || 'Motorista',
+          zIndex: 9999,
+        });
 
-      // InfoWindow para AdvancedMarkerElement
-      if (!motoristaInfoWindowRef.current) {
-        motoristaInfoWindowRef.current = new google.maps.InfoWindow();
+        // InfoWindow para AdvancedMarkerElement
+        if (!motoristaInfoWindowRef.current) {
+          motoristaInfoWindowRef.current = new google.maps.InfoWindow();
+        }
+
+        marker.addListener('gmp-click', () => {
+          motoristaInfoWindowRef.current!.setContent(getInfoWindowContent());
+          motoristaInfoWindowRef.current!.open(mapRef.current, marker);
+        });
+
+        motoristaMarkerRef.current = marker;
+        return; // Sucesso, não usar fallback
+      } catch (error) {
+        console.warn('[MapaWeb] AdvancedMarkerElement for motorista failed, using fallback:', error);
       }
+    }
 
-      marker.addListener('gmp-click', () => {
-        motoristaInfoWindowRef.current!.setContent(getInfoWindowContent());
-        motoristaInfoWindowRef.current!.open(mapRef.current, marker);
-      });
-
-      motoristaMarkerRef.current = marker;
-    } else {
+    // Fallback
+    {
       // Fallback para Marker antigo (browsers sem suporte)
       const carIcon = {
         url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`

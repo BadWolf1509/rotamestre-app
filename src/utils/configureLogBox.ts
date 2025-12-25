@@ -6,6 +6,9 @@ import { LogBox, Platform } from 'react-native';
  */
 export function configureLogBox() {
   if (Platform.OS === 'web' && __DEV__) {
+    // LogBox on web can throw "Unexpected text node" errors; disable it entirely.
+    LogBox.uninstall?.();
+
     // Disable LogBox completely on web in development
     // The LogBox component itself has issues with React Native Web
     // and generates "Unexpected text node" errors
@@ -16,8 +19,27 @@ export function configureLogBox() {
     const originalWarn = console.warn;
     const originalError = console.error;
 
+    const normalizeArgs = (args: unknown[]) => args.map((arg) => {
+      if (typeof arg === 'string') return arg;
+      if (arg instanceof Error) return arg.message;
+      if (arg && typeof arg === 'object' && 'message' in arg) {
+        return String((arg as { message?: unknown }).message);
+      }
+      try {
+        return JSON.stringify(arg);
+      } catch {
+        return String(arg);
+      }
+    }).join(' ');
+
+    const isTextNodeError = (message: string) => (
+      message.includes('Unexpected text node') ||
+      message.includes('text node cannot be a child') ||
+      message.includes('A text node cannot be a child of a <View>')
+    );
+
     console.warn = (...args) => {
-      const message = args[0]?.toString() || '';
+      const message = normalizeArgs(args);
 
       // Suppress Google Maps warnings
       if (message.includes('Google Maps JavaScript API')) {
@@ -25,7 +47,7 @@ export function configureLogBox() {
       }
 
       // Suppress text node warnings from React Native Web
-      if (message.includes('text node') || message.includes('Text node')) {
+      if (isTextNodeError(message)) {
         return;
       }
 
@@ -33,11 +55,10 @@ export function configureLogBox() {
     };
 
     console.error = (...args) => {
-      const message = args[0]?.toString() || '';
+      const message = normalizeArgs(args);
 
       // Suppress LogBox-related text node errors
-      if (message.includes('text node cannot be a child') ||
-          message.includes('Unexpected text node')) {
+      if (isTextNodeError(message)) {
         return;
       }
 

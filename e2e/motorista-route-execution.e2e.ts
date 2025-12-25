@@ -167,7 +167,7 @@ test.describe('Motorista Route Execution E2E Tests', () => {
       const bodyText = await page.locator('body').textContent();
 
       // Look for action buttons
-      const hasActions =
+      const _hasActions =
         bodyText?.includes('Iniciar') ||
         bodyText?.includes('Navegar') ||
         bodyText?.includes('Concluir') ||
@@ -193,7 +193,7 @@ test.describe('Motorista Route Execution E2E Tests', () => {
       const bodyText = await page.locator('body').textContent();
 
       // Should have completion-related content
-      const hasCompletionUI =
+      const _hasCompletionUI =
         bodyText?.includes('Concluir') ||
         bodyText?.includes('concluir') ||
         bodyText?.includes('Marcar') ||
@@ -212,7 +212,7 @@ test.describe('Motorista Route Execution E2E Tests', () => {
       const bodyText = await page.locator('body').textContent();
 
       // Look for navigation app integration
-      const hasNavigationOption =
+      const _hasNavigationOption =
         bodyText?.includes('Navegar') ||
         bodyText?.includes('Waze') ||
         bodyText?.includes('Google Maps') ||
@@ -227,11 +227,11 @@ test.describe('Motorista Route Execution E2E Tests', () => {
 
 test.describe('Motorista History Tab Tests', () => {
   let loginPage: LoginPage;
-  let motoristaPage: MotoristaPage;
+  let _motoristaPage: MotoristaPage;
 
   test.beforeEach(async ({ page }) => {
     loginPage = new LoginPage(page);
-    motoristaPage = new MotoristaPage(page);
+    _motoristaPage = new MotoristaPage(page);
 
     if (!testUsers.motorista.email.includes('@')) {
       test.skip();
@@ -269,7 +269,7 @@ test.describe('Motorista History Tab Tests', () => {
       const bodyText = await page.locator('body').textContent();
 
       // Should show history or empty state
-      const hasHistoryContent =
+      const _hasHistoryContent =
         bodyText?.includes('Histórico') ||
         bodyText?.includes('histórico') ||
         bodyText?.includes('anterior') ||

@@ -19,10 +19,16 @@ interface ParadaCardCompactProps {
   selected?: boolean;
   onPress?: (id: string) => void;
   onLayoutCapture?: (id: string, y: number) => void;
+  /** Status da rota (para controlar exibição de ações de edição) */
+  rotaStatus?: string;
+  /** Callback para remover a parada */
+  onRemove?: (parada: Parada) => void;
+  /** Callback para editar a parada */
+  onEdit?: (parada: Parada) => void;
 }
 
 export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
-  ({ parada, index, onImagePress, selected, onPress, onLayoutCapture }) => {
+  ({ parada, index, onImagePress, selected, onPress, onLayoutCapture, rotaStatus, onRemove, onEdit }) => {
     const { theme } = useUnistyles();
     const [imageError, setImageError] = useState(false);
     const [expanded, setExpanded] = useState(false);
@@ -72,9 +78,9 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
           onPress={handleCardPress}
           style={styles.cardContent}
         >
-          {/* Número da parada */}
+          {/* Número da parada - usa parada.ordem para consistência com mapa */}
           <View style={[styles.orderBadge, { backgroundColor: status.color }]}>
-            <Text style={styles.orderText}>{index + 1}</Text>
+            <Text style={styles.orderText}>{parada.ordem}</Text>
           </View>
 
           {/* Conteúdo principal */}
@@ -189,6 +195,31 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
                 </TouchableOpacity>
               )}
             </View>
+
+            {/* Ações de Edição (apenas para paradas pendentes em rotas editáveis) */}
+            {parada.status === 'pendente' &&
+              (rotaStatus === 'pendente' || rotaStatus === 'em_andamento') && (
+                <View style={styles.editActions}>
+                  {onEdit && (
+                    <TouchableOpacity
+                      style={styles.editActionButton}
+                      onPress={() => onEdit(parada)}
+                    >
+                      <Ionicons name="create-outline" size={16} color={theme.colors.secondary} />
+                      <Text style={[styles.actionText, { color: theme.colors.secondary }]}>Editar</Text>
+                    </TouchableOpacity>
+                  )}
+                  {onRemove && (
+                    <TouchableOpacity
+                      style={[styles.editActionButton, styles.removeButton]}
+                      onPress={() => onRemove(parada)}
+                    >
+                      <Ionicons name="trash-outline" size={16} color={theme.colors.error} />
+                      <Text style={[styles.actionText, { color: theme.colors.error }]}>Remover</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
           </View>
         )}
       </View>
@@ -200,7 +231,8 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
       prevProps.parada.status === nextProps.parada.status &&
       prevProps.parada.foto_url === nextProps.parada.foto_url &&
       prevProps.index === nextProps.index &&
-      prevProps.selected === nextProps.selected
+      prevProps.selected === nextProps.selected &&
+      prevProps.rotaStatus === nextProps.rotaStatus
     );
   }
 );
@@ -378,5 +410,28 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.fontSize.xs,
     fontWeight: '600',
     color: theme.colors.primary,
+  },
+  editActions: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+    marginTop: theme.spacing.sm,
+    paddingTop: theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.gray100,
+  },
+  editActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
+  },
+  removeButton: {
+    borderColor: `${theme.colors.error}30`,
+    backgroundColor: `${theme.colors.error}05`,
   },
 }));

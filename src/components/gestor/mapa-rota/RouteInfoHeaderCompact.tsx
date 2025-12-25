@@ -16,6 +16,9 @@ interface RouteInfoHeaderCompactProps {
   resumoParadas: ResumoParadas;
   onCancelPress?: () => void;
   onReactivatePress?: () => void;
+  onChangeDriverPress?: () => void;
+  onAddStopPress?: () => void;
+  onReorderPress?: () => void;
 }
 
 const STATUS_CONFIG = {
@@ -31,6 +34,9 @@ export function RouteInfoHeaderCompact({
   resumoParadas,
   onCancelPress,
   onReactivatePress,
+  onChangeDriverPress,
+  onAddStopPress,
+  onReorderPress,
 }: RouteInfoHeaderCompactProps) {
   const { theme } = useUnistyles();
 
@@ -42,6 +48,9 @@ export function RouteInfoHeaderCompact({
   const statusColor = theme.colors[statusConfig.color];
   const canCancel = rota.status !== 'cancelada' && rota.status !== 'concluida' && rota.status !== 'nao_executada';
   const canReactivate = rota.status === 'nao_executada';
+  const canChangeDriver = rota.status === 'pendente';
+  const canAddStop = rota.status === 'pendente' || rota.status === 'em_andamento';
+  const canReorder = rota.status === 'pendente' || rota.status === 'em_andamento';
 
   return (
     <View style={styles.container}>
@@ -51,6 +60,16 @@ export function RouteInfoHeaderCompact({
         <Text style={styles.driverName} numberOfLines={1}>
           {rota.motorista?.nome || 'Sem motorista'}
         </Text>
+        {canChangeDriver && onChangeDriverPress && (
+          <TouchableOpacity
+            style={styles.changeDriverButton}
+            onPress={onChangeDriverPress}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="swap-horizontal" size={14} color={theme.colors.primary} />
+            <Text style={styles.changeDriverText}>Trocar</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Separador */}
@@ -86,6 +105,30 @@ export function RouteInfoHeaderCompact({
 
       {/* Spacer */}
       <View style={styles.spacer} />
+
+      {/* Botão Adicionar Parada */}
+      {canAddStop && onAddStopPress && (
+        <TouchableOpacity
+          style={styles.addStopButton}
+          onPress={onAddStopPress}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="add-circle-outline" size={16} color={theme.colors.primary} />
+          <Text style={styles.addStopText}>+ Parada</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Botão Reordenar Paradas */}
+      {canReorder && onReorderPress && (
+        <TouchableOpacity
+          style={styles.reorderButton}
+          onPress={onReorderPress}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="swap-vertical-outline" size={16} color={theme.colors.secondary} />
+          <Text style={styles.reorderText}>Reordenar</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Botão Cancelar */}
       {canCancel && onCancelPress && (
@@ -139,6 +182,23 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray900,
     maxWidth: 150,
   },
+  changeDriverButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: 4,
+    paddingHorizontal: theme.spacing.xs + 2,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 1,
+    borderColor: `${theme.colors.primary}40`,
+    backgroundColor: `${theme.colors.primary}08`,
+    marginLeft: theme.spacing.xs,
+  },
+  changeDriverText: {
+    fontSize: theme.typography.fontSize.xs,
+    fontWeight: '600',
+    color: theme.colors.primary,
+  },
   separator: {
     width: 1,
     height: 20,
@@ -178,6 +238,40 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   spacer: {
     flex: 1,
+  },
+  addStopButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: theme.spacing.sm + 2,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 1,
+    borderColor: `${theme.colors.primary}40`,
+    backgroundColor: `${theme.colors.primary}08`,
+    marginRight: theme.spacing.sm,
+  },
+  addStopText: {
+    fontSize: theme.typography.fontSize.xs,
+    fontWeight: '600',
+    color: theme.colors.primary,
+  },
+  reorderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: theme.spacing.sm + 2,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 1,
+    borderColor: `${theme.colors.secondary}40`,
+    backgroundColor: `${theme.colors.secondary}08`,
+    marginRight: theme.spacing.sm,
+  },
+  reorderText: {
+    fontSize: theme.typography.fontSize.xs,
+    fontWeight: '600',
+    color: theme.colors.secondary,
   },
   cancelButton: {
     flexDirection: 'row',

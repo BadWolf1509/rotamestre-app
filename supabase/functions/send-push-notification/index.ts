@@ -52,6 +52,11 @@ const PUSH_NOTIFICATION_TYPES = [
   'rota_atrasada',
   'sos_acionado',
   'incidente_reportado',
+  // Edição de rota pelo gestor
+  'rota_parada_adicionada',
+  'rota_parada_removida',
+  'rota_parada_editada',
+  'rota_reordenada',
 ];
 
 // Configuração de prioridade por tipo
@@ -60,6 +65,11 @@ const NOTIFICATION_PRIORITY: Record<string, 'high' | 'normal'> = {
   sos_acionado: 'high',
   incidente_reportado: 'high',
   rota_atrasada: 'normal',
+  // Edição de rota - prioridade alta para mudanças importantes
+  rota_parada_adicionada: 'high',
+  rota_parada_removida: 'normal',
+  rota_parada_editada: 'high',
+  rota_reordenada: 'normal',
 };
 
 Deno.serve(async (req: Request) => {

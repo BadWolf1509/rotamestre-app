@@ -115,21 +115,24 @@ export default function CheckpointsMotorista() {
   }, [loadRotaEParadas]);
 
   // Abre o modal de conclusão com foto
-  function concluirParada(parada: Parada) {
-    // Validar se a rota foi iniciada
-    if (rota?.status !== 'em_andamento') {
-      Alert.alert(
-        'Rota não iniciada',
-        'Você precisa iniciar a rota antes de concluir paradas.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
+  const concluirParada = useCallback(
+    (parada: Parada) => {
+      // Validar se a rota foi iniciada
+      if (rota?.status !== 'em_andamento') {
+        Alert.alert(
+          'Rota não iniciada',
+          'Você precisa iniciar a rota antes de concluir paradas.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
 
-    // Converter para ParadaData e abrir modal de conclusão
-    setSelectedParadaForCompletion(parada as ParadaData);
-    setShowCompletionFlow(true);
-  }
+      // Converter para ParadaData e abrir modal de conclusão
+      setSelectedParadaForCompletion(parada as ParadaData);
+      setShowCompletionFlow(true);
+    },
+    [rota?.status]
+  );
 
   // Handler quando conclusão é bem-sucedida
   function handleCompletionSuccess() {
@@ -138,127 +141,133 @@ export default function CheckpointsMotorista() {
     refreshRoute();
   }
 
-  async function pularParada(parada: Parada) {
-    // Função que executa a ação de pular
-    const executePular = async () => {
-      setPulandoParada(parada.id);
-      try {
-        // Atualizar status da parada
-        const { error: updateError } = await supabase
-          .from('paradas')
-          .update({ status: 'pulada' })
-          .eq('id', parada.id);
+  const pularParada = useCallback(
+    async (parada: Parada) => {
+      // Função que executa a ação de pular
+      const executePular = async () => {
+        setPulandoParada(parada.id);
+        try {
+          // Atualizar status da parada
+          const { error: updateError } = await supabase
+            .from('paradas')
+            .update({ status: 'pulada' })
+            .eq('id', parada.id);
 
-        if (updateError) throw updateError;
+          if (updateError) throw updateError;
 
-        // Criar log
-        await supabase.from('logs').insert({
-          usuario_id: userData!.id,
-          rota_id: rota!.id,
-          parada_id: parada.id,
-          evento: 'parada_pulada',
-          detalhes: {
-            endereco: parada.endereco,
-            tipo: parada.tipo,
-            ordem: parada.ordem,
-          },
-        });
+          // Criar log
+          await supabase.from('logs').insert({
+            usuario_id: userData!.id,
+            rota_id: rota!.id,
+            parada_id: parada.id,
+            evento: 'parada_pulada',
+            detalhes: {
+              endereco: parada.endereco,
+              tipo: parada.tipo,
+              ordem: parada.ordem,
+            },
+          });
 
-        Alert.alert('Parada Pulada', 'Parada marcada como pulada');
-        loadRotaEParadas();
-      } catch (error) {
-        console.error('Erro ao pular parada:', error);
-        Alert.alert('Erro', 'Não foi possível pular a parada');
-      } finally {
-        setPulandoParada(null);
+          Alert.alert('Parada Pulada', 'Parada marcada como pulada');
+          loadRotaEParadas();
+        } catch (error) {
+          console.error('Erro ao pular parada:', error);
+          Alert.alert('Erro', 'Não foi possível pular a parada');
+        } finally {
+          setPulandoParada(null);
+        }
+      };
+
+      // Na web, usa window.confirm
+      if (Platform.OS === 'web') {
+        const confirmed = window.confirm(
+          `Deseja pular esta ${parada.tipo}?\n\n${parada.endereco}\n\nEsta parada ficará marcada como "pulada" e poderá ser retomada depois.`
+        );
+        if (confirmed) {
+          executePular();
+        }
+      } else {
+        // No mobile, usa Alert.alert
+        Alert.alert(
+          'Pular Parada',
+          `Deseja pular esta ${parada.tipo}?\n\n${parada.endereco}\n\nEsta parada ficará marcada como "pulada" e poderá ser retomada depois.`,
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+              text: 'Pular',
+              style: 'destructive',
+              onPress: executePular,
+            },
+          ]
+        );
       }
-    };
+    },
+    [userData, rota, loadRotaEParadas]
+  );
 
-    // Na web, usa window.confirm
-    if (Platform.OS === 'web') {
-      const confirmed = window.confirm(
-        `Deseja pular esta ${parada.tipo}?\n\n${parada.endereco}\n\nEsta parada ficará marcada como "pulada" e poderá ser retomada depois.`
-      );
-      if (confirmed) {
-        executePular();
+  const retomarParada = useCallback(
+    async (parada: Parada) => {
+      // Função que executa a ação de retomar
+      const executeRetomar = async () => {
+        setRetomandoParada(parada.id);
+        try {
+          // Atualizar status da parada para pendente
+          const { error: updateError } = await supabase
+            .from('paradas')
+            .update({ status: 'pendente' })
+            .eq('id', parada.id);
+
+          if (updateError) throw updateError;
+
+          // Criar log
+          await supabase.from('logs').insert({
+            usuario_id: userData!.id,
+            rota_id: rota!.id,
+            parada_id: parada.id,
+            evento: 'parada_retomada',
+            detalhes: {
+              endereco: parada.endereco,
+              tipo: parada.tipo,
+              ordem: parada.ordem,
+            },
+          });
+
+          Alert.alert('Parada Retomada', 'Parada voltou para pendente');
+          loadRotaEParadas();
+        } catch (error) {
+          console.error('Erro ao retomar parada:', error);
+          Alert.alert('Erro', 'Não foi possível retomar a parada');
+        } finally {
+          setRetomandoParada(null);
+        }
+      };
+
+      // Na web, usa window.confirm
+      if (Platform.OS === 'web') {
+        const confirmed = window.confirm(
+          `Deseja retomar esta ${parada.tipo}?\n\n${parada.endereco}\n\nA parada voltará para o status "pendente".`
+        );
+        if (confirmed) {
+          executeRetomar();
+        }
+      } else {
+        // No mobile, usa Alert.alert
+        Alert.alert(
+          'Retomar Parada',
+          `Deseja retomar esta ${parada.tipo}?\n\n${parada.endereco}\n\nA parada voltará para o status "pendente".`,
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+              text: 'Retomar',
+              style: 'default',
+              onPress: executeRetomar,
+            },
+          ]
+        );
       }
-    } else {
-      // No mobile, usa Alert.alert
-      Alert.alert(
-        'Pular Parada',
-        `Deseja pular esta ${parada.tipo}?\n\n${parada.endereco}\n\nEsta parada ficará marcada como "pulada" e poderá ser retomada depois.`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Pular',
-            style: 'destructive',
-            onPress: executePular,
-          },
-        ]
-      );
-    }
-  }
-
-  async function retomarParada(parada: Parada) {
-    // Função que executa a ação de retomar
-    const executeRetomar = async () => {
-      setRetomandoParada(parada.id);
-      try {
-        // Atualizar status da parada para pendente
-        const { error: updateError } = await supabase
-          .from('paradas')
-          .update({ status: 'pendente' })
-          .eq('id', parada.id);
-
-        if (updateError) throw updateError;
-
-        // Criar log
-        await supabase.from('logs').insert({
-          usuario_id: userData!.id,
-          rota_id: rota!.id,
-          parada_id: parada.id,
-          evento: 'parada_retomada',
-          detalhes: {
-            endereco: parada.endereco,
-            tipo: parada.tipo,
-            ordem: parada.ordem,
-          },
-        });
-
-        Alert.alert('Parada Retomada', 'Parada voltou para pendente');
-        loadRotaEParadas();
-      } catch (error) {
-        console.error('Erro ao retomar parada:', error);
-        Alert.alert('Erro', 'Não foi possível retomar a parada');
-      } finally {
-        setRetomandoParada(null);
-      }
-    };
-
-    // Na web, usa window.confirm
-    if (Platform.OS === 'web') {
-      const confirmed = window.confirm(
-        `Deseja retomar esta ${parada.tipo}?\n\n${parada.endereco}\n\nA parada voltará para o status "pendente".`
-      );
-      if (confirmed) {
-        executeRetomar();
-      }
-    } else {
-      // No mobile, usa Alert.alert
-      Alert.alert(
-        'Retomar Parada',
-        `Deseja retomar esta ${parada.tipo}?\n\n${parada.endereco}\n\nA parada voltará para o status "pendente".`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Retomar',
-            style: 'default',
-            onPress: executeRetomar,
-          },
-        ]
-      );
-    }
-  }
+    },
+    [userData, rota, loadRotaEParadas]
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

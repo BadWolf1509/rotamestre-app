@@ -19,6 +19,171 @@ const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 /** Timeout para requisições em ms */
 const REQUEST_TIMEOUT = 30000;
 
+/** Field mask para Routes API - otimiza custos (Basic tier: $5 CPM vs $15 CPM) */
+const ROUTES_API_FIELD_MASK = [
+  'routes.duration',
+  'routes.distanceMeters',
+  'routes.polyline.encodedPolyline',
+  'routes.legs.duration',
+  'routes.legs.distanceMeters',
+  'routes.legs.startLocation',
+  'routes.legs.endLocation',
+  'routes.legs.polyline.encodedPolyline',
+  'routes.optimizedIntermediateWaypointIndex',
+].join(',');
+
+// ============================================================================
+// ROUTES API TYPES & ADAPTER
+// ============================================================================
+
+/**
+ * Interface para resposta da Routes API
+ */
+interface RoutesAPIResponse {
+  routes: Array<{
+    duration: string; // "1234s"
+    distanceMeters: number;
+    polyline: {
+      encodedPolyline: string;
+    };
+    legs: Array<{
+      duration: string;
+      distanceMeters: number;
+      startLocation: {
+        latLng: { latitude: number; longitude: number };
+      };
+      endLocation: {
+        latLng: { latitude: number; longitude: number };
+      };
+      polyline?: {
+        encodedPolyline: string;
+      };
+    }>;
+    optimizedIntermediateWaypointIndex?: number[];
+  }>;
+  error?: {
+    code: number;
+    message: string;
+    status: string;
+  };
+}
+
+/**
+ * Converte duração da Routes API ("1234s") para segundos
+ */
+function parseDuration(duration: string): number {
+  if (!duration) return 0;
+  return parseInt(duration.replace('s', ''), 10) || 0;
+}
+
+/**
+ * Adapta resposta da Routes API para o formato interno GoogleDirectionsResult
+ * Mantém compatibilidade com código existente
+ */
+function adaptRoutesAPIResponse(
+  apiResponse: RoutesAPIResponse,
+  storedAddresses?: { start?: string; end?: string; waypoints?: string[] }
+): GoogleDirectionsResult {
+  const route = apiResponse.routes?.[0];
+
+  if (!route) {
+    throw new Error('No routes found in response');
+  }
+
+  const legs: GoogleDirectionsLeg[] = route.legs.map((leg, index) => ({
+    distancia_metros: leg.distanceMeters || 0,
+    duracao_segundos: parseDuration(leg.duration),
+    // Routes API não retorna endereços formatados - usar dados armazenados ou coordenadas
+    endereco_inicio: storedAddresses?.waypoints?.[index] ||
+      `${leg.startLocation.latLng.latitude.toFixed(6)}, ${leg.startLocation.latLng.longitude.toFixed(6)}`,
+    endereco_fim: storedAddresses?.waypoints?.[index + 1] ||
+      `${leg.endLocation.latLng.latitude.toFixed(6)}, ${leg.endLocation.latLng.longitude.toFixed(6)}`,
+    coordenadas_inicio: {
+      latitude: leg.startLocation.latLng.latitude,
+      longitude: leg.startLocation.latLng.longitude,
+    },
+    coordenadas_fim: {
+      latitude: leg.endLocation.latLng.latitude,
+      longitude: leg.endLocation.latLng.longitude,
+    },
+  }));
+
+  return {
+    polyline: route.polyline.encodedPolyline,
+    distancia_total_metros: route.distanceMeters,
+    duracao_total_segundos: parseDuration(route.duration),
+    ordem_otimizada: route.optimizedIntermediateWaypointIndex || [],
+    legs,
+  };
+}
+
+/**
+ * Constrói request body para Routes API
+ */
+function buildRoutesAPIRequest(
+  origin: Coordenadas,
+  destination: Coordenadas,
+  waypoints?: Coordenadas[],
+  optimize: boolean = true
+): object {
+  const request: Record<string, unknown> = {
+    origin: {
+      location: {
+        latLng: {
+          latitude: origin.latitude,
+          longitude: origin.longitude,
+        },
+      },
+    },
+    destination: {
+      location: {
+        latLng: {
+          latitude: destination.latitude,
+          longitude: destination.longitude,
+        },
+      },
+    },
+    travelMode: 'DRIVE',
+    routingPreference: 'TRAFFIC_AWARE',
+    computeAlternativeRoutes: false,
+    languageCode: 'pt-BR',
+    units: 'METRIC',
+  };
+
+  if (waypoints && waypoints.length > 0) {
+    request.intermediates = waypoints.map((wp) => ({
+      location: {
+        latLng: {
+          latitude: wp.latitude,
+          longitude: wp.longitude,
+        },
+      },
+    }));
+
+    // optimizeWaypointOrder habilita reordenação automática
+    request.optimizeWaypointOrder = optimize;
+  }
+
+  return request;
+}
+
+/**
+ * Mapeia erros da Routes API para status compatível com código existente
+ */
+function mapRoutesAPIError(error: RoutesAPIResponse['error']): string {
+  if (!error) return 'UNKNOWN_ERROR';
+
+  const statusMap: Record<string, string> = {
+    'INVALID_ARGUMENT': 'INVALID_REQUEST',
+    'NOT_FOUND': 'NOT_FOUND',
+    'PERMISSION_DENIED': 'REQUEST_DENIED',
+    'RESOURCE_EXHAUSTED': 'OVER_QUERY_LIMIT',
+    'UNAVAILABLE': 'UNKNOWN_ERROR',
+  };
+
+  return statusMap[error.status] || error.status || 'UNKNOWN_ERROR';
+}
+
 // ============================================================================
 // POLYLINE UTILITIES
 // ============================================================================
@@ -309,7 +474,7 @@ export const googleMapsService = {
     }
   },
 
-  // Calcular rota entre pontos
+  // Calcular rota entre pontos usando Google Routes API
   // optimize: true = reordena waypoints para menor distância (padrão)
   // optimize: false = mantém a ordem fornecida dos waypoints
   async getDirections(
@@ -322,7 +487,8 @@ export const googleMapsService = {
       .then(result => result.success ? result.data! : null);
   },
 
-  // Versão com erro detalhado
+  // Versão com erro detalhado - usando Google Routes API
+  // Migrado da Directions API (deprecada em 01/03/2025)
   async getDirectionsWithError(
     origin: Coordenadas,
     destination: Coordenadas,
@@ -330,14 +496,7 @@ export const googleMapsService = {
     optimize: boolean = true
   ): Promise<RouteResult<GoogleDirectionsResult>> {
     try {
-      let waypointsStr = '';
-      if (waypoints && waypoints.length > 0) {
-        waypointsStr = waypoints
-          .map((wp) => `${wp.latitude},${wp.longitude}`)
-          .join('|');
-      }
-
-      let data;
+      let data: RoutesAPIResponse;
 
       // Timeout com AbortController
       const controller = new AbortController();
@@ -345,79 +504,60 @@ export const googleMapsService = {
 
       try {
         if (Platform.OS === 'web') {
-          const waypointsParam = waypointsStr
-            ? (optimize ? `optimize:true|${waypointsStr}` : waypointsStr)
-            : undefined;
-
+          // Web: Usar Edge Function (evita CORS)
           const { data: edgeData, error } = await supabase.functions.invoke('google-directions', {
             body: {
-              origin: `${origin.latitude},${origin.longitude}`,
-              destination: `${destination.latitude},${destination.longitude}`,
-              waypoints: waypointsParam,
-              mode: 'driving',
+              origin: { latitude: origin.latitude, longitude: origin.longitude },
+              destination: { latitude: destination.latitude, longitude: destination.longitude },
+              waypoints: waypoints || [],
+              optimize,
             },
           });
 
           if (error) throw error;
-          data = edgeData;
+          data = edgeData as RoutesAPIResponse;
         } else {
-          let waypointsParam = '';
-          if (waypointsStr) {
-            waypointsParam = optimize
-              ? `&waypoints=optimize:true|${waypointsStr}`
-              : `&waypoints=${waypointsStr}`;
-          }
+          // Mobile: Chamar Routes API diretamente
+          const requestBody = buildRoutesAPIRequest(origin, destination, waypoints, optimize);
 
-          const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}${waypointsParam}&key=${GOOGLE_MAPS_API_KEY}`;
+          const response = await fetch(
+            'https://routes.googleapis.com/directions/v2:computeRoutes',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
+                'X-Goog-FieldMask': ROUTES_API_FIELD_MASK,
+              },
+              body: JSON.stringify(requestBody),
+              signal: controller.signal,
+            }
+          );
 
-          const response = await fetch(url, { signal: controller.signal });
-          data = await response.json();
+          data = await response.json() as RoutesAPIResponse;
         }
       } finally {
         clearTimeout(timeoutId);
       }
 
-      if (data.status === 'OK' && data.routes.length > 0) {
-        const route = data.routes[0];
-        const waypointOrder = data.routes[0].waypoint_order;
-
-        const legs: GoogleDirectionsLeg[] = route.legs.map((leg: any) => ({
-          distancia_metros: leg.distance.value,
-          duracao_segundos: leg.duration.value,
-          endereco_inicio: leg.start_address,
-          endereco_fim: leg.end_address,
-          coordenadas_inicio: {
-            latitude: leg.start_location.lat,
-            longitude: leg.start_location.lng,
-          },
-          coordenadas_fim: {
-            latitude: leg.end_location.lat,
-            longitude: leg.end_location.lng,
-          },
-        }));
-
-        const distancia_total = route.legs.reduce(
-          (acc: number, leg: any) => acc + leg.distance.value,
-          0
-        );
-        const tempo_total = route.legs.reduce(
-          (acc: number, leg: any) => acc + leg.duration.value,
-          0
-        );
-
-        return success({
-          polyline: route.overview_polyline.points,
-          distancia_total_metros: distancia_total,
-          duracao_total_segundos: tempo_total,
-          ordem_otimizada: waypointOrder || [],
-          legs,
-        });
+      // Verificar erros da Routes API
+      if (data.error) {
+        const errorStatus = mapRoutesAPIError(data.error);
+        const error = parseGoogleError(errorStatus, data.error.message);
+        console.warn('[Routes API] ' + formatErrorForLog(error));
+        return failure(error);
       }
 
-      // API retornou erro
-      const error = parseGoogleError(data.status, data.error_message);
-      console.warn('[Google] ' + formatErrorForLog(error));
-      return failure(error);
+      // Verificar se tem rotas
+      if (!data.routes || data.routes.length === 0) {
+        const error = parseGoogleError('ZERO_RESULTS', 'No routes found');
+        console.warn('[Routes API] ' + formatErrorForLog(error));
+        return failure(error);
+      }
+
+      // Adaptar resposta para formato interno
+      const result = adaptRoutesAPIResponse(data);
+      return success(result);
     } catch (err: any) {
       let error: RouteError;
 
@@ -429,7 +569,7 @@ export const googleMapsService = {
         error = parseGoogleError('UNKNOWN_ERROR', err?.message);
       }
 
-      console.error('[Google] ' + formatErrorForLog(error));
+      console.error('[Routes API] ' + formatErrorForLog(error));
       return failure(error);
     }
   },
@@ -437,6 +577,7 @@ export const googleMapsService = {
   // Calcular rota segmento por segmento (garante ordem manual)
   // Útil quando API ignora optimize:false em rotas circulares
   // Faz N chamadas separadas (origem→p1, p1→p2, ..., pN→destino)
+  // Migrado para Routes API
   async getDirectionsSequential(
     origin: Coordenadas,
     destination: Coordenadas,
@@ -446,7 +587,7 @@ export const googleMapsService = {
       .then(result => result.success ? result.data! : null);
   },
 
-  // Versão com erro detalhado para rota sequencial
+  // Versão com erro detalhado para rota sequencial - usando Routes API
   async getDirectionsSequentialWithError(
     origin: Coordenadas,
     destination: Coordenadas,
@@ -464,7 +605,7 @@ export const googleMapsService = {
         const segmentOrigin = allPoints[i];
         const segmentDestination = allPoints[i + 1];
 
-        let data;
+        let data: RoutesAPIResponse;
 
         // Criar AbortController para timeout
         const controller = new AbortController();
@@ -472,54 +613,71 @@ export const googleMapsService = {
 
         try {
           if (Platform.OS === 'web') {
+            // Web: Usar Edge Function
             const { data: edgeData, error } = await supabase.functions.invoke('google-directions', {
               body: {
-                origin: `${segmentOrigin.latitude},${segmentOrigin.longitude}`,
-                destination: `${segmentDestination.latitude},${segmentDestination.longitude}`,
-                mode: 'driving',
+                origin: { latitude: segmentOrigin.latitude, longitude: segmentOrigin.longitude },
+                destination: { latitude: segmentDestination.latitude, longitude: segmentDestination.longitude },
+                waypoints: [],
+                optimize: false,
               },
             });
 
             if (error) throw error;
-            data = edgeData;
+            data = edgeData as RoutesAPIResponse;
           } else {
-            const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${segmentOrigin.latitude},${segmentOrigin.longitude}&destination=${segmentDestination.latitude},${segmentDestination.longitude}&key=${GOOGLE_MAPS_API_KEY}`;
+            // Mobile: Routes API diretamente
+            const requestBody = buildRoutesAPIRequest(segmentOrigin, segmentDestination, [], false);
 
-            const response = await fetch(url, { signal: controller.signal });
-            data = await response.json();
+            const response = await fetch(
+              'https://routes.googleapis.com/directions/v2:computeRoutes',
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
+                  'X-Goog-FieldMask': ROUTES_API_FIELD_MASK,
+                },
+                body: JSON.stringify(requestBody),
+                signal: controller.signal,
+              }
+            );
+
+            data = await response.json() as RoutesAPIResponse;
           }
         } finally {
           clearTimeout(timeoutId);
         }
 
-        if (data.status === 'OK' && data.routes.length > 0) {
+        // Processar resposta do segmento
+        if (data.routes && data.routes.length > 0) {
           const route = data.routes[0];
           const leg = route.legs[0];
 
-          totalDistanceMeters += leg.distance.value;
-          totalDurationSeconds += leg.duration.value;
+          totalDistanceMeters += leg.distanceMeters || 0;
+          totalDurationSeconds += parseDuration(leg.duration);
 
           allLegs.push({
-            distancia_metros: leg.distance.value,
-            duracao_segundos: leg.duration.value,
-            endereco_inicio: leg.start_address,
-            endereco_fim: leg.end_address,
+            distancia_metros: leg.distanceMeters || 0,
+            duracao_segundos: parseDuration(leg.duration),
+            endereco_inicio: `${leg.startLocation.latLng.latitude.toFixed(6)}, ${leg.startLocation.latLng.longitude.toFixed(6)}`,
+            endereco_fim: `${leg.endLocation.latLng.latitude.toFixed(6)}, ${leg.endLocation.latLng.longitude.toFixed(6)}`,
             coordenadas_inicio: {
-              latitude: leg.start_location.lat,
-              longitude: leg.start_location.lng,
+              latitude: leg.startLocation.latLng.latitude,
+              longitude: leg.startLocation.latLng.longitude,
             },
             coordenadas_fim: {
-              latitude: leg.end_location.lat,
-              longitude: leg.end_location.lng,
+              latitude: leg.endLocation.latLng.latitude,
+              longitude: leg.endLocation.latLng.longitude,
             },
           });
 
-          if (route.overview_polyline?.points) {
-            polylineSegments.push(route.overview_polyline.points);
+          if (route.polyline?.encodedPolyline) {
+            polylineSegments.push(route.polyline.encodedPolyline);
           }
         } else {
           // Log warning mas continua
-          console.warn(`[Google] Segmento ${i + 1} falhou: ${data.status}`);
+          console.warn(`[Routes API] Segmento ${i + 1} falhou: ${data.error?.status || 'NO_ROUTES'}`);
         }
       }
 
@@ -544,7 +702,7 @@ export const googleMapsService = {
         error = parseGoogleError('UNKNOWN_ERROR', err?.message);
       }
 
-      console.error('[Google Sequential] ' + formatErrorForLog(error));
+      console.error('[Routes API Sequential] ' + formatErrorForLog(error));
       return failure(error);
     }
   },

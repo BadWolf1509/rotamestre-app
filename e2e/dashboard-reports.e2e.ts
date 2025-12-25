@@ -59,7 +59,7 @@ test.describe('Gestor Dashboard Metrics E2E Tests', () => {
       const bodyText = await page.locator('body').textContent();
 
       // Should show status categories
-      const hasStatusBreakdown =
+      const _hasStatusBreakdown =
         bodyText?.includes('Pendente') ||
         bodyText?.includes('Em Andamento') ||
         bodyText?.includes('Concluída') ||
@@ -142,7 +142,7 @@ test.describe('Reports and Export E2E Tests', () => {
       const bodyText = await page.locator('body').textContent();
 
       // Should show statistics
-      const hasStats =
+      const _hasStats =
         bodyText?.includes('registrada') ||
         bodyText?.includes('encontrada') ||
         bodyText?.includes('total') ||
@@ -159,7 +159,7 @@ test.describe('Reports and Export E2E Tests', () => {
       const bodyText = await page.locator('body').textContent();
 
       // Should show filtered count
-      const hasFilterCount =
+      const _hasFilterCount =
         bodyText?.includes('encontrada') ||
         bodyText?.includes('registrada') ||
         /\d+\s*(rota|resultado)/i.test(bodyText || '');
@@ -188,7 +188,7 @@ test.describe('Reports and Export E2E Tests', () => {
 
       if (await exportButton.isVisible().catch(() => false)) {
         // Setup download listener
-        const downloadPromise = page.waitForEvent('download', { timeout: 5000 }).catch(() => null);
+        const _downloadPromise = page.waitForEvent('download', { timeout: 5000 }).catch(() => null);
 
         await exportButton.click();
         await page.waitForTimeout(2000);
@@ -215,7 +215,7 @@ test.describe('Reports and Export E2E Tests', () => {
         const bodyText = await page.locator('body').textContent();
 
         // Should show detailed view
-        const hasDetailView =
+        const _hasDetailView =
           bodyText?.includes('Parada') ||
           bodyText?.includes('parada') ||
           bodyText?.includes('Motorista') ||
@@ -253,7 +253,7 @@ test.describe('Real-time Tracking E2E Tests', () => {
       const bodyText = await page.locator('body').textContent();
 
       // Should show in-progress routes or empty state
-      const hasLiveContent =
+      const _hasLiveContent =
         bodyText?.includes('Em Andamento') ||
         bodyText?.includes('em andamento') ||
         bodyText?.includes('ativa') ||
@@ -324,7 +324,7 @@ test.describe('Performance Analytics E2E Tests', () => {
       const bodyText = await page.locator('body').textContent();
 
       // Should show performance metrics
-      const hasPerformance =
+      const _hasPerformance =
         bodyText?.includes('Rotas') ||
         bodyText?.includes('Concluídas') ||
         bodyText?.includes('Total') ||
@@ -341,7 +341,7 @@ test.describe('Performance Analytics E2E Tests', () => {
       const bodyText = await page.locator('body').textContent();
 
       // Should show route statistics per driver
-      const hasStats =
+      const _hasStats2 =
         bodyText?.includes('Rotas') ||
         bodyText?.includes('Total') ||
         bodyText?.includes('Concluídas') ||
@@ -359,7 +359,7 @@ test.describe('Performance Analytics E2E Tests', () => {
       const bodyText = await page.locator('body').textContent();
 
       // Should show distance information
-      const hasDistanceMetrics =
+      const _hasDistanceMetrics =
         bodyText?.includes('Distância') ||
         bodyText?.includes('distância') ||
         bodyText?.includes('km') ||
@@ -376,7 +376,7 @@ test.describe('Performance Analytics E2E Tests', () => {
       const bodyText = await page.locator('body').textContent();
 
       // Should show time information
-      const hasTimeMetrics =
+      const _hasTimeMetrics =
         bodyText?.includes('Iniciada') ||
         bodyText?.includes('Concluída') ||
         bodyText?.includes('hora') ||
