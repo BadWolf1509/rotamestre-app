@@ -5,6 +5,8 @@
 
 import { StyleSheet } from 'react-native-unistyles';
 
+import { defaultTheme } from './utils/styles.base';
+
 // ===== BREAKPOINTS =====
 export const breakpoints = {
   xs: 0,
@@ -169,11 +171,13 @@ export const lightTheme = {
       shadowRadius: 8,
       elevation: 5,
     },
+    card: defaultTheme.shadows.card,
   },
   layout: {
     sidebarWidth: 264,
     containerMaxWidth: 1280,
   },
+  desktop: defaultTheme.desktop,
 } as const;
 
 // ===== DARK THEME (Otimizado para uso noturno ao dirigir) =====
@@ -283,8 +287,10 @@ export const darkTheme = {
       shadowRadius: 8,
       elevation: 5,
     },
+    card: defaultTheme.shadows.card,
   },
   layout: lightTheme.layout,
+  desktop: defaultTheme.desktop,
 } as const;
 
 // ===== TYPES =====

@@ -99,6 +99,15 @@ export function NotificationList({ onClose }: NotificationListProps) {
       // Notificação para AMBOS
       case 'rota_nao_executada':
         return 'alert-circle';
+      // Notificações de edição de rota (gestor editou)
+      case 'rota_parada_adicionada':
+        return 'add-circle';
+      case 'rota_parada_removida':
+        return 'remove-circle';
+      case 'rota_parada_editada':
+        return 'create';
+      case 'rota_reordenada':
+        return 'swap-vertical';
       default:
         return 'notifications';
     }
@@ -133,6 +142,15 @@ export function NotificationList({ onClose }: NotificationListProps) {
       // Notificação para AMBOS
       case 'rota_nao_executada':
         return '#f59e0b'; // amber (aviso)
+      // Notificações de edição de rota (gestor editou)
+      case 'rota_parada_adicionada':
+        return '#22c55e'; // green (nova parada)
+      case 'rota_parada_removida':
+        return '#ef4444'; // red (parada removida)
+      case 'rota_parada_editada':
+        return '#3b82f6'; // blue (editada)
+      case 'rota_reordenada':
+        return '#8b5cf6'; // purple (reordenada)
       default:
         return '#64748b'; // gray
     }

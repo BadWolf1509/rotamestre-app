@@ -1,6 +1,7 @@
 {
   "name": "rotamestre-app",
-  "version": "1.5.2",
+  "version": "1.5.3",
+  "androidVersionCode": 3006,
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
@@ -9,9 +10,11 @@
     "version:major": "npm version major -m \"chore(release): v%s\"",
     "version:sync": "node -e \"const pkg=require('./package.json'); const tag=require('child_process').execSync('git describe --tags --abbrev=0').toString().trim().replace('v',''); if(pkg.version!==tag){pkg.version=tag;require('fs').writeFileSync('./package.json',JSON.stringify(pkg,null,2)+'\\n');console.log('Versão atualizada para '+tag)}else{console.log('Versão já está em '+tag)}\"",
     "android": "expo run:android",
+    "bump:android": "node scripts/bump-android-version-code.js",
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx --max-warnings=0",
+    "build:android:release": "npm run bump:android && cd android && gradlew.bat assembleRelease",
     "build:web": "node tools/scripts/copy-assets.js && expo export --platform web && node tools/scripts/copy-public.js && node tools/scripts/inject-meta-tags.js",
     "build:web:clear": "node tools/scripts/copy-assets.js && expo export --platform web --clear && node tools/scripts/copy-public.js && node tools/scripts/inject-meta-tags.js",
     "test": "jest",

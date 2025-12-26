@@ -218,28 +218,27 @@ class GooglePlayPreparer {
   incrementVersionCode() {
     log.header('Incrementando Version Code');
 
-    const configPath = path.join(process.cwd(), 'app.config.js');
-    const configContent = fs.readFileSync(configPath, 'utf8');
-
-    // Encontrar versionCode atual
-    const versionCodeMatch = configContent.match(/versionCode:\s*(\d+)/);
-    if (versionCodeMatch) {
-      const currentVersionCode = parseInt(versionCodeMatch[1]);
-      const newVersionCode = currentVersionCode + 1;
-
-      // Atualizar versionCode
-      const newContent = configContent.replace(
-        /versionCode:\s*\d+/,
-        `versionCode: ${newVersionCode}`
-      );
-
-      fs.writeFileSync(configPath, newContent);
-      log.success(`Version Code atualizado: ${currentVersionCode} → ${newVersionCode}`);
-      this.checks.push(`Version Code: ${newVersionCode}`);
-    } else {
-      this.errors.push('Version Code não encontrado no app.config.js');
-      log.error('Version Code não encontrado');
+    const pkgPath = path.join(process.cwd(), 'package.json');
+    if (!fs.existsSync(pkgPath)) {
+      this.errors.push('package.json nao encontrado');
+      log.error('package.json nao encontrado');
+      return;
     }
+
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    const currentVersionCode = Number(pkg.androidVersionCode);
+    if (!Number.isInteger(currentVersionCode)) {
+      this.errors.push('androidVersionCode nao encontrado no package.json');
+      log.error('androidVersionCode nao encontrado');
+      return;
+    }
+
+    const newVersionCode = currentVersionCode + 1;
+    pkg.androidVersionCode = newVersionCode;
+
+    fs.writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
+    log.success(`Version Code atualizado: ${currentVersionCode} -> ${newVersionCode}`);
+    this.checks.push(`Version Code: ${newVersionCode}`);
   }
 
   // Gerar relatório final

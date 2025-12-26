@@ -211,6 +211,11 @@ describe('NotificationList', () => {
       { tipo: 'incidente_reportado', titulo: 'Incidente Reportado' },
       { tipo: 'rota_atrasada', titulo: 'Rota Atrasada' },
       { tipo: 'parada_pulada', titulo: 'Parada Pulada' },
+      // Notificações de edição de rota
+      { tipo: 'rota_parada_adicionada', titulo: 'Parada Adicionada' },
+      { tipo: 'rota_parada_removida', titulo: 'Parada Removida' },
+      { tipo: 'rota_parada_editada', titulo: 'Parada Editada' },
+      { tipo: 'rota_reordenada', titulo: 'Rota Reordenada' },
     ];
 
     tiposNotificacao.forEach(({ tipo, titulo }) => {

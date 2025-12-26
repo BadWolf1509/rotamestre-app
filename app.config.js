@@ -1,4 +1,9 @@
-const { version } = require('./package.json');
+const { version, androidVersionCode } = require('./package.json');
+
+const resolvedAndroidVersionCode = Number(androidVersionCode);
+if (!Number.isInteger(resolvedAndroidVersionCode)) {
+  throw new Error('androidVersionCode must be an integer in package.json');
+}
 
 module.exports = ({ config }) => {
   return {
@@ -54,7 +59,7 @@ module.exports = ({ config }) => {
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: "br.tec.rotamestre",
-      versionCode: 3005, // Incrementar +1 a cada build (3001, 3002, 3003...)
+      versionCode: resolvedAndroidVersionCode, // From package.json
       permissions: [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",

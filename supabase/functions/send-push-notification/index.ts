@@ -48,11 +48,26 @@ interface ExpoPushTicket {
 
 // Tipos de notificação que devem gerar push
 const PUSH_NOTIFICATION_TYPES = [
+  // Atribuição e lembretes (para motorista)
   'nova_rota_atribuida',
+  'lembrete_rota_pendente',
+  'lembrete_rota_urgente',
+
+  // Execução da rota (para gestor)
+  'rota_iniciada',
+  'rota_concluida',
   'rota_atrasada',
+  'rota_nao_executada',
+
+  // Paradas (para gestor)
+  'parada_pulada',
+  'parada_reaberta',
+
+  // Emergências (alta prioridade)
   'sos_acionado',
   'incidente_reportado',
-  // Edição de rota pelo gestor
+
+  // Edição de rota pelo gestor (para motorista)
   'rota_parada_adicionada',
   'rota_parada_removida',
   'rota_parada_editada',
@@ -61,11 +76,26 @@ const PUSH_NOTIFICATION_TYPES = [
 
 // Configuração de prioridade por tipo
 const NOTIFICATION_PRIORITY: Record<string, 'high' | 'normal'> = {
+  // Atribuição e lembretes
   nova_rota_atribuida: 'high',
+  lembrete_rota_pendente: 'normal',
+  lembrete_rota_urgente: 'high',
+
+  // Execução da rota
+  rota_iniciada: 'normal',
+  rota_concluida: 'normal',
+  rota_atrasada: 'normal',
+  rota_nao_executada: 'high',
+
+  // Paradas
+  parada_pulada: 'normal',
+  parada_reaberta: 'normal',
+
+  // Emergências (sempre alta)
   sos_acionado: 'high',
   incidente_reportado: 'high',
-  rota_atrasada: 'normal',
-  // Edição de rota - prioridade alta para mudanças importantes
+
+  // Edição de rota pelo gestor
   rota_parada_adicionada: 'high',
   rota_parada_removida: 'normal',
   rota_parada_editada: 'high',
