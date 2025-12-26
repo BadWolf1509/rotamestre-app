@@ -66,13 +66,15 @@ jest.mock('@/utils/styles', () => {
   };
 });
 
-// Mock DesktopModal
+// Mock DesktopModal with declarative button API
 jest.mock('@/components/desktop/DesktopModal', () => ({
-  DesktopModal: ({ visible, onClose, title, children }: {
+  DesktopModal: ({ visible, onClose, title, children, primaryButton, secondaryButton }: {
     visible: boolean;
     onClose: () => void;
     title: string;
     children: React.ReactNode;
+    primaryButton?: { text: string; onPress: () => void; loading?: boolean; disabled?: boolean };
+    secondaryButton?: { text: string; onPress: () => void; disabled?: boolean };
   }) => {
     const { View, Text, TouchableOpacity } = require('react-native');
     if (!visible) return null;
@@ -83,6 +85,26 @@ jest.mock('@/components/desktop/DesktopModal', () => ({
           <Text>X</Text>
         </TouchableOpacity>
         {children}
+        <View testID="modal-footer">
+          {secondaryButton && (
+            <TouchableOpacity
+              onPress={secondaryButton.onPress}
+              disabled={secondaryButton.disabled}
+              testID="secondary-button"
+            >
+              <Text>{secondaryButton.text}</Text>
+            </TouchableOpacity>
+          )}
+          {primaryButton && (
+            <TouchableOpacity
+              onPress={primaryButton.onPress}
+              disabled={primaryButton.disabled || primaryButton.loading}
+              testID="primary-button"
+            >
+              <Text>{primaryButton.text}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     );
   },

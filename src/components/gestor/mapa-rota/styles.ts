@@ -2,7 +2,7 @@
  * Estilos compartilhados dos componentes do Mapa da Rota
  */
 
-import { Dimensions } from 'react-native';
+import { Dimensions, Platform } from 'react-native';
 
 import { StyleSheet, type Theme } from '@/utils/styles';
 
@@ -772,37 +772,5 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.primary,
     fontFamily: theme.typography.fontSansSemiBold,
-  },
-
-  // ===== Reorder Modal =====
-  reorderModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.xl,
-  },
-  reorderModalContainer: {
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.borderRadius.xl,
-    width: '100%',
-    maxWidth: 500,
-    maxHeight: '85%',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 16,
-  },
-  reorderModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    padding: theme.spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray100,
-  },
-  reorderCloseButton: {
-    padding: theme.spacing.sm,
   },
 }));

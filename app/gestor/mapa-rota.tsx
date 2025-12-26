@@ -6,10 +6,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
 
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { DesktopCard } from '@/components/desktop/DesktopCard';
+import { DesktopModal } from '@/components/desktop/DesktopModal';
 import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { SplitView } from '@/components/desktop/SplitView';
 import {
@@ -31,7 +32,7 @@ import {
   formatStatusLabel,
   styles,
 } from '@/components/gestor/mapa-rota';
-import type { Parada, Rota, ResumoParadas } from '@/components/gestor/mapa-rota';
+import type { Parada, Rota, ResumoParadas, DraggableStopListControl } from '@/components/gestor/mapa-rota';
 import { MapaAdapter } from '@/components/MapaAdapter';
 import { Toast } from '@/components/Toast';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
@@ -84,11 +85,14 @@ export default function MapaRota() {
   const [showAddStopModal, setShowAddStopModal] = useState(false);
   const [showReorderModal, setShowReorderModal] = useState(false);
   const [isReordering, setIsReordering] = useState(false);
+  const [hasReorderChanges, setHasReorderChanges] = useState(false);
+  const [showReorderConfirmClose, setShowReorderConfirmClose] = useState(false);
   const [selectedParadaId, setSelectedParadaId] = useState<string | null>(null);
 
   // Refs
   const listaParadasRef = useRef<ScrollView | null>(null);
   const paradaPositions = useRef<Record<string, number>>({});
+  const reorderControlRef = useRef<DraggableStopListControl | null>(null);
 
   // Constants
   const pageMeta = getGestorPageMeta('mapaRota');
@@ -813,31 +817,66 @@ export default function MapaRota() {
         />
 
         {/* Reorder Stops Modal */}
-        <Modal
+        <DesktopModal
           visible={showReorderModal}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowReorderModal(false)}
+          onClose={() => {
+            if (hasReorderChanges) {
+              setShowReorderConfirmClose(true);
+            } else {
+              setShowReorderModal(false);
+            }
+          }}
+          title="Reordenar Paradas"
+          maxWidth={500}
+          primaryButton={
+            Platform.OS === 'web'
+              ? {
+                  text: 'Salvar',
+                  onPress: () => reorderControlRef.current?.saveChanges(),
+                  loading: isReordering,
+                  disabled: !hasReorderChanges,
+                }
+              : undefined
+          }
+          secondaryButton={
+            Platform.OS === 'web'
+              ? {
+                  text: 'Cancelar',
+                  onPress: () => {
+                    reorderControlRef.current?.cancelChanges();
+                    setHasReorderChanges(false);
+                  },
+                  disabled: isReordering || !hasReorderChanges,
+                }
+              : undefined
+          }
         >
-          <View style={styles.reorderModalOverlay}>
-            <View style={styles.reorderModalContainer}>
-              <View style={styles.reorderModalHeader}>
-                <TouchableOpacity
-                  style={styles.reorderCloseButton}
-                  onPress={() => setShowReorderModal(false)}
-                >
-                  <Ionicons name="close" size={24} color={theme.colors.gray500} />
-                </TouchableOpacity>
-              </View>
-              <DraggableStopList
-                paradas={paradas}
-                onReorder={handleReorderParadas}
-                rotaStatus={rota?.status || ''}
-                isLoading={isReordering}
-              />
-            </View>
-          </View>
-        </Modal>
+          <DraggableStopList
+            paradas={paradas}
+            onReorder={handleReorderParadas}
+            rotaStatus={rota?.status || ''}
+            isLoading={isReordering}
+            onWebChangesChange={setHasReorderChanges}
+            controlRef={reorderControlRef}
+          />
+        </DesktopModal>
+
+        {/* Confirm close reorder modal */}
+        <ConfirmModal
+          visible={showReorderConfirmClose}
+          title="Descartar Alterações?"
+          message="Você tem alterações não salvas na ordem das paradas. Deseja descartá-las?"
+          type="warning"
+          confirmText="Descartar"
+          cancelText="Voltar"
+          onConfirm={() => {
+            reorderControlRef.current?.cancelChanges();
+            setHasReorderChanges(false);
+            setShowReorderConfirmClose(false);
+            setShowReorderModal(false);
+          }}
+          onCancel={() => setShowReorderConfirmClose(false)}
+        />
 
         <Toast {...toast} onDismiss={hideToast} />
         {logoutModal}

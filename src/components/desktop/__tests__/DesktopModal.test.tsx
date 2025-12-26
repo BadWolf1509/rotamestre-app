@@ -417,4 +417,270 @@ describe('DesktopModal', () => {
       expect(modal.props.visible).toBe(true);
     });
   });
+
+  describe('Footer', () => {
+    it('deve renderizar footer quando fornecido', () => {
+      const { getByText } = render(
+        <DesktopModal
+          visible={true}
+          onClose={jest.fn()}
+          footer={<Text>Footer Content</Text>}
+        >
+          <Text>Body Content</Text>
+        </DesktopModal>
+      );
+
+      expect(getByText('Footer Content')).toBeTruthy();
+      expect(getByText('Body Content')).toBeTruthy();
+    });
+
+    it('não deve renderizar footer quando não fornecido', () => {
+      const { queryByText, getByText } = render(
+        <DesktopModal visible={true} onClose={jest.fn()}>
+          <Text>Body Content</Text>
+        </DesktopModal>
+      );
+
+      expect(getByText('Body Content')).toBeTruthy();
+      expect(queryByText('Footer Content')).toBeNull();
+    });
+
+    it('deve renderizar múltiplos elementos no footer', () => {
+      const { getByText } = render(
+        <DesktopModal
+          visible={true}
+          onClose={jest.fn()}
+          footer={
+            <>
+              <Text>Cancel Button</Text>
+              <Text>Save Button</Text>
+            </>
+          }
+        >
+          <Text>Body</Text>
+        </DesktopModal>
+      );
+
+      expect(getByText('Cancel Button')).toBeTruthy();
+      expect(getByText('Save Button')).toBeTruthy();
+    });
+
+    it('deve renderizar footer no mobile', () => {
+      mockUseResponsive.mockReturnValue({ isDesktop: false });
+
+      const { getByText } = render(
+        <DesktopModal
+          visible={true}
+          onClose={jest.fn()}
+          footer={<Text>Mobile Footer</Text>}
+        >
+          <Text>Mobile Body</Text>
+        </DesktopModal>
+      );
+
+      expect(getByText('Mobile Footer')).toBeTruthy();
+    });
+
+    it('deve renderizar footer no desktop', () => {
+      mockUseResponsive.mockReturnValue({ isDesktop: true });
+
+      const { getByText } = render(
+        <DesktopModal
+          visible={true}
+          onClose={jest.fn()}
+          footer={<Text>Desktop Footer</Text>}
+        >
+          <Text>Desktop Body</Text>
+        </DesktopModal>
+      );
+
+      expect(getByText('Desktop Footer')).toBeTruthy();
+    });
+  });
+
+  describe('Botões Declarativos (API primaryButton/secondaryButton)', () => {
+    it('deve renderizar primaryButton', () => {
+      const onPress = jest.fn();
+      const { getByText } = render(
+        <DesktopModal
+          visible={true}
+          onClose={jest.fn()}
+          primaryButton={{ text: 'Salvar', onPress }}
+        >
+          <Text>Content</Text>
+        </DesktopModal>
+      );
+
+      expect(getByText('Salvar')).toBeTruthy();
+    });
+
+    it('deve renderizar secondaryButton', () => {
+      const onPress = jest.fn();
+      const { getByText } = render(
+        <DesktopModal
+          visible={true}
+          onClose={jest.fn()}
+          secondaryButton={{ text: 'Cancelar', onPress }}
+        >
+          <Text>Content</Text>
+        </DesktopModal>
+      );
+
+      expect(getByText('Cancelar')).toBeTruthy();
+    });
+
+    it('deve renderizar ambos os botões', () => {
+      const { getByText } = render(
+        <DesktopModal
+          visible={true}
+          onClose={jest.fn()}
+          primaryButton={{ text: 'Confirmar', onPress: jest.fn() }}
+          secondaryButton={{ text: 'Voltar', onPress: jest.fn() }}
+        >
+          <Text>Content</Text>
+        </DesktopModal>
+      );
+
+      expect(getByText('Confirmar')).toBeTruthy();
+      expect(getByText('Voltar')).toBeTruthy();
+    });
+
+    it('deve chamar onPress do primaryButton ao pressionar', () => {
+      const onPress = jest.fn();
+      const { getByText } = render(
+        <DesktopModal
+          visible={true}
+          onClose={jest.fn()}
+          primaryButton={{ text: 'Salvar', onPress }}
+        >
+          <Text>Content</Text>
+        </DesktopModal>
+      );
+
+      fireEvent.press(getByText('Salvar'));
+      expect(onPress).toHaveBeenCalledTimes(1);
+    });
+
+    it('deve chamar onPress do secondaryButton ao pressionar', () => {
+      const onPress = jest.fn();
+      const { getByText } = render(
+        <DesktopModal
+          visible={true}
+          onClose={jest.fn()}
+          secondaryButton={{ text: 'Cancelar', onPress }}
+        >
+          <Text>Content</Text>
+        </DesktopModal>
+      );
+
+      fireEvent.press(getByText('Cancelar'));
+      expect(onPress).toHaveBeenCalledTimes(1);
+    });
+
+    it('deve renderizar botão disabled quando disabled=true', () => {
+      const onPress = jest.fn();
+      const { UNSAFE_getAllByType } = render(
+        <DesktopModal
+          visible={true}
+          onClose={jest.fn()}
+          primaryButton={{ text: 'Salvar', onPress, disabled: true }}
+        >
+          <Text>Content</Text>
+        </DesktopModal>
+      );
+
+      const TouchableOpacity = require('react-native').TouchableOpacity;
+      const touchables = UNSAFE_getAllByType(TouchableOpacity);
+      // O último TouchableOpacity é o botão primário
+      const primaryBtn = touchables[touchables.length - 1];
+      expect(primaryBtn.props.disabled).toBe(true);
+    });
+
+    it('deve renderizar botão disabled quando loading=true', () => {
+      const onPress = jest.fn();
+      const { UNSAFE_getAllByType, getByText } = render(
+        <DesktopModal
+          visible={true}
+          onClose={jest.fn()}
+          primaryButton={{ text: 'Salvar', onPress, loading: true }}
+        >
+          <Text>Content</Text>
+        </DesktopModal>
+      );
+
+      // Verifica que o botão existe
+      expect(getByText('Salvar')).toBeTruthy();
+
+      const TouchableOpacity = require('react-native').TouchableOpacity;
+      const touchables = UNSAFE_getAllByType(TouchableOpacity);
+      const primaryBtn = touchables[touchables.length - 1];
+      expect(primaryBtn.props.disabled).toBe(true);
+    });
+
+    it('deve dar precedência aos botões declarativos sobre footer', () => {
+      const { getByText, queryByText } = render(
+        <DesktopModal
+          visible={true}
+          onClose={jest.fn()}
+          primaryButton={{ text: 'Declarativo', onPress: jest.fn() }}
+          footer={<Text>Footer Ignorado</Text>}
+        >
+          <Text>Content</Text>
+        </DesktopModal>
+      );
+
+      expect(getByText('Declarativo')).toBeTruthy();
+      expect(queryByText('Footer Ignorado')).toBeNull();
+    });
+
+    it('deve renderizar footer quando não há botões declarativos', () => {
+      const { getByText } = render(
+        <DesktopModal
+          visible={true}
+          onClose={jest.fn()}
+          footer={<Text>Footer Custom</Text>}
+        >
+          <Text>Content</Text>
+        </DesktopModal>
+      );
+
+      expect(getByText('Footer Custom')).toBeTruthy();
+    });
+
+    it('deve renderizar botões no mobile', () => {
+      mockUseResponsive.mockReturnValue({ isDesktop: false });
+
+      const { getByText } = render(
+        <DesktopModal
+          visible={true}
+          onClose={jest.fn()}
+          primaryButton={{ text: 'Mobile Primary', onPress: jest.fn() }}
+          secondaryButton={{ text: 'Mobile Secondary', onPress: jest.fn() }}
+        >
+          <Text>Content</Text>
+        </DesktopModal>
+      );
+
+      expect(getByText('Mobile Primary')).toBeTruthy();
+      expect(getByText('Mobile Secondary')).toBeTruthy();
+    });
+
+    it('deve renderizar botões no desktop', () => {
+      mockUseResponsive.mockReturnValue({ isDesktop: true });
+
+      const { getByText } = render(
+        <DesktopModal
+          visible={true}
+          onClose={jest.fn()}
+          primaryButton={{ text: 'Desktop Primary', onPress: jest.fn() }}
+          secondaryButton={{ text: 'Desktop Secondary', onPress: jest.fn() }}
+        >
+          <Text>Content</Text>
+        </DesktopModal>
+      );
+
+      expect(getByText('Desktop Primary')).toBeTruthy();
+      expect(getByText('Desktop Secondary')).toBeTruthy();
+    });
+  });
 });

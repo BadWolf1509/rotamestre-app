@@ -12,4 +12,5 @@ export { SplitView } from './SplitView';
 
 // UI Components
 export { DesktopModal } from './DesktopModal';
+export type { ModalButtonConfig } from './DesktopModal';
 export { DesktopCard, DesktopCardGrid } from './DesktopCard';

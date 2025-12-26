@@ -102,6 +102,9 @@ describe('AddressAutocomplete', () => {
 
     const input = getByPlaceholderText('Digite o endereco completo');
 
+    // Focar no input para habilitar busca (necessário após fix de busca inicial)
+    fireEvent(input, 'focus');
+
     // Digitar texto - O Wrapper vai atualizar o estado value
     fireEvent.changeText(input, 'Rua Teste');
 
@@ -212,6 +215,10 @@ describe('AddressAutocomplete', () => {
     const { getByPlaceholderText, getByText } = render(<TestWrapper />);
 
     const input = getByPlaceholderText('Digite o endereco completo');
+
+    // Focar no input para habilitar busca (necessário após fix de busca inicial)
+    fireEvent(input, 'focus');
+
     fireEvent.changeText(input, 'Endereco Inexistente');
 
     await act(async () => {

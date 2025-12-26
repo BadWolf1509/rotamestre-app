@@ -1,12 +1,31 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Modal, View, Text, TouchableOpacity, Pressable, ViewStyle, DimensionValue, Platform } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, Pressable, ViewStyle, DimensionValue, Platform, ActivityIndicator } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import { Toast, type ToastProps } from '../Toast';
+
+/**
+ * Configuração de botão para o footer do modal
+ * API declarativa para botões padronizados com estilos consistentes
+ */
+export interface ModalButtonConfig {
+  /** Texto do botão */
+  text: string;
+  /** Callback ao pressionar */
+  onPress: () => void;
+  /** Estado de loading (exibe spinner e desabilita) */
+  loading?: boolean;
+  /** Estado desabilitado */
+  disabled?: boolean;
+  /** Variante visual (primary = azul preenchido, secondary = outline cinza) */
+  variant?: 'primary' | 'secondary';
+  /** Cor customizada do botão (sobrescreve a cor padrão do primary) */
+  color?: string;
+}
 
 /**
  * DesktopModal - Modal responsivo adaptativo
@@ -22,15 +41,41 @@ import { Toast, type ToastProps } from '../Toast';
  *   - Desktop (≥1024px): Modal centralizado com overlay
  *   - Mobile/Tablet (<1024px): Bottom sheet (slide from bottom)
  *
+ * Estrutura do Modal:
+ *   - Header: título + botão fechar (opcional via prop title)
+ *   - Body: conteúdo scrollável (children)
+ *   - Footer: botões de ação fora do scroll (opcional via prop footer)
+ *
  * Padrão usado por: Stripe, Linear, Vercel
  *
- * @example Formulário de Edição
+ * @example Botões via Props (recomendado)
  * <DesktopModal
  *   visible={showModal}
- *   title="Editar Motorista"
+ *   title="Adicionar Parada"
  *   onClose={() => setShowModal(false)}
+ *   primaryButton={{ text: "Salvar", onPress: onSave, loading: isSaving }}
+ *   secondaryButton={{ text: "Cancelar", onPress: onCancel }}
  * >
  *   <Form />
+ * </DesktopModal>
+ *
+ * @example Footer Customizado (casos especiais)
+ * <DesktopModal
+ *   visible={showModal}
+ *   title="Confirmar"
+ *   onClose={() => setShowModal(false)}
+ *   footer={<CustomFooterContent />}
+ * >
+ *   <Content />
+ * </DesktopModal>
+ *
+ * @example Modal Simples (sem footer)
+ * <DesktopModal
+ *   visible={showModal}
+ *   title="Detalhes"
+ *   onClose={() => setShowModal(false)}
+ * >
+ *   <Content />
  * </DesktopModal>
  */
 
@@ -43,6 +88,18 @@ interface DesktopModalProps {
   title?: string;
   /** Conteúdo do modal */
   children: React.ReactNode;
+  /** Footer do modal (botões de ação) - renderizado fora do scroll */
+  footer?: React.ReactNode;
+  /**
+   * Botão primário (ação principal) - API declarativa recomendada
+   * Estilos padronizados: azul preenchido, tamanho compacto no desktop
+   */
+  primaryButton?: ModalButtonConfig;
+  /**
+   * Botão secundário (cancelar/voltar) - API declarativa recomendada
+   * Estilos padronizados: outline cinza, tamanho compacto no desktop
+   */
+  secondaryButton?: ModalButtonConfig;
   /** Largura máxima no desktop (default: 600) */
   maxWidth?: number;
   /** Largura (alias para maxWidth) */
@@ -62,6 +119,9 @@ export function DesktopModal({
   onClose,
   title,
   children,
+  footer,
+  primaryButton,
+  secondaryButton,
   maxWidth = 600,
   width,
   maxHeight = '80%',
@@ -73,6 +133,11 @@ export function DesktopModal({
   const { theme } = useUnistyles();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const scrollPositionRef = useRef(0);
+
+  // Determina se deve renderizar footer com botões declarativos
+  const hasDeclarativeButtons = primaryButton || secondaryButton;
+  // Footer declarativo tem precedência sobre footer customizado
+  const shouldRenderFooter = hasDeclarativeButtons || footer;
 
   // Web: Control dialog open/close state
   useEffect(() => {
@@ -143,6 +208,157 @@ export function DesktopModal({
 
   // Determine effective maxWidth
   const effectiveMaxWidth = width || maxWidth;
+
+  // ============================================
+  // BUTTON RENDERING (Declarative API)
+  // ============================================
+
+  /**
+   * Renderiza um botão para Web com estilos padronizados
+   * Usa design tokens do theme para garantir consistência
+   */
+  const renderWebButton = (config: ModalButtonConfig, isPrimary: boolean) => {
+    const isDisabled = config.disabled || config.loading;
+    const baseStyles: React.CSSProperties = {
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      borderRadius: theme.borderRadius.sm,
+      fontFamily: theme.typography.fontSansSemiBold,
+      cursor: isDisabled ? 'not-allowed' : 'pointer',
+      transition: 'all 0.15s ease',
+      border: 'none',
+      outline: 'none',
+      // Desktop compact vs Mobile
+      height: isDesktop ? theme.desktop.button.height : 44,
+      paddingLeft: isDesktop ? theme.desktop.button.paddingHorizontal : theme.spacing.lg,
+      paddingRight: isDesktop ? theme.desktop.button.paddingHorizontal : theme.spacing.lg,
+      fontSize: isDesktop ? theme.desktop.button.fontSize : theme.typography.sm,
+      minWidth: isDesktop ? 80 : 100,
+      opacity: isDisabled ? 0.6 : 1,
+    };
+
+    // Usar cor customizada ou cor padrão primary
+    const buttonColor = config.color || theme.colors.primary;
+
+    const primaryStyles: React.CSSProperties = {
+      ...baseStyles,
+      backgroundColor: buttonColor,
+      color: theme.colors.white,
+    };
+
+    const secondaryStyles: React.CSSProperties = {
+      ...baseStyles,
+      backgroundColor: 'transparent',
+      color: theme.colors.gray600,
+      border: `1px solid ${theme.colors.gray300}`,
+    };
+
+    const buttonStyle = isPrimary ? primaryStyles : secondaryStyles;
+
+    return (
+      <button
+        key={isPrimary ? 'primary' : 'secondary'}
+        onClick={isDisabled ? undefined : config.onPress}
+        disabled={isDisabled}
+        style={buttonStyle}
+        onMouseEnter={(e) => {
+          if (isDisabled) return;
+          if (isPrimary) {
+            // Escurecer a cor do botão no hover
+            e.currentTarget.style.filter = 'brightness(0.9)';
+          } else {
+            e.currentTarget.style.backgroundColor = theme.colors.gray100;
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (isDisabled) return;
+          if (isPrimary) {
+            e.currentTarget.style.filter = 'none';
+          } else {
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }
+        }}
+      >
+        {config.loading && (
+          <div
+            style={{
+              width: 14,
+              height: 14,
+              borderRadius: '50%',
+              border: `2px solid ${isPrimary ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'}`,
+              borderTopColor: isPrimary ? theme.colors.white : theme.colors.gray600,
+              animation: 'spin 0.8s linear infinite',
+            }}
+          />
+        )}
+        {config.text}
+      </button>
+    );
+  };
+
+  /**
+   * Renderiza um botão para React Native com estilos padronizados
+   */
+  const renderNativeButton = (config: ModalButtonConfig, isPrimary: boolean) => {
+    const isDisabled = config.disabled || config.loading;
+    // Usar cor customizada ou cor padrão primary
+    const buttonColor = config.color || theme.colors.primary;
+
+    return (
+      <TouchableOpacity
+        key={isPrimary ? 'primary' : 'secondary'}
+        onPress={isDisabled ? undefined : config.onPress}
+        disabled={isDisabled}
+        style={[
+          styles.footerButton,
+          isPrimary ? [styles.primaryButton, { backgroundColor: buttonColor }] : styles.secondaryButton,
+          isDisabled && styles.buttonDisabled,
+        ]}
+        activeOpacity={0.7}
+      >
+        {config.loading && (
+          <ActivityIndicator
+            size="small"
+            color={isPrimary ? theme.colors.white : theme.colors.gray600}
+            style={{ marginRight: 6 }}
+          />
+        )}
+        <Text
+          style={[
+            styles.footerButtonText,
+            isPrimary ? styles.primaryButtonText : styles.secondaryButtonText,
+          ]}
+        >
+          {config.text}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  /**
+   * Renderiza o conteúdo do footer (botões declarativos ou footer customizado)
+   */
+  const renderFooterContent = (forWeb: boolean) => {
+    if (hasDeclarativeButtons) {
+      const buttons = [];
+      if (secondaryButton) {
+        buttons.push(forWeb
+          ? renderWebButton(secondaryButton, false)
+          : renderNativeButton(secondaryButton, false)
+        );
+      }
+      if (primaryButton) {
+        buttons.push(forWeb
+          ? renderWebButton(primaryButton, true)
+          : renderNativeButton(primaryButton, true)
+        );
+      }
+      return buttons;
+    }
+    return footer;
+  };
 
   // ============================================
   // WEB: HTML5 <dialog> with Portal
@@ -248,10 +464,30 @@ export function DesktopModal({
               padding: isDesktop ? theme.desktop.section.padding : theme.spacing.lg,
               flex: 1,
               pointerEvents: 'auto',
+              overflowY: 'auto',
             }}
           >
             {children}
           </div>
+
+          {/* Footer */}
+          {shouldRenderFooter && (
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                gap: isDesktop ? theme.desktop.modal.footerGap : theme.spacing.md,
+                padding: isDesktop ? theme.desktop.modal.footerPadding : theme.spacing.lg,
+                backgroundColor: theme.colors.gray50,
+                borderTop: 'none',
+                flexShrink: 0,
+              }}
+            >
+              {renderFooterContent(true)}
+            </div>
+          )}
         </div>
 
         {/* Toast inside dialog */}
@@ -286,7 +522,7 @@ export function DesktopModal({
             isDesktop && { maxWidth: effectiveMaxWidth, maxHeight: maxHeight as DimensionValue },
             contentStyle,
           ]}
-          onPress={(e) => e.stopPropagation()}
+          onPress={(e) => e?.stopPropagation?.()}
         >
           {/* Header */}
           {title && (
@@ -305,6 +541,11 @@ export function DesktopModal({
 
           {/* Content */}
           <View style={styles.content}>{children}</View>
+
+          {/* Footer */}
+          {shouldRenderFooter && (
+            <View style={styles.footer}>{renderFooterContent(false)}</View>
+          )}
         </Pressable>
 
         {/* Toast renderizado no overlay (fora do container) para aparecer acima de tudo */}
@@ -364,6 +605,10 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
       .modal-scroll::-webkit-scrollbar-thumb:hover {
         background: #94a3b8;
       }
+      /* Spinner animation for loading buttons */
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
     `;
     document.head.appendChild(style);
   }
@@ -419,5 +664,44 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   content: {
     padding: theme.spacing.lg,
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: theme.spacing.md,
+    padding: theme.spacing.lg,
+    backgroundColor: theme.colors.gray50,
+  },
+  // Estilos para botões declarativos (React Native)
+  footerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: theme.borderRadius.sm,
+    minWidth: 100,
+    height: 44,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  primaryButton: {
+    backgroundColor: theme.colors.primary,
+  },
+  secondaryButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: theme.colors.gray300,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  footerButtonText: {
+    fontFamily: theme.typography.fontSansSemiBold,
+    fontSize: theme.typography.sm,
+  },
+  primaryButtonText: {
+    color: theme.colors.white,
+  },
+  secondaryButtonText: {
+    color: theme.colors.gray600,
   },
 }));

@@ -376,7 +376,8 @@
       "Bash(node scripts/update-google-web.js:*)",
       "Bash(npx eslint:*)",
       "Bash(npm version:*)",
-      "Bash(sort:*)"
+      "Bash(sort:*)",
+      "Bash(npx jest:*)"
     ],
     "deny": [],
     "ask": []

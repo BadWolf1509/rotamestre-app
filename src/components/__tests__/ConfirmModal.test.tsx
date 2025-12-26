@@ -1,7 +1,15 @@
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
 import { ConfirmModal } from '../ConfirmModal';
+
+// Mock Ionicons
+jest.mock('@expo/vector-icons', () => ({
+  Ionicons: ({ name, testID }: { name: string; testID?: string }) => {
+    const { Text } = require('react-native');
+    return <Text testID={testID || `icon-${name}`}>{name}</Text>;
+  },
+}));
 
 describe('ConfirmModal Component', () => {
   const mockConfirm = jest.fn();
@@ -62,8 +70,8 @@ describe('ConfirmModal Component', () => {
   });
 
   describe('Tipos de Modal', () => {
-    it('deve renderizar tipo danger (padrão)', () => {
-      const { getByText } = render(
+    it('deve renderizar tipo danger (padrão) com ícone trash-outline', () => {
+      const { getByText, getByTestId } = render(
         <ConfirmModal
           visible={true}
           title="Excluir Item"
@@ -75,11 +83,11 @@ describe('ConfirmModal Component', () => {
       );
 
       expect(getByText('Excluir Item')).toBeTruthy();
-      expect(getByText('🗑️')).toBeTruthy();
+      expect(getByTestId('icon-trash-outline')).toBeTruthy();
     });
 
-    it('deve renderizar tipo warning', () => {
-      const { getByText } = render(
+    it('deve renderizar tipo warning com ícone warning-outline', () => {
+      const { getByText, getByTestId } = render(
         <ConfirmModal
           visible={true}
           title="Atenção"
@@ -91,11 +99,11 @@ describe('ConfirmModal Component', () => {
       );
 
       expect(getByText('Atenção')).toBeTruthy();
-      expect(getByText('⚠️')).toBeTruthy();
+      expect(getByTestId('icon-warning-outline')).toBeTruthy();
     });
 
-    it('deve renderizar tipo info', () => {
-      const { getByText } = render(
+    it('deve renderizar tipo info com ícone information-circle-outline', () => {
+      const { getByText, getByTestId } = render(
         <ConfirmModal
           visible={true}
           title="Informação"
@@ -107,7 +115,23 @@ describe('ConfirmModal Component', () => {
       );
 
       expect(getByText('Informação')).toBeTruthy();
-      expect(getByText('ℹ️')).toBeTruthy();
+      expect(getByTestId('icon-information-circle-outline')).toBeTruthy();
+    });
+
+    it('deve renderizar tipo success com ícone checkmark-circle-outline', () => {
+      const { getByText, getByTestId } = render(
+        <ConfirmModal
+          visible={true}
+          title="Sucesso"
+          message="Operação concluída"
+          type="success"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      expect(getByText('Sucesso')).toBeTruthy();
+      expect(getByTestId('icon-checkmark-circle-outline')).toBeTruthy();
     });
   });
 
@@ -227,9 +251,9 @@ describe('ConfirmModal Component', () => {
     });
   });
 
-  describe('Ícones por Tipo', () => {
-    it('deve mostrar ícone de lixeira para danger', () => {
-      const { getByText } = render(
+  describe('Ícones por Tipo (Ionicons)', () => {
+    it('deve mostrar ícone trash-outline para danger', () => {
+      const { getByTestId } = render(
         <ConfirmModal
           visible={true}
           title="Deletar"
@@ -240,11 +264,11 @@ describe('ConfirmModal Component', () => {
         />
       );
 
-      expect(getByText('🗑️')).toBeTruthy();
+      expect(getByTestId('icon-trash-outline')).toBeTruthy();
     });
 
-    it('deve mostrar ícone de alerta para warning', () => {
-      const { getByText } = render(
+    it('deve mostrar ícone warning-outline para warning', () => {
+      const { getByTestId } = render(
         <ConfirmModal
           visible={true}
           title="Atenção"
@@ -255,11 +279,11 @@ describe('ConfirmModal Component', () => {
         />
       );
 
-      expect(getByText('⚠️')).toBeTruthy();
+      expect(getByTestId('icon-warning-outline')).toBeTruthy();
     });
 
-    it('deve mostrar ícone de info para info', () => {
-      const { getByText } = render(
+    it('deve mostrar ícone information-circle-outline para info', () => {
+      const { getByTestId } = render(
         <ConfirmModal
           visible={true}
           title="Info"
@@ -270,11 +294,11 @@ describe('ConfirmModal Component', () => {
         />
       );
 
-      expect(getByText('ℹ️')).toBeTruthy();
+      expect(getByTestId('icon-information-circle-outline')).toBeTruthy();
     });
 
-    it('deve mostrar ícone de sucesso para success', () => {
-      const { getByText } = render(
+    it('deve mostrar ícone checkmark-circle-outline para success', () => {
+      const { getByTestId } = render(
         <ConfirmModal
           visible={true}
           title="Sucesso"
@@ -285,13 +309,13 @@ describe('ConfirmModal Component', () => {
         />
       );
 
-      expect(getByText('✅')).toBeTruthy();
+      expect(getByTestId('icon-checkmark-circle-outline')).toBeTruthy();
     });
   });
 
   describe('Tipo Success', () => {
     it('deve renderizar tipo success corretamente', () => {
-      const { getByText } = render(
+      const { getByText, getByTestId } = render(
         <ConfirmModal
           visible={true}
           title="Operação Concluída"
@@ -304,7 +328,7 @@ describe('ConfirmModal Component', () => {
       );
 
       expect(getByText('Operação Concluída')).toBeTruthy();
-      expect(getByText('✅')).toBeTruthy();
+      expect(getByTestId('icon-checkmark-circle-outline')).toBeTruthy();
     });
   });
 
@@ -343,7 +367,7 @@ describe('ConfirmModal Component', () => {
       expect(modal.props.transparent).toBe(true);
     });
 
-    it('deve ter animationType fade', () => {
+    it('deve ter animationType slide no mobile (padrão)', () => {
       const { UNSAFE_getByType } = render(
         <ConfirmModal
           visible={true}
@@ -357,7 +381,8 @@ describe('ConfirmModal Component', () => {
       const Modal = require('react-native').Modal;
       const modal = UNSAFE_getByType(Modal);
 
-      expect(modal.props.animationType).toBe('fade');
+      // DesktopModal usa 'slide' no mobile e 'fade' no desktop
+      expect(modal.props.animationType).toBe('slide');
     });
   });
 
@@ -383,7 +408,7 @@ describe('ConfirmModal Component', () => {
 
   describe('Visibilidade', () => {
     it('não deve renderizar conteúdo quando visible=false', () => {
-      const { toJSON } = render(
+      const { queryByText } = render(
         <ConfirmModal
           visible={false}
           title="Teste"
@@ -394,13 +419,14 @@ describe('ConfirmModal Component', () => {
       );
 
       // Modal com visible=false não renderiza nada via portal no web
-      // No mobile, o RN Modal não renderiza conteúdo
+      // No mobile, o RN Modal não renderiza conteúdo visível
+      expect(queryByText('Teste')).toBeNull();
     });
   });
 
   describe('Tipo padrão sem especificar', () => {
-    it('deve usar danger como tipo padrão', () => {
-      const { getByText } = render(
+    it('deve usar danger como tipo padrão (ícone trash-outline)', () => {
+      const { getByTestId } = render(
         <ConfirmModal
           visible={true}
           title="Teste Padrão"
@@ -411,7 +437,7 @@ describe('ConfirmModal Component', () => {
       );
 
       // Tipo danger mostra ícone de lixeira
-      expect(getByText('🗑️')).toBeTruthy();
+      expect(getByTestId('icon-trash-outline')).toBeTruthy();
     });
   });
 
@@ -442,6 +468,190 @@ describe('ConfirmModal Component', () => {
       );
 
       expect(getByText('Cancelar')).toBeTruthy();
+    });
+  });
+
+  describe('Acessibilidade', () => {
+    it('deve ter accessibilityRole header no container do título', () => {
+      const { getByRole } = render(
+        <ConfirmModal
+          visible={true}
+          title="Teste"
+          message="Mensagem"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      expect(getByRole('header')).toBeTruthy();
+    });
+
+    it('deve ter accessibilityLabel no ícone', () => {
+      const { getByLabelText } = render(
+        <ConfirmModal
+          visible={true}
+          title="Teste"
+          message="Mensagem"
+          type="danger"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      expect(getByLabelText('Ação destrutiva')).toBeTruthy();
+    });
+  });
+
+  describe('Confirmação Destrutiva', () => {
+    it('deve renderizar campo de confirmação quando destructiveConfirmText é fornecido', () => {
+      const { getByText, getByPlaceholderText } = render(
+        <ConfirmModal
+          visible={true}
+          title="Excluir Conta"
+          message="Esta ação não pode ser desfeita."
+          type="danger"
+          destructiveConfirmText="EXCLUIR"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      expect(getByText(/Digite/)).toBeTruthy();
+      expect(getByText('EXCLUIR')).toBeTruthy();
+      expect(getByPlaceholderText('EXCLUIR')).toBeTruthy();
+    });
+
+    it('deve desabilitar botão confirmar até digitar texto correto', () => {
+      const { getByText, getByPlaceholderText } = render(
+        <ConfirmModal
+          visible={true}
+          title="Excluir"
+          message="Confirmar exclusão"
+          type="danger"
+          destructiveConfirmText="EXCLUIR"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      const confirmButton = getByText('Confirmar');
+      const input = getByPlaceholderText('EXCLUIR');
+
+      // Botão deve estar desabilitado inicialmente
+      fireEvent.press(confirmButton);
+      expect(mockConfirm).not.toHaveBeenCalled();
+
+      // Digitar texto incorreto
+      fireEvent.changeText(input, 'excl');
+      fireEvent.press(confirmButton);
+      expect(mockConfirm).not.toHaveBeenCalled();
+
+      // Digitar texto correto (case insensitive)
+      fireEvent.changeText(input, 'excluir');
+      fireEvent.press(confirmButton);
+      expect(mockConfirm).toHaveBeenCalledTimes(1);
+    });
+
+    it('deve aceitar confirmação case-insensitive', () => {
+      const { getAllByText, getByPlaceholderText } = render(
+        <ConfirmModal
+          visible={true}
+          title="Deletar"
+          message="Mensagem de confirmação"
+          type="danger"
+          destructiveConfirmText="DELETE"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      const input = getByPlaceholderText('DELETE');
+
+      // Digitar em minúsculas deve funcionar
+      fireEvent.changeText(input, 'delete');
+      // Usar getAllByText e pegar o botão (último "Confirmar" encontrado)
+      const confirmButtons = getAllByText('Confirmar');
+      fireEvent.press(confirmButtons[confirmButtons.length - 1]);
+      expect(mockConfirm).toHaveBeenCalled();
+    });
+
+    it('deve resetar input quando modal fecha', async () => {
+      const { getByPlaceholderText, rerender } = render(
+        <ConfirmModal
+          visible={true}
+          title="Teste"
+          message="Mensagem"
+          destructiveConfirmText="CONFIRMAR"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      const input = getByPlaceholderText('CONFIRMAR');
+      fireEvent.changeText(input, 'CONF');
+
+      // Fechar modal
+      rerender(
+        <ConfirmModal
+          visible={false}
+          title="Teste"
+          message="Mensagem"
+          destructiveConfirmText="CONFIRMAR"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      // Reabrir modal
+      rerender(
+        <ConfirmModal
+          visible={true}
+          title="Teste"
+          message="Mensagem"
+          destructiveConfirmText="CONFIRMAR"
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      // Input deve estar vazio
+      const newInput = getByPlaceholderText('CONFIRMAR');
+      expect(newInput.props.value).toBe('');
+    });
+  });
+
+  describe('Loading State', () => {
+    it('deve desabilitar botões quando loading=true', () => {
+      const { getByText } = render(
+        <ConfirmModal
+          visible={true}
+          title="Teste"
+          message="Mensagem"
+          loading={true}
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      fireEvent.press(getByText('Confirmar'));
+      expect(mockConfirm).not.toHaveBeenCalled();
+    });
+
+    it('deve desabilitar input de confirmação destrutiva quando loading', () => {
+      const { getByPlaceholderText } = render(
+        <ConfirmModal
+          visible={true}
+          title="Teste"
+          message="Mensagem"
+          destructiveConfirmText="EXCLUIR"
+          loading={true}
+          onConfirm={mockConfirm}
+          onCancel={mockCancel}
+        />
+      );
+
+      const input = getByPlaceholderText('EXCLUIR');
+      expect(input.props.editable).toBe(false);
     });
   });
 });

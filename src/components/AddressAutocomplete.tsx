@@ -56,12 +56,16 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Track if last value change was from selection (not typing)
   const wasSelectedRef = useRef(false);
+  // Track if user has interacted with the input (to skip initial search)
+  const hasUserInteracted = useRef(false);
 
   // Limpar suggestions quando value é limpo externamente
   useEffect(() => {
     if (value === '') {
       setSuggestions([]);
       setShowSuggestions(false);
+      // Reset interaction tracking for next use (e.g., modal reopen)
+      hasUserInteracted.current = false;
     }
   }, [value]);
 
@@ -74,6 +78,11 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
     // Skip search if value was set by selection (not typing)
     if (wasSelectedRef.current) {
       wasSelectedRef.current = false;
+      return;
+    }
+
+    // Skip search if user hasn't interacted yet (initial value from props)
+    if (!hasUserInteracted.current) {
       return;
     }
 
@@ -124,6 +133,8 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   }, [onChangeText]);
 
   const handleFocus = useCallback(() => {
+    // Mark that user has interacted - enables search from now on
+    hasUserInteracted.current = true;
     if (suggestions.length > 0) {
       setShowSuggestions(true);
     }

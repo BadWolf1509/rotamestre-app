@@ -119,13 +119,15 @@ jest.mock('@/components/AddressAutocomplete', () => ({
   },
 }));
 
-// Mock DesktopModal
+// Mock DesktopModal with declarative button API
 jest.mock('@/components/desktop/DesktopModal', () => ({
-  DesktopModal: ({ visible, onClose, title, children }: {
+  DesktopModal: ({ visible, onClose, title, children, primaryButton, secondaryButton }: {
     visible: boolean;
     onClose: () => void;
     title: string;
     children: React.ReactNode;
+    primaryButton?: { text: string; onPress: () => void; loading?: boolean; disabled?: boolean };
+    secondaryButton?: { text: string; onPress: () => void; disabled?: boolean };
   }) => {
     const { View, Text, TouchableOpacity } = require('react-native');
     if (!visible) return null;
@@ -136,6 +138,26 @@ jest.mock('@/components/desktop/DesktopModal', () => ({
           <Text>X</Text>
         </TouchableOpacity>
         {children}
+        <View testID="modal-footer">
+          {secondaryButton && (
+            <TouchableOpacity
+              onPress={secondaryButton.onPress}
+              disabled={secondaryButton.disabled}
+              testID="secondary-button"
+            >
+              <Text>{secondaryButton.text}</Text>
+            </TouchableOpacity>
+          )}
+          {primaryButton && (
+            <TouchableOpacity
+              onPress={primaryButton.onPress}
+              disabled={primaryButton.disabled || primaryButton.loading}
+              testID="primary-button"
+            >
+              <Text>{primaryButton.text}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     );
   },
@@ -146,19 +168,6 @@ jest.mock('@/components/desktop/DesktopFormGrid', () => ({
   DesktopFormGrid: ({ children }: { children: React.ReactNode }) => {
     const { View } = require('react-native');
     return <View testID="form-grid">{children}</View>;
-  },
-}));
-
-// Mock CollapsibleSection
-jest.mock('@/components/desktop/CollapsibleSection', () => ({
-  CollapsibleSection: ({ children, title }: { children: React.ReactNode; title: string }) => {
-    const { View, Text } = require('react-native');
-    return (
-      <View testID="collapsible-section">
-        <Text>{title}</Text>
-        {children}
-      </View>
-    );
   },
 }));
 
@@ -232,7 +241,8 @@ describe('EditStopModal', () => {
 
       const addressInput = getByTestId('address-input');
       expect(addressInput.props.value).toBe('Rua Antiga, 100');
-      expect(getByText('Detalhes adicionais')).toBeTruthy();
+      expect(getByText('Destinatário')).toBeTruthy();
+      expect(getByText('Telefone')).toBeTruthy();
     });
   });
 

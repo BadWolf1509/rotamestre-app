@@ -20,6 +20,7 @@ export { ChangeDriverModal } from './ChangeDriverModal';
 export { EditStopModal } from './EditStopModal';
 export { AddStopModal } from './AddStopModal';
 export { DraggableStopList } from './DraggableStopList';
+export type { DraggableStopListControl } from './DraggableStopList';
 
 // Estilos
 export { styles, MAP_HEIGHT } from './styles';

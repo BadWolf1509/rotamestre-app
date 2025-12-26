@@ -21,6 +21,7 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+// Note: Platform is still used for web cursor styles in motoristaItem
 
 import { DesktopModal } from '@/components/desktop/DesktopModal';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -123,6 +124,17 @@ export function ChangeDriverModal({
       onClose={onCancel}
       title="Trocar Motorista"
       maxWidth={450}
+      primaryButton={{
+        text: 'Confirmar',
+        onPress: handleConfirm,
+        loading: isLoading,
+        disabled: !selectedMotoristaId,
+      }}
+      secondaryButton={{
+        text: 'Cancelar',
+        onPress: onCancel,
+        disabled: isLoading,
+      }}
     >
       {/* Body */}
       <View style={[styles.body, isDesktop && styles.bodyCompact]}>
@@ -199,35 +211,6 @@ export function ChangeDriverModal({
             </ScrollView>
           )}
         </View>
-      </View>
-
-      {/* Footer */}
-      <View style={[styles.footer, isDesktop && styles.footerCompact]}>
-        <TouchableOpacity
-          style={[styles.cancelButton, isDesktop && styles.cancelButtonCompact]}
-          onPress={onCancel}
-          activeOpacity={0.8}
-          disabled={isLoading}
-        >
-          <Text style={[styles.cancelButtonText, isDesktop && styles.cancelButtonTextCompact]}>Cancelar</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.confirmButton,
-            isDesktop && styles.confirmButtonCompact,
-            (!selectedMotoristaId || isLoading) && styles.confirmButtonDisabled,
-          ]}
-          onPress={handleConfirm}
-          activeOpacity={0.8}
-          disabled={!selectedMotoristaId || isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator size="small" color={theme.colors.white} />
-          ) : (
-            <Text style={[styles.confirmButtonText, isDesktop && styles.confirmButtonTextCompact]}>Confirmar</Text>
-          )}
-        </TouchableOpacity>
       </View>
     </DesktopModal>
   );
@@ -366,77 +349,5 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.xs,
     fontFamily: theme.typography.fontSans,
     color: theme.colors.gray500,
-  },
-  footer: {
-    flexDirection: 'row',
-    gap: theme.spacing.md,
-    padding: theme.spacing.lg,
-    backgroundColor: theme.colors.gray50,
-    justifyContent: 'flex-end',
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.gray200,
-    marginTop: theme.spacing.sm,
-  },
-  footerCompact: {
-    gap: theme.desktop.modal.footerGap,
-    padding: theme.desktop.modal.footerPadding,
-    marginTop: 0,
-  },
-  cancelButton: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.gray300,
-    minWidth: 100,
-    alignItems: 'center',
-    ...(Platform.OS === 'web' && {
-      cursor: 'pointer',
-      transitionProperty: 'all',
-      transitionDuration: '0.2s',
-    }),
-  },
-  cancelButtonCompact: {
-    paddingHorizontal: theme.desktop.button.paddingHorizontal,
-    paddingVertical: theme.desktop.dialog.buttonPaddingV,
-    minWidth: 80,
-  },
-  cancelButtonText: {
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray700,
-  },
-  cancelButtonTextCompact: {
-    fontSize: theme.desktop.button.fontSize,
-  },
-  confirmButton: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.md,
-    minWidth: 100,
-    alignItems: 'center',
-    ...(Platform.OS === 'web' && {
-      cursor: 'pointer',
-      transitionProperty: 'all',
-      transitionDuration: '0.2s',
-    }),
-  },
-  confirmButtonCompact: {
-    paddingHorizontal: theme.desktop.button.paddingHorizontal,
-    paddingVertical: theme.desktop.dialog.buttonPaddingV,
-    minWidth: 80,
-  },
-  confirmButtonDisabled: {
-    backgroundColor: theme.colors.gray300,
-  },
-  confirmButtonText: {
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.white,
-  },
-  confirmButtonTextCompact: {
-    fontSize: theme.desktop.button.fontSize,
   },
 }));

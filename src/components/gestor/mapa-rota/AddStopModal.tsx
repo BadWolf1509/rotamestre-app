@@ -14,27 +14,24 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   Platform,
-  ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import { DesktopFormGrid } from '@/components/desktop/DesktopFormGrid';
 import { DesktopModal } from '@/components/desktop/DesktopModal';
 import { useResponsive } from '@/hooks/useResponsive';
-import { googleMapsService } from '@/lib/google';
-import { recalcularRota, notificarMotoristaRotaEditada } from '@/lib/routeUtils';
-import { supabase } from '@/lib/supabase';
-import { maskPhone } from '@/utils/phoneValidation';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import type { Parada } from './types';
+import { useAddStopForm } from './useAddStopForm';
 
 interface EnderecoUnidade {
   latitude: number;
@@ -54,9 +51,6 @@ export interface AddStopModalProps {
   motoristaId?: string | null;
 }
 
-// Limite de paradas (Google API)
-const MAX_PARADAS = 23;
-
 export function AddStopModal({
   visible,
   rotaId,
@@ -71,238 +65,61 @@ export function AddStopModal({
   const { theme } = useUnistyles();
   const { isDesktop } = useResponsive();
 
-  // Form state
-  const [endereco, setEndereco] = useState('');
-  const [latitude, setLatitude] = useState<number | null>(null);
-  const [longitude, setLongitude] = useState<number | null>(null);
-  const [destinatario, setDestinatario] = useState('');
-  const [telefone, setTelefone] = useState('');
-  const [observacoes, setObservacoes] = useState('');
-  const [tipo, setTipo] = useState<'entrega' | 'retirada'>('entrega');
+  // Hook centralizado para gerenciamento do formulário
+  const {
+    endereco,
+    destinatario,
+    telefone,
+    observacoes,
+    tipo,
+    posicaoInsercao,
+    setDestinatario,
+    setObservacoes,
+    setTipo,
+    setPosicaoInsercao,
+    handleAddressSelect,
+    handleAddressChange,
+    handlePhoneChange,
+    handleSave,
+    paradasReaisParaSelecao,
+    canAddMoreStops,
+    hasValidCoordinates,
+    isSaving,
+    error,
+    warning,
+    MAX_PARADAS,
+  } = useAddStopForm({
+    visible,
+    rotaId,
+    enderecoUnidade,
+    currentParadasCount,
+    allParadas,
+    onSave,
+    usuarioId,
+    motoristaId,
+  });
 
-  // Position selection state
-  // null = insert at end (default behavior)
-  // number = insert AT this position (before the stop currently at this ordem)
-  const [posicaoInsercao, setPosicaoInsercao] = useState<number | null>(null);
-
-  // UI state
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Track previous visibility to detect modal opening (false -> true transition)
-  const prevVisibleRef = useRef(false);
-
-  // Ref for error container (scroll to error)
+  // Refs for scrolling
+  const scrollViewRef = useRef<ScrollView>(null);
   const errorRef = useRef<View>(null);
+  const errorYPosition = useRef<number>(0);
 
-  // Get only real stops (exclude partida/chegada) for position selection
-  // Memoized to prevent useEffect from triggering on every render
-  const paradasReaisParaSelecao = useMemo(
-    () =>
-      allParadas
-        .filter((p) => p.is_checkpoint !== false && p.status !== 'concluida' && p.status !== 'pulada')
-        .sort((a, b) => a.ordem - b.ordem),
-    [allParadas]
-  );
-
-  // Reset form only when modal OPENS (transition from false to true)
+  // Scroll to error/warning when it appears
   useEffect(() => {
-    const wasVisible = prevVisibleRef.current;
-    prevVisibleRef.current = visible;
-
-    // Only reset when modal opens (false -> true), not on every render
-    if (visible && !wasVisible) {
-      setEndereco('');
-      setLatitude(null);
-      setLongitude(null);
-      setDestinatario('');
-      setTelefone('');
-      setObservacoes('');
-      setTipo('entrega');
-      // Default to null (insert at end of route)
-      setPosicaoInsercao(null);
-      setError(null);
-    }
-  }, [visible, paradasReaisParaSelecao]);
-
-  // Scroll to error when it appears
-  useEffect(() => {
-    if (error && errorRef.current) {
+    if ((error || warning) && errorRef.current) {
       // Web: use scrollIntoView for smooth scroll
       if (Platform.OS === 'web') {
         const element = errorRef.current as unknown as HTMLElement;
         element.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-      }
-      // Native: would require ScrollView ref - modal content is typically short enough
-    }
-  }, [error]);
-
-  // Check if can add more stops
-  const canAddMoreStops = currentParadasCount < MAX_PARADAS;
-
-  // Handle address selection from autocomplete
-  const handleAddressSelect = useCallback(async (address: string, placeId: string) => {
-    setEndereco(address);
-    setError(null);
-
-    // Get coordinates from place details
-    try {
-      const details = await googleMapsService.getPlaceDetails(placeId);
-      if (details?.coordenadas) {
-        setLatitude(details.coordenadas.latitude);
-        setLongitude(details.coordenadas.longitude);
-      }
-    } catch (err) {
-      console.error('Erro ao obter coordenadas:', err);
-    }
-  }, []);
-
-  // Handle address text change
-  const handleAddressChange = useCallback((text: string) => {
-    setEndereco(text);
-    setError(null);
-    // Clear coordinates when manually typing
-    setLatitude(null);
-    setLongitude(null);
-  }, []);
-
-  // Handle phone formatting
-  const handlePhoneChange = useCallback((text: string) => {
-    setTelefone(maskPhone(text));
-  }, []);
-
-  // Validate form
-  const validateForm = useCallback((): boolean => {
-    if (!endereco.trim()) {
-      setError('Endereço é obrigatório');
-      return false;
-    }
-    if (!canAddMoreStops) {
-      setError(`Limite de ${MAX_PARADAS} paradas atingido`);
-      return false;
-    }
-    return true;
-  }, [endereco, canAddMoreStops]);
-
-  // Save new stop using atomic RPC
-  const handleSave = useCallback(async () => {
-    if (!validateForm() || !rotaId) return;
-
-    try {
-      setIsSaving(true);
-      setError(null);
-
-      // Get coordinates if not already set
-      let finalLatitude = latitude;
-      let finalLongitude = longitude;
-
-      if (!finalLatitude || !finalLongitude) {
-        const geocoded = await googleMapsService.geocodeAddress(endereco);
-        if (geocoded?.coordenadas) {
-          finalLatitude = geocoded.coordenadas.latitude;
-          finalLongitude = geocoded.coordenadas.longitude;
-        } else {
-          setError('Não foi possível encontrar as coordenadas do endereço');
-          return;
-        }
-      }
-
-      // Use atomic RPC to insert parada (handles order adjustments in single transaction)
-      const { data: rpcResult, error: rpcError } = await supabase.rpc('inserir_parada', {
-        p_rota_id: rotaId,
-        p_tipo: tipo,
-        p_endereco: endereco,
-        p_latitude: finalLatitude,
-        p_longitude: finalLongitude,
-        p_posicao_insercao: posicaoInsercao,
-        p_destinatario: destinatario || null,
-        p_telefone: telefone || null,
-        p_observacoes: observacoes || null,
-      });
-
-      if (rpcError) {
-        throw rpcError;
-      }
-
-      if (!rpcResult?.success) {
-        throw new Error(rpcResult?.error || 'Erro desconhecido ao inserir parada');
-      }
-
-      const newParadaId = rpcResult.parada_id;
-      const newStopOrdem = rpcResult.ordem;
-
-      // Recalculate route
-      if (enderecoUnidade) {
-        const updatedParadas = [
-          ...allParadas,
-          {
-            id: newParadaId,
-            ordem: newStopOrdem,
-            latitude: finalLatitude,
-            longitude: finalLongitude,
-            is_checkpoint: true,
-          },
-        ];
-
-        const recalcResult = await recalcularRota(rotaId, updatedParadas, enderecoUnidade);
-        if (!recalcResult.success) {
-          console.warn('Recálculo de rota falhou:', recalcResult.error);
-          // Continue anyway - the stop was added
-        }
-      }
-
-      // Log the addition
-      if (usuarioId) {
-        await supabase.from('logs').insert({
-          usuario_id: usuarioId,
-          rota_id: rotaId,
-          evento: 'parada_adicionada',
-          detalhes: {
-            parada_id: newParadaId,
-            endereco,
-            tipo,
-            ordem: newStopOrdem,
-            posicao_insercao: posicaoInsercao === null ? 'final' : `posicao_${posicaoInsercao}`,
-          },
+      } else {
+        // Native: use ScrollView scrollTo with measured position
+        scrollViewRef.current?.scrollTo({
+          y: errorYPosition.current,
+          animated: true,
         });
       }
-
-      // Notify motorista about the new stop (if assigned)
-      if (motoristaId) {
-        await notificarMotoristaRotaEditada({
-          rotaId,
-          motoristaId,
-          tipo: 'rota_parada_adicionada',
-          titulo: '📍 Nova parada adicionada',
-          mensagem: `Uma nova parada foi adicionada à sua rota: ${endereco.substring(0, 50)}${endereco.length > 50 ? '...' : ''}`,
-          paradaId: newParadaId,
-        });
-      }
-
-      onSave();
-    } catch (err) {
-      console.error('Erro ao adicionar parada:', err);
-      setError('Erro ao adicionar parada. Tente novamente.');
-    } finally {
-      setIsSaving(false);
     }
-  }, [
-    validateForm,
-    rotaId,
-    endereco,
-    latitude,
-    longitude,
-    tipo,
-    destinatario,
-    telefone,
-    observacoes,
-    posicaoInsercao,
-    allParadas,
-    enderecoUnidade,
-    usuarioId,
-    motoristaId,
-    onSave,
-  ]);
+  }, [error, warning]);
 
   return (
     <DesktopModal
@@ -310,6 +127,17 @@ export function AddStopModal({
       onClose={onCancel}
       title="Adicionar Parada"
       maxWidth={500}
+      primaryButton={{
+        text: 'Adicionar',
+        onPress: handleSave,
+        loading: isSaving,
+        disabled: !canAddMoreStops,
+      }}
+      secondaryButton={{
+        text: 'Cancelar',
+        onPress: onCancel,
+        disabled: isSaving,
+      }}
     >
       {/* Limit warning */}
       {!canAddMoreStops && (
@@ -322,7 +150,11 @@ export function AddStopModal({
       )}
 
       {/* Body */}
-      <View style={[styles.body, isDesktop && styles.bodyCompact]}>
+      <ScrollView
+        ref={scrollViewRef}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Tipo */}
         <View style={[styles.field, isDesktop && styles.fieldCompact]}>
           <Text style={[styles.label, isDesktop && styles.labelCompact]}>Tipo</Text>
@@ -382,7 +214,7 @@ export function AddStopModal({
         <View style={[styles.field, isDesktop && styles.fieldCompact]}>
           <View style={styles.labelRow}>
             <Text style={[styles.labelInRow, isDesktop && styles.labelInRowCompact]}>Endereço *</Text>
-            {latitude && longitude && (
+            {hasValidCoordinates && (
               <View style={styles.validatedBadge}>
                 <Ionicons name="checkmark-circle" size={isDesktop ? 14 : 16} color={theme.colors.success} />
                 <Text style={[styles.validatedText, isDesktop && styles.validatedTextCompact]}>Validado</Text>
@@ -518,42 +350,34 @@ export function AddStopModal({
 
         {/* Error message */}
         {error && (
-          <View ref={errorRef} style={styles.errorContainer}>
+          <View
+            ref={errorRef}
+            style={styles.errorContainer}
+            onLayout={(event) => {
+              errorYPosition.current = event.nativeEvent.layout.y;
+            }}
+          >
             <Ionicons name="alert-circle" size={16} color={theme.colors.error} />
             <Text style={styles.errorText}>{error}</Text>
           </View>
         )}
-      </View>
 
-      {/* Footer */}
-      <View style={[styles.footer, isDesktop && styles.footerCompact]}>
-        <TouchableOpacity
-          style={[styles.cancelButton, isDesktop && styles.cancelButtonCompact]}
-          onPress={onCancel}
-          disabled={isSaving}
-        >
-          <Text style={[styles.cancelButtonText, isDesktop && styles.cancelButtonTextCompact]}>Cancelar</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.saveButton,
-            isDesktop && styles.saveButtonCompact,
-            (isSaving || !canAddMoreStops) && styles.saveButtonDisabled,
-          ]}
-          onPress={handleSave}
-          disabled={isSaving || !canAddMoreStops}
-        >
-          {isSaving ? (
-            <ActivityIndicator size="small" color={theme.colors.white} />
-          ) : (
-            <>
-              <Ionicons name="add" size={isDesktop ? 16 : 18} color={theme.colors.white} />
-              <Text style={[styles.saveButtonText, isDesktop && styles.saveButtonTextCompact]}>Adicionar</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
+        {/* Warning message (e.g., route recalculation failed) */}
+        {warning && (
+          <View
+            ref={!error ? errorRef : undefined}
+            style={styles.warningContainer}
+            onLayout={(event) => {
+              if (!error) {
+                errorYPosition.current = event.nativeEvent.layout.y;
+              }
+            }}
+          >
+            <Ionicons name="warning" size={16} color={theme.colors.warning} />
+            <Text style={styles.warningMessageText}>{warning}</Text>
+          </View>
+        )}
+      </ScrollView>
     </DesktopModal>
   );
 }
@@ -574,12 +398,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.sm,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.warning,
-  },
-  body: {
-    // No maxHeight - let content expand naturally
-  },
-  bodyCompact: {
-    // No maxHeight - let content expand naturally
   },
   field: {
     marginBottom: theme.spacing.lg,
@@ -654,6 +472,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     height: 'auto',
     paddingTop: theme.spacing.xs,
     paddingBottom: theme.spacing.xs,
+    fontSize: theme.desktop.input.fontSize,
   },
   tipoContainer: {
     flexDirection: 'row',
@@ -716,92 +535,22 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.sm,
     fontFamily: theme.typography.fontSans,
     color: theme.colors.error,
+    flex: 1,
   },
-  footer: {
-    flexDirection: 'row',
-    gap: theme.spacing.md,
-    paddingTop: theme.spacing.lg,
-    paddingHorizontal: 0,
-    backgroundColor: theme.colors.gray50,
-    justifyContent: 'flex-end',
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.gray200,
-    marginHorizontal: -theme.spacing.lg,
-    marginBottom: -theme.spacing.lg,
-    paddingBottom: theme.spacing.lg,
-    paddingLeft: theme.spacing.lg,
-    paddingRight: theme.spacing.lg,
-  },
-  footerCompact: {
-    gap: theme.desktop.section.gap,
-    paddingTop: theme.desktop.section.padding,
-    paddingBottom: theme.desktop.section.padding,
-    paddingLeft: theme.desktop.section.padding,
-    paddingRight: theme.desktop.section.padding,
-    // Margins devem corresponder ao padding do DesktopModal (12px, não 16px)
-    marginHorizontal: -theme.desktop.section.padding,
-    marginBottom: -theme.desktop.section.padding,
-  },
-  cancelButton: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.gray300,
-    minWidth: 100,
-    alignItems: 'center',
-    ...(Platform.OS === 'web' && {
-      cursor: 'pointer',
-      transitionProperty: 'all',
-      transitionDuration: '0.2s',
-    }),
-  },
-  cancelButtonCompact: {
-    paddingHorizontal: theme.desktop.button.paddingHorizontal,
-    paddingVertical: 6,
-    minWidth: 80,
-  },
-  cancelButtonText: {
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray700,
-  },
-  cancelButtonTextCompact: {
-    fontSize: theme.desktop.button.fontSize,
-  },
-  saveButton: {
+  warningContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.warningBg,
+    padding: theme.spacing.sm,
     borderRadius: theme.borderRadius.md,
-    minWidth: 100,
-    ...(Platform.OS === 'web' && {
-      cursor: 'pointer',
-      transitionProperty: 'all',
-      transitionDuration: '0.2s',
-    }),
+    marginTop: theme.spacing.sm,
   },
-  saveButtonCompact: {
-    paddingHorizontal: theme.desktop.button.paddingHorizontal,
-    paddingVertical: 6,
-    minWidth: 80,
-    gap: 4,
-  },
-  saveButtonDisabled: {
-    backgroundColor: theme.colors.gray300,
-  },
-  saveButtonText: {
+  warningMessageText: {
     fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.white,
-  },
-  saveButtonTextCompact: {
-    fontSize: theme.desktop.button.fontSize,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.warning,
+    flex: 1,
   },
   // Position selector styles
   positionOption: {

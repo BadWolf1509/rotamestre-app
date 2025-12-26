@@ -1,13 +1,18 @@
 /**
  * Tests for DraggableStopList.tsx
  * Lista de paradas com reordenação (drag-and-drop no mobile, botões na web)
+ *
+ * Nota: O componente agora é usado dentro de um DesktopModal que gerencia
+ * header (título) e footer (botões de ação). O DraggableStopList expõe
+ * controles via ref e callbacks.
  */
 
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import React from 'react';
 import { Platform } from 'react-native';
 
 import { DraggableStopList } from '../DraggableStopList';
+import type { DraggableStopListControl } from '../DraggableStopList';
 import type { Parada } from '../types';
 
 // Mock dependencies
@@ -33,10 +38,26 @@ jest.mock('@/utils/styles', () => {
       primaryBg: '#f0f4ff',
       infoBg: '#eff6ff',
       warningBg: '#fffbeb',
+      successBg: '#d1fae5',
     },
     spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 },
-    typography: { fontSize: { xs: 12, sm: 14, lg: 18 } },
-    borderRadius: { md: 10, lg: 16, full: 9999 },
+    typography: {
+      xs: 12,
+      sm: 14,
+      base: 16,
+      lg: 18,
+      fontSize: { xs: 12, sm: 14, lg: 18 },
+      fontSans: 'NunitoSans-Regular',
+      fontSansMedium: 'NunitoSans-Medium',
+      fontSansSemiBold: 'NunitoSans-SemiBold',
+      fontSansBold: 'NunitoSans-Bold',
+    },
+    borderRadius: { sm: 6, md: 10, lg: 16, full: 9999 },
+    desktop: {
+      input: { fontSize: 14, height: 36, paddingHorizontal: 12 },
+      section: { gap: 12 },
+      field: { marginBottom: 12 },
+    },
   };
 
   return {
@@ -168,25 +189,11 @@ describe('DraggableStopList', () => {
   });
 
   describe('Renderização', () => {
-    it('deve renderizar header com título', () => {
-      const { getByText } = render(<DraggableStopList {...defaultProps} />);
-
-      expect(getByText('Reordenar Paradas')).toBeTruthy();
-    });
-
-    it('deve renderizar subtítulo para web', () => {
+    it('deve renderizar instruções para web', () => {
       Platform.OS = 'web';
       const { getByText } = render(<DraggableStopList {...defaultProps} />);
 
       expect(getByText('Use as setas para alterar a ordem')).toBeTruthy();
-    });
-
-    it('deve renderizar dica informativa', () => {
-      const { getByText } = render(<DraggableStopList {...defaultProps} />);
-
-      expect(
-        getByText('A rota será recalculada automaticamente após a reordenação.')
-      ).toBeTruthy();
     });
 
     it('deve renderizar paradas pendentes', () => {
@@ -251,7 +258,8 @@ describe('DraggableStopList', () => {
         <DraggableStopList {...defaultProps} rotaStatus="pendente" />
       );
 
-      expect(getByText('Reordenar Paradas')).toBeTruthy();
+      // Verifica que as instruções de reordenação estão visíveis
+      expect(getByText('Use as setas para alterar a ordem')).toBeTruthy();
     });
 
     it('deve permitir reordenação em rotas em andamento', () => {
@@ -259,7 +267,8 @@ describe('DraggableStopList', () => {
         <DraggableStopList {...defaultProps} rotaStatus="em_andamento" />
       );
 
-      expect(getByText('Reordenar Paradas')).toBeTruthy();
+      // Verifica que as instruções de reordenação estão visíveis
+      expect(getByText('Use as setas para alterar a ordem')).toBeTruthy();
     });
 
     it('deve bloquear reordenação em rotas concluídas', () => {
@@ -316,31 +325,40 @@ describe('DraggableStopList', () => {
   });
 
   describe('Interações Web - Botões de mover', () => {
-    it('deve mover parada para cima ao clicar na seta', async () => {
+    it('deve mover parada para cima ao clicar na seta e notificar callback', async () => {
       Platform.OS = 'web';
       const onReorder = jest.fn().mockResolvedValue(undefined);
-      const { getAllByTestId, getByText } = render(
-        <DraggableStopList {...defaultProps} onReorder={onReorder} />
+      const onWebChangesChange = jest.fn();
+      const { getAllByTestId } = render(
+        <DraggableStopList
+          {...defaultProps}
+          onReorder={onReorder}
+          onWebChangesChange={onWebChangesChange}
+        />
       );
 
       // Encontrar os botões de mover (chevron-up)
       const upButtons = getAllByTestId('icon-chevron-up');
 
       // Clicar no segundo botão (mover segunda parada para cima)
-      // O primeiro botão está desabilitado
       fireEvent.press(upButtons[1]);
 
-      // Deve aparecer botão de salvar
+      // Callback deve ser chamado indicando que há mudanças
       await waitFor(() => {
-        expect(getByText('Salvar Nova Ordem')).toBeTruthy();
+        expect(onWebChangesChange).toHaveBeenCalledWith(true);
       });
     });
 
-    it('deve mover parada para baixo ao clicar na seta', async () => {
+    it('deve mover parada para baixo ao clicar na seta e notificar callback', async () => {
       Platform.OS = 'web';
       const onReorder = jest.fn().mockResolvedValue(undefined);
-      const { getAllByTestId, getByText } = render(
-        <DraggableStopList {...defaultProps} onReorder={onReorder} />
+      const onWebChangesChange = jest.fn();
+      const { getAllByTestId } = render(
+        <DraggableStopList
+          {...defaultProps}
+          onReorder={onReorder}
+          onWebChangesChange={onWebChangesChange}
+        />
       );
 
       // Encontrar os botões de mover (chevron-down)
@@ -349,49 +367,86 @@ describe('DraggableStopList', () => {
       // Clicar no primeiro botão
       fireEvent.press(downButtons[0]);
 
-      // Deve aparecer botão de salvar
+      // Callback deve ser chamado indicando que há mudanças
       await waitFor(() => {
-        expect(getByText('Salvar Nova Ordem')).toBeTruthy();
+        expect(onWebChangesChange).toHaveBeenCalledWith(true);
       });
     });
 
-    it('deve salvar alterações ao clicar em Salvar', async () => {
+    it('deve salvar alterações via controlRef', async () => {
       Platform.OS = 'web';
       const onReorder = jest.fn().mockResolvedValue(undefined);
-      const { getAllByTestId, getByText } = render(
-        <DraggableStopList {...defaultProps} onReorder={onReorder} />
+      const controlRef = { current: null as DraggableStopListControl | null };
+      const { getAllByTestId } = render(
+        <DraggableStopList
+          {...defaultProps}
+          onReorder={onReorder}
+          controlRef={controlRef}
+        />
       );
 
       // Mover uma parada
       const downButtons = getAllByTestId('icon-chevron-down');
       fireEvent.press(downButtons[0]);
 
-      // Clicar em Salvar
-      await waitFor(() => {
-        fireEvent.press(getByText('Salvar Nova Ordem'));
+      // Salvar via ref
+      await act(async () => {
+        await controlRef.current?.saveChanges();
       });
 
       expect(onReorder).toHaveBeenCalled();
     });
 
-    it('deve cancelar alterações ao clicar em Cancelar', async () => {
+    it('deve cancelar alterações via controlRef', async () => {
       Platform.OS = 'web';
       const onReorder = jest.fn();
-      const { getAllByTestId, getByText, queryByText } = render(
-        <DraggableStopList {...defaultProps} onReorder={onReorder} />
+      const onWebChangesChange = jest.fn();
+      const controlRef = { current: null as DraggableStopListControl | null };
+      const { getAllByTestId } = render(
+        <DraggableStopList
+          {...defaultProps}
+          onReorder={onReorder}
+          onWebChangesChange={onWebChangesChange}
+          controlRef={controlRef}
+        />
       );
 
       // Mover uma parada
       const downButtons = getAllByTestId('icon-chevron-down');
       fireEvent.press(downButtons[0]);
 
-      // Clicar em Cancelar
-      await waitFor(() => {
-        fireEvent.press(getByText('Cancelar'));
+      // Cancelar via ref
+      act(() => {
+        controlRef.current?.cancelChanges();
       });
 
-      // Botões de ação devem sumir
-      expect(queryByText('Salvar Nova Ordem')).toBeNull();
+      // Callback deve ser chamado indicando que não há mais mudanças
+      await waitFor(() => {
+        expect(onWebChangesChange).toHaveBeenLastCalledWith(false);
+      });
+    });
+
+    it('deve expor hasChanges via controlRef', async () => {
+      Platform.OS = 'web';
+      const controlRef = { current: null as DraggableStopListControl | null };
+      const { getAllByTestId } = render(
+        <DraggableStopList
+          {...defaultProps}
+          controlRef={controlRef}
+        />
+      );
+
+      // Inicialmente não deve haver mudanças
+      expect(controlRef.current?.hasChanges).toBe(false);
+
+      // Mover uma parada
+      const downButtons = getAllByTestId('icon-chevron-down');
+      fireEvent.press(downButtons[0]);
+
+      // Agora deve haver mudanças
+      await waitFor(() => {
+        expect(controlRef.current?.hasChanges).toBe(true);
+      });
     });
   });
 
@@ -421,17 +476,11 @@ describe('DraggableStopList', () => {
   });
 
   describe('Ícones', () => {
-    it('deve renderizar ícone de swap no header', () => {
+    it('deve renderizar ícone de swap nas instruções', () => {
       const { getAllByTestId } = render(<DraggableStopList {...defaultProps} />);
 
-      // Pode haver múltiplos ícones swap-vertical
+      // Há múltiplos ícones swap-vertical (instruções e seção de paradas pendentes)
       expect(getAllByTestId('icon-swap-vertical').length).toBeGreaterThan(0);
-    });
-
-    it('deve renderizar ícone de informação na dica', () => {
-      const { getByTestId } = render(<DraggableStopList {...defaultProps} />);
-
-      expect(getByTestId('icon-information-circle-outline')).toBeTruthy();
     });
 
     it('deve renderizar ícone de cadeado para rotas não reordenáveis', () => {
