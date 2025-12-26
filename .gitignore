@@ -82,3 +82,6 @@ assets/branding/
 *.aab
 *.ipa
 rotamestre-corrigido.apk
+
+# Android build exports
+android-export/
