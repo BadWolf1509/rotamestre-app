@@ -57,10 +57,20 @@ case "${1:-all}" in
         deploy_function "criar-motorista" ""
         ;;
 
+    google-places-autocomplete)
+        deploy_function "google-places-autocomplete" "--no-verify-jwt"
+        ;;
+
+    google-place-details)
+        deploy_function "google-place-details" "--no-verify-jwt"
+        ;;
+
     all)
         echo -e "${BLUE}📦 Deploying todas as funções...${NC}\n"
         deploy_function "google-directions" "--no-verify-jwt"
         deploy_function "google-distance-matrix" "--no-verify-jwt"
+        deploy_function "google-places-autocomplete" "--no-verify-jwt"
+        deploy_function "google-place-details" "--no-verify-jwt"
         deploy_function "criar-motorista" ""
 
         echo -e "\n${GREEN}✅ Todas as funções foram deployed com sucesso!${NC}"
@@ -74,6 +84,8 @@ case "${1:-all}" in
         echo "Funções disponíveis:"
         echo "  - google-directions"
         echo "  - google-distance-matrix"
+        echo "  - google-places-autocomplete"
+        echo "  - google-place-details"
         echo "  - criar-motorista"
         echo "  - all (default)"
         exit 1

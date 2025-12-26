@@ -10,6 +10,7 @@ import {
   failure,
   formatErrorForLog,
 } from './routeErrors';
+import { supabase } from './supabase';
 import { Coordenadas, EnderecoGeocodificado } from '../types/endereco';
 import { GoogleDirectionsLeg, GoogleDirectionsResult } from '../types/google-directions';
 
@@ -206,82 +207,45 @@ async function waitForGoogleMapsAPI(): Promise<void> {
 }
 
 export const googleMapsService = {
-  // Autocomplete usando NOVA API Place (google.maps.places.AutocompleteSuggestion)
-  async autocompleteAddress(input: string): Promise<PlaceSuggestion[]> {
+  // Autocomplete usando Edge Function (não depende da JS API estar carregada)
+  // Usa Supabase Edge Function para evitar CORS e funcionar sem MapaWeb renderizado
+  async autocompleteAddress(input: string, sessionToken?: string): Promise<PlaceSuggestion[]> {
     if (input.length < 3) {
       return [];
     }
 
     try {
-      await waitForGoogleMapsAPI();
-
-      // Importar a nova API Place (importLibrary carrega dinamicamente se necessário)
-      const { AutocompleteSuggestion } = await google.maps.importLibrary('places') as any;
-
-      // Chamar a nova API fetchAutocompleteSuggestions
-      const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
-        input,
-        includedRegionCodes: ['br'], // Substituiu componentRestrictions
-        language: 'pt-BR',
+      // Chamar Edge Function do Supabase (não precisa da JS API)
+      const { data, error } = await supabase.functions.invoke('google-places-autocomplete', {
+        body: { input, sessionToken },
       });
 
-      // Transformar para o formato esperado
-      const mappedSuggestions: PlaceSuggestion[] = suggestions.map((suggestion: any) => {
-        const prediction = suggestion.placePrediction;
-        return {
-          place_id: prediction.placeId,
-          // Compor description a partir de mainText e secondaryText (API nova não tem description)
-          description: `${prediction.mainText.text}, ${prediction.secondaryText?.text || ''}`.trim(),
-          structured_formatting: {
-            main_text: prediction.mainText.text,
-            secondary_text: prediction.secondaryText?.text || '',
-          },
-        };
-      });
+      if (error) {
+        console.error('Erro no autocomplete (Edge Function):', error);
+        return [];
+      }
 
-      return mappedSuggestions;
+      return data?.predictions || [];
     } catch (error) {
       console.error('Erro no autocomplete:', error);
       return [];
     }
   },
 
-  // Obter detalhes usando NOVA API Place (google.maps.places.Place.fetchFields)
-  async getPlaceDetails(placeId: string): Promise<EnderecoGeocodificado | null> {
+  // Obter detalhes usando Edge Function (não depende da JS API estar carregada)
+  async getPlaceDetails(placeId: string, sessionToken?: string): Promise<EnderecoGeocodificado | null> {
     try {
-      await waitForGoogleMapsAPI();
-
-      // Importar a nova API Place
-      const { Place } = await google.maps.importLibrary('places') as any;
-
-      // Criar instância do Place
-      const place = new Place({ id: placeId });
-
-      // Fetch fields usando a nova API (retorna Promise, não callback!)
-      await place.fetchFields({
-        fields: ['addressComponents', 'formattedAddress', 'location'],
+      // Chamar Edge Function do Supabase
+      const { data, error } = await supabase.functions.invoke('google-place-details', {
+        body: { placeId, sessionToken },
       });
 
-      // Processar address components
-      const addressComponents = place.addressComponents || [];
-      const getComponent = (type: string) => {
-        const component = addressComponents.find((c: any) => c.types.includes(type));
-        return component?.longText || '';
-      };
+      if (error) {
+        console.error('Erro ao obter detalhes do place (Edge Function):', error);
+        return null;
+      }
 
-      return {
-        logradouro: getComponent('route'),
-        numero: getComponent('street_number'),
-        bairro: getComponent('sublocality') || getComponent('neighborhood'),
-        cidade: getComponent('locality') || getComponent('administrative_area_level_2'),
-        estado: getComponent('administrative_area_level_1'),
-        cep: getComponent('postal_code'),
-        coordenadas: {
-          latitude: place.location.lat(),
-          longitude: place.location.lng(),
-        },
-        formatted_address: place.formattedAddress || '',
-      };
+      return data || null;
     } catch (error) {
       console.error('Erro ao obter detalhes do place:', error);
       return null;
