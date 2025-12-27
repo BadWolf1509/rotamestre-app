@@ -82,6 +82,16 @@ export const defaultTheme: Theme = {
     kpiConcluidas: '#34699f',   // Azul Claro
     kpiDistancia: '#ffbf14',    // Laranja Claro
     kpiIncidentes: '#1b2c63',   // Azul Escuro
+    // Incident Categories (semantic colors)
+    incident: {
+      accident: '#ef4444',     // vermelho - acidentes/incidentes graves
+      absent: '#f59e0b',       // amarelo/laranja - cliente ausente
+      wrongAddress: '#3b82f6', // azul - endereço incorreto
+      blocked: '#8b5cf6',      // roxo - acesso bloqueado
+      vehicle: '#ec4899',      // rosa - problema no veículo
+      weather: '#06b6d4',      // ciano - condições climáticas
+      other: '#6b7280',        // cinza - outros problemas
+    },
   },
   spacing: {
     xs: 4,

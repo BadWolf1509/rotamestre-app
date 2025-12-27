@@ -70,7 +70,9 @@ function RotaCard({ rota }: { rota: RotaRecente }) {
   };
 
   const statusConfig = STATUS_CONFIG[rota.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pendente;
-  const iconColor = theme.colors[statusConfig.iconColor as keyof typeof theme.colors] || theme.colors.gray500;
+  // Excluir 'incident' do tipo pois é um objeto, não uma string de cor
+  type SimpleColorKey = Exclude<keyof typeof theme.colors, 'incident'>;
+  const iconColor = theme.colors[statusConfig.iconColor as SimpleColorKey] || theme.colors.gray500;
 
   return (
     <TouchableOpacity

@@ -2,8 +2,6 @@
  * Estilos compartilhados dos componentes do Mapa da Rota
  */
 
-import { Dimensions, Platform } from 'react-native';
-
 import { StyleSheet, type Theme } from '@/utils/styles';
 
 export const MAP_HEIGHT = 600;
@@ -378,53 +376,6 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: 14,
     color: theme.colors.gray900,
     fontWeight: '600',
-  },
-
-  // ===== PhotoModal =====
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalCloseArea: {
-    flex: 1,
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.xl,
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: Dimensions.get('window').width - 40,
-    maxHeight: Dimensions.get('window').height - 100,
-    position: 'relative',
-  },
-  modalCloseButton: {
-    position: 'absolute',
-    top: -40,
-    right: 0,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  modalCloseButtonText: {
-    fontSize: theme.typography.fontSize['2xl'],
-    color: theme.colors.gray900,
-    fontWeight: 'bold',
-  },
-  fotoGrande: {
-    width: '100%',
-    height: '100%',
-    borderRadius: theme.borderRadius.lg,
-  },
-  desktopModalImage: {
-    width: '100%',
-    height: 500,
   },
 
   // ===== Skeleton =====

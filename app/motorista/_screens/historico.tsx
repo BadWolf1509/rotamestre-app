@@ -179,7 +179,8 @@ export default function HistoricoMotorista() {
         .from('rotas')
         .select('id, data, status, distancia_total, iniciada_em, concluida_em, unidades(nome)')
         .eq('motorista_id', userData.id)
-        .order('data', { ascending: false });
+        .order('data', { ascending: false })
+        .order('created_at', { ascending: false });
 
       if (rotasError) throw rotasError;
 

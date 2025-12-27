@@ -94,21 +94,17 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
   // Determina o status da UI baseado na rota selecionada
   // NOTA: A priorização (ativas > concluídas) é feita em loadActiveRoute()
   // Este método apenas mapeia o status da rota para o estado da UI
+  //
+  // IMPORTANTE: Rotas pendentes/em_andamento SEMPRE aparecem!
+  // A expiração é controlada pelo job backend (22:00) que muda status para 'nao_executada'.
+  // O frontend confia no status do banco - não duplica lógica de expiração.
   const getRouteStatus = (): RouteStatus => {
     if (!route) return 'no-route';
 
-    // Reset diário: rotas de dias anteriores não são exibidas
-    // IMPORTANTE: Usar data LOCAL, não UTC (evita problema de timezone)
-    const now = new Date();
-    const hoje = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    const rotaData = route.data || route.created_at?.split('T')[0];
-
-    if (rotaData && rotaData < hoje) {
-      return 'no-route'; // Rota expirada (dia anterior)
-    }
-
+    // Rotas pendentes SEMPRE aparecem (backend controla expiração via job 22:00)
     if (route.status === 'pendente') return 'pending';
 
+    // Rotas em andamento SEMPRE aparecem
     if (route.status === 'em_andamento') {
       // Contar apenas paradas reais (excluindo checkpoints de partida/chegada)
       const pendingStops = paradas.filter(p => p.status === 'pendente' && p.is_checkpoint !== false);
@@ -118,6 +114,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
       return 'active';
     }
 
+    // Rotas concluídas: aplicar timeout de 1h para celebração
     if (route.status === 'concluida') {
       // Fallback: verificar timeout de 1h (principal está na query de loadActiveRoute)
       if (route.concluida_em) {
@@ -132,6 +129,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
       return 'completed';
     }
 
+    // Status desconhecido ou expirado pelo backend (nao_executada, cancelada, etc)
     return 'no-route';
   };
 

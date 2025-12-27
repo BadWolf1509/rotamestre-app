@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -20,23 +20,20 @@ import { abrirNavegacao } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-// Tipo para status da rota
-type RotaStatus = 'pendente' | 'em_andamento' | 'concluida' | 'cancelada';
-
-interface Rota {
-  id: string;
-  status: RotaStatus;
-  unidades: {
-    nome: string;
-  };
-}
-
 export default function CheckpointsMotorista() {
   const { theme } = useUnistyles();
   const { userData } = useUser();
-  const [rota, setRota] = useState<Rota | null>(null);
-  const [paradas, setParadas] = useState<Parada[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  // Usar contexto como fonte única de dados (com realtime automático)
+  const {
+    route,
+    paradas: paradasContext,
+    loading,
+    routeStatus,
+    refreshRoute,
+  } = useRouteStatus();
+
+  // Estados locais de UI apenas
   const [refreshing, setRefreshing] = useState(false);
   const [concluindoParada, _setConcluindoParada] = useState<string | null>(null);
   const [pulandoParada, setPulandoParada] = useState<string | null>(null);
@@ -47,78 +44,24 @@ export default function CheckpointsMotorista() {
   const [showCompletionFlow, setShowCompletionFlow] = useState(false);
   const [selectedParadaForCompletion, setSelectedParadaForCompletion] = useState<ParadaData | null>(null);
 
-  // Usar contexto para refresh centralizado
-  const { refreshRoute } = useRouteStatus();
+  // Filtrar apenas paradas reais (excluindo checkpoints de partida/chegada)
+  // e fazer cast para tipo Parada do ParadaCard
+  const paradas = useMemo(
+    () => paradasContext.filter(p => p.is_checkpoint !== false) as unknown as Parada[],
+    [paradasContext]
+  );
 
   // Broadcast localização do motorista quando a rota está em andamento
   useDriverLocationBroadcast({
-    rotaId: rota?.id,
-    rotaStatus: rota?.status,
+    rotaId: route?.id,
+    rotaStatus: route?.status,
   });
-
-  const loadRotaEParadas = useCallback(async () => {
-    if (!userData?.id) {
-      setRota(null);
-      setParadas([]);
-      setLoading(false);
-      setRefreshing(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      // Obter data de hoje no formato YYYY-MM-DD (local, não UTC)
-      const now = new Date();
-      const hoje = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-
-      const { data: rotasData, error: rotasError } = await supabase
-        .from('rotas')
-        .select('id, status, data, unidades(nome)')
-        .eq('motorista_id', userData.id)
-        .in('status', ['pendente', 'em_andamento'])
-        .gte('data', hoje) // Apenas rotas de hoje ou futuras
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (rotasError || !rotasData) {
-        setRota(null);
-        setParadas([]);
-        setLoading(false);
-        return;
-      }
-
-      setRota(rotasData as unknown as Rota);
-
-      const { data: paradasData, error: paradasError} = await supabase
-        .from('paradas')
-        .select('*')
-        .eq('rota_id', rotasData.id)
-        .or('is_checkpoint.is.null,is_checkpoint.eq.true')
-        .order('ordem');
-
-      if (paradasError) throw paradasError;
-
-      setParadas((paradasData as Parada[]) || []);
-    } catch (error) {
-      console.error('Erro ao carregar checkpoints:', error);
-      Alert.alert('Erro', 'Não foi possível carregar os checkpoints');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [userData?.id]);
-
-  useEffect(() => {
-    loadRotaEParadas();
-  }, [loadRotaEParadas]);
 
   // Abre o modal de conclusão com foto
   const concluirParada = useCallback(
     (parada: Parada) => {
       // Validar se a rota foi iniciada
-      if (rota?.status !== 'em_andamento') {
+      if (route?.status !== 'em_andamento') {
         Alert.alert(
           'Rota não iniciada',
           'Você precisa iniciar a rota antes de concluir paradas.',
@@ -128,16 +71,15 @@ export default function CheckpointsMotorista() {
       }
 
       // Converter para ParadaData e abrir modal de conclusão
-      setSelectedParadaForCompletion(parada as ParadaData);
+      setSelectedParadaForCompletion(parada as unknown as ParadaData);
       setShowCompletionFlow(true);
     },
-    [rota?.status]
+    [route?.status]
   );
 
   // Handler quando conclusão é bem-sucedida
   function handleCompletionSuccess() {
-    // Recarregar dados locais e do contexto
-    loadRotaEParadas();
+    // Contexto atualiza automaticamente via realtime
     refreshRoute();
   }
 
@@ -158,7 +100,7 @@ export default function CheckpointsMotorista() {
           // Criar log
           await supabase.from('logs').insert({
             usuario_id: userData!.id,
-            rota_id: rota!.id,
+            rota_id: route!.id,
             parada_id: parada.id,
             evento: 'parada_pulada',
             detalhes: {
@@ -169,7 +111,7 @@ export default function CheckpointsMotorista() {
           });
 
           Alert.alert('Parada Pulada', 'Parada marcada como pulada');
-          loadRotaEParadas();
+          refreshRoute(); // Contexto atualiza automaticamente
         } catch (error) {
           console.error('Erro ao pular parada:', error);
           Alert.alert('Erro', 'Não foi possível pular a parada');
@@ -202,7 +144,7 @@ export default function CheckpointsMotorista() {
         );
       }
     },
-    [userData, rota, loadRotaEParadas]
+    [userData, route, refreshRoute]
   );
 
   const retomarParada = useCallback(
@@ -222,7 +164,7 @@ export default function CheckpointsMotorista() {
           // Criar log
           await supabase.from('logs').insert({
             usuario_id: userData!.id,
-            rota_id: rota!.id,
+            rota_id: route!.id,
             parada_id: parada.id,
             evento: 'parada_retomada',
             detalhes: {
@@ -233,7 +175,7 @@ export default function CheckpointsMotorista() {
           });
 
           Alert.alert('Parada Retomada', 'Parada voltou para pendente');
-          loadRotaEParadas();
+          refreshRoute(); // Contexto atualiza automaticamente
         } catch (error) {
           console.error('Erro ao retomar parada:', error);
           Alert.alert('Erro', 'Não foi possível retomar a parada');
@@ -266,31 +208,28 @@ export default function CheckpointsMotorista() {
         );
       }
     },
-    [userData, rota, loadRotaEParadas]
+    [userData, route, refreshRoute]
   );
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    loadRotaEParadas();
-  }, [loadRotaEParadas]);
+    await refreshRoute();
+    setRefreshing(false);
+  }, [refreshRoute]);
 
   // IMPORTANTE: Todos os hooks DEVEM estar antes de qualquer early return
-  // Filtrar apenas paradas reais (excluindo checkpoints de partida/chegada) - memoizado
-  const paradasReais = useMemo(
-    () => paradas.filter(p => p.is_checkpoint !== false),
+  // Calcular estatísticas das paradas (já filtradas no useMemo acima)
+  const paradasPendentes = useMemo(
+    () => paradas.filter((p) => p.status === 'pendente').length,
     [paradas]
   );
-  const paradasPendentes = useMemo(
-    () => paradasReais.filter((p) => p.status === 'pendente').length,
-    [paradasReais]
-  );
   const paradasConcluidas = useMemo(
-    () => paradasReais.filter((p) => p.status === 'concluida').length,
-    [paradasReais]
+    () => paradas.filter((p) => p.status === 'concluida').length,
+    [paradas]
   );
   const paradasPuladas = useMemo(
-    () => paradasReais.filter((p) => p.status === 'pulada').length,
-    [paradasReais]
+    () => paradas.filter((p) => p.status === 'pulada').length,
+    [paradas]
   );
 
   // Memoizar keyExtractor
@@ -321,7 +260,7 @@ export default function CheckpointsMotorista() {
     ({ item }: { item: Parada }) => (
       <ParadaCard
         parada={item}
-        rotaEmAndamento={rota?.status === 'em_andamento'}
+        rotaEmAndamento={route?.status === 'em_andamento'}
         onConcluir={concluirParada}
         onPular={pularParada}
         onRetomar={retomarParada}
@@ -337,7 +276,7 @@ export default function CheckpointsMotorista() {
       concluindoParada,
       pulandoParada,
       retomandoParada,
-      rota?.status,
+      route?.status,
       proximaParadaId,
       concluirParada,
       pularParada,
@@ -382,7 +321,7 @@ export default function CheckpointsMotorista() {
     );
   }
 
-  if (!rota || paradas.length === 0) {
+  if (routeStatus === 'no-route' || paradas.length === 0) {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyTitle}>📋</Text>
@@ -403,14 +342,14 @@ export default function CheckpointsMotorista() {
           <Text style={styles.headerTitle}>Checkpoints</Text>
           <Text style={styles.headerDivider}>·</Text>
           <Text style={styles.headerSubtitleCompact} numberOfLines={1}>
-            {rota.unidades.nome}
+            {route?.unidade_nome}
           </Text>
         </View>
 
         {/* Linha 2: Stats inline */}
         <View style={styles.statsInline}>
           <Text style={styles.statsInlineText}>
-            {paradasReais.length} paradas ·{' '}
+            {paradas.length} paradas ·{' '}
             <Text style={{ color: theme.colors.success }}>{paradasConcluidas}✓</Text> ·{' '}
             <Text style={{ color: theme.colors.warning }}>{paradasPendentes}○</Text>
             {paradasPuladas > 0 && (
@@ -418,7 +357,7 @@ export default function CheckpointsMotorista() {
                 {' '}· <Text style={{ color: theme.colors.error }}>{paradasPuladas}↷</Text>
               </>
             )}
-            {' '}· {paradasReais.length > 0 ? Math.round((paradasConcluidas / paradasReais.length) * 100) : 0}%
+            {' '}· {paradas.length > 0 ? Math.round((paradasConcluidas / paradas.length) * 100) : 0}%
           </Text>
         </View>
 
@@ -427,7 +366,7 @@ export default function CheckpointsMotorista() {
           <View
             style={[
               styles.progressBar,
-              { width: `${paradasReais.length > 0 ? (paradasConcluidas / paradasReais.length) * 100 : 0}%` },
+              { width: `${paradas.length > 0 ? (paradasConcluidas / paradas.length) * 100 : 0}%` },
             ]}
           />
         </View>
@@ -454,7 +393,7 @@ export default function CheckpointsMotorista() {
       />
 
       {/* Incident Report Wizard */}
-      {showIncidentWizard && selectedParadaForIncident && rota && (
+      {showIncidentWizard && selectedParadaForIncident && route && (
         <IncidentReportWizard
           visible={showIncidentWizard}
           onClose={() => {
@@ -463,10 +402,10 @@ export default function CheckpointsMotorista() {
           }}
           onSubmit={(report) => {
             console.log('Incidente reportado:', report);
-            loadRotaEParadas(); // Recarregar dados
+            refreshRoute(); // Contexto atualiza automaticamente
           }}
           paradaId={selectedParadaForIncident.id}
-          rotaId={rota.id}
+          rotaId={route.id}
           motoristaId={userData?.id || ''}
           endereco={selectedParadaForIncident.endereco}
         />

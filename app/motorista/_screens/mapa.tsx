@@ -1,136 +1,34 @@
-import { useCallback, useEffect, useState, useMemo } from 'react';
+import { useCallback, useState, useMemo } from 'react';
 import { View, Text, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 
 import { MapaAdapter } from '@/components/MapaAdapter';
 import { ParadaBottomSheet } from '@/components/motorista/ParadaBottomSheet';
+import { useRouteStatus } from '@/context/RouteStatusContext';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
-import { useUser } from '@/hooks/useUser';
-import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
-interface Parada {
-  id: string;
-  endereco: string;
-  ordem: number;
-  status: string;
-  tipo?: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  foto_url?: string | null;
-  is_checkpoint?: boolean;
-}
-
-interface Rota {
-  id: string;
-  status: string;
-  unidades: {
-    nome: string;
-  };
-}
 
 export default function MapaMotorista() {
   const { theme } = useUnistyles();
-  const { userData } = useUser();
-  const [rota, setRota] = useState<Rota | null>(null);
-  const [paradas, setParadas] = useState<Parada[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  // Usar contexto como fonte única de dados (com realtime automático)
+  const {
+    route,
+    paradas,
+    loading,
+    routeStatus,
+    completeStop,
+  } = useRouteStatus();
+
+  // Estados locais de UI apenas
   const [selectedParadaId, setSelectedParadaId] = useState<string | null>(null);
   const [bottomSheetVisible, setBottomSheetVisible] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pendente' | 'em_andamento' | 'concluida'>('all');
 
   // Broadcast localização do motorista quando a rota está em andamento
   useDriverLocationBroadcast({
-    rotaId: rota?.id,
-    rotaStatus: rota?.status,
+    rotaId: route?.id,
+    rotaStatus: route?.status,
   });
-
-  const loadRotaAtiva = useCallback(async () => {
-    const motoristaId = userData?.id;
-    if (!motoristaId) {
-      setLoading(false);
-      setRota(null);
-      setParadas([]);
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      // Obter data de hoje no formato YYYY-MM-DD (local, não UTC)
-      const now = new Date();
-      const hoje = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-
-      const { data: rotasData, error: rotasError } = await supabase
-        .from('rotas')
-        .select('id, status, data, unidades(nome)')
-        .eq('motorista_id', motoristaId)
-        .in('status', ['pendente', 'em_andamento'])
-        .gte('data', hoje) // Apenas rotas de hoje ou futuras
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (rotasError || !rotasData) {
-        setRota(null);
-        setParadas([]);
-        setLoading(false);
-        return;
-      }
-
-      setRota(rotasData as unknown as Rota);
-
-      // Buscar TODAS as paradas (incluindo checkpoints de partida/chegada)
-      const { data: paradasData, error: paradasError } = await supabase
-        .from('paradas')
-        .select('id, endereco, ordem, status, tipo, latitude, longitude, foto_url, is_checkpoint')
-        .eq('rota_id', rotasData.id)
-        .order('ordem');
-
-      if (paradasError) throw paradasError;
-
-      setParadas(paradasData || []);
-    } catch (error) {
-      console.error('Erro ao carregar rota:', error);
-      Alert.alert('Erro', 'Não foi possível carregar a rota');
-    } finally {
-      setLoading(false);
-    }
-  }, [userData]);
-
-  useEffect(() => {
-    loadRotaAtiva();
-  }, [loadRotaAtiva]);
-
-  // Realtime subscription para atualizações de paradas
-  useEffect(() => {
-    if (!rota?.id) return;
-
-    const subscription = supabase
-      .channel(`paradas-mapa-${rota.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'paradas',
-          filter: `rota_id=eq.${rota.id}`,
-        },
-        (payload) => {
-          if (payload.eventType === 'UPDATE') {
-            setParadas((prev) =>
-              prev.map((p) =>
-                p.id === payload.new.id ? { ...p, ...payload.new } : p
-              )
-            );
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [rota?.id]);
 
 
   // Handler para quando um marcador é pressionado
@@ -150,10 +48,11 @@ export default function MapaMotorista() {
     setBottomSheetVisible(false);
   }, []);
 
-  // Marcar parada como concluída
-  const handleMarkComplete = useCallback(async (parada: Parada) => {
+  // Marcar parada como concluída usando o contexto
+  // Nota: Aceita tipo genérico para compatibilidade com ParadaBottomSheet
+  const handleMarkComplete = useCallback(async (parada: { id: string; ordem: number }) => {
     // Validar se a rota foi iniciada
-    if (rota?.status !== 'em_andamento') {
+    if (route?.status !== 'em_andamento') {
       Alert.alert(
         'Rota não iniciada',
         'Você precisa iniciar a rota antes de concluir paradas.',
@@ -163,47 +62,14 @@ export default function MapaMotorista() {
     }
 
     try {
-      const now = new Date().toISOString();
-
-      // Atualizar status da parada com timestamp
-      const { error } = await supabase
-        .from('paradas')
-        .update({
-          status: 'concluida',
-          concluida_em: now,
-        })
-        .eq('id', parada.id);
-
-      if (error) throw error;
-
-      // Criar log da conclusão
-      if (userData?.id) {
-        await supabase.from('logs').insert({
-          usuario_id: userData.id,
-          rota_id: rota.id,
-          parada_id: parada.id,
-          evento: 'parada_concluida',
-          detalhes: {
-            endereco: parada.endereco,
-            tipo: parada.tipo,
-            ordem: parada.ordem,
-          },
-        });
-      }
-
-      // Atualiza localmente
-      setParadas((prev) =>
-        prev.map((p) =>
-          p.id === parada.id ? { ...p, status: 'concluida' } : p
-        )
-      );
-
+      // Usar completeStop do contexto (já faz update + log + refresh)
+      await completeStop(parada.id);
       Alert.alert('Sucesso', `Parada ${parada.ordem} marcada como concluída!`);
     } catch (error) {
       console.error('Erro ao marcar parada como concluída:', error);
       Alert.alert('Erro', 'Não foi possível atualizar a parada.');
     }
-  }, [rota, userData]);
+  }, [route?.status, completeStop]);
 
   if (loading) {
     return (
@@ -214,7 +80,7 @@ export default function MapaMotorista() {
     );
   }
 
-  if (!rota || paradas.length === 0) {
+  if (routeStatus === 'no-route' || paradas.length === 0) {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyIcon}>🗺️</Text>
@@ -230,7 +96,7 @@ export default function MapaMotorista() {
     <View style={styles.container}>
       {/* Header Info */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{rota.unidades.nome}</Text>
+        <Text style={styles.headerTitle}>{route?.unidade_nome}</Text>
         <Text style={styles.headerSubtitle}>
           {paradas.filter(p => p.status === 'concluida' && p.is_checkpoint !== false).length} de {paradas.filter(p => p.is_checkpoint !== false).length} paradas concluídas
         </Text>

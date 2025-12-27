@@ -76,6 +76,16 @@ export interface Theme {
     kpiConcluidas: string;
     kpiDistancia: string;
     kpiIncidentes: string;
+    // Incident Categories (semantic colors)
+    incident: {
+      accident: string;
+      absent: string;
+      wrongAddress: string;
+      blocked: string;
+      vehicle: string;
+      weather: string;
+      other: string;
+    };
   };
   spacing: {
     xs: number;

@@ -46,6 +46,17 @@ export const colors = {
 
   // Purple (usado nos stats)
   purple: '#8b5cf6',
+
+  // Incident Categories (cores semânticas para tipos de incidente)
+  incident: {
+    accident: '#ef4444',    // vermelho - acidentes/incidentes graves
+    absent: '#f59e0b',      // amarelo/laranja - cliente ausente
+    wrongAddress: '#3b82f6', // azul - endereço incorreto
+    blocked: '#8b5cf6',     // roxo - acesso bloqueado
+    vehicle: '#ec4899',     // rosa - problema no veículo
+    weather: '#06b6d4',     // ciano - condições climáticas
+    other: '#6b7280',       // cinza - outros problemas
+  },
 };
 
 // ===== ESPAÇAMENTOS =====

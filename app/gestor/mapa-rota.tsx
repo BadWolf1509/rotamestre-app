@@ -735,7 +735,6 @@ export default function MapaRota() {
           visible={!!fotoSelecionada}
           photoUrl={fotoSelecionada}
           onClose={() => setFotoSelecionada(null)}
-          isDesktop={true}
         />
 
         {/* Cancel Confirmation Modal */}
@@ -965,7 +964,6 @@ export default function MapaRota() {
         visible={!!fotoSelecionada}
         photoUrl={fotoSelecionada}
         onClose={() => setFotoSelecionada(null)}
-        isDesktop={false}
       />
 
       <Toast {...toast} onDismiss={hideToast} />

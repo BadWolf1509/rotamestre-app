@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
 import { MainCard } from '@/components/motorista/home/MainCard';
 import { MiniMap } from '@/components/motorista/home/MiniMap';
@@ -32,7 +33,7 @@ function MotoristaInicioContent() {
   const router = useRouter();
   const { theme } = useUnistyles();
   const { userData } = useUser();
-  const _insets = useSafeAreaInsets();
+  useSafeAreaInsets(); // Mantido para compatibilidade futura
 
   // Route context
   const {
@@ -68,6 +69,8 @@ function MotoristaInicioContent() {
   const [showOptimization, setShowOptimization] = useState(false);
   const [showCompletionFlow, setShowCompletionFlow] = useState(false);
   const [showSupportModal, setShowSupportModal] = useState(false);
+  const [showCompleteRouteModal, setShowCompleteRouteModal] = useState(false);
+  const [isCompletingRoute, setIsCompletingRoute] = useState(false);
   const [canStartRoute, setCanStartRoute] = useState(true);
   const [isStartingRoute, setIsStartingRoute] = useState(false);
 
@@ -272,26 +275,23 @@ function MotoristaInicioContent() {
     );
   };
 
-  // Complete route
-  const handleCompleteRoute = async () => {
-    Alert.alert(
-      'Finalizar Rota',
-      'Todas as paradas foram concluídas. Deseja finalizar a rota?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Finalizar',
-          onPress: async () => {
-            try {
-              await completeRoute();
-              Alert.alert('Parabéns!', 'Rota concluída com sucesso!');
-            } catch {
-              Alert.alert('Erro', 'Não foi possível finalizar a rota');
-            }
-          }
-        }
-      ]
-    );
+  // Complete route - abre modal de confirmação (funciona em web e mobile)
+  const handleCompleteRoute = () => {
+    setShowCompleteRouteModal(true);
+  };
+
+  // Confirma finalização da rota
+  const confirmCompleteRoute = async () => {
+    setIsCompletingRoute(true);
+    try {
+      await completeRoute();
+      setShowCompleteRouteModal(false);
+      Alert.alert('Parabéns!', 'Rota concluída com sucesso!');
+    } catch {
+      Alert.alert('Erro', 'Não foi possível finalizar a rota');
+    } finally {
+      setIsCompletingRoute(false);
+    }
   };
 
   // Refresh handler
@@ -565,6 +565,19 @@ function MotoristaInicioContent() {
       <SupportModal
         visible={showSupportModal}
         onClose={() => setShowSupportModal(false)}
+      />
+
+      {/* Modal de Confirmação para Finalizar Rota */}
+      <ConfirmModal
+        visible={showCompleteRouteModal}
+        title="Finalizar Rota"
+        message="Todas as paradas foram concluídas. Deseja finalizar a rota?"
+        type="success"
+        confirmText="Finalizar"
+        cancelText="Cancelar"
+        loading={isCompletingRoute}
+        onConfirm={confirmCompleteRoute}
+        onCancel={() => setShowCompleteRouteModal(false)}
       />
     </>
   );
