@@ -24,7 +24,7 @@ interface ParadaCardProps {
 }
 
 export const ParadaCard = React.memo<ParadaCardProps>(
-  ({ parada, index, onImagePress, selected, onPress, onLayoutCapture }) => {
+  ({ parada, index: _index, onImagePress, selected, onPress, onLayoutCapture }) => {
     const { theme } = useUnistyles();
     const [imageError, setImageError] = useState(false);
 

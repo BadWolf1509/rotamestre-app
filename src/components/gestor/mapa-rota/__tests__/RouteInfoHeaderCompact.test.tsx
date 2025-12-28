@@ -7,6 +7,7 @@ import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
 
 import { RouteInfoHeaderCompact } from '../RouteInfoHeaderCompact';
+
 import type { Rota, ResumoParadas } from '../types';
 
 // Mock dependencies

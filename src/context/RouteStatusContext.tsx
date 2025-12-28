@@ -335,19 +335,10 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // 2. Registrar log de início da rota
-      await supabase.from('logs').insert({
-        usuario_id: userData.id,
-        rota_id: route.id,
-        evento: 'motorista_iniciou_rota',
-        detalhes: {
-          motorista_id: userData.id,
-          motorista_nome: userData.nome,
-          unidade_nome: route.unidade_nome,
-        },
-      });
+      // NOTA: Log 'motorista_iniciou_rota' é criado automaticamente pelo trigger
+      // do banco (log_rota_status_change) quando o status muda para 'em_andamento'
 
-      // 3. Marcar checkpoint de partida (ordem 0, is_checkpoint=false) como concluído
+      // 2. Marcar ponto de partida (ordem 0) como concluído
       const checkpointPartida = paradas.find(p => p.is_checkpoint === false && p.ordem === 0);
       if (checkpointPartida) {
         await supabase
@@ -359,7 +350,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
           .eq('id', checkpointPartida.id);
       }
 
-      // 4. Iniciar rastreamento de localização em background (apenas mobile)
+      // 3. Iniciar rastreamento de localização em background (apenas mobile)
       if (Platform.OS !== 'web') {
         await requestAndStartTracking({
           rotaId: route.id,

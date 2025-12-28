@@ -426,7 +426,7 @@ describe('routeUtils', () => {
           return {
             select: jest.fn().mockReturnThis(),
             update: jest.fn().mockReturnThis(),
-            eq: jest.fn().mockImplementation((field: string, value: unknown) => {
+            eq: jest.fn().mockImplementation((field: string, _value: unknown) => {
               if (field === 'rota_id') {
                 // Primeira chamada é para buscar paradas
                 return {

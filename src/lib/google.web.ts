@@ -15,7 +15,7 @@ import { Coordenadas, EnderecoGeocodificado } from '../types/endereco';
 import { GoogleDirectionsLeg, GoogleDirectionsResult } from '../types/google-directions';
 
 
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+const _GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
 /** Timeout para requisições em ms */
 const REQUEST_TIMEOUT = 30000;

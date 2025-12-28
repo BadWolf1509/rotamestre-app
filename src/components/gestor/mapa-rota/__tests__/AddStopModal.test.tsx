@@ -185,7 +185,7 @@ jest.mock('@/components/desktop/DesktopFormGrid', () => ({
 
 // Mock Ionicons
 jest.mock('@expo/vector-icons', () => ({
-  Ionicons: ({ name, size, color }: { name: string; size: number; color: string }) => {
+  Ionicons: ({ name, size: _size, color: _color }: { name: string; size: number; color: string }) => {
     const { Text } = require('react-native');
     return <Text testID={`icon-${name}`}>{name}</Text>;
   },

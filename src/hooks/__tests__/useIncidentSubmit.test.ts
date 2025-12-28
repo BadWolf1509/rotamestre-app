@@ -2,7 +2,7 @@
  * Tests for useIncidentSubmit hook
  */
 
-import { renderHook, act, waitFor } from '@testing-library/react-native';
+import { renderHook, act } from '@testing-library/react-native';
 
 import { useIncidentSubmit } from '../useIncidentSubmit';
 

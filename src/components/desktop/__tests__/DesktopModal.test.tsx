@@ -368,7 +368,7 @@ describe('DesktopModal', () => {
     it('deve aplicar estilos de bottom sheet no mobile', () => {
       mockUseResponsive.mockReturnValue({ isDesktop: false });
 
-      const { getByText, UNSAFE_getAllByType } = render(
+      const { getByText } = render(
         <DesktopModal visible={true} onClose={jest.fn()}>
           <Text>Mobile Content</Text>
         </DesktopModal>

@@ -81,7 +81,7 @@ describe('DesktopFormGrid', () => {
     });
 
     it('deve filtrar children null/undefined', () => {
-      const { getByText, queryByText } = render(
+      const { getByText } = render(
         <DesktopFormGrid>
           <Text>Campo 1</Text>
           {null}

@@ -10,7 +10,7 @@ import { StartRouteButton } from '../StartRouteButton';
 
 // Mock react-native-reanimated
 jest.mock('react-native-reanimated', () => {
-  const { View, TouchableOpacity } = require('react-native');
+  const { View: _View, TouchableOpacity: _TouchableOpacity } = require('react-native');
   return {
     default: {
       createAnimatedComponent: (Component: any) => Component,

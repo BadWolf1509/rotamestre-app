@@ -620,8 +620,9 @@ describe('Storage Functions', () => {
     it('deve fazer upload de foto de incidente com sucesso', async () => {
       mockFetchWithBlob(1024 * 500); // 500KB
 
+      const expectedPath = `incidentes/${mockFileName}`;
       const mockUpload = jest.fn().mockResolvedValue({
-        data: { path: mockFileName },
+        data: { path: expectedPath },
         error: null,
       });
 
@@ -639,7 +640,7 @@ describe('Storage Functions', () => {
       expect(result).toBe(mockIncidentUrl);
       expect(global.fetch).toHaveBeenCalledWith(mockFotoUri);
       expect(mockUpload).toHaveBeenCalledWith(
-        mockFileName,
+        expectedPath,
         expect.any(ArrayBuffer),
         expect.objectContaining({
           contentType: 'image/jpeg',
@@ -674,8 +675,8 @@ describe('Storage Functions', () => {
       expect(result).toBe('');
     });
 
-    it('deve criar bucket de incidentes se não existir', async () => {
-      // Mock listBuckets retornando vazio (bucket não existe)
+    it('nao deve criar bucket de incidentes mesmo se nao existir', async () => {
+      // Mock listBuckets retornando vazio (bucket nao existe)
       (supabase.storage as any).listBuckets = jest.fn().mockResolvedValue({
         data: [],
       });
@@ -705,9 +706,7 @@ describe('Storage Functions', () => {
 
       await uploadIncidentPhoto(mockFotoUri, mockFileName);
 
-      expect(mockCreateBucket).toHaveBeenCalledWith('incidentes', {
-        public: true,
-      });
+      expect(mockCreateBucket).not.toHaveBeenCalled();
     });
 
     it('não deve criar bucket se já existir', async () => {

@@ -30,8 +30,9 @@ import { DesktopModal } from '@/components/desktop/DesktopModal';
 import { useResponsive } from '@/hooks/useResponsive';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-import type { Parada } from './types';
 import { useAddStopForm } from './useAddStopForm';
+
+import type { Parada } from './types';
 
 interface EnderecoUnidade {
   latitude: number;

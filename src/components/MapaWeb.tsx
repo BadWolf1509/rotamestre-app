@@ -4,6 +4,16 @@ import { GoogleMap, useJsApiLoader, DirectionsRenderer } from '@react-google-map
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
 
+import {
+  buildParadaHeader,
+  buildInfoContent,
+  buildCheckpointHeader,
+  buildCheckpointInfoContent,
+  buildMotoristaHeader,
+  buildMotoristaInfoContent,
+  getStatusColor,
+  getStatusLabel,
+} from '@/components/map/infoWindowBuilders';
 import { supabase } from '@/lib/supabase';
 import type { MotoristaLocation } from '@/types/notifications';
 import { StyleSheet, type Theme } from '@/utils/styles';
@@ -27,6 +37,8 @@ interface MapaWebProps {
   paradas: Parada[];
   selectedParadaId?: string | null;
   onMarkerPress?: (paradaId: string) => void;
+  /** Callback quando clica fora dos marcadores (deselecionar) */
+  onMapPress?: () => void;
   /** Filtro de status para exibir apenas paradas com determinado status */
   statusFilter?: StatusFilter;
   /** ID da rota para rastreamento em tempo real do motorista */
@@ -35,6 +47,8 @@ interface MapaWebProps {
   motoristaNome?: string;
   /** Se true e rota em andamento, mostra posição do motorista em tempo real */
   showMotorista?: boolean;
+  /** Nome da unidade para exibir nos checkpoints (PARTIDA/CHEGADA) */
+  unidadeNome?: string;
 }
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
@@ -45,31 +59,145 @@ const containerStyle = {
   height: '100%',
 };
 
-function getStatusColor(status?: string) {
-  switch (status) {
-    case 'concluida':
-      return '#10b981';
-    case 'em_andamento':
-      return '#3b82f6';
-    case 'cancelada':
-      return '#ef4444';
-    default:
-      return '#f59e0b';
-  }
+/**
+ * Adiciona estilos interativos e handlers de teclado ao marcador
+ */
+function addMarkerInteractivity(
+  wrapper: HTMLDivElement,
+  onClick?: () => void
+) {
+  // Transição suave para efeitos visuais
+  wrapper.style.transition = 'transform 0.15s ease, box-shadow 0.15s ease';
+
+  // Efeito hover - escala maior
+  wrapper.addEventListener('mouseenter', () => {
+    wrapper.style.transform = 'scale(1.15)';
+    wrapper.style.boxShadow = '0 4px 12px rgba(0,0,0,0.35)';
+  });
+
+  wrapper.addEventListener('mouseleave', () => {
+    wrapper.style.transform = 'scale(1)';
+    wrapper.style.boxShadow = '0 3px 8px rgba(0,0,0,0.25)';
+  });
+
+  // Feedback visual ao clicar (press effect)
+  wrapper.addEventListener('mousedown', () => {
+    wrapper.style.transform = 'scale(0.95)';
+  });
+
+  wrapper.addEventListener('mouseup', () => {
+    wrapper.style.transform = 'scale(1.15)';
+  });
+
+  // Keyboard handlers - Enter/Space ativam o marcador
+  wrapper.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      // Feedback visual
+      wrapper.style.transform = 'scale(0.95)';
+      setTimeout(() => {
+        wrapper.style.transform = 'scale(1)';
+      }, 100);
+      // Disparar click
+      onClick?.();
+    }
+  });
+
+  // Focus ring para navegação por teclado
+  wrapper.addEventListener('focus', () => {
+    wrapper.style.outline = '3px solid #0D5A9C';
+    wrapper.style.outlineOffset = '2px';
+  });
+
+  wrapper.addEventListener('blur', () => {
+    wrapper.style.outline = 'none';
+  });
 }
 
-function createMarkerContent(parada: Parada) {
-  // Checkpoint (partida/chegada): ícone de pin azul primário (#284093)
+function createMarkerContent(parada: Parada, onClick?: () => void, isPartida?: boolean) {
+  // Checkpoint (partida/chegada): Pin azul marca com ícones distintos
   if (parada.is_checkpoint === false) {
     const wrapper = document.createElement('div');
     wrapper.style.display = 'flex';
     wrapper.style.flexDirection = 'column';
     wrapper.style.alignItems = 'center';
+    wrapper.style.cursor = 'pointer';
+    wrapper.style.transition = 'transform 0.15s ease, filter 0.15s ease';
+    wrapper.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.25))';
+
+    // Acessibilidade - distinguir PARTIDA de CHEGADA
+    const checkpointLabel = isPartida ? 'Ponto de Partida' : 'Ponto de Chegada';
+    wrapper.setAttribute('role', 'button');
+    wrapper.setAttribute('aria-label', checkpointLabel);
+    wrapper.setAttribute('tabindex', '0');
+
+    // Ícone: flag para PARTIDA, home para CHEGADA
+    // Cor: Azul marca RotaMestre (#284093)
+    const iconSvg = isPartida
+      ? // Flag icon (partida)
+        `<path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6z" fill="white"/>`
+      : // Home icon (chegada)
+        `<path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="white"/>`;
+
+    // Pin azul marca compacto com ícone distinto
     wrapper.innerHTML = `
-      <svg width="32" height="40" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 0C7.03 0 3 3.47 3 7.75C3 13.56 12 24 12 24C12 24 21 13.56 21 7.75C21 3.47 16.97 0 12 0ZM12 10.5C10.62 10.5 9.5 9.38 9.5 8C9.5 6.62 10.62 5.5 12 5.5C13.38 5.5 14.5 6.62 14.5 8C14.5 9.38 13.38 10.5 12 10.5Z" fill="#284093"/>
-      </svg>
+      <div style="
+        width: 28px;
+        height: 28px;
+        border-radius: 6px 6px 6px 2px;
+        background: linear-gradient(135deg, #284093 0%, #1e3170 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid white;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+      ">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          ${iconSvg}
+        </svg>
+      </div>
     `;
+
+    // Interatividade
+    wrapper.addEventListener('mouseenter', () => {
+      wrapper.style.transform = 'scale(1.15)';
+      wrapper.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))';
+    });
+
+    wrapper.addEventListener('mouseleave', () => {
+      wrapper.style.transform = 'scale(1)';
+      wrapper.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.25))';
+    });
+
+    wrapper.addEventListener('mousedown', () => {
+      wrapper.style.transform = 'scale(0.9)';
+    });
+
+    wrapper.addEventListener('mouseup', () => {
+      wrapper.style.transform = 'scale(1.15)';
+    });
+
+    // Keyboard handlers
+    wrapper.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        wrapper.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          wrapper.style.transform = 'scale(1)';
+        }, 100);
+        onClick?.();
+      }
+    });
+
+    wrapper.addEventListener('focus', () => {
+      wrapper.style.outline = '2px solid #284093';
+      wrapper.style.outlineOffset = '2px';
+    });
+
+    wrapper.addEventListener('blur', () => {
+      wrapper.style.outline = 'none';
+    });
+
     return wrapper;
   }
 
@@ -87,10 +215,19 @@ function createMarkerContent(parada: Parada) {
   wrapper.style.fontSize = '14px';
   wrapper.style.border = '2px solid #ffffff';
   wrapper.style.boxShadow = '0 3px 8px rgba(0,0,0,0.25)';
+  wrapper.style.cursor = 'pointer';
+  // Acessibilidade
+  wrapper.setAttribute('role', 'button');
+  wrapper.setAttribute('aria-label', `Parada ${parada.ordem}, ${parada.endereco}, ${getStatusLabel(parada.status)}`);
+  wrapper.setAttribute('tabindex', '0');
 
   const label = document.createElement('span');
   label.textContent = String(parada.ordem);
+  label.setAttribute('aria-hidden', 'true');
   wrapper.appendChild(label);
+
+  // Adicionar interatividade (hover, keyboard, click feedback)
+  addMarkerInteractivity(wrapper, onClick);
 
   return wrapper;
 }
@@ -99,10 +236,12 @@ export default function MapaWeb({
   paradas,
   selectedParadaId,
   onMarkerPress,
+  onMapPress,
   statusFilter = 'all',
   rotaId,
   motoristaNome,
   showMotorista = false,
+  unidadeNome,
 }: MapaWebProps) {
   const [directions, setDirections] = React.useState<google.maps.DirectionsResult | null>(null);
   const mapRef = React.useRef<google.maps.Map | null>(null);
@@ -127,6 +266,7 @@ export default function MapaWeb({
     id: 'google-map-script',
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
     libraries: mapLibraries,
+    version: 'beta', // Necessário para usar headerContent no InfoWindow
   });
 
   // Paradas com coordenadas válidas
@@ -184,45 +324,59 @@ export default function MapaWeb({
     fallbackMarkersRef.current = [];
   }, []);
 
-  const buildInfoContent = useCallback((parada: Parada) => {
-    const statusLabel =
-      parada.status === 'concluida'
-        ? 'Concluida'
-        : parada.status === 'pendente'
-          ? 'Pendente'
-          : parada.status === 'em_andamento'
-            ? 'Em andamento'
-            : parada.status;
-
-    const statusColor = getStatusColor(parada.status);
-
-    return `
-      <div style="max-width:240px;font-family:sans-serif;">
-        <div style="font-weight:700;margin-bottom:6px;font-size:14px;">Parada ${parada.ordem}</div>
-        <div style="font-size:13px;margin-bottom:8px;line-height:18px;">${parada.endereco}</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
-          <span style="padding:4px 8px;border-radius:12px;background:${statusColor}15;color:${statusColor};font-weight:600;font-size:12px;">${statusLabel}</span>
-          ${parada.tipo ? `<span style="padding:4px 8px;border-radius:12px;background:#e0f2fe;color:#0f172a;font-weight:600;font-size:12px;text-transform:capitalize;">${parada.tipo}</span>` : ''}
-        </div>
-        ${parada.destinatario ? `<div style="font-size:12px;color:#475569;margin-bottom:4px;"><strong>Destinatario:</strong> ${parada.destinatario}</div>` : ''}
-        ${parada.telefone ? `<div style="font-size:12px;color:#475569;margin-bottom:6px;"><strong>Telefone:</strong> ${parada.telefone}</div>` : ''}
-        <button id="go-to-${parada.id}" style="margin-top:4px;padding:8px 10px;border-radius:10px;border:1px solid #e2e8f0;background:#f8fafc;color:#0f172a;cursor:pointer;font-weight:600;font-size:12px;">Ver na lista</button>
-      </div>
-    `;
-  }, []);
-
   const openInfoWindow = useCallback(
-    (parada: Parada, marker: google.maps.marker.AdvancedMarkerElement | google.maps.Marker | null) => {
+    (parada: Parada, marker: google.maps.marker.AdvancedMarkerElement | google.maps.Marker | null, isCheckpoint?: boolean, isPartida?: boolean) => {
       if (!marker || !mapRef.current) return;
       if (!infoWindowRef.current) infoWindowRef.current = new google.maps.InfoWindow();
-      infoWindowRef.current.setContent(buildInfoContent(parada));
+
+      // Configurar header e content baseado no tipo
+      if (isCheckpoint) {
+        // Checkpoint: header com ícone+título na mesma linha do X
+        infoWindowRef.current.setHeaderContent?.(buildCheckpointHeader(isPartida ?? false));
+        infoWindowRef.current.setContent(buildCheckpointInfoContent(parada, unidadeNome));
+      } else {
+        // Parada normal: header com badge+título na mesma linha do X
+        infoWindowRef.current.setHeaderContent?.(buildParadaHeader(parada));
+        infoWindowRef.current.setContent(buildInfoContent(parada));
+      }
+
       infoWindowRef.current.open(mapRef.current, marker);
+
       google.maps.event.addListenerOnce(infoWindowRef.current, 'domready', () => {
-        const btn = document.getElementById(`go-to-${parada.id}`);
-        if (btn) btn.addEventListener('click', () => onMarkerPress?.(parada.id));
+        // Botão "Ver na lista" para paradas normais
+        const goToBtn = document.getElementById(`go-to-${parada.id}`);
+        if (goToBtn) goToBtn.addEventListener('click', () => onMarkerPress?.(parada.id));
+
+        // Botão "Copiar endereço" para checkpoints
+        const copyBtn = document.getElementById(`copy-checkpoint-${parada.id}`);
+        if (copyBtn) {
+          copyBtn.addEventListener('click', async () => {
+            try {
+              await navigator.clipboard.writeText(parada.endereco);
+              copyBtn.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" fill="#10b981"/>
+                </svg>
+                Copiado!
+              `;
+              copyBtn.style.color = '#10b981';
+              setTimeout(() => {
+                copyBtn.innerHTML = `
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" fill="currentColor"/>
+                  </svg>
+                  Copiar endereço
+                `;
+                copyBtn.style.color = '#475569';
+              }, 2000);
+            } catch {
+              console.warn('Não foi possível copiar o endereço');
+            }
+          });
+        }
       });
     },
-    [buildInfoContent, onMarkerPress]
+    [unidadeNome, onMarkerPress]
   );
 
   React.useEffect(() => {
@@ -248,20 +402,43 @@ export default function MapaWeb({
     const mapHasMapId = mapRef.current && typeof mapRef.current.getMapId === 'function' && mapRef.current.getMapId();
     const canUseAdvancedMarkers = Boolean(GOOGLE_MAPS_MAP_ID && AdvancedMarker && mapHasMapId);
 
+    // Determinar qual checkpoint é PARTIDA (primeiro)
+    const checkpointIds = checkpoints.map(c => c.id);
+    const partidaId = checkpointIds[0];
+
     if (canUseAdvancedMarkers && AdvancedMarker) {
       try {
         advancedMarkersRef.current = paradasParaExibir.map((parada) => {
+          const isCheckpoint = parada.is_checkpoint === false;
+          const isPartida = isCheckpoint && parada.id === partidaId;
+
+          // Handler para click/keyboard do marcador
+          const handleMarkerActivation = () => {
+            // Checkpoints: fechar BottomSheet (se aberto) e mostrar InfoWindow
+            // Paradas reais: abrir BottomSheet e mostrar InfoWindow
+            if (isCheckpoint) {
+              onMapPress?.(); // Fecha qualquer BottomSheet aberto
+            } else {
+              onMarkerPress?.(parada.id); // Abre BottomSheet para parada real
+            }
+            const markerInstance = markerMapRef.current.get(parada.id);
+            if (markerInstance) {
+              openInfoWindow(parada, markerInstance, isCheckpoint, isPartida);
+            }
+          };
+
+          const markerTitle = isCheckpoint
+            ? (isPartida ? 'Ponto de Partida' : 'Ponto de Chegada')
+            : `Parada ${parada.ordem}: ${parada.endereco}`;
+
           const marker = new AdvancedMarker({
             map: mapRef.current!,
             position: { lat: parada.latitude!, lng: parada.longitude! },
-            title: `Parada ${parada.ordem}: ${parada.endereco}`,
-            content: createMarkerContent(parada),
+            title: markerTitle,
+            content: createMarkerContent(parada, handleMarkerActivation, isPartida),
           });
           markerMapRef.current.set(parada.id, marker);
-          marker.addListener('gmp-click', () => {
-            onMarkerPress?.(parada.id);
-            openInfoWindow(parada, marker);
-          });
+          marker.addListener('gmp-click', handleMarkerActivation);
           return marker;
         });
         return;
@@ -274,17 +451,29 @@ export default function MapaWeb({
 
     // Fallback para browsers que ainda não suportam AdvancedMarkerElement
     fallbackMarkersRef.current = paradasParaExibir.map((parada) => {
-      // Checkpoint (partida/chegada): marcador azul primário
-      if (parada.is_checkpoint === false) {
+      const isCheckpoint = parada.is_checkpoint === false;
+      const isPartida = isCheckpoint && parada.id === partidaId;
+
+      // Checkpoint (partida/chegada): marcador azul marca
+      if (isCheckpoint) {
         const marker = new google.maps.Marker({
           map: mapRef.current!,
           position: { lat: parada.latitude!, lng: parada.longitude! },
-          title: parada.ordem === 1 ? 'Ponto de Partida' : 'Ponto de Chegada',
+          title: isPartida ? 'Ponto de Partida' : 'Ponto de Chegada',
           icon: {
-            url: 'https://maps.google.com/mapfiles/ms/icons/blue.png',
+            path: google.maps.SymbolPath.CIRCLE,
+            fillColor: '#284093', // Azul marca RotaMestre
+            fillOpacity: 1,
+            strokeColor: '#ffffff',
+            strokeWeight: 2,
+            scale: 12,
           },
         });
         markerMapRef.current.set(parada.id, marker);
+        marker.addListener('click', () => {
+          onMapPress?.(); // Fecha qualquer BottomSheet aberto (não abre para checkpoints)
+          openInfoWindow(parada, marker, true, isPartida);
+        });
         return marker;
       }
 
@@ -310,14 +499,14 @@ export default function MapaWeb({
       markerMapRef.current.set(parada.id, marker);
       marker.addListener('click', () => {
         onMarkerPress?.(parada.id);
-        openInfoWindow(parada, marker);
+        openInfoWindow(parada, marker, false, false);
       });
       return marker;
     });
     if (boundsRef.current && !boundsRef.current.isEmpty() && mapRef.current) {
       mapRef.current.fitBounds(boundsRef.current);
     }
-  }, [isLoaded, mapReady, paradasComCoord, checkpoints, paradasFiltradas, statusFilter, clearMarkers, onMarkerPress, openInfoWindow]);
+  }, [isLoaded, mapReady, paradasComCoord, checkpoints, paradasFiltradas, statusFilter, clearMarkers, onMarkerPress, onMapPress, openInfoWindow]);
 
   React.useEffect(
     () => () => {
@@ -331,7 +520,14 @@ export default function MapaWeb({
     const marker = markerMapRef.current.get(selectedParadaId);
     const parada = paradasComCoord.find((p) => p.id === selectedParadaId);
     if (!marker || !parada) return;
-    openInfoWindow(parada, marker);
+
+    // Determinar se é checkpoint (PARTIDA/CHEGADA) e qual tipo
+    const isCheckpoint = parada.is_checkpoint === false;
+    const checkpointIds = checkpoints.map(c => c.id);
+    const partidaId = checkpointIds[0];
+    const isPartida = isCheckpoint && parada.id === partidaId;
+
+    openInfoWindow(parada, marker, isCheckpoint, isPartida);
     // Ajustar centro para o marcador selecionado
     // AdvancedMarkerElement usa .position, google.maps.Marker usa getPosition()
     // @ts-expect-error - AdvancedMarkerElement usa property position
@@ -339,7 +535,7 @@ export default function MapaWeb({
     if (pos && mapRef.current) {
       mapRef.current.panTo(pos);
     }
-  }, [selectedParadaId, paradasComCoord, openInfoWindow]);
+  }, [selectedParadaId, paradasComCoord, checkpoints, openInfoWindow]);
 
   // Calcular direções
   React.useEffect(() => {
@@ -496,41 +692,52 @@ export default function MapaWeb({
 
     const markerColor = getMarkerColor();
 
-    // Criar elemento DOM para o marcador do motorista
+    // Criar elemento DOM para o marcador do motorista (ícone de van de entrega)
     const createMotoristaMarkerContent = () => {
       const wrapper = document.createElement('div');
-      wrapper.style.width = '48px';
-      wrapper.style.height = '48px';
-      wrapper.style.cursor = 'pointer';
+      wrapper.style.cssText = `
+        width: 36px;
+        height: 36px;
+        cursor: pointer;
+        transition: transform 0.15s ease, filter 0.15s ease;
+        filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3));
+      `;
+      wrapper.setAttribute('role', 'button');
+      wrapper.setAttribute('aria-label', motoristaNome || 'Motorista');
+      wrapper.setAttribute('tabindex', '0');
+
+      // Ícone de van de entrega em círculo colorido
       wrapper.innerHTML = `
-        <svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="24" cy="24" r="20" fill="${markerColor}" stroke="white" stroke-width="3"/>
-          <path d="M24 14 L30 20 L30 28 L24 34 L18 28 L18 20 Z" fill="white"/>
-          <circle cx="24" cy="24" r="4" fill="${markerColor}"/>
+        <svg width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="18" cy="18" r="16" fill="${markerColor}" stroke="white" stroke-width="2"/>
+          <g transform="translate(8, 9) scale(0.83)">
+            <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" fill="white"/>
+          </g>
         </svg>
       `;
+
+      // Interatividade - hover
+      wrapper.addEventListener('mouseenter', () => {
+        wrapper.style.transform = 'scale(1.15)';
+        wrapper.style.filter = 'drop-shadow(0 4px 10px rgba(0,0,0,0.4))';
+      });
+
+      wrapper.addEventListener('mouseleave', () => {
+        wrapper.style.transform = 'scale(1)';
+        wrapper.style.filter = 'drop-shadow(0 3px 6px rgba(0,0,0,0.3))';
+      });
+
+      // Acessibilidade - foco
+      wrapper.addEventListener('focus', () => {
+        wrapper.style.outline = `2px solid ${markerColor}`;
+        wrapper.style.outlineOffset = '2px';
+      });
+
+      wrapper.addEventListener('blur', () => {
+        wrapper.style.outline = 'none';
+      });
+
       return wrapper;
-    };
-
-    // InfoWindow content
-    const getInfoWindowContent = () => {
-      const speed = motoristaLocation.velocidade !== null
-        ? `${Math.round(motoristaLocation.velocidade)} km/h`
-        : 'N/A';
-
-      return `
-        <div style="font-family: sans-serif; padding: 8px; min-width: 150px;">
-          <div style="font-weight: 700; font-size: 14px; margin-bottom: 6px; color: #0f172a;">
-            🚗 ${motoristaNome || 'Motorista'}
-          </div>
-          <div style="font-size: 13px; color: #475569; margin-bottom: 4px;">
-            <strong>Velocidade:</strong> ${speed}
-          </div>
-          <div style="font-size: 12px; color: #64748b;">
-            Atualizado ${getTimeSinceUpdate()}
-          </div>
-        </div>
-      `;
     };
 
     const AdvancedMarker = google.maps.marker?.AdvancedMarkerElement;
@@ -571,7 +778,8 @@ export default function MapaWeb({
         }
 
         marker.addListener('gmp-click', () => {
-          motoristaInfoWindowRef.current!.setContent(getInfoWindowContent());
+          motoristaInfoWindowRef.current!.setHeaderContent?.(buildMotoristaHeader(motoristaNome || 'Motorista', markerColor));
+          motoristaInfoWindowRef.current!.setContent(buildMotoristaInfoContent(motoristaLocation.velocidade, getTimeSinceUpdate(), markerColor));
           motoristaInfoWindowRef.current!.open(mapRef.current, marker);
         });
 
@@ -584,24 +792,25 @@ export default function MapaWeb({
 
     // Fallback
     {
-      // Fallback para Marker antigo (browsers sem suporte)
-      const carIcon = {
+      // Fallback para Marker antigo (browsers sem suporte) - usa mesmo ícone de van de entrega
+      const vanIcon = {
         url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-          <svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="24" cy="24" r="20" fill="${markerColor}" stroke="white" stroke-width="3"/>
-            <path d="M24 14 L30 20 L30 28 L24 34 L18 28 L18 20 Z" fill="white"/>
-            <circle cx="24" cy="24" r="4" fill="${markerColor}"/>
+          <svg width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="18" cy="18" r="16" fill="${markerColor}" stroke="white" stroke-width="2"/>
+            <g transform="translate(8, 9) scale(0.83)">
+              <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" fill="white"/>
+            </g>
           </svg>
         `)}`,
-        scaledSize: new google.maps.Size(48, 48),
-        anchor: new google.maps.Point(24, 24),
+        scaledSize: new google.maps.Size(36, 36),
+        anchor: new google.maps.Point(18, 18),
       };
 
       // Fallback: google.maps.Marker é deprecated mas mantido para compatibilidade
       const marker = new google.maps.Marker({
         map: mapRef.current,
         position,
-        icon: carIcon,
+        icon: vanIcon,
         title: motoristaNome || 'Motorista',
         zIndex: 9999,
       });
@@ -611,7 +820,8 @@ export default function MapaWeb({
       }
 
       marker.addListener('click', () => {
-        motoristaInfoWindowRef.current!.setContent(getInfoWindowContent());
+        motoristaInfoWindowRef.current!.setHeaderContent?.(buildMotoristaHeader(motoristaNome || 'Motorista', markerColor));
+        motoristaInfoWindowRef.current!.setContent(buildMotoristaInfoContent(motoristaLocation.velocidade, getTimeSinceUpdate(), markerColor));
         motoristaInfoWindowRef.current!.open(mapRef.current, marker);
       });
 
@@ -650,7 +860,7 @@ export default function MapaWeb({
       <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:#0f172a;">Legenda</div>
       <div style="display:flex;gap:10px;font-size:12px;color:#475569;align-items:center;">
         <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>Pendente</span>
-        <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:50%;background:#3b82f6;display:inline-block;"></span>Em andamento</span>
+        <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:50%;background:#f7a02a;display:inline-block;"></span>Em andamento</span>
         <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:50%;background:#10b981;display:inline-block;"></span>Concluida</span>
       </div>
     `;
@@ -693,6 +903,21 @@ export default function MapaWeb({
     };
   }, [center, mapReady, isLoaded, paradasComCoord.length]);
 
+  // Handler para clique no mapa (fecha InfoWindow e chama callback)
+  // IMPORTANTE: Deve estar ANTES de TODOS os early returns para respeitar Rules of Hooks
+  const handleMapClick = useCallback(() => {
+    // Fechar InfoWindow das paradas
+    if (infoWindowRef.current) {
+      infoWindowRef.current.close();
+    }
+    // Fechar InfoWindow do motorista
+    if (motoristaInfoWindowRef.current) {
+      motoristaInfoWindowRef.current.close();
+    }
+    // Chamar callback do pai (deselecionar parada)
+    onMapPress?.();
+  }, [onMapPress]);
+
   if (loadError) {
     return (
       <View style={styles.errorContainer}>
@@ -716,6 +941,7 @@ export default function MapaWeb({
       center={center}
       zoom={13}
       onLoad={onLoad}
+      onClick={handleMapClick}
       options={{
         zoomControl: true,
         streetViewControl: false,

@@ -24,7 +24,6 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useResponsive } from '@/hooks/useResponsive';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
-import type { Parada } from '../types';
 
 import { EmptyState } from './EmptyState';
 import { FixedStopsList } from './FixedStopsList';
@@ -32,6 +31,8 @@ import { Instructions } from './Instructions';
 import { LoadingOverlay } from './LoadingOverlay';
 import { ReorderableList } from './ReorderableList';
 import { useReorderState } from './useReorderState';
+
+import type { Parada } from '../types';
 
 /** Interface de controle exposta via ref */
 export interface DraggableStopListControl {

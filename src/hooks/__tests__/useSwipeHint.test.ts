@@ -3,8 +3,8 @@
  * Hook para gerenciar exibição inteligente do swipe hint
  */
 
-import { renderHook, act, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { renderHook, act, waitFor } from '@testing-library/react-native';
 
 import { useSwipeHint, resetSwipeHint } from '../useSwipeHint';
 

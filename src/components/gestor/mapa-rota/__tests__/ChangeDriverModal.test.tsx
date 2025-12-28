@@ -207,7 +207,7 @@ describe('ChangeDriverModal', () => {
     });
 
     it('deve exibir lista de outros motoristas (excluindo o atual)', async () => {
-      const { getByText, queryByText } = render(<ChangeDriverModal {...defaultProps} />);
+      const { getByText } = render(<ChangeDriverModal {...defaultProps} />);
 
       await waitFor(() => {
         expect(getByText('Maria Santos')).toBeTruthy();

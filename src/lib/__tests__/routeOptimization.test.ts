@@ -19,7 +19,6 @@ jest.mock('../google', () => ({
   },
 }));
 
-import type { ParadaParaOtimizar } from '../routeOptimization';
 import {
   MAX_WAYPOINTS,
   WAYPOINTS_RECOMENDADO,
@@ -32,6 +31,8 @@ import {
   encontrarRetiradasDisponiveis,
   otimizarRotaComDependencias,
 } from '../routeOptimization';
+
+import type { ParadaParaOtimizar } from '../routeOptimization';
 
 describe('routeOptimization', () => {
   beforeEach(() => {

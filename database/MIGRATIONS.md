@@ -265,4 +265,46 @@ SELECT * FROM rotas WHERE motorista_id = auth.uid();
 
 ---
 
-**Última atualização:** 19/12/2025
+### 🔧 Migration 8: Corrigir Triggers Duplicados de Log
+
+**Data:** 27/12/2025
+**Arquivo:** `20251227000000_fix_duplicate_log_triggers.sql`
+**Objetivo:** Remover triggers duplicados que criam logs duplicados de `motorista_iniciou_rota`
+
+**Problema identificado:**
+Múltiplos triggers estavam criando logs quando a rota mudava de status, causando duplicidade na timeline.
+
+**Ações:**
+1. Remove todos os triggers potencialmente duplicados (`trigger_log_rota_status`, `log_rota_status_change`, etc.)
+2. Recria a função `log_rota_status_change()` com a versão correta
+3. Cria trigger único `log_rota_status`
+4. Adiciona comentários de documentação para evitar duplicidade futura
+
+**Verificação:**
+A migration inclui diagnóstico que lista triggers antes e depois da limpeza.
+
+**Status:** ✅ Aplicado em produção (27/12/2025)
+
+---
+
+**Última atualização:** 27/12/2025
+
+### 🔧 Migration 9: Prevenir Logs Duplicados
+
+**Data:** 27/12/2025
+**Arquivo:** `20251227000001_prevent_duplicate_logs.sql`
+**Objetivo:** Adicionar proteção no nível do banco para prevenir inserção de logs duplicados
+
+**Problema identificado:**
+Apesar da Migration 8 ter limpado os triggers, logs duplicados de `motorista_iniciou_rota` continuavam aparecendo. A fonte do segundo log (com `motorista_nome` e `unidade_nome`) não foi identificada no código.
+
+**Solução implementada:**
+1. Criar trigger `prevent_duplicate_log_trigger` (BEFORE INSERT) na tabela `logs`
+2. Bloquear inserção se já existe log similar nos últimos 5 segundos
+3. Log similar = mesmo `rota_id` + mesmo `evento` + mesmo `usuario_id`
+4. Limpar logs duplicados existentes
+
+**Verificação:**
+Logs de `motorista_iniciou_rota` agora aparecem apenas uma vez por início de rota.
+
+**Status:** ✅ Aplicado em produção (27/12/2025)

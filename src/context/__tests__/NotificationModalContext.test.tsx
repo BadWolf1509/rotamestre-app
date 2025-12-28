@@ -29,7 +29,7 @@ jest.mock('@/components/NotificationList', () => ({
 
 // Mock BackHandler using spyOn
 const mockRemove = jest.fn();
-const mockAddEventListener = jest.spyOn(BackHandler, 'addEventListener')
+const _mockAddEventListener = jest.spyOn(BackHandler, 'addEventListener')
   .mockImplementation(() => ({ remove: mockRemove }));
 
 describe('NotificationModalContext', () => {

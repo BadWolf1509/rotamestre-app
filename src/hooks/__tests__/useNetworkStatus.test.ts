@@ -3,8 +3,7 @@
  * Hook para monitorar status de conectividade de rede
  */
 
-import { renderHook, act, waitFor } from '@testing-library/react-native';
-import { NetInfoStateType } from '@react-native-community/netinfo';
+import { renderHook, waitFor } from '@testing-library/react-native';
 
 import { useNetworkStatus, useIsOnline } from '../useNetworkStatus';
 

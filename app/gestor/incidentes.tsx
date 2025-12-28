@@ -97,6 +97,11 @@ export default function IncidentesScreen() {
   const [observacoes, setObservacoes] = useState('');
   const [atualizando, setAtualizando] = useState(false);
 
+  // Estados para foto do incidente no modal de detalhes
+  const [fotoLoading, setFotoLoading] = useState(true);
+  const [fotoError, setFotoError] = useState(false);
+  const [fotoRetryCount, setFotoRetryCount] = useState(0);
+
   // Desktop header menu
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
@@ -196,7 +201,28 @@ export default function IncidentesScreen() {
   // Visualizar detalhes
   const handleVerDetalhes = (incidente: Incidente) => {
     setIncidenteSelecionado(incidente);
+    // Reset estados da foto
+    setFotoLoading(true);
+    setFotoError(false);
+    setFotoRetryCount(0);
     setShowDetalhesModal(true);
+  };
+
+  // Handlers para foto do incidente
+  const handleFotoLoad = () => {
+    setFotoLoading(false);
+    setFotoError(false);
+  };
+
+  const handleFotoError = () => {
+    setFotoLoading(false);
+    setFotoError(true);
+  };
+
+  const handleFotoRetry = () => {
+    setFotoRetryCount((prev) => prev + 1);
+    setFotoLoading(true);
+    setFotoError(false);
   };
 
   // Alterar status
@@ -556,9 +582,12 @@ export default function IncidentesScreen() {
               </View>
 
               <Text style={styles.mobileMotorista}>{incidente.motorista_nome}</Text>
-              <Text style={styles.mobileEndereco} numberOfLines={2}>
-                📍 {incidente.endereco}
-              </Text>
+              <View style={styles.mobileEnderecoRow}>
+                <Ionicons name="location-outline" size={14} color={theme.colors.gray500} />
+                <Text style={styles.mobileEndereco} numberOfLines={2}>
+                  {incidente.endereco}
+                </Text>
+              </View>
               <Text style={styles.mobileData}>{formatDate(incidente.created_at)}</Text>
 
               <TouchableOpacity
@@ -582,19 +611,37 @@ export default function IncidentesScreen() {
     const cat = CATEGORIA_LABELS[incidenteSelecionado.categoria];
     const st = STATUS_LABELS[incidenteSelecionado.status];
 
+    // URL da foto com retry param para forçar reload
+    const fotoUri = incidenteSelecionado.foto_url
+      ? (fotoRetryCount > 0 ? `${incidenteSelecionado.foto_url}?retry=${fotoRetryCount}` : incidenteSelecionado.foto_url)
+      : null;
+
     return (
       <DesktopModal
         visible={showDetalhesModal}
         onClose={() => setShowDetalhesModal(false)}
         title="Detalhes do Incidente"
-        width={700}
+        maxWidth={600}
+        primaryButton={{
+          text: 'Alterar Status',
+          onPress: () => {
+            setShowDetalhesModal(false);
+            setTimeout(() => handleAlterarStatus(incidenteSelecionado), 300);
+          },
+        }}
+        secondaryButton={{
+          text: 'Remarcar Entrega',
+          onPress: () => handleRemarcarEntrega(incidenteSelecionado),
+        }}
       >
-        <ScrollView style={styles.modalContent}>
+        <ScrollView showsVerticalScrollIndicator={false}>
           {/* Header com categoria e status */}
-          <View style={styles.detalhesHeader}>
+          <View style={[styles.detalhesHeader, isDesktop && styles.detalhesHeaderCompact]}>
             <View style={styles.detalhesCategoria}>
-              <Ionicons name={cat.icon as any} size={24} color={cat.color} />
-              <Text style={styles.detalhesCategoriaText}>{cat.label}</Text>
+              <Ionicons name={cat.icon as any} size={isDesktop ? 20 : 24} color={cat.color} />
+              <Text style={[styles.detalhesCategoriaText, isDesktop && styles.detalhesCategoriaTextCompact]}>
+                {cat.label}
+              </Text>
             </View>
             <View style={[styles.statusBadge, { backgroundColor: st.color + '20' }]}>
               <Text style={[styles.statusText, { color: st.color }]}>{st.label}</Text>
@@ -602,25 +649,31 @@ export default function IncidentesScreen() {
           </View>
 
           {/* Informações */}
-          <View style={styles.detalhesSection}>
-            <Text style={styles.detalhesLabel}>Data/Hora:</Text>
-            <Text style={styles.detalhesValue}>{formatDate(incidenteSelecionado.created_at)}</Text>
+          <View style={[styles.detalhesSection, isDesktop && styles.detalhesSectionCompact]}>
+            <Text style={[styles.detalhesLabel, isDesktop && styles.detalhesLabelCompact]}>Data/Hora:</Text>
+            <Text style={[styles.detalhesValue, isDesktop && styles.detalhesValueCompact]}>
+              {formatDate(incidenteSelecionado.created_at)}
+            </Text>
           </View>
 
-          <View style={styles.detalhesSection}>
-            <Text style={styles.detalhesLabel}>Motorista:</Text>
-            <Text style={styles.detalhesValue}>{incidenteSelecionado.motorista_nome}</Text>
+          <View style={[styles.detalhesSection, isDesktop && styles.detalhesSectionCompact]}>
+            <Text style={[styles.detalhesLabel, isDesktop && styles.detalhesLabelCompact]}>Motorista:</Text>
+            <Text style={[styles.detalhesValue, isDesktop && styles.detalhesValueCompact]}>
+              {incidenteSelecionado.motorista_nome}
+            </Text>
           </View>
 
-          <View style={styles.detalhesSection}>
-            <Text style={styles.detalhesLabel}>Local:</Text>
-            <Text style={styles.detalhesValue}>{incidenteSelecionado.endereco}</Text>
+          <View style={[styles.detalhesSection, isDesktop && styles.detalhesSectionCompact]}>
+            <Text style={[styles.detalhesLabel, isDesktop && styles.detalhesLabelCompact]}>Local:</Text>
+            <Text style={[styles.detalhesValue, isDesktop && styles.detalhesValueCompact]}>
+              {incidenteSelecionado.endereco}
+            </Text>
           </View>
 
           {incidenteSelecionado.rota_id && (
-            <View style={styles.detalhesSection}>
-              <Text style={styles.detalhesLabel}>Rota:</Text>
-              <Text style={styles.detalhesValue}>
+            <View style={[styles.detalhesSection, isDesktop && styles.detalhesSectionCompact]}>
+              <Text style={[styles.detalhesLabel, isDesktop && styles.detalhesLabelCompact]}>Rota:</Text>
+              <Text style={[styles.detalhesValue, isDesktop && styles.detalhesValueCompact]}>
                 {incidenteSelecionado.rota_data
                   ? `Rota de ${new Date(incidenteSelecionado.rota_data).toLocaleDateString('pt-BR')}`
                   : 'N/A'}
@@ -628,61 +681,82 @@ export default function IncidentesScreen() {
             </View>
           )}
 
-          <View style={styles.detalhesSection}>
-            <Text style={styles.detalhesLabel}>Descrição:</Text>
-            <Text style={styles.detalhesDescricao}>{incidenteSelecionado.descricao}</Text>
+          <View style={[styles.detalhesSection, isDesktop && styles.detalhesSectionCompact]}>
+            <Text style={[styles.detalhesLabel, isDesktop && styles.detalhesLabelCompact]}>Descrição:</Text>
+            <Text style={[styles.detalhesDescricao, isDesktop && styles.detalhesDescricaoCompact]}>
+              {incidenteSelecionado.descricao}
+            </Text>
           </View>
 
-          {incidenteSelecionado.foto_url && (
-            <View style={styles.detalhesSection}>
-              <Text style={styles.detalhesLabel}>Foto:</Text>
-              <Image
-                source={{ uri: incidenteSelecionado.foto_url }}
-                style={styles.incidenteFoto}
-                resizeMode="cover"
-              />
+          {/* Foto com loading/error handling */}
+          {fotoUri && (
+            <View style={[styles.detalhesSection, isDesktop && styles.detalhesSectionCompact]}>
+              <Text style={[styles.detalhesLabel, isDesktop && styles.detalhesLabelCompact]}>Foto:</Text>
+              <View style={[styles.fotoContainer, isDesktop && styles.fotoContainerCompact]}>
+                {/* Loading indicator */}
+                {fotoLoading && !fotoError && (
+                  <View style={styles.fotoLoadingContainer}>
+                    <ActivityIndicator size="large" color={theme.colors.primary} />
+                    <Text style={styles.fotoLoadingText}>Carregando foto...</Text>
+                  </View>
+                )}
+
+                {/* Error state */}
+                {fotoError && (
+                  <View style={styles.fotoErrorContainer}>
+                    <Ionicons name="image-outline" size={48} color={theme.colors.gray400} />
+                    <Text style={styles.fotoErrorText}>Não foi possível carregar a foto</Text>
+                    <TouchableOpacity style={styles.fotoRetryButton} onPress={handleFotoRetry}>
+                      <Ionicons name="refresh" size={16} color={theme.colors.primary} />
+                      <Text style={styles.fotoRetryText}>Tentar novamente</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Image */}
+                {!fotoError && (
+                  <Image
+                    source={{ uri: fotoUri }}
+                    style={[
+                      styles.incidenteFoto,
+                      isDesktop && styles.incidenteFotoCompact,
+                      { opacity: fotoLoading ? 0 : 1 },
+                    ]}
+                    resizeMode="cover"
+                    onLoad={handleFotoLoad}
+                    onError={handleFotoError}
+                    accessibilityLabel={`Foto do incidente: ${cat.label}`}
+                  />
+                )}
+              </View>
             </View>
           )}
 
           {incidenteSelecionado.observacoes_gestao && (
-            <View style={styles.detalhesSection}>
-              <Text style={styles.detalhesLabel}>Observações da Gestão:</Text>
-              <Text style={styles.detalhesDescricao}>{incidenteSelecionado.observacoes_gestao}</Text>
+            <View style={[styles.detalhesSection, isDesktop && styles.detalhesSectionCompact]}>
+              <Text style={[styles.detalhesLabel, isDesktop && styles.detalhesLabelCompact]}>
+                Observações da Gestão:
+              </Text>
+              <Text style={[styles.detalhesDescricao, isDesktop && styles.detalhesDescricaoCompact]}>
+                {incidenteSelecionado.observacoes_gestao}
+              </Text>
             </View>
           )}
 
-          {/* Botões de Ação */}
-          <View style={styles.detalhesActionsRow}>
-            <TouchableOpacity
-              style={styles.remarcarButton}
-              onPress={() => handleRemarcarEntrega(incidenteSelecionado)}
-            >
-              <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
-              <Text style={styles.remarcarButtonText}>Remarcar Entrega</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.alterarStatusButton}
-              onPress={() => {
-                setShowDetalhesModal(false);
-                setTimeout(() => handleAlterarStatus(incidenteSelecionado), 300);
-              }}
-            >
-              <Ionicons name="create-outline" size={20} color="#fff" />
-              <Text style={styles.alterarStatusButtonText}>Alterar Status</Text>
-            </TouchableOpacity>
-          </View>
-
           {/* Link para histórico do motorista */}
           <TouchableOpacity
-            style={styles.verHistoricoLink}
+            style={[styles.verHistoricoLink, isDesktop && styles.verHistoricoLinkCompact]}
             onPress={() => {
               setShowDetalhesModal(false);
               setTimeout(() => handleVerHistoricoMotorista(incidenteSelecionado.motorista_id, incidenteSelecionado.motorista_nome), 300);
             }}
+            accessibilityRole="link"
+            accessibilityLabel={`Ver histórico de incidentes de ${incidenteSelecionado.motorista_nome}`}
           >
-            <Ionicons name="time-outline" size={16} color={theme.colors.primary} />
-            <Text style={styles.verHistoricoLinkText}>Ver histórico de incidentes deste motorista</Text>
+            <Ionicons name="time-outline" size={isDesktop ? 14 : 16} color={theme.colors.primary} />
+            <Text style={[styles.verHistoricoLinkText, isDesktop && styles.verHistoricoLinkTextCompact]}>
+              Ver histórico de incidentes deste motorista
+            </Text>
           </TouchableOpacity>
         </ScrollView>
       </DesktopModal>
@@ -698,9 +772,19 @@ export default function IncidentesScreen() {
         visible={showAlterarStatusModal}
         onClose={() => setShowAlterarStatusModal(false)}
         title="Alterar Status do Incidente"
-        width={500}
+        maxWidth={500}
+        primaryButton={{
+          text: 'Salvar',
+          onPress: confirmarAlterarStatus,
+          loading: atualizando,
+        }}
+        secondaryButton={{
+          text: 'Cancelar',
+          onPress: () => setShowAlterarStatusModal(false),
+          disabled: atualizando,
+        }}
       >
-        <View style={styles.modalContent}>
+        <View>
           <Text style={styles.modalLabel}>Novo Status:</Text>
           <View style={styles.statusOptions}>
             {Object.entries(STATUS_LABELS).map(([key, { label, color }]) => (
@@ -735,26 +819,6 @@ export default function IncidentesScreen() {
             numberOfLines={4}
             textAlignVertical="top"
           />
-
-          <View style={styles.modalActions}>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => setShowAlterarStatusModal(false)}
-            >
-              <Text style={styles.cancelButtonText}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.confirmButton, atualizando && styles.buttonDisabled]}
-              onPress={confirmarAlterarStatus}
-              disabled={atualizando}
-            >
-              {atualizando ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.confirmButtonText}>Salvar</Text>
-              )}
-            </TouchableOpacity>
-          </View>
         </View>
       </DesktopModal>
     );
@@ -769,9 +833,9 @@ export default function IncidentesScreen() {
         visible={showHistoricoMotoristaModal}
         onClose={() => setShowHistoricoMotoristaModal(false)}
         title={`Histórico de Incidentes - ${motoristaSelecionado.nome}`}
-        width={800}
+        maxWidth={700}
       >
-        <ScrollView style={styles.modalContent}>
+        <ScrollView showsVerticalScrollIndicator={false}>
           {incidentesMotorista.length === 0 ? (
             <View style={styles.emptyHistorico}>
               <Text style={styles.emptyHistoricoText}>Nenhum incidente encontrado para este motorista</Text>
@@ -909,10 +973,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray900,
     marginBottom: theme.spacing.xs,
   },
+  mobileEnderecoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.xs,
+    marginBottom: theme.spacing.xs,
+  },
   mobileEndereco: {
+    flex: 1,
     fontSize: theme.typography.sm,
     color: theme.colors.gray600,
-    marginBottom: theme.spacing.xs,
   },
   mobileData: {
     fontSize: theme.typography.xs,
@@ -934,9 +1004,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
 
   // Modal de detalhes
-  modalContent: {
-    padding: theme.spacing.lg,
-  },
   detalhesHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -945,6 +1012,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
     paddingBottom: theme.spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray200,
+  },
+  detalhesHeaderCompact: {
+    marginBottom: theme.spacing.lg,
+    paddingBottom: theme.spacing.md,
   },
   detalhesCategoria: {
     flexDirection: 'row',
@@ -956,8 +1027,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
   },
+  detalhesCategoriaTextCompact: {
+    fontSize: theme.typography.base,
+  },
   detalhesSection: {
     marginBottom: theme.spacing.lg,
+  },
+  detalhesSectionCompact: {
+    marginBottom: theme.spacing.md,
   },
   detalhesLabel: {
     fontSize: theme.typography.sm,
@@ -965,9 +1042,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray700,
     marginBottom: theme.spacing.xs,
   },
+  detalhesLabelCompact: {
+    fontSize: 13,
+    marginBottom: 4,
+  },
   detalhesValue: {
     fontSize: theme.typography.base,
     color: theme.colors.gray900,
+  },
+  detalhesValueCompact: {
+    fontSize: 14,
   },
   detalhesDescricao: {
     fontSize: theme.typography.base,
@@ -977,26 +1061,72 @@ const styles = StyleSheet.create((theme: Theme) => ({
     padding: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
   },
+  detalhesDescricaoCompact: {
+    fontSize: 14,
+    lineHeight: 20,
+    padding: theme.spacing.sm,
+  },
+
+  // Foto do incidente com loading/error
+  fotoContainer: {
+    minHeight: 200,
+    backgroundColor: theme.colors.gray100,
+    borderRadius: theme.borderRadius.md,
+    marginTop: theme.spacing.sm,
+    overflow: 'hidden',
+  },
+  fotoContainerCompact: {
+    minHeight: 180,
+  },
   incidenteFoto: {
     width: '100%',
     height: 300,
     borderRadius: theme.borderRadius.md,
-    marginTop: theme.spacing.sm,
   },
-  alterarStatusButton: {
-    flexDirection: 'row',
+  incidenteFotoCompact: {
+    height: 240,
+  },
+  fotoLoadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: theme.spacing.sm,
-    backgroundColor: theme.colors.primary,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    marginTop: theme.spacing.xl,
+    gap: theme.spacing.md,
   },
-  alterarStatusButtonText: {
-    fontSize: theme.typography.base,
+  fotoLoadingText: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.gray500,
+  },
+  fotoErrorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.md,
+    padding: theme.spacing.xl,
+    minHeight: 200,
+  },
+  fotoErrorText: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.gray500,
+    textAlign: 'center',
+  },
+  fotoRetryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.primaryBg,
+  },
+  fotoRetryText: {
+    fontSize: theme.typography.sm,
     fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.white,
+    color: theme.colors.primary,
   },
 
   // Modal de status
@@ -1034,40 +1164,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray900,
     minHeight: 100,
   },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: theme.spacing.md,
-    marginTop: theme.spacing.xl,
-  },
-  cancelButton: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.gray300,
-  },
-  cancelButtonText: {
-    fontSize: theme.typography.base,
-    color: theme.colors.gray700,
-  },
-  confirmButton: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.primary,
-    minWidth: 100,
-    alignItems: 'center',
-  },
-  confirmButtonText: {
-    fontSize: theme.typography.base,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.white,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-
   // Resumo cards
   resumoRow: {
     flexDirection: 'row',
@@ -1130,29 +1226,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginTop: 2,
   },
 
-  // Botões de ação nos detalhes
-  detalhesActionsRow: {
-    flexDirection: 'row',
-    gap: theme.spacing.md,
-    marginTop: theme.spacing.xl,
-  },
-  remarcarButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.sm,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.white,
-  },
-  remarcarButtonText: {
-    fontSize: theme.typography.base,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.primary,
-  },
+  // Link para histórico do motorista
   verHistoricoLink: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1161,9 +1235,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginTop: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
   },
+  verHistoricoLinkCompact: {
+    marginTop: theme.spacing.md,
+    paddingVertical: 6,
+  },
   verHistoricoLinkText: {
     fontSize: theme.typography.sm,
     color: theme.colors.primary,
+  },
+  verHistoricoLinkTextCompact: {
+    fontSize: 13,
   },
 
   // Modal de histórico

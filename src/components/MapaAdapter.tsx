@@ -29,6 +29,10 @@ interface MapaAdapterProps {
   paradas: Parada[];
   selectedParadaId?: string | null;
   onMarkerPress?: (paradaId: string) => void;
+  /** Callback quando toca/clica fora dos marcadores (deselecionar) */
+  onMapPress?: () => void;
+  /** Callback para long-press no marcador (ações rápidas) - apenas mobile */
+  onMarkerLongPress?: (paradaId: string) => void;
   statusFilter?: StatusFilter;
   /** ID da rota para rastreamento em tempo real do motorista */
   rotaId?: string;
@@ -36,6 +40,8 @@ interface MapaAdapterProps {
   motoristaNome?: string;
   /** Se true e rota em andamento, mostra posição do motorista em tempo real */
   showMotorista?: boolean;
+  /** Nome da unidade para exibir nos checkpoints (PARTIDA/CHEGADA) */
+  unidadeNome?: string;
 }
 
 /**
@@ -45,10 +51,13 @@ export function MapaAdapter({
   paradas,
   selectedParadaId,
   onMarkerPress,
+  onMapPress,
+  onMarkerLongPress,
   statusFilter,
   rotaId,
   motoristaNome,
   showMotorista,
+  unidadeNome,
 }: MapaAdapterProps) {
   // Web: Usa MapaWeb (Google Maps JavaScript API)
   if (Platform.OS === 'web') {
@@ -57,10 +66,12 @@ export function MapaAdapter({
         paradas={paradas as any}
         selectedParadaId={selectedParadaId}
         onMarkerPress={onMarkerPress}
+        onMapPress={onMapPress}
         statusFilter={statusFilter}
         rotaId={rotaId}
         motoristaNome={motoristaNome}
         showMotorista={showMotorista}
+        unidadeNome={unidadeNome}
       />
     );
   }
@@ -74,10 +85,13 @@ export function MapaAdapter({
       paradas={paradas as any}
       selectedParadaId={selectedParadaId}
       onMarkerPress={onMarkerPress}
+      onMapPress={onMapPress}
+      onMarkerLongPress={onMarkerLongPress}
       statusFilter={statusFilter}
       rotaId={rotaId}
       motoristaNome={motoristaNome}
       showMotorista={showMotorista}
+      unidadeNome={unidadeNome}
     />
   );
 }

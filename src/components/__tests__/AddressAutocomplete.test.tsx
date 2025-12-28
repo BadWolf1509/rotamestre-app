@@ -5,8 +5,6 @@ import { googleMapsService } from '@/lib/google';
 
 import { AddressAutocomplete } from '../AddressAutocomplete';
 
-
-
 // Mock do googleMapsService
 jest.mock('@/lib/google', () => ({
   googleMapsService: {
@@ -54,8 +52,6 @@ jest.mock('@/utils/styles', () => {
     },
   };
 });
-
-// Keyboard mock está em jest.setup.js - não precisa duplicar aqui
 
 // Wrapper para gerenciar estado
 const TestWrapper = ({ onSelectAddress = () => { } }) => {
@@ -128,31 +124,7 @@ describe('AddressAutocomplete', () => {
     });
   });
 
-  /**
-   * LIMITAÇÃO CONFIRMADA (26/11/2025):
-   * Teste skipado após múltiplas tentativas de correção.
-   *
-   * Tentativas de correção:
-   * 1. TestWrapper com gerenciamento de estado interno
-   * 2. Manual rerender após changeText
-   * 3. TestWrapper com callback que atualiza setValue
-   * 4. Act() wrapping de fireEvent.press
-   * 5. waitFor com timeout estendido
-   * 6. Memoização de renderItem com useCallback
-   * 7. UNSAFE_getAllByType para acessar TouchableOpacity diretamente
-   * 8. Mock do Keyboard.dismiss em jest.setup.js
-   *
-   * Problema raiz: O mock do Keyboard no jest-expo/jest.setup.js não está
-   * sendo aplicado corretamente quando o componente chama Keyboard.dismiss().
-   * Além disso, fireEvent.press em TouchableOpacity dentro de FlatList
-   * não dispara o onPress handler no react-test-renderer.
-   *
-   * Conclusão: Limitação conhecida do react-test-renderer com TouchableOpacity em FlatList.
-   * Solução futura: Extrair lógica em hook customizado (useAddressSearch) testável independentemente,
-   * ou usar Detox/Maestro para testes E2E.
-   */
-  // eslint-disable-next-line jest/no-disabled-tests
-  it.skip('deve selecionar um endereço e esconder sugestões', async () => {
+  it('deve selecionar um endereço e esconder sugestões', async () => {
     const mockSuggestions = [
       {
         place_id: '1',
@@ -182,9 +154,10 @@ describe('AddressAutocomplete', () => {
       );
     };
 
-    const { getByPlaceholderText, getByText, getAllByTestId, queryByTestId } = render(<TestWrapperWithCallback />);
+    const { getByPlaceholderText, getByText, getAllByTestId, queryByTestId, UNSAFE_getAllByType } = render(<TestWrapperWithCallback />);
 
     const input = getByPlaceholderText('Digite o endereco completo');
+    fireEvent(input, 'focus');
     fireEvent.changeText(input, 'Rua Teste');
 
     await act(async () => {
@@ -198,8 +171,13 @@ describe('AddressAutocomplete', () => {
     const suggestions = getAllByTestId('suggestion-item');
     expect(suggestions.length).toBeGreaterThan(0);
 
-    await act(async () => {
-      fireEvent.press(suggestions[0]);
+    const { TouchableOpacity } = require('react-native');
+    const touchables = UNSAFE_getAllByType(TouchableOpacity);
+    const suggestion = touchables.find((node: any) => node.props.testID === 'suggestion-item');
+    expect(suggestion).toBeTruthy();
+
+    act(() => {
+      suggestion!.props.onPress();
     });
 
     await waitFor(() => {

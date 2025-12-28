@@ -10,8 +10,8 @@ import {
   Keyboard,
 } from 'react-native';
 
-import { googleMapsService, PlaceSuggestion } from '@/lib/google';
 import { useResponsive } from '@/hooks/useResponsive';
+import { googleMapsService, PlaceSuggestion } from '@/lib/google';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface AddressAutocompleteProps {
@@ -123,7 +123,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
     onSelectAddress(suggestion.description, suggestion.place_id);
     setSuggestions([]);
     setShowSuggestions(false);
-    Keyboard.dismiss();
+    Keyboard?.dismiss?.();
   }, [onSelectAddress]);
 
   const handleClearInput = useCallback(() => {

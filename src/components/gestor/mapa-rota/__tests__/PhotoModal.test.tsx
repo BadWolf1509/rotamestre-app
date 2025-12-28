@@ -253,7 +253,7 @@ describe('PhotoModal', () => {
     });
 
     it('deve adicionar parâmetro retry à URL ao tentar novamente', async () => {
-      const { getByLabelText, getByText, rerender } = render(
+      const { getByLabelText, getByText, rerender: _rerender } = render(
         <PhotoModal
           visible={true}
           photoUrl={testPhotoUrl}

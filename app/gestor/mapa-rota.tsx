@@ -6,7 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Platform } from 'react-native';
 
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { DesktopCard } from '@/components/desktop/DesktopCard';
@@ -133,7 +133,7 @@ export default function MapaRota() {
 
       const { data: rotaData, error: rotaError } = await supabase
         .from('rotas')
-        .select('id, data, status, distancia_total, updated_at, motorista_id, unidade_id, usuarios!rotas_motorista_id_fkey(nome)')
+        .select('id, data, status, distancia_total, created_at, updated_at, motorista_id, unidade_id, usuarios!rotas_motorista_id_fkey(nome), unidades(nome)')
         .eq('id', id)
         .single();
 
@@ -142,6 +142,7 @@ export default function MapaRota() {
       setRota({
         ...rotaData,
         motorista: Array.isArray(rotaData.usuarios) ? rotaData.usuarios[0] : rotaData.usuarios,
+        unidade: Array.isArray(rotaData.unidades) ? rotaData.unidades[0] : rotaData.unidades,
       });
 
       const { data: paradasData, error: paradasError } = await supabase
@@ -296,6 +297,11 @@ export default function MapaRota() {
     },
     [scrollToParada]
   );
+
+  // Handler para tap no mapa (fora dos marcadores) - deseleciona
+  const handleMapPress = useCallback(() => {
+    setSelectedParadaId(null);
+  }, []);
 
   const handleParadaPress = useCallback((paradaId: string) => {
     setSelectedParadaId(paradaId);
@@ -636,9 +642,11 @@ export default function MapaRota() {
                       paradas={paradas}
                       selectedParadaId={selectedParadaId}
                       onMarkerPress={handleMarkerPress}
+                      onMapPress={handleMapPress}
                       rotaId={rota?.id}
                       motoristaNome={rota?.motorista?.nome}
                       showMotorista={rota?.status === 'em_andamento'}
+                      unidadeNome={rota?.unidade?.nome}
                     />
                   </View>
                 </DesktopCard>
@@ -704,7 +712,7 @@ export default function MapaRota() {
 
           {/* Timeline Colapsável no Rodapé */}
           <View style={{ marginTop: 16 }}>
-            <TimelineCollapsible rotaId={id as string} />
+            <TimelineCollapsible rotaId={id as string} rotaCreatedAt={rota?.created_at} />
           </View>
 
           {/* Pontos da Unidade (apenas se houver) */}
@@ -916,9 +924,11 @@ export default function MapaRota() {
                   paradas={paradas}
                   selectedParadaId={selectedParadaId}
                   onMarkerPress={handleMarkerPress}
+                  onMapPress={handleMapPress}
                   rotaId={rota?.id}
                   motoristaNome={rota?.motorista?.nome}
                   showMotorista={rota?.status === 'em_andamento'}
+                  unidadeNome={rota?.unidade?.nome}
                 />
               </View>
 

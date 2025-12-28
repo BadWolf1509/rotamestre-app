@@ -43,9 +43,10 @@ async function getFileData(
 
 /**
  * Bucket names no Supabase Storage
+ * NOTA: Usamos apenas um bucket (fotos-entrega) com subpastas
+ * porque criar buckets requer SERVICE_ROLE_KEY (admin)
  */
 const BUCKET_FOTOS_ENTREGA = 'fotos-entrega';
-const BUCKET_INCIDENTES = 'incidentes';
 
 /**
  * Upload de foto de comprovante de entrega
@@ -324,6 +325,7 @@ export async function uploadFotoUsuario(
 
 /**
  * Upload de foto de incidente
+ * Usa o bucket fotos-entrega com subpasta incidentes/
  *
  * @param fotoUri - URI local da foto
  * @param fileName - Nome do arquivo
@@ -343,18 +345,13 @@ export async function uploadIncidentPhoto(
       throw new Error('Foto muito grande. Máximo: 5MB');
     }
 
-    // Criar bucket de incidentes se não existir
-    const { data: buckets } = await supabase.storage.listBuckets();
-    if (!buckets?.find(b => b.name === BUCKET_INCIDENTES)) {
-      await supabase.storage.createBucket(BUCKET_INCIDENTES, {
-        public: true,
-      });
-    }
+    // Caminho no bucket: incidentes/nome-do-arquivo.jpg
+    const filePath = `incidentes/${fileName}`;
 
-    // Upload para o bucket
+    // Upload para o bucket fotos-entrega (subpasta incidentes)
     const { error } = await supabase.storage
-      .from(BUCKET_INCIDENTES)
-      .upload(fileName, fileData, {
+      .from(BUCKET_FOTOS_ENTREGA)
+      .upload(filePath, fileData, {
         contentType: 'image/jpeg',
         upsert: true,
       });
@@ -366,8 +363,8 @@ export async function uploadIncidentPhoto(
 
     // Gerar URL pública
     const { data: urlData } = supabase.storage
-      .from(BUCKET_INCIDENTES)
-      .getPublicUrl(fileName);
+      .from(BUCKET_FOTOS_ENTREGA)
+      .getPublicUrl(filePath);
 
     return urlData.publicUrl;
   } catch (error) {

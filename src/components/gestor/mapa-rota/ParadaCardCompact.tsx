@@ -28,7 +28,7 @@ interface ParadaCardCompactProps {
 }
 
 export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
-  ({ parada, index, onImagePress, selected, onPress, onLayoutCapture, rotaStatus, onRemove, onEdit }) => {
+  ({ parada, index: _index, onImagePress, selected, onPress, onLayoutCapture, rotaStatus, onRemove, onEdit }) => {
     const { theme } = useUnistyles();
     const [imageError, setImageError] = useState(false);
     const [expanded, setExpanded] = useState(false);

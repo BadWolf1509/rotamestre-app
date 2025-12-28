@@ -1,13 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import React, { useRef, useEffect, useMemo, useCallback, useState } from 'react';
-import { View, Text, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity, Alert, Platform, Pressable, Linking } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region, Callout } from 'react-native-maps';
 
+import { getStatusLabel } from '@/components/map/infoWindowBuilders';
 import { MotoristaMarker } from '@/components/MotoristaMarker';
 import { useRouteDirections } from '@/hooks/useRouteDirections';
 import { showNavigationOptions } from '@/utils/navigation';
-import { StyleSheet, type Theme } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { toast } from '@/utils/toast';
 
 interface Parada {
   id: string;
@@ -17,6 +21,9 @@ interface Parada {
   longitude: number | null;
   status: string;
   is_checkpoint?: boolean;
+  destinatario?: string;
+  telefone?: string;
+  tipo?: string;
 }
 
 type StatusFilter = 'all' | 'pendente' | 'em_andamento' | 'concluida';
@@ -25,6 +32,10 @@ interface MapaMobileProps {
   paradas: Parada[];
   selectedParadaId?: string | null;
   onMarkerPress?: (paradaId: string) => void;
+  /** Callback quando toca fora dos marcadores (deselecionar) */
+  onMapPress?: () => void;
+  /** Callback para long-press no marcador (ações rápidas) */
+  onMarkerLongPress?: (paradaId: string) => void;
   statusFilter?: StatusFilter;
   /** ID da rota para rastreamento em tempo real do motorista */
   rotaId?: string;
@@ -32,17 +43,23 @@ interface MapaMobileProps {
   motoristaNome?: string;
   /** Se true e rota em andamento, mostra posição do motorista em tempo real */
   showMotorista?: boolean;
+  /** Nome da unidade para exibir nos checkpoints (PARTIDA/CHEGADA) */
+  unidadeNome?: string;
 }
 
 export function MapaMobile({
   paradas,
   selectedParadaId,
   onMarkerPress,
+  onMapPress,
+  onMarkerLongPress,
   statusFilter = 'all',
   rotaId,
   motoristaNome,
   showMotorista = false,
+  unidadeNome,
 }: MapaMobileProps) {
+  const { theme } = useUnistyles();
   const mapRef = useRef<MapView>(null);
   const [isLocating, setIsLocating] = useState(false);
 
@@ -142,19 +159,40 @@ export function MapaMobile({
     };
   }, [hasParadasComCoordenadas, paradasComCoord]);
 
-// Função para determinar cor do marcador baseado no status
-  const getMarkerColor = (status: string): string => {
+// Função para determinar cor do marcador baseado no status - usa design tokens
+  const getMarkerColor = useCallback((status: string): string => {
     switch (status) {
       case 'concluida':
-        return '#10b981'; // Verde
+        return theme.colors.success;
       case 'em_andamento':
-        return '#3b82f6'; // Azul
+        return theme.colors.secondary;
       case 'pendente':
-        return '#f59e0b'; // Amarelo
+        return theme.colors.warning;
       default:
-        return '#6b7280'; // Cinza
+        return theme.colors.gray500;
     }
-  };
+  }, [theme.colors]);
+
+  // Handler para tap no marcador com haptic feedback
+  const handleMarkerPress = useCallback((paradaId: string) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    onMarkerPress?.(paradaId);
+  }, [onMarkerPress]);
+
+  // Handler para long-press no marcador
+  const handleMarkerLongPress = useCallback((paradaId: string) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    onMarkerLongPress?.(paradaId);
+  }, [onMarkerLongPress]);
+
+  // Handler para tap no mapa (deselecionar)
+  const handleMapPress = useCallback(() => {
+    onMapPress?.();
+  }, [onMapPress]);
 
   // Próxima parada pendente (para navegação)
   const proximaParadaPendente = useMemo(() => {
@@ -225,6 +263,17 @@ export function MapaMobile({
     }
   }, [paradasComCoord]);
 
+  // Handler para copiar endereço - memoizado para performance
+  const handleCopyAddress = useCallback(async (endereco: string) => {
+    try {
+      await Clipboard.setStringAsync(endereco);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      toast.success('Endereço copiado para a área de transferência.', 'Copiado!');
+    } catch {
+      toast.error('Não foi possível copiar o endereço.');
+    }
+  }, []);
+
   if (!hasParadasComCoordenadas) {
     return (
       <View style={styles.emptyContainer}>
@@ -246,40 +295,75 @@ export function MapaMobile({
         showsMyLocationButton={true}
         showsCompass={true}
         loadingEnabled={true}
-        loadingIndicatorColor="#0D5A9C"
-        loadingBackgroundColor="#ffffff"
+        loadingIndicatorColor={theme.colors.primary}
+        loadingBackgroundColor={theme.colors.white}
+        onPress={handleMapPress}
+        accessible={true}
+        accessibilityLabel="Mapa de paradas da rota"
       >
         {/* Rota real (via Google Directions API) ou fallback para linhas retas */}
         {routeCoordinates.length > 1 && (
           <Polyline
             coordinates={routeCoordinates}
-            strokeColor="#0D5A9C"
+            strokeColor={theme.colors.primary}
             strokeWidth={4}
           />
         )}
 
-        {/* Marcadores dos checkpoints (pontos da unidade - partida/chegada) */}
-        {checkpoints.map((parada) => (
-          <Marker
-            key={parada.id}
-            coordinate={{
-              latitude: parada.latitude!,
-              longitude: parada.longitude!,
-            }}
-            title={parada.ordem === 0 ? 'Ponto de Partida' : 'Ponto de Chegada'}
-            description={parada.endereco}
-            tracksViewChanges={false}
-          >
-            {/* Marcador especial para checkpoints (pin azul) */}
-            <View style={styles.checkpointMarker}>
-              <Ionicons
-                name={parada.ordem === 0 ? 'location' : 'flag'}
-                size={24}
-                color="#284093"
-              />
-            </View>
-          </Marker>
-        ))}
+        {/* Marcadores dos checkpoints (PARTIDA/CHEGADA) */}
+        {checkpoints.map((parada, index) => {
+          const isPartida = index === 0;
+          const checkpointLabel = isPartida ? 'PARTIDA' : 'CHEGADA';
+          const iconName = isPartida ? 'flag' : 'home';
+
+          return (
+            <Marker
+              key={parada.id}
+              coordinate={{
+                latitude: parada.latitude!,
+                longitude: parada.longitude!,
+              }}
+              onPress={handleMapPress}
+              tracksViewChanges={false}
+              anchor={{ x: 0.5, y: 1 }}
+              accessible={true}
+              accessibilityLabel={`${checkpointLabel}, ${parada.endereco}`}
+              accessibilityHint="Toque para ver informações"
+            >
+              {/* Marcador compacto azul marca - ícones distintos */}
+              <View style={styles.checkpointMarkerCompact}>
+                <Ionicons name={iconName} size={14} color={theme.colors.white} />
+              </View>
+              {/* Callout para checkpoint */}
+              <Callout tooltip accessible={true} accessibilityLabel={`Detalhes do ${checkpointLabel}`}>
+                <View style={styles.checkpointCalloutContainer}>
+                  <View style={styles.checkpointCalloutHeader}>
+                    <View style={styles.checkpointIconBadge}>
+                      <Ionicons name={iconName} size={12} color={theme.colors.white} />
+                    </View>
+                    <Text style={styles.checkpointCalloutTitle}>{checkpointLabel}</Text>
+                  </View>
+                  {unidadeNome && (
+                    <Text style={styles.checkpointCalloutUnidade}>{unidadeNome}</Text>
+                  )}
+                  <Text style={styles.checkpointCalloutAddress} numberOfLines={2}>
+                    {parada.endereco}
+                  </Text>
+                  {/* Botão copiar endereço */}
+                  <TouchableOpacity
+                    style={styles.copyButton}
+                    onPress={() => handleCopyAddress(parada.endereco)}
+                    accessibilityLabel="Copiar endereço"
+                    accessibilityRole="button"
+                  >
+                    <Ionicons name="copy-outline" size={14} color={theme.colors.textSecondary} />
+                    <Text style={styles.copyButtonText}>Copiar endereço</Text>
+                  </TouchableOpacity>
+                </View>
+              </Callout>
+            </Marker>
+          );
+        })}
 
         {/* Marcadores das paradas reais (entregas/retiradas) - filtradas por status */}
         {paradasFiltradas.map((parada) => (
@@ -289,29 +373,80 @@ export function MapaMobile({
               latitude: parada.latitude!,
               longitude: parada.longitude!,
             }}
-            onPress={() => onMarkerPress?.(parada.id)}
+            onPress={() => handleMarkerPress(parada.id)}
+            onCalloutPress={() => handleMarkerPress(parada.id)}
             tracksViewChanges={false}
+            // Acessibilidade
+            accessible={true}
+            accessibilityLabel={`Parada ${parada.ordem}, ${parada.endereco}, ${getStatusLabel(parada.status)}`}
+            accessibilityHint="Toque para ver detalhes. Mantenha pressionado para ações rápidas"
           >
-            {/* Customizar marcador com número da ordem */}
-            <View style={[
-              styles.markerContainer,
-              { backgroundColor: getMarkerColor(parada.status) },
-              selectedParadaId === parada.id && styles.markerSelected,
-            ]}>
+            {/* Customizar marcador com número da ordem - Pressable para suporte a long-press */}
+            <Pressable
+              onLongPress={() => handleMarkerLongPress(parada.id)}
+              delayLongPress={400}
+              style={({ pressed }) => [
+                styles.markerContainer,
+                { backgroundColor: getMarkerColor(parada.status) },
+                selectedParadaId === parada.id && styles.markerSelected,
+                pressed && styles.markerPressed,
+              ]}
+            >
               <Text style={styles.markerText}>{parada.ordem}</Text>
-            </View>
+            </Pressable>
             {/* Callout com informações da parada */}
             <Callout
               tooltip
-              onPress={() => onMarkerPress?.(parada.id)}
+              onPress={() => handleMarkerPress(parada.id)}
+              accessible={true}
+              accessibilityLabel={`Detalhes da parada ${parada.ordem}`}
             >
               <View style={styles.calloutContainer}>
                 <Text style={styles.calloutTitle}>Parada {parada.ordem}</Text>
                 <Text style={styles.calloutAddress} numberOfLines={2}>{parada.endereco}</Text>
-                <View style={[styles.calloutStatus, { backgroundColor: `${getMarkerColor(parada.status)}20` }]}>
-                  <Text style={[styles.calloutStatusText, { color: getMarkerColor(parada.status) }]}>
-                    {parada.status === 'concluida' ? 'Concluída' : parada.status === 'em_andamento' ? 'Em andamento' : 'Pendente'}
-                  </Text>
+
+                {/* Destinatário */}
+                {parada.destinatario && (
+                  <View style={styles.calloutDetailRow}>
+                    <Ionicons name="person-outline" size={14} color={theme.colors.textSecondary} />
+                    <Text style={styles.calloutDetailText} numberOfLines={1}>
+                      {parada.destinatario}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Telefone clicável */}
+                {parada.telefone && (
+                  <TouchableOpacity
+                    style={styles.calloutDetailRow}
+                    onPress={() => Linking.openURL(`tel:${parada.telefone}`)}
+                    accessibilityLabel={`Ligar para ${parada.telefone}`}
+                    accessibilityRole="button"
+                  >
+                    <Ionicons name="call-outline" size={14} color={theme.colors.primary} />
+                    <Text style={styles.calloutPhoneText}>{parada.telefone}</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* Badges: Status e Tipo */}
+                <View style={styles.calloutBadges}>
+                  <View style={[styles.calloutStatus, { backgroundColor: `${getMarkerColor(parada.status)}20` }]}>
+                    <Text style={[styles.calloutStatusText, { color: getMarkerColor(parada.status) }]}>
+                      {parada.status === 'concluida' ? 'Concluída' : parada.status === 'em_andamento' ? 'Em andamento' : 'Pendente'}
+                    </Text>
+                  </View>
+                  {parada.tipo && (
+                    <View style={styles.calloutTypeBadge}>
+                      <Ionicons
+                        name={parada.tipo === 'entrega' ? 'cube-outline' : 'arrow-up-circle-outline'}
+                        size={12}
+                        color={theme.colors.textSecondary}
+                      />
+                      <Text style={styles.calloutTypeText}>
+                        {parada.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
             </Callout>
@@ -329,10 +464,20 @@ export function MapaMobile({
       </MapView>
 
       {/* Info Badge - mostra paradas e info da rota */}
-      <View style={styles.infoBadge}>
+      <View
+        style={styles.infoBadge}
+        accessible={true}
+        accessibilityRole="summary"
+        accessibilityLabel={
+          isLoadingRoute
+            ? 'Calculando rota'
+            : `${paradasFiltradas.length} parada${paradasFiltradas.length !== 1 ? 's' : ''}${routeInfo ? `, ${(routeInfo.distanceMeters / 1000).toFixed(1)} quilômetros, ${Math.round(routeInfo.durationSeconds / 60)} minutos` : ''}`
+        }
+        accessibilityLiveRegion="polite"
+      >
         {isLoadingRoute ? (
           <View style={styles.infoBadgeLoading}>
-            <ActivityIndicator size="small" color="#0D5A9C" />
+            <ActivityIndicator size="small" color={theme.colors.primary} />
             <Text style={styles.infoBadgeText}>Calculando rota...</Text>
           </View>
         ) : (
@@ -344,14 +489,17 @@ export function MapaMobile({
       </View>
 
       {/* Botões flutuantes (FABs) */}
-      <View style={styles.fabContainer}>
+      <View style={styles.fabContainer} accessibilityRole="toolbar" accessibilityLabel="Controles do mapa">
         {/* Botão de ajustar para mostrar todas as paradas */}
         <TouchableOpacity
           style={styles.fabSecondary}
           onPress={handleFitAll}
           activeOpacity={0.8}
+          accessible={true}
+          accessibilityLabel="Ajustar mapa para mostrar todas as paradas"
+          accessibilityRole="button"
         >
-          <Ionicons name="scan-outline" size={22} color="#0D5A9C" />
+          <Ionicons name="scan-outline" size={22} color={theme.colors.primary} />
         </TouchableOpacity>
 
         {/* Botão de centralizar no usuário */}
@@ -360,11 +508,15 @@ export function MapaMobile({
           onPress={handleCenterOnUser}
           activeOpacity={0.8}
           disabled={isLocating}
+          accessible={true}
+          accessibilityLabel={isLocating ? 'Obtendo localização' : 'Centralizar mapa na minha localização'}
+          accessibilityRole="button"
+          accessibilityState={{ busy: isLocating }}
         >
           {isLocating ? (
-            <ActivityIndicator size="small" color="#0D5A9C" />
+            <ActivityIndicator size="small" color={theme.colors.primary} />
           ) : (
-            <Ionicons name="locate" size={22} color="#0D5A9C" />
+            <Ionicons name="locate" size={22} color={theme.colors.primary} />
           )}
         </TouchableOpacity>
 
@@ -374,8 +526,12 @@ export function MapaMobile({
             style={styles.fabPrimary}
             onPress={handleNavigate}
             activeOpacity={0.8}
+            accessible={true}
+            accessibilityLabel={`Navegar para parada ${proximaParadaPendente.ordem}`}
+            accessibilityRole="button"
+            accessibilityHint="Abre aplicativo de navegação"
           >
-            <Ionicons name="navigate" size={24} color="#FFFFFF" />
+            <Ionicons name="navigate" size={24} color={theme.colors.white} />
           </TouchableOpacity>
         )}
       </View>
@@ -416,26 +572,89 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'center',
     borderWidth: 3,
     borderColor: theme.colors.surface,
-    shadowColor: '#000',
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
   },
-  checkpointMarker: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(40, 64, 147, 0.15)',
+  // Checkpoint compacto azul marca - ícones distintos para PARTIDA/CHEGADA
+  checkpointMarkerCompact: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    borderBottomLeftRadius: 2,
+    backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#284093',
-    shadowColor: '#000',
+    borderColor: theme.colors.white,
+    shadowColor: theme.colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  // Callout para checkpoint
+  checkpointCalloutContainer: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 10,
+    padding: 12,
+    minWidth: 180,
+    maxWidth: 240,
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
-    shadowRadius: 3,
+    shadowRadius: 4,
     elevation: 4,
+  },
+  checkpointCalloutHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  checkpointIconBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: theme.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkpointCalloutTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.colors.primary,
+    letterSpacing: 0.5,
+  },
+  checkpointCalloutUnidade: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginBottom: 4,
+  },
+  checkpointCalloutAddress: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    lineHeight: 18,
+  },
+  copyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: theme.colors.gray50,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
+    marginTop: 10,
+  },
+  copyButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: theme.colors.textSecondary,
   },
   markerText: {
     color: theme.colors.surface,
@@ -444,8 +663,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   markerSelected: {
     borderWidth: 4,
-    borderColor: '#0D5A9C',
+    borderColor: theme.colors.primary,
     transform: [{ scale: 1.2 }],
+  },
+  markerPressed: {
+    transform: [{ scale: 0.9 }],
+    opacity: 0.8,
   },
   calloutContainer: {
     backgroundColor: theme.colors.surface,
@@ -453,7 +676,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     padding: 12,
     minWidth: 200,
     maxWidth: 280,
-    shadowColor: '#000',
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
@@ -471,8 +694,30 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: 8,
     lineHeight: 18,
   },
+  calloutDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  calloutDetailText: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    flex: 1,
+  },
+  calloutPhoneText: {
+    fontSize: 13,
+    color: theme.colors.primary,
+    fontWeight: '500',
+  },
+  calloutBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+    flexWrap: 'wrap',
+  },
   calloutStatus: {
-    alignSelf: 'flex-start',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -480,6 +725,20 @@ const styles = StyleSheet.create((theme: Theme) => ({
   calloutStatusText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  calloutTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: theme.colors.gray100,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  calloutTypeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: theme.colors.textSecondary,
   },
   infoBadge: {
     position: 'absolute',
@@ -489,7 +748,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    shadowColor: '#000',
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -515,10 +774,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#0D5A9C',
+    backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
@@ -531,7 +790,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,

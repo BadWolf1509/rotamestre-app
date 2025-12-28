@@ -8,6 +8,7 @@ import * as Linking from 'expo-linking';
 import React from 'react';
 
 import { ParadaCard } from '../ParadaCard';
+
 import type { Parada } from '../types';
 
 // Mock dependencies

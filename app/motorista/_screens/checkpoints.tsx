@@ -288,48 +288,76 @@ export default function CheckpointsMotorista() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        {/* Skeleton Header */}
-        <View style={styles.header}>
-          <View style={{ width: 200, height: 28, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm }} />
-          <View style={{ width: 150, height: 14, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm, marginTop: theme.spacing.xs }} />
-        </View>
+      <>
+        <View style={styles.container}>
+          {/* Skeleton Header */}
+          <View style={styles.header}>
+            <View style={{ width: 200, height: 28, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm }} />
+            <View style={{ width: 150, height: 14, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm, marginTop: theme.spacing.xs }} />
+          </View>
 
-        {/* Skeleton Stats */}
-        <View style={styles.statsRow}>
-          {[1, 2, 3].map((i) => (
-            <View key={i} style={styles.statItem}>
-              <View style={{ width: 40, height: 28, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm }} />
-              <View style={{ width: 60, height: 12, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm, marginTop: theme.spacing.xs }} />
+          {/* Skeleton Stats */}
+          <View style={styles.statsRow}>
+            {[1, 2, 3].map((i) => (
+              <View key={i} style={styles.statItem}>
+                <View style={{ width: 40, height: 28, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm }} />
+                <View style={{ width: 60, height: 12, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm, marginTop: theme.spacing.xs }} />
+              </View>
+            ))}
+          </View>
+
+          {/* Skeleton Progress */}
+          <View style={styles.progressSection}>
+            <View style={{ width: 120, height: 14, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm }} />
+            <View style={[styles.progressContainer, { marginTop: theme.spacing.xs }]}>
+              <View style={{ width: '30%', height: '100%', backgroundColor: theme.colors.gray300, borderRadius: theme.borderRadius.full }} />
             </View>
-          ))}
-        </View>
+          </View>
 
-        {/* Skeleton Progress */}
-        <View style={styles.progressSection}>
-          <View style={{ width: 120, height: 14, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm }} />
-          <View style={[styles.progressContainer, { marginTop: theme.spacing.xs }]}>
-            <View style={{ width: '30%', height: '100%', backgroundColor: theme.colors.gray300, borderRadius: theme.borderRadius.full }} />
+          {/* Skeleton Cards */}
+          <View style={styles.listContainer}>
+            <ParadaCardSkeletonList count={3} />
           </View>
         </View>
 
-        {/* Skeleton Cards */}
-        <View style={styles.listContainer}>
-          <ParadaCardSkeletonList count={3} />
-        </View>
-      </View>
+        {/* IMPORTANTE: Manter modal mesmo durante loading para não perder estado */}
+        <StopCompletionFlow
+          parada={selectedParadaForCompletion}
+          visible={showCompletionFlow}
+          onClose={() => {
+            setShowCompletionFlow(false);
+            setSelectedParadaForCompletion(null);
+          }}
+          onSuccess={handleCompletionSuccess}
+          allowSkipPhoto={true}
+        />
+      </>
     );
   }
 
   if (routeStatus === 'no-route' || paradas.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyTitle}>📋</Text>
-        <Text style={styles.emptyText}>Nenhuma rota ativa no momento</Text>
-        <Text style={styles.emptySubtext}>
-          Aguarde o gestor atribuir uma nova rota
-        </Text>
-      </View>
+      <>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyTitle}>📋</Text>
+          <Text style={styles.emptyText}>Nenhuma rota ativa no momento</Text>
+          <Text style={styles.emptySubtext}>
+            Aguarde o gestor atribuir uma nova rota
+          </Text>
+        </View>
+
+        {/* IMPORTANTE: Manter modal mesmo quando sem rota para não perder estado */}
+        <StopCompletionFlow
+          parada={selectedParadaForCompletion}
+          visible={showCompletionFlow}
+          onClose={() => {
+            setShowCompletionFlow(false);
+            setSelectedParadaForCompletion(null);
+          }}
+          onSuccess={handleCompletionSuccess}
+          allowSkipPhoto={true}
+        />
+      </>
     );
   }
 

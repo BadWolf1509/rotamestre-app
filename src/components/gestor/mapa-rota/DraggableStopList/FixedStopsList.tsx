@@ -10,9 +10,10 @@ import { View, Text } from 'react-native';
 
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
+import { StopCard } from './StopCard';
+
 import type { Parada } from '../types';
 
-import { StopCard } from './StopCard';
 
 export interface FixedStopsListProps {
   paradas: Parada[];

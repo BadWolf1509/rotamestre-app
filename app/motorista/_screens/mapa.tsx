@@ -37,6 +37,12 @@ export default function MapaMotorista() {
     setBottomSheetVisible(true);
   }, []);
 
+  // Handler para tap no mapa (fora dos marcadores) - fecha bottom sheet
+  const handleMapPress = useCallback(() => {
+    setBottomSheetVisible(false);
+    setSelectedParadaId(null);
+  }, []);
+
   // Parada selecionada (objeto completo)
   const selectedParada = useMemo(() => {
     if (!selectedParadaId) return null;
@@ -147,7 +153,9 @@ export default function MapaMotorista() {
           paradas={paradas}
           selectedParadaId={selectedParadaId}
           onMarkerPress={handleMarkerPress}
+          onMapPress={handleMapPress}
           statusFilter={statusFilter}
+          unidadeNome={route?.unidade_nome}
         />
       </View>
 

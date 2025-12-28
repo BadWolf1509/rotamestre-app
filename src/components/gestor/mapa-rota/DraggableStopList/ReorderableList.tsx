@@ -15,9 +15,10 @@ import DraggableFlatList, {
 
 import { StyleSheet, type Theme } from '@/utils/styles';
 
+import { StopCard } from './StopCard';
+
 import type { Parada } from '../types';
 
-import { StopCard } from './StopCard';
 
 export interface ReorderableListProps {
   /** Paradas a exibir */

@@ -12,6 +12,7 @@ import React from 'react';
 import { Platform } from 'react-native';
 
 import { DraggableStopList } from '../DraggableStopList';
+
 import type { DraggableStopListControl } from '../DraggableStopList';
 import type { Parada } from '../types';
 
@@ -78,12 +79,12 @@ jest.mock('@expo/vector-icons', () => ({
 
 // Mock react-native-draggable-flatlist
 jest.mock('react-native-draggable-flatlist', () => {
-  const React = require('react');
+  const _React = require('react');
   const { View, FlatList } = require('react-native');
 
   return {
     __esModule: true,
-    default: ({ data, renderItem, keyExtractor, onDragEnd }: any) => (
+    default: ({ data, renderItem, keyExtractor, onDragEnd: _onDragEnd }: any) => (
       <FlatList
         data={data}
         renderItem={(info: any) =>

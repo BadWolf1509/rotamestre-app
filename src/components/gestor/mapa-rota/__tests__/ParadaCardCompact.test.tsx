@@ -8,6 +8,7 @@ import * as Linking from 'expo-linking';
 import React from 'react';
 
 import { ParadaCardCompact } from '../ParadaCardCompact';
+
 import type { Parada } from '../types';
 
 // Mock dependencies
@@ -321,7 +322,7 @@ describe('ParadaCardCompact', () => {
         longitude: -46.63,
       };
 
-      const { getByText, queryByText } = render(
+      const { getByText } = render(
         <ParadaCardCompact {...defaultProps} parada={paradaMinima} />
       );
 

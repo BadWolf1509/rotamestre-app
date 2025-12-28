@@ -8,7 +8,14 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
 
 import { RouteTimeline } from '@/components/RouteTimeline';
+import { useTimelineLastSeen } from '@/hooks/useTimelineLastSeen';
 import { supabase } from '@/lib/supabase';
+import {
+  formatRelativeTime,
+  isTimelineLogEvent,
+  mapLogToTimelinePreview,
+  type TimelinePreviewEvent,
+} from '@/lib/utils';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // Habilitar LayoutAnimation no Android
@@ -28,10 +35,12 @@ interface TimelinePreview {
 
 interface TimelineCollapsibleProps {
   rotaId: string;
+  /** Timestamp de criação da rota - usado como baseline para badges "novo" */
+  rotaCreatedAt?: string;
   initialExpanded?: boolean;
 }
 
-export function TimelineCollapsible({ rotaId, initialExpanded = false }: TimelineCollapsibleProps) {
+export function TimelineCollapsible({ rotaId, rotaCreatedAt, initialExpanded = false }: TimelineCollapsibleProps) {
   const { theme } = useUnistyles();
   const [expanded, setExpanded] = useState(initialExpanded);
   const [preview, setPreview] = useState<TimelinePreview>({
@@ -39,6 +48,16 @@ export function TimelineCollapsible({ rotaId, initialExpanded = false }: Timelin
     eventCount: 0,
     lastEvent: null,
   });
+  const [unseenCount, setUnseenCount] = useState(0);
+
+  // Hook para calcular eventos não vistos no preview
+  // Passa rotaCreatedAt como fallback: eventos após criação da rota são "novos"
+  const {
+    countNewEvents,
+    markAllAsSeen: _markAllAsSeen,
+    loading: lastSeenLoading,
+  } = useTimelineLastSeen(rotaId, rotaCreatedAt);
+
 
   // Buscar preview leve (apenas contagem e último evento)
   useEffect(() => {
@@ -50,11 +69,10 @@ export function TimelineCollapsible({ rotaId, initialExpanded = false }: Timelin
             .from('logs')
             .select('id, evento, timestamp')
             .eq('rota_id', rotaId)
-            .order('timestamp', { ascending: false })
-            .limit(5),
+            .order('timestamp', { ascending: false }),
           supabase
             .from('paradas')
-            .select('id, ordem, status, concluida_em')
+            .select('id, ordem, status, concluida_em, is_checkpoint')
             .eq('rota_id', rotaId)
             .not('concluida_em', 'is', null),
           supabase
@@ -63,43 +81,43 @@ export function TimelineCollapsible({ rotaId, initialExpanded = false }: Timelin
             .eq('rota_id', rotaId),
         ]);
 
-        // Calcular total de eventos
-        const logsCount = logsRes.data?.filter((log: any) => {
-          const evento = log.evento.toLowerCase();
-          return evento.includes('iniciou') || evento.includes('concluiu') || evento.includes('concluida') ||
-                 evento.includes('cancelou') || evento === 'motorista_iniciou_rota' ||
-                 evento === 'motorista_concluiu_rota' || evento === 'rota_concluida' || evento === 'rota_cancelada';
-        }).length || 0;
-        const paradasCount = paradasRes.data?.length || 0;
+        // Calcular total de eventos (usando função centralizada)
+        const logsCount = logsRes.data?.filter((log: any) =>
+          isTimelineLogEvent(log.evento)
+        ).length || 0;
+
+        // Excluir checkpoints (is_checkpoint === false) da contagem
+        const paradasCount = paradasRes.data?.filter(
+          (parada: any) => parada.is_checkpoint !== false
+        ).length || 0;
+
         const incidentesCount = incidentesRes.data?.length || 0;
         const totalCount = logsCount + paradasCount + incidentesCount;
 
         // Encontrar último evento
         let lastEvent: TimelinePreview['lastEvent'] = null;
-        const allEvents: Array<{ timestamp: string; title: string; type: TimelinePreview['lastEvent'] extends null ? never : NonNullable<TimelinePreview['lastEvent']>['type'] }> = [];
+        const allEvents: TimelinePreviewEvent[] = [];
 
-        // Processar logs
-        logsRes.data?.forEach((log: any) => {
-          const evento = log.evento.toLowerCase();
-          if (evento.includes('iniciou') || evento === 'motorista_iniciou_rota') {
-            allEvents.push({ timestamp: log.timestamp, title: 'Rota iniciada', type: 'inicio' });
-          } else if (evento.includes('concluiu') || evento === 'motorista_concluiu_rota' || evento === 'rota_concluida') {
-            allEvents.push({ timestamp: log.timestamp, title: 'Rota concluída', type: 'conclusao' });
-          } else if (evento.includes('cancelou') || evento === 'rota_cancelada') {
-            allEvents.push({ timestamp: log.timestamp, title: 'Rota cancelada', type: 'outro' });
+        // Processar logs usando função centralizada (apenas os 5 mais recentes)
+        logsRes.data?.slice(0, 5).forEach((log: any) => {
+          const mapped = mapLogToTimelinePreview(log);
+          if (mapped) {
+            allEvents.push(mapped);
           }
         });
 
-        // Processar paradas
-        paradasRes.data?.forEach((parada: any) => {
-          if (parada.concluida_em) {
-            allEvents.push({
-              timestamp: parada.concluida_em,
-              title: `Parada #${parada.ordem} ${parada.status === 'concluida' ? 'concluída' : 'pulada'}`,
-              type: 'parada',
-            });
-          }
-        });
+        // Processar paradas (excluir checkpoints)
+        paradasRes.data
+          ?.filter((parada: any) => parada.is_checkpoint !== false)
+          .forEach((parada: any) => {
+            if (parada.concluida_em) {
+              allEvents.push({
+                timestamp: parada.concluida_em,
+                title: `Parada #${parada.ordem} ${parada.status === 'concluida' ? 'concluída' : 'pulada'}`,
+                type: 'parada',
+              });
+            }
+          });
 
         // Processar incidentes
         incidentesRes.data?.forEach((inc: any) => {
@@ -113,6 +131,14 @@ export function TimelineCollapsible({ rotaId, initialExpanded = false }: Timelin
         }
 
         setPreview({ loading: false, eventCount: totalCount, lastEvent });
+
+        // Calcular eventos não vistos
+        // O hook usa rotaCreatedAt como fallback quando não há lastSeenTimestamp
+        // Então eventos após criação da rota aparecem como "novos" na primeira visita
+        if (!lastSeenLoading) {
+          const unseenEvents = countNewEvents(allEvents);
+          setUnseenCount(unseenEvents);
+        }
       } catch (error) {
         console.error('[TimelineCollapsible] Erro ao buscar preview:', error);
         setPreview({ loading: false, eventCount: 0, lastEvent: null });
@@ -120,7 +146,7 @@ export function TimelineCollapsible({ rotaId, initialExpanded = false }: Timelin
     }
 
     fetchPreview();
-  }, [rotaId]);
+  }, [rotaId, lastSeenLoading, countNewEvents]);
 
   const toggleExpanded = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -128,11 +154,6 @@ export function TimelineCollapsible({ rotaId, initialExpanded = false }: Timelin
   }, []);
 
   const hasEvents = preview.eventCount > 0;
-
-  // Formatar timestamp para exibição
-  const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  };
 
   // Cor do dot baseada no tipo de evento
   const getEventColor = (type: NonNullable<TimelinePreview['lastEvent']>['type']) => {
@@ -152,28 +173,36 @@ export function TimelineCollapsible({ rotaId, initialExpanded = false }: Timelin
         style={styles.header}
         onPress={toggleExpanded}
         activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        accessibilityLabel={`Timeline. ${preview.eventCount} evento${preview.eventCount !== 1 ? 's' : ''}${unseenCount > 0 ? `. ${unseenCount} novo${unseenCount !== 1 ? 's' : ''}` : ''}`}
+        accessibilityHint={expanded ? 'Toque para recolher' : 'Toque para expandir'}
       >
         <View style={styles.headerLeft}>
           <View style={[styles.iconWrapper, { backgroundColor: theme.colors.infoBg }]}>
             <Ionicons name="time-outline" size={16} color={theme.colors.info} />
           </View>
           <Text style={styles.title}>Timeline</Text>
-          {!expanded && hasEvents && (
+          {/* Badge de contagem total ou skeleton loading */}
+          {!expanded && preview.loading && (
+            <View style={styles.badgeSkeleton} />
+          )}
+          {!expanded && !preview.loading && hasEvents && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{preview.eventCount}</Text>
             </View>
           )}
-          {preview.loading && (
-            <Text style={styles.loadingText}>Carregando...</Text>
+          {/* Badge de eventos novos (não vistos) */}
+          {!expanded && !preview.loading && unseenCount > 0 && (
+            <View style={styles.unseenBadge}>
+              <Text style={styles.unseenBadgeText}>
+                {unseenCount} novo{unseenCount !== 1 ? 's' : ''}
+              </Text>
+            </View>
           )}
         </View>
 
         <View style={styles.headerRight}>
-          {!expanded && hasEvents && (
-            <Text style={styles.previewText}>
-              {preview.eventCount} evento{preview.eventCount !== 1 ? 's' : ''}
-            </Text>
-          )}
           <Ionicons
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={20}
@@ -187,7 +216,14 @@ export function TimelineCollapsible({ rotaId, initialExpanded = false }: Timelin
         <View style={styles.content}>
           <RouteTimeline
             rotaId={rotaId}
+            rotaCreatedAt={rotaCreatedAt}
             realtime={true}
+            enableUnseenBadge={true}
+            onUnseenCountChange={(count) => {
+              // Atualizar contagem quando RouteTimeline informa mudanças
+              // (será 0 após marcar como visto)
+              setUnseenCount(count);
+            }}
           />
         </View>
       )}
@@ -201,7 +237,7 @@ export function TimelineCollapsible({ rotaId, initialExpanded = false }: Timelin
               {preview.lastEvent.title}
             </Text>
             <Text style={styles.previewTime}>
-              {formatTime(preview.lastEvent.timestamp)}
+              {formatRelativeTime(preview.lastEvent.timestamp)}
             </Text>
           </View>
         </View>
@@ -262,24 +298,32 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontWeight: '700',
     color: theme.colors.white,
   },
-  loadingText: {
-    fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.gray400,
-    fontStyle: 'italic',
+  badgeSkeleton: {
+    width: 24,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: theme.colors.gray200,
+  },
+  unseenBadge: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  unseenBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: theme.colors.white,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
   },
-  previewText: {
-    fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.gray500,
-  },
   content: {
     padding: theme.spacing.md,
     paddingTop: 0,
-    maxHeight: 300,
+    maxHeight: 600, // ~10 eventos visíveis
   },
   preview: {
     paddingHorizontal: theme.spacing.md,
@@ -302,7 +346,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   previewTime: {
     fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.gray400,
+    color: theme.colors.gray500, // WCAG AA: 4.64:1
     marginLeft: theme.spacing.sm,
   },
   emptyPreview: {
@@ -311,7 +355,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   emptyText: {
     fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.gray400,
+    color: theme.colors.gray500, // WCAG AA: 4.64:1
     fontStyle: 'italic',
   },
 }));

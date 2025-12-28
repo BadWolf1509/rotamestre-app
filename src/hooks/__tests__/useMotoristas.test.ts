@@ -3,7 +3,7 @@
  * Hook para gerenciar lista de motoristas com cache
  */
 
-import { renderHook, waitFor, act } from '@testing-library/react-native';
+import { renderHook, waitFor } from '@testing-library/react-native';
 
 import { useMotoristas, invalidateMotoristasCache } from '../useMotoristas';
 
@@ -31,6 +31,7 @@ jest.mock('../useUnidadeAtiva', () => ({
 
 const mockCache = require('@/lib/cache');
 const mockSupabase = require('@/lib/supabase').supabase;
+
 const mockUseUnidadeAtiva = require('../useUnidadeAtiva').useUnidadeAtiva;
 
 describe('useMotoristas', () => {

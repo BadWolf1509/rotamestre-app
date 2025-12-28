@@ -3,7 +3,7 @@
  * Utilitários para navegação externa
  */
 
-import { Linking, Platform, Alert } from 'react-native';
+import { Alert } from 'react-native';
 
 import {
   openNavigation,

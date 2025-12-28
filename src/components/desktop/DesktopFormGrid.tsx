@@ -144,7 +144,7 @@ export function DesktopFormField({
   );
 }
 
-const styles = StyleSheet.create((theme: Theme) => ({
+const styles = StyleSheet.create((_theme: Theme) => ({
   container: {
     width: '100%',
   },

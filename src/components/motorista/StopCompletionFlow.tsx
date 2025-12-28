@@ -131,7 +131,11 @@ export function StopCompletionFlow({
     setIsCompleting(true);
 
     try {
-      await completeStop(parada.id, photoUrl || undefined);
+      // IMPORTANTE: Não passar photoUrl para completeStop se for apenas um indicador
+      // ('success' ou 'pending_sync'). A foto já foi salva por uploadELinkFotoParada.
+      // Passar 'success' como foto_url sobrescreveria a URL correta no banco!
+      const isActualUrl = photoUrl && photoUrl.startsWith('http');
+      await completeStop(parada.id, isActualUrl ? photoUrl : undefined);
 
       // Feedback de sucesso
       if (Platform.OS === 'web') {
