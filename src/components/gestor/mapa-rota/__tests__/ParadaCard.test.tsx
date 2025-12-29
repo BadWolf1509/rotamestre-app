@@ -245,7 +245,17 @@ describe('ParadaCard', () => {
         />
       );
 
-      fireEvent.press(getByTestId('icon-expand-outline').parent?.parent);
+      const icon = getByTestId('icon-expand-outline');
+      let target: any = icon;
+      while (target && !target.props?.onPress) {
+        target = target.parent;
+      }
+
+      expect(target?.props?.onPress).toBeDefined();
+
+      fireEvent.press(target);
+
+      expect(onImagePress).toHaveBeenCalledWith('https://example.com/foto.jpg');
     });
   });
 

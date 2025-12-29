@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-/* eslint-env node */
-
 /**
  * Script para verificar se as funções têm search_path definido
  * Investiga por que o Database Linter ainda mostra avisos

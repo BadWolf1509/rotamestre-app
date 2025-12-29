@@ -17,6 +17,18 @@ export interface UnidadeDB {
 }
 
 /**
+ * Unidade com campos de sede (coordenadas e endereço)
+ * Usado quando precisamos dos dados completos para geração de rotas
+ */
+export interface UnidadeComSede extends UnidadeDB {
+  sede_latitude?: number | string | null;
+  sede_longitude?: number | string | null;
+  sede_endereco?: string | null;
+  uf?: string | null;
+  cep?: string | null;
+}
+
+/**
  * Vinculação entre usuário e unidade (tabela usuario_unidades)
  * Permite que um usuário pertença a múltiplas unidades
  */

@@ -10,11 +10,6 @@ test.describe('Motorista Navigation E2E Tests', () => {
     loginPage = new LoginPage(page);
     motoristaPage = new MotoristaPage(page);
 
-    // Skip all tests if no motorista credentials
-    if (!testUsers.motorista.email.includes('@')) {
-      test.skip();
-    }
-
     // Login as motorista
     await loginPage.goto();
     await loginPage.login(testUsers.motorista.email, testUsers.motorista.password);

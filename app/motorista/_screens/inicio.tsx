@@ -21,7 +21,7 @@ import { OptimizationAlert } from '@/components/motorista/OptimizationAlert';
 import { PictureInPictureMap } from '@/components/motorista/PictureInPictureMap';
 import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
 import { SupportModal } from '@/components/SupportModal';
-import { useRouteStatus } from '@/context/RouteStatusContext';
+import { useRouteStatus, type ParadaData } from '@/context/RouteStatusContext';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
 import { abrirNavegacao } from '@/lib/navigation';
@@ -68,6 +68,7 @@ function MotoristaInicioContent() {
   const [optimization, setOptimization] = useState<any>(null);
   const [showOptimization, setShowOptimization] = useState(false);
   const [showCompletionFlow, setShowCompletionFlow] = useState(false);
+  const [selectedParadaForCompletion, setSelectedParadaForCompletion] = useState<ParadaData | null>(null);
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [showCompleteRouteModal, setShowCompleteRouteModal] = useState(false);
   const [isCompletingRoute, setIsCompletingRoute] = useState(false);
@@ -244,8 +245,11 @@ function MotoristaInicioContent() {
   };
 
   // Complete current stop - abre o modal de conclusão com foto
+  // Captura a parada atual antes de abrir o modal para evitar loop
+  // quando currentStop muda após a conclusão
   const handleCompleteStop = async () => {
     if (!currentStop) return;
+    setSelectedParadaForCompletion(currentStop);
     setShowCompletionFlow(true);
   };
 
@@ -554,10 +558,15 @@ function MotoristaInicioContent() {
       />
 
       {/* Modal de Conclusão de Parada (com foto) */}
+      {/* Usa selectedParadaForCompletion (capturado no momento do swipe) para evitar loop */}
+      {/* quando currentStop muda após a conclusão da parada */}
       <StopCompletionFlow
-        parada={currentStop}
+        parada={selectedParadaForCompletion}
         visible={showCompletionFlow}
-        onClose={() => setShowCompletionFlow(false)}
+        onClose={() => {
+          setShowCompletionFlow(false);
+          setSelectedParadaForCompletion(null);
+        }}
         onSuccess={() => refreshRoute()}
         allowSkipPhoto={true}
       />

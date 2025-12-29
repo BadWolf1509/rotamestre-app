@@ -32,6 +32,9 @@ export default defineConfig({
     ['list'],
   ],
 
+  // Warm up the web bundle before tests start
+  globalSetup: './e2e/global-setup.ts',
+
   // Shared settings for all projects
   use: {
     // Base URL to use in actions like `await page.goto('/')`
@@ -79,7 +82,7 @@ export default defineConfig({
 
   // Run local dev server before starting the tests
   webServer: {
-    command: 'npm run web',
+    command: 'npm run web -- --port 8082',
     url: 'http://localhost:8082',
     reuseExistingServer: true, // Always reuse existing server
     timeout: 120 * 1000,

@@ -60,10 +60,6 @@ test.describe('Authentication E2E Tests', () => {
 
   test.describe('Motorista Login Flow', () => {
     test('should redirect motorista to motorista dashboard after login', async ({ page }) => {
-      // Skip if no test credentials
-      if (!testUsers.motorista.email.includes('@')) {
-        test.skip();
-      }
 
       await loginPage.login(testUsers.motorista.email, testUsers.motorista.password);
 
@@ -75,10 +71,6 @@ test.describe('Authentication E2E Tests', () => {
 
   test.describe('Gestor Login Flow', () => {
     test('should redirect gestor to gestor dashboard after login', async ({ page }) => {
-      // Skip if no test credentials
-      if (!testUsers.gestor.email.includes('@')) {
-        test.skip();
-      }
 
       await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
 
@@ -90,10 +82,6 @@ test.describe('Authentication E2E Tests', () => {
 
   test.describe('Session Persistence', () => {
     test('should redirect authenticated user away from login', async ({ page }) => {
-      // Skip if no test credentials
-      if (!testUsers.motorista.email || !testUsers.motorista.password) {
-        test.skip();
-      }
 
       // Login from the current login page (beforeEach already navigated here)
       await loginPage.login(testUsers.motorista.email, testUsers.motorista.password);

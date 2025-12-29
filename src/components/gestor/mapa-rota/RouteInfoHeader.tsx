@@ -89,6 +89,14 @@ function formatStatusLabel(status?: string) {
   return normalized.replace(/_/g, ' ');
 }
 
+function formatTempoTotal(minutos: number) {
+  if (minutos <= 0) return '-';
+  const horas = Math.floor(minutos / 60);
+  const mins = Math.round(minutos % 60);
+  if (horas === 0) return `${mins} min`;
+  return `${horas}h ${mins}min`;
+}
+
 export function RouteInfoHeader({ rota, resumoParadas, onCancelPress }: RouteInfoHeaderProps) {
   const { theme } = useUnistyles();
 
@@ -133,6 +141,14 @@ export function RouteInfoHeader({ rota, resumoParadas, onCancelPress }: RouteInf
             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
               <Text style={styles.infoChipLabel}>Distancia Total:</Text>
               <Text style={styles.infoChipValue}>{rota.distancia_total.toFixed(1)} km</Text>
+            </View>
+          )}
+
+          {/* Tempo Estimado */}
+          {rota.tempo_total && (
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+              <Text style={styles.infoChipLabel}>Tempo Estimado:</Text>
+              <Text style={styles.infoChipValue}>{formatTempoTotal(rota.tempo_total)}</Text>
             </View>
           )}
 

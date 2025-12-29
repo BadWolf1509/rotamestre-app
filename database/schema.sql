@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS paradas (
   longitude DECIMAL(11, 8) NOT NULL,
   ordem INTEGER NOT NULL, -- Ordem na rota otimizada
   status VARCHAR(20) NOT NULL DEFAULT 'pendente'
-    CHECK (status IN ('pendente', 'concluida', 'pulada')),
+    CHECK (status IN ('pendente', 'em_andamento', 'concluida', 'pulada')),
   destinatario VARCHAR(255),
   telefone VARCHAR(20),
   observacoes TEXT,

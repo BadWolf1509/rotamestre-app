@@ -5,7 +5,6 @@ import {
   RouteResult,
   parseGoogleError,
   createNetworkError,
-  createApiNotLoadedError,
   success,
   failure,
   formatErrorForLog,
@@ -14,11 +13,100 @@ import { supabase } from './supabase';
 import { Coordenadas, EnderecoGeocodificado } from '../types/endereco';
 import { GoogleDirectionsLeg, GoogleDirectionsResult } from '../types/google-directions';
 
+// ============================================================================
+// ROUTES API TYPES & ADAPTER (para Edge Functions)
+// ============================================================================
 
-const _GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+/**
+ * Interface para resposta da Routes API (via Edge Function)
+ */
+interface RoutesAPIResponse {
+  routes: Array<{
+    duration: string; // "1234s"
+    distanceMeters: number;
+    polyline: {
+      encodedPolyline: string;
+    };
+    legs: Array<{
+      duration: string;
+      distanceMeters: number;
+      startLocation: {
+        latLng: { latitude: number; longitude: number };
+      };
+      endLocation: {
+        latLng: { latitude: number; longitude: number };
+      };
+      polyline?: {
+        encodedPolyline: string;
+      };
+    }>;
+    optimizedIntermediateWaypointIndex?: number[];
+  }>;
+  error?: {
+    code: number;
+    message: string;
+    status: string;
+  };
+}
 
-/** Timeout para requisições em ms */
-const REQUEST_TIMEOUT = 30000;
+/**
+ * Converte duração da Routes API ("1234s") para segundos
+ */
+function parseDuration(duration: string): number {
+  if (!duration) return 0;
+  return parseInt(duration.replace('s', ''), 10) || 0;
+}
+
+/**
+ * Adapta resposta da Routes API para o formato interno GoogleDirectionsResult
+ */
+function adaptRoutesAPIResponse(apiResponse: RoutesAPIResponse): GoogleDirectionsResult {
+  const route = apiResponse.routes?.[0];
+
+  if (!route) {
+    throw new Error('No routes found in response');
+  }
+
+  const legs: GoogleDirectionsLeg[] = route.legs.map((leg) => ({
+    distancia_metros: leg.distanceMeters || 0,
+    duracao_segundos: parseDuration(leg.duration),
+    endereco_inicio: `${leg.startLocation.latLng.latitude.toFixed(6)}, ${leg.startLocation.latLng.longitude.toFixed(6)}`,
+    endereco_fim: `${leg.endLocation.latLng.latitude.toFixed(6)}, ${leg.endLocation.latLng.longitude.toFixed(6)}`,
+    coordenadas_inicio: {
+      latitude: leg.startLocation.latLng.latitude,
+      longitude: leg.startLocation.latLng.longitude,
+    },
+    coordenadas_fim: {
+      latitude: leg.endLocation.latLng.latitude,
+      longitude: leg.endLocation.latLng.longitude,
+    },
+  }));
+
+  return {
+    polyline: route.polyline.encodedPolyline,
+    distancia_total_metros: route.distanceMeters,
+    duracao_total_segundos: parseDuration(route.duration),
+    ordem_otimizada: route.optimizedIntermediateWaypointIndex || [],
+    legs,
+  };
+}
+
+/**
+ * Mapeia erros da Routes API para status compatível
+ */
+function mapRoutesAPIError(error: RoutesAPIResponse['error']): string {
+  if (!error) return 'UNKNOWN_ERROR';
+
+  const statusMap: Record<string, string> = {
+    'INVALID_ARGUMENT': 'INVALID_REQUEST',
+    'NOT_FOUND': 'NOT_FOUND',
+    'PERMISSION_DENIED': 'REQUEST_DENIED',
+    'RESOURCE_EXHAUSTED': 'OVER_QUERY_LIMIT',
+    'UNAVAILABLE': 'UNKNOWN_ERROR',
+  };
+
+  return statusMap[error.status] || error.status || 'UNKNOWN_ERROR';
+}
 
 // ============================================================================
 // POLYLINE UTILITIES
@@ -330,131 +418,102 @@ export const googleMapsService = {
     }
   },
 
-  // Calcular rota entre pontos usando Google Maps JavaScript API (resolve CORS)
+  // Calcular rota entre pontos usando Edge Function (evita dependência da JS API)
   // Retorna RouteResult com erro detalhado ou resultado
   async getDirections(
     origin: Coordenadas,
     destination: Coordenadas,
-    waypoints?: Coordenadas[]
+    waypoints?: Coordenadas[],
+    optimize: boolean = true
   ): Promise<GoogleDirectionsResult | null> {
-    return this.getDirectionsWithError(origin, destination, waypoints)
+    return this.getDirectionsWithError(origin, destination, waypoints, optimize)
       .then(result => result.success ? result.data! : null);
   },
 
-  // Versão com erro detalhado
+  // Versão com erro detalhado - usando Edge Function (não depende da JS API)
   async getDirectionsWithError(
     origin: Coordenadas,
     destination: Coordenadas,
-    waypoints?: Coordenadas[]
+    waypoints?: Coordenadas[],
+    optimize: boolean = true
   ): Promise<RouteResult<GoogleDirectionsResult>> {
     try {
-      // Carregar API do Google Maps se necessário
-      await waitForGoogleMapsAPI();
+      // Log dos parâmetros para debug
+      console.log('[Google Directions] Request:', {
+        origin: { lat: origin.latitude, lng: origin.longitude },
+        destination: { lat: destination.latitude, lng: destination.longitude },
+        waypointsCount: waypoints?.length || 0,
+        optimize,
+      });
 
-      // Verificar se google.maps está disponível
-      if (typeof window === 'undefined' || !window.google?.maps) {
-        const error = createApiNotLoadedError();
-        console.error('[Google] ' + formatErrorForLog(error));
+      // Usar Edge Function do Supabase (evita CORS e não depende da JS API)
+      const { data, error: invokeError } = await supabase.functions.invoke('google-directions', {
+        body: {
+          origin: { latitude: origin.latitude, longitude: origin.longitude },
+          destination: { latitude: destination.latitude, longitude: destination.longitude },
+          waypoints: waypoints || [],
+          optimize,
+        },
+      });
+
+      // Melhor tratamento de erros da Edge Function
+      if (invokeError) {
+        console.error('[Google Directions] Edge Function error:', invokeError);
+        // Tentar extrair dados do erro se disponível (para status 4xx)
+        const errorContext = (invokeError as any)?.context;
+        if (errorContext) {
+          console.error('[Google Directions] Error context:', errorContext);
+        }
+        const error = createNetworkError(invokeError);
         return failure(error);
       }
 
-      // Criar DirectionsService
-      const directionsService = new google.maps.DirectionsService();
+      // Log da resposta para debug
+      console.log('[Google Directions] Response:', {
+        hasRoutes: !!(data?.routes?.length),
+        routesCount: data?.routes?.length || 0,
+        hasError: !!data?.error,
+      });
 
-      // Preparar waypoints com otimização
-      const waypointsFormatted: google.maps.DirectionsWaypoint[] = waypoints
-        ? waypoints.map((wp) => ({
-            location: new google.maps.LatLng(wp.latitude, wp.longitude),
-            stopover: true,
-          }))
-        : [];
+      const apiResponse = data as RoutesAPIResponse;
 
-      // Configurar requisição
-      const request: google.maps.DirectionsRequest = {
-        origin: new google.maps.LatLng(origin.latitude, origin.longitude),
-        destination: new google.maps.LatLng(destination.latitude, destination.longitude),
-        waypoints: waypointsFormatted,
-        optimizeWaypoints: true, // Otimizar ordem dos waypoints
-        travelMode: google.maps.TravelMode.DRIVING,
-      };
-
-      // Fazer requisição usando promise com timeout
-      const result = await Promise.race([
-        new Promise<google.maps.DirectionsResult>((resolve, reject) => {
-          directionsService.route(request, (result, status) => {
-            if (status === google.maps.DirectionsStatus.OK && result) {
-              resolve(result);
-            } else {
-              reject({ status, message: `Directions request failed: ${status}` });
-            }
-          });
-        }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject({ status: 'TIMEOUT', message: 'Request timeout' }), REQUEST_TIMEOUT)
-        ),
-      ]);
-
-      // Processar resultado
-      if (result.routes && result.routes.length > 0) {
-        const route = result.routes[0];
-
-        const legs: GoogleDirectionsLeg[] = route.legs.map((leg) => ({
-          distancia_metros: leg.distance?.value || 0,
-          duracao_segundos: leg.duration?.value || 0,
-          endereco_inicio: leg.start_address || '',
-          endereco_fim: leg.end_address || '',
-          coordenadas_inicio: {
-            latitude: leg.start_location?.lat() || 0,
-            longitude: leg.start_location?.lng() || 0,
-          },
-          coordenadas_fim: {
-            latitude: leg.end_location?.lat() || 0,
-            longitude: leg.end_location?.lng() || 0,
-          },
-        }));
-
-        const distanciaTotal = legs.reduce((acc, leg) => acc + leg.distancia_metros, 0);
-        const tempoTotal = legs.reduce((acc, leg) => acc + leg.duracao_segundos, 0);
-
-        const encodedPolyline =
-          (route.overview_polyline as any)?.points ||
-          (route.overview_polyline as any)?.encoded_path ||
-          '';
-
-        return success({
-          polyline: encodedPolyline,
-          distancia_total_metros: distanciaTotal,
-          duracao_total_segundos: tempoTotal,
-          ordem_otimizada: route.waypoint_order || [],
-          legs,
-        });
+      // Verificar erros da Routes API
+      if (apiResponse.error) {
+        const errorStatus = mapRoutesAPIError(apiResponse.error);
+        const error = parseGoogleError(errorStatus, apiResponse.error.message);
+        console.warn('[Google Directions] ' + formatErrorForLog(error));
+        return failure(error);
       }
 
-      // Sem rotas encontradas
-      const error = parseGoogleError('ZERO_RESULTS');
-      console.error('[Google] ' + formatErrorForLog(error));
-      return failure(error);
+      // Verificar se tem rotas
+      if (!apiResponse.routes || apiResponse.routes.length === 0) {
+        const error = parseGoogleError('ZERO_RESULTS', 'No routes found');
+        console.warn('[Google Directions] ' + formatErrorForLog(error));
+        return failure(error);
+      }
+
+      // Adaptar resposta para formato interno
+      const result = adaptRoutesAPIResponse(apiResponse);
+      return success(result);
 
     } catch (err: any) {
       // Tratar diferentes tipos de erro
       let error: RouteError;
 
-      if (err?.status === 'TIMEOUT') {
-        error = parseGoogleError('TIMEOUT');
-      } else if (err?.status) {
-        error = parseGoogleError(err.status, err.message);
+      if (err?.name === 'AbortError') {
+        error = parseGoogleError('TIMEOUT', 'Request aborted due to timeout');
       } else if (err instanceof TypeError || err?.message?.includes('fetch')) {
         error = createNetworkError(err);
       } else {
         error = parseGoogleError('UNKNOWN_ERROR', err?.message);
       }
 
-      console.error('[Google] ' + formatErrorForLog(error));
+      console.error('[Google Directions] ' + formatErrorForLog(error));
       return failure(error);
     }
   },
 
-  // Calcular rota segmento por segmento usando JS API (respeita ordem manual)
+  // Calcular rota segmento por segmento usando Edge Function (respeita ordem manual)
   async getDirectionsSequential(
     origin: Coordenadas,
     destination: Coordenadas,
@@ -464,22 +523,13 @@ export const googleMapsService = {
       .then(result => result.success ? result.data! : null);
   },
 
-  // Versão com erro detalhado
+  // Versão com erro detalhado - usando Edge Function (não depende da JS API)
   async getDirectionsSequentialWithError(
     origin: Coordenadas,
     destination: Coordenadas,
     waypoints: Coordenadas[]
   ): Promise<RouteResult<GoogleDirectionsResult>> {
     try {
-      await waitForGoogleMapsAPI();
-
-      if (typeof window === 'undefined' || !window.google?.maps) {
-        const error = createApiNotLoadedError();
-        console.error('[Google Sequential] ' + formatErrorForLog(error));
-        return failure(error);
-      }
-
-      const directionsService = new google.maps.DirectionsService();
       const allPoints = [origin, ...waypoints, destination];
 
       // Validar todas as coordenadas antes de fazer requisições
@@ -504,6 +554,7 @@ export const googleMapsService = {
       const allLegs: GoogleDirectionsLeg[] = [];
       const polylineSegments: string[] = [];
 
+      // Calcular cada segmento via Edge Function
       for (let i = 0; i < allPoints.length - 1; i++) {
         const segmentOrigin = allPoints[i];
         const segmentDestination = allPoints[i + 1];
@@ -516,58 +567,50 @@ export const googleMapsService = {
           });
         }
 
-        const request: google.maps.DirectionsRequest = {
-          origin: { lat: segmentOrigin.latitude, lng: segmentOrigin.longitude },
-          destination: { lat: segmentDestination.latitude, lng: segmentDestination.longitude },
-          travelMode: google.maps.TravelMode.DRIVING,
-        };
+        const { data, error: invokeError } = await supabase.functions.invoke('google-directions', {
+          body: {
+            origin: { latitude: segmentOrigin.latitude, longitude: segmentOrigin.longitude },
+            destination: { latitude: segmentDestination.latitude, longitude: segmentDestination.longitude },
+            waypoints: [],
+            optimize: false,
+          },
+        });
 
-        // Requisição com timeout
-        const result = await Promise.race([
-          new Promise<google.maps.DirectionsResult>((resolve, reject) => {
-            directionsService.route(request, (routeResult, status) => {
-              if (status === google.maps.DirectionsStatus.OK && routeResult) {
-                resolve(routeResult);
-              } else {
-                reject({ status, message: `Segment ${i + 1} failed: ${status}` });
-              }
-            });
-          }),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject({ status: 'TIMEOUT', message: `Segment ${i + 1} timeout` }), REQUEST_TIMEOUT)
-          ),
-        ]);
+        if (invokeError) {
+          console.warn(`[Google Sequential] Segment ${i + 1} Edge Function error:`, invokeError);
+          continue; // Continua com próximo segmento
+        }
 
-        if (result.routes && result.routes.length > 0) {
-          const route = result.routes[0];
+        const apiResponse = data as RoutesAPIResponse;
+
+        // Processar resposta do segmento
+        if (apiResponse.routes && apiResponse.routes.length > 0) {
+          const route = apiResponse.routes[0];
           const leg = route.legs[0];
 
-          totalDistanceMeters += leg.distance?.value || 0;
-          totalDurationSeconds += leg.duration?.value || 0;
+          totalDistanceMeters += leg.distanceMeters || 0;
+          totalDurationSeconds += parseDuration(leg.duration);
 
           allLegs.push({
-            distancia_metros: leg.distance?.value || 0,
-            duracao_segundos: leg.duration?.value || 0,
-            endereco_inicio: leg.start_address || '',
-            endereco_fim: leg.end_address || '',
+            distancia_metros: leg.distanceMeters || 0,
+            duracao_segundos: parseDuration(leg.duration),
+            endereco_inicio: `${leg.startLocation.latLng.latitude.toFixed(6)}, ${leg.startLocation.latLng.longitude.toFixed(6)}`,
+            endereco_fim: `${leg.endLocation.latLng.latitude.toFixed(6)}, ${leg.endLocation.latLng.longitude.toFixed(6)}`,
             coordenadas_inicio: {
-              latitude: leg.start_location?.lat() || 0,
-              longitude: leg.start_location?.lng() || 0,
+              latitude: leg.startLocation.latLng.latitude,
+              longitude: leg.startLocation.latLng.longitude,
             },
             coordenadas_fim: {
-              latitude: leg.end_location?.lat() || 0,
-              longitude: leg.end_location?.lng() || 0,
+              latitude: leg.endLocation.latLng.latitude,
+              longitude: leg.endLocation.latLng.longitude,
             },
           });
 
-          const encodedPolyline =
-            (route.overview_polyline as any)?.points ||
-            (route.overview_polyline as any)?.encoded_path ||
-            '';
-
-          if (encodedPolyline) {
-            polylineSegments.push(encodedPolyline);
+          if (route.polyline?.encodedPolyline) {
+            polylineSegments.push(route.polyline.encodedPolyline);
           }
+        } else {
+          console.warn(`[Google Sequential] Segment ${i + 1} failed: ${apiResponse.error?.status || 'NO_ROUTES'}`);
         }
       }
 
@@ -584,10 +627,8 @@ export const googleMapsService = {
     } catch (err: any) {
       let error: RouteError;
 
-      if (err?.status === 'TIMEOUT') {
-        error = parseGoogleError('TIMEOUT', err.message);
-      } else if (err?.status) {
-        error = parseGoogleError(err.status, err.message);
+      if (err?.name === 'AbortError') {
+        error = parseGoogleError('TIMEOUT', 'Request aborted due to timeout');
       } else if (err instanceof TypeError || err?.message?.includes('fetch')) {
         error = createNetworkError(err);
       } else {
@@ -598,53 +639,42 @@ export const googleMapsService = {
       return failure(error);
     }
   },
-  // Calcular matriz de distâncias usando Google Maps JavaScript API
-  // Migrado da REST API (deprecated em 01/03/2025) para evitar CORS e manter consistência
+  // Calcular matriz de distâncias usando Edge Function (não depende da JS API)
   async getDistanceMatrix(origins: Coordenadas[], destinations: Coordenadas[]) {
     try {
-      await waitForGoogleMapsAPI();
+      // Converter coordenadas para formato da API (lat,lng|lat,lng)
+      const originsStr = origins.map((o) => `${o.latitude},${o.longitude}`).join('|');
+      const destinationsStr = destinations.map((d) => `${d.latitude},${d.longitude}`).join('|');
 
-      if (typeof window === 'undefined' || !window.google?.maps) {
-        console.error('[DistanceMatrix] Google Maps API not loaded');
+      // Usar Edge Function do Supabase (evita CORS e não depende da JS API)
+      const { data, error: invokeError } = await supabase.functions.invoke('google-distance-matrix', {
+        body: {
+          origins: originsStr,
+          destinations: destinationsStr,
+          mode: 'driving',
+        },
+      });
+
+      if (invokeError) {
+        console.error('[DistanceMatrix] Edge Function error:', invokeError);
         return null;
       }
 
-      const service = new google.maps.DistanceMatrixService();
+      // Processar resposta da Distance Matrix API
+      if (data?.status === 'OK' && data?.rows) {
+        const matrix = data.rows.map((row: any, i: number) => ({
+          origem: origins[i],
+          destinos: row.elements.map((element: any, j: number) => ({
+            destino: destinations[j],
+            distancia: element.distance?.value || 0,
+            tempo: element.duration_in_traffic?.value || element.duration?.value || 0,
+          })),
+        }));
+        return matrix;
+      }
 
-      // Converter coordenadas para LatLng
-      const originsLatLng = origins.map(
-        (o) => new google.maps.LatLng(o.latitude, o.longitude)
-      );
-      const destinationsLatLng = destinations.map(
-        (d) => new google.maps.LatLng(d.latitude, d.longitude)
-      );
-
-      return new Promise((resolve) => {
-        service.getDistanceMatrix(
-          {
-            origins: originsLatLng,
-            destinations: destinationsLatLng,
-            travelMode: google.maps.TravelMode.DRIVING,
-            unitSystem: google.maps.UnitSystem.METRIC,
-          },
-          (response, status) => {
-            if (status === google.maps.DistanceMatrixStatus.OK && response) {
-              const matrix = response.rows.map((row, i) => ({
-                origem: origins[i],
-                destinos: row.elements.map((element, j) => ({
-                  destino: destinations[j],
-                  distancia: element.distance?.value || 0,
-                  tempo: element.duration?.value || 0,
-                })),
-              }));
-              resolve(matrix);
-            } else {
-              console.error('[DistanceMatrix] Error:', status);
-              resolve(null);
-            }
-          }
-        );
-      });
+      console.error('[DistanceMatrix] API Error:', data?.status || 'Unknown error');
+      return null;
     } catch (error) {
       console.error('Erro na matriz de distâncias:', error);
       return null;

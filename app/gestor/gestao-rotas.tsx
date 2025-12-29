@@ -27,17 +27,13 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
+import { formatDateBR, formatDateTimeBR } from '@/lib/dateUtils';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // ============================================
 // TYPES
 // ============================================
-
-interface Motorista {
-  id: string;
-  nome: string;
-}
 
 interface RotaHistorico {
   id: string;
@@ -46,9 +42,10 @@ interface RotaHistorico {
   distancia_total?: number;
   iniciada_em?: string;
   concluida_em?: string;
-  motorista?: Motorista;
-  paradas_count?: number;
-  paradas_concluidas?: number;
+  motorista_id?: string;
+  motorista_nome?: string;
+  paradas_count: number;
+  paradas_concluidas: number;
 }
 
 type FiltroStatus = 'todas' | 'pendente' | 'em_andamento' | 'concluida' | 'cancelada' | 'nao_executada';
@@ -65,7 +62,7 @@ export default function GestaoRotas() {
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
   });
-  const { toast: toastState, hideToast, withToast } = useToast();
+  const { toast: toastState, showToast, hideToast, withToast } = useToast();
   const { isDesktop } = useResponsive();
   const pageMeta = getGestorPageMeta('gestao-rotas');
 
@@ -90,48 +87,76 @@ export default function GestaoRotas() {
     },
   });
 
+  // ✅ Query otimizada: busca rotas e paradas em paralelo (evita N+1)
   const loadRotas = useCallback(async () => {
     if (!unidadeAtiva) return;
 
     try {
       setLoading(true);
 
-      const { data: rotasData, error: rotasError } = await supabase
-        .from('rotas')
-        .select(
-          'id, data, status, distancia_total, iniciada_em, concluida_em, motorista_id, usuarios!rotas_motorista_id_fkey(id, nome)'
-        )
-        .eq('unidade_id', unidadeAtiva)
-        .order('data', { ascending: false })
-        .limit(100);
+      // Buscar rotas e paradas em paralelo (2 queries ao invés de N+1)
+      const [rotasResult, paradasResult] = await Promise.all([
+        supabase
+          .from('rotas')
+          .select(
+            'id, data, status, distancia_total, iniciada_em, concluida_em, motorista_id, usuarios!rotas_motorista_id_fkey(id, nome)'
+          )
+          .eq('unidade_id', unidadeAtiva)
+          .order('data', { ascending: false })
+          .limit(100),
+        // Buscar paradas através do join com rotas filtradas por unidade
+        supabase
+          .from('paradas')
+          .select('rota_id, status, is_checkpoint, rotas!inner(unidade_id)')
+          .eq('rotas.unidade_id', unidadeAtiva),
+      ]);
 
-      if (rotasError) throw rotasError;
+      if (rotasResult.error) throw rotasResult.error;
 
-      const rotasComParadas = await Promise.all(
-        (rotasData || []).map(async (rota) => {
-          const { data: paradasData } = await supabase
-            .from('paradas')
-            .select('id, status, is_checkpoint')
-            .eq('rota_id', rota.id);
+      // Criar mapa de contagens por rota_id
+      const paradasPorRota = new Map<string, { total: number; concluidas: number }>();
 
-          const paradasReais = (paradasData || []).filter(
-            (parada) => parada.is_checkpoint !== false
-          );
+      // Se a query de paradas falhou, usar fallback (contagem zero)
+      if (!paradasResult.error && paradasResult.data) {
+        for (const parada of paradasResult.data) {
+          // Filtrar: incluir apenas paradas reais (is_checkpoint !== false)
+          if (parada.is_checkpoint === false) continue;
 
-          return {
-            ...rota,
-            motorista: Array.isArray(rota.usuarios) ? rota.usuarios[0] : rota.usuarios,
-            paradas_count: paradasReais.length,
-            paradas_concluidas: paradasReais.filter(
-              (p) => p.status === 'concluida'
-            ).length,
-          };
-        })
-      );
+          const rotaId = parada.rota_id;
+          if (!paradasPorRota.has(rotaId)) {
+            paradasPorRota.set(rotaId, { total: 0, concluidas: 0 });
+          }
 
-      setRotas(rotasComParadas as RotaHistorico[]);
+          const stats = paradasPorRota.get(rotaId)!;
+          stats.total++;
+          if (parada.status === 'concluida') {
+            stats.concluidas++;
+          }
+        }
+      }
+
+      // Montar resultado final
+      const rotasComParadas: RotaHistorico[] = (rotasResult.data || []).map((rota) => {
+        const motorista = Array.isArray(rota.usuarios) ? rota.usuarios[0] : rota.usuarios;
+        const stats = paradasPorRota.get(rota.id) || { total: 0, concluidas: 0 };
+
+        return {
+          id: rota.id,
+          data: rota.data,
+          status: rota.status,
+          distancia_total: rota.distancia_total,
+          iniciada_em: rota.iniciada_em,
+          concluida_em: rota.concluida_em,
+          motorista_id: motorista?.id,
+          motorista_nome: motorista?.nome,
+          paradas_count: stats.total,
+          paradas_concluidas: stats.concluidas,
+        };
+      });
+
+      setRotas(rotasComParadas);
     } catch (error) {
-      console.error('Erro ao carregar rotas:', error);
+      if (__DEV__) console.error('Erro ao carregar rotas:', error);
       Alert.alert('Erro', 'Não foi possível carregar as rotas');
     } finally {
       setLoading(false);
@@ -141,11 +166,6 @@ export default function GestaoRotas() {
   useEffect(() => {
     loadRotas();
   }, [loadRotas]);
-
-  const formatarData = useCallback((dataStr: string): string => {
-    const data = parseLocalDate(dataStr);
-    return data ? data.toLocaleDateString('pt-BR') : '-';
-  }, []);
 
   // ✅ Otimização: Usar debouncedSearchQuery para evitar filtragens excessivas
   useEffect(() => {
@@ -160,14 +180,14 @@ export default function GestaoRotas() {
     if (debouncedSearchQuery.trim()) {
       const query = debouncedSearchQuery.toLowerCase().trim();
       resultado = resultado.filter((rota) => {
-        const motoristaNome = rota.motorista?.nome?.toLowerCase() || '';
-        const dataFormatada = formatarData(rota.data).toLowerCase();
+        const motoristaNome = rota.motorista_nome?.toLowerCase() || '';
+        const dataFormatada = formatDateBR(rota.data).toLowerCase();
         return motoristaNome.includes(query) || dataFormatada.includes(query);
       });
     }
 
     setRotasFiltradas(resultado);
-  }, [rotas, filtroStatus, debouncedSearchQuery, formatarData]); // ✅ Usar debouncedSearchQuery ao invés de searchQuery
+  }, [rotas, filtroStatus, debouncedSearchQuery]);
 
   // ============================================
   // DATA LOADING
@@ -178,28 +198,33 @@ export default function GestaoRotas() {
   // ============================================
 
   function verDetalhes(rota: RotaHistorico) {
-    console.log('🗺️ Navegando para mapa-rota com ID:', rota.id);
-    try {
-      router.push({
-        pathname: '/gestor/mapa-rota',
-        params: { id: rota.id }
-      });
-      console.log('✅ Navegação executada com sucesso');
-    } catch (error) {
-      console.error('❌ Erro na navegação:', error);
-      // Fallback: tentar com string
-      router.push(`/gestor/mapa-rota?id=${rota.id}`);
-    }
+    router.push({
+      pathname: '/gestor/mapa-rota',
+      params: { id: rota.id }
+    });
   }
 
   async function excluirRota(rota: RotaHistorico) {
+    // ⚠️ Validação: não permitir excluir rotas em andamento
+    if (rota.status === 'em_andamento') {
+      if (Platform.OS === 'web') {
+        showToast('Não é possível excluir uma rota em andamento. Aguarde a conclusão ou cancele a rota primeiro.', 'error', 5000);
+      } else {
+        Alert.alert(
+          'Ação não permitida',
+          'Não é possível excluir uma rota em andamento. Aguarde a conclusão ou cancele a rota primeiro.'
+        );
+      }
+      return;
+    }
+
     // Web: usar modal customizado
     if (Platform.OS === 'web') {
       setRotaToDelete(rota);
       setShowConfirmModal(true);
     } else {
       // Mobile: usar Alert.alert nativo
-      const mensagem = `Tem certeza que deseja excluir esta rota?\n\nMotorista: ${rota.motorista?.nome || 'Sem motorista'}\nParadas: ${rota.paradas_count || 0}\n\nEsta ação não pode ser desfeita.`;
+      const mensagem = `Tem certeza que deseja excluir esta rota?\n\nMotorista: ${rota.motorista_nome || 'Sem motorista'}\nParadas: ${rota.paradas_count}\n\nEsta ação não pode ser desfeita.`;
       Alert.alert(
         'Confirmar Exclusão',
         mensagem,
@@ -246,7 +271,7 @@ export default function GestaoRotas() {
             evento: 'rota_excluida',
             detalhes: {
               motivo: 'Excluída pelo gestor',
-              motorista: rota.motorista?.nome,
+              motorista: rota.motorista_nome,
               paradas_count: rota.paradas_count,
               status_anterior: rota.status,
             },
@@ -262,7 +287,7 @@ export default function GestaoRotas() {
       // Recarregar rotas
       loadRotas();
     } catch (error) {
-      console.error('Erro ao excluir rota:', error);
+      if (__DEV__) console.error('Erro ao excluir rota:', error);
     }
   }
 
@@ -287,29 +312,13 @@ export default function GestaoRotas() {
 
       // Dados das rotas
       const rows = rotasFiltradas.map(rota => [
-        formatarData(rota.data),
-        rota.motorista?.nome || 'Sem motorista',
-        rota.paradas_concluidas || 0,
-        rota.paradas_count || 0,
+        formatDateBR(rota.data),
+        rota.motorista_nome || 'Sem motorista',
+        rota.paradas_concluidas,
+        rota.paradas_count,
         rota.distancia_total ? rota.distancia_total.toFixed(1) : '-',
-        rota.iniciada_em
-          ? new Date(rota.iniciada_em).toLocaleString('pt-BR', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })
-          : '-',
-        rota.concluida_em
-          ? new Date(rota.concluida_em).toLocaleString('pt-BR', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })
-          : '-',
+        formatDateTimeBR(rota.iniciada_em, { showYear: true }),
+        formatDateTimeBR(rota.concluida_em, { showYear: true }),
         getStatusLabel(rota.status)
       ]);
 
@@ -377,7 +386,7 @@ export default function GestaoRotas() {
         Alert.alert('Sucesso', `${rotasFiltradas.length} rotas exportadas com sucesso!`);
       }
     } catch (error) {
-      console.error('Erro ao exportar:', error);
+      if (__DEV__) console.error('Erro ao exportar:', error);
       Alert.alert('Erro', 'Não foi possível exportar os dados');
     }
   }
@@ -408,13 +417,6 @@ export default function GestaoRotas() {
     }
   }
 
-  function parseLocalDate(dataStr: string): Date | null {
-    if (!dataStr) return null;
-    const [year, month, day] = dataStr.split('-').map(Number);
-    if (!year || !month || !day) return null;
-    return new Date(year, month - 1, day);
-  }
-
     // ============================================
   // DATA TABLE CONFIG
   // ============================================
@@ -425,7 +427,7 @@ export default function GestaoRotas() {
       label: 'Data',
       width: 120,
       sortable: true,
-      render: (rota) => <Text>{formatarData(rota.data)}</Text>,
+      render: (rota) => <Text>{formatDateBR(rota.data)}</Text>,
     },
     {
       key: 'motorista',
@@ -433,14 +435,14 @@ export default function GestaoRotas() {
       width: 220,
       noWrap: true,
       sortable: true,
-      render: (rota) => <Text>{rota.motorista?.nome || 'Sem motorista'}</Text>,
+      render: (rota) => <Text>{rota.motorista_nome || 'Sem motorista'}</Text>,
     },
     {
       key: 'paradas',
       label: 'Paradas',
       width: 120,
       align: 'center',
-      render: (rota) => <Text>{`${rota.paradas_concluidas || 0}/${rota.paradas_count || 0}`}</Text>,
+      render: (rota) => <Text>{`${rota.paradas_concluidas}/${rota.paradas_count}`}</Text>,
     },
     {
       key: 'distancia',
@@ -455,36 +457,14 @@ export default function GestaoRotas() {
       label: 'Iniciada',
       width: 140,
       desktopOnly: true,
-      render: (rota) => (
-        <Text>
-          {rota.iniciada_em
-            ? new Date(rota.iniciada_em).toLocaleString('pt-BR', {
-                day: '2-digit',
-                month: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
-              })
-            : '-'}
-        </Text>
-      ),
+      render: (rota) => <Text>{formatDateTimeBR(rota.iniciada_em)}</Text>,
     },
     {
       key: 'concluida_em',
       label: 'Concluída',
       width: 140,
       desktopOnly: true,
-      render: (rota) => (
-        <Text>
-          {rota.concluida_em
-            ? new Date(rota.concluida_em).toLocaleString('pt-BR', {
-                day: '2-digit',
-                month: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
-              })
-            : '-'}
-        </Text>
-      ),
+      render: (rota) => <Text>{formatDateTimeBR(rota.concluida_em)}</Text>,
     },
     {
       key: 'status',
@@ -492,9 +472,7 @@ export default function GestaoRotas() {
       width: 140,
       sortable: true,
       render: (rota) => {
-        console.log('Renderizando status:', rota.data, rota.status);
         if (!rota.status) {
-          console.warn('Status vazio para rota:', rota.id, rota.data);
           return <Text style={styles.tableCellText}>-</Text>;
         }
         return (
@@ -668,55 +646,40 @@ export default function GestaoRotas() {
           onClose={handleCancelDelete}
           title="Confirmar Exclusão"
         >
-          <View style={{ padding: 20 }}>
-            <Text style={{ fontSize: 16, marginBottom: 20, lineHeight: 24 }}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalMessage}>
               Tem certeza que deseja excluir esta rota?
             </Text>
 
-            <View style={{ backgroundColor: theme.colors.gray50, padding: 16, borderRadius: 8, marginBottom: 20 }}>
-              <Text style={{ fontSize: 14, marginBottom: 8 }}>
-                <Text style={{ fontWeight: '600' }}>Motorista:</Text> {rotaToDelete?.motorista?.nome || 'Sem motorista'}
+            <View style={styles.modalInfoBox}>
+              <Text style={styles.modalInfoText}>
+                <Text style={styles.modalInfoLabel}>Motorista:</Text> {rotaToDelete?.motorista_nome || 'Sem motorista'}
               </Text>
-              <Text style={{ fontSize: 14, marginBottom: 8 }}>
-                <Text style={{ fontWeight: '600' }}>Paradas:</Text> {rotaToDelete?.paradas_count || 0}
+              <Text style={styles.modalInfoText}>
+                <Text style={styles.modalInfoLabel}>Paradas:</Text> {rotaToDelete?.paradas_count || 0}
               </Text>
-              <Text style={{ fontSize: 14 }}>
-                <Text style={{ fontWeight: '600' }}>Status:</Text> {rotaToDelete?.status ? getStatusLabel(rotaToDelete.status) : '-'}
+              <Text style={styles.modalInfoTextLast}>
+                <Text style={styles.modalInfoLabel}>Status:</Text> {rotaToDelete?.status ? getStatusLabel(rotaToDelete.status) : '-'}
               </Text>
             </View>
 
-            <Text style={{ fontSize: 14, color: theme.colors.error, marginBottom: 24 }}>
+            <Text style={styles.modalWarning}>
               ⚠️ Esta ação não pode ser desfeita.
             </Text>
 
-            <View style={{ flexDirection: 'row', gap: 12 }}>
+            <View style={styles.modalButtonsRow}>
               <TouchableOpacity
-                style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  paddingHorizontal: 20,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: theme.colors.gray300,
-                  alignItems: 'center'
-                }}
+                style={styles.modalButtonCancel}
                 onPress={handleCancelDelete}
               >
-                <Text style={{ fontSize: 16, color: theme.colors.gray700 }}>Cancelar</Text>
+                <Text style={styles.modalButtonCancelText}>Cancelar</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  paddingHorizontal: 20,
-                  borderRadius: 8,
-                  backgroundColor: theme.colors.error,
-                  alignItems: 'center'
-                }}
+                style={styles.modalButtonDanger}
                 onPress={handleConfirmDelete}
               >
-                <Text style={{ fontSize: 16, color: theme.colors.white, fontWeight: '600' }}>Excluir</Text>
+                <Text style={styles.modalButtonDangerText}>Excluir</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -830,7 +793,7 @@ export default function GestaoRotas() {
       <ConfirmModal
         visible={showConfirmModal}
         title="Confirmar Exclusão"
-        message={`Tem certeza que deseja excluir esta rota?\n\nMotorista: ${rotaToDelete?.motorista?.nome || 'Sem motorista'}\nParadas: ${rotaToDelete?.paradas_count || 0}\nStatus: ${rotaToDelete?.status ? getStatusLabel(rotaToDelete.status) : '-'}\n\nEsta ação não pode ser desfeita.`}
+        message={`Tem certeza que deseja excluir esta rota?\n\nMotorista: ${rotaToDelete?.motorista_nome || 'Sem motorista'}\nParadas: ${rotaToDelete?.paradas_count || 0}\nStatus: ${rotaToDelete?.status ? getStatusLabel(rotaToDelete.status) : '-'}\n\nEsta ação não pode ser desfeita.`}
         confirmText="Excluir"
         cancelText="Cancelar"
         type="danger"
@@ -1094,5 +1057,68 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray700,
     fontFamily: theme.typography.fontSansSemiBold,
     fontSize: theme.typography.sm,
+  },
+  // Modal Desktop Styles
+  modalContent: {
+    padding: theme.spacing.xl,
+  },
+  modalMessage: {
+    fontSize: theme.typography.base,
+    marginBottom: theme.spacing.xl,
+    lineHeight: 24,
+    color: theme.colors.gray900,
+  },
+  modalInfoBox: {
+    backgroundColor: theme.colors.gray50,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
+    marginBottom: theme.spacing.xl,
+  },
+  modalInfoText: {
+    fontSize: theme.typography.sm,
+    marginBottom: theme.spacing.sm,
+    color: theme.colors.gray700,
+  },
+  modalInfoTextLast: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray700,
+  },
+  modalInfoLabel: {
+    fontFamily: theme.typography.fontSansSemiBold,
+  },
+  modalWarning: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.error,
+    marginBottom: theme.spacing['2xl'],
+  },
+  modalButtonsRow: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+  },
+  modalButtonCancel: {
+    flex: 1,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.xl,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.gray300,
+    alignItems: 'center',
+  },
+  modalButtonCancelText: {
+    fontSize: theme.typography.base,
+    color: theme.colors.gray700,
+  },
+  modalButtonDanger: {
+    flex: 1,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.xl,
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: theme.colors.error,
+    alignItems: 'center',
+  },
+  modalButtonDangerText: {
+    fontSize: theme.typography.base,
+    color: theme.colors.white,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
 }));

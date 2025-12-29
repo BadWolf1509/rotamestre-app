@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, ScrollView, Platform } from 'react-native';
 
 import EmptyState from '@/components/EmptyState';
+import { formatDateBR } from '@/lib/dateUtils';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import type { RotaResumo } from '../../_hooks/useDashboardData';
@@ -66,18 +67,6 @@ const getStatusMeta = (status: string, theme: any) => {
   const variants = statusVariants(theme);
   return variants[status as keyof typeof variants] ?? variants.default;
 };
-
-function parseLocalDate(dateStr?: string): Date | null {
-  if (!dateStr) return null;
-  const [year, month, day] = dateStr.split('-').map(Number);
-  if (!year || !month || !day) return null;
-  return new Date(year, month - 1, day);
-}
-
-function formatDate(dateStr?: string): string {
-  const date = parseLocalDate(dateStr);
-  return date ? date.toLocaleDateString('pt-BR') : '-';
-}
 
 /**
  * Tabela de rotas estilo desktop
@@ -158,7 +147,7 @@ export function RotasTable({ rotas, onViewDetails, onDelete }: RotasTableProps) 
                     {rota.motorista_nome}
                   </Text>
                   <Text style={styles.rotaData}>
-                    {formatDate(rota.data)}
+                    {formatDateBR(rota.data)}
                   </Text>
                 </View>
 

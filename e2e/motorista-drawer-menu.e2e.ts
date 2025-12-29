@@ -26,15 +26,10 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
     loginPage = new LoginPage(page);
     _motoristaPage = new MotoristaPage(page);
 
-    // Skip all tests if no motorista credentials
-    if (!testUsers.motorista.email.includes('@')) {
-      test.skip();
-    }
-
     // Login as motorista
     await loginPage.goto();
     await loginPage.login(testUsers.motorista.email, testUsers.motorista.password);
-    await page.waitForURL(/.*motorista.*/, { timeout: 15000 });
+    await page.waitForURL(/.*motorista.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
   });
 
   test.describe('Menu Items Display', () => {
@@ -43,24 +38,18 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
 
       // Open drawer menu
       const menuButton = page.locator('[data-testid="menu-button"], [aria-label*="menu"]').first();
-      if (await menuButton.isVisible().catch(() => false)) {
-        await menuButton.click();
-        await page.waitForTimeout(1000);
-      }
+      await expect(menuButton).toBeVisible();
+      await menuButton.click();
+      await page.waitForTimeout(1000);
 
-      const bodyText = await page.locator('body').textContent();
+      const drawer = page.locator('[role="dialog"], .drawer').first();
+      await expect(drawer).toBeVisible();
 
-      // Should show new menu items
-      const hasNewItems =
-        bodyText?.includes('Meu Perfil') ||
-        bodyText?.includes('Meu Desempenho') ||
-        bodyText?.includes('SOS') ||
-        bodyText?.includes('Emergência') ||
-        bodyText?.includes('Ajuda') ||
-        bodyText?.includes('Configurações') ||
-        bodyText?.includes('Falar com Gestor');
-
-      expect(hasNewItems).toBeTruthy();
+      // Should show new menu items (wait for profile/menu to load)
+      await expect(drawer).toContainText('Meu Perfil');
+      await expect(drawer).toContainText('Meu Desempenho');
+      await expect(drawer).toContainText('Falar com Gestor');
+      await expect(drawer).toContainText(/SOS/);
     });
 
     test('should NOT show Resumo da Rota item', async ({ page }) => {
@@ -189,12 +178,12 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
 
     test('should have large emergency button on SOS screen', async ({ page }) => {
       await page.goto('/motorista/sos');
-      await page.waitForTimeout(3000);
 
-      const sosButton = page.getByText(/ACIONAR SOS|SOS/i).first();
-      const isVisible = await sosButton.isVisible().catch(() => false);
+      const sosHeading = page.getByRole('heading', { name: /SOS/i }).first();
+      await expect(sosHeading).toBeVisible({ timeout: 20000 });
 
-      expect(isVisible).toBeTruthy();
+      const sosButton = page.getByText('ACIONAR SOS', { exact: true }).first();
+      await expect(sosButton).toBeVisible({ timeout: 20000 });
     });
   });
 
@@ -208,8 +197,11 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
         await menuButton.click();
         await page.waitForTimeout(1000);
 
+        const drawer = page.locator('[role="dialog"], .drawer').first();
+        await expect(drawer).toBeVisible();
+
         // Click Desempenho item
-        const desempenhoItem = page.getByText(/Meu Desempenho|Desempenho/i).first();
+        const desempenhoItem = drawer.getByText(/Meu Desempenho|Desempenho/i).first();
         if (await desempenhoItem.isVisible().catch(() => false)) {
           await desempenhoItem.click();
           await page.waitForTimeout(2000);
@@ -229,35 +221,28 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
 
     test('should display statistics on Desempenho screen', async ({ page }) => {
       await page.goto('/motorista/desempenho');
-      await page.waitForTimeout(3000);
+
+      const loadingState = page.getByText(/Carregando/i).first();
+      await loadingState.waitFor({ state: 'hidden', timeout: 30000 });
 
       const bodyText = await page.locator('body').textContent();
-
-      // Should show statistics
+      const hasEmpty = bodyText?.includes('Sem dados');
       const hasStats =
-        bodyText?.includes('Rotas') ||
-        bodyText?.includes('Paradas') ||
         bodyText?.includes('Taxa') ||
         bodyText?.includes('%') ||
-        bodyText?.includes('Total') ||
-        bodyText?.includes('Concluídas');
+        bodyText?.includes('Km');
 
-      expect(hasStats).toBeTruthy();
+      expect(hasEmpty || hasStats).toBeTruthy();
     });
 
     test('should have period selector on Desempenho screen', async ({ page }) => {
       await page.goto('/motorista/desempenho');
-      await page.waitForTimeout(3000);
 
-      const bodyText = await page.locator('body').textContent();
+      const loadingState = page.getByText(/Carregando/i).first();
+      await loadingState.waitFor({ state: 'hidden', timeout: 30000 });
 
-      // Should show period options
-      const hasPeriodSelector =
-        bodyText?.includes('7 dias') ||
-        bodyText?.includes('30 dias') ||
-        bodyText?.includes('Total');
-
-      expect(hasPeriodSelector).toBeTruthy();
+      const periodOption = page.getByText(/7 dias|30 dias/i).first();
+      await expect(periodOption).toBeVisible({ timeout: 30000 });
     });
   });
 
@@ -432,17 +417,9 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
 
     test('should have Alterar Senha accessible from Perfil', async ({ page }) => {
       await page.goto('/motorista/perfil');
-      await page.waitForTimeout(3000);
 
-      const bodyText = await page.locator('body').textContent();
-
-      // Should show security section with password change
-      const hasSenhaOption =
-        bodyText?.includes('Segurança') ||
-        bodyText?.includes('Senha') ||
-        bodyText?.includes('Alterar');
-
-      expect(hasSenhaOption).toBeTruthy();
+      const alterarSenha = page.getByText(/Alterar Senha/i).first();
+      await expect(alterarSenha).toBeVisible({ timeout: 20000 });
     });
   });
 

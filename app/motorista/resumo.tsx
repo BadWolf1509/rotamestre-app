@@ -4,6 +4,7 @@ import { Alert, ScrollView, Text, View } from 'react-native';
 
 import { MobileHeader, MobileCard, MobileLoading, MobileEmptyState, MobileButton } from '@/components/mobile';
 import { useUser } from '@/hooks/useUser';
+import { parseLocalDate } from '@/lib/dateUtils';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -38,13 +39,6 @@ export default function ResumoMotorista() {
   const [paradas, setParadas] = useState<Parada[]>([]);
   const [loading, setLoading] = useState(true);
   const [finalizando, setFinalizando] = useState(false);
-
-  function parseLocalDate(dataStr: string): Date | null {
-    if (!dataStr) return null;
-    const [year, month, day] = dataStr.split('-').map(Number);
-    if (!year || !month || !day) return null;
-    return new Date(year, month - 1, day);
-  }
 
   const loadRotaConcluida = useCallback(async () => {
     if (!userData?.id) {

@@ -93,6 +93,10 @@ describe('DynamicReroutingService', () => {
         });
     });
 
+    afterEach(() => {
+        service.stopMonitoring();
+    });
+
     describe('Initialization', () => {
         it('deve iniciar monitoramento se habilitado', async () => {
             const setIntervalSpy = jest.spyOn(global, 'setInterval');

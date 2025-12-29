@@ -13,7 +13,7 @@ import { successHaptic } from '@/utils/haptics';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // Tipos fortes para status
-export type ParadaStatus = 'pendente' | 'concluida' | 'pulada';
+export type ParadaStatus = 'pendente' | 'em_andamento' | 'concluida' | 'pulada';
 export type ParadaTipo = 'entrega' | 'retirada';
 
 export interface Parada {
@@ -63,7 +63,8 @@ export const ParadaCard = memo<ParadaCardProps>(
 
     const isConcluida = parada.status === 'concluida';
     const isPulada = parada.status === 'pulada';
-    const isPendente = parada.status === 'pendente';
+    const isEmAndamento = parada.status === 'em_andamento';
+    const isPendente = parada.status === 'pendente' || isEmAndamento;
     const isProcessada = isConcluida || isPulada;
 
     // Estado para card processado expansível
@@ -78,7 +79,13 @@ export const ParadaCard = memo<ParadaCardProps>(
     const temObsLonga = parada.observacoes && parada.observacoes.length > LIMITE_OBS;
 
     // Helper para tradução de status
-    const statusLabel = isConcluida ? 'concluída' : isPulada ? 'pulada' : 'pendente';
+    const statusLabel = isConcluida
+      ? 'concluída'
+      : isPulada
+        ? 'pulada'
+        : isEmAndamento
+          ? 'em rota'
+          : 'pendente';
     const tipoLabel = parada.tipo === 'entrega' ? 'entrega' : 'retirada';
 
     // Animação de conclusão
@@ -198,11 +205,18 @@ export const ParadaCard = memo<ParadaCardProps>(
                 styles.statusBadge,
                 isConcluida && styles.statusBadgeConcluida,
                 isPulada && styles.statusBadgePulada,
-                isPendente && styles.statusBadgePendente,
+                isEmAndamento && styles.statusBadgeEmAndamento,
+                isPendente && !isEmAndamento && styles.statusBadgePendente,
               ]}
             >
               <Text style={styles.statusBadgeText}>
-                {isConcluida ? '✓ Concluída' : isPulada ? '↷ Pulada' : '○ Pendente'}
+                {isConcluida
+                  ? '✓ Concluída'
+                  : isPulada
+                    ? '↷ Pulada'
+                    : isEmAndamento
+                      ? 'Em rota'
+                      : '○ Pendente'}
               </Text>
             </View>
             <View
@@ -493,6 +507,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   statusBadgePendente: {
     backgroundColor: theme.colors.yellow100,
+  },
+  statusBadgeEmAndamento: {
+    backgroundColor: theme.colors.infoBg,
   },
   statusBadgeConcluida: {
     backgroundColor: theme.colors.green100,

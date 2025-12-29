@@ -37,8 +37,10 @@ async function login(page: Page, userType: 'motorista' | 'gestor') {
   await waitForAppReady(page);
 
   // React Native Web renders TextInput as standard <input> elements
-  const emailInput = page.locator('input[placeholder="E-mail"], input[placeholder="seu@email.com"]');
-  const passwordInput = page.locator('input[placeholder="Senha"], input[placeholder="••••••••"]');
+  const emailInput = page.locator(
+    'input[placeholder="E-mail"], input[placeholder="seu@email.com"], input:not([type="password"])'
+  );
+  const passwordInput = page.locator('input[placeholder="Senha"], input[type="password"]');
   const loginButton = page.getByText('Entrar', { exact: true });
 
   // Wait for form to be visible

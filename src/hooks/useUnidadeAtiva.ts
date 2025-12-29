@@ -3,19 +3,19 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useUser } from './useUser';
 import { supabase } from '../lib/supabase';
-import { UsuarioUnidade, UnidadeDB } from '../types/usuario';
+import { UsuarioUnidade, UnidadeComSede } from '../types/usuario';
 
 const STORAGE_KEY = '@rotamestre:unidade_ativa';
 
 type VinculacaoComUnidade = UsuarioUnidade & {
-  unidades: UnidadeDB | UnidadeDB[] | null;
+  unidades: UnidadeComSede | UnidadeComSede[] | null;
 };
 
 interface UseUnidadeAtivaReturn {
   /** ID da unidade ativa atual */
   unidadeAtiva: string | null;
-  /** Dados completos da unidade ativa */
-  unidadeAtivaData: UnidadeDB | null;
+  /** Dados completos da unidade ativa (inclui campos de sede) */
+  unidadeAtivaData: UnidadeComSede | null;
   /** Todas as vinculações do usuário com unidades */
   vinculacoes: UsuarioUnidade[];
   /** Se o usuário tem múltiplas unidades */
@@ -71,7 +71,12 @@ export function useUnidadeAtiva(): UseUnidadeAtivaReturn {
             email,
             ativa,
             created_at,
-            updated_at
+            updated_at,
+            sede_latitude,
+            sede_longitude,
+            sede_endereco,
+            uf,
+            cep
           )
         `)
         .eq('usuario_id', userData.id)

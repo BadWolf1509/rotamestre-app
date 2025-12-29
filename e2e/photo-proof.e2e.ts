@@ -21,11 +21,6 @@ test.describe('Motorista Photo Proof E2E Tests', () => {
     loginPage = new LoginPage(page);
     motoristaPage = new MotoristaPage(page);
 
-    // Skip all tests if no motorista credentials
-    if (!testUsers.motorista.email.includes('@')) {
-      test.skip();
-    }
-
     // Login as motorista
     await loginPage.goto();
     await loginPage.login(testUsers.motorista.email, testUsers.motorista.password);
@@ -130,11 +125,6 @@ test.describe('Gestor Photo Viewing E2E Tests', () => {
     loginPage = new LoginPage(page);
     gestorPage = new GestorPage(page);
 
-    // Skip all tests if no gestor credentials
-    if (!testUsers.gestor.email.includes('@')) {
-      test.skip();
-    }
-
     // Login as gestor
     await loginPage.goto();
     await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
@@ -193,9 +183,6 @@ test.describe('Photo Storage Integration', () => {
     loginPage = new LoginPage(page);
     gestorPage = new GestorPage(page);
 
-    if (!testUsers.gestor.email.includes('@')) {
-      test.skip();
-    }
 
     await loginPage.goto();
     await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);

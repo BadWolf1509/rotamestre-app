@@ -1,6 +1,6 @@
 /**
  * ParadaCardCompact - Card compacto de parada para melhor densidade de informação
- * Layout otimizado: 1-2 linhas por card, foto como thumbnail
+ * Layout otimizado: Header com endereço completo, Body com detalhes de contato
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -53,20 +53,18 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
       setExpanded((prev) => !prev);
     }, [onPress, parada.id]);
 
-    const statusIcon = {
-      concluida: { name: 'checkmark-circle' as const, color: theme.colors.success },
-      pendente: { name: 'time' as const, color: theme.colors.warning },
-      em_andamento: { name: 'navigate' as const, color: theme.colors.info },
+    const statusConfig = {
+      concluida: { name: 'checkmark-circle' as const, color: theme.colors.success, label: 'OK' },
+      pendente: { name: 'time' as const, color: theme.colors.warning, label: 'Pend' },
+      em_andamento: { name: 'navigate' as const, color: theme.colors.info, label: 'Em rota' },
+      pulada: { name: 'close-circle' as const, color: theme.colors.gray500, label: 'Pulada' },
     };
 
-    const status = statusIcon[parada.status as keyof typeof statusIcon] || statusIcon.pendente;
+    const status = statusConfig[parada.status as keyof typeof statusConfig] || statusConfig.pendente;
     const hasPhoto = parada.foto_url && !imageError;
     const showPhotoPlaceholder = parada.status === 'concluida' && !hasPhoto;
-
-    // Truncar endereço para exibição compacta
-    const shortAddress = parada.endereco.length > 45
-      ? parada.endereco.substring(0, 45) + '...'
-      : parada.endereco;
+    const tipoIcon = parada.tipo === 'entrega' ? 'cube' : 'swap-horizontal';
+    const tipoColor = parada.tipo === 'entrega' ? theme.colors.info : theme.colors.warning;
 
     return (
       <View
@@ -78,70 +76,30 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
           onPress={handleCardPress}
           style={styles.cardContent}
         >
-          {/* Número da parada - usa parada.ordem para consistência com mapa */}
+          {/* Badge de ordem com cor do status */}
           <View style={[styles.orderBadge, { backgroundColor: status.color }]}>
             <Text style={styles.orderText}>{parada.ordem}</Text>
           </View>
 
-          {/* Conteúdo principal */}
+          {/* Conteúdo principal - Endereço completo */}
           <View style={styles.mainContent}>
-            {/* Linha 1: Endereço + Status */}
-            <View style={styles.row1}>
-              <Text style={styles.address} numberOfLines={1}>
-                {shortAddress}
-              </Text>
-              <View style={styles.statusContainer}>
-                <Ionicons name={status.name} size={16} color={status.color} />
-                <Text style={[styles.statusText, { color: status.color }]}>
-                  {parada.status === 'concluida' ? 'OK' : parada.status === 'pendente' ? 'Pend' : 'Em rota'}
-                </Text>
-              </View>
-            </View>
-
-            {/* Linha 2: Destinatário + Telefone + Tipo */}
-            <View style={styles.row2}>
-              {parada.destinatario && (
-                <Text style={styles.recipient} numberOfLines={1}>
-                  {parada.destinatario}
-                </Text>
-              )}
-              {parada.telefone && (
-                <TouchableOpacity onPress={handlePhonePress} style={styles.phoneLink}>
-                  <Ionicons name="call-outline" size={12} color={theme.colors.primary} />
-                  <Text style={styles.phoneText}>{parada.telefone}</Text>
-                </TouchableOpacity>
-              )}
-              <View style={[styles.typeTag, parada.tipo === 'entrega' ? styles.typeTagEntrega : styles.typeTagRetirada]}>
-                <Text style={[styles.typeTagText, parada.tipo === 'entrega' ? styles.typeTagTextEntrega : styles.typeTagTextRetirada]}>
-                  {parada.tipo === 'entrega' ? 'ENTREGA' : 'RETIRADA'}
-                </Text>
-              </View>
-            </View>
+            <Text style={styles.address} numberOfLines={2}>
+              {parada.endereco}
+            </Text>
           </View>
 
-          {/* Thumbnail da foto (se houver) */}
-          {hasPhoto && (
-            <TouchableOpacity
-              style={styles.thumbnail}
-              onPress={() => onImagePress(parada.foto_url!)}
-            >
-              <Image
-                source={{ uri: parada.foto_url ?? undefined }}
-                style={styles.thumbnailImage}
-                onError={() => setImageError(true)}
-              />
-              <View style={styles.thumbnailOverlay}>
-                <Ionicons name="image-outline" size={14} color="#FFF" />
-              </View>
-            </TouchableOpacity>
-          )}
+          {/* Ícone do tipo (entrega/retirada) */}
+          <View style={[styles.typeIconContainer, { backgroundColor: `${tipoColor}15` }]}>
+            <Ionicons name={tipoIcon} size={16} color={tipoColor} />
+          </View>
 
-          {/* Indicador de foto ausente */}
-          {showPhotoPlaceholder && (
-            <View style={styles.noPhotoIndicator}>
-              <Ionicons name="camera-outline" size={16} color={theme.colors.gray400} />
-            </View>
-          )}
+          {/* Status */}
+          <View style={styles.statusContainer}>
+            <Ionicons name={status.name} size={16} color={status.color} />
+            <Text style={[styles.statusText, { color: status.color }]}>
+              {status.label}
+            </Text>
+          </View>
 
           {/* Chevron para expandir */}
           <Ionicons
@@ -155,11 +113,21 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
         {/* Área expandida com detalhes */}
         {expanded && (
           <View style={styles.expandedContent}>
-            {/* Endereço completo */}
-            <View style={styles.detailRow}>
-              <Ionicons name="location-outline" size={14} color={theme.colors.gray500} />
-              <Text style={styles.detailText}>{parada.endereco}</Text>
-            </View>
+            {/* Destinatário */}
+            {parada.destinatario && (
+              <View style={styles.detailRow}>
+                <Ionicons name="person-outline" size={14} color={theme.colors.gray500} />
+                <Text style={styles.detailText}>{parada.destinatario}</Text>
+              </View>
+            )}
+
+            {/* Telefone */}
+            {parada.telefone && (
+              <View style={styles.detailRow}>
+                <Ionicons name="call-outline" size={14} color={theme.colors.gray500} />
+                <Text style={styles.detailText}>{parada.telefone}</Text>
+              </View>
+            )}
 
             {/* Observações */}
             {parada.observacoes && (
@@ -169,32 +137,56 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
               </View>
             )}
 
-            {/* Ações */}
-            <View style={styles.actions}>
-              {parada.telefone && (
-                <>
-                  <TouchableOpacity style={styles.actionButton} onPress={handlePhonePress}>
-                    <Ionicons name="call" size={16} color={theme.colors.primary} />
-                    <Text style={styles.actionText}>Ligar</Text>
-                  </TouchableOpacity>
-                  {Platform.OS !== 'web' && (
-                    <TouchableOpacity style={styles.actionButton} onPress={handleWhatsAppPress}>
-                      <Ionicons name="logo-whatsapp" size={16} color="#25D366" />
-                      <Text style={[styles.actionText, { color: '#25D366' }]}>WhatsApp</Text>
+            {/* Ações de comunicação */}
+            {(parada.telefone || hasPhoto) && (
+              <View style={styles.actions}>
+                {parada.telefone && (
+                  <>
+                    <TouchableOpacity style={styles.actionButton} onPress={handlePhonePress}>
+                      <Ionicons name="call" size={16} color={theme.colors.primary} />
+                      <Text style={styles.actionText}>Ligar</Text>
                     </TouchableOpacity>
-                  )}
-                </>
-              )}
-              {hasPhoto && (
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => onImagePress(parada.foto_url!)}
-                >
-                  <Ionicons name="image" size={16} color={theme.colors.info} />
-                  <Text style={[styles.actionText, { color: theme.colors.info }]}>Ver foto</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+                    {Platform.OS !== 'web' && (
+                      <TouchableOpacity style={styles.actionButton} onPress={handleWhatsAppPress}>
+                        <Ionicons name="logo-whatsapp" size={16} color="#25D366" />
+                        <Text style={[styles.actionText, { color: '#25D366' }]}>WhatsApp</Text>
+                      </TouchableOpacity>
+                    )}
+                  </>
+                )}
+                {hasPhoto && (
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => onImagePress(parada.foto_url!)}
+                  >
+                    <Ionicons name="image" size={16} color={theme.colors.info} />
+                    <Text style={[styles.actionText, { color: theme.colors.info }]}>Ver foto</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {/* Thumbnail da foto (se houver) */}
+            {hasPhoto && (
+              <TouchableOpacity
+                style={styles.photoContainer}
+                onPress={() => onImagePress(parada.foto_url!)}
+              >
+                <Image
+                  source={{ uri: parada.foto_url ?? undefined }}
+                  style={styles.photo}
+                  onError={() => setImageError(true)}
+                />
+              </TouchableOpacity>
+            )}
+
+            {/* Indicador de foto ausente */}
+            {showPhotoPlaceholder && (
+              <View style={styles.noPhotoIndicator}>
+                <Ionicons name="camera-outline" size={20} color={theme.colors.gray400} />
+                <Text style={styles.noPhotoText}>Sem foto registrada</Text>
+              </View>
+            )}
 
             {/* Ações de Edição (apenas para paradas pendentes em rotas editáveis) */}
             {parada.status === 'pendente' &&
@@ -230,6 +222,7 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
       prevProps.parada.id === nextProps.parada.id &&
       prevProps.parada.status === nextProps.parada.status &&
       prevProps.parada.foto_url === nextProps.parada.foto_url &&
+      prevProps.parada.endereco === nextProps.parada.endereco &&
       prevProps.index === nextProps.index &&
       prevProps.selected === nextProps.selected &&
       prevProps.rotaStatus === nextProps.rotaStatus
@@ -359,16 +352,35 @@ const styles = StyleSheet.create((theme: Theme) => ({
     padding: 2,
     borderTopLeftRadius: 4,
   },
-  noPhotoIndicator: {
-    width: 40,
-    height: 40,
-    borderRadius: theme.borderRadius.sm,
-    backgroundColor: theme.colors.gray100,
+  typeIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.gray200,
-    borderStyle: 'dashed',
+  },
+  photoContainer: {
+    marginTop: theme.spacing.xs,
+    borderRadius: theme.borderRadius.md,
+    overflow: 'hidden',
+  },
+  photo: {
+    width: '100%',
+    height: 120,
+    borderRadius: theme.borderRadius.md,
+  },
+  noPhotoIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    padding: theme.spacing.sm,
+    backgroundColor: theme.colors.gray50,
+    borderRadius: theme.borderRadius.sm,
+    marginTop: theme.spacing.xs,
+  },
+  noPhotoText: {
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.gray400,
   },
   chevron: {
     marginLeft: theme.spacing.xs,

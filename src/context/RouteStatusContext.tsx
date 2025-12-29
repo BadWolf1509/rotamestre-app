@@ -107,7 +107,11 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     // Rotas em andamento SEMPRE aparecem
     if (route.status === 'em_andamento') {
       // Contar apenas paradas reais (excluindo checkpoints de partida/chegada)
-      const pendingStops = paradas.filter(p => p.status === 'pendente' && p.is_checkpoint !== false);
+      const pendingStops = paradas.filter(
+        p =>
+          p.is_checkpoint !== false &&
+          (p.status === 'pendente' || p.status === 'em_andamento')
+      );
 
       if (pendingStops.length === 0) return 'ready-to-complete';
       if (pendingStops.length === 1) return 'last-stop';
@@ -145,18 +149,30 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
 
   // Pega a parada atual (próxima pendente, excluindo checkpoints)
   const getCurrentStop = (): ParadaData | null => {
-    return paradas
-      .filter(p => p.status === 'pendente' && p.is_checkpoint !== false)
-      .sort((a, b) => a.ordem - b.ordem)[0] || null;
+    const orderedStops = paradas
+      .filter(p => p.is_checkpoint !== false)
+      .sort((a, b) => a.ordem - b.ordem);
+
+    const inProgressStop = orderedStops.find(p => p.status === 'em_andamento');
+    if (inProgressStop) return inProgressStop;
+
+    return orderedStops.find(p => p.status === 'pendente') || null;
   };
 
   // Pega a próxima parada após a atual (excluindo checkpoints)
   const getNextStop = (): ParadaData | null => {
-    const pendingStops = paradas
-      .filter(p => p.status === 'pendente' && p.is_checkpoint !== false)
+    const orderedStops = paradas
+      .filter(p => p.is_checkpoint !== false)
       .sort((a, b) => a.ordem - b.ordem);
 
-    return pendingStops[1] || null;
+    const currentStop = orderedStops.find(p => p.status === 'em_andamento')
+      || orderedStops.find(p => p.status === 'pendente');
+
+    if (!currentStop) return null;
+
+    return orderedStops.find(
+      p => p.status === 'pendente' && p.ordem > currentStop.ordem
+    ) || null;
   };
 
   // Carrega rota ativa (aguarda userData estar carregado para evitar 406)
@@ -311,6 +327,28 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     }
   }, [userLoading, motoristaId]);
 
+  /**
+   * Marca a próxima parada pendente como "em_andamento"
+   * Encontra a parada com menor ordem que ainda está pendente
+   */
+  const marcarProximaParadaEmAndamento = async (paradasAtuais: ParadaData[]) => {
+    // Encontrar próxima parada pendente (menor ordem, não checkpoint)
+    const proximaPendente = paradasAtuais
+      .filter(p => p.status === 'pendente' && p.is_checkpoint !== false)
+      .sort((a, b) => a.ordem - b.ordem)[0];
+
+    if (proximaPendente) {
+      const { error } = await supabase
+        .from('paradas')
+        .update({ status: 'em_andamento' })
+        .eq('id', proximaPendente.id);
+
+      if (error) {
+        console.error('[marcarProximaParadaEmAndamento] Erro:', error);
+      }
+    }
+  };
+
   // Inicia rota
   const startRoute = async () => {
     if (!route || !userData) return;
@@ -350,7 +388,10 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
           .eq('id', checkpointPartida.id);
       }
 
-      // 3. Iniciar rastreamento de localização em background (apenas mobile)
+      // 3. Marcar primeira parada real como "em_andamento"
+      await marcarProximaParadaEmAndamento(paradas);
+
+      // 4. Iniciar rastreamento de localização em background (apenas mobile)
       if (Platform.OS !== 'web') {
         await requestAndStartTracking({
           rotaId: route.id,
@@ -392,6 +433,13 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
+      // Marcar próxima parada pendente como "em_andamento"
+      // (simulamos o estado atualizado excluindo a parada recém-concluída)
+      const paradasRestantes = paradas.map(p =>
+        p.id === paradaId ? { ...p, status: 'concluida' } : p
+      );
+      await marcarProximaParadaEmAndamento(paradasRestantes);
+
       await loadActiveRoute();
     } catch (error) {
       console.error('Erro ao concluir parada:', error);
@@ -416,6 +464,13 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
         .eq('id', paradaId);
 
       if (error) throw error;
+
+      // Marcar próxima parada pendente como "em_andamento"
+      // (simulamos o estado atualizado excluindo a parada recém-pulada)
+      const paradasRestantes = paradas.map(p =>
+        p.id === paradaId ? { ...p, status: 'pulada' } : p
+      );
+      await marcarProximaParadaEmAndamento(paradasRestantes);
 
       await loadActiveRoute();
     } catch (error) {

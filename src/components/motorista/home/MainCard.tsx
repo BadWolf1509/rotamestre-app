@@ -648,13 +648,17 @@ export function MainCard({
 
   const renderPending = () => {
     const pendingFirstStop = paradas.find(p => p.is_checkpoint !== false);
-    // Estimar tempo baseado na distância (média de 30km/h em área urbana)
-    const estimatedMinutes = route?.distancia_total
-      ? Math.round((route.distancia_total / 30) * 60)
-      : 0;
-    const estimatedTimeText = estimatedMinutes > 60
-      ? `~${Math.floor(estimatedMinutes / 60)}h ${estimatedMinutes % 60}min`
-      : `~${estimatedMinutes} min`;
+    // Estimar tempo usando tempo_total quando disponível, com fallback por distância
+    const estimatedMinutes = route?.tempo_total && route.tempo_total > 0
+      ? route.tempo_total
+      : route?.distancia_total
+        ? Math.round((route.distancia_total / 30) * 60)
+        : null;
+    const estimatedTimeText = estimatedMinutes
+      ? (estimatedMinutes > 60
+        ? `~${Math.floor(estimatedMinutes / 60)}h ${estimatedMinutes % 60}min`
+        : `~${estimatedMinutes} min`)
+      : '--';
 
     return (
       <View style={styles.content}>
@@ -1552,6 +1556,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
 
 

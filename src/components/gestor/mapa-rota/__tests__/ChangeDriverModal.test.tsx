@@ -328,8 +328,7 @@ describe('ChangeDriverModal', () => {
       // Esperar um pouco para garantir que não carregou
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // Se unidadeId vazio, não deve chamar from
-      // Note: o comportamento atual retorna cedo se !unidadeId
+      expect(mockFrom).not.toHaveBeenCalled();
     });
 
     it('deve lidar com erro ao carregar motoristas', async () => {

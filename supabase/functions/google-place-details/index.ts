@@ -75,6 +75,18 @@ serve(async (req) => {
     const result = data.result
     const location = result.geometry?.location
 
+    // Verificar se temos coordenadas válidas
+    if (!location || typeof location.lat !== 'number' || typeof location.lng !== 'number') {
+      console.error('[Place Details] Coordenadas não encontradas para o lugar:', placeId)
+      return new Response(
+        JSON.stringify({
+          error: 'Coordenadas não encontradas para este lugar',
+          status: 'NO_COORDINATES',
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Extrair componentes do endereço
     const addressComponents = result.address_components || []
     const getComponent = (type: string) => {
@@ -90,8 +102,8 @@ serve(async (req) => {
       estado: getComponent('administrative_area_level_1'),
       cep: getComponent('postal_code'),
       coordenadas: {
-        latitude: location?.lat || 0,
-        longitude: location?.lng || 0,
+        latitude: location.lat,
+        longitude: location.lng,
       },
       formatted_address: result.formatted_address || '',
     }

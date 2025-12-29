@@ -68,6 +68,19 @@ describe('ParadaCard', () => {
       expect(getByText('📦 Entrega')).toBeTruthy();
     });
 
+    it('deve renderizar parada em andamento corretamente', () => {
+      const paradaEmAndamento: Parada = {
+        ...mockParadaPendente,
+        status: 'em_andamento',
+      };
+
+      const { getByText } = render(
+        <ParadaCard {...defaultProps} parada={paradaEmAndamento} />
+      );
+
+      expect(getByText('Em rota')).toBeTruthy();
+    });
+
     it('deve renderizar parada concluída corretamente', () => {
       const { getByText } = render(
         <ParadaCard {...defaultProps} parada={mockParadaConcluida} />

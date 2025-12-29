@@ -133,7 +133,7 @@ export default function MapaRota() {
 
       const { data: rotaData, error: rotaError } = await supabase
         .from('rotas')
-        .select('id, data, status, distancia_total, created_at, updated_at, motorista_id, unidade_id, usuarios!rotas_motorista_id_fkey(nome), unidades(nome)')
+        .select('id, data, status, distancia_total, tempo_total, created_at, updated_at, motorista_id, unidade_id, usuarios!rotas_motorista_id_fkey(nome), unidades(nome)')
         .eq('id', id)
         .single();
 

@@ -131,6 +131,8 @@ jest.mock('@/components/AddressAutocomplete', () => ({
   },
 }));
 
+let lastPrimaryButton: { disabled?: boolean } | null = null;
+
 // Mock DesktopModal with declarative button API
 jest.mock('@/components/desktop/DesktopModal', () => ({
   DesktopModal: ({ visible, onClose, title, children, primaryButton, secondaryButton }: {
@@ -141,6 +143,7 @@ jest.mock('@/components/desktop/DesktopModal', () => ({
     primaryButton?: { text: string; onPress: () => void; loading?: boolean; disabled?: boolean };
     secondaryButton?: { text: string; onPress: () => void; disabled?: boolean };
   }) => {
+    lastPrimaryButton = primaryButton;
     const { View, Text, TouchableOpacity } = require('react-native');
     if (!visible) return null;
     return (
@@ -209,6 +212,7 @@ describe('AddStopModal', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    lastPrimaryButton = null;
     jest.spyOn(console, 'log').mockImplementation(() => {});
     jest.spyOn(console, 'error').mockImplementation(() => {});
     jest.spyOn(console, 'warn').mockImplementation(() => {});
@@ -277,11 +281,15 @@ describe('AddStopModal', () => {
       expect(defaultProps.onCancel).toHaveBeenCalled();
     });
 
-    it('deve selecionar posição quando opção é clicada', () => {
-      const { getByText } = render(<AddStopModal {...defaultProps} />);
+    it('deve selecionar posição quando opção é clicada', async () => {
+      const { getByLabelText } = render(<AddStopModal {...defaultProps} />);
 
-      fireEvent.press(getByText(/Antes de: Rua A/));
-      // A opção deve ser selecionada (verificar visualmente)
+      const option = getByLabelText(/Posi.*Rua A/);
+      fireEvent.press(option);
+
+      await waitFor(() => {
+        expect(getByLabelText(/Posi.*Rua A/).props.accessibilityState.checked).toBe(true);
+      });
     });
 
     it('deve atualizar endereço quando texto é digitado', () => {
@@ -334,19 +342,10 @@ describe('AddStopModal', () => {
       });
     });
 
-    it('deve exibir erro quando limite de paradas é atingido', async () => {
-      const { getByText } = render(
-        <AddStopModal {...defaultProps} currentParadasCount={23} />
-      );
+    it('deve exibir erro quando limite de paradas é atingido', () => {
+      render(<AddStopModal {...defaultProps} currentParadasCount={23} />);
 
-      // Preencher endereço primeiro
-      const { getByTestId } = render(
-        <AddStopModal {...defaultProps} currentParadasCount={23} />
-      );
-      fireEvent.changeText(getByTestId('address-input'), 'Rua Teste');
-      fireEvent.press(getByText('Adicionar'));
-
-      // Botão deve estar desabilitado
+      expect(lastPrimaryButton?.disabled).toBe(true);
     });
   });
 

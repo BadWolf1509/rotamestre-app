@@ -18,6 +18,8 @@ import {
   clamp,
   lerp,
   mapRange,
+  isTimelineLogEvent,
+  mapLogToTimelinePreview,
   // Timeline functions
   mapLogToTimelineEvent,
   mapParadaToTimelineEvent,
@@ -27,6 +29,7 @@ import {
   calculateDurationBetween,
   INCIDENTE_LABELS,
   CRITICAL_INCIDENT_CATEGORIES,
+  escapeHtml,
 } from '../utils';
 
 describe('lib/utils', () => {
@@ -36,6 +39,7 @@ describe('lib/utils', () => {
       expect(formatBytes(1024)).toBe('1 KB');
       expect(formatBytes(1234)).toBe('1.21 KB');
       expect(formatBytes(1048576)).toBe('1 MB');
+      expect(formatBytes(1024, -1)).toBe('1 KB');
     });
 
     it('formatDuration deve formatar corretamente', () => {
@@ -151,6 +155,14 @@ describe('lib/utils', () => {
       expect(clone.d).not.toBe(original.d);
     });
 
+    it('deepClone deve clonar datas', () => {
+      const original = new Date('2025-01-01T00:00:00Z');
+      const clone = deepClone(original);
+
+      expect(clone).not.toBe(original);
+      expect(clone?.getTime()).toBe(original.getTime());
+    });
+
     it('chunk deve dividir array', () => {
       expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
     });
@@ -168,9 +180,21 @@ describe('lib/utils', () => {
       });
     });
 
+    it('groupBy deve aceitar funcao de chave', () => {
+      const items = [{ val: 1 }, { val: 2 }, { val: 3 }];
+      const result = groupBy(items, (item) => (item.val % 2 === 0 ? 'par' : 'impar'));
+      expect(result.par).toHaveLength(1);
+      expect(result.impar).toHaveLength(2);
+    });
+
     it('sortBy deve ordenar itens', () => {
       const items = [{ val: 3 }, { val: 1 }, { val: 2 }];
       expect(sortBy(items, [{ key: 'val', order: 'asc' }])).toEqual([{ val: 1 }, { val: 2 }, { val: 3 }]);
+    });
+
+    it('sortBy deve ordenar itens em ordem desc', () => {
+      const items = [{ val: 1 }, { val: 3 }, { val: 2 }];
+      expect(sortBy(items, [{ key: 'val', order: 'desc' }])).toEqual([{ val: 3 }, { val: 2 }, { val: 1 }]);
     });
   });
 
@@ -204,6 +228,15 @@ describe('lib/utils', () => {
 
       expect(memoized(3)).toBe(6);
       expect(func).toHaveBeenCalledTimes(2);
+    });
+
+    it('memoize deve usar chave customizada', () => {
+      const func = jest.fn((x: { id: number }) => x.id);
+      const memoized = memoize(func, (item) => `id-${item.id}`);
+
+      expect(memoized({ id: 1 })).toBe(1);
+      expect(memoized({ id: 1 })).toBe(1);
+      expect(func).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -286,6 +319,132 @@ describe('lib/utils', () => {
       };
 
       const result = mapLogToTimelineEvent(log);
+      expect(result).toBeNull();
+    });
+
+    it('deve mapear outros eventos de status', () => {
+      const cancelada = mapLogToTimelineEvent({
+        id: 'c1',
+        evento: 'rota_cancelada',
+        timestamp: '2025-01-15T10:00:00Z',
+        detalhes: null,
+      });
+
+      const reativada = mapLogToTimelineEvent({
+        id: 'r1',
+        evento: 'rota_reativada',
+        timestamp: '2025-01-15T10:00:00Z',
+        detalhes: { reativado_por: 'Admin' },
+      });
+
+      expect(cancelada?.title).toBe('Rota Cancelada');
+      expect(reativada?.description).toContain('Admin');
+    });
+
+    it('deve mapear paradas editadas e removidas', () => {
+      const editada = mapLogToTimelineEvent({
+        id: 'p1',
+        evento: 'parada_editada',
+        timestamp: '2025-01-15T10:00:00Z',
+        detalhes: { campos_alterados: { endereco: true, telefone: true } },
+      });
+
+      const removida = mapLogToTimelineEvent({
+        id: 'p2',
+        evento: 'parada_removida',
+        timestamp: '2025-01-15T10:00:00Z',
+        detalhes: { paradas_restantes: 3 },
+      });
+
+      expect(editada?.description).toContain('endere');
+      expect(removida?.description).toContain('3');
+    });
+
+    it('deve mapear resumo final e motorista alterado', () => {
+      const finalizada = mapLogToTimelineEvent({
+        id: 'f1',
+        evento: 'rota_finalizada',
+        timestamp: '2025-01-15T10:00:00Z',
+        detalhes: { paradas_concluidas: 2, paradas_puladas: 1 },
+      });
+
+      const alterado = mapLogToTimelineEvent({
+        id: 'm1',
+        evento: 'motorista_alterado',
+        timestamp: '2025-01-15T10:00:00Z',
+        detalhes: { motorista_novo_nome: 'Novo Motorista' },
+      });
+
+      expect(finalizada?.title).toContain('Rota');
+      expect(alterado?.description).toContain('Novo Motorista');
+    });
+
+    it('deve mapear paradas reordenadas e retomadas', () => {
+      const reordenadas = mapLogToTimelineEvent({
+        id: 'o1',
+        evento: 'paradas_reordenadas',
+        timestamp: '2025-01-15T10:00:00Z',
+        detalhes: { alterado_por: 'Operador' },
+      });
+
+      const retomada = mapLogToTimelineEvent({
+        id: 'p3',
+        evento: 'parada_retomada',
+        timestamp: '2025-01-15T10:00:00Z',
+        detalhes: { endereco: 'Rua X' },
+      });
+
+      expect(reordenadas?.description).toContain('Operador');
+      expect(retomada?.title).toBe('Parada Retomada');
+    });
+  });
+
+  describe('timeline/isTimelineLogEvent', () => {
+    it('reconhece eventos conhecidos e similares', () => {
+      expect(isTimelineLogEvent('rota_criada')).toBe(true);
+      expect(isTimelineLogEvent('Motorista iniciou rota')).toBe(true);
+      expect(isTimelineLogEvent('cancelou a rota')).toBe(true);
+    });
+
+    it('retorna false para eventos desconhecidos', () => {
+      expect(isTimelineLogEvent('evento_nao_mapeado')).toBe(false);
+    });
+  });
+
+  describe('timeline/mapLogToTimelinePreview', () => {
+    it('mapeia eventos de inicio e conclusao', () => {
+      const inicio = mapLogToTimelinePreview({
+        evento: 'motorista_iniciou_rota',
+        timestamp: '2025-01-01T10:00:00Z',
+      });
+      const fim = mapLogToTimelinePreview({
+        evento: 'motorista_concluiu_rota',
+        timestamp: '2025-01-01T11:00:00Z',
+      });
+
+      expect(inicio?.type).toBe('inicio');
+      expect(fim?.type).toBe('conclusao');
+    });
+
+    it('mapeia eventos de parada e incidente', () => {
+      const parada = mapLogToTimelinePreview({
+        evento: 'parada_adicionada',
+        timestamp: '2025-01-01T10:30:00Z',
+      });
+      const sos = mapLogToTimelinePreview({
+        evento: 'sos_acionado',
+        timestamp: '2025-01-01T10:45:00Z',
+      });
+
+      expect(parada?.type).toBe('parada');
+      expect(sos?.type).toBe('incidente');
+    });
+
+    it('retorna null quando nao mapeavel', () => {
+      const result = mapLogToTimelinePreview({
+        evento: 'evento_invalido',
+        timestamp: '2025-01-01T10:00:00Z',
+      });
       expect(result).toBeNull();
     });
   });
@@ -402,6 +561,21 @@ describe('lib/utils', () => {
       expect(result.description).toContain('...');
       expect(result.fullDescription).toBe(longDescription);
     });
+
+    it('deve lidar com categoria desconhecida e sem descricao', () => {
+      const incidente = {
+        id: 'i4',
+        categoria: 'unknown',
+        created_at: '2025-01-15T15:00:00Z',
+        foto_url: 'http://foto',
+      };
+
+      const result = mapIncidenteToTimelineEvent(incidente);
+
+      expect(result.title).toBe('Incidente');
+      expect(result.hasPhoto).toBe(true);
+      expect(result.description).toBe('');
+    });
   });
 
   describe('timeline/formatRelativeTime', () => {
@@ -436,6 +610,18 @@ describe('lib/utils', () => {
       const timestamp = new Date('2025-01-14T10:00:00Z').toISOString();
       const result = formatRelativeTime(timestamp);
       expect(result).toContain('ontem');
+    });
+
+    it('deve retornar data e hora para menos de 7 dias', () => {
+      const timestamp = new Date('2025-01-12T10:00:00Z').toISOString();
+      const result = formatRelativeTime(timestamp);
+      expect(result).toMatch(/\d{2}\/\d{2}/);
+    });
+
+    it('deve retornar apenas data para mais de 7 dias', () => {
+      const timestamp = new Date('2025-01-01T10:00:00Z').toISOString();
+      const result = formatRelativeTime(timestamp);
+      expect(result).toMatch(/\d{2}\/\d{2}\/\d{4}/);
     });
   });
 
@@ -493,6 +679,27 @@ describe('lib/utils', () => {
 
       expect(result).toContain('2h');
       expect(result).toContain('30');
+    });
+
+    it('deve retornar apenas horas quando minutos forem zero', () => {
+      const start = '2025-01-15T10:00:00Z';
+      const end = '2025-01-15T11:00:00Z';
+
+      const result = calculateDurationBetween(start, end);
+
+      expect(result).toContain('1h');
+    });
+  });
+
+  describe('escapeHtml', () => {
+    it('deve escapar caracteres HTML', () => {
+      const result = escapeHtml('<div>"teste"&\'</div>');
+      expect(result).toBe('&lt;div&gt;&quot;teste&quot;&amp;&#039;&lt;/div&gt;');
+    });
+
+    it('deve lidar com valores vazios', () => {
+      expect(escapeHtml(undefined)).toBe('');
+      expect(escapeHtml(null)).toBe('');
     });
   });
 });

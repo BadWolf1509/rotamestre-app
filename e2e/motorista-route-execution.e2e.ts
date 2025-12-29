@@ -23,11 +23,6 @@ test.describe('Motorista Route Execution E2E Tests', () => {
     loginPage = new LoginPage(page);
     motoristaPage = new MotoristaPage(page);
 
-    // Skip all tests if no motorista credentials
-    if (!testUsers.motorista.email.includes('@')) {
-      test.skip();
-    }
-
     // Login as motorista
     await loginPage.goto();
     await loginPage.login(testUsers.motorista.email, testUsers.motorista.password);
@@ -104,16 +99,21 @@ test.describe('Motorista Route Execution E2E Tests', () => {
         await page.waitForTimeout(2000);
       }
 
+      const emptyState = page.getByText(/Nenhuma rota ativa no momento/i).first();
+      const paradaLabel = page.getByLabel(/Parada \d+/i).first();
+
+      const hasEmptyState = await emptyState.isVisible().catch(() => false);
+      const hasParadaLabel = await paradaLabel.isVisible().catch(() => false);
+
       const bodyText = await page.locator('body').textContent();
 
       // Should show stop details or empty state
       const hasStopContent =
-        bodyText?.includes('endereço') ||
-        bodyText?.includes('Endereço') ||
+        hasEmptyState ||
+        hasParadaLabel ||
         bodyText?.includes('parada') ||
-        bodyText?.includes('Nenhuma') ||
-        bodyText?.includes('atribuída');
-
+        bodyText?.includes('Parada') ||
+        bodyText?.includes('Nenhuma');
       expect(hasStopContent).toBeTruthy();
     });
   });
@@ -233,9 +233,6 @@ test.describe('Motorista History Tab Tests', () => {
     loginPage = new LoginPage(page);
     _motoristaPage = new MotoristaPage(page);
 
-    if (!testUsers.motorista.email.includes('@')) {
-      test.skip();
-    }
 
     await loginPage.goto();
     await loginPage.login(testUsers.motorista.email, testUsers.motorista.password);

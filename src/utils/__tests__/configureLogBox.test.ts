@@ -73,8 +73,7 @@ describe('configureLogBox', () => {
       configureLogBox();
       console.warn('Google Maps JavaScript API has been loaded asynchronously');
 
-      // O warn original não deve ser chamado para esta mensagem
-      // Na verdade, o novo warn deve filtrar a mensagem
+      expect(mockWarn).not.toHaveBeenCalled();
     });
 
     it('deve suprimir warning de text node', () => {
@@ -92,7 +91,7 @@ describe('configureLogBox', () => {
       configureLogBox();
       console.warn('Some other warning message');
 
-      // Restaurar para verificar se foi chamado
+      expect(mockWarn).toHaveBeenCalledWith('Some other warning message');
       mockWarn.mockRestore();
     });
   });
@@ -112,6 +111,7 @@ describe('configureLogBox', () => {
       configureLogBox();
       console.error('Some other error message');
 
+      expect(mockError).toHaveBeenCalledWith('Some other error message');
       mockError.mockRestore();
     });
   });

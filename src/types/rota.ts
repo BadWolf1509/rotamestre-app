@@ -31,9 +31,10 @@ export interface Rota {
   status: StatusRota;
   origem: Coordenadas;
   checkpoints: Checkpoint[];
-  distancia_total?: number; // em metros
-  tempo_estimado?: number; // em segundos
-  tempo_real?: number; // em segundos
+  distancia_total?: number; // em km
+  tempo_estimado?: number; // em minutos
+  tempo_real?: number; // em minutos
+  tempo_total?: number; // em minutos
   polyline?: string; // encoded polyline do Google
   created_at: string;
   updated_at: string;
@@ -44,8 +45,8 @@ export interface Rota {
 export interface RotaOtimizada {
   rota_original: Rota;
   ordem_otimizada: number[];
-  distancia_total: number;
-  tempo_estimado: number;
+  distancia_total: number; // em km
+  tempo_estimado: number; // em minutos
   polyline: string;
 }
 

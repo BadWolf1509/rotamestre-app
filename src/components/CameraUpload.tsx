@@ -181,7 +181,11 @@ export default function CameraUpload({
         );
 
         if (success) {
-          Alert.alert('Sucesso!', 'Foto enviada com sucesso!');
+          // No web, não usar Alert.alert para evitar conflitos com o modal do StopCompletionFlow
+          // O step 'confirm' já dá feedback visual suficiente
+          if (Platform.OS !== 'web') {
+            Alert.alert('Sucesso!', 'Foto enviada com sucesso!');
+          }
 
           if (onUploadSuccess) {
             onUploadSuccess('success');

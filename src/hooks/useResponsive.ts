@@ -3,6 +3,16 @@ import { Platform, useWindowDimensions } from 'react-native';
 
 export type Breakpoint = 'mobile' | 'tablet' | 'desktop';
 
+/**
+ * Breakpoints baseados em Material Design e best practices 2025
+ * @see https://m3.material.io/foundations/layout/applying-layout
+ */
+export const BREAKPOINTS = {
+  mobile: 0,      // 0 - 767px
+  tablet: 768,    // 768 - 1023px
+  desktop: 1024,  // 1024px+
+} as const;
+
 export interface ResponsiveHook {
   /** Largura atual da janela */
   width: number;
@@ -14,6 +24,10 @@ export interface ResponsiveHook {
   isTablet: boolean;
   /** É desktop? (≥ 1024px) */
   isDesktop: boolean;
+  /** É mobile ou tablet? (< 1024px) - útil para layouts compactos */
+  isMobileOrTablet: boolean;
+  /** É tablet ou desktop? (≥ 768px) - útil para split-view */
+  isTabletOrDesktop: boolean;
   /** É plataforma web? */
   isWeb: boolean;
   /** É plataforma nativa? (iOS ou Android) */
@@ -68,12 +82,18 @@ export function useResponsive(): ResponsiveHook {
     const breakpoint = getBreakpoint(width);
     const orientation = getOrientation(width, height);
 
+    const isMobile = breakpoint === 'mobile';
+    const isTablet = breakpoint === 'tablet';
+    const isDesktop = breakpoint === 'desktop';
+
     return {
       width,
       height,
-      isMobile: breakpoint === 'mobile',
-      isTablet: breakpoint === 'tablet',
-      isDesktop: breakpoint === 'desktop',
+      isMobile,
+      isTablet,
+      isDesktop,
+      isMobileOrTablet: isMobile || isTablet,
+      isTabletOrDesktop: isTablet || isDesktop,
       isWeb: platform === 'web',
       isNative: platform === 'ios' || platform === 'android',
       breakpoint,

@@ -29,6 +29,7 @@ module.exports = [
       '**/node_modules/**',
       '**/dist/**',
       '**/build/**',
+      'coverage/**',
       '.expo/**',
       'android',
       'ios',

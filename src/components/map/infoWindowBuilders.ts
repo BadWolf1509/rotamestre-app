@@ -28,13 +28,15 @@ export interface ParadaInfo {
 export function getStatusColor(status?: string): string {
   switch (status) {
     case 'concluida':
-      return '#10b981'; // verde
+      return '#10b981'; // verde (success)
     case 'em_andamento':
-      return '#f7a02a'; // laranja marca RotaMestre
+      return '#3b82f6'; // azul (info) - parada sendo navegada
     case 'cancelada':
-      return '#ef4444'; // vermelho
+      return '#ef4444'; // vermelho (error)
+    case 'pulada':
+      return '#6b7280'; // cinza (pulada)
     default:
-      return '#f59e0b'; // amarelo (pendente)
+      return '#f59e0b'; // amarelo (pendente/warning)
   }
 }
 
@@ -43,9 +45,11 @@ export function getStatusLabel(status?: string): string {
     case 'concluida':
       return 'Concluída';
     case 'em_andamento':
-      return 'Em andamento';
+      return 'Em rota';
     case 'pendente':
       return 'Pendente';
+    case 'pulada':
+      return 'Pulada';
     default:
       return status || '';
   }
@@ -100,7 +104,7 @@ export function buildParadaHeader(parada: ParadaInfo): HTMLElement {
 export function buildInfoContent(parada: ParadaInfo): string {
   const statusLabel = getStatusLabel(parada.status);
   const statusColor = getStatusColor(parada.status);
-  const { text, background } = INFO_WINDOW_COLORS;
+  const { text, background: _background } = INFO_WINDOW_COLORS;
 
   return `
     <style>
@@ -108,19 +112,15 @@ export function buildInfoContent(parada: ParadaInfo): string {
       .info-window-content {
         animation: infoWindowFadeIn 0.2s ease-out;
       }
-      .go-to-btn:hover {
-        background: ${background.border} !important;
-      }
     </style>
     <div class="info-window-content" role="region" aria-label="Detalhes da parada ${parada.ordem}" style="max-width:240px;font-family:sans-serif;">
       <div style="font-size:13px;margin-bottom:8px;line-height:18px;">${escapeHtml(parada.endereco)}</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
         <span style="padding:4px 8px;border-radius:12px;background:${statusColor}15;color:${statusColor};font-weight:600;font-size:12px;">${statusLabel}</span>
         ${parada.tipo ? `<span style="padding:4px 8px;border-radius:12px;background:#e0f2fe;color:${text.primary};font-weight:600;font-size:12px;text-transform:capitalize;">${escapeHtml(parada.tipo)}</span>` : ''}
       </div>
       ${parada.destinatario ? `<div style="font-size:12px;color:${text.secondary};margin-bottom:4px;"><strong>Destinatário:</strong> ${escapeHtml(parada.destinatario)}</div>` : ''}
-      ${parada.telefone ? `<div style="font-size:12px;color:${text.secondary};margin-bottom:6px;"><strong>Telefone:</strong> ${escapeHtml(parada.telefone)}</div>` : ''}
-      <button id="go-to-${parada.id}" class="go-to-btn" aria-label="Ver parada ${parada.ordem} na lista de paradas" style="margin-top:4px;padding:8px 10px;border-radius:10px;border:1px solid ${background.border};background:${background.surface};color:${text.primary};cursor:pointer;font-weight:600;font-size:12px;transition:background 0.15s ease;">Ver na lista</button>
+      ${parada.telefone ? `<div style="font-size:12px;color:${text.secondary};"><strong>Telefone:</strong> ${escapeHtml(parada.telefone)}</div>` : ''}
     </div>
   `;
 }

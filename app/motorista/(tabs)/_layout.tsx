@@ -86,6 +86,8 @@ export default function TabLayout() {
             onPress={openDrawer}
             style={{ paddingHorizontal: 16, paddingVertical: 8 }}
             hitSlop={8}
+            testID="menu-button"
+            accessibilityLabel="menu"
           >
             <Ionicons name="menu" size={24} color={colors.white} />
           </Pressable>

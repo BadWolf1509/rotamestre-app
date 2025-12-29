@@ -11,6 +11,7 @@ import {
 
 import { RotaCardSkeleton } from '@/components/motorista/RotaCardSkeleton';
 import { useUser } from '@/hooks/useUser';
+import { parseLocalDate } from '@/lib/dateUtils';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -246,13 +247,6 @@ export default function HistoricoMotorista() {
 
   function toggleExpand(rotaId: string) {
     setExpandedRotaId(expandedRotaId === rotaId ? null : rotaId);
-  }
-
-  function parseLocalDate(dataStr: string): Date | null {
-    if (!dataStr) return null;
-    const [year, month, day] = dataStr.split('-').map(Number);
-    if (!year || !month || !day) return null;
-    return new Date(year, month - 1, day);
   }
 
   function calcularTempoTotal(rota: RotaHistorico) {

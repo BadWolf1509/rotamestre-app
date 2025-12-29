@@ -343,10 +343,6 @@ export default function MapaWeb({
       infoWindowRef.current.open(mapRef.current, marker);
 
       google.maps.event.addListenerOnce(infoWindowRef.current, 'domready', () => {
-        // Botão "Ver na lista" para paradas normais
-        const goToBtn = document.getElementById(`go-to-${parada.id}`);
-        if (goToBtn) goToBtn.addEventListener('click', () => onMarkerPress?.(parada.id));
-
         // Botão "Copiar endereço" para checkpoints
         const copyBtn = document.getElementById(`copy-checkpoint-${parada.id}`);
         if (copyBtn) {
@@ -376,7 +372,7 @@ export default function MapaWeb({
         }
       });
     },
-    [unidadeNome, onMarkerPress]
+    [unidadeNome]
   );
 
   React.useEffect(() => {
@@ -528,13 +524,7 @@ export default function MapaWeb({
     const isPartida = isCheckpoint && parada.id === partidaId;
 
     openInfoWindow(parada, marker, isCheckpoint, isPartida);
-    // Ajustar centro para o marcador selecionado
-    // AdvancedMarkerElement usa .position, google.maps.Marker usa getPosition()
-    // @ts-expect-error - AdvancedMarkerElement usa property position
-    const pos = marker.position || marker.getPosition?.();
-    if (pos && mapRef.current) {
-      mapRef.current.panTo(pos);
-    }
+    // Não centraliza automaticamente - usuário usa FAB de recentralizar se necessário
   }, [selectedParadaId, paradasComCoord, checkpoints, openInfoWindow]);
 
   // Calcular direções
@@ -858,10 +848,11 @@ export default function MapaWeb({
     legend.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
     legend.innerHTML = `
       <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:#0f172a;">Legenda</div>
-      <div style="display:flex;gap:10px;font-size:12px;color:#475569;align-items:center;">
-        <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>Pendente</span>
-        <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:50%;background:#f7a02a;display:inline-block;"></span>Em andamento</span>
-        <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:50%;background:#10b981;display:inline-block;"></span>Concluida</span>
+      <div style="display:flex;gap:10px;font-size:12px;color:#475569;align-items:center;flex-wrap:wrap;">
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>Pendente</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#3b82f6;display:inline-block;"></span>Em rota</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#10b981;display:inline-block;"></span>Concluída</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#6b7280;display:inline-block;"></span>Pulada</span>
       </div>
     `;
     legendControlRef.current = legend;

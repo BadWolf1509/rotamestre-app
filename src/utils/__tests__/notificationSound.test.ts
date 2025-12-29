@@ -114,6 +114,31 @@ describe('notificationSound', () => {
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();
     });
+
+    it('deve descarregar som anterior e reagir ao status', async () => {
+      const callbacks: Array<(status: any) => void> = [];
+      mockSetOnPlaybackStatusUpdate.mockImplementation((cb: any) => {
+        callbacks.push(cb);
+      });
+
+      const mockSound = {
+        unloadAsync: mockUnloadAsync,
+        setOnPlaybackStatusUpdate: mockSetOnPlaybackStatusUpdate,
+      };
+
+      mockCreateAsync.mockResolvedValue({ sound: mockSound });
+
+      await playNotificationSound();
+      await playNotificationSound();
+
+      expect(mockUnloadAsync).toHaveBeenCalled();
+      expect(callbacks.length).toBeGreaterThan(0);
+
+      mockUnloadAsync.mockClear();
+      callbacks[0]({ isLoaded: false, didJustFinish: false });
+      callbacks[0]({ isLoaded: true, didJustFinish: true });
+      expect(mockUnloadAsync).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('playSuccessSound', () => {
@@ -137,6 +162,31 @@ describe('notificationSound', () => {
 
       expect(mockCreateAsync).toHaveBeenCalled();
     });
+
+    it('deve descarregar successSound anterior e reagir ao status', async () => {
+      const callbacks: Array<(status: any) => void> = [];
+      mockSetOnPlaybackStatusUpdate.mockImplementation((cb: any) => {
+        callbacks.push(cb);
+      });
+
+      const mockSound = {
+        unloadAsync: mockUnloadAsync,
+        setOnPlaybackStatusUpdate: mockSetOnPlaybackStatusUpdate,
+      };
+
+      mockCreateAsync.mockResolvedValue({ sound: mockSound });
+
+      await playSuccessSound();
+      await playSuccessSound();
+
+      expect(mockUnloadAsync).toHaveBeenCalled();
+      expect(callbacks.length).toBeGreaterThan(0);
+
+      mockUnloadAsync.mockClear();
+      callbacks[0]({ isLoaded: false, didJustFinish: false });
+      callbacks[0]({ isLoaded: true, didJustFinish: true });
+      expect(mockUnloadAsync).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('cleanupNotificationSounds', () => {
@@ -149,11 +199,34 @@ describe('notificationSound', () => {
 
     it('deve tratar erro durante cleanup', async () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const mockSound = {
+        unloadAsync: mockUnloadAsync,
+        setOnPlaybackStatusUpdate: mockSetOnPlaybackStatusUpdate,
+      };
 
-      // Simular erro - difícil sem estado interno, mas a função deve não lançar
+      mockCreateAsync.mockResolvedValue({ sound: mockSound });
+      mockUnloadAsync.mockRejectedValueOnce(new Error('Cleanup error'));
+
+      await playNotificationSound();
       await cleanupNotificationSounds();
 
+      expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();
+    });
+
+    it('deve limpar sons carregados', async () => {
+      const mockSound = {
+        unloadAsync: mockUnloadAsync,
+        setOnPlaybackStatusUpdate: mockSetOnPlaybackStatusUpdate,
+      };
+
+      mockCreateAsync.mockResolvedValue({ sound: mockSound });
+
+      await playNotificationSound();
+      await playSuccessSound();
+      await cleanupNotificationSounds();
+
+      expect(mockUnloadAsync).toHaveBeenCalled();
     });
   });
 });

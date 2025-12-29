@@ -23,6 +23,7 @@ export interface Rota {
   data: string;
   status: string;
   distancia_total?: number;
+  tempo_total?: number;
   created_at?: string;
   updated_at?: string;
   motorista_id?: string;

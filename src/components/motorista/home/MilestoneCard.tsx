@@ -27,12 +27,16 @@ export function MilestoneCard({ data, compact = false }: MilestoneCardProps) {
 
   // Animar a barra de progresso
   useEffect(() => {
-    Animated.spring(progressAnim, {
+    const animation = Animated.spring(progressAnim, {
       toValue: displayProgress,
       useNativeDriver: false,
       tension: 50,
       friction: 7,
-    }).start();
+    });
+    animation.start();
+    return () => {
+      animation.stop();
+    };
   }, [displayProgress, progressAnim]);
 
   if (data.isLoading) {

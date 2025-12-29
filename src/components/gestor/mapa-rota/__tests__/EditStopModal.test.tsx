@@ -247,11 +247,19 @@ describe('EditStopModal', () => {
   });
 
   describe('Interações', () => {
-    it('deve alternar tipo para retirada', () => {
+    it('deve alternar tipo para retirada', async () => {
       const { getByText } = render(<EditStopModal {...defaultProps} />);
 
       fireEvent.press(getByText('Retirada'));
-      // Deve estar selecionado
+
+      await waitFor(() => {
+        const retiradaText = getByText('Retirada');
+        const style = Array.isArray(retiradaText.props.style)
+          ? retiradaText.props.style.filter(Boolean)
+          : [retiradaText.props.style];
+        const merged = Object.assign({}, ...style);
+        expect(merged.color).toBe('#ffffff');
+      });
     });
 
     it('deve chamar onCancel quando botão Cancelar é pressionado', () => {

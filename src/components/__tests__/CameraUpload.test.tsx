@@ -482,8 +482,8 @@ describe('CameraUpload Component', () => {
       });
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Sucesso!', 'Foto enviada com sucesso!');
         expect(mockOnUploadSuccess).toHaveBeenCalledWith('success');
+        expect(Alert.alert).not.toHaveBeenCalledWith('Sucesso!', 'Foto enviada com sucesso!');
       });
 
       Object.defineProperty(Platform, 'OS', {

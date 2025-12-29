@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import {
   View,
   Text,
@@ -220,7 +220,7 @@ export default function CheckpointsMotorista() {
   // IMPORTANTE: Todos os hooks DEVEM estar antes de qualquer early return
   // Calcular estatísticas das paradas (já filtradas no useMemo acima)
   const paradasPendentes = useMemo(
-    () => paradas.filter((p) => p.status === 'pendente').length,
+    () => paradas.filter((p) => p.status === 'pendente' || p.status === 'em_andamento').length,
     [paradas]
   );
   const paradasConcluidas = useMemo(
@@ -235,9 +235,12 @@ export default function CheckpointsMotorista() {
   // Memoizar keyExtractor
   const keyExtractor = useCallback((item: Parada) => item.id, []);
 
-  // Calcular ID da próxima parada pendente (primeira na ordem)
+  // Calcular ID da próxima parada (prioriza em_andamento)
   const proximaParadaId = useMemo(() => {
-    const pendentes = paradas.filter((p) => p.status === 'pendente');
+    const ordered = [...paradas].sort((a, b) => a.ordem - b.ordem);
+    const emAndamento = ordered.find((p) => p.status === 'em_andamento');
+    if (emAndamento) return emAndamento.id;
+    const pendentes = ordered.filter((p) => p.status === 'pendente');
     return pendentes.length > 0 ? pendentes[0].id : null;
   }, [paradas]);
 
@@ -286,10 +289,12 @@ export default function CheckpointsMotorista() {
     ]
   );
 
+  const showEmptyState = !loading && (routeStatus === 'no-route' || paradas.length === 0);
+  let content: ReactNode = null;
+
   if (loading) {
-    return (
-      <>
-        <View style={styles.container}>
+    content = (
+      <View style={styles.container}>
           {/* Skeleton Header */}
           <View style={styles.header}>
             <View style={{ width: 200, height: 28, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm }} />
@@ -319,50 +324,20 @@ export default function CheckpointsMotorista() {
             <ParadaCardSkeletonList count={3} />
           </View>
         </View>
-
-        {/* IMPORTANTE: Manter modal mesmo durante loading para não perder estado */}
-        <StopCompletionFlow
-          parada={selectedParadaForCompletion}
-          visible={showCompletionFlow}
-          onClose={() => {
-            setShowCompletionFlow(false);
-            setSelectedParadaForCompletion(null);
-          }}
-          onSuccess={handleCompletionSuccess}
-          allowSkipPhoto={true}
-        />
-      </>
     );
-  }
-
-  if (routeStatus === 'no-route' || paradas.length === 0) {
-    return (
-      <>
-        <View style={styles.emptyContainer}>
+  } else if (showEmptyState) {
+    content = (
+      <View style={styles.emptyContainer}>
           <Text style={styles.emptyTitle}>📋</Text>
           <Text style={styles.emptyText}>Nenhuma rota ativa no momento</Text>
           <Text style={styles.emptySubtext}>
             Aguarde o gestor atribuir uma nova rota
           </Text>
         </View>
-
-        {/* IMPORTANTE: Manter modal mesmo quando sem rota para não perder estado */}
-        <StopCompletionFlow
-          parada={selectedParadaForCompletion}
-          visible={showCompletionFlow}
-          onClose={() => {
-            setShowCompletionFlow(false);
-            setSelectedParadaForCompletion(null);
-          }}
-          onSuccess={handleCompletionSuccess}
-          allowSkipPhoto={true}
-        />
-      </>
     );
-  }
-
-  return (
-    <GestureHandlerRootView style={styles.container}>
+  } else {
+    content = (
+      <>
       {/* Header Compacto */}
       <View style={styles.headerCompact}>
         {/* Linha 1: Título e unidade */}
@@ -438,6 +413,14 @@ export default function CheckpointsMotorista() {
           endereco={selectedParadaForIncident.endereco}
         />
       )}
+
+      </>
+    );
+  }
+
+  return (
+    <GestureHandlerRootView style={styles.container}>
+      {content}
 
       {/* Modal de Conclusão de Parada (com foto) */}
       <StopCompletionFlow

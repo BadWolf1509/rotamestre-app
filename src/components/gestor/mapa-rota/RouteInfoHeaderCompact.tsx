@@ -29,6 +29,14 @@ const STATUS_CONFIG = {
   nao_executada: { label: 'Não Executada', color: 'warning' as const, icon: 'alert-circle' as const },
 };
 
+function formatTempoTotal(minutos: number) {
+  if (minutos <= 0) return '-';
+  const horas = Math.floor(minutos / 60);
+  const mins = Math.round(minutos % 60);
+  if (horas === 0) return `${mins} min`;
+  return `${horas}h ${mins}min`;
+}
+
 export function RouteInfoHeaderCompact({
   rota,
   resumoParadas,
@@ -90,6 +98,14 @@ export function RouteInfoHeaderCompact({
           <View style={styles.metric}>
             <Ionicons name="speedometer-outline" size={14} color={theme.colors.gray500} />
             <Text style={styles.metricValue}>{rota.distancia_total.toFixed(1)} km</Text>
+          </View>
+        )}
+
+        {/* Tempo estimado */}
+        {rota.tempo_total && (
+          <View style={styles.metric}>
+            <Ionicons name="hourglass-outline" size={14} color={theme.colors.gray500} />
+            <Text style={styles.metricValue}>{formatTempoTotal(rota.tempo_total)}</Text>
           </View>
         )}
 

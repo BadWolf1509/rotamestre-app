@@ -141,14 +141,18 @@ serve(async (req) => {
       )
     }
 
-    // Verificar se tem rotas
+    // Verificar se tem rotas - retornar 200 com estrutura de erro para manter consistência
     if (!data.routes || data.routes.length === 0) {
       return new Response(
         JSON.stringify({
-          error: 'Nenhuma rota encontrada',
-          status: 'ZERO_RESULTS',
+          routes: [],
+          error: {
+            code: 404,
+            message: 'Nenhuma rota encontrada entre os pontos especificados',
+            status: 'ZERO_RESULTS',
+          },
         }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 

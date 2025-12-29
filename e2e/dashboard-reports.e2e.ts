@@ -22,11 +22,6 @@ test.describe('Gestor Dashboard Metrics E2E Tests', () => {
     loginPage = new LoginPage(page);
     gestorPage = new GestorPage(page);
 
-    // Skip all tests if no gestor credentials
-    if (!testUsers.gestor.email.includes('@')) {
-      test.skip();
-    }
-
     // Login as gestor
     await loginPage.goto();
     await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
@@ -125,9 +120,6 @@ test.describe('Reports and Export E2E Tests', () => {
     loginPage = new LoginPage(page);
     gestorPage = new GestorPage(page);
 
-    if (!testUsers.gestor.email.includes('@')) {
-      test.skip();
-    }
 
     await loginPage.goto();
     await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
@@ -236,9 +228,6 @@ test.describe('Real-time Tracking E2E Tests', () => {
     loginPage = new LoginPage(page);
     gestorPage = new GestorPage(page);
 
-    if (!testUsers.gestor.email.includes('@')) {
-      test.skip();
-    }
 
     await loginPage.goto();
     await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
@@ -307,9 +296,6 @@ test.describe('Performance Analytics E2E Tests', () => {
     loginPage = new LoginPage(page);
     gestorPage = new GestorPage(page);
 
-    if (!testUsers.gestor.email.includes('@')) {
-      test.skip();
-    }
 
     await loginPage.goto();
     await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);

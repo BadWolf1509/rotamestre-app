@@ -20,11 +20,6 @@ test.describe('Gestor Team Management E2E Tests', () => {
     loginPage = new LoginPage(page);
     gestorPage = new GestorPage(page);
 
-    // Skip all tests if no gestor credentials
-    if (!testUsers.gestor.email.includes('@')) {
-      test.skip();
-    }
-
     // Login as gestor
     await loginPage.goto();
     await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
@@ -229,9 +224,6 @@ test.describe('Gestão Rotas E2E Tests', () => {
     loginPage = new LoginPage(page);
     gestorPage = new GestorPage(page);
 
-    if (!testUsers.gestor.email.includes('@')) {
-      test.skip();
-    }
 
     await loginPage.goto();
     await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
@@ -295,17 +287,9 @@ test.describe('Gestão Rotas E2E Tests', () => {
   test.describe('Route Export Feature', () => {
     test('should have export button for reports', async ({ page }) => {
       await gestorPage.gotoGestaoRotas();
-      await page.waitForTimeout(2000);
 
-      // Look for export button
       const exportButton = page.getByText(/exportar/i).first();
-      const hasExport = await exportButton.isVisible().catch(() => false);
-
-      // Export feature should exist
-      const bodyText = await page.locator('body').textContent();
-      const hasExportFeature = hasExport || bodyText?.includes('Exportar') || bodyText?.includes('CSV');
-
-      expect(hasExportFeature).toBeTruthy();
+      await expect(exportButton).toBeVisible({ timeout: 20000 });
     });
   });
 
