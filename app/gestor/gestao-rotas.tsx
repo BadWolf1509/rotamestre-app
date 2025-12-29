@@ -1,14 +1,24 @@
-import * as FileSystem from 'expo-file-system/legacy';
+/**
+ * Tela de Gestão de Rotas - Gestor
+ *
+ * Permite visualizar e gerenciar todas as rotas da unidade:
+ * - Listagem de rotas com filtros por status e busca textual
+ * - Visualização de detalhes (motorista, paradas, progresso)
+ * - Exclusão de rotas com confirmação
+ * - Exportação para CSV (desktop e mobile via compartilhamento)
+ * - Atualização em tempo real via Supabase Realtime
+ *
+ * @layout Desktop: DesktopPageLayout com DataTable
+ * @layout Mobile: ScrollView com MobileCards
+ */
+
 import { useRouter } from 'expo-router';
-import * as Sharing from 'expo-sharing';
-import { useCallback, useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
-  Alert,
-  Platform,
   ScrollView,
 } from 'react-native';
 
@@ -17,38 +27,19 @@ import { DataTable, DataTableAction, DataTableColumn } from '@/components/DataTa
 import { DesktopCard } from '@/components/desktop/DesktopCard';
 import { DesktopModal } from '@/components/desktop/DesktopModal';
 import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MobileCard, MobileEmptyState, MobileLoading } from '@/components/mobile';
 import { Toast } from '@/components/Toast';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
-import { useDebounce } from '@/hooks/useDebounce';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
-import { useRealtimeRoutes } from '@/hooks/useRealtimeRoutes';
+import {
+  useGestaoRotas,
+  FILTRO_STATUS_OPTIONS,
+  type RotaHistorico,
+} from '@/hooks/useGestaoRotas';
 import { useResponsive } from '@/hooks/useResponsive';
-import { useToast } from '@/hooks/useToast';
-import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
-import { useUser } from '@/hooks/useUser';
 import { formatDateBR, formatDateTimeBR } from '@/lib/dateUtils';
-import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
-// ============================================
-// TYPES
-// ============================================
-
-interface RotaHistorico {
-  id: string;
-  data: string;
-  status: string;
-  distancia_total?: number;
-  iniciada_em?: string;
-  concluida_em?: string;
-  motorista_id?: string;
-  motorista_nome?: string;
-  paradas_count: number;
-  paradas_concluidas: number;
-}
-
-type FiltroStatus = 'todas' | 'pendente' | 'em_andamento' | 'concluida' | 'cancelada' | 'nao_executada';
 
 // ============================================
 // COMPONENT
@@ -56,368 +47,50 @@ type FiltroStatus = 'todas' | 'pendente' | 'em_andamento' | 'concluida' | 'cance
 
 export default function GestaoRotas() {
   const { theme } = useUnistyles();
+  const { isDesktop } = useResponsive();
   const router = useRouter();
-  const { userData } = useUser();
-  const { unidadeAtiva } = useUnidadeAtiva();
+  const pageMeta = getGestorPageMeta('gestao-rotas');
+
+  // Status color map (precisa do theme)
+  const statusColorMap = useMemo(() => ({
+    pendente: theme.colors.warning,
+    em_andamento: theme.colors.info,
+    concluida: theme.colors.success,
+    cancelada: theme.colors.error,
+    nao_executada: '#f59e0b',
+  }), [theme.colors]);
+
+  // Hook de gestão de rotas
+  const {
+    rotasFiltradas,
+    loading,
+    filtroStatus,
+    searchQuery,
+    showConfirmModal,
+    rotaToDelete,
+    userData,
+    setFiltroStatus,
+    setSearchQuery,
+    verDetalhes,
+    excluirRota,
+    handleConfirmDelete,
+    handleCancelDelete,
+    exportarParaCSV,
+    getStatusLabel,
+    getStatusColor,
+    toastState,
+    hideToast,
+  } = useGestaoRotas({
+    statusColorMap,
+    defaultStatusColor: theme.colors.gray500,
+  });
+
+  // Desktop header menu
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
   });
-  const { toast: toastState, showToast, hideToast, withToast } = useToast();
-  const { isDesktop } = useResponsive();
-  const pageMeta = getGestorPageMeta('gestao-rotas');
-
-  const [rotas, setRotas] = useState<RotaHistorico[]>([]);
-  const [rotasFiltradas, setRotasFiltradas] = useState<RotaHistorico[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('todas');
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // ✅ Otimização: Debounce no search para evitar filtragens excessivas
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
-
-  // Estado para modal de confirmação
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [rotaToDelete, setRotaToDelete] = useState<RotaHistorico | null>(null);
-
-  // ✅ Realtime: Atualizar quando rotas/paradas mudarem
-  useRealtimeRoutes({
-    enabled: !!unidadeAtiva,
-    onRouteUpdate: () => {
-      loadRotas();
-    },
-  });
-
-  // ✅ Query otimizada: busca rotas e paradas em paralelo (evita N+1)
-  const loadRotas = useCallback(async () => {
-    if (!unidadeAtiva) return;
-
-    try {
-      setLoading(true);
-
-      // Buscar rotas e paradas em paralelo (2 queries ao invés de N+1)
-      const [rotasResult, paradasResult] = await Promise.all([
-        supabase
-          .from('rotas')
-          .select(
-            'id, data, status, distancia_total, iniciada_em, concluida_em, motorista_id, usuarios!rotas_motorista_id_fkey(id, nome)'
-          )
-          .eq('unidade_id', unidadeAtiva)
-          .order('data', { ascending: false })
-          .limit(100),
-        // Buscar paradas através do join com rotas filtradas por unidade
-        supabase
-          .from('paradas')
-          .select('rota_id, status, is_checkpoint, rotas!inner(unidade_id)')
-          .eq('rotas.unidade_id', unidadeAtiva),
-      ]);
-
-      if (rotasResult.error) throw rotasResult.error;
-
-      // Criar mapa de contagens por rota_id
-      const paradasPorRota = new Map<string, { total: number; concluidas: number }>();
-
-      // Se a query de paradas falhou, usar fallback (contagem zero)
-      if (!paradasResult.error && paradasResult.data) {
-        for (const parada of paradasResult.data) {
-          // Filtrar: incluir apenas paradas reais (is_checkpoint !== false)
-          if (parada.is_checkpoint === false) continue;
-
-          const rotaId = parada.rota_id;
-          if (!paradasPorRota.has(rotaId)) {
-            paradasPorRota.set(rotaId, { total: 0, concluidas: 0 });
-          }
-
-          const stats = paradasPorRota.get(rotaId)!;
-          stats.total++;
-          if (parada.status === 'concluida') {
-            stats.concluidas++;
-          }
-        }
-      }
-
-      // Montar resultado final
-      const rotasComParadas: RotaHistorico[] = (rotasResult.data || []).map((rota) => {
-        const motorista = Array.isArray(rota.usuarios) ? rota.usuarios[0] : rota.usuarios;
-        const stats = paradasPorRota.get(rota.id) || { total: 0, concluidas: 0 };
-
-        return {
-          id: rota.id,
-          data: rota.data,
-          status: rota.status,
-          distancia_total: rota.distancia_total,
-          iniciada_em: rota.iniciada_em,
-          concluida_em: rota.concluida_em,
-          motorista_id: motorista?.id,
-          motorista_nome: motorista?.nome,
-          paradas_count: stats.total,
-          paradas_concluidas: stats.concluidas,
-        };
-      });
-
-      setRotas(rotasComParadas);
-    } catch (error) {
-      if (__DEV__) console.error('Erro ao carregar rotas:', error);
-      Alert.alert('Erro', 'Não foi possível carregar as rotas');
-    } finally {
-      setLoading(false);
-    }
-  }, [unidadeAtiva]);
-
-  useEffect(() => {
-    loadRotas();
-  }, [loadRotas]);
-
-  // ✅ Otimização: Usar debouncedSearchQuery para evitar filtragens excessivas
-  useEffect(() => {
-    let resultado = [...rotas];
-
-    // Filtrar por status
-    if (filtroStatus !== 'todas') {
-      resultado = resultado.filter((rota) => rota.status === filtroStatus);
-    }
-
-    // Filtrar por busca de texto (motorista ou data) - usando debounced value
-    if (debouncedSearchQuery.trim()) {
-      const query = debouncedSearchQuery.toLowerCase().trim();
-      resultado = resultado.filter((rota) => {
-        const motoristaNome = rota.motorista_nome?.toLowerCase() || '';
-        const dataFormatada = formatDateBR(rota.data).toLowerCase();
-        return motoristaNome.includes(query) || dataFormatada.includes(query);
-      });
-    }
-
-    setRotasFiltradas(resultado);
-  }, [rotas, filtroStatus, debouncedSearchQuery]);
 
   // ============================================
-  // DATA LOADING
-  // ============================================
-
-  // ============================================
-  // ACTIONS
-  // ============================================
-
-  function verDetalhes(rota: RotaHistorico) {
-    router.push({
-      pathname: '/gestor/mapa-rota',
-      params: { id: rota.id }
-    });
-  }
-
-  async function excluirRota(rota: RotaHistorico) {
-    // ⚠️ Validação: não permitir excluir rotas em andamento
-    if (rota.status === 'em_andamento') {
-      if (Platform.OS === 'web') {
-        showToast('Não é possível excluir uma rota em andamento. Aguarde a conclusão ou cancele a rota primeiro.', 'error', 5000);
-      } else {
-        Alert.alert(
-          'Ação não permitida',
-          'Não é possível excluir uma rota em andamento. Aguarde a conclusão ou cancele a rota primeiro.'
-        );
-      }
-      return;
-    }
-
-    // Web: usar modal customizado
-    if (Platform.OS === 'web') {
-      setRotaToDelete(rota);
-      setShowConfirmModal(true);
-    } else {
-      // Mobile: usar Alert.alert nativo
-      const mensagem = `Tem certeza que deseja excluir esta rota?\n\nMotorista: ${rota.motorista_nome || 'Sem motorista'}\nParadas: ${rota.paradas_count}\n\nEsta ação não pode ser desfeita.`;
-      Alert.alert(
-        'Confirmar Exclusão',
-        mensagem,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Excluir',
-            style: 'destructive',
-            onPress: () => executarExclusao(rota),
-          },
-        ]
-      );
-    }
-  }
-
-  const handleConfirmDelete = () => {
-    setShowConfirmModal(false);
-    if (rotaToDelete) {
-      executarExclusao(rotaToDelete);
-      setRotaToDelete(null);
-    }
-  };
-
-  const handleCancelDelete = () => {
-    setShowConfirmModal(false);
-    setRotaToDelete(null);
-  };
-
-  async function executarExclusao(rota: RotaHistorico) {
-    try {
-      await withToast(
-        async () => {
-          const { error } = await supabase
-            .from('rotas')
-            .delete()
-            .eq('id', rota.id);
-
-          if (error) throw error;
-
-          // Log da ação
-          await supabase.from('logs').insert({
-            usuario_id: userData!.id,
-            rota_id: rota.id,
-            evento: 'rota_excluida',
-            detalhes: {
-              motivo: 'Excluída pelo gestor',
-              motorista: rota.motorista_nome,
-              paradas_count: rota.paradas_count,
-              status_anterior: rota.status,
-            },
-          });
-        },
-        {
-          loading: 'Excluindo rota...',
-          success: 'Rota excluída com sucesso!',
-          error: 'Não foi possível excluir a rota',
-        }
-      );
-
-      // Recarregar rotas
-      loadRotas();
-    } catch (error) {
-      if (__DEV__) console.error('Erro ao excluir rota:', error);
-    }
-  }
-
-  async function exportarParaCSV() {
-    try {
-      if (rotasFiltradas.length === 0) {
-        Alert.alert('Atenção', 'Não há rotas para exportar');
-        return;
-      }
-
-      // Cabeçalho do CSV
-      const headers = [
-        'Data',
-        'Motorista',
-        'Paradas Concluídas',
-        'Total Paradas',
-        'Distância (km)',
-        'Iniciada em',
-        'Concluída em',
-        'Status'
-      ];
-
-      // Dados das rotas
-      const rows = rotasFiltradas.map(rota => [
-        formatDateBR(rota.data),
-        rota.motorista_nome || 'Sem motorista',
-        rota.paradas_concluidas,
-        rota.paradas_count,
-        rota.distancia_total ? rota.distancia_total.toFixed(1) : '-',
-        formatDateTimeBR(rota.iniciada_em, { showYear: true }),
-        formatDateTimeBR(rota.concluida_em, { showYear: true }),
-        getStatusLabel(rota.status)
-      ]);
-
-      // Montar CSV com BOM para UTF-8
-      const csvContent = '\uFEFF' + [
-        headers.join(','),
-        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-      ].join('\n');
-
-      const dataAtual = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
-      const nomeArquivo = `gestao-rotas-${dataAtual}.csv`;
-
-      if (Platform.OS === 'web') {
-        // Web: Usar Blob e download
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-
-        link.setAttribute('href', url);
-        link.setAttribute('download', nomeArquivo);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      } else {
-        // Mobile: Usar FileSystem e Sharing
-        const fileUri = FileSystem.documentDirectory + nomeArquivo;
-
-        await FileSystem.writeAsStringAsync(fileUri, csvContent, {
-          encoding: FileSystem.EncodingType.UTF8,
-        });
-
-        // Verificar se compartilhamento está disponível
-        const isAvailable = await Sharing.isAvailableAsync();
-        if (isAvailable) {
-          await Sharing.shareAsync(fileUri, {
-            mimeType: 'text/csv',
-            dialogTitle: 'Exportar Relatório de Rotas',
-            UTI: 'public.comma-separated-values-text',
-          });
-        } else {
-          Alert.alert(
-            'Arquivo Salvo',
-            `O arquivo foi salvo em: ${fileUri}`
-          );
-        }
-      }
-
-      // Log da ação
-      if (userData?.id) {
-        supabase.from('logs').insert({
-          usuario_id: userData.id,
-          evento: 'exportacao_rotas',
-          detalhes: {
-            total_rotas: rotasFiltradas.length,
-            filtro_status: filtroStatus,
-            formato: 'csv',
-            plataforma: Platform.OS,
-          },
-        });
-      }
-
-      if (Platform.OS === 'web') {
-        Alert.alert('Sucesso', `${rotasFiltradas.length} rotas exportadas com sucesso!`);
-      }
-    } catch (error) {
-      if (__DEV__) console.error('Erro ao exportar:', error);
-      Alert.alert('Erro', 'Não foi possível exportar os dados');
-    }
-  }
-
-  // ============================================
-  // HELPERS
-  // ============================================
-
-  function getStatusLabel(status: string): string {
-    switch (status) {
-      case 'pendente': return 'Pendente';
-      case 'em_andamento': return 'Em Andamento';
-      case 'concluida': return 'Concluída';
-      case 'cancelada': return 'Cancelada';
-      case 'nao_executada': return 'Não Executada';
-      default: return status;
-    }
-  }
-
-  function getStatusColor(status: string): string {
-    switch (status) {
-      case 'pendente': return theme.colors.warning;
-      case 'em_andamento': return theme.colors.info;
-      case 'concluida': return theme.colors.success;
-      case 'cancelada': return theme.colors.error;
-      case 'nao_executada': return '#f59e0b'; // Amber - indica rota expirada
-      default: return theme.colors.gray500;
-    }
-  }
-
-    // ============================================
   // DATA TABLE CONFIG
   // ============================================
 
@@ -538,12 +211,16 @@ export default function GestaoRotas() {
         <TouchableOpacity
           style={styles.cardHeaderButtonSecondary}
           onPress={exportarParaCSV}
+          accessibilityRole="button"
+          accessibilityLabel="Exportar rotas para CSV"
         >
           <Text style={styles.cardHeaderButtonSecondaryText}>Exportar</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.cardHeaderButtonPrimary}
           onPress={() => router.push('/gestor/nova-entrega')}
+          accessibilityRole="button"
+          accessibilityLabel="Criar nova rota"
         >
           <Text style={styles.cardHeaderButtonPrimaryText}>Nova Rota</Text>
         </TouchableOpacity>
@@ -554,7 +231,7 @@ export default function GestaoRotas() {
   // Desktop Layout
   if (isDesktop) {
     return (
-      <>
+      <ErrorBoundary>
         <DesktopPageLayout
           title={pageMeta.title}
           subtitle={pageMeta.subtitle}
@@ -574,41 +251,52 @@ export default function GestaoRotas() {
             {/* Search Input */}
             <View style={styles.searchContainer}>
               <TextInput
-                style={styles.searchInput}
+                style={[styles.searchInput, isDesktop && styles.searchInputDesktop]}
                 placeholder="Buscar por motorista ou data..."
                 placeholderTextColor={theme.colors.gray400}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
+                accessibilityLabel="Buscar rotas"
+                accessibilityHint="Digite o nome do motorista ou data para filtrar"
               />
             </View>
 
             {/* Status Filters */}
-            <Text style={styles.filtrosLabel}>Filtrar por Status:</Text>
-            <View style={styles.filtrosButtons}>
-              {(['todas', 'pendente', 'em_andamento', 'concluida', 'nao_executada', 'cancelada'] as FiltroStatus[]).map((status) => (
-                <TouchableOpacity
-                  key={status}
-                  style={[
-                    styles.filtroButton,
-                    filtroStatus === status && styles.filtroButtonActive,
-                  ]}
-                  onPress={() => setFiltroStatus(status)}
-                >
-                  <Text
+            <Text style={styles.filtrosLabel} accessibilityRole="header">Filtrar por Status:</Text>
+            <View style={styles.filtrosButtons} accessibilityRole="radiogroup">
+              {FILTRO_STATUS_OPTIONS.map((status) => {
+                const label = status === 'todas' ? 'Todas' : getStatusLabel(status);
+                const isSelected = filtroStatus === status;
+                return (
+                  <TouchableOpacity
+                    key={status}
                     style={[
-                      styles.filtroButtonText,
-                      filtroStatus === status && styles.filtroButtonTextActive,
+                      styles.filtroButton,
+                      isDesktop && styles.filtroButtonDesktop,
+                      isSelected && styles.filtroButtonActive,
                     ]}
+                    onPress={() => setFiltroStatus(status)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: isSelected }}
+                    accessibilityLabel={`Filtrar por ${label}`}
                   >
-                    {status === 'todas' ? 'Todas' : getStatusLabel(status)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text
+                      style={[
+                        styles.filtroButtonText,
+                        isDesktop && styles.filtroButtonTextDesktop,
+                        isSelected && styles.filtroButtonTextActive,
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </DesktopCard>
 
           {/* Tabela de Rotas */}
-          <View style={{ marginTop: 24 }}>
+          <View style={styles.tableSection}>
             <DesktopCard
               title="Rotas"
               noPadding
@@ -671,6 +359,8 @@ export default function GestaoRotas() {
               <TouchableOpacity
                 style={styles.modalButtonCancel}
                 onPress={handleCancelDelete}
+                accessibilityRole="button"
+                accessibilityLabel="Cancelar exclusão"
               >
                 <Text style={styles.modalButtonCancelText}>Cancelar</Text>
               </TouchableOpacity>
@@ -678,6 +368,8 @@ export default function GestaoRotas() {
               <TouchableOpacity
                 style={styles.modalButtonDanger}
                 onPress={handleConfirmDelete}
+                accessibilityRole="button"
+                accessibilityLabel="Confirmar exclusão da rota"
               >
                 <Text style={styles.modalButtonDangerText}>Excluir</Text>
               </TouchableOpacity>
@@ -687,22 +379,22 @@ export default function GestaoRotas() {
 
         {/* Toast de Feedback */}
         <Toast {...toastState} onDismiss={hideToast} />
-      </>
+      </ErrorBoundary>
     );
   }
 
   // Mobile Layout (original)
   if (loading) {
     return (
-      <>
+      <ErrorBoundary>
         <MobileLoading message="Carregando rotas..." />
         {logoutModal}
-      </>
+      </ErrorBoundary>
     );
   }
 
   return (
-    <>
+    <ErrorBoundary>
       {/* Content */}
       <ScrollView style={styles.scrollView}>
         <View style={styles.content}>
@@ -710,39 +402,51 @@ export default function GestaoRotas() {
         <MobileCard
           title="Filtros"
           subtitle={`${rotasFiltradas.length} rota(s) encontrada(s)`}
+          variant="bordered"
         >
           {/* Search Input */}
           <View style={styles.searchContainer}>
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, isDesktop && styles.searchInputDesktop]}
               placeholder="Buscar por motorista ou data..."
               placeholderTextColor={theme.colors.gray400}
               value={searchQuery}
               onChangeText={setSearchQuery}
+              accessibilityLabel="Buscar rotas"
+              accessibilityHint="Digite o nome do motorista ou data para filtrar"
             />
           </View>
 
-          <Text style={styles.filtrosLabel}>Filtrar por Status:</Text>
-          <View style={styles.filtrosButtons}>
-            {(['todas', 'pendente', 'em_andamento', 'concluida', 'nao_executada', 'cancelada'] as FiltroStatus[]).map((status) => (
-              <TouchableOpacity
-                key={status}
-                style={[
-                  styles.filtroButton,
-                  filtroStatus === status && styles.filtroButtonActive,
-                ]}
-                onPress={() => setFiltroStatus(status)}
-              >
-                <Text
+          <Text style={styles.filtrosLabel} accessibilityRole="header">Filtrar por Status:</Text>
+          <View style={styles.filtrosButtons} accessibilityRole="radiogroup">
+            {FILTRO_STATUS_OPTIONS.map((status) => {
+              const label = status === 'todas' ? 'Todas' : getStatusLabel(status);
+              const isSelected = filtroStatus === status;
+              return (
+                <TouchableOpacity
+                  key={status}
                   style={[
-                    styles.filtroButtonText,
-                    filtroStatus === status && styles.filtroButtonTextActive,
+                    styles.filtroButton,
+                    isDesktop && styles.filtroButtonDesktop,
+                    isSelected && styles.filtroButtonActive,
                   ]}
+                  onPress={() => setFiltroStatus(status)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: isSelected }}
+                  accessibilityLabel={`Filtrar por ${label}`}
                 >
-                  {status === 'todas' ? 'Todas' : getStatusLabel(status)}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={[
+                      styles.filtroButtonText,
+                      isDesktop && styles.filtroButtonTextDesktop,
+                      isSelected && styles.filtroButtonTextActive,
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           {/* Botões de Ação */}
@@ -750,12 +454,16 @@ export default function GestaoRotas() {
             <TouchableOpacity
               style={styles.mobileActionButtonSecondary}
               onPress={exportarParaCSV}
+              accessibilityRole="button"
+              accessibilityLabel="Exportar rotas para CSV"
             >
               <Text style={styles.mobileActionButtonSecondaryText}>Exportar CSV</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.mobileActionButtonPrimary}
               onPress={() => router.push('/gestor/nova-entrega')}
+              accessibilityRole="button"
+              accessibilityLabel="Criar nova rota"
             >
               <Text style={styles.mobileActionButtonPrimaryText}>Nova Rota</Text>
             </TouchableOpacity>
@@ -804,7 +512,7 @@ export default function GestaoRotas() {
       {/* Toast de Feedback */}
       <Toast {...toastState} onDismiss={hideToast} />
       {logoutModal}
-    </>
+    </ErrorBoundary>
   );
 }
 
@@ -813,85 +521,19 @@ export default function GestaoRotas() {
 // ============================================
 
 const styles = StyleSheet.create((theme: Theme) => ({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.gray50,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.colors.gray50,
-  },
-  loadingText: {
-    marginTop: theme.spacing.lg,
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
-  },
-  header: {
-    backgroundColor: theme.colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray200,
-    paddingHorizontal: theme.spacing['3xl'],
-    paddingVertical: theme.spacing['2xl'],
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitle: {
-    fontSize: theme.typography['3xl'],
-    fontFamily: theme.typography.fontDisplay,
-    color: theme.colors.gray900,
-  },
-  headerSubtitle: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
-    marginTop: 4,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    gap: theme.spacing.md,
-  },
-  quickActionButton: {
-    backgroundColor: theme.colors.secondary,
-    paddingHorizontal: theme.spacing.xl,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.lg,
-  },
-  quickActionText: {
-    color: theme.colors.white,
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
+  tableSection: {
+    marginTop: theme.spacing['2xl'],
   },
   scrollView: {
     flex: 1,
     backgroundColor: theme.colors.gray50,
   },
   content: {
-    paddingHorizontal: theme.spacing['3xl'],
-    paddingVertical: theme.spacing['2xl'],
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.lg,
     maxWidth: theme.layout.containerMaxWidth,
     marginHorizontal: 'auto',
     width: '100%',
-  },
-  infoBox: {
-    backgroundColor: theme.colors.info + '10',
-    borderWidth: 1,
-    borderColor: theme.colors.info + '30',
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
-    marginBottom: theme.spacing['2xl'],
-  },
-  infoText: {
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.info,
-    textAlign: 'center',
-  },
-  filtrosContainer: {
-    marginBottom: theme.spacing['2xl'],
   },
   searchContainer: {
     marginBottom: theme.spacing.lg,
@@ -905,6 +547,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.gray300,
     fontSize: theme.typography.base,
     color: theme.colors.gray900,
+    minHeight: 48,
+  },
+  searchInputDesktop: {
+    paddingVertical: 0,
+    paddingHorizontal: theme.desktop.input.paddingHorizontal,
+    fontSize: theme.desktop.input.fontSize,
+    minHeight: theme.desktop.input.height,
   },
   filtrosLabel: {
     fontSize: theme.typography.sm,
@@ -924,6 +573,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.white,
     borderWidth: 1,
     borderColor: theme.colors.gray300,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filtroButtonDesktop: {
+    paddingVertical: 6,
+    paddingHorizontal: theme.desktop.button.paddingHorizontal,
+    minHeight: theme.desktop.button.height,
   },
   filtroButtonActive: {
     backgroundColor: theme.colors.primary,
@@ -933,6 +590,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.sm,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray700,
+  },
+  filtroButtonTextDesktop: {
+    fontSize: theme.desktop.button.fontSize,
   },
   filtroButtonTextActive: {
     color: theme.colors.white,

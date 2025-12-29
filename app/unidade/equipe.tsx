@@ -5,17 +5,19 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  ActivityIndicator,
   TextInput,
   Alert,
   Platform,
 } from 'react-native';
 
 import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { MobileCard } from '@/components/mobile/MobileCard';
+import { MobileLoading } from '@/components/mobile/MobileLoading';
 import { Toast } from '@/components/Toast';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
-import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
+import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
@@ -39,14 +41,14 @@ export default function EquipeScreen() {
     userName: userData?.nome,
   });
   const { toast: toastState, showToast, hideToast } = useToast();
-  const { isDesktop, isLargeDesktop } = useBreakpoint();
+  const { isDesktop } = useResponsive();
   const pageMeta = getGestorPageMeta('equipe');
   const [membros, setMembros] = useState<Membro[]>([]);
   const [filteredMembros, setFilteredMembros] = useState<Membro[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPapel, setFilterPapel] = useState<'todos' | 'gestor' | 'motorista'>('todos');
-  const isDesktopView = isDesktop || isLargeDesktop;
+  const isDesktopView = isDesktop;
   const isLoading = userLoading || loading;
 
   const loadMembros = useCallback(async () => {
@@ -176,7 +178,7 @@ export default function EquipeScreen() {
   const searchSection = (
     <View style={styles.searchSection}>
       <TextInput
-        style={styles.searchInput}
+        style={[styles.searchInput, isDesktopView && styles.searchInputDesktop]}
         placeholder="Buscar por nome ou e-mail..."
         value={searchQuery}
         onChangeText={setSearchQuery}
@@ -189,6 +191,7 @@ export default function EquipeScreen() {
       <TouchableOpacity
         style={[
           styles.filterButton,
+          isDesktopView && styles.filterButtonDesktop,
           filterPapel === 'todos' && styles.filterButtonActive,
         ]}
         onPress={() => setFilterPapel('todos')}
@@ -196,6 +199,7 @@ export default function EquipeScreen() {
         <Text
           style={[
             styles.filterButtonText,
+            isDesktopView && styles.filterButtonTextDesktop,
             filterPapel === 'todos' && styles.filterButtonTextActive,
           ]}
         >
@@ -205,6 +209,7 @@ export default function EquipeScreen() {
       <TouchableOpacity
         style={[
           styles.filterButton,
+          isDesktopView && styles.filterButtonDesktop,
           filterPapel === 'gestor' && styles.filterButtonActive,
         ]}
         onPress={() => setFilterPapel('gestor')}
@@ -212,6 +217,7 @@ export default function EquipeScreen() {
         <Text
           style={[
             styles.filterButtonText,
+            isDesktopView && styles.filterButtonTextDesktop,
             filterPapel === 'gestor' && styles.filterButtonTextActive,
           ]}
         >
@@ -221,6 +227,7 @@ export default function EquipeScreen() {
       <TouchableOpacity
         style={[
           styles.filterButton,
+          isDesktopView && styles.filterButtonDesktop,
           filterPapel === 'motorista' && styles.filterButtonActive,
         ]}
         onPress={() => setFilterPapel('motorista')}
@@ -228,6 +235,7 @@ export default function EquipeScreen() {
         <Text
           style={[
             styles.filterButtonText,
+            isDesktopView && styles.filterButtonTextDesktop,
             filterPapel === 'motorista' && styles.filterButtonTextActive,
           ]}
         >
@@ -374,7 +382,7 @@ export default function EquipeScreen() {
       : undefined;
 
     return (
-      <>
+      <ErrorBoundary>
         <DesktopPageLayout
           title={pageMeta.title}
           subtitle={`${membros.length} ${membros.length === 1 ? 'membro' : 'membros'}`}
@@ -391,32 +399,39 @@ export default function EquipeScreen() {
         </DesktopPageLayout>
         <Toast {...toastState} onDismiss={hideToast} />
         {logoutModal}
-      </>
+      </ErrorBoundary>
     );
   }
 
   if (isLoading) {
     return (
-      <>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={styles.loadingText}>Carregando equipe...</Text>
-        </View>
+      <ErrorBoundary>
+        <MobileLoading message="Carregando equipe..." />
         {logoutModal}
-      </>
+      </ErrorBoundary>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {statsSection}
-      {searchSection}
-      {filterSection}
-      {renderMembersSection(false)}
-      {footerSection}
+    <ErrorBoundary>
+      <ScrollView style={styles.container}>
+        <View style={styles.content}>
+          <MobileCard title="Resumo" variant="bordered">
+            {statsSection}
+          </MobileCard>
+          <MobileCard title="Filtros" variant="bordered">
+            {searchSection}
+            {filterSection}
+          </MobileCard>
+          <MobileCard title="Membros" subtitle={`${filteredMembros.length} encontrado(s)`} variant="bordered">
+            {renderMembersSection(false)}
+          </MobileCard>
+        </View>
+        {footerSection}
+      </ScrollView>
       <Toast {...toastState} onDismiss={hideToast} />
       {logoutModal}
-    </View>
+    </ErrorBoundary>
   );
 }
 
@@ -424,6 +439,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,
+  },
+  content: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.lg,
+    maxWidth: theme.layout.containerMaxWidth,
+    marginHorizontal: 'auto',
+    width: '100%',
   },
   loadingContainer: {
     flex: 1,
@@ -477,6 +499,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
+    minHeight: 48,
+  },
+  searchInputDesktop: {
+    paddingVertical: 0,
+    paddingHorizontal: theme.desktop.input.paddingHorizontal,
+    fontSize: theme.desktop.input.fontSize,
+    minHeight: theme.desktop.input.height,
   },
   filterSection: {
     flexDirection: 'row',
@@ -493,6 +522,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderWidth: 1,
     borderColor: theme.colors.border,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  filterButtonDesktop: {
+    paddingVertical: 6,
+    paddingHorizontal: theme.desktop.button.paddingHorizontal,
+    minHeight: theme.desktop.button.height,
   },
   filterButtonActive: {
     backgroundColor: theme.colors.primary,
@@ -502,6 +538,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: 14,
     fontWeight: '600',
     color: theme.colors.textSecondary,
+  },
+  filterButtonTextDesktop: {
+    fontSize: theme.desktop.button.fontSize,
   },
   filterButtonTextActive: {
     color: theme.colors.surface,

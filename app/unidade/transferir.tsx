@@ -5,20 +5,22 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  ActivityIndicator,
   Alert,
   TextInput,
 } from 'react-native';
 
 import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { MobileCard } from '@/components/mobile/MobileCard';
+import { MobileLoading } from '@/components/mobile/MobileLoading';
 import { Toast } from '@/components/Toast';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
-import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
+import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface GestorElegivel {
   id: string;
@@ -28,14 +30,13 @@ interface GestorElegivel {
 }
 
 export default function TransferirGestaoScreen() {
-  const { theme } = useUnistyles();
   const router = useRouter();
   const { userData, loading: userLoading } = useUser();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
   });
   const { toast: toastState, showToast, hideToast } = useToast();
-  const { isDesktop } = useBreakpoint();
+  const { isDesktop } = useResponsive();
   const pageMeta = getGestorPageMeta('transferirUnidade');
   const [gestores, setGestores] = useState<GestorElegivel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -165,23 +166,25 @@ export default function TransferirGestaoScreen() {
   // Verificar se é gestor principal
   if (!userData?.is_gestor_principal) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.headerContent}>
-            <View>
-              <Text style={styles.headerTitle}>Transferir Gestão</Text>
-              <Text style={styles.headerSubtitle}>
-                {userData?.unidades?.nome}
-              </Text>
+      <ErrorBoundary>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <View style={styles.headerContent}>
+              <View>
+                <Text style={styles.headerTitle}>Transferir Gestão</Text>
+                <Text style={styles.headerSubtitle}>
+                  {userData?.unidades?.nome}
+                </Text>
+              </View>
             </View>
           </View>
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>
+              Apenas o gestor principal pode transferir a gestão.
+            </Text>
+          </View>
         </View>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>
-            Apenas o gestor principal pode transferir a gestão.
-          </Text>
-        </View>
-      </View>
+      </ErrorBoundary>
     );
   }
 
@@ -226,7 +229,7 @@ export default function TransferirGestaoScreen() {
               {' '}no campo abaixo.
             </Text>
             <TextInput
-              style={styles.confirmationInput}
+              style={[styles.confirmationInput, isDesktopView && styles.confirmationInputDesktop]}
               value={confirmationText}
               onChangeText={setConfirmationText}
               placeholder="TRANSFERIR"
@@ -234,18 +237,18 @@ export default function TransferirGestaoScreen() {
             />
             <View style={styles.confirmationButtons}>
               <TouchableOpacity
-                style={[styles.button, styles.buttonSecondary]}
+                style={[styles.button, isDesktopView && styles.buttonDesktop, styles.buttonSecondary]}
                 onPress={handleCancelConfirmation}
                 disabled={transferring}
               >
-                <Text style={styles.buttonTextSecondary}>Cancelar</Text>
+                <Text style={[styles.buttonTextSecondary, isDesktopView && styles.buttonTextDesktop]}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.button, styles.buttonDanger, transferring && styles.buttonDisabled]}
+                style={[styles.button, isDesktopView && styles.buttonDesktop, styles.buttonDanger, transferring && styles.buttonDisabled]}
                 onPress={handleConfirmTransfer}
                 disabled={transferring}
               >
-                <Text style={styles.buttonText}>Confirmar</Text>
+                <Text style={[styles.buttonText, isDesktopView && styles.buttonTextDesktop]}>Confirmar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -299,7 +302,7 @@ export default function TransferirGestaoScreen() {
   if (isDesktopView) {
     if (!isGestorPrincipal) {
       return (
-        <>
+        <ErrorBoundary>
           <DesktopPageLayout
             title={pageMeta.title}
             subtitle={userData?.unidades?.nome}
@@ -317,12 +320,12 @@ export default function TransferirGestaoScreen() {
           </DesktopPageLayout>
           <Toast {...toastState} onDismiss={hideToast} />
           {logoutModal}
-        </>
+        </ErrorBoundary>
       );
     }
 
     return (
-      <>
+      <ErrorBoundary>
         <DesktopPageLayout
           title={pageMeta.title}
           subtitle={userData?.unidades?.nome}
@@ -336,60 +339,55 @@ export default function TransferirGestaoScreen() {
         </DesktopPageLayout>
         <Toast {...toastState} onDismiss={hideToast} />
         {logoutModal}
-      </>
+      </ErrorBoundary>
     );
   }
 
   if (isLoading) {
     return (
-      <>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={styles.loadingText}>Carregando gestores...</Text>
-        </View>
+      <ErrorBoundary>
+        <MobileLoading message="Carregando gestores..." />
         {logoutModal}
-      </>
+      </ErrorBoundary>
     );
   }
 
   if (!isGestorPrincipal) {
     return (
-      <>
+      <ErrorBoundary>
         <View style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.headerContent}>
-            <View>
-              <Text style={styles.headerTitle}>Transferir Gestão</Text>
-              <Text style={styles.headerSubtitle}>{userData?.unidades?.nome}</Text>
+          <View style={styles.header}>
+            <View style={styles.headerContent}>
+              <View>
+                <Text style={styles.headerTitle}>Transferir Gestão</Text>
+                <Text style={styles.headerSubtitle}>{userData?.unidades?.nome}</Text>
+              </View>
             </View>
           </View>
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>
+              Apenas o gestor principal pode transferir a gestão.
+            </Text>
+          </View>
         </View>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>
-            Apenas o gestor principal pode transferir a gestão.
-          </Text>
-        </View>
-      </View>
-      {logoutModal}
-      </>
+        {logoutModal}
+      </ErrorBoundary>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.headerTitle}>Transferir Gestão Principal</Text>
-            <Text style={styles.headerSubtitle}>{userData?.unidades?.nome}</Text>
-          </View>
+    <ErrorBoundary>
+      <ScrollView style={styles.container}>
+        <View style={styles.mobileContent}>
+          <MobileCard title="Transferir Gestão Principal" subtitle={userData?.unidades?.nome} variant="bordered">
+            {renderMainContent()}
+          </MobileCard>
         </View>
-      </View>
-      <ScrollView style={styles.content}>{renderMainContent()}</ScrollView>
+      </ScrollView>
 
       <Toast {...toastState} onDismiss={hideToast} />
       {logoutModal}
-    </View>
+    </ErrorBoundary>
   );
 }
 
@@ -397,6 +395,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,
+  },
+  mobileContent: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.lg,
+    maxWidth: theme.layout.containerMaxWidth,
+    marginHorizontal: 'auto',
+    width: '100%',
   },
   loadingContainer: {
     flex: 1,
@@ -614,6 +619,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontWeight: 'bold',
     marginBottom: 24,
     backgroundColor: theme.colors.surface,
+    minHeight: 48,
+  },
+  confirmationInputDesktop: {
+    paddingHorizontal: theme.desktop.input.paddingHorizontal,
+    paddingVertical: 0,
+    fontSize: theme.desktop.input.fontSize,
+    minHeight: theme.desktop.input.height,
   },
   confirmationButtons: {
     flexDirection: 'row',
@@ -624,6 +636,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  buttonDesktop: {
+    paddingVertical: 6,
+    paddingHorizontal: theme.desktop.button.paddingHorizontal,
+    minHeight: theme.desktop.button.height,
   },
   buttonPrimary: {
     backgroundColor: theme.colors.primary,
@@ -643,6 +662,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: 16,
     fontWeight: '600',
     color: theme.colors.surface,
+  },
+  buttonTextDesktop: {
+    fontSize: theme.desktop.button.fontSize,
   },
   buttonTextSecondary: {
     color: theme.colors.text,

@@ -31,6 +31,8 @@ import {
   ParadaFormData,
   ParadaFormDataWithCoords,
 } from '@/components/gestor/nova-entrega';
+import { MobileCard } from '@/components/mobile/MobileCard';
+import { MobileLoading } from '@/components/mobile/MobileLoading';
 import { Toast } from '@/components/Toast';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
@@ -69,15 +71,18 @@ const FormularioParadaMemoized = memo(function FormularioParada({
   vinculoSelecionado,
   setVinculoSelecionado,
 }: FormularioParadaProps) {
-  const { theme } = useUnistyles();
   const { isDesktop, isTablet, isMobile } = useResponsive();
-  const styles = createStyles(theme, { isDesktop, isTablet, isMobile });
   const tipoAtual = watch('tipo');
 
   return (
-    <View style={styles.form}>
-      {/* Título só aparece em mobile/tablet - desktop usa header do DesktopCard */}
-      {!isDesktop && (
+    <View style={[
+      styles.form,
+      isDesktop && styles.formDesktop,
+      isTablet && styles.formTablet,
+      isMobile && styles.formMobileInner,
+    ]}>
+      {/* Título só aparece em tablet - desktop usa header do DesktopCard, mobile usa MobileCard */}
+      {isTablet && (
         <Text style={styles.sectionTitle}>Adicionar Parada</Text>
       )}
 
@@ -85,10 +90,11 @@ const FormularioParadaMemoized = memo(function FormularioParada({
         control={control}
         name="tipo"
         render={({ field: { onChange, value } }) => (
-          <View style={styles.radioGroup}>
+          <View style={[styles.radioGroup, isDesktop && styles.radioGroupDesktop]}>
             <TouchableOpacity
               style={[
                 styles.radioButton,
+                isDesktop && styles.radioButtonDesktop,
                 value === 'entrega' && styles.radioButtonActive,
               ]}
               onPress={() => onChange('entrega')}
@@ -99,6 +105,7 @@ const FormularioParadaMemoized = memo(function FormularioParada({
               <Text
                 style={[
                   styles.radioText,
+                  isDesktop && styles.radioTextDesktop,
                   value === 'entrega' && styles.radioTextActive,
                 ]}
               >
@@ -108,6 +115,7 @@ const FormularioParadaMemoized = memo(function FormularioParada({
             <TouchableOpacity
               style={[
                 styles.radioButton,
+                isDesktop && styles.radioButtonDesktop,
                 value === 'retirada' && styles.radioButtonActive,
               ]}
               onPress={() => {
@@ -121,6 +129,7 @@ const FormularioParadaMemoized = memo(function FormularioParada({
               <Text
                 style={[
                   styles.radioText,
+                  isDesktop && styles.radioTextDesktop,
                   value === 'retirada' && styles.radioTextActive,
                 ]}
               >
@@ -133,17 +142,18 @@ const FormularioParadaMemoized = memo(function FormularioParada({
 
       {/* Seletor de Vínculo */}
       {tipoAtual === 'entrega' && retiradasDisponiveis.length > 0 && (
-        <View style={styles.vinculoSection}>
-          <Text style={styles.vinculoLabel}>
+        <View style={[styles.vinculoSection, isDesktop && styles.vinculoSectionDesktop]}>
+          <Text style={[styles.vinculoLabel, isDesktop && styles.vinculoLabelDesktop]}>
             Vincular a uma retirada? (equipamento locado)
           </Text>
-          <Text style={styles.vinculoHint}>
+          <Text style={[styles.vinculoHint, isDesktop && styles.vinculoHintDesktop]}>
             Se esta entrega usa equipamento que será retirado de outro cliente, selecione a retirada correspondente
           </Text>
-          <View style={styles.vinculoOptions}>
+          <View style={[styles.vinculoOptions, isDesktop && styles.vinculoOptionsDesktop]}>
             <TouchableOpacity
               style={[
                 styles.vinculoOption,
+                isDesktop && styles.vinculoOptionDesktop,
                 !vinculoSelecionado && styles.vinculoOptionActive,
               ]}
               onPress={() => setVinculoSelecionado('')}
@@ -154,6 +164,7 @@ const FormularioParadaMemoized = memo(function FormularioParada({
               <Text
                 style={[
                   styles.vinculoOptionText,
+                  isDesktop && styles.vinculoOptionTextDesktop,
                   !vinculoSelecionado && styles.vinculoOptionTextActive,
                 ]}
               >
@@ -168,6 +179,7 @@ const FormularioParadaMemoized = memo(function FormularioParada({
                   key={retirada.id}
                   style={[
                     styles.vinculoOption,
+                    isDesktop && styles.vinculoOptionDesktop,
                     isSelected && styles.vinculoOptionActive,
                   ]}
                   onPress={() => setVinculoSelecionado(retirada.id)}
@@ -178,6 +190,7 @@ const FormularioParadaMemoized = memo(function FormularioParada({
                   <Text
                     style={[
                       styles.vinculoOptionText,
+                      isDesktop && styles.vinculoOptionTextDesktop,
                       isSelected && styles.vinculoOptionTextActive,
                     ]}
                     numberOfLines={2}
@@ -221,6 +234,7 @@ const FormularioParadaMemoized = memo(function FormularioParada({
             <TextInput
               style={[
                 styles.input,
+                isDesktop && styles.inputDesktop,
                 errors.destinatario && styles.inputError,
               ]}
               placeholder="Nome do destinatário"
@@ -230,7 +244,9 @@ const FormularioParadaMemoized = memo(function FormularioParada({
               accessibilityHint="Digite o nome completo do destinatário"
             />
             {errors.destinatario && (
-              <Text style={styles.errorText}>{errors.destinatario.message}</Text>
+              <Text style={[styles.errorText, isDesktop && styles.errorTextDesktop]}>
+                {errors.destinatario.message}
+              </Text>
             )}
           </>
         )}
@@ -244,6 +260,7 @@ const FormularioParadaMemoized = memo(function FormularioParada({
             <TextInput
               style={[
                 styles.input,
+                isDesktop && styles.inputDesktop,
                 errors.telefone && styles.inputError,
               ]}
               placeholder="Telefone de contato"
@@ -255,7 +272,9 @@ const FormularioParadaMemoized = memo(function FormularioParada({
               accessibilityHint="Digite o telefone do destinatário com DDD"
             />
             {errors.telefone && (
-              <Text style={styles.errorText}>{errors.telefone.message}</Text>
+              <Text style={[styles.errorText, isDesktop && styles.errorTextDesktop]}>
+                {errors.telefone.message}
+              </Text>
             )}
           </>
         )}
@@ -266,7 +285,12 @@ const FormularioParadaMemoized = memo(function FormularioParada({
         name="observacoes"
         render={({ field: { onChange, value } }) => (
           <TextInput
-            style={[styles.input, styles.textArea]}
+            style={[
+              styles.input,
+              isDesktop && styles.inputDesktop,
+              styles.textArea,
+              isDesktop && styles.textAreaDesktop,
+            ]}
             placeholder="Observações"
             value={value}
             onChangeText={onChange}
@@ -279,7 +303,7 @@ const FormularioParadaMemoized = memo(function FormularioParada({
       />
 
       <TouchableOpacity
-        style={styles.addButton}
+        style={[styles.addButton, isDesktop && styles.addButtonDesktop]}
         onPress={handleSubmit((data: ParadaFormData) => {
           onAddParada(data, vinculoSelecionado || undefined);
           setVinculoSelecionado('');
@@ -292,7 +316,9 @@ const FormularioParadaMemoized = memo(function FormularioParada({
         {isLoading ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.addButtonText}>+ Adicionar Parada</Text>
+          <Text style={[styles.addButtonText, isDesktop && styles.addButtonTextDesktop]}>
+            + Adicionar Parada
+          </Text>
         )}
       </TouchableOpacity>
     </View>
@@ -305,8 +331,7 @@ const FormularioParadaMemoized = memo(function FormularioParada({
 
 export default function NovaEntrega() {
   const { theme } = useUnistyles();
-  const { isDesktop, isTablet, isMobile } = useResponsive();
-  const styles = createStyles(theme, { isDesktop, isTablet, isMobile });
+  const { isDesktop, isTablet } = useResponsive();
   const pageMeta = getGestorPageMeta('novaRota');
 
   const {
@@ -357,9 +382,7 @@ export default function NovaEntrega() {
   if (isLoadingMotoristas) {
     return (
       <>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primaryDark} />
-        </View>
+        <MobileLoading message="Carregando dados..." />
         {logoutModal}
       </>
     );
@@ -444,6 +467,7 @@ export default function NovaEntrega() {
                   <TouchableOpacity
                     style={[
                       styles.clearCardButton,
+                      styles.clearCardButtonDesktop,
                       paradas.length === 0 && styles.clearCardButtonDisabled,
                     ]}
                     onPress={limparFormulario}
@@ -454,10 +478,12 @@ export default function NovaEntrega() {
                   >
                     <Ionicons
                       name="refresh-outline"
-                      size={18}
+                      size={16}
                       color={theme.colors.primary}
                     />
-                    <Text style={styles.clearCardButtonText}>Limpar formulário</Text>
+                    <Text style={[styles.clearCardButtonText, styles.clearCardButtonTextDesktop]}>
+                      Limpar formulário
+                    </Text>
                   </TouchableOpacity>
                 }
               >
@@ -514,19 +540,27 @@ export default function NovaEntrega() {
     <ErrorBoundary>
       <ScrollView style={styles.scrollView}>
         <View style={styles.content}>
-          <FormularioParadaMemoized
-            control={form.control}
-            errors={form.formState.errors}
-            setValue={setFormCoordinate}
-            handleSubmit={form.handleSubmit}
-            watch={form.watch}
-            onAddParada={onAddParada}
-            isLoading={isLoading}
-            retiradasDisponiveis={retiradasDisponiveis}
-            vinculoSelecionado={vinculoSelecionado}
-            setVinculoSelecionado={setVinculoSelecionado}
-          />
-          <ParadasListAndActions {...paradasListProps} />
+          <MobileCard title="Adicionar Parada" variant="bordered">
+            <FormularioParadaMemoized
+                control={form.control}
+                errors={form.formState.errors}
+                setValue={setFormCoordinate}
+                handleSubmit={form.handleSubmit}
+                watch={form.watch}
+                onAddParada={onAddParada}
+                isLoading={isLoading}
+                retiradasDisponiveis={retiradasDisponiveis}
+                vinculoSelecionado={vinculoSelecionado}
+                setVinculoSelecionado={setVinculoSelecionado}
+              />
+          </MobileCard>
+          <MobileCard
+            title="Paradas Adicionadas"
+            subtitle={paradasStatus.texto}
+            variant="bordered"
+          >
+            <ParadasListAndActions {...paradasListProps} />
+          </MobileCard>
         </View>
       </ScrollView>
       <Toast {...toastState} onDismiss={hideToast} />
@@ -536,218 +570,311 @@ export default function NovaEntrega() {
 }
 
 // ============================================
-// Estilos Responsivos (baseado em best practices 2025)
+// STYLES (estático - baseado em best practices 2025)
 // @see Material Design 3, Apple HIG, WCAG 2.2
 // ============================================
 
-interface ResponsiveParams {
-  isDesktop: boolean;
-  isTablet: boolean;
-  isMobile: boolean;
-}
-
-const createStyles = (theme: Theme, { isDesktop, isTablet: _isTablet, isMobile }: ResponsiveParams) => StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
+  // Loading
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: theme.colors.gray50,
   },
+  // Scroll
   scrollView: {
     flex: 1,
     backgroundColor: theme.colors.gray50,
   },
-  // Mobile: padding 16px (Material Design recomenda 16px para mobile)
-  // Tablet/Desktop: handled separately
+  // Content - Mobile (16px padding)
   content: {
-    paddingHorizontal: isMobile ? theme.spacing.md : theme.spacing.lg, // 16px mobile, 24px tablet+
-    paddingVertical: theme.spacing.lg, // 24px (era 40px)
-    maxWidth: isMobile ? '100%' : 960, // Container max para tablet
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.lg,
+    maxWidth: '100%',
     marginHorizontal: 'auto',
     width: '100%',
   },
-  // Tablet container com maxWidth de 960px
+  contentTablet: {
+    paddingHorizontal: theme.spacing.lg,
+    maxWidth: 960,
+  },
+  // Tablet container
   tabletContainer: {
-    paddingHorizontal: theme.spacing.lg, // 24px
-    paddingVertical: theme.spacing.lg, // 24px
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.lg,
     maxWidth: 960,
     marginHorizontal: 'auto',
     width: '100%',
   },
-  // Two column layout - Desktop: 40/60, Tablet: 40/60
-  // Não definimos maxWidth aqui pois DesktopPageLayout já tem maxWidth: 1400
+  // Two column layout
   twoColumnLayout: {
     flexDirection: 'row',
-    gap: theme.spacing.lg, // 24px - Material Design recomenda 24px
+    gap: theme.spacing.lg,
     alignItems: 'flex-start',
     width: '100%',
   },
-  // Form column: 38% (≈ 5/13 para compensar o gap)
-  // Usamos width percentual para garantir proporção correta em React Native Web
   formColumn: {
     width: '38%',
-    maxWidth: 500, // Limita em telas muito largas
+    maxWidth: 500,
   },
-  // Preview column: 62% (≈ 8/13)
   previewColumn: {
-    flex: 1, // Ocupa o resto do espaço disponível
-    minWidth: 0, // Permite shrink
+    flex: 1,
+    minWidth: 0,
   },
-  // Form card - padding responsivo
-  // No desktop, o DesktopCard provê o container, então removemos border/background
+  // Form - Mobile/Tablet (usado dentro de MobileCard)
   form: {
-    backgroundColor: isDesktop ? 'transparent' : theme.colors.white,
-    padding: isDesktop ? 0 : theme.spacing.lg, // Desktop: 0 (DesktopCard tem padding), Mobile/Tablet: 24px
-    borderRadius: isDesktop ? 0 : theme.borderRadius.xl,
-    marginBottom: isMobile ? theme.spacing.lg : 0,
-    borderWidth: isDesktop ? 0 : 1,
-    borderColor: isDesktop ? 'transparent' : theme.colors.gray200,
+    backgroundColor: theme.colors.white,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.xl,
+    marginBottom: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
+  },
+  formDesktop: {
+    backgroundColor: 'transparent',
+    padding: 0,
+    borderRadius: 0,
+    marginBottom: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
+  },
+  formTablet: {
+    marginBottom: 0,
+  },
+  // formMobile: padding interno quando dentro de MobileCard com noPadding
+  formMobile: {
+    padding: theme.spacing.md,
+  },
+  // formMobileInner: remove estilos de card quando dentro de MobileCard
+  formMobileInner: {
+    backgroundColor: 'transparent',
+    padding: 0,
+    borderRadius: 0,
+    marginBottom: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   sectionTitle: {
     fontSize: theme.typography.lg,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
-    marginBottom: theme.spacing.lg, // 24px (era 40px)
+    marginBottom: theme.spacing.lg,
   },
-  // Radio buttons - compacto no desktop, confortável no mobile
+  // Radio buttons - Mobile
   radioGroup: {
     flexDirection: 'row',
-    gap: isDesktop ? theme.desktop.section.gap : theme.spacing.md,
-    marginBottom: isDesktop ? theme.desktop.field.marginBottom : theme.spacing.lg,
+    gap: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
+  },
+  radioGroupDesktop: {
+    gap: theme.desktop.section.gap,
+    marginBottom: theme.desktop.field.marginBottom,
   },
   radioButton: {
     flex: 1,
-    paddingVertical: isDesktop ? 6 : theme.spacing.md,
-    paddingHorizontal: isDesktop ? theme.desktop.button.paddingHorizontal : theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
     borderColor: theme.colors.gray300,
     alignItems: 'center',
-    minHeight: isDesktop ? theme.desktop.button.height : 48,
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  radioButtonDesktop: {
+    paddingVertical: 6,
+    paddingHorizontal: theme.desktop.button.paddingHorizontal,
+    minHeight: theme.desktop.button.height,
   },
   radioButtonActive: {
-    backgroundColor: theme.colors.primaryDark,
-    borderColor: theme.colors.primaryDark,
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
   },
   radioText: {
-    fontSize: isDesktop ? theme.desktop.input.fontSize : theme.typography.base,
+    fontSize: theme.typography.base,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray700,
+  },
+  radioTextDesktop: {
+    fontSize: theme.desktop.input.fontSize,
   },
   radioTextActive: {
     color: theme.colors.white,
   },
+  // Vínculo section
   vinculoSection: {
-    marginBottom: isDesktop ? theme.desktop.field.marginBottom : theme.spacing.lg,
-    padding: isDesktop ? theme.desktop.section.padding : theme.spacing.md,
+    marginBottom: theme.spacing.lg,
+    padding: theme.spacing.md,
     backgroundColor: theme.colors.info + '08',
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
     borderColor: theme.colors.info + '30',
   },
+  vinculoSectionDesktop: {
+    marginBottom: theme.desktop.field.marginBottom,
+    padding: theme.desktop.section.padding,
+  },
   vinculoLabel: {
-    fontSize: isDesktop ? theme.desktop.input.fontSize : theme.typography.sm,
+    fontSize: theme.typography.sm,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
-    marginBottom: isDesktop ? 4 : theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
+  vinculoLabelDesktop: {
+    fontSize: theme.desktop.input.fontSize,
+    marginBottom: 4,
   },
   vinculoHint: {
-    fontSize: isDesktop ? 12 : theme.typography.xs,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray500,
-    marginBottom: isDesktop ? theme.desktop.section.gap : theme.spacing.md,
-    lineHeight: isDesktop ? 14 : 16,
+    marginBottom: theme.spacing.md,
+    lineHeight: 16,
+  },
+  vinculoHintDesktop: {
+    fontSize: 12,
+    marginBottom: theme.desktop.section.gap,
+    lineHeight: 14,
   },
   vinculoOptions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: isDesktop ? 6 : theme.spacing.sm,
+    gap: theme.spacing.sm,
   },
-  // Vínculo option - compacto no desktop
+  vinculoOptionsDesktop: {
+    gap: 6,
+  },
   vinculoOption: {
-    paddingVertical: isDesktop ? 4 : theme.spacing.sm + 2,
-    paddingHorizontal: isDesktop ? theme.desktop.section.padding : theme.spacing.md,
+    paddingVertical: theme.spacing.sm + 2,
+    paddingHorizontal: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
     borderWidth: 1,
     borderColor: theme.colors.gray300,
     backgroundColor: theme.colors.white,
-    minWidth: isDesktop ? 80 : 100,
-    minHeight: isDesktop ? 28 : 40,
+    minWidth: 100,
+    minHeight: 40,
     justifyContent: 'center',
+  },
+  vinculoOptionDesktop: {
+    paddingVertical: 4,
+    paddingHorizontal: theme.desktop.section.padding,
+    minWidth: 80,
+    minHeight: 28,
   },
   vinculoOptionActive: {
     borderColor: theme.colors.info,
     backgroundColor: theme.colors.info + '15',
   },
   vinculoOptionText: {
-    fontSize: isDesktop ? 12 : theme.typography.xs,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray700,
     textAlign: 'center',
+  },
+  vinculoOptionTextDesktop: {
+    fontSize: 12,
   },
   vinculoOptionTextActive: {
     color: theme.colors.info,
     fontFamily: theme.typography.fontSansSemiBold,
   },
-  // Input - compacto no desktop, confortável no mobile
+  // Input - Mobile
   input: {
     borderWidth: 1,
     borderColor: theme.colors.gray300,
     borderRadius: theme.borderRadius.lg,
-    paddingHorizontal: isDesktop ? theme.desktop.input.paddingHorizontal : theme.spacing.md,
-    paddingVertical: isDesktop ? 0 : theme.spacing.md,
-    fontSize: isDesktop ? theme.desktop.input.fontSize : theme.typography.base,
-    marginBottom: isDesktop ? theme.desktop.field.marginBottom : theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+    fontSize: theme.typography.base,
+    marginBottom: theme.spacing.md,
     backgroundColor: theme.colors.white,
-    minHeight: isDesktop ? theme.desktop.input.height : 48,
+    minHeight: 48,
+    color: theme.colors.gray900,
+  },
+  inputDesktop: {
+    paddingHorizontal: theme.desktop.input.paddingHorizontal,
+    paddingVertical: 0,
+    fontSize: theme.desktop.input.fontSize,
+    marginBottom: theme.desktop.field.marginBottom,
+    minHeight: theme.desktop.input.height,
   },
   inputError: {
     borderColor: theme.colors.error,
   },
   textArea: {
-    height: isDesktop ? 60 : 80,
+    height: 80,
     textAlignVertical: 'top',
-    paddingVertical: isDesktop ? theme.spacing.xs : theme.spacing.sm,
+    paddingVertical: theme.spacing.sm,
+  },
+  textAreaDesktop: {
+    height: 60,
+    paddingVertical: theme.spacing.xs,
   },
   errorText: {
     color: theme.colors.error,
-    fontSize: isDesktop ? 12 : theme.typography.xs,
-    marginTop: isDesktop ? -8 : -theme.spacing.sm,
-    marginBottom: isDesktop ? 8 : theme.spacing.sm,
+    fontSize: theme.typography.xs,
+    marginTop: -theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
   },
-  // Add button - compacto no desktop, não full-width
+  errorTextDesktop: {
+    fontSize: 12,
+    marginTop: -8,
+    marginBottom: 8,
+  },
+  // Add button - Mobile (full width)
   addButton: {
-    backgroundColor: theme.colors.secondary,
-    paddingVertical: isDesktop ? 6 : theme.spacing.md,
-    paddingHorizontal: isDesktop ? theme.spacing.xl : theme.spacing.md,
+    backgroundColor: theme.colors.primary,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
     borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
-    alignSelf: isDesktop ? 'flex-start' : 'stretch',
-    marginTop: isDesktop ? theme.spacing.xs : theme.spacing.sm,
-    minHeight: isDesktop ? theme.desktop.button.height : 48,
+    alignSelf: 'stretch',
+    marginTop: theme.spacing.sm,
+    minHeight: 48,
     justifyContent: 'center',
+  },
+  addButtonDesktop: {
+    paddingVertical: 6,
+    paddingHorizontal: theme.spacing.xl,
+    alignSelf: 'flex-start',
+    marginTop: theme.spacing.xs,
+    minHeight: theme.desktop.button.height,
   },
   addButtonText: {
     color: theme.colors.white,
-    fontSize: isDesktop ? theme.desktop.button.fontSize : theme.typography.base,
+    fontSize: theme.typography.base,
     fontFamily: theme.typography.fontSansSemiBold,
   },
+  addButtonTextDesktop: {
+    fontSize: theme.desktop.button.fontSize,
+  },
+  // Clear button
   clearCardButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: isDesktop ? 4 : theme.spacing.xs,
-    paddingHorizontal: isDesktop ? theme.desktop.button.paddingHorizontal : theme.spacing.md,
-    paddingVertical: isDesktop ? 4 : theme.spacing.sm,
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
     borderColor: theme.colors.gray200,
     backgroundColor: theme.colors.white,
-    minHeight: isDesktop ? 28 : 36,
+    minHeight: 36,
+  },
+  clearCardButtonDesktop: {
+    gap: 4,
+    paddingHorizontal: theme.desktop.button.paddingHorizontal,
+    paddingVertical: 4,
+    minHeight: 28,
   },
   clearCardButtonDisabled: {
     opacity: 0.5,
   },
   clearCardButtonText: {
-    fontSize: isDesktop ? theme.desktop.button.fontSize : theme.typography.sm,
+    fontSize: theme.typography.sm,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.primary,
   },
-});
+  clearCardButtonTextDesktop: {
+    fontSize: theme.desktop.button.fontSize,
+  },
+}));

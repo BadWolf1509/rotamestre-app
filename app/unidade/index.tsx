@@ -12,15 +12,18 @@ import {
 } from 'react-native';
 
 import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { MobileCard } from '@/components/mobile/MobileCard';
+import { MobileLoading } from '@/components/mobile/MobileLoading';
 import { Toast } from '@/components/Toast';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
-import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
+import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { cleanPhone, formatPhone } from '@/utils/phoneValidation';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface UnidadeData {
   id: string;
@@ -43,14 +46,13 @@ const formatCnpj = (value?: string | null): string => {
 };
 
 export default function UnidadeScreen() {
-  const { theme } = useUnistyles();
   const router = useRouter();
   const { userData, loading: userLoading } = useUser();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
   });
   const { toast: toastState, showToast, hideToast } = useToast();
-  const { isDesktop, isLargeDesktop } = useBreakpoint();
+  const { isDesktop } = useResponsive();
   const pageMeta = getGestorPageMeta('minhaUnidade');
   const [unidade, setUnidade] = useState<UnidadeData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -65,7 +67,7 @@ export default function UnidadeScreen() {
   const [cidade, setCidade] = useState('');
   const [estado, setEstado] = useState('');
   const [cep, setCep] = useState('');
-  const isDesktopView = isDesktop || isLargeDesktop;
+  const isDesktopView = isDesktop;
   const isLoading = userLoading || loading;
 
   const loadUnidade = useCallback(async () => {
@@ -205,10 +207,10 @@ export default function UnidadeScreen() {
           <Text style={styles.sectionTitle}>Informações da Unidade</Text>
 
           {/* Nome */}
-          <View style={styles.inputGroup}>
+          <View style={[styles.inputGroup, isDesktopView && styles.inputGroupDesktop]}>
             <Text style={styles.inputLabel}>Nome da Unidade</Text>
             <TextInput
-              style={[styles.input, !editMode && styles.inputDisabled]}
+              style={[styles.input, isDesktopView && styles.inputDesktop, !editMode && styles.inputDisabled]}
               value={nome}
               onChangeText={setNome}
               editable={editMode}
@@ -217,10 +219,10 @@ export default function UnidadeScreen() {
           </View>
 
           {/* CNPJ (sempre bloqueado) */}
-          <View style={styles.inputGroup}>
+          <View style={[styles.inputGroup, isDesktopView && styles.inputGroupDesktop]}>
             <Text style={styles.inputLabel}>CNPJ</Text>
           <TextInput
-            style={[styles.input, styles.inputDisabled]}
+            style={[styles.input, isDesktopView && styles.inputDesktop, styles.inputDisabled]}
             value={formatCnpj(unidade?.cnpj)}
             editable={false}
             placeholder="Não informado"
@@ -228,10 +230,10 @@ export default function UnidadeScreen() {
         </View>
 
           {/* Telefone */}
-          <View style={styles.inputGroup}>
+          <View style={[styles.inputGroup, isDesktopView && styles.inputGroupDesktop]}>
             <Text style={styles.inputLabel}>Telefone</Text>
             <TextInput
-              style={[styles.input, !editMode && styles.inputDisabled]}
+              style={[styles.input, isDesktopView && styles.inputDesktop, !editMode && styles.inputDisabled]}
               value={telefone}
               onChangeText={(text) => setTelefone(formatPhone(text))}
               editable={editMode}
@@ -241,10 +243,10 @@ export default function UnidadeScreen() {
           </View>
 
           {/* Endereço */}
-          <View style={styles.inputGroup}>
+          <View style={[styles.inputGroup, isDesktopView && styles.inputGroupDesktop]}>
             <Text style={styles.inputLabel}>Endereço</Text>
             <TextInput
-              style={[styles.input, !editMode && styles.inputDisabled]}
+              style={[styles.input, isDesktopView && styles.inputDesktop, !editMode && styles.inputDisabled]}
               value={endereco}
               onChangeText={setEndereco}
               editable={editMode}
@@ -254,10 +256,10 @@ export default function UnidadeScreen() {
 
           {/* Cidade e Estado */}
           <View style={styles.row}>
-            <View style={[styles.inputGroup, styles.flex2]}>
+            <View style={[styles.inputGroup, styles.flex2, isDesktopView && styles.inputGroupDesktop]}>
               <Text style={styles.inputLabel}>Cidade</Text>
               <TextInput
-                style={[styles.input, !editMode && styles.inputDisabled]}
+                style={[styles.input, isDesktopView && styles.inputDesktop, !editMode && styles.inputDisabled]}
                 value={cidade}
                 onChangeText={setCidade}
                 editable={editMode}
@@ -265,10 +267,10 @@ export default function UnidadeScreen() {
               />
             </View>
 
-            <View style={[styles.inputGroup, styles.flex1]}>
+            <View style={[styles.inputGroup, styles.flex1, isDesktopView && styles.inputGroupDesktop]}>
               <Text style={styles.inputLabel}>UF</Text>
               <TextInput
-                style={[styles.input, !editMode && styles.inputDisabled]}
+                style={[styles.input, isDesktopView && styles.inputDesktop, !editMode && styles.inputDisabled]}
                 value={estado}
                 onChangeText={setEstado}
                 editable={editMode}
@@ -280,10 +282,10 @@ export default function UnidadeScreen() {
           </View>
 
           {/* CEP */}
-          <View style={styles.inputGroup}>
+          <View style={[styles.inputGroup, isDesktopView && styles.inputGroupDesktop]}>
             <Text style={styles.inputLabel}>CEP</Text>
             <TextInput
-              style={[styles.input, !editMode && styles.inputDisabled]}
+              style={[styles.input, isDesktopView && styles.inputDesktop, !editMode && styles.inputDisabled]}
               value={cep}
               onChangeText={setCep}
               editable={editMode}
@@ -350,7 +352,7 @@ export default function UnidadeScreen() {
       : undefined;
 
     return (
-      <>
+      <ErrorBoundary>
         <DesktopPageLayout
           title={pageMeta.title}
           subtitle="Informações e Configurações"
@@ -371,24 +373,21 @@ export default function UnidadeScreen() {
         </DesktopPageLayout>
         <Toast {...toastState} onDismiss={hideToast} />
         {logoutModal}
-      </>
+      </ErrorBoundary>
     );
   }
 
   if (isLoading) {
     return (
-      <>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={styles.loadingText}>Carregando...</Text>
-        </View>
+      <ErrorBoundary>
+        <MobileLoading message="Carregando..." />
         {logoutModal}
-      </>
+      </ErrorBoundary>
     );
   }
 
   return (
-    <>
+    <ErrorBoundary>
       <ScrollView style={styles.container}>
         <View style={styles.content}>
           {isGestorPrincipal && !editMode && (
@@ -401,14 +400,18 @@ export default function UnidadeScreen() {
               </TouchableOpacity>
             </View>
           )}
-          <SidebarInfo />
-          <FormularioUnidade />
+          <MobileCard title="Equipe" variant="bordered">
+            <SidebarInfo />
+          </MobileCard>
+          <MobileCard title="Informações da Unidade" variant="bordered">
+            <FormularioUnidade />
+          </MobileCard>
         </View>
       </ScrollView>
 
       <Toast {...toastState} onDismiss={hideToast} />
       {logoutModal}
-    </>
+    </ErrorBoundary>
   );
 }
 
@@ -444,8 +447,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontWeight: '600',
   },
   content: {
-    paddingHorizontal: theme.spacing['3xl'],
-    paddingVertical: theme.spacing['2xl'],
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.lg,
     maxWidth: theme.layout.containerMaxWidth,
     marginHorizontal: 'auto',
     width: '100%',
@@ -543,6 +546,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
   inputGroup: {
     marginBottom: theme.spacing.lg,
   },
+  inputGroupDesktop: {
+    marginBottom: theme.desktop.field.marginBottom,
+  },
   inputLabel: {
     fontSize: theme.typography.sm,
     fontFamily: theme.typography.fontSansSemiBold,
@@ -557,6 +563,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.base,
     backgroundColor: theme.colors.white,
     color: theme.colors.gray900,
+    minHeight: 48,
+  },
+  inputDesktop: {
+    paddingHorizontal: theme.desktop.input.paddingHorizontal,
+    paddingVertical: 0,
+    fontSize: theme.desktop.input.fontSize,
+    minHeight: theme.desktop.input.height,
   },
   inputDisabled: {
     backgroundColor: theme.colors.gray100,
