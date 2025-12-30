@@ -24,3 +24,18 @@ Garantir que todos os componentes e telas atendam requisitos basicos de acessibi
 ## Pendencias conhecidas
 - Revisar foco visivel em componentes customizados.
 - Validar targets de toque em cards clicaveis.
+
+## Melhorias Implementadas (2025-12-30)
+
+### High Contrast Mode
+- Temas `lightHighContrast` e `darkHighContrast` disponiveis.
+- Valores de gray400-gray700 ajustados para maior contraste.
+- Toggle de alto contraste na tela /design-system.
+
+### Semantic Colors
+- StatusBadge usa cores semanticas (success, warning, error, info).
+- Cores de status padronizadas em `src/lib/statusLabels.ts`.
+
+### Visual Regression
+- 8 combinacoes de tema testadas (inclui high contrast).
+- Cobertura de contrastes validada visualmente.

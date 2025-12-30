@@ -22,10 +22,11 @@ Platforms: Web, iOS, Android
 - Compact Density variants (`lightCompact`, `darkCompact`)
 
 ### Hex Color Report (2025-12-30)
-Only 3 files contain hex colors:
+Only 2 files contain hex colors:
 1. `src/utils/styles.base.ts` - **Source of truth** (expected)
 2. `app/design-system.tsx` - **Showcase only** (acceptable)
-3. `src/components/Button.tsx` - **1 hex found** (#dc2626 - needs review)
+
+**Button.tsx**: ✅ Corrigido - agora usa `theme.colors.errorDark`
 
 ## Migration Status
 
@@ -55,12 +56,15 @@ Only 3 files contain hex colors:
 - Refatorado para usar `StatusBadge` e `FilterChip` do design system
 - Estilos custom removidos (filtroButton*, statusBadge*)
 
-### UI Inconsistencies (Open)
+### UI Inconsistencies (Status 2025-12-30)
 1. ~~`gestao-rotas.tsx` uses custom statusBadge styles~~ ✅ Resolvido (usa StatusBadge)
 2. ~~`gestao-rotas.tsx` uses custom filter buttons~~ ✅ Resolvido (usa FilterChip)
-3. DataTable columns differ between screens
+3. ~~Lista mobile (DataTable vs MobileCard)~~ ✅ ADR documentado
+4. ~~Modais mobile divergentes~~ ✅ ADR documentado
+5. ~~Resumo/metricas com padroes diferentes~~ ✅ ADR documentado
+6. DataTable columns tipografia (único item P1 Open)
 
-See `docs/design-system-inconsistencies.md` for full backlog.
+See `docs/design-system-inconsistencies.md` for full backlog (15 itens resolvidos, 1 Open).
 
 ## Recommendations
 
@@ -70,26 +74,28 @@ See `docs/design-system-inconsistencies.md` for full backlog.
 
 ### Short-term (P1)
 - [x] Complete Wave 6 legacy removal (parcial - `theme.ts` removido)
-- [ ] Standardize DataTable columns across Gestor screens
-- [ ] Add 5 high-use components to @/design-system exports
-- [ ] Migrar componentes restantes de `@/lib/design-tokens` para `theme.*`
+- [ ] Standardize DataTable columns across Gestor screens (tipografia)
+- [x] Add 5 high-use components to @/design-system exports ✅ (AddressAutocomplete, CameraUpload, etc.)
+- [x] Migrar componentes restantes de `@/lib/design-tokens` para `theme.*` ✅ (AlertDialog, ConfirmDialog, Modal, SupportModal)
 
 ### Long-term (P2)
 - [ ] Create feature-level sub-exports (@/design-system/motorista, etc.)
 - [ ] Document platform-specific variants (.web.tsx pattern)
-- [ ] Visual regression expansion for all themes
+- [x] Visual regression expansion for all themes ✅ (8 combinações: light/dark × regular/compact × normal/high-contrast)
 
 ## Metrics
 
-| Metric | 2025-12-29 | 2025-12-30 (Final) |
+| Metric | 2025-12-29 | 2025-12-30 (Wave 6.1) |
 |--------|------------|------------|
 | Coverage Matrix | ~90% Done | 100% Done |
-| Files with hex colors | 1 | 1 (source only - Button.tsx corrigido) |
-| Components exported | ~20 | 23 |
-| UI inconsistencies | 7 Open | 5 Open (2 resolvidos) |
+| Files with hex colors | 3 | 2 (source + showcase only) |
+| Components exported | ~20 | 28 (+5 utility components) |
+| UI inconsistencies | 7 Open | 1 Open (6 resolvidos ou com ADR) |
 | Release notes | Empty | v2.0.0 documented |
 | Legacy files | 2 | 1 (theme.ts removido) |
 | P0 tasks | 2 Open | ✅ Concluído |
+| Visual regression tests | 4 themes | 8 themes (todas combinações) |
+| ESLint restrictions | 18 paths | 25 paths (+design-tokens rule) |
 
 ## Historical Hotspots (Resolved)
 

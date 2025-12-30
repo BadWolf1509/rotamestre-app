@@ -203,10 +203,29 @@ Entregaveis:
 - Resistencia a migracao -> quick wins e guias claros.
 
 ## 14) Proximas acoes imediatas
-- Escolher fonte de verdade dos tokens.
-- Definir lista minima de componentes base.
-- Criar backlog de migracao por tela/modulo.
-- Alinhar governanca e aprovacoes.
-- Criar matriz de cobertura e acompanhar evolucao ate 100%.
-- Criar backlog de revisao linguistica (PT-BR) e priorizar por wave.
-- Criar backlog de inconsistencias entre telas similares e priorizar por wave.
+
+### Concluido (2025-12-30)
+- ✅ Escolher fonte de verdade dos tokens (`src/utils/styles.base.ts`)
+- ✅ Definir lista minima de componentes base (28 componentes exportados)
+- ✅ Criar backlog de migracao por tela/modulo (Waves 1-6 documentadas)
+- ✅ Alinhar governanca e aprovacoes (`docs/design-system-governance.md`)
+- ✅ Criar matriz de cobertura (100% das telas migradas)
+- ✅ Criar backlog de revisao linguistica PT-BR (`src/lib/statusLabels.ts`)
+- ✅ Criar backlog de inconsistencias (`docs/design-system-inconsistencies.md` - 15 itens resolvidos)
+
+### Status das Waves (2025-12-30)
+| Wave | Status | Observacoes |
+|------|--------|-------------|
+| 0 | ✅ Completa | Tokens base + lint + docs |
+| 1 | ✅ Completa | Componentes base migrados |
+| 2 | ✅ Completa | Auth screens |
+| 3 | ✅ Completa | Gestor screens |
+| 4 | ✅ Completa | Motorista screens |
+| 5 | ✅ Completa | Core components |
+| 5b | ✅ Completa | Telas restantes (100% cobertura) |
+| 6 | 🟡 Parcial | Legado parcialmente removido, ESLint endurecido |
+| 6.1 | ✅ Completa | Visual regression 8 temas, ADRs documentados |
+
+### Pendente
+- Wave 6 final: Remover `src/lib/design-tokens.ts` (ainda usado por 7 arquivos)
+- P1: Padronizar tipografia de DataTable entre telas

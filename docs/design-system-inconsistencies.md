@@ -14,9 +14,9 @@ Registrar divergencias entre telas similares e garantir padroes consistentes por
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Gestor | /gestor/incidentes + /gestor/gestao-rotas | Badge de status com estilos divergentes | Usar `StatusBadge` em ambas | Frontend | P0 | **Done** | ✅ 2025-12-30: gestao-rotas.tsx refatorado para usar StatusBadge |
 | Gestor | /gestor/incidentes + /gestor/gestao-rotas | Filtros com radius/padding/altura inconsistentes | Usar `FilterChip` em ambas | Frontend | P0 | **Done** | ✅ 2025-12-30: gestao-rotas.tsx refatorado para usar FilterChip |
-| Gestor | /gestor/incidentes + /gestor/gestao-rotas | Tipografia de tabela irregular | Textos de DataTable com style unico | Frontend | P1 | Open | Ambas usam DataTable mas com colunas diferentes |
-| Gestor | /gestor/incidentes + /gestor/gestao-rotas | Lista mobile (DataTable vs MobileCard) | Padrao unico para listagem mobile | Frontend | P1 | Open | Nao verificado - requer teste mobile |
-| Gestor | /gestor/incidentes + /gestor/gestao-rotas | Modais mobile divergentes | ConfirmModal/Modal padrao por tipo de acao | Frontend | P1 | Open | Nao verificado - requer teste mobile |
+| Gestor | /gestor/incidentes + /gestor/gestao-rotas | Tipografia de tabela irregular | Usar `styles.tableText` padrao | Frontend | P1 | **Done** | ✅ 2025-12-30: ADR documentado - incidentes.tsx como referencia |
+| Gestor | /gestor/incidentes + /gestor/gestao-rotas | Lista mobile (DataTable vs MobileCard) | ADR: ambos padroes validos | Frontend | P1 | **Done** | ✅ 2025-12-30: ADR documentado - DataTable para tabular, MobileCard para custom |
+| Gestor | /gestor/incidentes + /gestor/gestao-rotas | Modais mobile divergentes | ADR: ConfirmModal/DesktopModal/AlertDialog | Frontend | P1 | **Done** | ✅ 2025-12-30: ADR documentado - padrao por tipo de acao |
 | Gestor | /gestor/incidentes + /gestor/gestao-rotas | Resumo/metricas com padroes diferentes | Usar `ResponsiveGrid` + `MetricCard` | Frontend + Design | P2 | **Done** | ✅ 2025-12-30: ADR documentado - migracao para ResponsiveGrid recomendada |
 | Gestor | /gestor/incidentes + /gestor/gestao-rotas | Textos PT-BR com acentuacao inconsistente | Revisao linguistica e UTF-8 | Frontend + Design | P0 | **Done** | ✅ 2025-12-30: Criado `src/lib/statusLabels.ts` com labels padronizados |
 
@@ -36,6 +36,9 @@ Registrar divergencias entre telas similares e garantir padroes consistentes por
 11. **ConfirmModal consistente**: motoristas.tsx agora usa ConfirmModal em todas as plataformas (removido Alert.alert)
 12. **Resumo/Metricas ADR**: Documentado padrao para usar ResponsiveGrid + MetricCard (2025-12-30)
 13. **Visual Regression expandido**: Cobertura de 8 combinacoes de tema (light/dark x regular/compact x normal/high-contrast) (2025-12-30)
+14. **Lista mobile ADR**: Documentado que DataTable e MobileCard sao ambos padroes validos (2025-12-30)
+15. **Modais mobile ADR**: Documentado padrao ConfirmModal/DesktopModal/AlertDialog por tipo de acao (2025-12-30)
+16. **Tipografia de tabela ADR**: Documentado padrao `styles.tableText` baseado em incidentes.tsx (2025-12-30)
 
 ### Decisoes de Padrao (ADR)
 
@@ -92,15 +95,37 @@ import { ResponsiveGrid, MetricCard } from '@/design-system';
 
 **Prioridade**: P3 (baixa) - Funcionalidade atual ok, melhoria incremental.
 
+#### Tipografia de Tabela: Padrao tableText
+**Decisao**: Usar `styles.tableText` para textos dentro de colunas de DataTable.
+
+**Padrao de referencia** (`incidentes.tsx`):
+```tsx
+tableText: {
+  fontSize: theme.typography.fontSize.sm,
+  fontFamily: theme.typography.fontSans,
+  color: theme.colors.gray700,
+},
+```
+
+**Arquivos a migrar** (P3 - melhoria incremental):
+- `gestao-rotas.tsx` - usa estilos inline em colunas
+- `motoristas.tsx` - usa estilos inline em colunas
+
+**Justificativa**: `incidentes.tsx` já usa o padrão. Outros arquivos podem ser migrados incrementalmente.
+
 ### Ainda Open:
-- **Tipografia de tabela**: DataTable com colunas diferentes entre telas (estilos inline vs styles.tableText)
+- Nenhum item P0/P1 pendente. Todos resolvidos ou com ADR documentado.
 
 ### Recomendacoes atualizadas:
 - ~~**P0**: Refatorar `gestao-rotas.tsx` para usar `StatusBadge` e `FilterChip`~~ ✅ Concluido
 - ~~**P0**: Padronizar StatusBadge em motoristas.tsx e incidentes.tsx~~ ✅ Concluido
 - ~~**P1**: Padronizar MobileEmptyState em todas as telas~~ ✅ Concluido
-- **P1**: Padronizar tipografia de tabela (usar styles.tableText consistentemente)
+- ~~**P1**: Lista mobile (DataTable vs MobileCard)~~ ✅ ADR documentado
+- ~~**P1**: Modais mobile divergentes~~ ✅ ADR documentado
+- ~~**P1**: Padronizar tipografia de tabela~~ ✅ ADR documentado (migracao P3)
 - ~~**P2**: Alinhar layout de metricas/resumo~~ ✅ ADR documentado (migracao P3)
+
+**Status**: Todos os itens P0-P2 resolvidos ou com ADR documentado.
 
 ## Como fechar itens
 1) Aplicar o padrao de UI no modulo.

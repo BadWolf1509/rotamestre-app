@@ -120,3 +120,59 @@ Rationale:
 Decision:
 - Mark deprecations in docs and provide a migration path.
 - Remove deprecated tokens/components after one release cycle.
+
+## Decision 16: High Contrast Gray Modification
+Status: Accepted
+Date: 2025-12-30
+Rationale:
+- Standard dark theme has insufficient contrast for gray text on dark backgrounds.
+- Users with visual impairments need higher contrast options.
+Decision:
+- Create `lightHighContrast` and `darkHighContrast` theme variants.
+- Modify gray400-gray700 values in high contrast themes for better visibility.
+- Gray values shift toward extremes (lighter grays become lighter, darker grays stay dark).
+
+## Decision 17: Skeleton Component Family
+Status: Accepted
+Date: 2025-12-30
+Rationale:
+- Loading states need consistent visual treatment across the app.
+- Different content shapes require different skeleton variants.
+Decision:
+- Create three skeleton components: `Skeleton`, `SkeletonCard`, `SkeletonList`.
+- Export all via `@/design-system` barrel.
+- Use animated pulse effect for loading indication.
+
+## Decision 18: DataTable vs MobileCard Pattern
+Status: Accepted
+Date: 2025-12-30
+Rationale:
+- Mobile lists can use either tabular or card-based layouts.
+- Both patterns have valid use cases.
+Decision:
+- `DataTable`: Use for tabular data with defined columns (gestao-rotas, motoristas).
+- `MobileCard`: Use for custom card layouts with complex content (incidentes).
+- Document in ADR, not enforce single pattern.
+
+## Decision 19: Modal Usage Patterns
+Status: Accepted
+Date: 2025-12-30
+Rationale:
+- Multiple modal components exist with overlapping use cases.
+- Clear guidance needed for when to use each type.
+Decision:
+- `ConfirmModal`: Simple Yes/No confirmations (delete, toggle).
+- `DesktopModal`: Rich content modals (forms, details).
+- `AlertDialog`: Informational alerts with single OK button.
+- Rule: Never use `Alert.alert()` nativo - always use ConfirmModal for cross-platform consistency.
+
+## Decision 20: Visual Regression Theme Coverage
+Status: Accepted
+Date: 2025-12-30
+Rationale:
+- Visual regression tests only covered 4 theme variants.
+- All 8 combinations needed for complete coverage.
+Decision:
+- Expand visual regression to 8 combinations: light/dark × regular/compact × normal/high-contrast.
+- Document coverage matrix in `docs/design-system-visual-regression.md`.
+- CI runs visual regression when design-system files change.

@@ -35,7 +35,11 @@ import { Button, Card, Input } from '@/design-system';
 - `Progress`
 - `StatusBadge` - Status badge with semantic colors (soft/solid variants)
 - `StepIndicator`
-- `SkeletonLoader`
+
+### Loading States
+- `Skeleton` - Base skeleton loading component
+- `SkeletonCard` - Card-shaped skeleton placeholder
+- `SkeletonList` - List of skeleton items for loading states
 
 ## Overlays & Feedback
 - `Modal`
@@ -49,6 +53,7 @@ import { Button, Card, Input } from '@/design-system';
 - `DesktopLayout`
 - `DesktopPageLayout`
 - `DesktopCard`
+- `DesktopCardGrid` - Grid layout for desktop cards
 - `DesktopModal`
 - `SplitView`
 
