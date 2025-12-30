@@ -41,10 +41,10 @@ module.exports = {
   coverageReporters: ['text', 'lcov', 'json-summary', 'html'],
   coverageThreshold: {
     global: {
-      branches: 48, // Progresso: 48.05% (em evolução para 70%)
-      functions: 50, // Progresso: 53.29%
-      lines: 50, // Progresso: 52.26%
-      statements: 50, // Progresso: 51.68%
+      branches: 65, // Atual: 68.14% - threshold com margem de 3%
+      functions: 68, // Atual: 71.33% - threshold com margem de 3%
+      lines: 69, // Atual: 72.32% - threshold com margem de 3%
+      statements: 69, // Atual: 71.69% - threshold com margem de 3%
     },
   },
   moduleNameMapper: {
