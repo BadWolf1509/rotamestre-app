@@ -4,15 +4,14 @@ import {
   ActivityIndicator,
   Platform,
   ScrollView,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 
 import { AvatarEditable } from '@/components/AvatarEditable';
-import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { PerfilDesktopLayout } from '@/components/perfil/PerfilDesktopLayout';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import { DesktopPageLayout, Text } from '@/design-system';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useProfile } from '@/hooks/useProfile';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -315,7 +314,7 @@ const styles = (theme: any) =>
       overflow: 'hidden',
       ...Platform.select({
         ios: {
-          shadowColor: '#000',
+          shadowColor: theme.colors.black,
           shadowOpacity: 0.05,
           shadowRadius: 8,
           shadowOffset: { width: 0, height: 2 },
@@ -370,6 +369,3 @@ const styles = (theme: any) =>
       color: theme.colors.gray400,
     },
   });
-
-
-

@@ -14,6 +14,7 @@ interface StatusSectionProps {
   completedStops?: number;
   totalStops?: number;
   timeElapsed?: string;
+  testID?: string;
 }
 
 // Configuração visual por status
@@ -33,13 +34,13 @@ const statusConfig: Record<RouteStatus, {
   'pending': {
     icon: 'time-outline',
     label: 'Rota pendente',
-    colorKey: 'warningText', // #b45309 para contraste 5.1:1 em warningBg
+    colorKey: 'warningText', // contraste 5.1:1 em warningBg
     bgColorKey: 'warningBg',
   },
   'active': {
     icon: 'navigate',
     label: 'Em rota',
-    colorKey: 'successDark', // #047857 para contraste 5.9:1 em successBg
+    colorKey: 'successDark', // contraste 5.9:1 em successBg
     bgColorKey: 'successBg',
   },
   'last-stop': {
@@ -51,13 +52,13 @@ const statusConfig: Record<RouteStatus, {
   'ready-to-complete': {
     icon: 'checkmark-circle',
     label: 'Pronto para finalizar',
-    colorKey: 'successDark', // #047857 para contraste 5.9:1 em successBg
+    colorKey: 'successDark', // contraste 5.9:1 em successBg
     bgColorKey: 'successBg',
   },
   'completed': {
     icon: 'trophy',
     label: 'Rota concluída',
-    colorKey: 'info', // #3b82f6 mantido (contraste ~2.9:1 mas badge informativo)
+    colorKey: 'info', // contraste menor, badge informativo
     bgColorKey: 'infoBg',
   },
 };
@@ -68,6 +69,7 @@ export function StatusSection({
   completedStops = 0,
   totalStops = 0,
   timeElapsed,
+  testID,
 }: StatusSectionProps) {
   const { theme } = useUnistyles();
   const config = statusConfig[routeStatus];
@@ -84,7 +86,7 @@ export function StatusSection({
   const firstName = userName.split(' ')[0];
 
   return (
-    <View style={styles.header}>
+    <View style={styles.header} testID={testID}>
       <View style={styles.topRow}>
         {/* Greeting + Name (compacto) */}
         <View style={styles.greetingContainer}>

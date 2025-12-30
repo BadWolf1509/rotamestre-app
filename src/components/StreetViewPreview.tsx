@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 
+import { withOpacity } from '@/utils/color';
 import { useUnistyles } from '@/utils/styles';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -204,7 +205,7 @@ export function StreetViewPreview({
             {/* Overlay com ícone */}
             <View style={styles.overlay}>
               <View style={styles.iconContainer}>
-                <Ionicons name="eye-outline" size={20} color="#fff" />
+                <Ionicons name="eye-outline" size={20} color={theme.colors.white} />
               </View>
               {size !== 'small' && address && (
                 <View style={styles.addressContainer}>
@@ -305,7 +306,7 @@ const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
       bottom: 0,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      backgroundColor: withOpacity(theme.colors.white, 0.9),
       zIndex: 1,
     },
     errorContainer: {
@@ -340,7 +341,7 @@ const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
       right: 8,
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      backgroundColor: withOpacity(theme.colors.black, 0.6),
       borderRadius: 4,
       paddingHorizontal: 6,
       paddingVertical: 3,
@@ -363,7 +364,7 @@ const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
       position: 'absolute',
       top: 8,
       right: 8,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      backgroundColor: withOpacity(theme.colors.black, 0.5),
       borderRadius: 4,
       padding: 4,
     },
@@ -372,7 +373,7 @@ const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
       bottom: 0,
       left: 0,
       right: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      backgroundColor: withOpacity(theme.colors.black, 0.7),
       padding: 4,
     },
     addressText: {
@@ -382,7 +383,7 @@ const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
     },
     modalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.9)',
+      backgroundColor: withOpacity(theme.colors.black, 0.9),
       justifyContent: 'center',
       alignItems: 'center',
     },

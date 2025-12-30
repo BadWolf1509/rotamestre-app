@@ -15,6 +15,7 @@ import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { abrirNavegacao } from '@/lib/navigation';
 import LocationTrackingService from '@/services/locationTracking';
+import { withOpacity } from '@/utils/color';
 import { defaultTheme } from '@/utils/styles';
 
 import { NavigationSettings } from './NavigationSettings';
@@ -470,13 +471,13 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 50 : 30,
     paddingHorizontal: 16,
     paddingBottom: 16,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: withOpacity(colors.black, 0.5),
   },
   exitButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: withOpacity(colors.black, 0.3),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -484,7 +485,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: withOpacity(colors.black, 0.3),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -492,7 +493,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(16, 185, 129, 0.9)',
+    backgroundColor: withOpacity(colors.success, 0.9),
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -654,7 +655,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
     // Brand guideline: text shadow for white text on colored background
-    textShadowColor: 'rgba(0, 0, 0, 0.25)',
+    textShadowColor: withOpacity(colors.black, 0.25),
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
@@ -666,7 +667,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
     // Brand guideline: text shadow for white text on colored background
-    textShadowColor: 'rgba(0, 0, 0, 0.25)',
+    textShadowColor: withOpacity(colors.black, 0.25),
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },

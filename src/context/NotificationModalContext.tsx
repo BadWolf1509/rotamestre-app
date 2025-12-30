@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 
 import { NotificationList } from '@/components/NotificationList';
+import { boxShadow } from '@/utils/color';
+import { defaultTheme } from '@/utils/styles';
 
 interface NotificationModalContextType {
   isOpen: boolean;
@@ -101,19 +103,19 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: defaultTheme.colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
     maxWidth: 600,
     minHeight: 300,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: defaultTheme.colors.white,
     borderRadius: 16,
     overflow: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: defaultTheme.colors.black,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -122,7 +124,7 @@ const styles = StyleSheet.create({
         elevation: 10,
       },
       web: {
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+        boxShadow: boxShadow(0, 4, 20, 0, defaultTheme.colors.black, 0.15),
       },
     }),
   },

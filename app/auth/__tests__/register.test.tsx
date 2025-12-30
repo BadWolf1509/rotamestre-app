@@ -55,18 +55,18 @@ describe('Register Screen', () => {
       expect(getByText('Preencha os dados abaixo para criar sua conta no Rota Mestre')).toBeTruthy();
       expect(getByPlaceholderText('Digite seu nome')).toBeTruthy();
       expect(getByPlaceholderText('Digite seu e-mail')).toBeTruthy();
-      expect(getByPlaceholderText('Mínimo 6 caracteres')).toBeTruthy();
+      expect(getByPlaceholderText('Minimo 6 caracteres')).toBeTruthy();
       expect(getByPlaceholderText('Digite a senha novamente')).toBeTruthy();
     });
 
     it('deve renderizar labels dos campos', () => {
       const { getByText } = render(<Register />);
 
-      expect(getByText('Nome Completo')).toBeTruthy();
-      expect(getByText('E-mail')).toBeTruthy();
-      expect(getByText('Senha')).toBeTruthy();
-      expect(getByText('Confirmar Senha')).toBeTruthy();
-      expect(getByText('Tipo de Conta')).toBeTruthy();
+      expect(getByText(/Nome Completo/)).toBeTruthy();
+      expect(getByText(/E-mail/)).toBeTruthy();
+      expect(getByText(/^Senha/)).toBeTruthy();
+      expect(getByText(/Confirmar Senha/)).toBeTruthy();
+      expect(getByText(/Tipo de Conta/)).toBeTruthy();
     });
 
     it('deve renderizar botões de tipo de usuário', () => {
@@ -85,7 +85,7 @@ describe('Register Screen', () => {
     it('deve renderizar link de voltar para login', () => {
       const { getByText } = render(<Register />);
 
-      expect(getByText('Já tem uma conta? Faça login')).toBeTruthy();
+      expect(getByText('Ja tem uma conta? Faca login')).toBeTruthy();
     });
   });
 
@@ -108,7 +108,7 @@ describe('Register Screen', () => {
 
     it('deve atualizar campo senha', () => {
       const { getByPlaceholderText } = render(<Register />);
-      const input = getByPlaceholderText('Mínimo 6 caracteres');
+      const input = getByPlaceholderText('Minimo 6 caracteres');
 
       fireEvent.changeText(input, '123456');
       expect(input.props.value).toBe('123456');
@@ -130,7 +130,7 @@ describe('Register Screen', () => {
 
       fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
       fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'gestor@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 6 caracteres'), '123456');
+      fireEvent.changeText(getByPlaceholderText('Minimo 6 caracteres'), '123456');
       fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), '123456');
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
@@ -152,7 +152,7 @@ describe('Register Screen', () => {
 
       fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'Maria Souza');
       fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'motorista@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 6 caracteres'), '123456');
+      fireEvent.changeText(getByPlaceholderText('Minimo 6 caracteres'), '123456');
       fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), '123456');
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
@@ -181,7 +181,7 @@ describe('Register Screen', () => {
       const { getByPlaceholderText, getAllByText } = render(<Register />);
 
       fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 6 caracteres'), '123456');
+      fireEvent.changeText(getByPlaceholderText('Minimo 6 caracteres'), '123456');
       fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), '123456');
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
@@ -192,7 +192,7 @@ describe('Register Screen', () => {
       const { getByPlaceholderText, getAllByText } = render(<Register />);
 
       fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 6 caracteres'), '123456');
+      fireEvent.changeText(getByPlaceholderText('Minimo 6 caracteres'), '123456');
       fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), '123456');
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
@@ -215,7 +215,7 @@ describe('Register Screen', () => {
 
       fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
       fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 6 caracteres'), '123456');
+      fireEvent.changeText(getByPlaceholderText('Minimo 6 caracteres'), '123456');
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
       expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Preencha todos os campos');
@@ -226,11 +226,11 @@ describe('Register Screen', () => {
 
       fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
       fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 6 caracteres'), '123456');
+      fireEvent.changeText(getByPlaceholderText('Minimo 6 caracteres'), '123456');
       fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), '654321');
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
-      expect(Alert.alert).toHaveBeenCalledWith('Erro', 'As senhas não coincidem');
+      expect(Alert.alert).toHaveBeenCalledWith('Erro', 'As senhas nao coincidem');
     });
 
     it('deve mostrar erro quando senha tem menos de 6 caracteres', () => {
@@ -238,7 +238,7 @@ describe('Register Screen', () => {
 
       fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
       fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 6 caracteres'), '12345');
+      fireEvent.changeText(getByPlaceholderText('Minimo 6 caracteres'), '12345');
       fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), '12345');
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
@@ -254,7 +254,7 @@ describe('Register Screen', () => {
 
       fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
       fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 6 caracteres'), '123456');
+      fireEvent.changeText(getByPlaceholderText('Minimo 6 caracteres'), '123456');
       fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), '123456');
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
@@ -275,7 +275,7 @@ describe('Register Screen', () => {
 
       fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'Maria Gestora');
       fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'maria@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 6 caracteres'), 'senha123');
+      fireEvent.changeText(getByPlaceholderText('Minimo 6 caracteres'), 'senha123');
       fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), 'senha123');
       fireEvent.press(getByText('Gestor'));
       fireEvent.press(getAllByText('Criar Conta')[1]);
@@ -297,7 +297,7 @@ describe('Register Screen', () => {
 
       fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
       fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 6 caracteres'), '123456');
+      fireEvent.changeText(getByPlaceholderText('Minimo 6 caracteres'), '123456');
       fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), '123456');
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
@@ -317,7 +317,7 @@ describe('Register Screen', () => {
 
       fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
       fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 6 caracteres'), '123456');
+      fireEvent.changeText(getByPlaceholderText('Minimo 6 caracteres'), '123456');
       fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), '123456');
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
@@ -342,7 +342,7 @@ describe('Register Screen', () => {
 
       fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
       fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 6 caracteres'), '123456');
+      fireEvent.changeText(getByPlaceholderText('Minimo 6 caracteres'), '123456');
       fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), '123456');
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
@@ -358,7 +358,7 @@ describe('Register Screen', () => {
 
       fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
       fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 6 caracteres'), '123456');
+      fireEvent.changeText(getByPlaceholderText('Minimo 6 caracteres'), '123456');
       fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), '123456');
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
@@ -376,7 +376,7 @@ describe('Register Screen', () => {
 
       fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
       fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 6 caracteres'), '123456');
+      fireEvent.changeText(getByPlaceholderText('Minimo 6 caracteres'), '123456');
       fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), '123456');
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
@@ -399,7 +399,7 @@ describe('Register Screen', () => {
 
       fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
       fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 6 caracteres'), '123456');
+      fireEvent.changeText(getByPlaceholderText('Minimo 6 caracteres'), '123456');
       fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), '123456');
 
       const submitButton = getAllByText('Criar Conta')[1];
@@ -419,7 +419,7 @@ describe('Register Screen', () => {
   describe('Navegação', () => {
     it('deve voltar ao clicar no link de login', () => {
       const { getByText } = render(<Register />);
-      const backLink = getByText('Já tem uma conta? Faça login');
+      const backLink = getByText('Ja tem uma conta? Faca login');
 
       fireEvent.press(backLink);
 
@@ -446,7 +446,7 @@ describe('Register Screen', () => {
 
     it('input de senha deve ter secureTextEntry', () => {
       const { getByPlaceholderText } = render(<Register />);
-      const passwordInput = getByPlaceholderText('Mínimo 6 caracteres');
+      const passwordInput = getByPlaceholderText('Minimo 6 caracteres');
 
       expect(passwordInput.props.secureTextEntry).toBe(true);
       expect(passwordInput.props.autoComplete).toBe('password');
@@ -467,7 +467,7 @@ describe('Register Screen', () => {
       // Preenche todos campos e submete
       fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
       fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 6 caracteres'), '123456');
+      fireEvent.changeText(getByPlaceholderText('Minimo 6 caracteres'), '123456');
       fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), '123456');
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
@@ -485,7 +485,7 @@ describe('Register Screen', () => {
 
       expect(getByPlaceholderText('Digite seu nome').props.value).toBe('');
       expect(getByPlaceholderText('Digite seu e-mail').props.value).toBe('');
-      expect(getByPlaceholderText('Mínimo 6 caracteres').props.value).toBe('');
+      expect(getByPlaceholderText('Minimo 6 caracteres').props.value).toBe('');
       expect(getByPlaceholderText('Digite a senha novamente').props.value).toBe('');
     });
 

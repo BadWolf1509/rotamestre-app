@@ -30,6 +30,8 @@ import {
 } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
+import { colors } from '@/lib/design-tokens';
+import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 
@@ -57,7 +59,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     style.id = styleId;
     style.textContent = `
       dialog.modal-dialog::backdrop {
-        background-color: rgba(0, 0, 0, 0.8);
+        background-color: ${colors.overlay.dark};
       }
       dialog.modal-dialog[open] {
         animation: modal-fade-in 0.3s ease-out;
@@ -94,6 +96,8 @@ export function Modal({
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const dialogRef = useRef<HTMLDialogElement>(null);
   const scrollPositionRef = useRef(0);
+  const headerPadding = isDesktop ? theme.desktop.modal.headerPadding : theme.components.modal.headerPadding;
+  const bodyPadding = isDesktop ? theme.desktop.modal.bodyPadding : theme.components.modal.bodyPadding;
 
   const getModalWidth = (): string | number => {
     switch (size) {
@@ -236,7 +240,7 @@ export function Modal({
           style={{
             backgroundColor: theme.colors.white,
             borderRadius: isFull ? 0 : theme.borderRadius.xl,
-            boxShadow: isFull ? 'none' : '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            boxShadow: isFull ? undefined : boxShadow(0, 25, 50, -12, theme.colors.black, 0.25),
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
@@ -254,10 +258,7 @@ export function Modal({
                 flexDirection: 'row',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                paddingLeft: isDesktop ? theme.desktop.modal.headerPadding : theme.spacing.md,
-                paddingRight: isDesktop ? theme.desktop.modal.headerPadding : theme.spacing.md,
-                paddingTop: isDesktop ? 10 : theme.spacing.md,
-                paddingBottom: isDesktop ? 10 : theme.spacing.sm,
+                padding: headerPadding,
                 borderBottom: `1px solid ${theme.colors.gray200}`,
               }}
             >
@@ -310,7 +311,7 @@ export function Modal({
           {/* Content */}
           <div
             style={{
-              padding: isDesktop ? theme.desktop.modal.bodyPadding : theme.spacing.md,
+              padding: bodyPadding,
               overflow: 'auto',
               flex: 1,
             }}
@@ -391,7 +392,7 @@ export function Modal({
 const styles = StyleSheet.create((theme: Theme) => ({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: colors.overlay.dark,
     zIndex: 30,
   },
   overlayTouchable: {
@@ -422,9 +423,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.md,
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.sm,
+    padding: theme.components.modal.headerPadding,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray200,
   },
@@ -443,7 +442,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
 
   content: {
-    padding: theme.spacing.md,
+    padding: theme.components.modal.bodyPadding,
   },
 }));
 

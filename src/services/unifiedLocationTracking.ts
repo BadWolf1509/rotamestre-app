@@ -15,6 +15,7 @@ import * as TaskManager from 'expo-task-manager';
 import { Alert } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
+import { defaultTheme } from '@/utils/styles';
 
 // ========================================
 // CONSTANTES
@@ -194,7 +195,7 @@ export async function startBackgroundTracking(context: TrackingContext): Promise
       foregroundService: {
         notificationTitle: '🚗 RotaMestre - Em rota',
         notificationBody: `Rastreando entrega`,
-        notificationColor: '#0D5A9C',
+        notificationColor: defaultTheme.colors.primary,
       },
     };
 

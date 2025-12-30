@@ -2,19 +2,20 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
   Pressable,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
 
 import { useNotificationModal } from '@/context/NotificationModalContext';
 import { useNotifications } from '@/hooks/useNotifications';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface NotificationBellProps {
   variant?: 'desktop' | 'mobile';
 }
 
 export function NotificationBell({ variant = 'desktop' }: NotificationBellProps) {
+  const { theme } = useUnistyles();
   const { naoLidas } = useNotifications();
   const { openModal } = useNotificationModal();
 
@@ -40,7 +41,7 @@ export function NotificationBell({ variant = 'desktop' }: NotificationBellProps)
       <Ionicons
         name={naoLidas > 0 ? 'notifications' : 'notifications-outline'}
         size={iconSize}
-        color={variant === 'desktop' ? '#334155' : '#FFFFFF'}
+        color={variant === 'desktop' ? theme.colors.gray700 : theme.colors.white}
       />
       {naoLidas > 0 && (
         <View style={[styles.badge, { width: badgeSize, height: badgeSize }]}>
@@ -53,7 +54,7 @@ export function NotificationBell({ variant = 'desktop' }: NotificationBellProps)
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     position: 'relative',
     padding: 8,
@@ -65,23 +66,23 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.7,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: theme.colors.gray50,
   },
   badge: {
     position: 'absolute',
     top: 4,
     right: 4,
-    backgroundColor: '#ef4444',
+    backgroundColor: theme.colors.error,
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
     minWidth: 18,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: theme.colors.white,
   },
   badgeText: {
-    color: '#FFFFFF',
+    color: theme.colors.white,
     fontWeight: '700',
     textAlign: 'center',
   },
-});
+}));

@@ -24,7 +24,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
-import { DesktopModal } from '@/components/desktop/DesktopModal';
+import { DesktopModal } from '@/design-system';
 import { useResponsive } from '@/hooks/useResponsive';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 

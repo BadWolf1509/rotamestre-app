@@ -8,6 +8,7 @@ import * as Linking from 'expo-linking';
 import React, { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, Platform } from 'react-native';
 
+import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import type { Parada } from './types';
@@ -148,8 +149,8 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
                     </TouchableOpacity>
                     {Platform.OS !== 'web' && (
                       <TouchableOpacity style={styles.actionButton} onPress={handleWhatsAppPress}>
-                        <Ionicons name="logo-whatsapp" size={16} color="#25D366" />
-                        <Text style={[styles.actionText, { color: '#25D366' }]}>WhatsApp</Text>
+                        <Ionicons name="logo-whatsapp" size={16} color={theme.colors.whatsapp} />
+                        <Text style={[styles.actionText, { color: theme.colors.whatsapp }]}>WhatsApp</Text>
                       </TouchableOpacity>
                     )}
                   </>
@@ -348,7 +349,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: withOpacity(theme.colors.black, 0.5),
     padding: 2,
     borderTopLeftRadius: 4,
   },

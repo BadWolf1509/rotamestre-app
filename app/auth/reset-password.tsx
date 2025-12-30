@@ -13,9 +13,10 @@ import {
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
-import { StyleSheet, type Theme } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export default function ResetPassword() {
+  const { theme } = useUnistyles();
   const router = useRouter();
   const { isDesktop } = useResponsive();
   const [password, setPassword] = useState('');
@@ -114,7 +115,7 @@ export default function ResetPassword() {
                 disabled={loading}
               >
                 {loading ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={theme.colors.white} />
                 ) : (
                   <Text style={styles.buttonText}>Redefinir Senha</Text>
                 )}
@@ -174,7 +175,7 @@ export default function ResetPassword() {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={theme.colors.white} />
           ) : (
             <Text style={styles.buttonText}>Redefinir Senha</Text>
           )}

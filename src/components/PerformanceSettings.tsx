@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   Switch,
   TouchableOpacity,
@@ -16,7 +15,7 @@ import {
 import { usePerformance } from '@/hooks/usePerformance';
 import { formatBytes } from '@/lib/utils';
 import PerformanceOptimizer from '@/services/performanceOptimizer';
-import { useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface PerformanceSettingsProps {
   visible: boolean;
@@ -183,8 +182,8 @@ export function PerformanceSettings({ visible, onClose }: PerformanceSettingsPro
             <Switch
               value={settings.enableLazyLoading}
               onValueChange={(value) => handleSettingChange('enableLazyLoading', value)}
-              trackColor={{ false: '#d1d5db', true: theme.colors.primary }}
-              thumbColor="#fff"
+              trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+              thumbColor={theme.colors.white}
             />
           </View>
 
@@ -198,8 +197,8 @@ export function PerformanceSettings({ visible, onClose }: PerformanceSettingsPro
             <Switch
               value={settings.enableImageOptimization}
               onValueChange={(value) => handleSettingChange('enableImageOptimization', value)}
-              trackColor={{ false: '#d1d5db', true: theme.colors.primary }}
-              thumbColor="#fff"
+              trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+              thumbColor={theme.colors.white}
             />
           </View>
 
@@ -213,8 +212,8 @@ export function PerformanceSettings({ visible, onClose }: PerformanceSettingsPro
             <Switch
               value={settings.enableBatchRequests}
               onValueChange={(value) => handleSettingChange('enableBatchRequests', value)}
-              trackColor={{ false: '#d1d5db', true: theme.colors.primary }}
-              thumbColor="#fff"
+              trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+              thumbColor={theme.colors.white}
             />
           </View>
         </View>
@@ -233,8 +232,8 @@ export function PerformanceSettings({ visible, onClose }: PerformanceSettingsPro
             <Switch
               value={settings.enableDataCaching}
               onValueChange={(value) => handleSettingChange('enableDataCaching', value)}
-              trackColor={{ false: '#d1d5db', true: theme.colors.primary }}
-              thumbColor="#fff"
+              trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+              thumbColor={theme.colors.white}
             />
           </View>
 
@@ -252,7 +251,7 @@ export function PerformanceSettings({ visible, onClose }: PerformanceSettingsPro
                   value={settings.cacheSize}
                   onValueChange={(value) => handleSettingChange('cacheSize', value)}
                   minimumTrackTintColor={theme.colors.primary}
-                  maximumTrackTintColor="#d1d5db"
+                  maximumTrackTintColor={theme.colors.gray300}
                   thumbTintColor={theme.colors.primary}
                 />
                 <View style={styles.sliderLabels}>
@@ -273,7 +272,7 @@ export function PerformanceSettings({ visible, onClose }: PerformanceSettingsPro
                   value={settings.cacheTTL}
                   onValueChange={(value) => handleSettingChange('cacheTTL', value)}
                   minimumTrackTintColor={theme.colors.primary}
-                  maximumTrackTintColor="#d1d5db"
+                  maximumTrackTintColor={theme.colors.gray300}
                   thumbTintColor={theme.colors.primary}
                 />
                 <View style={styles.sliderLabels}>
@@ -299,8 +298,8 @@ export function PerformanceSettings({ visible, onClose }: PerformanceSettingsPro
             <Switch
               value={settings.enableOfflineMode}
               onValueChange={(value) => handleSettingChange('enableOfflineMode', value)}
-              trackColor={{ false: '#d1d5db', true: theme.colors.primary }}
-              thumbColor="#fff"
+              trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+              thumbColor={theme.colors.white}
             />
           </View>
         </View>
@@ -331,8 +330,8 @@ export function PerformanceSettings({ visible, onClose }: PerformanceSettingsPro
             ]}
             onPress={handleRunDiagnostics}
           >
-            <Ionicons name="analytics-outline" size={20} color="#fff" />
-            <Text style={[styles.buttonText, { color: '#fff' }]}>
+            <Ionicons name="analytics-outline" size={20} color={theme.colors.white} />
+            <Text style={[styles.buttonText, { color: theme.colors.white }]}>
               Diagnóstico
             </Text>
           </TouchableOpacity>
@@ -364,65 +363,66 @@ export function PerformanceSettings({ visible, onClose }: PerformanceSettingsPro
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.white,
     zIndex: 1000,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: theme.spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: theme.colors.border,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
+    fontSize: theme.typography.fontSize.xl,
+    fontFamily: theme.typography.fontSansBold,
+    color: theme.colors.gray900,
   },
   closeButton: {
-    padding: 8,
+    padding: theme.spacing.sm,
   },
   content: {
     flex: 1,
-    padding: 16,
+    padding: theme.spacing.lg,
   },
   statusCard: {
-    backgroundColor: '#f9fafb',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    backgroundColor: theme.colors.gray50,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.xxl,
   },
   statusRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   statusLabel: {
-    fontSize: 14,
-    color: '#6b7280',
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.gray500,
   },
   statusValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray900,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: theme.spacing.xxl,
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6b7280',
-    marginBottom: 12,
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray500,
+    marginBottom: theme.spacing.md,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
@@ -430,91 +430,94 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: theme.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: theme.colors.gray100,
   },
   settingInfo: {
     flex: 1,
-    marginRight: 12,
+    marginRight: theme.spacing.md,
   },
   settingLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#111827',
-    marginBottom: 2,
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: theme.typography.fontSansMedium,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.xs / 2,
   },
   settingDescription: {
-    fontSize: 12,
-    color: '#6b7280',
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.gray500,
   },
   sliderSetting: {
-    marginTop: 16,
-    paddingTop: 12,
+    marginTop: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
+    borderTopColor: theme.colors.gray100,
   },
   sliderLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#111827',
-    marginBottom: 12,
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSansMedium,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.md,
   },
   slider: {
     width: '100%',
-    height: 40,
+    height: theme.spacing['4xl'],
   },
   sliderLabels: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   sliderEndLabel: {
-    fontSize: 11,
-    color: '#9ca3af',
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.gray400,
   },
   actions: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
+    gap: theme.spacing.md,
+    marginBottom: theme.spacing.xxl,
   },
   button: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 8,
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.sm,
   },
   secondaryButton: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: theme.colors.gray100,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: theme.colors.border,
   },
   buttonText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   tipsSection: {
-    backgroundColor: '#fef3c7',
-    padding: 12,
-    borderRadius: 8,
+    backgroundColor: theme.colors.warningBg,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.sm,
   },
   tipHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
   },
   tipTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#92400e',
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.warningText,
   },
   tipText: {
-    fontSize: 12,
-    color: '#92400e',
-    marginBottom: 4,
-    paddingLeft: 28,
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.warningText,
+    marginBottom: theme.spacing.xs,
+    paddingLeft: theme.spacing.xl + theme.spacing.sm,
   },
-});
+}));

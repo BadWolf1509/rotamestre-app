@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import {
   View,
-  Text,
   FlatList,
   Alert,
   RefreshControl,
@@ -14,6 +13,7 @@ import { ParadaCard, Parada } from '@/components/motorista/ParadaCard';
 import { ParadaCardSkeletonList } from '@/components/motorista/ParadaCardSkeleton';
 import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
 import { useRouteStatus, ParadaData } from '@/context/RouteStatusContext';
+import { Text } from '@/design-system';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
 import { abrirNavegacao } from '@/lib/navigation';
@@ -377,6 +377,7 @@ export default function CheckpointsMotorista() {
 
       {/* Lista de Paradas */}
       <FlatList
+        testID="motorista-checkpoints-list"
         data={paradas}
         keyExtractor={keyExtractor}
         renderItem={renderParada}

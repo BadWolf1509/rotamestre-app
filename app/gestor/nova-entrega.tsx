@@ -22,8 +22,6 @@ import {
 } from 'react-native';
 
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
-import { DesktopCard } from '@/components/desktop/DesktopCard';
-import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import {
   ParadasListAndActions,
@@ -31,10 +29,14 @@ import {
   ParadaFormData,
   ParadaFormDataWithCoords,
 } from '@/components/gestor/nova-entrega';
-import { MobileCard } from '@/components/mobile/MobileCard';
-import { MobileLoading } from '@/components/mobile/MobileLoading';
-import { Toast } from '@/components/Toast';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import {
+  DesktopCard,
+  DesktopPageLayout,
+  MobileCard,
+  MobileLoading,
+  Toast,
+} from '@/design-system';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useNovaEntrega } from '@/hooks/useNovaEntrega';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -71,6 +73,7 @@ const FormularioParadaMemoized = memo(function FormularioParada({
   vinculoSelecionado,
   setVinculoSelecionado,
 }: FormularioParadaProps) {
+  const { theme } = useUnistyles();
   const { isDesktop, isTablet, isMobile } = useResponsive();
   const tipoAtual = watch('tipo');
 
@@ -314,7 +317,7 @@ const FormularioParadaMemoized = memo(function FormularioParada({
         accessibilityState={{ disabled: isLoading }}
       >
         {isLoading ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={theme.colors.white} />
         ) : (
           <Text style={[styles.addButtonText, isDesktop && styles.addButtonTextDesktop]}>
             + Adicionar Parada

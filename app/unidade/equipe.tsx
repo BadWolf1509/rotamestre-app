@@ -2,25 +2,28 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   View,
-  Text,
-  TouchableOpacity,
   ScrollView,
-  TextInput,
   Alert,
   Platform,
 } from 'react-native';
 
-import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { MobileCard } from '@/components/mobile/MobileCard';
-import { MobileLoading } from '@/components/mobile/MobileLoading';
-import { Toast } from '@/components/Toast';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import {
+  DesktopPageLayout,
+  Button,
+  Input,
+  MobileCard,
+  MobileLoading,
+  Text,
+  Toast,
+} from '@/design-system';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
+import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface Membro {
@@ -177,71 +180,39 @@ export default function EquipeScreen() {
 
   const searchSection = (
     <View style={styles.searchSection}>
-      <TextInput
-        style={[styles.searchInput, isDesktopView && styles.searchInputDesktop]}
+      <Input
         placeholder="Buscar por nome ou e-mail..."
         value={searchQuery}
         onChangeText={setSearchQuery}
+        size={isDesktopView ? 'small' : 'medium'}
+        containerStyle={styles.searchInputContainer}
       />
     </View>
   );
 
   const filterSection = (
     <View style={styles.filterSection}>
-      <TouchableOpacity
-        style={[
-          styles.filterButton,
-          isDesktopView && styles.filterButtonDesktop,
-          filterPapel === 'todos' && styles.filterButtonActive,
-        ]}
+      <Button
+        title="Todos"
+        variant={filterPapel === 'todos' ? 'primary' : 'outline'}
         onPress={() => setFilterPapel('todos')}
-      >
-        <Text
-          style={[
-            styles.filterButtonText,
-            isDesktopView && styles.filterButtonTextDesktop,
-            filterPapel === 'todos' && styles.filterButtonTextActive,
-          ]}
-        >
-          Todos
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[
-          styles.filterButton,
-          isDesktopView && styles.filterButtonDesktop,
-          filterPapel === 'gestor' && styles.filterButtonActive,
-        ]}
+        style={styles.filterButton}
+        size={isDesktopView ? 'small' : 'medium'}
+      />
+      <Button
+        title="Gestores"
+        variant={filterPapel === 'gestor' ? 'primary' : 'outline'}
         onPress={() => setFilterPapel('gestor')}
-      >
-        <Text
-          style={[
-            styles.filterButtonText,
-            isDesktopView && styles.filterButtonTextDesktop,
-            filterPapel === 'gestor' && styles.filterButtonTextActive,
-          ]}
-        >
-          Gestores
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[
-          styles.filterButton,
-          isDesktopView && styles.filterButtonDesktop,
-          filterPapel === 'motorista' && styles.filterButtonActive,
-        ]}
+        style={styles.filterButton}
+        size={isDesktopView ? 'small' : 'medium'}
+      />
+      <Button
+        title="Motoristas"
+        variant={filterPapel === 'motorista' ? 'primary' : 'outline'}
         onPress={() => setFilterPapel('motorista')}
-      >
-        <Text
-          style={[
-            styles.filterButtonText,
-            isDesktopView && styles.filterButtonTextDesktop,
-            filterPapel === 'motorista' && styles.filterButtonTextActive,
-          ]}
-        >
-          Motoristas
-        </Text>
-      </TouchableOpacity>
+        style={styles.filterButton}
+        size={isDesktopView ? 'small' : 'medium'}
+      />
     </View>
   );
 
@@ -325,17 +296,13 @@ export default function EquipeScreen() {
               membro.id !== userData?.id &&
               !membro.is_gestor_principal && (
                 <View style={styles.membroActions}>
-                  <TouchableOpacity
-                    style={[
-                      styles.actionButton,
-                      membro.ativo ? styles.actionButtonDanger : styles.actionButtonSuccess,
-                    ]}
+                  <Button
+                    title={membro.ativo ? 'Desativar' : 'Reativar'}
+                    variant={membro.ativo ? 'danger' : 'secondary'}
                     onPress={() => handleToggleAtivo(membro)}
-                  >
-                    <Text style={styles.actionButtonText}>
-                      {membro.ativo ? '🚫 Desativar' : '✅ Reativar'}
-                    </Text>
-                  </TouchableOpacity>
+                    style={styles.actionButton}
+                    size="small"
+                  />
                 </View>
               )}
 
@@ -360,12 +327,12 @@ export default function EquipeScreen() {
   const footerSection =
     isGestorPrincipal && !isDesktopView ? (
       <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.transferButton}
+        <Button
+          title="Transferir Gestao Principal"
+          variant="outline"
           onPress={() => router.push('/unidade/transferir')}
-        >
-          <Text style={styles.transferButtonText}>🔄 Transferir Gestão Principal</Text>
-        </TouchableOpacity>
+          style={styles.transferButton}
+        />
       </View>
     ) : null;
 
@@ -492,20 +459,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     paddingHorizontal: 20,
     marginBottom: 16,
   },
-  searchInput: {
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    minHeight: 48,
-  },
-  searchInputDesktop: {
-    paddingVertical: 0,
-    paddingHorizontal: theme.desktop.input.paddingHorizontal,
-    fontSize: theme.desktop.input.fontSize,
-    minHeight: theme.desktop.input.height,
+  searchInputContainer: {
+    marginBottom: 0,
   },
   filterSection: {
     flexDirection: 'row',
@@ -515,35 +470,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   filterButton: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  filterButtonDesktop: {
-    paddingVertical: 6,
-    paddingHorizontal: theme.desktop.button.paddingHorizontal,
-    minHeight: theme.desktop.button.height,
-  },
-  filterButtonActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  filterButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: theme.colors.textSecondary,
-  },
-  filterButtonTextDesktop: {
-    fontSize: theme.desktop.button.fontSize,
-  },
-  filterButtonTextActive: {
-    color: theme.colors.surface,
   },
   listContainer: {
     flex: 1,
@@ -584,7 +510,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
       // @ts-ignore - web-only CSS
       ':hover': {
         borderColor: theme.colors.primary,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+        boxShadow: boxShadow(0, 4, 12, 0, theme.colors.black, 0.08),
         transform: 'translateY(-2px)',
       },
     }),
@@ -692,25 +618,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   actionButton: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  actionButtonDanger: {
-    backgroundColor: theme.colors.errorLight,
-    borderWidth: 1,
-    borderColor: theme.colors.error,
-  },
-  actionButtonSuccess: {
-    backgroundColor: theme.colors.successLight,
-    borderWidth: 1,
-    borderColor: theme.colors.success,
-  },
-  actionButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: theme.colors.text,
   },
   youBadge: {
     backgroundColor: theme.colors.primary,
@@ -738,11 +645,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: theme.colors.warning,
-  },
-  transferButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: theme.colors.warningDark,
   },
 }));
 

@@ -8,7 +8,7 @@ import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 
-import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { ConfirmDialog } from '@/design-system';
 import { authService } from '@/lib/auth';
 import { Usuario } from '@/types/usuario';
 import { StyleSheet, useUnistyles } from '@/utils/styles';

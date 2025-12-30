@@ -8,6 +8,7 @@
 // Layout Components
 export { DesktopLayout } from './DesktopLayout';
 export { DesktopPageLayout } from './DesktopPageLayout';
+export type { ActionButton, BreadcrumbItem, UserMenuItem } from './DesktopPageLayout';
 export { SplitView } from './SplitView';
 
 // UI Components

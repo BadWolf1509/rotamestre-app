@@ -45,6 +45,16 @@ Closes #
 - [ ] TypeScript não tem erros (`npm run type-check`)
 - [ ] Atualizei a documentação (se necessário)
 
+## Design System (se houver mudanca visual)
+
+- [ ] Usei tokens semanticos (sem cores hex hardcoded)
+- [ ] Usei componentes base do design system (`@/design-system`) quando aplicavel
+- [ ] Atualizei snapshots visuais quando necessario (`npm run test:visual:update`)
+- [ ] Atualizei tokens gerados (`npm run build:tokens`) e relatorio de hex quando aplicavel
+- [ ] Atualizei versionamento do design system quando tokens ou componentes mudaram
+- [ ] Atualizei `docs/design-system-release-notes.md` quando houve mudanca no design system
+- [ ] Revisei acessibilidade (ver `docs/design-system-accessibility.md`)
+
 ## 📊 Impacto no Coverage
 
 <!-- O Codecov comentará automaticamente, mas mencione se espera mudança significativa -->

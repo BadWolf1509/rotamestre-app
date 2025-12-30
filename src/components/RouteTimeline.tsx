@@ -40,6 +40,7 @@ import {
   mapIncidenteToTimelineEvent,
   type TimelineSemanticColor,
 } from '@/lib/utils';
+import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // Habilitar LayoutAnimation no Android
@@ -916,7 +917,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginLeft: 4,
   },
   filterBadgeActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: withOpacity(theme.colors.white, 0.3),
   },
   filterBadgeText: {
     fontSize: 10,

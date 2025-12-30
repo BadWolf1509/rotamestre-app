@@ -1,9 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { Switch, Text, TouchableOpacity, View } from 'react-native';
 
 import { AvatarEditable } from '@/components/AvatarEditable';
+import {
+  getThemePreferences,
+  setContrastPreference,
+  setDensityPreference,
+  setThemePreference,
+} from '@/lib/themePreference';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface PerfilDesktopLayoutProps {
@@ -28,6 +34,29 @@ export function PerfilDesktopLayout({
 }: PerfilDesktopLayoutProps) {
   const { theme } = useUnistyles();
   const router = useRouter();
+  const [darkModeEnabled, setDarkModeEnabled] = React.useState(false);
+  const [compactDensityEnabled, setCompactDensityEnabled] = React.useState(false);
+  const [highContrastEnabled, setHighContrastEnabled] = React.useState(false);
+
+  React.useEffect(() => {
+    let mounted = true;
+    const loadPreferences = async () => {
+      const stored = await getThemePreferences();
+      if (!mounted || !stored) {
+        return;
+      }
+
+      setDarkModeEnabled(stored.mode === 'dark');
+      setCompactDensityEnabled(stored.density === 'compact');
+      setHighContrastEnabled(stored.contrast === 'high');
+    };
+
+    loadPreferences();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const formatDateTime = (value?: string | null) => {
     if (!value) return 'Nunca registrado';
@@ -44,6 +73,34 @@ export function PerfilDesktopLayout({
   const formatDevices = (value?: number | null) => {
     if (value == null) return 'Indisponível';
     return value === 1 ? '1 dispositivo' : `${value} dispositivos`;
+  };
+
+
+  const handleDarkModeToggle = async (value: boolean) => {
+    setDarkModeEnabled(value);
+    try {
+      await setThemePreference(value ? 'dark' : 'light');
+    } catch (error) {
+      console.warn('Failed to update theme preference:', error);
+    }
+  };
+
+  const handleDensityToggle = async (value: boolean) => {
+    setCompactDensityEnabled(value);
+    try {
+      await setDensityPreference(value ? 'compact' : 'regular');
+    } catch (error) {
+      console.warn('Failed to update density preference:', error);
+    }
+  };
+
+  const handleContrastToggle = async (value: boolean) => {
+    setHighContrastEnabled(value);
+    try {
+      await setContrastPreference(value ? 'high' : 'normal');
+    } catch (error) {
+      console.warn('Failed to update contrast preference:', error);
+    }
   };
 
   return (
@@ -105,6 +162,37 @@ export function PerfilDesktopLayout({
                 <Ionicons name="chevron-forward" size={16} color={theme.colors.gray400} />
               </TouchableOpacity>
             )}
+          </View>
+        </View>
+
+        <View style={styles(theme).settingsCard}>
+          <Text style={styles(theme).settingsTitle}>Aparencia</Text>
+          <View style={styles(theme).settingsRow}>
+            <Text style={styles(theme).settingsLabel}>Tema escuro</Text>
+            <Switch
+              value={darkModeEnabled}
+              onValueChange={handleDarkModeToggle}
+              trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+              thumbColor={darkModeEnabled ? theme.colors.white : theme.colors.gray100}
+            />
+          </View>
+          <View style={styles(theme).settingsRow}>
+            <Text style={styles(theme).settingsLabel}>Densidade compacta</Text>
+            <Switch
+              value={compactDensityEnabled}
+              onValueChange={handleDensityToggle}
+              trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+              thumbColor={compactDensityEnabled ? theme.colors.white : theme.colors.gray100}
+            />
+          </View>
+          <View style={[styles(theme).settingsRow, styles(theme).settingsRowLast]}>
+            <Text style={styles(theme).settingsLabel}>Alto contraste</Text>
+            <Switch
+              value={highContrastEnabled}
+              onValueChange={handleContrastToggle}
+              trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+              thumbColor={highContrastEnabled ? theme.colors.white : theme.colors.gray100}
+            />
           </View>
         </View>
       </View>
@@ -202,7 +290,7 @@ const styles = (theme: any) =>
     roleBadgeText: {
       fontSize: 12,
       fontWeight: '600',
-      color: theme.colors.blue600,
+      color: theme.colors.blue500,
     },
     unitInfo: {
       flexDirection: 'row',
@@ -292,5 +380,40 @@ const styles = (theme: any) =>
       fontSize: 14,
       color: theme.colors.gray900,
       textAlign: 'right',
+    },
+    settingsCard: {
+      marginTop: 24,
+      backgroundColor: theme.colors.white,
+      borderRadius: 12,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: theme.colors.gray100,
+      shadowColor: theme.colors.black,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.04,
+      shadowRadius: 3,
+      elevation: 1,
+    },
+    settingsTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.gray900,
+      marginBottom: 12,
+    },
+    settingsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.gray100,
+    },
+    settingsRowLast: {
+      borderBottomWidth: 0,
+      paddingBottom: 0,
+    },
+    settingsLabel: {
+      fontSize: 13,
+      color: theme.colors.gray600,
     },
   });

@@ -11,13 +11,23 @@ import {
   TextInput,
 } from 'react-native';
 
-import { DataTable, DataTableAction, DataTableColumn } from '@/components/DataTable';
-import { DesktopCard } from '@/components/desktop/DesktopCard';
-import { DesktopModal } from '@/components/desktop/DesktopModal';
-import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
-import { MobileCard, MobileEmptyState, MobileLoading } from '@/components/mobile';
-import { Toast } from '@/components/Toast';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import {
+  DataTable,
+  type DataTableAction,
+  type DataTableColumn,
+  DesktopCard,
+  DesktopModal,
+  DesktopPageLayout,
+  FilterChip,
+  MobileButton,
+  MobileCard,
+  MobileEmptyState,
+  MobileLoading,
+  Modal,
+  StatusBadge,
+  Toast,
+} from '@/design-system';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
@@ -54,22 +64,6 @@ type FiltroCategoria = 'todos' | 'accident' | 'absent' | 'wrong_address' | 'bloc
 // CONSTANTS
 // ============================================
 
-const CATEGORIA_LABELS: Record<string, { label: string; icon: string; color: string }> = {
-  accident: { label: 'Acidente/Incidente', icon: 'warning', color: '#ef4444' },
-  absent: { label: 'Cliente ausente', icon: 'home-outline', color: '#f59e0b' },
-  wrong_address: { label: 'Endereço incorreto', icon: 'location-outline', color: '#3b82f6' },
-  blocked: { label: 'Acesso bloqueado', icon: 'lock-closed-outline', color: '#8b5cf6' },
-  vehicle: { label: 'Problema no veículo', icon: 'car-outline', color: '#06b6d4' },
-  other: { label: 'Outros', icon: 'ellipsis-horizontal-outline', color: '#6b7280' },
-};
-
-const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  aberto: { label: 'Aberto', color: '#ef4444' },
-  em_analise: { label: 'Em Análise', color: '#f59e0b' },
-  resolvido: { label: 'Resolvido', color: '#10b981' },
-  fechado: { label: 'Fechado', color: '#6b7280' },
-};
-
 // ============================================
 // MAIN COMPONENT
 // ============================================
@@ -81,6 +75,28 @@ export default function IncidentesScreen() {
   const { isDesktop } = useResponsive();
   const { theme } = useUnistyles();
   const { toast, showToast, hideToast } = useToast();
+
+  const categoriaLabels = useMemo<Record<string, { label: string; icon: string; color: string }>>(
+    () => ({
+      accident: { label: 'Acidente/Incidente', icon: 'warning', color: theme.colors.incident.accident },
+      absent: { label: 'Cliente ausente', icon: 'home-outline', color: theme.colors.incident.absent },
+      wrong_address: { label: 'Endereço incorreto', icon: 'location-outline', color: theme.colors.incident.wrongAddress },
+      blocked: { label: 'Acesso bloqueado', icon: 'lock-closed-outline', color: theme.colors.incident.blocked },
+      vehicle: { label: 'Problema no veículo', icon: 'car-outline', color: theme.colors.incident.vehicle },
+      other: { label: 'Outros', icon: 'ellipsis-horizontal-outline', color: theme.colors.incident.other },
+    }),
+    [theme]
+  );
+
+  const statusLabels = useMemo<Record<string, { label: string; color: string }>>(
+    () => ({
+      aberto: { label: 'Aberto', color: theme.colors.error },
+      em_analise: { label: 'Em Análise', color: theme.colors.warning },
+      resolvido: { label: 'Resolvido', color: theme.colors.success },
+      fechado: { label: 'Fechado', color: theme.colors.gray500 },
+    }),
+    [theme]
+  );
 
   // Estado
   const [incidentes, setIncidentes] = useState<Incidente[]>([]);
@@ -364,7 +380,7 @@ export default function IncidentesScreen() {
         label: 'Categoria',
         width: 180,
         render: (item) => {
-          const cat = CATEGORIA_LABELS[item.categoria];
+          const cat = categoriaLabels[item.categoria];
           return (
             <View style={styles.categoriaContainer}>
               <Ionicons name={cat.icon as any} size={16} color={cat.color} />
@@ -388,7 +404,7 @@ export default function IncidentesScreen() {
         label: 'Status',
         width: 120,
         render: (item) => {
-          const st = STATUS_LABELS[item.status];
+          const st = statusLabels[item.status];
           return (
             <View style={[styles.statusBadge, { backgroundColor: st.color + '20' }]}>
               <Text style={[styles.statusText, { color: st.color }]}>{st.label}</Text>
@@ -489,7 +505,7 @@ export default function IncidentesScreen() {
                         filtroStatus === status && styles.filtroButtonTextActive,
                       ]}
                     >
-                      {status === 'todos' ? 'Todos' : STATUS_LABELS[status].label}
+                      {status === 'todos' ? 'Todos' : statusLabels[status].label}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -514,7 +530,7 @@ export default function IncidentesScreen() {
                         filtroCategoria === cat && styles.filtroButtonTextActive,
                       ]}
                     >
-                      {cat === 'todos' ? 'Todos' : CATEGORIA_LABELS[cat].label}
+                      {cat === 'todos' ? 'Todos' : categoriaLabels[cat].label}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -563,8 +579,8 @@ export default function IncidentesScreen() {
     return (
       <ScrollView style={styles.mobileContainer}>
         {incidentes.map((incidente) => {
-          const cat = CATEGORIA_LABELS[incidente.categoria];
-          const st = STATUS_LABELS[incidente.status];
+          const cat = categoriaLabels[incidente.categoria];
+          const st = statusLabels[incidente.status];
 
           return (
             <MobileCard
@@ -608,8 +624,8 @@ export default function IncidentesScreen() {
   const renderDetalhesModal = () => {
     if (!incidenteSelecionado) return null;
 
-    const cat = CATEGORIA_LABELS[incidenteSelecionado.categoria];
-    const st = STATUS_LABELS[incidenteSelecionado.status];
+    const cat = categoriaLabels[incidenteSelecionado.categoria];
+    const st = statusLabels[incidenteSelecionado.status];
 
     // URL da foto com retry param para forçar reload
     const fotoUri = incidenteSelecionado.foto_url
@@ -787,7 +803,7 @@ export default function IncidentesScreen() {
         <View>
           <Text style={styles.modalLabel}>Novo Status:</Text>
           <View style={styles.statusOptions}>
-            {Object.entries(STATUS_LABELS).map(([key, { label, color }]) => (
+            {Object.entries(statusLabels).map(([key, { label, color }]) => (
               <TouchableOpacity
                 key={key}
                 style={[
@@ -842,8 +858,8 @@ export default function IncidentesScreen() {
             </View>
           ) : (
             incidentesMotorista.map((inc) => {
-              const cat = CATEGORIA_LABELS[inc.categoria];
-              const st = STATUS_LABELS[inc.status];
+              const cat = categoriaLabels[inc.categoria];
+              const st = statusLabels[inc.status];
 
               return (
                 <View key={inc.id} style={styles.historicoItem}>

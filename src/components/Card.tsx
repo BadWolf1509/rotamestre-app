@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, ViewStyle, TouchableOpacity } from 'react-native';
+import { View, ViewStyle, TouchableOpacity, Platform } from 'react-native';
 
+import { platformOverrides } from '@/design-system/tokens';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface CardProps {
@@ -9,6 +10,7 @@ interface CardProps {
   padding?: 'none' | 'small' | 'medium' | 'large';
   onPress?: () => void;
   style?: ViewStyle;
+  testID?: string;
 }
 
 export function Card({
@@ -17,19 +19,35 @@ export function Card({
   padding = 'medium',
   onPress,
   style,
+  testID,
 }: CardProps) {
   const Container = onPress ? TouchableOpacity : View;
+  const elevatedStyle =
+    variant === 'elevated'
+      ? Platform.select({
+          ios: {
+            shadowOpacity: platformOverrides.ios.shadow.opacity,
+            shadowRadius: platformOverrides.ios.shadow.radius,
+            shadowOffset: { width: 0, height: platformOverrides.ios.shadow.offsetY },
+          },
+          android: {
+            elevation: platformOverrides.android.shadow.elevation,
+          },
+        })
+      : undefined;
 
   return (
     <Container
       style={[
         styles.card,
         styles[variant],
+        elevatedStyle,
         styles[`padding${padding.charAt(0).toUpperCase() + padding.slice(1)}` as keyof typeof styles],
         style,
       ]}
       onPress={onPress}
       activeOpacity={onPress ? 0.7 : 1}
+      testID={testID}
     >
       {children}
     </Container>

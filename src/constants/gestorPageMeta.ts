@@ -1,4 +1,4 @@
-import type { BreadcrumbItem } from '@/components/desktop/DesktopPageLayout';
+import type { BreadcrumbItem } from '@/design-system';
 
 export type GestorPageKey =
   | 'inicio'

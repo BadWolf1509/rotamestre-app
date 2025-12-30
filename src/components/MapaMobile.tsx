@@ -9,6 +9,7 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region, Callout } from 'rea
 import { getStatusLabel } from '@/components/map/infoWindowBuilders';
 import { MotoristaMarker } from '@/components/MotoristaMarker';
 import { useRouteDirections } from '@/hooks/useRouteDirections';
+import { withOpacity } from '@/utils/color';
 import { showNavigationOptions } from '@/utils/navigation';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 import { toast } from '@/utils/toast';
@@ -744,7 +745,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     position: 'absolute',
     top: 10,
     right: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: withOpacity(theme.colors.white, 0.95),
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,

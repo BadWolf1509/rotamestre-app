@@ -9,6 +9,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator, Linking, Animated } fr
 
 import { StreetViewPreview } from '@/components/StreetViewPreview';
 import { SwipeableRow } from '@/components/SwipeableRow';
+import { boxShadow, textShadow, withOpacity } from '@/utils/color';
 import { successHaptic } from '@/utils/haptics';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -634,7 +635,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     shadowRadius: 8,
     elevation: 4,
     // Web: boxShadow CSS
-    boxShadow: '0px 4px 16px rgba(200, 119, 4, 0.35)',
+    boxShadow: boxShadow(0, 4, 16, 0, theme.colors.secondaryDark, 0.35),
   },
   botaoNavegarIcone: {
     fontSize: 20,
@@ -644,11 +645,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.md,
     fontWeight: '600',
     // Brand: sombra para texto branco em fundo laranja (cross-platform)
-    textShadowColor: 'rgba(0, 0, 0, 0.25)',
+    textShadowColor: withOpacity(theme.colors.black, 0.25),
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
     // Web: textShadow CSS
-    textShadow: '0px 1px 2px rgba(0, 0, 0, 0.25)',
+    textShadow: textShadow(0, 1, 2, theme.colors.black, 0.25),
   },
   swipeHint: {
     flexDirection: 'row',
@@ -693,17 +694,17 @@ const styles = StyleSheet.create((theme: Theme) => ({
     shadowRadius: 8,
     elevation: 4,
     // Web: boxShadow CSS
-    boxShadow: '0px 4px 16px rgba(217, 119, 6, 0.35)',
+    boxShadow: boxShadow(0, 4, 16, 0, theme.colors.warningDark, 0.35),
   },
   botaoReportarTexto: {
     color: theme.colors.white,
     fontSize: theme.typography.sm,
     fontWeight: '600',
     // Brand: sombra para texto branco em fundo laranja/warning (cross-platform)
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowColor: withOpacity(theme.colors.black, 0.3),
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
     // Web: textShadow CSS
-    textShadow: '0px 1px 2px rgba(0, 0, 0, 0.3)',
+    textShadow: textShadow(0, 1, 2, theme.colors.black, 0.3),
   },
 }));

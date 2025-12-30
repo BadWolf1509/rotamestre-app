@@ -2,6 +2,8 @@
 
 exports[`Button deve renderizar ícone se fornecido 1`] = `
 <View
+  accessibilityLabel="Icon"
+  accessibilityRole="button"
   accessibilityState={
     {
       "busy": undefined,
@@ -22,7 +24,9 @@ exports[`Button deve renderizar ícone se fornecido 1`] = `
   accessible={true}
   collapsable={false}
   focusable={true}
+  onBlur={[Function]}
   onClick={[Function]}
+  onFocus={[Function]}
   onResponderGrant={[Function]}
   onResponderMove={[Function]}
   onResponderRelease={[Function]}
@@ -30,23 +34,35 @@ exports[`Button deve renderizar ícone se fornecido 1`] = `
   onResponderTerminationRequest={[Function]}
   onStartShouldSetResponder={[Function]}
   style={
-    {
-      "alignItems": "center",
-      "backgroundColor": "#1e5aa8",
-      "borderRadius": 8,
-      "flexDirection": "row",
-      "justifyContent": "center",
-      "minHeight": 44,
-      "opacity": 1,
-      "paddingHorizontal": 16,
-      "paddingVertical": 12,
-    }
+    [
+      {
+        "alignItems": "center",
+        "borderRadius": 10,
+        "flexDirection": "row",
+        "justifyContent": "center",
+      },
+      {
+        "backgroundColor": "#284093",
+      },
+      {
+        "minHeight": 44,
+        "paddingHorizontal": 16,
+        "paddingVertical": 12,
+      },
+      {
+        "minHeight": 44,
+      },
+      false,
+      false,
+      false,
+      undefined,
+    ]
   }
 >
   <Ionicons
     color="#ffffff"
     name="add"
-    size={20}
+    size={19}
     style={
       {
         "marginRight": 8,
@@ -57,11 +73,10 @@ exports[`Button deve renderizar ícone se fornecido 1`] = `
     style={
       [
         {
-          "fontFamily": "System",
+          "fontFamily": "NunitoSans-SemiBold",
         },
         {
           "color": "#ffffff",
-          "fontSize": 16,
         },
         {
           "fontSize": 16,

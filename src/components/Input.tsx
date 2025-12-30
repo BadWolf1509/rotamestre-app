@@ -8,8 +8,11 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text, TextInput, ViewStyle, TextInputProps } from 'react-native';
+import { useState } from 'react';
+import { View, Text, TextInput, ViewStyle, TextInputProps, Platform } from 'react-native';
 
+import { platformOverrides } from '@/design-system/tokens';
+import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 type InputSize = 'small' | 'medium' | 'large';
@@ -40,8 +43,25 @@ export function Input({
   ...textInputProps
 }: InputProps) {
   const { theme } = useUnistyles();
+  const [isFocused, setIsFocused] = useState(false);
   const hasError = !!error;
   const isDisabled = textInputProps.editable === false;
+  const sizeTokens = theme.components.input.size[size];
+  const iconSize = Math.round(sizeTokens.fontSize * 1.25);
+  const platformConfig = platformOverrides[Platform.OS as keyof typeof platformOverrides];
+  const minTouchSize = platformConfig?.touchTarget?.minSize ?? 0;
+  const inputHeight = Math.max(sizeTokens.height, minTouchSize);
+  const { onFocus, onBlur, ...inputProps } = textInputProps;
+
+  const handleFocus: TextInputProps['onFocus'] = (event) => {
+    setIsFocused(true);
+    onFocus?.(event);
+  };
+
+  const handleBlur: TextInputProps['onBlur'] = (event) => {
+    setIsFocused(false);
+    onBlur?.(event);
+  };
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -57,37 +77,44 @@ export function Input({
       <View
         style={[
           styles.inputContainer,
-          styles[size],
-          hasError && styles.inputContainerError,
+          { height: inputHeight },
           isDisabled && styles.inputContainerDisabled,
+          isFocused && styles.inputContainerFocused,
+          hasError && styles.inputContainerError,
         ]}
       >
         {leftIcon && (
           <Ionicons
             name={leftIcon}
-            size={size === 'small' ? 16 : size === 'large' ? 24 : 20}
+            size={iconSize}
             color={hasError ? theme.colors.error : theme.colors.gray400}
-            style={styles.leftIcon}
+            style={[styles.leftIcon, { marginLeft: sizeTokens.paddingHorizontal }]}
           />
         )}
 
         <TextInput
           style={[
             styles.input,
+            {
+              paddingHorizontal: sizeTokens.paddingHorizontal,
+              fontSize: sizeTokens.fontSize,
+            },
             leftIcon && styles.inputWithLeftIcon,
             rightIcon && styles.inputWithRightIcon,
             style,
           ]}
           placeholderTextColor={theme.colors.gray400}
-          {...textInputProps}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          {...inputProps}
         />
 
         {rightIcon && (
           <Ionicons
             name={rightIcon}
-            size={size === 'small' ? 16 : size === 'large' ? 24 : 20}
+            size={iconSize}
             color={hasError ? theme.colors.error : theme.colors.gray400}
-            style={styles.rightIcon}
+            style={[styles.rightIcon, { marginRight: sizeTokens.paddingHorizontal }]}
             onPress={onRightIconPress}
           />
         )}
@@ -126,7 +153,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.white,
     borderWidth: 1,
     borderColor: theme.colors.gray300,
-    borderRadius: theme.borderRadius.sm,
+    borderRadius: theme.components.input.radius,
   },
   inputContainerError: {
     borderColor: theme.colors.error,
@@ -136,23 +163,25 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.gray100,
     opacity: 0.6,
   },
-
-  small: {
-    height: 36,
-  },
-  medium: {
-    height: 44,
-  },
-  large: {
-    height: 52,
+  inputContainerFocused: {
+    borderColor: theme.colors.primary,
+    borderWidth: 2,
+    ...(Platform.OS === 'web' && {
+      boxShadow: boxShadow(
+        0,
+        0,
+        0,
+        platformOverrides.web.focusRing.width,
+        platformOverrides.web.focusRing.color,
+        1
+      ),
+    }),
   },
 
   input: {
     flex: 1,
     fontFamily: theme.typography.fontSans,
-    fontSize: theme.typography.fontSize.base,
     color: theme.colors.gray900,
-    paddingHorizontal: 12,
   },
   inputWithLeftIcon: {
     paddingLeft: 4,
@@ -162,10 +191,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
 
   leftIcon: {
-    marginLeft: 12,
+    alignSelf: 'center',
   },
   rightIcon: {
-    marginRight: 12,
+    alignSelf: 'center',
   },
 
   helperText: {

@@ -22,15 +22,21 @@ import {
   ScrollView,
 } from 'react-native';
 
-import { ConfirmModal } from '@/components/ConfirmModal';
-import { DataTable, DataTableAction, DataTableColumn } from '@/components/DataTable';
-import { DesktopCard } from '@/components/desktop/DesktopCard';
-import { DesktopModal } from '@/components/desktop/DesktopModal';
-import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { MobileCard, MobileEmptyState, MobileLoading } from '@/components/mobile';
-import { Toast } from '@/components/Toast';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import {
+  ConfirmModal,
+  DataTable,
+  type DataTableAction,
+  type DataTableColumn,
+  DesktopCard,
+  DesktopModal,
+  DesktopPageLayout,
+  MobileCard,
+  MobileEmptyState,
+  MobileLoading,
+  Toast,
+} from '@/design-system';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import {
   useGestaoRotas,
@@ -57,7 +63,7 @@ export default function GestaoRotas() {
     em_andamento: theme.colors.info,
     concluida: theme.colors.success,
     cancelada: theme.colors.error,
-    nao_executada: '#f59e0b',
+    nao_executada: theme.colors.warning,
   }), [theme.colors]);
 
   // Hook de gestão de rotas
@@ -304,6 +310,7 @@ export default function GestaoRotas() {
               actions={tableHeaderActions}
             >
               <DataTable
+                testID="gestao-rotas-table"
                 data={rotasFiltradas}
                 columns={columns}
                 actions={actions}
@@ -472,6 +479,7 @@ export default function GestaoRotas() {
 
         {/* DataTable */}
         <DataTable
+          testID="gestao-rotas-table"
           data={rotasFiltradas}
           columns={columns}
           actions={actions}

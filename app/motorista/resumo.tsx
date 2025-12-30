@@ -2,7 +2,13 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, Text, View } from 'react-native';
 
-import { MobileHeader, MobileCard, MobileLoading, MobileEmptyState, MobileButton } from '@/components/mobile';
+import {
+  MobileButton,
+  MobileCard,
+  MobileEmptyState,
+  MobileHeader,
+  MobileLoading,
+} from '@/design-system';
 import { useUser } from '@/hooks/useUser';
 import { parseLocalDate } from '@/lib/dateUtils';
 import { supabase } from '@/lib/supabase';

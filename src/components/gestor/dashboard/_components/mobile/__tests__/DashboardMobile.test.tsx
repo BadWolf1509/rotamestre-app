@@ -35,69 +35,18 @@ jest.mock('@/hooks/useToast', () => ({
 }));
 
 // Mock styles
-jest.mock('@/utils/styles', () => ({
-    useUnistyles: () => ({
-        theme: {
-            colors: {
-                primaryDark: '#1e5aa8',
-                secondary: '#f59e0b',
-                success: '#10b981',
-                purple: '#8b5cf6',
-                error: '#ef4444',
-                gray50: '#f9fafb',
-                white: '#fff',
-                gray200: '#e5e7eb',
-                gray300: '#d1d5db',
-                gray500: '#6b7280',
-                gray700: '#374151',
-                gray900: '#111827',
-                primary: '#007AFF',
-                kpiConcluidas: '#10b981',
-                kpiKm: '#3b82f6',
-            },
-            spacing: {
-                sm: 8,
-                md: 12,
-                lg: 16,
-                xl: 20,
-                '2xl': 24,
-                '3xl': 32,
-            },
-            typography: {
-                sm: 14,
-                base: 16,
-                lg: 18,
-                '3xl': 30,
-                xs: 12,
-                fontDisplay: 'System',
-                fontSansSemiBold: 'System',
-            },
-            borderRadius: {
-                lg: 12,
-            },
+jest.mock('@/utils/styles', () => {
+    const { defaultTheme } = require('@/utils/styles.base');
+    const theme = defaultTheme;
+
+    return {
+        useUnistyles: () => ({ theme }),
+        StyleSheet: {
+            create: (fn: any) => (typeof fn === 'function' ? fn(theme) : fn),
         },
-    }),
-    StyleSheet: {
-        create: (fn: any) => {
-            const theme = {
-                colors: {
-                    gray50: '#f9fafb',
-                    gray200: '#e5e7eb',
-                    gray300: '#d1d5db',
-                    gray500: '#6b7280',
-                    gray700: '#374151',
-                    gray900: '#111827',
-                    white: '#fff',
-                    primary: '#007AFF',
-                },
-                spacing: { sm: 8, md: 12, lg: 16, xl: 20, '2xl': 24, '3xl': 32 },
-                typography: { sm: 14, base: 16, lg: 18, '3xl': 30, fontDisplay: 'System', fontSansSemiBold: 'System' },
-                borderRadius: { lg: 12 },
-            };
-            return typeof fn === 'function' ? fn(theme) : fn;
-        },
-    },
-}));
+        defaultTheme: theme,
+    };
+});
 
 // Mock RouteFilters
 jest.mock('@/components/RouteFilters', () => ({

@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
+import { colors } from '@/lib/design-tokens';
+import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface ConfirmDialogProps {
@@ -32,7 +34,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     style.id = styleId;
     style.textContent = `
       dialog.confirm-dialog::backdrop {
-        background-color: rgba(0, 0, 0, 0.5);
+        background-color: ${colors.overlay.medium};
       }
       dialog.confirm-dialog[open] {
         animation: confirm-dialog-fade-in 0.15s ease-out;
@@ -204,7 +206,10 @@ export function ConfirmDialog({
             backgroundColor: theme.colors.white,
             borderRadius: theme.borderRadius.xl,
             padding: isDesktop ? theme.desktop.dialog.containerPadding : theme.spacing.xl,
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            boxShadow: [
+              boxShadow(0, 20, 25, -5, theme.colors.black, 0.1),
+              boxShadow(0, 10, 10, -5, theme.colors.black, 0.04),
+            ].join(', '),
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -379,7 +384,7 @@ export function ConfirmDialog({
 const styles = StyleSheet.create((theme: Theme) => ({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: theme.spacing.xl,

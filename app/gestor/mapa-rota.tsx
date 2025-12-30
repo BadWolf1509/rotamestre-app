@@ -3,16 +3,10 @@
  * Layout otimizado baseado em melhores práticas SaaS 2024/2025
  */
 
-import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { View, ScrollView, TouchableOpacity, Platform } from 'react-native';
 
-import { ConfirmModal } from '@/components/ConfirmModal';
-import { DesktopCard } from '@/components/desktop/DesktopCard';
-import { DesktopModal } from '@/components/desktop/DesktopModal';
-import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
-import { SplitView } from '@/components/desktop/SplitView';
 import {
   ParadaCard,
   ParadaCardCompact,
@@ -34,8 +28,17 @@ import {
 } from '@/components/gestor/mapa-rota';
 import type { Parada, Rota, ResumoParadas, DraggableStopListControl } from '@/components/gestor/mapa-rota';
 import { MapaAdapter } from '@/components/MapaAdapter';
-import { Toast } from '@/components/Toast';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import {
+  Button,
+  ConfirmModal,
+  DesktopCard,
+  DesktopModal,
+  DesktopPageLayout,
+  SplitView,
+  Text,
+  Toast,
+} from '@/design-system';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
@@ -563,21 +566,23 @@ export default function MapaRota() {
               Você precisa selecionar uma rota para visualizar o mapa e paradas.
             </Text>
 
-            <TouchableOpacity
-              style={styles.primaryButton}
+            <Button
+              title="Ver Minhas Rotas"
+              variant="primary"
               onPress={() => router.push('/gestor/gestao-rotas')}
-            >
-              <Text style={styles.primaryButtonText}>* Ver Minhas Rotas</Text>
-            </TouchableOpacity>
+              style={styles.primaryButton}
+              fullWidth
+            />
 
             <Text style={styles.emptyStateOr}>Ou crie uma nova rota:</Text>
 
-            <TouchableOpacity
-              style={styles.secondaryButton}
+            <Button
+              title="Nova Rota"
+              variant="outline"
               onPress={() => router.push('/gestor/nova-entrega')}
-            >
-              <Text style={styles.secondaryButtonText}>+ Nova Rota</Text>
-            </TouchableOpacity>
+              style={styles.secondaryButton}
+              fullWidth
+            />
           </View>
         </View>
         {logoutModal}
@@ -592,9 +597,12 @@ export default function MapaRota() {
       <>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Rota não encontrada</Text>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>Voltar</Text>
-          </TouchableOpacity>
+          <Button
+            title="Voltar"
+            variant="primary"
+            onPress={() => router.back()}
+            style={styles.backButton}
+          />
         </View>
         {logoutModal}
       </>
@@ -637,7 +645,7 @@ export default function MapaRota() {
                   variant="elevated"
                   noPadding
                 >
-                  <View style={{ height: OPTIMIZED_MAP_HEIGHT }}>
+                  <View style={{ height: OPTIMIZED_MAP_HEIGHT }} testID="gestor-mapa-view">
                     <MapaAdapter
                       paradas={paradas}
                       selectedParadaId={selectedParadaId}
@@ -725,14 +733,14 @@ export default function MapaRota() {
                 variant="outlined"
               >
                 <BaseInfoContent pontosBase={pontosBase} />
-                <TouchableOpacity
-                  style={styles.baseInfoLink}
+                <Button
+                  title="Ver cadastro da unidade"
+                  icon="arrow-forward-outline"
+                  iconPosition="right"
+                  variant="ghost"
                   onPress={() => router.push('/unidade')}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.baseInfoLinkText}>Ver cadastro da unidade</Text>
-                  <Ionicons name="arrow-forward-outline" size={16} color={theme.colors.primary} />
-                </TouchableOpacity>
+                  style={styles.baseInfoLink}
+                />
               </DesktopCard>
             </View>
           )}
@@ -919,7 +927,7 @@ export default function MapaRota() {
         <View style={styles.content}>
           {paradas.length > 0 ? (
             <>
-              <View style={styles.mapContainer}>
+              <View style={styles.mapContainer} testID="gestor-mapa-view">
                 <MapaAdapter
                   paradas={paradas}
                   selectedParadaId={selectedParadaId}

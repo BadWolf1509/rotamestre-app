@@ -32,9 +32,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
-import { ConfirmModal } from '@/components/ConfirmModal';
-import { DesktopModal } from '@/components/desktop/DesktopModal';
-import { StepIndicator, type Step } from '@/components/StepIndicator';
+import { ConfirmModal, DesktopModal, StepIndicator, type Step } from '@/design-system';
 import { useIncidentSubmit } from '@/hooks/useIncidentSubmit';
 import { useResponsive } from '@/hooks/useResponsive';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';

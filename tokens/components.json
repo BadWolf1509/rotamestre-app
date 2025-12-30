@@ -1,0 +1,84 @@
+{
+  "button": {
+    "size": {
+      "small": {
+        "height": 36,
+        "paddingVertical": 8,
+        "paddingHorizontal": 12,
+        "fontSize": 14
+      },
+      "medium": {
+        "height": 44,
+        "paddingVertical": 12,
+        "paddingHorizontal": 16,
+        "fontSize": 16
+      },
+      "large": {
+        "height": 52,
+        "paddingVertical": 16,
+        "paddingHorizontal": 20,
+        "fontSize": 18
+      }
+    },
+    "radius": 10
+  },
+  "input": {
+    "size": {
+      "small": {
+        "height": 36,
+        "paddingHorizontal": 10,
+        "fontSize": 14
+      },
+      "medium": {
+        "height": 44,
+        "paddingHorizontal": 12,
+        "fontSize": 16
+      },
+      "large": {
+        "height": 52,
+        "paddingHorizontal": 14,
+        "fontSize": 18
+      }
+    },
+    "radius": 8
+  },
+  "modal": {
+    "headerPadding": 16,
+    "bodyPadding": 16,
+    "footerPadding": 16
+  },
+  "statsCard": {
+    "padding": 20,
+    "radius": 12,
+    "valueFontSize": 28,
+    "labelFontSize": 13,
+    "labelLetterSpacing": 0.5,
+    "iconSize": 20,
+    "iconContainerSize": 32,
+    "iconContainerRadius": 8,
+    "changeFontSize": 13
+  },
+  "table": {
+    "headerFontSize": 12,
+    "rowFontSize": 14,
+    "cellPaddingX": 8,
+    "cellPaddingY": 8,
+    "badgePaddingX": 12,
+    "badgePaddingY": 4,
+    "actionButtonPaddingX": 12,
+    "actionButtonPaddingY": 6,
+    "actionButtonFontSize": 13
+  },
+  "dialog": {
+    "maxWidth": 320,
+    "containerPadding": 16,
+    "iconCircleSize": 44,
+    "iconSize": 22,
+    "titleFontSize": 16,
+    "messageFontSize": 13,
+    "buttonHeight": 36,
+    "buttonPaddingV": 8,
+    "buttonPaddingH": 14,
+    "buttonGap": 10
+  }
+}

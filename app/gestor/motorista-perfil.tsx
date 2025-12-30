@@ -17,11 +17,6 @@ import {
   Platform,
 } from 'react-native';
 
-import { ConfirmModal } from '@/components/ConfirmModal';
-import { DesktopCard } from '@/components/desktop/DesktopCard';
-import { DesktopModal } from '@/components/desktop/DesktopModal';
-import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
-import { SplitView } from '@/components/desktop/SplitView';
 import {
   PerfilHeader,
   PerformanceKPIs,
@@ -29,12 +24,20 @@ import {
   styles,
 } from '@/components/gestor/motorista-perfil';
 import type { Motorista, MotoristaPerformance, RotaRecente } from '@/components/gestor/motorista-perfil';
-import { Toast } from '@/components/Toast';
+import {
+  ConfirmModal,
+  DesktopCard,
+  DesktopModal,
+  DesktopPageLayout,
+  SplitView,
+  Toast,
+} from '@/design-system';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
+import { withOpacity } from '@/utils/color';
 import { maskPhone, validatePhone, getPhoneErrorMessage } from '@/utils/phoneValidation';
 import { useUnistyles, StyleSheet } from '@/utils/styles';
 
@@ -313,7 +316,7 @@ export default function MotoristaPerfil() {
           disabled={salvando}
         >
           {salvando ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={theme.colors.white} />
           ) : (
             <Text style={editStyles.saveButtonText}>Salvar</Text>
           )}
@@ -578,7 +581,7 @@ const editStyles = StyleSheet.create((theme) => ({
   // Mobile modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: withOpacity(theme.colors.black, 0.5),
     justifyContent: 'flex-end',
   },
   modalContent: {

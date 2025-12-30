@@ -1,17 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  ScrollView,
-  ActivityIndicator,
-} from 'react-native';
+import { Alert, ScrollView, View } from 'react-native';
 
 import { FormDesktopLayout } from '@/components/perfil/FormDesktopLayout';
+import { Button, Input, Text } from '@/design-system';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
@@ -23,18 +16,15 @@ export default function AlterarSenha() {
   const { isDesktop } = useResponsive();
   const [saving, setSaving] = useState(false);
 
-  // Campos
   const [senhaAtual, setSenhaAtual] = useState('');
   const [novaSenha, setNovaSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
 
-  // Visibilidade das senhas
   const [showSenhaAtual, setShowSenhaAtual] = useState(false);
   const [showNovaSenha, setShowNovaSenha] = useState(false);
   const [showConfirmarSenha, setShowConfirmarSenha] = useState(false);
 
   async function handleSave() {
-    // Validações
     if (!senhaAtual) {
       Alert.alert('Erro', 'Digite sua senha atual');
       return;
@@ -52,7 +42,7 @@ export default function AlterarSenha() {
     }
 
     if (novaSenha !== confirmarSenha) {
-      Alert.alert('Erro', 'As senhas não coincidem');
+      Alert.alert('Erro', 'As senhas nao coincidem');
       return;
     }
 
@@ -64,23 +54,19 @@ export default function AlterarSenha() {
     setSaving(true);
 
     try {
-      // Verificar senha atual fazendo login novamente
       const session = await authService.getSession();
       if (!session?.user?.email) {
-        throw new Error('Sessão não encontrada');
+        throw new Error('Sessao nao encontrada');
       }
 
-      // Tentar fazer login com a senha atual para validar
       try {
         await authService.signIn(session.user.email, senhaAtual);
       } catch {
         throw new Error('Senha atual incorreta');
       }
 
-      // Atualizar senha
       await authService.updatePassword(novaSenha);
 
-      // Marcar primeira_senha como false se ainda não estiver
       await supabase
         .from('usuarios')
         .update({
@@ -97,7 +83,7 @@ export default function AlterarSenha() {
       ]);
     } catch (error: any) {
       console.error('Erro ao alterar senha:', error);
-      Alert.alert('Erro', error.message || 'Não foi possível alterar a senha');
+      Alert.alert('Erro', error.message || 'Nao foi possivel alterar a senha');
     } finally {
       setSaving(false);
     }
@@ -108,27 +94,22 @@ export default function AlterarSenha() {
     message: string;
     strength: 'weak' | 'medium' | 'strong' | 'invalid';
   } {
-    // Mínimo 8 caracteres
     if (password.length < 8) {
-      return { isValid: false, message: 'Mínimo 8 caracteres', strength: 'invalid' };
+      return { isValid: false, message: 'Minimo 8 caracteres', strength: 'invalid' };
     }
 
-    // Deve ter pelo menos uma letra maiúscula
     if (!/[A-Z]/.test(password)) {
-      return { isValid: false, message: 'Deve conter letra maiúscula', strength: 'invalid' };
+      return { isValid: false, message: 'Deve conter letra maiuscula', strength: 'invalid' };
     }
 
-    // Deve ter pelo menos uma letra minúscula
     if (!/[a-z]/.test(password)) {
-      return { isValid: false, message: 'Deve conter letra minúscula', strength: 'invalid' };
+      return { isValid: false, message: 'Deve conter letra minuscula', strength: 'invalid' };
     }
 
-    // Deve ter pelo menos um número
     if (!/[0-9]/.test(password)) {
-      return { isValid: false, message: 'Deve conter número', strength: 'invalid' };
+      return { isValid: false, message: 'Deve conter numero', strength: 'invalid' };
     }
 
-    // Verificar força da senha
     const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
     const isLong = password.length >= 12;
 
@@ -137,16 +118,15 @@ export default function AlterarSenha() {
     }
 
     if (hasSpecialChar || isLong) {
-      return { isValid: true, message: 'Senha média', strength: 'medium' };
+      return { isValid: true, message: 'Senha media', strength: 'medium' };
     }
 
-    return { isValid: true, message: 'Senha válida', strength: 'weak' };
+    return { isValid: true, message: 'Senha valida', strength: 'weak' };
   }
 
   const passwordStrength = novaSenha ? validatePassword(novaSenha) : null;
   const passwordsMatch = novaSenha && confirmarSenha && novaSenha === confirmarSenha;
 
-  // Desktop layout
   if (isDesktop) {
     const fields = [
       {
@@ -186,14 +166,14 @@ export default function AlterarSenha() {
         autoCapitalize: 'none' as const,
         helperText: confirmarSenha && passwordsMatch ? 'Senhas coincidem' : undefined,
         helperTextType: passwordsMatch ? 'success' as const : undefined,
-        error: confirmarSenha && !passwordsMatch ? 'Senhas não coincidem' : undefined,
+        error: confirmarSenha && !passwordsMatch ? 'Senhas nao coincidem' : undefined,
       },
     ];
 
     const sidePanel = (
       <View style={desktopStyles(theme).sidePanel}>
         <View style={desktopStyles(theme).tipsCard}>
-          <Text style={desktopStyles(theme).tipsTitle}>Requisitos obrigatórios:</Text>
+          <Text style={desktopStyles(theme).tipsTitle}>Requisitos obrigatorios:</Text>
           <View style={desktopStyles(theme).tipsList}>
             <View style={desktopStyles(theme).tipRow}>
               <Ionicons
@@ -202,7 +182,7 @@ export default function AlterarSenha() {
                 color={novaSenha.length >= 8 ? theme.colors.success : theme.colors.gray400}
               />
               <Text style={[desktopStyles(theme).tipText, novaSenha.length >= 8 && desktopStyles(theme).tipTextValid]}>
-                Mínimo de 8 caracteres
+                Minimo de 8 caracteres
               </Text>
             </View>
             <View style={desktopStyles(theme).tipRow}>
@@ -212,7 +192,7 @@ export default function AlterarSenha() {
                 color={/[A-Z]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
               />
               <Text style={[desktopStyles(theme).tipText, /[A-Z]/.test(novaSenha) && desktopStyles(theme).tipTextValid]}>
-                Letra maiúscula
+                Letra maiuscula
               </Text>
             </View>
             <View style={desktopStyles(theme).tipRow}>
@@ -222,7 +202,7 @@ export default function AlterarSenha() {
                 color={/[a-z]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
               />
               <Text style={[desktopStyles(theme).tipText, /[a-z]/.test(novaSenha) && desktopStyles(theme).tipTextValid]}>
-                Letra minúscula
+                Letra minuscula
               </Text>
             </View>
             <View style={desktopStyles(theme).tipRow}>
@@ -232,7 +212,7 @@ export default function AlterarSenha() {
                 color={/[0-9]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
               />
               <Text style={[desktopStyles(theme).tipText, /[0-9]/.test(novaSenha) && desktopStyles(theme).tipTextValid]}>
-                Número
+                Numero
               </Text>
             </View>
           </View>
@@ -269,7 +249,14 @@ export default function AlterarSenha() {
         subtitle="Crie uma senha forte para proteger sua conta"
         fields={fields}
         primaryButtonText="Alterar Senha"
-        primaryButtonDisabled={saving || !senhaAtual || !novaSenha || !confirmarSenha || !passwordsMatch || (passwordStrength ? !passwordStrength.isValid : true)}
+        primaryButtonDisabled={
+          saving ||
+          !senhaAtual ||
+          !novaSenha ||
+          !confirmarSenha ||
+          !passwordsMatch ||
+          (passwordStrength ? !passwordStrength.isValid : true)
+        }
         onPrimaryPress={handleSave}
         secondaryButtonText="Cancelar"
         onSecondaryPress={() => router.push('/perfil')}
@@ -280,11 +267,9 @@ export default function AlterarSenha() {
     );
   }
 
-  // Mobile layout
   return (
     <View style={styles(theme).container}>
       <ScrollView style={styles(theme).scrollView}>
-        {/* Header */}
         <View style={styles(theme).header}>
           <View style={styles(theme).headerContent}>
             <Text style={styles(theme).headerSubtitle}>
@@ -293,119 +278,72 @@ export default function AlterarSenha() {
           </View>
         </View>
 
-        {/* Formulário */}
         <View style={styles(theme).form}>
-          {/* Senha Atual */}
-          <View style={styles(theme).inputGroup}>
-            <Text style={styles(theme).inputLabel}>
-              Senha Atual <Text style={styles(theme).required}>*</Text>
-            </Text>
-            <View style={styles(theme).passwordContainer}>
-              <TextInput
-                style={styles(theme).input}
-                placeholder="Digite sua senha atual"
-                value={senhaAtual}
-                onChangeText={setSenhaAtual}
-                secureTextEntry={!showSenhaAtual}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <TouchableOpacity
-                style={styles(theme).passwordToggle}
-                onPress={() => setShowSenhaAtual(!showSenhaAtual)}
-              >
-                <Ionicons
-                  name={showSenhaAtual ? 'eye-off-outline' : 'eye-outline'}
-                  size={22}
-                  color={theme.colors.gray500}
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
+          <Input
+            label="Senha Atual"
+            required
+            placeholder="Digite sua senha atual"
+            value={senhaAtual}
+            onChangeText={setSenhaAtual}
+            secureTextEntry={!showSenhaAtual}
+            autoCapitalize="none"
+            autoCorrect={false}
+            rightIcon={showSenhaAtual ? 'eye-off-outline' : 'eye-outline'}
+            onRightIconPress={() => setShowSenhaAtual(!showSenhaAtual)}
+          />
 
-          {/* Nova Senha */}
-          <View style={styles(theme).inputGroup}>
-            <Text style={styles(theme).inputLabel}>
-              Nova Senha <Text style={styles(theme).required}>*</Text>
+          <Input
+            label="Nova Senha"
+            required
+            placeholder="Digite a nova senha"
+            value={novaSenha}
+            onChangeText={setNovaSenha}
+            secureTextEntry={!showNovaSenha}
+            autoCapitalize="none"
+            autoCorrect={false}
+            rightIcon={showNovaSenha ? 'eye-off-outline' : 'eye-outline'}
+            onRightIconPress={() => setShowNovaSenha(!showNovaSenha)}
+          />
+          {passwordStrength && (
+            <Text
+              style={[
+                styles(theme).helperText,
+                passwordStrength.strength === 'strong' && styles(theme).helperTextSuccess,
+                passwordStrength.strength === 'medium' && styles(theme).helperTextWarning,
+                !passwordStrength.isValid && styles(theme).helperTextError,
+              ]}
+            >
+              {passwordStrength.message}
             </Text>
-            <View style={styles(theme).passwordContainer}>
-              <TextInput
-                style={styles(theme).input}
-                placeholder="Digite a nova senha"
-                value={novaSenha}
-                onChangeText={setNovaSenha}
-                secureTextEntry={!showNovaSenha}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <TouchableOpacity
-                style={styles(theme).passwordToggle}
-                onPress={() => setShowNovaSenha(!showNovaSenha)}
-              >
-                <Ionicons
-                  name={showNovaSenha ? 'eye-off-outline' : 'eye-outline'}
-                  size={22}
-                  color={theme.colors.gray500}
-                />
-              </TouchableOpacity>
-            </View>
-            {passwordStrength && (
-              <Text
-                style={[
-                  styles(theme).helperText,
-                  passwordStrength.strength === 'strong' && styles(theme).helperTextSuccess,
-                  passwordStrength.strength === 'medium' && styles(theme).helperTextWarning,
-                  !passwordStrength.isValid && styles(theme).helperTextError,
-                ]}
-              >
-                {passwordStrength.message}
-              </Text>
-            )}
-          </View>
+          )}
 
-          {/* Confirmar Senha */}
-          <View style={styles(theme).inputGroup}>
-            <Text style={styles(theme).inputLabel}>
-              Confirmar Nova Senha <Text style={styles(theme).required}>*</Text>
+          <Input
+            label="Confirmar Nova Senha"
+            required
+            placeholder="Digite a senha novamente"
+            value={confirmarSenha}
+            onChangeText={setConfirmarSenha}
+            secureTextEntry={!showConfirmarSenha}
+            autoCapitalize="none"
+            autoCorrect={false}
+            rightIcon={showConfirmarSenha ? 'eye-off-outline' : 'eye-outline'}
+            onRightIconPress={() => setShowConfirmarSenha(!showConfirmarSenha)}
+          />
+          {confirmarSenha && (
+            <Text
+              style={[
+                styles(theme).helperText,
+                passwordsMatch
+                  ? styles(theme).helperTextSuccess
+                  : styles(theme).helperTextError,
+              ]}
+            >
+              {passwordsMatch ? 'Senhas coincidem' : 'Senhas nao coincidem'}
             </Text>
-            <View style={styles(theme).passwordContainer}>
-              <TextInput
-                style={styles(theme).input}
-                placeholder="Digite a senha novamente"
-                value={confirmarSenha}
-                onChangeText={setConfirmarSenha}
-                secureTextEntry={!showConfirmarSenha}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <TouchableOpacity
-                style={styles(theme).passwordToggle}
-                onPress={() => setShowConfirmarSenha(!showConfirmarSenha)}
-              >
-                <Ionicons
-                  name={showConfirmarSenha ? 'eye-off-outline' : 'eye-outline'}
-                  size={22}
-                  color={theme.colors.gray500}
-                />
-              </TouchableOpacity>
-            </View>
-            {confirmarSenha && (
-              <Text
-                style={[
-                  styles(theme).helperText,
-                  passwordsMatch
-                    ? styles(theme).helperTextSuccess
-                    : styles(theme).helperTextError,
-                ]}
-              >
-                {passwordsMatch ? 'Senhas coincidem' : 'Senhas não coincidem'}
-              </Text>
-            )}
-          </View>
+          )}
 
-          {/* Requisitos de Senha */}
           <View style={styles(theme).tipsContainer}>
-            <Text style={styles(theme).tipsTitle}>Requisitos obrigatórios:</Text>
+            <Text style={styles(theme).tipsTitle}>Requisitos obrigatorios:</Text>
             <View style={styles(theme).tipRow}>
               <Ionicons
                 name={novaSenha.length >= 8 ? 'checkmark-circle' : 'ellipse-outline'}
@@ -413,7 +351,7 @@ export default function AlterarSenha() {
                 color={novaSenha.length >= 8 ? theme.colors.success : theme.colors.gray400}
               />
               <Text style={[styles(theme).tipText, novaSenha.length >= 8 && styles(theme).tipTextValid]}>
-                Mínimo de 8 caracteres
+                Minimo de 8 caracteres
               </Text>
             </View>
             <View style={styles(theme).tipRow}>
@@ -423,7 +361,7 @@ export default function AlterarSenha() {
                 color={/[A-Z]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
               />
               <Text style={[styles(theme).tipText, /[A-Z]/.test(novaSenha) && styles(theme).tipTextValid]}>
-                Letra maiúscula
+                Letra maiuscula
               </Text>
             </View>
             <View style={styles(theme).tipRow}>
@@ -433,7 +371,7 @@ export default function AlterarSenha() {
                 color={/[a-z]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
               />
               <Text style={[styles(theme).tipText, /[a-z]/.test(novaSenha) && styles(theme).tipTextValid]}>
-                Letra minúscula
+                Letra minuscula
               </Text>
             </View>
             <View style={styles(theme).tipRow}>
@@ -443,7 +381,7 @@ export default function AlterarSenha() {
                 color={/[0-9]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
               />
               <Text style={[styles(theme).tipText, /[0-9]/.test(novaSenha) && styles(theme).tipTextValid]}>
-                Número
+                Numero
               </Text>
             </View>
 
@@ -470,30 +408,23 @@ export default function AlterarSenha() {
             </View>
           </View>
 
-          {/* Botões inline */}
           <View style={styles(theme).buttonsContainer}>
-            <TouchableOpacity
-              style={styles(theme).buttonSecondary}
+            <Button
+              title="Cancelar"
+              variant="outline"
               onPress={() => router.push('/perfil')}
               disabled={saving}
-            >
-              <Text style={styles(theme).buttonSecondaryText}>Cancelar</Text>
-            </TouchableOpacity>
+              style={styles(theme).buttonSecondary}
+            />
 
-            <TouchableOpacity
-              style={[
-                styles(theme).buttonPrimary,
-                (saving || !passwordStrength?.isValid || !passwordsMatch || !senhaAtual) && styles(theme).buttonDisabled,
-              ]}
+            <Button
+              title="Salvar"
+              variant="secondary"
               onPress={handleSave}
+              loading={saving}
               disabled={saving || !passwordStrength?.isValid || !passwordsMatch || !senhaAtual}
-            >
-              {saving ? (
-                <ActivityIndicator color={theme.colors.white} />
-              ) : (
-                <Text style={styles(theme).buttonPrimaryText}>Salvar</Text>
-              )}
-            </TouchableOpacity>
+              style={styles(theme).buttonPrimary}
+            />
           </View>
         </View>
       </ScrollView>
@@ -579,41 +510,11 @@ const styles = (theme: any) =>
       padding: 20,
       marginBottom: 24,
     },
-    inputGroup: {
-      marginBottom: 20,
-    },
-    inputLabel: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: theme.colors.gray700,
-      marginBottom: 8,
-    },
-    required: {
-      color: theme.colors.error,
-    },
-    passwordContainer: {
-      position: 'relative',
-    },
-    input: {
-      borderWidth: 1,
-      borderColor: theme.colors.gray300,
-      borderRadius: 8,
-      padding: 12,
-      paddingRight: 48,
-      fontSize: 16,
-      color: theme.colors.gray900,
-      backgroundColor: theme.colors.white,
-    },
-    passwordToggle: {
-      position: 'absolute',
-      right: 12,
-      top: 12,
-      padding: 4,
-    },
     helperText: {
       fontSize: 12,
       color: theme.colors.gray500,
-      marginTop: 4,
+      marginBottom: 12,
+      marginTop: -8,
     },
     helperTextSuccess: {
       color: theme.colors.success,
@@ -656,35 +557,8 @@ const styles = (theme: any) =>
     },
     buttonPrimary: {
       flex: 1,
-      backgroundColor: theme.colors.secondary,
-      padding: 16,
-      borderRadius: 8,
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: 50,
-    },
-    buttonPrimaryText: {
-      color: theme.colors.white,
-      fontSize: 16,
-      fontWeight: '600',
     },
     buttonSecondary: {
       flex: 1,
-      backgroundColor: theme.colors.white,
-      padding: 16,
-      borderRadius: 8,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: theme.colors.gray300,
-      minHeight: 50,
-    },
-    buttonSecondaryText: {
-      color: theme.colors.gray700,
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    buttonDisabled: {
-      opacity: 0.6,
     },
   });

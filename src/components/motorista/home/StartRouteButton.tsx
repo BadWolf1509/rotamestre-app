@@ -15,6 +15,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 
+import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface StartRouteButtonProps {
@@ -187,12 +188,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   subtitle: {
     fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.85)',
+    color: withOpacity(theme.colors.white, 0.85),
     marginTop: 2,
   },
   errorText: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: withOpacity(theme.colors.white, 0.7),
     marginTop: 2,
   },
 }));

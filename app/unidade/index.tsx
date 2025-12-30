@@ -11,19 +11,22 @@ import {
   Platform,
 } from 'react-native';
 
-import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { MobileCard } from '@/components/mobile/MobileCard';
-import { MobileLoading } from '@/components/mobile/MobileLoading';
-import { Toast } from '@/components/Toast';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import {
+  DesktopPageLayout,
+  MobileCard,
+  MobileLoading,
+  Toast,
+} from '@/design-system';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
+import { boxShadow } from '@/utils/color';
 import { cleanPhone, formatPhone } from '@/utils/phoneValidation';
-import { StyleSheet, type Theme } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface UnidadeData {
   id: string;
@@ -47,6 +50,7 @@ const formatCnpj = (value?: string | null): string => {
 
 export default function UnidadeScreen() {
   const router = useRouter();
+  const { theme } = useUnistyles();
   const { userData, loading: userLoading } = useUser();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
@@ -313,7 +317,7 @@ export default function UnidadeScreen() {
                 disabled={saving}
               >
                 {saving ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={theme.colors.white} />
                 ) : (
                   <Text style={styles.buttonText}>Salvar</Text>
                 )}
@@ -502,7 +506,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
       // @ts-ignore - web-only CSS
       ':hover': {
         borderColor: theme.colors.primary,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+        boxShadow: boxShadow(0, 4, 12, 0, theme.colors.black, 0.08),
         transform: 'translateY(-2px)',
       },
     }),

@@ -57,18 +57,20 @@ jest.mock('@/services/performanceOptimizer', () => ({
 
 // Mock unistyles
 jest.mock('@/utils/styles', () => ({
+    ...jest.requireActual('@/utils/styles'),
     useUnistyles: () => ({
         theme: {
             colors: {
                 primary: '#007AFF',
+                secondary: '#666666',
+                white: '#ffffff',
+                black: '#000000',
+                gray300: '#d1d5db',
+                gray400: '#9ca3af',
+                error: '#ef4444',
             },
         },
     }),
-    defaultTheme: {
-        colors: {
-            secondary: '#666',
-        },
-    },
 }));
 
 // Mock Ionicons

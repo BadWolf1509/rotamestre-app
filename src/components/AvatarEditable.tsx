@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 
+import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
 interface AvatarEditableProps {
@@ -236,7 +237,7 @@ const styles = (theme: any) => StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: withOpacity(theme.colors.black, 0.5),
     justifyContent: 'center',
     alignItems: 'center',
   },

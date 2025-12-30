@@ -5,9 +5,32 @@ exports[`Card deve aplicar estilos de padding 1`] = `
   activeOpacity={1}
   style={
     [
-      undefined,
-      undefined,
-      undefined,
+      {
+        "backgroundColor": "#ffffff",
+        "borderRadius": 12,
+      },
+      {
+        "boxShadow": "0px 2px 4px rgba(0, 0, 0, 0.1)",
+        "elevation": 3,
+        "shadowColor": "#000",
+        "shadowOffset": {
+          "height": 2,
+          "width": 0,
+        },
+        "shadowOpacity": 0.1,
+        "shadowRadius": 4,
+      },
+      {
+        "shadowOffset": {
+          "height": 2,
+          "width": 0,
+        },
+        "shadowOpacity": 0.12,
+        "shadowRadius": 6,
+      },
+      {
+        "padding": 20,
+      },
       undefined,
     ]
   }
@@ -23,9 +46,18 @@ exports[`Card deve aplicar estilos de variante 1`] = `
   activeOpacity={1}
   style={
     [
+      {
+        "backgroundColor": "#ffffff",
+        "borderRadius": 12,
+      },
+      {
+        "borderColor": "#e5e7eb",
+        "borderWidth": 1,
+      },
       undefined,
-      undefined,
-      undefined,
+      {
+        "padding": 16,
+      },
       undefined,
     ]
   }

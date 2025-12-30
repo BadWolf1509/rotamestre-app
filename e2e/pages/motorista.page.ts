@@ -12,6 +12,9 @@ export class MotoristaPage {
   readonly paradasTab: Locator;
   readonly mapaTab: Locator;
   readonly historicoTab: Locator;
+  readonly paradasList: Locator;
+  readonly mapaView: Locator;
+  readonly historicoList: Locator;
 
   // Header
   readonly header: Locator;
@@ -35,19 +38,22 @@ export class MotoristaPage {
     this.page = page;
 
     // Tab Bar locators
-    this.tabBar = page.locator('[data-testid="tab-bar"], [role="tablist"]');
-    this.inicioTab = page.getByRole('tab', { name: /in[ií]cio/i }).or(
-      page.locator('[data-testid="tab-inicio"]')
+    this.tabBar = page.locator('[role="tablist"]').or(page.locator('[data-testid="tab-bar"]'));
+    this.inicioTab = page.locator('[data-testid="tab-inicio"]').or(
+      page.getByRole('tab', { name: /inicio/i })
     );
-    this.paradasTab = page.getByRole('tab', { name: /paradas/i }).or(
-      page.locator('[data-testid="tab-paradas"]')
+    this.paradasTab = page.locator('[data-testid="tab-paradas"]').or(
+      page.getByRole('tab', { name: /paradas/i })
     );
-    this.mapaTab = page.getByRole('tab', { name: /mapa/i }).or(
-      page.locator('[data-testid="tab-mapa"]')
+    this.mapaTab = page.locator('[data-testid="tab-mapa"]').or(
+      page.getByRole('tab', { name: /mapa/i })
     );
-    this.historicoTab = page.getByRole('tab', { name: /hist[oó]rico/i }).or(
-      page.locator('[data-testid="tab-historico"]')
+    this.historicoTab = page.locator('[data-testid="tab-historico"]').or(
+      page.getByRole('tab', { name: /historico/i })
     );
+    this.paradasList = page.locator('[data-testid="motorista-checkpoints-list"]');
+    this.mapaView = page.locator('[data-testid="motorista-mapa-view"]');
+    this.historicoList = page.locator('[data-testid="motorista-historico-list"]');
 
     // Header
     this.header = page.locator('header, [data-testid="header"]');
@@ -81,21 +87,25 @@ export class MotoristaPage {
 
   // Tab navigation
   async navigateToInicio() {
+    await this.inicioTab.waitFor({ state: 'visible', timeout: 30000 });
     await this.inicioTab.click();
     await this.page.waitForLoadState('networkidle');
   }
 
   async navigateToParadas() {
+    await this.paradasTab.waitFor({ state: 'visible', timeout: 30000 });
     await this.paradasTab.click();
     await this.page.waitForLoadState('networkidle');
   }
 
   async navigateToMapa() {
+    await this.mapaTab.waitFor({ state: 'visible', timeout: 30000 });
     await this.mapaTab.click();
     await this.page.waitForLoadState('networkidle');
   }
 
   async navigateToHistorico() {
+    await this.historicoTab.waitFor({ state: 'visible', timeout: 30000 });
     await this.historicoTab.click();
     await this.page.waitForLoadState('networkidle');
   }

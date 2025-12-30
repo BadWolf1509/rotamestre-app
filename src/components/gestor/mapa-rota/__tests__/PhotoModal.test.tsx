@@ -18,31 +18,6 @@ jest.mock('@/hooks/useResponsive', () => ({
 }));
 
 // Mock useUnistyles
-jest.mock('@/utils/styles', () => ({
-  useUnistyles: () => ({
-    theme: {
-      colors: {
-        primary: '#FF6B00',
-        primaryBg: '#FFF5EB',
-        gray400: '#9CA3AF',
-        gray500: '#6B7280',
-        gray100: '#F3F4F6',
-      },
-      spacing: { xs: 4, sm: 8, md: 16, xl: 32 },
-      typography: { sm: 14, fontSans: 'System', fontSansSemiBold: 'System-SemiBold' },
-      borderRadius: { md: 8 },
-    },
-  }),
-  StyleSheet: {
-    create: (fn: any) => fn({
-      colors: { primary: '#FF6B00', primaryBg: '#FFF5EB', gray100: '#F3F4F6', gray500: '#6B7280' },
-      spacing: { xs: 4, sm: 8, md: 16, xl: 32 },
-      typography: { sm: 14, fontSans: 'System', fontSansSemiBold: 'System-SemiBold' },
-      borderRadius: { md: 8 },
-    }),
-  },
-}));
-
 // Mock DesktopModal
 jest.mock('@/components/desktop/DesktopModal', () => ({
   DesktopModal: ({ visible, children, title, onClose }: any) => {

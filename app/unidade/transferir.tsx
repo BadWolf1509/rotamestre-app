@@ -2,19 +2,22 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   ScrollView,
   Alert,
-  TextInput,
 } from 'react-native';
 
-import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { MobileCard } from '@/components/mobile/MobileCard';
-import { MobileLoading } from '@/components/mobile/MobileLoading';
-import { Toast } from '@/components/Toast';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import {
+  DesktopPageLayout,
+  Button,
+  Input,
+  MobileCard,
+  MobileLoading,
+  Text,
+  Toast,
+} from '@/design-system';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
@@ -228,28 +231,31 @@ export default function TransferirGestaoScreen() {
               Para confirmar, digite <Text style={styles.confirmationKeyword}>TRANSFERIR</Text>
               {' '}no campo abaixo.
             </Text>
-            <TextInput
-              style={[styles.confirmationInput, isDesktopView && styles.confirmationInputDesktop]}
+            <Input
               value={confirmationText}
               onChangeText={setConfirmationText}
               placeholder="TRANSFERIR"
               autoCapitalize="characters"
+              size={isDesktopView ? 'small' : 'medium'}
+              style={styles.confirmationInput}
+              containerStyle={styles.confirmationInputContainer}
             />
             <View style={styles.confirmationButtons}>
-              <TouchableOpacity
-                style={[styles.button, isDesktopView && styles.buttonDesktop, styles.buttonSecondary]}
+              <Button
+                title="Cancelar"
+                variant="outline"
                 onPress={handleCancelConfirmation}
                 disabled={transferring}
-              >
-                <Text style={[styles.buttonTextSecondary, isDesktopView && styles.buttonTextDesktop]}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, isDesktopView && styles.buttonDesktop, styles.buttonDanger, transferring && styles.buttonDisabled]}
+                style={styles.confirmationButton}
+              />
+              <Button
+                title="Confirmar"
+                variant="danger"
                 onPress={handleConfirmTransfer}
+                loading={transferring}
                 disabled={transferring}
-              >
-                <Text style={[styles.buttonText, isDesktopView && styles.buttonTextDesktop]}>Confirmar</Text>
-              </TouchableOpacity>
+                style={styles.confirmationButton}
+              />
             </View>
           </View>
         </View>
@@ -610,64 +616,23 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.error,
   },
   confirmationInput: {
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  confirmationInputContainer: {
+    marginBottom: 24,
     borderWidth: 2,
     borderColor: theme.colors.error,
     borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    textAlign: 'center',
-    fontWeight: 'bold',
-    marginBottom: 24,
     backgroundColor: theme.colors.surface,
-    minHeight: 48,
-  },
-  confirmationInputDesktop: {
-    paddingHorizontal: theme.desktop.input.paddingHorizontal,
-    paddingVertical: 0,
-    fontSize: theme.desktop.input.fontSize,
-    minHeight: theme.desktop.input.height,
   },
   confirmationButtons: {
     flexDirection: 'row',
     gap: 12,
   },
-  button: {
+  confirmationButton: {
     flex: 1,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  buttonDesktop: {
-    paddingVertical: 6,
-    paddingHorizontal: theme.desktop.button.paddingHorizontal,
-    minHeight: theme.desktop.button.height,
-  },
-  buttonPrimary: {
-    backgroundColor: theme.colors.primary,
-  },
-  buttonSecondary: {
-    backgroundColor: theme.colors.surface,
-    borderWidth: 2,
-    borderColor: theme.colors.border,
-  },
-  buttonDanger: {
-    backgroundColor: theme.colors.error,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: theme.colors.surface,
-  },
-  buttonTextDesktop: {
-    fontSize: theme.desktop.button.fontSize,
-  },
-  buttonTextSecondary: {
-    color: theme.colors.text,
   },
   listSection: {
     backgroundColor: theme.colors.surface,

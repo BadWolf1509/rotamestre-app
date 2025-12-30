@@ -1,0 +1,38 @@
+{
+  "text": {
+    "primary": "#e5e7eb",
+    "secondary": "#9ca3af",
+    "tertiary": "#6b7280",
+    "inverse": "#111827"
+  },
+  "surface": {
+    "background": "#0f1419",
+    "surface": "#1a2029",
+    "card": "#1f2937"
+  },
+  "border": {
+    "default": "#374151",
+    "divider": "#374151"
+  },
+  "status": {
+    "success": "#34d399",
+    "successBg": "#064e3b",
+    "warning": "#fbbf24",
+    "warningBg": "#451a03",
+    "warningText": "#fbbf24",
+    "error": "#f87171",
+    "errorBg": "#450a0a",
+    "info": "#60a5fa",
+    "infoBg": "#1e3a5f",
+    "muted": "#9ca3af"
+  },
+  "incident": {
+    "accident": "#ef4444",
+    "absent": "#f59e0b",
+    "wrongAddress": "#3b82f6",
+    "blocked": "#8b5cf6",
+    "vehicle": "#ec4899",
+    "weather": "#06b6d4",
+    "other": "#6b7280"
+  }
+}

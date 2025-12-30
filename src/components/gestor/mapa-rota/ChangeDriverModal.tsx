@@ -23,7 +23,7 @@ import {
 } from 'react-native';
 // Note: Platform is still used for web cursor styles in motoristaItem
 
-import { DesktopModal } from '@/components/desktop/DesktopModal';
+import { DesktopModal } from '@/design-system';
 import { useResponsive } from '@/hooks/useResponsive';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';

@@ -7,6 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { Component, ReactNode } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
+import { defaultTheme } from '@/utils/styles';
+
 interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode;
@@ -61,11 +63,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         return this.props.fallback;
       }
 
-      return (
+          return (
         <View style={styles.container}>
           <View style={styles.content}>
             <View style={styles.iconContainer}>
-              <Ionicons name="alert-circle-outline" size={64} color="#EF4444" />
+              <Ionicons name="alert-circle-outline" size={64} color={defaultTheme.colors.error} />
             </View>
             <Text style={styles.title}>Algo deu errado</Text>
             <Text style={styles.message}>
@@ -82,7 +84,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               accessibilityLabel="Tentar novamente"
               accessibilityRole="button"
             >
-              <Ionicons name="refresh-outline" size={20} color="#FFFFFF" />
+              <Ionicons name="refresh-outline" size={20} color={defaultTheme.colors.white} />
               <Text style={styles.buttonText}>Tentar Novamente</Text>
             </TouchableOpacity>
           </View>
@@ -97,19 +99,19 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: defaultTheme.colors.gray50,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   content: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: defaultTheme.colors.white,
     borderRadius: 16,
     padding: 32,
     alignItems: 'center',
     maxWidth: 400,
     width: '100%',
-    shadowColor: '#000',
+    shadowColor: defaultTheme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -121,24 +123,24 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#111827',
+    color: defaultTheme.colors.gray900,
     marginBottom: 8,
     textAlign: 'center',
   },
   message: {
     fontSize: 14,
-    color: '#6B7280',
+    color: defaultTheme.colors.gray500,
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 20,
   },
   errorDetail: {
     fontSize: 12,
-    color: '#EF4444',
+    color: defaultTheme.colors.error,
     textAlign: 'center',
     marginBottom: 16,
     fontFamily: 'monospace',
-    backgroundColor: '#FEF2F2',
+    backgroundColor: defaultTheme.colors.red50,
     padding: 12,
     borderRadius: 8,
     width: '100%',
@@ -147,14 +149,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#3B82F6',
+    backgroundColor: defaultTheme.colors.info,
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
     gap: 8,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: defaultTheme.colors.white,
     fontSize: 16,
     fontWeight: '600',
   },

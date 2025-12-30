@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
+import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // ============================================
@@ -72,6 +73,7 @@ export interface DataTableProps<T = any> {
   isLoading?: boolean;
   /** Número de linhas skeleton a exibir durante loading */
   skeletonRows?: number;
+  testID?: string;
 }
 
 // ============================================
@@ -131,6 +133,7 @@ export function DataTable<T = any>({
   onSort,
   isLoading = false,
   skeletonRows = 5,
+  testID,
 }: DataTableProps<T>) {
   const { isMobile, isTablet } = useResponsive();
   const { theme } = useUnistyles();
@@ -169,7 +172,7 @@ export function DataTable<T = any>({
     // Mobile Skeleton
     if (isMobile || isTablet) {
       return (
-        <View style={styles.container}>
+        <View style={styles.container} testID={testID}>
           {title && <Text style={styles.title}>{title}</Text>}
           <ScrollView style={styles.mobileContainer}>
             {Array.from({ length: skeletonRows }).map((_, index) => (
@@ -192,7 +195,7 @@ export function DataTable<T = any>({
 
     // Desktop Skeleton
     return (
-      <View style={styles.container}>
+      <View style={styles.container} testID={testID}>
         {title && <Text style={styles.title}>{title}</Text>}
         <View style={styles.tableContainer}>
           {/* Table Header */}
@@ -249,7 +252,7 @@ export function DataTable<T = any>({
   // ============================================
   if (data.length === 0) {
     return (
-      <View style={styles.container}>
+      <View style={styles.container} testID={testID}>
         {title && <Text style={styles.title}>{title}</Text>}
         {emptyState || (
           <View style={styles.emptyState}>
@@ -265,7 +268,7 @@ export function DataTable<T = any>({
   // ============================================
   if (isMobile || isTablet) {
     return (
-      <View style={styles.container}>
+      <View style={styles.container} testID={testID}>
         {title && <Text style={styles.title}>{title}</Text>}
 
         <ScrollView style={styles.mobileContainer}>
@@ -372,7 +375,7 @@ export function DataTable<T = any>({
   // DESKTOP VIEW (Table)
   // ============================================
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID={testID}>
       {title && <Text style={styles.title}>{title}</Text>}
 
       <View style={styles.tableContainer}>
@@ -566,7 +569,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.sm,
     borderWidth: 1,
     borderColor: theme.colors.gray200,
-    shadowColor: '#000',
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -718,7 +721,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
       ':hover': {
         backgroundColor: theme.colors.primary + '15', // 15% opacity
         transform: 'translateY(-1px)',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        boxShadow: boxShadow(0, 2, 4, 0, theme.colors.black, 0.1),
       },
     } as any)),
   },

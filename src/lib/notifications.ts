@@ -10,6 +10,8 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import { defaultTheme } from '@/utils/styles';
+
 import { supabase } from './supabase';
 
 const NOTIFICATION_SETTINGS_KEY = '@rotamestre:notification_settings';
@@ -378,12 +380,14 @@ export async function unregisterPushToken(userId: string): Promise<void> {
 async function setupNotificationChannels(): Promise<void> {
   if (Platform.OS !== 'android') return;
 
+  const { colors } = defaultTheme;
+
   // Canal padrão
   await Notifications.setNotificationChannelAsync('default', {
     name: 'Notificações Gerais',
     importance: Notifications.AndroidImportance.DEFAULT,
     vibrationPattern: [0, 250, 250, 250],
-    lightColor: '#FF8C42',
+    lightColor: colors.warning,
   });
 
   // Canal de emergência (SOS, incidentes)
@@ -391,7 +395,7 @@ async function setupNotificationChannels(): Promise<void> {
     name: 'Emergências',
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 500, 250, 500],
-    lightColor: '#FF0000',
+    lightColor: colors.error,
     sound: 'default',
     bypassDnd: true, // Ignora "Não Perturbe"
   });

@@ -5,7 +5,8 @@
  * Centralizadas para manter consistência visual e facilitar manutenção.
  */
 
-import { escapeHtml, INFO_WINDOW_ANIMATION_CSS, INFO_WINDOW_COLORS } from '@/lib/utils';
+import { escapeHtml } from '@/lib/utils';
+import { INFO_WINDOW_ANIMATION_CSS, INFO_WINDOW_COLORS } from '@/utils/webTokens';
 
 // ============================================================================
 // Types
@@ -26,17 +27,18 @@ export interface ParadaInfo {
 // ============================================================================
 
 export function getStatusColor(status?: string): string {
+  const statusColors = INFO_WINDOW_COLORS.status;
   switch (status) {
     case 'concluida':
-      return '#10b981'; // verde (success)
+      return statusColors.success;
     case 'em_andamento':
-      return '#3b82f6'; // azul (info) - parada sendo navegada
+      return statusColors.info;
     case 'cancelada':
-      return '#ef4444'; // vermelho (error)
+      return statusColors.error;
     case 'pulada':
-      return '#6b7280'; // cinza (pulada)
+      return statusColors.muted;
     default:
-      return '#f59e0b'; // amarelo (pendente/warning)
+      return statusColors.warning;
   }
 }
 
@@ -117,7 +119,7 @@ export function buildInfoContent(parada: ParadaInfo): string {
       <div style="font-size:13px;margin-bottom:8px;line-height:18px;">${escapeHtml(parada.endereco)}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
         <span style="padding:4px 8px;border-radius:12px;background:${statusColor}15;color:${statusColor};font-weight:600;font-size:12px;">${statusLabel}</span>
-        ${parada.tipo ? `<span style="padding:4px 8px;border-radius:12px;background:#e0f2fe;color:${text.primary};font-weight:600;font-size:12px;text-transform:capitalize;">${escapeHtml(parada.tipo)}</span>` : ''}
+        ${parada.tipo ? `<span style="padding:4px 8px;border-radius:12px;background:${INFO_WINDOW_COLORS.background.info};color:${text.primary};font-weight:600;font-size:12px;text-transform:capitalize;">${escapeHtml(parada.tipo)}</span>` : ''}
       </div>
       ${parada.destinatario ? `<div style="font-size:12px;color:${text.secondary};margin-bottom:4px;"><strong>Destinatário:</strong> ${escapeHtml(parada.destinatario)}</div>` : ''}
       ${parada.telefone ? `<div style="font-size:12px;color:${text.secondary};"><strong>Telefone:</strong> ${escapeHtml(parada.telefone)}</div>` : ''}

@@ -16,6 +16,7 @@ export class GestorPage {
 
   // Dashboard
   readonly dashboardCards: Locator;
+  readonly dashboardReady: Locator;
   readonly rotasPendentes: Locator;
   readonly rotasEmAndamento: Locator;
   readonly rotasConcluidas: Locator;
@@ -69,6 +70,7 @@ export class GestorPage {
 
     // Dashboard Cards
     this.dashboardCards = page.locator('[data-testid="dashboard-card"], .dashboard-card, .stat-card');
+    this.dashboardReady = page.getByText(/total hoje/i);
     this.rotasPendentes = page.getByText(/pendente/i).first();
     this.rotasEmAndamento = page.getByText(/em.*andamento/i).first();
     this.rotasConcluidas = page.getByText(/conclu[ií]da/i).first();

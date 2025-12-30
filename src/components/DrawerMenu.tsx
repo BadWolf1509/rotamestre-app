@@ -14,8 +14,8 @@ import {
   ActionSheetIOS,
 } from 'react-native';
 
-import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useRouteStatus } from '@/context/RouteStatusContext';
+import { ConfirmDialog } from '@/design-system';
 import { useUser } from '@/hooks/useUser';
 import { getVersionString } from '@/lib/appVersion';
 import { supabase } from '@/lib/supabase';
@@ -464,7 +464,7 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
 const styles = StyleSheet.create((theme: Theme) => ({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'flex-start',
   },
   drawer: {
@@ -472,7 +472,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     maxWidth: 320,
     height: '100%',
     backgroundColor: theme.colors.white,
-    shadowColor: '#000',
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 2, height: 0 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
@@ -630,7 +630,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   // Estilos do modal de contato (Web)
   contactModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -642,7 +642,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.xl,
     padding: theme.spacing.xl,
-    shadowColor: '#000',
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,

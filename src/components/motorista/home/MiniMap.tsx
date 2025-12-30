@@ -4,6 +4,7 @@ import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'rea
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { useRouteDirections } from '@/hooks/useRouteDirections';
+import { withOpacity } from '@/utils/color';
 import { defaultTheme } from '@/utils/styles';
 
 const colors = defaultTheme.colors;
@@ -31,6 +32,7 @@ interface MiniMapProps {
   onOpenFullMap?: () => void;
   onOpenPiP?: () => void;
   route?: Rota;
+  testID?: string;
 }
 
 export function MiniMap({
@@ -41,6 +43,7 @@ export function MiniMap({
   onOpenFullMap,
   onOpenPiP,
   route,
+  testID,
 }: MiniMapProps) {
   const height = expanded ? 300 : 150;
   const mapRef = useRef<MapView>(null);
@@ -151,7 +154,7 @@ export function MiniMap({
   }, []);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID={testID}>
       <TouchableOpacity
         style={[styles.mapContainer, { height }]}
         onPress={onOpenFullMap}
@@ -349,7 +352,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   expandButton: {
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: withOpacity(colors.black, 0.5),
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -369,7 +372,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+    backgroundColor: withOpacity(colors.info, 0.2),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -413,12 +416,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: colors.primary,
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 3,
   },
 });
-
-

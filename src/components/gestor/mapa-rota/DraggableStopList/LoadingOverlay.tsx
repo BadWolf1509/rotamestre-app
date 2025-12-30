@@ -5,6 +5,7 @@
 import React, { memo } from 'react';
 import { View, Text, ActivityIndicator, Platform } from 'react-native';
 
+import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export interface LoadingOverlayProps {
@@ -44,7 +45,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: withOpacity(theme.colors.white, 0.9),
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,

@@ -69,7 +69,7 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
       return;
     }
 
-    // ✅ CRÍTICO: Definir token ANTES de criar o canal (workaround para Issue #1304)
+    // ✅ CRÍTICO: Definir token ANTES de criar o canal (workaround para Issue 1304)
     // https://github.com/supabase/supabase-js/issues/1304
     supabase.realtime.setAuth(session.access_token);
 
@@ -122,3 +122,4 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
 
   return { updateTrigger };
 }
+

@@ -3,80 +3,32 @@ import React from 'react';
 
 import { RotasTable } from '../RotasTable';
 
-// Mock EmptyState
-jest.mock('@/components/EmptyState', () => {
+// Mock EmptyState from design system
+jest.mock('@/design-system', () => {
     const { View, Text } = require('react-native');
-    return function EmptyState({ title }: any) {
-        return <View><Text>{title}</Text></View>;
+    return {
+        EmptyState: ({ title, description }: any) => (
+            <View>
+                <Text>{title}</Text>
+                {description ? <Text>{description}</Text> : null}
+            </View>
+        ),
     };
 });
 
 // Mock useUnistyles
-jest.mock('@/utils/styles', () => ({
-    useUnistyles: () => ({
-        theme: {
-            colors: {
-                primary: '#007AFF',
-                primaryDark: '#0056b3',
-                white: '#fff',
-                gray50: '#f9fafb',
-                gray100: '#f3f4f6',
-                gray200: '#e5e7eb',
-                gray300: '#d1d5db',
-                gray500: '#6b7280',
-                gray700: '#374151',
-                gray900: '#111827',
-                success: '#22c55e',
-                successBg: '#dcfce7',
-                warning: '#f59e0b',
-                warningBg: '#fef3c7',
-                info: '#3b82f6',
-                infoBg: '#dbeafe',
-                error: '#ef4444',
-                errorBg: '#fee2e2',
-            },
-            borderRadius: {
-                md: 6,
-                lg: 8,
-                full: 9999,
-            },
-            spacing: {
-                sm: 4,
-                md: 8,
-                lg: 12,
-                '2xl': 16,
-                '5xl': 32,
-            },
-            typography: {
-                xs: 12,
-                sm: 14,
-                fontSansMedium: 'System',
-                fontSansSemiBold: 'System',
-            },
+jest.mock('@/utils/styles', () => {
+    const { defaultTheme } = require('@/utils/styles.base');
+    const theme = defaultTheme;
+
+    return {
+        useUnistyles: () => ({ theme }),
+        StyleSheet: {
+            create: (fn: Function) => (typeof fn === 'function' ? fn(theme) : fn),
         },
-    }),
-    StyleSheet: {
-        create: (fn: Function) => {
-            const mockTheme = {
-                colors: {
-                    primary: '#007AFF',
-                    white: '#fff',
-                    gray50: '#f9fafb',
-                    gray100: '#f3f4f6',
-                    gray200: '#e5e7eb',
-                    gray300: '#d1d5db',
-                    gray500: '#6b7280',
-                    gray700: '#374151',
-                    gray900: '#111827',
-                },
-                borderRadius: { md: 6, lg: 8, full: 9999 },
-                spacing: { sm: 4, md: 8, lg: 12, '2xl': 16, '5xl': 32 },
-                typography: { xs: 12, sm: 14, fontSansMedium: 'System', fontSansSemiBold: 'System' },
-            };
-            return fn(mockTheme);
-        },
-    },
-}));
+        defaultTheme: theme,
+    };
+});
 
 describe('RotasTable', () => {
     const mockRotas = [

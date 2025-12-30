@@ -16,7 +16,8 @@ import {
 } from '@/components/map/infoWindowBuilders';
 import { supabase } from '@/lib/supabase';
 import type { MotoristaLocation } from '@/types/notifications';
-import { StyleSheet, type Theme } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { MAP_WEB_SHADOWS } from '@/utils/webTokens';
 
 interface Parada {
   id: string;
@@ -64,7 +65,8 @@ const containerStyle = {
  */
 function addMarkerInteractivity(
   wrapper: HTMLDivElement,
-  onClick?: () => void
+  onClick: (() => void) | undefined,
+  focusColor: string
 ) {
   // Transição suave para efeitos visuais
   wrapper.style.transition = 'transform 0.15s ease, box-shadow 0.15s ease';
@@ -72,12 +74,12 @@ function addMarkerInteractivity(
   // Efeito hover - escala maior
   wrapper.addEventListener('mouseenter', () => {
     wrapper.style.transform = 'scale(1.15)';
-    wrapper.style.boxShadow = '0 4px 12px rgba(0,0,0,0.35)';
+    wrapper.style.boxShadow = MAP_WEB_SHADOWS.markerHover;
   });
 
   wrapper.addEventListener('mouseleave', () => {
     wrapper.style.transform = 'scale(1)';
-    wrapper.style.boxShadow = '0 3px 8px rgba(0,0,0,0.25)';
+    wrapper.style.boxShadow = MAP_WEB_SHADOWS.markerDefault;
   });
 
   // Feedback visual ao clicar (press effect)
@@ -105,7 +107,7 @@ function addMarkerInteractivity(
 
   // Focus ring para navegação por teclado
   wrapper.addEventListener('focus', () => {
-    wrapper.style.outline = '3px solid #0D5A9C';
+    wrapper.style.outline = `3px solid ${focusColor}`;
     wrapper.style.outlineOffset = '2px';
   });
 
@@ -114,7 +116,13 @@ function addMarkerInteractivity(
   });
 }
 
-function createMarkerContent(parada: Parada, onClick?: () => void, isPartida?: boolean) {
+function createMarkerContent(
+  parada: Parada,
+  theme: Theme,
+  onClick?: () => void,
+  isPartida?: boolean
+) {
+  const { colors } = theme;
   // Checkpoint (partida/chegada): Pin azul marca com ícones distintos
   if (parada.is_checkpoint === false) {
     const wrapper = document.createElement('div');
@@ -123,7 +131,7 @@ function createMarkerContent(parada: Parada, onClick?: () => void, isPartida?: b
     wrapper.style.alignItems = 'center';
     wrapper.style.cursor = 'pointer';
     wrapper.style.transition = 'transform 0.15s ease, filter 0.15s ease';
-    wrapper.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.25))';
+    wrapper.style.filter = MAP_WEB_SHADOWS.checkpoint;
 
     // Acessibilidade - distinguir PARTIDA de CHEGADA
     const checkpointLabel = isPartida ? 'Ponto de Partida' : 'Ponto de Chegada';
@@ -132,7 +140,7 @@ function createMarkerContent(parada: Parada, onClick?: () => void, isPartida?: b
     wrapper.setAttribute('tabindex', '0');
 
     // Ícone: flag para PARTIDA, home para CHEGADA
-    // Cor: Azul marca RotaMestre (#284093)
+    // Cor: Azul marca RotaMestre (tokens)
     const iconSvg = isPartida
       ? // Flag icon (partida)
         `<path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6z" fill="white"/>`
@@ -145,12 +153,12 @@ function createMarkerContent(parada: Parada, onClick?: () => void, isPartida?: b
         width: 28px;
         height: 28px;
         border-radius: 6px 6px 6px 2px;
-        background: linear-gradient(135deg, #284093 0%, #1e3170 100%);
+        background: linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%);
         display: flex;
         align-items: center;
         justify-content: center;
-        border: 2px solid white;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+        border: 2px solid ${colors.white};
+        box-shadow: ${MAP_WEB_SHADOWS.markerDefault};
       ">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           ${iconSvg}
@@ -161,12 +169,12 @@ function createMarkerContent(parada: Parada, onClick?: () => void, isPartida?: b
     // Interatividade
     wrapper.addEventListener('mouseenter', () => {
       wrapper.style.transform = 'scale(1.15)';
-      wrapper.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))';
+      wrapper.style.filter = MAP_WEB_SHADOWS.checkpointHover;
     });
 
     wrapper.addEventListener('mouseleave', () => {
       wrapper.style.transform = 'scale(1)';
-      wrapper.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.25))';
+      wrapper.style.filter = MAP_WEB_SHADOWS.checkpoint;
     });
 
     wrapper.addEventListener('mousedown', () => {
@@ -190,7 +198,7 @@ function createMarkerContent(parada: Parada, onClick?: () => void, isPartida?: b
     });
 
     wrapper.addEventListener('focus', () => {
-      wrapper.style.outline = '2px solid #284093';
+      wrapper.style.outline = `2px solid ${colors.primary}`;
       wrapper.style.outlineOffset = '2px';
     });
 
@@ -210,11 +218,11 @@ function createMarkerContent(parada: Parada, onClick?: () => void, isPartida?: b
   wrapper.style.alignItems = 'center';
   wrapper.style.justifyContent = 'center';
   wrapper.style.backgroundColor = getStatusColor(parada.status);
-  wrapper.style.color = '#ffffff';
+  wrapper.style.color = colors.white;
   wrapper.style.fontWeight = '700';
   wrapper.style.fontSize = '14px';
-  wrapper.style.border = '2px solid #ffffff';
-  wrapper.style.boxShadow = '0 3px 8px rgba(0,0,0,0.25)';
+  wrapper.style.border = `2px solid ${colors.white}`;
+  wrapper.style.boxShadow = MAP_WEB_SHADOWS.markerDefault;
   wrapper.style.cursor = 'pointer';
   // Acessibilidade
   wrapper.setAttribute('role', 'button');
@@ -227,7 +235,7 @@ function createMarkerContent(parada: Parada, onClick?: () => void, isPartida?: b
   wrapper.appendChild(label);
 
   // Adicionar interatividade (hover, keyboard, click feedback)
-  addMarkerInteractivity(wrapper, onClick);
+  addMarkerInteractivity(wrapper, onClick, colors.primary);
 
   return wrapper;
 }
@@ -243,6 +251,7 @@ export default function MapaWeb({
   showMotorista = false,
   unidadeNome,
 }: MapaWebProps) {
+  const { theme } = useUnistyles();
   const [directions, setDirections] = React.useState<google.maps.DirectionsResult | null>(null);
   const mapRef = React.useRef<google.maps.Map | null>(null);
   const advancedMarkersRef = React.useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
@@ -351,11 +360,11 @@ export default function MapaWeb({
               await navigator.clipboard.writeText(parada.endereco);
               copyBtn.innerHTML = `
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" fill="#10b981"/>
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" fill="${theme.colors.success}"/>
                 </svg>
                 Copiado!
               `;
-              copyBtn.style.color = '#10b981';
+              copyBtn.style.color = theme.colors.success;
               setTimeout(() => {
                 copyBtn.innerHTML = `
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -363,7 +372,7 @@ export default function MapaWeb({
                   </svg>
                   Copiar endereço
                 `;
-                copyBtn.style.color = '#475569';
+                copyBtn.style.color = theme.colors.gray600;
               }, 2000);
             } catch {
               console.warn('Não foi possível copiar o endereço');
@@ -372,7 +381,7 @@ export default function MapaWeb({
         }
       });
     },
-    [unidadeNome]
+    [theme, unidadeNome]
   );
 
   React.useEffect(() => {
@@ -431,7 +440,7 @@ export default function MapaWeb({
             map: mapRef.current!,
             position: { lat: parada.latitude!, lng: parada.longitude! },
             title: markerTitle,
-            content: createMarkerContent(parada, handleMarkerActivation, isPartida),
+            content: createMarkerContent(parada, theme, handleMarkerActivation, isPartida),
           });
           markerMapRef.current.set(parada.id, marker);
           marker.addListener('gmp-click', handleMarkerActivation);
@@ -458,9 +467,9 @@ export default function MapaWeb({
           title: isPartida ? 'Ponto de Partida' : 'Ponto de Chegada',
           icon: {
             path: google.maps.SymbolPath.CIRCLE,
-            fillColor: '#284093', // Azul marca RotaMestre
+            fillColor: theme.colors.primary, // Azul marca RotaMestre
             fillOpacity: 1,
-            strokeColor: '#ffffff',
+            strokeColor: theme.colors.white,
             strokeWeight: 2,
             scale: 12,
           },
@@ -480,14 +489,14 @@ export default function MapaWeb({
         title: `Parada ${parada.ordem}: ${parada.endereco}`,
         label: {
           text: String(parada.ordem),
-          color: '#ffffff',
+          color: theme.colors.white,
           fontWeight: '700',
         },
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
           fillColor: getStatusColor(parada.status),
           fillOpacity: 1,
-          strokeColor: '#ffffff',
+          strokeColor: theme.colors.white,
           strokeWeight: 2,
           scale: 16,
         },
@@ -502,7 +511,7 @@ export default function MapaWeb({
     if (boundsRef.current && !boundsRef.current.isEmpty() && mapRef.current) {
       mapRef.current.fitBounds(boundsRef.current);
     }
-  }, [isLoaded, mapReady, paradasComCoord, checkpoints, paradasFiltradas, statusFilter, clearMarkers, onMarkerPress, onMapPress, openInfoWindow]);
+  }, [isLoaded, mapReady, paradasComCoord, checkpoints, paradasFiltradas, statusFilter, clearMarkers, onMarkerPress, onMapPress, openInfoWindow, theme]);
 
   React.useEffect(
     () => () => {
@@ -656,11 +665,11 @@ export default function MapaWeb({
 
     // Calcular cor baseado na velocidade
     const getMarkerColor = () => {
-      if (!motoristaLocation.velocidade) return '#3b82f6'; // azul padrão
-      if (motoristaLocation.velocidade === 0) return '#6b7280'; // cinza (parado)
-      if (motoristaLocation.velocidade > 60) return '#ef4444'; // vermelho (rápido)
-      if (motoristaLocation.velocidade > 30) return '#f59e0b'; // laranja (moderado)
-      return '#22c55e'; // verde (lento)
+      if (!motoristaLocation.velocidade) return theme.colors.info; // azul padrão
+      if (motoristaLocation.velocidade === 0) return theme.colors.gray500; // cinza (parado)
+      if (motoristaLocation.velocidade > 60) return theme.colors.error; // vermelho (rápido)
+      if (motoristaLocation.velocidade > 30) return theme.colors.warning; // laranja (moderado)
+      return theme.colors.success; // verde (lento)
     };
 
     // Calcular tempo desde última atualização
@@ -690,7 +699,7 @@ export default function MapaWeb({
         height: 36px;
         cursor: pointer;
         transition: transform 0.15s ease, filter 0.15s ease;
-        filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3));
+        filter: ${MAP_WEB_SHADOWS.motorista};
       `;
       wrapper.setAttribute('role', 'button');
       wrapper.setAttribute('aria-label', motoristaNome || 'Motorista');
@@ -709,12 +718,12 @@ export default function MapaWeb({
       // Interatividade - hover
       wrapper.addEventListener('mouseenter', () => {
         wrapper.style.transform = 'scale(1.15)';
-        wrapper.style.filter = 'drop-shadow(0 4px 10px rgba(0,0,0,0.4))';
+        wrapper.style.filter = MAP_WEB_SHADOWS.motoristaHover;
       });
 
       wrapper.addEventListener('mouseleave', () => {
         wrapper.style.transform = 'scale(1)';
-        wrapper.style.filter = 'drop-shadow(0 3px 6px rgba(0,0,0,0.3))';
+        wrapper.style.filter = MAP_WEB_SHADOWS.motorista;
       });
 
       // Acessibilidade - foco
@@ -817,7 +826,7 @@ export default function MapaWeb({
 
       motoristaMarkerRef.current = marker;
     }
-  }, [mapReady, isLoaded, showMotorista, motoristaLocation, motoristaNome]);
+  }, [mapReady, isLoaded, showMotorista, motoristaLocation, motoristaNome, theme]);
 
   // Limpar marcador do motorista quando componente desmonta
   useEffect(() => {
@@ -840,19 +849,19 @@ export default function MapaWeb({
 
     // Legend
     const legend = document.createElement('div');
-    legend.style.background = '#ffffff';
-    legend.style.border = '1px solid #e2e8f0';
+    legend.style.background = theme.colors.white;
+    legend.style.border = `1px solid ${theme.colors.gray200}`;
     legend.style.borderRadius = '10px';
     legend.style.padding = '8px 10px';
     legend.style.margin = '8px';
-    legend.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
+    legend.style.boxShadow = MAP_WEB_SHADOWS.legend;
     legend.innerHTML = `
-      <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:#0f172a;">Legenda</div>
-      <div style="display:flex;gap:10px;font-size:12px;color:#475569;align-items:center;flex-wrap:wrap;">
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>Pendente</span>
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#3b82f6;display:inline-block;"></span>Em rota</span>
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#10b981;display:inline-block;"></span>Concluída</span>
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#6b7280;display:inline-block;"></span>Pulada</span>
+      <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:${theme.colors.gray900};">Legenda</div>
+      <div style="display:flex;gap:10px;font-size:12px;color:${theme.colors.gray600};align-items:center;flex-wrap:wrap;">
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:${theme.colors.warning};display:inline-block;"></span>Pendente</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:${theme.colors.info};display:inline-block;"></span>Em rota</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:${theme.colors.success};display:inline-block;"></span>Concluída</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:${theme.colors.gray500};display:inline-block;"></span>Pulada</span>
       </div>
     `;
     legendControlRef.current = legend;
@@ -860,13 +869,13 @@ export default function MapaWeb({
 
     // Recenter
     const recenter = document.createElement('div');
-    recenter.style.background = '#ffffff';
-    recenter.style.border = '1px solid #e2e8f0';
+    recenter.style.background = theme.colors.white;
+    recenter.style.border = `1px solid ${theme.colors.gray200}`;
     recenter.style.borderRadius = '10px';
     recenter.style.padding = '10px';
     recenter.style.margin = '8px';
     recenter.style.cursor = 'pointer';
-    recenter.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
+    recenter.style.boxShadow = MAP_WEB_SHADOWS.legend;
     recenter.innerText = 'Recentrar rota';
     recenterControlRef.current = recenter;
     recenter.addEventListener('click', () => {
@@ -892,7 +901,7 @@ export default function MapaWeb({
         }
       }
     };
-  }, [center, mapReady, isLoaded, paradasComCoord.length]);
+  }, [center, mapReady, isLoaded, paradasComCoord.length, theme]);
 
   // Handler para clique no mapa (fecha InfoWindow e chama callback)
   // IMPORTANTE: Deve estar ANTES de TODOS os early returns para respeitar Rules of Hooks
@@ -920,7 +929,7 @@ export default function MapaWeb({
   if (!isLoaded) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0D5A9C" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
         <Text style={styles.loadingText}>Carregando mapa...</Text>
       </View>
     );
@@ -948,7 +957,7 @@ export default function MapaWeb({
           options={{
             suppressMarkers: true,
             polylineOptions: {
-              strokeColor: '#0D5A9C',
+              strokeColor: theme.colors.primary,
               strokeWeight: 4,
             },
           }}

@@ -7,7 +7,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -15,6 +14,7 @@ import {
 import { useNotifications } from '@/hooks/useNotifications';
 import { useUser } from '@/hooks/useUser';
 import type { NotificacaoComDetalhes } from '@/types/notifications';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface NotificationListProps {
   onClose: () => void;
@@ -24,6 +24,7 @@ export function NotificationList({ onClose }: NotificationListProps) {
   const { notificacoes, naoLidas, loading, marcarComoLida, marcarTodasComoLidas } =
     useNotifications();
   const { userData } = useUser();
+  const { theme } = useUnistyles();
 
   /**
    * Determina a rota de navegação baseada no tipo de notificação e papel do usuário
@@ -115,44 +116,40 @@ export function NotificationList({ onClose }: NotificationListProps) {
 
   const getNotificationIconColor = (tipo: string) => {
     switch (tipo) {
-      // Notificações para GESTOR
       case 'rota_iniciada':
-        return '#3b82f6'; // blue
+        return theme.colors.info;
       case 'rota_concluida':
-        return '#22c55e'; // green
+        return theme.colors.success;
       case 'parada_concluida':
-        return '#10b981'; // emerald
+        return theme.colors.success;
       case 'parada_pulada':
-        return '#f97316'; // orange
+        return theme.colors.orange;
       case 'parada_reaberta':
-        return '#f59e0b'; // amber
+        return theme.colors.warning;
       case 'incidente_reportado':
-        return '#ef4444'; // red
+        return theme.colors.error;
       case 'sos_acionado':
-        return '#dc2626'; // red-600 (emergência)
+        return theme.colors.error;
       case 'rota_atrasada':
-        return '#f59e0b'; // amber
-      // Notificações para MOTORISTA
+        return theme.colors.warning;
       case 'nova_rota_atribuida':
-        return '#FF8C42'; // primary (laranja)
+        return theme.colors.secondary;
       case 'lembrete_rota_pendente':
-        return '#3b82f6'; // blue (lembrete normal)
+        return theme.colors.info;
       case 'lembrete_rota_urgente':
-        return '#dc2626'; // red (urgente!)
-      // Notificação para AMBOS
+        return theme.colors.error;
       case 'rota_nao_executada':
-        return '#f59e0b'; // amber (aviso)
-      // Notificações de edição de rota (gestor editou)
+        return theme.colors.warning;
       case 'rota_parada_adicionada':
-        return '#22c55e'; // green (nova parada)
+        return theme.colors.success;
       case 'rota_parada_removida':
-        return '#ef4444'; // red (parada removida)
+        return theme.colors.error;
       case 'rota_parada_editada':
-        return '#3b82f6'; // blue (editada)
+        return theme.colors.info;
       case 'rota_reordenada':
-        return '#8b5cf6'; // purple (reordenada)
+        return theme.colors.purple;
       default:
-        return '#64748b'; // gray
+        return theme.colors.gray500;
     }
   };
 
@@ -198,7 +195,7 @@ export function NotificationList({ onClose }: NotificationListProps) {
         <Text style={styles.timestamp}>{formatTimestamp(item.created_at)}</Text>
       </View>
 
-      <Ionicons name="chevron-forward" size={20} color="#94a3b8" />
+      <Ionicons name="chevron-forward" size={20} color={theme.colors.gray400} />
     </Pressable>
   );
 
@@ -220,7 +217,7 @@ export function NotificationList({ onClose }: NotificationListProps) {
             </Pressable>
           )}
           <Pressable onPress={onClose} style={styles.closeButton} testID="close-button">
-            <Ionicons name="close" size={24} color="#64748b" />
+            <Ionicons name="close" size={24} color={theme.colors.gray500} />
           </Pressable>
         </View>
       </View>
@@ -228,11 +225,11 @@ export function NotificationList({ onClose }: NotificationListProps) {
       {/* Content */}
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#284093" />
+          <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
       ) : notificacoes.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="notifications-outline" size={64} color="#cbd5e1" />
+          <Ionicons name="notifications-outline" size={64} color={theme.colors.gray300} />
           <Text style={styles.emptyText}>Nenhuma notificação</Text>
           <Text style={styles.emptySubtext}>
             Você será notificado sobre atualizações nas rotas
@@ -256,58 +253,58 @@ export function NotificationList({ onClose }: NotificationListProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.white,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 20,
+    padding: theme.spacing.xl,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: theme.colors.border,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: theme.spacing.md,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0f172a',
+    fontFamily: theme.typography.fontSansBold,
+    fontSize: theme.typography.fontSize.xl,
+    color: theme.colors.gray900,
   },
   headerBadge: {
-    backgroundColor: '#ef4444',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    backgroundColor: theme.colors.error,
+    borderRadius: theme.borderRadius.lg,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs / 2,
     minWidth: 24,
     alignItems: 'center',
   },
   headerBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
+    color: theme.colors.white,
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSansBold,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: theme.spacing.md,
   },
   headerButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs + 2,
   },
   headerButtonText: {
-    color: '#284093',
-    fontSize: 14,
-    fontWeight: '600',
+    color: theme.colors.primary,
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   closeButton: {
-    padding: 4,
+    padding: theme.spacing.xs,
   },
   scrollView: {
     flex: 1,
@@ -318,23 +315,23 @@ const styles = StyleSheet.create({
   notificationItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    gap: 12,
+    padding: theme.spacing.lg,
+    gap: theme.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: theme.colors.gray100,
   },
   unread: {
-    backgroundColor: '#f0f9ff',
+    backgroundColor: theme.colors.blue50,
   },
   pressed: {
-    backgroundColor: '#e0f2fe',
+    backgroundColor: theme.colors.blue100,
   },
   iconContainer: {
     position: 'relative',
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f8fafc',
+    backgroundColor: theme.colors.gray50,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -345,54 +342,57 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#ef4444',
+    backgroundColor: theme.colors.error,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: theme.colors.white,
   },
   content: {
     flex: 1,
-    gap: 4,
+    gap: theme.spacing.xs,
   },
   titulo: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#334155',
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray700,
   },
   tituloUnread: {
-    fontWeight: '700',
-    color: '#0f172a',
+    fontFamily: theme.typography.fontSansBold,
+    color: theme.colors.gray900,
   },
   mensagem: {
-    fontSize: 14,
-    color: '#64748b',
-    lineHeight: 20,
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.gray500,
+    lineHeight: theme.typography.fontSize.sm * 1.5,
   },
   timestamp: {
-    fontSize: 12,
-    color: '#94a3b8',
-    marginTop: 2,
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.gray400,
+    marginTop: theme.spacing.xs / 2,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    padding: theme.spacing['4xl'],
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
-    gap: 12,
+    padding: theme.spacing['4xl'],
+    gap: theme.spacing.md,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#64748b',
+    fontSize: theme.typography.fontSize.lg,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray500,
   },
   emptySubtext: {
-    fontSize: 14,
-    color: '#94a3b8',
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.gray400,
     textAlign: 'center',
   },
-});
+}));

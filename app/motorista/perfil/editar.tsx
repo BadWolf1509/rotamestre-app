@@ -1,15 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  ActivityIndicator,
-} from 'react-native';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
 
-import { AlertDialog } from '@/components/AlertDialog';
+import { AlertDialog, Button, Input, Text } from '@/design-system';
 import { authService } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { Usuario } from '@/types/usuario';
@@ -22,7 +15,6 @@ export default function EditarPerfil() {
   const [saving, setSaving] = useState(false);
   const [usuario, setUsuario] = useState<Usuario | null>(null);
 
-  // Campos editáveis
   const [nome, setNome] = useState('');
   const [telefone, setTelefone] = useState('');
   const [alertConfig, setAlertConfig] = useState({
@@ -73,11 +65,11 @@ export default function EditarPerfil() {
         setTelefone(userData?.telefone || '');
       }
     } catch (error) {
-      console.error('Erro ao carregar usuário:', error);
+      console.error('Erro ao carregar usuario:', error);
       setAlertConfig({
         visible: true,
         title: 'Erro ao carregar dados',
-        message: 'Não foi possível carregar o seu perfil. Tente novamente.',
+        message: 'Nao foi possivel carregar o seu perfil. Tente novamente.',
         type: 'error',
         confirmText: 'OK',
         onConfirm: () => router.back(),
@@ -93,11 +85,10 @@ export default function EditarPerfil() {
   }, [loadUsuario]);
 
   async function handleSave() {
-    // Validações
     if (!nome.trim()) {
       showAlert({
-        title: 'Campo obrigatório',
-        message: 'O nome é obrigatório.',
+        title: 'Campo obrigatorio',
+        message: 'O nome e obrigatorio.',
         type: 'error',
       });
       return;
@@ -105,7 +96,7 @@ export default function EditarPerfil() {
 
     if (telefone && !/^\(\d{2}\)\s\d{4,5}-\d{4}$/.test(telefone)) {
       showAlert({
-        title: 'Telefone inválido',
+        title: 'Telefone invalido',
         message: 'Use o formato (11) 99999-9999.',
         type: 'error',
       });
@@ -115,9 +106,8 @@ export default function EditarPerfil() {
     setSaving(true);
 
     try {
-      if (!usuario?.id) throw new Error('Usuário não encontrado');
+      if (!usuario?.id) throw new Error('Usuario nao encontrado');
 
-      // Atualizar no banco
       const { error } = await supabase
         .from('usuarios')
         .update({
@@ -131,7 +121,7 @@ export default function EditarPerfil() {
 
       showAlert({
         title: 'Perfil atualizado',
-        message: 'Suas informações foram salvas com sucesso.',
+        message: 'Suas informacoes foram salvas com sucesso.',
         type: 'success',
         confirmText: 'Voltar',
         onConfirm: () => router.replace('/motorista/perfil'),
@@ -140,7 +130,7 @@ export default function EditarPerfil() {
       console.error('Erro ao salvar:', error);
       showAlert({
         title: 'Erro ao salvar',
-        message: error.message || 'Não foi possível salvar as alterações.',
+        message: error.message || 'Nao foi possivel salvar as alteracoes.',
         type: 'error',
       });
     } finally {
@@ -149,10 +139,8 @@ export default function EditarPerfil() {
   }
 
   function formatPhone(text: string) {
-    // Remove tudo que não é número
     const cleaned = text.replace(/\D/g, '');
 
-    // Aplica a máscara
     if (cleaned.length <= 2) {
       return cleaned;
     } else if (cleaned.length <= 6) {
@@ -176,86 +164,60 @@ export default function EditarPerfil() {
   return (
     <View style={styles(theme).container}>
       <ScrollView style={styles(theme).scrollView}>
-        {/* Header */}
         <View style={styles(theme).header}>
           <View style={styles(theme).headerContent}>
             <Text style={styles(theme).headerSubtitle}>
-              Atualize suas informações pessoais
+              Atualize suas informacoes pessoais
             </Text>
           </View>
         </View>
 
-        {/* Formulário */}
         <View style={styles(theme).form}>
-          {/* Nome */}
-          <View style={styles(theme).inputGroup}>
-            <Text style={styles(theme).inputLabel}>
-              Nome Completo <Text style={styles(theme).required}>*</Text>
-            </Text>
-            <TextInput
-              style={styles(theme).input}
-              placeholder="Digite seu nome completo"
-              value={nome}
-              onChangeText={setNome}
-              autoCapitalize="words"
-              autoCorrect={false}
-              maxLength={100}
-            />
-          </View>
+          <Input
+            label="Nome Completo"
+            required
+            placeholder="Digite seu nome completo"
+            value={nome}
+            onChangeText={setNome}
+            autoCapitalize="words"
+            autoCorrect={false}
+            maxLength={100}
+          />
 
-          {/* Email (não editável) */}
-          <View style={styles(theme).inputGroup}>
-            <Text style={styles(theme).inputLabel}>Email</Text>
-            <TextInput
-              style={[styles(theme).input, styles(theme).inputDisabled]}
-              value={usuario?.email || ''}
-              editable={false}
-            />
-            <Text style={styles(theme).helperText}>
-              O email não pode ser alterado
-            </Text>
-          </View>
+          <Input
+            label="Email"
+            value={usuario?.email || ''}
+            editable={false}
+            helperText="O email nao pode ser alterado"
+          />
 
-          {/* Telefone */}
-          <View style={styles(theme).inputGroup}>
-            <Text style={styles(theme).inputLabel}>Telefone</Text>
-            <TextInput
-              style={styles(theme).input}
-              placeholder="(11) 99999-9999"
-              value={telefone}
-              onChangeText={(text) => setTelefone(formatPhone(text))}
-              keyboardType="phone-pad"
-              maxLength={15}
-            />
-            <Text style={styles(theme).helperText}>
-              Formato: (11) 99999-9999
-            </Text>
-          </View>
+          <Input
+            label="Telefone"
+            placeholder="(11) 99999-9999"
+            value={telefone}
+            onChangeText={(text) => setTelefone(formatPhone(text))}
+            keyboardType="phone-pad"
+            maxLength={15}
+            helperText="Formato: (11) 99999-9999"
+          />
 
-          {/* Botões inline */}
           <View style={styles(theme).buttonsContainer}>
-            <TouchableOpacity
-              style={styles(theme).buttonSecondary}
+            <Button
+              title="Cancelar"
+              variant="outline"
               onPress={() => router.push('/motorista/perfil')}
               disabled={saving}
-            >
-              <Text style={styles(theme).buttonSecondaryText}>Cancelar</Text>
-            </TouchableOpacity>
+              style={styles(theme).buttonSecondary}
+            />
 
-            <TouchableOpacity
-              style={[
-                styles(theme).buttonPrimary,
-                saving && styles(theme).buttonDisabled,
-              ]}
+            <Button
+              title="Salvar"
+              variant="secondary"
               onPress={handleSave}
-              disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator color={theme.colors.white} />
-              ) : (
-                <Text style={styles(theme).buttonPrimaryText}>Salvar</Text>
-              )}
-            </TouchableOpacity>
+              loading={saving}
+              disabled={saving || !nome.trim()}
+              style={styles(theme).buttonPrimary}
+            />
           </View>
         </View>
       </ScrollView>
@@ -321,36 +283,6 @@ const styles = (theme: any) =>
       padding: 20,
       marginBottom: 24,
     },
-    inputGroup: {
-      marginBottom: 20,
-    },
-    inputLabel: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: theme.colors.gray700,
-      marginBottom: 8,
-    },
-    required: {
-      color: theme.colors.error,
-    },
-    input: {
-      borderWidth: 1,
-      borderColor: theme.colors.gray300,
-      borderRadius: 8,
-      padding: 12,
-      fontSize: 16,
-      color: theme.colors.gray900,
-      backgroundColor: theme.colors.white,
-    },
-    inputDisabled: {
-      backgroundColor: theme.colors.gray100,
-      color: theme.colors.gray500,
-    },
-    helperText: {
-      fontSize: 12,
-      color: theme.colors.gray500,
-      marginTop: 4,
-    },
     buttonsContainer: {
       flexDirection: 'row',
       gap: 12,
@@ -358,35 +290,8 @@ const styles = (theme: any) =>
     },
     buttonPrimary: {
       flex: 1,
-      backgroundColor: theme.colors.secondary,
-      padding: 16,
-      borderRadius: 8,
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: 50,
-    },
-    buttonPrimaryText: {
-      color: theme.colors.white,
-      fontSize: 16,
-      fontWeight: '600',
     },
     buttonSecondary: {
       flex: 1,
-      backgroundColor: theme.colors.white,
-      padding: 16,
-      borderRadius: 8,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: theme.colors.gray300,
-      minHeight: 50,
-    },
-    buttonSecondaryText: {
-      color: theme.colors.gray700,
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    buttonDisabled: {
-      opacity: 0.6,
     },
   });

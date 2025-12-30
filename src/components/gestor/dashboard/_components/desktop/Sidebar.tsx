@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Image, ScrollView, Text, TouchableOpacity, View, ImageStyle } from 'react-native';
 
 import LogoHorizontal from '@/../assets/logo-horizontal1.png';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { ConfirmDialog } from '@/design-system';
 // REMOVIDO: import { useUser } from '@/hooks/useUser'; // userData agora vem como prop
 import { authService } from '@/lib/auth';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
+import { withOpacity } from '@/utils/color';
 import { defaultTheme } from '@/utils/styles';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -273,10 +274,10 @@ export function PictureInPictureMap({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -297,18 +298,18 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: withOpacity(colors.black, 0.6),
     justifyContent: 'center',
     alignItems: 'center',
   },
   collapseButton: {
-    backgroundColor: 'rgba(30, 90, 168, 0.9)',
+    backgroundColor: withOpacity(colors.primary, 0.9),
   },
   navigateButton: {
-    backgroundColor: 'rgba(16, 185, 129, 0.9)',
+    backgroundColor: withOpacity(colors.success, 0.9),
   },
   closeButton: {
-    backgroundColor: 'rgba(220, 38, 38, 0.9)',
+    backgroundColor: withOpacity(colors.error, 0.9),
   },
   dragIndicator: {
     position: 'absolute',
@@ -321,17 +322,16 @@ const styles = StyleSheet.create({
     width: 30,
     height: 3,
     borderRadius: 2,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: withOpacity(colors.black, 0.3),
   },
   destinationMarker: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderRadius: 15,
     padding: 4,
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 3,
   },
 });
-

@@ -97,6 +97,7 @@ const mockTheme = {
     warning: '#f59e0b',
     info: '#3b82f6',
     overlay: 'rgba(0, 0, 0, 0.5)',
+    whatsapp: '#25D366',
     // Incident categories (semantic colors)
     incident: {
       accident: '#ef4444',
@@ -139,11 +140,123 @@ const mockTheme = {
     xl: 32,
   },
   borderRadius: {
+    xs: 2,
     sm: 4,
     md: 8,
     lg: 12,
     xl: 16,
     full: 9999,
+  },
+  motion: {
+    duration: {
+      fast: 150,
+      normal: 250,
+      slow: 350,
+    },
+    easing: {
+      easeOut: 'cubic-bezier(0, 0, 0.2, 1)',
+      easeIn: 'cubic-bezier(0.4, 0, 1, 1)',
+      easeInOut: 'cubic-bezier(0.4, 0, 0.2, 1)',
+    },
+  },
+  layout: {
+    sidebarWidth: 264,
+    containerMaxWidth: 1280,
+  },
+  desktop: {
+    input: {
+      height: 36,
+      paddingHorizontal: 10,
+      fontSize: 14,
+    },
+    button: {
+      height: 32,
+      paddingHorizontal: 12,
+      fontSize: 13,
+    },
+    field: {
+      marginBottom: 12,
+    },
+    section: {
+      padding: 12,
+      gap: 8,
+    },
+    modal: {
+      headerPadding: 12,
+      bodyPadding: 12,
+      footerPadding: 12,
+      footerGap: 8,
+      titleFontSize: 15,
+      closeButtonSize: 20,
+    },
+    dialog: {
+      maxWidth: 320,
+      containerPadding: 16,
+      iconCircleSize: 44,
+      iconSize: 22,
+      titleFontSize: 16,
+      messageFontSize: 13,
+      buttonHeight: 36,
+      buttonPaddingV: 8,
+      buttonPaddingH: 14,
+      buttonGap: 10,
+    },
+  },
+  shadows: {
+    sm: {},
+    md: {},
+    lg: {},
+    card: {},
+  },
+  components: {
+    button: {
+      size: {
+        small: {
+          height: 36,
+          paddingVertical: 8,
+          paddingHorizontal: 12,
+          fontSize: 14,
+        },
+        medium: {
+          height: 44,
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+          fontSize: 16,
+        },
+        large: {
+          height: 52,
+          paddingVertical: 16,
+          paddingHorizontal: 20,
+          fontSize: 18,
+        },
+      },
+      radius: 10,
+    },
+    input: {
+      size: {
+        small: {
+          height: 36,
+          paddingHorizontal: 10,
+          fontSize: 14,
+        },
+        medium: {
+          height: 44,
+          paddingHorizontal: 12,
+          fontSize: 16,
+        },
+        large: {
+          height: 52,
+          paddingHorizontal: 14,
+          fontSize: 18,
+        },
+      },
+      radius: 8,
+    },
+    modal: {
+      headerPadding: 16,
+      bodyPadding: 16,
+      footerPadding: 16,
+    },
   },
 };
 
@@ -185,6 +298,12 @@ jest.mock('react-native-unistyles', () => ({
     addBreakpoints: jest.fn(),
     addConfig: jest.fn(),
   },
+  UnistylesRuntime: {
+    colorScheme: 'light',
+    themeName: 'light',
+    setTheme: jest.fn(),
+    setAdaptiveThemes: jest.fn(),
+  },
   createStyleSheet: (stylesOrFunction) => {
     // Alias para StyleSheet.create
     if (typeof stylesOrFunction === 'function') {
@@ -197,6 +316,24 @@ jest.mock('react-native-unistyles', () => ({
     return stylesOrFunction || {};
   },
 }));
+
+// Mock @/utils/styles with defaultTheme for tests that don't override it
+jest.mock('@/utils/styles', () => {
+  const { defaultTheme } = require('@/utils/styles.base');
+
+  return {
+    defaultTheme,
+    useUnistyles: () => ({
+      theme: defaultTheme,
+    }),
+    StyleSheet: {
+      create: (stylesOrFunction) =>
+        typeof stylesOrFunction === 'function'
+          ? stylesOrFunction(defaultTheme)
+          : stylesOrFunction || {},
+    },
+  };
+});
 
 // Mock Image e resolveAssetSource
 jest.mock('react-native/Libraries/Image/Image', () => {

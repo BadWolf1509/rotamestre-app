@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 
-import { ConfirmModal } from '@/components/ConfirmModal';
+import { ConfirmModal } from '@/design-system';
 import { authService } from '@/lib/auth';
 
 export function useLogoutConfirmation() {

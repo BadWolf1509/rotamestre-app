@@ -12,6 +12,18 @@ const reactNativePlugin = require('eslint-plugin-react-native');
 const unusedImportsPlugin = require('eslint-plugin-unused-imports');
 const globals = require('globals');
 
+const hexColorAllowlist = [
+  'src/utils/styles.base.ts',
+];
+
+const rgbaColorAllowlist = [
+  'src/utils/color.ts',
+];
+
+const shadowLiteralAllowlist = [
+  'src/utils/color.ts',
+];
+
 const sharedPlugins = {
   '@typescript-eslint': typescriptPlugin,
   react: reactPlugin,
@@ -118,6 +130,130 @@ module.exports = [
     },
     linterOptions: {
       reportUnusedDisableDirectives: true,
+    },
+  },
+  {
+    files: ['app/**/*.{ts,tsx}', 'src/**/*.{ts,tsx}'],
+    ignores: [
+      '**/__tests__/**',
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      'src/components/**',
+      'src/design-system/**',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            { name: '@/components/AlertDialog', message: "Importe via '@/design-system'." },
+            { name: '@/components/Avatar', message: "Importe via '@/design-system'." },
+            { name: '@/components/Badge', message: "Importe via '@/design-system'." },
+            { name: '@/components/Button', message: "Importe via '@/design-system'." },
+            { name: '@/components/Card', message: "Importe via '@/design-system'." },
+            { name: '@/components/ConfirmDialog', message: "Importe via '@/design-system'." },
+            { name: '@/components/ConfirmModal', message: "Importe via '@/design-system'." },
+            { name: '@/components/DataTable', message: "Importe via '@/design-system'." },
+            { name: '@/components/EmptyState', message: "Importe via '@/design-system'." },
+            { name: '@/components/Icon', message: "Importe via '@/design-system'." },
+            { name: '@/components/Input', message: "Importe via '@/design-system'." },
+            { name: '@/components/Modal', message: "Importe via '@/design-system'." },
+            { name: '@/components/Progress', message: "Importe via '@/design-system'." },
+            { name: '@/components/SkeletonLoader', message: "Importe via '@/design-system'." },
+            { name: '@/components/StepIndicator', message: "Importe via '@/design-system'." },
+            { name: '@/components/SupportModal', message: "Importe via '@/design-system'." },
+            { name: '@/components/Text', message: "Importe via '@/design-system'." },
+            { name: '@/components/Toast', message: "Importe via '@/design-system'." },
+            { name: '@/components/desktop', message: "Importe via '@/design-system'." },
+            { name: '@/components/desktop/DesktopLayout', message: "Importe via '@/design-system'." },
+            { name: '@/components/desktop/DesktopPageLayout', message: "Importe via '@/design-system'." },
+            { name: '@/components/desktop/DesktopModal', message: "Importe via '@/design-system'." },
+            { name: '@/components/desktop/DesktopCard', message: "Importe via '@/design-system'." },
+            { name: '@/components/desktop/SplitView', message: "Importe via '@/design-system'." },
+            { name: '@/components/mobile', message: "Importe via '@/design-system'." },
+            { name: '@/components/mobile/MobileHeader', message: "Importe via '@/design-system'." },
+            { name: '@/components/mobile/MobileCard', message: "Importe via '@/design-system'." },
+            { name: '@/components/mobile/MobileButton', message: "Importe via '@/design-system'." },
+            { name: '@/components/mobile/MobileEmptyState', message: "Importe via '@/design-system'." },
+            { name: '@/components/mobile/MobileLoading', message: "Importe via '@/design-system'." },
+            { name: '@/components/gestor/ResponsiveGrid', message: "Importe via '@/design-system'." },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['app/**/*.{ts,tsx}', 'src/**/*.{ts,tsx}'],
+    ignores: [
+      '**/__tests__/**',
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      ...hexColorAllowlist,
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "Literal[value=/^#(?:[0-9a-fA-F]{3,8})$/]",
+          message: 'Use theme tokens instead of hex colors.',
+        },
+        {
+          selector: "TemplateElement[value.raw=/^#(?:[0-9a-fA-F]{3,8})$/]",
+          message: 'Use theme tokens instead of hex colors.',
+        },
+      ],
+    },
+  },
+  {
+    files: ['app/**/*.{ts,tsx}', 'src/**/*.{ts,tsx}'],
+    ignores: [
+      '**/__tests__/**',
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      ...rgbaColorAllowlist,
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "Literal[value=/rgba\\(/]",
+          message: 'Use theme tokens or withOpacity() instead of rgba literals.',
+        },
+        {
+          selector: "TemplateElement[value.raw=/rgba\\(/]",
+          message: 'Use theme tokens or withOpacity() instead of rgba literals.',
+        },
+      ],
+    },
+  },
+  {
+    files: ['app/**/*.{ts,tsx}', 'src/**/*.{ts,tsx}'],
+    ignores: [
+      '**/__tests__/**',
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      ...shadowLiteralAllowlist,
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "Property[key.name='boxShadow'] > Literal",
+          message: 'Use boxShadow() helper instead of boxShadow string literals.',
+        },
+        {
+          selector: "Property[key.name='boxShadow'] > TemplateLiteral",
+          message: 'Use boxShadow() helper instead of boxShadow template literals.',
+        },
+        {
+          selector: "Literal[value=/drop-shadow\\(/]",
+          message: 'Use dropShadow() helper instead of drop-shadow literals.',
+        },
+        {
+          selector: "TemplateElement[value.raw=/drop-shadow\\(/]",
+          message: 'Use dropShadow() helper instead of drop-shadow literals.',
+        },
+      ],
     },
   },
   {

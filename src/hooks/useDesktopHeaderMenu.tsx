@@ -1,8 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 
-import type { UserMenuItem } from '@/components/desktop/DesktopPageLayout';
 import { UserMenuTrigger } from '@/components/UserMenuTrigger';
+import type { UserMenuItem } from '@/design-system';
 
 import { useLogoutConfirmation } from './useLogoutConfirmation';
 

@@ -43,20 +43,63 @@ jest.mock('@/services/performanceOptimizer', () => ({
 }));
 
 // Mock unistyles
-jest.mock('@/utils/styles', () => ({
-    useUnistyles: () => ({
-        theme: {
-            colors: {
-                text: '#000',
-                primary: '#007AFF',
-                success: '#34C759',
-                error: '#FF3B30',
-                warning: '#FF9500',
-                primaryDark: '#005AB5',
+jest.mock('@/utils/styles', () => {
+    const mockTheme = {
+        colors: {
+            text: '#000',
+            primary: '#007AFF',
+            primaryDark: '#005AB5',
+            success: '#34C759',
+            error: '#FF3B30',
+            warning: '#FF9500',
+            white: '#ffffff',
+            gray50: '#f9fafb',
+            gray100: '#f3f4f6',
+            gray300: '#d1d5db',
+            gray400: '#9ca3af',
+            gray500: '#6b7280',
+            gray900: '#111827',
+            border: '#e5e7eb',
+            warningBg: '#fef3c7',
+            warningText: '#b45309',
+        },
+        spacing: {
+            xs: 4,
+            sm: 8,
+            md: 12,
+            lg: 16,
+            xl: 20,
+            xxl: 24,
+            '4xl': 40,
+        },
+        typography: {
+            fontSans: 'sans',
+            fontSansMedium: 'sans-medium',
+            fontSansSemiBold: 'sans-semibold',
+            fontSansBold: 'sans-bold',
+            fontSize: {
+                xs: 12,
+                sm: 14,
+                base: 16,
+                xl: 20,
             },
         },
-    }),
-}));
+        borderRadius: {
+            sm: 8,
+            lg: 12,
+        },
+    };
+
+    return {
+        StyleSheet: {
+            create: (styles: any) =>
+                typeof styles === 'function' ? styles(mockTheme) : styles,
+        },
+        useUnistyles: () => ({
+            theme: mockTheme,
+        }),
+    };
+});
 
 // Mock Ionicons
 jest.mock('@expo/vector-icons', () => ({

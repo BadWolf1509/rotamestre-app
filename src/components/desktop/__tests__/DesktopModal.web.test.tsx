@@ -50,6 +50,7 @@ jest.mock('@/utils/styles', () => {
   };
 
   return {
+    defaultTheme: mockTheme,
     StyleSheet: {
       create: (styles: any) =>
         typeof styles === 'function' ? styles(mockTheme) : styles,

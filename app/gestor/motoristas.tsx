@@ -13,17 +13,24 @@ import {
   Image,
 } from 'react-native';
 
-import { ConfirmModal } from '@/components/ConfirmModal';
-import { DataTable, DataTableAction, DataTableColumn } from '@/components/DataTable';
-import { DesktopCard, DesktopModal, DesktopPageLayout } from '@/components/desktop';
-import { Toast } from '@/components/Toast';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import {
+  ConfirmModal,
+  DataTable,
+  type DataTableAction,
+  type DataTableColumn,
+  DesktopCard,
+  DesktopModal,
+  DesktopPageLayout,
+  Toast,
+} from '@/design-system';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
+import { withOpacity } from '@/utils/color';
 import { maskPhone, validatePhone, getPhoneErrorMessage } from '@/utils/phoneValidation';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -676,7 +683,7 @@ export default function MotoristasGestor() {
           accessibilityState={{ disabled: salvando }}
         >
           {salvando ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <ActivityIndicator color={theme.colors.white} size="small" />
           ) : (
             <Text style={styles.modalButtonPrimaryText}>Adicionar</Text>
           )}
@@ -765,7 +772,7 @@ export default function MotoristasGestor() {
           accessibilityState={{ disabled: salvando }}
         >
           {salvando ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <ActivityIndicator color={theme.colors.white} size="small" />
           ) : (
             <Text style={styles.modalButtonPrimaryText}>Salvar</Text>
           )}
@@ -1306,7 +1313,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: withOpacity(theme.colors.black, 0.5),
     justifyContent: 'center',
     alignItems: 'center',
     padding: theme.spacing.xl,

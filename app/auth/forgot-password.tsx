@@ -13,9 +13,10 @@ import {
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
-import { StyleSheet, type Theme } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export default function ForgotPassword() {
+  const { theme } = useUnistyles();
   const router = useRouter();
   const { isDesktop } = useResponsive();
   const [email, setEmail] = useState('');
@@ -84,7 +85,7 @@ export default function ForgotPassword() {
                 disabled={loading}
               >
                 {loading ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={theme.colors.white} />
                 ) : (
                   <Text style={styles.buttonText}>Enviar Link de Recuperação</Text>
                 )}
@@ -136,7 +137,7 @@ export default function ForgotPassword() {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={theme.colors.white} />
           ) : (
             <Text style={styles.buttonText}>Enviar Link</Text>
           )}

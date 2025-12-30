@@ -145,7 +145,7 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
               accessibilityState={{ disabled: isOptimizing || !enderecoUnidade }}
             >
               {isOptimizing ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={theme.colors.white} />
               ) : (
                 <Text style={styles.otimizarButtonText}>
                   Otimizar Rota (Melhor Percurso)
@@ -225,7 +225,7 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
         >
           {isLoading ? (
             <View style={styles.gerarButtonLoading}>
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={theme.colors.white} />
               <Text style={[styles.gerarButtonText, { marginLeft: 10 }]}>Criando rota...</Text>
             </View>
           ) : (

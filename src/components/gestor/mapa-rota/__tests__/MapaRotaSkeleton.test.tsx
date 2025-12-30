@@ -9,35 +9,6 @@ import React from 'react';
 import { MapaRotaSkeleton } from '../MapaRotaSkeleton';
 
 // Mock dependencies
-jest.mock('@/utils/styles', () => {
-  const theme = {
-    colors: {
-      primary: '#284093',
-      secondary: '#f7a02a',
-      success: '#10b981',
-      warning: '#f7a02a',
-      info: '#3b82f6',
-      white: '#ffffff',
-      gray50: '#f9fafb',
-      gray100: '#f3f4f6',
-      gray200: '#e5e7eb',
-      gray300: '#d1d5db',
-      gray400: '#9ca3af',
-      gray500: '#6b7280',
-    },
-    spacing: { xs: 4, sm: 8, md: 12, lg: 16 },
-    typography: { fontSize: { xs: 12, sm: 14 } },
-    borderRadius: { md: 10, lg: 16 },
-  };
-
-  return {
-    useUnistyles: () => ({ theme }),
-    StyleSheet: {
-      create: (fn: (t: typeof theme) => Record<string, unknown>) => fn(theme),
-    },
-  };
-});
-
 // Mock the styles import from the component
 jest.mock('../styles', () => ({
   styles: {

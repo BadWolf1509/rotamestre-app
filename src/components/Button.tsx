@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-  TouchableOpacity,
+  Pressable,
   Text,
   ActivityIndicator,
   ViewStyle,
@@ -9,6 +9,8 @@ import {
   Platform,
 } from 'react-native';
 
+import { platformOverrides } from '@/design-system/tokens';
+import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
@@ -43,20 +45,33 @@ export function Button({
 }: ButtonProps) {
   const { theme } = useUnistyles();
   const isDisabled = disabled || loading;
+  const sizeTokens = theme.components.button.size[size];
+  const iconSize = Math.round(sizeTokens.fontSize * 1.2);
+  const platformConfig = platformOverrides[Platform.OS as keyof typeof platformOverrides];
+  const minTouchSize = platformConfig?.touchTarget?.minSize ?? 0;
+  const minHeight = Math.max(sizeTokens.height, minTouchSize);
+  const rippleColor = Platform.OS === 'android'
+    ? platformOverrides.android.ripple?.color
+    : undefined;
 
   return (
-    <TouchableOpacity
-      style={[
+    <Pressable
+      style={({ pressed }) => ([
         styles.button,
         styles[variant],
         styles[size],
+        { minHeight },
         fullWidth && styles.fullWidth,
         isDisabled && styles.disabled,
+        pressed && !isDisabled && styles.pressed,
         style,
-      ]}
+      ])}
       onPress={onPress}
       disabled={isDisabled}
-      activeOpacity={0.7}
+      android_ripple={rippleColor ? { color: rippleColor } : undefined}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: isDisabled }}
     >
       {loading ? (
         <ActivityIndicator
@@ -67,7 +82,7 @@ export function Button({
           {icon && iconPosition === 'left' && (
             <Ionicons
               name={icon}
-              size={size === 'small' ? 16 : size === 'large' ? 24 : 20}
+              size={iconSize}
               color={
                 variant === 'outline' || variant === 'ghost'
                   ? theme.colors.primary
@@ -82,7 +97,7 @@ export function Button({
           {icon && iconPosition === 'right' && (
             <Ionicons
               name={icon}
-              size={size === 'small' ? 16 : size === 'large' ? 24 : 20}
+              size={iconSize}
               color={
                 variant === 'outline' || variant === 'ghost'
                   ? theme.colors.primary
@@ -93,7 +108,7 @@ export function Button({
           )}
         </>
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
@@ -102,14 +117,19 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: theme.borderRadius.md,
-    minHeight: 44,
+    borderRadius: theme.components.button.radius,
     // Web-only: Smooth transitions and cursor
     ...(Platform.OS === 'web' && ({
       cursor: 'pointer',
       transitionProperty: 'all',
       transitionDuration: '0.2s',
       transitionTimingFunction: 'ease-in-out',
+      ':focus-visible': {
+        outlineStyle: 'solid',
+        outlineColor: platformOverrides.web.focusRing.color,
+        outlineWidth: platformOverrides.web.focusRing.width,
+        outlineOffset: 2,
+      },
     } as any)),
   },
 
@@ -121,11 +141,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
       ':hover': {
         backgroundColor: theme.colors.primaryDark,
         transform: 'translateY(-1px)',
-        boxShadow: '0 4px 8px rgba(0,0,0,0.15)',
+        boxShadow: boxShadow(0, 4, 8, 0, theme.colors.black, 0.15),
       },
       ':active': {
         transform: 'translateY(0px)',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        boxShadow: boxShadow(0, 2, 4, 0, theme.colors.black, 0.1),
       },
     }),
   },
@@ -136,7 +156,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
       ':hover': {
         opacity: 0.9,
         transform: 'translateY(-1px)',
-        boxShadow: '0 4px 8px rgba(0,0,0,0.15)',
+        boxShadow: boxShadow(0, 4, 8, 0, theme.colors.black, 0.15),
       },
     }),
   },
@@ -169,22 +189,25 @@ const styles = StyleSheet.create((theme: Theme) => ({
       ':hover': {
         opacity: 0.9,
         transform: 'translateY(-1px)',
-        boxShadow: '0 4px 8px rgba(239, 68, 68, 0.3)',
+        boxShadow: boxShadow(0, 4, 8, 0, theme.colors.error, 0.3),
       },
     }),
   },
 
   small: {
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: 12,
+    minHeight: theme.components.button.size.small.height,
+    paddingVertical: theme.components.button.size.small.paddingVertical,
+    paddingHorizontal: theme.components.button.size.small.paddingHorizontal,
   },
   medium: {
-    paddingVertical: 12,
-    paddingHorizontal: theme.spacing.md,
+    minHeight: theme.components.button.size.medium.height,
+    paddingVertical: theme.components.button.size.medium.paddingVertical,
+    paddingHorizontal: theme.components.button.size.medium.paddingHorizontal,
   },
   large: {
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
+    minHeight: theme.components.button.size.large.height,
+    paddingVertical: theme.components.button.size.large.paddingVertical,
+    paddingHorizontal: theme.components.button.size.large.paddingHorizontal,
   },
 
   text: {
@@ -192,32 +215,27 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   primaryText: {
     color: theme.colors.white,
-    fontSize: theme.typography.fontSize.base,
   },
   secondaryText: {
     color: theme.colors.white,
-    fontSize: theme.typography.fontSize.base,
   },
   outlineText: {
     color: theme.colors.primary,
-    fontSize: theme.typography.fontSize.base,
   },
   ghostText: {
     color: theme.colors.primary,
-    fontSize: theme.typography.fontSize.base,
   },
   dangerText: {
     color: theme.colors.white,
-    fontSize: theme.typography.fontSize.base,
   },
   smallText: {
-    fontSize: theme.typography.fontSize.sm,
+    fontSize: theme.components.button.size.small.fontSize,
   },
   mediumText: {
-    fontSize: theme.typography.fontSize.base,
+    fontSize: theme.components.button.size.medium.fontSize,
   },
   largeText: {
-    fontSize: theme.typography.fontSize.lg,
+    fontSize: theme.components.button.size.large.fontSize,
   },
 
   disabled: {
@@ -226,9 +244,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
       cursor: 'not-allowed',
       ':hover': {
         transform: 'none',
-        boxShadow: 'none',
+        boxShadow: boxShadow(0, 0, 0, 0, theme.colors.black, 0),
       },
     } as any)),
+  },
+  pressed: {
+    opacity: 0.85,
   },
   fullWidth: {
     width: '100%',

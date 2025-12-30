@@ -6,10 +6,8 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Animated, Easing } from 'react-native';
 
-import { DesktopCard } from '@/components/desktop/DesktopCard';
-import { DesktopPageLayout } from '@/components/desktop/DesktopPageLayout';
-import { SplitView } from '@/components/desktop/SplitView';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import { DesktopCard, DesktopPageLayout, SplitView } from '@/design-system';
 import { useUnistyles } from '@/utils/styles';
 
 import { styles } from './styles';
@@ -95,14 +93,14 @@ function SkeletonParadaCardCompact() {
 // Skeleton do header compacto
 function SkeletonHeaderCompact() {
   return (
-    <View style={styles.skeletonHeaderCompact}>
-      {/* Motorista */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <SkeletonPulse style={{ width: 24, height: 24, borderRadius: 12 }} />
-        <SkeletonPulse style={{ width: 120, height: 16, borderRadius: 4 }} />
-      </View>
-      {/* Separator */}
-      <View style={{ width: 1, height: 20, backgroundColor: '#e5e7eb' }} />
+      <View style={styles.skeletonHeaderCompact}>
+        {/* Motorista */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <SkeletonPulse style={{ width: 24, height: 24, borderRadius: 12 }} />
+          <SkeletonPulse style={{ width: 120, height: 16, borderRadius: 4 }} />
+        </View>
+        {/* Separator */}
+      <View style={[styles.skeletonDivider, { height: 20 }]} />
       {/* Status badge */}
       <SkeletonPulse style={{ width: 80, height: 26, borderRadius: 13 }} />
       {/* Metrics */}
@@ -124,7 +122,7 @@ function SkeletonResumoInline() {
     <View style={styles.skeletonResumoInline}>
       {[1, 2, 3].map((i, index) => (
         <React.Fragment key={i}>
-          {index > 0 && <View style={{ width: 1, height: 16, backgroundColor: '#e5e7eb' }} />}
+          {index > 0 && <View style={[styles.skeletonDivider, { height: 16 }]} />}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <SkeletonPulse style={{ width: 20, height: 20, borderRadius: 10 }} />
             <SkeletonPulse style={{ width: 24, height: 18, borderRadius: 4 }} />

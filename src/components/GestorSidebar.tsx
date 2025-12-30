@@ -4,6 +4,7 @@ import { View, Text, TouchableOpacity, Platform, Image } from 'react-native';
 
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
+import { withOpacity } from '@/utils/color';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface MenuItem {
@@ -104,7 +105,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     height: '100%',
     backgroundColor: theme.colors.primaryDark,
     borderRightWidth: 1,
-    borderRightColor: 'rgba(255, 255, 255, 0.1)',
+    borderRightColor: withOpacity(theme.colors.white, 0.1),
     flexDirection: 'column',
     ...(Platform.OS === 'web' && {
       position: 'fixed' as any,
@@ -117,7 +118,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   header: {
     padding: theme.spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: withOpacity(theme.colors.white, 0.1),
     alignItems: 'center',
   },
   logoImage: {
@@ -127,7 +128,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   unidadeName: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: withOpacity(theme.colors.white, 0.7),
     lineHeight: 16,
     textAlign: 'center',
   },
@@ -145,7 +146,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: 4,
   },
   menuItemActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: withOpacity(theme.colors.white, 0.15),
     borderLeftWidth: 4,
     borderLeftColor: theme.colors.secondary,
   },
@@ -160,7 +161,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   menuLabel: {
     fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: withOpacity(theme.colors.white, 0.8),
     fontWeight: '500',
   },
   menuLabelActive: {
@@ -170,7 +171,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   footer: {
     padding: theme.spacing.md,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopColor: withOpacity(theme.colors.white, 0.1),
   },
   userInfo: {
     flexDirection: 'row',
@@ -202,7 +203,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   userRole: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: withOpacity(theme.colors.white, 0.6),
   },
   logoutButton: {
     flexDirection: 'row',
@@ -211,7 +212,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     paddingVertical: 10,
     paddingHorizontal: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: withOpacity(theme.colors.white, 0.1),
   },
   logoutIcon: {
     fontSize: 16,

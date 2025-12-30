@@ -1,5 +1,7 @@
 import { ScrollViewStyleReset } from 'expo-router/html';
 
+import { defaultTheme } from '@/utils/styles';
+
 import type { PropsWithChildren } from 'react';
 
 /**
@@ -33,7 +35,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Rota Mestre" />
-        <meta name="theme-color" content="#284093" />
+        <meta name="theme-color" content={defaultTheme.colors.primary} />
         <meta name="mobile-web-app-capable" content="yes" />
 
         {/* Open Graph / Facebook */}

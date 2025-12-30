@@ -34,12 +34,10 @@ describe('Button', () => {
 
   it('não deve chamar onPress quando loading', () => {
     const onPress = jest.fn();
-    const { UNSAFE_getByType } = render(<Button title="Loading" onPress={onPress} loading />);
+    const { getByLabelText } = render(<Button title="Loading" onPress={onPress} loading />);
 
-    const { TouchableOpacity } = require('react-native');
-    const touchable = UNSAFE_getByType(TouchableOpacity);
-
-    expect(touchable.props.disabled).toBe(true);
+    fireEvent.press(getByLabelText('Loading'));
+    expect(onPress).not.toHaveBeenCalled();
   });
 
   it('deve renderizar ícone se fornecido', () => {

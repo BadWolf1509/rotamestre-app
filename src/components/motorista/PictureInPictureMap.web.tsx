@@ -8,6 +8,7 @@ import {
   Animated,
 } from 'react-native';
 
+import { withOpacity } from '@/utils/color';
 import { defaultTheme } from '@/utils/styles';
 
 interface PictureInPictureMapProps {
@@ -82,10 +83,10 @@ const styles = StyleSheet.create({
     right: 20,
     width: 200,
     height: 250,
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderRadius: 12,
     elevation: 10,
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -108,7 +109,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(30, 90, 168, 0.9)',
+    backgroundColor: withOpacity(colors.primary, 0.9),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -116,7 +117,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: withOpacity(colors.black, 0.6),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -156,4 +157,3 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
-

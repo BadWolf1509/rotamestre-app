@@ -51,42 +51,6 @@ jest.mock('@/constants/gestorPageMeta', () => ({
 }));
 
 // Mock styles
-jest.mock('@/utils/styles', () => ({
-    useUnistyles: () => ({
-        theme: {
-            colors: {
-                primaryDark: '#1e5aa8',
-                secondary: '#f59e0b',
-                success: '#10b981',
-                purple: '#8b5cf6',
-                error: '#ef4444',
-                gray50: '#f9fafb',
-                white: '#fff',
-                gray200: '#e5e7eb',
-                gray500: '#6b7280',
-                gray900: '#111827',
-                primary: '#007AFF',
-            },
-            spacing: { sm: 8, md: 12, lg: 16, xl: 20, '2xl': 24, '3xl': 32 },
-            typography: { sm: 14, base: 16, lg: 18, '3xl': 30, fontSansSemiBold: 'System' },
-            borderRadius: { lg: 12 },
-            layout: { containerMaxWidth: 1200 },
-        },
-    }),
-    StyleSheet: {
-        create: (fn: any) => {
-            const theme = {
-                colors: { gray50: '#f9fafb', gray200: '#e5e7eb', gray500: '#6b7280', gray900: '#111827', white: '#fff', primary: '#007AFF' },
-                spacing: { sm: 8, md: 12, lg: 16, xl: 20, '2xl': 24, '3xl': 32 },
-                typography: { sm: 14, base: 16, lg: 18, '3xl': 30, fontSansSemiBold: 'System' },
-                borderRadius: { lg: 12 },
-                layout: { containerMaxWidth: 1200 },
-            };
-            return typeof fn === 'function' ? fn(theme) : fn;
-        },
-    },
-}));
-
 // Mock DesktopPageLayout
 jest.mock('@/components/desktop/DesktopPageLayout', () => ({
     DesktopPageLayout: ({ children }: any) => children,

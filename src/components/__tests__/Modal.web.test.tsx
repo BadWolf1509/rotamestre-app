@@ -32,6 +32,13 @@ jest.mock('@/utils/styles', () => {
         closeButtonSize: 20,
       },
     },
+    components: {
+      modal: {
+        headerPadding: 12,
+        bodyPadding: 12,
+        footerPadding: 12,
+      },
+    },
   };
 
   return {

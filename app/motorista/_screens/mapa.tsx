@@ -1,9 +1,10 @@
 import { useCallback, useState, useMemo } from 'react';
-import { View, Text, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { View, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 
 import { MapaAdapter } from '@/components/MapaAdapter';
 import { ParadaBottomSheet } from '@/components/motorista/ParadaBottomSheet';
 import { useRouteStatus } from '@/context/RouteStatusContext';
+import { Text } from '@/design-system';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -148,7 +149,7 @@ export default function MapaMotorista() {
       </View>
 
       {/* Mapa usando MapaAdapter (funciona em web e mobile) */}
-      <View style={styles.mapContainer}>
+      <View style={styles.mapContainer} testID="motorista-mapa-view">
         <MapaAdapter
           paradas={paradas}
           selectedParadaId={selectedParadaId}

@@ -29,54 +29,42 @@ test.describe('Motorista Navigation E2E Tests', () => {
       await page.waitForTimeout(2000); // Wait for tabs to render
 
       // Check each tab exists
-      const inicioTab = page.getByText(/in[ií]cio/i).first();
-      const paradasTab = page.getByText(/paradas/i).first();
-      const mapaTab = page.getByText(/mapa/i).first();
-      const historicoTab = page.getByText(/hist[oó]rico/i).first();
-
-      await expect(inicioTab).toBeVisible();
-      await expect(paradasTab).toBeVisible();
-      await expect(mapaTab).toBeVisible();
-      await expect(historicoTab).toBeVisible();
+      await expect(motoristaPage.inicioTab).toBeVisible();
+      await expect(motoristaPage.paradasTab).toBeVisible();
+      await expect(motoristaPage.mapaTab).toBeVisible();
+      await expect(motoristaPage.historicoTab).toBeVisible();
     });
 
     test('should navigate to Paradas tab', async ({ page }) => {
-      const paradasTab = page.getByText(/paradas/i).first();
-      await paradasTab.click();
-      await page.waitForTimeout(1000);
+      await motoristaPage.navigateToParadas();
 
       // Should see paradas content or checkpoints
       await expect(page).toHaveURL(/.*motorista.*/);
+      await expect(motoristaPage.paradasList).toBeVisible({ timeout: 10000 });
     });
 
     test('should navigate to Mapa tab', async ({ page }) => {
-      const mapaTab = page.getByText(/mapa/i).first();
-      await mapaTab.click();
-      await page.waitForTimeout(1000);
+      await motoristaPage.navigateToMapa();
 
       // Should see mapa content
       await expect(page).toHaveURL(/.*motorista.*/);
+      await expect(motoristaPage.mapaView).toBeVisible({ timeout: 10000 });
     });
 
     test('should navigate to Historico tab', async ({ page }) => {
-      const historicoTab = page.getByText(/hist[oó]rico/i).first();
-      await historicoTab.click();
-      await page.waitForTimeout(1000);
+      await motoristaPage.navigateToHistorico();
 
       // Should see historico content
       await expect(page).toHaveURL(/.*motorista.*/);
+      await expect(motoristaPage.historicoList).toBeVisible({ timeout: 10000 });
     });
 
     test('should return to Inicio tab', async ({ page }) => {
       // First navigate away - use getByRole for tab elements
-      const historicoTab = page.getByRole('tab', { name: /hist[oó]rico/i });
-      await historicoTab.click();
-      await page.waitForTimeout(1000);
+      await motoristaPage.navigateToHistorico();
 
       // Then back to inicio
-      const inicioTab = page.getByRole('tab', { name: /in[ií]cio/i });
-      await inicioTab.click();
-      await page.waitForTimeout(1000);
+      await motoristaPage.navigateToInicio();
 
       await expect(page).toHaveURL(/.*motorista.*/);
     });

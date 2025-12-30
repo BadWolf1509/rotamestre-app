@@ -7,37 +7,23 @@ import { CustomDrawerContent } from '../CustomDrawerContent';
 
 
 // Mock @/utils/styles para evitar problemas com Dimensions
-const mockTheme = {
-  colors: {
-    primary: '#284093',
-    primaryDark: '#1b2c63',
-    white: '#ffffff',
-    gray100: '#f3f4f6',
-    gray200: '#e5e7eb',
-    gray500: '#6b7280',
-    gray700: '#374151',
-    gray900: '#111827',
-    error: '#ef4444',
-    overlay: 'rgba(0, 0, 0, 0.5)',
-  },
-  spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24 },
-  typography: { fontSans: 'System', fontSansSemiBold: 'System', fontSansBold: 'System', base: 16, sm: 14, lg: 18 },
-  borderRadius: { sm: 8, md: 10, lg: 12, xl: 16, full: 9999 },
-  shadows: { sm: {}, md: {}, lg: {} },
-};
+jest.mock('@/utils/styles', () => {
+  const { defaultTheme } = require('@/utils/styles.base');
+  const theme = defaultTheme;
 
-jest.mock('@/utils/styles', () => ({
-  StyleSheet: {
-    create: (styles: any) => {
-      if (typeof styles === 'function') {
-        return styles(mockTheme);
-      }
-      return styles;
+  return {
+    StyleSheet: {
+      create: (styles: any) => {
+        if (typeof styles === 'function') {
+          return styles(theme);
+        }
+        return styles;
+      },
     },
-  },
-  useUnistyles: () => ({ theme: mockTheme }),
-  defaultTheme: mockTheme,
-}));
+    useUnistyles: () => ({ theme }),
+    defaultTheme: theme,
+  };
+});
 
 // Mock @react-navigation/drawer BEFORE importing component
 jest.mock('@react-navigation/drawer', () => {

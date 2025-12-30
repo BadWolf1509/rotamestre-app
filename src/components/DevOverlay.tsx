@@ -5,7 +5,6 @@ import {
   Alert,
   Platform,
   ScrollView,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -14,7 +13,8 @@ import {
 import { usePerformance } from '@/hooks/usePerformance';
 import { supabase } from '@/lib/supabase';
 import PerformanceOptimizer from '@/services/performanceOptimizer';
-import { defaultTheme, useUnistyles } from '@/utils/styles';
+import { withOpacity } from '@/utils/color';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface DevOverlayProps {
   enabled?: boolean;
@@ -126,7 +126,7 @@ export function DevOverlay({ enabled = __DEV__ }: DevOverlayProps) {
           onPress={() => setIsExpanded(true)}
           activeOpacity={0.8}
         >
-          <Ionicons name="bug" size={24} color="#fff" />
+          <Ionicons name="bug" size={24} color={theme.colors.white} />
         </TouchableOpacity>
       )}
 
@@ -140,7 +140,7 @@ export function DevOverlay({ enabled = __DEV__ }: DevOverlayProps) {
               onPress={() => setIsExpanded(false)}
               style={styles.closeButton}
             >
-              <Ionicons name="close" size={20} color="#fff" />
+              <Ionicons name="close" size={20} color={theme.colors.white} />
             </TouchableOpacity>
           </View>
 
@@ -164,7 +164,7 @@ export function DevOverlay({ enabled = __DEV__ }: DevOverlayProps) {
               <Ionicons
                 name={showRoutes ? 'chevron-up' : 'chevron-down'}
                 size={16}
-                color="#fff"
+                color={theme.colors.white}
               />
             </TouchableOpacity>
 
@@ -180,11 +180,11 @@ export function DevOverlay({ enabled = __DEV__ }: DevOverlayProps) {
                       ]}
                       onPress={() => router.push(route.path as any)}
                     >
-                      <Ionicons
-                        name={route.icon as any}
-                        size={16}
-                        color={pathname === route.path ? theme.colors.primary : '#fff'}
-                      />
+                        <Ionicons
+                          name={route.icon as any}
+                          size={16}
+                          color={pathname === route.path ? theme.colors.primary : theme.colors.white}
+                        />
                       <Text
                         style={[
                           styles.routeButtonText,
@@ -210,7 +210,7 @@ export function DevOverlay({ enabled = __DEV__ }: DevOverlayProps) {
               <Ionicons
                 name={showPerformance ? 'chevron-up' : 'chevron-down'}
                 size={16}
-                color="#fff"
+                color={theme.colors.white}
               />
             </TouchableOpacity>
 
@@ -222,7 +222,7 @@ export function DevOverlay({ enabled = __DEV__ }: DevOverlayProps) {
                     style={styles.actionButton}
                     onPress={action.action}
                   >
-                    <Ionicons name={action.icon as any} size={20} color="#fff" />
+                    <Ionicons name={action.icon as any} size={20} color={theme.colors.white} />
                     <Text style={styles.actionButtonText}>{action.name}</Text>
                   </TouchableOpacity>
                 ))}
@@ -238,14 +238,14 @@ export function DevOverlay({ enabled = __DEV__ }: DevOverlayProps) {
                 style={[styles.loginButton, styles.loginButtonSecondary]}
                 onPress={() => handleLoginAs('motorista')}
               >
-                <Ionicons name="car" size={16} color="#fff" />
+                <Ionicons name="car" size={16} color={theme.colors.white} />
                 <Text style={styles.loginButtonText}>Motorista</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.loginButton, { backgroundColor: theme.colors.primary }]}
                 onPress={() => handleLoginAs('gestor')}
               >
-                <Ionicons name="business" size={16} color="#fff" />
+                <Ionicons name="business" size={16} color={theme.colors.white} />
                 <Text style={styles.loginButtonText}>Gestor</Text>
               </TouchableOpacity>
             </View>
@@ -263,7 +263,7 @@ export function DevOverlay({ enabled = __DEV__ }: DevOverlayProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     position: 'absolute' as any,
     bottom: 20,
@@ -274,18 +274,18 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#dc2626',
+    backgroundColor: theme.colors.error,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 8,
-    shadowColor: '#000',
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
   },
   expandedContainer: {
     width: 320,
-    backgroundColor: 'rgba(17, 24, 39, 0.95)',
+    backgroundColor: withOpacity(theme.colors.gray900, 0.95),
     borderRadius: 12,
     padding: 16,
   },
@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    color: '#fff',
+    color: theme.colors.white,
     fontSize: 18,
     fontWeight: '700',
   },
@@ -304,13 +304,13 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   infoSection: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: withOpacity(theme.colors.white, 0.1),
     borderRadius: 8,
     padding: 8,
     marginBottom: 12,
   },
   infoText: {
-    color: '#d1d5db',
+    color: theme.colors.gray300,
     fontSize: 11,
     marginBottom: 2,
     fontFamily: Platform.select({ web: 'monospace' }) as any,
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   sectionTitle: {
-    color: '#fff',
+    color: theme.colors.white,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -337,22 +337,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: withOpacity(theme.colors.white, 0.1),
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: withOpacity(theme.colors.white, 0.2),
   },
   activeRoute: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.white,
   },
   routeButtonText: {
-    color: '#fff',
+    color: theme.colors.white,
     fontSize: 12,
   },
   activeRouteText: {
-    color: defaultTheme.colors.primary,
+    color: theme.colors.primary,
   },
   actionGrid: {
     flexDirection: 'row',
@@ -365,12 +365,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: withOpacity(theme.colors.white, 0.1),
     padding: 8,
     borderRadius: 6,
   },
   actionButtonText: {
-    color: '#fff',
+    color: theme.colors.white,
     fontSize: 11,
   },
   loginButtons: {
@@ -387,24 +387,24 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   loginButtonSecondary: {
-    backgroundColor: defaultTheme.colors.secondary,
+    backgroundColor: theme.colors.secondary,
   },
   loginButtonText: {
-    color: '#fff',
+    color: theme.colors.white,
     fontSize: 12,
     fontWeight: '600',
   },
   shortcutsSection: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopColor: withOpacity(theme.colors.white, 0.1),
     paddingTop: 8,
     marginTop: 8,
   },
   shortcutText: {
-    color: '#9ca3af',
+    color: theme.colors.gray400,
     fontSize: 10,
     marginBottom: 2,
     fontFamily: Platform.select({ web: 'monospace' }) as any,
   },
-});
+}));
 /* istanbul ignore file */

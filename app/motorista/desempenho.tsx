@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 
-import { MobileLoading, MobileCard } from '@/components/mobile';
+import { MobileCard, MobileLoading } from '@/design-system';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
@@ -335,7 +335,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     padding: theme.spacing.xl,
     borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,

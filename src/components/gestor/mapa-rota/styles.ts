@@ -2,6 +2,7 @@
  * Estilos compartilhados dos componentes do Mapa da Rota
  */
 
+import { withOpacity } from '@/utils/color';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
 export const MAP_HEIGHT = 600;
@@ -151,7 +152,7 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    backgroundColor: withOpacity(theme.colors.black, 0.25),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -159,7 +160,7 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: withOpacity(theme.colors.white, 0.9),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -395,6 +396,10 @@ export const styles = StyleSheet.create((theme: Theme) => ({
   skeletonPulse: {
     backgroundColor: theme.colors.gray200,
     borderRadius: theme.borderRadius.md,
+  },
+  skeletonDivider: {
+    width: 1,
+    backgroundColor: theme.colors.gray200,
   },
   skeletonMap: {
     height: MAP_HEIGHT,

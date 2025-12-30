@@ -58,6 +58,7 @@ interface MainCardProps {
   onPress?: () => void | Promise<void>;
   /** Callback quando o status do checklist pré-rota muda */
   onChecklistChange?: (canStart: boolean, allOk: boolean) => void;
+  testID?: string;
 }
 
 interface MotoristaStats {
@@ -81,6 +82,7 @@ export function MainCard({
   onSwipeRight,
   onPress,
   onChecklistChange,
+  testID,
 }: MainCardProps) {
   const { theme } = useUnistyles();
   const router = useRouter();
@@ -759,7 +761,7 @@ export function MainCard({
           <View style={styles.header}>
             <View style={[
               styles.badge,
-              state === 'last-stop' && { backgroundColor: theme.colors.successDark } // successDark (#047857) para contraste 6:1 com texto branco
+              state === 'last-stop' && { backgroundColor: theme.colors.successDark } // contraste 6:1 com texto branco
             ]}>
               <Text style={styles.badgeText}>
                 {state === 'last-stop' ? 'ÚLTIMA PARADA! 🎯' : `PARADA ${currentStop.ordem}/${paradasReais.length}`}
@@ -1016,6 +1018,7 @@ export function MainCard({
 
   return (
     <Animated.View
+      testID={testID}
       style={[
         styles.card,
         {
@@ -1065,7 +1068,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   badgeTextDark: {
-    color: '#78350f', // amber-900 para alto contraste em fundo warning (7:1)
+    color: colors.warningText, // alto contraste em fundo warning
   },
   timer: {
     flexDirection: 'row',
@@ -1369,7 +1372,7 @@ const styles = StyleSheet.create({
   },
   observationText: {
     fontSize: 12,
-    color: '#92400e', // amber-800 para alto contraste em fundo warningBg (7:1)
+    color: colors.warningText,
   },
   streetViewContainer: {
     marginTop: 12,
@@ -1556,5 +1559,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
 

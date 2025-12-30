@@ -70,6 +70,7 @@ export interface Theme {
     warningDark: string;
     errorLight: string;
     successLight: string;
+    whatsapp: string;
     // KPI Card Colors (Brand-compliant)
     kpiTotalHoje: string;
     kpiEmAndamento: string;
@@ -144,6 +145,18 @@ export interface Theme {
     lg: any;
     card: any;
   };
+  motion: {
+    duration: {
+      fast: number;
+      normal: number;
+      slow: number;
+    };
+    easing: {
+      easeOut: string;
+      easeIn: string;
+      easeInOut: string;
+    };
+  };
   layout: {
     sidebarWidth: number;
     containerMaxWidth: number;
@@ -185,6 +198,78 @@ export interface Theme {
       buttonPaddingV: number;
       buttonPaddingH: number;
       buttonGap: number;
+    };
+  };
+  components: {
+    button: {
+      size: {
+        small: {
+          height: number;
+          paddingVertical: number;
+          paddingHorizontal: number;
+          fontSize: number;
+        };
+        medium: {
+          height: number;
+          paddingVertical: number;
+          paddingHorizontal: number;
+          fontSize: number;
+        };
+        large: {
+          height: number;
+          paddingVertical: number;
+          paddingHorizontal: number;
+          fontSize: number;
+        };
+      };
+      radius: number;
+    };
+    input: {
+      size: {
+        small: {
+          height: number;
+          paddingHorizontal: number;
+          fontSize: number;
+        };
+        medium: {
+          height: number;
+          paddingHorizontal: number;
+          fontSize: number;
+        };
+        large: {
+          height: number;
+          paddingHorizontal: number;
+          fontSize: number;
+        };
+      };
+      radius: number;
+    };
+    modal: {
+      headerPadding: number;
+      bodyPadding: number;
+      footerPadding: number;
+    };
+    statsCard: {
+      padding: number;
+      radius: number;
+      valueFontSize: number;
+      labelFontSize: number;
+      labelLetterSpacing: number;
+      iconSize: number;
+      iconContainerSize: number;
+      iconContainerRadius: number;
+      changeFontSize: number;
+    };
+    table: {
+      headerFontSize: number;
+      rowFontSize: number;
+      cellPaddingX: number;
+      cellPaddingY: number;
+      badgePaddingX: number;
+      badgePaddingY: number;
+      actionButtonPaddingX: number;
+      actionButtonPaddingY: number;
+      actionButtonFontSize: number;
     };
   };
 }

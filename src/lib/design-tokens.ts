@@ -1,196 +1,166 @@
 /**
- * ============================================
- * DESIGN TOKENS - RotaMestre
- * ============================================
- *
- * Tokens centralizados baseados no Brand Guidelines v3.0
- * Estes valores garantem consistência visual em toda a aplicação.
- *
- * Documentação completa: docs/BRAND_GUIDELINES.md
+ * Design Tokens - RotaMestre
+ * Derived from defaultTheme to keep a single source of truth.
  */
 
+import { withOpacity } from '@/utils/color';
+import { defaultTheme } from '@/utils/styles.base';
+
 // ============================================
-// 1. CORES
+// 1. COLORS
 // ============================================
 
 export const colors = {
-  // Cores Primárias
   primary: {
-    main: '#284093',   // Azul RotaMestre
-    dark: '#1b2c63',   // Azul Escuro (headers)
-    light: '#34699f',  // Azul Claro
+    main: defaultTheme.colors.primary,
+    dark: defaultTheme.colors.primaryDark,
+    light: defaultTheme.colors.primaryLight,
   },
-
-  // Cor Secundária (CTA)
   secondary: {
-    main: '#f7a02a',   // Laranja RotaMestre
-    dark: '#c87704',   // Laranja Escuro
-    light: '#ffbf14',  // Laranja Claro
-    accent: '#fbad02', // Laranja Accent (do manual da marca)
+    main: defaultTheme.colors.secondary,
+    dark: defaultTheme.colors.secondaryDark,
+    light: defaultTheme.colors.secondaryLight,
+    accent: defaultTheme.colors.accent,
   },
-
-  // Paleta KPI (cores da marca para cards do dashboard)
   kpi: {
-    totalHoje: '#284093',    // Azul Principal
-    emAndamento: '#f7a02a',  // Laranja Principal
-    concluidas: '#34699f',   // Azul Claro
-    distancia: '#ffbf14',    // Laranja Claro
-    incidentes: '#1b2c63',   // Azul Escuro
+    totalHoje: defaultTheme.colors.kpiTotalHoje,
+    emAndamento: defaultTheme.colors.kpiEmAndamento,
+    concluidas: defaultTheme.colors.kpiConcluidas,
+    distancia: defaultTheme.colors.kpiDistancia,
+    incidentes: defaultTheme.colors.kpiIncidentes,
   },
-
-  // Cores Semânticas (Status)
-  success: '#10b981',  // Verde - Sucesso/Concluído
-  warning: '#f59e0b',  // Amarelo - Atenção/Pendente
-  error: '#ef4444',    // Vermelho - Erro/Cancelado
-  info: '#3b82f6',     // Azul Info - Informação/Em Andamento
-
-  // Escala de Cinzas
+  success: defaultTheme.colors.success,
+  warning: defaultTheme.colors.warning,
+  error: defaultTheme.colors.error,
+  info: defaultTheme.colors.info,
   gray: {
-    50: '#f9fafb',   // Background muito claro
-    100: '#f3f4f6',  // Background secundário
-    200: '#e5e7eb',  // Borders, separadores
-    300: '#d1d5db',  // Borders escuros
-    400: '#9ca3af',  // Texto desabilitado
-    500: '#6b7280',  // Texto secundário
-    600: '#4b5563',  // Texto normal
-    700: '#374151',  // Texto escuro
-    800: '#1f2937',  // Texto muito escuro
-    900: '#111827',  // Texto preto
+    50: defaultTheme.colors.gray50,
+    100: defaultTheme.colors.gray100,
+    200: defaultTheme.colors.gray200,
+    300: defaultTheme.colors.gray300,
+    400: defaultTheme.colors.gray400,
+    500: defaultTheme.colors.gray500,
+    600: defaultTheme.colors.gray600,
+    700: defaultTheme.colors.gray700,
+    800: defaultTheme.colors.gray800,
+    900: defaultTheme.colors.gray900,
   },
-
-  // Backgrounds
   background: {
-    primary: '#ffffff',    // Fundo principal (cards, telas)
-    secondary: '#f9fafb',  // Fundo de telas secundárias
-    tertiary: '#f3f4f6',   // Fundo de áreas específicas
+    primary: defaultTheme.colors.surface,
+    secondary: defaultTheme.colors.background,
+    tertiary: defaultTheme.colors.gray100,
   },
-
-  // Bordas
   border: {
-    light: '#e5e7eb',   // Borders sutis
-    medium: '#d1d5db',  // Borders padrão
-    dark: '#9ca3af',    // Borders em destaque
+    light: defaultTheme.colors.border,
+    medium: defaultTheme.colors.gray300,
+    dark: defaultTheme.colors.gray400,
   },
-
-  // Overlays (Modals, Popups)
   overlay: {
-    light: 'rgba(0, 0, 0, 0.1)',   // Overlay sutil
-    medium: 'rgba(0, 0, 0, 0.5)',  // Overlay padrão
-    dark: 'rgba(0, 0, 0, 0.8)',    // Overlay escuro
+    light: withOpacity(defaultTheme.colors.black, 0.1),
+    medium: defaultTheme.colors.overlay,
+    dark: withOpacity(defaultTheme.colors.black, 0.8),
   },
-
-  // Cores de Texto (atalhos semânticos)
   text: {
-    primary: '#111827',     // Texto principal (gray[900])
-    secondary: '#6b7280',   // Texto secundário (gray[500])
-    tertiary: '#9ca3af',    // Texto terciário (gray[400])
-    disabled: '#d1d5db',    // Texto desabilitado (gray[300])
-    inverse: '#ffffff',     // Texto em fundos escuros
-    link: '#284093',        // Links (primary.main)
+    primary: defaultTheme.colors.text,
+    secondary: defaultTheme.colors.textSecondary,
+    tertiary: defaultTheme.colors.textTertiary,
+    disabled: defaultTheme.colors.disabled,
+    inverse: defaultTheme.colors.textInverse,
+    link: defaultTheme.colors.primary,
   },
-
-  // Cores puras (utilitários)
-  white: '#ffffff',
-  black: '#000000',
+  incident: {
+    accident: defaultTheme.colors.incident.accident,
+    absent: defaultTheme.colors.incident.absent,
+    wrongAddress: defaultTheme.colors.incident.wrongAddress,
+    blocked: defaultTheme.colors.incident.blocked,
+    vehicle: defaultTheme.colors.incident.vehicle,
+    weather: defaultTheme.colors.incident.weather,
+    other: defaultTheme.colors.incident.other,
+  },
+  social: {
+    whatsapp: defaultTheme.colors.whatsapp,
+  },
+  white: defaultTheme.colors.white,
+  black: defaultTheme.colors.black,
 } as const;
 
 // ============================================
-// 2. TIPOGRAFIA
+// 2. TYPOGRAPHY
 // ============================================
 
 export const typography = {
-  // Famílias de Fonte
   fontFamily: {
-    display: 'Viga',           // Títulos grandes (H1)
-    body: 'Nunito Sans',       // 90% da interface
-    regular: 'Nunito Sans',    // Corpo de texto
-    medium: 'Nunito Sans',     // Destaques sutis
-    semibold: 'Nunito Sans',   // Botões, labels
-    bold: 'Nunito Sans',       // Títulos (H2, H3)
-    extrabold: 'Nunito Sans',  // Números, métricas
+    display: defaultTheme.typography.fontDisplay,
+    body: defaultTheme.typography.fontSans,
+    regular: defaultTheme.typography.fontSans,
+    medium: defaultTheme.typography.fontSansMedium,
+    semibold: defaultTheme.typography.fontSansSemiBold,
+    bold: defaultTheme.typography.fontSansBold,
+    extrabold: defaultTheme.typography.fontSansExtraBold,
   },
-
-  // Tamanhos de Fonte
   fontSize: {
-    '5xl': 36,  // Landing page
-    '4xl': 32,  // Títulos principais de tela
-    '3xl': 28,  // Headers de tela (H1)
-    '2xl': 24,  // Subtítulos importantes (H2)
-    xl: 20,     // Títulos de seção (H3)
-    lg: 18,     // Destaques, lead text
-    md: 16,     // Corpo padrão, botões
-    sm: 14,     // Textos secundários
-    xs: 12,     // Labels, captions
+    xs: defaultTheme.typography.fontSize.xs,
+    sm: defaultTheme.typography.fontSize.sm,
+    md: defaultTheme.typography.fontSize.base,
+    lg: defaultTheme.typography.fontSize.lg,
+    xl: defaultTheme.typography.fontSize.xl,
+    '2xl': defaultTheme.typography.fontSize['2xl'],
+    '3xl': defaultTheme.typography.fontSize['3xl'],
+    '4xl': defaultTheme.typography.fontSize['4xl'],
+    '5xl': defaultTheme.typography.fontSize['4xl'] + 4,
   },
-
-  // Pesos de Fonte (Nunito Sans)
   fontWeight: {
-    light: '300',      // Raríssimo (evitar)
-    regular: '400',    // Corpo de texto
-    medium: '500',     // Destaques sutis
-    semibold: '600',   // Botões, labels importantes
-    bold: '700',       // Títulos (H2, H3)
-    extrabold: '800',  // Números, métricas destacadas
+    light: '300',
+    regular: '400',
+    medium: '500',
+    semibold: '600',
+    bold: '700',
+    extrabold: '800',
   },
-
-  // Line Heights
   lineHeight: {
-    tight: 1.2,    // Títulos grandes (H1, H2)
-    normal: 1.5,   // Corpo de texto padrão
-    relaxed: 1.75, // Parágrafos longos, conteúdo denso
+    tight: 1.2,
+    normal: 1.5,
+    relaxed: 1.75,
   },
-
-  // Estilos Pré-Definidos
   styles: {
-    // H1 - Título Principal de Tela
     h1: {
-      fontFamily: 'Viga',
-      fontSize: 28,
+      fontFamily: defaultTheme.typography.fontDisplay,
+      fontSize: defaultTheme.typography.fontSize['3xl'],
       fontWeight: '400' as const,
       lineHeight: 36,
-      color: colors.gray[900],
+      color: colors.text.primary,
     },
-
-    // H2 - Subtítulo/Seção
     h2: {
-      fontFamily: 'Nunito Sans',
-      fontSize: 20,
+      fontFamily: defaultTheme.typography.fontSans,
+      fontSize: defaultTheme.typography.fontSize.xl,
       fontWeight: '700' as const,
       lineHeight: 28,
-      color: colors.gray[900],
+      color: colors.text.primary,
     },
-
-    // H3 - Título de Card
     h3: {
-      fontFamily: 'Nunito Sans',
-      fontSize: 16,
+      fontFamily: defaultTheme.typography.fontSans,
+      fontSize: defaultTheme.typography.fontSize.base,
       fontWeight: '600' as const,
       lineHeight: 24,
-      color: colors.gray[900],
+      color: colors.text.primary,
     },
-
-    // Body - Corpo de Texto
     body: {
-      fontFamily: 'Nunito Sans',
-      fontSize: 14,
+      fontFamily: defaultTheme.typography.fontSans,
+      fontSize: defaultTheme.typography.fontSize.sm,
       fontWeight: '400' as const,
       lineHeight: 20,
-      color: colors.gray[700],
+      color: colors.text.secondary,
     },
-
-    // Caption - Textos Pequenos
     caption: {
-      fontFamily: 'Nunito Sans',
-      fontSize: 12,
+      fontFamily: defaultTheme.typography.fontSans,
+      fontSize: defaultTheme.typography.fontSize.xs,
       fontWeight: '400' as const,
       lineHeight: 16,
-      color: colors.gray[500],
+      color: colors.text.tertiary,
     },
-
-    // Button Text - Texto de Botão
     button: {
-      fontFamily: 'Nunito Sans',
-      fontSize: 16,
+      fontFamily: defaultTheme.typography.fontSans,
+      fontSize: defaultTheme.typography.fontSize.base,
       fontWeight: '600' as const,
       lineHeight: 24,
     },
@@ -198,17 +168,21 @@ export const typography = {
 } as const;
 
 // ============================================
-// 3. ESPAÇAMENTO (4-point grid)
+// 3. SPACING (4-point grid)
 // ============================================
 
 export const spacing = {
-  xs: 4,    // Espaçamento muito pequeno
-  sm: 8,    // Elementos próximos (ícone + texto)
-  md: 16,   // Padrão (padding de cards)
-  lg: 24,   // Seções
-  xl: 32,   // Grandes espaçamentos
-  '2xl': 40, // Espaçamento extra
-  '3xl': 48, // Landing pages, layouts especiais
+  xs: defaultTheme.spacing.xs,
+  sm: defaultTheme.spacing.sm,
+  md: defaultTheme.spacing.md,
+  lg: defaultTheme.spacing.lg,
+  xl: defaultTheme.spacing.xl,
+  xxl: defaultTheme.spacing.xxl,
+  '2xl': defaultTheme.spacing['2xl'],
+  '3xl': defaultTheme.spacing['3xl'],
+  '4xl': defaultTheme.spacing['4xl'],
+  '5xl': defaultTheme.spacing['5xl'],
+  '6xl': defaultTheme.spacing['6xl'],
 } as const;
 
 // ============================================
@@ -216,48 +190,27 @@ export const spacing = {
 // ============================================
 
 export const borderRadius = {
-  sm: 6,      // Inputs, tags pequenas
-  md: 8,      // Botões padrão
-  lg: 12,     // Cards, containers
-  xl: 16,     // Modals, overlays grandes
-  full: 9999, // Pills, badges, avatares circulares
+  xs: defaultTheme.borderRadius.xs,
+  sm: defaultTheme.borderRadius.sm,
+  md: defaultTheme.borderRadius.md,
+  lg: defaultTheme.borderRadius.lg,
+  xl: defaultTheme.borderRadius.xl,
+  full: defaultTheme.borderRadius.full,
 } as const;
 
 // ============================================
-// 5. SOMBRAS (Shadows)
+// 5. SHADOWS
 // ============================================
 
 export const shadows = {
-  // Elevação 1 - Cards
-  card: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3, // Android
-  },
-
-  // Elevação 2 - Modals/Dropdowns
-  modal: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-
-  // Elevação 3 - Floating Actions
-  floating: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-
-  // Sem sombra
+  sm: defaultTheme.shadows.sm,
+  md: defaultTheme.shadows.md,
+  lg: defaultTheme.shadows.lg,
+  card: defaultTheme.shadows.card,
+  modal: defaultTheme.shadows.lg,
+  floating: defaultTheme.shadows.lg,
   none: {
-    shadowColor: 'transparent',
+    shadowColor: defaultTheme.colors.transparent,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0,
     shadowRadius: 0,
@@ -266,97 +219,96 @@ export const shadows = {
 } as const;
 
 // ============================================
-// 6. OPACIDADES
+// 6. OPACITY
 // ============================================
 
 export const opacity = {
-  10: 0.1,   // Overlays muito sutis
-  25: 0.25,  // Backgrounds sutis, hover
-  50: 0.5,   // Overlays de modal, disabled
-  75: 0.75,  // Overlays escuros
-  90: 0.9,   // Backgrounds quase opacos
+  10: 0.1,
+  25: 0.25,
+  50: 0.5,
+  75: 0.75,
+  90: 0.9,
 } as const;
 
 // ============================================
-// 7. TRANSIÇÕES E ANIMAÇÕES
+// 7. MOTION
+// ============================================
+
+export const motion = defaultTheme.motion;
+
+// ============================================
+// 8. TRANSITIONS
 // ============================================
 
 export const transitions = {
-  // Durações
-  duration: {
-    fast: 150,    // Hover states, pequenas mudanças
-    normal: 250,  // Padrão (cor, opacidade)
-    slow: 350,    // Modals, slides, animações complexas
-  },
-
-  // Easing
-  easing: {
-    easeOut: 'cubic-bezier(0, 0, 0.2, 1)',      // Entrada de elementos
-    easeIn: 'cubic-bezier(0.4, 0, 1, 1)',       // Saída de elementos
-    easeInOut: 'cubic-bezier(0.4, 0, 0.2, 1)',  // Movimento bidirecional
-  },
+  duration: defaultTheme.motion.duration,
+  easing: defaultTheme.motion.easing,
 } as const;
 
 // ============================================
-// 8. Z-INDEX (Camadas)
+// 9. Z-INDEX
 // ============================================
 
 export const zIndex = {
-  base: 0,      // Elementos normais
-  header: 10,   // Headers fixos
-  dropdown: 20, // Dropdowns
-  modal: 30,    // Modals
-  toast: 40,    // Toasts/Snackbars
-  tooltip: 50,  // Tooltips
-  max: 9999,    // Casos excepcionais
+  base: 0,
+  header: 10,
+  dropdown: 20,
+  modal: 30,
+  toast: 40,
+  tooltip: 50,
+  max: 9999,
 } as const;
 
 // ============================================
-// 9. ÍCONES (Ionicons)
+// 10. ICONS
 // ============================================
 
 export const icons = {
-  // Tamanhos
   size: {
-    sm: 16,  // Labels inline, chips
-    md: 20,  // Botões, inputs (padrão)
-    lg: 24,  // Botões grandes, tabs
-    xl: 32,  // Empty states, ilustrações
+    sm: 16,
+    md: 20,
+    lg: 24,
+    xl: 32,
   },
-
-  // Espaçamento padrão com texto
-  spacing: spacing.sm, // 8px
+  spacing: spacing.sm,
 } as const;
 
 // ============================================
-// 10. FUNÇÕES UTILITÁRIAS
+// 11. COMPONENTS
 // ============================================
 
-/**
- * Retorna as cores corretas para um badge de status
- */
+export const components = {
+  button: defaultTheme.components.button,
+  input: defaultTheme.components.input,
+  modal: defaultTheme.components.modal,
+} as const;
+
+// ============================================
+// 12. UTILITIES
+// ============================================
+
 export function getBadgeColor(
   status: 'pendente' | 'em_andamento' | 'concluida' | 'cancelada'
 ): { background: string; text: string } {
   switch (status) {
     case 'pendente':
       return {
-        background: '#FEF3C7', // Amarelo claro
+        background: defaultTheme.colors.warningBg,
         text: colors.warning,
       };
     case 'em_andamento':
       return {
-        background: '#DBEAFE', // Azul claro
+        background: defaultTheme.colors.infoBg,
         text: colors.info,
       };
     case 'concluida':
       return {
-        background: '#D1FAE5', // Verde claro
+        background: defaultTheme.colors.successBg,
         text: colors.success,
       };
     case 'cancelada':
       return {
-        background: '#FEE2E2', // Vermelho claro
+        background: defaultTheme.colors.errorBg,
         text: colors.error,
       };
     default:
@@ -367,9 +319,6 @@ export function getBadgeColor(
   }
 }
 
-/**
- * Retorna a cor correta para um ícone de status
- */
 export function getStatusColor(
   status: 'pendente' | 'em_andamento' | 'concluida' | 'cancelada'
 ): string {
@@ -387,9 +336,6 @@ export function getStatusColor(
   }
 }
 
-/**
- * Retorna o nome do ícone (Ionicons) para cada status
- */
 export function getStatusIcon(
   status: 'pendente' | 'em_andamento' | 'concluida' | 'cancelada'
 ): string {
@@ -408,7 +354,7 @@ export function getStatusIcon(
 }
 
 // ============================================
-// EXPORT DEFAULT (Todos os tokens)
+// DEFAULT EXPORT
 // ============================================
 
 export default {
@@ -418,10 +364,11 @@ export default {
   borderRadius,
   shadows,
   opacity,
+  motion,
   transitions,
   zIndex,
   icons,
-  // Funções utilitárias
+  components,
   getBadgeColor,
   getStatusColor,
   getStatusIcon,

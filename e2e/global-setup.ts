@@ -4,7 +4,7 @@ import type { FullConfig } from '@playwright/test';
 
 const DEFAULT_BASE_URL = 'http://localhost:8082';
 const APP_READY_TIMEOUT_MS = 180000;
-const LOGIN_WAIT_MS = 30000;
+const LOGIN_WAIT_MS = 45000;
 const RETRY_DELAY_MS = 5000;
 
 async function globalSetup(config: FullConfig) {
@@ -22,12 +22,14 @@ async function globalSetup(config: FullConfig) {
 
   while (Date.now() < deadline) {
     try {
-      await page.goto('/auth/login', { waitUntil: 'domcontentloaded' });
-      await page.locator('input[type="password"]').waitFor({
+      await page.goto('/auth/login', { waitUntil: 'commit', timeout: LOGIN_WAIT_MS });
+      const passwordInput = page.locator('[data-testid="auth-login-password"]');
+      const submitButton = page.locator('[data-testid="auth-login-submit"]');
+      await passwordInput.waitFor({
         state: 'visible',
         timeout: LOGIN_WAIT_MS,
       });
-      await page.getByText('Entrar', { exact: true }).waitFor({
+      await submitButton.waitFor({
         state: 'visible',
         timeout: LOGIN_WAIT_MS,
       });
@@ -36,7 +38,6 @@ async function globalSetup(config: FullConfig) {
     } catch (error) {
       lastError = error;
       await page.waitForTimeout(RETRY_DELAY_MS);
-      await page.reload({ waitUntil: 'domcontentloaded' });
     }
   }
 

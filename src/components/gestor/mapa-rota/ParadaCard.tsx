@@ -118,7 +118,7 @@ export const ParadaCard = React.memo<ParadaCardProps>(
                         activeOpacity={0.7}
                         style={{ marginLeft: 8 }}
                       >
-                        <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
+                        <Ionicons name="logo-whatsapp" size={18} color={theme.colors.success} />
                       </TouchableOpacity>
                     )}
                   </View>

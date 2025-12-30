@@ -1,21 +1,13 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Alert, ScrollView, TouchableOpacity, View } from 'react-native';
 
 import { ResponsiveContainer } from '@/components/ResponsiveContainer';
+import { Button, Card, Input, Text } from '@/design-system';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { TipoUsuario } from '@/types/usuario';
 import { StyleSheet, type Theme } from '@/utils/styles';
-
 
 export default function Register() {
   const router = useRouter();
@@ -34,7 +26,7 @@ export default function Register() {
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Erro', 'As senhas não coincidem');
+      Alert.alert('Erro', 'As senhas nao coincidem');
       return;
     }
 
@@ -66,27 +58,27 @@ export default function Register() {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={[styles.content, isDesktop && styles.contentDesktop]}>
-          <Text style={styles.title}>Criar Conta</Text>
-          <Text style={styles.subtitle}>
-            Preencha os dados abaixo para criar sua conta no Rota Mestre
-          </Text>
+          <Card padding="large" style={styles.card} testID="auth-register-card">
+            <Text variant="title" style={styles.title}>
+              Criar Conta
+            </Text>
+            <Text tone="muted" style={styles.subtitle}>
+              Preencha os dados abaixo para criar sua conta no Rota Mestre
+            </Text>
 
-          <View style={styles.form}>
-            <View>
-              <Text style={styles.label}>Nome Completo</Text>
-              <TextInput
-                style={styles.input}
+            <View style={styles.form}>
+              <Input
+                label="Nome Completo"
+                required
                 placeholder="Digite seu nome"
                 value={nome}
                 onChangeText={setNome}
                 autoCapitalize="words"
               />
-            </View>
 
-            <View>
-              <Text style={styles.label}>E-mail</Text>
-              <TextInput
-                style={styles.input}
+              <Input
+                label="E-mail"
+                required
                 placeholder="Digite seu e-mail"
                 value={email}
                 onChangeText={setEmail}
@@ -94,91 +86,64 @@ export default function Register() {
                 autoCapitalize="none"
                 autoComplete="email"
               />
-            </View>
 
-            <View>
-              <Text style={styles.label}>Senha</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Mínimo 6 caracteres"
+              <Input
+                label="Senha"
+                required
+                placeholder="Minimo 6 caracteres"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
                 autoComplete="password"
               />
-            </View>
 
-            <View>
-              <Text style={styles.label}>Confirmar Senha</Text>
-              <TextInput
-                style={styles.input}
+              <Input
+                label="Confirmar Senha"
+                required
                 placeholder="Digite a senha novamente"
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry
               />
-            </View>
 
-            <View>
-              <Text style={styles.label}>Tipo de Conta</Text>
-              <View style={styles.tipoContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.tipoButton,
-                    tipo === 'motorista' && styles.tipoButtonActive,
-                  ]}
-                  onPress={() => setTipo('motorista')}
-                >
-                  <Text
-                    style={[
-                      styles.tipoButtonText,
-                      tipo === 'motorista' && styles.tipoButtonTextActive,
-                    ]}
-                  >
-                    Motorista
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.tipoButton,
-                    tipo === 'gestor' && styles.tipoButtonActive,
-                  ]}
-                  onPress={() => setTipo('gestor')}
-                >
-                  <Text
-                    style={[
-                      styles.tipoButtonText,
-                      tipo === 'gestor' && styles.tipoButtonTextActive,
-                    ]}
-                  >
-                    Gestor
-                  </Text>
-                </TouchableOpacity>
+              <View style={styles.tipoSection}>
+                <Text variant="label" style={styles.tipoLabel}>
+                  Tipo de Conta
+                </Text>
+                <View style={styles.tipoContainer}>
+                  <Button
+                    title="Motorista"
+                    variant={tipo === 'motorista' ? 'primary' : 'outline'}
+                    onPress={() => setTipo('motorista')}
+                    style={styles.tipoButton}
+                  />
+                  <Button
+                    title="Gestor"
+                    variant={tipo === 'gestor' ? 'primary' : 'outline'}
+                    onPress={() => setTipo('gestor')}
+                    style={styles.tipoButton}
+                  />
+                </View>
               </View>
+
+              <Button
+                title="Criar Conta"
+                onPress={handleRegister}
+                loading={loading}
+                disabled={loading}
+                fullWidth
+              />
+
+              <TouchableOpacity
+                style={styles.backLink}
+                onPress={() => router.back()}
+              >
+                <Text tone="primary" style={styles.backLinkText}>
+                  Ja tem uma conta? Faca login
+                </Text>
+              </TouchableOpacity>
             </View>
-
-            <TouchableOpacity
-              style={styles.button}
-              onPress={handleRegister}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>Criar Conta</Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.backLink}
-              onPress={() => router.back()}
-            >
-              <Text style={styles.backLinkText}>
-                Já tem uma conta? Faça login
-              </Text>
-            </TouchableOpacity>
-          </View>
+          </Card>
         </View>
       </ScrollView>
     </ResponsiveContainer>
@@ -196,93 +161,43 @@ const styles = StyleSheet.create((theme: Theme) => ({
     padding: 20,
   },
   content: {
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.borderRadius.lg,
-    padding: 24,
-    ...theme.shadows.md,
+    width: '100%',
   },
   contentDesktop: {
     maxWidth: 500,
     alignSelf: 'center',
     width: '100%',
   },
+  card: {
+    backgroundColor: theme.colors.white,
+  },
   title: {
-    fontFamily: theme.typography.fontDisplay,
-    fontSize: 24,
-    color: theme.colors.gray900,
     marginBottom: 8,
   },
   subtitle: {
-    fontFamily: theme.typography.fontSans,
-    fontSize: 14,
-    color: theme.colors.gray500,
     marginBottom: 24,
-    lineHeight: 20,
   },
   form: {
-    gap: 20,
+    marginTop: theme.spacing.sm,
   },
-  label: {
-    fontFamily: theme.typography.fontSansSemiBold,
-    fontSize: 14,
-    color: theme.colors.gray700,
-    marginBottom: 8,
+  tipoSection: {
+    marginBottom: theme.spacing.md,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: theme.colors.gray300,
-    borderRadius: 8,
-    padding: 15,
-    fontSize: 16,
-    fontFamily: theme.typography.fontSans,
-    backgroundColor: theme.colors.white,
+  tipoLabel: {
+    marginBottom: theme.spacing.sm,
   },
   tipoContainer: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 8,
+    gap: theme.spacing.sm,
   },
   tipoButton: {
     flex: 1,
-    padding: 15,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: theme.colors.gray300,
-    alignItems: 'center',
-  },
-  tipoButtonActive: {
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.primaryBg,
-  },
-  tipoButtonText: {
-    fontFamily: theme.typography.fontSansSemiBold,
-    fontSize: 16,
-    color: theme.colors.gray500,
-  },
-  tipoButtonTextActive: {
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.primary,
-  },
-  button: {
-    backgroundColor: theme.colors.primary,
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonText: {
-    color: theme.colors.white,
-    fontSize: 16,
-    letterSpacing: 0.5,
-    fontFamily: theme.typography.fontSansSemiBold,
   },
   backLink: {
     marginTop: 16,
     alignItems: 'center',
   },
   backLinkText: {
-    color: theme.colors.primary,
-    fontSize: 14,
-    fontFamily: theme.typography.fontSansMedium,
+    fontSize: theme.typography.sm,
   },
 }));

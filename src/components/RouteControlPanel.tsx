@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface RouteControlPanelProps {
   rotaId: string;
@@ -19,6 +21,7 @@ export function RouteControlPanel({
   onAddParada,
   onEditar,
 }: RouteControlPanelProps) {
+  const { theme } = useUnistyles();
   const isPendente = status === 'pendente';
   const isEmAndamento = status === 'em_andamento';
   const _isConcluida = status === 'concluida';
@@ -29,7 +32,7 @@ export function RouteControlPanel({
       id: 'editar',
       label: 'Editar Rota',
       icon: 'create-outline' as const,
-      color: '#3b82f6',
+      color: theme.colors.info,
       onPress: onEditar,
       show: isPendente,
     },
@@ -37,7 +40,7 @@ export function RouteControlPanel({
       id: 'add-parada',
       label: 'Adicionar Parada',
       icon: 'add-circle-outline' as const,
-      color: '#10b981',
+      color: theme.colors.success,
       onPress: onAddParada,
       show: isPendente || isEmAndamento,
     },
@@ -45,7 +48,7 @@ export function RouteControlPanel({
       id: 'reatribuir',
       label: 'Reatribuir Motorista',
       icon: 'person-outline' as const,
-      color: '#f59e0b',
+      color: theme.colors.warning,
       onPress: onReatribuir,
       show: isPendente || isEmAndamento,
     },
@@ -53,7 +56,7 @@ export function RouteControlPanel({
       id: 'cancelar',
       label: 'Cancelar Rota',
       icon: 'close-circle-outline' as const,
-      color: '#ef4444',
+      color: theme.colors.error,
       onPress: onCancelar,
       show: isPendente || isEmAndamento,
     },
@@ -68,7 +71,7 @@ export function RouteControlPanel({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Ionicons name="settings-outline" size={20} color="#64748b" />
+        <Ionicons name="settings-outline" size={20} color={theme.colors.gray500} />
         <Text style={styles.headerTitle}>Ações Rápidas</Text>
       </View>
 
@@ -90,25 +93,25 @@ export function RouteControlPanel({
 
       {/* Status info */}
       <View style={styles.statusInfo}>
-        <View style={[styles.statusDot, { backgroundColor: getStatusColor(status) }]} />
+        <View style={[styles.statusDot, { backgroundColor: getStatusColor(status, theme) }]} />
         <Text style={styles.statusText}>{getStatusLabel(status)}</Text>
       </View>
     </View>
   );
 }
 
-function getStatusColor(status: string): string {
+function getStatusColor(status: string, theme: Theme): string {
   switch (status) {
     case 'pendente':
-      return '#f59e0b';
+      return theme.colors.warning;
     case 'em_andamento':
-      return '#3b82f6';
+      return theme.colors.info;
     case 'concluida':
-      return '#22c55e';
+      return theme.colors.success;
     case 'cancelada':
-      return '#ef4444';
+      return theme.colors.error;
     default:
-      return '#64748b';
+      return theme.colors.gray500;
   }
 }
 
@@ -127,13 +130,13 @@ function getStatusLabel(status: string): string {
   }
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: theme.colors.gray50,
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: theme.colors.gray200,
   },
   header: {
     flexDirection: 'row',
@@ -144,7 +147,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#475569',
+    color: theme.colors.gray600,
   },
   actionsGrid: {
     flexDirection: 'row',
@@ -155,13 +158,13 @@ const styles = StyleSheet.create({
   actionButton: {
     flex: 1,
     minWidth: 140,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.white,
     borderRadius: 10,
     borderWidth: 1.5,
     padding: 12,
     alignItems: 'center',
     gap: 8,
-    shadowColor: '#000',
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -177,7 +180,7 @@ const styles = StyleSheet.create({
   actionLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#334155',
+    color: theme.colors.gray700,
     textAlign: 'center',
   },
   statusInfo: {
@@ -186,7 +189,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: theme.colors.gray200,
   },
   statusDot: {
     width: 10,
@@ -195,7 +198,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 13,
-    color: '#64748b',
+    color: theme.colors.gray500,
     fontWeight: '500',
   },
-});
+}));

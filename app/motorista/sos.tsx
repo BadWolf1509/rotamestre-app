@@ -15,6 +15,7 @@ import {
 import { useRouteStatus } from '@/context/RouteStatusContext';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
+import { withOpacity } from '@/utils/color';
 import { heavyHaptic, warningHaptic } from '@/utils/haptics';
 import { StyleSheet, defaultTheme, type Theme } from '@/utils/styles';
 
@@ -223,7 +224,7 @@ export default function SOSScreen() {
           <TextInput
             style={styles.textInput}
             placeholder="Ex: Pneu furado, acidente, problema mecânico..."
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.gray500}
             value={descricao}
             onChangeText={setDescricao}
             multiline
@@ -334,7 +335,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: 18,
     fontWeight: 'bold',
     // Brand guideline: text shadow for white text on colored background
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowColor: withOpacity(theme.colors.black, 0.3),
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },

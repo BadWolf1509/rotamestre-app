@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Modal, ScrollView, Platform } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, Pressable, Modal, ScrollView, Platform } from 'react-native';
 import DateTimePickerModal, { useDefaultStyles } from 'react-native-ui-datepicker';
+
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // Tipos para períodos pré-definidos
 export type PeriodPreset = 'hoje' | 'ultima_semana' | 'ultimo_mes' | 'este_mes' | 'personalizado';
@@ -58,6 +60,7 @@ export function RouteFilters({
   motoristas = [],
   variant = 'desktop',
 }: RouteFiltersProps) {
+  const { theme } = useUnistyles();
   const [modalVisible, setModalVisible] = useState(false);
   const [showDateInicioPicker, setShowDateInicioPicker] = useState(false);
   const [showDateFimPicker, setShowDateFimPicker] = useState(false);
@@ -71,66 +74,66 @@ export function RouteFilters({
 
   // Estilos customizados para o calendário
   const defaultStyles = useDefaultStyles('light');
-  const calendarStyles = {
+  const calendarStyles = useMemo(() => ({
     ...defaultStyles,
     headerText: {
-      color: '#0f172a',
+      color: theme.colors.gray900,
       fontWeight: '600',
     },
     monthText: {
-      color: '#0f172a',
+      color: theme.colors.gray900,
       fontWeight: '700',
     },
     weekDaysText: {
-      color: '#1f2937',
+      color: theme.colors.gray800,
       fontWeight: '600',
     },
     dayText: {
-      color: '#0f172a',
+      color: theme.colors.gray900,
       fontWeight: '500',
     },
     dayNumber: {
-      color: '#0f172a',
+      color: theme.colors.gray900,
     },
     daySelectedText: {
-      color: '#0f172a',
+      color: theme.colors.gray900,
       fontWeight: '700',
     },
     button_prev: {
-      padding: 8,
-      borderRadius: 8,
+      padding: theme.spacing.sm,
+      borderRadius: theme.borderRadius.sm,
     },
     button_next: {
-      padding: 8,
-      borderRadius: 8,
+      padding: theme.spacing.sm,
+      borderRadius: theme.borderRadius.sm,
     },
     button_prev_image: {
-      tintColor: '#0f172a',
+      tintColor: theme.colors.gray900,
     },
     button_next_image: {
-      tintColor: '#0f172a',
+      tintColor: theme.colors.gray900,
     },
     range_fill: {
-      backgroundColor: '#eff6ff', // Azul claro para o fundo do intervalo
+      backgroundColor: theme.colors.primaryBg,
     },
     range_start: {
-      backgroundColor: '#3b82f6', // Azul primário para o início
+      backgroundColor: theme.colors.primary,
     },
     range_end: {
-      backgroundColor: '#3b82f6', // Azul primário para o fim
+      backgroundColor: theme.colors.primary,
     },
     range_middle: {
-      backgroundColor: '#dbeafe', // Azul médio para os dias intermediários
+      backgroundColor: theme.colors.primaryLight,
     },
     selected: {
-      backgroundColor: '#3b82f6', // Fallback para dia selecionado
+      backgroundColor: theme.colors.primary,
     },
-  };
+  }), [defaultStyles, theme]);
 
-  const datePickerComponents = {
-    IconPrev: <Ionicons name="chevron-back" size={18} color="#0f172a" />,
-    IconNext: <Ionicons name="chevron-forward" size={18} color="#0f172a" />,
-  };
+  const datePickerComponents = useMemo(() => ({
+    IconPrev: <Ionicons name="chevron-back" size={18} color={theme.colors.gray900} />,
+    IconNext: <Ionicons name="chevron-forward" size={18} color={theme.colors.gray900} />,
+  }), [theme]);
 
   // Estado temporário para seleção de range na Web
   const [rangeSelection, setRangeSelection] = useState<{
@@ -141,13 +144,13 @@ export function RouteFilters({
     endDate: undefined,
   });
 
-  const statusOptions = [
+  const statusOptions = useMemo(() => ([
     { value: null, label: 'Todos', color: undefined },
-    { value: 'pendente', label: 'Pendente', color: '#f59e0b' },
-    { value: 'em_andamento', label: 'Em Andamento', color: '#3b82f6' },
-    { value: 'concluida', label: 'Concluída', color: '#22c55e' },
-    { value: 'cancelada', label: 'Cancelada', color: '#ef4444' },
-  ] as const;
+    { value: 'pendente', label: 'Pendente', color: theme.colors.warning },
+    { value: 'em_andamento', label: 'Em Andamento', color: theme.colors.info },
+    { value: 'concluida', label: 'Conclu¡da', color: theme.colors.success },
+    { value: 'cancelada', label: 'Cancelada', color: theme.colors.error },
+  ] as const), [theme]);
 
   const handleStatusChange = (status: RouteFiltersState['status']) => {
     const newStatus = filters.status === status ? null : status;
@@ -298,6 +301,8 @@ export function RouteFilters({
                 styles.statusOption,
                 filters.status === option.value && styles.statusOptionActive,
                 option.color && { borderColor: option.color },
+                filters.status === option.value &&
+                  option.color && { backgroundColor: `${option.color}15` },
               ]}
               onPress={() => handleStatusChange(option.value)}
             >
@@ -305,6 +310,7 @@ export function RouteFilters({
                 style={[
                   styles.statusOptionText,
                   filters.status === option.value && styles.statusOptionTextActive,
+                  filters.status === option.value && option.color && { color: option.color },
                 ]}
               >
                 {option.label}
@@ -326,7 +332,7 @@ export function RouteFilters({
                 testID="filter-date-range"
                 onPress={openWebRangePicker}
               >
-                <Ionicons name="calendar-outline" size={20} color="#64748b" />
+                <Ionicons name="calendar-outline" size={20} color={theme.colors.gray500} />
                 <Text style={styles.dateButtonText}>{getRangeLabel()}</Text>
               </Pressable>
             </>
@@ -337,7 +343,7 @@ export function RouteFilters({
                 style={styles.dateButton}
                 onPress={() => setShowDateInicioPicker(true)}
               >
-                <Ionicons name="calendar-outline" size={20} color="#64748b" />
+                <Ionicons name="calendar-outline" size={20} color={theme.colors.gray500} />
                 <Text style={styles.dateButtonText}>{formatDate(filters.dataInicio)}</Text>
               </Pressable>
 
@@ -347,7 +353,7 @@ export function RouteFilters({
                 style={styles.dateButton}
                 onPress={() => setShowDateFimPicker(true)}
               >
-                <Ionicons name="calendar-outline" size={20} color="#64748b" />
+                <Ionicons name="calendar-outline" size={20} color={theme.colors.gray500} />
                 <Text style={styles.dateButtonText}>{formatDate(filters.dataFim)}</Text>
               </Pressable>
             </>
@@ -390,7 +396,7 @@ export function RouteFilters({
                 <View style={styles.datePickerHeader}>
                   <Text style={styles.datePickerTitle}>Selecionar Período</Text>
                   <Pressable onPress={() => setShowWebRangePicker(false)}>
-                    <Ionicons name="close" size={24} color="#64748b" />
+                    <Ionicons name="close" size={24} color={theme.colors.gray500} />
                   </Pressable>
                 </View>
 
@@ -476,7 +482,7 @@ export function RouteFilters({
       {/* Clear Filters Button */}
       {activeFiltersCount > 0 && (
         <Pressable style={styles.clearFiltersButton} onPress={clearFilters}>
-          <Ionicons name="close-circle-outline" size={20} color="#ef4444" />
+          <Ionicons name="close-circle-outline" size={20} color={theme.colors.error} />
           <Text style={styles.clearFiltersButtonText}>Limpar Filtros ({activeFiltersCount})</Text>
         </Pressable>
       )}
@@ -487,7 +493,7 @@ export function RouteFilters({
     return (
       <View style={styles.desktopContainer}>
         <View style={styles.desktopHeader}>
-          <Ionicons name="filter-outline" size={20} color="#64748b" />
+          <Ionicons name="filter-outline" size={20} color={theme.colors.gray500} />
           <Text style={styles.desktopTitle}>Filtros</Text>
           {activeFiltersCount > 0 && (
             <View style={styles.badge}>
@@ -508,7 +514,7 @@ export function RouteFilters({
         style={styles.mobileFilterButton}
         onPress={() => setModalVisible(true)}
       >
-        <Ionicons name="filter-outline" size={24} color="#FFFFFF" />
+        <Ionicons name="filter-outline" size={24} color={theme.colors.white} />
         {activeFiltersCount > 0 && (
           <View testID="filter-badge" style={styles.badge}>
             <Text style={styles.badgeText}>{activeFiltersCount}</Text>
@@ -526,7 +532,7 @@ export function RouteFilters({
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Filtros Avançados</Text>
             <Pressable onPress={() => setModalVisible(false)}>
-              <Ionicons name="close" size={28} color="#64748b" />
+              <Ionicons name="close" size={28} color={theme.colors.gray500} />
             </Pressable>
           </View>
           <FilterContent />
@@ -536,203 +542,199 @@ export function RouteFilters({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   desktopContainer: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: theme.colors.gray50,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: theme.colors.border,
   },
   desktopHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.lg,
   },
   desktopTitle: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     fontWeight: '600',
-    color: '#475569',
+    color: theme.colors.gray600,
   },
   badge: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.borderRadius.lg,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs / 2,
     minWidth: 24,
     alignItems: 'center',
   },
   badgeText: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: theme.colors.white,
   },
   mobileFilterButton: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#3b82f6',
+    backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'absolute',
-    bottom: 24,
-    right: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    bottom: theme.spacing['2xl'],
+    right: theme.spacing['2xl'],
+    ...theme.shadows.lg,
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.white,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: theme.spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: theme.colors.border,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: theme.typography.fontSize.xl,
     fontWeight: '600',
-    color: '#0f172a',
+    color: theme.colors.gray900,
   },
   filterContainer: {
     flex: 1,
-    padding: 16,
+    padding: theme.spacing.lg,
   },
   filterSection: {
-    marginBottom: 24,
+    marginBottom: theme.spacing['2xl'],
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     fontWeight: '600',
-    color: '#475569',
-    marginBottom: 12,
+    color: theme.colors.gray600,
+    marginBottom: theme.spacing.md,
   },
   statusGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: theme.spacing.sm,
   },
   statusOption: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.sm,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#FFFFFF',
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.white,
   },
   statusOptionActive: {
-    backgroundColor: '#3b82f615',
-    borderColor: '#3b82f6',
+    backgroundColor: theme.colors.primaryBg,
+    borderColor: theme.colors.primary,
     borderWidth: 2,
   },
   statusOptionText: {
-    fontSize: 13,
-    color: '#64748b',
+    fontSize: theme.typography.fontSize.sm - 1,
+    color: theme.colors.gray500,
     fontWeight: '500',
   },
   statusOptionTextActive: {
-    color: '#3b82f6',
+    color: theme.colors.primary,
     fontWeight: '600',
   },
   dateRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: theme.spacing.sm,
   },
   dateButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm + 2,
+    borderRadius: theme.borderRadius.sm,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#FFFFFF',
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.white,
   },
   dateButtonText: {
-    fontSize: 14,
-    color: '#334155',
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray700,
   },
   dateInputWrapper: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm + 2,
+    borderRadius: theme.borderRadius.sm,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#FFFFFF',
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.white,
   },
   calendarIcon: {
     flexShrink: 0,
   },
   dateTextInput: {
     flex: 1,
-    fontSize: 14,
-    color: '#334155',
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray700,
     padding: 0,
   },
   dateSeparator: {
-    fontSize: 13,
-    color: '#64748b',
+    fontSize: theme.typography.fontSize.sm - 1,
+    color: theme.colors.gray500,
   },
   motoristaList: {
-    gap: 8,
+    gap: theme.spacing.sm,
   },
   motoristaOption: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.sm,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#FFFFFF',
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.white,
   },
   motoristaOptionActive: {
-    backgroundColor: '#3b82f615',
-    borderColor: '#3b82f6',
+    backgroundColor: theme.colors.primaryBg,
+    borderColor: theme.colors.primary,
     borderWidth: 2,
   },
   motoristaOptionText: {
-    fontSize: 14,
-    color: '#64748b',
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray500,
     fontWeight: '500',
   },
   motoristaOptionTextActive: {
-    color: '#3b82f6',
+    color: theme.colors.primary,
     fontWeight: '600',
   },
   clearFiltersButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 8,
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.sm,
     borderWidth: 1,
-    borderColor: '#fee2e2',
-    backgroundColor: '#fef2f2',
-    marginTop: 8,
+    borderColor: theme.colors.errorBg,
+    backgroundColor: theme.colors.red50,
+    marginTop: theme.spacing.sm,
   },
   clearFiltersButtonText: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     fontWeight: '600',
-    color: '#ef4444',
+    color: theme.colors.error,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -740,164 +742,160 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   datePickerContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
     minWidth: 320,
     maxWidth: 400,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    ...theme.shadows.lg,
   },
   datePickerHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 12,
+    marginBottom: theme.spacing.lg,
+    paddingBottom: theme.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: theme.colors.border,
   },
   datePickerTitle: {
-    fontSize: 18,
+    fontSize: theme.typography.fontSize.lg,
     fontWeight: '600',
-    color: '#0f172a',
+    color: theme.colors.gray900,
   },
   dateInputSection: {
-    marginBottom: 16,
-    paddingBottom: 16,
+    marginBottom: theme.spacing.lg,
+    paddingBottom: theme.spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: theme.colors.border,
   },
   dateInputLabel: {
-    fontSize: 13,
-    color: '#64748b',
-    marginBottom: 8,
+    fontSize: theme.typography.fontSize.sm - 1,
+    color: theme.colors.gray500,
+    marginBottom: theme.spacing.sm,
   },
   dateManualInput: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#334155',
-    backgroundColor: '#FFFFFF',
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm + 2,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray700,
+    backgroundColor: theme.colors.white,
   },
   calendarNavigation: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 8,
+    marginBottom: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.sm,
   },
   navButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#f8fafc',
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: theme.colors.gray50,
   },
   monthYear: {
-    fontSize: 16,
+    fontSize: theme.typography.fontSize.base,
     fontWeight: '600',
-    color: '#334155',
+    color: theme.colors.gray700,
     textTransform: 'capitalize',
   },
   modalFooter: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 12,
-    marginTop: 16,
-    paddingTop: 16,
+    gap: theme.spacing.md,
+    marginTop: theme.spacing.lg,
+    paddingTop: theme.spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: theme.colors.border,
   },
   footerButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm + 2,
+    borderRadius: theme.borderRadius.sm,
     minWidth: 100,
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: theme.colors.gray100,
   },
   applyButton: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: theme.colors.primary,
   },
   cancelButtonText: {
-    color: '#64748b',
+    color: theme.colors.gray500,
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
   },
   applyButtonText: {
-    color: '#FFFFFF',
+    color: theme.colors.white,
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
   },
-  // Estilos para botões de períodos pré-definidos
+  // Estilos para botäes de per¡odos pr‚-definidos
   presetButtonsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-    paddingBottom: 16,
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.lg,
+    paddingBottom: theme.spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: theme.colors.border,
   },
   presetButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.sm,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#FFFFFF',
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.white,
     minWidth: 90,
     alignItems: 'center',
   },
   presetButtonActive: {
-    backgroundColor: '#3b82f6',
-    borderColor: '#3b82f6',
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
   },
   presetButtonText: {
-    fontSize: 13,
-    color: '#64748b',
+    fontSize: theme.typography.fontSize.sm - 1,
+    color: theme.colors.gray500,
     fontWeight: '500',
   },
   presetButtonTextActive: {
-    color: '#FFFFFF',
+    color: theme.colors.white,
     fontWeight: '600',
   },
-  // Resumo do período selecionado
+  // Resumo do per¡odo selecionado
   rangeSummary: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#eff6ff',
-    borderRadius: 8,
-    marginBottom: 16,
+    gap: theme.spacing.xs + 2,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    backgroundColor: theme.colors.primaryBg,
+    borderRadius: theme.borderRadius.sm,
+    marginBottom: theme.spacing.lg,
   },
   rangeSummaryText: {
-    fontSize: 13,
-    color: '#3b82f6',
+    fontSize: theme.typography.fontSize.sm - 1,
+    color: theme.colors.primary,
     fontWeight: '500',
   },
   // Footer reorganizado
   footerRightButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: theme.spacing.md,
   },
   clearPeriodButton: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: theme.colors.red50,
     borderWidth: 1,
-    borderColor: '#fee2e2',
+    borderColor: theme.colors.errorBg,
   },
   clearPeriodButtonText: {
-    color: '#ef4444',
+    color: theme.colors.error,
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
   },
-});
+}));

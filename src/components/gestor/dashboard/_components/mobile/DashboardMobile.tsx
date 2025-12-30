@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 
 import { RouteFilters } from '@/components/RouteFilters';
 import type { RouteFiltersState as RouteFiltersType } from '@/components/RouteFilters';
-import { Toast } from '@/components/Toast';
+import { Button, Text, Toast } from '@/design-system';
 import { useMotoristas } from '@/hooks/useMotoristas';
 import { useToast } from '@/hooks/useToast';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -72,7 +72,7 @@ export function DashboardMobile({
       </View>
 
       {/* Cards de Estatísticas - Grid 2x2 */}
-      <View style={styles.statsGrid}>
+      <View style={styles.statsGrid} testID="gestor-dashboard-stats">
         <View style={styles.statsCardWrapper}>
           <StatsCard
             value={todayStats.totalHoje}
@@ -167,44 +167,31 @@ export function DashboardMobile({
         </Text>
 
         <View style={styles.actionsContainer}>
-          <TouchableOpacity
-            style={styles.primaryButton}
+          <Button
+            title="Nova Rota de Entrega"
+            icon="add-circle"
+            variant="primary"
             onPress={() => router.push('/gestor/nova-entrega')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.buttonContent}>
-              <Ionicons name="add-circle" size={20} color={theme.colors.white} />
-              <Text style={styles.primaryButtonText}>
-                Nova Rota de Entrega
-              </Text>
-            </View>
-          </TouchableOpacity>
+            fullWidth
+          />
 
-          <TouchableOpacity
-            style={styles.secondaryButton}
+          <Button
+            title="Gerenciar Motoristas"
+            icon="people"
+            variant="outline"
             onPress={() => router.push('/gestor/motoristas')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.buttonContent}>
-              <Ionicons name="people" size={20} color={theme.colors.primary} />
-              <Text style={styles.secondaryButtonText}>
-                Gerenciar Motoristas
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
+            fullWidth
             style={styles.secondaryButton}
+          />
+
+          <Button
+            title="Gestão de Rotas"
+            icon="clipboard"
+            variant="outline"
             onPress={() => router.push('/gestor/gestao-rotas')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.buttonContent}>
-              <Ionicons name="clipboard" size={20} color={theme.colors.primary} />
-              <Text style={styles.secondaryButtonText}>
-                Gestão de Rotas
-              </Text>
-            </View>
-          </TouchableOpacity>
+            fullWidth
+            style={styles.secondaryButton}
+          />
         </View>
       </View>
 
@@ -310,33 +297,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   actionsContainer: {
     gap: theme.spacing.sm,
   },
-  buttonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.sm,
-  },
-  primaryButton: {
-    backgroundColor: theme.colors.primary,
-    padding: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
-  },
-  primaryButtonText: {
-    color: theme.colors.white,
-    fontFamily: theme.typography.fontSansSemiBold,
-    fontSize: theme.typography.base,
-  },
   secondaryButton: {
     backgroundColor: theme.colors.white,
-    padding: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.gray200,
-  },
-  secondaryButtonText: {
-    color: theme.colors.primary,
-    fontFamily: theme.typography.fontSansSemiBold,
-    fontSize: theme.typography.base,
   },
   emptyState: {
     backgroundColor: theme.colors.white,

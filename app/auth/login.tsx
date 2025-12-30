@@ -11,8 +11,8 @@ import {
   View,
 } from 'react-native';
 
-import { AlertDialog } from '@/components/AlertDialog';
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
+import { AlertDialog } from '@/design-system';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -96,7 +96,7 @@ export default function Login() {
   // ============================================
   if (isDesktop) {
     return (
-      <View style={styles.containerDesktop}>
+      <View style={styles.containerDesktop} testID="auth-login-view">
         {/* Left Side - Imagem de Branding (sem overlay de texto, imagem já contém tudo) */}
         <View style={styles.leftPanel}>
           <AuthBrandPanel />
@@ -121,6 +121,7 @@ export default function Login() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoComplete="email"
+                  testID="auth-login-email"
                 />
               </View>
 
@@ -134,6 +135,7 @@ export default function Login() {
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
                     autoComplete="password"
+                    testID="auth-login-password"
                   />
                   <TouchableOpacity
                     style={styles.eyeButton}
@@ -151,6 +153,7 @@ export default function Login() {
               <TouchableOpacity
                 style={styles.forgotButton}
                 onPress={() => router.push('/auth/forgot-password')}
+                testID="auth-login-forgot"
               >
                 <Text style={styles.forgotButtonText}>Esqueceu a senha?</Text>
               </TouchableOpacity>
@@ -159,9 +162,10 @@ export default function Login() {
                 style={styles.buttonDesktop}
                 onPress={handleLogin}
                 disabled={loading}
+                testID="auth-login-submit"
               >
                 {loading ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={theme.colors.white} />
                 ) : (
                   <Text style={styles.buttonText}>Entrar</Text>
                 )}
@@ -186,7 +190,7 @@ export default function Login() {
   // RENDER: Mobile/Tablet (Vertical Centered)
   // ============================================
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="auth-login-view">
       <View style={styles.header}>
         <View style={styles.logoHorizontal}>
           <Image
@@ -207,6 +211,7 @@ export default function Login() {
           keyboardType="email-address"
           autoCapitalize="none"
           autoComplete="email"
+          testID="auth-login-email"
         />
 
         <View style={styles.passwordContainer}>
@@ -217,6 +222,7 @@ export default function Login() {
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
             autoComplete="password"
+            testID="auth-login-password"
           />
           <TouchableOpacity
             style={styles.eyeButton}
@@ -233,6 +239,7 @@ export default function Login() {
         <TouchableOpacity
           style={styles.forgotButton}
           onPress={() => router.push('/auth/forgot-password')}
+          testID="auth-login-forgot"
         >
           <Text style={styles.forgotButtonText}>Esqueceu a senha?</Text>
         </TouchableOpacity>
@@ -241,9 +248,10 @@ export default function Login() {
           style={styles.button}
           onPress={handleLogin}
           disabled={loading}
+          testID="auth-login-submit"
         >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={theme.colors.white} />
           ) : (
             <Text style={styles.buttonText}>Entrar</Text>
           )}

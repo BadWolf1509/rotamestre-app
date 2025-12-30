@@ -41,27 +41,23 @@ jest.mock('@/components/ConfirmDialog', () => ({
 
 // Mock styles with useUnistyles
 jest.mock('@/utils/styles', () => {
-    const mockTheme = {
-        colors: {
-            white: '#fff',
-            gray200: '#e5e7eb',
-            gray500: '#6b7280',
-            gray700: '#374151',
-            primary: '#007AFF',
-            secondary: '#f7a02a',
+    const { defaultTheme } = require('@/utils/styles.base');
+    const theme = {
+        ...defaultTheme,
+        layout: {
+            ...defaultTheme.layout,
+            sidebarWidth: 280,
         },
-        spacing: { sm: 8, md: 12, lg: 16, '2xl': 24 },
-        typography: { xs: 12, sm: 14, fontSansMedium: 'System', fontSansSemiBold: 'System' },
-        borderRadius: { lg: 12 },
-        layout: { sidebarWidth: 280 },
     };
+
     return {
-        useUnistyles: () => ({ theme: mockTheme }),
+        useUnistyles: () => ({ theme }),
         StyleSheet: {
             create: (fn: any) => {
-                return typeof fn === 'function' ? fn(mockTheme) : fn;
+                return typeof fn === 'function' ? fn(theme) : fn;
             },
         },
+        defaultTheme: theme,
     };
 });
 

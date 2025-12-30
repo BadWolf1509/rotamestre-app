@@ -31,6 +31,7 @@ export function StatsCard({
   variant = 'simple'
 }: StatsCardProps) {
   const { theme } = useUnistyles();
+  const statsTokens = theme.components.statsCard;
 
   // Modo simples - compatível com versão anterior
   if (variant === 'simple' && backgroundColor) {
@@ -70,8 +71,17 @@ export function StatsCard({
       <View style={styles.header}>
         <Text style={styles.label}>{label}</Text>
         {icon && (
-          <View style={[styles.iconContainer, { backgroundColor: (iconColor || theme.colors.primary) + '15' }]}>
-            <Ionicons name={icon} size={20} color={iconColor || theme.colors.primary} />
+          <View
+            style={[
+              styles.iconContainer,
+              { backgroundColor: (iconColor || theme.colors.primary) + '15' },
+            ]}
+          >
+            <Ionicons
+              name={icon}
+              size={statsTokens.iconSize}
+              color={iconColor || theme.colors.primary}
+            />
           </View>
         )}
       </View>
@@ -95,8 +105,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   // Modo detalhado (padrão)
   container: {
     backgroundColor: theme.colors.white,
-    padding: theme.spacing.xl,
-    borderRadius: theme.borderRadius.lg,
+    padding: theme.components.statsCard.padding,
+    borderRadius: theme.components.statsCard.radius,
     ...theme.shadows.md,
   },
   header: {
@@ -106,21 +116,21 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: 8,
   },
   label: {
-    fontSize: 13,
+    fontSize: theme.components.statsCard.labelFontSize,
     fontWeight: '500',
     color: theme.colors.gray600,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: theme.components.statsCard.labelLetterSpacing,
   },
   iconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: theme.components.statsCard.iconContainerSize,
+    height: theme.components.statsCard.iconContainerSize,
+    borderRadius: theme.components.statsCard.iconContainerRadius,
     alignItems: 'center',
     justifyContent: 'center',
   },
   value: {
-    fontSize: 28,
+    fontSize: theme.components.statsCard.valueFontSize,
     fontWeight: '700',
     color: theme.colors.gray900,
     marginTop: 4,
@@ -132,19 +142,19 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginTop: 8,
   },
   changeText: {
-    fontSize: 13,
+    fontSize: theme.components.statsCard.changeFontSize,
     fontWeight: '600',
   },
   changeLabel: {
-    fontSize: 13,
+    fontSize: theme.components.statsCard.changeFontSize,
     color: theme.colors.gray500,
     marginLeft: 4,
   },
 
   // Modo simples (compatibilidade)
   containerSimple: {
-    padding: theme.spacing.xl,
-    borderRadius: theme.borderRadius.lg,
+    padding: theme.components.statsCard.padding,
+    borderRadius: theme.components.statsCard.radius,
     alignItems: 'center',
     ...theme.shadows.md,
   },

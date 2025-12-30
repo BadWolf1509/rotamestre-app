@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
-  Text,
   FlatList,
   TouchableOpacity,
   Alert,
@@ -10,9 +9,11 @@ import {
 } from 'react-native';
 
 import { RotaCardSkeleton } from '@/components/motorista/RotaCardSkeleton';
+import { Text } from '@/design-system';
 import { useUser } from '@/hooks/useUser';
 import { parseLocalDate } from '@/lib/dateUtils';
 import { supabase } from '@/lib/supabase';
+import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 type FiltroStatus = 'todos' | 'concluida' | 'pendente' | 'em_andamento' | 'cancelada' | 'nao_executada';
@@ -572,6 +573,7 @@ export default function HistoricoMotorista() {
 
       {/* Lista de Rotas */}
       <FlatList
+        testID="motorista-historico-list"
         data={rotasFiltradas}
         keyExtractor={(item) => item.id}
         renderItem={renderRota}
@@ -680,7 +682,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   filterButtonTextActive: {
     color: theme.colors.white,
     fontWeight: '600',
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowColor: withOpacity(theme.colors.black, 0.15),
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
@@ -738,7 +740,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   rotaCardNaoExecutada: {
     borderLeftColor: theme.colors.warning,
-    backgroundColor: '#fffbeb', // yellow-50
+    backgroundColor: theme.colors.warningBg,
   },
   rotaHeader: {
     flexDirection: 'row',

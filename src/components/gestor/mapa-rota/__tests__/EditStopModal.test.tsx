@@ -49,48 +49,6 @@ jest.mock('@/utils/phoneValidation', () => ({
 }));
 
 // Mock theme
-jest.mock('@/utils/styles', () => {
-  const theme = {
-    colors: {
-      primary: '#284093',
-      secondary: '#f7a02a',
-      info: '#3b82f6',
-      warning: '#f7a02a',
-      error: '#ef4444',
-      success: '#10b981',
-      white: '#ffffff',
-      gray50: '#f9fafb',
-      gray200: '#e5e7eb',
-      gray300: '#d1d5db',
-      gray400: '#9ca3af',
-      gray700: '#374151',
-      gray900: '#111827',
-    },
-    spacing: { xs: 4, sm: 8, md: 12, lg: 16 },
-    typography: {
-      fontSans: 'NunitoSans-Regular',
-      fontSansSemiBold: 'NunitoSans-SemiBold',
-      xs: 12,
-      sm: 14,
-      base: 16,
-    },
-    borderRadius: { sm: 8, md: 10 },
-    desktop: {
-      input: { fontSize: 14, height: 36, paddingHorizontal: 10 },
-      button: { fontSize: 13, paddingHorizontal: 12 },
-      field: { marginBottom: 12 },
-      section: { padding: 12, gap: 8 },
-    },
-  };
-
-  return {
-    useUnistyles: () => ({ theme }),
-    StyleSheet: {
-      create: (fn: (t: typeof theme) => Record<string, unknown>) => fn(theme),
-    },
-  };
-});
-
 // Mock AddressAutocomplete
 jest.mock('@/components/AddressAutocomplete', () => ({
   AddressAutocomplete: ({ value, onChangeText, onSelectAddress, placeholder }: {

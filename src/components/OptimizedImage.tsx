@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import PerformanceOptimizer from '@/services/performanceOptimizer';
+import { defaultTheme } from '@/utils/styles.base';
 
 // Conditional import for expo-blur (only used on iOS)
 let BlurView: React.ComponentType<{ intensity: number; style: any }> | null = null;
@@ -40,6 +41,7 @@ interface OptimizedImageProps extends Omit<ImageProps, 'source'> {
 }
 
 const CACHE_DIR = Platform.OS !== 'web' && FileSystem ? `${FileSystem.cacheDirectory}images/` : '';
+const baseColors = defaultTheme.colors;
 
 export function OptimizedImage({
   source,
@@ -293,7 +295,7 @@ export function OptimizedImage({
           <ActivityIndicator
             style={styles.loader}
             size="small"
-            color="#6b7280"
+            color={baseColors.gray500}
           />
         </View>
       )}
@@ -315,7 +317,7 @@ export function OptimizedImage({
 const styles = StyleSheet.create({
   container: {
     overflow: 'hidden',
-    backgroundColor: '#f3f4f6',
+    backgroundColor: baseColors.gray100,
   },
   loader: {
     position: 'absolute',
@@ -328,7 +330,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f3f4f6',
+    backgroundColor: baseColors.gray100,
   },
   errorIconContainer: {
     justifyContent: 'center',

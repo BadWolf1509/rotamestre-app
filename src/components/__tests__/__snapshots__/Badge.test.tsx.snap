@@ -7,7 +7,7 @@ exports[`Badge deve aplicar tamanho small 1`] = `
       {
         "alignItems": "center",
         "alignSelf": "flex-start",
-        "borderRadius": 4,
+        "borderRadius": 8,
         "justifyContent": "center",
       },
       {
@@ -15,7 +15,7 @@ exports[`Badge deve aplicar tamanho small 1`] = `
         "paddingVertical": 4,
       },
       {
-        "backgroundColor": undefined,
+        "backgroundColor": "#fff3d6",
       },
       undefined,
     ]
@@ -25,7 +25,7 @@ exports[`Badge deve aplicar tamanho small 1`] = `
     style={
       [
         {
-          "fontFamily": "System",
+          "fontFamily": "NunitoSans-SemiBold",
         },
         {
           "fontSize": 12,
@@ -48,7 +48,7 @@ exports[`Badge deve aplicar variante outlined 1`] = `
       {
         "alignItems": "center",
         "alignSelf": "flex-start",
-        "borderRadius": 4,
+        "borderRadius": 8,
         "justifyContent": "center",
       },
       {
@@ -68,7 +68,7 @@ exports[`Badge deve aplicar variante outlined 1`] = `
     style={
       [
         {
-          "fontFamily": "System",
+          "fontFamily": "NunitoSans-SemiBold",
         },
         {
           "fontSize": 14,

@@ -13,6 +13,7 @@ interface MiniMapProps {
   onToggleExpand?: () => void;
   onOpenPiP?: () => void;
   route?: any;
+  testID?: string;
 }
 
 export function MiniMap({
@@ -22,6 +23,7 @@ export function MiniMap({
   onToggleExpand,
   onOpenPiP: _onOpenPiP,
   route: _route,
+  testID,
 }: MiniMapProps) {
   const { theme } = useUnistyles();
   // Altura compacta (56px) igual ao botão Iniciar Rota, expandido mostra paradas
@@ -64,7 +66,7 @@ export function MiniMap({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID={testID}>
       <TouchableOpacity
         style={[styles.mapContainer, { height }]}
         onPress={openGoogleMaps}

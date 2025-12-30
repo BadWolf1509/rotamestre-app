@@ -8,7 +8,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ConfirmModal } from '@/components/ConfirmModal';
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
 import { MainCard } from '@/components/motorista/home/MainCard';
 import { MiniMap } from '@/components/motorista/home/MiniMap';
@@ -20,8 +19,8 @@ import { NavigationSettings } from '@/components/motorista/NavigationSettings';
 import { OptimizationAlert } from '@/components/motorista/OptimizationAlert';
 import { PictureInPictureMap } from '@/components/motorista/PictureInPictureMap';
 import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
-import { SupportModal } from '@/components/SupportModal';
 import { useRouteStatus, type ParadaData } from '@/context/RouteStatusContext';
+import { ConfirmModal, SupportModal } from '@/design-system';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
 import { abrirNavegacao } from '@/lib/navigation';
@@ -446,6 +445,7 @@ function MotoristaInicioContent() {
       >
         {/* Status Section */}
         <StatusSection
+          testID="motorista-status-section"
           userName={userData?.nome}
           unitName={userData?.unidades?.nome}
           userPhoto={userData?.foto_url}
@@ -468,6 +468,7 @@ function MotoristaInicioContent() {
           onSwipeRight={handleCompleteStop}
           onPress={handleMainAction}
           onChecklistChange={handleChecklistChange}
+          testID="motorista-main-card"
         />
 
         {/* Mini Map - Apenas no estado pending para preview da rota (colapsado por padrão) */}
@@ -480,6 +481,7 @@ function MotoristaInicioContent() {
             onOpenFullMap={() => router.push('/motorista/mapa')}
             onOpenPiP={() => setShowPiPMap(true)}
             route={route}
+            testID="motorista-mini-map"
           />
         )}
 

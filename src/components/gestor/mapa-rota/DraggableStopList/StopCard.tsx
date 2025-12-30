@@ -242,7 +242,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: theme.spacing.sm,
     borderWidth: 1,
     borderColor: theme.colors.gray200,
-    shadowColor: '#000',
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,

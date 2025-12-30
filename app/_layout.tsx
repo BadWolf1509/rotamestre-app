@@ -21,6 +21,13 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useUser } from '@/hooks/useUser';
 import { initializeNotifications } from '@/lib/notifications';
 import { setupOfflineSync } from '@/lib/offline';
+import {
+  applyThemePreferences,
+  getThemePreferences,
+  type ThemeContrastPreference,
+  type ThemeDensityPreference,
+  type ThemePreference,
+} from '@/lib/themePreference';
 import { configureLogBox } from '@/utils/configureLogBox';
 // NOTA: Unistyles é configurado automaticamente em @/utils/styles (linha 312)
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -134,6 +141,49 @@ export default function RootLayout() {
   }, []);
 
   // Mostrar null enquanto fontes não carregam (splash screen continua visível)
+  // Apply stored theme preferences or query param overrides
+  useEffect(() => {
+    const applyPreference = async () => {
+      const stored = await getThemePreferences();
+
+      let themeParam: ThemePreference | null = null;
+      let densityParam: ThemeDensityPreference | null = null;
+      let contrastParam: ThemeContrastPreference | null = null;
+
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const themeOverride = params.get('theme');
+        const densityOverride = params.get('density');
+        const contrastOverride = params.get('contrast');
+
+        if (themeOverride === 'light' || themeOverride === 'dark') {
+          themeParam = themeOverride;
+        }
+        if (densityOverride === 'compact' || densityOverride === 'regular') {
+          densityParam = densityOverride;
+        }
+        if (contrastOverride === 'high' || contrastOverride === 'normal') {
+          contrastParam = contrastOverride;
+        }
+      }
+
+      if (themeParam || densityParam || contrastParam) {
+        applyThemePreferences({
+          mode: themeParam ?? stored?.mode ?? 'light',
+          density: densityParam ?? stored?.density ?? 'regular',
+          contrast: contrastParam ?? stored?.contrast ?? 'normal',
+        });
+        return;
+      }
+
+      if (stored) {
+        applyThemePreferences(stored);
+      }
+    };
+
+    applyPreference();
+  }, []);
+
   if (!fontsLoaded && !fontError) {
     return null;
   }

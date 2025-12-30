@@ -385,6 +385,8 @@ export function OptimizedSectionList<T>({
   );
 }
 
+const baseColors = defaultTheme.colors;
+
 const styles = StyleSheet.create({
   emptyContainer: {
     flex: 1,
@@ -394,19 +396,19 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#6b7280',
+    color: baseColors.gray500,
   },
   sectionHeader: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: baseColors.gray50,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: baseColors.gray200,
   },
   sectionHeaderText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: baseColors.gray700,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },

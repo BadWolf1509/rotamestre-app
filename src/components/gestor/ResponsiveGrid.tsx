@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
-import { StyleSheet, type Theme } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface ResponsiveGridProps {
   children: React.ReactNode;
@@ -140,6 +140,7 @@ interface MetricCardProps {
 
 export function MetricCard({ title, value, subtitle, icon, trend, color }: MetricCardProps) {
   const { isDesktop } = useResponsive();
+  const { theme } = useUnistyles();
 
   return (
     <View style={[styles.metricCard, { borderLeftColor: color }]}>
@@ -154,7 +155,7 @@ export function MetricCard({ title, value, subtitle, icon, trend, color }: Metri
                 <Ionicons
                   name={trend === 'up' ? 'trending-up' : trend === 'down' ? 'trending-down' : 'remove'}
                   size={16}
-                  color={trend === 'up' ? '#10b981' : trend === 'down' ? '#ef4444' : '#6b7280'}
+                  color={trend === 'up' ? theme.colors.success : trend === 'down' ? theme.colors.error : theme.colors.gray500}
                 />
               </View>
             )}
@@ -164,7 +165,7 @@ export function MetricCard({ title, value, subtitle, icon, trend, color }: Metri
       </View>
       {isDesktop && (
         <TouchableOpacity style={styles.metricAction}>
-          <Ionicons name="ellipsis-vertical" size={16} color="#6b7280" />
+          <Ionicons name="ellipsis-vertical" size={16} color={theme.colors.gray500} />
         </TouchableOpacity>
       )}
     </View>
@@ -239,13 +240,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: 12,
   },
   trendup: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: theme.colors.successBg,
   },
   trenddown: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: theme.colors.errorBg,
   },
   trendneutral: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: theme.colors.gray100,
   },
   metricAction: {
     position: 'absolute',

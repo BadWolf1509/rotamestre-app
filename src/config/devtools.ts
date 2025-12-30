@@ -5,6 +5,9 @@
 
 import { Platform } from 'react-native';
 
+import { withOpacity } from '@/utils/color';
+import { defaultTheme } from '@/utils/styles';
+
 const isFlagEnabled = (flag: string) => {
   if (typeof window === 'undefined') return false;
   if (process.env[`EXPO_PUBLIC_${flag}`] === 'true') return true;
@@ -196,13 +199,14 @@ export const monitorMemory = () => {
 // Debug panel for Edge DevTools
 export const createDebugPanel = () => {
   if (__DEV__ && Platform.OS === 'web' && typeof document !== 'undefined') {
+    const panelBorderColor = defaultTheme.colors.gray600;
     const panel = document.createElement('div');
     panel.id = 'debug-panel';
     panel.style.cssText = `
       position: fixed;
       bottom: 10px;
       right: 10px;
-      background: rgba(0, 0, 0, 0.8);
+      background: ${withOpacity(defaultTheme.colors.black, 0.8)};
       color: white;
       padding: 10px;
       border-radius: 8px;
@@ -228,7 +232,7 @@ export const createDebugPanel = () => {
 
         panel.innerHTML = `
           <div><strong>Debug Panel</strong> (Ctrl+Shift+D)</div>
-          <hr style="margin: 5px 0; border: 0; border-top: 1px solid #444;">
+          <hr style="margin: 5px 0; border: 0; border-top: 1px solid ${panelBorderColor};">
           <div>Memory: ${usedMB} MB</div>
           <div>FPS: ${(performance as any).fps || 'Calculating...'}</div>
           <div>Network: ${navigator.onLine ? '✅ Online' : '❌ Offline'}</div>

@@ -2,6 +2,7 @@
  * Utility functions for the RotaMestre app
  */
 
+
 /**
  * Format bytes to human readable format
  */
@@ -903,32 +904,6 @@ export function escapeHtml(unsafe: string | null | undefined): string {
 }
 
 /**
- * CSS de animação compartilhado para InfoWindows
  * Evita duplicação em cada builder
  */
-export const INFO_WINDOW_ANIMATION_CSS = `
-  @keyframes infoWindowFadeIn {
-    from { opacity: 0; transform: translateY(-8px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-`;
 
-/**
- * Cores semânticas para InfoWindows
- * Mapeadas dos design tokens para uso em HTML strings
- */
-export const INFO_WINDOW_COLORS = {
-  text: {
-    primary: '#111827',    // colors.text.primary (gray[900])
-    secondary: '#6b7280',  // colors.text.secondary (gray[500])
-    link: '#284093',       // colors.text.link (primary.main)
-  },
-  background: {
-    surface: '#f9fafb',    // colors.gray[50]
-    border: '#e5e7eb',     // colors.gray[200]
-  },
-  brand: {
-    primary: '#284093',    // colors.primary.main
-    primaryDark: '#1b2c63', // colors.primary.dark
-  },
-} as const;

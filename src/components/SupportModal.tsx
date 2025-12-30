@@ -6,14 +6,15 @@ import {
   Text,
   Modal,
   TouchableOpacity,
-  StyleSheet,
   Linking,
   Platform,
   Pressable,
 } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
-import { useUnistyles } from '@/utils/styles';
+import { colors } from '@/lib/design-tokens';
+import { boxShadow } from '@/utils/color';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface SupportModalProps {
   visible: boolean;
@@ -28,7 +29,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     style.id = styleId;
     style.textContent = `
       dialog.support-modal-dialog::backdrop {
-        background-color: rgba(0, 0, 0, 0.5);
+        background-color: ${colors.overlay.medium};
       }
       dialog.support-modal-dialog[open] {
         animation: support-modal-fade-in 0.2s ease-out;
@@ -42,12 +43,6 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
           opacity: 1;
           transform: scale(1);
         }
-      }
-      .support-contact-option {
-        transition: background-color 0.2s;
-      }
-      .support-contact-option:hover {
-        background-color: #f3f4f6 !important;
       }
     `;
     document.head.appendChild(style);
@@ -178,9 +173,9 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
       >
         <div
           style={{
-            backgroundColor: '#fff',
+            backgroundColor: theme.colors.white,
             borderRadius: 16,
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            boxShadow: boxShadow(0, 25, 50, -12, theme.colors.black, 0.25),
             overflow: 'hidden',
           }}
           onClick={(e) => e.stopPropagation()}
@@ -195,7 +190,7 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
               paddingLeft: isDesktop ? 16 : 24,
               paddingRight: isDesktop ? 16 : 24,
               paddingBottom: isDesktop ? 12 : 16,
-              borderBottom: '1px solid #e5e7eb',
+              borderBottom: `1px solid ${theme.colors.border}`,
             }}
           >
             <div
@@ -203,7 +198,7 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                 width: isDesktop ? 52 : 64,
                 height: isDesktop ? 52 : 64,
                 borderRadius: isDesktop ? 26 : 32,
-                backgroundColor: '#e0e7ff',
+                backgroundColor: theme.colors.indigo100,
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
@@ -218,13 +213,13 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                 margin: 0,
                 fontSize: isDesktop ? 18 : 20,
                 fontWeight: 700,
-                color: '#111827',
+                color: theme.colors.gray900,
                 marginBottom: 4,
               }}
             >
               Central de Ajuda
             </h2>
-            <p style={{ margin: 0, fontSize: isDesktop ? 13 : 14, color: '#6b7280', textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: isDesktop ? 13 : 14, color: theme.colors.gray500, textAlign: 'center' }}>
               Como podemos ajudar você?
             </p>
           </div>
@@ -239,13 +234,20 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                 flexDirection: 'row',
                 alignItems: 'center',
                 padding: isDesktop ? 12 : 16,
-                backgroundColor: '#f9fafb',
+                backgroundColor: theme.colors.gray50,
                 borderRadius: isDesktop ? 10 : 12,
                 marginBottom: isDesktop ? 10 : 12,
                 border: 'none',
                 width: '100%',
                 cursor: 'pointer',
                 textAlign: 'left',
+                transition: 'background-color 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = theme.colors.gray100;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = theme.colors.gray50;
               }}
             >
               <div
@@ -253,20 +255,20 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                   width: isDesktop ? 40 : 48,
                   height: isDesktop ? 40 : 48,
                   borderRadius: isDesktop ? 20 : 24,
-                  backgroundColor: '#25D366',
+                  backgroundColor: theme.colors.success,
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'center',
                   marginRight: isDesktop ? 10 : 12,
                 }}
               >
-                <Ionicons name="logo-whatsapp" size={isDesktop ? 20 : 24} color="#fff" />
+                <Ionicons name="logo-whatsapp" size={isDesktop ? 20 : 24} color={theme.colors.white} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: isDesktop ? 11 : 12, color: '#6b7280', marginBottom: 2 }}>WhatsApp</div>
-                <div style={{ fontSize: isDesktop ? 13 : 14, fontWeight: 600, color: '#111827' }}>(83) 98715-6206</div>
+                <div style={{ fontSize: isDesktop ? 11 : 12, color: theme.colors.gray500, marginBottom: 2 }}>WhatsApp</div>
+                <div style={{ fontSize: isDesktop ? 13 : 14, fontWeight: 600, color: theme.colors.gray900 }}>(83) 98715-6206</div>
               </div>
-              <Ionicons name="chevron-forward" size={isDesktop ? 18 : 20} color="#9ca3af" />
+              <Ionicons name="chevron-forward" size={isDesktop ? 18 : 20} color={theme.colors.gray400} />
             </button>
 
             <button
@@ -277,13 +279,20 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                 flexDirection: 'row',
                 alignItems: 'center',
                 padding: isDesktop ? 12 : 16,
-                backgroundColor: '#f9fafb',
+                backgroundColor: theme.colors.gray50,
                 borderRadius: isDesktop ? 10 : 12,
                 marginBottom: isDesktop ? 10 : 12,
                 border: 'none',
                 width: '100%',
                 cursor: 'pointer',
                 textAlign: 'left',
+                transition: 'background-color 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = theme.colors.gray100;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = theme.colors.gray50;
               }}
             >
               <div
@@ -298,13 +307,13 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                   marginRight: isDesktop ? 10 : 12,
                 }}
               >
-                <Ionicons name="call" size={isDesktop ? 20 : 24} color="#fff" />
+                <Ionicons name="call" size={isDesktop ? 20 : 24} color={theme.colors.white} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: isDesktop ? 11 : 12, color: '#6b7280', marginBottom: 2 }}>Telefone</div>
-                <div style={{ fontSize: isDesktop ? 13 : 14, fontWeight: 600, color: '#111827' }}>(83) 98715-6206</div>
+                <div style={{ fontSize: isDesktop ? 11 : 12, color: theme.colors.gray500, marginBottom: 2 }}>Telefone</div>
+                <div style={{ fontSize: isDesktop ? 13 : 14, fontWeight: 600, color: theme.colors.gray900 }}>(83) 98715-6206</div>
               </div>
-              <Ionicons name="chevron-forward" size={isDesktop ? 18 : 20} color="#9ca3af" />
+              <Ionicons name="chevron-forward" size={isDesktop ? 18 : 20} color={theme.colors.gray400} />
             </button>
 
             <button
@@ -315,12 +324,19 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                 flexDirection: 'row',
                 alignItems: 'center',
                 padding: isDesktop ? 12 : 16,
-                backgroundColor: '#f9fafb',
+                backgroundColor: theme.colors.gray50,
                 borderRadius: isDesktop ? 10 : 12,
                 border: 'none',
                 width: '100%',
                 cursor: 'pointer',
                 textAlign: 'left',
+                transition: 'background-color 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = theme.colors.gray100;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = theme.colors.gray50;
               }}
             >
               <div
@@ -328,30 +344,30 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                   width: isDesktop ? 40 : 48,
                   height: isDesktop ? 40 : 48,
                   borderRadius: isDesktop ? 20 : 24,
-                  backgroundColor: '#ea4335',
+                  backgroundColor: theme.colors.error,
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'center',
                   marginRight: isDesktop ? 10 : 12,
                 }}
               >
-                <Ionicons name="mail" size={isDesktop ? 20 : 24} color="#fff" />
+                <Ionicons name="mail" size={isDesktop ? 20 : 24} color={theme.colors.white} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: isDesktop ? 11 : 12, color: '#6b7280', marginBottom: 2 }}>E-mail</div>
-                <div style={{ fontSize: isDesktop ? 13 : 14, fontWeight: 600, color: '#111827' }}>contato@rotamestre.tec.br</div>
+                <div style={{ fontSize: isDesktop ? 11 : 12, color: theme.colors.gray500, marginBottom: 2 }}>E-mail</div>
+                <div style={{ fontSize: isDesktop ? 13 : 14, fontWeight: 600, color: theme.colors.gray900 }}>contato@rotamestre.tec.br</div>
               </div>
-              <Ionicons name="chevron-forward" size={isDesktop ? 18 : 20} color="#9ca3af" />
+              <Ionicons name="chevron-forward" size={isDesktop ? 18 : 20} color={theme.colors.gray400} />
             </button>
           </div>
 
           {/* Footer */}
-          <div style={{ padding: isDesktop ? 12 : 16, borderTop: '1px solid #e5e7eb' }}>
+          <div style={{ padding: isDesktop ? 12 : 16, borderTop: `1px solid ${theme.colors.border}` }}>
             <button
               onClick={onClose}
               style={{
                 width: '100%',
-                backgroundColor: '#f3f4f6',
+                backgroundColor: theme.colors.gray100,
                 paddingTop: isDesktop ? 10 : 12,
                 paddingBottom: isDesktop ? 10 : 12,
                 borderRadius: 8,
@@ -359,14 +375,14 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                 cursor: 'pointer',
                 fontSize: isDesktop ? 14 : 16,
                 fontWeight: 600,
-                color: '#374151',
+                color: theme.colors.gray700,
                 transition: 'background-color 0.2s',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#e5e7eb';
+                e.currentTarget.style.backgroundColor = theme.colors.gray200;
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#f3f4f6';
+                e.currentTarget.style.backgroundColor = theme.colors.gray100;
               }}
             >
               Fechar
@@ -409,36 +425,36 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
           {/* Contact Options */}
           <View style={styles.content}>
             <TouchableOpacity style={styles.contactOption} onPress={handleWhatsApp}>
-              <View style={[styles.contactIcon, { backgroundColor: '#25D366' }]}>
-                <Ionicons name="logo-whatsapp" size={24} color="#fff" />
+              <View style={[styles.contactIcon, { backgroundColor: theme.colors.success }]}>
+                <Ionicons name="logo-whatsapp" size={24} color={theme.colors.white} />
               </View>
               <View style={styles.contactInfo}>
                 <Text style={styles.contactLabel}>WhatsApp</Text>
                 <Text style={styles.contactValue}>(83) 98715-6206</Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              <Ionicons name="chevron-forward" size={20} color={theme.colors.gray400} />
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.contactOption} onPress={handleCall}>
               <View style={[styles.contactIcon, { backgroundColor: theme.colors.primary }]}>
-                <Ionicons name="call" size={24} color="#fff" />
+                <Ionicons name="call" size={24} color={theme.colors.white} />
               </View>
               <View style={styles.contactInfo}>
                 <Text style={styles.contactLabel}>Telefone</Text>
                 <Text style={styles.contactValue}>(83) 98715-6206</Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              <Ionicons name="chevron-forward" size={20} color={theme.colors.gray400} />
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.contactOption} onPress={handleEmail}>
-              <View style={[styles.contactIcon, { backgroundColor: '#ea4335' }]}>
-                <Ionicons name="mail" size={24} color="#fff" />
+              <View style={[styles.contactIcon, { backgroundColor: theme.colors.error }]}>
+                <Ionicons name="mail" size={24} color={theme.colors.white} />
               </View>
               <View style={styles.contactInfo}>
                 <Text style={styles.contactLabel}>E-mail</Text>
                 <Text style={styles.contactValue}>contato@rotamestre.tec.br</Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              <Ionicons name="chevron-forward" size={20} color={theme.colors.gray400} />
             </TouchableOpacity>
           </View>
 
@@ -454,62 +470,59 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.xl,
     width: '90%',
     maxWidth: 400,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 10,
+    ...theme.shadows.lg,
   },
   header: {
     alignItems: 'center',
-    paddingTop: 24,
-    paddingHorizontal: 24,
-    paddingBottom: 16,
+    paddingTop: theme.spacing.xl,
+    paddingHorizontal: theme.spacing.xl,
+    paddingBottom: theme.spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: theme.colors.border,
   },
   iconContainer: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#e0e7ff',
+    backgroundColor: theme.colors.indigo100,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: theme.spacing.sm,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 4,
+    fontSize: theme.typography.fontSize.xl,
+    fontFamily: theme.typography.fontSansBold,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.xs,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#6b7280',
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.gray500,
     textAlign: 'center',
   },
   content: {
-    padding: 16,
+    padding: theme.spacing.lg,
   },
   contactOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#f9fafb',
-    borderRadius: 12,
-    marginBottom: 12,
+    padding: theme.spacing.lg,
+    backgroundColor: theme.colors.gray50,
+    borderRadius: theme.borderRadius.lg,
+    marginBottom: theme.spacing.md,
   },
   contactIcon: {
     width: 48,
@@ -517,35 +530,35 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: theme.spacing.md,
   },
   contactInfo: {
     flex: 1,
   },
   contactLabel: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginBottom: 2,
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.gray500,
+    marginBottom: theme.spacing.xs / 2,
   },
   contactValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray900,
   },
   footer: {
-    padding: 16,
+    padding: theme.spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderTopColor: theme.colors.border,
   },
   closeButton: {
-    backgroundColor: '#f3f4f6',
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: theme.colors.gray100,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.sm,
     alignItems: 'center',
   },
   closeButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray700,
   },
-});
+}));

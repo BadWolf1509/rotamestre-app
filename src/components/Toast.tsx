@@ -44,6 +44,7 @@ export interface ToastProps {
   visible: boolean;
   /** Desabilitar portal (usar quando Toast está dentro de Modal) */
   disablePortal?: boolean;
+  testID?: string;
 }
 
 /**
@@ -59,7 +60,16 @@ export interface ToastProps {
  * />
  * ```
  */
-export function Toast({ message, type = 'info', duration = 3000, onDismiss, onHide, visible, disablePortal = false }: ToastProps) {
+export function Toast({
+  message,
+  type = 'info',
+  duration = 3000,
+  onDismiss,
+  onHide,
+  visible,
+  disablePortal = false,
+  testID,
+}: ToastProps) {
   const { theme } = useUnistyles();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-100)).current;
@@ -146,6 +156,7 @@ export function Toast({ message, type = 'info', duration = 3000, onDismiss, onHi
 
   const toastContent = (
     <Animated.View
+      testID={testID}
       style={[
         styles.container,
         {
@@ -196,7 +207,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     maxWidth: 500,
     minWidth: 300,
     borderRadius: theme.borderRadius.md,
-    shadowColor: '#000',
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

@@ -14,6 +14,7 @@ import {
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
 import TurnByTurnNavigationService from '@/services/turnByTurnNavigation';
+import { withOpacity } from '@/utils/color';
 import { defaultTheme, useUnistyles } from '@/utils/styles';
 
 const colors = defaultTheme.colors;
@@ -472,7 +473,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: withOpacity(colors.white, 0.2),
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -496,9 +497,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: withOpacity(colors.black, 0.1),
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopColor: withOpacity(colors.white, 0.1),
   },
   nextInstructionText: {
     fontSize: 12,

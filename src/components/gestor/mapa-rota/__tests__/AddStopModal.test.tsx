@@ -51,58 +51,6 @@ jest.mock('@/utils/phoneValidation', () => ({
 }));
 
 // Mock theme with complete structure
-jest.mock('@/utils/styles', () => {
-  const theme = {
-    colors: {
-      primary: '#284093',
-      info: '#3b82f6',
-      warning: '#f7a02a',
-      warningBg: '#fef3c7',
-      error: '#ef4444',
-      success: '#10b981',
-      white: '#ffffff',
-      gray50: '#f9fafb',
-      gray200: '#e5e7eb',
-      gray300: '#d1d5db',
-      gray400: '#9ca3af',
-      gray500: '#6b7280',
-      gray700: '#374151',
-      gray900: '#111827',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      md: 12,
-      lg: 16,
-    },
-    typography: {
-      fontSans: 'NunitoSans-Regular',
-      fontSansSemiBold: 'NunitoSans-SemiBold',
-      fontSansBold: 'NunitoSans-Bold',
-      xs: 12,
-      sm: 14,
-      base: 16,
-    },
-    borderRadius: {
-      sm: 8,
-      md: 10,
-    },
-    desktop: {
-      input: { fontSize: 14, height: 36, paddingHorizontal: 10 },
-      button: { fontSize: 13, paddingHorizontal: 12 },
-      field: { marginBottom: 12 },
-      section: { padding: 12, gap: 8 },
-    },
-  };
-
-  return {
-    useUnistyles: () => ({ theme }),
-    StyleSheet: {
-      create: (fn: (t: typeof theme) => Record<string, unknown>) => fn(theme),
-    },
-  };
-});
-
 // Mock AddressAutocomplete
 jest.mock('@/components/AddressAutocomplete', () => ({
   AddressAutocomplete: ({ value, onChangeText, onSelectAddress, placeholder }: {
@@ -509,7 +457,8 @@ describe('AddStopModal', () => {
     });
 
     it('não deve notificar se motoristaId não está definido', async () => {
-      const propsWithoutMotorista = { ...defaultProps, motoristaId: undefined };
+      const onSave = jest.fn();
+      const propsWithoutMotorista = { ...defaultProps, motoristaId: undefined, onSave };
 
       const { getByTestId, getByText } = render(
         <AddStopModal {...propsWithoutMotorista} />
@@ -521,14 +470,15 @@ describe('AddStopModal', () => {
       fireEvent.press(getByText('Adicionar'));
 
       await waitFor(() => {
-        expect(defaultProps.onSave).toHaveBeenCalled();
+        expect(onSave).toHaveBeenCalled();
       });
 
       expect(mockNotificarMotorista).not.toHaveBeenCalled();
     });
 
     it('não deve registrar log se usuarioId não está definido', async () => {
-      const propsWithoutUser = { ...defaultProps, usuarioId: undefined };
+      const onSave = jest.fn();
+      const propsWithoutUser = { ...defaultProps, usuarioId: undefined, onSave };
 
       const { getByTestId, getByText } = render(
         <AddStopModal {...propsWithoutUser} />
@@ -540,7 +490,7 @@ describe('AddStopModal', () => {
       fireEvent.press(getByText('Adicionar'));
 
       await waitFor(() => {
-        expect(defaultProps.onSave).toHaveBeenCalled();
+        expect(onSave).toHaveBeenCalled();
       });
 
       // logs.insert não deve ser chamado

@@ -1,6 +1,8 @@
 import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
 
+import { defaultTheme } from '@/utils/styles';
+
 import { NotificationBell } from '../NotificationBell';
 
 // Mock default
@@ -103,7 +105,7 @@ describe('NotificationBell', () => {
 
     const icon = UNSAFE_getByType(Ionicons);
     expect(icon.props.size).toBe(24);
-    expect(icon.props.color).toBe('#334155');
+    expect(icon.props.color).toBe(defaultTheme.colors.gray700);
   });
 
   it('deve aplicar estilos corretos para variant mobile', () => {
@@ -112,7 +114,7 @@ describe('NotificationBell', () => {
 
     const icon = UNSAFE_getByType(Ionicons);
     expect(icon.props.size).toBe(26);
-    expect(icon.props.color).toBe('#FFFFFF');
+    expect(icon.props.color).toBe(defaultTheme.colors.white);
   });
 
   it('deve ter acessibilidade configurada corretamente', () => {
@@ -134,7 +136,7 @@ describe('NotificationBell', () => {
     const Ionicons = require('@expo/vector-icons').Ionicons;
 
     const icon = UNSAFE_getByType(Ionicons);
-    expect(icon.props.color).toBe('#FFFFFF');
+    expect(icon.props.color).toBe(defaultTheme.colors.white);
     expect(icon.props.name).toBe('notifications-outline');
   });
 });

@@ -4,7 +4,8 @@ import { createPortal } from 'react-dom';
 import { Modal, View, Text, TouchableOpacity, Pressable, ViewStyle, DimensionValue, Platform, ActivityIndicator } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { boxShadow, withOpacity } from '@/utils/color';
+import { StyleSheet, defaultTheme, useUnistyles, type Theme } from '@/utils/styles';
 
 import { Toast, type ToastProps } from '../Toast';
 
@@ -287,7 +288,7 @@ export function DesktopModal({
               width: 14,
               height: 14,
               borderRadius: '50%',
-              border: `2px solid ${isPrimary ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'}`,
+              border: `2px solid ${isPrimary ? withOpacity(theme.colors.white, 0.3) : withOpacity(theme.colors.black, 0.2)}`,
               borderTopColor: isPrimary ? theme.colors.white : theme.colors.gray600,
               animation: 'spin 0.8s linear infinite',
             }}
@@ -392,7 +393,10 @@ export function DesktopModal({
           style={{
             backgroundColor: theme.colors.white,
             borderRadius: isDesktop ? theme.borderRadius.lg : `${theme.borderRadius.lg}px ${theme.borderRadius.lg}px 0 0`,
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            boxShadow: [
+              boxShadow(0, 20, 25, -5, theme.colors.black, 0.1),
+              boxShadow(0, 10, 10, -5, theme.colors.black, 0.04),
+            ].join(', '),
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
@@ -452,7 +456,7 @@ export function DesktopModal({
                   e.currentTarget.style.backgroundColor = 'transparent';
                 }}
               >
-                <Ionicons name="close" size={isDesktop ? 20 : 24} color="#6b7280" />
+                <Ionicons name="close" size={isDesktop ? 20 : 24} color={theme.colors.gray500} />
               </button>
             </div>
           )}
@@ -534,7 +538,7 @@ export function DesktopModal({
                 accessibilityLabel="Fechar modal"
                 accessibilityRole="button"
               >
-                <Ionicons name="close" size={24} color="#6b7280" />
+                <Ionicons name="close" size={24} color={theme.colors.gray500} />
               </TouchableOpacity>
             </View>
           )}
@@ -561,9 +565,11 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
   if (!document.getElementById(styleId)) {
     const style = document.createElement('style');
     style.id = styleId;
+    const scrollbarThumb = defaultTheme.colors.gray300;
+    const scrollbarThumbHover = defaultTheme.colors.gray400;
     style.textContent = `
       dialog::backdrop {
-        background-color: rgba(0, 0, 0, 0.5);
+        background-color: ${defaultTheme.colors.overlay};
         backdrop-filter: blur(2px);
       }
       dialog[open] {
@@ -587,7 +593,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
         scrollbar-color: transparent transparent;
       }
       .modal-scroll:hover {
-        scrollbar-color: #cbd5e1 transparent;
+        scrollbar-color: ${scrollbarThumb} transparent;
       }
       .modal-scroll::-webkit-scrollbar {
         width: 8px;
@@ -600,10 +606,10 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
         border-radius: 4px;
       }
       .modal-scroll:hover::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
+        background: ${scrollbarThumb};
       }
       .modal-scroll::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
+        background: ${scrollbarThumbHover};
       }
       /* Spinner animation for loading buttons */
       @keyframes spin {
@@ -617,14 +623,14 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
 const styles = StyleSheet.create((theme: Theme) => ({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContainer: {
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.lg,
-    shadowColor: '#000',
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

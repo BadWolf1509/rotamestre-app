@@ -12,6 +12,7 @@ import {
 
 import { useResponsive } from '@/hooks/useResponsive';
 import { googleMapsService, PlaceSuggestion } from '@/lib/google';
+import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface AddressAutocompleteProps {
@@ -366,7 +367,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     maxHeight: 200,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: theme.colors.black,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
@@ -375,7 +376,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
         elevation: 4,
       },
       web: {
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        boxShadow: boxShadow(0, 2, 8, 0, theme.colors.black, 0.1),
       },
     }),
   },

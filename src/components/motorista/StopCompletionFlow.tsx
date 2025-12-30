@@ -24,6 +24,7 @@ import {
 import CameraUpload from '@/components/CameraUpload';
 import { useRouteStatus, ParadaData } from '@/context/RouteStatusContext';
 import { useUser } from '@/hooks/useUser';
+import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface StopCompletionFlowProps {
@@ -291,7 +292,7 @@ export function StopCompletionFlow({
 const styles = StyleSheet.create((theme: Theme) => ({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: withOpacity(theme.colors.black, 0.5),
     justifyContent: 'center',
     alignItems: 'center',
     padding: theme.spacing.md,

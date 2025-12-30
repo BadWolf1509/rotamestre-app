@@ -139,7 +139,7 @@ const colors = defaultTheme.colors;
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fffbeb', // yellow-50
+    backgroundColor: colors.warningLight,
     borderRadius: 10,
     padding: 12,
     marginBottom: 8,

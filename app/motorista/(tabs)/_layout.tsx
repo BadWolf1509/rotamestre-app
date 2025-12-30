@@ -104,6 +104,7 @@ export default function TabLayout() {
         options={{
           title: 'Início',
           headerTitle: 'Início',
+          tabBarTestID: 'tab-inicio',
           tabBarIcon: ({ color, focused }) =>
             renderTabIcon('home', 'home-outline', color, focused),
         }}
@@ -114,11 +115,12 @@ export default function TabLayout() {
         options={{
           title: 'Paradas',
           headerTitle: 'Paradas',
+          tabBarTestID: 'tab-paradas',
           tabBarIcon: ({ color, focused }) =>
             renderTabIcon('list', 'list-outline', color, focused),
           tabBarBadge: paradasPendentes > 0 ? paradasPendentes : undefined,
           tabBarBadgeStyle: {
-            backgroundColor: colors.secondary.dark, // #c87704 para contraste 4.5:1 com texto branco
+            backgroundColor: colors.secondary.dark, // contraste 4.5:1 com texto branco
             color: colors.white,
             fontSize: 10,
             fontWeight: 'bold',
@@ -134,6 +136,7 @@ export default function TabLayout() {
         options={{
           title: 'Mapa',
           headerTitle: 'Mapa',
+          tabBarTestID: 'tab-mapa',
           tabBarIcon: ({ color, focused }) =>
             renderTabIcon('map', 'map-outline', color, focused),
         }}
@@ -144,6 +147,7 @@ export default function TabLayout() {
         options={{
           title: 'Histórico',
           headerTitle: 'Histórico',
+          tabBarTestID: 'tab-historico',
           tabBarIcon: ({ color, focused }) =>
             renderTabIcon('time', 'time-outline', color, focused),
         }}

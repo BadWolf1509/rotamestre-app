@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 
+import { withOpacity } from '@/utils/color';
 import { defaultTheme, useUnistyles } from '@/utils/styles';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -502,13 +503,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     // Brand guideline: text shadow for white text on colored background
-    textShadowColor: 'rgba(0, 0, 0, 0.25)',
+    textShadowColor: withOpacity(colors.black, 0.25),
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: withOpacity(colors.black, 0.5),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -641,5 +642,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
 

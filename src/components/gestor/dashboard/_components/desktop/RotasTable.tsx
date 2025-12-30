@@ -1,7 +1,8 @@
 import { View, Text, TouchableOpacity, ScrollView, Platform } from 'react-native';
 
-import EmptyState from '@/components/EmptyState';
+import { EmptyState } from '@/design-system';
 import { formatDateBR } from '@/lib/dateUtils';
+import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import type { RotaResumo } from '../../_hooks/useDashboardData';
@@ -48,9 +49,9 @@ const statusVariants = (theme: any) => ({
   nao_executada: {
     label: 'Não Executada',
     badge: {
-      backgroundColor: '#fef3c7', // amber-100
-      borderColor: '#f59e0b', // amber-500
-      color: '#d97706', // amber-600
+      backgroundColor: theme.colors.warningBg,
+      borderColor: theme.colors.warning,
+      color: theme.colors.warningDark,
     },
   },
   default: {
@@ -77,17 +78,19 @@ export function RotasTable({ rotas, onViewDetails, onDelete }: RotasTableProps) 
 
   if (rotas.length === 0) {
     return (
-      <EmptyState
-        icon="map-outline"
-        title="Nenhuma rota cadastrada hoje"
-        description="Crie sua primeira rota de entrega"
-        style={styles.emptyState}
-      />
+      <View testID="rotas-table">
+        <EmptyState
+          icon="map-outline"
+          title="Nenhuma rota cadastrada hoje"
+          description="Crie sua primeira rota de entrega"
+          style={styles.emptyState}
+        />
+      </View>
     );
   }
 
   return (
-    <View style={styles.tableContainer}>
+    <View testID="rotas-table" style={styles.tableContainer}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator
@@ -199,31 +202,20 @@ export function RotasTable({ rotas, onViewDetails, onDelete }: RotasTableProps) 
                 <View style={[styles.colAcoes, styles.colAcoesContent]}>
                   <TouchableOpacity
                     onPress={() => onViewDetails?.(rota.id)}
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      backgroundColor: theme.colors.primary,
-                      borderRadius: theme.borderRadius.md,
-                      marginRight: 8,
-                    }}
+                    style={styles.detailsButton}
                     activeOpacity={0.8}
                   >
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: 'white' }}>
+                    <Text style={styles.detailsButtonText}>
                       👁️ Detalhes
                     </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     onPress={() => onDelete?.(rota.id)}
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      backgroundColor: theme.colors.error,
-                      borderRadius: theme.borderRadius.md,
-                    }}
+                    style={styles.deleteButton}
                     activeOpacity={0.8}
                   >
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: 'white' }}>
+                    <Text style={styles.deleteButtonText}>
                       🗑️ Excluir
                     </Text>
                   </TouchableOpacity>
@@ -286,7 +278,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: `${theme.colors.gray50}80`, // 80 = ~50% opacity
   },
   headerText: {
-    fontSize: theme.typography.xs,
+    fontSize: theme.components.table.headerFontSize,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray500,
     textTransform: 'uppercase',
@@ -351,7 +343,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexWrap: 'nowrap',
   },
   motoristaNome: {
-    fontSize: theme.typography.sm,
+    fontSize: theme.components.table.rowFontSize,
     fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.gray900,
   },
@@ -361,8 +353,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginTop: 4,
   },
   statusBadge: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: 4,
+    paddingHorizontal: theme.components.table.badgePaddingX,
+    paddingVertical: theme.components.table.badgePaddingY,
     borderRadius: theme.borderRadius.full,
     borderWidth: 1,
     backgroundColor: theme.colors.gray100,
@@ -374,7 +366,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray700,
   },
   progressText: {
-    fontSize: theme.typography.sm,
+    fontSize: theme.components.table.rowFontSize,
     color: theme.colors.gray900,
     marginBottom: theme.spacing.sm,
     textAlign: 'center',
@@ -390,12 +382,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.full,
   },
   distanciaText: {
-    fontSize: theme.typography.sm,
+    fontSize: theme.components.table.rowFontSize,
     color: theme.colors.gray900,
   },
   detailsButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: theme.components.table.actionButtonPaddingX,
+    paddingVertical: theme.components.table.actionButtonPaddingY,
     backgroundColor: theme.colors.primary,
     borderRadius: theme.borderRadius.md,
     marginRight: theme.spacing.sm,
@@ -412,18 +404,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
       ':hover': {
         backgroundColor: theme.colors.primaryDark,
         transform: 'translateY(-1px)',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+        boxShadow: boxShadow(0, 2, 4, 0, theme.colors.black, 0.15),
       },
     }),
   },
   detailsButtonText: {
-    fontSize: theme.typography.xs,
+    fontSize: theme.components.table.actionButtonFontSize,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.white,
   },
   deleteButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: theme.components.table.actionButtonPaddingX,
+    paddingVertical: theme.components.table.actionButtonPaddingY,
     backgroundColor: theme.colors.error,
     borderRadius: theme.borderRadius.md,
     minWidth: 80,
@@ -439,12 +431,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
       ':hover': {
         opacity: 0.9,
         transform: 'translateY(-1px)',
-        boxShadow: '0 2px 4px rgba(239, 68, 68, 0.3)',
+        boxShadow: boxShadow(0, 2, 4, 0, theme.colors.error, 0.3),
       },
     }),
   },
   deleteButtonText: {
-    fontSize: theme.typography.xs,
+    fontSize: theme.components.table.actionButtonFontSize,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.white,
   },

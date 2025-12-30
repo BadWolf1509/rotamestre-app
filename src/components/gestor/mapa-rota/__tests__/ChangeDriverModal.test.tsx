@@ -27,45 +27,6 @@ jest.mock('@/hooks/useResponsive', () => ({
 }));
 
 // Mock theme
-jest.mock('@/utils/styles', () => {
-  const theme = {
-    colors: {
-      primary: '#284093',
-      white: '#ffffff',
-      gray50: '#f9fafb',
-      gray200: '#e5e7eb',
-      gray300: '#d1d5db',
-      gray400: '#9ca3af',
-      gray500: '#6b7280',
-      gray700: '#374151',
-      gray900: '#111827',
-    },
-    spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 20 },
-    typography: {
-      fontSans: 'NunitoSans-Regular',
-      fontSansSemiBold: 'NunitoSans-SemiBold',
-      xs: 12,
-      sm: 14,
-      base: 16,
-    },
-    borderRadius: { md: 10 },
-    desktop: {
-      input: { fontSize: 14 },
-      button: { fontSize: 13, paddingHorizontal: 12 },
-      section: { padding: 12, gap: 8 },
-      modal: { footerGap: 8, footerPadding: 12 },
-      dialog: { buttonPaddingV: 8 },
-    },
-  };
-
-  return {
-    useUnistyles: () => ({ theme }),
-    StyleSheet: {
-      create: (fn: (t: typeof theme) => Record<string, unknown>) => fn(theme),
-    },
-  };
-});
-
 // Mock DesktopModal with declarative button API
 jest.mock('@/components/desktop/DesktopModal', () => ({
   DesktopModal: ({ visible, onClose, title, children, primaryButton, secondaryButton }: {

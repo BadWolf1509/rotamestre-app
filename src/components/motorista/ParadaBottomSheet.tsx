@@ -13,6 +13,7 @@ import {
   Modal,
 } from 'react-native';
 
+import { withOpacity } from '@/utils/color';
 import { showNavigationOptions } from '@/utils/navigation';
 import { StyleSheet, defaultTheme, type Theme } from '@/utils/styles';
 
@@ -274,7 +275,7 @@ export function ParadaBottomSheet({
 const styles = StyleSheet.create((theme: Theme) => ({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: withOpacity(theme.colors.black, 0.5),
   },
   sheet: {
     position: 'absolute',
@@ -285,7 +286,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     minHeight: SHEET_HEIGHT,
-    shadowColor: '#000',
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
