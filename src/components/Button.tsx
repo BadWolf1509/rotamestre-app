@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 
 import { platformOverrides } from '@/design-system/tokens';
-import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
@@ -54,18 +53,29 @@ export function Button({
     ? platformOverrides.android.ripple?.color
     : undefined;
 
+  // Icon/spinner colors
+  const isOutlineOrGhost = variant === 'outline' || variant === 'ghost';
+  const iconColor = isOutlineOrGhost ? theme.colors.primary : theme.colors.white;
+
   return (
     <Pressable
-      style={({ pressed }) => ([
-        styles.button,
-        styles[variant],
-        styles[size],
-        { minHeight },
-        fullWidth && styles.fullWidth,
-        isDisabled && styles.disabled,
-        pressed && !isDisabled && styles.pressed,
-        style,
-      ])}
+      style={(state) => {
+        const { pressed } = state;
+        // hovered is only available on React Native Web
+        const hovered = (state as any).hovered as boolean | undefined;
+        return [
+          styles.button,
+          styles[variant],
+          styles[size],
+          { minHeight },
+          fullWidth && styles.fullWidth,
+          isDisabled && styles.disabled,
+          pressed && !isDisabled && styles.pressed,
+          // Web hover state
+          hovered && !isDisabled && styles[`${variant}Hovered` as keyof typeof styles],
+          style,
+        ];
+      }}
       onPress={onPress}
       disabled={isDisabled}
       android_ripple={rippleColor ? { color: rippleColor } : undefined}
@@ -74,20 +84,14 @@ export function Button({
       accessibilityState={{ disabled: isDisabled }}
     >
       {loading ? (
-        <ActivityIndicator
-          color={variant === 'outline' || variant === 'ghost' ? theme.colors.primary : theme.colors.white}
-        />
+        <ActivityIndicator color={iconColor} />
       ) : (
         <>
           {icon && iconPosition === 'left' && (
             <Ionicons
               name={icon}
               size={iconSize}
-              color={
-                variant === 'outline' || variant === 'ghost'
-                  ? theme.colors.primary
-                  : theme.colors.white
-              }
+              color={iconColor}
               style={styles.iconLeft}
             />
           )}
@@ -98,11 +102,7 @@ export function Button({
             <Ionicons
               name={icon}
               size={iconSize}
-              color={
-                variant === 'outline' || variant === 'ghost'
-                  ? theme.colors.primary
-                  : theme.colors.white
-              }
+              color={iconColor}
               style={styles.iconRight}
             />
           )}
@@ -118,80 +118,50 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: theme.components.button.radius,
-    // Web-only: Smooth transitions and cursor
-    ...(Platform.OS === 'web' && ({
+    // Web-specific styles
+    ...(Platform.OS === 'web' && {
       cursor: 'pointer',
-      transitionProperty: 'all',
-      transitionDuration: '0.2s',
-      transitionTimingFunction: 'ease-in-out',
-      ':focus-visible': {
-        outlineStyle: 'solid',
-        outlineColor: platformOverrides.web.focusRing.color,
-        outlineWidth: platformOverrides.web.focusRing.width,
-        outlineOffset: 2,
-      },
-    } as any)),
+      transitionProperty: 'background-color, transform',
+      transitionDuration: '150ms',
+    } as any),
   },
 
   primary: {
     backgroundColor: theme.colors.primary,
-    // Web-only: Hover effects
-    ...(Platform.OS === 'web' && {
-      // @ts-ignore - web-only CSS
-      ':hover': {
-        backgroundColor: theme.colors.primaryDark,
-        transform: 'translateY(-1px)',
-        boxShadow: boxShadow(0, 4, 8, 0, theme.colors.black, 0.15),
-      },
-      ':active': {
-        transform: 'translateY(0px)',
-        boxShadow: boxShadow(0, 2, 4, 0, theme.colors.black, 0.1),
-      },
-    }),
+  },
+  primaryHovered: {
+    backgroundColor: theme.colors.primaryDark,
+    transform: [{ translateY: -1 }],
   },
   secondary: {
     backgroundColor: theme.colors.secondary,
-    ...(Platform.OS === 'web' && {
-      // @ts-ignore
-      ':hover': {
-        opacity: 0.9,
-        transform: 'translateY(-1px)',
-        boxShadow: boxShadow(0, 4, 8, 0, theme.colors.black, 0.15),
-      },
-    }),
+  },
+  secondaryHovered: {
+    backgroundColor: theme.colors.secondaryDark,
+    transform: [{ translateY: -1 }],
   },
   outline: {
     backgroundColor: 'transparent',
     borderWidth: 2,
     borderColor: theme.colors.primary,
-    ...(Platform.OS === 'web' && {
-      // @ts-ignore
-      ':hover': {
-        backgroundColor: theme.colors.primary + '08',
-        borderColor: theme.colors.primaryDark,
-        transform: 'translateY(-1px)',
-      },
-    }),
+  },
+  outlineHovered: {
+    backgroundColor: theme.colors.primaryBg,
+    borderColor: theme.colors.primaryDark,
+    transform: [{ translateY: -1 }],
   },
   ghost: {
     backgroundColor: 'transparent',
-    ...(Platform.OS === 'web' && {
-      // @ts-ignore
-      ':hover': {
-        backgroundColor: theme.colors.gray100,
-      },
-    }),
+  },
+  ghostHovered: {
+    backgroundColor: theme.colors.gray100,
   },
   danger: {
     backgroundColor: theme.colors.error,
-    ...(Platform.OS === 'web' && {
-      // @ts-ignore
-      ':hover': {
-        opacity: 0.9,
-        transform: 'translateY(-1px)',
-        boxShadow: boxShadow(0, 4, 8, 0, theme.colors.error, 0.3),
-      },
-    }),
+  },
+  dangerHovered: {
+    backgroundColor: theme.colors.errorDark,
+    transform: [{ translateY: -1 }],
   },
 
   small: {
@@ -240,16 +210,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
 
   disabled: {
     opacity: 0.5,
-    ...(Platform.OS === 'web' && ({
+    ...(Platform.OS === 'web' && {
       cursor: 'not-allowed',
-      ':hover': {
-        transform: 'none',
-        boxShadow: boxShadow(0, 0, 0, 0, theme.colors.black, 0),
-      },
-    } as any)),
+    } as any),
   },
   pressed: {
-    opacity: 0.85,
+    opacity: 0.9,
+    transform: [{ translateY: 1 }], // Oposto do hover (-1) - simula botão sendo pressionado
   },
   fullWidth: {
     width: '100%',

@@ -104,6 +104,80 @@ export const desktopCompact = {
   },
 };
 
+// Compact components tokens aligned with Ant Design compact (~80% of regular)
+export const componentsCompact = {
+  button: {
+    size: {
+      small: {
+        height: 24,           // Ant Design sm compact
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        fontSize: 12,
+      },
+      medium: {
+        height: 32,           // Ant Design default compact
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        fontSize: 13,
+      },
+      large: {
+        height: 36,           // Ant Design lg compact
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        fontSize: 14,
+      },
+    },
+    radius: 6,
+  },
+  input: {
+    size: {
+      small: {
+        height: 24,           // Ant Design sm compact
+        paddingHorizontal: 8,
+        fontSize: 12,
+      },
+      medium: {
+        height: 32,           // Ant Design default compact
+        paddingHorizontal: 10,
+        fontSize: 13,
+      },
+      large: {
+        height: 36,           // Ant Design lg compact
+        paddingHorizontal: 12,
+        fontSize: 14,
+      },
+    },
+    radius: 4,
+  },
+  modal: {
+    headerPadding: 12,
+    bodyPadding: 12,
+    footerPadding: 12,
+  },
+  statsCard: {
+    padding: 14,
+    radius: 8,
+    valueFontSize: 22,
+    labelFontSize: 11,
+    labelLetterSpacing: 0.4,
+    iconSize: 16,
+    iconContainerSize: 24,
+    iconContainerRadius: 6,
+    changeFontSize: 11,
+  },
+  table: {
+    headerFontSize: 11,
+    rowFontSize: 12,
+    cellPaddingX: 6,
+    cellPaddingY: 4,
+    badgePaddingX: 8,
+    badgePaddingY: 2,
+    actionButtonPaddingX: 8,
+    actionButtonPaddingY: 4,
+    actionButtonFontSize: 11,
+  },
+};
+
 // Default theme (shared between platforms)
 export const defaultTheme: Theme = {
   colors: {
@@ -132,6 +206,7 @@ export const defaultTheme: Theme = {
     warningText: '#b45309', // Alto contraste para texto (5.1:1)
     warningBg: '#fef3c7',
     error: '#ef4444',
+    errorDark: '#dc2626', // Hover/pressed state
     errorBg: '#fee2e2',
     info: '#3b82f6',
     infoBg: '#dbeafe',
@@ -287,49 +362,50 @@ export const defaultTheme: Theme = {
   motion: motionTokens,
   // Desktop density tokens (regular)
   desktop: desktopRegular,
+  // Components tokens aligned with shadcn/ui specifications
   components: {
     button: {
       size: {
         small: {
-          height: 36,
+          height: 36,           // h-9 (shadcn/ui sm)
           paddingVertical: 8,
-          paddingHorizontal: 12,
+          paddingHorizontal: 12, // px-3
           fontSize: 14,
         },
         medium: {
-          height: 44,
-          paddingVertical: 12,
-          paddingHorizontal: 16,
-          fontSize: 16,
+          height: 40,           // h-10 (shadcn/ui default)
+          paddingVertical: 10,
+          paddingHorizontal: 16, // px-4
+          fontSize: 14,
         },
         large: {
-          height: 52,
-          paddingVertical: 16,
-          paddingHorizontal: 20,
-          fontSize: 18,
+          height: 44,           // h-11 (shadcn/ui lg)
+          paddingVertical: 12,
+          paddingHorizontal: 32, // px-8
+          fontSize: 16,
         },
       },
-      radius: 10,
+      radius: 8,                // rounded-md (shadcn/ui)
     },
     input: {
       size: {
         small: {
-          height: 36,
-          paddingHorizontal: 10,
+          height: 36,           // h-9
+          paddingHorizontal: 12,
           fontSize: 14,
         },
         medium: {
-          height: 44,
+          height: 40,           // h-10
           paddingHorizontal: 12,
-          fontSize: 16,
+          fontSize: 14,
         },
         large: {
-          height: 52,
+          height: 44,           // h-11
           paddingHorizontal: 14,
-          fontSize: 18,
+          fontSize: 16,
         },
       },
-      radius: 8,
+      radius: 6,                // rounded-md (shadcn/ui)
     },
     modal: {
       headerPadding: 16,
@@ -391,6 +467,7 @@ const darkColors = {
   warningLight: '#78350f',
   warningDark: '#b45309',
   error: '#f87171',
+  errorDark: '#ef4444', // Hover/pressed state (darker in dark mode)
   errorBg: '#450a0a',
   errorLight: '#7f1d1d',
   info: '#60a5fa',
@@ -478,6 +555,7 @@ export const darkTheme: Theme = {
 
 const highContrastLightColors = {
   ...defaultTheme.colors,
+  // Cores semânticas com maior contraste
   background: defaultTheme.colors.white,
   surface: defaultTheme.colors.white,
   card: defaultTheme.colors.white,
@@ -486,25 +564,38 @@ const highContrastLightColors = {
   textTertiary: defaultTheme.colors.gray800,
   border: defaultTheme.colors.gray500,
   divider: defaultTheme.colors.gray500,
+  // Grays mais escuros para alto contraste (afeta componentes que usam diretamente)
+  gray400: '#4b5563', // era #9ca3af - usado para texto muted
+  gray500: '#374151', // era #6b7280 - usado para labels
+  gray600: '#1f2937', // era #4b5563 - usado para texto secundário
+  gray700: '#111827', // era #374151 - usado para texto principal
 };
 
 const highContrastDarkColors = {
   ...darkTheme.colors,
+  // Cores semânticas com maior contraste
   text: darkTheme.colors.gray900,
   textSecondary: darkTheme.colors.gray800,
   textTertiary: darkTheme.colors.gray700,
   border: darkTheme.colors.gray700,
   divider: darkTheme.colors.gray700,
+  // Grays mais claros para alto contraste (afeta componentes que usam diretamente)
+  gray400: '#d1d5db', // era #6b7280 - mais claro para melhor contraste
+  gray500: '#e5e7eb', // era #9ca3af - usado para labels
+  gray600: '#f3f4f6', // era #d1d5db - usado para texto secundário
+  gray700: '#f9fafb', // era #e5e7eb - usado para texto principal
 };
 
 export const lightCompactTheme: Theme = {
   ...defaultTheme,
   desktop: desktopCompact,
+  components: componentsCompact,
 };
 
 export const darkCompactTheme: Theme = {
   ...darkTheme,
   desktop: desktopCompact,
+  components: componentsCompact,
 };
 
 export const lightHighContrastTheme: Theme = {
@@ -520,9 +611,11 @@ export const darkHighContrastTheme: Theme = {
 export const lightCompactHighContrastTheme: Theme = {
   ...lightHighContrastTheme,
   desktop: desktopCompact,
+  components: componentsCompact,
 };
 
 export const darkCompactHighContrastTheme: Theme = {
   ...darkHighContrastTheme,
   desktop: desktopCompact,
+  components: componentsCompact,
 };

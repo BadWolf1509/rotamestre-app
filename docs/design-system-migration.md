@@ -70,39 +70,55 @@ High-impact components with many hardcoded colors:
 - `src/lib/notifications.ts`
 - `src/services/unifiedLocationTracking.ts`
 
-## Wave 5 (Cobertura 100% - Plano Atualizado)
-Itens restantes marcados como Review/Pending na matriz de cobertura:
-- `app/auth/register.tsx`
-- `app/auth/forgot-password-simple.tsx`
-- `app/onboarding/first-password.tsx`
-- `app/gestor/inicio.tsx`
-- `app/gestor/mapa-rota.tsx`
-- `app/motorista/(tabs)/index.tsx`
-- `app/motorista/(tabs)/paradas.tsx`
-- `app/motorista/(tabs)/mapa.tsx`
-- `app/motorista/(tabs)/historico.tsx`
-- `app/motorista/_screens/inicio.tsx`
-- `app/motorista/_screens/mapa.tsx`
-- `app/motorista/_screens/checkpoints.tsx`
-- `app/motorista/resumo.tsx`
-- `app/motorista/desempenho.tsx`
-- `app/motorista/ajuda.tsx`
-- `app/motorista/perfil/editar.tsx`
-- `app/motorista/perfil/configuracoes.tsx`
-- `app/motorista/perfil/senha.tsx`
-- `app/perfil/index.tsx`
-- `app/perfil/editar.tsx`
-- `app/perfil/trocar-senha.tsx`
-- `app/unidade/equipe.tsx`
-- `app/unidade/transferir.tsx`
+## Wave 5b (Telas Restantes) - COMPLETED
+Todas as telas listadas abaixo foram verificadas e estão usando tokens do DS:
+- `app/auth/register.tsx` ✅
+- `app/auth/forgot-password-simple.tsx` ✅
+- `app/onboarding/first-password.tsx` ✅
+- `app/gestor/inicio.tsx` ✅
+- `app/gestor/mapa-rota.tsx` ✅
+- `app/motorista/(tabs)/index.tsx` ✅ (re-export)
+- `app/motorista/(tabs)/paradas.tsx` ✅ (re-export)
+- `app/motorista/(tabs)/mapa.tsx` ✅ (re-export)
+- `app/motorista/(tabs)/historico.tsx` ✅ (re-export)
+- `app/motorista/_screens/inicio.tsx` ✅
+- `app/motorista/_screens/mapa.tsx` ✅
+- `app/motorista/_screens/checkpoints.tsx` ✅
+- `app/motorista/resumo.tsx` ✅
+- `app/motorista/desempenho.tsx` ✅
+- `app/motorista/ajuda.tsx` ✅
+- `app/motorista/perfil/editar.tsx` ✅
+- `app/motorista/perfil/configuracoes.tsx` ✅
+- `app/motorista/perfil/senha.tsx` ✅
+- `app/perfil/index.tsx` ✅
+- `app/perfil/editar.tsx` ✅
+- `app/perfil/trocar-senha.tsx` ✅
+- `app/unidade/equipe.tsx` ✅
+- `app/unidade/transferir.tsx` ✅
 
-## Wave 6 (Remocao de Legado + Endurecimento)
-- Remover temas/aliases legados quando cobertura = 100%:
-  - `src/styles/theme.ts`
-  - `src/lib/design-tokens.ts`
-- Endurecer lint para bloquear imports diretos de componentes base.
-- Revisar e reduzir allowlists (hex/rgba/shadow) ate o minimo necessario.
-- Atualizar snapshots e validar regressao visual completa.
+## Wave 6 (Remocao de Legado + Endurecimento) - PARCIAL
+Status: **Parcialmente completo** (2025-12-30)
+
+### Concluído ✅
+- `src/styles/theme.ts` removido (não era mais utilizado)
+- `gestao-rotas.tsx` refatorado para usar `StatusBadge` e `FilterChip`
+- `Button.tsx` hex color corrigido → usa `theme.colors.errorDark`
+
+### Pendente
+- `src/lib/design-tokens.ts` ainda em uso por 7 arquivos:
+  - `app/design-system.tsx` (showcase - pode manter)
+  - `app/motorista/(tabs)/_layout.tsx`
+  - `src/components/AlertDialog.tsx`
+  - `src/components/ConfirmDialog.tsx`
+  - `src/components/Modal.tsx`
+  - `src/components/SupportModal.tsx`
+  - `src/design-system/tokens/index.ts`
+
+### Próximos Passos
+- Migrar componentes restantes de `colors.*` para `theme.colors.*`
+- Endurecer lint para bloquear imports diretos de componentes base
+- Revisar e reduzir allowlists (hex/rgba/shadow) ate o minimo necessario
+- Atualizar snapshots e validar regressao visual completa
 
 ## Backlog detalhado (por wave)
 | Wave | Item | Owner | Status | Notes |
@@ -151,29 +167,29 @@ Itens restantes marcados como Review/Pending na matriz de cobertura:
 | 6 | src/hooks/useRealtimeRoutes.ts | Frontend | Done | Realtime |
 | 6 | src/lib/notifications.ts | Frontend | Done | Notificacoes |
 | 6 | src/services/unifiedLocationTracking.ts | Frontend | Done | Tracking |
-| 5 | app/auth/register.tsx | Frontend | Planned | Ver matriz de cobertura |
-| 5 | app/auth/forgot-password-simple.tsx | Frontend | Planned | Ver matriz de cobertura |
-| 5 | app/onboarding/first-password.tsx | Frontend | Planned | Ver matriz de cobertura |
-| 5 | app/gestor/inicio.tsx | Frontend + Design | Planned | Ver matriz de cobertura |
-| 5 | app/gestor/mapa-rota.tsx | Frontend + Design | Planned | Ver matriz de cobertura |
-| 5 | app/motorista/(tabs)/index.tsx | Frontend + Design | Planned | Ver matriz de cobertura |
-| 5 | app/motorista/(tabs)/paradas.tsx | Frontend + Design | Planned | Ver matriz de cobertura |
-| 5 | app/motorista/(tabs)/mapa.tsx | Frontend + Design | Planned | Ver matriz de cobertura |
-| 5 | app/motorista/(tabs)/historico.tsx | Frontend + Design | Planned | Ver matriz de cobertura |
-| 5 | app/motorista/_screens/inicio.tsx | Frontend + Design | Planned | Ver matriz de cobertura |
-| 5 | app/motorista/_screens/mapa.tsx | Frontend + Design | Planned | Ver matriz de cobertura |
-| 5 | app/motorista/_screens/checkpoints.tsx | Frontend + Design | Planned | Ver matriz de cobertura |
-| 5 | app/motorista/resumo.tsx | Frontend + Design | Planned | Ver matriz de cobertura |
-| 5 | app/motorista/desempenho.tsx | Frontend + Design | Planned | Ver matriz de cobertura |
-| 5 | app/motorista/ajuda.tsx | Frontend + Design | Planned | Ver matriz de cobertura |
-| 5 | app/motorista/perfil/editar.tsx | Frontend + Design | Planned | Ver matriz de cobertura |
-| 5 | app/motorista/perfil/configuracoes.tsx | Frontend + Design | Planned | Ver matriz de cobertura |
-| 5 | app/motorista/perfil/senha.tsx | Frontend + Design | Planned | Ver matriz de cobertura |
-| 5 | app/perfil/index.tsx | Frontend + Design | Planned | Ver matriz de cobertura |
-| 5 | app/perfil/editar.tsx | Frontend + Design | Planned | Ver matriz de cobertura |
-| 5 | app/perfil/trocar-senha.tsx | Frontend + Design | Planned | Ver matriz de cobertura |
-| 5 | app/unidade/equipe.tsx | Frontend | Planned | Ver matriz de cobertura |
-| 5 | app/unidade/transferir.tsx | Frontend | Planned | Ver matriz de cobertura |
+| 5b | app/auth/register.tsx | Frontend | Done | Verificado: usa DS |
+| 5b | app/auth/forgot-password-simple.tsx | Frontend | Done | Verificado: usa DS |
+| 5b | app/onboarding/first-password.tsx | Frontend | Done | Verificado: usa DS |
+| 5b | app/gestor/inicio.tsx | Frontend + Design | Done | Verificado: wrapper DashboardDesktop/Mobile |
+| 5b | app/gestor/mapa-rota.tsx | Frontend + Design | Done | Verificado: usa theme.colors |
+| 5b | app/motorista/(tabs)/index.tsx | Frontend + Design | Done | Re-export de _screens/inicio |
+| 5b | app/motorista/(tabs)/paradas.tsx | Frontend + Design | Done | Re-export de _screens/checkpoints |
+| 5b | app/motorista/(tabs)/mapa.tsx | Frontend + Design | Done | Re-export de _screens/mapa |
+| 5b | app/motorista/(tabs)/historico.tsx | Frontend + Design | Done | Re-export de _screens/historico |
+| 5b | app/motorista/_screens/inicio.tsx | Frontend + Design | Done | Verificado: 10+ theme.colors |
+| 5b | app/motorista/_screens/mapa.tsx | Frontend + Design | Done | Verificado: usa DS |
+| 5b | app/motorista/_screens/checkpoints.tsx | Frontend + Design | Done | Verificado: usa DS |
+| 5b | app/motorista/resumo.tsx | Frontend + Design | Done | Usa MobileButton, MobileCard |
+| 5b | app/motorista/desempenho.tsx | Frontend + Design | Done | 20+ theme.colors |
+| 5b | app/motorista/ajuda.tsx | Frontend + Design | Done | 20+ theme.colors |
+| 5b | app/motorista/perfil/editar.tsx | Frontend + Design | Done | Verificado: usa DS |
+| 5b | app/motorista/perfil/configuracoes.tsx | Frontend + Design | Done | Verificado: usa DS |
+| 5b | app/motorista/perfil/senha.tsx | Frontend + Design | Done | Verificado: usa DS |
+| 5b | app/perfil/index.tsx | Frontend + Design | Done | Usa DesktopPageLayout |
+| 5b | app/perfil/editar.tsx | Frontend + Design | Done | Verificado: usa DS |
+| 5b | app/perfil/trocar-senha.tsx | Frontend + Design | Done | Verificado: usa DS |
+| 5b | app/unidade/equipe.tsx | Frontend | Done | Verificado: usa DS |
+| 5b | app/unidade/transferir.tsx | Frontend | Done | Verificado: usa DS |
 | 6 | Remover temas/aliases legados | Frontend | Planned | `src/styles/theme.ts`, `src/lib/design-tokens.ts` |
 | 6 | Endurecer lint para imports diretos | Frontend | Done | regra ESLint |
 | 6 | Reduzir allowlists de hex/rgba/shadow | Frontend | Planned | manter apenas base |
@@ -186,8 +202,9 @@ Itens restantes marcados como Review/Pending na matriz de cobertura:
 | 2 | Frontend | P0 | Done | Auth entry points |
 | 3 | Frontend + Design | P0 | Done | High-traffic gestor flows |
 | 4 | Frontend + Design | P1 | Done | Motorista daily usage |
-| 5 | Frontend | P1 | Done | Shared UI primitives |
-| 6 | Frontend | P1 | Done | Allowlist cleanup + infra |
+| 5 | Frontend | P1 | Done | Shared UI primitives (core components) |
+| 5b | Frontend + Design | P1 | Done | Telas restantes (100% cobertura) |
+| 6 | Frontend | P1 | In Progress | Allowlist cleanup + legacy removal |
 
 ## Migration Steps (per component)
 1. Replace raw hex values with tokens or semantic colors.

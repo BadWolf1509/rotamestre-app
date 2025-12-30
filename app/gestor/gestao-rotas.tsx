@@ -32,9 +32,11 @@ import {
   DesktopCard,
   DesktopModal,
   DesktopPageLayout,
+  FilterChip,
   MobileCard,
   MobileEmptyState,
   MobileLoading,
+  StatusBadge,
   Toast,
 } from '@/design-system';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
@@ -155,16 +157,12 @@ export default function GestaoRotas() {
           return <Text style={styles.tableCellText}>-</Text>;
         }
         return (
-          <View
-            style={[
-              styles.statusBadge,
-              { backgroundColor: getStatusColor(rota.status) },
-            ]}
-          >
-            <Text style={styles.statusBadgeText}>
-              {getStatusLabel(rota.status)}
-            </Text>
-          </View>
+          <StatusBadge
+            label={getStatusLabel(rota.status)}
+            color={getStatusColor(rota.status)}
+            variant="solid"
+            size="sm"
+          />
         );
       },
     },
@@ -274,28 +272,16 @@ export default function GestaoRotas() {
                 const label = status === 'todas' ? 'Todas' : getStatusLabel(status);
                 const isSelected = filtroStatus === status;
                 return (
-                  <TouchableOpacity
+                  <FilterChip
                     key={status}
-                    style={[
-                      styles.filtroButton,
-                      isDesktop && styles.filtroButtonDesktop,
-                      isSelected && styles.filtroButtonActive,
-                    ]}
+                    label={label}
+                    selected={isSelected}
+                    size="compact"
                     onPress={() => setFiltroStatus(status)}
                     accessibilityRole="radio"
                     accessibilityState={{ selected: isSelected }}
                     accessibilityLabel={`Filtrar por ${label}`}
-                  >
-                    <Text
-                      style={[
-                        styles.filtroButtonText,
-                        isDesktop && styles.filtroButtonTextDesktop,
-                        isSelected && styles.filtroButtonTextActive,
-                      ]}
-                    >
-                      {label}
-                    </Text>
-                  </TouchableOpacity>
+                  />
                 );
               })}
             </View>
@@ -430,28 +416,16 @@ export default function GestaoRotas() {
               const label = status === 'todas' ? 'Todas' : getStatusLabel(status);
               const isSelected = filtroStatus === status;
               return (
-                <TouchableOpacity
+                <FilterChip
                   key={status}
-                  style={[
-                    styles.filtroButton,
-                    isDesktop && styles.filtroButtonDesktop,
-                    isSelected && styles.filtroButtonActive,
-                  ]}
+                  label={label}
+                  selected={isSelected}
+                  size="regular"
                   onPress={() => setFiltroStatus(status)}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: isSelected }}
                   accessibilityLabel={`Filtrar por ${label}`}
-                >
-                  <Text
-                    style={[
-                      styles.filtroButtonText,
-                      isDesktop && styles.filtroButtonTextDesktop,
-                      isSelected && styles.filtroButtonTextActive,
-                    ]}
-                  >
-                    {label}
-                  </Text>
-                </TouchableOpacity>
+                />
               );
             })}
           </View>
@@ -573,48 +547,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: theme.spacing.md,
-  },
-  filtroButton: {
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: theme.colors.white,
-    borderWidth: 1,
-    borderColor: theme.colors.gray300,
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  filtroButtonDesktop: {
-    paddingVertical: 6,
-    paddingHorizontal: theme.desktop.button.paddingHorizontal,
-    minHeight: theme.desktop.button.height,
-  },
-  filtroButtonActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  filtroButtonText: {
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray700,
-  },
-  filtroButtonTextDesktop: {
-    fontSize: theme.desktop.button.fontSize,
-  },
-  filtroButtonTextActive: {
-    color: theme.colors.white,
-  },
-  statusBadge: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.lg,
-    alignSelf: 'flex-start',
-  },
-  statusBadgeText: {
-    color: theme.colors.white,
-    fontSize: theme.typography.xs,
-    fontFamily: theme.typography.fontSansSemiBold,
   },
   emptyState: {
     alignItems: 'center',

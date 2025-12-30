@@ -29,6 +29,7 @@ export interface Theme {
     warningText: string;
     warningBg: string;
     error: string;
+    errorDark: string;
     errorBg: string;
     info: string;
     infoBg: string;
