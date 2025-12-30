@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NotificationBell } from '@/components/NotificationBell';
 import { useDrawerMenu } from '@/context/DrawerMenuContext';
 import { useRouteStatus } from '@/context/RouteStatusContext';
-import { colors } from '@/lib/design-tokens';
+import { useUnistyles } from '@/utils/styles';
 
 // Altura base da tab bar
 const TAB_BAR_HEIGHT = 60;
@@ -21,6 +21,7 @@ export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const { openDrawer } = useDrawerMenu();
   const routeStatus = useRouteStatus();
+  const { theme } = useUnistyles();
 
   // Calcular paradas pendentes para badge
   const paradasPendentes = routeStatus?.paradas?.filter(
@@ -44,18 +45,18 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.primary.main,
-        tabBarInactiveTintColor: colors.gray[400],
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.gray400,
         tabBarStyle: {
           height: TAB_BAR_HEIGHT + insets.bottom,
           paddingBottom: insets.bottom,
           paddingTop: 8,
-          backgroundColor: colors.white,
+          backgroundColor: theme.colors.white,
           borderTopWidth: 1,
-          borderTopColor: colors.gray[200],
+          borderTopColor: theme.colors.gray200,
           ...Platform.select({
             ios: {
-              shadowColor: colors.black,
+              shadowColor: theme.colors.black,
               shadowOffset: { width: 0, height: -2 },
               shadowOpacity: 0.1,
               shadowRadius: 4,
@@ -74,9 +75,9 @@ export default function TabLayout() {
           paddingVertical: 4,
         },
         headerStyle: {
-          backgroundColor: colors.primary.main,
+          backgroundColor: theme.colors.primary,
         },
-        headerTintColor: colors.white,
+        headerTintColor: theme.colors.white,
         headerTitleStyle: {
           fontWeight: 'bold',
           fontSize: 18,
@@ -89,7 +90,7 @@ export default function TabLayout() {
             testID="menu-button"
             accessibilityLabel="menu"
           >
-            <Ionicons name="menu" size={24} color={colors.white} />
+            <Ionicons name="menu" size={24} color={theme.colors.white} />
           </Pressable>
         ),
         headerRight: () => (
@@ -120,8 +121,8 @@ export default function TabLayout() {
             renderTabIcon('list', 'list-outline', color, focused),
           tabBarBadge: paradasPendentes > 0 ? paradasPendentes : undefined,
           tabBarBadgeStyle: {
-            backgroundColor: colors.secondary.dark, // contraste 4.5:1 com texto branco
-            color: colors.white,
+            backgroundColor: theme.colors.secondaryDark, // contraste 4.5:1 com texto branco
+            color: theme.colors.white,
             fontSize: 10,
             fontWeight: 'bold',
             minWidth: 18,

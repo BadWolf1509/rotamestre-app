@@ -30,7 +30,6 @@ import {
 } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
-import { colors } from '@/lib/design-tokens';
 import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -59,7 +58,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     style.id = styleId;
     style.textContent = `
       dialog.modal-dialog::backdrop {
-        background-color: ${colors.overlay.dark};
+        background-color: rgba(0, 0, 0, 0.8);
       }
       dialog.modal-dialog[open] {
         animation: modal-fade-in 0.3s ease-out;
@@ -392,7 +391,7 @@ export function Modal({
 const styles = StyleSheet.create((theme: Theme) => ({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.overlay.dark,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     zIndex: 30,
   },
   overlayTouchable: {

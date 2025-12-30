@@ -22,6 +22,8 @@ import {
   DesktopCard,
   DesktopModal,
   DesktopPageLayout,
+  MobileEmptyState,
+  StatusBadge,
   Toast,
 } from '@/design-system';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
@@ -346,27 +348,7 @@ export default function MotoristasGestor() {
 
   async function toggleAtivo(motorista: MotoristaDetalhado) {
     setMotoristaParaToggle(motorista);
-
-    if (Platform.OS === 'web') {
-      setShowConfirmModal(true);
-    } else {
-      const Alert = require('react-native').Alert;
-      const novoStatus = !motorista.ativo;
-      const acao = novoStatus ? 'ativar' : 'desativar';
-
-      Alert.alert(
-        `${novoStatus ? 'Ativar' : 'Desativar'} Motorista`,
-        `Deseja realmente ${acao} ${motorista.nome}?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Confirmar',
-            style: novoStatus ? 'default' : 'destructive',
-            onPress: () => confirmarToggleAtivo(),
-          },
-        ]
-      );
-    }
+    setShowConfirmModal(true);
   }
 
   async function confirmarToggleAtivo() {
@@ -837,8 +819,14 @@ export default function MotoristasGestor() {
     {
       key: 'ativo',
       label: 'Status',
-      width: 90,
-      render: (motorista) => <Text>{motorista.ativo ? '✅ Ativo' : '❌ Inativo'}</Text>,
+      width: 100,
+      render: (motorista) => (
+        <StatusBadge
+          color={motorista.ativo ? theme.colors.success : theme.colors.error}
+          label={motorista.ativo ? 'Ativo' : 'Inativo'}
+          variant="soft"
+        />
+      ),
     },
   ];
 
@@ -1016,13 +1004,11 @@ export default function MotoristasGestor() {
 
         {/* Lista/Tabela de Motoristas */}
         {motoristas.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>👤</Text>
-            <Text style={styles.emptyText}>Nenhum motorista cadastrado</Text>
-            <Text style={styles.emptySubtext}>
-              Adicione o primeiro motorista usando o botão acima
-            </Text>
-          </View>
+          <MobileEmptyState
+            icon="👤"
+            title="Nenhum motorista cadastrado"
+            subtitle="Adicione o primeiro motorista usando o botão acima"
+          />
         ) : (
           <DataTable
             data={motoristas}

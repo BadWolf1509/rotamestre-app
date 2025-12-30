@@ -24,6 +24,7 @@
   <color name="color_warning_text">#fbbf24</color>
   <color name="color_warning_bg">#451a03</color>
   <color name="color_error">#f87171</color>
+  <color name="color_error_dark">#ef4444</color>
   <color name="color_error_bg">#450a0a</color>
   <color name="color_info">#60a5fa</color>
   <color name="color_info_bg">#1e3a5f</color>

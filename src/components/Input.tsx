@@ -154,6 +154,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderWidth: 1,
     borderColor: theme.colors.gray300,
     borderRadius: theme.components.input.radius,
+    // Web: transição suave para estados de foco/erro
+    ...(Platform.OS === 'web' && {
+      transitionProperty: 'border-color, box-shadow',
+      transitionDuration: '150ms',
+    } as any),
   },
   inputContainerError: {
     borderColor: theme.colors.error,
@@ -182,6 +187,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
     fontFamily: theme.typography.fontSans,
     color: theme.colors.gray900,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    // Web: remover estilos de foco nativos do navegador
+    ...(Platform.OS === 'web' && {
+      outlineWidth: 0,
+      outlineStyle: 'none',
+    } as any),
   },
   inputWithLeftIcon: {
     paddingLeft: 4,

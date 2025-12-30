@@ -1,3 +1,11 @@
+// Utility Components
+export { AddressAutocomplete } from '@/components/AddressAutocomplete';
+export { AuthLoadingScreen } from '@/components/AuthLoadingScreen';
+export { default as CameraUpload } from '@/components/CameraUpload';
+export { ErrorBoundary } from '@/components/ErrorBoundary';
+export { SwipeableRow } from '@/components/SwipeableRow';
+
+// Base Components
 export { AlertDialog } from '@/components/AlertDialog';
 export { Avatar } from '@/components/Avatar';
 export { Badge } from '@/components/Badge';
@@ -13,7 +21,7 @@ export { Icon } from '@/components/Icon';
 export { Input } from '@/components/Input';
 export { Modal } from '@/components/Modal';
 export { Progress } from '@/components/Progress';
-export { SkeletonLoader } from '@/components/SkeletonLoader';
+export { Skeleton, SkeletonCard, SkeletonList } from '@/components/SkeletonLoader';
 export { StatusBadge } from '@/components/StatusBadge';
 export { StepIndicator } from '@/components/StepIndicator';
 export type { Step } from '@/components/StepIndicator';

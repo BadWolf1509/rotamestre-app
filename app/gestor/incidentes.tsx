@@ -405,11 +405,7 @@ export default function IncidentesScreen() {
         width: 120,
         render: (item) => {
           const st = statusLabels[item.status];
-          return (
-            <View style={[styles.statusBadge, { backgroundColor: st.color + '20' }]}>
-              <Text style={[styles.statusText, { color: st.color }]}>{st.label}</Text>
-            </View>
-          );
+          return <StatusBadge color={st.color} label={st.label} variant="soft" />;
         },
       },
     ];

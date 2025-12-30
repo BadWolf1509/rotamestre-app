@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
-import { colors } from '@/lib/design-tokens';
+import { defaultTheme } from '@/utils/styles.base';
 import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -29,7 +29,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     style.id = styleId;
     style.textContent = `
       dialog.support-modal-dialog::backdrop {
-        background-color: ${colors.overlay.medium};
+        background-color: ${defaultTheme.colors.overlay};
       }
       dialog.support-modal-dialog[open] {
         animation: support-modal-fade-in 0.2s ease-out;

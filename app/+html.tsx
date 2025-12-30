@@ -78,6 +78,10 @@ export default function Root({ children }: PropsWithChildren) {
         <link rel="preconnect" href="https://your-project.supabase.co" />
         <link rel="dns-prefetch" href="https://maps.googleapis.com" />
 
+        {/* Design System CSS Variables (tokens light + dark) */}
+        {/* Gerado por: npm run build:tokens */}
+        <link rel="stylesheet" href="/css/tokens.css" />
+
         {/* Expo Router reset styles */}
         <ScrollViewStyleReset />
 
@@ -92,7 +96,7 @@ export default function Root({ children }: PropsWithChildren) {
             }
             body {
               overflow: hidden;
-              background-color: white;
+              background-color: var(--color-background, white);
             }
             #root {
               display: flex;

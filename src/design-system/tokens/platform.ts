@@ -25,7 +25,7 @@ export const platformOverrides = {
   },
   web: {
     touchTarget: {
-      minSize: 40,
+      minSize: 0, // Web uses mouse, no touch target needed
     },
     focusRing: {
       color: withOpacity(defaultTheme.colors.primary, 0.25),

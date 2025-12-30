@@ -25,6 +25,7 @@
     "warningText": "#fbbf24",
     "warningBg": "#451a03",
     "error": "#f87171",
+    "errorDark": "#ef4444",
     "errorBg": "#450a0a",
     "info": "#60a5fa",
     "infoBg": "#1e3a5f",

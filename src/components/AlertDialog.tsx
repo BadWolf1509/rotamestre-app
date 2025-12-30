@@ -11,8 +11,8 @@ import {
 } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
-import { colors } from '@/lib/design-tokens';
 import { boxShadow } from '@/utils/color';
+import { defaultTheme } from '@/utils/styles.base';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface AlertDialogProps {
@@ -32,7 +32,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     style.id = styleId;
     style.textContent = `
       dialog.alert-dialog::backdrop {
-        background-color: ${colors.overlay.medium};
+        background-color: ${defaultTheme.colors.overlay};
       }
       dialog.alert-dialog[open] {
         animation: alert-dialog-fade-in 0.15s ease-out;

@@ -8,6 +8,7 @@ const ROOT = path.resolve(__dirname, '..', '..');
 const THEME_PATH = path.join(ROOT, 'src', 'utils', 'styles.base.ts');
 const OUTPUT_DIR = path.join(ROOT, 'tokens');
 const OUTPUT_PLATFORM_DIR = path.join(OUTPUT_DIR, 'output');
+const PUBLIC_CSS_DIR = path.join(ROOT, 'public', 'css');
 
 function loadTsModule(filePath, baseRequire) {
   const source = fs.readFileSync(filePath, 'utf-8');
@@ -176,12 +177,19 @@ function main() {
   writeJson(path.join(OUTPUT_DIR, 'dark', 'semantic.json'), darkTokens.semantic);
   writeJson(path.join(OUTPUT_DIR, 'dark', 'components.json'), darkTokens.components);
 
-  fs.writeFileSync(path.join(OUTPUT_PLATFORM_DIR, 'web.css'), buildCssVariables(lightTokens), 'utf-8');
-  fs.writeFileSync(
-    path.join(OUTPUT_PLATFORM_DIR, 'web.dark.css'),
-    buildCssVariables(darkTokens, ':root[data-theme="dark"]'),
-    'utf-8'
-  );
+  // Build CSS content
+  const lightCss = buildCssVariables(lightTokens);
+  const darkCss = buildCssVariables(darkTokens, ':root[data-theme="dark"]');
+
+  // Write to tokens/output/
+  fs.writeFileSync(path.join(OUTPUT_PLATFORM_DIR, 'web.css'), lightCss, 'utf-8');
+  fs.writeFileSync(path.join(OUTPUT_PLATFORM_DIR, 'web.dark.css'), darkCss, 'utf-8');
+
+  // Also copy to public/css/ for web serving
+  fs.mkdirSync(PUBLIC_CSS_DIR, { recursive: true });
+  fs.writeFileSync(path.join(PUBLIC_CSS_DIR, 'tokens.css'), lightCss + '\n' + darkCss, 'utf-8');
+  console.log('✅ CSS tokens written to public/css/tokens.css');
+
   fs.writeFileSync(path.join(OUTPUT_PLATFORM_DIR, 'android.xml'), buildAndroidColors(lightTokens), 'utf-8');
   fs.writeFileSync(path.join(OUTPUT_PLATFORM_DIR, 'android.dark.xml'), buildAndroidColors(darkTokens), 'utf-8');
   writeJson(path.join(OUTPUT_PLATFORM_DIR, 'ios.json'), buildIosColors(lightTokens));

@@ -24,6 +24,12 @@ const shadowLiteralAllowlist = [
   'src/utils/color.ts',
 ];
 
+// Files allowed to import from @/lib/design-tokens directly
+const designTokensAllowlist = [
+  'src/design-system/tokens/index.ts',
+  'app/design-system.tsx',
+];
+
 const sharedPlugins = {
   '@typescript-eslint': typescriptPlugin,
   react: reactPlugin,
@@ -177,6 +183,41 @@ module.exports = [
             { name: '@/components/mobile/MobileEmptyState', message: "Importe via '@/design-system'." },
             { name: '@/components/mobile/MobileLoading', message: "Importe via '@/design-system'." },
             { name: '@/components/gestor/ResponsiveGrid', message: "Importe via '@/design-system'." },
+            { name: '@/components/AddressAutocomplete', message: "Importe via '@/design-system'." },
+            { name: '@/components/AuthLoadingScreen', message: "Importe via '@/design-system'." },
+            { name: '@/components/CameraUpload', message: "Importe via '@/design-system'." },
+            { name: '@/components/ErrorBoundary', message: "Importe via '@/design-system'." },
+            { name: '@/components/SwipeableRow', message: "Importe via '@/design-system'." },
+            { name: '@/components/FilterChip', message: "Importe via '@/design-system'." },
+            { name: '@/components/StatusBadge', message: "Importe via '@/design-system'." },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['app/**/*.{ts,tsx}', 'src/**/*.{ts,tsx}'],
+    ignores: [
+      '**/__tests__/**',
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      ...designTokensAllowlist,
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/lib/design-tokens',
+              message: "Use 'useUnistyles()' hook and access theme.* instead. Import tokens only via '@/design-system/tokens'.",
+            },
+          ],
+          patterns: [
+            {
+              group: ['@/lib/design-tokens'],
+              message: "Use 'useUnistyles()' hook and access theme.* instead. Import tokens only via '@/design-system/tokens'.",
+            },
           ],
         },
       ],

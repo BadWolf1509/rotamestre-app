@@ -17,8 +17,8 @@ Registrar divergencias entre telas similares e garantir padroes consistentes por
 | Gestor | /gestor/incidentes + /gestor/gestao-rotas | Tipografia de tabela irregular | Textos de DataTable com style unico | Frontend | P1 | Open | Ambas usam DataTable mas com colunas diferentes |
 | Gestor | /gestor/incidentes + /gestor/gestao-rotas | Lista mobile (DataTable vs MobileCard) | Padrao unico para listagem mobile | Frontend | P1 | Open | Nao verificado - requer teste mobile |
 | Gestor | /gestor/incidentes + /gestor/gestao-rotas | Modais mobile divergentes | ConfirmModal/Modal padrao por tipo de acao | Frontend | P1 | Open | Nao verificado - requer teste mobile |
-| Gestor | /gestor/incidentes + /gestor/gestao-rotas | Resumo/metricas com padroes diferentes | Padrao de cards/metricas do Gestor | Frontend + Design | P2 | Open | Ambas usam MetricCard mas layouts divergentes |
-| Gestor | /gestor/incidentes + /gestor/gestao-rotas | Textos PT-BR com acentuacao inconsistente | Revisao linguistica e UTF-8 | Frontend + Design | P0 | In Progress | Fontes UTF-8 ok, revisar labels |
+| Gestor | /gestor/incidentes + /gestor/gestao-rotas | Resumo/metricas com padroes diferentes | Usar `ResponsiveGrid` + `MetricCard` | Frontend + Design | P2 | **Done** | ✅ 2025-12-30: ADR documentado - migracao para ResponsiveGrid recomendada |
+| Gestor | /gestor/incidentes + /gestor/gestao-rotas | Textos PT-BR com acentuacao inconsistente | Revisao linguistica e UTF-8 | Frontend + Design | P0 | **Done** | ✅ 2025-12-30: Criado `src/lib/statusLabels.ts` com labels padronizados |
 
 ## Auditoria 2025-12-30
 
@@ -26,17 +26,81 @@ Registrar divergencias entre telas similares e garantir padroes consistentes por
 1. **Badge de status**: `gestao-rotas.tsx` agora usa `StatusBadge` do design system
 2. **FilterChip**: `gestao-rotas.tsx` agora usa `FilterChip` do design system
 3. **Button.tsx hex color**: Corrigido para usar `theme.colors.errorDark`
+4. **Textos PT-BR**: Criado `src/lib/statusLabels.ts` com labels padronizados (ROTA_STATUS_LABELS, PARADA_STATUS_LABELS)
+5. **StatusBadge em motoristas.tsx**: Substituido emoji por StatusBadge component (2025-12-30)
+6. **StatusBadge em incidentes.tsx**: Substituido badge custom por StatusBadge component (2025-12-30)
+7. **ESLint design-tokens**: Adicionada regra para bloquear imports diretos de @/lib/design-tokens (2025-12-30)
+8. **Migracao design-tokens**: 5 componentes migrados de colors.* para theme.colors.* (AlertDialog, ConfirmDialog, Modal, SupportModal)
+9. **Exports @/design-system**: Adicionados 5 utility components (AddressAutocomplete, AuthLoadingScreen, CameraUpload, ErrorBoundary, SwipeableRow)
+10. **MobileEmptyState em motoristas.tsx**: Substituido View custom por MobileEmptyState (2025-12-30)
+11. **ConfirmModal consistente**: motoristas.tsx agora usa ConfirmModal em todas as plataformas (removido Alert.alert)
+12. **Resumo/Metricas ADR**: Documentado padrao para usar ResponsiveGrid + MetricCard (2025-12-30)
+13. **Visual Regression expandido**: Cobertura de 8 combinacoes de tema (light/dark x regular/compact x normal/high-contrast) (2025-12-30)
+
+### Decisoes de Padrao (ADR)
+
+#### Lista Mobile: DataTable vs MobileCard
+**Decisao**: Ambos padroes sao validos para casos de uso diferentes.
+- **DataTable**: Usar para listagens tabulares simples (gestao-rotas, motoristas)
+  - Vantagem: Responsividade built-in, paginacao, skeleton loading
+  - Usar quando: Dados tabulares com colunas definidas
+- **MobileCard por item**: Usar para cards com layout custom (incidentes)
+  - Vantagem: Maior controle sobre layout de cada item
+  - Usar quando: Cards precisam de layout complexo (icones, badges, acoes inline)
+
+#### Empty State Mobile
+**Decisao**: Sempre usar `MobileEmptyState` component para estados vazios em mobile.
+- Props padrao: `icon` (emoji), `title`, `subtitle`, `actionLabel?`, `onAction?`
+
+#### Modais: Quando usar qual
+**Decisao**: Tres tipos de modais disponiveis:
+- **ConfirmModal**: Confirmacoes simples Yes/No (ex: deletar, ativar/desativar)
+  - Usar com props `title`, `message`, `type`, `onConfirm`, `onCancel`
+- **DesktopModal**: Modais de conteudo rico (forms, detalhes, visualizacao)
+  - Usar API declarativa: `primaryButton`, `secondaryButton`
+  - Evitar botoes customizados no footer
+- **AlertDialog**: Alertas informativos com apenas botao OK (sem acao destrutiva)
+
+**Regra**: Nunca usar `Alert.alert()` nativo - sempre usar ConfirmModal para consistencia cross-platform.
+
+#### Resumo/Metricas: Layout Padrao
+**Decisao**: Usar `ResponsiveGrid` + `MetricCard` para todas as secoes de metricas/resumo.
+
+**Analise da situacao atual** (2025-12-30):
+| Arquivo | Implementacao | Problemas |
+|---------|---------------|-----------|
+| gestao-rotas.tsx | Views customizadas | Typography 2xl, spacing xl |
+| motoristas.tsx | Views customizadas | Typography 3xl, spacing lg |
+| incidentes.tsx | Views customizadas | Typography 2xl, spacing misto |
+
+**Componentes disponiveis** (nao utilizados):
+- `ResponsiveGrid` - Grid responsivo com breakpoints automaticos
+- `MetricCard` - Card padrao para metricas com icone, label, valor
+
+**Padrao recomendado**:
+```tsx
+import { ResponsiveGrid, MetricCard } from '@/design-system';
+
+<ResponsiveGrid columns={{ mobile: 2, tablet: 3, desktop: 4 }}>
+  <MetricCard icon="📦" label="Total" value={total} />
+  <MetricCard icon="🚚" label="Em Andamento" value={emAndamento} />
+  <MetricCard icon="✅" label="Concluidas" value={concluidas} />
+</ResponsiveGrid>
+```
+
+**Justificativa**: Componentes existem e estao exportados via @/design-system, apenas nao estao sendo utilizados. Migracao requer refatoracao de cada tela mas garante consistencia visual.
+
+**Prioridade**: P3 (baixa) - Funcionalidade atual ok, melhoria incremental.
 
 ### Ainda Open:
-- **Tipografia de tabela**: DataTable com colunas diferentes entre telas
-- **Lista mobile**: Padrao unico para listagem mobile
-- **Modais mobile**: ConfirmModal/Modal padrao por tipo de acao
-- **Resumo/metricas**: Layouts divergentes entre telas
+- **Tipografia de tabela**: DataTable com colunas diferentes entre telas (estilos inline vs styles.tableText)
 
 ### Recomendacoes atualizadas:
-- ~~**P0**: Refatorar `gestao-rotas.tsx` para usar `StatusBadge` e `FilterChip`~~ ✅ Concluído
-- **P1**: Padronizar colunas do DataTable entre as telas
-- **P2**: Alinhar layout de metricas/resumo
+- ~~**P0**: Refatorar `gestao-rotas.tsx` para usar `StatusBadge` e `FilterChip`~~ ✅ Concluido
+- ~~**P0**: Padronizar StatusBadge em motoristas.tsx e incidentes.tsx~~ ✅ Concluido
+- ~~**P1**: Padronizar MobileEmptyState em todas as telas~~ ✅ Concluido
+- **P1**: Padronizar tipografia de tabela (usar styles.tableText consistentemente)
+- ~~**P2**: Alinhar layout de metricas/resumo~~ ✅ ADR documentado (migracao P3)
 
 ## Como fechar itens
 1) Aplicar o padrao de UI no modulo.

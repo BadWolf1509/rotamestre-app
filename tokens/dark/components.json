@@ -8,39 +8,39 @@
         "fontSize": 14
       },
       "medium": {
-        "height": 44,
-        "paddingVertical": 12,
+        "height": 40,
+        "paddingVertical": 10,
         "paddingHorizontal": 16,
-        "fontSize": 16
+        "fontSize": 14
       },
       "large": {
-        "height": 52,
-        "paddingVertical": 16,
-        "paddingHorizontal": 20,
-        "fontSize": 18
+        "height": 44,
+        "paddingVertical": 12,
+        "paddingHorizontal": 32,
+        "fontSize": 16
       }
     },
-    "radius": 10
+    "radius": 8
   },
   "input": {
     "size": {
       "small": {
         "height": 36,
-        "paddingHorizontal": 10,
+        "paddingHorizontal": 12,
         "fontSize": 14
       },
       "medium": {
-        "height": 44,
+        "height": 40,
         "paddingHorizontal": 12,
-        "fontSize": 16
+        "fontSize": 14
       },
       "large": {
-        "height": 52,
+        "height": 44,
         "paddingHorizontal": 14,
-        "fontSize": 18
+        "fontSize": 16
       }
     },
-    "radius": 8
+    "radius": 6
   },
   "modal": {
     "headerPadding": 16,

@@ -38,9 +38,9 @@ Mapear a cobertura total do design system (100% das telas, fluxos e componentes)
 | Motorista | app/motorista/_screens/mapa.tsx | Done | Frontend + Design | Wave 4 |
 | Motorista | app/motorista/_screens/checkpoints.tsx | Done | Frontend + Design | Wave 4 |
 | Motorista | app/motorista/_screens/historico.tsx | Done | Frontend + Design | Wave 4 |
-| Motorista | app/motorista/resumo.tsx | Review | Frontend + Design | Revisar DS/tokens |
-| Motorista | app/motorista/desempenho.tsx | Review | Frontend + Design | Revisar DS/tokens |
-| Motorista | app/motorista/ajuda.tsx | Review | Frontend + Design | Revisar DS/tokens |
+| Motorista | app/motorista/resumo.tsx | Done | Frontend + Design | Usa MobileButton, MobileCard, MobileLoading |
+| Motorista | app/motorista/desempenho.tsx | Done | Frontend + Design | 20+ theme.colors.* references |
+| Motorista | app/motorista/ajuda.tsx | Done | Frontend + Design | 20+ theme.colors.* references |
 | Motorista | app/motorista/sos.tsx | Done | Frontend + Design | Wave 4 |
 | Motorista | app/motorista/perfil/index.tsx | Done | Frontend + Design | Wave 4 |
 | Motorista | app/motorista/perfil/editar.tsx | Done | Frontend + Design | Wave 4 |

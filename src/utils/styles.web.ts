@@ -1,45 +1,16 @@
 /**
  * Web Styles
  *
- * Este arquivo usa StyleSheet nativo do React Native Web.
- * Não usa Unistyles para evitar problemas de compatibilidade.
+ * Este arquivo usa Unistyles 3.0 diretamente (suporta web).
+ * O babel plugin processa os imports e garante inicialização correta.
  */
 
-import { StyleSheet as RNStyleSheet, ViewStyle, TextStyle, ImageStyle } from 'react-native';
+// Re-export tudo do react-native-unistyles
+// O babel plugin vai injetar o import de unistyles.ts automaticamente
+export { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { defaultTheme } from './styles.base';
+// Re-export o Theme type do styles.types para compatibilidade
+export type { Theme } from './styles.types';
 
-import type { Theme } from './styles.types';
-
-// Re-export for consistency
-export { defaultTheme };
-
-// Type for named styles - matches React Native's NamedStyles
-type NamedStyles<T> = { [P in keyof T]: ViewStyle | TextStyle | ImageStyle };
-
-// Web StyleSheet wrapper that preserves literal types
-export const StyleSheet = {
-  create: <T extends NamedStyles<T> | NamedStyles<any>>(
-    stylesOrFactory: T | ((_theme: Theme) => T)
-  ): T => {
-    if (typeof stylesOrFactory === 'function') {
-      const styles = stylesOrFactory(defaultTheme);
-      return RNStyleSheet.create(styles as any) as T;
-    }
-    return RNStyleSheet.create(stylesOrFactory as any) as T;
-  },
-  // Re-export absoluteFillObject from React Native
-  absoluteFillObject: RNStyleSheet.absoluteFillObject,
-  absoluteFill: RNStyleSheet.absoluteFill,
-  hairlineWidth: RNStyleSheet.hairlineWidth,
-  flatten: RNStyleSheet.flatten,
-};
-
-// Web useUnistyles hook
-export const useUnistyles = () => ({
-  theme: defaultTheme,
-  breakpoint: 'xs' as const,
-});
-
-// Re-export Theme type
-export type { Theme };
+// Re-export defaultTheme from base file (no platform-specific dependencies)
+export { defaultTheme } from './styles.base';

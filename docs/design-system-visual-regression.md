@@ -7,8 +7,26 @@ Prevent visual drift in the design system by running snapshot-based checks.
 - Playwright tests: `e2e/design-system.e2e.ts`, `e2e/visual-critical.e2e.ts`
 - Snapshot tag: `@visual`
 - Opt-in via `VISUAL_REGRESSION=1`
- - CI runs visual regression when design-system related files change.
-- Scenarios: light theme, dark theme, compact density, high contrast, toast state, auth login, auth register, auth forgot password, onboarding first password, gestor dashboard, gestor gestao rotas, gestor mapa rota (empty), motorista home, motorista mapa, motorista paradas, motorista historico.
+- CI runs visual regression when design-system related files change.
+
+## Theme Coverage Matrix (8 combinations)
+
+| Theme | Density | Contrast | Test Name | Snapshot File |
+|-------|---------|----------|-----------|---------------|
+| Light | Regular | Normal | `light theme` | `design-system-light.png` |
+| Light | Compact | Normal | `light compact` | `design-system-light-compact.png` |
+| Light | Regular | High | `light high contrast` | `design-system-light-high-contrast.png` |
+| Light | Compact | High | `light compact high contrast` | `design-system-light-compact-high-contrast.png` |
+| Dark | Regular | Normal | `dark theme` | `design-system-dark.png` |
+| Dark | Compact | Normal | `dark compact` | `design-system-dark-compact.png` |
+| Dark | Regular | High | `dark high contrast` | `design-system-dark-high-contrast.png` |
+| Dark | Compact | High | `dark compact high contrast` | `design-system-dark-compact-high-contrast.png` |
+
+## Critical Flows (Screen-level snapshots)
+- auth login, auth register, auth forgot password
+- onboarding first password
+- gestor dashboard, gestor gestao rotas, gestor mapa rota (empty)
+- motorista home, motorista mapa, motorista paradas, motorista historico
 
 ## Run Locally
 1) Start with a running web server (Playwright will use `npm run web` if needed).

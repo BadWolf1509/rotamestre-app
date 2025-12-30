@@ -18,6 +18,19 @@ if (process.env.NODE_ENV === 'development') {
   };
 }
 
+// Enable inlineRequires to fix barrel file re-export undefined issues
+// This is enabled by default in React Native CLI but not in Expo
+// See: https://github.com/expo/expo/issues/27279
+config.transformer = {
+  ...config.transformer,
+  getTransformOptions: async () => ({
+    transform: {
+      experimentalImportSupport: false,
+      inlineRequires: true,
+    },
+  }),
+};
+
 // Adicionar suporte para copiar arquivos públicos
 config.resolver.assetExts.push(
   // Assets que devem ser copiados
