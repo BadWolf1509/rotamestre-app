@@ -66,8 +66,8 @@ export function MobileButton({
           <Text
             style={[
               styles.buttonText,
-              styles[`buttonText${variant.charAt(0).toUpperCase()}${variant.slice(1)}` as keyof typeof styles],
-              styles[`buttonText${size.charAt(0).toUpperCase()}${size.slice(1)}` as keyof typeof styles],
+              styles[`buttonText${variant.charAt(0).toUpperCase()}${variant.slice(1)}` as keyof typeof styles] as TextStyle,
+              styles[`buttonText${size.charAt(0).toUpperCase()}${size.slice(1)}` as keyof typeof styles] as TextStyle,
               textStyle,
             ]}
           >

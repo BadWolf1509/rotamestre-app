@@ -12,8 +12,8 @@ import {
 
 import { useResponsive } from '@/hooks/useResponsive';
 import { boxShadow } from '@/utils/color';
-import { defaultTheme } from '@/utils/styles.base';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { defaultTheme } from '@/utils/styles.base';
 
 interface AlertDialogProps {
   visible: boolean;

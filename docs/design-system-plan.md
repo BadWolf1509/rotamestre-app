@@ -223,9 +223,9 @@ Entregaveis:
 | 4 | ✅ Completa | Motorista screens |
 | 5 | ✅ Completa | Core components |
 | 5b | ✅ Completa | Telas restantes (100% cobertura) |
-| 6 | 🟡 Parcial | Legado parcialmente removido, ESLint endurecido |
+| 6 | ✅ Completa | Legado removido, ESLint endurecido, design-tokens interno |
 | 6.1 | ✅ Completa | Visual regression 8 temas, ADRs documentados |
 
 ### Pendente
-- Wave 6 final: Remover `src/lib/design-tokens.ts` (ainda usado por 7 arquivos)
-- P1: Padronizar tipografia de DataTable entre telas
+- ~~Wave 6 final: Remover `src/lib/design-tokens.ts`~~ ✅ Concluído (agora interno via @/design-system)
+- P3: Padronizar tipografia de DataTable entre telas (ADR documentado)

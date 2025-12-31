@@ -169,18 +169,25 @@ Components used in 5+ locations that should be exported:
 - ~~`AddressAutocomplete`~~ ✅
 - ~~`CameraUpload`~~ ✅
 
-### Priority 2: Consider Feature Bundles
-Create sub-exports for feature modules:
+### Priority 2: Feature Sub-Exports ✅ CONCLUÍDO (2025-12-30)
+Created sub-exports for feature modules:
 ```ts
-// Proposed structure
-import { ... } from '@/design-system';              // Base components
-import { ... } from '@/design-system/motorista';    // Motorista-specific
-import { ... } from '@/design-system/gestor';       // Gestor-specific
-import { ... } from '@/design-system/map';          // Map components
+// Available imports
+import { Button, Card, Input } from '@/design-system';           // Base components
+import { NavigationMode, ParadaCard } from '@/design-system/motorista';  // 20+ components
+import { GestorSidebar, RouteFilters } from '@/design-system/gestor';    // 8 components
+import { MapaRotas, MapaMobile } from '@/design-system/map';             // 7 components
 ```
 
-### Priority 3: Document Platform Variants
-Components with `.web.tsx` variants need documentation:
+**Files created:**
+- `src/design-system/motorista.ts` - Navigation, stops, home components
+- `src/design-system/gestor.ts` - Dashboard, sidebar, route components
+- `src/design-system/map.ts` - Map adapters and markers
+
+### Priority 3: Platform Variants ✅ DOCUMENTADO (2025-12-30)
+Components with `.web.tsx` variants documented in `docs/design-system-platform-variations.md`:
 - `MapaMobile` / `MapaMobile.web.tsx`
 - `MapaRotas` / `MapaRotas.web.tsx`
+- `MiniMap` / `MiniMap.web.tsx`
 - `PictureInPictureMap` / `PictureInPictureMap.web.tsx`
+- `NavigationMode` / `NavigationMode.web.tsx`

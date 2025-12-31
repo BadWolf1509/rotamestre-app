@@ -85,17 +85,19 @@ See `docs/design-system-inconsistencies.md` for full backlog (15 itens resolvido
 
 ## Metrics
 
-| Metric | 2025-12-29 | 2025-12-30 (Wave 6.1) |
+| Metric | 2025-12-29 | 2025-12-30 (Wave 6.2) |
 |--------|------------|------------|
 | Coverage Matrix | ~90% Done | 100% Done |
 | Files with hex colors | 3 | 2 (source + showcase only) |
 | Components exported | ~20 | 28 (+5 utility components) |
-| UI inconsistencies | 7 Open | 1 Open (6 resolvidos ou com ADR) |
+| UI inconsistencies | 7 Open | 0 Open (16 resolvidos ou com ADR) |
 | Release notes | Empty | v2.0.0 documented |
-| Legacy files | 2 | 1 (theme.ts removido) |
+| Legacy files | 2 | 0 (design-tokens agora interno) |
 | P0 tasks | 2 Open | ✅ Concluído |
 | Visual regression tests | 4 themes | 8 themes (todas combinações) |
 | ESLint restrictions | 18 paths | 25 paths (+design-tokens rule) |
+| TypeScript errors | 6 | 0 |
+| Test coverage | ~50% | 68-72% |
 
 ## Historical Hotspots (Resolved)
 

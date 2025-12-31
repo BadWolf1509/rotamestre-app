@@ -12,9 +12,9 @@ import {
 } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
-import { defaultTheme } from '@/utils/styles.base';
 import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { defaultTheme } from '@/utils/styles.base';
 
 interface SupportModalProps {
   visible: boolean;

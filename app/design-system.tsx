@@ -28,7 +28,6 @@ import {
   Pressable,
   LayoutChangeEvent,
   TextInput,
-  Linking,
 } from 'react-native';
 import { UnistylesRuntime } from 'react-native-unistyles';
 
@@ -71,9 +70,7 @@ import {
   type Step,
   AddressAutocomplete,
   ConfirmModal,
-} from '@/design-system';
-import { useResponsive } from '@/hooks/useResponsive';
-import {
+  // Tokens (via @/design-system)
   colors,
   typography,
   spacing,
@@ -82,7 +79,8 @@ import {
   opacity,
   zIndex,
   motion,
-} from '@/lib/design-tokens';
+} from '@/design-system';
+import { useResponsive } from '@/hooks/useResponsive';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // ============================================
@@ -455,7 +453,7 @@ function SpacingPreview({ size, value }: { size: string; value: number }) {
         }}
       />
       <Text style={{ fontSize: 12, color: theme.colors.gray600, minWidth: 40 }}>
-        {value}px
+        {size}: {value}px
       </Text>
     </View>
   );
@@ -959,62 +957,6 @@ function Playground({ title, defaultProps, propsConfig, renderPreview }: Playgro
 }
 
 // ============================================
-// COMPONENTE FIGMA LINK
-// ============================================
-
-interface FigmaLinkProps {
-  url: string;
-  label?: string;
-}
-
-function FigmaLink({ url, label = 'Ver no Figma' }: FigmaLinkProps) {
-  const { theme } = useUnistyles();
-
-  const handlePress = useCallback(() => {
-    Linking.openURL(url);
-  }, [url]);
-
-  return (
-    <TouchableOpacity
-      onPress={handlePress}
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: theme.spacing.xs,
-        paddingVertical: theme.spacing.xs,
-        paddingHorizontal: theme.spacing.sm,
-        backgroundColor: theme.colors.gray100,
-        borderRadius: theme.borderRadius.sm,
-        alignSelf: 'flex-start',
-      }}
-    >
-      <View
-        style={{
-          width: 16,
-          height: 16,
-          borderRadius: 4,
-          backgroundColor: '#A259FF',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text style={{ fontSize: 10, color: theme.colors.white, fontWeight: '700' }}>F</Text>
-      </View>
-      <Text
-        style={{
-          fontSize: 12,
-          fontFamily: theme.typography.fontSansMedium,
-          color: theme.colors.gray700,
-        }}
-      >
-        {label}
-      </Text>
-      <Icon name="open-outline" size={12} color={theme.colors.gray500} />
-    </TouchableOpacity>
-  );
-}
-
-// ============================================
 // COMPONENTE PRINCIPAL
 // ============================================
 
@@ -1460,7 +1402,7 @@ export default function DesignSystemScreen() {
           </View>
 
           <CodeBlock
-            code={`import { colors } from '@/lib/design-tokens';
+            code={`import { colors } from '@/design-system';
 
 // Uso direto
 backgroundColor: colors.primary.main
@@ -1597,7 +1539,7 @@ backgroundColor: theme.colors.primary`}
           ))}
 
           <CodeBlock
-            code={`import { spacing } from '@/lib/design-tokens';
+            code={`import { spacing } from '@/design-system';
 
 padding: spacing.md  // 16px
 gap: spacing.lg      // 24px`}
@@ -1624,7 +1566,7 @@ gap: spacing.lg      // 24px`}
           ))}
 
           <CodeBlock
-            code={`import { borderRadius } from '@/lib/design-tokens';
+            code={`import { borderRadius } from '@/design-system';
 
 borderRadius: borderRadius.md  // 8px
 borderRadius: borderRadius.full // pill shape`}
@@ -1654,7 +1596,7 @@ borderRadius: borderRadius.full // pill shape`}
           </View>
 
           <CodeBlock
-            code={`import { shadows } from '@/lib/design-tokens';
+            code={`import { shadows } from '@/design-system';
 
 style={[styles.card, shadows.md]}
 
@@ -1683,7 +1625,7 @@ style={[styles.card, shadows.md]}
           ))}
 
           <CodeBlock
-            code={`import { opacity } from '@/lib/design-tokens';
+            code={`import { opacity } from '@/design-system';
 
 opacity: opacity[50]  // 0.5`}
           />
@@ -1704,7 +1646,7 @@ opacity: opacity[50]  // 0.5`}
           ))}
 
           <CodeBlock
-            code={`import { zIndex } from '@/lib/design-tokens';
+            code={`import { zIndex } from '@/design-system';
 
 zIndex: zIndex.modal   // 30
 zIndex: zIndex.toast   // 40`}
@@ -1732,7 +1674,7 @@ zIndex: zIndex.toast   // 40`}
           ))}
 
           <CodeBlock
-            code={`import { motion } from '@/lib/design-tokens';
+            code={`import { motion } from '@/design-system';
 
 Animated.timing(value, {
   duration: motion.duration.normal,
@@ -2975,14 +2917,7 @@ import CameraUpload from '@/components/CameraUpload';
           <Text style={styles.footerSubtext}>
             Última atualização: {new Date().toLocaleDateString('pt-BR')}
           </Text>
-          {/* FigmaLink - Descomentar quando arquivo Figma estiver disponível */}
-          {/* <View style={{ marginTop: theme.spacing.md }}>
-            <FigmaLink
-              url="https://figma.com/file/XXXXX"
-              label="Abrir no Figma"
-            />
-          </View> */}
-        </View>
+                  </View>
       </ScrollView>
 
       {/* Modais */}

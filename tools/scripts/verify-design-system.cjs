@@ -3,7 +3,10 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const REPORT_PATH = path.join(ROOT, 'docs', 'design-system-hex-report.md');
-const ALLOWLIST = new Set(['src/utils/styles.base.ts']);
+const ALLOWLIST = new Set([
+  'src/utils/styles.base.ts',
+  'app/design-system.tsx', // Showcase page - hex colors for demonstration
+]);
 
 function readReport() {
   if (!fs.existsSync(REPORT_PATH)) {

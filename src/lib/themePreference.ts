@@ -29,15 +29,25 @@ function getRuntimeMode(): ThemePreference {
   return UnistylesRuntime.colorScheme === 'dark' ? 'dark' : 'light';
 }
 
-function resolveThemeName(preferences: ThemePreferences): string {
-  let name = preferences.mode;
+type ThemeName =
+  | 'light'
+  | 'dark'
+  | 'lightCompact'
+  | 'darkCompact'
+  | 'lightHighContrast'
+  | 'darkHighContrast'
+  | 'lightCompactHighContrast'
+  | 'darkCompactHighContrast';
+
+function resolveThemeName(preferences: ThemePreferences): ThemeName {
+  let name: string = preferences.mode;
   if (preferences.density === 'compact') {
     name += 'Compact';
   }
   if (preferences.contrast === 'high') {
     name += 'HighContrast';
   }
-  return name;
+  return name as ThemeName;
 }
 
 function applyWebTheme(preferences: ThemePreferences) {

@@ -53,3 +53,56 @@
 - Lists: desktop can use denser rows (`theme.desktop.rowHeight`), mobile keeps 44px+ touch targets.
 - Forms: use tokenized input heights; use platform-native pickers for date/time and select controls.
 - Navigation: web supports persistent sidebars; mobile uses bottom tabs or drawer per platform guidance.
+
+## .web.tsx Platform-Specific Components
+
+React Native/Expo automatically resolves `.web.tsx` variants when building for web.
+The base component (`.tsx`) is used for iOS/Android, while the `.web.tsx` variant is used for web.
+
+### Pattern
+
+```
+Component.tsx       # Mobile implementation (iOS/Android)
+Component.web.tsx   # Web implementation
+```
+
+### Current .web.tsx Files
+
+| Component | Mobile | Web | Reason |
+|-----------|--------|-----|--------|
+| `MapaRotas` | react-native-maps | @vis.gl/react-google-maps | Different map libraries |
+| `MapaMobile` | react-native-maps | react-google-maps/api | Different map libraries |
+| `MiniMap` | react-native-maps | @vis.gl/react-google-maps | Different map libraries |
+| `PictureInPictureMap` | react-native-maps | @vis.gl/react-google-maps | Different map libraries |
+| `NavigationMode` | expo-linking (Waze/GMaps) | window.open | Navigation launch |
+
+### Import Guidelines
+
+When importing these components, use the base path without extension:
+
+```typescript
+// Correct - Metro/webpack resolves automatically
+import { MapaRotas } from '@/components/MapaRotas';
+import { MiniMap } from '@/components/motorista/home/MiniMap';
+
+// Incorrect - never import .web.tsx directly
+import { MapaRotas } from '@/components/MapaRotas.web';
+```
+
+### Creating New Platform Variants
+
+1. Create the mobile implementation: `Component.tsx`
+2. Create the web variant: `Component.web.tsx`
+3. Export the same interface from both files
+4. Import using the base path (no extension)
+5. Add to the table above for documentation
+
+### Design System Exports
+
+Components with `.web.tsx` variants are exported through the design system sub-exports:
+
+```typescript
+// These resolve automatically to the correct platform variant
+import { MapaRotas, MapaMobile } from '@/design-system/map';
+import { NavigationMode, MiniMap } from '@/design-system/motorista';
+```
