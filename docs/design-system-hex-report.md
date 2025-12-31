@@ -1,7 +1,5 @@
 # Hex Color Report
 
-Generated: 2025-12-31T00:28:34.350Z
-
 ## Scope
 - Paths: `app/`, `src/`, `App.tsx`
 - Pattern: `#RGB`, `#RRGGBB`, `#RRGGBBAA`

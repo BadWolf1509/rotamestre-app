@@ -116,8 +116,6 @@ function main() {
   const reportLines = [
     '# Hex Color Report',
     '',
-    `Generated: ${new Date().toISOString()}`,
-    '',
     '## Scope',
     '- Paths: `app/`, `src/`, `App.tsx`',
     '- Pattern: `#RGB`, `#RRGGBB`, `#RRGGBBAA`',
