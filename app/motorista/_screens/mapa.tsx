@@ -89,7 +89,7 @@ export default function MapaMotorista() {
 
   if (routeStatus === 'no-route' || paradas.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
+      <View style={styles.emptyContainer} testID="motorista-mapa-empty">
         <Text style={styles.emptyIcon}>🗺️</Text>
         <Text style={styles.emptyTitle}>Nenhuma rota para visualizar</Text>
         <Text style={styles.emptyText}>

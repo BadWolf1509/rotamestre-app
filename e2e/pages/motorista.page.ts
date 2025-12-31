@@ -13,8 +13,11 @@ export class MotoristaPage {
   readonly mapaTab: Locator;
   readonly historicoTab: Locator;
   readonly paradasList: Locator;
+  readonly paradasEmpty: Locator;
   readonly mapaView: Locator;
+  readonly mapaEmpty: Locator;
   readonly historicoList: Locator;
+  readonly historicoEmpty: Locator;
 
   // Header
   readonly header: Locator;
@@ -52,8 +55,11 @@ export class MotoristaPage {
       page.getByRole('tab', { name: /historico/i })
     );
     this.paradasList = page.locator('[data-testid="motorista-checkpoints-list"]');
+    this.paradasEmpty = page.locator('[data-testid="motorista-checkpoints-empty"]');
     this.mapaView = page.locator('[data-testid="motorista-mapa-view"]');
+    this.mapaEmpty = page.locator('[data-testid="motorista-mapa-empty"]');
     this.historicoList = page.locator('[data-testid="motorista-historico-list"]');
+    this.historicoEmpty = page.locator('[data-testid="motorista-historico-empty"]');
 
     // Header
     this.header = page.locator('header, [data-testid="header"]');

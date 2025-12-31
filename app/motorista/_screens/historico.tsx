@@ -586,7 +586,7 @@ export default function HistoricoMotorista() {
           />
         }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
+          <View style={styles.emptyContainer} testID="motorista-historico-empty">
             <Text style={styles.emptyTitle}>📋</Text>
             <Text style={styles.emptyText}>Nenhuma rota registrada</Text>
             <Text style={styles.emptySubtext}>

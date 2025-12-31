@@ -327,7 +327,7 @@ export default function CheckpointsMotorista() {
     );
   } else if (showEmptyState) {
     content = (
-      <View style={styles.emptyContainer}>
+      <View style={styles.emptyContainer} testID="motorista-checkpoints-empty">
           <Text style={styles.emptyTitle}>📋</Text>
           <Text style={styles.emptyText}>Nenhuma rota ativa no momento</Text>
           <Text style={styles.emptySubtext}>

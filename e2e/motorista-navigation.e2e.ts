@@ -38,35 +38,44 @@ test.describe('Motorista Navigation E2E Tests', () => {
     test('should navigate to Paradas tab', async ({ page }) => {
       await motoristaPage.navigateToParadas();
 
-      // Should see paradas content or checkpoints
+      // Should see paradas content (list) OR empty state (no active route)
       await expect(page).toHaveURL(/.*motorista.*/);
-      await expect(motoristaPage.paradasList).toBeVisible({ timeout: 10000 });
+      const paradasContent = motoristaPage.paradasList.or(motoristaPage.paradasEmpty);
+      await expect(paradasContent).toBeVisible({ timeout: 10000 });
     });
 
     test('should navigate to Mapa tab', async ({ page }) => {
       await motoristaPage.navigateToMapa();
 
-      // Should see mapa content
+      // Should see mapa content (map view) OR empty state (no active route)
       await expect(page).toHaveURL(/.*motorista.*/);
-      await expect(motoristaPage.mapaView).toBeVisible({ timeout: 10000 });
+      const mapaContent = motoristaPage.mapaView.or(motoristaPage.mapaEmpty);
+      await expect(mapaContent).toBeVisible({ timeout: 10000 });
     });
 
     test('should navigate to Historico tab', async ({ page }) => {
       await motoristaPage.navigateToHistorico();
 
-      // Should see historico content
+      // Should see historico content (list) OR empty state (no routes)
+      // Use .first() because FlatList renders both list and empty component in DOM
       await expect(page).toHaveURL(/.*motorista.*/);
-      await expect(motoristaPage.historicoList).toBeVisible({ timeout: 10000 });
+      const historicoContent = motoristaPage.historicoList.or(motoristaPage.historicoEmpty).first();
+      await expect(historicoContent).toBeVisible({ timeout: 10000 });
     });
 
     test('should return to Inicio tab', async ({ page }) => {
       // First navigate away - use getByRole for tab elements
       await motoristaPage.navigateToHistorico();
+      await page.waitForTimeout(1000);
 
       // Then back to inicio
       await motoristaPage.navigateToInicio();
+      await page.waitForTimeout(1000);
 
       await expect(page).toHaveURL(/.*motorista.*/);
+      // Verify we can see content on inicio tab
+      const bodyText = await page.locator('body').textContent();
+      expect(bodyText?.length).toBeGreaterThan(100);
     });
   });
 

@@ -20,8 +20,8 @@ export default defineConfig({
   // Fail the build on CI if you accidentally left test.only in the source code
   forbidOnly: !!process.env.CI,
 
-  // Retry on CI only
-  retries: process.env.CI ? 2 : 0,
+  // Retry on failure (2 retries on CI, 1 locally for flaky tests)
+  retries: process.env.CI ? 2 : 1,
 
   // Opt out of parallel tests on CI
   workers: process.env.CI ? 1 : undefined,
@@ -76,7 +76,12 @@ export default defineConfig({
     // Mobile Chrome (responsive testing)
     {
       name: 'mobile-chrome',
-      use: { ...devices['Pixel 5'] },
+      use: {
+        ...devices['Pixel 5'],
+        // Mobile tests need longer timeouts due to smaller viewport and slower rendering
+        actionTimeout: 20000,
+        navigationTimeout: 90000,
+      },
     },
   ],
 

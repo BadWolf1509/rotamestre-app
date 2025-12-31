@@ -24,13 +24,9 @@ export class LoginPage {
     this.passwordInput = page.locator('[data-testid="auth-login-password"]').or(
       page.locator('input[placeholder="Senha"], input[type="password"]')
     );
-    // React Native Web renders TouchableOpacity as divs, use testID or text
-    this.loginButton = page.locator('[data-testid="auth-login-submit"]').or(
-      page.getByText('Entrar', { exact: true })
-    );
-    this.forgotPasswordLink = page.locator('[data-testid="auth-login-forgot"]').or(
-      page.getByText(/esqueceu.*senha/i)
-    );
+    // React Native Web renders TouchableOpacity as divs, use testID first
+    this.loginButton = page.locator('[data-testid="auth-login-submit"]').first();
+    this.forgotPasswordLink = page.locator('[data-testid="auth-login-forgot"]').first();
     this.errorMessage = page.locator('[role="alertdialog"], [role="dialog"]');
     this.loadingIndicator = page.locator('[data-testid="loading"], .loading');
   }
