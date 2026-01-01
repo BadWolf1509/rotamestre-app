@@ -60,6 +60,33 @@
 
 ---
 
+## [2.2.0] - 2026-01-01
+
+### Added
+- **Component Tokens Expandidos**: Novos tokens para `card`, `sidebar`, `pageLayout` e `map` em `theme.components.*`
+- **useThemeDensity Hook**: Hook para gerenciar densidade do tema (regular/compact) com:
+  - `isCompact`/`isRegular` flags
+  - `densityMultiplier` (0.8 para compact, 1 para regular)
+  - `setDensity()` e `toggleDensity()` funções
+- **Sidebar Tokens**: `logoHeight`, `itemHeight`, `itemFontSize`, `itemIconSize`, `sectionTitleFontSize`, `footerFontSize`
+- **PageLayout Tokens**: `contentPadding`, `headerTitleFontSize`, `headerSubtitleFontSize`, `breadcrumbFontSize`
+- **Card Tokens**: `padding.none/small/medium/large` com valores compact/regular
+- **Map Tokens**: `markerSize`, `clusterSize`, `controlButtonSize`, `infoBoxPadding`
+
+### Changed
+- **DataTable**: Migrado para usar `theme.components.table.*` tokens
+- **AddressAutocomplete**: Todos valores hardcoded substituídos por tokens
+- **DesktopPageLayout**: Migrado para usar `theme.components.pageLayout.*`
+- **GestorSidebar**: Migrado para usar `theme.components.sidebar.*`
+- **MetricCard/StatsCard**: Unificados sob `theme.components.statsCard` tokens
+- **Card Component**: Usa `theme.components.card.padding.*` ao invés de valores fixos
+
+### Documentation
+- Padrões de density tokens documentados (ratio 80% para compact)
+- Hook useThemeDensity com exemplos de uso
+
+---
+
 ## [Unreleased]
 
 ### Added

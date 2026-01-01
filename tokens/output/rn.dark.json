@@ -342,7 +342,36 @@
       "badgePaddingY": 4,
       "actionButtonPaddingX": 12,
       "actionButtonPaddingY": 6,
-      "actionButtonFontSize": 13
+      "actionButtonFontSize": 13,
+      "paginationFontSize": 14
+    },
+    "card": {
+      "padding": {
+        "none": 0,
+        "small": 12,
+        "medium": 16,
+        "large": 20
+      }
+    },
+    "sidebar": {
+      "logoHeight": 180,
+      "itemHeight": 40,
+      "itemFontSize": 14,
+      "itemIconSize": 20,
+      "sectionTitleFontSize": 12,
+      "footerFontSize": 13
+    },
+    "pageLayout": {
+      "contentPadding": 32,
+      "headerTitleFontSize": 24,
+      "headerSubtitleFontSize": 14,
+      "breadcrumbFontSize": 13
+    },
+    "map": {
+      "markerSize": 40,
+      "clusterSize": 48,
+      "controlButtonSize": 44,
+      "infoBoxPadding": 16
     },
     "dialog": {
       "maxWidth": 320,
