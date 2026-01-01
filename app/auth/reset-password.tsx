@@ -9,13 +9,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { UnistylesRuntime } from 'react-native-unistyles';
 
-import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
 import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
+import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
-import { UnistylesRuntime } from 'react-native-unistyles';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export default function ResetPassword() {

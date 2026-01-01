@@ -72,15 +72,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
 
   paddingNone: {
-    padding: 0,
+    padding: theme.components.card.padding.none,
   },
   paddingSmall: {
-    padding: 12,
+    padding: theme.components.card.padding.small,
   },
   paddingMedium: {
-    padding: 16,
+    padding: theme.components.card.padding.medium,
   },
   paddingLarge: {
-    padding: 20,
+    padding: theme.components.card.padding.large,
   },
 }));

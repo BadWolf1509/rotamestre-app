@@ -123,11 +123,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   logoImage: {
     width: 220,
-    height: 180,
+    height: theme.components.sidebar.logoHeight,
     marginBottom: theme.spacing.sm,
   },
   unidadeName: {
-    fontSize: 12,
+    fontSize: theme.components.sidebar.sectionTitleFontSize,
     color: withOpacity(theme.colors.white, 0.7),
     lineHeight: 16,
     textAlign: 'center',
@@ -139,11 +139,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: theme.spacing.sm,
+    height: theme.components.sidebar.itemHeight,
     paddingHorizontal: theme.spacing.lg,
     marginHorizontal: theme.spacing.sm,
     borderRadius: theme.borderRadius.md,
-    marginBottom: 4,
+    marginBottom: theme.spacing.xs,
   },
   menuItemActive: {
     backgroundColor: withOpacity(theme.colors.white, 0.15),
@@ -151,7 +151,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderLeftColor: theme.colors.secondary,
   },
   menuIcon: {
-    fontSize: 20,
+    fontSize: theme.components.sidebar.itemIconSize,
     marginRight: theme.spacing.sm,
     opacity: 0.8,
   },
@@ -160,7 +160,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     transform: [{ scale: 1.1 }],
   },
   menuLabel: {
-    fontSize: 15,
+    fontSize: theme.components.sidebar.itemFontSize,
     color: withOpacity(theme.colors.white, 0.8),
     fontWeight: '500',
   },
@@ -188,7 +188,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginRight: theme.spacing.sm,
   },
   avatarText: {
-    fontSize: 16,
+    fontSize: theme.components.sidebar.itemFontSize + 2,
     fontWeight: 'bold',
     color: theme.colors.background,
   },
@@ -196,13 +196,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
   },
   userName: {
-    fontSize: 14,
+    fontSize: theme.components.sidebar.itemFontSize,
     fontWeight: '600',
     color: theme.colors.background,
     marginBottom: 2,
   },
   userRole: {
-    fontSize: 12,
+    fontSize: theme.components.sidebar.sectionTitleFontSize,
     color: withOpacity(theme.colors.white, 0.6),
   },
   logoutButton: {
@@ -215,11 +215,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: withOpacity(theme.colors.white, 0.1),
   },
   logoutIcon: {
-    fontSize: 16,
+    fontSize: theme.components.sidebar.itemIconSize - 2,
     marginRight: theme.spacing.xs,
   },
   logoutText: {
-    fontSize: 14,
+    fontSize: theme.components.sidebar.footerFontSize,
     fontWeight: '600',
     color: theme.colors.background,
   },

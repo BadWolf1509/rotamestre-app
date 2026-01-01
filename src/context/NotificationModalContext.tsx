@@ -10,7 +10,7 @@ import {
 
 import { NotificationList } from '@/components/NotificationList';
 import { boxShadow } from '@/utils/color';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface NotificationModalContextType {
   isOpen: boolean;
@@ -33,7 +33,6 @@ interface NotificationModalProviderProps {
 }
 
 export function NotificationModalProvider({ children }: NotificationModalProviderProps) {
-  const { theme } = useUnistyles();
   const [isOpen, setIsOpen] = useState(false);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const screenHeight = Dimensions.get('screen').height;

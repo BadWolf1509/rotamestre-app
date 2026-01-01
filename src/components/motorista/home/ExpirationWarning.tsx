@@ -157,7 +157,7 @@ export function ExpirationWarning({ rotaData, onExpire }: ExpirationWarningProps
   );
 }
 
-const styles = StyleSheet.create((theme: Theme) => ({
+const styles = StyleSheet.create((_theme: Theme) => ({
   container: {
     flexDirection: 'row',
     alignItems: 'center',

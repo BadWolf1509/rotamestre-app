@@ -271,6 +271,35 @@ export interface Theme {
       actionButtonPaddingX: number;
       actionButtonPaddingY: number;
       actionButtonFontSize: number;
+      paginationFontSize: number;
+    };
+    card: {
+      padding: {
+        none: number;
+        small: number;
+        medium: number;
+        large: number;
+      };
+    };
+    sidebar: {
+      logoHeight: number;
+      itemHeight: number;
+      itemFontSize: number;
+      itemIconSize: number;
+      sectionTitleFontSize: number;
+      footerFontSize: number;
+    };
+    pageLayout: {
+      contentPadding: number;
+      headerTitleFontSize: number;
+      headerSubtitleFontSize: number;
+      breadcrumbFontSize: number;
+    };
+    map: {
+      markerSize: number;
+      clusterSize: number;
+      controlButtonSize: number;
+      infoBoxPadding: number;
     };
   };
 }

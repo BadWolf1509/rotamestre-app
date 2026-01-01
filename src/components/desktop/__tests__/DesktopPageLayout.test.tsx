@@ -25,31 +25,62 @@ jest.mock('@/context/NotificationModalContext', () => ({
 }));
 
 // Mock useUnistyles
-jest.mock('@/utils/styles', () => ({
-  StyleSheet: {
-    create: (fn: any) => fn({ colors: {}, spacing: {}, typography: {}, borderRadius: {} }),
-  },
-  useUnistyles: jest.fn(() => ({
-    theme: {
-      colors: {
-        primary: '#0066cc',
-        white: '#fff',
-        gray50: '#f9fafb',
-        gray200: '#e5e7eb',
-        gray400: '#9ca3af',
-        gray500: '#6b7280',
-        gray600: '#4b5563',
-        gray700: '#374151',
-        gray900: '#111827',
-        error: '#dc2626',
-        black: '#000',
-      },
-      spacing: { sm: 8, md: 16, lg: 24 },
-      typography: { sm: 14 },
-      borderRadius: { lg: 8 },
+jest.mock('@/utils/styles', () => {
+  const mockTheme = {
+    colors: {
+      primary: '#0066cc',
+      white: '#fff',
+      gray50: '#f9fafb',
+      gray100: '#f3f4f6',
+      gray200: '#e5e7eb',
+      gray300: '#d1d5db',
+      gray400: '#9ca3af',
+      gray500: '#6b7280',
+      gray600: '#4b5563',
+      gray700: '#374151',
+      gray900: '#111827',
+      error: '#dc2626',
+      black: '#000',
+      background: '#fff',
+      surface: '#fff',
+      text: '#000',
+      textSecondary: '#6b7280',
+      border: '#e5e7eb',
     },
-  })),
-}));
+    spacing: { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 },
+    typography: { xs: 12, sm: 14, base: 16 },
+    borderRadius: { sm: 8, md: 12, lg: 16, xl: 24, full: 9999 },
+    shadows: { sm: {}, md: {} },
+    components: {
+      pageLayout: {
+        contentPadding: 32,
+        headerTitleFontSize: 24,
+        headerSubtitleFontSize: 14,
+        breadcrumbFontSize: 13,
+      },
+      statsCard: {
+        padding: 20,
+        radius: 12,
+        valueFontSize: 28,
+        labelFontSize: 13,
+        labelLetterSpacing: 0.5,
+        iconSize: 20,
+        iconContainerSize: 32,
+        iconContainerRadius: 8,
+        changeFontSize: 13,
+      },
+    },
+  };
+
+  return {
+    StyleSheet: {
+      create: (fn: any) => fn(mockTheme),
+    },
+    useUnistyles: jest.fn(() => ({
+      theme: mockTheme,
+    })),
+  };
+});
 
 const mockRouter = {
   push: jest.fn(),

@@ -175,6 +175,35 @@ export const componentsCompact = {
     actionButtonPaddingX: 8,
     actionButtonPaddingY: 4,
     actionButtonFontSize: 11,
+    paginationFontSize: 12,
+  },
+  card: {
+    padding: {
+      none: 0,
+      small: 8,
+      medium: 12,
+      large: 16,
+    },
+  },
+  sidebar: {
+    logoHeight: 140,
+    itemHeight: 36,
+    itemFontSize: 13,
+    itemIconSize: 18,
+    sectionTitleFontSize: 11,
+    footerFontSize: 12,
+  },
+  pageLayout: {
+    contentPadding: 24,
+    headerTitleFontSize: 20,
+    headerSubtitleFontSize: 13,
+    breadcrumbFontSize: 12,
+  },
+  map: {
+    markerSize: 36,
+    clusterSize: 44,
+    controlButtonSize: 40,
+    infoBoxPadding: 12,
   },
 };
 
@@ -433,6 +462,35 @@ export const defaultTheme: Theme = {
       actionButtonPaddingX: 12,
       actionButtonPaddingY: 6,
       actionButtonFontSize: 13,
+      paginationFontSize: 14,
+    },
+    card: {
+      padding: {
+        none: 0,
+        small: 12,
+        medium: 16,
+        large: 20,
+      },
+    },
+    sidebar: {
+      logoHeight: 180,
+      itemHeight: 40,
+      itemFontSize: 14,
+      itemIconSize: 20,
+      sectionTitleFontSize: 12,
+      footerFontSize: 13,
+    },
+    pageLayout: {
+      contentPadding: 32,
+      headerTitleFontSize: 24,
+      headerSubtitleFontSize: 14,
+      breadcrumbFontSize: 13,
+    },
+    map: {
+      markerSize: 40,
+      clusterSize: 48,
+      controlButtonSize: 44,
+      infoBoxPadding: 16,
     },
   },
 };

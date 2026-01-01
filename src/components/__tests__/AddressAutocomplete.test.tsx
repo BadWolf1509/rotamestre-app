@@ -25,11 +25,15 @@ jest.mock('@/utils/styles', () => {
       errorLight: '#ffcccc',
       disabled: '#eeeeee',
       gray400: '#9ca3af',
+      black: '#000000',
     },
     typography: {
       fontSans: 'NunitoSans-Regular',
       fontSansSemiBold: 'NunitoSans-SemiBold',
       xs: 12,
+      sm: 14,
+      base: 16,
+      xl: 20,
     },
     desktop: {
       input: {
@@ -39,9 +43,27 @@ jest.mock('@/utils/styles', () => {
     },
     borderRadius: {
       sm: 8,
+      md: 12,
+      full: 9999,
     },
     spacing: {
+      xs: 4,
       sm: 8,
+      md: 16,
+      lg: 24,
+      xl: 32,
+    },
+    components: {
+      input: {
+        size: {
+          medium: {
+            fontSize: 14,
+            height: 40,
+            paddingHorizontal: 12,
+          },
+        },
+        radius: 6,
+      },
     },
   };
 

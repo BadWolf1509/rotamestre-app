@@ -537,7 +537,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
   },
   title: {
-    fontSize: 20,
+    fontSize: theme.typography.xl,
     fontFamily: theme.typography.fontSansBold,
     color: theme.colors.gray900,
     marginBottom: theme.spacing.md,
@@ -552,7 +552,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   emptyText: {
     color: theme.colors.gray500,
-    fontSize: 16,
+    fontSize: theme.typography.base,
     fontFamily: theme.typography.fontSans,
   },
 
@@ -581,13 +581,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.xs,
   },
   cardLabel: {
-    fontSize: 14,
+    fontSize: theme.components.table.rowFontSize,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray500,
     flex: 1,
   },
   cardValue: {
-    fontSize: 14,
+    fontSize: theme.components.table.rowFontSize,
     fontFamily: theme.typography.fontSans,
     color: theme.colors.gray900,
     flex: 2,
@@ -621,7 +621,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.gray300,
   },
   cardActionText: {
-    fontSize: 14,
+    fontSize: theme.components.table.actionButtonFontSize,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.primary,
   },
@@ -654,12 +654,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'center',
   },
   tableHeaderText: {
-    fontSize: 14,
+    fontSize: theme.components.table.headerFontSize,
     fontFamily: theme.typography.fontSansBold,
     color: theme.colors.gray700,
   },
   sortIndicator: {
-    fontSize: 12,
+    fontSize: theme.components.table.headerFontSize - 2,
     fontFamily: theme.typography.fontSans,
     color: theme.colors.primary,
     marginLeft: 4,
@@ -687,7 +687,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     justifyContent: 'center',
   },
   tableCellText: {
-    fontSize: 14,
+    fontSize: theme.components.table.rowFontSize,
     fontFamily: theme.typography.fontSans,
     color: theme.colors.gray900,
   },
@@ -734,7 +734,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.gray300,
   },
   tableActionText: {
-    fontSize: 13,
+    fontSize: theme.components.table.actionButtonFontSize,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.primary,
   },
@@ -786,16 +786,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   pageButtonText: {
     color: theme.colors.background,
-    fontSize: 14,
+    fontSize: theme.components.table.paginationFontSize,
     fontFamily: theme.typography.fontSansSemiBold,
   },
   pageInfo: {
-    fontSize: 14,
+    fontSize: theme.components.table.paginationFontSize,
     fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.gray500,
   },
   pageInfoDesktop: {
-    fontSize: 14,
+    fontSize: theme.components.table.paginationFontSize,
     fontFamily: theme.typography.fontSans,
     color: theme.colors.gray500,
   },

@@ -309,24 +309,20 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.gray50,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 14,
+    marginTop: theme.spacing.sm,
+    fontSize: theme.components.pageLayout.headerSubtitleFontSize,
     color: theme.colors.gray500,
   },
   header: {
     backgroundColor: theme.colors.white,
-    paddingVertical: 20,
-    paddingHorizontal: 32,
+    paddingVertical: theme.spacing.md + theme.spacing.xs,
+    paddingHorizontal: theme.components.pageLayout.contentPadding,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray200,
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    shadowColor: theme.colors.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 1,
-    elevation: 2,
+    ...theme.shadows.sm,
     zIndex: 50,
   },
   headerLeft: {
@@ -336,56 +332,56 @@ const styles = StyleSheet.create((theme: Theme) => ({
   breadcrumbs: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: theme.spacing.sm,
     flexWrap: 'wrap',
   },
   breadcrumbButton: {
     padding: 2,
   },
   breadcrumbLink: {
-    fontSize: 13,
+    fontSize: theme.components.pageLayout.breadcrumbFontSize,
     color: theme.colors.primary,
     fontWeight: '500',
   },
   breadcrumbText: {
-    fontSize: 13,
+    fontSize: theme.components.pageLayout.breadcrumbFontSize,
     color: theme.colors.gray600,
   },
   breadcrumbSeparator: {
-    marginHorizontal: 8,
+    marginHorizontal: theme.spacing.xs,
   },
   titleSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: theme.spacing.md,
   },
   backButton: {
-    padding: 4,
+    padding: theme.spacing.xs,
   },
   titleContainer: {
     flex: 1,
   },
   title: {
-    fontSize: 24,
+    fontSize: theme.components.pageLayout.headerTitleFontSize,
     fontWeight: '700',
     color: theme.colors.gray900,
     letterSpacing: -0.5,
   },
   subtitle: {
-    marginTop: 4,
-    fontSize: 14,
+    marginTop: theme.spacing.xs,
+    fontSize: theme.components.pageLayout.headerSubtitleFontSize,
     color: theme.colors.gray500,
     lineHeight: 20,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    marginLeft: 32,
+    gap: theme.spacing.md,
+    marginLeft: theme.components.pageLayout.contentPadding,
   },
   headerExtra: {
     alignItems: 'flex-end',
-    gap: 4,
+    gap: theme.spacing.xs,
   },
   userMenu: {
     position: 'absolute',
@@ -420,16 +416,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   actions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: theme.spacing.sm,
     alignItems: 'center',
   },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 8,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.md,
+    gap: theme.spacing.xs,
   },
   buttonPrimary: {
     backgroundColor: theme.colors.primary,
@@ -446,10 +442,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
     opacity: 0.5,
   },
   buttonIcon: {
-    marginRight: 4,
+    marginRight: theme.spacing.xs,
   },
   buttonText: {
-    fontSize: 14,
+    fontSize: theme.components.pageLayout.headerSubtitleFontSize,
     fontWeight: '600',
   },
   buttonTextPrimary: {
@@ -462,7 +458,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
   },
   contentContainer: {
-    padding: 32,
+    padding: theme.components.pageLayout.contentPadding,
   },
   contentFullWidth: {
     padding: 0,

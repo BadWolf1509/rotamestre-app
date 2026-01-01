@@ -53,6 +53,7 @@ module.exports = [
       'ios',
       'supabase/.temp',
       'tools/scripts/node_modules/**',
+      'e2e-report/**',
     ],
   },
   js.configs.recommended,

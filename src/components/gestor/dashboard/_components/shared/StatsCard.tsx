@@ -113,7 +113,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: theme.spacing.xs,
   },
   label: {
     fontSize: theme.components.statsCard.labelFontSize,
@@ -133,13 +133,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.components.statsCard.valueFontSize,
     fontWeight: '700',
     color: theme.colors.gray900,
-    marginTop: 4,
+    marginTop: theme.spacing.xs,
   },
   changeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 8,
+    gap: theme.spacing.xs,
+    marginTop: theme.spacing.xs,
   },
   changeText: {
     fontSize: theme.components.statsCard.changeFontSize,
@@ -148,7 +148,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   changeLabel: {
     fontSize: theme.components.statsCard.changeFontSize,
     color: theme.colors.gray500,
-    marginLeft: 4,
+    marginLeft: theme.spacing.xs,
   },
 
   // Modo simples (compatibilidade)
@@ -159,14 +159,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
     ...theme.shadows.md,
   },
   valueSimple: {
-    fontSize: 32,
+    fontSize: theme.components.statsCard.valueFontSize + 4,
     fontFamily: theme.typography.fontSansBold,
     color: theme.colors.white,
   },
   labelSimple: {
     fontSize: theme.typography.xs,
     color: theme.colors.white,
-    marginTop: 4,
+    marginTop: theme.spacing.xs,
     opacity: 0.9,
   },
 }));
