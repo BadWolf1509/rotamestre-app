@@ -7,9 +7,9 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
-import { defaultTheme, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface LastRouteData {
   /** Horário de conclusão (formato HH:MM) */
@@ -125,11 +125,9 @@ export function LastRouteCard({ data }: LastRouteCardProps) {
   );
 }
 
-const colors = defaultTheme.colors;
-
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
-    backgroundColor: colors.successBg,
+    backgroundColor: theme.colors.successBg,
     borderRadius: 10,
     padding: 12,
     marginBottom: 8,
@@ -148,11 +146,11 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.gray700,
+    color: theme.colors.gray700,
   },
   timeText: {
     fontSize: 12,
-    color: colors.gray500,
+    color: theme.colors.gray500,
   },
   statsRow: {
     flexDirection: 'row',
@@ -167,10 +165,10 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.gray800,
+    color: theme.colors.gray800,
   },
   statLabel: {
     fontSize: 10,
-    color: colors.gray500,
+    color: theme.colors.gray500,
   },
-});
+}));

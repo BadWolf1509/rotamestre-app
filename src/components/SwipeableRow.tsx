@@ -3,7 +3,6 @@ import React, { useRef } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   Animated,
   TouchableOpacity,
   Dimensions,
@@ -12,11 +11,10 @@ import {
 import { Swipeable } from 'react-native-gesture-handler';
 
 import { mediumHaptic } from '@/utils/haptics';
-import { defaultTheme } from '@/utils/styles.base';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 const { width: screenWidth } = Dimensions.get('window');
 const SWIPE_THRESHOLD = screenWidth * 0.25;
-const baseColors = defaultTheme.colors;
 
 interface SwipeAction {
   icon: string;
@@ -41,6 +39,7 @@ export function SwipeableRow({
   onSwipeableOpen,
   enabled = true,
 }: SwipeableRowProps) {
+  const { theme } = useUnistyles();
   const swipeableRef = useRef<Swipeable>(null);
 
   const renderLeftActions = (
@@ -78,12 +77,12 @@ export function SwipeableRow({
                 disabled={action.loading}
               >
                 {action.loading ? (
-                  <ActivityIndicator color={baseColors.white} size="small" />
+                  <ActivityIndicator color={theme.colors.white} size="small" />
                 ) : (
                   <Ionicons
                     name={action.icon as any}
                     size={24}
-                    color={baseColors.white}
+                    color={theme.colors.white}
                   />
                 )}
                 <Text style={styles.actionText}>{action.label}</Text>
@@ -130,12 +129,12 @@ export function SwipeableRow({
                 disabled={action.loading}
               >
                 {action.loading ? (
-                  <ActivityIndicator color={baseColors.white} size="small" />
+                  <ActivityIndicator color={theme.colors.white} size="small" />
                 ) : (
                   <Ionicons
                     name={action.icon as any}
                     size={24}
-                    color={baseColors.white}
+                    color={theme.colors.white}
                   />
                 )}
                 <Text style={styles.actionText}>{action.label}</Text>
@@ -172,7 +171,7 @@ export function SwipeableRow({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   actionsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -189,9 +188,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   actionText: {
-    color: baseColors.white,
+    color: theme.colors.white,
     fontSize: 12,
     marginTop: 4,
     fontWeight: '600',
   },
-});
+}));

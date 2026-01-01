@@ -3,10 +3,12 @@ import { useRouter, usePathname } from 'expo-router';
 import { useState } from 'react';
 import { Image, ScrollView, Text, TouchableOpacity, View, ImageStyle } from 'react-native';
 
-import LogoHorizontal from '@/../assets/logo-horizontal1.png';
+import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
+import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
 import { ConfirmDialog } from '@/design-system';
 // REMOVIDO: import { useUser } from '@/hooks/useUser'; // userData agora vem como prop
 import { authService } from '@/lib/auth';
+import { UnistylesRuntime } from 'react-native-unistyles';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface SidebarProps {
@@ -26,6 +28,10 @@ export function Sidebar({ onNavigate, userData }: SidebarProps) {
   // REMOVIDO: const { userData } = useUser(); // Evitar chamada duplicada
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
+
+  // Detectar tema escuro para usar logo apropriada
+  const isDarkMode = UnistylesRuntime.themeName?.startsWith('dark');
+  const LogoHorizontal = isDarkMode ? LogoHorizontalDark : LogoHorizontalLight;
 
   const navItems: Array<{
     label: string;
@@ -186,8 +192,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: theme.spacing.sm,
   },
   logoImage: {
-    width: 180,
-    height: 75,
+    width: 200,
+    height: 82, // Proporção 336:138 (2.43:1) ajustada para caber no sidebar
     resizeMode: 'contain',
   },
   brandSubtitle: {
@@ -212,9 +218,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.sm,
   },
   navItemActive: {
-    backgroundColor: `${theme.colors.primary}15`, // 15 = ~10% opacity
+    backgroundColor: theme.colors.primaryBg,
     borderLeftWidth: 3,
-    borderLeftColor: theme.colors.secondary, // Borda laranja (cor da marca)
+    borderLeftColor: theme.colors.secondary,
   },
   navLabel: {
     fontSize: theme.typography.sm,

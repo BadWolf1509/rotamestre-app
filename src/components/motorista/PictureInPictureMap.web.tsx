@@ -3,13 +3,12 @@ import React from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
   Animated,
 } from 'react-native';
 
 import { withOpacity } from '@/utils/color';
-import { defaultTheme } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface PictureInPictureMapProps {
   visible: boolean;
@@ -23,8 +22,6 @@ interface PictureInPictureMapProps {
   onExpand: () => void;
 }
 
-const colors = defaultTheme.colors;
-
 export function PictureInPictureMap({
   visible,
   userLocation,
@@ -32,6 +29,8 @@ export function PictureInPictureMap({
   onClose,
   onExpand,
 }: PictureInPictureMapProps) {
+  const { theme } = useUnistyles();
+
   if (!visible || !destination) return null;
 
   const openGoogleMaps = () => {
@@ -54,21 +53,21 @@ export function PictureInPictureMap({
     <Animated.View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onExpand} style={styles.expandButton}>
-          <Ionicons name="expand" size={18} color={colors.white} />
+          <Ionicons name="expand" size={18} color={theme.colors.white} />
         </TouchableOpacity>
         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <Ionicons name="close" size={18} color={colors.white} />
+          <Ionicons name="close" size={18} color={theme.colors.white} />
         </TouchableOpacity>
       </View>
 
       <TouchableOpacity style={styles.mapPlaceholder} onPress={openGoogleMaps}>
-        <Ionicons name="map" size={40} color={colors.gray500} />
+        <Ionicons name="map" size={40} color={theme.colors.gray500} />
         <Text style={styles.placeholderText}>Mini Mapa</Text>
         <Text style={styles.addressText} numberOfLines={2}>
           {destination.address}
         </Text>
         <View style={styles.openButton}>
-          <Ionicons name="open-outline" size={16} color={defaultTheme.colors.primary} />
+          <Ionicons name="open-outline" size={16} color={theme.colors.primary} />
           <Text style={styles.openButtonText}>Abrir Maps</Text>
         </View>
       </TouchableOpacity>
@@ -76,23 +75,23 @@ export function PictureInPictureMap({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     position: 'absolute',
     bottom: 100,
     right: 20,
     width: 200,
     height: 250,
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.white,
     borderRadius: 12,
     elevation: 10,
-    shadowColor: colors.black,
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: colors.gray200,
+    borderColor: theme.colors.gray200,
   },
   header: {
     flexDirection: 'row',
@@ -109,7 +108,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: withOpacity(colors.primary, 0.9),
+    backgroundColor: withOpacity(theme.colors.primary, 0.9),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -117,7 +116,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: withOpacity(colors.black, 0.6),
+    backgroundColor: withOpacity(theme.colors.black, 0.6),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -125,19 +124,19 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.gray50,
+    backgroundColor: theme.colors.gray50,
     padding: 16,
   },
   placeholderText: {
     marginTop: 8,
     fontSize: 14,
     fontWeight: '600',
-    color: colors.gray700,
+    color: theme.colors.gray700,
   },
   addressText: {
     marginTop: 8,
     fontSize: 11,
-    color: colors.gray500,
+    color: theme.colors.gray500,
     textAlign: 'center',
     paddingHorizontal: 8,
   },
@@ -148,12 +147,12 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: colors.infoBg,
+    backgroundColor: theme.colors.infoBg,
     borderRadius: 6,
   },
   openButtonText: {
     fontSize: 12,
-    color: defaultTheme.colors.primary,
+    color: theme.colors.primary,
     fontWeight: '500',
   },
-});
+}));

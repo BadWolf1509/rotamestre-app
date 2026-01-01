@@ -12,7 +12,7 @@ Mapear a cobertura total do design system (100% das telas, fluxos e componentes)
 ## Telas e Fluxos
 | Modulo | Tela/Arquivo | Status | Owner | Observacoes |
 | --- | --- | --- | --- | --- |
-| App | app/index.tsx | Review | Frontend | Validar uso de tokens e layout base |
+| App | app/index.tsx | Done | Frontend | Usa theme.colors.*, theme.spacing.*, StyleSheet.create |
 | App | app/_layout.tsx | N/A | Frontend | Infra de layout |
 | App | app/+html.tsx | N/A | Frontend | Infra web |
 | App | app/design-system.tsx | Done | Frontend | Showcase DS |
@@ -72,5 +72,5 @@ Status esperado: Done (migrado e exportado via `@/design-system`).
 
 ## Observacoes
 - Atualizar esta matriz ao final de cada wave.
-- Itens em Review devem ser validados com auditoria visual e lint.
-- Meta: todos os itens em Done ao final da Wave 6.
+- Meta: 100% cobertura atingida (2025-12-31).
+- Todas as telas usam tokens semanticos do design system.

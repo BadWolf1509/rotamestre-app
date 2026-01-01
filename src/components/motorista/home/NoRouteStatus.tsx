@@ -7,14 +7,14 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, Text, View } from 'react-native';
 
 import {
   getNoRouteMessage,
   getWorkContext,
   type NoRouteContext,
 } from '@/utils/motivationalMessages';
-import { defaultTheme, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface NoRouteStatusProps {
   /** Contexto para personalizar a mensagem */
@@ -122,9 +122,7 @@ export function NoRouteStatus({
   );
 }
 
-const colors = defaultTheme.colors;
-
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     alignItems: 'center',
     paddingVertical: 8,
@@ -143,13 +141,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.gray900,
+    color: theme.colors.gray900,
     textAlign: 'center',
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: colors.gray600,
+    color: theme.colors.gray600,
     textAlign: 'center',
     lineHeight: 20,
     paddingHorizontal: 16,
@@ -161,11 +159,11 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: colors.gray50,
+    backgroundColor: theme.colors.gray50,
     borderRadius: 16,
   },
   waitingText: {
     fontSize: 12,
-    color: colors.gray500,
+    color: theme.colors.gray500,
   },
-});
+}));

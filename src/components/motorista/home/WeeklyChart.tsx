@@ -5,10 +5,10 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, Text, View } from 'react-native';
 
 import { WeeklyData } from '@/hooks/useMilestones';
-import { defaultTheme, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface WeeklyChartProps {
   data: WeeklyData[];
@@ -171,15 +171,13 @@ export function WeeklyChart({ data, averagePerDay, isLoading = false, compact = 
   );
 }
 
-const colors = defaultTheme.colors;
-
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.white,
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
-    shadowColor: colors.black,
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -191,7 +189,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 13,
-    color: colors.gray500,
+    color: theme.colors.gray500,
   },
   header: {
     flexDirection: 'row',
@@ -207,7 +205,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.gray700,
+    color: theme.colors.gray700,
   },
   headerRight: {
     flexDirection: 'row',
@@ -217,11 +215,11 @@ const styles = StyleSheet.create({
   totalValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   totalLabel: {
     fontSize: 12,
-    color: colors.gray500,
+    color: theme.colors.gray500,
   },
   chartContainer: {
     flexDirection: 'row',
@@ -251,27 +249,27 @@ const styles = StyleSheet.create({
     left: -4,
     right: -4,
     height: 2,
-    backgroundColor: colors.warning,
+    backgroundColor: theme.colors.warning,
     borderRadius: 1,
   },
   dayLabel: {
     fontSize: 10,
-    color: colors.gray500,
+    color: theme.colors.gray500,
     fontWeight: '500',
   },
   dayLabelToday: {
-    color: colors.primary,
+    color: theme.colors.primary,
     fontWeight: '700',
   },
   barValue: {
     fontSize: 10,
-    color: colors.gray600,
+    color: theme.colors.gray600,
     fontWeight: '600',
     position: 'absolute',
     top: -16,
   },
   barValueToday: {
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -280,13 +278,13 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 13,
-    color: colors.gray600,
+    color: theme.colors.gray600,
     fontWeight: '500',
     marginTop: 8,
   },
   emptySubtext: {
     fontSize: 12,
-    color: colors.gray500,
+    color: theme.colors.gray500,
   },
   legendContainer: {
     flexDirection: 'row',
@@ -295,7 +293,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: colors.gray100,
+    borderTopColor: theme.colors.gray100,
   },
   legendItem: {
     flexDirection: 'row',
@@ -314,7 +312,7 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 11,
-    color: colors.gray500,
+    color: theme.colors.gray500,
   },
   // Estilos para modo compacto
   containerCompact: {
@@ -333,4 +331,4 @@ const styles = StyleSheet.create({
   dayLabelCompact: {
     fontSize: 9,
   },
-});
+}));

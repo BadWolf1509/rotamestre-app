@@ -578,6 +578,7 @@ export default function HistoricoMotorista() {
         keyExtractor={(item) => item.id}
         renderItem={renderRota}
         contentContainerStyle={styles.listContainer}
+        ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -694,7 +695,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   listContainer: {
     padding: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
   },
   emptyContainer: {
     padding: theme.spacing.xxl,
@@ -719,11 +719,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
   rotaCard: {
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
+    padding: theme.spacing.md,
     borderLeftWidth: 4,
     borderLeftColor: theme.colors.gray300,
     ...theme.shadows.sm,
+  },
+  itemSeparator: {
+    height: theme.spacing.sm,
   },
   rotaCardPendente: {
     borderLeftColor: theme.colors.warning,
@@ -746,7 +748,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
   },
   rotaHeaderLeft: {
     flex: 1,
@@ -794,7 +796,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   rotaStats: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingVertical: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
   },
   statItem: {
     alignItems: 'center',
@@ -847,7 +849,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.sm,
   },
   expandIndicator: {
-    marginTop: theme.spacing.md,
+    marginTop: theme.spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

@@ -5,17 +5,15 @@ import {
   Dimensions,
   Modal,
   ScrollView,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 
 import { withOpacity } from '@/utils/color';
-import { defaultTheme, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const colors = defaultTheme.colors;
 
 interface OptimizationAlertProps {
   visible: boolean;
@@ -227,7 +225,7 @@ export function OptimizationAlert({
               style={[styles.actionButton, styles.acceptButton]}
               onPress={handleAccept}
             >
-              <Ionicons name="checkmark-circle" size={20} color={colors.white} />
+              <Ionicons name="checkmark-circle" size={20} color={theme.colors.white} />
               <Text style={styles.acceptButtonText}>
                 {autoAcceptTimer ? `Aceitar (${autoAcceptTimer}s)` : 'Aceitar'}
               </Text>
@@ -376,15 +374,15 @@ export function OptimizationAlert({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   alertBanner: {
     position: 'absolute',
     top: 50,
     left: 16,
     right: 16,
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.white,
     borderRadius: 12,
-    shadowColor: colors.black,
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -403,7 +401,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.primaryBg,
+    backgroundColor: theme.colors.primaryBg,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -414,11 +412,11 @@ const styles = StyleSheet.create({
   alertTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.gray900,
+    color: theme.colors.gray900,
   },
   alertSubtitle: {
     fontSize: 14,
-    color: colors.success,
+    color: theme.colors.success,
     fontWeight: '600',
   },
   closeButton: {
@@ -426,7 +424,7 @@ const styles = StyleSheet.create({
   },
   reasonText: {
     fontSize: 13,
-    color: colors.gray500,
+    color: theme.colors.gray500,
     marginBottom: 12,
     paddingLeft: 52,
   },
@@ -438,13 +436,13 @@ const styles = StyleSheet.create({
   },
   confidenceLabel: {
     fontSize: 12,
-    color: colors.gray500,
+    color: theme.colors.gray500,
     marginRight: 8,
   },
   confidenceBar: {
     flex: 1,
     height: 6,
-    backgroundColor: colors.gray200,
+    backgroundColor: theme.colors.gray200,
     borderRadius: 3,
     overflow: 'hidden',
   },
@@ -471,12 +469,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   rejectButton: {
-    backgroundColor: colors.errorBg,
+    backgroundColor: theme.colors.errorBg,
     borderWidth: 1,
-    borderColor: colors.error,
+    borderColor: theme.colors.error,
   },
   rejectButtonText: {
-    color: colors.error,
+    color: theme.colors.error,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -488,35 +486,35 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: colors.gray100,
+    backgroundColor: theme.colors.gray100,
   },
   detailsButtonText: {
-    color: defaultTheme.colors.primary,
+    color: theme.colors.primary,
     fontSize: 14,
     fontWeight: '600',
   },
   acceptButton: {
-    backgroundColor: colors.success,
+    backgroundColor: theme.colors.success,
   },
   acceptButtonText: {
-    color: colors.white,
+    color: theme.colors.white,
     fontSize: 14,
     fontWeight: '600',
     // Brand guideline: text shadow for white text on colored background
-    textShadowColor: withOpacity(colors.black, 0.25),
+    textShadowColor: withOpacity(theme.colors.black, 0.25),
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: withOpacity(colors.black, 0.5),
+    backgroundColor: withOpacity(theme.colors.black, 0.5),
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
     width: SCREEN_WIDTH - 32,
     maxHeight: '80%',
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.white,
     borderRadius: 16,
   },
   modalHeader: {
@@ -525,12 +523,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray200,
+    borderBottomColor: theme.colors.gray200,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.gray900,
+    color: theme.colors.gray900,
   },
   modalCloseButton: {
     padding: 4,
@@ -550,11 +548,11 @@ const styles = StyleSheet.create({
   detailTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.gray700,
+    color: theme.colors.gray700,
   },
   detailValue: {
     fontSize: 14,
-    color: colors.gray900,
+    color: theme.colors.gray900,
     lineHeight: 20,
   },
   orderComparison: {
@@ -568,7 +566,7 @@ const styles = StyleSheet.create({
   orderColumnTitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.gray500,
+    color: theme.colors.gray500,
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -580,38 +578,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 6,
     paddingHorizontal: 8,
-    backgroundColor: colors.gray50,
+    backgroundColor: theme.colors.gray50,
     borderRadius: 6,
     marginBottom: 4,
   },
   stopItemMoved: {
-    backgroundColor: colors.warningBg,
+    backgroundColor: theme.colors.warningBg,
   },
   stopNumber: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: colors.gray200,
+    backgroundColor: theme.colors.gray200,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
     fontSize: 12,
     fontWeight: '600',
-    color: colors.gray700,
+    color: theme.colors.gray700,
     textAlign: 'center',
     lineHeight: 24,
   },
   stopNumberMoved: {
-    backgroundColor: colors.warning,
-    color: colors.white,
+    backgroundColor: theme.colors.warning,
+    color: theme.colors.white,
   },
   stopAddress: {
     flex: 1,
     fontSize: 11,
-    color: colors.gray500,
+    color: theme.colors.gray500,
   },
   stopAddressMoved: {
-    color: colors.secondaryDark,
+    color: theme.colors.secondaryDark,
     fontWeight: '500',
   },
   modalActions: {
@@ -626,20 +624,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalRejectButton: {
-    backgroundColor: colors.gray100,
+    backgroundColor: theme.colors.gray100,
   },
   modalRejectButtonText: {
-    color: colors.gray500,
+    color: theme.colors.gray500,
     fontSize: 14,
     fontWeight: '600',
   },
   modalAcceptButton: {
-    backgroundColor: colors.success,
+    backgroundColor: theme.colors.success,
   },
   modalAcceptButtonText: {
-    color: colors.white,
+    color: theme.colors.white,
     fontSize: 14,
     fontWeight: '600',
   },
-});
+}));
 

@@ -125,7 +125,7 @@ export default function ConfiguracoesScreen() {
       setCompactModeEnabled(value);
       await setDensityPreference(value ? 'compact' : 'regular');
     } catch (error) {
-      console.error('Erro ao salvar preferˆncia de densidade:', error);
+      console.error('Erro ao salvar preferência de densidade:', error);
     }
   }
 
@@ -134,7 +134,7 @@ export default function ConfiguracoesScreen() {
       setHighContrastEnabled(value);
       await setContrastPreference(value ? 'high' : 'normal');
     } catch (error) {
-      console.error('Erro ao salvar preferˆncia de contraste:', error);
+      console.error('Erro ao salvar preferência de contraste:', error);
     }
   }
 
@@ -248,8 +248,8 @@ export default function ConfiguracoesScreen() {
           </View>
         </MobileCard>
 
-        {/* Aparˆncia */}
-        <MobileCard title="Aparˆncia">
+        {/* Aparência */}
+        <MobileCard title="Aparência">
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
               <Text style={styles.settingLabel}>Tema escuro</Text>

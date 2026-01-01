@@ -108,7 +108,7 @@ export default function GestaoRotas() {
       label: 'Data',
       width: 120,
       sortable: true,
-      render: (rota) => <Text>{formatDateBR(rota.data)}</Text>,
+      render: (rota) => <Text style={styles.tableCellText}>{formatDateBR(rota.data)}</Text>,
     },
     {
       key: 'motorista',
@@ -116,14 +116,14 @@ export default function GestaoRotas() {
       width: 220,
       noWrap: true,
       sortable: true,
-      render: (rota) => <Text>{rota.motorista_nome || 'Sem motorista'}</Text>,
+      render: (rota) => <Text style={styles.tableCellText}>{rota.motorista_nome || 'Sem motorista'}</Text>,
     },
     {
       key: 'paradas',
       label: 'Paradas',
       width: 120,
       align: 'center',
-      render: (rota) => <Text>{`${rota.paradas_concluidas}/${rota.paradas_count}`}</Text>,
+      render: (rota) => <Text style={styles.tableCellText}>{`${rota.paradas_concluidas}/${rota.paradas_count}`}</Text>,
     },
     {
       key: 'distancia',
@@ -131,21 +131,21 @@ export default function GestaoRotas() {
       width: 120,
       align: 'right',
       desktopOnly: true,
-      render: (rota) => <Text>{rota.distancia_total ? `${rota.distancia_total.toFixed(1)} km` : '-'}</Text>,
+      render: (rota) => <Text style={styles.tableCellText}>{rota.distancia_total ? `${rota.distancia_total.toFixed(1)} km` : '-'}</Text>,
     },
     {
       key: 'iniciada_em',
       label: 'Iniciada',
       width: 140,
       desktopOnly: true,
-      render: (rota) => <Text>{formatDateTimeBR(rota.iniciada_em)}</Text>,
+      render: (rota) => <Text style={styles.tableCellText}>{formatDateTimeBR(rota.iniciada_em)}</Text>,
     },
     {
       key: 'concluida_em',
       label: 'Concluída',
       width: 140,
       desktopOnly: true,
-      render: (rota) => <Text>{formatDateTimeBR(rota.concluida_em)}</Text>,
+      render: (rota) => <Text style={styles.tableCellText}>{formatDateTimeBR(rota.concluida_em)}</Text>,
     },
     {
       key: 'status',
@@ -625,7 +625,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   tableCellText: {
     fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
+    color: theme.colors.gray900,
   },
   mobileActionsRow: {
     flexDirection: 'row',

@@ -29,7 +29,7 @@
 
 ---
 
-## [Unreleased]
+## [2.1.0] - 2025-12-31
 
 ### Added
 - **Feature Sub-Exports**: `@/design-system/motorista`, `@/design-system/gestor`, `@/design-system/map`
@@ -37,13 +37,12 @@
 - **Gestor Sub-Export**: 8 componentes (GestorSidebar, RouteFilters, ResponsiveGrid, etc.)
 - **Map Sub-Export**: 7 componentes (MapaAdapter, MapaMobile, MotoristaMarker, etc.)
 - **Platform Variants Docs**: Documentação de padrão `.web.tsx` em `design-system-platform-variations.md`
+- **E2E testIDs**: Adicionados testIDs para estados vazios em telas do motorista
 
 ### Changed
 - **Hex Allowlist**: `app/design-system.tsx` adicionado à allowlist (showcase page)
 - **@types/react**: Atualizado para 19.2.7
-
-### Deprecated
--
+- **Coverage Matrix**: 100% completa - `app/index.tsx` validado
 
 ### Removed
 - **FigmaLink**: Componente removido temporariamente do showcase (não utilizado)
@@ -51,7 +50,28 @@
 
 ### Fixed
 - **ESLint**: Corrigidos 8 erros e 3 warnings (unused imports, import order)
-- **SpacingPreview**: Parâmetro `size` agora utilizado no label 
+- **SpacingPreview**: Parâmetro `size` agora utilizado no label
+- **E2E Tests**: Corrigidos testes flaky com retries e timeouts ajustados
+
+### Documentation
+- **ADRs Completos**: Todos os 20 ADRs documentados em `design-system-decisions.md`
+- **UI Inconsistencies**: Todos os 16 itens resolvidos ou com ADR em `design-system-inconsistencies.md`
+- **Audit Atualizado**: Métricas e status atualizados para 2025-12-31
+
+---
+
+## [Unreleased]
+
+### Added
+-
+
+### Changed
+-
+
+### Fixed
+-
+
+---
 
 ## Template
 Version: x.y.z

@@ -9,6 +9,7 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
+import { MobileEmptyState } from '@/components/mobile/MobileEmptyState';
 import { ParadaCard, Parada } from '@/components/motorista/ParadaCard';
 import { ParadaCardSkeletonList } from '@/components/motorista/ParadaCardSkeleton';
 import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
@@ -290,6 +291,21 @@ export default function CheckpointsMotorista() {
   );
 
   const showEmptyState = !loading && (routeStatus === 'no-route' || paradas.length === 0);
+
+  // Early return para empty state (evita renderizar dentro do GestureHandlerRootView)
+  if (showEmptyState) {
+    return (
+      <View testID="motorista-checkpoints-empty" style={{ flex: 1, backgroundColor: theme.colors.gray50 }}>
+        <MobileEmptyState
+          icon="📋"
+          title="Nenhuma rota ativa no momento"
+          subtitle="Aguarde o gestor atribuir uma nova rota"
+          fullScreen
+        />
+      </View>
+    );
+  }
+
   let content: ReactNode = null;
 
   if (loading) {
@@ -323,16 +339,6 @@ export default function CheckpointsMotorista() {
           <View style={styles.listContainer}>
             <ParadaCardSkeletonList count={3} />
           </View>
-        </View>
-    );
-  } else if (showEmptyState) {
-    content = (
-      <View style={styles.emptyContainer} testID="motorista-checkpoints-empty">
-          <Text style={styles.emptyTitle}>📋</Text>
-          <Text style={styles.emptyText}>Nenhuma rota ativa no momento</Text>
-          <Text style={styles.emptySubtext}>
-            Aguarde o gestor atribuir uma nova rota
-          </Text>
         </View>
     );
   } else {
@@ -453,29 +459,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginTop: theme.spacing.lg,
     fontSize: theme.typography.sm,
     color: theme.colors.gray500,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.colors.gray50,
-    padding: theme.spacing.xl,
-  },
-  emptyTitle: {
-    fontSize: 64,
-    marginBottom: theme.spacing.lg,
-  },
-  emptyText: {
-    fontSize: theme.typography.lg,
-    fontWeight: '600',
-    color: theme.colors.gray900,
-    marginBottom: theme.spacing.xs,
-    textAlign: 'center',
-  },
-  emptySubtext: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
-    textAlign: 'center',
   },
   header: {
     backgroundColor: theme.colors.white,

@@ -3,7 +3,7 @@ import {
   Image,
   View,
   ActivityIndicator,
-  StyleSheet,
+  StyleSheet as RNStyleSheet,
   ImageProps,
   Animated,
   Platform,
@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 
 import PerformanceOptimizer from '@/services/performanceOptimizer';
-import { defaultTheme } from '@/utils/styles.base';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // Conditional import for expo-blur (only used on iOS)
 let BlurView: React.ComponentType<{ intensity: number; style: any }> | null = null;
@@ -41,7 +41,6 @@ interface OptimizedImageProps extends Omit<ImageProps, 'source'> {
 }
 
 const CACHE_DIR = Platform.OS !== 'web' && FileSystem ? `${FileSystem.cacheDirectory}images/` : '';
-const baseColors = defaultTheme.colors;
 
 export function OptimizedImage({
   source,
@@ -58,6 +57,7 @@ export function OptimizedImage({
   style,
   ...props
 }: OptimizedImageProps) {
+  const { theme } = useUnistyles();
   const [isLoading, setIsLoading] = useState(true);
   const [imageSource, setImageSource] = useState<{ uri: string } | number>(
     placeholder || source
@@ -254,7 +254,7 @@ export function OptimizedImage({
 
   // Calculate optimized dimensions
   const getOptimizedStyle = () => {
-    const baseStyle = StyleSheet.flatten(style);
+    const baseStyle = RNStyleSheet.flatten(style);
 
     if (width && height) {
       return {
@@ -282,20 +282,20 @@ export function OptimizedImage({
   return (
     <View style={[styles.container, getOptimizedStyle()]}>
       {isLoading && placeholder && (
-        <View style={StyleSheet.absoluteFillObject}>
+        <View style={RNStyleSheet.absoluteFillObject}>
           <Image
             source={placeholder}
-            style={[StyleSheet.absoluteFillObject, getOptimizedStyle()]}
+            style={[RNStyleSheet.absoluteFillObject, getOptimizedStyle()]}
             blurRadius={blurRadius}
             {...props}
           />
           {Platform.OS === 'ios' && BlurView && (
-            <BlurView intensity={80} style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={80} style={RNStyleSheet.absoluteFillObject} />
           )}
           <ActivityIndicator
             style={styles.loader}
             size="small"
-            color={baseColors.gray500}
+            color={theme.colors.gray500}
           />
         </View>
       )}
@@ -303,7 +303,7 @@ export function OptimizedImage({
       <Animated.Image
         source={imageSource}
         style={[
-          StyleSheet.absoluteFillObject,
+          RNStyleSheet.absoluteFillObject,
           getOptimizedStyle(),
           { opacity: fadeAnim },
         ]}
@@ -314,10 +314,10 @@ export function OptimizedImage({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     overflow: 'hidden',
-    backgroundColor: baseColors.gray100,
+    backgroundColor: theme.colors.gray100,
   },
   loader: {
     position: 'absolute',
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: baseColors.gray100,
+    backgroundColor: theme.colors.gray100,
   },
   errorIconContainer: {
     justifyContent: 'center',
@@ -340,4 +340,4 @@ const styles = StyleSheet.create({
     fontSize: 40,
     opacity: 0.5,
   },
-});
+}));

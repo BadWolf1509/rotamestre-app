@@ -4,14 +4,13 @@ import {
   Animated,
   Dimensions,
   PanResponder,
-  StyleSheet,
   TouchableOpacity,
   View,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { withOpacity } from '@/utils/color';
-import { defaultTheme } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -21,7 +20,6 @@ const PIP_HEIGHT = 180;
 const EXPANDED_WIDTH = SCREEN_WIDTH * 0.9;
 const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.4;
 const EDGE_PADDING = 16;
-const colors = defaultTheme.colors;
 
 interface PictureInPictureMapProps {
   visible: boolean;
@@ -38,6 +36,7 @@ export function PictureInPictureMap({
   onClose,
   onExpand,
 }: PictureInPictureMapProps) {
+  const { theme } = useUnistyles();
   // Animation values
   const pan = useRef(new Animated.ValueXY({
     x: SCREEN_WIDTH - PIP_WIDTH - EDGE_PADDING,
@@ -216,7 +215,7 @@ export function PictureInPictureMap({
             title={destination.address}
           >
             <View style={styles.destinationMarker}>
-              <Ionicons name="location" size={20} color={colors.error} />
+              <Ionicons name="location" size={20} color={theme.colors.error} />
             </View>
           </Marker>
         )}
@@ -236,7 +235,7 @@ export function PictureInPictureMap({
           <Ionicons
             name={isExpanded ? 'contract' : 'expand'}
             size={16}
-            color={colors.white}
+            color={theme.colors.white}
           />
         </TouchableOpacity>
 
@@ -247,7 +246,7 @@ export function PictureInPictureMap({
             onPress={onExpand}
             activeOpacity={0.8}
           >
-            <Ionicons name="navigate" size={16} color={colors.white} />
+            <Ionicons name="navigate" size={16} color={theme.colors.white} />
           </TouchableOpacity>
         )}
 
@@ -257,7 +256,7 @@ export function PictureInPictureMap({
           onPress={onClose}
           activeOpacity={0.8}
         >
-          <Ionicons name="close" size={16} color={colors.white} />
+          <Ionicons name="close" size={16} color={theme.colors.white} />
         </TouchableOpacity>
       </View>
 
@@ -271,13 +270,13 @@ export function PictureInPictureMap({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     position: 'absolute',
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.white,
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: colors.black,
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -298,18 +297,18 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: withOpacity(colors.black, 0.6),
+    backgroundColor: withOpacity(theme.colors.black, 0.6),
     justifyContent: 'center',
     alignItems: 'center',
   },
   collapseButton: {
-    backgroundColor: withOpacity(colors.primary, 0.9),
+    backgroundColor: withOpacity(theme.colors.primary, 0.9),
   },
   navigateButton: {
-    backgroundColor: withOpacity(colors.success, 0.9),
+    backgroundColor: withOpacity(theme.colors.success, 0.9),
   },
   closeButton: {
-    backgroundColor: withOpacity(colors.error, 0.9),
+    backgroundColor: withOpacity(theme.colors.error, 0.9),
   },
   dragIndicator: {
     position: 'absolute',
@@ -322,16 +321,16 @@ const styles = StyleSheet.create({
     width: 30,
     height: 3,
     borderRadius: 2,
-    backgroundColor: withOpacity(colors.black, 0.3),
+    backgroundColor: withOpacity(theme.colors.black, 0.3),
   },
   destinationMarker: {
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.white,
     borderRadius: 15,
     padding: 4,
-    shadowColor: colors.black,
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 3,
   },
-});
+}));

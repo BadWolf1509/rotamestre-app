@@ -1,10 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 
-import { defaultTheme, useUnistyles } from '@/utils/styles';
-
-const colors = defaultTheme.colors;
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface MiniMapProps {
   paradas: any[];
@@ -86,7 +84,7 @@ export function MiniMap({
                 }}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Ionicons name="chevron-down" size={18} color={colors.gray400} />
+                <Ionicons name="chevron-down" size={18} color={theme.colors.gray400} />
               </TouchableOpacity>
             </View>
           ) : (
@@ -105,7 +103,7 @@ export function MiniMap({
                     onToggleExpand?.();
                   }}
                 >
-                  <Ionicons name="chevron-up" size={18} color={colors.gray400} />
+                  <Ionicons name="chevron-up" size={18} color={theme.colors.gray400} />
                 </TouchableOpacity>
               </View>
 
@@ -116,7 +114,7 @@ export function MiniMap({
                     <View key={parada.id} style={styles.stopItem}>
                       <View style={[
                         styles.stopMarker,
-                        index === 0 && { backgroundColor: colors.warning }
+                        index === 0 && { backgroundColor: theme.colors.warning }
                       ]}>
                         <Text style={styles.stopNumber}>{parada.ordem}</Text>
                       </View>
@@ -140,7 +138,7 @@ export function MiniMap({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     marginHorizontal: 16,
     marginTop: 0,
@@ -150,12 +148,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: colors.gray200,
-    backgroundColor: colors.white,
+    borderColor: theme.colors.gray200,
+    backgroundColor: theme.colors.white,
   },
   mapPlaceholder: {
     width: '100%',
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.white,
   },
   // Layout compacto (56px)
   compactRow: {
@@ -169,7 +167,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '500',
-    color: colors.gray700,
+    color: theme.colors.gray700,
   },
   expandChevron: {
     padding: 4,
@@ -190,11 +188,11 @@ const styles = StyleSheet.create({
   routeTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.gray900,
+    color: theme.colors.gray900,
   },
   routeSubtitle: {
     fontSize: 11,
-    color: colors.gray500,
+    color: theme.colors.gray500,
     marginTop: 1,
   },
   collapseButton: {
@@ -204,7 +202,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: colors.gray100,
+    borderTopColor: theme.colors.gray100,
   },
   stopItem: {
     flexDirection: 'row',
@@ -215,29 +213,29 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: colors.gray500,
+    backgroundColor: theme.colors.gray500,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
   },
   stopNumber: {
-    color: colors.white,
+    color: theme.colors.white,
     fontSize: 10,
     fontWeight: '700',
   },
   stopAddress: {
     flex: 1,
     fontSize: 12,
-    color: colors.gray700,
+    color: theme.colors.gray700,
   },
   moreStops: {
     fontSize: 11,
-    color: colors.gray500,
+    color: theme.colors.gray500,
     fontStyle: 'italic',
     marginTop: 2,
     marginLeft: 28,
   },
-});
+}));
 
 
 

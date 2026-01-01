@@ -22,8 +22,26 @@ Garantir que todos os componentes e telas atendam requisitos basicos de acessibi
 4) Registrar gaps e correcoes no PR.
 
 ## Pendencias conhecidas
-- Revisar foco visivel em componentes customizados.
-- Validar targets de toque em cards clicaveis.
+✅ Todas as pendencias P0-P2 resolvidas (2025-12-31).
+
+## Implementacoes de Acessibilidade
+
+### Touch Targets (via `platformOverrides`)
+Configurado em `src/design-system/tokens/platform.ts`:
+- **iOS**: 44px minimo (HIG compliance)
+- **Android**: 48px minimo (Material Design)
+- **Web**: Mouse-based, sem restricao
+
+### Focus Ring (Web)
+Configurado em `src/design-system/tokens/platform.ts`:
+- **Cor**: `primary` com 25% opacidade
+- **Largura**: 2px
+- Aplicado em `Input.tsx` e outros componentes interativos
+
+### Componentes com Focus Visivel
+- `Input.tsx` - usa `platformOverrides.web.focusRing`
+- `MapaWeb.tsx` - outline de 2px solid
+- `Button.tsx` - estados de pressed/focus
 
 ## Melhorias Implementadas (2025-12-30)
 

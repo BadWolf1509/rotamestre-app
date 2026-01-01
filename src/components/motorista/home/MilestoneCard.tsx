@@ -5,11 +5,11 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, Text, View } from 'react-native';
 
 import { MilestoneData } from '@/hooks/useMilestones';
 import { getMilestoneMessage } from '@/utils/motivationalMessages';
-import { defaultTheme, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface MilestoneCardProps {
   data: MilestoneData;
@@ -141,15 +141,13 @@ export function MilestoneCard({ data, compact = false }: MilestoneCardProps) {
   );
 }
 
-const colors = defaultTheme.colors;
-
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.white,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: colors.black,
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -165,7 +163,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 13,
-    color: colors.gray500,
+    color: theme.colors.gray500,
   },
   header: {
     flexDirection: 'row',
@@ -186,11 +184,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.gray900,
+    color: theme.colors.gray900,
   },
   subtitle: {
     fontSize: 12,
-    color: colors.gray600,
+    color: theme.colors.gray600,
     marginTop: 2,
   },
   badge: {
@@ -210,7 +208,7 @@ const styles = StyleSheet.create({
   progressBar: {
     flex: 1,
     height: 8,
-    backgroundColor: colors.gray200,
+    backgroundColor: theme.colors.gray200,
     borderRadius: 4,
     overflow: 'hidden',
   },
@@ -221,7 +219,7 @@ const styles = StyleSheet.create({
   progressText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.gray700,
+    color: theme.colors.gray700,
     minWidth: 50,
     textAlign: 'right',
   },
@@ -232,7 +230,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: colors.gray100,
+    borderTopColor: theme.colors.gray100,
   },
   incentiveContainerCompact: {
     marginTop: 8,
@@ -240,7 +238,7 @@ const styles = StyleSheet.create({
   },
   incentiveText: {
     fontSize: 12,
-    color: colors.gray600,
+    color: theme.colors.gray600,
     fontStyle: 'italic',
   },
   statsRow: {
@@ -249,7 +247,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: colors.gray100,
+    borderTopColor: theme.colors.gray100,
   },
   statItem: {
     flexDirection: 'row',
@@ -258,6 +256,6 @@ const styles = StyleSheet.create({
   },
   statText: {
     fontSize: 12,
-    color: colors.gray600,
+    color: theme.colors.gray600,
   },
-});
+}));

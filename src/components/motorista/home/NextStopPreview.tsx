@@ -8,7 +8,6 @@ import React, { useState } from 'react';
 import {
   LayoutAnimation,
   Platform,
-  StyleSheet,
   Text,
   TouchableOpacity,
   UIManager,
@@ -16,7 +15,7 @@ import {
 } from 'react-native';
 
 import { useDistanceToStop } from '@/hooks/useDistanceToStop';
-import { defaultTheme, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // Habilitar LayoutAnimation no Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -143,16 +142,14 @@ export function NextStopPreview({
   );
 }
 
-const colors = defaultTheme.colors;
-
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
-    backgroundColor: colors.infoBg,
+    backgroundColor: theme.colors.infoBg,
     borderRadius: 10,
     padding: 12,
     marginTop: 10,
     borderWidth: 1,
-    borderColor: colors.info + '30',
+    borderColor: theme.colors.info + '30',
   },
   header: {
     flexDirection: 'row',
@@ -173,11 +170,11 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 10,
     fontWeight: '700',
-    color: colors.info,
+    color: theme.colors.info,
     letterSpacing: 0.5,
   },
   orderBadge: {
-    backgroundColor: colors.info + '20',
+    backgroundColor: theme.colors.info + '20',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
@@ -185,11 +182,11 @@ const styles = StyleSheet.create({
   orderText: {
     fontSize: 10,
     fontWeight: '600',
-    color: colors.info,
+    color: theme.colors.info,
   },
   address: {
     fontSize: 13,
-    color: colors.gray900,
+    color: theme.colors.gray900,
     fontWeight: '500',
     marginBottom: 6,
   },
@@ -200,7 +197,7 @@ const styles = StyleSheet.create({
   },
   distanceText: {
     fontSize: 12,
-    color: colors.gray600,
+    color: theme.colors.gray600,
     flex: 1,
   },
   chevron: {
@@ -210,7 +207,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: colors.info + '20',
+    borderTopColor: theme.colors.info + '20',
     gap: 8,
   },
   detailRow: {
@@ -220,16 +217,16 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 12,
-    color: colors.gray700,
+    color: theme.colors.gray700,
   },
   observationRow: {
-    backgroundColor: colors.warningBg,
+    backgroundColor: theme.colors.warningBg,
     padding: 8,
     borderRadius: 6,
   },
   observationText: {
     fontSize: 12,
-    color: colors.warningText,
+    color: theme.colors.warningText,
     flex: 1,
   },
-});
+}));

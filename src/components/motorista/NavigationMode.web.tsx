@@ -3,7 +3,6 @@ import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -11,9 +10,7 @@ import {
 
 import { abrirNavegacao } from '@/lib/navigation';
 import LocationTrackingService from '@/services/locationTracking';
-import { defaultTheme, useUnistyles } from '@/utils/styles';
-
-const colors = defaultTheme.colors;
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface NavigationModeProps {
   currentStop: any;
@@ -256,8 +253,8 @@ export function NavigationMode({
             style={[styles.actionButton, styles.completeButton]}
             onPress={onComplete}
           >
-            <Ionicons name="checkmark-circle" size={24} color={colors.white} />
-            <Text style={[styles.actionButtonText, { color: colors.white }]}>
+            <Ionicons name="checkmark-circle" size={24} color={theme.colors.white} />
+            <Text style={[styles.actionButtonText, { color: theme.colors.white }]}>
               Concluir
             </Text>
           </TouchableOpacity>
@@ -273,46 +270,46 @@ export function NavigationMode({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
-    backgroundColor: colors.black,
+    backgroundColor: theme.colors.black,
   },
   mapContainer: {
     flex: 1,
-    backgroundColor: colors.gray100,
+    backgroundColor: theme.colors.gray100,
   },
   mapPlaceholder: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.gray50,
+    backgroundColor: theme.colors.gray50,
   },
   mapPlaceholderText: {
     marginTop: 16,
     fontSize: 16,
-    color: colors.gray500,
+    color: theme.colors.gray500,
   },
   openMapButton: {
     marginTop: 24,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: defaultTheme.colors.primary,
+    backgroundColor: theme.colors.primary,
     borderRadius: 8,
   },
   openMapButtonText: {
-    color: colors.white,
+    color: theme.colors.white,
     fontSize: 16,
     fontWeight: '600',
   },
   infoContainer: {
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
     paddingBottom: 30,
     elevation: 10,
-    shadowColor: colors.black,
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
@@ -323,7 +320,7 @@ const styles = StyleSheet.create({
   nextStopInfo: {
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: colors.gray200,
+    borderTopColor: theme.colors.gray200,
   },
   stopHeader: {
     flexDirection: 'row',
@@ -333,7 +330,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.infoBg,
+    backgroundColor: theme.colors.infoBg,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -343,7 +340,7 @@ const styles = StyleSheet.create({
   },
   stopLabel: {
     fontSize: 12,
-    color: colors.gray500,
+    color: theme.colors.gray500,
     marginBottom: 4,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -351,12 +348,12 @@ const styles = StyleSheet.create({
   stopAddress: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.gray900,
+    color: theme.colors.gray900,
     marginBottom: 4,
   },
   distanceText: {
     fontSize: 14,
-    color: defaultTheme.colors.primary,
+    color: theme.colors.primary,
     fontWeight: '500',
   },
   actionButtons: {
@@ -374,12 +371,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   skipButton: {
-    backgroundColor: colors.warningBg,
+    backgroundColor: theme.colors.warningBg,
     borderWidth: 1,
-    borderColor: colors.secondaryLight,
+    borderColor: theme.colors.secondaryLight,
   },
   completeButton: {
-    backgroundColor: colors.success,
+    backgroundColor: theme.colors.success,
   },
   actionButtonText: {
     fontSize: 16,
@@ -395,7 +392,7 @@ const styles = StyleSheet.create({
   },
   exitButtonText: {
     fontSize: 14,
-    color: colors.gray500,
+    color: theme.colors.gray500,
   },
-});
+}));
 

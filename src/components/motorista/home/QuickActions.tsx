@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -11,7 +10,7 @@ import {
 
 import { RouteStatus } from '@/context/RouteStatusContext';
 import { lightHaptic, mediumHaptic, heavyHaptic } from '@/utils/haptics';
-import { defaultTheme, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface QuickActionsProps {
   state: RouteStatus;
@@ -24,7 +23,6 @@ interface QuickActionsProps {
   style?: StyleProp<ViewStyle>;
 }
 
-const colors = defaultTheme.colors;
 
 interface ActionConfig {
   icon: string;
@@ -127,7 +125,7 @@ export function QuickActions({
             <Ionicons
               name={action.icon as any}
               size={24}
-              color={action.color || colors.primary}
+              color={action.color || theme.colors.primary}
             />
           </View>
           <Text style={[
@@ -232,7 +230,7 @@ export function BottomActionsBar({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     width: '100%',
     flexDirection: 'row',
@@ -242,9 +240,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.gray200,
-    backgroundColor: colors.white,
-    shadowColor: colors.black,
+    borderColor: theme.colors.gray200,
+    backgroundColor: theme.colors.white,
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -262,7 +260,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: `${colors.primary}10`,
+    backgroundColor: `${theme.colors.primary}10`,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 4,
@@ -270,12 +268,12 @@ const styles = StyleSheet.create({
   actionLabel: {
     fontSize: 12,
     fontWeight: '500',
-    color: colors.gray700,
+    color: theme.colors.gray700,
     textAlign: 'center',
   },
-});
+}));
 
-const fabStyles = StyleSheet.create({
+const fabStyles = StyleSheet.create((_theme: Theme) => ({
   fab: {
     position: 'absolute',
     // bottom é definido dinamicamente via prop tabBarHeight
@@ -296,9 +294,9 @@ const fabStyles = StyleSheet.create({
     marginTop: 2,
     fontWeight: '600',
   },
-});
+}));
 
-const bottomBarStyles = StyleSheet.create({
+const bottomBarStyles = StyleSheet.create((_theme: Theme) => ({
   container: {
     position: 'absolute',
     bottom: 0,
@@ -308,4 +306,4 @@ const bottomBarStyles = StyleSheet.create({
     paddingTop: 8,
     backgroundColor: 'transparent',
   },
-});
+}));

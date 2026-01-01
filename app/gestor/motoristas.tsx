@@ -794,27 +794,27 @@ export default function MotoristasGestor() {
       width: 200,
       sortable: true,
       noWrap: true,
-      render: (motorista) => <Text>{motorista.nome}</Text>,
+      render: (motorista) => <Text style={styles.tableCellText}>{motorista.nome}</Text>,
     },
     {
       key: 'email',
       label: 'E-mail',
       width: 260,
       noWrap: true,
-      render: (motorista) => <Text>{motorista.email}</Text>,
+      render: (motorista) => <Text style={styles.tableCellText}>{motorista.email}</Text>,
     },
     {
       key: 'telefone',
       label: 'Telefone',
       width: 130,
-      render: (motorista) => <Text>{motorista.telefone || '-'}</Text>,
+      render: (motorista) => <Text style={styles.tableCellText}>{motorista.telefone || '-'}</Text>,
     },
     {
       key: 'created_at',
       label: 'Cadastrado em',
       width: 130,
       desktopOnly: true,
-      render: (motorista) => <Text>{new Date(motorista.created_at).toLocaleDateString('pt-BR')}</Text>,
+      render: (motorista) => <Text style={styles.tableCellText}>{new Date(motorista.created_at).toLocaleDateString('pt-BR')}</Text>,
     },
     {
       key: 'ativo',
@@ -1054,6 +1054,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,
+  },
+  tableCellText: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray900,
   },
   loadingContainer: {
     flex: 1,

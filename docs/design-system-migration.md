@@ -96,29 +96,22 @@ Todas as telas listadas abaixo foram verificadas e estão usando tokens do DS:
 - `app/unidade/equipe.tsx` ✅
 - `app/unidade/transferir.tsx` ✅
 
-## Wave 6 (Remocao de Legado + Endurecimento) - PARCIAL
-Status: **Parcialmente completo** (2025-12-30)
+## Wave 6 (Remocao de Legado + Endurecimento) - COMPLETO ✅
+Status: **Completo** (2025-12-31)
 
 ### Concluído ✅
 - `src/styles/theme.ts` removido (não era mais utilizado)
 - `gestao-rotas.tsx` refatorado para usar `StatusBadge` e `FilterChip`
 - `Button.tsx` hex color corrigido → usa `theme.colors.errorDark`
+- `src/lib/design-tokens.ts` agora interno via `@/design-system/tokens`
+- ESLint endurecido para bloquear imports diretos de `@/lib/design-tokens`
+- Componentes migrados: AlertDialog, ConfirmDialog, Modal, SupportModal
+- Visual regression expandida para 8 combinacoes de tema
+- Feature sub-exports criados: `motorista.ts`, `gestor.ts`, `map.ts`
 
-### Pendente
-- `src/lib/design-tokens.ts` ainda em uso por 7 arquivos:
-  - `app/design-system.tsx` (showcase - pode manter)
-  - `app/motorista/(tabs)/_layout.tsx`
-  - `src/components/AlertDialog.tsx`
-  - `src/components/ConfirmDialog.tsx`
-  - `src/components/Modal.tsx`
-  - `src/components/SupportModal.tsx`
-  - `src/design-system/tokens/index.ts`
-
-### Próximos Passos
-- Migrar componentes restantes de `colors.*` para `theme.colors.*`
-- Endurecer lint para bloquear imports diretos de componentes base
-- Revisar e reduzir allowlists (hex/rgba/shadow) ate o minimo necessario
-- Atualizar snapshots e validar regressao visual completa
+### Allowlist Final (Minimo Necessario)
+- `src/utils/styles.base.ts` - Source of truth (esperado)
+- `app/design-system.tsx` - Showcase page (esperado)
 
 ## Backlog detalhado (por wave)
 | Wave | Item | Owner | Status | Notes |
@@ -190,10 +183,10 @@ Status: **Parcialmente completo** (2025-12-30)
 | 5b | app/perfil/trocar-senha.tsx | Frontend + Design | Done | Verificado: usa DS |
 | 5b | app/unidade/equipe.tsx | Frontend | Done | Verificado: usa DS |
 | 5b | app/unidade/transferir.tsx | Frontend | Done | Verificado: usa DS |
-| 6 | Remover temas/aliases legados | Frontend | Planned | `src/styles/theme.ts`, `src/lib/design-tokens.ts` |
+| 6 | Remover temas/aliases legados | Frontend | Done | `theme.ts` removido, `design-tokens` interno |
 | 6 | Endurecer lint para imports diretos | Frontend | Done | regra ESLint |
-| 6 | Reduzir allowlists de hex/rgba/shadow | Frontend | Planned | manter apenas base |
-| 6 | Regressao visual completa | Frontend + QA | Planned | expandir cenarios |
+| 6 | Reduzir allowlists de hex/rgba/shadow | Frontend | Done | apenas base + showcase |
+| 6 | Regressao visual completa | Frontend + QA | Done | 8 combinacoes de tema |
 
 ## Ownership and Priority
 | Wave | Owner | Priority | Status | Notes |
@@ -204,7 +197,7 @@ Status: **Parcialmente completo** (2025-12-30)
 | 4 | Frontend + Design | P1 | Done | Motorista daily usage |
 | 5 | Frontend | P1 | Done | Shared UI primitives (core components) |
 | 5b | Frontend + Design | P1 | Done | Telas restantes (100% cobertura) |
-| 6 | Frontend | P1 | In Progress | Allowlist cleanup + legacy removal |
+| 6 | Frontend | P1 | Done | Allowlist cleanup + legacy removal |
 
 ## Migration Steps (per component)
 1. Replace raw hex values with tokens or semantic colors.
@@ -213,8 +206,10 @@ Status: **Parcialmente completo** (2025-12-30)
 4. Validate web hover/focus and native touch sizes.
 5. Add screenshots (before/after) in PR.
 
-## Exit Criteria
-- No new raw hex values in UI components.
-- All base components imported via `@/design-system`.
-- Visual regression baseline updated.
-- Coverage matrix 100% em Done.
+## Exit Criteria ✅ ATINGIDOS (2025-12-31)
+- ✅ No new raw hex values in UI components
+- ✅ All base components imported via `@/design-system`
+- ✅ Visual regression baseline updated (8 temas)
+- ✅ Coverage matrix 100% em Done
+- ✅ Feature sub-exports criados (motorista, gestor, map)
+- ✅ Platform variations documentadas

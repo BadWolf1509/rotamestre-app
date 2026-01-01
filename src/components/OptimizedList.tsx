@@ -5,7 +5,6 @@ import {
   Platform,
   RefreshControl,
   SectionList,
-  StyleSheet,
   Text,
   View,
   ViewToken,
@@ -13,7 +12,7 @@ import {
   FlatList,
 } from 'react-native';
 
-import { defaultTheme } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface OptimizedListProps<T> {
   data: T[];
@@ -72,6 +71,7 @@ function OptimizedListComponent<T>({
   style,
   enableOptimizations = true,
 }: OptimizedListProps<T>) {
+  const { theme } = useUnistyles();
   const listRef = useRef<any>(null);
   const viewabilityConfigRef = useRef({
     minimumViewTime: 100,
@@ -177,8 +177,8 @@ function OptimizedListComponent<T>({
     <RefreshControl
       refreshing={refreshing}
       onRefresh={onRefresh}
-      colors={[defaultTheme.colors.primary]}
-      tintColor={defaultTheme.colors.primary}
+      colors={[theme.colors.primary]}
+      tintColor={theme.colors.primary}
     />
   ) : undefined;
 
@@ -332,6 +332,7 @@ export function OptimizedSectionList<T>({
   contentContainerStyle,
   style,
 }: OptimizedSectionListProps<T>) {
+  const { theme } = useUnistyles();
   const optimizedRenderItem = useCallback<ListRenderItem<T>>(
     (info) => renderItem(info),
     [renderItem]
@@ -355,8 +356,8 @@ export function OptimizedSectionList<T>({
     <RefreshControl
       refreshing={refreshing}
       onRefresh={onRefresh}
-      colors={[defaultTheme.colors.primary]}
-      tintColor={defaultTheme.colors.primary}
+      colors={[theme.colors.primary]}
+      tintColor={theme.colors.primary}
     />
   ) : undefined;
 
@@ -385,9 +386,7 @@ export function OptimizedSectionList<T>({
   );
 }
 
-const baseColors = defaultTheme.colors;
-
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -396,20 +395,20 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: baseColors.gray500,
+    color: theme.colors.gray500,
   },
   sectionHeader: {
-    backgroundColor: baseColors.gray50,
+    backgroundColor: theme.colors.gray50,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: baseColors.gray200,
+    borderBottomColor: theme.colors.gray200,
   },
   sectionHeaderText: {
     fontSize: 14,
     fontWeight: '600',
-    color: baseColors.gray700,
+    color: theme.colors.gray700,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-});
+}));

@@ -204,16 +204,19 @@ Entregaveis:
 
 ## 14) Proximas acoes imediatas
 
-### Concluido (2025-12-30)
+### Concluido (2025-12-31)
 - ✅ Escolher fonte de verdade dos tokens (`src/utils/styles.base.ts`)
 - ✅ Definir lista minima de componentes base (28 componentes exportados)
 - ✅ Criar backlog de migracao por tela/modulo (Waves 1-6 documentadas)
 - ✅ Alinhar governanca e aprovacoes (`docs/design-system-governance.md`)
 - ✅ Criar matriz de cobertura (100% das telas migradas)
 - ✅ Criar backlog de revisao linguistica PT-BR (`src/lib/statusLabels.ts`)
-- ✅ Criar backlog de inconsistencias (`docs/design-system-inconsistencies.md` - 15 itens resolvidos)
+- ✅ Criar backlog de inconsistencias (`docs/design-system-inconsistencies.md` - 16 itens resolvidos)
+- ✅ Feature sub-exports (`motorista.ts`, `gestor.ts`, `map.ts`)
+- ✅ Platform variations documentadas (`design-system-platform-variations.md`)
+- ✅ Acessibilidade documentada (touch targets, focus rings)
 
-### Status das Waves (2025-12-30)
+### Status das Waves (2025-12-31) - COMPLETO ✅
 | Wave | Status | Observacoes |
 |------|--------|-------------|
 | 0 | ✅ Completa | Tokens base + lint + docs |
@@ -225,7 +228,10 @@ Entregaveis:
 | 5b | ✅ Completa | Telas restantes (100% cobertura) |
 | 6 | ✅ Completa | Legado removido, ESLint endurecido, design-tokens interno |
 | 6.1 | ✅ Completa | Visual regression 8 temas, ADRs documentados |
+| 6.2 | ✅ Completa | Sub-exports, platform docs, acessibilidade |
 
 ### Pendente
-- ~~Wave 6 final: Remover `src/lib/design-tokens.ts`~~ ✅ Concluído (agora interno via @/design-system)
-- P3: Padronizar tipografia de DataTable entre telas (ADR documentado)
+✅ **Nenhuma pendencia P0-P2.**
+
+Melhorias incrementais (P3):
+- Padronizar tipografia de DataTable entre telas (ADR documentado)

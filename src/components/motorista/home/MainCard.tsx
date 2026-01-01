@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, Animated, ActivityIndicator } from 'react-native';
+import { Text, TouchableOpacity, View, Animated, ActivityIndicator } from 'react-native';
 
 import { StreetViewPreview } from '@/components/StreetViewPreview';
 import { SwipeableRow } from '@/components/SwipeableRow';
@@ -17,7 +17,7 @@ import {
   getMilestoneMessage,
   getWorkContext,
 } from '@/utils/motivationalMessages';
-import { defaultTheme, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import { ExpirationWarning } from './ExpirationWarning';
 import { ExpiredRouteCard } from './ExpiredRouteCard';
@@ -1022,6 +1022,7 @@ export function MainCard({
       style={[
         styles.card,
         {
+          backgroundColor: theme.colors.white,
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }],
         },
@@ -1032,15 +1033,13 @@ export function MainCard({
   );
 }
 
-const colors = defaultTheme.colors;
-
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.white,
     borderRadius: 16, // Aumentado de 12 para 16 (tendência 2024/2025)
     marginHorizontal: 16,
     marginVertical: 16, // Unificado para 16px (8pt grid system)
-    shadowColor: colors.black,
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -1056,19 +1055,19 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   badge: {
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     paddingHorizontal: 10, // Aumentado de 8 para 10 (compensar fonte maior)
     paddingVertical: 5, // Aumentado de 4 para 5 (compensar fonte maior)
     borderRadius: 6, // Aumentado de 4 para 6 (mais moderno)
   },
   badgeText: {
-    color: colors.white,
+    color: theme.colors.white,
     fontSize: 12, // Aumentado de 11 para 12 (WCAG mínimo legível)
     fontWeight: '700',
     letterSpacing: 0.5,
   },
   badgeTextDark: {
-    color: colors.warningText, // alto contraste em fundo warning
+    color: theme.colors.warningText, // alto contraste em fundo warning
   },
   timer: {
     flexDirection: 'row',
@@ -1077,7 +1076,7 @@ const styles = StyleSheet.create({
   },
   timerText: {
     fontSize: 12,
-    color: colors.gray500,
+    color: theme.colors.gray500,
   },
   icon: {
     fontSize: 48,
@@ -1087,13 +1086,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.gray900,
+    color: theme.colors.gray900,
     textAlign: 'center',
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: colors.gray500,
+    color: theme.colors.gray500,
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -1107,7 +1106,7 @@ const styles = StyleSheet.create({
   empresa: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.gray900,
+    color: theme.colors.gray900,
   },
   pendingBadge: {
     paddingHorizontal: 8,
@@ -1117,12 +1116,12 @@ const styles = StyleSheet.create({
   pendingBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.white,
+    color: theme.colors.white,
   },
   addressMain: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.gray900,
+    color: theme.colors.gray900,
     marginBottom: 8,
   },
   noRouteHeader: {
@@ -1148,16 +1147,16 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: colors.gray100,
+    borderTopColor: theme.colors.gray100,
   },
   waitingText: {
     fontSize: 13,
-    color: colors.gray500,
+    color: theme.colors.gray500,
     fontStyle: 'italic',
   },
   noRouteDivider: {
     height: 1,
-    backgroundColor: colors.gray100,
+    backgroundColor: theme.colors.gray100,
     marginVertical: 12,
   },
   expirationWarningContainer: {
@@ -1171,7 +1170,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: colors.gray100,
+    borderTopColor: theme.colors.gray100,
   },
   quickLink: {
     flexDirection: 'row',
@@ -1182,7 +1181,7 @@ const styles = StyleSheet.create({
   },
   quickLinkText: {
     fontSize: 13,
-    color: colors.gray500,
+    color: theme.colors.gray500,
   },
   statsRow: {
     flexDirection: 'row',
@@ -1203,13 +1202,13 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 11,
-    color: colors.gray500,
+    color: theme.colors.gray500,
     marginTop: 2,
   },
   statValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.gray900,
+    color: theme.colors.gray900,
   },
   noStatsContainer: {
     marginTop: 8,
@@ -1218,7 +1217,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
-    backgroundColor: colors.warningBg,
+    backgroundColor: theme.colors.warningBg,
     borderRadius: 8,
     gap: 10,
   },
@@ -1228,12 +1227,12 @@ const styles = StyleSheet.create({
   tipTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.gray900,
+    color: theme.colors.gray900,
     marginBottom: 2,
   },
   tipText: {
     fontSize: 12,
-    color: colors.gray600,
+    color: theme.colors.gray600,
     lineHeight: 16,
   },
   streakBadge: {
@@ -1270,7 +1269,7 @@ const styles = StyleSheet.create({
   },
   statsDivider: {
     width: 1,
-    backgroundColor: colors.gray200,
+    backgroundColor: theme.colors.gray200,
     marginHorizontal: 12,
   },
   miniStat: {
@@ -1281,7 +1280,7 @@ const styles = StyleSheet.create({
   miniStatValue: {
     fontSize: 13,
     fontWeight: '500',
-    color: colors.gray900,
+    color: theme.colors.gray900,
   },
   distanceRow: {
     flexDirection: 'row',
@@ -1301,14 +1300,14 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: 14,
-    color: colors.gray700,
+    color: theme.colors.gray700,
   },
   // Estilos para o novo layout pending
   pendingStatsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    backgroundColor: colors.gray50,
+    backgroundColor: theme.colors.gray50,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 8,
@@ -1322,11 +1321,11 @@ const styles = StyleSheet.create({
   pendingStatValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.gray900,
+    color: theme.colors.gray900,
   },
   pendingStatLabel: {
     fontSize: 11,
-    color: colors.gray500,
+    color: theme.colors.gray500,
     fontWeight: '500',
   },
   pendingStatDivider: {
@@ -1335,24 +1334,24 @@ const styles = StyleSheet.create({
   },
   firstStopSection: {
     borderTopWidth: 1,
-    borderTopColor: colors.gray200,
+    borderTopColor: theme.colors.gray200,
     paddingTop: 12,
   },
   sectionLabel: {
     fontSize: 11, // Aumentado de 10 para 11 (melhor legibilidade)
     fontWeight: '600',
-    color: colors.gray600, // Mais escuro para melhor contraste
+    color: theme.colors.gray600, // Mais escuro para melhor contraste
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   addressText: {
     fontSize: 14,
-    color: colors.gray900,
+    color: theme.colors.gray900,
     marginBottom: 4,
   },
   distanceText: {
     fontSize: 12,
-    color: colors.gray500,
+    color: theme.colors.gray500,
   },
   contactInfo: {
     flexDirection: 'row',
@@ -1362,17 +1361,17 @@ const styles = StyleSheet.create({
   },
   contactText: {
     fontSize: 14,
-    color: colors.gray700,
+    color: theme.colors.gray700,
   },
   observationBox: {
-    backgroundColor: colors.warningBg,
+    backgroundColor: theme.colors.warningBg,
     padding: 8,
     borderRadius: 6,
     marginTop: 8,
   },
   observationText: {
     fontSize: 12,
-    color: colors.warningText,
+    color: theme.colors.warningText,
   },
   streetViewContainer: {
     marginTop: 12,
@@ -1385,7 +1384,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 8,
-    backgroundColor: colors.gray100,
+    backgroundColor: theme.colors.gray100,
     borderRadius: 6,
     marginTop: 8,
   },
@@ -1396,13 +1395,13 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: colors.gray50,
+    backgroundColor: theme.colors.gray50,
     borderRadius: 4,
     marginTop: 8,
   },
   swipeHintText: {
     fontSize: 12,
-    color: colors.gray500,
+    color: theme.colors.gray500,
     fontWeight: '500',
   },
   summaryBox: {
@@ -1415,16 +1414,16 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 12,
-    color: colors.gray500,
+    color: theme.colors.gray500,
     marginBottom: 4,
   },
   summaryValue: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.gray900,
+    color: theme.colors.gray900,
   },
   executiveSummary: {
-    backgroundColor: colors.gray50,
+    backgroundColor: theme.colors.gray50,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -1441,11 +1440,11 @@ const styles = StyleSheet.create({
   executiveValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.gray900,
+    color: theme.colors.gray900,
   },
   executiveLabel: {
     fontSize: 11,
-    color: colors.gray500,
+    color: theme.colors.gray500,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -1457,11 +1456,11 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: colors.gray100,
+    borderTopColor: theme.colors.gray100,
   },
   readyText: {
     fontSize: 13,
-    color: colors.success,
+    color: theme.colors.success,
     fontWeight: '500',
   },
   statsGrid: {
@@ -1475,13 +1474,13 @@ const styles = StyleSheet.create({
     minWidth: '45%',
     alignItems: 'center',
     padding: 12,
-    backgroundColor: colors.gray50,
+    backgroundColor: theme.colors.gray50,
     borderRadius: 8,
   },
   statNumber: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.gray900,
+    color: theme.colors.gray900,
     marginBottom: 4,
   },
   // Estilos para estado completed (celebração)
@@ -1513,7 +1512,7 @@ const styles = StyleSheet.create({
   },
   milestoneSubtitle: {
     fontSize: 12,
-    color: colors.gray600,
+    color: theme.colors.gray600,
     marginTop: 2,
   },
   completedStatsRow: {
@@ -1522,7 +1521,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
     paddingVertical: 12,
-    backgroundColor: colors.gray50,
+    backgroundColor: theme.colors.gray50,
     borderRadius: 12,
   },
   completedStatItem: {
@@ -1533,11 +1532,11 @@ const styles = StyleSheet.create({
   completedStatValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.gray900,
+    color: theme.colors.gray900,
   },
   completedStatLabel: {
     fontSize: 11,
-    color: colors.gray500,
+    color: theme.colors.gray500,
     fontWeight: '500',
   },
   completedStatDivider: {
@@ -1558,5 +1557,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-});
+}));
 

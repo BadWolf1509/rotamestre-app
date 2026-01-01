@@ -4,14 +4,13 @@ import {
   Dimensions,
   Platform,
   Pressable,
-  StyleSheet,
   useWindowDimensions,
   View,
 } from 'react-native';
 
 import { NotificationList } from '@/components/NotificationList';
 import { boxShadow } from '@/utils/color';
-import { defaultTheme } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface NotificationModalContextType {
   isOpen: boolean;
@@ -34,6 +33,7 @@ interface NotificationModalProviderProps {
 }
 
 export function NotificationModalProvider({ children }: NotificationModalProviderProps) {
+  const { theme } = useUnistyles();
   const [isOpen, setIsOpen] = useState(false);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const screenHeight = Dimensions.get('screen').height;
@@ -92,7 +92,7 @@ export function NotificationModalProvider({ children }: NotificationModalProvide
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   absoluteOverlay: {
     position: 'absolute',
     top: 0,
@@ -103,19 +103,19 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: defaultTheme.colors.overlay,
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
     maxWidth: 600,
     minHeight: 300,
-    backgroundColor: defaultTheme.colors.white,
+    backgroundColor: theme.colors.white,
     borderRadius: 16,
     overflow: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor: defaultTheme.colors.black,
+        shadowColor: theme.colors.black,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -124,8 +124,8 @@ const styles = StyleSheet.create({
         elevation: 10,
       },
       web: {
-        boxShadow: boxShadow(0, 4, 20, 0, defaultTheme.colors.black, 0.15),
+        boxShadow: boxShadow(0, 4, 20, 0, theme.colors.black, 0.15),
       },
     }),
   },
-});
+}));

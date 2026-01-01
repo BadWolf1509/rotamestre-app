@@ -1,13 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { useRouteDirections } from '@/hooks/useRouteDirections';
 import { withOpacity } from '@/utils/color';
-import { defaultTheme } from '@/utils/styles';
-
-const colors = defaultTheme.colors;
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface Parada {
   id: string;
@@ -45,6 +43,7 @@ export function MiniMap({
   route,
   testID,
 }: MiniMapProps) {
+  const { theme } = useUnistyles();
   const height = expanded ? 300 : 150;
   const mapRef = useRef<MapView>(null);
   const [mapReady, setMapReady] = useState(false);
@@ -194,7 +193,7 @@ export function MiniMap({
               tracksViewChanges={false}
             >
               <View style={[styles.marker, styles.markerConcluida]}>
-                <Ionicons name="checkmark" size={12} color={colors.white} />
+                <Ionicons name="checkmark" size={12} color={theme.colors.white} />
               </View>
             </Marker>
           ))}
@@ -235,7 +234,7 @@ export function MiniMap({
                 <Ionicons
                   name={checkpoint.ordem === 0 ? 'location' : 'flag'}
                   size={20}
-                  color={colors.primary}
+                  color={theme.colors.primary}
                 />
               </View>
             </Marker>
@@ -244,7 +243,7 @@ export function MiniMap({
           {routeCoordinates.length > 1 && (
             <Polyline
               coordinates={routeCoordinates}
-              strokeColor={defaultTheme.colors.primary}
+              strokeColor={theme.colors.primary}
               strokeWidth={3}
             />
           )}
@@ -254,7 +253,7 @@ export function MiniMap({
           <View style={styles.infoBox}>
             {isLoadingRoute ? (
               <View style={styles.infoBoxLoading}>
-                <ActivityIndicator size="small" color={colors.white} />
+                <ActivityIndicator size="small" color={theme.colors.white} />
                 <Text style={styles.infoText}>Calculando...</Text>
               </View>
             ) : (
@@ -281,7 +280,7 @@ export function MiniMap({
               <Ionicons
                 name="copy-outline"
                 size={18}
-                color={colors.white}
+                color={theme.colors.white}
               />
             </TouchableOpacity>
 
@@ -296,7 +295,7 @@ export function MiniMap({
               <Ionicons
                 name={expanded ? 'contract' : 'expand'}
                 size={20}
-              color={colors.white}
+              color={theme.colors.white}
             />
           </TouchableOpacity>
           </View>
@@ -307,7 +306,7 @@ export function MiniMap({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     marginHorizontal: 16,
     marginVertical: 16, // Unificado para 16px (8pt grid system)
@@ -316,7 +315,7 @@ const styles = StyleSheet.create({
     borderRadius: 16, // Aumentado de 12 para 16 (consistência)
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: colors.gray200,
+    borderColor: theme.colors.gray200,
   },
   map: {
     width: '100%',
@@ -331,7 +330,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   infoBox: {
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     opacity: 0.9,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -343,7 +342,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   infoText: {
-    color: colors.white,
+    color: theme.colors.white,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -352,7 +351,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   expandButton: {
-    backgroundColor: withOpacity(colors.black, 0.5),
+    backgroundColor: withOpacity(theme.colors.black, 0.5),
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -360,7 +359,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pipButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     opacity: 0.85,
     width: 32,
     height: 32,
@@ -372,7 +371,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: withOpacity(colors.info, 0.2),
+    backgroundColor: withOpacity(theme.colors.info, 0.2),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -380,9 +379,9 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: colors.info,
+    backgroundColor: theme.colors.info,
     borderWidth: 2,
-    borderColor: colors.white,
+    borderColor: theme.colors.white,
   },
   marker: {
     width: 28,
@@ -391,19 +390,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: colors.white,
+    borderColor: theme.colors.white,
   },
   markerNext: {
-    backgroundColor: colors.warning,
+    backgroundColor: theme.colors.warning,
   },
   markerPending: {
-    backgroundColor: colors.gray500,
+    backgroundColor: theme.colors.gray500,
   },
   markerConcluida: {
-    backgroundColor: colors.success,
+    backgroundColor: theme.colors.success,
   },
   markerText: {
-    color: colors.white,
+    color: theme.colors.white,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -411,15 +410,15 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.white,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: colors.primary,
-    shadowColor: colors.black,
+    borderColor: theme.colors.primary,
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 3,
   },
-});
+}));

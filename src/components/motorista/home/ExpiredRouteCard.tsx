@@ -8,9 +8,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 
-import { defaultTheme, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface ExpiredRouteData {
   /** ID da rota expirada */
@@ -135,16 +135,14 @@ export function ExpiredRouteCard({ data, onDismiss }: ExpiredRouteCardProps) {
   );
 }
 
-const colors = defaultTheme.colors;
-
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
-    backgroundColor: colors.warningLight,
+    backgroundColor: theme.colors.warningLight,
     borderRadius: 10,
     padding: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: colors.warning,
+    borderColor: theme.colors.warning,
   },
   header: {
     flexDirection: 'row',
@@ -160,11 +158,11 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.warning,
+    color: theme.colors.warning,
   },
   message: {
     fontSize: 13,
-    color: colors.gray700,
+    color: theme.colors.gray700,
     lineHeight: 18,
     marginBottom: 10,
   },
@@ -185,7 +183,7 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: 12,
-    backgroundColor: colors.gray300,
+    backgroundColor: theme.colors.gray300,
     marginHorizontal: 10,
   },
   linkButton: {
@@ -195,11 +193,11 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 8,
     borderTopWidth: 1,
-    borderTopColor: colors.warning,
+    borderTopColor: theme.colors.warning,
   },
   linkText: {
     fontSize: 13,
-    color: colors.primary,
+    color: theme.colors.primary,
     fontWeight: '600',
   },
-});
+}));

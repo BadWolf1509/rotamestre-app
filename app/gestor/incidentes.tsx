@@ -19,6 +19,8 @@ import {
   DesktopCard,
   DesktopModal,
   DesktopPageLayout,
+  ErrorBoundary,
+  FilterChip,
   MobileCard,
   MobileEmptyState,
   MobileLoading,
@@ -364,13 +366,13 @@ export default function IncidentesScreen() {
         key: 'created_at',
         label: 'Data/Hora',
         width: 140,
-        render: (item) => <Text style={styles.tableText}>{formatDate(item.created_at)}</Text>,
+        render: (item) => <Text style={styles.tableCellText}>{formatDate(item.created_at)}</Text>,
       },
       {
         key: 'motorista_nome',
         label: 'Motorista',
         width: 220,
-        render: (item) => <Text style={styles.tableText}>{item.motorista_nome}</Text>,
+        render: (item) => <Text style={styles.tableCellText}>{item.motorista_nome}</Text>,
       },
       {
         key: 'categoria',
@@ -381,7 +383,7 @@ export default function IncidentesScreen() {
           return (
             <View style={styles.categoriaContainer}>
               <Ionicons name={cat.icon as any} size={16} color={cat.color} />
-              <Text style={[styles.tableText, { marginLeft: 6 }]}>{cat.label}</Text>
+              <Text style={[styles.tableCellText, { marginLeft: 6 }]}>{cat.label}</Text>
             </View>
           );
         },
@@ -391,7 +393,7 @@ export default function IncidentesScreen() {
         label: 'Local',
         width: 280,
         render: (item) => (
-          <Text style={styles.tableText} numberOfLines={2}>
+          <Text style={styles.tableCellText} numberOfLines={2}>
             {item.endereco}
           </Text>
         ),
@@ -430,6 +432,8 @@ export default function IncidentesScreen() {
         breadcrumbs={getGestorPageMeta('incidentes').breadcrumbs}
         userMenuTrigger={userMenuTrigger}
         userMenuItems={userMenuItems}
+        loading={loading}
+        loadingText="Carregando incidentes..."
       >
         {/* Cards de Resumo */}
         <View style={styles.resumoRow}>
@@ -482,72 +486,48 @@ export default function IncidentesScreen() {
           <View style={styles.filtrosContainer}>
             <View style={styles.filtroGroup}>
               <Text style={styles.filtroLabel}>Status:</Text>
-              <View style={styles.filtroButtons}>
+              <View style={styles.filtroChips}>
                 {(['todos', 'aberto', 'em_analise', 'resolvido', 'fechado'] as FiltroStatus[]).map((status) => (
-                  <TouchableOpacity
+                  <FilterChip
                     key={status}
-                    style={[
-                      styles.filtroButton,
-                      filtroStatus === status && styles.filtroButtonActive,
-                    ]}
+                    label={status === 'todos' ? 'Todos' : statusLabels[status].label}
+                    selected={filtroStatus === status}
                     onPress={() => setFiltroStatus(status)}
-                  >
-                    <Text
-                      style={[
-                        styles.filtroButtonText,
-                        filtroStatus === status && styles.filtroButtonTextActive,
-                      ]}
-                    >
-                      {status === 'todos' ? 'Todos' : statusLabels[status].label}
-                    </Text>
-                  </TouchableOpacity>
+                    size="compact"
+                  />
                 ))}
               </View>
             </View>
 
             <View style={styles.filtroGroup}>
               <Text style={styles.filtroLabel}>Categoria:</Text>
-              <View style={styles.filtroButtons}>
+              <View style={styles.filtroChips}>
                 {(['todos', 'accident', 'absent', 'wrong_address', 'blocked', 'vehicle', 'other'] as FiltroCategoria[]).map((cat) => (
-                  <TouchableOpacity
+                  <FilterChip
                     key={cat}
-                    style={[
-                      styles.filtroButton,
-                      filtroCategoria === cat && styles.filtroButtonActive,
-                    ]}
+                    label={cat === 'todos' ? 'Todos' : categoriaLabels[cat].label}
+                    selected={filtroCategoria === cat}
                     onPress={() => setFiltroCategoria(cat)}
-                  >
-                    <Text
-                      style={[
-                        styles.filtroButtonText,
-                        filtroCategoria === cat && styles.filtroButtonTextActive,
-                      ]}
-                    >
-                      {cat === 'todos' ? 'Todos' : categoriaLabels[cat].label}
-                    </Text>
-                  </TouchableOpacity>
+                    size="compact"
+                  />
                 ))}
               </View>
             </View>
           </View>
 
-          {loading ? (
-            <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 40 }} />
-          ) : (
-            <DataTable
-              data={incidentes}
-              columns={columns}
-              actions={actions}
-              keyExtractor={(item) => item.id}
-              emptyState={
-                <View style={{ padding: theme.spacing['2xl'], alignItems: 'center' }}>
-                  <Text style={{ fontSize: theme.typography.base, color: theme.colors.gray600 }}>
-                    Nenhum incidente encontrado
-                  </Text>
-                </View>
-              }
-            />
-          )}
+          <DataTable
+            data={incidentes}
+            columns={columns}
+            actions={actions}
+            keyExtractor={(item) => item.id}
+            emptyState={
+              <View style={{ padding: theme.spacing['2xl'], alignItems: 'center' }}>
+                <Text style={{ fontSize: theme.typography.base, color: theme.colors.gray600 }}>
+                  Nenhum incidente encontrado
+                </Text>
+              </View>
+            }
+          />
         </DesktopCard>
       </DesktopPageLayout>
     );
@@ -880,14 +860,14 @@ export default function IncidentesScreen() {
   };
 
   return (
-    <>
+    <ErrorBoundary>
       {isDesktop ? renderDesktop() : renderMobile()}
       {renderDetalhesModal()}
       {renderAlterarStatusModal()}
       {renderHistoricoMotoristaModal()}
-      <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={hideToast} />
+      <Toast visible={toast.visible} message={toast.message} type={toast.type} onDismiss={hideToast} />
       {logoutModal}
-    </>
+    </ErrorBoundary>
   );
 }
 
@@ -909,34 +889,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray700,
   },
-  filtroButtons: {
+  filtroChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: theme.spacing.sm,
   },
-  filtroButton: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.gray300,
-    backgroundColor: theme.colors.white,
-  },
-  filtroButtonActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  filtroButtonText: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray700,
-  },
-  filtroButtonTextActive: {
-    color: theme.colors.white,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
 
   // Table
-  tableText: {
+  tableCellText: {
     fontSize: theme.typography.sm,
     color: theme.colors.gray900,
   },

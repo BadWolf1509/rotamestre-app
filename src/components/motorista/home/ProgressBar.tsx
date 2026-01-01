@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, Animated } from 'react-native';
 
-import { defaultTheme, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface ProgressBarProps {
   completed: number;
@@ -169,7 +169,7 @@ export function ProgressBar({
       {/* Tempo restante estimado */}
       {timeRemaining && (
         <View style={styles.estimatedContainer}>
-          <Ionicons name="hourglass-outline" size={12} color={colors.gray500} />
+          <Ionicons name="hourglass-outline" size={12} color={theme.colors.gray500} />
           <Text style={styles.estimatedText}>{timeRemaining}</Text>
         </View>
       )}
@@ -177,17 +177,15 @@ export function ProgressBar({
   );
 }
 
-const colors = defaultTheme.colors;
-
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.white,
     marginHorizontal: 16,
     marginVertical: 16, // Unificado para 16px (8pt grid system)
     borderRadius: 16, // Aumentado de 12 para 16 (consistência)
-    shadowColor: colors.black,
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1, // Unificado com MainCard
     shadowRadius: 8, // Unificado com MainCard
@@ -207,7 +205,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.gray700,
+    color: theme.colors.gray700,
   },
   percentage: {
     fontSize: 18,
@@ -215,7 +213,7 @@ const styles = StyleSheet.create({
   },
   barContainer: {
     height: 10,
-    backgroundColor: colors.gray200,
+    backgroundColor: theme.colors.gray200,
     borderRadius: 5,
     overflow: 'visible',
     position: 'relative',
@@ -229,18 +227,18 @@ const styles = StyleSheet.create({
     top: -2,
     width: 4,
     height: 14,
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.white,
     borderRadius: 2,
     marginLeft: -2,
     borderWidth: 1,
-    borderColor: colors.gray300,
+    borderColor: theme.colors.gray300,
   },
   milestoneCompleted: {
-    backgroundColor: colors.success,
-    borderColor: colors.success,
+    backgroundColor: theme.colors.success,
+    borderColor: theme.colors.success,
   },
   milestoneCurrent: {
-    borderColor: colors.primary,
+    borderColor: theme.colors.primary,
     borderWidth: 2,
   },
   currentIndicator: {
@@ -274,7 +272,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
-    color: colors.gray600, // Mais escuro para melhor contraste (5.74:1)
+    color: theme.colors.gray600, // Mais escuro para melhor contraste (5.74:1)
     marginTop: -2,
   },
   estimatedContainer: {
@@ -285,11 +283,11 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: colors.gray100,
+    borderTopColor: theme.colors.gray100,
   },
   estimatedText: {
     fontSize: 12,
-    color: colors.gray500,
+    color: theme.colors.gray500,
     fontStyle: 'italic',
   },
-});
+}));

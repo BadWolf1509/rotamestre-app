@@ -10,9 +10,12 @@ import {
   View,
 } from 'react-native';
 
+import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
+import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
+import { UnistylesRuntime } from 'react-native-unistyles';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export default function ResetPassword() {
@@ -22,6 +25,10 @@ export default function ResetPassword() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Detectar tema escuro para usar logo apropriada
+  const isDarkMode = UnistylesRuntime.themeName?.startsWith('dark');
+  const LogoHorizontal = isDarkMode ? LogoHorizontalDark : LogoHorizontalLight;
 
   function validatePassword() {
     if (!password.trim()) {
@@ -142,7 +149,7 @@ export default function ResetPassword() {
       <View style={styles.header}>
         <View style={styles.logoHorizontal}>
           <Image
-            source={require('../../assets/logo-horizontal1.png')}
+            source={LogoHorizontal}
             style={styles.logoImage}
             resizeMode="contain"
           />
@@ -268,8 +275,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: 20,
   },
   logoImage: {
-    width: 250,
-    height: 60,
+    width: 280,
+    height: 115, // Proporção 336:138 (2.43:1) ajustada para mobile
   },
   subtitle: {
     fontFamily: theme.typography.fontSans,

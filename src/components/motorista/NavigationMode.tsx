@@ -6,7 +6,6 @@ import {
   Alert,
   Dimensions,
   Platform,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -16,13 +15,12 @@ import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { abrirNavegacao } from '@/lib/navigation';
 import LocationTrackingService from '@/services/locationTracking';
 import { withOpacity } from '@/utils/color';
-import { defaultTheme } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import { NavigationSettings } from './NavigationSettings';
 import { TurnByTurnNavigation } from './TurnByTurnNavigation';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const colors = defaultTheme.colors;
 
 interface NavigationModeProps {
   currentStop: any;
@@ -41,6 +39,7 @@ export function NavigationMode({
   onSkip,
   onExit,
 }: NavigationModeProps) {
+  const { theme } = useUnistyles();
   const [userLocation, setUserLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -311,7 +310,7 @@ export function NavigationMode({
           description={currentStop.observacoes}
         >
           <View style={styles.destinationMarker}>
-            <Ionicons name="location" size={30} color={colors.error} />
+            <Ionicons name="location" size={30} color={theme.colors.error} />
           </View>
         </Marker>
 
@@ -337,7 +336,7 @@ export function NavigationMode({
       {/* Top Bar */}
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.exitButton} onPress={handleExitNavigation}>
-          <Ionicons name="close" size={24} color={colors.white} />
+          <Ionicons name="close" size={24} color={theme.colors.white} />
         </TouchableOpacity>
 
         {isTracking && (
@@ -351,7 +350,7 @@ export function NavigationMode({
           style={styles.settingsButton}
           onPress={() => setShowSettings(true)}
         >
-          <Ionicons name="settings-outline" size={24} color={colors.white} />
+          <Ionicons name="settings-outline" size={24} color={theme.colors.white} />
         </TouchableOpacity>
       </View>
 
@@ -397,7 +396,7 @@ export function NavigationMode({
 
           {currentStop.destinatario && (
             <View style={styles.recipientInfo}>
-              <Ionicons name="person-outline" size={14} color={colors.gray500} />
+              <Ionicons name="person-outline" size={14} color={theme.colors.gray500} />
               <Text style={styles.recipientText}>{currentStop.destinatario}</Text>
             </View>
           )}
@@ -415,7 +414,7 @@ export function NavigationMode({
             style={[styles.actionButton, styles.skipButton]}
             onPress={handleSkipStop}
           >
-            <Ionicons name="arrow-forward-circle-outline" size={20} color={colors.warning} />
+            <Ionicons name="arrow-forward-circle-outline" size={20} color={theme.colors.warning} />
             <Text style={styles.skipButtonText}>Pular</Text>
           </TouchableOpacity>
 
@@ -423,7 +422,7 @@ export function NavigationMode({
             style={[styles.actionButton, styles.mapsButton]}
             onPress={handleOpenInMaps}
           >
-            <Ionicons name="navigate" size={20} color={colors.white} />
+            <Ionicons name="navigate" size={20} color={theme.colors.white} />
             <Text style={styles.mapsButtonText}>
               {internalNavEnabled ? 'Navegar' : 'Abrir no Maps'}
             </Text>
@@ -433,7 +432,7 @@ export function NavigationMode({
             style={[styles.actionButton, styles.completeButton]}
             onPress={handleCompleteStop}
           >
-            <Ionicons name="checkmark-circle" size={20} color={colors.white} />
+            <Ionicons name="checkmark-circle" size={20} color={theme.colors.white} />
             <Text style={styles.completeButtonText}>Concluir</Text>
           </TouchableOpacity>
         </View>
@@ -452,7 +451,7 @@ export function NavigationMode({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
   },
@@ -471,13 +470,13 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 50 : 30,
     paddingHorizontal: 16,
     paddingBottom: 16,
-    backgroundColor: withOpacity(colors.black, 0.5),
+    backgroundColor: withOpacity(theme.colors.black, 0.5),
   },
   exitButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: withOpacity(colors.black, 0.3),
+    backgroundColor: withOpacity(theme.colors.black, 0.3),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -485,7 +484,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: withOpacity(colors.black, 0.3),
+    backgroundColor: withOpacity(theme.colors.black, 0.3),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -493,7 +492,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: withOpacity(colors.success, 0.9),
+    backgroundColor: withOpacity(theme.colors.success, 0.9),
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -502,10 +501,10 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.white,
   },
   trackingText: {
-    color: colors.white,
+    color: theme.colors.white,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -514,13 +513,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingTop: 20,
     paddingHorizontal: 16,
     paddingBottom: Platform.OS === 'ios' ? 30 : 20,
-    shadowColor: colors.black,
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
@@ -532,7 +531,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray200,
+    borderBottomColor: theme.colors.gray200,
   },
   distanceContainer: {
     alignItems: 'center',
@@ -540,17 +539,17 @@ const styles = StyleSheet.create({
   distanceValue: {
     fontSize: 32,
     fontWeight: '700',
-    color: colors.gray900,
+    color: theme.colors.gray900,
   },
   distanceLabel: {
     fontSize: 11,
-    color: colors.gray500,
+    color: theme.colors.gray500,
     marginTop: 2,
   },
   separator: {
     width: 1,
     height: 40,
-    backgroundColor: colors.gray200,
+    backgroundColor: theme.colors.gray200,
   },
   etaContainer: {
     alignItems: 'center',
@@ -558,11 +557,11 @@ const styles = StyleSheet.create({
   etaValue: {
     fontSize: 24,
     fontWeight: '600',
-    color: colors.gray900,
+    color: theme.colors.gray900,
   },
   etaLabel: {
     fontSize: 11,
-    color: colors.gray500,
+    color: theme.colors.gray500,
     marginTop: 2,
   },
   speedContainer: {
@@ -571,17 +570,17 @@ const styles = StyleSheet.create({
   speedValue: {
     fontSize: 28,
     fontWeight: '700',
-    color: colors.gray900,
+    color: theme.colors.gray900,
   },
   speedUnit: {
     fontSize: 11,
-    color: colors.gray500,
+    color: theme.colors.gray500,
     marginTop: 2,
   },
   destinationInfo: {
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray200,
+    borderBottomColor: theme.colors.gray200,
   },
   destinationHeader: {
     flexDirection: 'row',
@@ -592,17 +591,17 @@ const styles = StyleSheet.create({
   destinationLabel: {
     fontSize: 10,
     fontWeight: '600',
-    color: colors.gray500,
+    color: theme.colors.gray500,
     letterSpacing: 0.5,
   },
   nextStopHint: {
     fontSize: 10,
-    color: colors.gray400,
+    color: theme.colors.gray400,
   },
   destinationAddress: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.gray900,
+    color: theme.colors.gray900,
     marginBottom: 8,
   },
   recipientInfo: {
@@ -613,17 +612,17 @@ const styles = StyleSheet.create({
   },
   recipientText: {
     fontSize: 14,
-    color: colors.gray500,
+    color: theme.colors.gray500,
   },
   observationBox: {
-    backgroundColor: colors.warningBg,
+    backgroundColor: theme.colors.warningBg,
     padding: 8,
     borderRadius: 6,
     marginTop: 8,
   },
   observationText: {
     fontSize: 12,
-    color: colors.secondaryDark,
+    color: theme.colors.secondaryDark,
   },
   actions: {
     flexDirection: 'row',
@@ -640,59 +639,59 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   skipButton: {
-    backgroundColor: colors.warningBg,
+    backgroundColor: theme.colors.warningBg,
   },
   skipButtonText: {
-    color: colors.warning,
+    color: theme.colors.warning,
     fontWeight: '600',
     fontSize: 14,
   },
   mapsButton: {
-    backgroundColor: defaultTheme.colors.primary,
+    backgroundColor: theme.colors.primary,
   },
   mapsButtonText: {
-    color: colors.white,
+    color: theme.colors.white,
     fontWeight: '600',
     fontSize: 14,
     // Brand guideline: text shadow for white text on colored background
-    textShadowColor: withOpacity(colors.black, 0.25),
+    textShadowColor: withOpacity(theme.colors.black, 0.25),
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   completeButton: {
-    backgroundColor: colors.success,
+    backgroundColor: theme.colors.success,
   },
   completeButtonText: {
-    color: colors.white,
+    color: theme.colors.white,
     fontWeight: '600',
     fontSize: 14,
     // Brand guideline: text shadow for white text on colored background
-    textShadowColor: withOpacity(colors.black, 0.25),
+    textShadowColor: withOpacity(theme.colors.black, 0.25),
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   destinationMarker: {
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.white,
     borderRadius: 25,
     padding: 5,
-    shadowColor: colors.black,
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 5,
   },
   otherMarker: {
-    backgroundColor: colors.gray500,
+    backgroundColor: theme.colors.gray500,
     width: 30,
     height: 30,
     borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: colors.white,
+    borderColor: theme.colors.white,
   },
   markerText: {
-    color: colors.white,
+    color: theme.colors.white,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -703,6 +702,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-});
+}));
 
 

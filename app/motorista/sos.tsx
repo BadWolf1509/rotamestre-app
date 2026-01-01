@@ -17,9 +17,7 @@ import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { withOpacity } from '@/utils/color';
 import { heavyHaptic, warningHaptic } from '@/utils/haptics';
-import { StyleSheet, defaultTheme, type Theme } from '@/utils/styles';
-
-const colors = defaultTheme.colors;
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // Contatos de emergência
 const EMERGENCY_CONTACTS = [
@@ -30,6 +28,7 @@ const EMERGENCY_CONTACTS = [
 ];
 
 export default function SOSScreen() {
+  const { theme } = useUnistyles();
   const { userData, loading: userLoading } = useUser();
   const routeStatus = useRouteStatus();
 
@@ -205,7 +204,7 @@ export default function SOSScreen() {
             activeOpacity={0.8}
           >
             {enviando ? (
-              <ActivityIndicator size="large" color={colors.white} />
+              <ActivityIndicator size="large" color={theme.colors.white} />
             ) : (
               <>
                 <Text style={styles.emergencyIcon}>🆘</Text>
@@ -224,7 +223,7 @@ export default function SOSScreen() {
           <TextInput
             style={styles.textInput}
             placeholder="Ex: Pneu furado, acidente, problema mecânico..."
-            placeholderTextColor={colors.gray500}
+            placeholderTextColor={theme.colors.gray500}
             value={descricao}
             onChangeText={setDescricao}
             multiline
@@ -238,7 +237,7 @@ export default function SOSScreen() {
           <Text style={styles.sectionTitle}>Sua localização</Text>
           {loadingLocation ? (
             <View style={styles.locationLoading}>
-              <ActivityIndicator size="small" color={colors.gray500} />
+              <ActivityIndicator size="small" color={theme.colors.gray500} />
               <Text style={styles.locationLoadingText}>Obtendo localização...</Text>
             </View>
           ) : location ? (

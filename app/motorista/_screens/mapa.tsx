@@ -2,6 +2,7 @@ import { useCallback, useState, useMemo } from 'react';
 import { View, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 
 import { MapaAdapter } from '@/components/MapaAdapter';
+import { MobileEmptyState } from '@/components/mobile/MobileEmptyState';
 import { ParadaBottomSheet } from '@/components/motorista/ParadaBottomSheet';
 import { useRouteStatus } from '@/context/RouteStatusContext';
 import { Text } from '@/design-system';
@@ -89,12 +90,13 @@ export default function MapaMotorista() {
 
   if (routeStatus === 'no-route' || paradas.length === 0) {
     return (
-      <View style={styles.emptyContainer} testID="motorista-mapa-empty">
-        <Text style={styles.emptyIcon}>🗺️</Text>
-        <Text style={styles.emptyTitle}>Nenhuma rota para visualizar</Text>
-        <Text style={styles.emptyText}>
-          Quando houver uma rota ativa, você poderá visualizar todas as paradas no mapa
-        </Text>
+      <View testID="motorista-mapa-empty" style={{ flex: 1, backgroundColor: theme.colors.gray50 }}>
+        <MobileEmptyState
+          icon="🗺️"
+          title="Nenhuma rota para visualizar"
+          subtitle="Quando houver uma rota ativa, você poderá visualizar todas as paradas no mapa"
+          fullScreen
+        />
       </View>
     );
   }
@@ -186,27 +188,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginTop: 10,
     fontSize: theme.typography.sm,
     color: theme.colors.gray500,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.xl,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: theme.spacing.md,
-  },
-  emptyTitle: {
-    fontSize: theme.typography.xl,
-    fontWeight: 'bold',
-    color: theme.colors.gray900,
-    marginBottom: theme.spacing.xs,
-  },
-  emptyText: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
-    textAlign: 'center',
   },
   header: {
     backgroundColor: theme.colors.white,

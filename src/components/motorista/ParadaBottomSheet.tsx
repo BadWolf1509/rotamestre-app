@@ -15,9 +15,7 @@ import {
 
 import { withOpacity } from '@/utils/color';
 import { showNavigationOptions } from '@/utils/navigation';
-import { StyleSheet, defaultTheme, type Theme } from '@/utils/styles';
-
-const colors = defaultTheme.colors;
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 const SHEET_HEIGHT = 320;
 
@@ -49,6 +47,7 @@ export function ParadaBottomSheet({
   onMarkComplete,
   onViewDetails,
 }: ParadaBottomSheetProps) {
+  const { theme } = useUnistyles();
   const translateY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
 
   // Animar entrada/saída
@@ -102,13 +101,13 @@ export function ParadaBottomSheet({
   const getStatusColor = (status: string): string => {
     switch (status) {
       case 'concluida':
-        return colors.success;
+        return theme.colors.success;
       case 'em_andamento':
-        return colors.info;
+        return theme.colors.info;
       case 'pendente':
-        return colors.warning;
+        return theme.colors.warning;
       default:
-        return colors.gray500;
+        return theme.colors.gray500;
     }
   };
 
@@ -192,13 +191,13 @@ export function ParadaBottomSheet({
               </View>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color={colors.gray500} />
+              <Ionicons name="close" size={24} color={theme.colors.gray500} />
             </TouchableOpacity>
           </View>
 
           {/* Endereço */}
           <View style={styles.addressContainer}>
-            <Ionicons name="location-outline" size={20} color={colors.gray500} />
+            <Ionicons name="location-outline" size={20} color={theme.colors.gray500} />
             <Text style={styles.addressText}>{parada.endereco}</Text>
           </View>
 
@@ -208,7 +207,7 @@ export function ParadaBottomSheet({
               <Ionicons
                 name={parada.tipo === 'entrega' ? 'cube-outline' : 'arrow-up-circle-outline'}
                 size={18}
-                color={colors.gray500}
+                color={theme.colors.gray500}
               />
               <Text style={styles.tipoText}>
                 {parada.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
@@ -225,8 +224,8 @@ export function ParadaBottomSheet({
                 onPress={handleNavigate}
                 activeOpacity={0.8}
               >
-                <View style={[styles.actionIcon, { backgroundColor: colors.primary }]}>
-                  <Ionicons name="navigate" size={20} color={colors.white} />
+                <View style={[styles.actionIcon, { backgroundColor: theme.colors.primary }]}>
+                  <Ionicons name="navigate" size={20} color={theme.colors.white} />
                 </View>
                 <Text style={styles.actionText}>Navegar</Text>
               </TouchableOpacity>
@@ -242,8 +241,8 @@ export function ParadaBottomSheet({
                 }}
                 activeOpacity={0.8}
               >
-                <View style={[styles.actionIcon, { backgroundColor: colors.success }]}>
-                  <Ionicons name="checkmark" size={20} color={colors.white} />
+                <View style={[styles.actionIcon, { backgroundColor: theme.colors.success }]}>
+                  <Ionicons name="checkmark" size={20} color={theme.colors.white} />
                 </View>
                 <Text style={styles.actionText}>Concluir</Text>
               </TouchableOpacity>
@@ -259,8 +258,8 @@ export function ParadaBottomSheet({
                 }}
                 activeOpacity={0.8}
               >
-                <View style={[styles.actionIcon, { backgroundColor: colors.gray500 }]}>
-                  <Ionicons name="information-circle-outline" size={20} color={colors.white} />
+                <View style={[styles.actionIcon, { backgroundColor: theme.colors.gray500 }]}>
+                  <Ionicons name="information-circle-outline" size={20} color={theme.colors.white} />
                 </View>
                 <Text style={styles.actionText}>Detalhes</Text>
               </TouchableOpacity>

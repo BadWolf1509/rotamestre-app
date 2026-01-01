@@ -1,7 +1,7 @@
 # Design System Audit
 
-Date: 2025-12-30 (Updated)
-Previous: 2025-12-29
+Date: 2025-12-31 (Updated)
+Previous: 2025-12-30
 
 ## Scope
 Project: rotamestre-app (Expo / React Native Web)
@@ -40,10 +40,10 @@ Only 2 files contain hex colors:
 - Wave 6 (partial): Allowlist cleanup, ESLint rules
 
 ### In Progress
-- Wave 6: Legacy removal (parcial - ver `design-system-migration.md`)
+- Wave 6: Legacy removal ✅ Completo
   - ✅ `src/styles/theme.ts` removido
-  - ⏳ `src/lib/design-tokens.ts` ainda em uso por 7 arquivos
-- UI inconsistencies between similar screens (see `design-system-inconsistencies.md`)
+  - ✅ `src/lib/design-tokens.ts` agora interno via `@/design-system`
+- UI inconsistencies ✅ Todos resolvidos ou com ADR (see `design-system-inconsistencies.md`)
 
 ## Known Issues
 
@@ -56,15 +56,15 @@ Only 2 files contain hex colors:
 - Refatorado para usar `StatusBadge` e `FilterChip` do design system
 - Estilos custom removidos (filtroButton*, statusBadge*)
 
-### UI Inconsistencies (Status 2025-12-30)
+### UI Inconsistencies (Status 2025-12-31) ✅ TODOS RESOLVIDOS
 1. ~~`gestao-rotas.tsx` uses custom statusBadge styles~~ ✅ Resolvido (usa StatusBadge)
 2. ~~`gestao-rotas.tsx` uses custom filter buttons~~ ✅ Resolvido (usa FilterChip)
 3. ~~Lista mobile (DataTable vs MobileCard)~~ ✅ ADR documentado
 4. ~~Modais mobile divergentes~~ ✅ ADR documentado
 5. ~~Resumo/metricas com padroes diferentes~~ ✅ ADR documentado
-6. DataTable columns tipografia (único item P1 Open)
+6. ~~DataTable columns tipografia~~ ✅ ADR documentado (P3 para migracao incremental)
 
-See `docs/design-system-inconsistencies.md` for full backlog (15 itens resolvidos, 1 Open).
+See `docs/design-system-inconsistencies.md` for full backlog (16 itens resolvidos).
 
 ## Recommendations
 
@@ -72,32 +72,31 @@ See `docs/design-system-inconsistencies.md` for full backlog (15 itens resolvido
 - [x] Fix Button.tsx hex color → `theme.colors.errorDark`
 - [x] Refactor gestao-rotas.tsx to use StatusBadge and FilterChip
 
-### Short-term (P1)
+### Short-term (P1) ✅ CONCLUÍDO
 - [x] Complete Wave 6 legacy removal (parcial - `theme.ts` removido)
-- [ ] Standardize DataTable columns across Gestor screens (tipografia)
+- [x] Standardize DataTable columns across Gestor screens ✅ (ADR documentado, P3 para migracao incremental)
 - [x] Add 5 high-use components to @/design-system exports ✅ (AddressAutocomplete, CameraUpload, etc.)
 - [x] Migrar componentes restantes de `@/lib/design-tokens` para `theme.*` ✅ (AlertDialog, ConfirmDialog, Modal, SupportModal)
 
-### Long-term (P2)
-- [ ] Create feature-level sub-exports (@/design-system/motorista, etc.)
-- [ ] Document platform-specific variants (.web.tsx pattern)
+### Long-term (P2) ✅ CONCLUÍDO
+- [x] Create feature-level sub-exports ✅ (`@/design-system/motorista`, `gestor`, `map`)
+- [x] Document platform-specific variants ✅ (`docs/design-system-platform-variations.md`)
 - [x] Visual regression expansion for all themes ✅ (8 combinações: light/dark × regular/compact × normal/high-contrast)
 
 ## Metrics
 
-| Metric | 2025-12-29 | 2025-12-30 (Wave 6.2) |
-|--------|------------|------------|
-| Coverage Matrix | ~90% Done | 100% Done |
-| Files with hex colors | 3 | 2 (source + showcase only) |
-| Components exported | ~20 | 28 (+5 utility components) |
-| UI inconsistencies | 7 Open | 0 Open (16 resolvidos ou com ADR) |
-| Release notes | Empty | v2.0.0 documented |
-| Legacy files | 2 | 0 (design-tokens agora interno) |
-| P0 tasks | 2 Open | ✅ Concluído |
-| Visual regression tests | 4 themes | 8 themes (todas combinações) |
-| ESLint restrictions | 18 paths | 25 paths (+design-tokens rule) |
-| TypeScript errors | 6 | 0 |
-| Test coverage | ~50% | 68-72% |
+| Metric | 2025-12-29 | 2025-12-30 | 2025-12-31 |
+|--------|------------|------------|------------|
+| Coverage Matrix | ~90% Done | 100% Done | 100% Done |
+| Files with hex colors | 3 | 2 | 2 (source + showcase) |
+| Components exported | ~20 | 28 | 28 + sub-exports |
+| UI inconsistencies | 7 Open | 1 Open | ✅ 0 Open |
+| Release notes | Empty | v2.0.0 | v2.1.0 |
+| Legacy files | 2 | 1 | 0 |
+| P0/P1/P2 tasks | 4 Open | 2 Open | ✅ 0 Open |
+| Visual regression | 4 themes | 8 themes | 8 themes |
+| Feature sub-exports | 0 | 0 | 3 (motorista, gestor, map) |
+| Platform docs | ❌ | ❌ | ✅ Completo |
 
 ## Historical Hotspots (Resolved)
 

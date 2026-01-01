@@ -6,7 +6,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Platform,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -15,9 +14,7 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
 import TurnByTurnNavigationService from '@/services/turnByTurnNavigation';
 import { withOpacity } from '@/utils/color';
-import { defaultTheme, useUnistyles } from '@/utils/styles';
-
-const colors = defaultTheme.colors;
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // Calculate distance between two coordinates (Haversine formula)
 // Moved outside component to avoid useEffect dependency issues
@@ -333,7 +330,7 @@ export function TurnByTurnNavigation({
           title={destination.address}
         >
           <View style={styles.destinationMarker}>
-            <Ionicons name="flag" size={24} color={colors.error} />
+            <Ionicons name="flag" size={24} color={theme.colors.error} />
           </View>
         </Marker>
       </MapView>
@@ -345,7 +342,7 @@ export function TurnByTurnNavigation({
             <Ionicons
               name={getManeuverIcon(currentInstruction?.maneuver) as any}
               size={40}
-              color={colors.white}
+              color={theme.colors.white}
             />
           </View>
 
@@ -364,7 +361,7 @@ export function TurnByTurnNavigation({
             <Ionicons
               name={getManeuverIcon(nextInstruction.maneuver) as any}
               size={16}
-              color={colors.gray400}
+              color={theme.colors.gray400}
             />
             <Text style={styles.nextInstructionText}>
               Depois: {nextInstruction.instruction}
@@ -411,12 +408,12 @@ export function TurnByTurnNavigation({
             <Ionicons
               name={voiceEnabled ? 'volume-high' : 'volume-mute'}
               size={24}
-              color={voiceEnabled ? theme.colors.primary : colors.gray400}
+              color={voiceEnabled ? theme.colors.primary : theme.colors.gray400}
             />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.exitButton} onPress={onExit}>
-            <Ionicons name="close" size={24} color={colors.white} />
+            <Ionicons name="close" size={24} color={theme.colors.white} />
             <Text style={styles.exitButtonText}>Sair</Text>
           </TouchableOpacity>
 
@@ -433,7 +430,7 @@ export function TurnByTurnNavigation({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
   },
@@ -441,11 +438,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.white,
   },
   loadingText: {
     fontSize: 16,
-    color: colors.gray500,
+    color: theme.colors.gray500,
   },
   map: {
     flex: 1,
@@ -455,9 +452,9 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: defaultTheme.colors.primary,
+    backgroundColor: theme.colors.primary,
     paddingTop: Platform.OS === 'ios' ? 50 : 30,
-    shadowColor: colors.black,
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -473,7 +470,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: withOpacity(colors.white, 0.2),
+    backgroundColor: withOpacity(theme.colors.white, 0.2),
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -484,12 +481,12 @@ const styles = StyleSheet.create({
   distanceText: {
     fontSize: 24,
     fontWeight: '700',
-    color: colors.white,
+    color: theme.colors.white,
     marginBottom: 4,
   },
   instructionMainText: {
     fontSize: 16,
-    color: colors.white,
+    color: theme.colors.white,
     opacity: 0.95,
   },
   nextInstructionBar: {
@@ -497,13 +494,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: withOpacity(colors.black, 0.1),
+    backgroundColor: withOpacity(theme.colors.black, 0.1),
     borderTopWidth: 1,
-    borderTopColor: withOpacity(colors.white, 0.1),
+    borderTopColor: withOpacity(theme.colors.white, 0.1),
   },
   nextInstructionText: {
     fontSize: 12,
-    color: colors.gray200,
+    color: theme.colors.gray200,
     marginLeft: 8,
   },
   bottomPanel: {
@@ -511,11 +508,11 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: Platform.OS === 'ios' ? 30 : 20,
-    shadowColor: colors.black,
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
@@ -523,14 +520,14 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: 4,
-    backgroundColor: colors.gray200,
+    backgroundColor: theme.colors.gray200,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: colors.success,
+    backgroundColor: theme.colors.success,
   },
   statsRow: {
     flexDirection: 'row',
@@ -545,17 +542,17 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.gray900,
+    color: theme.colors.gray900,
   },
   statLabel: {
     fontSize: 11,
-    color: colors.gray500,
+    color: theme.colors.gray500,
     marginTop: 2,
   },
   statSeparator: {
     width: 1,
     height: 30,
-    backgroundColor: colors.gray200,
+    backgroundColor: theme.colors.gray200,
   },
   controls: {
     flexDirection: 'row',
@@ -564,13 +561,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: colors.gray200,
+    borderTopColor: theme.colors.gray200,
   },
   controlButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.gray100,
+    backgroundColor: theme.colors.gray100,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -580,27 +577,27 @@ const styles = StyleSheet.create({
   exitButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.error,
+    backgroundColor: theme.colors.error,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 24,
     gap: 8,
   },
   exitButtonText: {
-    color: colors.white,
+    color: theme.colors.white,
     fontSize: 16,
     fontWeight: '600',
   },
   destinationMarker: {
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.white,
     borderRadius: 20,
     padding: 8,
-    shadowColor: colors.black,
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 5,
   },
-});
+}));
 
 
