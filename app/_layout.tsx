@@ -79,6 +79,9 @@ function ConditionalLayout({ children }: { children: React.ReactNode }) {
 
 export default function RootLayout() {
   const { theme } = useUnistyles();
+  // Track font loading timeout for CI environments
+  const [fontTimeout, setFontTimeout] = React.useState(false);
+
   // Carregar fontes customizadas
   const [fontsLoaded, fontError] = useFonts({
     // Nunito Sans (todos os pesos)
@@ -94,12 +97,26 @@ export default function RootLayout() {
     'Viga': Viga_400Regular,
   });
 
-  // Esconder splash screen quando fontes carregarem
+  // Font loading timeout for web (prevents app from being stuck in CI)
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
+    if (Platform.OS === 'web') {
+      const timeout = setTimeout(() => {
+        if (!fontsLoaded && !fontError) {
+          console.warn('[RootLayout] Font loading timeout - proceeding without custom fonts');
+          setFontTimeout(true);
+        }
+      }, 10000); // 10 second timeout for fonts
+
+      return () => clearTimeout(timeout);
     }
   }, [fontsLoaded, fontError]);
+
+  // Esconder splash screen quando fontes carregarem
+  useEffect(() => {
+    if (fontsLoaded || fontError || fontTimeout) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, fontError, fontTimeout]);
 
   // Inicializar notificações e sync offline (apenas mobile)
   useEffect(() => {
@@ -184,7 +201,8 @@ export default function RootLayout() {
     applyPreference();
   }, []);
 
-  if (!fontsLoaded && !fontError) {
+  // Don't render until fonts are loaded (or timeout on web)
+  if (!fontsLoaded && !fontError && !fontTimeout) {
     return null;
   }
 
