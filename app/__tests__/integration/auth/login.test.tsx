@@ -247,7 +247,7 @@ describe('Login Screen - Integration Tests', () => {
 
       await waitFor(() => {
         expect(getByText('E-mail ou senha incorretos')).toBeTruthy();
-        expect(getByText('Verifique seus dados e tente novamente. Caso tenha esquecido sua senha, clique em "Esqueceu a senha?".')).toBeTruthy();
+        expect(getByText('Verifique seus dados e tente novamente.')).toBeTruthy();
       });
     });
 
@@ -266,8 +266,8 @@ describe('Login Screen - Integration Tests', () => {
       fireEvent.press(loginButton);
 
       await waitFor(() => {
-        expect(getByText('Não foi possível entrar')).toBeTruthy();
-        expect(getByText('Verifique seu e-mail e senha e tente novamente.')).toBeTruthy();
+        expect(getByText('Algo deu errado')).toBeTruthy();
+        expect(getByText('Ocorreu um erro inesperado. Tente novamente ou contate o suporte.')).toBeTruthy();
       });
     });
 
@@ -383,7 +383,7 @@ describe('Login Screen - Integration Tests', () => {
 
       await waitFor(() => {
         expect(authService.signIn).toHaveBeenCalled();
-        expect(getByText('Não foi possível entrar')).toBeTruthy();
+        expect(getByText('Algo deu errado')).toBeTruthy();
       });
     });
   });
@@ -403,7 +403,7 @@ describe('Login Screen - Integration Tests', () => {
 
     it('não deve navegar quando login falha', async () => {
       (authService.signIn as jest.Mock).mockRejectedValue(
-        new Error('Credenciais inválidas')
+        new Error('Invalid login credentials')
       );
 
       const { getByPlaceholderText, getByText } = render(<Login />);
@@ -418,7 +418,7 @@ describe('Login Screen - Integration Tests', () => {
       fireEvent.press(loginButton);
 
       await waitFor(() => {
-        expect(getByText('Não foi possível entrar')).toBeTruthy();
+        expect(getByText('E-mail ou senha incorretos')).toBeTruthy();
       });
 
       expect(mockRouter.replace).not.toHaveBeenCalled();
@@ -462,7 +462,7 @@ describe('Login Screen - Integration Tests', () => {
     it('deve permitir múltiplas tentativas de login após erro', async () => {
       // Configurar mock para duas chamadas: primeira falha, segunda sucesso
       (authService.signIn as jest.Mock)
-        .mockRejectedValueOnce(new Error('Credenciais inválidas'))
+        .mockRejectedValueOnce(new Error('Invalid login credentials'))
         .mockResolvedValueOnce({
           usuario: {
             id: 'gestor-123',
@@ -483,7 +483,7 @@ describe('Login Screen - Integration Tests', () => {
       fireEvent.press(loginButton);
 
       await waitFor(() => {
-        expect(getByText('Não foi possível entrar')).toBeTruthy();
+        expect(getByText('E-mail ou senha incorretos')).toBeTruthy();
         expect(authService.signIn).toHaveBeenCalledTimes(1);
       });
 

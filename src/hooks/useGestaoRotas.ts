@@ -30,7 +30,6 @@ import { supabase } from '@/lib/supabase';
 // ============================================
 
 const CACHE_KEY_PREFIX = 'gestao_rotas_cache_';
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
 
 interface CachedRotas {
   data: RotaHistorico[];
@@ -129,10 +128,10 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
       const cached = await AsyncStorage.getItem(cacheKey);
       if (!cached) return null;
 
-      const { data, timestamp }: CachedRotas = JSON.parse(cached);
-      const isExpired = Date.now() - timestamp > CACHE_TTL;
+      const { data }: CachedRotas = JSON.parse(cached);
 
-      // Retornar dados mesmo se expirados (serão atualizados em background)
+      // Stale-while-revalidate: retornar dados mesmo se expirados
+      // A revalidação acontece em background no useEffect
       return data;
     } catch {
       return null;
