@@ -87,8 +87,11 @@ let cacheLoaded = false;
 /** Promise para aguardar carregamento inicial */
 let loadingPromise: Promise<void> | null = null;
 
-/** Tempo de vida do cache em ms (5 minutos) */
-const CACHE_TTL = 5 * 60 * 1000;
+/** Tempo de vida do cache em ms (24 horas)
+ * Aumentado de 5 min para 24h para reduzir chamadas duplicadas à API
+ * Rotas não mudam frequentemente, cache longo é seguro
+ */
+const CACHE_TTL = 24 * 60 * 60 * 1000;
 
 /** Limite máximo de entradas no cache */
 const MAX_CACHE_ENTRIES = 50;

@@ -7,8 +7,10 @@
  * - Exclusão de rotas com confirmação
  * - Exportação para CSV
  * - Atualização em tempo real
+ * - Cache local para melhor UX (stale-while-revalidate)
  */
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
@@ -22,6 +24,18 @@ import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { formatDateBR, formatDateTimeBR } from '@/lib/dateUtils';
 import { supabase } from '@/lib/supabase';
+
+// ============================================
+// CACHE CONSTANTS
+// ============================================
+
+const CACHE_KEY_PREFIX = 'gestao_rotas_cache_';
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+
+interface CachedRotas {
+  data: RotaHistorico[];
+  timestamp: number;
+}
 
 // ============================================
 // TYPES
@@ -102,6 +116,40 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // ============================================
+  // CACHE HELPERS
+  // ============================================
+
+  const getCacheKey = useCallback(() => {
+    return `${CACHE_KEY_PREFIX}${unidadeAtiva}`;
+  }, [unidadeAtiva]);
+
+  const loadFromCache = useCallback(async (): Promise<RotaHistorico[] | null> => {
+    try {
+      const cacheKey = getCacheKey();
+      const cached = await AsyncStorage.getItem(cacheKey);
+      if (!cached) return null;
+
+      const { data, timestamp }: CachedRotas = JSON.parse(cached);
+      const isExpired = Date.now() - timestamp > CACHE_TTL;
+
+      // Retornar dados mesmo se expirados (serão atualizados em background)
+      return data;
+    } catch {
+      return null;
+    }
+  }, [getCacheKey]);
+
+  const saveToCache = useCallback(async (data: RotaHistorico[]) => {
+    try {
+      const cacheKey = getCacheKey();
+      const cached: CachedRotas = { data, timestamp: Date.now() };
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(cached));
+    } catch {
+      // Silently fail - cache is optional
+    }
+  }, [getCacheKey]);
+
+  // ============================================
   // DATA LOADING
   // ============================================
 
@@ -114,8 +162,19 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
     }
     abortControllerRef.current = new AbortController();
 
+    // Stale-while-revalidate: mostrar cache primeiro
+    const cachedData = await loadFromCache();
+    if (cachedData && cachedData.length > 0) {
+      setRotas(cachedData);
+      setLoading(false);
+      // Continua para buscar dados frescos em background
+    }
+
     try {
-      setLoading(true);
+      // Só mostra loading se não tiver cache
+      if (!cachedData || cachedData.length === 0) {
+        setLoading(true);
+      }
 
       // Buscar rotas e paradas em paralelo (2 queries ao invés de N+1)
       const [rotasResult, paradasResult] = await Promise.all([
@@ -177,16 +236,22 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
       });
 
       setRotas(rotasComParadas);
+
+      // Salvar no cache para uso futuro
+      await saveToCache(rotasComParadas);
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         return;
       }
-      if (__DEV__) console.error('Erro ao carregar rotas:', error);
-      Alert.alert('Erro', 'Não foi possível carregar as rotas');
+      // Só mostrar erro se não tiver dados em cache
+      if (!cachedData || cachedData.length === 0) {
+        if (__DEV__) console.error('Erro ao carregar rotas:', error);
+        Alert.alert('Erro', 'Não foi possível carregar as rotas');
+      }
     } finally {
       setLoading(false);
     }
-  }, [unidadeAtiva]);
+  }, [unidadeAtiva, loadFromCache, saveToCache]);
 
   // ============================================
   // EFFECTS

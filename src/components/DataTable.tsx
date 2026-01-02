@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import {
   View,
   Text,
@@ -77,10 +77,10 @@ export interface DataTableProps<T = any> {
 }
 
 // ============================================
-// SKELETON LOADING COMPONENT
+// SKELETON LOADING COMPONENT (Memoized)
 // ============================================
 
-function SkeletonLoader() {
+const SkeletonLoader = memo(function SkeletonLoader() {
   const shimmerValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -115,13 +115,13 @@ function SkeletonLoader() {
       ]}
     />
   );
-}
+});
 
 // ============================================
 // COMPONENT
 // ============================================
 
-export function DataTable<T = any>({
+function DataTableInner<T = any>({
   data,
   columns,
   actions,
@@ -140,30 +140,49 @@ export function DataTable<T = any>({
 
   // Paginação
   const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = Math.ceil(data.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedData = pagination ? data.slice(startIndex, endIndex) : data;
+
+  // Memoized: cálculos de paginação
+  const { totalPages, startIndex, endIndex, paginatedData } = useMemo(() => {
+    const total = Math.ceil(data.length / itemsPerPage);
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    const paginated = pagination ? data.slice(start, end) : data;
+    return { totalPages: total, startIndex: start, endIndex: end, paginatedData: paginated };
+  }, [data, itemsPerPage, currentPage, pagination]);
+
+  // Memoized: colunas filtradas para mobile
+  const mobileColumns = useMemo(() => {
+    return columns.filter(col => !col.desktopOnly);
+  }, [columns]);
 
   // Ordenação
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  // Handlers
-  const handleSort = (columnKey: string) => {
-    const newDirection = sortColumn === columnKey && sortDirection === 'asc' ? 'desc' : 'asc';
-    setSortColumn(columnKey);
-    setSortDirection(newDirection);
-    onSort?.(columnKey, newDirection);
-  };
+  // Reset page when data changes significantly
+  useEffect(() => {
+    if (currentPage > 1 && currentPage > totalPages) {
+      setCurrentPage(Math.max(1, totalPages));
+    }
+  }, [currentPage, totalPages]);
 
-  const handlePreviousPage = () => {
-    if (currentPage > 1) setCurrentPage(currentPage - 1);
-  };
+  // Memoized handlers
+  const handleSort = useCallback((columnKey: string) => {
+    setSortColumn(prev => {
+      const newDirection = prev === columnKey && sortDirection === 'asc' ? 'desc' : 'asc';
+      setSortDirection(newDirection);
+      onSort?.(columnKey, newDirection);
+      return columnKey;
+    });
+  }, [sortDirection, onSort]);
 
-  const handleNextPage = () => {
-    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
-  };
+  const handlePreviousPage = useCallback(() => {
+    setCurrentPage(prev => prev > 1 ? prev - 1 : prev);
+  }, []);
+
+  const handleNextPage = useCallback(() => {
+    setCurrentPage(prev => prev < totalPages ? prev + 1 : prev);
+  }, [totalPages]);
 
   // ============================================
   // LOADING STATE (Skeleton)
@@ -275,9 +294,7 @@ export function DataTable<T = any>({
           {paginatedData.map((item) => (
             <View key={keyExtractor(item)} style={styles.card}>
               {/* Dados do card */}
-              {columns
-                .filter(col => !col.desktopOnly)
-                .map((column) => {
+              {mobileColumns.map((column) => {
                   const renderedContent = column.render ? column.render(item) : (item as any)[column.key];
                   const isReactElement = typeof renderedContent === 'object' && renderedContent !== null && typeof renderedContent !== 'string';
 
@@ -527,6 +544,10 @@ export function DataTable<T = any>({
     </View>
   );
 }
+
+// Export memoized component
+// memo prevents re-renders when props haven't changed
+export const DataTable = memo(DataTableInner) as typeof DataTableInner;
 
 // ============================================
 // STYLES

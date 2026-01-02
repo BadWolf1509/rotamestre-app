@@ -160,7 +160,9 @@ export async function uploadELinkFotoParada(
     const salvou = await salvarFotoParada(paradaId, fotoUrl);
 
     if (!salvou) {
-      // TODO: Implementar rollback (deletar foto do storage)
+      // Rollback: deletar foto do storage se falhou ao atualizar banco
+      console.warn('[Storage] Falha ao salvar no banco, realizando rollback da foto...');
+      await deletarFoto(fotoUrl);
       return false;
     }
 

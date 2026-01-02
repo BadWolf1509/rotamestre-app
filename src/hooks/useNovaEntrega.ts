@@ -696,10 +696,13 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
           longitude: p.longitude,
         }));
 
-      const resultado = await googleMapsService.getDirectionsSequential(
+      // Usar getDirections com optimize=false para manter ordem manual
+      // Isso faz 1 chamada à API em vez de N chamadas (economia de ~95%)
+      const resultado = await googleMapsService.getDirections(
         pontoUnidade,
         pontoUnidade,
-        waypoints
+        waypoints,
+        false // Manter ordem manual, não otimizar
       );
 
       if (resultado) {
@@ -861,6 +864,8 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
 
   /**
    * Calcula distâncias e tempo da rota (usa otimização prévia ou calcula na hora)
+   * Otimizado: usa getDirections com optimize=false em vez de getDirectionsSequential
+   * para reduzir chamadas à API de N para 1 (economia de ~95%)
    */
   const calcularDadosRota = useCallback(async () => {
     if (ordemManual) {
@@ -881,10 +886,13 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
             longitude: p.longitude,
           }));
 
-          const resultado = await googleMapsService.getDirectionsSequential(
+          // Usar getDirections com optimize=false para manter ordem manual
+          // Routes API respeita optimizeWaypointOrder=false
+          const resultado = await googleMapsService.getDirections(
             pontoUnidade,
             pontoUnidade,
-            waypoints
+            waypoints,
+            false // Manter ordem manual, não otimizar
           );
 
           if (resultado) {

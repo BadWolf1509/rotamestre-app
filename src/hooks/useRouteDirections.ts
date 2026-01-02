@@ -152,8 +152,15 @@ export function useRouteDirections(paradas: Parada[]): UseRouteDirectionsResult 
         setIsFromCache(true);
         setIsLoading(false);
 
-        // Buscar atualização em background (sem mostrar loading)
-        fetchFromAPI(validParadas, cacheKey, false);
+        // Só buscar atualização em background se cache estiver próximo de expirar
+        // (menos de 1 hora restante) - evita chamadas desnecessárias à API
+        const cacheAge = Date.now() - cachedData.timestamp;
+        const oneHour = 60 * 60 * 1000;
+        const shouldRefresh = cacheAge > CACHE_TTL - oneHour;
+
+        if (shouldRefresh) {
+          fetchFromAPI(validParadas, cacheKey, false);
+        }
         return;
       }
 
@@ -191,7 +198,7 @@ export function useRouteDirections(paradas: Parada[]): UseRouteDirectionsResult 
     }
   }, [paradas]);
 
-  // Função interna para buscar da API
+  // Função interna para buscar da API (migrado para Routes API)
   const fetchFromAPI = async (
     validParadas: Parada[],
     cacheKey: string,
@@ -202,73 +209,130 @@ export function useRouteDirections(paradas: Parada[]): UseRouteDirectionsResult 
       const destination = validParadas[validParadas.length - 1];
       const waypoints = validParadas.slice(1, -1);
 
-      let waypointsStr: string | undefined;
-      if (waypoints.length > 0) {
-        waypointsStr = waypoints
-          .map((wp) => `${wp.latitude},${wp.longitude}`)
-          .join('|');
-      }
-
       let data;
 
       if (Platform.OS === 'web') {
         // Web: usar Edge Function para evitar CORS
+        // Edge Function já usa Routes API internamente
         const { data: edgeData, error } = await supabase.functions.invoke('google-directions', {
           body: {
-            origin: `${origin.latitude},${origin.longitude}`,
-            destination: `${destination.latitude},${destination.longitude}`,
-            waypoints: waypointsStr,
-            mode: 'driving',
+            origin: { latitude: origin.latitude, longitude: origin.longitude },
+            destination: { latitude: destination.latitude, longitude: destination.longitude },
+            waypoints: waypoints.map((wp) => ({
+              latitude: wp.latitude,
+              longitude: wp.longitude,
+            })),
+            optimize: false,
           },
         });
 
         if (error) throw error;
         data = edgeData;
+
+        // Processar resposta da Routes API (via Edge Function)
+        if (data.routes && data.routes.length > 0) {
+          const route = data.routes[0];
+          const encodedPolyline = route.polyline?.encodedPolyline;
+
+          if (encodedPolyline) {
+            const decodedPoints = polyline.decode(encodedPolyline);
+            const coordinates: Coordinate[] = decodedPoints.map(([lat, lng]: [number, number]) => ({
+              latitude: lat,
+              longitude: lng,
+            }));
+
+            const distanceMeters = route.distanceMeters || 0;
+            const durationSeconds = route.duration
+              ? parseInt(route.duration.replace('s', ''), 10)
+              : 0;
+
+            const newRouteInfo = { distanceMeters, durationSeconds };
+
+            await saveToCache(cacheKey, coordinates, newRouteInfo);
+
+            if (updateState) {
+              setRouteCoordinates(coordinates);
+              setRouteInfo(newRouteInfo);
+              setIsFromCache(false);
+            }
+            return;
+          }
+        }
       } else {
-        // Mobile: chamar API diretamente (sem CORS)
-        let waypointsParam = '';
-        if (waypointsStr) {
-          waypointsParam = `&waypoints=${waypointsStr}`;
+        // Mobile: chamar Routes API diretamente (POST)
+        const requestBody: Record<string, unknown> = {
+          origin: {
+            location: {
+              latLng: { latitude: origin.latitude, longitude: origin.longitude },
+            },
+          },
+          destination: {
+            location: {
+              latLng: { latitude: destination.latitude, longitude: destination.longitude },
+            },
+          },
+          travelMode: 'DRIVE',
+          computeAlternativeRoutes: false,
+          languageCode: 'pt-BR',
+          units: 'METRIC',
+        };
+
+        if (waypoints.length > 0) {
+          requestBody.intermediates = waypoints.map((wp) => ({
+            location: {
+              latLng: { latitude: wp.latitude, longitude: wp.longitude },
+            },
+          }));
         }
 
-        const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}${waypointsParam}&key=${GOOGLE_MAPS_API_KEY}`;
+        const response = await fetch(
+          'https://routes.googleapis.com/directions/v2:computeRoutes',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
+              'X-Goog-FieldMask': 'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline',
+            },
+            body: JSON.stringify(requestBody),
+          }
+        );
 
-        const response = await fetch(url);
         data = await response.json();
+
+        if (data.routes && data.routes.length > 0) {
+          const route = data.routes[0];
+          const encodedPolyline = route.polyline?.encodedPolyline;
+
+          if (encodedPolyline) {
+            const decodedPoints = polyline.decode(encodedPolyline);
+            const coordinates: Coordinate[] = decodedPoints.map(([lat, lng]: [number, number]) => ({
+              latitude: lat,
+              longitude: lng,
+            }));
+
+            const distanceMeters = route.distanceMeters || 0;
+            const durationSeconds = route.duration
+              ? parseInt(route.duration.replace('s', ''), 10)
+              : 0;
+
+            const newRouteInfo = { distanceMeters, durationSeconds };
+
+            await saveToCache(cacheKey, coordinates, newRouteInfo);
+
+            if (updateState) {
+              setRouteCoordinates(coordinates);
+              setRouteInfo(newRouteInfo);
+              setIsFromCache(false);
+            }
+            return;
+          }
+        }
       }
 
-      if (data.status === 'OK' && data.routes.length > 0) {
-        const route = data.routes[0];
-
-        const encodedPolyline = route.overview_polyline.points;
-        const decodedPoints = polyline.decode(encodedPolyline);
-
-        const coordinates: Coordinate[] = decodedPoints.map(([lat, lng]: [number, number]) => ({
-          latitude: lat,
-          longitude: lng,
-        }));
-
-        const distanceMeters = route.legs.reduce(
-          (acc: number, leg: { distance: { value: number } }) => acc + leg.distance.value,
-          0
-        );
-        const durationSeconds = route.legs.reduce(
-          (acc: number, leg: { duration: { value: number } }) => acc + leg.duration.value,
-          0
-        );
-
-        const newRouteInfo = { distanceMeters, durationSeconds };
-
-        // Salvar no cache
-        await saveToCache(cacheKey, coordinates, newRouteInfo);
-
-        if (updateState) {
-          setRouteCoordinates(coordinates);
-          setRouteInfo(newRouteInfo);
-          setIsFromCache(false);
-        }
-      } else if (updateState) {
-        console.warn('[useRouteDirections] API retornou status:', data.status);
+      // Fallback se API não retornou rotas válidas
+      if (updateState) {
+        console.warn('[useRouteDirections] Routes API não retornou rotas válidas');
         setRouteCoordinates(
           validParadas.map((p) => ({
             latitude: p.latitude!,
@@ -280,7 +344,7 @@ export function useRouteDirections(paradas: Parada[]): UseRouteDirectionsResult 
       }
     } catch (err) {
       if (updateState) {
-        console.error('[useRouteDirections] Erro na API:', err);
+        console.error('[useRouteDirections] Erro na Routes API:', err);
         setRouteCoordinates(
           validParadas.map((p) => ({
             latitude: p.latitude!,

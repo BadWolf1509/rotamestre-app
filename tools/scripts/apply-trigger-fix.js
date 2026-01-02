@@ -1,13 +1,21 @@
 const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config();
 
-const supabase = createClient(
-  'https://xezslsyxjivunmhhyxtd.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhlenNsc3l4aml2dW5taGh5eHRkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDkwOTQ1NywiZXhwIjoyMDc2NDg1NDU3fQ.HRBlXp4cGD4sio2I7F4ZLBeGakHSYcGXrJevVoZQk_c',
-  {
-    db: { schema: 'public' },
-    auth: { persistSession: false }
-  }
-);
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('❌ Missing environment variables:');
+  console.error('   EXPO_PUBLIC_SUPABASE_URL:', supabaseUrl ? '✅' : '❌');
+  console.error('   SUPABASE_SERVICE_ROLE_KEY:', supabaseKey ? '✅' : '❌');
+  console.error('\nPlease set these in your .env file');
+  process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  db: { schema: 'public' },
+  auth: { persistSession: false }
+});
 
 async function main() {
   console.log('Testing current trigger state...\n');
@@ -37,7 +45,7 @@ async function main() {
       console.log('Update error (expected):', updateError.message);
       console.log('\n=== MIGRATION REQUIRED ===');
       console.log('\nPlease run the following SQL in Supabase Dashboard SQL Editor:\n');
-      console.log('Go to: https://supabase.com/dashboard/project/xezslsyxjivunmhhyxtd/sql/new');
+      console.log('Go to: https://supabase.com/dashboard/project/YOUR-PROJECT-ID/sql/new');
       console.log('\nSQL to execute:');
       console.log('------------------------------------------');
       console.log(`

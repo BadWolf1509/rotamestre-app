@@ -18,6 +18,8 @@ import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
 import { AlertDialog } from '@/design-system';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
+import { getErrorMessage } from '@/lib/errorMapping';
+import { loginRateLimiter } from '@/lib/rateLimiter';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export default function Login() {
@@ -58,12 +60,27 @@ export default function Login() {
       return;
     }
 
+    // Verificar rate limit (proteção contra brute force)
+    const rateLimitCheck = await loginRateLimiter.checkLimit(email.toLowerCase());
+    if (!rateLimitCheck.allowed) {
+      showAlert('Muitas tentativas', rateLimitCheck.message || 'Aguarde antes de tentar novamente.', 'warning');
+      return;
+    }
+
+    // Mostrar aviso se poucas tentativas restantes
+    if (rateLimitCheck.message && rateLimitCheck.remainingAttempts <= 2) {
+      // Não bloqueia, apenas avisa
+    }
+
     setLoading(true);
 
     try {
       const { usuario } = await authService.signIn(email, password);
 
       if (usuario) {
+        // Login bem-sucedido: resetar rate limit
+        await loginRateLimiter.recordAttempt(email.toLowerCase(), true);
+
         // Verificar se é primeiro acesso e precisa trocar senha
         if (usuario.primeira_senha === true) {
           router.replace('/onboarding/first-password');
@@ -77,22 +94,17 @@ export default function Login() {
           router.replace('/motorista');
         }
       } else {
+        // Registrar tentativa falha
+        await loginRateLimiter.recordAttempt(email.toLowerCase(), false);
         showAlert('Usuário não encontrado', 'Não encontramos sua conta. Verifique seus dados e tente novamente.', 'error');
       }
-    } catch (error: any) {
-      // Mensagens de erro mais amigáveis baseadas no tipo de erro
-      let title = 'Não foi possível entrar';
-      let message = 'Verifique seu e-mail e senha e tente novamente.';
+    } catch (error: unknown) {
+      // Registrar tentativa falha
+      await loginRateLimiter.recordAttempt(email.toLowerCase(), false);
 
-      if (error.message?.toLowerCase().includes('invalid')) {
-        title = 'E-mail ou senha incorretos';
-        message = 'Verifique seus dados e tente novamente. Caso tenha esquecido sua senha, clique em "Esqueceu a senha?".';
-      } else if (error.message?.toLowerCase().includes('network') || error.message?.toLowerCase().includes('connection')) {
-        title = 'Sem conexão';
-        message = 'Verifique sua conexão com a internet e tente novamente.';
-      }
-
-      showAlert(title, message, 'error');
+      // Usar error mapping para mensagem amigável (sem expor detalhes técnicos)
+      const friendlyError = getErrorMessage(error);
+      showAlert(friendlyError.title, friendlyError.message, friendlyError.type);
     } finally {
       setLoading(false);
     }

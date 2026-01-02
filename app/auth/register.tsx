@@ -6,6 +6,9 @@ import { ResponsiveContainer } from '@/components/ResponsiveContainer';
 import { Button, Card, Input, Text } from '@/design-system';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
+import { getErrorMessage } from '@/lib/errorMapping';
+import { signupRateLimiter } from '@/lib/rateLimiter';
+import { validatePassword, PASSWORD_MIN_LENGTH, isValidEmail } from '@/lib/validation';
 import { TipoUsuario } from '@/types/usuario';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
@@ -20,18 +23,44 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
 
   async function handleRegister() {
+    // Validação de campos obrigatórios
     if (!nome || !email || !password || !confirmPassword) {
-      Alert.alert('Erro', 'Preencha todos os campos');
+      Alert.alert('Campos obrigatórios', 'Por favor, preencha todos os campos.');
       return;
     }
 
+    // Validação de nome (mínimo 3 caracteres)
+    if (nome.trim().length < 3) {
+      Alert.alert('Nome inválido', 'O nome deve ter pelo menos 3 caracteres.');
+      return;
+    }
+
+    // Validação de email
+    if (!isValidEmail(email)) {
+      Alert.alert('E-mail inválido', 'Por favor, insira um e-mail válido.');
+      return;
+    }
+
+    // Validação de senha forte
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      Alert.alert(
+        'Senha fraca',
+        `A senha precisa:\n• ${passwordValidation.errors.join('\n• ')}`
+      );
+      return;
+    }
+
+    // Verificar se senhas coincidem
     if (password !== confirmPassword) {
-      Alert.alert('Erro', 'As senhas nao coincidem');
+      Alert.alert('Senhas diferentes', 'As senhas digitadas não coincidem.');
       return;
     }
 
-    if (password.length < 6) {
-      Alert.alert('Erro', 'A senha deve ter pelo menos 6 caracteres');
+    // Verificar rate limit (proteção contra spam de registros)
+    const rateLimitCheck = await signupRateLimiter.checkLimit(email.toLowerCase());
+    if (!rateLimitCheck.allowed) {
+      Alert.alert('Muitas tentativas', rateLimitCheck.message || 'Aguarde antes de tentar novamente.');
       return;
     }
 
@@ -39,13 +68,22 @@ export default function Register() {
 
     try {
       await authService.signUp(email, password, nome, tipo);
+
+      // Registro bem-sucedido: resetar rate limit
+      await signupRateLimiter.recordAttempt(email.toLowerCase(), true);
+
       Alert.alert(
-        'Sucesso',
-        'Conta criada com sucesso! Verifique seu e-mail para confirmar.',
+        'Conta criada!',
+        'Verifique seu e-mail para confirmar o cadastro.',
         [{ text: 'OK', onPress: () => router.replace('/auth/login') }]
       );
-    } catch (error: any) {
-      Alert.alert('Erro', error.message || 'Erro ao criar conta');
+    } catch (error: unknown) {
+      // Registrar tentativa falha
+      await signupRateLimiter.recordAttempt(email.toLowerCase(), false);
+
+      // Usar error mapping para mensagem amigável
+      const friendlyError = getErrorMessage(error);
+      Alert.alert(friendlyError.title, friendlyError.message);
     } finally {
       setLoading(false);
     }
@@ -90,7 +128,7 @@ export default function Register() {
               <Input
                 label="Senha"
                 required
-                placeholder="Minimo 6 caracteres"
+                placeholder={`Mínimo ${PASSWORD_MIN_LENGTH} caracteres, maiúscula e número`}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
