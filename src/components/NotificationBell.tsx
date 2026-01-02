@@ -57,12 +57,12 @@ export function NotificationBell({ variant = 'desktop' }: NotificationBellProps)
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     position: 'relative',
-    padding: 8,
-    borderRadius: 8,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.sm,
   },
   mobileContainer: {
-    padding: 8,
-    marginRight: 8,
+    padding: theme.spacing.sm,
+    marginRight: theme.spacing.sm,
   },
   pressed: {
     opacity: 0.7,
@@ -70,10 +70,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   badge: {
     position: 'absolute',
-    top: 4,
-    right: 4,
+    top: theme.spacing.xs,
+    right: theme.spacing.xs,
     backgroundColor: theme.colors.error,
-    borderRadius: 10,
+    borderRadius: theme.borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
     minWidth: 18,
@@ -82,7 +82,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   badgeText: {
     color: theme.colors.white,
-    fontWeight: '700',
+    fontFamily: theme.typography.fontSansBold,
     textAlign: 'center',
   },
 }));

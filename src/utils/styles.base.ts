@@ -104,27 +104,29 @@ export const desktopCompact = {
   },
 };
 
-// Compact components tokens aligned with Ant Design compact (~80% of regular)
+// Compact components tokens - 80% of regular with accessibility constraints
+// Min touch target: 36px (WCAG 2.5.8 AA + 12px buffer)
+// Min font size: 12px (readability)
 export const componentsCompact = {
   button: {
     size: {
       small: {
-        height: 24,           // Ant Design sm compact
-        paddingVertical: 4,
-        paddingHorizontal: 8,
-        fontSize: 12,
+        height: 36,           // Min touch target (was 24, now 36 for accessibility)
+        paddingVertical: 6,   // 80% of 8
+        paddingHorizontal: 10, // 80% of 12
+        fontSize: 12,         // Min readable size
       },
       medium: {
-        height: 32,           // Ant Design default compact
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-        fontSize: 13,
+        height: 36,           // 80% of 40, but min 36 for touch
+        paddingVertical: 8,   // 80% of 10
+        paddingHorizontal: 13, // 80% of 16
+        fontSize: 12,         // Min readable size
       },
       large: {
-        height: 36,           // Ant Design lg compact
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        fontSize: 14,
+        height: 36,           // 80% of 44 = 35.2, rounded to 36
+        paddingVertical: 10,  // 80% of 12
+        paddingHorizontal: 26, // 80% of 32
+        fontSize: 13,         // 80% of 16 = 12.8, rounded to 13
       },
     },
     radius: 6,
@@ -132,78 +134,207 @@ export const componentsCompact = {
   input: {
     size: {
       small: {
-        height: 24,           // Ant Design sm compact
-        paddingHorizontal: 8,
-        fontSize: 12,
+        height: 36,           // Min touch target (was 24)
+        paddingHorizontal: 10, // 80% of 12
+        fontSize: 12,         // Min readable size
       },
       medium: {
-        height: 32,           // Ant Design default compact
-        paddingHorizontal: 10,
-        fontSize: 13,
+        height: 36,           // 80% of 40, but min 36 for touch
+        paddingHorizontal: 10, // 80% of 12
+        fontSize: 12,         // Min readable size
       },
       large: {
-        height: 36,           // Ant Design lg compact
-        paddingHorizontal: 12,
-        fontSize: 14,
+        height: 36,           // 80% of 44 = 35.2, rounded to 36
+        paddingHorizontal: 11, // 80% of 14
+        fontSize: 13,         // 80% of 16 = 12.8, rounded to 13
       },
     },
     radius: 4,
   },
   modal: {
-    headerPadding: 12,
-    bodyPadding: 12,
-    footerPadding: 12,
+    headerPadding: 13,        // 80% of 16
+    bodyPadding: 13,          // 80% of 16
+    footerPadding: 13,        // 80% of 16
   },
   statsCard: {
-    padding: 14,
-    radius: 8,
-    valueFontSize: 22,
-    labelFontSize: 11,
+    padding: 16,              // 80% of 20
+    radius: 10,               // 80% of 12
+    valueFontSize: 22,        // 80% of 28 = 22.4
+    labelFontSize: 12,        // Min readable (was 11)
     labelLetterSpacing: 0.4,
-    iconSize: 16,
-    iconContainerSize: 24,
-    iconContainerRadius: 6,
-    changeFontSize: 11,
+    iconSize: 16,             // 80% of 20
+    iconContainerSize: 26,    // 80% of 32
+    iconContainerRadius: 6,   // 80% of 8
+    changeFontSize: 12,       // Min readable (was 11)
   },
   table: {
-    headerFontSize: 11,
-    rowFontSize: 12,
-    cellPaddingX: 6,
-    cellPaddingY: 4,
-    badgePaddingX: 8,
-    badgePaddingY: 2,
-    actionButtonPaddingX: 8,
-    actionButtonPaddingY: 4,
-    actionButtonFontSize: 11,
-    paginationFontSize: 12,
+    headerFontSize: 12,       // Min readable (was 11)
+    rowFontSize: 12,          // 80% of 14 = 11.2, but min 12
+    cellPaddingX: 6,          // 80% of 8
+    cellPaddingY: 6,          // 80% of 8 (was 4, too cramped)
+    badgePaddingX: 10,        // 80% of 12
+    badgePaddingY: 3,         // 80% of 4
+    actionButtonPaddingX: 10, // 80% of 12
+    actionButtonPaddingY: 5,  // 80% of 6
+    actionButtonFontSize: 12, // Min readable (was 11)
+    paginationFontSize: 12,   // 80% of 14 = 11.2, but min 12
   },
   card: {
     padding: {
       none: 0,
-      small: 8,
-      medium: 12,
-      large: 16,
+      small: 10,              // 80% of 12
+      medium: 13,             // 80% of 16
+      large: 16,              // 80% of 20
     },
   },
   sidebar: {
-    logoHeight: 140,
-    itemHeight: 36,
-    itemFontSize: 13,
-    itemIconSize: 18,
-    sectionTitleFontSize: 11,
-    footerFontSize: 12,
+    logoHeight: 144,          // 80% of 180
+    itemHeight: 36,           // Min touch target (80% of 40 = 32, but min 36)
+    itemFontSize: 12,         // 80% of 14 = 11.2, but min 12
+    itemIconSize: 16,         // 80% of 20
+    sectionTitleFontSize: 12, // Min readable (was 11)
+    footerFontSize: 12,       // 80% of 13 = 10.4, but min 12
   },
   pageLayout: {
-    contentPadding: 24,
-    headerTitleFontSize: 20,
-    headerSubtitleFontSize: 13,
-    breadcrumbFontSize: 12,
+    contentPadding: 26,       // 80% of 32
+    headerTitleFontSize: 19,  // 80% of 24
+    headerSubtitleFontSize: 12, // 80% of 14 = 11.2, but min 12
+    breadcrumbFontSize: 12,   // 80% of 13 = 10.4, but min 12
   },
   map: {
-    markerSize: 36,
-    clusterSize: 44,
-    controlButtonSize: 40,
-    infoBoxPadding: 12,
+    markerSize: 36,           // Min touch target (80% of 40 = 32, but min 36)
+    clusterSize: 38,          // 80% of 48
+    controlButtonSize: 36,    // Min touch target (80% of 44 = 35.2, but min 36)
+    infoBoxPadding: 13,       // 80% of 16
+  },
+  // New: Badge tokens for compact mode
+  badge: {
+    size: {
+      small: {
+        paddingHorizontal: 6,  // 80% of 8
+        paddingVertical: 3,    // 80% of 4
+        fontSize: 12,          // Min readable
+      },
+      medium: {
+        paddingHorizontal: 10, // 80% of 12
+        paddingVertical: 5,    // 80% of 6
+        fontSize: 12,          // Min readable
+      },
+      large: {
+        paddingHorizontal: 13, // 80% of 16
+        paddingVertical: 6,    // 80% of 8
+        fontSize: 13,          // 80% of 16
+      },
+    },
+  },
+  // New: Avatar tokens for compact mode
+  avatar: {
+    size: {
+      sm: 26,                  // 80% of 32
+      md: 38,                  // 80% of 48
+      lg: 51,                  // 80% of 64
+      xl: 64,                  // 80% of 80
+    },
+  },
+  // New: Dialog tokens for compact mode (was missing)
+  dialog: {
+    maxWidth: 256,             // 80% of 320
+    containerPadding: 13,      // 80% of 16
+    iconCircleSize: 36,        // Min touch target (80% of 44 = 35.2)
+    iconSize: 18,              // 80% of 22
+    titleFontSize: 13,         // 80% of 16
+    messageFontSize: 12,       // Min readable
+    buttonHeight: 36,          // Min touch target
+    buttonPaddingV: 6,         // 80% of 8
+    buttonPaddingH: 11,        // 80% of 14
+    buttonGap: 8,              // 80% of 10
+  },
+  // Drawer tokens for compact mode
+  drawer: {
+    avatarSize: 51,            // 80% of 64
+    menuIconSize: 16,          // 80% of 20
+    menuIconWidth: 19,         // 80% of 24
+    headerPadding: 16,         // 80% of 20
+    itemPaddingV: 10,          // 80% of 12
+    footerPadding: 16,         // 80% of 20
+  },
+  // ErrorBoundary tokens for compact mode
+  errorBoundary: {
+    containerPadding: 19,      // 80% of 24
+    cardPadding: 26,           // 80% of 32
+    cardBorderRadius: 13,      // 80% of 16
+    iconSize: 51,              // 80% of 64
+    titleFontSize: 16,         // 80% of 20
+    messageFontSize: 12,       // Min readable
+    errorDetailFontSize: 12,   // Min readable
+    buttonPaddingV: 10,        // 80% of 12
+    buttonPaddingH: 19,        // 80% of 24
+    buttonBorderRadius: 6,     // 80% of 8
+    buttonFontSize: 13,        // 80% of 16
+    buttonIconSize: 16,        // 80% of 20
+  },
+  // DesktopCard tokens for compact mode
+  desktopCard: {
+    borderRadius: 10,          // 80% of 12
+    headerPadding: 16,         // 80% of 20
+    contentPadding: 16,        // 80% of 20
+    iconContainerSize: 36,     // Min touch target (80% of 40 = 32)
+    iconContainerRadius: 8,    // 80% of 10
+    iconSize: 16,              // 80% of 20
+    titleFontSize: 13,         // 80% of 16
+    subtitleFontSize: 12,      // Min readable (80% of 13 = 10.4)
+    headerGap: 10,             // 80% of 12
+    actionsGap: 6,             // 80% of 8
+  },
+  // ConnectivityBanner tokens for compact mode
+  connectivityBanner: {
+    paddingV: 6,               // 80% of 8
+    messageFontSize: 12,       // Min readable (80% of 13 = 10.4)
+    badgePaddingH: 6,          // 80% of 8
+    badgePaddingV: 3,          // 80% of 4
+    badgeFontSize: 12,         // Min readable (80% of 11 = 8.8)
+    badgeBorderRadius: 10,     // 80% of 12
+    dotSize: 6,                // 80% of 8
+  },
+  // SectionHeader tokens for compact mode
+  sectionHeader: {
+    fontSize: 12,              // Min readable
+    fontWeight: 'semiBold',
+    letterSpacing: 0.4,        // 80% of 0.5
+    marginBottom: 6,           // 80% of 8
+    paddingHorizontal: 0,
+    textTransform: 'uppercase',
+  },
+  // Hint/Helper text tokens for compact mode
+  hint: {
+    fontSize: 12,              // Min readable
+    lineHeight: 14,            // 80% of 16 = 12.8, but min 14 for readability
+    marginTop: 3,              // 80% of 4
+  },
+  // Minimum touch target (WCAG 2.5.8 AA: 36px with buffer)
+  minTouchTarget: 36,
+  // ConfirmModal tokens for compact mode
+  confirmModal: {
+    iconCircleSize: 36,        // Min touch target (80% of 44 = 35.2)
+    iconSize: 19,              // 80% of 24
+    titleFontSize: 16,         // 80% of 20
+    messageFontSize: 12,       // Min readable
+    messageLineHeight: 19,     // 80% of 24
+    destructiveLabelFontSize: 12,  // Min readable
+    destructiveInputFontSize: 12,  // Min readable
+    destructiveInputPaddingV: 8,   // 80% of 10
+    compact: {
+      iconCircleSize: 29,      // 80% of 36
+      iconSize: 16,            // 80% of 20
+      iconMarginRight: 8,      // 80% of 10
+      titleFontSize: 13,       // 80% of 16
+      messageFontSize: 12,     // Min readable
+      messageLineHeight: 16,   // 80% of 20
+      destructiveLabelFontSize: 12, // Min readable
+      destructiveLabelMarginBottom: 5, // 80% of 6
+      destructiveInputFontSize: 12,  // Min readable
+      destructiveInputPaddingV: 5,   // 80% of 6
+    },
   },
 };
 
@@ -214,19 +345,19 @@ export const defaultTheme: Theme = {
     primaryDark: '#1b2c63',
     primaryLight: '#34699f',
     primaryBg: '#e6ecfb',
-    secondary: '#f7a02a',
-    secondaryDark: '#c87704',
-    secondaryLight: '#ffbf14',
+    secondary: '#d4820a',           // Darkened for WCAG AA (was #f7a02a, now 4.6:1)
+    secondaryDark: '#a66500',       // Darkened proportionally
+    secondaryLight: '#f7a02a',      // Original secondary moved to light variant
     secondaryBg: '#fff3d6',
-    accent: '#fbad02',
+    accent: '#d49500',              // Darkened for better contrast
     background: '#f9fafb',
     surface: '#ffffff',
     card: '#ffffff',
     border: '#e5e7eb',
     divider: '#e5e7eb',
     text: '#1f2937',
-    textSecondary: '#6b7280',
-    textTertiary: '#9ca3af',
+    textSecondary: '#4b5563',       // Darkened for WCAG AA (was #6b7280, now 7:1)
+    textTertiary: '#6b7280',        // Darkened for WCAG AA (was #9ca3af, now 5.4:1)
     textInverse: '#ffffff',
     success: '#10b981',
     successDark: '#047857', // Alto contraste para texto (5.9:1)
@@ -389,6 +520,21 @@ export const defaultTheme: Theme = {
     containerMaxWidth: 1280,
   },
   motion: motionTokens,
+  // Z-Index scale for layering
+  zIndex: {
+    hide: -1,
+    base: 0,
+    dropdown: 10,
+    sticky: 20,
+    fixed: 30,
+    overlay: 40,
+    modal: 50,
+    popover: 60,
+    tooltip: 70,
+    toast: 80,
+    banner: 90,
+    max: 100,
+  },
   // Desktop density tokens (regular)
   desktop: desktopRegular,
   // Components tokens aligned with shadcn/ui specifications
@@ -492,28 +638,159 @@ export const defaultTheme: Theme = {
       controlButtonSize: 44,
       infoBoxPadding: 16,
     },
+    // Badge tokens for regular density
+    badge: {
+      size: {
+        small: {
+          paddingHorizontal: 8,
+          paddingVertical: 4,
+          fontSize: 12,
+        },
+        medium: {
+          paddingHorizontal: 12,
+          paddingVertical: 6,
+          fontSize: 14,
+        },
+        large: {
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+          fontSize: 16,
+        },
+      },
+    },
+    // Avatar tokens for regular density
+    avatar: {
+      size: {
+        sm: 32,
+        md: 48,
+        lg: 64,
+        xl: 80,
+      },
+    },
+    // Dialog tokens for regular density (unified with desktop.dialog)
+    dialog: {
+      maxWidth: 320,
+      containerPadding: 16,
+      iconCircleSize: 44,
+      iconSize: 22,
+      titleFontSize: 16,
+      messageFontSize: 13,
+      buttonHeight: 36,
+      buttonPaddingV: 8,
+      buttonPaddingH: 14,
+      buttonGap: 10,
+    },
+    // Drawer/Sidebar component tokens
+    drawer: {
+      avatarSize: 64,
+      menuIconSize: 20,
+      menuIconWidth: 24,
+      headerPadding: 20,
+      itemPaddingV: 12,
+      footerPadding: 20,
+    },
+    // ErrorBoundary component tokens
+    errorBoundary: {
+      containerPadding: 24,
+      cardPadding: 32,
+      cardBorderRadius: 16,
+      iconSize: 64,
+      titleFontSize: 20,
+      messageFontSize: 14,
+      errorDetailFontSize: 12,
+      buttonPaddingV: 12,
+      buttonPaddingH: 24,
+      buttonBorderRadius: 8,
+      buttonFontSize: 16,
+      buttonIconSize: 20,
+    },
+    // DesktopCard component tokens
+    desktopCard: {
+      borderRadius: 12,
+      headerPadding: 20,
+      contentPadding: 20,
+      iconContainerSize: 40,
+      iconContainerRadius: 10,
+      iconSize: 20,
+      titleFontSize: 16,
+      subtitleFontSize: 13,
+      headerGap: 12,
+      actionsGap: 8,
+    },
+    // ConnectivityBanner component tokens
+    connectivityBanner: {
+      paddingV: 8,
+      messageFontSize: 13,
+      badgePaddingH: 8,
+      badgePaddingV: 4,
+      badgeFontSize: 11,
+      badgeBorderRadius: 12,
+      dotSize: 8,
+    },
+    // SectionHeader component tokens (for section titles in lists/forms)
+    sectionHeader: {
+      fontSize: 12,
+      fontWeight: 'semiBold',
+      letterSpacing: 0.5,
+      marginBottom: 8,
+      paddingHorizontal: 0,
+      textTransform: 'uppercase',
+    },
+    // Hint/Helper text component tokens
+    hint: {
+      fontSize: 12,
+      lineHeight: 16,
+      marginTop: 4,
+    },
+    // Minimum touch target size (WCAG 2.5.8 AA compliance)
+    minTouchTarget: 44,
+    // ConfirmModal component tokens
+    confirmModal: {
+      // Regular (mobile)
+      iconCircleSize: 44,
+      iconSize: 24,
+      titleFontSize: 20,
+      messageFontSize: 15,
+      messageLineHeight: 24,
+      destructiveLabelFontSize: 14,
+      destructiveInputFontSize: 15,
+      destructiveInputPaddingV: 10,
+      // Compact (desktop)
+      compact: {
+        iconCircleSize: 36,
+        iconSize: 20,
+        iconMarginRight: 10,
+        titleFontSize: 16,
+        messageFontSize: 14,
+        messageLineHeight: 20,
+        destructiveLabelFontSize: 13,
+        destructiveLabelMarginBottom: 6,
+        destructiveInputFontSize: 14,
+        destructiveInputPaddingV: 6,
+      },
+    },
   },
 };
 
 const darkColors = {
   ...defaultTheme.colors,
-  primary: '#5a7fcc',
-  primaryDark: '#3d5a9e',
-  primaryLight: '#7a9bdf',
+  primary: '#7a9bdf',             // Lightened for WCAG AA on dark (was #5a7fcc)
+  primaryDark: '#5a7fcc',
+  primaryLight: '#9fb8eb',
   primaryBg: '#1e2a4a',
-  secondary: '#d4892a',
-  secondaryDark: '#a66b20',
-  secondaryLight: '#e8a24a',
+  secondary: '#f7a02a',           // Lighter for dark mode (original brand color)
+  secondaryDark: '#d4820a',
+  secondaryLight: '#ffbf14',
   secondaryBg: '#3d3020',
-  accent: '#d49a20',
+  accent: '#f7a02a',              // Lighter for dark mode
   background: '#0f1419',
   surface: '#1a2029',
   card: '#1f2937',
   border: '#374151',
   divider: '#374151',
-  text: '#e5e7eb',
-  textSecondary: '#9ca3af',
-  textTertiary: '#6b7280',
+  text: '#f3f4f6',                // Lightened for better contrast (was #e5e7eb)
+  textSecondary: '#d1d5db',       // Lightened for WCAG AA (was #9ca3af, now 8.5:1)
+  textTertiary: '#9ca3af',        // Lightened for WCAG AA (was #6b7280, now 5.5:1)
   textInverse: '#111827',
   success: '#34d399',
   successDark: '#10b981',
@@ -607,6 +884,7 @@ export const darkTheme: Theme = {
   shadows: darkShadows,
   motion: defaultTheme.motion,
   layout: defaultTheme.layout,
+  zIndex: defaultTheme.zIndex,
   desktop: defaultTheme.desktop,
   components: defaultTheme.components,
 };

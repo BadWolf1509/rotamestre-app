@@ -1,7 +1,8 @@
 import { useRouter, usePathname } from 'expo-router';
 import React from 'react';
-import { View, Text, TouchableOpacity, Platform, Image } from 'react-native';
+import { View, TouchableOpacity, Platform, Image } from 'react-native';
 
+import { Text } from '@/design-system';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
 import { withOpacity } from '@/utils/color';

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Image } from 'react-native';
 
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface AvatarProps {
   /**
@@ -28,6 +28,7 @@ interface AvatarProps {
 /**
  * Componente Avatar reutilizável
  * Mostra foto do usuário ou iniciais se não houver foto
+ * Usa tokens do tema para tamanhos (density-aware)
  */
 export function Avatar({
   name,
@@ -53,29 +54,24 @@ export function Avatar({
 
   const initials = getInitials(name);
 
-  // Definir tamanho baseado no prop
-  const sizeMap = {
-    sm: 32,
-    md: 48,
-    lg: 64,
-    xl: 80,
-  };
+  // Uses theme.components.avatar tokens for density-aware sizing
+  const avatarSize = theme.components.avatar.size[size];
 
+  // Font size proportional to avatar size
   const fontSizeMap = {
-    sm: theme.typography.xs,
-    md: theme.typography.base,
-    lg: theme.typography.xl,
-    xl: theme.typography['2xl'],
+    sm: Math.round(avatarSize * 0.375),  // ~12px for 32px avatar
+    md: Math.round(avatarSize * 0.333),  // ~16px for 48px avatar
+    lg: Math.round(avatarSize * 0.313),  // ~20px for 64px avatar
+    xl: Math.round(avatarSize * 0.3),    // ~24px for 80px avatar
   };
 
-  const avatarSize = sizeMap[size];
   const fontSize = fontSizeMap[size];
   const bgColor = backgroundColor || theme.colors.secondary;
 
   return (
     <View
       style={[
-        styles(theme).container,
+        styles.container,
         {
           width: avatarSize,
           height: avatarSize,
@@ -97,7 +93,7 @@ export function Avatar({
       ) : (
         <Text
           style={[
-            styles(theme).initials,
+            styles.initials,
             { fontSize },
           ]}
         >
@@ -108,7 +104,7 @@ export function Avatar({
   );
 }
 
-const styles = (theme: any) => StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -119,4 +115,4 @@ const styles = (theme: any) => StyleSheet.create({
     color: theme.colors.white,
     textAlign: 'center',
   },
-});
+}));

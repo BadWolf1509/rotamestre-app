@@ -3,15 +3,70 @@ import React from 'react';
 
 import { RotasTable } from '../RotasTable';
 
-// Mock EmptyState from design system
+// Mock design-system components
 jest.mock('@/design-system', () => {
-    const { View, Text } = require('react-native');
+    const { View, Text, TouchableOpacity } = require('react-native');
+
     return {
+        DataTable: ({ columns, data, actions, emptyState, keyExtractor }: any) => (
+            <View>
+                {/* Header */}
+                <View>
+                    {columns?.map((col: any, i: number) => (
+                        <Text key={i}>{col.label.toUpperCase()}</Text>
+                    ))}
+                    {actions && <Text>AÇÕES</Text>}
+                </View>
+                {/* Rows */}
+                {data?.length > 0 ? (
+                    data.map((item: any, idx: number) => (
+                        <View key={keyExtractor?.(item) || idx}>
+                            {columns?.map((col: any, colIdx: number) => (
+                                <View key={colIdx}>
+                                    {col.render ? col.render(item) : <Text>{item[col.key]}</Text>}
+                                </View>
+                            ))}
+                            {actions?.map((action: any, actIdx: number) => (
+                                <TouchableOpacity key={actIdx} onPress={() => action.onPress(item)}>
+                                    <Text>{action.icon} {action.label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    ))
+                ) : (
+                    <View>
+                        <Text>{emptyState?.title || 'Empty'}</Text>
+                        {emptyState?.description && <Text>{emptyState.description}</Text>}
+                    </View>
+                )}
+            </View>
+        ),
         EmptyState: ({ title, description }: any) => (
             <View>
                 <Text>{title}</Text>
                 {description ? <Text>{description}</Text> : null}
             </View>
+        ),
+        StatusCell: ({ status }: any) => {
+            const labels: Record<string, string> = {
+                pendente: 'Pendente',
+                em_andamento: 'Em andamento',
+                concluida: 'Concluída',
+                cancelada: 'Cancelada',
+            };
+            return <Text>{labels[status] || 'Indefinido'}</Text>;
+        },
+        ProgressCell: ({ value, total }: any) => (
+            <Text>{value}/{total} paradas</Text>
+        ),
+        UserCell: ({ name, subtitle }: any) => (
+            <View>
+                <Text>{name}</Text>
+                {subtitle && <Text>{subtitle}</Text>}
+            </View>
+        ),
+        DistanceCell: ({ km }: any) => (
+            <Text>{km != null ? `${km} km` : '--'}</Text>
         ),
     };
 });
@@ -174,7 +229,7 @@ describe('RotasTable', () => {
                 <RotasTable rotas={[mockRotas[0]]} onViewDetails={onViewDetails} />
             );
 
-            fireEvent.press(getByText('👁️ Detalhes'));
+            fireEvent.press(getByText(/Detalhes/i));
 
             expect(onViewDetails).toHaveBeenCalledWith('rota-1');
         });
@@ -185,27 +240,31 @@ describe('RotasTable', () => {
                 <RotasTable rotas={[mockRotas[0]]} onDelete={onDelete} />
             );
 
-            fireEvent.press(getByText('🗑️ Excluir'));
+            fireEvent.press(getByText(/Excluir/i));
 
             expect(onDelete).toHaveBeenCalledWith('rota-1');
         });
 
         it('não deve falhar sem callbacks', () => {
-            const { getByText } = render(
+            // Without callbacks, no action buttons are rendered (actions array is empty)
+            const { queryByText, getByText } = render(
                 <RotasTable rotas={[mockRotas[0]]} />
             );
 
-            // Deve renderizar botões sem callbacks
-            expect(getByText('👁️ Detalhes')).toBeTruthy();
-            expect(getByText('🗑️ Excluir')).toBeTruthy();
+            // Verifica que a tabela renderiza sem callbacks
+            expect(getByText('João Silva')).toBeTruthy();
+            // Botões de ação não devem aparecer quando não há callbacks
+            expect(queryByText(/Detalhes/i)).toBeNull();
+            expect(queryByText(/Excluir/i)).toBeNull();
         });
     });
 
     describe('Múltiplas rotas', () => {
         it('deve renderizar todas as rotas', () => {
-            const { getAllByText } = render(<RotasTable rotas={mockRotas} />);
+            const onViewDetails = jest.fn();
+            const { getAllByText } = render(<RotasTable rotas={mockRotas} onViewDetails={onViewDetails} />);
 
-            const botoes = getAllByText('👁️ Detalhes');
+            const botoes = getAllByText(/Detalhes/i);
             expect(botoes.length).toBe(3);
         });
     });

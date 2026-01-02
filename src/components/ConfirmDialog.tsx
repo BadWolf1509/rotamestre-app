@@ -223,7 +223,7 @@ export function ConfirmDialog({
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
-              margin: `0 auto ${isDesktop ? 10 : theme.spacing.md}px`,
+              margin: `0 auto ${isDesktop ? theme.spacing.sm + 2 : theme.spacing.md}px`,
             }}
           >
             <Ionicons name={getIconName() as any} size={isDesktop ? theme.desktop.dialog.iconSize : 28} color={getIconColor()} />
@@ -266,7 +266,7 @@ export function ConfirmDialog({
             style={{
               display: 'flex',
               flexDirection: 'row',
-              gap: isDesktop ? theme.desktop.dialog.buttonGap : 12,
+              gap: isDesktop ? theme.desktop.dialog.buttonGap : theme.components.dialog.buttonGap,
             }}
           >
             <button
@@ -274,7 +274,7 @@ export function ConfirmDialog({
               aria-label={cancelText}
               style={{
                 flex: 1,
-                padding: isDesktop ? `${theme.desktop.dialog.buttonPaddingV}px ${theme.desktop.dialog.buttonPaddingH}px` : '10px 16px',
+                padding: isDesktop ? `${theme.desktop.dialog.buttonPaddingV}px ${theme.desktop.dialog.buttonPaddingH}px` : `${theme.components.dialog.buttonPaddingV}px ${theme.components.dialog.buttonPaddingH}px`,
                 borderRadius: theme.borderRadius.md,
                 minHeight: isDesktop ? theme.desktop.dialog.buttonHeight : 44,
                 backgroundColor: theme.colors.gray100,
@@ -300,7 +300,7 @@ export function ConfirmDialog({
               aria-label={confirmText}
               style={{
                 flex: 1,
-                padding: isDesktop ? `${theme.desktop.dialog.buttonPaddingV}px ${theme.desktop.dialog.buttonPaddingH}px` : '10px 16px',
+                padding: isDesktop ? `${theme.desktop.dialog.buttonPaddingV}px ${theme.desktop.dialog.buttonPaddingH}px` : `${theme.components.dialog.buttonPaddingV}px ${theme.components.dialog.buttonPaddingH}px`,
                 borderRadius: theme.borderRadius.md,
                 minHeight: isDesktop ? theme.desktop.dialog.buttonHeight : 44,
                 backgroundColor: getConfirmButtonColor(),
@@ -426,16 +426,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   buttonContainer: {
     flexDirection: 'row',
-    gap: 12,
+    gap: theme.components.dialog.buttonGap,
   },
   button: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.components.dialog.buttonPaddingV,
+    paddingHorizontal: theme.components.dialog.buttonPaddingH,
     borderRadius: theme.borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
-    minHeight: 44,
+    minHeight: theme.components.minTouchTarget,
   },
   cancelButton: {
     backgroundColor: theme.colors.gray100,

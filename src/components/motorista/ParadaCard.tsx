@@ -468,8 +468,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   proximaBadgeText: {
     color: theme.colors.white,
-    fontSize: 10,
-    fontWeight: 'bold',
+    fontSize: theme.typography.fontSize.xs - 2,
+    fontFamily: theme.typography.fontSansBold,
     letterSpacing: 0.5,
   },
   paradaCardConcluida: {
@@ -497,8 +497,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   ordemText: {
     color: theme.colors.white,
-    fontSize: theme.typography.md,
-    fontWeight: 'bold',
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: theme.typography.fontSansBold,
   },
   statusBadge: {
     paddingHorizontal: theme.spacing.sm + 2,
@@ -519,8 +519,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.red100,
   },
   statusBadgeText: {
-    fontSize: theme.typography.xs,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
   },
   tipoBadge: {
@@ -535,18 +535,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.indigo100,
   },
   tipoBadgeText: {
-    fontSize: theme.typography.xs,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
   },
   paradaEndereco: {
-    fontSize: theme.typography.md,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
     marginBottom: theme.spacing.xs,
   },
   paradaEnderecoCompacto: {
-    fontSize: theme.typography.sm,
+    fontSize: theme.typography.fontSize.sm,
     marginBottom: 0,
     flex: 1,
   },
@@ -561,7 +561,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.xs,
   },
   paradaDetalheTexto: {
-    fontSize: theme.typography.sm,
+    fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray500,
     marginBottom: theme.spacing.xs,
   },
@@ -572,7 +572,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.xs,
   },
   telefoneLinkTexto: {
-    fontSize: theme.typography.sm,
+    fontSize: theme.typography.fontSize.sm,
     color: theme.colors.info,
     textDecorationLine: 'underline',
   },
@@ -589,12 +589,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.xs,
   },
   observacoesLabel: {
-    fontSize: theme.typography.xs,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray500,
   },
   observacoesTexto: {
-    fontSize: theme.typography.sm,
+    fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray900,
     fontStyle: 'italic',
   },
@@ -615,8 +615,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   botaoRetomarTexto: {
     color: theme.colors.white,
-    fontSize: theme.typography.sm,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   botaoNavegar: {
     flex: 1,
@@ -638,12 +638,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     boxShadow: boxShadow(0, 4, 16, 0, theme.colors.secondaryDark, 0.35),
   },
   botaoNavegarIcone: {
-    fontSize: 20,
+    fontSize: theme.typography.fontSize.xl,
   },
   botaoNavegarTexto: {
     color: theme.colors.white,
-    fontSize: theme.typography.md,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: theme.typography.fontSansSemiBold,
     // Brand: sombra para texto branco em fundo laranja (cross-platform)
     textShadowColor: withOpacity(theme.colors.black, 0.25),
     textShadowOffset: { width: 0, height: 1 },
@@ -663,9 +663,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginTop: theme.spacing.sm,
   },
   swipeHintText: {
-    fontSize: theme.typography.xs,
+    fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray500,
-    fontWeight: '500',
+    fontFamily: theme.typography.fontSansMedium,
   },
   streetViewContainer: {
     marginTop: theme.spacing.sm,
@@ -698,8 +698,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   botaoReportarTexto: {
     color: theme.colors.white,
-    fontSize: theme.typography.sm,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     // Brand: sombra para texto branco em fundo laranja/warning (cross-platform)
     textShadowColor: withOpacity(theme.colors.black, 0.3),
     textShadowOffset: { width: 0, height: 1 },

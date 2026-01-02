@@ -36,6 +36,17 @@ interface ResponsiveDataDisplayProps {
 /**
  * Componente que renderiza dados como tabela em desktop/tablet
  * e como cards em mobile
+ *
+ * @deprecated Use `DataTable` from `@/design-system` instead.
+ * DataTable provides the same responsive functionality with better
+ * design system integration, column renderers, and accessibility.
+ *
+ * @example
+ * // Before (deprecated):
+ * import { ResponsiveDataDisplay } from '@/components/gestor/ResponsiveDataDisplay';
+ *
+ * // After (recommended):
+ * import { DataTable, StatusCell, ProgressCell } from '@/design-system';
  */
 export function ResponsiveDataDisplay({
   columns,

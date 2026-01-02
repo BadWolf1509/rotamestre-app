@@ -31,7 +31,7 @@ exports[`Badge deve aplicar tamanho small 1`] = `
           "fontSize": 12,
         },
         {
-          "color": "#f7a02a",
+          "color": "#d4820a",
         },
       ]
     }
@@ -57,7 +57,7 @@ exports[`Badge deve aplicar variante outlined 1`] = `
       },
       {
         "backgroundColor": "transparent",
-        "borderColor": "#f7a02a",
+        "borderColor": "#d4820a",
         "borderWidth": 1,
       },
       undefined,
@@ -74,7 +74,7 @@ exports[`Badge deve aplicar variante outlined 1`] = `
           "fontSize": 14,
         },
         {
-          "color": "#f7a02a",
+          "color": "#d4820a",
         },
       ]
     }

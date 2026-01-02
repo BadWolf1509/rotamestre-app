@@ -9,15 +9,9 @@ import {
   Platform,
 } from 'react-native';
 
+import { ThemeSettings } from '@/components/ThemeSettings';
 import { MobileCard, Text } from '@/design-system';
 import { getAppVersion, getBuildNumber, getPlatformName } from '@/lib/appVersion';
-import {
-  getThemePreference,
-  getThemePreferences,
-  setContrastPreference,
-  setDensityPreference,
-  setThemePreference,
-} from '@/lib/themePreference';
 import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
 
 // Storage keys
@@ -42,9 +36,6 @@ export default function ConfiguracoesScreen() {
   const [navAppPreference, setNavAppPreference] = useState<NavAppPreference>('default');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [darkModeEnabled, setDarkModeEnabled] = useState(false);
-  const [compactModeEnabled, setCompactModeEnabled] = useState(false);
-  const [highContrastEnabled, setHighContrastEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [cacheSize, setCacheSize] = useState<string | null>(null);
 
@@ -52,24 +43,15 @@ export default function ConfiguracoesScreen() {
   useEffect(() => {
     async function loadSettings() {
       try {
-        const [navApp, notifications, sound, themePreference, themePreferences] = await Promise.all([
+        const [navApp, notifications, sound] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.NAV_APP),
           AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED),
           AsyncStorage.getItem(STORAGE_KEYS.SOUND_ENABLED),
-          getThemePreference(),
-          getThemePreferences(),
         ]);
 
         if (navApp) setNavAppPreference(navApp as NavAppPreference);
         if (notifications !== null) setNotificationsEnabled(notifications === 'true');
         if (sound !== null) setSoundEnabled(sound === 'true');
-        if (themePreferences) {
-          setDarkModeEnabled(themePreferences.mode === 'dark');
-          setCompactModeEnabled(themePreferences.density === 'compact');
-          setHighContrastEnabled(themePreferences.contrast === 'high');
-        } else {
-          setDarkModeEnabled(themePreference === 'dark');
-        }
 
         // Estimate cache size
         const keys = await AsyncStorage.getAllKeys();
@@ -108,33 +90,6 @@ export default function ConfiguracoesScreen() {
       setSoundEnabled(value);
     } catch (error) {
       console.error('Erro ao salvar configuração de som:', error);
-    }
-  }
-
-  async function toggleDarkMode(value: boolean) {
-    try {
-      setDarkModeEnabled(value);
-      await setThemePreference(value ? 'dark' : 'light');
-    } catch (error) {
-      console.error('Erro ao salvar preferência de tema:', error);
-    }
-  }
-
-  async function toggleCompactMode(value: boolean) {
-    try {
-      setCompactModeEnabled(value);
-      await setDensityPreference(value ? 'compact' : 'regular');
-    } catch (error) {
-      console.error('Erro ao salvar preferência de densidade:', error);
-    }
-  }
-
-  async function toggleHighContrast(value: boolean) {
-    try {
-      setHighContrastEnabled(value);
-      await setContrastPreference(value ? 'high' : 'normal');
-    } catch (error) {
-      console.error('Erro ao salvar preferência de contraste:', error);
     }
   }
 
@@ -248,51 +203,10 @@ export default function ConfiguracoesScreen() {
           </View>
         </MobileCard>
 
-        {/* Aparência */}
-        <MobileCard title="Aparência">
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>Tema escuro</Text>
-              <Text style={styles.settingSubtext}>
-                Alternar entre tema claro e escuro
-              </Text>
-            </View>
-            <Switch
-              value={darkModeEnabled}
-              onValueChange={toggleDarkMode}
-              trackColor={{ false: theme.colors.gray300, true: theme.colors.primary + '60' }}
-              thumbColor={darkModeEnabled ? theme.colors.primary : theme.colors.gray400}
-            />
-          </View>
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>Modo compacto</Text>
-              <Text style={styles.settingSubtext}>
-                Reduz espacamentos para mostrar mais informacao
-              </Text>
-            </View>
-            <Switch
-              value={compactModeEnabled}
-              onValueChange={toggleCompactMode}
-              trackColor={{ false: theme.colors.gray300, true: theme.colors.primary + '60' }}
-              thumbColor={compactModeEnabled ? theme.colors.primary : theme.colors.gray400}
-            />
-          </View>
-          <View style={[styles.settingRow, styles.settingRowLast]}>
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>Alto contraste</Text>
-              <Text style={styles.settingSubtext}>
-                Aumenta contraste para melhor leitura
-              </Text>
-            </View>
-            <Switch
-              value={highContrastEnabled}
-              onValueChange={toggleHighContrast}
-              trackColor={{ false: theme.colors.gray300, true: theme.colors.primary + '60' }}
-              thumbColor={highContrastEnabled ? theme.colors.primary : theme.colors.gray400}
-            />
-          </View>
-        </MobileCard>
+        {/* Aparência - Using unified ThemeSettings component */}
+        <View style={styles.themeSettingsWrapper}>
+          <ThemeSettings showPreview={true} compact={true} />
+        </View>
 
         {/* Dados */}
         <MobileCard title="Dados e Armazenamento">
@@ -345,6 +259,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
   loadingText: {
     fontSize: 16,
     color: theme.colors.gray500,
+  },
+  themeSettingsWrapper: {
+    marginHorizontal: theme.spacing.md,
+    marginVertical: theme.spacing.sm,
   },
   settingDescription: {
     fontSize: 14,

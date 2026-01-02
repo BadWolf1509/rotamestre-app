@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { Text, TouchableOpacity, View, Animated, ActivityIndicator } from 'react-native';
+import { TouchableOpacity, View, Animated, ActivityIndicator } from 'react-native';
+
 
 import { StreetViewPreview } from '@/components/StreetViewPreview';
 import { SwipeableRow } from '@/components/SwipeableRow';
 import { RouteStatus } from '@/context/RouteStatusContext';
+import { Text } from '@/design-system';
 import { useDistanceToStop } from '@/hooks/useDistanceToStop';
 import { useMilestones } from '@/hooks/useMilestones';
 import { useSwipeHint } from '@/hooks/useSwipeHint';
@@ -773,7 +775,7 @@ export function MainCard({
               ) : (
                 <>
                   <Ionicons name="time-outline" size={14} color={theme.colors.primary} />
-                  <Text style={[styles.timerText, { color: theme.colors.primary, fontWeight: '600' }]}>
+                  <Text style={[styles.timerText, { color: theme.colors.primary, fontFamily: theme.typography.fontSansSemiBold }]}>
                     {distanceInfo.durationText}
                   </Text>
                 </>
@@ -819,7 +821,7 @@ export function MainCard({
             ) : (
               <>
                 <Ionicons name="navigate" size={16} color={theme.colors.white} />
-                <Text style={[styles.distanceText, { color: theme.colors.white, fontWeight: '600' }]}>
+                <Text style={[styles.distanceText, { color: theme.colors.white, fontFamily: theme.typography.fontSansSemiBold }]}>
                   {distanceInfo.distanceKm} • {distanceInfo.durationText}
                 </Text>
               </>
@@ -1036,157 +1038,157 @@ export function MainCard({
 const styles = StyleSheet.create((theme: Theme) => ({
   card: {
     backgroundColor: theme.colors.white,
-    borderRadius: 16, // Aumentado de 12 para 16 (tendência 2024/2025)
-    marginHorizontal: 16,
-    marginVertical: 16, // Unificado para 16px (8pt grid system)
+    borderRadius: theme.borderRadius.xl,
+    marginHorizontal: theme.spacing.lg,
+    marginVertical: theme.spacing.lg,
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: theme.spacing.sm,
     elevation: 3,
   },
   content: {
-    padding: 16,
+    padding: theme.spacing.lg,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: theme.spacing.md,
   },
   badge: {
     backgroundColor: theme.colors.primary,
-    paddingHorizontal: 10, // Aumentado de 8 para 10 (compensar fonte maior)
-    paddingVertical: 5, // Aumentado de 4 para 5 (compensar fonte maior)
-    borderRadius: 6, // Aumentado de 4 para 6 (mais moderno)
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.sm,
   },
   badgeText: {
     color: theme.colors.white,
-    fontSize: 12, // Aumentado de 11 para 12 (WCAG mínimo legível)
-    fontWeight: '700',
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSansBold,
     letterSpacing: 0.5,
   },
   badgeTextDark: {
-    color: theme.colors.warningText, // alto contraste em fundo warning
+    color: theme.colors.warningText,
   },
   timer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: theme.spacing.xs,
   },
   timerText: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray500,
   },
   icon: {
     fontSize: 48,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: theme.typography.fontSize.xl,
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.gray900,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: theme.spacing.xs,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray500,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: theme.spacing.lg,
   },
   empresaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginBottom: 12,
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
   },
   empresa: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.lg,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
   },
   pendingBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: theme.spacing.sm,
     paddingVertical: 2,
-    borderRadius: 12,
+    borderRadius: theme.borderRadius.lg,
   },
   pendingBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.white,
   },
   addressMain: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   noRouteHeader: {
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: theme.spacing.md,
   },
   noRouteIconContainer: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: theme.borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   motivationalEmoji: {
-    fontSize: 24,
+    fontSize: theme.typography.fontSize['2xl'],
   },
   waitingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    marginTop: 12,
-    paddingTop: 12,
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.md,
+    paddingTop: theme.spacing.md,
     borderTopWidth: 1,
     borderTopColor: theme.colors.gray100,
   },
   waitingText: {
-    fontSize: 13,
+    fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray500,
     fontStyle: 'italic',
   },
   noRouteDivider: {
     height: 1,
     backgroundColor: theme.colors.gray100,
-    marginVertical: 12,
+    marginVertical: theme.spacing.md,
   },
   expirationWarningContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
   },
   quickLinks: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 24,
-    marginTop: 16,
-    paddingTop: 12,
+    gap: theme.spacing.xl,
+    marginTop: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
     borderTopWidth: 1,
     borderTopColor: theme.colors.gray100,
   },
   quickLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
   },
   quickLinkText: {
-    fontSize: 13,
+    fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray500,
   },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginTop: 8,
+    marginTop: theme.spacing.sm,
   },
   stat: {
     alignItems: 'center',
@@ -1195,43 +1197,43 @@ const styles = StyleSheet.create((theme: Theme) => ({
   statIconBg: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: theme.borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: theme.spacing.sm,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray500,
     marginTop: 2,
   },
   statValue: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.gray900,
   },
   noStatsContainer: {
-    marginTop: 8,
+    marginTop: theme.spacing.sm,
   },
   tipCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: theme.spacing.md,
     backgroundColor: theme.colors.warningBg,
-    borderRadius: 8,
-    gap: 10,
+    borderRadius: theme.borderRadius.md,
+    gap: theme.spacing.sm,
   },
   tipContent: {
     flex: 1,
   },
   tipTitle: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
     marginBottom: 2,
   },
   tipText: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray600,
     lineHeight: 16,
   },
@@ -1239,67 +1241,67 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginBottom: 10,
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.full,
+    marginBottom: theme.spacing.sm,
     alignSelf: 'center',
   },
   streakText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   statsComparison: {
     flexDirection: 'row',
-    marginTop: 8,
+    marginTop: theme.spacing.sm,
   },
   statsColumn: {
     flex: 1,
     alignItems: 'center',
   },
   statsColumnHeader: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSansBold,
     letterSpacing: 0.5,
-    marginBottom: 6,
+    marginBottom: theme.spacing.sm,
   },
   statsColumnContent: {
-    gap: 4,
+    gap: theme.spacing.xs,
   },
   statsDivider: {
     width: 1,
     backgroundColor: theme.colors.gray200,
-    marginHorizontal: 12,
+    marginHorizontal: theme.spacing.md,
   },
   miniStat: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: theme.spacing.sm,
   },
   miniStatValue: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.gray900,
   },
   distanceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
+    gap: theme.spacing.xs,
+    marginTop: theme.spacing.xs,
   },
   infoGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: theme.spacing.lg,
   },
   infoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: theme.spacing.xs,
   },
   infoValue: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray700,
   },
   // Estilos para o novo layout pending
@@ -1308,10 +1310,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
     justifyContent: 'space-around',
     alignItems: 'center',
     backgroundColor: theme.colors.gray50,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    marginBottom: 12,
+    borderRadius: theme.borderRadius.lg,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
   },
   pendingStatItem: {
     flex: 1,
@@ -1319,14 +1321,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: 2,
   },
   pendingStatValue: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: theme.typography.fontSize.lg,
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.gray900,
   },
   pendingStatLabel: {
-    fontSize: 11,
+    fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray500,
-    fontWeight: '500',
+    fontFamily: theme.typography.fontSansMedium,
   },
   pendingStatDivider: {
     width: 1,
@@ -1335,98 +1337,98 @@ const styles = StyleSheet.create((theme: Theme) => ({
   firstStopSection: {
     borderTopWidth: 1,
     borderTopColor: theme.colors.gray200,
-    paddingTop: 12,
+    paddingTop: theme.spacing.md,
   },
   sectionLabel: {
-    fontSize: 11, // Aumentado de 10 para 11 (melhor legibilidade)
-    fontWeight: '600',
-    color: theme.colors.gray600, // Mais escuro para melhor contraste
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray600,
     letterSpacing: 0.5,
-    marginBottom: 4,
+    marginBottom: theme.spacing.xs,
   },
   addressText: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray900,
-    marginBottom: 4,
+    marginBottom: theme.spacing.xs,
   },
   distanceText: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray500,
   },
   contactInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
   },
   contactText: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray700,
   },
   observationBox: {
     backgroundColor: theme.colors.warningBg,
-    padding: 8,
-    borderRadius: 6,
-    marginTop: 8,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.sm,
+    marginTop: theme.spacing.sm,
   },
   observationText: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     color: theme.colors.warningText,
   },
   streetViewContainer: {
-    marginTop: 12,
-    marginBottom: 8,
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
     alignItems: 'center',
   },
   distanceBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm,
     backgroundColor: theme.colors.gray100,
-    borderRadius: 6,
-    marginTop: 8,
+    borderRadius: theme.borderRadius.sm,
+    marginTop: theme.spacing.sm,
   },
   swipeHint: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
     backgroundColor: theme.colors.gray50,
-    borderRadius: 4,
-    marginTop: 8,
+    borderRadius: theme.borderRadius.xs,
+    marginTop: theme.spacing.sm,
   },
   swipeHintText: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray500,
-    fontWeight: '500',
+    fontFamily: theme.typography.fontSansMedium,
   },
   summaryBox: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginTop: 16,
+    marginTop: theme.spacing.lg,
   },
   summaryItem: {
     alignItems: 'center',
   },
   summaryLabel: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray500,
-    marginBottom: 4,
+    marginBottom: theme.spacing.xs,
   },
   summaryValue: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.lg,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
   },
   executiveSummary: {
     backgroundColor: theme.colors.gray50,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
   executiveRow: {
     flexDirection: 'row',
@@ -1435,15 +1437,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   executiveItem: {
     alignItems: 'center',
-    gap: 4,
+    gap: theme.spacing.xs,
   },
   executiveValue: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: theme.typography.fontSize.xl,
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.gray900,
   },
   executiveLabel: {
-    fontSize: 11,
+    fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray500,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -1452,66 +1454,66 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    marginTop: 12,
-    paddingTop: 12,
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.md,
+    paddingTop: theme.spacing.md,
     borderTopWidth: 1,
     borderTopColor: theme.colors.gray100,
   },
   readyText: {
-    fontSize: 13,
+    fontSize: theme.typography.fontSize.sm,
     color: theme.colors.success,
-    fontWeight: '500',
+    fontFamily: theme.typography.fontSansMedium,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 16,
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.lg,
   },
   statCard: {
     flex: 1,
     minWidth: '45%',
     alignItems: 'center',
-    padding: 12,
+    padding: theme.spacing.md,
     backgroundColor: theme.colors.gray50,
-    borderRadius: 8,
+    borderRadius: theme.borderRadius.md,
   },
   statNumber: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: theme.typography.fontSize.xl,
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.gray900,
-    marginBottom: 4,
+    marginBottom: theme.spacing.xs,
   },
   // Estilos para estado completed (celebração)
   celebrationContainer: {
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: theme.spacing.md,
   },
   celebrationCircle: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: theme.borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
   },
   milestoneBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 12,
+    gap: theme.spacing.md,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    marginBottom: theme.spacing.md,
   },
   milestoneEmoji: {
-    fontSize: 28,
+    fontSize: theme.typography.fontSize['3xl'],
   },
   milestoneTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSansBold,
   },
   milestoneSubtitle: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray600,
     marginTop: 2,
   },
@@ -1519,25 +1521,25 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    marginTop: 16,
-    paddingVertical: 12,
+    marginTop: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
     backgroundColor: theme.colors.gray50,
-    borderRadius: 12,
+    borderRadius: theme.borderRadius.lg,
   },
   completedStatItem: {
     flex: 1,
     alignItems: 'center',
-    gap: 4,
+    gap: theme.spacing.xs,
   },
   completedStatValue: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: theme.typography.fontSize.lg,
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.gray900,
   },
   completedStatLabel: {
-    fontSize: 11,
+    fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray500,
-    fontWeight: '500',
+    fontFamily: theme.typography.fontSansMedium,
   },
   completedStatDivider: {
     width: 1,
@@ -1547,15 +1549,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.xl,
+    borderRadius: theme.borderRadius.md,
   },
   detailsButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
 }));
 

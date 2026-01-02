@@ -190,7 +190,7 @@ export function ConfirmModal({
         >
           <Ionicons
             name={iconName}
-            size={isDesktop ? 20 : 24}
+            size={isDesktop ? theme.components.confirmModal.compact.iconSize : theme.components.confirmModal.iconSize}
             color={iconColor}
           />
         </View>
@@ -245,37 +245,37 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.sm,
   },
   iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: theme.components.confirmModal.iconCircleSize,
+    height: theme.components.confirmModal.iconCircleSize,
+    borderRadius: theme.components.confirmModal.iconCircleSize / 2,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: theme.spacing.md,
   },
   iconContainerCompact: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    marginRight: 10,
+    width: theme.components.confirmModal.compact.iconCircleSize,
+    height: theme.components.confirmModal.compact.iconCircleSize,
+    borderRadius: theme.components.confirmModal.compact.iconCircleSize / 2,
+    marginRight: theme.components.confirmModal.compact.iconMarginRight,
   },
   title: {
-    fontSize: theme.typography.xl,
+    fontSize: theme.components.confirmModal.titleFontSize,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
     flex: 1,
   },
   titleCompact: {
-    fontSize: theme.desktop.dialog.titleFontSize,
+    fontSize: theme.components.confirmModal.compact.titleFontSize,
   },
   message: {
-    fontSize: theme.typography.base,
+    fontSize: theme.components.confirmModal.messageFontSize,
     fontFamily: theme.typography.fontSans,
     color: theme.colors.gray700,
-    lineHeight: 24,
+    lineHeight: theme.components.confirmModal.messageLineHeight,
   },
   messageCompact: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: theme.components.confirmModal.compact.messageFontSize,
+    lineHeight: theme.components.confirmModal.compact.messageLineHeight,
   },
   // Estilos para confirmação destrutiva
   destructiveContainer: {
@@ -291,14 +291,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
     padding: theme.spacing.sm,
   },
   destructiveLabel: {
-    fontSize: theme.typography.sm,
+    fontSize: theme.components.confirmModal.destructiveLabelFontSize,
     fontFamily: theme.typography.fontSans,
     color: theme.colors.gray700,
     marginBottom: theme.spacing.sm,
   },
   destructiveLabelCompact: {
-    fontSize: 13,
-    marginBottom: 6,
+    fontSize: theme.components.confirmModal.compact.destructiveLabelFontSize,
+    marginBottom: theme.components.confirmModal.compact.destructiveLabelMarginBottom,
   },
   destructiveHighlight: {
     fontFamily: theme.typography.fontSansBold,
@@ -310,16 +310,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.gray300,
     borderRadius: theme.borderRadius.sm,
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    fontSize: theme.typography.base,
+    paddingVertical: theme.components.confirmModal.destructiveInputPaddingV,
+    fontSize: theme.components.confirmModal.destructiveInputFontSize,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
     letterSpacing: 1,
   },
   destructiveInputCompact: {
     paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 6,
-    fontSize: 14,
+    paddingVertical: theme.components.confirmModal.compact.destructiveInputPaddingV,
+    fontSize: theme.components.confirmModal.compact.destructiveInputFontSize,
   },
   destructiveInputError: {
     borderColor: theme.colors.error,

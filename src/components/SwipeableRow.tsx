@@ -185,12 +185,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
   actionContent: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: theme.spacing.lg,
   },
   actionText: {
     color: theme.colors.white,
-    fontSize: 12,
-    marginTop: 4,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.xs,
+    marginTop: theme.spacing.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
 }));

@@ -162,6 +162,20 @@ export interface Theme {
     sidebarWidth: number;
     containerMaxWidth: number;
   };
+  zIndex: {
+    hide: number;
+    base: number;
+    dropdown: number;
+    sticky: number;
+    fixed: number;
+    overlay: number;
+    modal: number;
+    popover: number;
+    tooltip: number;
+    toast: number;
+    banner: number;
+    max: number;
+  };
   desktop: {
     input: {
       height: number;
@@ -300,6 +314,124 @@ export interface Theme {
       clusterSize: number;
       controlButtonSize: number;
       infoBoxPadding: number;
+    };
+    badge: {
+      size: {
+        small: {
+          paddingHorizontal: number;
+          paddingVertical: number;
+          fontSize: number;
+        };
+        medium: {
+          paddingHorizontal: number;
+          paddingVertical: number;
+          fontSize: number;
+        };
+        large: {
+          paddingHorizontal: number;
+          paddingVertical: number;
+          fontSize: number;
+        };
+      };
+    };
+    avatar: {
+      size: {
+        sm: number;
+        md: number;
+        lg: number;
+        xl: number;
+      };
+    };
+    dialog: {
+      maxWidth: number;
+      containerPadding: number;
+      iconCircleSize: number;
+      iconSize: number;
+      titleFontSize: number;
+      messageFontSize: number;
+      buttonHeight: number;
+      buttonPaddingV: number;
+      buttonPaddingH: number;
+      buttonGap: number;
+    };
+    drawer: {
+      avatarSize: number;
+      menuIconSize: number;
+      menuIconWidth: number;
+      headerPadding: number;
+      itemPaddingV: number;
+      footerPadding: number;
+    };
+    errorBoundary: {
+      containerPadding: number;
+      cardPadding: number;
+      cardBorderRadius: number;
+      iconSize: number;
+      titleFontSize: number;
+      messageFontSize: number;
+      errorDetailFontSize: number;
+      buttonPaddingV: number;
+      buttonPaddingH: number;
+      buttonBorderRadius: number;
+      buttonFontSize: number;
+      buttonIconSize: number;
+    };
+    desktopCard: {
+      borderRadius: number;
+      headerPadding: number;
+      contentPadding: number;
+      iconContainerSize: number;
+      iconContainerRadius: number;
+      iconSize: number;
+      titleFontSize: number;
+      subtitleFontSize: number;
+      headerGap: number;
+      actionsGap: number;
+    };
+    connectivityBanner: {
+      paddingV: number;
+      messageFontSize: number;
+      badgePaddingH: number;
+      badgePaddingV: number;
+      badgeFontSize: number;
+      badgeBorderRadius: number;
+      dotSize: number;
+    };
+    sectionHeader: {
+      fontSize: number;
+      fontWeight: string;
+      letterSpacing: number;
+      marginBottom: number;
+      paddingHorizontal: number;
+      textTransform: string;
+    };
+    hint: {
+      fontSize: number;
+      lineHeight: number;
+      marginTop: number;
+    };
+    minTouchTarget: number;
+    confirmModal: {
+      iconCircleSize: number;
+      iconSize: number;
+      titleFontSize: number;
+      messageFontSize: number;
+      messageLineHeight: number;
+      destructiveLabelFontSize: number;
+      destructiveInputFontSize: number;
+      destructiveInputPaddingV: number;
+      compact: {
+        iconCircleSize: number;
+        iconSize: number;
+        iconMarginRight: number;
+        titleFontSize: number;
+        messageFontSize: number;
+        messageLineHeight: number;
+        destructiveLabelFontSize: number;
+        destructiveLabelMarginBottom: number;
+        destructiveInputFontSize: number;
+        destructiveInputPaddingV: number;
+      };
     };
   };
 }

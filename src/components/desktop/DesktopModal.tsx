@@ -630,10 +630,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   modalContainer: {
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.lg,
-    shadowColor: theme.colors.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    ...theme.shadows.lg,
     elevation: 10,
     overflow: 'hidden',
   },
@@ -660,7 +657,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   title: {
     fontSize: theme.typography.fontSize.lg,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
     flex: 1,
   },
@@ -702,7 +699,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   footerButtonText: {
     fontFamily: theme.typography.fontSansSemiBold,
-    fontSize: theme.typography.sm,
+    fontSize: theme.typography.fontSize.sm,
   },
   primaryButtonText: {
     color: theme.colors.white,

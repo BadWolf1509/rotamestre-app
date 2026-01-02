@@ -58,9 +58,11 @@ describe('Design Tokens', () => {
     });
 
     it('has secondary colors', () => {
-      expect(colors.secondary.main).toBe('#f7a02a');
-      expect(colors.secondary.dark).toBe('#c87704');
-      expect(colors.secondary.light).toBe('#ffbf14');
+      // Updated for WCAG AA compliance (darkened from #f7a02a to #d4820a)
+      expect(colors.secondary.main).toBe('#d4820a');
+      expect(colors.secondary.dark).toBe('#a66500');
+      // Original secondary moved to light variant
+      expect(colors.secondary.light).toBe('#f7a02a');
     });
 
     it('has semantic colors', () => {
@@ -78,7 +80,8 @@ describe('Design Tokens', () => {
 
     it('has text colors', () => {
       expect(colors.text.primary).toBe('#1f2937');
-      expect(colors.text.secondary).toBe('#6b7280');
+      // Updated for WCAG AA compliance (darkened from #6b7280 to #4b5563)
+      expect(colors.text.secondary).toBe('#4b5563');
       expect(colors.text.inverse).toBe('#ffffff');
       expect(colors.text.link).toBe('#284093');
     });
@@ -311,8 +314,10 @@ describe('Design Tokens', () => {
   describe('Token consistency', () => {
     it('aligns text colors with gray scale', () => {
       expect(colors.text.primary).toBe(colors.gray[800]);
-      expect(colors.text.secondary).toBe(colors.gray[500]);
-      expect(colors.text.tertiary).toBe(colors.gray[400]);
+      // Updated for WCAG AA compliance (now gray[600] instead of gray[500])
+      expect(colors.text.secondary).toBe(colors.gray[600]);
+      // Updated for WCAG AA compliance (now gray[500] instead of gray[400])
+      expect(colors.text.tertiary).toBe(colors.gray[500]);
       expect(colors.text.disabled).toBe(colors.gray[300]);
     });
 

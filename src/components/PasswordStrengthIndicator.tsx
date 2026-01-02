@@ -56,16 +56,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.xs,
   },
   label: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 4,
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
+    marginTop: theme.spacing.xs,
   },
   feedbackContainer: {
     marginTop: theme.spacing.xs,
   },
   feedbackText: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray500,
-    marginTop: 2,
+    marginTop: 2, // Smaller than xs (4), kept for tight spacing
   },
 }));

@@ -3,7 +3,6 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   ScrollView,
   Image,
@@ -11,6 +10,7 @@ import {
   TextInput,
 } from 'react-native';
 
+import { Text } from '@/components/Text';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
   DataTable,
@@ -906,7 +906,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   statusBadge: {
     paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: theme.spacing.xs,
     borderRadius: theme.borderRadius.sm,
     alignSelf: 'flex-start',
   },
@@ -1012,15 +1012,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.xs,
   },
   detalhesLabelCompact: {
-    fontSize: 13,
-    marginBottom: 4,
+    fontSize: theme.typography.fontSize.sm,
+    marginBottom: theme.spacing.xs,
   },
   detalhesValue: {
     fontSize: theme.typography.base,
     color: theme.colors.gray900,
   },
   detalhesValueCompact: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
   },
   detalhesDescricao: {
     fontSize: theme.typography.base,
@@ -1031,7 +1031,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.md,
   },
   detalhesDescricaoCompact: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     lineHeight: 20,
     padding: theme.spacing.sm,
   },
@@ -1149,7 +1149,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   resumoValue: {
     fontSize: theme.typography['3xl'],
     fontFamily: theme.typography.fontSansBold,
-    marginBottom: 4,
+    marginBottom: theme.spacing.xs,
   },
   resumoLabel: {
     fontSize: theme.typography.sm,
@@ -1190,7 +1190,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray900,
   },
   motoristaStats: {
-    fontSize: theme.typography.sm,
+    fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray500,
     marginTop: 2,
   },
@@ -1206,14 +1206,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   verHistoricoLinkCompact: {
     marginTop: theme.spacing.md,
-    paddingVertical: 6,
+    paddingVertical: theme.spacing.sm,
   },
   verHistoricoLinkText: {
     fontSize: theme.typography.sm,
     color: theme.colors.primary,
   },
   verHistoricoLinkTextCompact: {
-    fontSize: 13,
+    fontSize: theme.typography.fontSize.sm,
   },
 
   // Modal de histórico

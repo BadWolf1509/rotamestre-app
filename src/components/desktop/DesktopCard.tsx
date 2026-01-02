@@ -48,7 +48,7 @@ export function DesktopCard({
           <View style={styles.headerLeft}>
             {icon && (
               <View style={[styles.iconContainer, iconColor && { backgroundColor: iconColor + '15' }]}>
-                <Ionicons name={icon} size={20} color={iconColor || theme.colors.primary} />
+                <Ionicons name={icon} size={theme.components.desktopCard.iconSize} color={iconColor || theme.colors.primary} />
               </View>
             )}
             <View style={styles.headerText}>
@@ -94,7 +94,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   // Card Styles
   card: {
     backgroundColor: theme.colors.white,
-    borderRadius: 12,
+    borderRadius: theme.components.desktopCard.borderRadius,
     overflow: 'hidden',
   },
   cardOutlined: {
@@ -102,30 +102,26 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.gray200,
   },
   cardElevated: {
-    shadowColor: theme.colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
+    ...theme.shadows.md,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 20,
+    padding: theme.components.desktopCard.headerPadding,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray100,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: theme.components.desktopCard.headerGap,
     flex: 1,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: theme.components.desktopCard.iconContainerSize,
+    height: theme.components.desktopCard.iconContainerSize,
+    borderRadius: theme.components.desktopCard.iconContainerRadius,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -133,21 +129,21 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
   },
   title: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: theme.components.desktopCard.titleFontSize,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: theme.components.desktopCard.subtitleFontSize,
     color: theme.colors.gray500,
-    marginTop: 2,
+    marginTop: theme.spacing.xs,
   },
   actions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: theme.components.desktopCard.actionsGap,
   },
   content: {
-    padding: 20,
+    padding: theme.components.desktopCard.contentPadding,
   },
   contentNoPadding: {
     padding: 0,

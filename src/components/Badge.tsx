@@ -108,30 +108,31 @@ const styles = StyleSheet.create((theme: Theme) => ({
     justifyContent: 'center',
   },
 
+  // Uses theme.components.badge tokens for density-aware sizing
   small: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: theme.components.badge.size.small.paddingHorizontal,
+    paddingVertical: theme.components.badge.size.small.paddingVertical,
   },
   medium: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: theme.components.badge.size.medium.paddingHorizontal,
+    paddingVertical: theme.components.badge.size.medium.paddingVertical,
   },
   large: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: theme.components.badge.size.large.paddingHorizontal,
+    paddingVertical: theme.components.badge.size.large.paddingVertical,
   },
 
   text: {
     fontFamily: theme.typography.fontSansSemiBold,
   },
   smallText: {
-    fontSize: theme.typography.fontSize.xs,
+    fontSize: theme.components.badge.size.small.fontSize,
   },
   mediumText: {
-    fontSize: theme.typography.fontSize.sm,
+    fontSize: theme.components.badge.size.medium.fontSize,
   },
   largeText: {
-    fontSize: theme.typography.fontSize.base,
+    fontSize: theme.components.badge.size.large.fontSize,
   },
 }));
 

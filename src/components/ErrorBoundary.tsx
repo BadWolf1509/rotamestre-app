@@ -9,6 +9,9 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
 import { defaultTheme } from '@/utils/styles';
 
+// Component tokens for ErrorBoundary
+const tokens = defaultTheme.components.errorBoundary;
+
 interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode;
@@ -67,7 +70,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         <View style={styles.container}>
           <View style={styles.content}>
             <View style={styles.iconContainer}>
-              <Ionicons name="alert-circle-outline" size={64} color={defaultTheme.colors.error} />
+              <Ionicons name="alert-circle-outline" size={tokens.iconSize} color={defaultTheme.colors.error} />
             </View>
             <Text style={styles.title}>Algo deu errado</Text>
             <Text style={styles.message}>
@@ -84,7 +87,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               accessibilityLabel="Tentar novamente"
               accessibilityRole="button"
             >
-              <Ionicons name="refresh-outline" size={20} color={defaultTheme.colors.white} />
+              <Ionicons name="refresh-outline" size={tokens.buttonIconSize} color={defaultTheme.colors.white} />
               <Text style={styles.buttonText}>Tentar Novamente</Text>
             </TouchableOpacity>
           </View>
@@ -102,47 +105,44 @@ const styles = StyleSheet.create({
     backgroundColor: defaultTheme.colors.gray50,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: tokens.containerPadding,
   },
   content: {
     backgroundColor: defaultTheme.colors.white,
-    borderRadius: 16,
-    padding: 32,
+    borderRadius: tokens.cardBorderRadius,
+    padding: tokens.cardPadding,
     alignItems: 'center',
     maxWidth: 400,
     width: '100%',
-    shadowColor: defaultTheme.colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    ...defaultTheme.shadows.md,
   },
   iconContainer: {
-    marginBottom: 16,
+    marginBottom: defaultTheme.spacing.lg,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: tokens.titleFontSize,
+    fontFamily: defaultTheme.typography.fontSansSemiBold,
     color: defaultTheme.colors.gray900,
-    marginBottom: 8,
+    marginBottom: defaultTheme.spacing.sm,
     textAlign: 'center',
   },
   message: {
-    fontSize: 14,
+    fontSize: tokens.messageFontSize,
+    fontFamily: defaultTheme.typography.fontSans,
     color: defaultTheme.colors.gray500,
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: defaultTheme.spacing.xl,
     lineHeight: 20,
   },
   errorDetail: {
-    fontSize: 12,
+    fontSize: tokens.errorDetailFontSize,
     color: defaultTheme.colors.error,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: defaultTheme.spacing.lg,
     fontFamily: 'monospace',
     backgroundColor: defaultTheme.colors.red50,
-    padding: 12,
-    borderRadius: 8,
+    padding: defaultTheme.spacing.md,
+    borderRadius: defaultTheme.borderRadius.sm,
     width: '100%',
   },
   button: {
@@ -150,14 +150,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: defaultTheme.colors.info,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    gap: 8,
+    paddingVertical: tokens.buttonPaddingV,
+    paddingHorizontal: tokens.buttonPaddingH,
+    borderRadius: tokens.buttonBorderRadius,
+    gap: defaultTheme.spacing.sm,
   },
   buttonText: {
     color: defaultTheme.colors.white,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: tokens.buttonFontSize,
+    fontFamily: defaultTheme.typography.fontSansSemiBold,
   },
 });

@@ -11,7 +11,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { ConfirmDialog } from '@/design-system';
 import { authService } from '@/lib/auth';
 import { Usuario } from '@/types/usuario';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 
 
@@ -63,79 +63,79 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
         overScrollMode="never"
         alwaysBounceVertical={false}
         scrollEnabled={!isDialogOpen}
-        style={[styles(theme).container, { pointerEvents: isDialogOpen ? 'none' : 'auto' }]}
-        contentContainerStyle={styles(theme).contentContainer}
+        style={[styles.container, { pointerEvents: isDialogOpen ? 'none' : 'auto' }]}
+        contentContainerStyle={styles.contentContainer}
       >
         <View style={{ flexGrow: 1, justifyContent: 'space-between' }}>
           {/* Seção de Perfil (topo) */}
-          <View style={styles(theme).header}>
-            <View style={styles(theme).avatar}>
-              <Text style={styles(theme).avatarText}>
+          <View style={styles.header}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
                 {usuario?.nome?.charAt(0)?.toUpperCase() || '?'}
               </Text>
             </View>
-            <Text style={styles(theme).userName} numberOfLines={1}>
+            <Text style={styles.userName} numberOfLines={1}>
               {usuario?.nome || 'Carregando...'}
             </Text>
-            <Text style={styles(theme).userEmail} numberOfLines={1}>
+            <Text style={styles.userEmail} numberOfLines={1}>
               {usuario?.email || ''}
             </Text>
-            <View style={styles(theme).roleBadge}>
-              <Text style={styles(theme).roleBadgeText}>Motorista</Text>
+            <View style={styles.roleBadge}>
+              <Text style={styles.roleBadgeText}>Motorista</Text>
             </View>
           </View>
 
           {/* Navegação Principal */}
-          <View style={styles(theme).menuSection}>
+          <View style={styles.menuSection}>
             <DrawerItemList {...props} />
             <DrawerItem
               label="Meu Perfil"
-              icon={() => <Text style={styles(theme).menuIcon}>👤</Text>}
+              icon={() => <Text style={styles.menuIcon}>👤</Text>}
               onPress={() => {
                 props.navigation.closeDrawer();
                 router.push('/motorista/perfil');
               }}
-              labelStyle={styles(theme).drawerLabel}
+              labelStyle={styles.drawerLabel}
               activeTintColor={theme.colors.primary}
               inactiveTintColor={theme.colors.gray700}
             />
           </View>
 
           {/* Itens Secundários */}
-          <View style={styles(theme).secondarySection}>
+          <View style={styles.secondarySection}>
             <DrawerItem
               label="Configurações"
-              icon={() => <Text style={styles(theme).menuIcon}>⚙️</Text>}
+              icon={() => <Text style={styles.menuIcon}>⚙️</Text>}
               onPress={() => {
                 props.navigation.closeDrawer();
                 // TODO: Implementar tela de configurações
               }}
-              labelStyle={styles(theme).drawerLabel}
+              labelStyle={styles.drawerLabel}
               activeTintColor={theme.colors.primary}
               inactiveTintColor={theme.colors.gray700}
             />
             <DrawerItem
               label="Ajuda"
-              icon={() => <Text style={styles(theme).menuIcon}>❓</Text>}
+              icon={() => <Text style={styles.menuIcon}>❓</Text>}
               onPress={() => {
                 props.navigation.closeDrawer();
                 // TODO: Implementar tela de ajuda
               }}
-              labelStyle={styles(theme).drawerLabel}
+              labelStyle={styles.drawerLabel}
               activeTintColor={theme.colors.primary}
               inactiveTintColor={theme.colors.gray700}
             />
           </View>
 
           {/* Botão Sair (footer) */}
-          <View style={styles(theme).footer}>
+          <View style={styles.footer}>
             <TouchableOpacity
-              style={styles(theme).logoutButton}
+              style={styles.logoutButton}
               onPress={handleLogoutPress}
               activeOpacity={0.8}
             >
-              <Text style={styles(theme).logoutIcon}>🚪</Text>
-              <Text style={styles(theme).logoutText}>Sair da Conta</Text>
+              <Text style={styles.logoutIcon}>🚪</Text>
+              <Text style={styles.logoutText}>Sair da Conta</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -167,99 +167,98 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
   );
 }
 
-const styles = (theme: any) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.colors.white,
-    },
-    contentContainer: {
-      paddingTop: 0,
-      paddingBottom: 0,
-    },
-    header: {
-      padding: theme.spacing.xl,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.gray200,
-      alignItems: 'center',
-    },
-    avatar: {
-      width: 64,
-      height: 64,
-      borderRadius: theme.borderRadius?.full || 32,
-      backgroundColor: theme.colors.secondary,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: theme.spacing.md,
-    },
-    avatarText: {
-      fontSize: theme.typography?.['2xl'] || 28,
-      fontFamily: theme.typography?.fontSansBold || 'System',
-      color: theme.colors.white,
-    },
-    userName: {
-      fontSize: theme.typography?.lg || 18,
-      fontFamily: theme.typography?.fontSansSemiBold || 'System',
-      color: theme.colors.gray900,
-      marginBottom: 4,
-    },
-    userEmail: {
-      fontSize: theme.typography?.sm || 14,
-      color: theme.colors.gray500,
-      marginBottom: theme.spacing.sm,
-    },
-    roleBadge: {
-      backgroundColor: `${theme.colors.primary}10`,
-      paddingHorizontal: theme.spacing.md,
-      paddingVertical: 6,
-      borderRadius: theme.borderRadius?.md || 8,
-      marginTop: theme.spacing.sm,
-    },
-    roleBadgeText: {
-      fontSize: theme.typography?.xs || 12,
-      fontFamily: theme.typography?.fontSansSemiBold || 'System',
-      color: theme.colors.primaryDark || theme.colors.primary,
-    },
-    menuSection: {
-      paddingVertical: theme.spacing.sm,
-    },
-    secondarySection: {
-      paddingVertical: theme.spacing.sm,
-      borderTopWidth: 1,
-      borderTopColor: theme.colors.gray200,
-    },
-    menuIcon: {
-      fontSize: 20,
-      marginRight: theme.spacing.lg,
-      width: 24,
-    },
-    drawerLabel: {
-      fontSize: theme.typography?.base || 15,
-      fontFamily: theme.typography?.fontSansMedium || 'System',
-      marginLeft: -16,
-    },
-    footer: {
-      padding: theme.spacing.xl,
-      borderTopWidth: 1,
-      borderTopColor: theme.colors.gray200,
-    },
-    logoutButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: theme.spacing.md,
-      paddingHorizontal: theme.spacing.lg,
-      backgroundColor: `${theme.colors.error}10`,
-      borderRadius: theme.borderRadius?.lg || 12,
-      borderWidth: 1,
-      borderColor: `${theme.colors.error}30`,
-    },
-    logoutIcon: {
-      fontSize: 20,
-      marginRight: theme.spacing.md,
-    },
-    logoutText: {
-      fontSize: theme.typography?.base || 15,
-      fontFamily: theme.typography?.fontSansSemiBold || 'System',
-      color: theme.colors.error,
-    },
-  });
+const styles = StyleSheet.create((theme: Theme) => ({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.white,
+  },
+  contentContainer: {
+    paddingTop: 0,
+    paddingBottom: 0,
+  },
+  header: {
+    padding: theme.components.drawer.headerPadding,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.gray200,
+    alignItems: 'center',
+  },
+  avatar: {
+    width: theme.components.drawer.avatarSize,
+    height: theme.components.drawer.avatarSize,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  avatarText: {
+    fontSize: theme.typography.fontSize['2xl'],
+    fontFamily: theme.typography.fontSansBold,
+    color: theme.colors.white,
+  },
+  userName: {
+    fontSize: theme.typography.fontSize.lg,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.xs,
+  },
+  userEmail: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray500,
+    marginBottom: theme.spacing.sm,
+  },
+  roleBadge: {
+    backgroundColor: `${theme.colors.primary}10`,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.md,
+    marginTop: theme.spacing.sm,
+  },
+  roleBadgeText: {
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.primaryDark,
+  },
+  menuSection: {
+    paddingVertical: theme.spacing.sm,
+  },
+  secondarySection: {
+    paddingVertical: theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.gray200,
+  },
+  menuIcon: {
+    fontSize: theme.components.drawer.menuIconSize,
+    marginRight: theme.spacing.lg,
+    width: theme.components.drawer.menuIconWidth,
+  },
+  drawerLabel: {
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: theme.typography.fontSansMedium,
+    marginLeft: -theme.spacing.lg,
+  },
+  footer: {
+    padding: theme.components.drawer.footerPadding,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.gray200,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: theme.components.drawer.itemPaddingV,
+    paddingHorizontal: theme.spacing.lg,
+    backgroundColor: `${theme.colors.error}10`,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: `${theme.colors.error}30`,
+  },
+  logoutIcon: {
+    fontSize: theme.components.drawer.menuIconSize,
+    marginRight: theme.spacing.md,
+  },
+  logoutText: {
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.error,
+  },
+}));

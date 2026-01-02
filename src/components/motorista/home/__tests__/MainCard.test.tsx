@@ -70,16 +70,72 @@ jest.mock('@/utils/styles', () => {
             gray50: '#f9fafb',
             gray100: '#f3f4f6',
             gray200: '#e5e7eb',
+            gray300: '#d1d5db',
             gray400: '#9ca3af',
             gray500: '#6b7280',
             gray600: '#4b5563',
             gray700: '#374151',
+            gray800: '#1f2937',
             gray900: '#111827',
             warningBg: '#fef3c7',
             secondaryDark: '#92400e',
             success: '#34C759',
             warning: '#FF9500',
             error: '#FF3B30',
+            info: '#007AFF',
+            blue50: '#eff6ff',
+        },
+        spacing: {
+            xs: 4,
+            sm: 8,
+            md: 16,
+            lg: 24,
+            xl: 32,
+            xxl: 40,
+            '2xl': 48,
+            '3xl': 64,
+            '4xl': 80,
+            '5xl': 96,
+            '6xl': 128,
+        },
+        typography: {
+            fontDisplay: 'Viga',
+            fontSans: 'NunitoSans',
+            fontSansLight: 'NunitoSans-Light',
+            fontSansMedium: 'NunitoSans-Medium',
+            fontSansSemiBold: 'NunitoSans-SemiBold',
+            fontSansBold: 'NunitoSans-Bold',
+            fontSansExtraBold: 'NunitoSans-ExtraBold',
+            fontSize: {
+                xs: 12,
+                sm: 14,
+                base: 16,
+                md: 16,
+                lg: 18,
+                xl: 20,
+                '2xl': 24,
+                '3xl': 30,
+                '4xl': 36,
+            },
+            xs: 12,
+            sm: 14,
+            base: 16,
+            md: 16,
+            lg: 18,
+            xl: 20,
+            '2xl': 24,
+            '3xl': 30,
+            '4xl': 36,
+        },
+        borderRadius: {
+            none: 0,
+            sm: 4,
+            md: 8,
+            lg: 12,
+            xl: 16,
+            '2xl': 24,
+            '3xl': 32,
+            full: 9999,
         },
     };
 
@@ -98,6 +154,24 @@ jest.mock('@/utils/styles', () => {
                 return styleFn;
             },
         },
+    };
+});
+
+// Mock design-system to prevent import chain issues
+jest.mock('@/design-system', () => {
+    const { View, Text } = require('react-native');
+    return {
+        Text: ({ children, style }: any) => <Text style={style}>{children}</Text>,
+        Button: ({ children, onPress }: any) => <View onTouchEnd={onPress}>{children}</View>,
+        Card: ({ children }: any) => <View>{children}</View>,
+        EmptyState: ({ title, description }: any) => (
+            <View>
+                <Text>{title}</Text>
+                {description && <Text>{description}</Text>}
+            </View>
+        ),
+        StatusBadge: ({ label }: any) => <Text>{label}</Text>,
+        Avatar: () => <View />,
     };
 });
 

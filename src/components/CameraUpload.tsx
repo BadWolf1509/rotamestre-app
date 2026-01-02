@@ -353,25 +353,25 @@ export default function CameraUpload({
 
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
-    marginVertical: 16,
+    marginVertical: theme.spacing.lg,
   },
   previewContainer: {
-    gap: 12,
+    gap: theme.spacing.md,
   },
   previewImage: {
     width: '100%',
     height: 200,
-    borderRadius: 8,
+    borderRadius: theme.borderRadius.sm,
     backgroundColor: theme.colors.disabled,
   },
   buttonsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: theme.spacing.md,
   },
   button: {
     flex: 1,
     height: 48,
-    borderRadius: 8,
+    borderRadius: theme.borderRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -385,18 +385,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   buttonText: {
     color: theme.colors.surface,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   buttonTextSecondary: {
     color: theme.colors.textSecondary,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   addButton: {
     height: 56,
     backgroundColor: theme.colors.background,
-    borderRadius: 8,
+    borderRadius: theme.borderRadius.sm,
     borderWidth: 2,
     borderColor: theme.colors.secondary,
     borderStyle: 'dashed',
@@ -405,30 +405,30 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   addButtonText: {
     color: theme.colors.secondary,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   pendingSyncContainer: {
-    gap: 8,
+    gap: theme.spacing.sm,
   },
   pendingSyncBadge: {
     backgroundColor: theme.colors.warning + '20',
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: theme.borderRadius.sm,
+    padding: theme.spacing.md,
     borderWidth: 1,
     borderColor: theme.colors.warning,
   },
   pendingSyncText: {
     color: theme.colors.warning,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     textAlign: 'center',
   },
   pendingSyncSubtext: {
     color: theme.colors.textSecondary,
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     textAlign: 'center',
-    marginTop: 4,
+    marginTop: theme.spacing.xs,
   },
 }));
 

@@ -38,6 +38,19 @@ jest.mock('@/utils/styles', () => {
     },
     spacing: { xs: 4, sm: 8, md: 12 },
     borderRadius: { md: 10 },
+    zIndex: { banner: 90 },
+    typography: { fontSansSemiBold: 'NunitoSans-SemiBold' },
+    components: {
+      connectivityBanner: {
+        paddingV: 8,
+        messageFontSize: 13,
+        badgePaddingH: 8,
+        badgePaddingV: 4,
+        badgeFontSize: 11,
+        badgeBorderRadius: 12,
+        dotSize: 8,
+      },
+    },
   };
 
   return {

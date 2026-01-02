@@ -43,6 +43,13 @@ jest.mock('@/utils/styles', () => {
         buttonGap: 10,
       },
     },
+    components: {
+      dialog: {
+        buttonPaddingV: 10,
+        buttonPaddingH: 16,
+        buttonGap: 12,
+      },
+    },
   };
 
   return {

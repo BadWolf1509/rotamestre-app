@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 
 import { withOpacity } from '@/utils/color';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface AvatarEditableProps {
   /**
@@ -131,11 +131,11 @@ export function AvatarEditable({
       onPress={onPress}
       disabled={isDisabled || !onPress}
       activeOpacity={0.8}
-      style={styles(theme).container}
+      style={styles.container}
     >
       <View
         style={[
-          styles(theme).avatarContainer,
+          styles.avatarContainer,
           {
             width: avatarSize,
             height: avatarSize,
@@ -156,7 +156,7 @@ export function AvatarEditable({
         ) : (
           <View
             style={[
-              styles(theme).placeholder,
+              styles.placeholder,
               {
                 width: avatarSize,
                 height: avatarSize,
@@ -167,7 +167,7 @@ export function AvatarEditable({
           >
             <Text
               style={[
-                styles(theme).initials,
+                styles.initials,
                 { fontSize },
               ]}
             >
@@ -180,7 +180,7 @@ export function AvatarEditable({
         {uploading && (
           <View
             style={[
-              styles(theme).overlay,
+              styles.overlay,
               {
                 width: avatarSize,
                 height: avatarSize,
@@ -197,7 +197,7 @@ export function AvatarEditable({
       {showEditBadge && onPress && !uploading && (
         <View
           style={[
-            styles(theme).badge,
+            styles.badge,
             {
               width: badgeSize,
               height: badgeSize,
@@ -216,7 +216,7 @@ export function AvatarEditable({
   );
 }
 
-const styles = (theme: any) => StyleSheet.create({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     position: 'relative',
     alignSelf: 'center',
@@ -229,7 +229,7 @@ const styles = (theme: any) => StyleSheet.create({
     alignItems: 'center',
   },
   initials: {
-    fontWeight: 'bold',
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.white,
     textAlign: 'center',
   },
@@ -251,4 +251,4 @@ const styles = (theme: any) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-});
+}));

@@ -558,7 +558,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   desktopTitle: {
     fontSize: theme.typography.fontSize.sm,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray600,
   },
   badge: {
@@ -571,7 +571,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   badgeText: {
     fontSize: theme.typography.fontSize.xs,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.white,
   },
   mobileFilterButton: {
@@ -601,7 +601,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   modalTitle: {
     fontSize: theme.typography.fontSize.xl,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
   },
   filterContainer: {
@@ -613,7 +613,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   sectionTitle: {
     fontSize: theme.typography.fontSize.sm,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray600,
     marginBottom: theme.spacing.md,
   },
@@ -638,11 +638,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
   statusOptionText: {
     fontSize: theme.typography.fontSize.sm - 1,
     color: theme.colors.gray500,
-    fontWeight: '500',
+    fontFamily: theme.typography.fontSansMedium,
   },
   statusOptionTextActive: {
     color: theme.colors.primary,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   dateRow: {
     flexDirection: 'row',
@@ -709,11 +709,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
   motoristaOptionText: {
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray500,
-    fontWeight: '500',
+    fontFamily: theme.typography.fontSansMedium,
   },
   motoristaOptionTextActive: {
     color: theme.colors.primary,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   clearFiltersButton: {
     flexDirection: 'row',
@@ -729,7 +729,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   clearFiltersButtonText: {
     fontSize: theme.typography.fontSize.sm,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.error,
   },
   modalOverlay: {
@@ -760,7 +760,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   datePickerTitle: {
     fontSize: theme.typography.fontSize.lg,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
   },
   dateInputSection: {
@@ -798,7 +798,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   monthYear: {
     fontSize: theme.typography.fontSize.base,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray700,
     textTransform: 'capitalize',
   },
@@ -826,12 +826,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   cancelButtonText: {
     color: theme.colors.gray500,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     fontSize: theme.typography.fontSize.sm,
   },
   applyButtonText: {
     color: theme.colors.white,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     fontSize: theme.typography.fontSize.sm,
   },
   // Estilos para botäes de per¡odos pr‚-definidos
@@ -861,11 +861,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
   presetButtonText: {
     fontSize: theme.typography.fontSize.sm - 1,
     color: theme.colors.gray500,
-    fontWeight: '500',
+    fontFamily: theme.typography.fontSansMedium,
   },
   presetButtonTextActive: {
     color: theme.colors.white,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   // Resumo do per¡odo selecionado
   rangeSummary: {
@@ -881,7 +881,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   rangeSummaryText: {
     fontSize: theme.typography.fontSize.sm - 1,
     color: theme.colors.primary,
-    fontWeight: '500',
+    fontFamily: theme.typography.fontSansMedium,
   },
   // Footer reorganizado
   footerRightButtons: {
@@ -895,7 +895,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   clearPeriodButtonText: {
     color: theme.colors.error,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     fontSize: theme.typography.fontSize.sm,
   },
 }));

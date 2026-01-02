@@ -132,28 +132,28 @@ const styles = StyleSheet.create((theme: Theme) => ({
   buttonSmall: {
     paddingVertical: theme.spacing.sm,
     paddingHorizontal: theme.spacing.md,
-    minHeight: 32,
+    minHeight: theme.components.button.size.small.height,
   },
   buttonMedium: {
     paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
-    minHeight: 44,
+    minHeight: theme.components.minTouchTarget,
   },
   buttonLarge: {
     paddingVertical: theme.spacing.lg,
     paddingHorizontal: theme.spacing.xl,
-    minHeight: 56,
+    minHeight: theme.components.button.size.large.height,
   },
 
   // Text Sizes
   buttonTextSmall: {
-    fontSize: theme.typography.sm,
+    fontSize: theme.typography.fontSize.sm,
   },
   buttonTextMedium: {
-    fontSize: theme.typography.base,
+    fontSize: theme.typography.fontSize.base,
   },
   buttonTextLarge: {
-    fontSize: theme.typography.lg,
+    fontSize: theme.typography.fontSize.lg,
   },
 
   // States

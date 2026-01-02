@@ -32,7 +32,6 @@ export function StatusBadge({
   testID,
 }: StatusBadgeProps) {
   const { theme } = useUnistyles();
-  const styles = createStyles(theme);
   const isSmall = size === 'sm';
   const backgroundColor = variant === 'solid' ? color : withOpacity(color, 0.15);
   const textColor = variant === 'solid' ? theme.colors.white : color;
@@ -61,24 +60,23 @@ export function StatusBadge({
   );
 }
 
-const createStyles = (theme: Theme) =>
-  StyleSheet.create({
-    base: {
-      paddingHorizontal: theme.spacing.md,
-      paddingVertical: 4,
-      borderRadius: theme.borderRadius.md,
-      borderWidth: 1,
-      alignSelf: 'flex-start',
-    },
-    small: {
-      paddingHorizontal: theme.spacing.sm,
-      paddingVertical: 2,
-    },
-    text: {
-      fontSize: theme.typography.xs,
-      fontFamily: theme.typography.fontSansSemiBold,
-    },
-    textSmall: {
-      fontSize: 11,
-    },
-  });
+const styles = StyleSheet.create((theme: Theme) => ({
+  base: {
+    paddingHorizontal: theme.components.badge.size.medium.paddingHorizontal,
+    paddingVertical: theme.components.badge.size.small.paddingVertical,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+  },
+  small: {
+    paddingHorizontal: theme.components.badge.size.small.paddingHorizontal,
+    paddingVertical: 2, // Minimal padding for small badges
+  },
+  text: {
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
+  },
+  textSmall: {
+    fontSize: theme.typography.fontSize.xs, // Min readable (was 11)
+  },
+}));

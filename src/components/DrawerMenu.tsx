@@ -491,8 +491,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'center',
   },
   avatar: {
-    width: 64,
-    height: 64,
+    width: theme.components.drawer.avatarSize,
+    height: theme.components.drawer.avatarSize,
     borderRadius: theme.borderRadius.full,
     backgroundColor: theme.colors.secondary,
     justifyContent: 'center',
@@ -500,26 +500,26 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.md,
   },
   avatarImage: {
-    width: 64,
-    height: 64,
+    width: theme.components.drawer.avatarSize,
+    height: theme.components.drawer.avatarSize,
     borderRadius: theme.borderRadius.full,
     marginBottom: theme.spacing.md,
     borderWidth: 2,
     borderColor: theme.colors.gray200,
   },
   avatarText: {
-    fontSize: theme.typography['2xl'],
+    fontSize: theme.typography.fontSize['2xl'],
     fontFamily: theme.typography.fontSansBold,
     color: theme.colors.white,
   },
   userName: {
-    fontSize: theme.typography.lg,
+    fontSize: theme.typography.fontSize.lg,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
-    marginBottom: 4,
+    marginBottom: theme.spacing.xs,
   },
   userEmail: {
-    fontSize: theme.typography.sm,
+    fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray500,
     marginBottom: theme.spacing.sm,
   },
@@ -531,7 +531,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginTop: theme.spacing.sm,
   },
   unitBadgeText: {
-    fontSize: theme.typography.xs,
+    fontSize: theme.typography.fontSize.xs,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.primaryDark,
   },
@@ -543,7 +543,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginTop: theme.spacing.sm,
   },
   principalBadgeText: {
-    fontSize: theme.typography.xs,
+    fontSize: theme.typography.fontSize.xs,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.secondary,
   },
@@ -553,7 +553,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: theme.components.drawer.itemPaddingV,
     paddingHorizontal: theme.spacing.xl,
   },
   menuItemActive: {
@@ -569,15 +569,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.sm,
   },
   menuIcon: {
-    fontSize: 20,
+    fontSize: theme.components.drawer.menuIconSize,
     marginRight: theme.spacing.lg,
-    width: 24,
+    width: theme.components.drawer.menuIconWidth,
   },
   menuIconDanger: {
-    fontSize: 24,
+    fontSize: theme.typography.fontSize['2xl'],
   },
   menuLabel: {
-    fontSize: theme.typography.base,
+    fontSize: theme.typography.fontSize.base,
     fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.gray700,
   },
@@ -602,18 +602,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
   footerItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: theme.components.drawer.itemPaddingV,
     paddingHorizontal: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
     backgroundColor: theme.colors.white,
   },
   footerIcon: {
-    fontSize: 18,
+    fontSize: theme.typography.fontSize.lg,
     marginRight: theme.spacing.md,
-    width: 24,
+    width: theme.components.drawer.menuIconWidth,
   },
   footerLabel: {
-    fontSize: theme.typography.sm,
+    fontSize: theme.typography.fontSize.sm,
     fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.gray600,
   },
@@ -623,7 +623,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'center',
   },
   versionText: {
-    fontSize: theme.typography.xs,
+    fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray400,
     fontFamily: theme.typography.fontSansMedium,
   },
@@ -649,14 +649,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
     elevation: 8,
   },
   contactModalTitle: {
-    fontSize: theme.typography.xl,
+    fontSize: theme.typography.fontSize.xl,
     fontFamily: theme.typography.fontSansBold,
     color: theme.colors.gray900,
     textAlign: 'center',
     marginBottom: theme.spacing.xs,
   },
   contactModalSubtitle: {
-    fontSize: theme.typography.base,
+    fontSize: theme.typography.fontSize.base,
     fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.gray500,
     textAlign: 'center',
@@ -674,7 +674,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.gray200,
   },
   contactModalOptionText: {
-    fontSize: theme.typography.base,
+    fontSize: theme.typography.fontSize.base,
     fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.gray700,
     textAlign: 'center',
@@ -684,7 +684,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     paddingVertical: theme.spacing.md,
   },
   contactModalCancelText: {
-    fontSize: theme.typography.base,
+    fontSize: theme.typography.fontSize.base,
     fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.gray500,
     textAlign: 'center',
