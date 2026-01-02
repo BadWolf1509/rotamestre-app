@@ -85,17 +85,17 @@ test.describe('Design System @visual', () => {
   // Interactive States
   // =============================================
 
-  test('renders toast state', async ({ page }, testInfo) => {
-    test.skip(
-      testInfo.project.name === 'mobile-chrome',
-      'Toast animation is unstable on mobile viewport.'
-    );
+  test('renders toast state', async ({ page, isMobile }) => {
     await page.goto('/design-system');
     await page.waitForLoadState('networkidle');
     await page.getByText('Small').first().click();
     const toast = page.getByTestId('design-system-toast');
     await toast.waitFor({ state: 'visible' });
-    await page.waitForTimeout(400);
-    await expect(toast).toHaveScreenshot('design-system-toast.png');
+    // Wait longer on mobile for animation stability
+    await page.waitForTimeout(isMobile ? 600 : 400);
+    await expect(toast).toHaveScreenshot(
+      isMobile ? 'design-system-toast-mobile.png' : 'design-system-toast.png',
+      { animations: 'disabled' }
+    );
   });
 });
