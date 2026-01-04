@@ -11,7 +11,6 @@ import {
   Image,
 } from 'react-native';
 
-import { styles } from './motoristas.styles';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
   ConfirmModal,
@@ -33,6 +32,8 @@ import {
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUser } from '@/hooks/useUser';
 import { useUnistyles } from '@/utils/styles';
+
+import { styles } from './motoristas.styles';
 
 export default function MotoristasGestor() {
   const { theme } = useUnistyles();
@@ -67,7 +68,6 @@ export default function MotoristasGestor() {
     // Form setters
     setFormNome,
     setFormEmail,
-    setFormTelefone,
     setFormSenha,
     // Modal controls
     setShowAddModal,

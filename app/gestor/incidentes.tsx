@@ -9,7 +9,6 @@ import {
   TextInput,
 } from 'react-native';
 
-import { styles } from './incidentes.styles';
 import { Text } from '@/components/Text';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
@@ -37,6 +36,8 @@ import {
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUser } from '@/hooks/useUser';
 import { useUnistyles } from '@/utils/styles';
+
+import { styles } from './incidentes.styles';
 
 export default function IncidentesScreen() {
   const router = useRouter();

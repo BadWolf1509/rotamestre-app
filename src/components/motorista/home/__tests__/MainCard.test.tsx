@@ -137,6 +137,18 @@ jest.mock('@/utils/styles', () => {
             '3xl': 32,
             full: 9999,
         },
+        components: {
+            avatar: {
+                size: {
+                    xs: 24,
+                    sm: 32,
+                    md: 48,
+                    lg: 64,
+                    xl: 80,
+                },
+            },
+            minTouchTarget: 36,
+        },
     };
 
     return {
