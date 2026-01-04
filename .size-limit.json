@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Web Bundle (JS)",
+    "path": "dist/_expo/static/js/web/*.js",
+    "limit": "1.5 MB",
+    "gzip": true
+  },
+  {
+    "name": "Web Bundle (CSS)",
+    "path": "dist/_expo/static/css/*.css",
+    "limit": "100 KB",
+    "gzip": true
+  },
+  {
+    "name": "Total Web Assets",
+    "path": "dist/**/*.{js,css}",
+    "limit": "2 MB",
+    "gzip": true
+  }
+]
