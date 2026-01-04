@@ -37,7 +37,7 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useUser } from '@/hooks/useUser';
 import { useUnistyles } from '@/utils/styles';
 
-import { styles } from './_incidentes.styles';
+import { styles } from '@/styles/gestor/incidentes.styles';
 
 export default function IncidentesScreen() {
   const router = useRouter();
