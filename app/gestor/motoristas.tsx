@@ -33,7 +33,7 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useUser } from '@/hooks/useUser';
 import { useUnistyles } from '@/utils/styles';
 
-import { styles } from './motoristas.styles';
+import { styles } from './_motoristas.styles';
 
 export default function MotoristasGestor() {
   const { theme } = useUnistyles();
