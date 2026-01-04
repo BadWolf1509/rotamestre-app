@@ -13,8 +13,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   TextInput,
-  Modal,
-  Platform,
 } from 'react-native';
 
 import {
@@ -37,7 +35,6 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
-import { withOpacity } from '@/utils/color';
 import { maskPhone, validatePhone, getPhoneErrorMessage } from '@/utils/phoneValidation';
 import { useUnistyles, StyleSheet } from '@/utils/styles';
 
@@ -268,21 +265,23 @@ export default function MotoristaPerfil() {
       <View style={editStyles.inputGroup}>
         <Text style={editStyles.label}>Nome *</Text>
         <TextInput
-          style={editStyles.input}
+          style={[editStyles.input, isDesktop && editStyles.inputCompact]}
           value={formNome}
           onChangeText={setFormNome}
           placeholder="Nome do motorista"
           placeholderTextColor={theme.colors.gray400}
+          accessibilityLabel="Campo de nome do motorista"
         />
       </View>
 
       <View style={editStyles.inputGroup}>
         <Text style={editStyles.label}>Email</Text>
         <TextInput
-          style={[editStyles.input, editStyles.inputDisabled]}
+          style={[editStyles.input, isDesktop && editStyles.inputCompact, editStyles.inputDisabled]}
           value={formEmail}
           editable={false}
           placeholderTextColor={theme.colors.gray400}
+          accessibilityLabel="Email do motorista (não editável)"
         />
         <Text style={editStyles.helperText}>Email não pode ser alterado</Text>
       </View>
@@ -290,37 +289,18 @@ export default function MotoristaPerfil() {
       <View style={editStyles.inputGroup}>
         <Text style={editStyles.label}>Telefone</Text>
         <TextInput
-          style={[editStyles.input, telefoneError ? editStyles.inputError : null]}
+          style={[editStyles.input, isDesktop && editStyles.inputCompact, telefoneError ? editStyles.inputError : null]}
           value={formTelefone}
           onChangeText={handleTelefoneChange}
           placeholder="(00) 00000-0000"
           placeholderTextColor={theme.colors.gray400}
           keyboardType="phone-pad"
+          maxLength={15}
+          accessibilityLabel="Campo de telefone do motorista"
         />
         {telefoneError ? (
           <Text style={editStyles.errorText}>{telefoneError}</Text>
         ) : null}
-      </View>
-
-      <View style={editStyles.buttonRow}>
-        <TouchableOpacity
-          style={editStyles.cancelButton}
-          onPress={closeEditModal}
-          disabled={salvando}
-        >
-          <Text style={editStyles.cancelButtonText}>Cancelar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[editStyles.saveButton, salvando && editStyles.buttonDisabled]}
-          onPress={handleSaveEdit}
-          disabled={salvando}
-        >
-          {salvando ? (
-            <ActivityIndicator size="small" color={theme.colors.white} />
-          ) : (
-            <Text style={editStyles.saveButtonText}>Salvar</Text>
-          )}
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -414,6 +394,16 @@ export default function MotoristaPerfil() {
           onClose={closeEditModal}
           title="Editar Motorista"
           maxWidth={480}
+          primaryButton={{
+            text: 'Salvar',
+            onPress: handleSaveEdit,
+            loading: salvando,
+          }}
+          secondaryButton={{
+            text: 'Cancelar',
+            onPress: closeEditModal,
+            disabled: salvando,
+          }}
         >
           {renderEditFormContent()}
         </DesktopModal>
@@ -468,26 +458,24 @@ export default function MotoristaPerfil() {
       </ScrollView>
 
       {/* Edit Modal (Mobile) */}
-      <Modal
+      <DesktopModal
         visible={showEditModal}
-        onRequestClose={closeEditModal}
-        animationType="slide"
-        transparent
+        onClose={closeEditModal}
+        title="Editar Motorista"
+        maxWidth={480}
+        primaryButton={{
+          text: 'Salvar',
+          onPress: handleSaveEdit,
+          loading: salvando,
+        }}
+        secondaryButton={{
+          text: 'Cancelar',
+          onPress: closeEditModal,
+          disabled: salvando,
+        }}
       >
-        <View style={editStyles.modalOverlay}>
-          <View style={editStyles.modalContent}>
-            <View style={editStyles.modalHeader}>
-              <Text style={editStyles.modalTitle}>Editar Motorista</Text>
-              <TouchableOpacity onPress={closeEditModal}>
-                <Ionicons name="close" size={24} color={theme.colors.gray600} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView showsVerticalScrollIndicator={Platform.OS === 'web'}>
-              {renderEditFormContent()}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        {renderEditFormContent()}
+      </DesktopModal>
 
       {/* Toggle Status Modal */}
       <ConfirmModal
@@ -510,23 +498,25 @@ export default function MotoristaPerfil() {
 // Edit modal styles
 const editStyles = StyleSheet.create((theme) => ({
   formContainer: {
-    padding: 16,
-    gap: 16,
+    padding: theme.spacing.lg,
+    gap: theme.spacing.lg,
   },
   inputGroup: {
-    gap: 6,
+    gap: theme.spacing.xs,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray700,
   },
   input: {
     borderWidth: 1,
     borderColor: theme.colors.gray300,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
+    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm + 2,
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSans,
     color: theme.colors.gray900,
     backgroundColor: theme.colors.white,
   },
@@ -538,69 +528,18 @@ const editStyles = StyleSheet.create((theme) => ({
     borderColor: theme.colors.error,
   },
   helperText: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray500,
   },
   errorText: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.error,
   },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  cancelButton: {
-    flex: 1,
-    padding: 14,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.gray300,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: theme.colors.gray700,
-  },
-  saveButton: {
-    flex: 1,
-    padding: 14,
-    borderRadius: 8,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: theme.colors.white,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  // Mobile modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: withOpacity(theme.colors.black, 0.5),
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: theme.colors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray200,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: theme.colors.gray900,
+  // Desktop compact styles
+  inputCompact: {
+    height: theme.desktop.input.height,
+    paddingHorizontal: theme.desktop.input.paddingHorizontal,
+    paddingVertical: 0,
+    fontSize: theme.desktop.input.fontSize,
   },
 }));
