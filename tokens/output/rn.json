@@ -5,19 +5,19 @@
       "primaryDark": "#1b2c63",
       "primaryLight": "#34699f",
       "primaryBg": "#e6ecfb",
-      "secondary": "#f7a02a",
-      "secondaryDark": "#c87704",
-      "secondaryLight": "#ffbf14",
+      "secondary": "#d4820a",
+      "secondaryDark": "#a66500",
+      "secondaryLight": "#f7a02a",
       "secondaryBg": "#fff3d6",
-      "accent": "#fbad02",
+      "accent": "#d49500",
       "background": "#f9fafb",
       "surface": "#ffffff",
       "card": "#ffffff",
       "border": "#e5e7eb",
       "divider": "#e5e7eb",
       "text": "#1f2937",
-      "textSecondary": "#6b7280",
-      "textTertiary": "#9ca3af",
+      "textSecondary": "#4b5563",
+      "textTertiary": "#6b7280",
       "textInverse": "#ffffff",
       "success": "#10b981",
       "successDark": "#047857",
@@ -238,8 +238,8 @@
   "semantic": {
     "text": {
       "primary": "#1f2937",
-      "secondary": "#6b7280",
-      "tertiary": "#9ca3af",
+      "secondary": "#4b5563",
+      "tertiary": "#6b7280",
       "inverse": "#ffffff"
     },
     "surface": {
@@ -373,6 +373,33 @@
       "controlButtonSize": 44,
       "infoBoxPadding": 16
     },
+    "badge": {
+      "size": {
+        "small": {
+          "paddingHorizontal": 8,
+          "paddingVertical": 4,
+          "fontSize": 12
+        },
+        "medium": {
+          "paddingHorizontal": 12,
+          "paddingVertical": 6,
+          "fontSize": 14
+        },
+        "large": {
+          "paddingHorizontal": 16,
+          "paddingVertical": 8,
+          "fontSize": 16
+        }
+      }
+    },
+    "avatar": {
+      "size": {
+        "sm": 32,
+        "md": 48,
+        "lg": 64,
+        "xl": 80
+      }
+    },
     "dialog": {
       "maxWidth": 320,
       "containerPadding": 16,
@@ -384,6 +411,85 @@
       "buttonPaddingV": 8,
       "buttonPaddingH": 14,
       "buttonGap": 10
+    },
+    "drawer": {
+      "avatarSize": 64,
+      "menuIconSize": 20,
+      "menuIconWidth": 24,
+      "headerPadding": 20,
+      "itemPaddingV": 12,
+      "footerPadding": 20
+    },
+    "errorBoundary": {
+      "containerPadding": 24,
+      "cardPadding": 32,
+      "cardBorderRadius": 16,
+      "iconSize": 64,
+      "titleFontSize": 20,
+      "messageFontSize": 14,
+      "errorDetailFontSize": 12,
+      "buttonPaddingV": 12,
+      "buttonPaddingH": 24,
+      "buttonBorderRadius": 8,
+      "buttonFontSize": 16,
+      "buttonIconSize": 20
+    },
+    "desktopCard": {
+      "borderRadius": 12,
+      "headerPadding": 20,
+      "contentPadding": 20,
+      "iconContainerSize": 40,
+      "iconContainerRadius": 10,
+      "iconSize": 20,
+      "titleFontSize": 16,
+      "subtitleFontSize": 13,
+      "headerGap": 12,
+      "actionsGap": 8
+    },
+    "connectivityBanner": {
+      "paddingV": 8,
+      "messageFontSize": 13,
+      "badgePaddingH": 8,
+      "badgePaddingV": 4,
+      "badgeFontSize": 11,
+      "badgeBorderRadius": 12,
+      "dotSize": 8
+    },
+    "sectionHeader": {
+      "fontSize": 12,
+      "fontWeight": "semiBold",
+      "letterSpacing": 0.5,
+      "marginBottom": 8,
+      "paddingHorizontal": 0,
+      "textTransform": "uppercase"
+    },
+    "hint": {
+      "fontSize": 12,
+      "lineHeight": 16,
+      "marginTop": 4
+    },
+    "minTouchTarget": 44,
+    "confirmModal": {
+      "iconCircleSize": 44,
+      "iconSize": 24,
+      "titleFontSize": 20,
+      "messageFontSize": 15,
+      "messageLineHeight": 24,
+      "destructiveLabelFontSize": 14,
+      "destructiveInputFontSize": 15,
+      "destructiveInputPaddingV": 10,
+      "compact": {
+        "iconCircleSize": 36,
+        "iconSize": 20,
+        "iconMarginRight": 10,
+        "titleFontSize": 16,
+        "messageFontSize": 14,
+        "messageLineHeight": 20,
+        "destructiveLabelFontSize": 13,
+        "destructiveLabelMarginBottom": 6,
+        "destructiveInputFontSize": 14,
+        "destructiveInputPaddingV": 6
+      }
     }
   }
 }

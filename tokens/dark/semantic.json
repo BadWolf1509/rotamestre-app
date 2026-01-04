@@ -1,8 +1,8 @@
 {
   "text": {
-    "primary": "#e5e7eb",
-    "secondary": "#9ca3af",
-    "tertiary": "#6b7280",
+    "primary": "#f3f4f6",
+    "secondary": "#d1d5db",
+    "tertiary": "#9ca3af",
     "inverse": "#111827"
   },
   "surface": {
