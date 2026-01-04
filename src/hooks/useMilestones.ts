@@ -240,38 +240,3 @@ export function useMilestones(options: UseMilestonesOptions = {}): MilestoneData
 
   return data;
 }
-
-/**
- * Verifica se um milestone foi recém-alcançado
- * Útil para mostrar celebração quando atinge um marco
- */
-export function checkNewMilestone(
-  previousTotal: number,
-  currentTotal: number
-): number | null {
-  for (const milestone of MILESTONES) {
-    if (previousTotal < milestone && currentTotal >= milestone) {
-      return milestone;
-    }
-  }
-  return null;
-}
-
-/**
- * Retorna texto descritivo do progresso
- */
-export function getMilestoneProgressText(data: MilestoneData): string {
-  if (data.isLoading) return 'Carregando...';
-  if (data.error) return 'Erro ao carregar';
-  if (!data.nextMilestone) return `${data.totalEntregas} entregas - Mestre!`;
-  return `${data.totalEntregas}/${data.nextMilestone} entregas`;
-}
-
-/**
- * Retorna cor baseada no progresso
- */
-export function getMilestoneColor(progress: number): 'warning' | 'primary' | 'success' {
-  if (progress >= 90) return 'success';
-  if (progress >= 50) return 'primary';
-  return 'warning';
-}

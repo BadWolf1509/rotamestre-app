@@ -5,7 +5,7 @@
 
 import { renderHook, waitFor } from '@testing-library/react-native';
 
-import { useMotoristas, invalidateMotoristasCache } from '../useMotoristas';
+import { useMotoristas } from '../useMotoristas';
 
 // Mock dependencies
 jest.mock('@/lib/cache', () => ({
@@ -210,18 +210,5 @@ describe('useMotoristas', () => {
 
       expect(result.current.getMotoristaById('non-existent')).toBeUndefined();
     });
-  });
-});
-
-describe('invalidateMotoristasCache', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockCache.clearCache.mockResolvedValue(undefined);
-  });
-
-  it('should clear cache for specific unidade', async () => {
-    await invalidateMotoristasCache('unidade-123');
-
-    expect(mockCache.clearCache).toHaveBeenCalledWith('motoristas:unidade-123');
   });
 });

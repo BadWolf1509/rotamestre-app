@@ -138,10 +138,3 @@ export function useMotoristas(): UseMotoristaResult {
     getMotoristaById,
   };
 }
-
-/**
- * Invalida o cache de motoristas (chamar quando criar/editar motorista)
- */
-export async function invalidateMotoristasCache(unidadeId: string): Promise<void> {
-  await clearCache(CACHE_KEYS.MOTORISTAS(unidadeId));
-}

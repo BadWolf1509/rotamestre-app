@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { googleMapsService } from '@/lib/google';
+import { logger } from '@/lib/logger';
 import {
   otimizarRotaComDependencias,
   ParadaParaOtimizar,
@@ -31,7 +32,14 @@ import {
 } from '@/lib/routeOptimization';
 import { supabase } from '@/lib/supabase';
 import { z } from '@/lib/zod';
-import { GoogleDirectionsLeg } from '@/types/google-directions';
+
+import {
+  generateUniqueId,
+  prepararParadasParaInserir,
+  atualizarVinculosParadas,
+  distanceInMeters,
+  ordenarParadasPorRota,
+} from './useNovaEntrega.helpers';
 
 // Constante para fator de correção Haversine em áreas urbanas
 const HAVERSINE_URBAN_CORRECTION_FACTOR = 1.3;
@@ -56,258 +64,6 @@ const paradaSchema = z.object({
   latitude: z.number().optional(),
   longitude: z.number().optional(),
 });
-
-// Função para gerar ID único
-function generateUniqueId(): string {
-  return `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-}
-
-// Interfaces para helpers de geração de rota
-interface ParadaParaInserir {
-  rota_id: string;
-  tipo: 'entrega' | 'retirada';
-  endereco: string;
-  latitude: number;
-  longitude: number;
-  ordem: number;
-  destinatario: string | null;
-  telefone: string | null;
-  observacoes: string | null;
-  status: 'pendente';
-  is_checkpoint?: boolean;
-  _temp_id?: string;
-  _temp_vinculo_id?: string;
-}
-
-interface CriarParadaCheckpointParams {
-  rotaId: string;
-  tipo: 'retirada' | 'entrega';
-  enderecoUnidade: EnderecoUnidade;
-  ordem: number;
-  nomeUnidade: string;
-  observacoes: string;
-}
-
-/**
- * Cria uma parada de checkpoint (partida ou chegada)
- */
-function criarParadaCheckpoint({
-  rotaId,
-  tipo,
-  enderecoUnidade,
-  ordem,
-  nomeUnidade,
-  observacoes,
-}: CriarParadaCheckpointParams): ParadaParaInserir {
-  // Sempre usar o endereço formatado da unidade
-  // A Routes API só retorna coordenadas, não endereços formatados
-  return {
-    rota_id: rotaId,
-    tipo,
-    endereco: enderecoUnidade.endereco,
-    latitude: enderecoUnidade.latitude,
-    longitude: enderecoUnidade.longitude,
-    ordem,
-    destinatario: nomeUnidade,
-    telefone: null,
-    observacoes,
-    status: 'pendente',
-    is_checkpoint: false,
-  };
-}
-
-interface PrepararParadasParams {
-  rotaId: string;
-  paradas: Parada[];
-  enderecoUnidade: EnderecoUnidade | null;
-  nomeUnidade: string;
-}
-
-/**
- * Prepara o array de paradas para inserção no banco
- */
-function prepararParadasParaInserir({
-  rotaId,
-  paradas,
-  enderecoUnidade,
-  nomeUnidade,
-}: PrepararParadasParams): ParadaParaInserir[] {
-  const paradasParaInserir: ParadaParaInserir[] = [];
-
-  // Adicionar ponto de partida (checkpoint)
-  if (enderecoUnidade) {
-    paradasParaInserir.push(
-      criarParadaCheckpoint({
-        rotaId,
-        tipo: 'retirada',
-        enderecoUnidade,
-        ordem: 0,
-        nomeUnidade,
-        observacoes: 'Ponto de partida',
-      })
-    );
-  }
-
-  // Adicionar paradas do usuário
-  paradas.forEach((p, index) => {
-    // Validar coordenadas antes de inserir
-    if (p.latitude == null || p.longitude == null) {
-      console.warn(`Parada ${p.id} sem coordenadas válidas, ignorando`);
-      return;
-    }
-
-    paradasParaInserir.push({
-      rota_id: rotaId,
-      tipo: p.tipo,
-      // Sempre usar o endereço original do autocomplete (p.endereco)
-      // A Routes API só retorna coordenadas, não endereços formatados
-      endereco: p.endereco,
-      latitude: p.latitude,
-      longitude: p.longitude,
-      ordem: index + 1,
-      destinatario: p.destinatario,
-      telefone: p.telefone,
-      observacoes: p.observacoes || null,
-      status: 'pendente',
-      _temp_id: p.id,
-      _temp_vinculo_id: p.vinculo_parada_id,
-    });
-  });
-
-  // Adicionar ponto de chegada (checkpoint)
-  if (enderecoUnidade) {
-    paradasParaInserir.push(
-      criarParadaCheckpoint({
-        rotaId,
-        tipo: 'entrega',
-        enderecoUnidade,
-        ordem: paradas.length + 1,
-        nomeUnidade,
-        observacoes: 'Ponto de chegada',
-      })
-    );
-  }
-
-  return paradasParaInserir;
-}
-
-/**
- * Atualiza vínculos entre paradas após inserção
- */
-async function atualizarVinculosParadas(
-  paradasParaInserir: ParadaParaInserir[],
-  paradasInseridas: { id: string; ordem: number }[]
-): Promise<void> {
-  const temVinculos = paradasParaInserir.some((p) => p._temp_vinculo_id);
-  if (!temVinculos) return;
-
-  // Mapear IDs temporários para IDs reais
-  const tempIdToRealId: Record<string, string> = {};
-  paradasParaInserir.forEach((p, index) => {
-    if (p._temp_id && paradasInseridas[index]) {
-      tempIdToRealId[p._temp_id] = paradasInseridas[index].id;
-    }
-  });
-
-  // Criar promises de atualização
-  const updatePromises = paradasParaInserir
-    .map((p, index) => {
-      if (p._temp_vinculo_id && tempIdToRealId[p._temp_vinculo_id]) {
-        const realVinculoId = tempIdToRealId[p._temp_vinculo_id];
-        const realParadaId = paradasInseridas[index]?.id;
-
-        if (realParadaId) {
-          return supabase
-            .from('paradas')
-            .update({ vinculo_parada_id: realVinculoId })
-            .eq('id', realParadaId);
-        }
-      }
-      return null;
-    })
-    .filter(Boolean);
-
-  if (updatePromises.length > 0) {
-    await Promise.all(updatePromises);
-  }
-}
-
-// Função para calcular distância em metros usando Haversine
-function distanceInMeters(
-  parada: { latitude?: number; longitude?: number },
-  coords?: { latitude: number; longitude: number }
-): number {
-  if (
-    parada.latitude == null ||
-    parada.longitude == null ||
-    !coords
-  ) {
-    return Number.POSITIVE_INFINITY;
-  }
-
-  const toRad = (value: number) => (value * Math.PI) / 180;
-  const R = 6371000; // Earth radius in meters
-  const dLat = toRad(coords.latitude - parada.latitude);
-  const dLon = toRad(coords.longitude - parada.longitude);
-
-  const lat1 = toRad(parada.latitude);
-  const lat2 = toRad(coords.latitude);
-
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-function ordenarParadasPorRota(
-  paradas: Parada[],
-  ordemOtimizada: number[],
-  legs?: GoogleDirectionsLeg[]
-): Parada[] {
-  if (ordemOtimizada?.length === paradas.length) {
-    return ordemOtimizada.map((index) => paradas[index]);
-  }
-
-  if (legs?.length) {
-    const utilizados = new Set<number>();
-    const ordenadas: Parada[] = [];
-
-    legs.forEach((leg, idx) => {
-      if (idx === legs.length - 1) return;
-
-      let melhorIndex = -1;
-      let menorDistancia = Number.POSITIVE_INFINITY;
-
-      paradas.forEach((parada, paradaIndex) => {
-        if (utilizados.has(paradaIndex)) return;
-        const distancia = distanceInMeters(parada, leg.coordenadas_fim);
-        if (distancia < menorDistancia) {
-          menorDistancia = distancia;
-          melhorIndex = paradaIndex;
-        }
-      });
-
-      if (melhorIndex !== -1) {
-        ordenadas.push(paradas[melhorIndex]);
-        utilizados.add(melhorIndex);
-      }
-    });
-
-    paradas.forEach((parada, index) => {
-      if (!utilizados.has(index)) {
-        ordenadas.push(parada);
-        utilizados.add(index);
-      }
-    });
-
-    if (ordenadas.length === paradas.length) {
-      return ordenadas;
-    }
-  }
-
-  return [...paradas];
-}
 
 export interface UseNovaEntregaReturn {
   // Form
@@ -471,7 +227,7 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
   // Load endereço da unidade
   const loadEnderecoUnidade = useCallback(async () => {
     if (!unidadeAtivaData) {
-      console.warn('Usuário sem unidade vinculada');
+      logger.warn('[NovaEntrega] Usuário sem unidade vinculada');
       return;
     }
 
@@ -504,7 +260,7 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     }
 
     if (!enderecoCompleto) {
-      console.warn('Unidade sem endereço completo cadastrado');
+      logger.warn('[NovaEntrega] Unidade sem endereço completo cadastrado');
       showToast('Endereço da unidade não encontrado. Complete o cadastro antes de gerar rotas.', 'error');
       return;
     }
@@ -518,11 +274,11 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
           endereco: result.formatted_address || enderecoCompleto,
         });
       } else {
-        console.error('Não foi possível geocodificar o endereço da unidade');
+        logger.error('[NovaEntrega] Não foi possível geocodificar o endereço da unidade');
         showToast('Endereço da unidade não encontrado. Verifique o cadastro da unidade.', 'error');
       }
     } catch (error) {
-      console.error('Erro ao geocodificar endereço da unidade:', error);
+      logger.error('[NovaEntrega] Erro ao geocodificar endereço da unidade', error);
     }
   }, [showToast, unidadeAtivaData]);
 
@@ -554,7 +310,7 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
 
       setMotoristas(motoristasData || []);
     } catch (error) {
-      console.error('Erro ao carregar motoristas:', error);
+      logger.error('[NovaEntrega] Erro ao carregar motoristas', error);
       showToast('Não foi possível carregar os motoristas', 'error');
     } finally {
       setIsLoadingMotoristas(false);
@@ -622,7 +378,7 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
         showToast('Parada adicionada à lista!', 'success');
       }
     } catch (error) {
-      console.error('Erro ao adicionar parada:', error);
+      logger.error('[NovaEntrega] Erro ao adicionar parada', error);
       showToast('Não foi possível adicionar a parada', 'error');
     } finally {
       setIsLoading(false);
@@ -696,13 +452,11 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
           longitude: p.longitude,
         }));
 
-      // Usar getDirections com optimize=false para manter ordem manual
-      // Isso faz 1 chamada à API em vez de N chamadas (economia de ~95%)
       const resultado = await googleMapsService.getDirections(
         pontoUnidade,
         pontoUnidade,
         waypoints,
-        false // Manter ordem manual, não otimizar
+        false
       );
 
       if (resultado) {
@@ -715,7 +469,7 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
         showToast('Não foi possível calcular a distância real', 'error');
       }
     } catch (error) {
-      console.error('Erro ao calcular distância real:', error);
+      logger.error('[NovaEntrega] Erro ao calcular distância real', error);
       showToast('Erro ao calcular distância', 'error');
     } finally {
       setIsCalculandoReal(false);
@@ -789,7 +543,7 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
           .map((pOtimizada, i) => {
             const paradaOriginal = paradas.find((p) => p.id === pOtimizada.id);
             if (!paradaOriginal) {
-              console.warn(`Parada otimizada ${pOtimizada.id} não encontrada nas paradas originais`);
+              logger.warn(`[NovaEntrega] Parada otimizada ${pOtimizada.id} não encontrada nas paradas originais`);
               return null;
             }
             return {
@@ -814,7 +568,6 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
           4000
         );
       } else {
-        // Usa paradasComCoordenadas que já foi validado anteriormente
         const waypoints = paradasComCoordenadas.map((p) => ({
           latitude: p.latitude as number,
           longitude: p.longitude as number,
@@ -855,7 +608,7 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
         );
       }
     } catch (error) {
-      console.error('Erro ao otimizar rota:', error);
+      logger.error('[NovaEntrega] Erro ao otimizar rota', error);
       showToast('Não foi possível otimizar a rota', 'error');
     } finally {
       setIsOptimizing(false);
@@ -864,8 +617,6 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
 
   /**
    * Calcula distâncias e tempo da rota (usa otimização prévia ou calcula na hora)
-   * Otimizado: usa getDirections com optimize=false em vez de getDirectionsSequential
-   * para reduzir chamadas à API de N para 1 (economia de ~95%)
    */
   const calcularDadosRota = useCallback(async () => {
     if (ordemManual) {
@@ -886,13 +637,11 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
             longitude: p.longitude,
           }));
 
-          // Usar getDirections com optimize=false para manter ordem manual
-          // Routes API respeita optimizeWaypointOrder=false
           const resultado = await googleMapsService.getDirections(
             pontoUnidade,
             pontoUnidade,
             waypoints,
-            false // Manter ordem manual, não otimizar
+            false
           );
 
           if (resultado) {
@@ -968,9 +717,8 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     distanciaKm: number | null,
     tempoMin: number | null
   ) => {
-    // Validar userData antes de registrar log
     if (!userData?.id) {
-      console.warn('Não foi possível registrar log: userData não disponível');
+      logger.warn('[NovaEntrega] Não foi possível registrar log: userData não disponível');
       return;
     }
 
@@ -993,14 +741,13 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
       });
 
       if (error) {
-        console.error('Erro ao registrar log de criação da rota:', error);
+        logger.error('[NovaEntrega] Erro ao registrar log de criação da rota', error);
       }
     } catch (error) {
-      console.error('Erro inesperado ao registrar log:', error);
+      logger.error('[NovaEntrega] Erro inesperado ao registrar log', error);
     }
   }, [enderecoUnidade, motoristaSelecionado, ordemManual, paradas.length, rotaOtimizada, userData]);
 
-  // ⚠️ limparFormulario deve ser declarado ANTES de gerarRota para evitar erro de inicialização
   const limparFormulario = useCallback(() => {
     setParadas([]);
     setMotoristaSelecionado('');
@@ -1091,7 +838,7 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
       }
       limparFormularioTimeoutRef.current = setTimeout(() => limparFormulario(), 1000);
     } catch (error) {
-      console.error('Erro ao criar rota:', error);
+      logger.error('[NovaEntrega] Erro ao criar rota', error);
       showToast('Não foi possível criar a rota. Tente novamente.', 'error', 5000);
     } finally {
       setIsLoading(false);
