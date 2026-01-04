@@ -9,6 +9,7 @@ const DEFAULT_BASE_URL = 'http://localhost:8082';
 const APP_READY_TIMEOUT_MS = 180000;
 const LOGIN_WAIT_MS = 60000; // Increased for CI
 const RETRY_DELAY_MS = 5000;
+const HYDRATION_WAIT_MS = 5000; // Wait for React hydration
 const DEBUG_SCREENSHOTS_DIR = 'e2e-report/debug';
 
 async function globalSetup(config: FullConfig) {
@@ -40,8 +41,9 @@ async function globalSetup(config: FullConfig) {
 
     try {
       // Navigate and wait for network to be mostly idle
+      // Use 'load' instead of 'domcontentloaded' to ensure all resources are loaded
       await page.goto('/auth/login', {
-        waitUntil: 'domcontentloaded',
+        waitUntil: 'load',
         timeout: LOGIN_WAIT_MS,
       });
 
@@ -50,12 +52,26 @@ async function globalSetup(config: FullConfig) {
       await page.evaluate(() => document.fonts.ready);
       console.log('[global-setup] Fonts ready');
 
-      // Wait a bit for React to hydrate
-      await page.waitForTimeout(2000);
+      // Wait for React to hydrate - CI environments have limited CPU
+      // This gives React time to mount components and attach event handlers
+      const hydrationWait = isCI ? HYDRATION_WAIT_MS : 2000;
+      console.log(`[global-setup] Waiting ${hydrationWait}ms for React hydration...`);
+      await page.waitForTimeout(hydrationWait);
 
-      // Check if there's any content on the page
+      // Check if React has rendered any content
       const bodyContent = await page.locator('body').innerText();
       console.log(`[global-setup] Page body length: ${bodyContent.length} chars`);
+
+      // Verify React root has content (not just empty shell)
+      const reactRoot = page.locator('#root, #__next, [data-reactroot]');
+      const rootContent = await reactRoot.first().innerHTML().catch(() => '');
+      const hasReactContent = rootContent.length > 100; // Minimal React content check
+      console.log(`[global-setup] React root content length: ${rootContent.length} chars, hasContent: ${hasReactContent}`);
+
+      if (!hasReactContent) {
+        console.log('[global-setup] React has not rendered yet, retrying...');
+        throw new Error('React content not rendered');
+      }
 
       // Look for the password input
       const passwordInput = page.locator('[data-testid="auth-login-password"]');
