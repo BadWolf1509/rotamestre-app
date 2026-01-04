@@ -3,6 +3,7 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, Text, View, Platform } from 'react-native';
 
 import { useIsOnline, useNetworkStatus } from '@/hooks/useNetworkStatus';
+import type { IconName } from '@/types/icons';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface ConnectivityBannerProps {
@@ -96,7 +97,7 @@ export function ConnectivityBanner({
   if (!shouldRender) return null;
 
   const backgroundColor = isOffline ? theme.colors.error : theme.colors.success;
-  const icon = isOffline ? 'cloud-offline' : 'cloud-done';
+  const icon: IconName = isOffline ? 'cloud-offline' : 'cloud-done';
   const message = isOffline
     ? 'Sem conexão com a internet'
     : `Conectado${isWifi ? ' via Wi-Fi' : connectionType === 'cellular' ? ' via rede móvel' : ''}`;
@@ -113,7 +114,7 @@ export function ConnectivityBanner({
       ]}
     >
       <View style={styles.content}>
-        <Ionicons name={icon as any} size={18} color={theme.colors.white} />
+        <Ionicons name={icon} size={18} color={theme.colors.white} />
         <Text style={styles.message}>{message}</Text>
         {isOffline && (
           <View style={[styles.pulsingDot, { backgroundColor: theme.colors.white }]} />
@@ -165,7 +166,7 @@ export function ConnectivityIndicator() {
     }
   }, [isOnline, pulseAnim]);
 
-  const getIcon = (): string => {
+  const getIcon = (): IconName => {
     if (!isOnline) return 'cloud-offline';
     if (isWifi) return 'wifi';
     if (isCellular) return 'cellular';
@@ -179,7 +180,7 @@ export function ConnectivityIndicator() {
 
   return (
     <Animated.View style={[styles.indicator, { opacity: pulseAnim }]}>
-      <Ionicons name={getIcon() as any} size={16} color={getColor()} />
+      <Ionicons name={getIcon()} size={16} color={getColor()} />
     </Animated.View>
   );
 }

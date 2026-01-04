@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 
+import type { IconName } from '@/types/icons';
 import { mediumHaptic } from '@/utils/haptics';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -17,7 +18,7 @@ const { width: screenWidth } = Dimensions.get('window');
 const SWIPE_THRESHOLD = screenWidth * 0.25;
 
 interface SwipeAction {
-  icon: string;
+  icon: IconName;
   label: string;
   color: string;
   onPress: () => void | Promise<void>;
@@ -84,7 +85,7 @@ export function SwipeableRow({
                   <ActivityIndicator color={theme.colors.white} size="small" />
                 ) : (
                   <Ionicons
-                    name={action.icon as any}
+                    name={action.icon}
                     size={24}
                     color={theme.colors.white}
                   />
@@ -140,7 +141,7 @@ export function SwipeableRow({
                   <ActivityIndicator color={theme.colors.white} size="small" />
                 ) : (
                   <Ionicons
-                    name={action.icon as any}
+                    name={action.icon}
                     size={24}
                     color={theme.colors.white}
                   />

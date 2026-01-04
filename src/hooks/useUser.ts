@@ -3,7 +3,9 @@ import { Platform } from 'react-native';
 
 import { useAuth } from './useAuth';
 import { getCache, setCache, clearCache, CACHE_TTL, CACHE_KEYS } from '../lib/cache';
+import { logger } from '../lib/logger';
 import { initializePushNotifications } from '../lib/notifications';
+import { onProfileUpdate } from '../lib/profileEvents';
 import { supabase } from '../lib/supabase';
 import { Usuario } from '../types/usuario';
 
@@ -79,7 +81,7 @@ export function useUser() {
         await setCache(cacheKey, freshData, CACHE_TTL.USER_DATA);
       }
     } catch (error) {
-      console.error('Error loading user data:', error);
+      logger.error('Error loading user data:', error);
       if (mountedRef.current && !userData) {
         setUserData(null);
       }
@@ -120,7 +122,7 @@ export function useUser() {
     if (userData?.id && !pushTokenRegistered.current) {
       pushTokenRegistered.current = true;
       initializePushNotifications(userData.id).catch((error) => {
-        console.error('[Push] Erro ao inicializar push:', error);
+        logger.error('[Push] Erro ao inicializar push:', error);
       });
     }
 
@@ -138,6 +140,15 @@ export function useUser() {
 
   // Refresh forçando busca na API (ignorando cache)
   const refresh = useCallback(() => loadUserData(true), [loadUserData]);
+
+  // Escutar eventos de atualização de perfil (ex: foto alterada)
+  useEffect(() => {
+    const unsubscribe = onProfileUpdate(() => {
+      logger.info('[useUser] Perfil atualizado, recarregando dados...');
+      loadUserData(true);
+    });
+    return unsubscribe;
+  }, [loadUserData]);
 
   return {
     userData,

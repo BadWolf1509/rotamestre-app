@@ -98,9 +98,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   cardTitle: {
     fontSize: theme.typography.lg,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
-    marginBottom: 4,
+    marginBottom: theme.spacing.xs,
   },
   cardSubtitle: {
     fontSize: theme.typography.sm,

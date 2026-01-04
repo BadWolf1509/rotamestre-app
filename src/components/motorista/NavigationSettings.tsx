@@ -321,8 +321,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderBottomColor: theme.colors.gray200,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: theme.typography.xl,
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.gray900,
   },
   closeButton: {
@@ -336,10 +336,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray500,
-    marginBottom: 12,
+    marginBottom: theme.spacing.md,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
@@ -356,13 +356,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginRight: 12,
   },
   settingLabel: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.gray900,
     marginBottom: 2,
   },
   settingDescription: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray500,
   },
   settingDisabled: {
@@ -378,15 +378,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderTopColor: theme.colors.gray100,
   },
   sliderLabel: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.gray900,
-    marginBottom: 4,
+    marginBottom: theme.spacing.xs,
   },
   sliderDescription: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray500,
-    marginBottom: 12,
+    marginBottom: theme.spacing.md,
   },
   slider: {
     width: '100%',
@@ -397,7 +397,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     justifyContent: 'space-between',
   },
   sliderEndLabel: {
-    fontSize: 11,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray400,
   },
   tipsSection: {
@@ -413,14 +413,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: 8,
   },
   tipTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.secondaryDark,
   },
   tipText: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.secondaryDark,
-    marginBottom: 4,
+    marginBottom: theme.spacing.xs,
     paddingLeft: 28,
   },
   resetButton: {
@@ -435,8 +435,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.errorBg,
   },
   resetButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.error,
   },
 }));

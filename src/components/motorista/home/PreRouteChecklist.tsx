@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 
+import type { IconName } from '@/types/icons';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 type CheckStatus = 'ok' | 'warning' | 'error' | 'loading';
@@ -190,7 +191,7 @@ export function PreRouteChecklist({ onStatusChange, compact = false }: PreRouteC
     }
   }, [checkAllStatus, openSettings]);
 
-  const getStatusIcon = (itemStatus: CheckStatus): { icon: string; color: string } => {
+  const getStatusIcon = (itemStatus: CheckStatus): { icon: IconName; color: string } => {
     switch (itemStatus) {
       case 'ok':
         return { icon: 'checkmark-circle', color: theme.colors.success };
@@ -219,7 +220,7 @@ export function PreRouteChecklist({ onStatusChange, compact = false }: PreRouteC
           <>
             <View style={styles.compactItem}>
               <Ionicons
-                name={getStatusIcon(status.gps).icon as any}
+                name={getStatusIcon(status.gps).icon}
                 size={16}
                 color={getStatusIcon(status.gps).color}
               />
@@ -227,7 +228,7 @@ export function PreRouteChecklist({ onStatusChange, compact = false }: PreRouteC
             </View>
             <View style={styles.compactItem}>
               <Ionicons
-                name={getStatusIcon(status.internet).icon as any}
+                name={getStatusIcon(status.internet).icon}
                 size={16}
                 color={getStatusIcon(status.internet).color}
               />
@@ -235,7 +236,7 @@ export function PreRouteChecklist({ onStatusChange, compact = false }: PreRouteC
             </View>
             <View style={styles.compactItem}>
               <Ionicons
-                name={getStatusIcon(status.battery).icon as any}
+                name={getStatusIcon(status.battery).icon}
                 size={16}
                 color={getStatusIcon(status.battery).color}
               />
@@ -354,7 +355,7 @@ function ChecklistItem({
   theme: Theme;
   isLast?: boolean;
 }) {
-  const getStatusVisual = () => {
+  const getStatusVisual = (): { icon: IconName; color: string } => {
     switch (status) {
       case 'ok':
         return { icon: 'checkmark-circle', color: theme.colors.success };
@@ -377,7 +378,7 @@ function ChecklistItem({
         {isLoading ? (
           <ActivityIndicator size={18} color={theme.colors.gray400} />
         ) : (
-          <Ionicons name={icon as any} size={18} color={color} />
+          <Ionicons name={icon} size={18} color={color} />
         )}
         <Text style={styles.itemLabel}>{label}</Text>
       </View>
@@ -413,8 +414,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: 6,
   },
   title: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.gray600,
     letterSpacing: 0.5,
   },
@@ -437,7 +438,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: 8,
   },
   itemLabel: {
-    fontSize: 14,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray700,
   },
   itemRight: {
@@ -446,8 +447,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: 8,
   },
   itemSuffix: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   actionButton: {
     paddingHorizontal: 12,
@@ -456,8 +457,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   actionText: {
     color: theme.colors.white,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   messageContainer: {
     flexDirection: 'row',
@@ -469,8 +470,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderTopColor: theme.colors.gray200,
   },
   message: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansMedium,
   },
   // Compact version styles
   compactContainer: {
@@ -489,8 +490,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: 4,
   },
   compactLabel: {
-    fontSize: 11,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray600,
-    fontWeight: '500',
+    fontFamily: theme.typography.fontSansMedium,
   },
 }));

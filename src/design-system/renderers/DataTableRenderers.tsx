@@ -38,6 +38,7 @@ import { View } from 'react-native';
 import { Avatar } from '@/components/Avatar';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Text } from '@/components/Text';
+import type { IconName } from '@/types/icons';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // ============================================
@@ -320,7 +321,7 @@ export function DurationCell({ minutes, fallback = '--' }: DurationCellProps) {
 
 interface IconCellProps {
   /** Ionicons icon name */
-  icon: string;
+  icon: IconName;
   /** Text to display after icon */
   text?: string;
   /** Icon color */
@@ -335,7 +336,7 @@ export function IconCell({ icon, text, color, size = 16 }: IconCellProps) {
 
   return (
     <View style={styles.iconContainer}>
-      <Ionicons name={icon as any} size={size} color={iconColor} />
+      <Ionicons name={icon} size={size} color={iconColor} />
       {text && <Text style={styles.iconText}>{text}</Text>}
     </View>
   );

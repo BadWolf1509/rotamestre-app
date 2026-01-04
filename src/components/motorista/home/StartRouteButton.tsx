@@ -15,6 +15,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 
+import type { IconName } from '@/types/icons';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -76,7 +77,7 @@ export function StartRouteButton({
   }));
 
   // Configuração visual por variante
-  const getVariantConfig = () => {
+  const getVariantConfig = (): { icon: IconName; color: string; disabledColor: string } => {
     switch (variant) {
       case 'start':
         return {
@@ -132,7 +133,7 @@ export function StartRouteButton({
         ) : (
           <>
             <Ionicons
-              name={config.icon as any}
+              name={config.icon}
               size={24}
               color={theme.colors.white}
             />
@@ -181,18 +182,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'flex-start',
   },
   label: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: theme.typography.lg,
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.white,
     letterSpacing: 0.3,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: theme.typography.sm,
     color: withOpacity(theme.colors.white, 0.85),
     marginTop: 2,
   },
   errorText: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: withOpacity(theme.colors.white, 0.7),
     marginTop: 2,
   },

@@ -75,6 +75,7 @@ export function DashboardDesktop({
 
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
+    userImageUrl: userData?.foto_url,
   });
 
   const handleDeleteRota = async (rotaId: string) => {

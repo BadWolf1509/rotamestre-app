@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 
 import { authService } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 /**
@@ -36,24 +37,24 @@ export default function Index() {
         const tipo = await authService.verificarTipoUsuario(session.user.id);
 
         if (tipo === 'gestor') {
-          console.log('✅ Usuário autenticado como gestor → /gestor/inicio');
+          logger.debug('✅ Usuário autenticado como gestor → /gestor/inicio');
           router.replace('/gestor/inicio');
         } else if (tipo === 'motorista') {
-          console.log('✅ Usuário autenticado como motorista → /motorista');
+          logger.debug('✅ Usuário autenticado como motorista → /motorista');
           router.replace('/motorista');
         } else {
           // Tipo desconhecido, vai para login
-          console.warn('⚠️ Tipo de usuário desconhecido, redirecionando para login');
+          logger.warn('⚠️ Tipo de usuário desconhecido, redirecionando para login');
           router.replace('/auth/login');
         }
       } else {
         // Não autenticado: redireciona para login
-        console.log('👤 Usuário não autenticado → /auth/login');
+        logger.debug('👤 Usuário não autenticado → /auth/login');
         router.replace('/auth/login');
       }
     } catch (error) {
       // Erro ao verificar sessão: vai para login como fallback
-      console.error('❌ Erro ao verificar sessão:', error);
+      logger.error('❌ Erro ao verificar sessão:', error);
       router.replace('/auth/login');
     } finally {
       setLoading(false);

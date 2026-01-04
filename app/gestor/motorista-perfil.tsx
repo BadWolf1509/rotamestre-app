@@ -33,6 +33,7 @@ import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { maskPhone, validatePhone, getPhoneErrorMessage } from '@/utils/phoneValidation';
 import { useUnistyles, StyleSheet } from '@/utils/styles';
@@ -46,6 +47,7 @@ export default function MotoristaPerfil() {
   const { userData } = useUser();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
+    userImageUrl: userData?.foto_url,
   });
 
   // State
@@ -102,7 +104,7 @@ export default function MotoristaPerfil() {
 
       if (performanceError) {
         // View might not have data for this motorista (no routes yet)
-        console.warn('Performance data not found:', performanceError);
+        logger.warn('Performance data not found:', performanceError);
         setPerformance({
           id: motoristaId,
           nome: motoristaData.nome,
@@ -133,7 +135,7 @@ export default function MotoristaPerfil() {
       setRotasRecentes(rotasData || []);
 
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
+      logger.error('Erro ao carregar dados:', error);
       showToast('Não foi possível carregar os dados do motorista', 'error');
     }
   }, [motoristaId, showToast]);
@@ -175,7 +177,7 @@ export default function MotoristaPerfil() {
       );
       setShowToggleModal(false);
     } catch (error) {
-      console.error('Erro ao alterar status:', error);
+      logger.error('Erro ao alterar status:', error);
       showToast('Não foi possível alterar o status', 'error');
     }
   }, [motorista, showToast]);
@@ -240,7 +242,7 @@ export default function MotoristaPerfil() {
       showToast('Motorista atualizado com sucesso', 'success');
       setShowEditModal(false);
     } catch (error) {
-      console.error('Erro ao salvar:', error);
+      logger.error('Erro ao salvar:', error);
       showToast('Não foi possível salvar as alterações', 'error');
     } finally {
       setSalvando(false);

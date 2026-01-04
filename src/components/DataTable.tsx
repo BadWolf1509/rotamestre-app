@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
+import type { IconName } from '@/types/icons';
 import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -40,8 +41,8 @@ export interface DataTableColumn<T = any> {
 export interface DataTableAction<T = any> {
   /** Label da ação (string ou função que retorna string baseada no item) */
   label: string | ((item: T) => string);
-  /** Ícone (emoji ou texto, string ou função que retorna string baseada no item) */
-  icon?: string | ((item: T) => string);
+  /** Ícone (emoji ou texto, IconName ou função que retorna IconName baseada no item) */
+  icon?: IconName | ((item: T) => IconName);
   /** Callback ao clicar */
   onPress: (item: T) => void;
   /** Cor do botão */
@@ -331,7 +332,7 @@ function DataTableInner<T = any>({
                       >
                         {icon && (
                           <Ionicons
-                            name={icon as any}
+                            name={icon}
                             size={16}
                             color={
                               action.type === 'danger'
@@ -479,7 +480,7 @@ function DataTableInner<T = any>({
                         >
                           {icon && (
                             <Ionicons
-                              name={icon as any}
+                              name={icon}
                               size={16}
                               color={
                                 action.type === 'danger'

@@ -8,7 +8,6 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  Platform,
 } from 'react-native';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -24,7 +23,6 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
-import { boxShadow } from '@/utils/color';
 import { cleanPhone, formatPhone } from '@/utils/phoneValidation';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -54,6 +52,7 @@ export default function UnidadeScreen() {
   const { userData, loading: userLoading } = useUser();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
+    userImageUrl: userData?.foto_url,
   });
   const { toast: toastState, showToast, hideToast } = useToast();
   const { isDesktop } = useResponsive();
@@ -448,7 +447,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   mobileEditButtonText: {
     color: theme.colors.white,
     fontSize: theme.typography.md,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   content: {
     paddingHorizontal: theme.spacing.md,
@@ -493,23 +492,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
   infoCard: {
     backgroundColor: theme.colors.white,
     padding: theme.spacing['2xl'],
-    borderRadius: theme.borderRadius.xl,
+    borderRadius: theme.borderRadius.lg,
     marginBottom: theme.spacing['2xl'],
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: theme.colors.gray200,
-    alignItems: 'center',
-    // Web-only: Smooth transitions and hover
-    ...(Platform.OS === 'web' && {
-      transitionProperty: 'all',
-      transitionDuration: '0.2s',
-      transitionTimingFunction: 'ease-in-out',
-      // @ts-ignore - web-only CSS
-      ':hover': {
-        borderColor: theme.colors.primary,
-        boxShadow: boxShadow(0, 4, 12, 0, theme.colors.black, 0.08),
-        transform: 'translateY(-2px)',
-      },
-    }),
+    // Elevated card (design system token)
+    ...theme.shadows.md,
   },
   infoLabel: {
     fontSize: theme.typography.sm,
@@ -517,21 +506,21 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.sm,
   },
   infoValue: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: theme.typography['3xl'],
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.primary,
-    marginBottom: 12,
+    marginBottom: theme.spacing.md,
   },
   linkButton: {
-    paddingVertical: 8,
+    paddingVertical: theme.spacing.sm,
     flexDirection: 'row',
     gap: theme.spacing.xs,
     alignItems: 'center',
     alignSelf: 'flex-start',
   },
   linkButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.primary,
   },
   section: {
@@ -582,7 +571,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   helperText: {
     fontSize: theme.typography.xs,
     color: theme.colors.gray500,
-    marginTop: 4,
+    marginTop: theme.spacing.xs,
   },
   row: {
     flexDirection: 'row',

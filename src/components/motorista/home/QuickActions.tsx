@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 
 import { RouteStatus } from '@/context/RouteStatusContext';
+import type { IconName } from '@/types/icons';
 import { lightHaptic, mediumHaptic, heavyHaptic } from '@/utils/haptics';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -25,7 +26,7 @@ interface QuickActionsProps {
 
 
 interface ActionConfig {
-  icon: string;
+  icon: IconName;
   label: string;
   onPress?: () => void;
   haptic: 'light' | 'medium' | 'heavy';
@@ -123,7 +124,7 @@ export function QuickActions({
             action.color ? { backgroundColor: `${action.color}15` } : {}
           ]}>
             <Ionicons
-              name={action.icon as any}
+              name={action.icon}
               size={24}
               color={action.color || theme.colors.primary}
             />
@@ -145,7 +146,7 @@ export function QuickActions({
 const DEFAULT_TAB_BAR_HEIGHT = 80;
 
 interface FloatingActionButtonProps {
-  icon: string;
+  icon: IconName;
   color: string;
   onPress: () => void;
   label?: string;
@@ -187,7 +188,7 @@ export function FloatingActionButton({
       activeOpacity={0.8}
       disabled={disabled}
     >
-      <Ionicons name={icon as any} size={28} color={theme.colors.white} />
+      <Ionicons name={icon} size={28} color={theme.colors.white} />
       {label && <Text style={[fabStyles.fabLabel, { color: theme.colors.white }]}>{label}</Text>}
     </TouchableOpacity>
   );
@@ -266,14 +267,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: 4,
   },
   actionLabel: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.gray700,
     textAlign: 'center',
   },
 }));
 
-const fabStyles = StyleSheet.create((_theme: Theme) => ({
+const fabStyles = StyleSheet.create((theme: Theme) => ({
   fab: {
     position: 'absolute',
     // bottom é definido dinamicamente via prop tabBarHeight
@@ -290,9 +291,9 @@ const fabStyles = StyleSheet.create((_theme: Theme) => ({
     zIndex: 15,
   },
   fabLabel: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     marginTop: 2,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
   },
 }));
 

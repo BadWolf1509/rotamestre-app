@@ -229,7 +229,7 @@ export function useMainCardData({
         .gte('concluida_em', today.toISOString())
         .order('concluida_em', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error || !rota) {
         setLastRoute(null);
@@ -300,7 +300,7 @@ export function useMainCardData({
         .gte('data', yesterday.toISOString().split('T')[0])
         .order('data', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error || !rota) {
         setExpiredRoute(null);

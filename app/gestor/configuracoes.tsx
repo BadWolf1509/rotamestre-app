@@ -335,7 +335,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.gray50,
   },
   loadingText: {
-    fontSize: 16,
+    fontSize: theme.typography.base,
     color: theme.colors.gray500,
   },
   themeSettingsWrapper: {
@@ -343,7 +343,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginVertical: theme.spacing.sm,
   },
   settingDescription: {
-    fontSize: 14,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray500,
     marginBottom: theme.spacing.md,
   },
@@ -364,22 +364,22 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.primary,
   },
   navOptionIcon: {
-    fontSize: 20,
+    fontSize: theme.typography.xl,
     marginRight: theme.spacing.md,
   },
   navOptionLabel: {
     flex: 1,
-    fontSize: 15,
+    fontSize: theme.typography.base,
     color: theme.colors.gray700,
   },
   navOptionLabelActive: {
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.primary,
   },
   navOptionCheck: {
-    fontSize: 18,
+    fontSize: theme.typography.lg,
     color: theme.colors.primary,
-    fontWeight: 'bold',
+    fontFamily: theme.typography.fontSansBold,
   },
   settingRow: {
     flexDirection: 'row',
@@ -395,18 +395,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
   },
   settingLabel: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.gray900,
   },
   settingSubtext: {
-    fontSize: 13,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray500,
-    marginTop: 2,
+    marginTop: theme.spacing.xs,
   },
   settingAction: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.error,
   },
   aboutRow: {
@@ -420,15 +420,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderBottomWidth: 0,
   },
   aboutLabel: {
-    fontSize: 14,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray500,
   },
   aboutValue: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.gray900,
   },
   footer: {
-    height: 40,
+    height: theme.spacing['3xl'],
   },
 }));

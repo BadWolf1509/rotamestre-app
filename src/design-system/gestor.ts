@@ -9,9 +9,7 @@ export { DashboardMobile } from '@/components/gestor/dashboard/_components/mobil
 
 // Route Components
 export { RouteFilters } from '@/components/RouteFilters';
-export { RouteControlPanel } from '@/components/RouteControlPanel';
 export { RouteTimeline } from '@/components/RouteTimeline';
 
 // Responsive Components (re-export from main)
 export { ResponsiveGrid, GridItem, MetricCard } from '@/components/gestor/ResponsiveGrid';
-export { ResponsiveDataDisplay } from '@/components/gestor/ResponsiveDataDisplay';

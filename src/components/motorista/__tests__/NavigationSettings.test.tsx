@@ -19,39 +19,57 @@ jest.mock('@/services/locationTracking', () => ({
 }));
 
 // Mock unistyles
-jest.mock('@/utils/styles', () => ({
-    useUnistyles: () => ({
-        theme: {
-            colors: {
-                text: '#000',
-                primary: '#007AFF',
-                gray300: '#d1d5db',
-                gray400: '#9ca3af',
-                gray500: '#6b7280',
-                gray900: '#111827',
-                white: '#fff',
-                warning: '#FF9500',
-                error: '#FF3B30',
-            },
+jest.mock('@/utils/styles', () => {
+    const theme = {
+        colors: {
+            text: '#000',
+            primary: '#007AFF',
+            gray100: '#f3f4f6',
+            gray200: '#e5e7eb',
+            gray300: '#d1d5db',
+            gray400: '#9ca3af',
+            gray500: '#6b7280',
+            gray900: '#111827',
+            white: '#fff',
+            warning: '#FF9500',
+            warningBg: '#fef3c7',
+            secondaryDark: '#92400e',
+            error: '#FF3B30',
+            errorBg: '#fee2e2',
         },
-    }),
-    StyleSheet: {
-        create: (fn: any) => fn({
-            colors: {
-                white: '#fff',
-                gray100: '#f3f4f6',
-                gray200: '#e5e7eb',
-                gray400: '#9ca3af',
-                gray500: '#6b7280',
-                gray900: '#111827',
-                warningBg: '#fef3c7',
-                secondaryDark: '#92400e',
-                errorBg: '#fee2e2',
-                error: '#FF3B30',
-            },
-        }),
-    },
-}));
+        typography: {
+            xs: 12,
+            sm: 14,
+            base: 16,
+            lg: 18,
+            xl: 20,
+            '2xl': 24,
+            fontSans: 'System',
+            fontSansMedium: 'System',
+            fontSansSemiBold: 'System',
+            fontSansBold: 'System',
+        },
+        spacing: {
+            xs: 4,
+            sm: 8,
+            md: 16,
+            lg: 24,
+            xl: 32,
+        },
+        borderRadius: {
+            sm: 4,
+            md: 8,
+            lg: 12,
+            full: 9999,
+        },
+    };
+    return {
+        useUnistyles: () => ({ theme }),
+        StyleSheet: {
+            create: (fn: any) => (typeof fn === 'function' ? fn(theme) : fn),
+        },
+    };
+});
 
 // Mock Ionicons
 jest.mock('@expo/vector-icons', () => ({

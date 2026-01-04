@@ -13,6 +13,7 @@ import {
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
 import TurnByTurnNavigationService from '@/services/turnByTurnNavigation';
+import type { IconName } from '@/types/icons';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -244,8 +245,8 @@ export function TurnByTurnNavigation({
   };
 
   // Get maneuver icon
-  const getManeuverIcon = (maneuver: string): string => {
-    const iconMap: { [key: string]: string } = {
+  const getManeuverIcon = (maneuver: string): IconName => {
+    const iconMap: Record<string, IconName> = {
       'turn-left': 'arrow-back',
       'turn-right': 'arrow-forward',
       'turn-sharp-left': 'return-up-back',
@@ -340,7 +341,7 @@ export function TurnByTurnNavigation({
         <View style={styles.instructionContent}>
           <View style={styles.maneuverIcon}>
             <Ionicons
-              name={getManeuverIcon(currentInstruction?.maneuver) as any}
+              name={getManeuverIcon(currentInstruction?.maneuver)}
               size={40}
               color={theme.colors.white}
             />
@@ -359,7 +360,7 @@ export function TurnByTurnNavigation({
         {nextInstruction && (
           <View style={styles.nextInstructionBar}>
             <Ionicons
-              name={getManeuverIcon(nextInstruction.maneuver) as any}
+              name={getManeuverIcon(nextInstruction.maneuver)}
               size={16}
               color={theme.colors.gray400}
             />

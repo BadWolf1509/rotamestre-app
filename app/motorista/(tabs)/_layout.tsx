@@ -67,8 +67,8 @@ export default function TabLayout() {
           }),
         },
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
+          fontSize: theme.typography.xs,
+          fontFamily: theme.typography.fontSansSemiBold,
           marginTop: 2,
         },
         tabBarItemStyle: {
@@ -79,8 +79,8 @@ export default function TabLayout() {
         },
         headerTintColor: theme.colors.white,
         headerTitleStyle: {
-          fontWeight: 'bold',
-          fontSize: 18,
+          fontFamily: theme.typography.fontSansBold,
+          fontSize: theme.typography.lg,
         },
         headerLeft: () => (
           <Pressable
@@ -123,8 +123,8 @@ export default function TabLayout() {
           tabBarBadgeStyle: {
             backgroundColor: theme.colors.secondaryDark, // contraste 4.5:1 com texto branco
             color: theme.colors.white,
-            fontSize: 10,
-            fontWeight: 'bold',
+            fontSize: theme.typography.xs,
+            fontFamily: theme.typography.fontSansBold,
             minWidth: 18,
             height: 18,
             borderRadius: 9,

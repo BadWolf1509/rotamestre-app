@@ -8,7 +8,9 @@ import {
   View,
 } from 'react-native';
 
+import { AlertDialog } from '@/components/AlertDialog';
 import { AvatarEditable } from '@/components/AvatarEditable';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { PerfilDesktopLayout } from '@/components/perfil/PerfilDesktopLayout';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import { DesktopPageLayout, Text } from '@/design-system';
@@ -60,11 +62,16 @@ export default function PerfilGestor() {
     profile,
     uploadingPhoto,
     showPhotoOptions,
+    confirmDialog,
+    closeConfirmDialog,
+    alertDialog,
+    closeAlertDialog,
   } = useProfile(user);
 
   const pageMeta = getGestorPageMeta('perfil');
   const { userMenuTrigger, userMenuItems, logoutModal, openLogoutModal } = useDesktopHeaderMenu({
     userName: usuario?.nome || profile?.nome,
+    userImageUrl: usuario?.foto_url || profile?.foto_url,
   });
 
   useEffect(() => {
@@ -141,6 +148,20 @@ export default function PerfilGestor() {
           />
         </DesktopPageLayout>
         {logoutModal}
+        <ConfirmDialog
+          visible={confirmDialog.visible}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={closeConfirmDialog}
+        />
+        <AlertDialog
+          visible={alertDialog.visible}
+          title={alertDialog.title}
+          message={alertDialog.message}
+          type={alertDialog.type}
+          onConfirm={closeAlertDialog}
+        />
       </>
     );
   }
@@ -239,6 +260,20 @@ export default function PerfilGestor() {
       ))}
       </ScrollView>
       {logoutModal}
+      <ConfirmDialog
+        visible={confirmDialog.visible}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={closeConfirmDialog}
+      />
+      <AlertDialog
+        visible={alertDialog.visible}
+        title={alertDialog.title}
+        message={alertDialog.message}
+        type={alertDialog.type}
+        onConfirm={closeAlertDialog}
+      />
     </>
   );
 }
@@ -274,7 +309,7 @@ const styles = (theme: any) =>
       color: theme.colors.gray900,
     },
     email: {
-      marginTop: 4,
+      marginTop: theme.spacing.xs,
       fontSize: theme.typography.sm,
       color: theme.colors.gray500,
     },
@@ -287,7 +322,7 @@ const styles = (theme: any) =>
     },
     roleBadgeText: {
       color: theme.colors.primary,
-      fontWeight: '600',
+      fontFamily: theme.typography.fontSansSemiBold,
     },
     unitBadge: {
       marginTop: theme.spacing.sm,
@@ -302,7 +337,7 @@ const styles = (theme: any) =>
     },
     unitBadgeValue: {
       fontSize: theme.typography.sm,
-      fontWeight: '600',
+      fontFamily: theme.typography.fontSansSemiBold,
       color: theme.colors.gray800,
     },
     section: {
@@ -338,7 +373,7 @@ const styles = (theme: any) =>
     sectionTitle: {
       flex: 1,
       fontSize: theme.typography.base,
-      fontWeight: '600',
+      fontFamily: theme.typography.fontSansSemiBold,
       color: theme.colors.gray900,
     },
     sectionArrow: {

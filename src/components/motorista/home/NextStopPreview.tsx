@@ -168,8 +168,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: 3,
   },
   label: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.info,
     letterSpacing: 0.5,
   },
@@ -180,15 +180,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: 10,
   },
   orderText: {
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.info,
   },
   address: {
-    fontSize: 13,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray900,
-    fontWeight: '500',
-    marginBottom: 6,
+    fontFamily: theme.typography.fontSansMedium,
+    marginBottom: theme.spacing.xs,
   },
   infoRow: {
     flexDirection: 'row',
@@ -196,7 +196,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: 4,
   },
   distanceText: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray600,
     flex: 1,
   },
@@ -216,7 +216,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: 8,
   },
   detailText: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray700,
   },
   observationRow: {
@@ -225,7 +225,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: 6,
   },
   observationText: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.warningText,
     flex: 1,
   },

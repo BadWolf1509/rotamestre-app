@@ -228,8 +228,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginRight: 12,
   },
   message: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.white,
     flex: 1,
     lineHeight: 20,
@@ -239,8 +239,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginLeft: 12,
   },
   closeIcon: {
-    fontSize: 18,
+    fontSize: theme.typography.lg,
     color: theme.colors.white,
-    fontWeight: '700',
+    fontFamily: theme.typography.fontSansBold,
   },
 }));

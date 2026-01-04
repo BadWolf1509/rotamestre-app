@@ -55,6 +55,30 @@ jest.mock('@/utils/styles', () => {
       gray600: '#4b5563',
       gray700: '#374151',
     },
+    typography: {
+      xs: 12,
+      sm: 14,
+      base: 16,
+      lg: 18,
+      xl: 20,
+      fontSans: 'System',
+      fontSansMedium: 'System',
+      fontSansSemiBold: 'System',
+      fontSansBold: 'System',
+    },
+    spacing: {
+      xs: 4,
+      sm: 8,
+      md: 16,
+      lg: 24,
+      xl: 32,
+    },
+    borderRadius: {
+      sm: 4,
+      md: 8,
+      lg: 12,
+      full: 9999,
+    },
   };
 
   return {

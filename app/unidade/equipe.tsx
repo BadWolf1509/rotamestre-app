@@ -1,12 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  View,
-  ScrollView,
-  Alert,
-  Platform,
-} from 'react-native';
+import { View, ScrollView, Alert } from 'react-native';
 
+import { Avatar } from '@/components/Avatar';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
@@ -23,8 +19,7 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
-import { boxShadow } from '@/utils/color';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface Membro {
   id: string;
@@ -34,14 +29,15 @@ interface Membro {
   is_gestor_principal: boolean;
   ativo: boolean;
   created_at: string;
+  foto_url: string | null;
 }
 
 export default function EquipeScreen() {
-  const { theme } = useUnistyles();
   const router = useRouter();
   const { userData, loading: userLoading } = useUser();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
+    userImageUrl: userData?.foto_url,
   });
   const { toast: toastState, showToast, hideToast } = useToast();
   const { isDesktop } = useResponsive();
@@ -66,7 +62,7 @@ export default function EquipeScreen() {
       setLoading(true);
       const { data, error } = await supabase
         .from('usuarios')
-        .select('id, nome, email, papel, is_gestor_principal, ativo, created_at')
+        .select('id, nome, email, papel, is_gestor_principal, ativo, created_at, foto_url')
         .eq('unidade_id', unidadeId)
         .order('created_at', { ascending: false });
 
@@ -151,10 +147,6 @@ export default function EquipeScreen() {
 
   function getPapelLabel(papel: string): string {
     return papel === 'gestor' ? 'Gestor' : 'Motorista';
-  }
-
-  function getPapelColor(papel: string): string {
-    return papel === 'gestor' ? theme.colors.primary : theme.colors.success;
   }
 
   const isGestorPrincipal = userData?.is_gestor_principal === true;
@@ -247,16 +239,11 @@ export default function EquipeScreen() {
             ]}
           >
             <View style={styles.membroHeader}>
-              <View
-                style={[
-                  styles.avatar,
-                  { backgroundColor: getPapelColor(membro.papel) },
-                ]}
-              >
-                <Text style={styles.avatarText}>
-                  {membro.nome.charAt(0).toUpperCase()}
-                </Text>
-              </View>
+              <Avatar
+                name={membro.nome}
+                imageUrl={membro.foto_url}
+                size="md"
+              />
               <View style={styles.membroInfo}>
                 <View style={styles.membroNameRow}>
                   <Text style={styles.membroNome}>{membro.nome}</Text>
@@ -422,28 +409,29 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   loadingText: {
     marginTop: theme.spacing.sm,
-    fontSize: theme.typography.sm,
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSans,
     color: theme.colors.gray500,
   },
   statsContainer: {
     flexDirection: 'row',
-    padding: 20,
-    gap: 12,
+    padding: theme.spacing.xl,
+    gap: theme.spacing.md,
   },
   statCard: {
     flex: 1,
     backgroundColor: theme.colors.surface,
-    padding: 16,
-    borderRadius: 12,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
   statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: theme.typography.fontSize['2xl'],
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.primary,
-    marginBottom: 4,
+    marginBottom: theme.spacing.xs,
   },
   statValuePositive: {
     color: theme.colors.success,
@@ -452,28 +440,28 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.error,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSans,
     color: theme.colors.textSecondary,
   },
   searchSection: {
-    paddingHorizontal: 20,
-    marginBottom: 16,
+    paddingHorizontal: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
   },
   searchInputContainer: {
     marginBottom: 0,
   },
   filterSection: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    gap: 8,
-    marginBottom: 16,
+    paddingHorizontal: theme.spacing.xl,
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.lg,
   },
   filterButton: {
     flex: 1,
   },
   listContainer: {
     flex: 1,
-    paddingHorizontal: 20,
   },
   // Grid layout for desktop
   gridContainer: {
@@ -484,40 +472,30 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   emptyState: {
     backgroundColor: theme.colors.surface,
-    padding: 40,
-    borderRadius: 12,
+    padding: theme.spacing['3xl'],
+    borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
   emptyStateText: {
-    fontSize: 16,
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: theme.typography.fontSans,
     color: theme.colors.textSecondary,
   },
   membroCard: {
     backgroundColor: theme.colors.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1.5,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
     borderColor: theme.colors.gray200,
-    ...theme.shadows.sm,
-    // Web-only: Smooth transitions and hover
-    ...(Platform.OS === 'web' && {
-      transitionProperty: 'all',
-      transitionDuration: '0.2s',
-      transitionTimingFunction: 'ease-in-out',
-      // @ts-ignore - web-only CSS
-      ':hover': {
-        borderColor: theme.colors.primary,
-        boxShadow: boxShadow(0, 4, 12, 0, theme.colors.black, 0.08),
-        transform: 'translateY(-2px)',
-      },
-    }),
+    // Elevated card (design system token)
+    ...theme.shadows.md,
   },
   membroCardGrid: {
     // 3 colunas no desktop using flexBasis for RN compatibility
-    // gap: 16px is handled by gridContainer
+    // gap é handled by gridContainer
     flexBasis: '31%' as const,
     flexGrow: 0,
     flexShrink: 0,
@@ -530,19 +508,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   membroHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  avatarText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: theme.colors.surface,
+    gap: theme.spacing.md,
   },
   membroInfo: {
     flex: 1,
@@ -550,44 +516,45 @@ const styles = StyleSheet.create((theme: Theme) => ({
   membroNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
   },
   membroNome: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.text,
   },
   principalBadge: {
     backgroundColor: theme.colors.warningLight,
-    paddingHorizontal: 8,
+    paddingHorizontal: theme.spacing.sm,
     paddingVertical: 2,
-    borderRadius: 8,
+    borderRadius: theme.borderRadius.sm,
   },
   principalBadgeText: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
   },
   inativoBadge: {
     backgroundColor: theme.colors.errorLight,
-    paddingHorizontal: 8,
+    paddingHorizontal: theme.spacing.sm,
     paddingVertical: 2,
-    borderRadius: 8,
+    borderRadius: theme.borderRadius.sm,
   },
   inativoBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.error,
   },
   membroEmail: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSans,
     color: theme.colors.textSecondary,
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   papelBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 999,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.full,
     borderWidth: 1,
   },
   papelBadgeGestor: {
@@ -599,8 +566,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.success,
   },
   papelBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   papelBadgeTextGestor: {
     color: theme.colors.primaryDark,
@@ -610,9 +577,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   membroActions: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
-    paddingTop: 12,
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.md,
+    paddingTop: theme.spacing.md,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
   },
@@ -621,27 +588,27 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   youBadge: {
     backgroundColor: theme.colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginTop: 12,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.sm,
+    marginTop: theme.spacing.md,
     alignSelf: 'flex-start',
   },
   youBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.white,
   },
   footer: {
-    padding: 20,
+    padding: theme.spacing.xl,
     backgroundColor: theme.colors.surface,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
   },
   transferButton: {
     backgroundColor: theme.colors.warningLight,
-    padding: 16,
-    borderRadius: 8,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.sm,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: theme.colors.warning,

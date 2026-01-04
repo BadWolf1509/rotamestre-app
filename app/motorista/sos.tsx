@@ -14,6 +14,7 @@ import {
 
 import { useRouteStatus } from '@/context/RouteStatusContext';
 import { useUser } from '@/hooks/useUser';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { withOpacity } from '@/utils/color';
 import { heavyHaptic, warningHaptic } from '@/utils/haptics';
@@ -54,7 +55,7 @@ export default function SOSScreen() {
           });
         }
       } catch (error) {
-        console.error('Erro ao obter localização:', error);
+        logger.error('Erro ao obter localização:', error);
       } finally {
         setLoadingLocation(false);
       }
@@ -78,7 +79,7 @@ export default function SOSScreen() {
         .maybeSingle();
 
       if (error) {
-        console.warn('[SOS] Erro ao carregar gestor:', error.message);
+        logger.warn('[SOS] Erro ao carregar gestor:', error.message);
         return;
       }
 
@@ -186,7 +187,7 @@ export default function SOSScreen() {
 
       setDescricao('');
     } catch (error) {
-      console.error('Erro ao enviar SOS:', error);
+      logger.error('Erro ao enviar SOS:', error);
       Alert.alert('Erro', 'Não foi possível enviar o SOS. Tente ligar diretamente para os números de emergência.');
     } finally {
       setEnviando(false);
@@ -326,13 +327,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     elevation: 8,
   },
   emergencyIcon: {
-    fontSize: 48,
-    marginBottom: 4,
+    fontSize: theme.typography['4xl'],
+    marginBottom: theme.spacing.xs,
   },
   emergencyText: {
     color: theme.colors.white,
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: theme.typography.lg,
+    fontFamily: theme.typography.fontSansBold,
     // Brand guideline: text shadow for white text on colored background
     textShadowColor: withOpacity(theme.colors.black, 0.3),
     textShadowOffset: { width: 0, height: 1 },
@@ -340,7 +341,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   emergencySubtext: {
     marginTop: theme.spacing.md,
-    fontSize: 14,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray500,
     textAlign: 'center',
   },
@@ -350,8 +351,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.md,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
     marginBottom: theme.spacing.md,
   },
@@ -360,7 +361,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.gray300,
     borderRadius: theme.borderRadius.md,
     padding: theme.spacing.md,
-    fontSize: 16,
+    fontSize: theme.typography.base,
     color: theme.colors.gray900,
     backgroundColor: theme.colors.gray50,
     minHeight: 100,
@@ -373,11 +374,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
   locationLoading: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: theme.spacing.sm,
   },
   locationLoadingText: {
     color: theme.colors.gray500,
-    fontSize: 14,
+    fontSize: theme.typography.sm,
   },
   locationCard: {
     flexDirection: 'row',
@@ -387,25 +388,25 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.md,
   },
   locationIcon: {
-    fontSize: 24,
+    fontSize: theme.typography['2xl'],
     marginRight: theme.spacing.md,
   },
   locationInfo: {
     flex: 1,
   },
   locationCoords: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
   },
   locationHint: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.primary,
-    marginTop: 2,
+    marginTop: theme.spacing.xs,
   },
   locationError: {
     color: theme.colors.gray500,
-    fontSize: 14,
+    fontSize: theme.typography.sm,
   },
   contactsList: {
     gap: theme.spacing.sm,
@@ -424,24 +425,24 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.primary + '40',
   },
   contactIcon: {
-    fontSize: 28,
+    fontSize: theme.typography['3xl'],
     marginRight: theme.spacing.md,
   },
   contactInfo: {
     flex: 1,
   },
   contactLabel: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
   },
   contactDescription: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray500,
-    marginTop: 2,
+    marginTop: theme.spacing.xs,
   },
   contactArrow: {
-    fontSize: 20,
+    fontSize: theme.typography.xl,
     color: theme.colors.gray400,
   },
   safetySection: {
@@ -454,17 +455,17 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.warning + '40',
   },
   safetyTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.warningDark,
     marginBottom: theme.spacing.sm,
   },
   safetyText: {
-    fontSize: 13,
+    fontSize: theme.typography.sm,
     color: theme.colors.warningText,
-    lineHeight: 20,
+    lineHeight: theme.typography.xl,
   },
   footer: {
-    height: 40,
+    height: theme.spacing['3xl'],
   },
 }));

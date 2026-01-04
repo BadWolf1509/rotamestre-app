@@ -157,7 +157,7 @@ export function ExpirationWarning({ rotaData, onExpire }: ExpirationWarningProps
   );
 }
 
-const styles = StyleSheet.create((_theme: Theme) => ({
+const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -169,7 +169,7 @@ const styles = StyleSheet.create((_theme: Theme) => ({
     marginBottom: 12,
   },
   text: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
 }));

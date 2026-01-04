@@ -23,9 +23,11 @@ import { useRouteStatus, type ParadaData } from '@/context/RouteStatusContext';
 import { ConfirmModal, SupportModal } from '@/design-system';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
+import { logger } from '@/lib/logger';
 import { abrirNavegacao } from '@/lib/navigation';
 import DynamicReroutingService from '@/services/dynamicRerouting';
 import LocationTrackingService from '@/services/locationTracking';
+import type { IconName } from '@/types/icons';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 function MotoristaInicioContent() {
@@ -82,7 +84,7 @@ function MotoristaInicioContent() {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          console.log('[Location] Permission to access location was denied');
+          logger.debug('[Location] Permission to access location was denied');
           return;
         }
 
@@ -96,7 +98,7 @@ function MotoristaInicioContent() {
             longitude: location.coords.longitude,
           });
         } catch (positionError) {
-          console.warn('[Location] Could not get current position:', positionError);
+          logger.warn('[Location] Could not get current position:', positionError);
           // Continue anyway - will try to get location from watcher
         }
 
@@ -115,7 +117,7 @@ function MotoristaInicioContent() {
           }
         );
       } catch (error) {
-        console.error('[Location] Error setting up location tracking:', error);
+        logger.error('[Location] Error setting up location tracking:', error);
       }
     })();
 
@@ -125,7 +127,7 @@ function MotoristaInicioContent() {
           subscription.remove();
         } catch (error) {
           // expo-location remove() não funciona corretamente na web
-          console.warn('[Location] Error removing subscription:', error);
+          logger.warn('[Location] Error removing subscription:', error);
         }
       }
     };
@@ -321,7 +323,7 @@ function MotoristaInicioContent() {
   };
 
   // Get FAB properties
-  const getFABProps = () => {
+  const getFABProps = (): { icon: IconName; color: string; label: string } => {
     switch (routeStatus) {
       case 'pending':
         return {
@@ -516,7 +518,7 @@ function MotoristaInicioContent() {
           visible={showIncidentWizard}
           onClose={() => setShowIncidentWizard(false)}
           onSubmit={(report) => {
-            console.log('Incidente reportado:', report);
+            logger.debug('Incidente reportado:', report);
             setShowIncidentWizard(false);
           }}
           paradaId={currentStop?.id}

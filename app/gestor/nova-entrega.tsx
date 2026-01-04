@@ -373,6 +373,7 @@ export default function NovaEntrega() {
 
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
+    userImageUrl: userData?.foto_url,
   });
 
   const pageSubtitle = unidadeNome || pageMeta.subtitle || 'Carregando...';

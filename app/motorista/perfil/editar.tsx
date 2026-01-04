@@ -4,6 +4,7 @@ import { ActivityIndicator, ScrollView, View } from 'react-native';
 
 import { AlertDialog, Button, Input, Text } from '@/design-system';
 import { authService } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { Usuario } from '@/types/usuario';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
@@ -65,7 +66,7 @@ export default function EditarPerfil() {
         setTelefone(userData?.telefone || '');
       }
     } catch (error) {
-      console.error('Erro ao carregar usuario:', error);
+      logger.error('Erro ao carregar usuario:', error);
       setAlertConfig({
         visible: true,
         title: 'Erro ao carregar dados',
@@ -127,7 +128,7 @@ export default function EditarPerfil() {
         onConfirm: () => router.replace('/motorista/perfil'),
       });
     } catch (error: any) {
-      console.error('Erro ao salvar:', error);
+      logger.error('Erro ao salvar:', error);
       showAlert({
         title: 'Erro ao salvar',
         message: error.message || 'Nao foi possivel salvar as alteracoes.',

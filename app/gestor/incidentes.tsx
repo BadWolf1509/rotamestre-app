@@ -35,9 +35,9 @@ import {
 } from '@/hooks/useIncidentesGestor';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUser } from '@/hooks/useUser';
+import { styles } from '@/styles/gestor/incidentes.styles';
 import { useUnistyles } from '@/utils/styles';
 
-import { styles } from '@/styles/gestor/incidentes.styles';
 
 export default function IncidentesScreen() {
   const router = useRouter();
@@ -47,6 +47,7 @@ export default function IncidentesScreen() {
 
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
+    userImageUrl: userData?.foto_url,
   });
 
   const {
@@ -133,7 +134,7 @@ export default function IncidentesScreen() {
           const cat = categoriaLabels[item.categoria];
           return (
             <View style={styles.categoriaContainer}>
-              <Ionicons name={cat.icon as any} size={16} color={cat.color} />
+              <Ionicons name={cat.icon} size={16} color={cat.color} />
               <Text style={[styles.tableCellText, { marginLeft: 6 }]}>{cat.label}</Text>
             </View>
           );
@@ -337,7 +338,7 @@ export default function IncidentesScreen() {
             <MobileCard key={incidente.id} onPress={() => handleVerDetalhes(incidente)}>
               <View style={styles.mobileHeader}>
                 <View style={styles.mobileCategoriaRow}>
-                  <Ionicons name={cat.icon as any} size={20} color={cat.color} />
+                  <Ionicons name={cat.icon} size={20} color={cat.color} />
                   <Text style={styles.mobileCategoriaText}>{cat.label}</Text>
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: st.color + '20' }]}>
@@ -405,7 +406,7 @@ export default function IncidentesScreen() {
         <ScrollView showsVerticalScrollIndicator={false}>
           <View style={[styles.detalhesHeader, isDesktop && styles.detalhesHeaderCompact]}>
             <View style={styles.detalhesCategoria}>
-              <Ionicons name={cat.icon as any} size={isDesktop ? 20 : 24} color={cat.color} />
+              <Ionicons name={cat.icon} size={isDesktop ? 20 : 24} color={cat.color} />
               <Text
                 style={[
                   styles.detalhesCategoriaText,
@@ -652,7 +653,7 @@ export default function IncidentesScreen() {
                 <View key={inc.id} style={styles.historicoItem}>
                   <View style={styles.historicoHeader}>
                     <View style={styles.historicoCategoria}>
-                      <Ionicons name={cat.icon as any} size={16} color={cat.color} />
+                      <Ionicons name={cat.icon} size={16} color={cat.color} />
                       <Text style={styles.historicoCategoriaText}>{cat.label}</Text>
                     </View>
                     <View style={[styles.statusBadge, { backgroundColor: st.color + '20' }]}>

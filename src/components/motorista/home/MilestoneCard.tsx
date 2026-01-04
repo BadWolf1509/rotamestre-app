@@ -182,12 +182,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
   },
   title: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray600,
     marginTop: 2,
   },
@@ -197,8 +197,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: 12,
   },
   badgeText: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansBold,
   },
   progressContainer: {
     flexDirection: 'row',
@@ -217,8 +217,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: 4,
   },
   progressText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray700,
     minWidth: 50,
     textAlign: 'right',
@@ -237,7 +237,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     paddingTop: 8,
   },
   incentiveText: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray600,
     fontStyle: 'italic',
   },
@@ -255,7 +255,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: 4,
   },
   statText: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray600,
   },
 }));

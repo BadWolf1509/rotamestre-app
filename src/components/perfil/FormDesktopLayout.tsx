@@ -266,10 +266,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: 24,
   },
   fieldLabel: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.gray700,
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   fieldInput: {
     borderWidth: 1,
@@ -335,8 +335,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   primaryButtonText: {
     color: theme.colors.white,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   secondaryButton: {
     backgroundColor: theme.colors.gray100,
@@ -350,8 +350,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   secondaryButtonText: {
     color: theme.colors.gray700,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   sidePanel: {
     flex: 1,

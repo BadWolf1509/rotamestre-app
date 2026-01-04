@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 
+import type { IconName } from '@/types/icons';
 import { useUnistyles } from '@/utils/styles';
 
 import { styles } from './styles';
@@ -18,7 +19,13 @@ interface RotasRecentesProps {
   onVerTodas?: () => void;
 }
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<string, {
+  label: string;
+  badgeStyle: string;
+  textStyle: string;
+  icon: IconName;
+  iconColor: string;
+}> = {
   concluida: {
     label: 'Concluída',
     badgeStyle: 'rotaStatusConcluida',
@@ -54,7 +61,7 @@ const STATUS_CONFIG = {
     icon: 'close-circle',
     iconColor: 'gray600',
   },
-} as const;
+};
 
 function RotaCard({ rota }: { rota: RotaRecente }) {
   const { theme } = useUnistyles();
@@ -69,7 +76,7 @@ function RotaCard({ rota }: { rota: RotaRecente }) {
     });
   };
 
-  const statusConfig = STATUS_CONFIG[rota.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pendente;
+  const statusConfig = STATUS_CONFIG[rota.status] || STATUS_CONFIG.pendente;
   // Excluir 'incident' do tipo pois é um objeto, não uma string de cor
   type SimpleColorKey = Exclude<keyof typeof theme.colors, 'incident'>;
   const iconColor = theme.colors[statusConfig.iconColor as SimpleColorKey] || theme.colors.gray500;
@@ -82,7 +89,7 @@ function RotaCard({ rota }: { rota: RotaRecente }) {
     >
       <View style={styles.rotaCardLeft}>
         <View style={[styles.rotaIconContainer, { backgroundColor: iconColor + '20' }]}>
-          <Ionicons name={statusConfig.icon as any} size={20} color={iconColor} />
+          <Ionicons name={statusConfig.icon} size={20} color={iconColor} />
         </View>
         <View style={styles.rotaInfo}>
           <Text style={styles.rotaData}>{formatDate(rota.data)}</Text>

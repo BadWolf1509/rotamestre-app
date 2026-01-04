@@ -1,15 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 
 import { useUnistyles } from '@/utils/styles';
 
 interface UserMenuTriggerProps {
   name?: string;
+  imageUrl?: string | null;
   isOpen?: boolean;
 }
 
-export function UserMenuTrigger({ name, isOpen }: UserMenuTriggerProps) {
+export function UserMenuTrigger({ name, imageUrl, isOpen }: UserMenuTriggerProps) {
   const { theme } = useUnistyles();
   const styles = useMemo(
     () =>
@@ -38,6 +39,11 @@ export function UserMenuTrigger({ name, isOpen }: UserMenuTriggerProps) {
           backgroundColor: theme.colors.primary,
           alignItems: 'center',
           justifyContent: 'center',
+          overflow: 'hidden',
+        },
+        avatarImage: {
+          width: 40,
+          height: 40,
         },
         avatarText: {
           color: theme.colors.white,
@@ -61,7 +67,11 @@ export function UserMenuTrigger({ name, isOpen }: UserMenuTriggerProps) {
       </Text>
       <View style={styles.avatarContainer}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initial}</Text>
+          {imageUrl ? (
+            <Image source={{ uri: imageUrl }} style={styles.avatarImage} resizeMode="cover" />
+          ) : (
+            <Text style={styles.avatarText}>{initial}</Text>
+          )}
         </View>
         <Ionicons
           name={isOpen ? 'chevron-up' : 'chevron-down'}

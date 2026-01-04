@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState, useRef } from 'react';
 import { Platform } from 'react-native';
 
 import { clearAllCache, cleanExpiredCache } from '../lib/cache';
+import { logger } from '../lib/logger';
 import { unregisterPushToken } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
 
@@ -42,7 +43,7 @@ export function useAuth() {
       try {
         await unregisterPushToken(lastUserId.current);
       } catch (error) {
-        console.error('[Push] Erro ao remover token:', error);
+        logger.error('[Push] Erro ao remover token:', error);
       }
     }
 

@@ -248,7 +248,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 20,
+    padding: theme.spacing.xl,
   },
   content: {
     width: '100%',
@@ -262,53 +262,53 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.white,
   },
   header: {
-    marginBottom: 32,
-    marginTop: 20,
+    marginBottom: theme.spacing['3xl'],
+    marginTop: theme.spacing.xl,
   },
   welcomeText: {
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   title: {
-    marginBottom: 12,
+    marginBottom: theme.spacing.md,
   },
   subtitle: {
     lineHeight: 20,
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: theme.spacing.xl,
   },
   errorText: {
     fontSize: theme.typography.xs,
-    marginTop: 4,
+    marginTop: theme.spacing.xs,
   },
   requirementsBox: {
     backgroundColor: theme.colors.primaryBg,
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 24,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing['2xl'],
     borderWidth: 1,
     borderColor: theme.colors.primaryLight,
   },
   requirementsTitle: {
     color: theme.colors.primaryDark,
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   requirementText: {
     fontSize: theme.typography.xs,
     color: theme.colors.primaryDark,
-    marginTop: 4,
+    marginTop: theme.spacing.xs,
   },
   infoBox: {
     backgroundColor: theme.colors.secondaryBg,
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
     borderWidth: 1,
     borderColor: theme.colors.secondaryLight,
-    marginTop: 16,
+    marginTop: theme.spacing.lg,
   },
   infoText: {
     fontSize: theme.typography.xs,
     color: theme.colors.secondaryDark,
-    lineHeight: 18,
+    lineHeight: theme.typography.lg,
   },
 }));

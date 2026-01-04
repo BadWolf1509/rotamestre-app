@@ -139,18 +139,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: 28,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: theme.typography.lg,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: theme.spacing.xs,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray600,
     textAlign: 'center',
     lineHeight: 20,
-    paddingHorizontal: 16,
+    paddingHorizontal: theme.spacing.lg,
   },
   waitingIndicator: {
     flexDirection: 'row',
@@ -163,7 +163,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: 16,
   },
   waitingText: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray500,
   },
 }));

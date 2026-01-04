@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
+import type { IconName } from '@/types/icons';
 import type { Theme } from '@/utils/styles';
 
 // ============================================================================
@@ -49,7 +50,7 @@ export type FiltroCategoria =
 
 export interface CategoriaLabel {
   label: string;
-  icon: string;
+  icon: IconName;
   color: string;
 }
 

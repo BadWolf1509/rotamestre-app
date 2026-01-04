@@ -69,7 +69,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   title: {
     fontSize: theme.typography.lg,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
     marginBottom: theme.spacing.md,
     textAlign: 'center',

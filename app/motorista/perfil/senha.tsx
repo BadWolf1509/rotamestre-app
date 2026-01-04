@@ -4,6 +4,7 @@ import { Alert, ScrollView, View } from 'react-native';
 
 import { Button, Input, Text } from '@/design-system';
 import { authService } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
@@ -77,7 +78,7 @@ export default function AlterarSenha() {
         },
       ]);
     } catch (error: any) {
-      console.error('Erro ao alterar senha:', error);
+      logger.error('Erro ao alterar senha:', error);
       Alert.alert('Erro', error.message || 'Nao foi possivel alterar a senha');
     } finally {
       setSaving(false);
@@ -225,12 +226,12 @@ const styles = (theme: any) =>
     },
     header: {
       backgroundColor: theme.colors.white,
-      paddingTop: 20,
-      paddingBottom: 20,
-      paddingHorizontal: 20,
+      paddingTop: theme.spacing.xl,
+      paddingBottom: theme.spacing.xl,
+      paddingHorizontal: theme.spacing.xl,
       borderBottomWidth: 1,
       borderBottomColor: theme.colors.gray200,
-      marginBottom: 16,
+      marginBottom: theme.spacing.md,
       flexDirection: 'row',
       alignItems: 'center',
     },
@@ -238,22 +239,22 @@ const styles = (theme: any) =>
       flex: 1,
     },
     headerSubtitle: {
-      fontSize: 16,
-      fontWeight: '700',
+      fontSize: theme.typography.base,
+      fontFamily: theme.typography.fontSansBold,
       color: theme.colors.gray900,
     },
     form: {
       backgroundColor: theme.colors.white,
-      marginHorizontal: 16,
-      borderRadius: 12,
-      padding: 20,
-      marginBottom: 24,
+      marginHorizontal: theme.spacing.md,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.xl,
+      marginBottom: theme.spacing['2xl'],
     },
     helperText: {
-      fontSize: 12,
+      fontSize: theme.typography.xs,
       color: theme.colors.gray500,
-      marginBottom: 12,
-      marginTop: -8,
+      marginBottom: theme.spacing.md,
+      marginTop: -theme.spacing.sm,
     },
     helperTextSuccess: {
       color: theme.colors.success,
@@ -266,25 +267,25 @@ const styles = (theme: any) =>
     },
     tipsContainer: {
       backgroundColor: theme.colors.primary + '10',
-      padding: 16,
-      borderRadius: 8,
-      marginTop: 8,
-      marginBottom: 20,
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.md,
+      marginTop: theme.spacing.sm,
+      marginBottom: theme.spacing.xl,
     },
     tipsTitle: {
-      fontSize: 14,
-      fontWeight: '600',
+      fontSize: theme.typography.sm,
+      fontFamily: theme.typography.fontSansSemiBold,
       color: theme.colors.primary,
-      marginBottom: 8,
+      marginBottom: theme.spacing.sm,
     },
     tipText: {
-      fontSize: 13,
+      fontSize: theme.typography.sm,
       color: theme.colors.gray700,
-      marginBottom: 4,
+      marginBottom: theme.spacing.xs,
     },
     buttonsContainer: {
       flexDirection: 'row',
-      gap: 12,
+      gap: theme.spacing.md,
     },
     buttonPrimary: {
       flex: 1,

@@ -3,6 +3,9 @@ import * as ImagePicker from 'expo-image-picker';
 import { useState, useEffect, useCallback } from 'react';
 import { Alert, ActionSheetIOS, Platform } from 'react-native';
 
+import { clearCache, CACHE_KEYS } from '@/lib/cache';
+import { logger } from '@/lib/logger';
+import { emitProfileUpdate } from '@/lib/profileEvents';
 import { storageService } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 
@@ -22,6 +25,20 @@ interface UserProfile {
 
 type PhotoSource = 'camera' | 'gallery';
 
+interface ConfirmDialogState {
+  visible: boolean;
+  title: string;
+  message: string;
+  onConfirm: () => void;
+}
+
+interface AlertDialogState {
+  visible: boolean;
+  title: string;
+  message: string;
+  type: 'default' | 'error' | 'success' | 'warning';
+}
+
 interface UseProfileReturn {
   profile: UserProfile | null;
   loading: boolean;
@@ -33,6 +50,12 @@ interface UseProfileReturn {
   showPhotoOptions: () => void;
   isGestorPrincipal: boolean;
   refreshProfile: () => Promise<void>;
+  // ConfirmDialog state for web (consumers should render ConfirmDialog)
+  confirmDialog: ConfirmDialogState;
+  closeConfirmDialog: () => void;
+  // AlertDialog state for web (consumers should render AlertDialog)
+  alertDialog: AlertDialogState;
+  closeAlertDialog: () => void;
 }
 
 export function useProfile(user: User | null): UseProfileReturn {
@@ -42,6 +65,29 @@ export function useProfile(user: User | null): UseProfileReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  // ConfirmDialog state for web
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>({
+    visible: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const closeConfirmDialog = useCallback(() => {
+    setConfirmDialog(prev => ({ ...prev, visible: false }));
+  }, []);
+
+  // AlertDialog state for web
+  const [alertDialog, setAlertDialog] = useState<AlertDialogState>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'default',
+  });
+
+  const closeAlertDialog = useCallback(() => {
+    setAlertDialog(prev => ({ ...prev, visible: false }));
+  }, []);
 
   // Carregar perfil
   const loadProfile = useCallback(async () => {
@@ -131,9 +177,9 @@ export function useProfile(user: User | null): UseProfileReturn {
   }
 
   // Helper para alertas compatíveis com web
-  const showAlert = (title: string, message: string) => {
+  const showAlert = (title: string, message: string, type: AlertDialogState['type'] = 'default') => {
     if (Platform.OS === 'web') {
-      window.alert(`${title}\n\n${message}`);
+      setAlertDialog({ visible: true, title, message, type });
     } else {
       Alert.alert(title, message);
     }
@@ -142,9 +188,16 @@ export function useProfile(user: User | null): UseProfileReturn {
   // Helper para confirmação compatível com web
   const showConfirm = (title: string, message: string, onConfirm: () => void) => {
     if (Platform.OS === 'web') {
-      if (window.confirm(`${title}\n\n${message}`)) {
-        onConfirm();
-      }
+      // On web, show ConfirmDialog (consumers must render it)
+      setConfirmDialog({
+        visible: true,
+        title,
+        message,
+        onConfirm: () => {
+          closeConfirmDialog();
+          onConfirm();
+        },
+      });
     } else {
       Alert.alert(title, message, [
         { text: 'Cancelar', style: 'cancel' },
@@ -156,7 +209,7 @@ export function useProfile(user: User | null): UseProfileReturn {
   // Atualizar foto de perfil
   async function updateProfilePhoto(source: PhotoSource = 'gallery') {
     if (!userId || !profile) {
-      showAlert('Erro', 'Usuário não autenticado');
+      showAlert('Erro', 'Usuário não autenticado', 'error');
       return;
     }
 
@@ -166,13 +219,13 @@ export function useProfile(user: User | null): UseProfileReturn {
         if (source === 'camera') {
           const { status } = await ImagePicker.requestCameraPermissionsAsync();
           if (status !== 'granted') {
-            showAlert('Permissão necessária', 'Precisamos de permissão para acessar a câmera');
+            showAlert('Permissão necessária', 'Precisamos de permissão para acessar a câmera', 'warning');
             return;
           }
         } else {
           const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
           if (status !== 'granted') {
-            showAlert('Permissão necessária', 'Precisamos de permissão para acessar suas fotos');
+            showAlert('Permissão necessária', 'Precisamos de permissão para acessar suas fotos', 'warning');
             return;
           }
         }
@@ -210,13 +263,17 @@ export function useProfile(user: User | null): UseProfileReturn {
           if (fotoUrl) {
             // Atualizar estado local
             setProfile({ ...profile, foto_url: fotoUrl });
-            showAlert('Sucesso', 'Foto de perfil atualizada!');
+            // Invalidar cache do useUser para que o DrawerMenu e outros componentes atualizem
+            await clearCache(CACHE_KEYS.USER_DATA(userId));
+            // Emitir evento para que useUser recarregue os dados
+            emitProfileUpdate();
+            showAlert('Sucesso', 'Foto de perfil atualizada!', 'success');
           } else {
             throw new Error('Falha no upload');
           }
         } catch (uploadError) {
-          console.error('Erro ao fazer upload:', uploadError);
-          showAlert('Erro', 'Não foi possível atualizar a foto');
+          logger.error('Erro ao fazer upload:', uploadError);
+          showAlert('Erro', 'Não foi possível atualizar a foto', 'error');
         } finally {
           setUploadingPhoto(false);
         }
@@ -229,8 +286,8 @@ export function useProfile(user: User | null): UseProfileReturn {
         doUpload
       );
     } catch (err) {
-      console.error('Erro ao selecionar foto:', err);
-      showAlert('Erro', 'Não foi possível selecionar a foto');
+      logger.error('Erro ao selecionar foto:', err);
+      showAlert('Erro', 'Não foi possível selecionar a foto', 'error');
     }
   }
 
@@ -279,5 +336,9 @@ export function useProfile(user: User | null): UseProfileReturn {
     showPhotoOptions,
     isGestorPrincipal: profile?.is_gestor_principal || false,
     refreshProfile: loadProfile,
+    confirmDialog,
+    closeConfirmDialog,
+    alertDialog,
+    closeAlertDialog,
   };
 }

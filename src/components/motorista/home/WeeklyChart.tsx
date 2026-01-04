@@ -203,8 +203,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: 6,
   },
   title: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray700,
   },
   headerRight: {
@@ -213,12 +213,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: 4,
   },
   totalValue: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: theme.typography.lg,
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.primary,
   },
   totalLabel: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray500,
   },
   chartContainer: {
@@ -253,18 +253,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: 1,
   },
   dayLabel: {
-    fontSize: 10,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray500,
-    fontWeight: '500',
+    fontFamily: theme.typography.fontSansMedium,
   },
   dayLabelToday: {
     color: theme.colors.primary,
-    fontWeight: '700',
+    fontFamily: theme.typography.fontSansBold,
   },
   barValue: {
-    fontSize: 10,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray600,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     position: 'absolute',
     top: -16,
   },
@@ -277,13 +277,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: 4,
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray600,
-    fontWeight: '500',
-    marginTop: 8,
+    fontFamily: theme.typography.fontSansMedium,
+    marginTop: theme.spacing.sm,
   },
   emptySubtext: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray500,
   },
   legendContainer: {
@@ -311,7 +311,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: 1,
   },
   legendText: {
-    fontSize: 11,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray500,
   },
   // Estilos para modo compacto

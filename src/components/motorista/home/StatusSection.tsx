@@ -4,6 +4,7 @@ import { View, Text } from 'react-native';
 
 import { ConnectivityIndicator } from '@/components/ConnectivityBanner';
 import { RouteStatus } from '@/context/RouteStatusContext';
+import type { IconName } from '@/types/icons';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface StatusSectionProps {
@@ -20,7 +21,7 @@ interface StatusSectionProps {
 // Configuração visual por status
 // WCAG AA: 4.5:1 para texto normal, 3:1 para texto grande
 const statusConfig: Record<RouteStatus, {
-  icon: string;
+  icon: IconName;
   label: string;
   colorKey: 'success' | 'successDark' | 'warning' | 'warningText' | 'primary' | 'gray500' | 'info' | 'white';
   bgColorKey: 'successBg' | 'warningBg' | 'primaryLight' | 'gray100' | 'infoBg';
@@ -103,7 +104,7 @@ export function StatusSection({
             { backgroundColor: theme.colors[config.bgColorKey] }
           ]}>
             <Ionicons
-              name={config.icon as any}
+              name={config.icon}
               size={14}
               color={theme.colors[config.colorKey]}
             />
@@ -185,8 +186,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: 4,
   },
   statusText: {
-    fontSize: 12, // WCAG mínimo legível
-    fontWeight: '600',
+    fontSize: theme.typography.xs, // WCAG mínimo legível
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   progressRow: {
     flexDirection: 'row',
@@ -206,15 +207,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: 2,
   },
   progressText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray700,
     minWidth: 32,
     textAlign: 'right',
   },
   timeText: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.gray500,
     marginLeft: theme.spacing.xs,
   },

@@ -245,13 +245,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.md,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: theme.typography.lg,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
     marginBottom: theme.spacing.sm,
   },
   sectionSubtitle: {
-    fontSize: 14,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray500,
     marginBottom: theme.spacing.md,
   },
@@ -272,20 +272,20 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   faqQuestion: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.gray800,
     paddingRight: theme.spacing.sm,
   },
   faqChevron: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray400,
   },
   faqAnswer: {
     marginTop: theme.spacing.md,
-    fontSize: 14,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray600,
-    lineHeight: 22,
+    lineHeight: theme.typography.xl,
     paddingTop: theme.spacing.sm,
     borderTopWidth: 1,
     borderTopColor: theme.colors.gray200,
@@ -303,24 +303,24 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.gray200,
   },
   supportIcon: {
-    fontSize: 28,
+    fontSize: theme.typography['2xl'],
     marginRight: theme.spacing.md,
   },
   supportInfo: {
     flex: 1,
   },
   supportLabel: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
   },
   supportDescription: {
-    fontSize: 13,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray500,
-    marginTop: 2,
+    marginTop: theme.spacing.xs,
   },
   supportArrow: {
-    fontSize: 18,
+    fontSize: theme.typography.lg,
     color: theme.colors.gray400,
   },
   linksList: {
@@ -334,13 +334,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.md,
   },
   linkIcon: {
-    fontSize: 20,
+    fontSize: theme.typography.xl,
     marginRight: theme.spacing.md,
   },
   linkLabel: {
-    fontSize: 15,
+    fontSize: theme.typography.base,
     color: theme.colors.primary,
-    fontWeight: '500',
+    fontFamily: theme.typography.fontSansMedium,
   },
   appInfoSection: {
     alignItems: 'center',
@@ -348,17 +348,17 @@ const styles = StyleSheet.create((theme: Theme) => ({
     paddingTop: theme.spacing.lg,
   },
   appName: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: theme.typography.xl,
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.primary,
-    marginBottom: 4,
+    marginBottom: theme.spacing.xs,
   },
   appCopyright: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray400,
     textAlign: 'center',
   },
   footer: {
-    height: 40,
+    height: theme.spacing['3xl'],
   },
 }));

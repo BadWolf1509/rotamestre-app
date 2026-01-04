@@ -11,6 +11,7 @@ import {
 } from '@/design-system';
 import { useUser } from '@/hooks/useUser';
 import { parseLocalDate } from '@/lib/dateUtils';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -86,7 +87,7 @@ export default function ResumoMotorista() {
 
       setParadas((paradasData as Parada[]) || []);
     } catch (error) {
-      console.error('Erro ao carregar resumo:', error);
+      logger.error('Erro ao carregar resumo:', error);
       Alert.alert('Erro', 'Não foi possível carregar o resumo da rota');
     } finally {
       setLoading(false);
@@ -143,7 +144,7 @@ export default function ResumoMotorista() {
         ]
       );
     } catch (error) {
-      console.error('Erro ao finalizar rota:', error);
+      logger.error('Erro ao finalizar rota:', error);
       Alert.alert('Erro', 'Não foi possível finalizar a rota');
     } finally {
       setFinalizando(false);
@@ -365,13 +366,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
   performanceGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: theme.spacing.md,
   },
   performanceItem: {
     flex: 1,
     minWidth: '45%',
     alignItems: 'center',
-    padding: 12,
+    padding: theme.spacing.md,
   },
   performanceIcon: {
     width: 48,
@@ -379,44 +380,44 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   performanceIconText: {
-    fontSize: 24,
+    fontSize: theme.typography['2xl'],
   },
   performanceValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: theme.typography['2xl'],
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.gray900,
-    marginBottom: 4,
+    marginBottom: theme.spacing.xs,
   },
   performanceLabel: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray500,
     textAlign: 'center',
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray100,
   },
   infoLabel: {
-    fontSize: 14,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray500,
-    fontWeight: '500',
+    fontFamily: theme.typography.fontSansMedium,
   },
   infoValue: {
-    fontSize: 14,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray900,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   paradaItem: {
-    marginBottom: 12,
-    padding: 12,
+    marginBottom: theme.spacing.md,
+    padding: theme.spacing.md,
     backgroundColor: theme.colors.gray50,
-    borderRadius: 8,
+    borderRadius: theme.borderRadius.md,
     borderLeftWidth: 4,
     borderLeftColor: theme.colors.gray300,
   },
@@ -430,7 +431,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   paradaHeader: {
     flexDirection: 'row',
-    gap: 12,
+    gap: theme.spacing.md,
   },
   paradaOrdemBadge: {
     width: 32,
@@ -442,27 +443,27 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   paradaOrdemText: {
     color: theme.colors.white,
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansBold,
   },
   paradaInfo: {
     flex: 1,
   },
   paradaEndereco: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   paradaBadges: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 4,
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
   },
   paradaTipoBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.md,
   },
   tipoBadgeEntrega: {
     backgroundColor: theme.colors.blue100,
@@ -471,14 +472,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.indigo100,
   },
   paradaTipoText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
   },
   paradaStatusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.md,
     backgroundColor: theme.colors.yellow100,
   },
   statusBadgeConcluida: {
@@ -488,20 +489,20 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.red100,
   },
   paradaStatusText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
   },
   paradaHorario: {
-    fontSize: 11,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray500,
     fontStyle: 'italic',
-    marginTop: 4,
+    marginTop: theme.spacing.xs,
   },
   finalizarButtonSubtext: {
     color: theme.colors.gray500,
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: theme.spacing.sm,
   },
 }));

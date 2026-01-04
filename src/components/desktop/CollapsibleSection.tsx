@@ -255,7 +255,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   title: {
     flex: 1,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray700,
   },
   badge: {
@@ -268,7 +268,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   badgeText: {
     color: theme.colors.primary,
     fontSize: theme.typography.fontSize.xs,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   content: {
     padding: theme.spacing.md,

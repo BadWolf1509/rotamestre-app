@@ -45,6 +45,13 @@ jest.mock('@/utils/styles', () => {
       fontSansMedium: 'System',
       fontSansSemiBold: 'System',
       fontSansBold: 'System',
+      fontSize: {
+        xs: 12,
+        sm: 14,
+        base: 16,
+        lg: 18,
+        xl: 20,
+      },
     },
     spacing: {
       xs: 4,

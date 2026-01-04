@@ -203,13 +203,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: 6,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray700,
   },
   percentage: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: theme.typography.lg,
+    fontFamily: theme.typography.fontSansBold,
   },
   barContainer: {
     height: 10,
@@ -267,11 +267,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'center',
   },
   statNumber: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansBold,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray600, // Mais escuro para melhor contraste (5.74:1)
     marginTop: -2,
   },
@@ -286,7 +286,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderTopColor: theme.colors.gray100,
   },
   estimatedText: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray500,
     fontStyle: 'italic',
   },

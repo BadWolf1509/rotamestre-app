@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
+import type { IconName } from '@/types/icons';
 import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 import { defaultTheme } from '@/utils/styles.base';
@@ -70,7 +71,7 @@ export function AlertDialog({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const scrollPositionRef = useRef(0);
 
-  const getIconName = () => {
+  const getIconName = (): IconName => {
     switch (type) {
       case 'error':
         return 'close-circle-outline';
@@ -231,7 +232,7 @@ export function AlertDialog({
               margin: `0 auto ${isDesktop ? theme.spacing.sm + 2 : theme.spacing.md}px`,
             }}
           >
-            <Ionicons name={getIconName() as any} size={isDesktop ? theme.desktop.dialog.iconSize : 28} color={getIconColor()} />
+            <Ionicons name={getIconName()} size={isDesktop ? theme.desktop.dialog.iconSize : 28} color={getIconColor()} />
           </div>
 
           {/* Title */}
@@ -317,7 +318,7 @@ export function AlertDialog({
         <Pressable style={styles.container} onPress={(e) => e.stopPropagation()}>
           {/* Icon */}
           <View style={[styles.iconContainer, { backgroundColor: `${getIconColor()}15` }]}>
-            <Ionicons name={getIconName() as any} size={28} color={getIconColor()} />
+            <Ionicons name={getIconName()} size={28} color={getIconColor()} />
           </View>
 
           {/* Title */}

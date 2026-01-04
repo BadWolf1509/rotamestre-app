@@ -57,7 +57,7 @@ function UnidadeStack() {
         },
         headerTintColor: theme.colors.white,
         headerTitleStyle: {
-          fontWeight: 'bold',
+          fontFamily: theme.typography.fontSansBold,
         },
         animation: 'slide_from_right',
         headerLeft: ({ tintColor }) => renderMenuButton(tintColor),

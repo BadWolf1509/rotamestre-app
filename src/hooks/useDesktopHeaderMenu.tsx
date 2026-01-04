@@ -8,19 +8,23 @@ import { useLogoutConfirmation } from './useLogoutConfirmation';
 
 interface UseDesktopHeaderMenuOptions {
   userName?: string | null;
+  userImageUrl?: string | null;
   profileRoute?: string;
 }
 
 export function useDesktopHeaderMenu({
   userName,
+  userImageUrl,
   profileRoute = '/perfil',
 }: UseDesktopHeaderMenuOptions = {}) {
   const router = useRouter();
   const { showLogoutModal, logoutModal } = useLogoutConfirmation();
 
   const userMenuTrigger = useMemo(
-    () => (isOpen: boolean) => <UserMenuTrigger name={userName ?? undefined} isOpen={isOpen} />,
-    [userName]
+    () => (isOpen: boolean) => (
+      <UserMenuTrigger name={userName ?? undefined} imageUrl={userImageUrl} isOpen={isOpen} />
+    ),
+    [userName, userImageUrl]
   );
 
   const userMenuItems = useMemo<UserMenuItem[]>(

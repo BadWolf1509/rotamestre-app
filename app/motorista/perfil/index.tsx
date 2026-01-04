@@ -8,9 +8,12 @@ import {
   Platform,
 } from 'react-native';
 
+import { AlertDialog } from '@/components/AlertDialog';
 import { AvatarEditable } from '@/components/AvatarEditable';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useProfile } from '@/hooks/useProfile';
 import { authService } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 import { Usuario } from '@/types/usuario';
 import { StyleSheet, useUnistyles } from '@/utils/styles';
 
@@ -47,6 +50,10 @@ export default function PerfilMotorista() {
     profile,
     uploadingPhoto,
     showPhotoOptions,
+    confirmDialog,
+    closeConfirmDialog,
+    alertDialog,
+    closeAlertDialog,
   } = useProfile(user);
 
   useEffect(() => {
@@ -70,7 +77,7 @@ export default function PerfilMotorista() {
         setUsuario(userData);
       }
     } catch (error) {
-      console.error('Erro ao carregar usuário:', error);
+      logger.error('Erro ao carregar usuário:', error);
     } finally {
       setLoading(false);
     }
@@ -167,6 +174,21 @@ export default function PerfilMotorista() {
       {/* Botão Sair */}
       {/* Espaçamento inferior */}
       <View style={styles(theme).footer} />
+
+      <ConfirmDialog
+        visible={confirmDialog.visible}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={closeConfirmDialog}
+      />
+      <AlertDialog
+        visible={alertDialog.visible}
+        title={alertDialog.title}
+        message={alertDialog.message}
+        type={alertDialog.type}
+        onConfirm={closeAlertDialog}
+      />
     </ScrollView>
   );
 }
@@ -184,38 +206,39 @@ const styles = (theme: any) =>
       backgroundColor: theme.colors.gray50,
     },
     loadingText: {
-      fontSize: 16,
+      fontSize: theme.typography.base,
       color: theme.colors.gray500,
     },
     header: {
       backgroundColor: theme.colors.white,
-      paddingVertical: 32,
-      paddingHorizontal: 20,
+      paddingVertical: theme.spacing.xl,
+      paddingHorizontal: theme.spacing.lg,
       alignItems: 'center',
       borderBottomWidth: 1,
       borderBottomColor: theme.colors.gray200,
-      marginBottom: 16,
+      marginBottom: theme.spacing.md,
     },
     nome: {
-      fontSize: 22,
-      fontWeight: 'bold',
+      fontSize: theme.typography['2xl'],
+      fontFamily: theme.typography.fontSansBold,
       color: theme.colors.gray900,
-      marginBottom: 4,
+      marginTop: theme.spacing.lg,
+      marginBottom: theme.spacing.xs,
     },
     email: {
-      fontSize: 14,
+      fontSize: theme.typography.sm,
       color: theme.colors.gray500,
-      marginBottom: 12,
+      marginBottom: theme.spacing.md,
     },
     roleBadge: {
       backgroundColor: theme.colors.primary + '20',
-      paddingHorizontal: 12,
+      paddingHorizontal: theme.spacing.md,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: theme.borderRadius.lg,
     },
     roleBadgeText: {
-      fontSize: 12,
-      fontWeight: '600',
+      fontSize: theme.typography.xs,
+      fontFamily: theme.typography.fontSansSemiBold,
       color: theme.colors.primary,
     },
     unitBadge: {
@@ -231,14 +254,14 @@ const styles = (theme: any) =>
     },
     unitBadgeValue: {
       fontSize: theme.typography.sm,
-      fontWeight: '600',
+      fontFamily: theme.typography.fontSansSemiBold,
       color: theme.colors.gray800,
     },
     section: {
       backgroundColor: theme.colors.white,
-      marginBottom: 16,
-      borderRadius: 12,
-      marginHorizontal: 16,
+      marginBottom: theme.spacing.md,
+      borderRadius: theme.borderRadius.lg,
+      marginHorizontal: theme.spacing.md,
       overflow: 'hidden',
       ...Platform.select({
         ios: {
@@ -255,18 +278,18 @@ const styles = (theme: any) =>
     sectionHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 16,
+      padding: theme.spacing.md,
       borderBottomWidth: 1,
       borderBottomColor: theme.colors.gray100,
     },
     sectionIcon: {
       fontSize: 20,
-      marginRight: 12,
+      marginRight: theme.spacing.md,
     },
     sectionTitle: {
       flex: 1,
-      fontSize: 16,
-      fontWeight: '600',
+      fontSize: theme.typography.base,
+      fontFamily: theme.typography.fontSansSemiBold,
       color: theme.colors.gray900,
     },
     sectionArrow: {
@@ -274,22 +297,22 @@ const styles = (theme: any) =>
       color: theme.colors.gray400,
     },
     sectionContent: {
-      padding: 16,
+      padding: theme.spacing.md,
     },
     sectionItem: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 12,
+      marginBottom: theme.spacing.md,
     },
     itemLabel: {
-      fontSize: 14,
+      fontSize: theme.typography.sm,
       color: theme.colors.gray600,
       flex: 1,
     },
     itemValue: {
-      fontSize: 14,
-      fontWeight: '500',
+      fontSize: theme.typography.sm,
+      fontFamily: theme.typography.fontSansMedium,
       color: theme.colors.gray900,
       flex: 2,
       textAlign: 'right',
@@ -297,7 +320,7 @@ const styles = (theme: any) =>
     itemAction: {
       fontSize: 20,
       color: theme.colors.gray400,
-      marginLeft: 8,
+      marginLeft: theme.spacing.sm,
     },
     footer: {
       height: 40,

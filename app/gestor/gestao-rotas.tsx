@@ -96,6 +96,7 @@ export default function GestaoRotas() {
   // Desktop header menu
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
+    userImageUrl: userData?.foto_url,
   });
 
   // ============================================

@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 
 import { getCache, setCache, CACHE_TTL, CACHE_KEYS } from '@/lib/cache';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
 import { useUnidadeAtiva } from './useUnidadeAtiva';
@@ -97,7 +98,7 @@ export function useMotoristas(): UseMotoristaResult {
         await setCache(cacheKey, freshData, CACHE_TTL.MOTORISTAS);
       }
     } catch (error) {
-      console.error('[useMotoristas] Erro ao carregar:', error);
+      logger.error('[useMotoristas] Erro ao carregar:', error);
       if (mountedRef.current && motoristas.length === 0) {
         setMotoristas([]);
       }

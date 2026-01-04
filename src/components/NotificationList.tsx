@@ -13,6 +13,7 @@ import {
 
 import { useNotifications } from '@/hooks/useNotifications';
 import { useUser } from '@/hooks/useUser';
+import type { IconName } from '@/types/icons';
 import type { NotificacaoComDetalhes } from '@/types/notifications';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -71,7 +72,7 @@ export function NotificationList({ onClose }: NotificationListProps) {
     marcarTodasComoLidas();
   };
 
-  const getNotificationIcon = (tipo: string) => {
+  const getNotificationIcon = (tipo: string): IconName => {
     switch (tipo) {
       // Notificações para GESTOR
       case 'rota_iniciada':
@@ -180,7 +181,7 @@ export function NotificationList({ onClose }: NotificationListProps) {
     >
       <View style={styles.iconContainer}>
         <Ionicons
-          name={getNotificationIcon(item.tipo) as any}
+          name={getNotificationIcon(item.tipo)}
           size={24}
           color={getNotificationIconColor(item.tipo)}
         />

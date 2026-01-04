@@ -72,6 +72,7 @@ export default function MapaRota() {
   const { userData } = useUser();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
+    userImageUrl: userData?.foto_url,
   });
 
   // State

@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 
 import CameraUpload from '@/components/CameraUpload';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useRouteStatus, ParadaData } from '@/context/RouteStatusContext';
 import { useUser } from '@/hooks/useUser';
 import { withOpacity } from '@/utils/color';
@@ -54,6 +55,10 @@ export function StopCompletionFlow({
   const [step, setStep] = useState<'photo' | 'confirm'>('photo');
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [skipPhotoDialog, setSkipPhotoDialog] = useState<{
+    visible: boolean;
+    errorMessage?: string;
+  }>({ visible: false });
 
   // Reset state when modal closes or parada changes
   React.useEffect(() => {
@@ -61,6 +66,7 @@ export function StopCompletionFlow({
       setStep('photo');
       setPhotoUrl(null);
       setIsCompleting(false);
+      setSkipPhotoDialog({ visible: false });
     }
   }, [visible, parada?.id]);
 
@@ -75,14 +81,8 @@ export function StopCompletionFlow({
   // Handler para erro no upload da foto
   const handlePhotoError = (error: string) => {
     if (allowSkipPhoto) {
-      // Na web, usar window.confirm
       if (Platform.OS === 'web') {
-        const skipPhoto = window.confirm(
-          `Erro ao enviar foto: ${error}\n\nDeseja concluir a parada sem foto de comprovante?`
-        );
-        if (skipPhoto) {
-          setStep('confirm');
-        }
+        setSkipPhotoDialog({ visible: true, errorMessage: error });
       } else {
         Alert.alert(
           'Erro no Upload',
@@ -105,12 +105,7 @@ export function StopCompletionFlow({
   // Handler para pular foto
   const handleSkipPhoto = () => {
     if (Platform.OS === 'web') {
-      const skip = window.confirm(
-        'Deseja concluir a parada sem foto de comprovante?\n\nA foto serve como prova de entrega.'
-      );
-      if (skip) {
-        setStep('confirm');
-      }
+      setSkipPhotoDialog({ visible: true });
     } else {
       Alert.alert(
         'Pular foto?',
@@ -274,18 +269,37 @@ export function StopCompletionFlow({
   );
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
-    >
-      <View style={styles.overlay}>
-        <View style={styles.container}>
-          {step === 'photo' ? renderPhotoStep() : renderConfirmStep()}
+    <>
+      <Modal
+        visible={visible}
+        animationType="slide"
+        transparent
+        onRequestClose={onClose}
+      >
+        <View style={styles.overlay}>
+          <View style={styles.container}>
+            {step === 'photo' ? renderPhotoStep() : renderConfirmStep()}
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+      <ConfirmDialog
+        visible={skipPhotoDialog.visible}
+        title={skipPhotoDialog.errorMessage ? 'Erro no Upload' : 'Pular foto?'}
+        message={
+          skipPhotoDialog.errorMessage
+            ? `Erro ao enviar foto: ${skipPhotoDialog.errorMessage}\n\nDeseja concluir a parada sem foto de comprovante?`
+            : 'A foto serve como prova de entrega. Deseja continuar sem foto?'
+        }
+        confirmText="Continuar sem foto"
+        cancelText={skipPhotoDialog.errorMessage ? 'Tentar novamente' : 'Cancelar'}
+        onConfirm={() => {
+          setSkipPhotoDialog({ visible: false });
+          setStep('confirm');
+        }}
+        onCancel={() => setSkipPhotoDialog({ visible: false })}
+        type="destructive"
+      />
+    </>
   );
 }
 

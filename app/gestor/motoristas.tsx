@@ -31,9 +31,9 @@ import {
 } from '@/hooks/useMotoristasGestor';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUser } from '@/hooks/useUser';
+import { styles } from '@/styles/gestor/motoristas.styles';
 import { useUnistyles } from '@/utils/styles';
 
-import { styles } from '@/styles/gestor/motoristas.styles';
 
 export default function MotoristasGestor() {
   const { theme } = useUnistyles();
@@ -41,6 +41,7 @@ export default function MotoristasGestor() {
   const { userData } = useUser();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
+    userImageUrl: userData?.foto_url,
   });
   const { isDesktop } = useResponsive();
   const pageMeta = getGestorPageMeta('motoristas');

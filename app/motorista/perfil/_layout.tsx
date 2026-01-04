@@ -26,7 +26,7 @@ export default function PerfilLayout() {
         },
         headerTintColor: theme.colors.white,
         headerTitleStyle: {
-          fontWeight: 'bold',
+          fontFamily: theme.typography.fontSansBold,
         },
         animation: 'slide_from_right', // Animação de navegação
         }}

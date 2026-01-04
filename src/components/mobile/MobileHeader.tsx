@@ -58,7 +58,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   backIcon: {
     fontSize: 24,
     color: theme.colors.gray700,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   textContainer: {
     flex: 1,
@@ -71,7 +71,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   headerSubtitle: {
     fontSize: theme.typography.sm,
     color: theme.colors.gray500,
-    marginTop: 4,
+    marginTop: theme.spacing.xs,
   },
   rightContent: {
     marginLeft: theme.spacing.md,

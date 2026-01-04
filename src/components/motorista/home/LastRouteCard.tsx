@@ -144,12 +144,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: 6,
   },
   headerText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray700,
   },
   timeText: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray500,
   },
   statsRow: {
@@ -163,12 +163,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexShrink: 1,
   },
   statValue: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray800,
   },
   statLabel: {
-    fontSize: 10,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray500,
   },
 }));

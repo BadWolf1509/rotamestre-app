@@ -156,8 +156,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: 6,
   },
   headerText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.warning,
   },
   message: {
@@ -177,8 +177,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: 4,
   },
   statText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   statDivider: {
     width: 1,
@@ -196,8 +196,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderTopColor: theme.colors.warning,
   },
   linkText: {
-    fontSize: 13,
+    fontSize: theme.typography.sm,
     color: theme.colors.primary,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
   },
 }));

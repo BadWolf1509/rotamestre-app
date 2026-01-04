@@ -9,6 +9,7 @@ import {
 
 import { MobileCard, MobileLoading } from '@/design-system';
 import { useUser } from '@/hooks/useUser';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
 
@@ -117,7 +118,7 @@ export default function DesempenhoScreen() {
         paradasPuladas,
       });
     } catch (error) {
-      console.error('Erro ao carregar estatísticas:', error);
+      logger.error('Erro ao carregar estatísticas:', error);
       setStats(null);
     } finally {
       setLoading(false);
@@ -321,8 +322,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.primary,
   },
   periodoText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.gray600,
   },
   periodoTextActive: {
@@ -353,16 +354,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.md,
   },
   mainStatValue: {
-    fontSize: 36,
-    fontWeight: 'bold',
+    fontSize: theme.typography['4xl'],
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.primary,
   },
   mainStatLabel: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray500,
   },
   mainStatDescription: {
-    fontSize: 14,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray600,
   },
   statsGrid: {
@@ -385,17 +386,17 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.sm,
   },
   statIconText: {
-    fontSize: 20,
+    fontSize: theme.typography.xl,
   },
   statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: theme.typography['2xl'],
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.gray900,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray500,
-    marginTop: 2,
+    marginTop: theme.spacing.xs,
   },
   motivationalCard: {
     flexDirection: 'row',
@@ -409,12 +410,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: theme.spacing.md,
   },
   motivationalIcon: {
-    fontSize: 32,
+    fontSize: theme.typography['3xl'],
   },
   motivationalText: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.green800,
   },
   emptyState: {
@@ -426,17 +427,17 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.md,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: theme.typography.lg,
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
     marginBottom: theme.spacing.sm,
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray500,
     textAlign: 'center',
   },
   footer: {
-    height: 40,
+    height: theme.spacing['3xl'],
   },
 }));

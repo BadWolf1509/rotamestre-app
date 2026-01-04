@@ -11,11 +11,8 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.xl,
     marginHorizontal: theme.spacing.lg,
     marginVertical: theme.spacing.lg,
-    shadowColor: theme.colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: theme.spacing.sm,
-    elevation: 3,
+    // Elevated card (design system token)
+    ...theme.shadows.md,
   },
   content: {
     padding: theme.spacing.lg,

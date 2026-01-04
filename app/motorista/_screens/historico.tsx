@@ -627,7 +627,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
   headerTitle: {
     fontFamily: theme.typography.fontDisplay,
     fontSize: theme.typography.xl,
-    fontWeight: '400',
     color: theme.colors.gray900,
     marginBottom: theme.spacing.xs,
   },
@@ -656,7 +655,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.xs,
     color: theme.colors.gray500,
     marginBottom: theme.spacing.xs,
-    fontWeight: '500',
+    fontFamily: theme.typography.fontSansMedium,
   },
   filterButtons: {
     flexDirection: 'row',
@@ -678,11 +677,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
   filterButtonText: {
     fontSize: theme.typography.xs,
     color: theme.colors.gray600,
-    fontWeight: '500',
+    fontFamily: theme.typography.fontSansMedium,
   },
   filterButtonTextActive: {
     color: theme.colors.white,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     textShadowColor: withOpacity(theme.colors.black, 0.15),
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
@@ -706,7 +705,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   emptyText: {
     fontSize: theme.typography.lg,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
     marginBottom: theme.spacing.sm,
     textAlign: 'center',
@@ -755,7 +754,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   rotaData: {
     fontSize: theme.typography.base,
-    fontWeight: 'bold',
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.gray900,
     marginBottom: theme.spacing.xs,
   },
@@ -787,7 +786,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   statusBadgeText: {
     fontSize: theme.typography.xs,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
   },
   statusBadgeTextNaoExecutada: {
@@ -803,12 +802,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   statValue: {
     fontSize: theme.typography.xl,
-    fontWeight: 'bold',
+    fontFamily: theme.typography.fontSansBold,
     color: theme.colors.primary,
     marginBottom: theme.spacing.xs,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: theme.typography.xs,
     color: theme.colors.gray500,
   },
   rotaDetalhes: {
@@ -828,12 +827,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
   detalheLabel: {
     fontSize: theme.typography.sm,
     color: theme.colors.gray500,
-    fontWeight: '500',
+    fontFamily: theme.typography.fontSansMedium,
   },
   detalheValue: {
     fontSize: theme.typography.sm,
     color: theme.colors.gray900,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   progressBarContainer: {
     flex: 1,
@@ -858,7 +857,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   expandIndicatorText: {
     fontSize: theme.typography.xs,
     color: theme.colors.primary,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   naoExecutadaInfo: {
     flexDirection: 'row',
@@ -874,7 +873,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   naoExecutadaInfoText: {
     fontSize: theme.typography.sm,
     color: theme.colors.warning,
-    fontWeight: '600',
+    fontFamily: theme.typography.fontSansSemiBold,
     flex: 1,
   },
 }));

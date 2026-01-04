@@ -148,7 +148,7 @@ export const ParadaCard = memo<ParadaCardProps>(
     const leftActions = isPendente && rotaEmAndamento
       ? [
           {
-            icon: 'checkmark-circle',
+            icon: 'checkmark-circle' as const,
             label: 'Concluir',
             color: theme.colors.success,
             onPress: handleConcluir,
@@ -159,7 +159,7 @@ export const ParadaCard = memo<ParadaCardProps>(
     const rightActions = isPendente && rotaEmAndamento
       ? [
           {
-            icon: 'arrow-forward-circle',
+            icon: 'arrow-forward-circle' as const,
             label: 'Pular',
             color: theme.colors.warning,
             onPress: handlePular,

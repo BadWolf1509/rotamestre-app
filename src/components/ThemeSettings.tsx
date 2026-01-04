@@ -10,8 +10,9 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Switch, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, Switch, TouchableOpacity, View } from 'react-native';
 
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Text } from '@/design-system';
 import {
   getThemePreferences,
@@ -63,6 +64,7 @@ export function ThemeSettings({
   const [compactDensityEnabled, setCompactDensityEnabled] = useState(false);
   const [highContrastEnabled, setHighContrastEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showResetDialog, setShowResetDialog] = useState(false);
 
   // Load saved preferences on mount
   useEffect(() => {
@@ -147,37 +149,53 @@ export function ThemeSettings({
     }
   };
 
+  const doReset = async () => {
+    try {
+      // Apply default preferences
+      applyThemePreferences(DEFAULT_PREFERENCES);
+      await setThemePreference('light');
+      await setDensityPreference('regular');
+      await setContrastPreference('normal');
+
+      // Update local state
+      setDarkModeEnabled(false);
+      setCompactDensityEnabled(false);
+      setHighContrastEnabled(false);
+
+      notifyChange('light', 'regular', 'normal');
+    } catch (error) {
+      console.warn('Failed to reset preferences:', error);
+      Alert.alert('Erro', 'Falha ao restaurar configurações padrão.');
+    }
+  };
+
   const handleResetToDefaults = () => {
-    Alert.alert(
-      'Restaurar padrões',
-      'Tem certeza que deseja restaurar as configurações de aparência para os valores padrão?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Restaurar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Apply default preferences
-              applyThemePreferences(DEFAULT_PREFERENCES);
-              await setThemePreference('light');
-              await setDensityPreference('regular');
-              await setContrastPreference('normal');
-
-              // Update local state
-              setDarkModeEnabled(false);
-              setCompactDensityEnabled(false);
-              setHighContrastEnabled(false);
-
-              notifyChange('light', 'regular', 'normal');
-            } catch (error) {
-              console.warn('Failed to reset preferences:', error);
-              Alert.alert('Erro', 'Falha ao restaurar configurações padrão.');
-            }
+    // Use ConfirmDialog on web, Alert.alert on mobile
+    if (Platform.OS === 'web') {
+      setShowResetDialog(true);
+    } else {
+      Alert.alert(
+        'Restaurar padrões',
+        'Tem certeza que deseja restaurar as configurações de aparência para os valores padrão?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Restaurar',
+            style: 'destructive',
+            onPress: doReset,
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
+  };
+
+  const handleConfirmReset = async () => {
+    setShowResetDialog(false);
+    await doReset();
+  };
+
+  const handleCancelReset = () => {
+    setShowResetDialog(false);
   };
 
   const hasChanges =
@@ -309,6 +327,18 @@ export function ThemeSettings({
           <Text style={styles(theme, compact).resetButtonText}>Restaurar padrões</Text>
         </TouchableOpacity>
       )}
+
+      {/* Reset Confirmation Dialog */}
+      <ConfirmDialog
+        visible={showResetDialog}
+        title="Restaurar padrões"
+        message="Tem certeza que deseja restaurar as configurações de aparência para os valores padrão?"
+        confirmText="Restaurar"
+        cancelText="Cancelar"
+        onConfirm={handleConfirmReset}
+        onCancel={handleCancelReset}
+        type="destructive"
+      />
     </View>
   );
 }
