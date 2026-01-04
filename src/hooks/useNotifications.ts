@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import type { Notificacao, NotificacaoComDetalhes } from '@/types/notifications';
 import { notifyGenericWeb } from '@/utils/browserNotification';
@@ -57,7 +58,7 @@ export function useNotifications(): UseNotificationsReturn {
       setNotificacoes(notificacoesComDetalhes);
       setNaoLidas(notificacoesComDetalhes.filter((n) => !n.lida).length);
     } catch (error) {
-      console.error('Erro ao carregar notificações:', error);
+      logger.error('[Notificações] Erro ao carregar', error);
     } finally {
       setLoading(false);
     }
@@ -70,17 +71,17 @@ export function useNotifications(): UseNotificationsReturn {
   // Realtime subscription para novas notificações
   useEffect(() => {
     if (!userData?.id || !session?.access_token) {
-      console.log('[Realtime:Notificacoes] Aguardando userData e session...');
+      logger.debug('[Realtime:Notificacoes] Aguardando userData e session...');
       return;
     }
 
     // Evitar reconexão desnecessária
     if (isSubscribed.current) {
-      console.log('[Realtime:Notificacoes] Já inscrito, ignorando...');
+      logger.debug('[Realtime:Notificacoes] Já inscrito, ignorando...');
       return;
     }
 
-    console.log('[Realtime:Notificacoes] Criando subscription para:', userData.id);
+    logger.info('[Realtime:Notificacoes] Criando subscription para:', userData.id);
 
     // CRÍTICO: Configurar token ANTES de criar o canal
     // Sem isso, RLS bloqueia os eventos
@@ -100,7 +101,7 @@ export function useNotifications(): UseNotificationsReturn {
           filter: `usuario_id=eq.${userData.id}`,
         },
         (payload) => {
-          console.log('[Realtime:Notificacoes] INSERT recebido:', payload.new);
+          logger.debug('[Realtime:Notificacoes] INSERT recebido:', payload.new);
           const nova = payload.new as Notificacao;
 
           // Adicionar ao topo da lista
@@ -131,7 +132,7 @@ export function useNotifications(): UseNotificationsReturn {
           filter: `usuario_id=eq.${userData.id}`,
         },
         (payload) => {
-          console.log('[Realtime:Notificacoes] UPDATE recebido:', payload.new);
+          logger.debug('[Realtime:Notificacoes] UPDATE recebido:', payload.new);
           const atualizada = payload.new as Notificacao;
 
           setNotificacoes((prev) =>
@@ -146,22 +147,22 @@ export function useNotifications(): UseNotificationsReturn {
         }
       )
       .subscribe((status, err) => {
-        console.log('[Realtime:Notificacoes] Status:', status, err ? `Erro: ${err.message}` : '');
+        logger.debug('[Realtime:Notificacoes] Status:', status, err ? `Erro: ${err.message}` : '');
 
         if (status === 'SUBSCRIBED') {
-          console.log('[Realtime:Notificacoes] ✅ Conectado e ouvindo eventos');
+          logger.info('[Realtime:Notificacoes] ✅ Conectado e ouvindo eventos');
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           // Timeout é comum na primeira conexão - fallback de polling está ativo
-          console.warn('[Realtime:Notificacoes] ⚠️ Conexão falhou:', status, '(polling ativo como fallback)');
+          logger.warn('[Realtime:Notificacoes] ⚠️ Conexão falhou:', status, '(polling ativo como fallback)');
           isSubscribed.current = false;
         } else if (status === 'CLOSED') {
-          console.log('[Realtime:Notificacoes] Canal fechado');
+          logger.debug('[Realtime:Notificacoes] Canal fechado');
           isSubscribed.current = false;
         }
       });
 
     return () => {
-      console.log('[Realtime:Notificacoes] Limpando subscription...');
+      logger.debug('[Realtime:Notificacoes] Limpando subscription...');
       isSubscribed.current = false;
       supabase.removeChannel(channel);
     };
@@ -188,7 +189,7 @@ export function useNotifications(): UseNotificationsReturn {
         // Só atualiza se a contagem mudou (evita re-renders desnecessários)
         if (count !== lastNaoLidas.current) {
           const previousCount = lastNaoLidas.current;
-          console.log('[Polling:Notificacoes] Contagem atualizada:', previousCount, '->', count);
+          logger.debug('[Polling:Notificacoes] Contagem atualizada:', previousCount, '->', count);
           lastNaoLidas.current = count;
           setNaoLidas(count);
 
@@ -229,7 +230,7 @@ export function useNotifications(): UseNotificationsReturn {
 
         // Atualização local será feita pelo realtime
       } catch (error) {
-        console.error('Erro ao marcar notificação como lida:', error);
+        logger.error('[Notificações] Erro ao marcar como lida', error);
         toast.error('Erro ao marcar notificação como lida');
       }
     },
@@ -249,7 +250,7 @@ export function useNotifications(): UseNotificationsReturn {
       setNotificacoes((prev) => prev.map((n) => ({ ...n, lida: true })));
       setNaoLidas(0);
     } catch (error) {
-      console.error('Erro ao marcar todas como lidas:', error);
+      logger.error('[Notificações] Erro ao marcar todas como lidas', error);
       toast.error('Erro ao marcar notificações como lidas');
     }
   }, [userData]);

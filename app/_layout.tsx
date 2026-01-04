@@ -14,7 +14,6 @@ import React, { useEffect } from 'react';
 import { Platform, Text, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 
-import { DevToolsInitializer } from '@/components/DevToolsInitializer';
 import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
 import { NotificationModalProvider } from '@/context/NotificationModalContext';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -34,9 +33,6 @@ import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // Configurar LogBox para ignorar warnings de desenvolvimento conhecidos
 configureLogBox();
-
-// Inicializar DevTools para desenvolvimento web
-// Removido temporariamente para evitar erro de import dinâmico
 
 // Prevenir auto-hide do splash screen enquanto fontes carregam
 SplashScreen.preventAutoHideAsync();
@@ -261,8 +257,6 @@ export default function RootLayout() {
           warning: ({ text1, text2 }) => renderToast(theme.colors.secondary, text1, text2),
         }}
       />
-      {/* DevTools Initializer */}
-      <DevToolsInitializer />
     </NotificationModalProvider>
   );
 }

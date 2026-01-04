@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react-native';
 import React from 'react';
 
-import { Skeleton, SkeletonCard, SkeletonList, SkeletonDashboard } from '../SkeletonLoader';
+import { Skeleton, SkeletonCard, SkeletonList } from '../SkeletonLoader';
 
 describe('SkeletonLoader Components', () => {
   describe('Skeleton Base', () => {
@@ -80,32 +80,6 @@ describe('SkeletonLoader Components', () => {
     it('deve renderizar lista com count 0', () => {
       const { root } = render(<SkeletonList count={0} />);
       expect(root).toBeTruthy();
-    });
-  });
-
-  describe('SkeletonDashboard', () => {
-    it('deve renderizar dashboard skeleton', () => {
-      const { root } = render(<SkeletonDashboard />);
-      expect(root).toBeTruthy();
-    });
-
-    it('deve renderizar header skeleton', () => {
-      const { UNSAFE_getAllByType } = render(<SkeletonDashboard />);
-      const skeletons = UNSAFE_getAllByType(Skeleton);
-      expect(skeletons.length).toBeGreaterThan(0);
-    });
-
-    it('deve renderizar stat cards skeleton', () => {
-      const { UNSAFE_getAllByType } = render(<SkeletonDashboard />);
-      const skeletons = UNSAFE_getAllByType(Skeleton);
-      // Dashboard tem header, stats e lista
-      expect(skeletons.length).toBeGreaterThan(5);
-    });
-
-    it('deve renderizar lista skeleton interna', () => {
-      const { UNSAFE_getAllByType } = render(<SkeletonDashboard />);
-      const lists = UNSAFE_getAllByType(SkeletonList);
-      expect(lists.length).toBe(1);
     });
   });
 

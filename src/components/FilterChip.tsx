@@ -38,6 +38,11 @@ export function FilterChip({
         selected && styles.active,
         containerStyle,
       ]}
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected }}
+      accessibilityHint={selected ? 'Toque para desmarcar filtro' : 'Toque para aplicar filtro'}
     >
       <Text
         style={[

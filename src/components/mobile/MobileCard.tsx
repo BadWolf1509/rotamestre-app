@@ -48,13 +48,30 @@ export function MobileCard({
 
   if (onPress) {
     return (
-      <TouchableOpacity style={cardStyle} onPress={onPress} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={cardStyle}
+        onPress={onPress}
+        activeOpacity={0.7}
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={title || 'Card'}
+        accessibilityHint={subtitle}
+      >
         {content}
       </TouchableOpacity>
     );
   }
 
-  return <View style={cardStyle}>{content}</View>;
+  return (
+    <View
+      style={cardStyle}
+      accessible={!!title}
+      accessibilityRole={title ? 'summary' : undefined}
+      accessibilityLabel={title}
+    >
+      {content}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create((theme: Theme) => ({

@@ -4,6 +4,7 @@
  */
 
 import { googleMapsService } from '@/lib/google';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { Coordenadas } from '@/types/endereco';
 
@@ -37,7 +38,7 @@ export async function recalcularRota(
       isNaN(enderecoUnidade.latitude) ||
       isNaN(enderecoUnidade.longitude)
     ) {
-      console.error('[recalcularRota] Coordenadas da unidade inválidas:', enderecoUnidade);
+      logger.error('[recalcularRota] Coordenadas da unidade inválidas', enderecoUnidade);
       return {
         success: false,
         error: 'Coordenadas da unidade inválidas.',
@@ -60,7 +61,7 @@ export async function recalcularRota(
         longitude: p.longitude!,
       }));
 
-    console.log('[recalcularRota] Waypoints válidos:', waypoints.length, 'de', paradas.length, 'paradas');
+    logger.debug('[recalcularRota] Waypoints válidos:', waypoints.length, 'de', paradas.length, 'paradas');
 
     // Se não há waypoints, apenas atualizar com valores zerados
     if (waypoints.length === 0) {
@@ -101,7 +102,7 @@ export async function recalcularRota(
       .eq('id', rotaId);
 
     if (updateError) {
-      console.error('[recalcularRota] Erro ao atualizar rota:', updateError);
+      logger.error('[recalcularRota] Erro ao atualizar rota', updateError);
       return {
         success: false,
         error: 'Erro ao salvar dados da rota.',
@@ -110,7 +111,7 @@ export async function recalcularRota(
 
     return { success: true };
   } catch (error) {
-    console.error('[recalcularRota] Erro:', error);
+    logger.error('[recalcularRota] Erro', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Erro desconhecido ao recalcular rota.',
@@ -132,7 +133,7 @@ export async function reordenarParadas(
       return { success: true };
     }
 
-    console.log('[reordenarParadas] Reordering', paradas.length, 'paradas via RPC');
+    logger.debug('[reordenarParadas] Reordering', paradas.length, 'paradas via RPC');
 
     // Preparar arrays para a RPC
     const paradaIds = paradas.map((p) => p.id);
@@ -145,24 +146,24 @@ export async function reordenarParadas(
     });
 
     if (error) {
-      console.error('[reordenarParadas] RPC error:', error);
+      logger.error('[reordenarParadas] RPC error', error);
       // Fallback para método sequencial se RPC não existir
       if (error.code === '42883' || error.message?.includes('does not exist')) {
-        console.log('[reordenarParadas] RPC not found, using fallback');
+        logger.debug('[reordenarParadas] RPC not found, using fallback');
         return reordenarParadasFallback(paradas);
       }
       return { success: false, error: 'Erro ao reordenar paradas.' };
     }
 
     if (data && !data.success) {
-      console.error('[reordenarParadas] RPC returned error:', data.error);
+      logger.error('[reordenarParadas] RPC returned error', { error: data.error });
       return { success: false, error: data.error || 'Erro ao reordenar paradas.' };
     }
 
-    console.log('[reordenarParadas] Completed via RPC. Updated:', data?.updated || paradas.length);
+    logger.debug('[reordenarParadas] Completed via RPC. Updated:', data?.updated || paradas.length);
     return { success: true };
   } catch (error) {
-    console.error('[reordenarParadas] Erro:', error);
+    logger.error('[reordenarParadas] Erro', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Erro desconhecido ao reordenar paradas.',
@@ -177,7 +178,7 @@ export async function reordenarParadas(
 async function reordenarParadasFallback(
   paradas: ParadaBasica[]
 ): Promise<{ success: boolean; error?: string }> {
-  console.log('[reordenarParadasFallback] Using sequential fallback for', paradas.length, 'paradas');
+  logger.debug('[reordenarParadasFallback] Using sequential fallback for', paradas.length, 'paradas');
 
   // STEP 1: Move all paradas to temporary high values (1000+)
   for (let i = 0; i < paradas.length; i++) {
@@ -188,7 +189,7 @@ async function reordenarParadasFallback(
       .eq('id', paradas[i].id);
 
     if (error) {
-      console.error('[reordenarParadasFallback] Error in step 1:', error);
+      logger.error('[reordenarParadasFallback] Error in step 1', error);
       return { success: false, error: 'Erro ao mover paradas para valores temporários.' };
     }
   }
@@ -202,12 +203,12 @@ async function reordenarParadasFallback(
       .eq('id', paradas[i].id);
 
     if (error) {
-      console.error('[reordenarParadasFallback] Error in step 2:', error);
+      logger.error('[reordenarParadasFallback] Error in step 2', error);
       return { success: false, error: 'Erro ao atribuir ordem correta.' };
     }
   }
 
-  console.log('[reordenarParadasFallback] Completed');
+  logger.debug('[reordenarParadasFallback] Completed');
   return { success: true };
 }
 
@@ -228,7 +229,7 @@ export async function normalizarOrdemParadas(
   rotaId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    console.log('[normalizarOrdemParadas] Starting for rota:', rotaId);
+    logger.debug('[normalizarOrdemParadas] Starting for rota:', rotaId);
 
     // Buscar todas as paradas da rota
     const { data: todasParadas, error: fetchError } = await supabase
@@ -238,14 +239,14 @@ export async function normalizarOrdemParadas(
       .order('ordem', { ascending: true });
 
     if (fetchError || !todasParadas) {
-      console.error('[normalizarOrdemParadas] Fetch error:', fetchError);
+      logger.error('[normalizarOrdemParadas] Fetch error', fetchError);
       return {
         success: false,
         error: 'Erro ao buscar paradas da rota.',
       };
     }
 
-    console.log('[normalizarOrdemParadas] Found paradas:', todasParadas.length);
+    logger.debug('[normalizarOrdemParadas] Found paradas:', todasParadas.length);
 
     // Separar: partida (ordem 0, is_checkpoint false), chegada (is_checkpoint false, ordem > 0), paradas reais
     const partida = todasParadas.find((p) => p.is_checkpoint === false && p.ordem === 0);
@@ -254,9 +255,9 @@ export async function normalizarOrdemParadas(
       .filter((p) => p.is_checkpoint !== false)
       .sort((a, b) => a.ordem - b.ordem);
 
-    console.log('[normalizarOrdemParadas] Partida:', partida?.id, 'ordem:', partida?.ordem);
-    console.log('[normalizarOrdemParadas] Chegada:', chegada?.id, 'ordem:', chegada?.ordem);
-    console.log('[normalizarOrdemParadas] Paradas reais:', paradasReais.length);
+    logger.debug('[normalizarOrdemParadas] Partida:', partida?.id, 'ordem:', partida?.ordem);
+    logger.debug('[normalizarOrdemParadas] Chegada:', chegada?.id, 'ordem:', chegada?.ordem);
+    logger.debug('[normalizarOrdemParadas] Paradas reais:', paradasReais.length);
 
     // Build the list of all paradas that need reordering with their target ordem
     const reorderPlan: Array<{ id: string; currentOrdem: number; targetOrdem: number }> = [];
@@ -284,46 +285,46 @@ export async function normalizarOrdemParadas(
 
     // If nothing needs to be updated, we're done
     if (reorderPlan.length === 0) {
-      console.log('[normalizarOrdemParadas] No changes needed');
+      logger.debug('[normalizarOrdemParadas] No changes needed');
       return { success: true };
     }
 
-    console.log('[normalizarOrdemParadas] Reorder plan:', reorderPlan.length, 'paradas to update');
+    logger.debug('[normalizarOrdemParadas] Reorder plan:', reorderPlan.length, 'paradas to update');
 
     // STEP 1: Move all paradas that need reordering to temporary high values (1000+)
     // This avoids unique constraint conflicts
     for (let i = 0; i < reorderPlan.length; i++) {
       const tempOrdem = 1000 + i;
-      console.log(`[normalizarOrdemParadas] Step 1: ${reorderPlan[i].id} -> temp ${tempOrdem}`);
+      logger.debug(`[normalizarOrdemParadas] Step 1: ${reorderPlan[i].id} -> temp ${tempOrdem}`);
       const { error } = await supabase
         .from('paradas')
         .update({ ordem: tempOrdem })
         .eq('id', reorderPlan[i].id);
 
       if (error) {
-        console.error('[normalizarOrdemParadas] Error in step 1:', error);
+        logger.error('[normalizarOrdemParadas] Error in step 1', error);
         return { success: false, error: 'Erro ao mover paradas para valores temporários.' };
       }
     }
 
     // STEP 2: Assign the correct target values
     for (const item of reorderPlan) {
-      console.log(`[normalizarOrdemParadas] Step 2: ${item.id} -> ${item.targetOrdem}`);
+      logger.debug(`[normalizarOrdemParadas] Step 2: ${item.id} -> ${item.targetOrdem}`);
       const { error } = await supabase
         .from('paradas')
         .update({ ordem: item.targetOrdem })
         .eq('id', item.id);
 
       if (error) {
-        console.error('[normalizarOrdemParadas] Error in step 2:', error);
+        logger.error('[normalizarOrdemParadas] Error in step 2', error);
         return { success: false, error: 'Erro ao atribuir ordem correta.' };
       }
     }
 
-    console.log('[normalizarOrdemParadas] Completed. Updated:', reorderPlan.length, 'paradas');
+    logger.debug('[normalizarOrdemParadas] Completed. Updated:', reorderPlan.length, 'paradas');
     return { success: true };
   } catch (error) {
-    console.error('[normalizarOrdemParadas] Exception:', error);
+    logger.error('[normalizarOrdemParadas] Exception', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Erro desconhecido.',
@@ -358,7 +359,7 @@ export async function removerParadaERecalcular(
       .eq('id', paradaId);
 
     if (deleteError) {
-      console.error('[removerParadaERecalcular] Erro ao deletar:', deleteError);
+      logger.error('[removerParadaERecalcular] Erro ao deletar', deleteError);
       return {
         success: false,
         error: 'Erro ao remover parada.',
@@ -392,7 +393,7 @@ export async function removerParadaERecalcular(
 
     return { success: true };
   } catch (error) {
-    console.error('[removerParadaERecalcular] Erro:', error);
+    logger.error('[removerParadaERecalcular] Erro', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Erro desconhecido.',
@@ -439,13 +440,13 @@ export async function notificarMotoristaRotaEditada(
       .single();
 
     if (rotaError || !rota) {
-      console.warn('[notificarMotoristaRotaEditada] Rota não encontrada:', rotaId);
+      logger.warn('[notificarMotoristaRotaEditada] Rota não encontrada:', rotaId);
       return { success: false, error: 'Rota não encontrada' };
     }
 
     // Não notificar para rotas concluídas ou canceladas
     if (rota.status !== 'pendente' && rota.status !== 'em_andamento') {
-      console.log('[notificarMotoristaRotaEditada] Rota não está ativa, ignorando notificação');
+      logger.debug('[notificarMotoristaRotaEditada] Rota não está ativa, ignorando notificação');
       return { success: true };
     }
 
@@ -461,14 +462,14 @@ export async function notificarMotoristaRotaEditada(
     });
 
     if (notifError) {
-      console.error('[notificarMotoristaRotaEditada] Erro ao criar notificação:', notifError);
+      logger.error('[notificarMotoristaRotaEditada] Erro ao criar notificação', notifError);
       return { success: false, error: 'Erro ao criar notificação' };
     }
 
-    console.log('[notificarMotoristaRotaEditada] Notificação criada:', tipo);
+    logger.debug('[notificarMotoristaRotaEditada] Notificação criada:', tipo);
     return { success: true };
   } catch (error) {
-    console.error('[notificarMotoristaRotaEditada] Erro:', error);
+    logger.error('[notificarMotoristaRotaEditada] Erro', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Erro desconhecido',

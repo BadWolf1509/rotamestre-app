@@ -34,10 +34,40 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Security Audit
+        run: npm audit --audit-level=moderate
+
       - name: TypeScript type check
-        # Não bloqueia CI em erros de TypeScript (|| true)
-        # TODO: Corrigir todos os erros de tipo e remover || true
-        run: npm run type-check || true
+        run: npm run type-check
 
       - name: Lint check
-        run: npm run lint || true
+        run: npm run lint
+
+  bundle-size:
+    name: Bundle Size Check
+    runs-on: ubuntu-latest
+    # Only run on PRs to show size diff
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web
+        run: npm run build:web
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+
+      - name: Check bundle size
+        run: npm run size

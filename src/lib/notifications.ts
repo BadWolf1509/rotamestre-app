@@ -12,6 +12,7 @@ import { Platform } from 'react-native';
 
 import { defaultTheme } from '@/utils/styles';
 
+import { logger } from './logger';
 import { supabase } from './supabase';
 
 const NOTIFICATION_SETTINGS_KEY = '@rotamestre:notification_settings';
@@ -76,7 +77,7 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
     }
     return defaultSettings;
   } catch (error) {
-    console.error('Erro ao obter configurações de notificação:', error);
+    logger.error('[Notifications] Erro ao obter configurações', error);
     return defaultSettings;
   }
 }
@@ -90,7 +91,7 @@ export async function saveNotificationSettings(settings: Partial<NotificationSet
     const updated = { ...current, ...settings };
     await AsyncStorage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(updated));
   } catch (error) {
-    console.error('Erro ao salvar configurações de notificação:', error);
+    logger.error('[Notifications] Erro ao salvar configurações', error);
   }
 }
 
@@ -119,7 +120,7 @@ export async function sendLocalNotification(
 
     return id;
   } catch (error) {
-    console.error('Erro ao enviar notificação:', error);
+    logger.error('[Notifications] Erro ao enviar notificação', error);
     return null;
   }
 }
@@ -224,7 +225,7 @@ export async function scheduleRouteReminder(): Promise<string | null> {
 
     return id;
   } catch (error) {
-    console.error('Erro ao agendar lembrete:', error);
+    logger.error('[Notifications] Erro ao agendar lembrete', error);
     return null;
   }
 }
@@ -243,7 +244,7 @@ export async function cancelRouteReminder(): Promise<void> {
       }
     }
   } catch (error) {
-    console.error('Erro ao cancelar lembrete:', error);
+    logger.error('[Notifications] Erro ao cancelar lembrete', error);
   }
 }
 
@@ -309,7 +310,7 @@ export async function getExpoPushToken(): Promise<string | null> {
     const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
     return tokenData.data;
   } catch (error) {
-    console.error('[Push] Erro ao obter push token:', error);
+    logger.error('[Push] Erro ao obter push token', error);
     return null;
   }
 }
@@ -340,7 +341,7 @@ export async function registerPushToken(userId: string): Promise<boolean> {
       .eq('id', userId);
 
     if (error) {
-      console.error('[Push] Erro ao salvar token:', error);
+      logger.error('[Push] Erro ao salvar token', error);
       return false;
     }
 
@@ -348,7 +349,7 @@ export async function registerPushToken(userId: string): Promise<boolean> {
     await AsyncStorage.setItem(PUSH_TOKEN_KEY, token);
     return true;
   } catch (error) {
-    console.error('[Push] Erro ao registrar token:', error);
+    logger.error('[Push] Erro ao registrar token', error);
     return false;
   }
 }
@@ -369,7 +370,7 @@ export async function unregisterPushToken(userId: string): Promise<void> {
     // Limpar token local
     await AsyncStorage.removeItem(PUSH_TOKEN_KEY);
   } catch (error) {
-    console.error('[Push] Erro ao remover token:', error);
+    logger.error('[Push] Erro ao remover token', error);
   }
 }
 

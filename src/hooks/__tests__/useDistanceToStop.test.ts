@@ -5,7 +5,7 @@
 
 import { renderHook } from '@testing-library/react-native';
 
-import { useDistanceToStop, calculateHaversineDistance } from '../useDistanceToStop';
+import { useDistanceToStop } from '../useDistanceToStop';
 
 // Mock Supabase
 const mockInvoke = jest.fn();
@@ -73,51 +73,5 @@ describe('useDistanceToStop', () => {
       expect(result.current.distanceMeters).toBe(0);
       expect(result.current.durationSeconds).toBe(0);
     });
-  });
-});
-
-describe('calculateHaversineDistance', () => {
-  it('deve calcular distância entre dois pontos próximos', () => {
-    const from = { latitude: -23.55, longitude: -46.63 };
-    const to = { latitude: -23.56, longitude: -46.64 };
-
-    const result = calculateHaversineDistance(from, to);
-
-    // Distância deve ser aproximadamente 1.4km
-    expect(result.meters).toBeGreaterThan(1000);
-    expect(result.meters).toBeLessThan(2000);
-    expect(result.km).toContain('km');
-  });
-
-  it('deve formatar distância em metros quando < 1km', () => {
-    const from = { latitude: -23.55, longitude: -46.63 };
-    const to = { latitude: -23.551, longitude: -46.631 }; // Muito próximo
-
-    const result = calculateHaversineDistance(from, to);
-
-    expect(result.meters).toBeLessThan(1000);
-    expect(result.km).toContain('m');
-    expect(result.km).not.toContain('km');
-  });
-
-  it('deve retornar 0 para mesmos pontos', () => {
-    const point = { latitude: -23.55, longitude: -46.63 };
-
-    const result = calculateHaversineDistance(point, point);
-
-    expect(result.meters).toBe(0);
-    expect(result.km).toBe('0m');
-  });
-
-  it('deve calcular distância para pontos distantes', () => {
-    // São Paulo para Rio de Janeiro (~360km)
-    const sp = { latitude: -23.55, longitude: -46.63 };
-    const rj = { latitude: -22.90, longitude: -43.17 };
-
-    const result = calculateHaversineDistance(sp, rj);
-
-    expect(result.meters).toBeGreaterThan(350000);
-    expect(result.meters).toBeLessThan(400000);
-    expect(result.km).toContain('km');
   });
 });

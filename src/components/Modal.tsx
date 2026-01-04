@@ -347,6 +347,10 @@ export function Modal({
           style={styles.overlayTouchable}
           activeOpacity={1}
           onPress={onClose}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Fechar modal"
+          accessibilityHint="Toque fora do modal para fechar"
         />
       </Animated.View>
 
@@ -373,6 +377,9 @@ export function Modal({
                   style={styles.closeButton}
                   onPress={onClose}
                   activeOpacity={0.7}
+                  accessible
+                  accessibilityRole="button"
+                  accessibilityLabel="Fechar modal"
                 >
                   <Ionicons name="close" size={24} color={theme.colors.gray500} />
                 </TouchableOpacity>

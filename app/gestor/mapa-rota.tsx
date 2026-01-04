@@ -43,6 +43,7 @@ import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
+import { logger } from '@/lib/logger';
 import { removerParadaERecalcular, reordenarParadas, recalcularRota, normalizarOrdemParadas, notificarMotoristaRotaEditada } from '@/lib/routeUtils';
 import { supabase } from '@/lib/supabase';
 import { useUnistyles } from '@/utils/styles';
@@ -163,7 +164,7 @@ export default function MapaRota() {
         const expectedChegadaOrdem = paradasReaisArr.length + 1;
 
         if (chegada && chegada.ordem !== expectedChegadaOrdem) {
-          console.log('[mapa-rota] Normalizing order: chegada at', chegada.ordem, 'expected', expectedChegadaOrdem);
+          logger.debug('[mapa-rota] Normalizing order', { chegadaOrdem: chegada.ordem, expectedChegadaOrdem });
           await normalizarOrdemParadas(String(id));
           // Reload paradas after normalization
           const { data: reloadedParadas } = await supabase
@@ -178,7 +179,7 @@ export default function MapaRota() {
 
       setParadas(paradasData || []);
     } catch (error) {
-      console.error('Erro ao carregar rota:', error);
+      logger.error('[mapa-rota] Erro ao carregar rota', error);
       showToast('Não foi possível carregar os dados da rota', 'error');
       router.back();
     } finally {
@@ -195,7 +196,7 @@ export default function MapaRota() {
       setShowCancelModal(false);
       await loadRotaEParadas();
     } catch (error) {
-      console.error('Erro ao cancelar rota:', error);
+      logger.error('[mapa-rota] Erro ao cancelar rota', error);
       showToast('Erro ao cancelar rota', 'error');
     }
   }, [id, loadRotaEParadas, showToast]);
@@ -242,7 +243,7 @@ export default function MapaRota() {
       setShowReactivateModal(false);
       await loadRotaEParadas();
     } catch (error) {
-      console.error('Erro ao reativar rota:', error);
+      logger.error('[mapa-rota] Erro ao reativar rota', error);
       showToast('Erro ao reativar rota', 'error');
     }
   }, [id, loadRotaEParadas, showToast, userData?.id, userData?.nome]);
@@ -279,7 +280,7 @@ export default function MapaRota() {
         setShowChangeDriverModal(false);
         await loadRotaEParadas();
       } catch (error) {
-        console.error('Erro ao alterar motorista:', error);
+        logger.error('[mapa-rota] Erro ao alterar motorista', error);
         showToast('Erro ao alterar motorista', 'error');
       }
     },
@@ -377,7 +378,7 @@ export default function MapaRota() {
         showToast(result.error || 'Erro ao remover parada', 'error');
       }
     } catch (error) {
-      console.error('Erro ao remover parada:', error);
+      logger.error('[mapa-rota] Erro ao remover parada', error);
       showToast('Erro ao remover parada', 'error');
     }
   }, [paradaToRemove, id, rota, paradas, paradasReais, loadRotaEParadas, showToast, userData?.id]);
@@ -461,11 +462,11 @@ export default function MapaRota() {
           );
 
           if (!recalcResult.success) {
-            console.warn('[handleReorderParadas] Recálculo falhou:', recalcResult.error);
+            logger.warn('[mapa-rota] handleReorderParadas Recálculo falhou', { error: recalcResult.error });
             recalcWarning = true;
           }
         } catch (recalcError) {
-          console.warn('[handleReorderParadas] Erro no recálculo:', recalcError);
+          logger.warn('[mapa-rota] handleReorderParadas Erro no recálculo', recalcError);
           recalcWarning = true;
         }
 
@@ -499,7 +500,7 @@ export default function MapaRota() {
         setShowReorderModal(false);
         await loadRotaEParadas();
       } catch (error) {
-        console.error('Erro ao reordenar paradas:', error);
+        logger.error('[mapa-rota] Erro ao reordenar paradas', error);
         // Only show toast if it wasn't already shown (check if it's a new error)
         if (error instanceof Error && !error.message.startsWith('Erro')) {
           showToast('Erro ao reordenar paradas', 'error');

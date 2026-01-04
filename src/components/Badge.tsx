@@ -86,6 +86,9 @@ export function Badge({
             },
         style,
       ]}
+      accessible
+      accessibilityRole="text"
+      accessibilityLabel={`Status: ${displayLabel}`}
     >
       <Text
         style={[

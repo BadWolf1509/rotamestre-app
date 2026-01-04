@@ -223,6 +223,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
             useCompact && styles.inputCompact,
             error && styles.inputError,
             multiline && styles.inputMultiline,
+            { pointerEvents: 'auto' },
           ]}
           placeholder={placeholder}
           placeholderTextColor={theme.colors.gray400}
@@ -238,7 +239,6 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
           returnKeyType="done"
           editable={true}
           selectTextOnFocus={false}
-          pointerEvents="auto"
         />
         {value && value.length > 0 && (
           <TouchableOpacity

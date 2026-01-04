@@ -10,6 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Coordenadas } from '@/types/endereco';
 
 import { googleMapsService } from './google';
+import { logger } from './logger';
 
 // ============================================================================
 // CONSTANTES
@@ -115,7 +116,7 @@ async function carregarCacheDoStorage(): Promise<void> {
 
         // Verificar versão
         if (parsed.version !== CACHE_VERSION) {
-          console.log('[RouteCache] Versão diferente, limpando cache antigo');
+          logger.info('[RouteCache] Versão diferente, limpando cache antigo');
           await AsyncStorage.removeItem(CACHE_STORAGE_KEY);
           cacheLoaded = true;
           return;
@@ -131,10 +132,10 @@ async function carregarCacheDoStorage(): Promise<void> {
           }
         }
 
-        console.log(`[RouteCache] 📦 Carregado do storage: ${optimizationCache.size} entradas válidas`);
+        logger.info(`[RouteCache] Carregado do storage: ${optimizationCache.size} entradas válidas`);
       }
     } catch (error) {
-      console.warn('[RouteCache] Erro ao carregar cache:', error);
+      logger.warn('[RouteCache] Erro ao carregar cache', error);
     } finally {
       cacheLoaded = true;
     }
@@ -160,7 +161,7 @@ async function persistirCacheNoStorage(): Promise<void> {
 
     await AsyncStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(data));
   } catch (error) {
-    console.warn('[RouteCache] Erro ao persistir cache:', error);
+    logger.warn('[RouteCache] Erro ao persistir cache', error);
   }
 }
 
@@ -254,7 +255,7 @@ async function salvarNoCache(hash: string, resultado: ResultadoOtimizacao): Prom
 export async function limparCacheOtimizacao(): Promise<void> {
   optimizationCache.clear();
   await AsyncStorage.removeItem(CACHE_STORAGE_KEY);
-  console.log('[RouteCache] 🗑️ Cache limpo');
+  logger.info('[RouteCache] Cache limpo');
 }
 
 /**
@@ -358,7 +359,7 @@ export async function otimizarRotaComDependencias(
   if (!ignorarCache) {
     const resultadoCache = await obterDoCache(hashRota);
     if (resultadoCache) {
-      console.log('[RouteOptimization] ✅ Resultado obtido do cache');
+      logger.debug('[RouteOptimization] Resultado obtido do cache');
       return resultadoCache;
     }
   }
@@ -366,12 +367,12 @@ export async function otimizarRotaComDependencias(
   // Validar antes de chamar API
   const validacao = validarRotaParaOtimizacao(paradas);
   if (!validacao.valido) {
-    console.error('[RouteOptimization] ❌ Validação falhou:', validacao.erros);
+    logger.error('[RouteOptimization] Validação falhou', { erros: validacao.erros });
     return null;
   }
 
   if (validacao.avisos.length > 0) {
-    console.warn('[RouteOptimization] ⚠️ Avisos:', validacao.avisos);
+    logger.warn('[RouteOptimization] Avisos', { avisos: validacao.avisos });
   }
 
   // Agrupar paradas por dependência
@@ -411,7 +412,7 @@ export async function otimizarRotaComDependencias(
   );
 
   if (!resultado) {
-    console.error('[RouteOptimization] Falha ao obter direções do Google');
+    logger.error('[RouteOptimization] Falha ao obter direções do Google');
     return null;
   }
 
@@ -458,7 +459,7 @@ export async function otimizarRotaComDependencias(
 
   // Salvar no cache para futuras chamadas (fire-and-forget para não bloquear)
   salvarNoCache(hashRota, resultadoFinal).then(() => {
-    console.log('[RouteOptimization] 💾 Resultado salvo no cache');
+    logger.debug('[RouteOptimization] Resultado salvo no cache');
   });
 
   return resultadoFinal;

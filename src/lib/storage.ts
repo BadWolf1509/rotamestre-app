@@ -8,6 +8,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
+import { logger } from './logger';
 import { supabase } from './supabase';
 
 /**
@@ -74,7 +75,7 @@ export async function uploadFotoEntrega(
 
     // Validar tamanho (máx 5MB)
     if (size > 5 * 1024 * 1024) {
-      console.error('❌ Foto muito grande! Máximo: 5MB');
+      logger.error('[Storage] Foto muito grande! Máximo: 5MB');
       throw new Error('Foto muito grande. Máximo: 5MB');
     }
 
@@ -88,7 +89,7 @@ export async function uploadFotoEntrega(
       });
 
     if (error) {
-      console.error('[Storage] Erro no upload:', error);
+      logger.error('[Storage] Erro no upload', error);
       throw error;
     }
 
@@ -99,7 +100,7 @@ export async function uploadFotoEntrega(
 
     return publicUrl;
   } catch (error) {
-    console.error('[Storage] Erro ao fazer upload de foto:', error);
+    logger.error('[Storage] Erro ao fazer upload de foto', error);
     return null;
   }
 }
@@ -122,13 +123,13 @@ export async function salvarFotoParada(
       .eq('id', paradaId);
 
     if (error) {
-      console.error('[Storage] Erro ao salvar foto_url:', error);
+      logger.error('[Storage] Erro ao salvar foto_url', error);
       throw error;
     }
 
     return true;
   } catch (error) {
-    console.error('[Storage] Erro ao salvar foto na parada:', error);
+    logger.error('[Storage] Erro ao salvar foto na parada', error);
     return false;
   }
 }
@@ -161,14 +162,14 @@ export async function uploadELinkFotoParada(
 
     if (!salvou) {
       // Rollback: deletar foto do storage se falhou ao atualizar banco
-      console.warn('[Storage] Falha ao salvar no banco, realizando rollback da foto...');
+      logger.warn('[Storage] Falha ao salvar no banco, realizando rollback da foto...');
       await deletarFoto(fotoUrl);
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error('[Storage] Erro no processo de upload:', error);
+    logger.error('[Storage] Erro no processo de upload', error);
     return false;
   }
 }
@@ -194,13 +195,13 @@ export async function deletarFoto(fotoUrl: string): Promise<boolean> {
       .remove([filePath]);
 
     if (error) {
-      console.error('[Storage] Erro ao deletar:', error);
+      logger.error('[Storage] Erro ao deletar', error);
       throw error;
     }
 
     return true;
   } catch (error) {
-    console.error('[Storage] Erro ao deletar foto:', error);
+    logger.error('[Storage] Erro ao deletar foto', error);
     return false;
   }
 }
@@ -221,7 +222,7 @@ export async function deletarFotoPerfil(usuarioId: string): Promise<boolean> {
       });
 
     if (listError) {
-      console.error('[Storage] Erro ao listar fotos:', listError);
+      logger.error('[Storage] Erro ao listar fotos', listError);
       return false;
     }
 
@@ -240,13 +241,13 @@ export async function deletarFotoPerfil(usuarioId: string): Promise<boolean> {
         .remove(filesToDelete);
 
       if (deleteError) {
-        console.error('[Storage] Erro ao deletar fotos antigas:', deleteError);
+        logger.error('[Storage] Erro ao deletar fotos antigas', deleteError);
       }
     }
 
     return true;
   } catch (error) {
-    console.error('[Storage] Erro ao deletar foto de perfil:', error);
+    logger.error('[Storage] Erro ao deletar foto de perfil', error);
     return false;
   }
 }
@@ -281,7 +282,7 @@ export async function uploadFotoUsuario(
 
     // Validar tamanho (máx 2MB para perfil)
     if (size > 2 * 1024 * 1024) {
-      console.error('❌ Foto muito grande! Máximo: 2MB');
+      logger.error('[Storage] Foto muito grande! Máximo: 2MB');
       throw new Error('Foto muito grande. Máximo: 2MB');
     }
 
@@ -295,7 +296,7 @@ export async function uploadFotoUsuario(
       });
 
     if (error) {
-      console.error('[Storage] Erro no upload:', error);
+      logger.error('[Storage] Erro no upload', error);
       throw error;
     }
 
@@ -314,13 +315,13 @@ export async function uploadFotoUsuario(
       .eq('id', usuarioId);
 
     if (updateError) {
-      console.error('[Storage] Erro ao atualizar foto_url no banco:', updateError);
+      logger.error('[Storage] Erro ao atualizar foto_url no banco', updateError);
       throw updateError;
     }
 
     return publicUrl;
   } catch (error) {
-    console.error('[Storage] Erro ao fazer upload de foto de perfil:', error);
+    logger.error('[Storage] Erro ao fazer upload de foto de perfil', error);
     return null;
   }
 }
@@ -343,7 +344,7 @@ export async function uploadIncidentPhoto(
 
     // Validar tamanho (máx 5MB)
     if (size > 5 * 1024 * 1024) {
-      console.error('❌ Foto muito grande! Máximo: 5MB');
+      logger.error('[Storage] Foto muito grande! Máximo: 5MB');
       throw new Error('Foto muito grande. Máximo: 5MB');
     }
 
@@ -359,7 +360,7 @@ export async function uploadIncidentPhoto(
       });
 
     if (error) {
-      console.error('[Storage] Erro no upload de incidente:', error);
+      logger.error('[Storage] Erro no upload de incidente', error);
       throw error;
     }
 
@@ -370,7 +371,7 @@ export async function uploadIncidentPhoto(
 
     return urlData.publicUrl;
   } catch (error) {
-    console.error('[Storage] Erro ao fazer upload de foto de incidente:', error);
+    logger.error('[Storage] Erro ao fazer upload de foto de incidente', error);
     return '';
   }
 }

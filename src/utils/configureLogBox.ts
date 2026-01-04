@@ -51,6 +51,12 @@ export function configureLogBox() {
         return;
       }
 
+      // Suppress useNativeDriver warning on web (expected behavior)
+      // The native driver doesn't exist on web, so it falls back to JS-based animations
+      if (message.includes('useNativeDriver') && message.includes('not supported')) {
+        return;
+      }
+
       originalWarn.apply(console, args);
     };
 

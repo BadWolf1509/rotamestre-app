@@ -1,6 +1,6 @@
 /**
  * Tests for ConnectivityBanner.tsx
- * Banner de conectividade com 3 componentes: ConnectivityBanner, ConnectivityIndicator, ConnectionStatusBadge
+ * Banner de conectividade com 2 componentes: ConnectivityBanner, ConnectivityIndicator
  */
 
 import { render } from '@testing-library/react-native';
@@ -10,7 +10,6 @@ import { Animated } from 'react-native';
 import {
   ConnectivityBanner,
   ConnectivityIndicator,
-  ConnectionStatusBadge,
 } from '../ConnectivityBanner';
 
 // Mock hooks
@@ -212,99 +211,6 @@ describe('ConnectivityBanner', () => {
       });
 
       const { getByText } = render(<ConnectivityIndicator />);
-
-      expect(getByText('cloud-offline')).toBeTruthy();
-    });
-  });
-
-  describe('ConnectionStatusBadge component', () => {
-    it('should show Wi-Fi label when connected via wifi', () => {
-      mockUseIsOnline.mockReturnValue(true);
-      mockUseNetworkStatus.mockReturnValue({
-        connectionType: 'wifi',
-        isWifi: true,
-        isCellular: false,
-      });
-
-      const { getByText } = render(<ConnectionStatusBadge />);
-
-      expect(getByText('Wi-Fi')).toBeTruthy();
-    });
-
-    it('should show Móvel label when connected via cellular', () => {
-      mockUseIsOnline.mockReturnValue(true);
-      mockUseNetworkStatus.mockReturnValue({
-        connectionType: 'cellular',
-        isWifi: false,
-        isCellular: true,
-      });
-
-      const { getByText } = render(<ConnectionStatusBadge />);
-
-      expect(getByText('Móvel')).toBeTruthy();
-    });
-
-    it('should show Online label when connected but not wifi or cellular', () => {
-      mockUseIsOnline.mockReturnValue(true);
-      mockUseNetworkStatus.mockReturnValue({
-        connectionType: 'ethernet',
-        isWifi: false,
-        isCellular: false,
-      });
-
-      const { getByText } = render(<ConnectionStatusBadge />);
-
-      expect(getByText('Online')).toBeTruthy();
-    });
-
-    it('should show Offline label when offline', () => {
-      mockUseIsOnline.mockReturnValue(false);
-      mockUseNetworkStatus.mockReturnValue({
-        connectionType: null,
-        isWifi: false,
-        isCellular: false,
-      });
-
-      const { getByText } = render(<ConnectionStatusBadge />);
-
-      expect(getByText('Offline')).toBeTruthy();
-    });
-
-    it('should show wifi icon when connected via wifi', () => {
-      mockUseIsOnline.mockReturnValue(true);
-      mockUseNetworkStatus.mockReturnValue({
-        connectionType: 'wifi',
-        isWifi: true,
-        isCellular: false,
-      });
-
-      const { getByText } = render(<ConnectionStatusBadge />);
-
-      expect(getByText('wifi')).toBeTruthy();
-    });
-
-    it('should show cellular icon when connected via cellular', () => {
-      mockUseIsOnline.mockReturnValue(true);
-      mockUseNetworkStatus.mockReturnValue({
-        connectionType: 'cellular',
-        isWifi: false,
-        isCellular: true,
-      });
-
-      const { getByText } = render(<ConnectionStatusBadge />);
-
-      expect(getByText('cellular')).toBeTruthy();
-    });
-
-    it('should show cloud-offline icon when offline', () => {
-      mockUseIsOnline.mockReturnValue(false);
-      mockUseNetworkStatus.mockReturnValue({
-        connectionType: null,
-        isWifi: false,
-        isCellular: false,
-      });
-
-      const { getByText } = render(<ConnectionStatusBadge />);
 
       expect(getByText('cloud-offline')).toBeTruthy();
     });

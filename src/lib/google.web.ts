@@ -1,5 +1,6 @@
 /* global google */
 
+import { logger } from './logger';
 import {
   RouteError,
   RouteResult,
@@ -309,13 +310,13 @@ export const googleMapsService = {
       });
 
       if (error) {
-        console.error('Erro no autocomplete (Edge Function):', error);
+        logger.error('[Google.web] Erro no autocomplete (Edge Function)', error);
         return [];
       }
 
       return data?.predictions || [];
     } catch (error) {
-      console.error('Erro no autocomplete:', error);
+      logger.error('[Google.web] Erro no autocomplete', error);
       return [];
     }
   },
@@ -329,13 +330,13 @@ export const googleMapsService = {
       });
 
       if (error) {
-        console.error('Erro ao obter detalhes do place (Edge Function):', error);
+        logger.error('[Google.web] Erro ao obter detalhes do place (Edge Function)', error);
         return null;
       }
 
       return data || null;
     } catch (error) {
-      console.error('Erro ao obter detalhes do place:', error);
+      logger.error('[Google.web] Erro ao obter detalhes do place', error);
       return null;
     }
   },
@@ -377,14 +378,14 @@ export const googleMapsService = {
                 formatted_address: result.formatted_address,
               });
             } else {
-              console.error('Geocoding error:', status);
+              logger.error('[Google.web] Geocoding error', { status });
               resolve(null);
             }
           }
         );
       });
     } catch (error) {
-      console.error('Erro no geocoding:', error);
+      logger.error('[Google.web] Erro no geocoding', error);
       return null;
     }
   },
@@ -406,14 +407,14 @@ export const googleMapsService = {
             if (status === 'OK' && results && results.length > 0) {
               resolve(results[0].formatted_address);
             } else {
-              console.error('Reverse geocoding error:', status);
+              logger.error('[Google.web] Reverse geocoding error', { status });
               resolve(null);
             }
           }
         );
       });
     } catch (error) {
-      console.error('Erro no reverse geocoding:', error);
+      logger.error('[Google.web] Erro no reverse geocoding', error);
       return null;
     }
   },
@@ -439,7 +440,7 @@ export const googleMapsService = {
   ): Promise<RouteResult<GoogleDirectionsResult>> {
     try {
       // Log dos parâmetros para debug
-      console.log('[Google Directions] Request:', {
+      logger.debug('[Google.web] Directions Request', {
         origin: { lat: origin.latitude, lng: origin.longitude },
         destination: { lat: destination.latitude, lng: destination.longitude },
         waypointsCount: waypoints?.length || 0,
@@ -458,18 +459,18 @@ export const googleMapsService = {
 
       // Melhor tratamento de erros da Edge Function
       if (invokeError) {
-        console.error('[Google Directions] Edge Function error:', invokeError);
+        logger.error('[Google.web] Directions Edge Function error', invokeError);
         // Tentar extrair dados do erro se disponível (para status 4xx)
         const errorContext = (invokeError as any)?.context;
         if (errorContext) {
-          console.error('[Google Directions] Error context:', errorContext);
+          logger.error('[Google.web] Directions Error context', errorContext);
         }
         const error = createNetworkError(invokeError);
         return failure(error);
       }
 
       // Log da resposta para debug
-      console.log('[Google Directions] Response:', {
+      logger.debug('[Google.web] Directions Response', {
         hasRoutes: !!(data?.routes?.length),
         routesCount: data?.routes?.length || 0,
         hasError: !!data?.error,
@@ -481,14 +482,14 @@ export const googleMapsService = {
       if (apiResponse.error) {
         const errorStatus = mapRoutesAPIError(apiResponse.error);
         const error = parseGoogleError(errorStatus, apiResponse.error.message);
-        console.warn('[Google Directions] ' + formatErrorForLog(error));
+        logger.warn('[Google.web] Directions ' + formatErrorForLog(error));
         return failure(error);
       }
 
       // Verificar se tem rotas
       if (!apiResponse.routes || apiResponse.routes.length === 0) {
         const error = parseGoogleError('ZERO_RESULTS', 'No routes found');
-        console.warn('[Google Directions] ' + formatErrorForLog(error));
+        logger.warn('[Google.web] Directions ' + formatErrorForLog(error));
         return failure(error);
       }
 
@@ -508,7 +509,7 @@ export const googleMapsService = {
         error = parseGoogleError('UNKNOWN_ERROR', err?.message);
       }
 
-      console.error('[Google Directions] ' + formatErrorForLog(error));
+      logger.error('[Google.web] Directions ' + formatErrorForLog(error));
       return failure(error);
     }
   },
@@ -543,7 +544,7 @@ export const googleMapsService = {
           isNaN(point.longitude)
         ) {
           const pointName = i === 0 ? 'origin' : i === allPoints.length - 1 ? 'destination' : `waypoint ${i}`;
-          console.error(`[Google Sequential] Invalid coordinates at ${pointName}:`, point);
+          logger.error(`[Google.web] Sequential Invalid coordinates at ${pointName}`, point);
           const error = parseGoogleError('INVALID_REQUEST', `Invalid coordinates at ${pointName}`);
           return failure(error);
         }
@@ -561,7 +562,7 @@ export const googleMapsService = {
 
         // Log debug para primeira execução
         if (i === 0) {
-          console.log('[Google Sequential] First segment coords:', {
+          logger.debug('[Google.web] Sequential First segment coords', {
             origin: { lat: segmentOrigin.latitude, lng: segmentOrigin.longitude },
             dest: { lat: segmentDestination.latitude, lng: segmentDestination.longitude },
           });
@@ -577,7 +578,7 @@ export const googleMapsService = {
         });
 
         if (invokeError) {
-          console.warn(`[Google Sequential] Segment ${i + 1} Edge Function error:`, invokeError);
+          logger.warn(`[Google.web] Sequential Segment ${i + 1} Edge Function error`, invokeError);
           continue; // Continua com próximo segmento
         }
 
@@ -610,7 +611,7 @@ export const googleMapsService = {
             polylineSegments.push(route.polyline.encodedPolyline);
           }
         } else {
-          console.warn(`[Google Sequential] Segment ${i + 1} failed: ${apiResponse.error?.status || 'NO_ROUTES'}`);
+          logger.warn(`[Google.web] Sequential Segment ${i + 1} failed: ${apiResponse.error?.status || 'NO_ROUTES'}`);
         }
       }
 
@@ -635,7 +636,7 @@ export const googleMapsService = {
         error = parseGoogleError('UNKNOWN_ERROR', err?.message);
       }
 
-      console.error('[Google Sequential] ' + formatErrorForLog(error));
+      logger.error('[Google.web] Sequential ' + formatErrorForLog(error));
       return failure(error);
     }
   },
@@ -656,7 +657,7 @@ export const googleMapsService = {
       });
 
       if (invokeError) {
-        console.error('[DistanceMatrix] Edge Function error:', invokeError);
+        logger.error('[Google.web] DistanceMatrix Edge Function error', invokeError);
         return null;
       }
 
@@ -673,10 +674,10 @@ export const googleMapsService = {
         return matrix;
       }
 
-      console.error('[DistanceMatrix] API Error:', data?.status || 'Unknown error');
+      logger.error('[Google.web] DistanceMatrix API Error', { status: data?.status || 'Unknown error' });
       return null;
     } catch (error) {
-      console.error('Erro na matriz de distâncias:', error);
+      logger.error('[Google.web] Erro na matriz de distâncias', error);
       return null;
     }
   },

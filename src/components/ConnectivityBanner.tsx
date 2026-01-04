@@ -184,40 +184,6 @@ export function ConnectivityIndicator() {
   );
 }
 
-/**
- * Badge de status de conexão com texto
- * Mostra tipo de conexão atual
- */
-export function ConnectionStatusBadge() {
-  const { theme } = useUnistyles();
-  const isOnline = useIsOnline();
-  const { isWifi, isCellular } = useNetworkStatus();
-
-  const getLabel = (): string => {
-    if (!isOnline) return 'Offline';
-    if (isWifi) return 'Wi-Fi';
-    if (isCellular) return 'Móvel';
-    return 'Online';
-  };
-
-  const getIcon = (): string => {
-    if (!isOnline) return 'cloud-offline';
-    if (isWifi) return 'wifi';
-    if (isCellular) return 'cellular';
-    return 'globe';
-  };
-
-  const backgroundColor = isOnline ? theme.colors.successBg : theme.colors.errorBg;
-  const textColor = isOnline ? theme.colors.success : theme.colors.error;
-
-  return (
-    <View style={[styles.badge, { backgroundColor }]}>
-      <Ionicons name={getIcon() as any} size={12} color={textColor} />
-      <Text style={[styles.badgeText, { color: textColor }]}>{getLabel()}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     position: Platform.OS === 'web' ? ('fixed' as any) : 'absolute',
@@ -251,17 +217,5 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   indicator: {
     padding: theme.spacing.xs,
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-    paddingHorizontal: theme.components.connectivityBanner.badgePaddingH,
-    paddingVertical: theme.components.connectivityBanner.badgePaddingV,
-    borderRadius: theme.components.connectivityBanner.badgeBorderRadius,
-  },
-  badgeText: {
-    fontSize: theme.components.connectivityBanner.badgeFontSize,
-    fontFamily: theme.typography.fontSansSemiBold,
   },
 }));

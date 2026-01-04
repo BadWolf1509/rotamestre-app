@@ -122,7 +122,12 @@ describe('LocationTrackingService', () => {
 
             await locationTrackingService.updateNavigationPreferences({ autoAdvance: true });
 
-            expect(consoleSpy).toHaveBeenCalledWith('Error updating preferences:', expect.any(Error));
+            // Logger outputs: [ERROR], message with prefix, error object
+            expect(consoleSpy).toHaveBeenCalledWith(
+                '[ERROR]',
+                '[LocationTracking] Error updating preferences',
+                expect.any(Error)
+            );
             consoleSpy.mockRestore();
         });
     });

@@ -53,6 +53,10 @@ export function MobileButton({
       ]}
       disabled={isDisabled}
       activeOpacity={0.7}
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: isDisabled }}
       {...props}
     >
       {loading ? (

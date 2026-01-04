@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
 import {
@@ -319,7 +320,7 @@ export async function getCoordinates(endereco: string): Promise<{ lat: number; l
 
     return null;
   } catch (error) {
-    console.error('Erro ao obter coordenadas:', error);
+    logger.error('[Google] Erro ao obter coordenadas', error);
     return null;
   }
 }
@@ -365,7 +366,7 @@ export const googleMapsService = {
 
       return [];
     } catch (error) {
-      console.error('Erro no autocomplete:', error);
+      logger.error('[Google] Erro no autocomplete', error);
       return [];
     }
   },
@@ -407,7 +408,7 @@ export const googleMapsService = {
 
       return null;
     } catch (error) {
-      console.error('Erro ao obter detalhes do place:', error);
+      logger.error('[Google] Erro ao obter detalhes do place', error);
       return null;
     }
   },
@@ -449,7 +450,7 @@ export const googleMapsService = {
 
       return null;
     } catch (error) {
-      console.error('Erro no geocoding:', error);
+      logger.error('[Google] Erro no geocoding', error);
       return null;
     }
   },
@@ -469,7 +470,7 @@ export const googleMapsService = {
 
       return null;
     } catch (error) {
-      console.error('Erro no reverse geocoding:', error);
+      logger.error('[Google] Erro no reverse geocoding', error);
       return null;
     }
   },
@@ -544,14 +545,14 @@ export const googleMapsService = {
       if (data.error) {
         const errorStatus = mapRoutesAPIError(data.error);
         const error = parseGoogleError(errorStatus, data.error.message);
-        console.warn('[Routes API] ' + formatErrorForLog(error));
+        logger.warn('[Routes API] ' + formatErrorForLog(error));
         return failure(error);
       }
 
       // Verificar se tem rotas
       if (!data.routes || data.routes.length === 0) {
         const error = parseGoogleError('ZERO_RESULTS', 'No routes found');
-        console.warn('[Routes API] ' + formatErrorForLog(error));
+        logger.warn('[Routes API] ' + formatErrorForLog(error));
         return failure(error);
       }
 
@@ -569,7 +570,7 @@ export const googleMapsService = {
         error = parseGoogleError('UNKNOWN_ERROR', err?.message);
       }
 
-      console.error('[Routes API] ' + formatErrorForLog(error));
+      logger.error('[Routes API] ' + formatErrorForLog(error));
       return failure(error);
     }
   },
@@ -677,7 +678,7 @@ export const googleMapsService = {
           }
         } else {
           // Log warning mas continua
-          console.warn(`[Routes API] Segmento ${i + 1} falhou: ${data.error?.status || 'NO_ROUTES'}`);
+          logger.warn(`[Routes API] Segmento ${i + 1} falhou: ${data.error?.status || 'NO_ROUTES'}`);
         }
       }
 
@@ -702,7 +703,7 @@ export const googleMapsService = {
         error = parseGoogleError('UNKNOWN_ERROR', err?.message);
       }
 
-      console.error('[Routes API Sequential] ' + formatErrorForLog(error));
+      logger.error('[Routes API Sequential] ' + formatErrorForLog(error));
       return failure(error);
     }
   },
@@ -781,7 +782,7 @@ export const googleMapsService = {
 
       return matrix;
     } catch (error) {
-      console.error('Erro na matriz de distâncias:', error);
+      logger.error('[Google] Erro na matriz de distâncias', error);
       return null;
     }
   },

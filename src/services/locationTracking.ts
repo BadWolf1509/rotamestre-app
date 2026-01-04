@@ -3,6 +3,7 @@ import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { Alert } from 'react-native';
 
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { defaultTheme } from '@/utils/styles';
 
@@ -64,7 +65,7 @@ class LocationTrackingService {
 
       const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
       if (backgroundStatus !== 'granted') {
-        console.warn('Background location permission not granted');
+        logger.warn('[LocationTracking] Background location permission not granted');
       }
 
       // Load navigation preferences
@@ -116,7 +117,7 @@ class LocationTrackingService {
 
       return true;
     } catch (error) {
-      console.error('Error starting location tracking:', error);
+      logger.error('[LocationTracking] Error starting location tracking', error);
       Alert.alert('Erro', 'Não foi possível iniciar o rastreamento de localização');
       return false;
     }
@@ -140,7 +141,7 @@ class LocationTrackingService {
 
       return true;
     } catch (error) {
-      console.error('Error stopping location tracking:', error);
+      logger.error('[LocationTracking] Error stopping location tracking', error);
       return false;
     }
   }
@@ -291,7 +292,7 @@ class LocationTrackingService {
         await this.handleRouteComplete();
       }
     } catch (error) {
-      console.error('Error auto-advancing:', error);
+      logger.error('[LocationTracking] Error auto-advancing', error);
     }
   }
 
@@ -316,7 +317,7 @@ class LocationTrackingService {
 
       await this.stopTracking();
     } catch (error) {
-      console.error('Error completing route:', error);
+      logger.error('[LocationTracking] Error completing route', error);
     }
   }
 
@@ -367,10 +368,10 @@ class LocationTrackingService {
         });
 
       if (error) {
-        console.error('[LocationTracking] Erro ao salvar localização:', error);
+        logger.error('[LocationTracking] Erro ao salvar localização', error);
       }
     } catch (error) {
-      console.error('Error updating driver position:', error);
+      logger.error('[LocationTracking] Error updating driver position', error);
     }
   }
 
@@ -418,7 +419,7 @@ class LocationTrackingService {
         await AsyncStorage.setItem('navigationState', JSON.stringify(this.navigationState));
       }
     } catch (error) {
-      console.error('Error updating preferences:', error);
+      logger.error('[LocationTracking] Error updating preferences', error);
     }
   }
 }
@@ -426,7 +427,7 @@ class LocationTrackingService {
 // Background task definition
 TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
   if (error) {
-    console.error('Background location error:', error);
+    logger.error('[LocationTracking] Background location error', error);
     return;
   }
 

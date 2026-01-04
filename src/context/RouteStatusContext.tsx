@@ -11,6 +11,7 @@ import { Platform } from 'react-native';
 
 import { useAuth } from '@/hooks/useAuth';
 import { useUser } from '@/hooks/useUser';
+import { logger } from '@/lib/logger';
 import { notifyRoutePending } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import {
@@ -227,7 +228,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
         .limit(10);
 
       if (errorAtivas) {
-        console.error('[RouteStatus] Erro ao buscar rotas ativas:', errorAtivas);
+        logger.error('[RouteStatus] Erro ao buscar rotas ativas', errorAtivas);
         setRoute(null);
         setParadas([]);
         setPendingRoutesCount(0);
@@ -292,7 +293,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (errorConcluida) {
-        console.error('[RouteStatus] Erro ao buscar rota concluída:', errorConcluida);
+        logger.error('[RouteStatus] Erro ao buscar rota concluída', errorConcluida);
         setRoute(null);
         setParadas([]);
         setLoading(false);
@@ -319,7 +320,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
       setRoute(null);
       setParadas([]);
     } catch (error) {
-      console.error('[RouteStatus] Erro ao carregar rota:', error);
+      logger.error('[RouteStatus] Erro ao carregar rota', error);
       setRoute(null);
       setParadas([]);
     } finally {
@@ -344,7 +345,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
         .eq('id', proximaPendente.id);
 
       if (error) {
-        console.error('[marcarProximaParadaEmAndamento] Erro:', error);
+        logger.error('[RouteStatus] marcarProximaParadaEmAndamento Erro', error);
       }
     }
   };
@@ -355,7 +356,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
 
     // Validar se a rota está em status pendente (evita reiniciar rota já concluída/cancelada)
     if (route.status !== 'pendente') {
-      console.warn(`[startRoute] Tentativa de iniciar rota com status '${route.status}' - ignorado`);
+      logger.warn(`[RouteStatus] startRoute Tentativa de iniciar rota com status '${route.status}' - ignorado`);
       return;
     }
 
@@ -403,7 +404,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
 
       await loadActiveRoute();
     } catch (error) {
-      console.error('Erro ao iniciar rota:', error);
+      logger.error('[RouteStatus] Erro ao iniciar rota', error);
       throw error;
     }
   };
@@ -412,7 +413,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
   const completeStop = async (paradaId: string, fotoUrl?: string) => {
     // Validar se a rota está em andamento
     if (!route || route.status !== 'em_andamento') {
-      console.warn(`[completeStop] Tentativa de concluir parada com rota em status '${route?.status}' - ignorado`);
+      logger.warn(`[RouteStatus] completeStop Tentativa de concluir parada com rota em status '${route?.status}' - ignorado`);
       throw new Error('A rota precisa estar em andamento para concluir paradas');
     }
 
@@ -442,7 +443,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
 
       await loadActiveRoute();
     } catch (error) {
-      console.error('Erro ao concluir parada:', error);
+      logger.error('[RouteStatus] Erro ao concluir parada', error);
       throw error;
     }
   };
@@ -451,7 +452,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
   const skipStop = async (paradaId: string) => {
     // Validar se a rota está em andamento
     if (!route || route.status !== 'em_andamento') {
-      console.warn(`[skipStop] Tentativa de pular parada com rota em status '${route?.status}' - ignorado`);
+      logger.warn(`[RouteStatus] skipStop Tentativa de pular parada com rota em status '${route?.status}' - ignorado`);
       throw new Error('A rota precisa estar em andamento para pular paradas');
     }
 
@@ -474,7 +475,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
 
       await loadActiveRoute();
     } catch (error) {
-      console.error('Erro ao pular parada:', error);
+      logger.error('[RouteStatus] Erro ao pular parada', error);
       throw error;
     }
   };
@@ -519,7 +520,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
 
       await loadActiveRoute();
     } catch (error) {
-      console.error('Erro ao concluir rota:', error);
+      logger.error('[RouteStatus] Erro ao concluir rota', error);
       throw error;
     }
   };
@@ -622,7 +623,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
       )
       .subscribe((status) => {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error('[Realtime:Motorista] Erro na conexão');
+          logger.error('[RouteStatus] Realtime Erro na conexão', { status });
           isSubscribed.current = false;
         }
       });

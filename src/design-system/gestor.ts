@@ -7,9 +7,6 @@
 export { DashboardDesktop } from '@/components/gestor/dashboard/_components/desktop/DashboardDesktop';
 export { DashboardMobile } from '@/components/gestor/dashboard/_components/mobile/DashboardMobile';
 
-// Sidebar Components
-export { GestorSidebar } from '@/components/GestorSidebar';
-
 // Route Components
 export { RouteFilters } from '@/components/RouteFilters';
 export { RouteControlPanel } from '@/components/RouteControlPanel';

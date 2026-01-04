@@ -165,29 +165,3 @@ export function useDistanceToStop(
 
   return distanceInfo;
 }
-
-/**
- * Função utilitária para calcular distância Haversine (sem API)
- * Útil para cálculos rápidos quando precisão não é crítica
- */
-export function calculateHaversineDistance(
-  from: Location,
-  to: Location
-): { meters: number; km: string } {
-  const R = 6371000;
-  const dLat = ((to.latitude - from.latitude) * Math.PI) / 180;
-  const dLon = ((to.longitude - from.longitude) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((from.latitude * Math.PI) / 180) *
-      Math.cos((to.latitude * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const meters = R * c;
-
-  return {
-    meters,
-    km: meters < 1000 ? `${Math.round(meters)}m` : `${(meters / 1000).toFixed(1)}km`,
-  };
-}

@@ -172,6 +172,10 @@ export function RouteTimeline({
   // Resolver de cores - usa função pura de módulo para estabilidade
   const getColor = useMemo(() => createColorResolver(theme), [theme]);
 
+  // Ref para getColor - evita que loadTimeline dependa de theme
+  const getColorRef = useRef(getColor);
+  getColorRef.current = getColor;
+
   // Iniciar animação de pulse APENAS se houver eventos críticos
   useEffect(() => {
     if (!hasCriticalEvents) return;
@@ -198,7 +202,13 @@ export function RouteTimeline({
   // DATA LOADING
   // ============================================================================
 
+  // Ref para controlar chamadas concorrentes
+  const loadIdRef = useRef(0);
+
   const loadTimeline = useCallback(async (isRefresh = false) => {
+    // Incrementar ID para invalidar chamadas anteriores
+    const thisLoadId = ++loadIdRef.current;
+
     try {
       if (!isRefresh) {
         setLoading(true);
@@ -228,6 +238,22 @@ export function RouteTimeline({
           .eq('rota_id', rotaId),
       ]);
 
+      // Verificar se esta chamada ainda é válida (não foi substituída por outra)
+      if (thisLoadId !== loadIdRef.current) {
+        return;
+      }
+
+      // Verificar erros do Supabase
+      if (logsRes.error) {
+        console.error('[RouteTimeline] Erro ao buscar logs:', logsRes.error);
+      }
+      if (paradasRes.error) {
+        console.error('[RouteTimeline] Erro ao buscar paradas:', paradasRes.error);
+      }
+      if (incidentesRes.error) {
+        console.error('[RouteTimeline] Erro ao buscar incidentes:', incidentesRes.error);
+      }
+
       // Verificar se há mais logs para carregar
       setHasMore((logsRes.data?.length || 0) >= PAGE_SIZE);
 
@@ -241,7 +267,7 @@ export function RouteTimeline({
             timelineEvents.push({
               ...mapped,
               icon: mapped.icon as keyof typeof Ionicons.glyphMap,
-              color: getColor(mapped.colorKey),
+              color: getColorRef.current(mapped.colorKey),
             });
           }
         });
@@ -255,7 +281,7 @@ export function RouteTimeline({
             timelineEvents.push({
               ...mapped,
               icon: mapped.icon as keyof typeof Ionicons.glyphMap,
-              color: getColor(mapped.colorKey),
+              color: getColorRef.current(mapped.colorKey),
             });
           }
         });
@@ -268,7 +294,7 @@ export function RouteTimeline({
           timelineEvents.push({
             ...mapped,
             icon: mapped.icon as keyof typeof Ionicons.glyphMap,
-            color: getColor(mapped.colorKey),
+            color: getColorRef.current(mapped.colorKey),
           });
         });
       }
@@ -278,18 +304,20 @@ export function RouteTimeline({
         (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       );
 
-      // Detectar novos eventos para animação
+      // Detectar novos eventos para animação (apenas para eventos realtime, não inicial)
       const currentIds = new Set(timelineEvents.map(e => e.id));
+      const isInitialLoad = previousEventIds.current.size === 0;
       const newEvents = timelineEvents.map(event => ({
         ...event,
-        isNew: !previousEventIds.current.has(event.id) && previousEventIds.current.size > 0,
-        // Marcar como não visto se habilitado e lastSeen já foi carregado
-        isUnseen: enableUnseenBadge && !lastSeenLoading && isUnseenEvent(event.timestamp),
+        // Só marca como "novo" se não for carregamento inicial
+        isNew: !isInitialLoad && !previousEventIds.current.has(event.id),
+        // isUnseen será calculado em useEffect separado após lastSeen carregar
+        isUnseen: false,
       }));
       previousEventIds.current = currentIds;
 
-      // Animar entrada de novos eventos
-      if (newEvents.some(e => e.isNew)) {
+      // Animar entrada de novos eventos APENAS em updates (não no carregamento inicial)
+      if (!isInitialLoad && newEvents.some(e => e.isNew)) {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       }
 
@@ -297,14 +325,42 @@ export function RouteTimeline({
     } catch (error) {
       console.error('[RouteTimeline] Erro ao carregar timeline:', error);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      // Só atualiza estados se esta chamada ainda é a mais recente
+      if (thisLoadId === loadIdRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, [rotaId, enableUnseenBadge, lastSeenLoading, isUnseenEvent, getColor]);
+  }, [rotaId]); // getColor removido - usa getColorRef para evitar re-renders
 
+  // Carregar timeline apenas quando rotaId muda
   useEffect(() => {
     loadTimeline();
   }, [loadTimeline]);
+
+  // Ref para rastrear se já atualizamos os badges de "não visto"
+  const hasUpdatedUnseenRef = useRef(false);
+
+  // Atualizar isUnseen quando lastSeen carregar (separado do loading principal)
+  useEffect(() => {
+    // Só atualiza uma vez após lastSeen carregar e haver eventos
+    if (lastSeenLoading || !enableUnseenBadge || hasUpdatedUnseenRef.current) return;
+
+    setEvents(prev => {
+      if (prev.length === 0) return prev;
+
+      hasUpdatedUnseenRef.current = true;
+      return prev.map(event => ({
+        ...event,
+        isUnseen: isUnseenEvent(event.timestamp),
+      }));
+    });
+  }, [lastSeenLoading, enableUnseenBadge, isUnseenEvent]);
+
+  // Reset do ref quando rotaId muda
+  useEffect(() => {
+    hasUpdatedUnseenRef.current = false;
+  }, [rotaId]);
 
   // Notificar pai sobre contagem de eventos não vistos
   useEffect(() => {
@@ -370,9 +426,10 @@ export function RouteTimeline({
               const newEvent: TimelineEvent = {
                 ...mapped,
                 icon: mapped.icon as keyof typeof Ionicons.glyphMap,
-                color: getColor(mapped.colorKey),
+                color: getColorRef.current(mapped.colorKey),
                 isNew: true,
-                isUnseen: enableUnseenBadge && !lastSeenLoading && isUnseenEvent(mapped.timestamp),
+                // Eventos realtime são sempre "novos" (não vistos ainda)
+                isUnseen: enableUnseenBadge,
               };
 
               // Adicionar no início e reordenar por timestamp
@@ -418,7 +475,7 @@ export function RouteTimeline({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [rotaId, realtime, loadTimeline, getColor, enableUnseenBadge, lastSeenLoading, isUnseenEvent]);
+  }, [rotaId, realtime, loadTimeline, enableUnseenBadge]); // getColor removido - usa ref
 
   // Notify parent of state changes
   useEffect(() => {
@@ -479,7 +536,7 @@ export function RouteTimeline({
           newEvents.push({
             ...mapped,
             icon: mapped.icon as keyof typeof Ionicons.glyphMap,
-            color: getColor(mapped.colorKey),
+            color: getColorRef.current(mapped.colorKey),
             isUnseen: enableUnseenBadge && !lastSeenLoading && isUnseenEvent(mapped.timestamp),
           });
         }
@@ -498,7 +555,7 @@ export function RouteTimeline({
     } finally {
       setLoadingMore(false);
     }
-  }, [loadingMore, hasMore, currentPage, rotaId, getColor, enableUnseenBadge, lastSeenLoading, isUnseenEvent]);
+  }, [loadingMore, hasMore, currentPage, rotaId, enableUnseenBadge, lastSeenLoading, isUnseenEvent]); // getColor removido - usa ref
 
   // ============================================================================
   // COMPUTED VALUES

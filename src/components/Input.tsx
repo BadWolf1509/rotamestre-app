@@ -106,6 +106,14 @@ export function Input({
           placeholderTextColor={theme.colors.gray400}
           onFocus={handleFocus}
           onBlur={handleBlur}
+          accessible
+          accessibilityLabel={label || inputProps.placeholder}
+          accessibilityHint={helperText}
+          accessibilityState={{
+            disabled: isDisabled,
+          }}
+          aria-invalid={hasError}
+          aria-required={required}
           {...inputProps}
         />
 

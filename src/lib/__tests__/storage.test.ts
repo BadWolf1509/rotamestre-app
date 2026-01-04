@@ -1,3 +1,4 @@
+import { logger } from '../logger';
 import {
   uploadFotoEntrega,
   salvarFotoParada,
@@ -7,6 +8,16 @@ import {
   uploadIncidentPhoto,
 } from '../storage';
 import { supabase } from '../supabase';
+
+// Mock do logger
+jest.mock('../logger', () => ({
+  logger: {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+  },
+}));
 
 // Mock do Platform para forçar comportamento web nos testes
 jest.mock('react-native', () => ({
@@ -63,13 +74,6 @@ describe('Storage Functions', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.spyOn(console, 'log').mockImplementation();
-    jest.spyOn(console, 'error').mockImplementation();
-  });
-
-  afterEach(() => {
-    (console.log as jest.Mock).mockRestore();
-    (console.error as jest.Mock).mockRestore();
   });
 
   describe('uploadFotoEntrega', () => {
@@ -118,7 +122,7 @@ describe('Storage Functions', () => {
 
       expect(result).toBeNull();
       // O código agora lança erro ao invés de apenas logar
-      expect(console.error).toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalled();
     });
 
     it('deve retornar null quando upload falha', async () => {
@@ -230,7 +234,7 @@ describe('Storage Functions', () => {
       const result = await salvarFotoParada(mockParadaId, mockFotoUrl);
 
       expect(result).toBe(false);
-      expect(console.error).toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalled();
     });
 
     it('deve usar filtro eq com parada ID correto', async () => {
@@ -386,7 +390,7 @@ describe('Storage Functions', () => {
       const result = await deletarFoto(invalidUrl);
 
       expect(result).toBe(false);
-      expect(console.error).toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalled();
     });
 
     it('deve retornar false quando delete falha', async () => {
@@ -455,8 +459,8 @@ describe('Storage Functions', () => {
 
       expect(result).toBe(false);
       // uploadFotoEntrega catch logs the error
-      expect(console.error).toHaveBeenCalledWith(
-        '[Storage] Erro ao fazer upload de foto:',
+      expect(logger.error).toHaveBeenCalledWith(
+        '[Storage] Erro ao fazer upload de foto',
         expect.any(Error)
       );
     });
@@ -509,7 +513,7 @@ describe('Storage Functions', () => {
       const result = await uploadFotoUsuario(mockUsuarioId, mockFotoUri);
 
       expect(result).toBeNull();
-      expect(console.error).toHaveBeenCalledWith('❌ Foto muito grande! Máximo: 2MB');
+      expect(logger.error).toHaveBeenCalledWith('[Storage] Foto muito grande! Máximo: 2MB');
     });
 
     it('deve retornar null quando upload falha', async () => {
@@ -557,8 +561,8 @@ describe('Storage Functions', () => {
       const result = await uploadFotoUsuario(mockUsuarioId, mockFotoUri);
 
       expect(result).toBeNull();
-      expect(console.error).toHaveBeenCalledWith(
-        '[Storage] Erro ao atualizar foto_url no banco:',
+      expect(logger.error).toHaveBeenCalledWith(
+        '[Storage] Erro ao atualizar foto_url no banco',
         expect.any(Error)
       );
     });
@@ -655,7 +659,7 @@ describe('Storage Functions', () => {
       const result = await uploadIncidentPhoto(mockFotoUri, mockFileName);
 
       expect(result).toBe('');
-      expect(console.error).toHaveBeenCalledWith('❌ Foto muito grande! Máximo: 5MB');
+      expect(logger.error).toHaveBeenCalledWith('[Storage] Foto muito grande! Máximo: 5MB');
     });
 
     it('deve retornar string vazia quando upload falha', async () => {

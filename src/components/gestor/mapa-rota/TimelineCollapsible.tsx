@@ -4,7 +4,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
 
 import { RouteTimeline } from '@/components/RouteTimeline';
@@ -59,8 +59,13 @@ export function TimelineCollapsible({ rotaId, rotaCreatedAt, initialExpanded = f
   } = useTimelineLastSeen(rotaId, rotaCreatedAt);
 
 
+  // Ref para armazenar eventos para cálculo de unseen
+  const allEventsRef = useRef<TimelinePreviewEvent[]>([]);
+
   // Buscar preview leve (apenas contagem e último evento)
   useEffect(() => {
+    let cancelled = false;
+
     async function fetchPreview() {
       try {
         // Buscar em paralelo: logs, paradas concluídas, incidentes
@@ -80,6 +85,9 @@ export function TimelineCollapsible({ rotaId, rotaCreatedAt, initialExpanded = f
             .select('id, categoria, created_at')
             .eq('rota_id', rotaId),
         ]);
+
+        // Verificar se foi cancelado
+        if (cancelled) return;
 
         // Calcular total de eventos (usando função centralizada)
         const logsCount = logsRes.data?.filter((log: any) =>
@@ -130,27 +138,56 @@ export function TimelineCollapsible({ rotaId, rotaCreatedAt, initialExpanded = f
           lastEvent = allEvents[0];
         }
 
-        setPreview({ loading: false, eventCount: totalCount, lastEvent });
+        // Salvar eventos para cálculo posterior de unseen
+        allEventsRef.current = allEvents;
 
-        // Calcular eventos não vistos
-        // O hook usa rotaCreatedAt como fallback quando não há lastSeenTimestamp
-        // Então eventos após criação da rota aparecem como "novos" na primeira visita
-        if (!lastSeenLoading) {
-          const unseenEvents = countNewEvents(allEvents);
-          setUnseenCount(unseenEvents);
-        }
+        setPreview({ loading: false, eventCount: totalCount, lastEvent });
       } catch (error) {
         console.error('[TimelineCollapsible] Erro ao buscar preview:', error);
-        setPreview({ loading: false, eventCount: 0, lastEvent: null });
+        if (!cancelled) {
+          setPreview({ loading: false, eventCount: 0, lastEvent: null });
+        }
       }
     }
 
     fetchPreview();
-  }, [rotaId, lastSeenLoading, countNewEvents]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [rotaId]);
+
+  // Calcular eventos não vistos separadamente (após preview e lastSeen carregarem)
+  useEffect(() => {
+    if (lastSeenLoading || preview.loading || allEventsRef.current.length === 0) return;
+
+    const unseenEvents = countNewEvents(allEventsRef.current);
+    setUnseenCount(unseenEvents);
+  }, [lastSeenLoading, countNewEvents, preview.loading]);
+
+  // Ref para evitar cliques múltiplos
+  const isTogglingRef = useRef(false);
 
   const toggleExpanded = useCallback(() => {
+    // Evitar cliques múltiplos durante a animação
+    if (isTogglingRef.current) {
+      return;
+    }
+
+    isTogglingRef.current = true;
+
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpanded((prev) => !prev);
+
+    // Reset após animação completar
+    setTimeout(() => {
+      isTogglingRef.current = false;
+    }, 350);
+  }, []);
+
+  // Callback estável para evitar re-renders desnecessários
+  const handleUnseenCountChange = useCallback((count: number) => {
+    setUnseenCount(count);
   }, []);
 
   const hasEvents = preview.eventCount > 0;
@@ -219,11 +256,7 @@ export function TimelineCollapsible({ rotaId, rotaCreatedAt, initialExpanded = f
             rotaCreatedAt={rotaCreatedAt}
             realtime={true}
             enableUnseenBadge={true}
-            onUnseenCountChange={(count) => {
-              // Atualizar contagem quando RouteTimeline informa mudanças
-              // (será 0 após marcar como visto)
-              setUnseenCount(count);
-            }}
+            onUnseenCountChange={handleUnseenCountChange}
           />
         </View>
       )}

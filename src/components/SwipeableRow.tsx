@@ -75,6 +75,10 @@ export function SwipeableRow({
                   action.onPress();
                 }}
                 disabled={action.loading}
+                accessible
+                accessibilityRole="button"
+                accessibilityLabel={action.label}
+                accessibilityState={{ disabled: action.loading }}
               >
                 {action.loading ? (
                   <ActivityIndicator color={theme.colors.white} size="small" />
@@ -127,6 +131,10 @@ export function SwipeableRow({
                   action.onPress();
                 }}
                 disabled={action.loading}
+                accessible
+                accessibilityRole="button"
+                accessibilityLabel={action.label}
+                accessibilityState={{ disabled: action.loading }}
               >
                 {action.loading ? (
                   <ActivityIndicator color={theme.colors.white} size="small" />

@@ -2,6 +2,9 @@
 
 exports[`Badge deve aplicar tamanho small 1`] = `
 <View
+  accessibilityLabel="Status: Pendente"
+  accessibilityRole="text"
+  accessible={true}
   style={
     [
       {
@@ -43,6 +46,9 @@ exports[`Badge deve aplicar tamanho small 1`] = `
 
 exports[`Badge deve aplicar variante outlined 1`] = `
 <View
+  accessibilityLabel="Status: Pendente"
+  accessibilityRole="text"
+  accessible={true}
   style={
     [
       {
