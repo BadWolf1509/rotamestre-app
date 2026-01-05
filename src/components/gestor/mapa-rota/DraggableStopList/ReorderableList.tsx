@@ -195,12 +195,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
   labelContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: theme.spacing['1.5'],
     marginBottom: theme.spacing.sm,
   },
   labelContainerCompact: {
-    gap: 4,
-    marginBottom: 6,
+    gap: theme.spacing['1'],
+    marginBottom: theme.spacing['1.5'],
   },
   labelText: {
     fontSize: theme.typography.xs,
@@ -210,7 +210,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     letterSpacing: 0.5,
   },
   labelTextCompact: {
-    fontSize: 10,
+    fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
   },
   listContainer: {
     flex: 1,

@@ -224,7 +224,7 @@ export function ConfirmDialog({
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
-              margin: `0 auto ${isDesktop ? theme.spacing.sm + 2 : theme.spacing.md}px`,
+              margin: `0 auto ${isDesktop ? theme.spacing.sm + theme.spacing['0.5'] : theme.spacing.md}px`,
             }}
           >
             <Ionicons name={getIconName()} size={isDesktop ? theme.desktop.dialog.iconSize : 28} color={getIconColor()} />
@@ -240,7 +240,7 @@ export function ConfirmDialog({
               lineHeight: `${(isDesktop ? theme.desktop.dialog.titleFontSize : theme.typography.fontSize.xl) * 1.4}px`,
               color: theme.colors.gray900,
               textAlign: 'center',
-              marginBottom: isDesktop ? 6 : theme.spacing.sm,
+              marginBottom: isDesktop ? theme.spacing['1.5'] : theme.spacing.sm,
             }}
           >
             {title}
@@ -256,7 +256,7 @@ export function ConfirmDialog({
               lineHeight: `${(isDesktop ? theme.desktop.dialog.messageFontSize : theme.typography.fontSize.sm) * 1.5}px`,
               color: theme.colors.gray500,
               textAlign: 'center',
-              marginBottom: isDesktop ? 14 : theme.spacing.lg,
+              marginBottom: isDesktop ? theme.spacing['3.5'] : theme.spacing.lg,
             }}
           >
             {message}
@@ -401,8 +401,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     }),
   },
   iconContainer: {
-    width: 56,
-    height: 56,
+    width: theme.spacing['14'],
+    height: theme.spacing['14'],
     borderRadius: theme.borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',

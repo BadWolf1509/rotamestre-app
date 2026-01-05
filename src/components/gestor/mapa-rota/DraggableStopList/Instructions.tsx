@@ -45,9 +45,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderBottomColor: theme.colors.gray200,
   },
   containerCompact: {
-    gap: 6,
+    gap: theme.spacing['1.5'],
     paddingHorizontal: theme.desktop.section.gap,
-    paddingVertical: 6,
+    paddingVertical: theme.spacing['1.5'],
   },
   text: {
     fontSize: theme.typography.sm,

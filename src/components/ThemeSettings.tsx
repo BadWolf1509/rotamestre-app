@@ -418,7 +418,7 @@ const styles = (theme: Theme, compact: boolean) =>
       gap: theme.spacing.xs,
     },
     previewLabel: {
-      fontSize: 10,
+      fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
       color: theme.colors.textTertiary,
     },
     sampleButton: {

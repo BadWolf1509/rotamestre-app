@@ -220,23 +220,23 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.gray100,
-    padding: theme.spacing.sm + 2,
+    padding: theme.spacing['2.5'],
     borderRadius: theme.borderRadius.md,
     marginBottom: theme.spacing.sm,
     gap: theme.spacing.sm,
     opacity: 0.7,
   },
   fixedItemCompact: {
-    padding: 6,
-    marginBottom: 6,
-    gap: 6,
+    padding: theme.spacing['1.5'],
+    marginBottom: theme.spacing['1.5'],
+    gap: theme.spacing['1.5'],
     borderRadius: theme.borderRadius.sm,
   },
   draggableItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.white,
-    padding: theme.spacing.sm + 2,
+    padding: theme.spacing['2.5'],
     borderRadius: theme.borderRadius.md,
     marginBottom: theme.spacing.sm,
     gap: theme.spacing.sm,
@@ -249,9 +249,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     elevation: 2,
   },
   draggableItemCompact: {
-    padding: 6,
-    marginBottom: 6,
-    gap: 6,
+    padding: theme.spacing['1.5'],
+    marginBottom: theme.spacing['1.5'],
+    gap: theme.spacing['1.5'],
     borderRadius: theme.borderRadius.sm,
   },
   draggableItemActive: {
@@ -284,12 +284,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontFamily: theme.typography.fontSansBold,
   },
   orderTextCompact: {
-    fontSize: 10,
+    fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
   },
   // Content
   itemContent: {
     flex: 1,
-    gap: 2,
+    gap: theme.spacing['0.5'],
   },
   itemAddress: {
     fontSize: theme.typography.sm,
@@ -302,14 +302,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: theme.spacing['1'],
   },
   statusText: {
     fontSize: theme.typography.xs,
     fontFamily: theme.typography.fontSansMedium,
   },
   statusTextCompact: {
-    fontSize: 10,
+    fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
   },
   metaRow: {
     flexDirection: 'row',
@@ -317,7 +317,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: theme.spacing.sm,
   },
   metaRowCompact: {
-    gap: 6,
+    gap: theme.spacing['1.5'],
   },
   metaText: {
     fontSize: theme.typography.xs,
@@ -326,17 +326,17 @@ const styles = StyleSheet.create((theme: Theme) => ({
     maxWidth: 150,
   },
   metaTextCompact: {
-    fontSize: 11,
+    fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
     maxWidth: 120,
   },
   // Type tag
   typeTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingHorizontal: theme.spacing['1.5'],
+    paddingVertical: theme.spacing['0.5'],
+    borderRadius: theme.borderRadius.xs,
   },
   typeTagCompact: {
-    paddingHorizontal: 4,
+    paddingHorizontal: theme.spacing['1'],
     paddingVertical: 1,
     borderRadius: 3,
   },
@@ -347,12 +347,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.warningBg,
   },
   typeTagText: {
-    fontSize: 9,
+    fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
     fontFamily: theme.typography.fontSansBold,
     letterSpacing: 0.3,
   },
   typeTagTextCompact: {
-    fontSize: 8,
+    fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
     letterSpacing: 0.2,
   },
   typeTagTextEntrega: {
@@ -366,19 +366,19 @@ const styles = StyleSheet.create((theme: Theme) => ({
     padding: theme.spacing.xs,
   },
   lockIconCompact: {
-    padding: 2,
+    padding: theme.spacing['0.5'],
   },
   // Web move buttons
   webMoveButtons: {
     flexDirection: 'column',
-    gap: 2,
+    gap: theme.spacing['0.5'],
   },
   webMoveButtonsCompact: {
     gap: 1,
   },
   moveButton: {
-    padding: 4,
-    borderRadius: 4,
+    padding: theme.spacing['1'],
+    borderRadius: theme.borderRadius.xs,
     backgroundColor: theme.colors.gray100,
     ...(Platform.OS === 'web' && {
       cursor: 'pointer',
@@ -386,7 +386,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     }),
   },
   moveButtonCompact: {
-    padding: 2,
+    padding: theme.spacing['0.5'],
     borderRadius: 3,
   },
   moveButtonDisabled: {

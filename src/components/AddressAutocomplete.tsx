@@ -417,7 +417,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.base - 1,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.text,
-    marginBottom: 2,
+    marginBottom: theme.spacing['0.5'],
   },
   suggestionMainTextCompact: {
     fontSize: theme.components.input.size.medium.fontSize,

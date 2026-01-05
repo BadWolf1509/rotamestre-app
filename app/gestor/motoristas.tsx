@@ -285,13 +285,13 @@ export default function MotoristasGestor() {
     {
       label: 'Ver Perfil',
       icon: 'person-outline',
-      type: 'primary',
+      type: 'secondary',
       onPress: (motorista) => router.push(`/gestor/motorista-perfil?id=${motorista.id}`),
     },
     {
       label: 'Editar',
       icon: 'create-outline',
-      type: 'secondary',
+      type: 'primary',
       onPress: abrirModalEditar,
     },
     {

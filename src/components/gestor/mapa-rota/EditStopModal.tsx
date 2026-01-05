@@ -253,7 +253,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   labelCompact: {
     fontSize: theme.desktop.input.fontSize,
-    marginBottom: 4,
+    marginBottom: theme.spacing['1'],
   },
   input: {
     backgroundColor: theme.colors.gray50,
@@ -303,8 +303,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.white,
   },
   tipoButtonCompact: {
-    paddingVertical: 6,
-    gap: 4,
+    paddingVertical: theme.spacing['1.5'],
+    gap: theme.spacing['1'],
   },
   tipoButtonActive: {
     backgroundColor: theme.colors.info,

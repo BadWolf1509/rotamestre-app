@@ -282,8 +282,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     left: 0,
     right: 0,
     backgroundColor: theme.colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: theme.spacing['5'],
+    borderTopRightRadius: theme.spacing['5'],
     minHeight: SHEET_HEIGHT,
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: -4 },
@@ -293,28 +293,28 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   handleContainer: {
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: theme.spacing['3'],
   },
   handle: {
     width: 40,
-    height: 4,
-    borderRadius: 2,
+    height: theme.spacing['1'],
+    borderRadius: theme.spacing['0.5'],
     backgroundColor: theme.colors.gray300,
   },
   content: {
-    paddingHorizontal: 20,
-    paddingBottom: 32,
+    paddingHorizontal: theme.spacing['5'],
+    paddingBottom: theme.spacing['8'],
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: theme.spacing['4'],
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: theme.spacing['3'],
     flex: 1,
   },
   orderBadge: {
@@ -337,29 +337,29 @@ const styles = StyleSheet.create((theme: Theme) => ({
   statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 4,
+    gap: theme.spacing['1.5'],
+    marginTop: theme.spacing['1'],
   },
   statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: theme.spacing['2'],
+    height: theme.spacing['2'],
+    borderRadius: theme.spacing['1'],
   },
   statusText: {
-    fontSize: 13,
+    fontSize: theme.typography.sm, // 14px
     fontWeight: '500',
   },
   closeButton: {
-    padding: 4,
+    padding: theme.spacing['1'],
   },
   addressContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
+    gap: theme.spacing['2.5'],
     backgroundColor: theme.colors.gray50,
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 12,
+    padding: theme.spacing['3'],
+    borderRadius: theme.borderRadius.md,
+    marginBottom: theme.spacing['3'],
   },
   addressText: {
     flex: 1,
@@ -370,8 +370,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   tipoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 20,
+    gap: theme.spacing['2'],
+    marginBottom: theme.spacing['5'],
   },
   tipoText: {
     fontSize: 14,
@@ -380,11 +380,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
   actions: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    gap: 16,
+    gap: theme.spacing['4'],
   },
   actionButton: {
     alignItems: 'center',
-    gap: 8,
+    gap: theme.spacing['2'],
     flex: 1,
   },
   actionIcon: {

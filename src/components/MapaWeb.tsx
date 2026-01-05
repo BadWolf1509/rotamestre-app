@@ -851,17 +851,17 @@ export default function MapaWeb({
     const legend = document.createElement('div');
     legend.style.background = theme.colors.white;
     legend.style.border = `1px solid ${theme.colors.gray200}`;
-    legend.style.borderRadius = '10px';
-    legend.style.padding = '8px 10px';
-    legend.style.margin = '8px';
+    legend.style.borderRadius = `${theme.borderRadius.md}px`;
+    legend.style.padding = `${theme.spacing['2']}px ${theme.spacing['2.5']}px`;
+    legend.style.margin = `${theme.spacing['2']}px`;
     legend.style.boxShadow = MAP_WEB_SHADOWS.legend;
     legend.innerHTML = `
-      <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:${theme.colors.gray900};">Legenda</div>
-      <div style="display:flex;gap:10px;font-size:12px;color:${theme.colors.gray600};align-items:center;flex-wrap:wrap;">
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:${theme.colors.warning};display:inline-block;"></span>Pendente</span>
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:${theme.colors.info};display:inline-block;"></span>Em rota</span>
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:${theme.colors.success};display:inline-block;"></span>Concluída</span>
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:${theme.colors.gray500};display:inline-block;"></span>Pulada</span>
+      <div style="font-weight:700;font-size:12px;margin-bottom:${theme.spacing['1.5']}px;color:${theme.colors.gray900};">Legenda</div>
+      <div style="display:flex;gap:${theme.spacing['2.5']}px;font-size:12px;color:${theme.colors.gray600};align-items:center;flex-wrap:wrap;">
+        <span style="display:flex;align-items:center;gap:${theme.spacing['1']}px;"><span style="width:10px;height:10px;border-radius:50%;background:${theme.colors.warning};display:inline-block;"></span>Pendente</span>
+        <span style="display:flex;align-items:center;gap:${theme.spacing['1']}px;"><span style="width:10px;height:10px;border-radius:50%;background:${theme.colors.info};display:inline-block;"></span>Em rota</span>
+        <span style="display:flex;align-items:center;gap:${theme.spacing['1']}px;"><span style="width:10px;height:10px;border-radius:50%;background:${theme.colors.success};display:inline-block;"></span>Concluída</span>
+        <span style="display:flex;align-items:center;gap:${theme.spacing['1']}px;"><span style="width:10px;height:10px;border-radius:50%;background:${theme.colors.gray500};display:inline-block;"></span>Pulada</span>
       </div>
     `;
     legendControlRef.current = legend;
@@ -871,9 +871,9 @@ export default function MapaWeb({
     const recenter = document.createElement('div');
     recenter.style.background = theme.colors.white;
     recenter.style.border = `1px solid ${theme.colors.gray200}`;
-    recenter.style.borderRadius = '10px';
-    recenter.style.padding = '10px';
-    recenter.style.margin = '8px';
+    recenter.style.borderRadius = `${theme.borderRadius.md}px`;
+    recenter.style.padding = `${theme.spacing['2.5']}px`;
+    recenter.style.margin = `${theme.spacing['2']}px`;
     recenter.style.cursor = 'pointer';
     recenter.style.boxShadow = MAP_WEB_SHADOWS.legend;
     recenter.innerText = 'Recentrar rota';
@@ -975,7 +975,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.disabled,
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: theme.spacing['2.5'],
     fontSize: 14,
     color: theme.colors.textSecondary,
   },

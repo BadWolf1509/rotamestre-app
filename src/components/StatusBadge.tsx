@@ -62,15 +62,17 @@ export function StatusBadge({
 
 const styles = StyleSheet.create((theme: Theme) => ({
   base: {
+    // Use consistent medium size tokens
     paddingHorizontal: theme.components.badge.size.medium.paddingHorizontal,
-    paddingVertical: theme.components.badge.size.small.paddingVertical,
-    borderRadius: theme.borderRadius.md,
+    paddingVertical: theme.components.badge.size.medium.paddingVertical,
+    borderRadius: theme.borderRadius.sm, // Align with Badge component
     borderWidth: 1,
     alignSelf: 'flex-start',
   },
   small: {
+    // Use consistent small size tokens
     paddingHorizontal: theme.components.badge.size.small.paddingHorizontal,
-    paddingVertical: 2, // Minimal padding for small badges
+    paddingVertical: theme.components.badge.size.small.paddingVertical,
   },
   text: {
     fontSize: theme.typography.fontSize.xs,

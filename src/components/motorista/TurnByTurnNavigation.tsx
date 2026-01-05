@@ -464,8 +464,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   instructionContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: theme.spacing['4'],
+    paddingVertical: theme.spacing['4'],
   },
   maneuverIcon: {
     width: 60,
@@ -474,7 +474,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: withOpacity(theme.colors.white, 0.2),
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: theme.spacing['4'],
   },
   instructionText: {
     flex: 1,
@@ -483,7 +483,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: 24,
     fontWeight: '700',
     color: theme.colors.white,
-    marginBottom: 4,
+    marginBottom: theme.spacing['1'],
   },
   instructionMainText: {
     fontSize: 16,
@@ -493,8 +493,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   nextInstructionBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: theme.spacing['4'],
+    paddingVertical: theme.spacing['2'],
     backgroundColor: withOpacity(theme.colors.black, 0.1),
     borderTopWidth: 1,
     borderTopColor: withOpacity(theme.colors.white, 0.1),
@@ -502,7 +502,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   nextInstructionText: {
     fontSize: 12,
     color: theme.colors.gray200,
-    marginLeft: 8,
+    marginLeft: theme.spacing['2'],
   },
   bottomPanel: {
     position: 'absolute',
@@ -510,8 +510,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     left: 0,
     right: 0,
     backgroundColor: theme.colors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: theme.borderRadius.xl,
+    borderTopRightRadius: theme.borderRadius.xl,
     paddingBottom: Platform.OS === 'ios' ? 30 : 20,
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: -2 },
@@ -522,8 +522,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   progressBar: {
     height: 4,
     backgroundColor: theme.colors.gray200,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: theme.borderRadius.xl,
+    borderTopRightRadius: theme.borderRadius.xl,
     overflow: 'hidden',
   },
   progressFill: {
@@ -534,8 +534,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    paddingVertical: theme.spacing['4'],
+    paddingHorizontal: theme.spacing['4'],
   },
   stat: {
     alignItems: 'center',
@@ -546,9 +546,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray900,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
     color: theme.colors.gray500,
-    marginTop: 2,
+    marginTop: theme.spacing['0.5'],
   },
   statSeparator: {
     width: 1,
@@ -559,8 +559,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingHorizontal: theme.spacing['4'],
+    paddingTop: theme.spacing['2'],
     borderTopWidth: 1,
     borderTopColor: theme.colors.gray200,
   },
@@ -579,10 +579,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.error,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
-    gap: 8,
+    paddingHorizontal: theme.spacing['6'],
+    paddingVertical: theme.spacing['3'],
+    borderRadius: theme.borderRadius['3xl'], // 24px pill button
+    gap: theme.spacing['2'],
   },
   exitButtonText: {
     color: theme.colors.white,
@@ -591,8 +591,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   destinationMarker: {
     backgroundColor: theme.colors.white,
-    borderRadius: 20,
-    padding: 8,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing['2'],
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,

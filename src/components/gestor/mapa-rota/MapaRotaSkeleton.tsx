@@ -48,11 +48,12 @@ function SkeletonPulse({ style }: { style?: any }) {
 
 // Skeleton card for paradas list
 function SkeletonParadaCard() {
+  const { theme } = useUnistyles();
   return (
     <View style={styles.skeletonCard}>
       <View style={styles.skeletonCardHeader}>
         <SkeletonPulse style={styles.skeletonCircle} />
-        <View style={{ flex: 1, gap: 8 }}>
+        <View style={{ flex: 1, gap: theme.spacing['2'] }}>
           <SkeletonPulse style={[styles.skeletonLine, styles.skeletonLineMedium]} />
           <View style={styles.skeletonRow}>
             <SkeletonPulse style={styles.skeletonTag} />
@@ -60,7 +61,7 @@ function SkeletonParadaCard() {
           </View>
         </View>
       </View>
-      <SkeletonPulse style={[styles.skeletonLine, styles.skeletonLineShort, { marginTop: 8 }]} />
+      <SkeletonPulse style={[styles.skeletonLine, styles.skeletonLineShort, { marginTop: theme.spacing['2'] }]} />
     </View>
   );
 }
@@ -70,15 +71,16 @@ const OPTIMIZED_MAP_HEIGHT = 480;
 
 // Skeleton compacto para paradas (novo layout)
 function SkeletonParadaCardCompact() {
+  const { theme } = useUnistyles();
   return (
     <View style={styles.skeletonCardCompact}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing['3'] }}>
         {/* Número da parada */}
         <SkeletonPulse style={{ width: 28, height: 28, borderRadius: 14 }} />
         {/* Endereço e info */}
-        <View style={{ flex: 1, gap: 4 }}>
+        <View style={{ flex: 1, gap: theme.spacing['1'] }}>
           <SkeletonPulse style={[styles.skeletonLine, { width: '80%', height: 14 }]} />
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flexDirection: 'row', gap: theme.spacing['2'] }}>
             <SkeletonPulse style={{ width: 50, height: 18, borderRadius: 4 }} />
             <SkeletonPulse style={{ width: 60, height: 18, borderRadius: 4 }} />
           </View>
@@ -92,10 +94,11 @@ function SkeletonParadaCardCompact() {
 
 // Skeleton do header compacto
 function SkeletonHeaderCompact() {
+  const { theme } = useUnistyles();
   return (
       <View style={styles.skeletonHeaderCompact}>
         {/* Motorista */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing['2'] }}>
           <SkeletonPulse style={{ width: 24, height: 24, borderRadius: 12 }} />
           <SkeletonPulse style={{ width: 120, height: 16, borderRadius: 4 }} />
         </View>
@@ -104,7 +107,7 @@ function SkeletonHeaderCompact() {
       {/* Status badge */}
       <SkeletonPulse style={{ width: 80, height: 26, borderRadius: 13 }} />
       {/* Metrics */}
-      <View style={{ flexDirection: 'row', gap: 16 }}>
+      <View style={{ flexDirection: 'row', gap: theme.spacing['4'] }}>
         <SkeletonPulse style={{ width: 70, height: 16, borderRadius: 4 }} />
         <SkeletonPulse style={{ width: 80, height: 16, borderRadius: 4 }} />
       </View>
@@ -118,12 +121,13 @@ function SkeletonHeaderCompact() {
 
 // Skeleton do resumo inline
 function SkeletonResumoInline() {
+  const { theme } = useUnistyles();
   return (
     <View style={styles.skeletonResumoInline}>
       {[1, 2, 3].map((i, index) => (
         <React.Fragment key={i}>
           {index > 0 && <View style={[styles.skeletonDivider, { height: 16 }]} />}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing['1.5'] }}>
             <SkeletonPulse style={{ width: 20, height: 20, borderRadius: 10 }} />
             <SkeletonPulse style={{ width: 24, height: 18, borderRadius: 4 }} />
             <SkeletonPulse style={{ width: 30, height: 12, borderRadius: 4 }} />
@@ -136,10 +140,11 @@ function SkeletonResumoInline() {
 
 // Skeleton da timeline colapsável
 function SkeletonTimelineCollapsible() {
+  const { theme } = useUnistyles();
   return (
     <View style={styles.skeletonTimelineCollapsible}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing['2'] }}>
           <SkeletonPulse style={{ width: 32, height: 32, borderRadius: 8 }} />
           <SkeletonPulse style={{ width: 80, height: 18, borderRadius: 4 }} />
         </View>
@@ -162,21 +167,21 @@ export function MapaRotaSkeleton({
     return (
       <View style={styles.skeletonContainer}>
         {/* Header skeleton */}
-        <View style={[styles.rotaInfo, { gap: 12 }]}>
+        <View style={[styles.rotaInfo, { gap: theme.spacing['3'] }]}>
           <SkeletonPulse style={[styles.skeletonLine, { width: 200, height: 20 }]} />
-          <View style={{ flexDirection: 'row', gap: 12 }}>
+          <View style={{ flexDirection: 'row', gap: theme.spacing['3'] }}>
             <SkeletonPulse style={styles.skeletonTag} />
             <SkeletonPulse style={[styles.skeletonLine, { width: 100 }]} />
           </View>
         </View>
 
         {/* Map skeleton */}
-        <View style={{ padding: 16 }}>
+        <View style={{ padding: theme.spacing['4'] }}>
           <SkeletonPulse style={[styles.skeletonMap, { height: 300 }]} />
         </View>
 
         {/* Cards skeleton */}
-        <View style={{ padding: 16, gap: 12 }}>
+        <View style={{ padding: theme.spacing['4'], gap: theme.spacing['3'] }}>
           <SkeletonParadaCard />
           <SkeletonParadaCard />
           <SkeletonParadaCard />
@@ -219,7 +224,7 @@ export function MapaRotaSkeleton({
             iconColor={theme.colors.secondary}
             variant="outlined"
           >
-            <View style={{ maxHeight: OPTIMIZED_MAP_HEIGHT - 80, gap: 8 }}>
+            <View style={{ maxHeight: OPTIMIZED_MAP_HEIGHT - 80, gap: theme.spacing['2'] }}>
               <SkeletonParadaCardCompact />
               <SkeletonParadaCardCompact />
               <SkeletonParadaCardCompact />
@@ -227,18 +232,18 @@ export function MapaRotaSkeleton({
               <SkeletonParadaCardCompact />
             </View>
             {/* Resumo Inline */}
-            <View style={{ marginTop: 12 }}>
+            <View style={{ marginTop: theme.spacing['3'] }}>
               <SkeletonResumoInline />
             </View>
           </DesktopCard>
         }
         leftFlex={1.2}
         rightFlex={1}
-        gap={20}
+        gap={theme.spacing['5']}
       />
 
       {/* Timeline Colapsável */}
-      <View style={{ marginTop: 16 }}>
+      <View style={{ marginTop: theme.spacing['4'] }}>
         <SkeletonTimelineCollapsible />
       </View>
     </DesktopPageLayout>

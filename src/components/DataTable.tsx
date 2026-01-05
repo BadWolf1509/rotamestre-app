@@ -628,11 +628,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.sm,
+    // Use design system table tokens for consistency
+    paddingVertical: theme.components.table.actionButtonPaddingY,
+    paddingHorizontal: theme.components.table.actionButtonPaddingX,
     borderRadius: theme.borderRadius.sm,
     backgroundColor: theme.colors.gray100,
-    gap: 4,
+    gap: theme.spacing['1'],
   },
   cardActionButtonDanger: {
     backgroundColor: `${theme.colors.error}20`,
@@ -684,7 +685,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.components.table.headerFontSize - 2,
     fontFamily: theme.typography.fontSans,
     color: theme.colors.primary,
-    marginLeft: 4,
+    marginLeft: theme.spacing['1'],
   },
   tableRow: {
     flexDirection: 'row',
@@ -729,11 +730,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
   tableActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: theme.spacing.sm,
+    // Use design system table tokens for consistency
+    paddingVertical: theme.components.table.actionButtonPaddingY,
+    paddingHorizontal: theme.components.table.actionButtonPaddingX,
     borderRadius: theme.borderRadius.sm,
     backgroundColor: theme.colors.gray100,
-    gap: 4,
+    gap: theme.spacing['1'],
     // Web-only hover state
     ...(Platform.OS === 'web' && ({
       cursor: 'pointer',

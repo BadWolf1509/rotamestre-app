@@ -308,11 +308,11 @@ export function MiniMap({
 
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
-    marginHorizontal: 16,
-    marginVertical: 16, // Unificado para 16px (8pt grid system)
+    marginHorizontal: theme.spacing['4'],
+    marginVertical: theme.spacing['4'], // Unificado para 16px (8pt grid system)
   },
   mapContainer: {
-    borderRadius: 16, // Aumentado de 12 para 16 (consistência)
+    borderRadius: theme.borderRadius.xl, // Aumentado de 12 para 16 (consistência)
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: theme.colors.gray200,
@@ -327,19 +327,19 @@ const styles = StyleSheet.create((theme: Theme) => ({
     right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 8,
+    padding: theme.spacing['2'],
   },
   infoBox: {
     backgroundColor: theme.colors.primary,
     opacity: 0.9,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+    paddingHorizontal: theme.spacing['3'],
+    paddingVertical: theme.spacing['1.5'],
+    borderRadius: theme.borderRadius.xs,
   },
   infoBoxLoading: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: theme.spacing['1.5'],
   },
   infoText: {
     color: theme.colors.white,
@@ -348,13 +348,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   controlButtons: {
     flexDirection: 'row',
-    gap: 8,
+    gap: theme.spacing['2'],
   },
   expandButton: {
     backgroundColor: withOpacity(theme.colors.black, 0.5),
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: theme.borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -363,14 +363,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
     opacity: 0.85,
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: theme.borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
   },
   userMarker: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: theme.borderRadius.full,
     backgroundColor: withOpacity(theme.colors.info, 0.2),
     justifyContent: 'center',
     alignItems: 'center',
@@ -378,7 +378,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   userMarkerDot: {
     width: 12,
     height: 12,
-    borderRadius: 6,
+    borderRadius: theme.borderRadius.xs,
     backgroundColor: theme.colors.info,
     borderWidth: 2,
     borderColor: theme.colors.white,
@@ -386,7 +386,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   marker: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: theme.borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
@@ -409,7 +409,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   checkpointMarker: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: theme.borderRadius.full,
     backgroundColor: theme.colors.white,
     justifyContent: 'center',
     alignItems: 'center',

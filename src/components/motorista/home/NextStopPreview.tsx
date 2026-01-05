@@ -145,9 +145,9 @@ export function NextStopPreview({
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     backgroundColor: theme.colors.infoBg,
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 10,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing['3'],
+    marginTop: theme.spacing['2.5'],
     borderWidth: 1,
     borderColor: theme.colors.info + '30',
   },
@@ -155,12 +155,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: theme.spacing['1.5'],
   },
   labelContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: theme.spacing['1.5'],
   },
   dot: {
     width: 6,
@@ -175,9 +175,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   orderBadge: {
     backgroundColor: theme.colors.info + '20',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
+    paddingHorizontal: theme.spacing['2'],
+    paddingVertical: theme.spacing['0.5'],
+    borderRadius: theme.borderRadius.md,
   },
   orderText: {
     fontSize: theme.typography.xs,
@@ -193,7 +193,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: theme.spacing['1'],
   },
   distanceText: {
     fontSize: theme.typography.xs,
@@ -204,16 +204,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginLeft: 'auto',
   },
   expandedContent: {
-    marginTop: 10,
-    paddingTop: 10,
+    marginTop: theme.spacing['2.5'],
+    paddingTop: theme.spacing['2.5'],
     borderTopWidth: 1,
     borderTopColor: theme.colors.info + '20',
-    gap: 8,
+    gap: theme.spacing['2'],
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: theme.spacing['2'],
   },
   detailText: {
     fontSize: theme.typography.xs,
@@ -221,8 +221,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   observationRow: {
     backgroundColor: theme.colors.warningBg,
-    padding: 8,
-    borderRadius: 6,
+    padding: theme.spacing['2'],
+    borderRadius: theme.borderRadius.xs,
   },
   observationText: {
     fontSize: theme.typography.xs,

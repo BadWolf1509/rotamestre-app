@@ -175,15 +175,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
   rightContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: theme.spacing['1.5'],
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    gap: 4,
+    paddingHorizontal: theme.spacing['2.5'],
+    paddingVertical: theme.spacing['1.5'],
+    borderRadius: theme.borderRadius.full,
+    gap: theme.spacing['1'],
   },
   statusText: {
     fontSize: theme.typography.xs, // WCAG mínimo legível

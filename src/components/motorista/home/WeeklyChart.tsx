@@ -174,33 +174,29 @@ export function WeeklyChart({ data, averagePerDay, isLoading = false, compact = 
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     backgroundColor: theme.colors.white,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
-    shadowColor: theme.colors.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing['3'],
+    marginBottom: theme.spacing['2'],
+    ...theme.shadows.card, // Standardized shadow preset
   },
   loadingContainer: {
     alignItems: 'center',
-    paddingVertical: 24,
+    paddingVertical: theme.spacing['6'],
   },
   loadingText: {
-    fontSize: 13,
+    fontSize: theme.typography.sm, // 14px
     color: theme.colors.gray500,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: theme.spacing['2.5'],
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: theme.spacing['1.5'],
   },
   title: {
     fontSize: theme.typography.sm,
@@ -210,7 +206,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   headerRight: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 4,
+    gap: theme.spacing['1'],
   },
   totalValue: {
     fontSize: theme.typography.lg,
@@ -226,12 +222,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     height: 60,
-    paddingHorizontal: 4,
+    paddingHorizontal: theme.spacing['1'],
   },
   barColumn: {
     flex: 1,
     alignItems: 'center',
-    gap: 4,
+    gap: theme.spacing['1'],
   },
   barWrapper: {
     flex: 1,
@@ -241,13 +237,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   bar: {
     width: '100%',
-    borderRadius: 4,
+    borderRadius: theme.borderRadius.xs,
     minHeight: 4,
   },
   averageLine: {
     position: 'absolute',
-    left: -4,
-    right: -4,
+    left: theme.spacing['1'],
+    right: theme.spacing['1'],
     height: 2,
     backgroundColor: theme.colors.warning,
     borderRadius: 1,
@@ -273,8 +269,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   emptyContainer: {
     alignItems: 'center',
-    paddingVertical: 16,
-    gap: 4,
+    paddingVertical: theme.spacing['4'],
+    gap: theme.spacing['1'],
   },
   emptyText: {
     fontSize: theme.typography.sm,
@@ -289,16 +285,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
   legendContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 16,
-    marginTop: 8,
-    paddingTop: 8,
+    gap: theme.spacing['4'],
+    marginTop: theme.spacing['2'],
+    paddingTop: theme.spacing['2'],
     borderTopWidth: 1,
     borderTopColor: theme.colors.gray100,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: theme.spacing['1'],
   },
   legendDot: {
     width: 8,
@@ -316,8 +312,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   // Estilos para modo compacto
   containerCompact: {
-    padding: 10,
-    marginBottom: 6,
+    padding: theme.spacing['2.5'],
+    marginBottom: theme.spacing['1.5'],
   },
   titleCompact: {
     fontSize: 12,
@@ -329,6 +325,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     height: 40,
   },
   dayLabelCompact: {
-    fontSize: 9,
+    fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
   },
 }));

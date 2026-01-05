@@ -111,14 +111,14 @@ describe('RouteInfoHeaderCompact', () => {
   });
 
   describe('Status da rota', () => {
-    it('deve exibir status "Em rota" para em_andamento', () => {
+    it('deve exibir status "Em andamento" para em_andamento', () => {
       const rotaEmAndamento = { ...mockRota, status: 'em_andamento' };
       const { getByText, getByTestId } = render(
         <RouteInfoHeaderCompact {...defaultProps} rota={rotaEmAndamento} />
       );
 
-      expect(getByText('Em rota')).toBeTruthy();
-      expect(getByTestId('icon-navigate')).toBeTruthy();
+      expect(getByText('Em andamento')).toBeTruthy();
+      expect(getByTestId('icon-time-outline')).toBeTruthy();
     });
 
     it('deve exibir status "Concluída" para concluida', () => {
@@ -141,13 +141,13 @@ describe('RouteInfoHeaderCompact', () => {
       expect(getByTestId('icon-close-circle')).toBeTruthy();
     });
 
-    it('deve exibir status "Não Executada" para nao_executada', () => {
+    it('deve exibir status "Não executada" para nao_executada', () => {
       const rotaNaoExecutada = { ...mockRota, status: 'nao_executada' };
       const { getByText, getByTestId } = render(
         <RouteInfoHeaderCompact {...defaultProps} rota={rotaNaoExecutada} />
       );
 
-      expect(getByText('Não Executada')).toBeTruthy();
+      expect(getByText('Não executada')).toBeTruthy();
       expect(getByTestId('icon-alert-circle')).toBeTruthy();
     });
   });
@@ -393,10 +393,10 @@ describe('RouteInfoHeaderCompact', () => {
       expect(getByTestId('icon-flag-outline')).toBeTruthy();
     });
 
-    it('deve renderizar ícone de tempo para status pendente', () => {
+    it('deve renderizar ícone de hourglass para status pendente', () => {
       const { getByTestId } = render(<RouteInfoHeaderCompact {...defaultProps} />);
 
-      expect(getByTestId('icon-time')).toBeTruthy();
+      expect(getByTestId('icon-hourglass-outline')).toBeTruthy();
     });
   });
 });

@@ -138,9 +138,9 @@ export function ExpiredRouteCard({ data, onDismiss }: ExpiredRouteCardProps) {
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     backgroundColor: theme.colors.warningLight,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing['3'],
+    marginBottom: theme.spacing['2'],
     borderWidth: 1,
     borderColor: theme.colors.warning,
   },
@@ -148,12 +148,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: theme.spacing['2'],
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: theme.spacing['1.5'],
   },
   headerText: {
     fontSize: theme.typography.sm,
@@ -161,20 +161,20 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.warning,
   },
   message: {
-    fontSize: 13,
+    fontSize: theme.typography.sm, // 14px
     color: theme.colors.gray700,
     lineHeight: 18,
-    marginBottom: 10,
+    marginBottom: theme.spacing['2.5'],
   },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: theme.spacing['2.5'],
   },
   stat: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: theme.spacing['1'],
   },
   statText: {
     fontSize: theme.typography.xs,
@@ -184,14 +184,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
     width: 1,
     height: 12,
     backgroundColor: theme.colors.gray300,
-    marginHorizontal: 10,
+    marginHorizontal: theme.spacing['2.5'],
   },
   linkButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    paddingVertical: 8,
+    gap: theme.spacing['1'],
+    paddingVertical: theme.spacing['2'],
     borderTopWidth: 1,
     borderTopColor: theme.colors.warning,
   },

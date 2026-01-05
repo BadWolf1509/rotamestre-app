@@ -173,7 +173,7 @@ export default function GestaoRotas() {
     {
       label: 'Ver Detalhes',
       icon: 'eye-outline',
-      type: 'primary',
+      type: 'secondary',
       onPress: verDetalhes,
     },
     {

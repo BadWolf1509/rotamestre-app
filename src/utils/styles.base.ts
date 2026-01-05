@@ -2,12 +2,40 @@
  * Base Styles - Shared between Native and Web
  *
  * This file contains the defaultTheme that can be used at module level
- * in StyleSheet.create() calls. It has no platform-specific dependencies.
+ * in StyleSheet.create() calls.
  */
+
+import { Platform } from 'react-native';
 
 import { boxShadow, withOpacity } from './color';
 
 import type { Theme } from './styles.types';
+
+/**
+ * Creates platform-specific shadow styles.
+ * - Web: Uses only boxShadow (CSS)
+ * - Native/Test: Uses shadowColor, shadowOffset, shadowOpacity, shadowRadius, elevation
+ */
+function createShadow(
+  offsetY: number,
+  blur: number,
+  opacity: number,
+  elevation: number
+) {
+  // Safe check for Platform.OS (may be undefined in test environments)
+  if (Platform?.OS === 'web') {
+    return {
+      boxShadow: boxShadow(0, offsetY, blur, 0, '#000000', opacity),
+    };
+  }
+  return {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: offsetY },
+    shadowOpacity: opacity,
+    shadowRadius: blur / 2,
+    elevation,
+  };
+}
 
 const motionTokens = {
   duration: {
@@ -64,29 +92,69 @@ const desktopRegular = {
   },
 };
 
+/**
+ * Compact Spacing Scale (snap-to-grid)
+ * Uses 4px grid with reduced values for dense UIs
+ * Maps: regular → compact (snap down to nearest 4px multiple)
+ */
+export const spacingCompact = {
+  // Numeric tokens
+  '0': 0,
+  '0.5': 2,     // Keep 2px for fine adjustments
+  '1': 4,       // 4 → 4
+  '1.5': 4,     // 6 → snap to 4
+  '2': 8,       // 8 → 8
+  '2.5': 8,     // 10 → snap to 8
+  '3': 8,       // 12 → snap to 8
+  '3.5': 12,    // 14 → snap to 12
+  '4': 12,      // 16 → snap to 12
+  '5': 16,      // 20 → snap to 16
+  '6': 20,      // 24 → snap to 20
+  '7': 24,      // 28 → snap to 24
+  '8': 24,      // 32 → snap to 24
+  '10': 32,     // 40 → snap to 32
+  '12': 40,     // 48 → snap to 40
+  '14': 48,     // 56 → snap to 48
+  '16': 52,     // 64 → snap to 52
+  '20': 64,     // 80 → snap to 64
+  '24': 80,     // 96 → snap to 80
+  // Semantic aliases
+  xs: 4,        // 4 → 4
+  sm: 4,        // 8 → snap to 4 (compact tight)
+  md: 8,        // 12 → snap to 8
+  lg: 12,       // 16 → snap to 12
+  xl: 16,       // 20 → snap to 16
+  xxl: 20,      // 24 → snap to 20
+  '2xl': 20,    // 24 → snap to 20
+  '3xl': 24,    // 32 → snap to 24
+  '4xl': 32,    // 40 → snap to 32
+  '5xl': 40,    // 48 → snap to 40
+  '6xl': 52,    // 64 → snap to 52
+};
+
 export const desktopCompact = {
   input: {
     height: 32,
-    paddingHorizontal: 8,
+    paddingHorizontal: 8,     // snap to 8 (was 10)
     fontSize: 13,
   },
   button: {
     height: 28,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,     // snap to 8 (was 10)
     fontSize: 12,
   },
   field: {
     marginBottom: 8,
   },
   section: {
-    padding: 10,
-    gap: 6,
+    padding: 8,               // snap to 8 (was 10)
+    gap: 4,                   // snap to 4 (was 6)
   },
   modal: {
-    headerPadding: 10,
-    bodyPadding: 10,
-    footerPadding: 10,
-    footerGap: 6,
+    headerPadding: 8,         // snap to 8 (was 10)
+    bodyPadding: 8,           // snap to 8 (was 10)
+    footerPadding: 8,         // snap to 8 (was 10)
+    footerGap: 4,             // snap to 4 (was 6)
     titleFontSize: 14,
     closeButtonSize: 18,
   },
@@ -98,35 +166,35 @@ export const desktopCompact = {
     titleFontSize: 15,
     messageFontSize: 12,
     buttonHeight: 32,
-    buttonPaddingV: 6,
+    buttonPaddingV: 4,        // snap to 4 (was 6)
     buttonPaddingH: 12,
     buttonGap: 8,
   },
 };
 
-// Compact components tokens - 80% of regular with accessibility constraints
+// Compact components tokens - snap-to-grid values (4px multiples)
 // Min touch target: 36px (WCAG 2.5.8 AA + 12px buffer)
 // Min font size: 12px (readability)
 export const componentsCompact = {
   button: {
     size: {
       small: {
-        height: 36,           // Min touch target (was 24, now 36 for accessibility)
-        paddingVertical: 6,   // 80% of 8
-        paddingHorizontal: 10, // 80% of 12
+        height: 36,           // Min touch target
+        paddingVertical: 4,   // snap to 4 (was 6)
+        paddingHorizontal: 8, // snap to 8 (was 10)
         fontSize: 12,         // Min readable size
       },
       medium: {
-        height: 36,           // 80% of 40, but min 36 for touch
-        paddingVertical: 8,   // 80% of 10
-        paddingHorizontal: 13, // 80% of 16
+        height: 36,           // Min touch target
+        paddingVertical: 8,   // on grid
+        paddingHorizontal: 12, // snap to 12 (was 13)
         fontSize: 12,         // Min readable size
       },
       large: {
-        height: 36,           // 80% of 44 = 35.2, rounded to 36
-        paddingVertical: 10,  // 80% of 12
-        paddingHorizontal: 26, // 80% of 32
-        fontSize: 13,         // 80% of 16 = 12.8, rounded to 13
+        height: 36,           // Min touch target
+        paddingVertical: 8,   // snap to 8 (was 10)
+        paddingHorizontal: 24, // snap to 24 (was 26)
+        fontSize: 13,
       },
     },
     radius: 6,
@@ -134,206 +202,206 @@ export const componentsCompact = {
   input: {
     size: {
       small: {
-        height: 36,           // Min touch target (was 24)
-        paddingHorizontal: 10, // 80% of 12
+        height: 36,           // Min touch target
+        paddingHorizontal: 8, // snap to 8 (was 10)
         fontSize: 12,         // Min readable size
       },
       medium: {
-        height: 36,           // 80% of 40, but min 36 for touch
-        paddingHorizontal: 10, // 80% of 12
+        height: 36,           // Min touch target
+        paddingHorizontal: 8, // snap to 8 (was 10)
         fontSize: 12,         // Min readable size
       },
       large: {
-        height: 36,           // 80% of 44 = 35.2, rounded to 36
-        paddingHorizontal: 11, // 80% of 14
-        fontSize: 13,         // 80% of 16 = 12.8, rounded to 13
+        height: 36,           // Min touch target
+        paddingHorizontal: 12, // snap to 12 (was 11)
+        fontSize: 13,
       },
     },
     radius: 4,
   },
   modal: {
-    headerPadding: 13,        // 80% of 16
-    bodyPadding: 13,          // 80% of 16
-    footerPadding: 13,        // 80% of 16
+    headerPadding: 12,        // snap to 12 (was 13)
+    bodyPadding: 12,          // snap to 12 (was 13)
+    footerPadding: 12,        // snap to 12 (was 13)
   },
   statsCard: {
-    padding: 16,              // 80% of 20
-    radius: 10,               // 80% of 12
-    valueFontSize: 22,        // 80% of 28 = 22.4
-    labelFontSize: 12,        // Min readable (was 11)
+    padding: 16,              // on grid
+    radius: 8,                // snap to 8 (was 10)
+    valueFontSize: 22,
+    labelFontSize: 12,        // Min readable
     labelLetterSpacing: 0.4,
-    iconSize: 16,             // 80% of 20
-    iconContainerSize: 26,    // 80% of 32
-    iconContainerRadius: 6,   // 80% of 8
-    changeFontSize: 12,       // Min readable (was 11)
+    iconSize: 16,             // on grid
+    iconContainerSize: 24,    // snap to 24 (was 26)
+    iconContainerRadius: 4,   // snap to 4 (was 6)
+    changeFontSize: 12,       // Min readable
   },
   table: {
-    headerFontSize: 12,       // Min readable (was 11)
-    rowFontSize: 12,          // 80% of 14 = 11.2, but min 12
-    cellPaddingX: 6,          // 80% of 8
-    cellPaddingY: 6,          // 80% of 8 (was 4, too cramped)
-    badgePaddingX: 10,        // 80% of 12
-    badgePaddingY: 3,         // 80% of 4
-    actionButtonPaddingX: 10, // 80% of 12
-    actionButtonPaddingY: 5,  // 80% of 6
-    actionButtonFontSize: 12, // Min readable (was 11)
-    paginationFontSize: 12,   // 80% of 14 = 11.2, but min 12
+    headerFontSize: 12,       // Min readable
+    rowFontSize: 12,          // Min readable
+    cellPaddingX: 4,          // snap to 4 (was 6)
+    cellPaddingY: 4,          // snap to 4 (was 6)
+    badgePaddingX: 8,         // snap to 8 (was 10)
+    badgePaddingY: 4,         // snap to 4 (was 3)
+    actionButtonPaddingX: 8,  // snap to 8 (was 10)
+    actionButtonPaddingY: 4,  // snap to 4 (was 5)
+    actionButtonFontSize: 12, // Min readable
+    paginationFontSize: 12,   // Min readable
   },
   card: {
     padding: {
       none: 0,
-      small: 10,              // 80% of 12
-      medium: 13,             // 80% of 16
-      large: 16,              // 80% of 20
+      small: 8,               // snap to 8 (was 10)
+      medium: 12,             // snap to 12 (was 13)
+      large: 16,              // on grid
     },
   },
   sidebar: {
-    logoHeight: 144,          // 80% of 180
-    itemHeight: 36,           // Min touch target (80% of 40 = 32, but min 36)
-    itemFontSize: 12,         // 80% of 14 = 11.2, but min 12
-    itemIconSize: 16,         // 80% of 20
-    sectionTitleFontSize: 12, // Min readable (was 11)
-    footerFontSize: 12,       // 80% of 13 = 10.4, but min 12
+    logoHeight: 144,
+    itemHeight: 36,           // Min touch target
+    itemFontSize: 12,         // Min readable
+    itemIconSize: 16,         // on grid
+    sectionTitleFontSize: 12, // Min readable
+    footerFontSize: 12,       // Min readable
   },
   pageLayout: {
-    contentPadding: 26,       // 80% of 32
-    headerTitleFontSize: 19,  // 80% of 24
-    headerSubtitleFontSize: 12, // 80% of 14 = 11.2, but min 12
-    breadcrumbFontSize: 12,   // 80% of 13 = 10.4, but min 12
+    contentPadding: 24,       // snap to 24 (was 26)
+    headerTitleFontSize: 19,
+    headerSubtitleFontSize: 12, // Min readable
+    breadcrumbFontSize: 12,   // Min readable
   },
   map: {
-    markerSize: 36,           // Min touch target (80% of 40 = 32, but min 36)
-    clusterSize: 38,          // 80% of 48
-    controlButtonSize: 36,    // Min touch target (80% of 44 = 35.2, but min 36)
-    infoBoxPadding: 13,       // 80% of 16
+    markerSize: 36,           // Min touch target
+    clusterSize: 40,          // snap to 40 (was 38)
+    controlButtonSize: 36,    // Min touch target
+    infoBoxPadding: 12,       // snap to 12 (was 13)
   },
-  // New: Badge tokens for compact mode
+  // Badge tokens for compact mode
   badge: {
     size: {
       small: {
-        paddingHorizontal: 6,  // 80% of 8
-        paddingVertical: 3,    // 80% of 4
+        paddingHorizontal: 4,  // snap to 4 (was 6)
+        paddingVertical: 4,    // snap to 4 (was 3)
         fontSize: 12,          // Min readable
       },
       medium: {
-        paddingHorizontal: 10, // 80% of 12
-        paddingVertical: 5,    // 80% of 6
+        paddingHorizontal: 8,  // snap to 8 (was 10)
+        paddingVertical: 4,    // snap to 4 (was 5)
         fontSize: 12,          // Min readable
       },
       large: {
-        paddingHorizontal: 13, // 80% of 16
-        paddingVertical: 6,    // 80% of 8
-        fontSize: 13,          // 80% of 16
+        paddingHorizontal: 12, // snap to 12 (was 13)
+        paddingVertical: 4,    // snap to 4 (was 6)
+        fontSize: 13,
       },
     },
   },
-  // New: Avatar tokens for compact mode
+  // Avatar tokens for compact mode
   avatar: {
     size: {
-      sm: 26,                  // 80% of 32
-      md: 38,                  // 80% of 48
-      lg: 51,                  // 80% of 64
-      xl: 64,                  // 80% of 80
+      sm: 24,                  // snap to 24 (was 26)
+      md: 40,                  // snap to 40 (was 38)
+      lg: 52,                  // snap to 52 (was 51)
+      xl: 64,                  // on grid
     },
   },
-  // New: Dialog tokens for compact mode (was missing)
+  // Dialog tokens for compact mode
   dialog: {
-    maxWidth: 256,             // 80% of 320
-    containerPadding: 13,      // 80% of 16
-    iconCircleSize: 36,        // Min touch target (80% of 44 = 35.2)
-    iconSize: 18,              // 80% of 22
-    titleFontSize: 13,         // 80% of 16
+    maxWidth: 256,
+    containerPadding: 12,      // snap to 12 (was 13)
+    iconCircleSize: 36,        // Min touch target
+    iconSize: 18,
+    titleFontSize: 13,
     messageFontSize: 12,       // Min readable
     buttonHeight: 36,          // Min touch target
-    buttonPaddingV: 6,         // 80% of 8
-    buttonPaddingH: 11,        // 80% of 14
-    buttonGap: 8,              // 80% of 10
+    buttonPaddingV: 4,         // snap to 4 (was 6)
+    buttonPaddingH: 12,        // snap to 12 (was 11)
+    buttonGap: 8,              // on grid
   },
   // Drawer tokens for compact mode
   drawer: {
-    avatarSize: 51,            // 80% of 64
-    menuIconSize: 16,          // 80% of 20
-    menuIconWidth: 19,         // 80% of 24
-    headerPadding: 16,         // 80% of 20
-    itemPaddingV: 10,          // 80% of 12
-    footerPadding: 16,         // 80% of 20
+    avatarSize: 52,            // snap to 52 (was 51)
+    menuIconSize: 16,          // on grid
+    menuIconWidth: 20,         // snap to 20 (was 19)
+    headerPadding: 16,         // on grid
+    itemPaddingV: 8,           // snap to 8 (was 10)
+    footerPadding: 16,         // on grid
   },
   // ErrorBoundary tokens for compact mode
   errorBoundary: {
-    containerPadding: 19,      // 80% of 24
-    cardPadding: 26,           // 80% of 32
-    cardBorderRadius: 13,      // 80% of 16
-    iconSize: 51,              // 80% of 64
-    titleFontSize: 16,         // 80% of 20
+    containerPadding: 20,      // snap to 20 (was 19)
+    cardPadding: 24,           // snap to 24 (was 26)
+    cardBorderRadius: 12,      // snap to 12 (was 13)
+    iconSize: 52,              // snap to 52 (was 51)
+    titleFontSize: 16,
     messageFontSize: 12,       // Min readable
     errorDetailFontSize: 12,   // Min readable
-    buttonPaddingV: 10,        // 80% of 12
-    buttonPaddingH: 19,        // 80% of 24
-    buttonBorderRadius: 6,     // 80% of 8
-    buttonFontSize: 13,        // 80% of 16
-    buttonIconSize: 16,        // 80% of 20
+    buttonPaddingV: 8,         // snap to 8 (was 10)
+    buttonPaddingH: 20,        // snap to 20 (was 19)
+    buttonBorderRadius: 4,     // snap to 4 (was 6)
+    buttonFontSize: 13,
+    buttonIconSize: 16,        // on grid
   },
   // DesktopCard tokens for compact mode
   desktopCard: {
-    borderRadius: 10,          // 80% of 12
-    headerPadding: 16,         // 80% of 20
-    contentPadding: 16,        // 80% of 20
-    iconContainerSize: 36,     // Min touch target (80% of 40 = 32)
-    iconContainerRadius: 8,    // 80% of 10
-    iconSize: 16,              // 80% of 20
-    titleFontSize: 13,         // 80% of 16
-    subtitleFontSize: 12,      // Min readable (80% of 13 = 10.4)
-    headerGap: 10,             // 80% of 12
-    actionsGap: 6,             // 80% of 8
+    borderRadius: 8,           // snap to 8 (was 10)
+    headerPadding: 16,         // on grid
+    contentPadding: 16,        // on grid
+    iconContainerSize: 36,     // Min touch target
+    iconContainerRadius: 8,    // on grid
+    iconSize: 16,              // on grid
+    titleFontSize: 13,
+    subtitleFontSize: 12,      // Min readable
+    headerGap: 8,              // snap to 8 (was 10)
+    actionsGap: 4,             // snap to 4 (was 6)
   },
   // ConnectivityBanner tokens for compact mode
   connectivityBanner: {
-    paddingV: 6,               // 80% of 8
-    messageFontSize: 12,       // Min readable (80% of 13 = 10.4)
-    badgePaddingH: 6,          // 80% of 8
-    badgePaddingV: 3,          // 80% of 4
-    badgeFontSize: 12,         // Min readable (80% of 11 = 8.8)
-    badgeBorderRadius: 10,     // 80% of 12
-    dotSize: 6,                // 80% of 8
+    paddingV: 4,               // snap to 4 (was 6)
+    messageFontSize: 12,       // Min readable
+    badgePaddingH: 4,          // snap to 4 (was 6)
+    badgePaddingV: 4,          // snap to 4 (was 3)
+    badgeFontSize: 12,         // Min readable
+    badgeBorderRadius: 8,      // snap to 8 (was 10)
+    dotSize: 4,                // snap to 4 (was 6)
   },
   // SectionHeader tokens for compact mode
   sectionHeader: {
     fontSize: 12,              // Min readable
     fontWeight: 'semiBold',
-    letterSpacing: 0.4,        // 80% of 0.5
-    marginBottom: 6,           // 80% of 8
+    letterSpacing: 0.4,
+    marginBottom: 4,           // snap to 4 (was 6)
     paddingHorizontal: 0,
     textTransform: 'uppercase',
   },
   // Hint/Helper text tokens for compact mode
   hint: {
     fontSize: 12,              // Min readable
-    lineHeight: 14,            // 80% of 16 = 12.8, but min 14 for readability
-    marginTop: 3,              // 80% of 4
+    lineHeight: 14,
+    marginTop: 4,              // snap to 4 (was 3)
   },
   // Minimum touch target (WCAG 2.5.8 AA: 36px with buffer)
   minTouchTarget: 36,
   // ConfirmModal tokens for compact mode
   confirmModal: {
-    iconCircleSize: 36,        // Min touch target (80% of 44 = 35.2)
-    iconSize: 19,              // 80% of 24
-    titleFontSize: 16,         // 80% of 20
+    iconCircleSize: 36,        // Min touch target
+    iconSize: 20,              // snap to 20 (was 19)
+    titleFontSize: 16,
     messageFontSize: 12,       // Min readable
-    messageLineHeight: 19,     // 80% of 24
+    messageLineHeight: 20,     // snap to 20 (was 19)
     destructiveLabelFontSize: 12,  // Min readable
     destructiveInputFontSize: 12,  // Min readable
-    destructiveInputPaddingV: 8,   // 80% of 10
+    destructiveInputPaddingV: 8,   // on grid
     compact: {
-      iconCircleSize: 29,      // 80% of 36
-      iconSize: 16,            // 80% of 20
-      iconMarginRight: 8,      // 80% of 10
-      titleFontSize: 13,       // 80% of 16
+      iconCircleSize: 28,      // snap to 28 (was 29)
+      iconSize: 16,            // on grid
+      iconMarginRight: 8,      // on grid
+      titleFontSize: 13,
       messageFontSize: 12,     // Min readable
-      messageLineHeight: 16,   // 80% of 20
+      messageLineHeight: 16,   // on grid
       destructiveLabelFontSize: 12, // Min readable
-      destructiveLabelMarginBottom: 5, // 80% of 6
+      destructiveLabelMarginBottom: 4, // snap to 4 (was 5)
       destructiveInputFontSize: 12,  // Min readable
-      destructiveInputPaddingV: 5,   // 80% of 6
+      destructiveInputPaddingV: 4,   // snap to 4 (was 5)
     },
   },
 };
@@ -427,17 +495,38 @@ export const defaultTheme: Theme = {
     },
   },
   spacing: {
-    xs: 4,
-    sm: 8,
-    md: 12,
-    lg: 16,
-    xl: 20,
-    xxl: 24,
-    '2xl': 24,
-    '3xl': 32,
-    '4xl': 40,
-    '5xl': 48,
-    '6xl': 64,
+    // === Numeric tokens (primary scale - 4px grid) ===
+    '0': 0,
+    '0.5': 2,     // Borders, dividers, fine adjustments
+    '1': 4,       // Icon gaps, minimal spacing
+    '1.5': 6,     // Compact sm, tight layouts
+    '2': 8,       // Small padding, gaps between elements
+    '2.5': 10,    // Compact md, intermediate
+    '3': 12,      // Default component padding
+    '3.5': 14,    // Intermediate (compact lg)
+    '4': 16,      // Card padding, sections
+    '5': 20,      // Component margins
+    '6': 24,      // Container padding
+    '7': 28,      // Intermediate spacing
+    '8': 32,      // Large sections
+    '10': 40,     // Content areas
+    '12': 48,     // Page padding
+    '14': 56,     // Intermediate large
+    '16': 64,     // Hero sections
+    '20': 80,     // Maximum spacing
+    '24': 96,     // Exceptional cases
+    // === Semantic aliases (backwards compatibility) ===
+    xs: 4,        // → '1'
+    sm: 8,        // → '2'
+    md: 12,       // → '3'
+    lg: 16,       // → '4'
+    xl: 20,       // → '5'
+    xxl: 24,      // → '6'
+    '2xl': 24,    // → '6' (deprecated, use xxl)
+    '3xl': 32,    // → '8'
+    '4xl': 40,    // → '10'
+    '5xl': 48,    // → '12'
+    '6xl': 64,    // → '16'
   },
   typography: {
     fontDisplay: 'Viga',
@@ -470,50 +559,23 @@ export const defaultTheme: Theme = {
     '4xl': 36,
   },
   borderRadius: {
-    xs: 4,
-    sm: 8,
-    md: 10,
-    lg: 12,
-    xl: 16,
-    full: 9999,
+    xs: 4,      // Small elements (chips, small buttons)
+    sm: 8,      // Inputs, buttons, cards
+    md: 10,     // Cards, modals
+    lg: 12,     // Large cards, dialogs
+    xl: 16,     // Hero sections
+    xxl: 20,    // Large modals, sheets
+    '2xl': 20,  // Alias for xxl
+    '3xl': 24,  // Bottom sheets, large dialogs
+    '4xl': 32,  // Full-screen modals
+    full: 9999, // Circular elements
   },
   shadows: {
-    sm: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
-      elevation: 1,
-      // Web: boxShadow CSS
-      boxShadow: boxShadow(0, 1, 2, 0, '#000000', 0.05),
-    },
-    md: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-      // Web: boxShadow CSS
-      boxShadow: boxShadow(0, 2, 4, 0, '#000000', 0.1),
-    },
-    lg: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 8,
-      elevation: 5,
-      // Web: boxShadow CSS
-      boxShadow: boxShadow(0, 4, 8, 0, '#000000', 0.15),
-    },
-    // Brand shadows for colored buttons
-    card: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 4,
-      elevation: 2,
-      boxShadow: boxShadow(0, 2, 4, 0, '#000000', 0.08),
-    },
+    // Platform-specific shadows: web uses boxShadow, native uses shadow* props
+    sm: createShadow(1, 2, 0.05, 1),
+    md: createShadow(2, 4, 0.1, 3),
+    lg: createShadow(4, 8, 0.15, 5),
+    card: createShadow(2, 4, 0.08, 2),
   },
   layout: {
     sidebarWidth: 264,
@@ -924,12 +986,14 @@ const highContrastDarkColors = {
 
 export const lightCompactTheme: Theme = {
   ...defaultTheme,
+  spacing: spacingCompact,
   desktop: desktopCompact,
   components: componentsCompact,
 };
 
 export const darkCompactTheme: Theme = {
   ...darkTheme,
+  spacing: spacingCompact,
   desktop: desktopCompact,
   components: componentsCompact,
 };
@@ -946,12 +1010,14 @@ export const darkHighContrastTheme: Theme = {
 
 export const lightCompactHighContrastTheme: Theme = {
   ...lightHighContrastTheme,
+  spacing: spacingCompact,
   desktop: desktopCompact,
   components: componentsCompact,
 };
 
 export const darkCompactHighContrastTheme: Theme = {
   ...darkHighContrastTheme,
+  spacing: spacingCompact,
   desktop: desktopCompact,
   components: componentsCompact,
 };

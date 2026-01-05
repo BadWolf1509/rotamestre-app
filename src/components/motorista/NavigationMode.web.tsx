@@ -286,16 +286,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.gray50,
   },
   mapPlaceholderText: {
-    marginTop: 16,
+    marginTop: theme.spacing['4'],
     fontSize: 16,
     color: theme.colors.gray500,
   },
   openMapButton: {
-    marginTop: 24,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    marginTop: theme.spacing['6'],
+    paddingHorizontal: theme.spacing['6'],
+    paddingVertical: theme.spacing['3'],
     backgroundColor: theme.colors.primary,
-    borderRadius: 8,
+    borderRadius: theme.borderRadius.sm,
   },
   openMapButtonText: {
     color: theme.colors.white,
@@ -306,7 +306,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    padding: 20,
+    padding: theme.spacing['5'],
     paddingBottom: 30,
     elevation: 10,
     shadowColor: theme.colors.black,
@@ -315,10 +315,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
     shadowRadius: 10,
   },
   stopInfo: {
-    marginBottom: 16,
+    marginBottom: theme.spacing['4'],
   },
   nextStopInfo: {
-    paddingTop: 16,
+    paddingTop: theme.spacing['4'],
     borderTopWidth: 1,
     borderTopColor: theme.colors.gray200,
   },
@@ -333,7 +333,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.infoBg,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: theme.spacing['3'],
   },
   stopDetails: {
     flex: 1,
@@ -341,7 +341,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   stopLabel: {
     fontSize: 12,
     color: theme.colors.gray500,
-    marginBottom: 4,
+    marginBottom: theme.spacing['1'],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -349,7 +349,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: 16,
     fontWeight: '600',
     color: theme.colors.gray900,
-    marginBottom: 4,
+    marginBottom: theme.spacing['1'],
   },
   distanceText: {
     fontSize: 14,
@@ -358,8 +358,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 20,
+    gap: theme.spacing['3'],
+    marginTop: theme.spacing['5'],
   },
   actionButton: {
     flex: 1,
@@ -367,8 +367,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
+    borderRadius: theme.borderRadius.lg,
+    gap: theme.spacing['2'],
   },
   skipButton: {
     backgroundColor: theme.colors.warningBg,
@@ -386,9 +386,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
-    paddingVertical: 12,
-    gap: 8,
+    marginTop: theme.spacing['4'],
+    paddingVertical: theme.spacing['3'],
+    gap: theme.spacing['2'],
   },
   exitButtonText: {
     fontSize: 14,

@@ -266,7 +266,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   mainContent: {
     flex: 1,
-    gap: 2,
+    gap: theme.spacing['0.5'],
   },
   row1: {
     flexDirection: 'row',
@@ -283,7 +283,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: theme.spacing['0.5'],
   },
   statusText: {
     fontSize: theme.typography.fontSize.xs,
@@ -303,7 +303,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   phoneLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: theme.spacing['0.5'],
   },
   phoneText: {
     fontSize: theme.typography.fontSize.xs,
@@ -311,9 +311,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontWeight: '500',
   },
   typeTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingHorizontal: theme.spacing['1.5'],
+    paddingVertical: theme.spacing['0.5'],
+    borderRadius: theme.borderRadius.xs,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -324,7 +324,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.warningBg,
   },
   typeTagText: {
-    fontSize: 9,
+    fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
     fontWeight: '700',
     letterSpacing: 0.3,
   },
@@ -350,13 +350,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     bottom: 0,
     right: 0,
     backgroundColor: withOpacity(theme.colors.black, 0.5),
-    padding: 2,
-    borderTopLeftRadius: 4,
+    padding: theme.spacing['0.5'],
+    borderTopLeftRadius: theme.borderRadius.xs,
   },
   typeIconContainer: {
     width: 28,
     height: 28,
-    borderRadius: 6,
+    borderRadius: theme.borderRadius.xs,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -413,7 +413,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: theme.spacing['1'],
     paddingVertical: theme.spacing.xs,
     paddingHorizontal: theme.spacing.sm,
     backgroundColor: theme.colors.gray50,
@@ -435,7 +435,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   editActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: theme.spacing['1'],
     paddingVertical: theme.spacing.xs,
     paddingHorizontal: theme.spacing.sm,
     backgroundColor: theme.colors.white,

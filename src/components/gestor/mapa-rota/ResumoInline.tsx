@@ -81,7 +81,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     justifyContent: 'center',
     backgroundColor: theme.colors.gray50,
     borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.sm + 2,
+    padding: theme.spacing['2'],
     gap: theme.spacing.md,
     borderWidth: 1,
     borderColor: theme.colors.gray100,
@@ -89,7 +89,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   stat: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: theme.spacing['1'],
   },
   iconWrapper: {
     width: 20,

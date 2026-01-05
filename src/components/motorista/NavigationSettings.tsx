@@ -296,7 +296,7 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
           <Text style={styles.resetButtonText}>Restaurar Padrões</Text>
         </TouchableOpacity>
 
-        <View style={{ height: 50 }} />
+        <View style={{ height: theme.spacing['12'] }} />
       </ScrollView>
     </View>
   );
@@ -316,7 +316,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: theme.spacing['4'],
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray200,
   },
@@ -326,14 +326,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray900,
   },
   closeButton: {
-    padding: 8,
+    padding: theme.spacing['2'],
   },
   content: {
     flex: 1,
-    padding: 16,
+    padding: theme.spacing['4'],
   },
   section: {
-    marginBottom: 24,
+    marginBottom: theme.spacing['6'],
   },
   sectionTitle: {
     fontSize: theme.typography.sm,
@@ -347,19 +347,19 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: theme.spacing['3'],
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray100,
   },
   settingInfo: {
     flex: 1,
-    marginRight: 12,
+    marginRight: theme.spacing['3'],
   },
   settingLabel: {
     fontSize: theme.typography.base,
     fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.gray900,
-    marginBottom: 2,
+    marginBottom: theme.spacing['0.5'],
   },
   settingDescription: {
     fontSize: theme.typography.xs,
@@ -372,8 +372,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray400,
   },
   sliderSetting: {
-    marginTop: 16,
-    paddingTop: 12,
+    marginTop: theme.spacing['4'],
+    paddingTop: theme.spacing['3'],
     borderTopWidth: 1,
     borderTopColor: theme.colors.gray100,
   },
@@ -402,15 +402,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   tipsSection: {
     backgroundColor: theme.colors.warningBg,
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 24,
+    padding: theme.spacing['3'],
+    borderRadius: theme.borderRadius.sm,
+    marginBottom: theme.spacing['6'],
   },
   tipHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    gap: theme.spacing['2'],
+    marginBottom: theme.spacing['2'],
   },
   tipTitle: {
     fontSize: theme.typography.sm,
@@ -421,17 +421,17 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.xs,
     color: theme.colors.secondaryDark,
     marginBottom: theme.spacing.xs,
-    paddingLeft: 28,
+    paddingLeft: theme.spacing['7'],
   },
   resetButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
+    gap: theme.spacing['2'],
+    paddingVertical: theme.spacing['3'],
     borderWidth: 1,
     borderColor: theme.colors.errorBg,
-    borderRadius: 8,
+    borderRadius: theme.borderRadius.sm,
     backgroundColor: theme.colors.errorBg,
   },
   resetButtonText: {

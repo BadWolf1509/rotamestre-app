@@ -194,9 +194,9 @@ export function Toast({
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     position: Platform.OS === 'web' ? ('fixed' as any) : 'absolute',
-    top: Platform.OS === 'web' ? 20 : 60,
-    left: Platform.OS === 'web' ? '50%' : 20,
-    right: Platform.OS === 'web' ? undefined : 20,
+    top: Platform.OS === 'web' ? theme.spacing['5'] : 60,
+    left: Platform.OS === 'web' ? '50%' : theme.spacing['5'],
+    right: Platform.OS === 'web' ? undefined : theme.spacing['5'],
     // Garantir que o toast fique acima de modais/overlays
     zIndex: 2147483647,
     ...(Platform.OS === 'web' && {
@@ -212,8 +212,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingVertical: theme.spacing['4'],
+    paddingHorizontal: theme.spacing['5'],
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -225,7 +225,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   icon: {
     fontSize: 20,
-    marginRight: 12,
+    marginRight: theme.spacing['3'],
   },
   message: {
     fontSize: theme.typography.sm,
@@ -235,8 +235,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     lineHeight: 20,
   },
   closeButton: {
-    padding: 4,
-    marginLeft: 12,
+    padding: theme.spacing['1'],
+    marginLeft: theme.spacing['3'],
   },
   closeIcon: {
     fontSize: theme.typography.lg,

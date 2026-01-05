@@ -403,15 +403,15 @@ function ChecklistItem({
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     backgroundColor: theme.colors.gray50,
-    borderRadius: 10,
-    padding: 10,
-    marginTop: 10,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing['2.5'],
+    marginTop: theme.spacing['2.5'],
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
+    gap: theme.spacing['1.5'],
+    marginBottom: theme.spacing['1.5'],
   },
   title: {
     fontSize: theme.typography.xs,
@@ -426,7 +426,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    paddingVertical: theme.spacing['1.5'],
   },
   itemBorder: {
     borderBottomWidth: 1,
@@ -435,7 +435,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   itemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: theme.spacing['2'],
   },
   itemLabel: {
     fontSize: theme.typography.sm,
@@ -444,16 +444,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
   itemRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: theme.spacing['2'],
   },
   itemSuffix: {
     fontSize: theme.typography.sm,
     fontFamily: theme.typography.fontSansSemiBold,
   },
   actionButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+    paddingHorizontal: theme.spacing['3'],
+    paddingVertical: theme.spacing['1.5'],
+    borderRadius: theme.borderRadius.xs,
   },
   actionText: {
     color: theme.colors.white,
@@ -463,9 +463,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
   messageContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 6,
-    paddingTop: 6,
+    gap: theme.spacing['1.5'],
+    marginTop: theme.spacing['1.5'],
+    paddingTop: theme.spacing['1.5'],
     borderTopWidth: 1,
     borderTopColor: theme.colors.gray200,
   },
@@ -478,16 +478,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    gap: theme.spacing['4'],
+    paddingVertical: theme.spacing['2'],
+    paddingHorizontal: theme.spacing['3'],
     backgroundColor: theme.colors.gray50,
-    borderRadius: 8,
+    borderRadius: theme.borderRadius.sm,
   },
   compactItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: theme.spacing['1'],
   },
   compactLabel: {
     fontSize: theme.typography.xs,

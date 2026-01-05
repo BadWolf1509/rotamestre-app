@@ -94,16 +94,26 @@ export default function RootLayout() {
   });
 
   // Font loading timeout for web (prevents app from being stuck in CI)
+  // Clear timeout when fonts load successfully
+  const fontTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
-    if (Platform.OS === 'web') {
-      const timeout = setTimeout(() => {
-        if (!fontsLoaded && !fontError) {
-          console.warn('[RootLayout] Font loading timeout - proceeding without custom fonts');
-          setFontTimeout(true);
-        }
+    if (Platform.OS === 'web' && !fontsLoaded && !fontError) {
+      fontTimeoutRef.current = setTimeout(() => {
+        console.warn('[RootLayout] Font loading timeout - proceeding without custom fonts');
+        setFontTimeout(true);
       }, 10000); // 10 second timeout for fonts
 
-      return () => clearTimeout(timeout);
+      return () => {
+        if (fontTimeoutRef.current) {
+          clearTimeout(fontTimeoutRef.current);
+        }
+      };
+    }
+    // Clear timeout if fonts loaded successfully
+    if (fontsLoaded && fontTimeoutRef.current) {
+      clearTimeout(fontTimeoutRef.current);
+      fontTimeoutRef.current = null;
     }
   }, [fontsLoaded, fontError]);
 

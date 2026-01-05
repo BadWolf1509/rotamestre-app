@@ -36,8 +36,8 @@ import {
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUser } from '@/hooks/useUser';
 import { styles } from '@/styles/gestor/incidentes.styles';
+import { withOpacity } from '@/utils/color';
 import { useUnistyles } from '@/utils/styles';
-
 
 export default function IncidentesScreen() {
   const router = useRouter();
@@ -156,7 +156,7 @@ export default function IncidentesScreen() {
         width: 120,
         render: (item) => {
           const st = statusLabels[item.status];
-          return <StatusBadge color={st.color} label={st.label} variant="soft" />;
+          return <StatusBadge color={st.color} label={st.label} variant="soft" size="sm" />;
         },
       },
     ];
@@ -189,25 +189,25 @@ export default function IncidentesScreen() {
       >
         {/* Cards de Resumo */}
         <View style={styles.resumoRow}>
-          <View style={[styles.resumoCard, { backgroundColor: theme.colors.error + '15' }]}>
+          <View style={[styles.resumoCard, { backgroundColor: withOpacity(theme.colors.error, 0.15) }]}>
             <Text style={[styles.resumoValue, { color: theme.colors.error }]}>
               {resumoGeral.abertos}
             </Text>
             <Text style={styles.resumoLabel}>Abertos</Text>
           </View>
-          <View style={[styles.resumoCard, { backgroundColor: theme.colors.warning + '15' }]}>
+          <View style={[styles.resumoCard, { backgroundColor: withOpacity(theme.colors.warning, 0.15) }]}>
             <Text style={[styles.resumoValue, { color: theme.colors.warning }]}>
               {resumoGeral.emAnalise}
             </Text>
             <Text style={styles.resumoLabel}>Em Análise</Text>
           </View>
-          <View style={[styles.resumoCard, { backgroundColor: theme.colors.success + '15' }]}>
+          <View style={[styles.resumoCard, { backgroundColor: withOpacity(theme.colors.success, 0.15) }]}>
             <Text style={[styles.resumoValue, { color: theme.colors.success }]}>
               {resumoGeral.resolvidos}
             </Text>
             <Text style={styles.resumoLabel}>Resolvidos</Text>
           </View>
-          <View style={[styles.resumoCard, { backgroundColor: theme.colors.gray400 + '15' }]}>
+          <View style={[styles.resumoCard, { backgroundColor: withOpacity(theme.colors.gray400, 0.15) }]}>
             <Text style={[styles.resumoValue, { color: theme.colors.gray600 }]}>
               {resumoGeral.total}
             </Text>
@@ -297,8 +297,8 @@ export default function IncidentesScreen() {
             actions={actions}
             keyExtractor={(item) => item.id}
             emptyState={
-              <View style={{ padding: theme.spacing['2xl'], alignItems: 'center' }}>
-                <Text style={{ fontSize: theme.typography.base, color: theme.colors.gray600 }}>
+              <View style={styles.emptyStateContainer}>
+                <Text style={styles.emptyStateText}>
                   Nenhum incidente encontrado
                 </Text>
               </View>
@@ -341,9 +341,7 @@ export default function IncidentesScreen() {
                   <Ionicons name={cat.icon} size={20} color={cat.color} />
                   <Text style={styles.mobileCategoriaText}>{cat.label}</Text>
                 </View>
-                <View style={[styles.statusBadge, { backgroundColor: st.color + '20' }]}>
-                  <Text style={[styles.statusText, { color: st.color }]}>{st.label}</Text>
-                </View>
+                <StatusBadge color={st.color} label={st.label} variant="soft" size="sm" />
               </View>
 
               <Text style={styles.mobileMotorista}>{incidente.motorista_nome}</Text>
@@ -416,9 +414,7 @@ export default function IncidentesScreen() {
                 {cat.label}
               </Text>
             </View>
-            <View style={[styles.statusBadge, { backgroundColor: st.color + '20' }]}>
-              <Text style={[styles.statusText, { color: st.color }]}>{st.label}</Text>
-            </View>
+            <StatusBadge color={st.color} label={st.label} variant="soft" size="sm" />
           </View>
 
           <View style={[styles.detalhesSection, isDesktop && styles.detalhesSectionCompact]}>
@@ -656,9 +652,7 @@ export default function IncidentesScreen() {
                       <Ionicons name={cat.icon} size={16} color={cat.color} />
                       <Text style={styles.historicoCategoriaText}>{cat.label}</Text>
                     </View>
-                    <View style={[styles.statusBadge, { backgroundColor: st.color + '20' }]}>
-                      <Text style={[styles.statusText, { color: st.color }]}>{st.label}</Text>
-                    </View>
+                    <StatusBadge color={st.color} label={st.label} variant="soft" size="sm" />
                   </View>
                   <Text style={styles.historicoEndereco}>{inc.endereco}</Text>
                   <Text style={styles.historicoData}>{formatDate(inc.created_at)}</Text>

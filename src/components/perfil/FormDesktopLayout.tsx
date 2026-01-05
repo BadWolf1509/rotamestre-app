@@ -198,7 +198,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
   },
   content: {
-    paddingBottom: 40,
+    paddingBottom: theme.spacing['10'],
   },
   loadingContainer: {
     flex: 1,
@@ -207,21 +207,21 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.gray50,
   },
   loadingText: {
-    marginTop: 12,
+    marginTop: theme.spacing['3'],
     fontSize: 14,
     color: theme.colors.gray500,
   },
   header: {
     backgroundColor: theme.colors.white,
-    padding: 32,
+    padding: theme.spacing['8'],
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray200,
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
+    gap: theme.spacing['2'],
+    marginBottom: theme.spacing['4'],
   },
   backButtonText: {
     fontSize: 14,
@@ -234,7 +234,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography['3xl'],
     fontFamily: theme.typography.fontDisplay,
     color: theme.colors.gray900,
-    marginBottom: 8,
+    marginBottom: theme.spacing['2'],
   },
   headerSubtitle: {
     fontSize: 14,
@@ -242,8 +242,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   mainContent: {
     flexDirection: 'row',
-    padding: 32,
-    gap: 32,
+    padding: theme.spacing['8'],
+    gap: theme.spacing['8'],
     maxWidth: 1200,
     marginHorizontal: 'auto',
     width: '100%',
@@ -254,8 +254,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   formCard: {
     backgroundColor: theme.colors.white,
-    borderRadius: 12,
-    padding: 32,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing['8'],
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -263,7 +263,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     elevation: 3,
   },
   fieldGroup: {
-    marginBottom: 24,
+    marginBottom: theme.spacing['6'],
   },
   fieldLabel: {
     fontSize: theme.typography.sm,
@@ -274,15 +274,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
   fieldInput: {
     borderWidth: 1,
     borderColor: theme.colors.gray300,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderRadius: theme.borderRadius.sm,
+    paddingHorizontal: theme.spacing['4'],
+    paddingVertical: theme.spacing['3'],
     fontSize: 14,
     color: theme.colors.gray900,
     backgroundColor: theme.colors.white,
   },
   fieldInputWithToggle: {
-    paddingRight: 48,
+    paddingRight: theme.spacing['12'],
   },
   fieldTextArea: {
     minHeight: 100,
@@ -296,14 +296,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   passwordToggle: {
     position: 'absolute',
-    right: 12,
-    top: 12,
-    padding: 4,
+    right: theme.spacing['3'],
+    top: theme.spacing['3'],
+    padding: theme.spacing['1'],
   },
   helperText: {
     fontSize: 12,
     color: theme.colors.gray500,
-    marginTop: 4,
+    marginTop: theme.spacing['1'],
   },
   helperTextSuccess: {
     color: theme.colors.success,
@@ -314,19 +314,19 @@ const styles = StyleSheet.create((theme: Theme) => ({
   errorText: {
     fontSize: 12,
     color: theme.colors.error,
-    marginTop: 4,
+    marginTop: theme.spacing['1'],
   },
   buttonContainer: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 32,
+    gap: theme.spacing['3'],
+    marginTop: theme.spacing['8'],
     justifyContent: 'flex-end',
   },
   primaryButton: {
     backgroundColor: theme.colors.primary,
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingHorizontal: theme.spacing['8'],
+    paddingVertical: theme.spacing['3'],
+    borderRadius: theme.borderRadius.sm,
     minWidth: 120,
     alignItems: 'center',
   },
@@ -340,9 +340,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   secondaryButton: {
     backgroundColor: theme.colors.gray100,
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingHorizontal: theme.spacing['8'],
+    paddingVertical: theme.spacing['3'],
+    borderRadius: theme.borderRadius.sm,
     minWidth: 120,
     alignItems: 'center',
     borderWidth: 1,

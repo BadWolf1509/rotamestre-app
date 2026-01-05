@@ -291,12 +291,12 @@ export function StreetViewPreview({
 const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
   StyleSheet.create({
     container: {
-      borderRadius: 8,
+      borderRadius: theme.borderRadius.sm,
       overflow: 'hidden',
       backgroundColor: theme.colors.gray100,
     },
     image: {
-      borderRadius: 8,
+      borderRadius: theme.borderRadius.sm,
     },
     loadingOverlay: {
       position: 'absolute',
@@ -320,13 +320,13 @@ const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
     errorText: {
       fontSize: 12,
       color: theme.colors.gray600,
-      marginTop: 4,
+      marginTop: theme.spacing['1'],
       fontWeight: '500',
     },
     errorSubtext: {
-      fontSize: 11,
+      fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
       color: theme.colors.gray500,
-      marginTop: 2,
+      marginTop: theme.spacing['0.5'],
     },
     staticMapOverlay: {
       position: 'absolute',
@@ -337,18 +337,18 @@ const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
     },
     staticMapBadge: {
       position: 'absolute',
-      top: 8,
-      right: 8,
+      top: theme.spacing['2'],
+      right: theme.spacing['2'],
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: withOpacity(theme.colors.black, 0.6),
-      borderRadius: 4,
-      paddingHorizontal: 6,
-      paddingVertical: 3,
-      gap: 4,
+      borderRadius: theme.borderRadius.xs,
+      paddingHorizontal: theme.spacing['1.5'],
+      paddingVertical: theme.spacing['0.5'],
+      gap: theme.spacing['1'],
     },
     staticMapBadgeText: {
-      fontSize: 10,
+      fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
       fontWeight: '600',
       color: theme.colors.white,
     },
@@ -362,11 +362,11 @@ const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
     },
     iconContainer: {
       position: 'absolute',
-      top: 8,
-      right: 8,
+      top: theme.spacing['2'],
+      right: theme.spacing['2'],
       backgroundColor: withOpacity(theme.colors.black, 0.5),
-      borderRadius: 4,
-      padding: 4,
+      borderRadius: theme.borderRadius.xs,
+      padding: theme.spacing['1'],
     },
     addressContainer: {
       position: 'absolute',
@@ -374,11 +374,11 @@ const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
       left: 0,
       right: 0,
       backgroundColor: withOpacity(theme.colors.black, 0.7),
-      padding: 4,
+      padding: theme.spacing['1'],
     },
     addressText: {
       color: theme.colors.white,
-      fontSize: 11,
+      fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
       fontWeight: '500',
     },
     modalOverlay: {
@@ -389,7 +389,7 @@ const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
     },
     modalContent: {
       backgroundColor: theme.colors.white,
-      borderRadius: 12,
+      borderRadius: theme.borderRadius.lg,
       width: screenWidth - 32,
       maxWidth: 400,
       overflow: 'hidden',
@@ -398,7 +398,7 @@ const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      padding: 16,
+      padding: theme.spacing['4'],
       borderBottomWidth: 1,
       borderBottomColor: theme.colors.gray200,
     },
@@ -437,13 +437,13 @@ const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
     modalErrorText: {
       fontSize: 14,
       color: theme.colors.gray600,
-      marginTop: 8,
+      marginTop: theme.spacing['2'],
     },
     modalAddress: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 16,
-      gap: 8,
+      padding: theme.spacing['4'],
+      gap: theme.spacing['2'],
     },
     modalAddressText: {
       flex: 1,
@@ -454,7 +454,7 @@ const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
       fontSize: 12,
       color: theme.colors.gray600,
       textAlign: 'center',
-      padding: 12,
+      padding: theme.spacing['3'],
       fontStyle: 'italic',
     },
   });

@@ -233,7 +233,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginTop: 2,
   },
   calloutTime: {
-    fontSize: 10,
+    fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
     color: theme.colors.textSecondary,
     marginTop: 2,
   },

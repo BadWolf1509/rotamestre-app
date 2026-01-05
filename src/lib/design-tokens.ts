@@ -172,6 +172,27 @@ export const typography = {
 // ============================================
 
 export const spacing = {
+  // Numeric tokens (primary scale)
+  '0': defaultTheme.spacing['0'],
+  '0.5': defaultTheme.spacing['0.5'],
+  '1': defaultTheme.spacing['1'],
+  '1.5': defaultTheme.spacing['1.5'],
+  '2': defaultTheme.spacing['2'],
+  '2.5': defaultTheme.spacing['2.5'],
+  '3': defaultTheme.spacing['3'],
+  '3.5': defaultTheme.spacing['3.5'],
+  '4': defaultTheme.spacing['4'],
+  '5': defaultTheme.spacing['5'],
+  '6': defaultTheme.spacing['6'],
+  '7': defaultTheme.spacing['7'],
+  '8': defaultTheme.spacing['8'],
+  '10': defaultTheme.spacing['10'],
+  '12': defaultTheme.spacing['12'],
+  '14': defaultTheme.spacing['14'],
+  '16': defaultTheme.spacing['16'],
+  '20': defaultTheme.spacing['20'],
+  '24': defaultTheme.spacing['24'],
+  // Semantic aliases (backwards compatibility)
   xs: defaultTheme.spacing.xs,
   sm: defaultTheme.spacing.sm,
   md: defaultTheme.spacing.md,
@@ -184,6 +205,16 @@ export const spacing = {
   '5xl': defaultTheme.spacing['5xl'],
   '6xl': defaultTheme.spacing['6xl'],
 } as const;
+
+/**
+ * Type-safe spacing getter
+ * @param token - Spacing token key
+ * @returns Numeric spacing value in pixels
+ */
+export type SpacingToken = keyof typeof spacing;
+export function getSpacing(token: SpacingToken): number {
+  return spacing[token];
+}
 
 // ============================================
 // 4. BORDER RADIUS

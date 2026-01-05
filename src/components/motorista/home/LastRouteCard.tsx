@@ -128,20 +128,20 @@ export function LastRouteCard({ data }: LastRouteCardProps) {
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     backgroundColor: theme.colors.successBg,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing['3'],
+    marginBottom: theme.spacing['2'],
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: theme.spacing['2.5'],
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: theme.spacing['1.5'],
   },
   headerText: {
     fontSize: theme.typography.sm,
@@ -159,7 +159,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   stat: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: theme.spacing['0.5'],
     flexShrink: 1,
   },
   statValue: {

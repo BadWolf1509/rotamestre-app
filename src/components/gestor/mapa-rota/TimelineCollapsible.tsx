@@ -309,7 +309,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   iconWrapper: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: theme.borderRadius.sm,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -320,31 +320,31 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   badge: {
     backgroundColor: theme.colors.info,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
+    paddingHorizontal: theme.spacing['1.5'],
+    paddingVertical: theme.spacing['0.5'],
+    borderRadius: theme.borderRadius.lg,
     minWidth: 20,
     alignItems: 'center',
   },
   badgeText: {
-    fontSize: 11,
+    fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
     fontWeight: '700',
     color: theme.colors.white,
   },
   badgeSkeleton: {
     width: 24,
     height: 20,
-    borderRadius: 10,
+    borderRadius: theme.borderRadius.lg,
     backgroundColor: theme.colors.gray200,
   },
   unseenBadge: {
     backgroundColor: theme.colors.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
+    paddingHorizontal: theme.spacing['2'],
+    paddingVertical: theme.spacing['0.5'],
+    borderRadius: theme.borderRadius.lg,
   },
   unseenBadgeText: {
-    fontSize: 10,
+    fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
     fontWeight: '700',
     color: theme.colors.white,
   },
@@ -370,7 +370,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   previewDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: theme.borderRadius.xs,
   },
   previewItemText: {
     fontSize: theme.typography.fontSize.xs,

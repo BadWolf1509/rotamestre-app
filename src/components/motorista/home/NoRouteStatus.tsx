@@ -125,7 +125,7 @@ export function NoRouteStatus({
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: theme.spacing['2'],
   },
   iconContainer: {
     width: 56,
@@ -133,7 +133,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: theme.spacing['3'],
   },
   emoji: {
     fontSize: 28,
@@ -155,12 +155,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
   waitingIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    gap: theme.spacing['1.5'],
+    marginTop: theme.spacing['3'],
+    paddingHorizontal: theme.spacing['3'],
+    paddingVertical: theme.spacing['1.5'],
     backgroundColor: theme.colors.gray50,
-    borderRadius: 16,
+    borderRadius: theme.borderRadius.xl,
   },
   waitingText: {
     fontSize: theme.typography.xs,

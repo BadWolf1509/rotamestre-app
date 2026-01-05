@@ -336,7 +336,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexWrap: 'wrap',
   },
   breadcrumbButton: {
-    padding: 2,
+    padding: theme.spacing['0.5'],
   },
   breadcrumbLink: {
     fontSize: theme.components.pageLayout.breadcrumbFontSize,
@@ -387,7 +387,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     position: 'absolute',
     top: '100%',
     right: 0,
-    marginTop: 8,
+    marginTop: theme.spacing['2'],
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.lg,
     paddingVertical: theme.spacing.sm,

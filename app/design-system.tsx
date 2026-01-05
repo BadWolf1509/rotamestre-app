@@ -1848,6 +1848,7 @@ const themeName = UnistylesRuntime.themeName;`}
           <Text style={styles.groupTitle}>Variantes</Text>
           <View style={styles.componentRow}>
             <Button title="Primary" onPress={() => showToast('success')} />
+            <Button title="Secondary" variant="secondary" onPress={() => showToast('info')} />
             <Button title="Outline" variant="outline" onPress={() => showToast('info')} />
             <Button title="Ghost" variant="ghost" onPress={() => showToast('info')} />
             <Button title="Danger" variant="danger" onPress={() => showToast('error')} />
@@ -1917,12 +1918,15 @@ const themeName = UnistylesRuntime.themeName;`}
             props={[
               { name: 'title', type: 'string', required: true, description: 'Texto exibido no botão' },
               { name: 'onPress', type: '() => void', required: true, description: 'Callback ao pressionar' },
-              { name: 'variant', type: "'primary' | 'outline' | 'ghost' | 'danger'", default: "'primary'", description: 'Estilo visual do botão' },
+              { name: 'variant', type: "'primary' | 'secondary' | 'outline' | 'ghost' | 'danger'", default: "'primary'", description: 'Estilo visual do botão' },
               { name: 'size', type: "'small' | 'medium' | 'large'", default: "'medium'", description: 'Tamanho do botão' },
-              { name: 'icon', type: 'string', description: 'Nome do ícone Ionicons' },
+              { name: 'icon', type: 'IconName', description: 'Nome do ícone Ionicons' },
               { name: 'iconPosition', type: "'left' | 'right'", default: "'left'", description: 'Posição do ícone' },
               { name: 'loading', type: 'boolean', default: 'false', description: 'Exibe spinner e desabilita' },
               { name: 'disabled', type: 'boolean', default: 'false', description: 'Desabilita interação' },
+              { name: 'fullWidth', type: 'boolean', default: 'false', description: 'Ocupa largura total do container' },
+              { name: 'style', type: 'ViewStyle', description: 'Estilo customizado do container' },
+              { name: 'textStyle', type: 'TextStyle', description: 'Estilo customizado do texto' },
             ]}
           />
 
@@ -2018,6 +2022,25 @@ const themeName = UnistylesRuntime.themeName;`}
   leftIcon="mail"
 />`}
           />
+
+          <Text style={styles.groupTitle}>Props</Text>
+          <PropsTable
+            props={[
+              { name: 'label', type: 'string', description: 'Label exibida acima do input' },
+              { name: 'error', type: 'string', description: 'Mensagem de erro (exibe em vermelho)' },
+              { name: 'helperText', type: 'string', description: 'Texto de ajuda (exibe abaixo do input)' },
+              { name: 'leftIcon', type: 'IconName', description: 'Ícone à esquerda do input' },
+              { name: 'rightIcon', type: 'IconName', description: 'Ícone à direita do input' },
+              { name: 'onRightIconPress', type: '() => void', description: 'Callback ao pressionar ícone direito' },
+              { name: 'size', type: "'small' | 'medium' | 'large'", default: "'medium'", description: 'Tamanho do input' },
+              { name: 'required', type: 'boolean', default: 'false', description: 'Exibe asterisco vermelho no label' },
+              { name: 'containerStyle', type: 'ViewStyle', description: 'Estilo do container externo' },
+              { name: 'placeholder', type: 'string', description: 'Texto placeholder' },
+              { name: 'value', type: 'string', description: 'Valor controlado do input' },
+              { name: 'onChangeText', type: '(text: string) => void', description: 'Callback ao alterar texto' },
+              { name: 'editable', type: 'boolean', default: 'true', description: 'Se false, desabilita edição' },
+            ]}
+          />
         </View>
 
         {/* ========================================
@@ -2079,6 +2102,40 @@ const themeName = UnistylesRuntime.themeName;`}
             <Avatar name="Ana Pereira" size="lg" />
             <Avatar name="Carlos" size="xl" />
           </View>
+
+          <Text style={styles.groupTitle}>Card Props</Text>
+          <PropsTable
+            props={[
+              { name: 'children', type: 'React.ReactNode', required: true, description: 'Conteúdo do card' },
+              { name: 'variant', type: "'elevated' | 'outlined' | 'filled'", default: "'elevated'", description: 'Estilo visual do card' },
+              { name: 'padding', type: "'none' | 'small' | 'medium' | 'large'", default: "'medium'", description: 'Espaçamento interno' },
+              { name: 'onPress', type: '() => void', description: 'Torna o card clicável' },
+              { name: 'style', type: 'ViewStyle', description: 'Estilos customizados' },
+              { name: 'testID', type: 'string', description: 'ID para testes' },
+            ]}
+          />
+
+          <Text style={styles.groupTitle}>MetricCard Props</Text>
+          <PropsTable
+            props={[
+              { name: 'title', type: 'string', required: true, description: 'Título da métrica (ex: "Rotas Hoje")' },
+              { name: 'value', type: 'string | number', required: true, description: 'Valor da métrica' },
+              { name: 'subtitle', type: 'string', description: 'Texto secundário (ex: "Meta diária")' },
+              { name: 'icon', type: 'React.ReactNode', description: 'Ícone à esquerda' },
+              { name: 'trend', type: "'up' | 'down' | 'neutral'", description: 'Indicador de tendência' },
+              { name: 'color', type: 'string', description: 'Cor da borda esquerda' },
+            ]}
+          />
+
+          <Text style={styles.groupTitle}>Avatar Props</Text>
+          <PropsTable
+            props={[
+              { name: 'name', type: 'string', required: true, description: 'Nome para gerar iniciais' },
+              { name: 'imageUrl', type: 'string | null', description: 'URL da foto (opcional)' },
+              { name: 'size', type: "'sm' | 'md' | 'lg' | 'xl'", default: "'md'", description: 'Tamanho do avatar' },
+              { name: 'backgroundColor', type: 'string', description: 'Cor de fundo customizada' },
+            ]}
+          />
 
           <CodeBlock
             code={`import { Card, MetricCard, Avatar } from '@/design-system';
@@ -2150,6 +2207,60 @@ const themeName = UnistylesRuntime.themeName;`}
             <Icon name="time-outline" tone="muted" size={24} />
           </View>
 
+          <Text style={styles.groupTitle}>Badge vs StatusBadge</Text>
+          <Text style={{ fontSize: 13, color: theme.colors.gray600, marginBottom: theme.spacing.sm }}>
+            <Text style={{ fontWeight: 'bold' }}>Badge:</Text> Status predefinidos de rotas (pendente, em_andamento, concluida, cancelada).
+            Cores automáticas baseadas no status.{'\n\n'}
+            <Text style={{ fontWeight: 'bold' }}>StatusBadge:</Text> Badge genérico para qualquer uso.
+            Requer label e cor manuais. Use para status customizados ou não relacionados a rotas.
+          </Text>
+
+          <Text style={styles.groupTitle}>Badge Props</Text>
+          <PropsTable
+            props={[
+              { name: 'status', type: "'pendente' | 'em_andamento' | 'concluida' | 'cancelada'", required: true, description: 'Status da rota (define cor automaticamente)' },
+              { name: 'label', type: 'string', description: 'Texto customizado (padrão: label do status)' },
+              { name: 'size', type: "'small' | 'medium' | 'large'", default: "'medium'", description: 'Tamanho do badge' },
+              { name: 'variant', type: "'filled' | 'outlined'", default: "'filled'", description: 'Estilo visual' },
+              { name: 'style', type: 'ViewStyle', description: 'Estilos customizados' },
+            ]}
+          />
+
+          <Text style={styles.groupTitle}>StatusBadge Props</Text>
+          <PropsTable
+            props={[
+              { name: 'label', type: 'string', required: true, description: 'Texto do badge' },
+              { name: 'color', type: 'string', required: true, description: 'Cor do badge (theme.colors.*)' },
+              { name: 'variant', type: "'soft' | 'solid'", default: "'soft'", description: 'Estilo: soft (fundo claro) ou solid (fundo sólido)' },
+              { name: 'size', type: "'sm' | 'md'", default: "'md'", description: 'Tamanho do badge' },
+              { name: 'containerStyle', type: 'ViewStyle', description: 'Estilos do container' },
+              { name: 'labelStyle', type: 'TextStyle', description: 'Estilos do texto' },
+              { name: 'testID', type: 'string', description: 'ID para testes' },
+            ]}
+          />
+
+          <Text style={styles.groupTitle}>FilterChip Props</Text>
+          <PropsTable
+            props={[
+              { name: 'label', type: 'string', required: true, description: 'Texto do filtro' },
+              { name: 'selected', type: 'boolean', default: 'false', description: 'Estado de seleção' },
+              { name: 'size', type: "'regular' | 'compact'", default: "'regular'", description: 'Tamanho do chip' },
+              { name: 'onPress', type: '() => void', description: 'Callback ao tocar' },
+              { name: 'containerStyle', type: 'ViewStyle', description: 'Estilos do container' },
+              { name: 'labelStyle', type: 'TextStyle', description: 'Estilos do texto' },
+            ]}
+          />
+
+          <Text style={styles.groupTitle}>Icon Props</Text>
+          <PropsTable
+            props={[
+              { name: 'name', type: 'IoniconsName', required: true, description: 'Nome do ícone Ionicons' },
+              { name: 'size', type: "'sm' | 'md' | 'lg' | 'xl' | number", default: "'md'", description: 'Tamanho (sm=16, md=20, lg=24, xl=32)' },
+              { name: 'tone', type: "'default' | 'muted' | 'primary' | 'success' | 'warning' | 'error' | 'inverse'", default: "'default'", description: 'Cor semântica' },
+              { name: 'color', type: 'string', description: 'Cor customizada (sobrescreve tone)' },
+            ]}
+          />
+
           <CodeBlock
             code={`import { Badge, StatusBadge, FilterChip, Icon } from '@/design-system';
 
@@ -2187,7 +2298,42 @@ const themeName = UnistylesRuntime.themeName;`}
             />
           </View>
 
+          <Text style={styles.groupTitle}>Modal Props</Text>
+          <PropsTable
+            props={[
+              { name: 'visible', type: 'boolean', required: true, description: 'Controla visibilidade' },
+              { name: 'onClose', type: '() => void', required: true, description: 'Callback ao fechar' },
+              { name: 'title', type: 'string', description: 'Título do modal' },
+              { name: 'children', type: 'React.ReactNode', required: true, description: 'Conteúdo do modal' },
+              { name: 'size', type: "'small' | 'medium' | 'large' | 'full'", default: "'medium'", description: 'Tamanho do modal' },
+              { name: 'showCloseButton', type: 'boolean', default: 'true', description: 'Mostrar botão X' },
+              { name: 'animationType', type: "'none' | 'slide' | 'fade'", default: "'fade'", description: 'Animação de entrada' },
+              { name: 'style', type: 'ViewStyle', description: 'Estilos customizados' },
+            ]}
+          />
+
+          <Text style={styles.groupTitle}>DesktopModal Props</Text>
+          <PropsTable
+            props={[
+              { name: 'visible', type: 'boolean', required: true, description: 'Controla visibilidade' },
+              { name: 'onClose', type: '() => void', required: true, description: 'Callback ao fechar' },
+              { name: 'title', type: 'string', description: 'Título do modal' },
+              { name: 'children', type: 'React.ReactNode', required: true, description: 'Conteúdo do modal' },
+              { name: 'primaryButton', type: 'ModalButtonConfig', description: 'Botão primário (text, onPress, loading)' },
+              { name: 'secondaryButton', type: 'ModalButtonConfig', description: 'Botão secundário' },
+              { name: 'footer', type: 'React.ReactNode', description: 'Footer customizado (substitui botões)' },
+              { name: 'maxWidth', type: 'number', default: '600', description: 'Largura máxima em desktop' },
+              { name: 'maxHeight', type: 'string', default: "'80%'", description: 'Altura máxima' },
+              { name: 'closeOnOverlayPress', type: 'boolean', default: 'true', description: 'Fechar ao clicar fora' },
+              { name: 'toast', type: 'ToastProps', description: 'Toast interno ao modal' },
+            ]}
+          />
+
           <Text style={styles.groupTitle}>Diálogos de Alerta</Text>
+          <Text style={{ fontSize: 13, color: theme.colors.gray600, marginBottom: theme.spacing.sm }}>
+            Diálogos simples para alertas (um botão) e confirmações (dois botões).
+            Usam HTML5 dialog no web para focus trap nativo.
+          </Text>
           <View style={styles.componentRow}>
             <Button
               title="Alert Dialog"
@@ -2200,6 +2346,33 @@ const themeName = UnistylesRuntime.themeName;`}
               onPress={() => setConfirmVisible(true)}
             />
           </View>
+
+          <Text style={styles.groupTitle}>AlertDialog Props</Text>
+          <PropsTable
+            props={[
+              { name: 'visible', type: 'boolean', required: true, description: 'Controla visibilidade do diálogo' },
+              { name: 'title', type: 'string', required: true, description: 'Título do alerta' },
+              { name: 'message', type: 'string', required: true, description: 'Mensagem do alerta' },
+              { name: 'confirmText', type: 'string', default: "'OK'", description: 'Texto do botão de confirmação' },
+              { name: 'onConfirm', type: '() => void', required: true, description: 'Callback ao confirmar' },
+              { name: 'type', type: "'default' | 'error' | 'success' | 'warning'", default: "'default'", description: 'Tipo visual (ícone e cor)' },
+            ]}
+          />
+
+          <Text style={styles.groupTitle}>ConfirmDialog Props</Text>
+          <PropsTable
+            props={[
+              { name: 'visible', type: 'boolean', required: true, description: 'Controla visibilidade do diálogo' },
+              { name: 'title', type: 'string', required: true, description: 'Título do diálogo' },
+              { name: 'message', type: 'string', required: true, description: 'Mensagem do diálogo' },
+              { name: 'confirmText', type: 'string', default: "'Confirmar'", description: 'Texto do botão de confirmação' },
+              { name: 'cancelText', type: 'string', default: "'Cancelar'", description: 'Texto do botão de cancelar' },
+              { name: 'onConfirm', type: '() => void', required: true, description: 'Callback ao confirmar' },
+              { name: 'onCancel', type: '() => void', required: true, description: 'Callback ao cancelar' },
+              { name: 'type', type: "'default' | 'danger' | 'warning'", default: "'default'", description: 'Tipo visual (ícone e cor)' },
+              { name: 'confirmLoading', type: 'boolean', default: 'false', description: 'Exibe spinner no botão confirmar' },
+            ]}
+          />
 
           <Text style={styles.groupTitle}>ConfirmModal</Text>
           <Text style={{ fontSize: 13, color: theme.colors.gray600, marginBottom: theme.spacing.sm }}>
@@ -2343,6 +2516,30 @@ import { SupportModal } from '@/components/SupportModal';
             <Progress progress={1} label="Concluído" color="success" />
           </View>
 
+          <Text style={styles.groupTitle}>Progress Props</Text>
+          <PropsTable
+            props={[
+              { name: 'progress', type: 'number', required: true, description: 'Valor 0-1 (ex: 0.5 = 50%)' },
+              { name: 'label', type: 'string', description: 'Texto acima da barra' },
+              { name: 'showPercentage', type: 'boolean', default: 'true', description: 'Mostra porcentagem à direita' },
+              { name: 'size', type: "'small' | 'medium' | 'large'", default: "'medium'", description: 'Altura da barra (6/8/12px)' },
+              { name: 'color', type: "'primary' | 'success' | 'warning' | 'error'", default: "'primary'", description: 'Cor da barra' },
+              { name: 'animated', type: 'boolean', default: 'true', description: 'Animação ao mudar valor' },
+              { name: 'style', type: 'ViewStyle', description: 'Estilos customizados' },
+            ]}
+          />
+
+          <Text style={styles.groupTitle}>Toast Props</Text>
+          <PropsTable
+            props={[
+              { name: 'visible', type: 'boolean', required: true, description: 'Controla visibilidade' },
+              { name: 'type', type: "'success' | 'error' | 'loading' | 'info'", required: true, description: 'Tipo do toast (define ícone e cor)' },
+              { name: 'message', type: 'string', required: true, description: 'Mensagem exibida' },
+              { name: 'onHide', type: '() => void', required: true, description: 'Callback quando toast fecha' },
+              { name: 'duration', type: 'number', default: '3000', description: 'Duração em ms (0 = infinito)' },
+            ]}
+          />
+
           <Text style={styles.groupTitle}>Skeleton Loader</Text>
           <Text style={{ fontSize: 13, color: theme.colors.gray600, marginBottom: theme.spacing.sm }}>
             Componentes de carregamento com animação shimmer para indicar conteúdo sendo carregado.
@@ -2367,12 +2564,25 @@ import { SupportModal } from '@/components/SupportModal';
           </Text>
           <SkeletonList count={3} />
 
+          <Text style={styles.groupTitle}>Skeleton Props</Text>
           <PropsTable
             props={[
               { name: 'width', type: 'number | string', default: "'100%'", description: 'Largura do skeleton' },
               { name: 'height', type: 'number', default: '20', description: 'Altura do skeleton' },
               { name: 'borderRadius', type: 'number', default: '4', description: 'Raio da borda' },
-              { name: 'count', type: 'number', default: '3', description: 'Quantidade de itens (SkeletonList)' },
+              { name: 'style', type: 'ViewStyle', description: 'Estilos customizados' },
+            ]}
+          />
+
+          <Text style={styles.groupTitle}>SkeletonCard</Text>
+          <Text style={{ fontSize: 13, color: theme.colors.gray600, marginBottom: theme.spacing.sm }}>
+            Skeleton pré-configurado para cards com avatar e linhas de texto. Não aceita props.
+          </Text>
+
+          <Text style={styles.groupTitle}>SkeletonList Props</Text>
+          <PropsTable
+            props={[
+              { name: 'count', type: 'number', default: '3', description: 'Quantidade de itens (máx: 7 para performance)' },
             ]}
           />
 
@@ -2382,6 +2592,18 @@ import { SupportModal } from '@/components/SupportModal';
             description="Não há registros para exibir no momento."
             actionLabel="Adicionar"
             onActionPress={() => showToast('info')}
+          />
+
+          <Text style={styles.groupTitle}>EmptyState Props</Text>
+          <PropsTable
+            props={[
+              { name: 'title', type: 'string', required: true, description: 'Título principal' },
+              { name: 'description', type: 'string', description: 'Descrição secundária' },
+              { name: 'icon', type: 'IoniconsName', default: "'file-tray-outline'", description: 'Ícone exibido' },
+              { name: 'actionLabel', type: 'string', description: 'Texto do botão de ação' },
+              { name: 'onActionPress', type: '() => void', description: 'Callback do botão' },
+              { name: 'style', type: 'ViewStyle', description: 'Estilos customizados' },
+            ]}
           />
 
           <CodeBlock
@@ -2447,6 +2669,18 @@ import { SupportModal } from '@/components/SupportModal';
             />
           </View>
 
+          <Text style={styles.groupTitle}>StepIndicator Props</Text>
+          <PropsTable
+            props={[
+              { name: 'steps', type: 'Step[]', required: true, description: 'Array de passos ({id, title})' },
+              { name: 'currentStep', type: 'number', required: true, description: 'Índice do passo atual (0-based)' },
+              { name: 'showTitles', type: 'boolean', default: 'false', description: 'Mostrar títulos abaixo dos círculos' },
+              { name: 'circleSize', type: 'number', default: '30', description: 'Tamanho do círculo' },
+              { name: 'lineHeight', type: 'number', default: '2', description: 'Espessura da linha conectora' },
+              { name: 'accessibilityLabel', type: 'string', description: 'Label para leitores de tela' },
+            ]}
+          />
+
           <CodeBlock
             code={`import { StepIndicator, type Step } from '@/design-system';
 
@@ -2494,6 +2728,23 @@ const steps: Step[] = [
             ]}
             keyExtractor={(item) => item.id}
             pagination={false}
+          />
+
+          <Text style={styles.groupTitle}>DataTable Props</Text>
+          <PropsTable
+            props={[
+              { name: 'data', type: 'T[]', required: true, description: 'Array de dados a exibir' },
+              { name: 'columns', type: 'DataTableColumn<T>[]', required: true, description: 'Definição das colunas (key, label, render, width, sortable, align)' },
+              { name: 'actions', type: 'DataTableAction<T>[]', description: 'Ações por linha (label, icon, onPress, type)' },
+              { name: 'keyExtractor', type: '(item: T) => string', required: true, description: 'Função para obter key única' },
+              { name: 'title', type: 'string', description: 'Título da tabela' },
+              { name: 'itemsPerPage', type: 'number', default: '10', description: 'Itens por página' },
+              { name: 'pagination', type: 'boolean', default: 'true', description: 'Mostrar paginação' },
+              { name: 'emptyState', type: 'React.ReactNode', description: 'Estado vazio customizado' },
+              { name: 'onSort', type: '(column, direction) => void', description: 'Callback de ordenação' },
+              { name: 'isLoading', type: 'boolean', description: 'Estado de carregamento (skeleton)' },
+              { name: 'skeletonRows', type: 'number', default: '5', description: 'Linhas de skeleton' },
+            ]}
           />
 
           <CodeBlock
@@ -2594,13 +2845,110 @@ const columns: DataTableColumn[] = [
             </DesktopLayout>
           </View>
 
+          <Text style={styles.groupTitle}>DesktopCard Props</Text>
+          <PropsTable
+            props={[
+              { name: 'children', type: 'React.ReactNode', required: true, description: 'Conteúdo do card' },
+              { name: 'title', type: 'string', description: 'Título do card' },
+              { name: 'subtitle', type: 'string', description: 'Subtítulo' },
+              { name: 'icon', type: 'IoniconsName', description: 'Ícone no header' },
+              { name: 'iconColor', type: 'string', description: 'Cor do ícone' },
+              { name: 'actions', type: 'React.ReactNode', description: 'Ações no header' },
+              { name: 'variant', type: "'default' | 'outlined' | 'elevated'", default: "'default'", description: 'Estilo visual' },
+              { name: 'noPadding', type: 'boolean', default: 'false', description: 'Remover padding interno' },
+              { name: 'onPress', type: '() => void', description: 'Torna o card clicável' },
+              { name: 'style', type: 'ViewStyle', description: 'Estilos customizados' },
+            ]}
+          />
+
+          <Text style={styles.groupTitle}>DesktopCardGrid Props</Text>
+          <PropsTable
+            props={[
+              { name: 'children', type: 'React.ReactNode', required: true, description: 'DesktopCards filhos' },
+              { name: 'columns', type: 'number', default: '3', description: 'Número de colunas' },
+              { name: 'gap', type: 'number', default: '16', description: 'Espaçamento entre cards' },
+            ]}
+          />
+
+          <Text style={styles.groupTitle}>SplitView Props</Text>
+          <PropsTable
+            props={[
+              { name: 'left', type: 'React.ReactNode', required: true, description: 'Painel esquerdo/superior' },
+              { name: 'right', type: 'React.ReactNode', required: true, description: 'Painel direito/inferior' },
+              { name: 'leftFlex', type: 'number', default: '1', description: 'Proporção flex do painel esquerdo' },
+              { name: 'rightFlex', type: 'number', default: '1', description: 'Proporção flex do painel direito' },
+              { name: 'gap', type: 'number', default: '16', description: 'Espaçamento entre painéis' },
+              { name: 'leftMinWidth', type: 'number', default: '300', description: 'Largura mínima do painel esquerdo' },
+              { name: 'rightMinWidth', type: 'number', default: '300', description: 'Largura mínima do painel direito' },
+              { name: 'scrollable', type: 'boolean', default: 'false', description: 'Permitir scroll nos painéis' },
+              { name: 'reverseMobile', type: 'boolean', default: 'false', description: 'Inverter ordem no mobile' },
+            ]}
+          />
+
+          <Text style={styles.groupTitle}>DesktopLayout Props</Text>
+          <PropsTable
+            props={[
+              { name: 'children', type: 'React.ReactNode', required: true, description: 'Conteúdo' },
+              { name: 'scrollable', type: 'boolean', default: 'false', description: 'Permitir scroll vertical' },
+              { name: 'maxWidth', type: 'number', default: '1280', description: 'Largura máxima' },
+              { name: 'backgroundColor', type: 'string', description: 'Cor de fundo' },
+              { name: 'style', type: 'ViewStyle', description: 'Estilos do container' },
+              { name: 'contentStyle', type: 'ViewStyle', description: 'Estilos do content wrapper' },
+            ]}
+          />
+
+          <Text style={styles.groupTitle}>DesktopPageLayout</Text>
+          <Text style={styles.description}>
+            Layout completo para páginas desktop com header, breadcrumbs, ações e menu de usuário.
+            Inclui NotificationBell, dropdown de usuário e breadcrumb navigation.
+          </Text>
+
+          <Text style={styles.groupTitle}>DesktopPageLayout Props</Text>
+          <PropsTable
+            props={[
+              { name: 'title', type: 'string', required: true, description: 'Título da página' },
+              { name: 'subtitle', type: 'string', description: 'Subtítulo opcional' },
+              { name: 'icon', type: 'string', description: 'Ícone no título' },
+              { name: 'breadcrumbs', type: 'BreadcrumbItem[]', description: 'Navegação ({label, route})' },
+              { name: 'actions', type: 'ActionButton[]', description: 'Botões de ação ({label, icon, onPress, variant})' },
+              { name: 'children', type: 'React.ReactNode', required: true, description: 'Conteúdo da página' },
+              { name: 'loading', type: 'boolean', description: 'Estado de carregamento' },
+              { name: 'loadingText', type: 'string', default: "'Carregando...'", description: 'Texto de loading' },
+              { name: 'showBackButton', type: 'boolean', description: 'Mostrar botão voltar' },
+              { name: 'onBack', type: '() => void', description: 'Callback do botão voltar' },
+              { name: 'fullWidth', type: 'boolean', default: 'false', description: 'Remover max-width' },
+              { name: 'noPadding', type: 'boolean', default: 'false', description: 'Remover padding' },
+              { name: 'headerExtra', type: 'React.ReactNode', description: 'Conteúdo extra no header' },
+              { name: 'userMenuTrigger', type: 'ReactNode | ((isOpen) => ReactNode)', description: 'Trigger do menu de usuário' },
+              { name: 'userMenuItems', type: 'UserMenuItem[]', description: 'Itens do menu ({label, icon, onPress, destructive})' },
+            ]}
+          />
+
+          <Text style={styles.groupTitle}>ErrorBoundary</Text>
+          <Text style={styles.description}>
+            Componente para capturar erros em componentes filhos e exibir UI de fallback amigável.
+            Em DEV mode, exibe detalhes do erro para debug.
+          </Text>
+
+          <Text style={styles.groupTitle}>ErrorBoundary Props</Text>
+          <PropsTable
+            props={[
+              { name: 'children', type: 'React.ReactNode', required: true, description: 'Componentes filhos a proteger' },
+              { name: 'fallback', type: 'React.ReactNode', description: 'UI customizada para erros' },
+              { name: 'onError', type: '(error, errorInfo) => void', description: 'Callback ao capturar erro' },
+              { name: 'resetKeys', type: 'unknown[]', description: 'Keys que resetam o estado de erro' },
+            ]}
+          />
+
           <CodeBlock
             code={`import {
   DesktopCard,
   DesktopCardGrid,
   DesktopLayout,
   DesktopModal,
+  DesktopPageLayout,
   SplitView,
+  ErrorBoundary,
 } from '@/design-system';
 
 <DesktopCardGrid columns={3}>
@@ -2718,6 +3066,67 @@ const columns: DataTableColumn[] = [
             </View>
           </View>
 
+          <Text style={styles.groupTitle}>MobileHeader Props</Text>
+          <PropsTable
+            props={[
+              { name: 'title', type: 'string', required: true, description: 'Título do header' },
+              { name: 'subtitle', type: 'string', description: 'Subtítulo opcional' },
+              { name: 'showBack', type: 'boolean', default: 'false', description: 'Mostrar botão de voltar' },
+              { name: 'onBack', type: '() => void', description: 'Callback do botão voltar' },
+              { name: 'rightContent', type: 'React.ReactNode', description: 'Conteúdo à direita' },
+            ]}
+          />
+
+          <Text style={styles.groupTitle}>MobileButton Props</Text>
+          <PropsTable
+            props={[
+              { name: 'title', type: 'string', required: true, description: 'Texto do botão' },
+              { name: 'variant', type: "'primary' | 'secondary' | 'danger' | 'success' | 'warning'", default: "'primary'", description: 'Variante visual' },
+              { name: 'size', type: "'small' | 'medium' | 'large'", default: "'medium'", description: 'Tamanho do botão' },
+              { name: 'loading', type: 'boolean', default: 'false', description: 'Mostra spinner' },
+              { name: 'icon', type: 'React.ReactNode', description: 'Ícone à esquerda' },
+              { name: 'fullWidth', type: 'boolean', default: 'false', description: 'Ocupar largura total' },
+              { name: 'disabled', type: 'boolean', description: 'Estado desabilitado' },
+            ]}
+          />
+
+          <Text style={styles.groupTitle}>MobileCard Props</Text>
+          <PropsTable
+            props={[
+              { name: 'children', type: 'React.ReactNode', required: true, description: 'Conteúdo do card' },
+              { name: 'title', type: 'string', description: 'Título do card' },
+              { name: 'subtitle', type: 'string', description: 'Subtítulo' },
+              { name: 'variant', type: "'default' | 'highlight' | 'bordered'", default: "'default'", description: 'Estilo visual' },
+              { name: 'noPadding', type: 'boolean', default: 'false', description: 'Remover padding' },
+              { name: 'onPress', type: '() => void', description: 'Torna o card clicável' },
+              { name: 'style', type: 'ViewStyle', description: 'Estilos customizados' },
+            ]}
+          />
+
+          <Text style={styles.groupTitle}>MobileEmptyState Props</Text>
+          <PropsTable
+            props={[
+              { name: 'title', type: 'string', required: true, description: 'Título principal' },
+              { name: 'subtitle', type: 'string', description: 'Texto secundário' },
+              { name: 'icon', type: 'string', default: "'📋'", description: 'Emoji ou ícone' },
+              { name: 'actionLabel', type: 'string', description: 'Texto do botão de ação' },
+              { name: 'onAction', type: '() => void', description: 'Callback do botão' },
+              { name: 'fullScreen', type: 'boolean', default: 'false', description: 'Ocupar tela inteira' },
+              { name: 'style', type: 'ViewStyle', description: 'Estilos customizados' },
+            ]}
+          />
+
+          <Text style={styles.groupTitle}>MobileLoading Props</Text>
+          <PropsTable
+            props={[
+              { name: 'message', type: 'string', default: "'Carregando...'", description: 'Mensagem exibida' },
+              { name: 'size', type: "'small' | 'large'", default: "'large'", description: 'Tamanho do spinner' },
+              { name: 'fullScreen', type: 'boolean', default: 'true', description: 'Ocupar tela inteira' },
+              { name: 'color', type: 'string', description: 'Cor do spinner' },
+              { name: 'style', type: 'ViewStyle', description: 'Estilos customizados' },
+            ]}
+          />
+
           <CodeBlock
             code={`import {
   MobileHeader,
@@ -2809,6 +3218,99 @@ import CameraUpload from '@/components/CameraUpload';
   onUploadSuccess={(fotoUrl) => console.log('Foto:', fotoUrl)}
   onUploadError={(error) => console.error(error)}
 />`}
+          />
+
+          <Text style={styles.groupTitle}>AddressAutocomplete Props</Text>
+          <PropsTable
+            props={[
+              { name: 'value', type: 'string', required: true, description: 'Valor atual do input' },
+              { name: 'onChangeText', type: '(text: string) => void', required: true, description: 'Callback ao digitar' },
+              { name: 'onSelectAddress', type: '(address: string, placeId: string) => void', required: true, description: 'Callback ao selecionar endereço' },
+              { name: 'placeholder', type: 'string', description: 'Texto placeholder' },
+              { name: 'label', type: 'string', description: 'Label do input' },
+              { name: 'error', type: 'string', description: 'Mensagem de erro' },
+              { name: 'disabled', type: 'boolean', default: 'false', description: 'Desabilita o componente' },
+            ]}
+          />
+
+          <Text style={styles.groupTitle}>CameraUpload Props</Text>
+          <PropsTable
+            props={[
+              { name: 'unidadeId', type: 'string', required: true, description: 'ID da unidade para upload' },
+              { name: 'rotaId', type: 'string', required: true, description: 'ID da rota para upload' },
+              { name: 'paradaId', type: 'string', required: true, description: 'ID da parada para upload' },
+              { name: 'onUploadSuccess', type: '(fotoUrl: string) => void', required: true, description: 'Callback ao completar upload' },
+              { name: 'onUploadError', type: '(error: Error) => void', description: 'Callback em caso de erro' },
+              { name: 'maxWidth', type: 'number', default: '1200', description: 'Largura máxima da imagem (px)' },
+              { name: 'quality', type: 'number', default: '0.7', description: 'Qualidade da compressão (0-1)' },
+            ]}
+          />
+
+          <Text style={styles.groupTitle}>SwipeableRow</Text>
+          <Text style={styles.description}>
+            Linha com ações deslizáveis (swipe left/right). Usado em listas de paradas.
+          </Text>
+          <View style={{ marginVertical: theme.spacing.md }}>
+            <SwipeableRow
+              leftActions={[
+                {
+                  icon: 'checkmark-circle',
+                  label: 'Concluir',
+                  color: theme.colors.success,
+                  onPress: () => showToast('success'),
+                },
+              ]}
+              rightActions={[
+                {
+                  icon: 'close-circle',
+                  label: 'Pular',
+                  color: theme.colors.warning,
+                  onPress: () => showToast('info'),
+                },
+              ]}
+            >
+              <View style={{ backgroundColor: theme.colors.white, padding: theme.spacing.lg, borderRadius: theme.borderRadius.md, borderWidth: 1, borderColor: theme.colors.gray200 }}>
+                <Text style={{ fontFamily: theme.typography.fontSansSemiBold, color: theme.colors.gray900 }}>
+                  Deslize para ver ações →
+                </Text>
+                <Text style={{ fontSize: 13, color: theme.colors.gray500, marginTop: 4 }}>
+                  Swipe left or right
+                </Text>
+              </View>
+            </SwipeableRow>
+          </View>
+
+          <Text style={styles.groupTitle}>SwipeableRow Props</Text>
+          <PropsTable
+            props={[
+              { name: 'children', type: 'ReactNode', required: true, description: 'Conteúdo da linha' },
+              { name: 'leftActions', type: 'SwipeAction[]', description: 'Ações ao deslizar para direita' },
+              { name: 'rightActions', type: 'SwipeAction[]', description: 'Ações ao deslizar para esquerda' },
+              { name: 'onSwipeableOpen', type: "(direction: 'left' | 'right') => void", description: 'Callback ao abrir swipe' },
+              { name: 'enabled', type: 'boolean', default: 'true', description: 'Habilita/desabilita o swipe' },
+            ]}
+          />
+
+          <CodeBlock
+            code={`// SwipeAction interface
+interface SwipeAction {
+  icon: IconName;
+  label: string;
+  color: string;
+  onPress: () => void | Promise<void>;
+  loading?: boolean;
+}
+
+<SwipeableRow
+  leftActions={[
+    { icon: 'checkmark-circle', label: 'Concluir', color: colors.success, onPress: handleComplete },
+  ]}
+  rightActions={[
+    { icon: 'close-circle', label: 'Pular', color: colors.warning, onPress: handleSkip },
+  ]}
+>
+  <YourContent />
+</SwipeableRow>`}
           />
         </View>
 

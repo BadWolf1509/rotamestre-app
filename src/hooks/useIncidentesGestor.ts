@@ -140,7 +140,7 @@ export function useIncidentesGestor(
   theme: Theme
 ): UseIncidentesGestorReturn {
   const { userData } = useUser();
-  const { unidadeAtiva } = useUnidadeAtiva();
+  const { unidadeAtiva, loading: unidadeLoading } = useUnidadeAtiva();
   const { toast: toastState, showToast, hideToast } = useToast();
 
   // ============================================================================
@@ -292,14 +292,14 @@ export function useIncidentesGestor(
   // ============================================================================
 
   const fetchIncidentes = useCallback(async () => {
+    // Wait for all data to be ready before fetching
+    // unidadeAtiva is set asynchronously after userData loads
+    if (unidadeLoading || !userData?.id || !unidadeAtiva) {
+      return;
+    }
+
     try {
       setLoading(true);
-
-      if (!unidadeAtiva) {
-        console.warn('⚠️ Usuário sem unidade ativa');
-        setLoading(false);
-        return;
-      }
 
       const { data: vinculacoes } = await supabase
         .from('usuario_unidades')
@@ -375,6 +375,8 @@ export function useIncidentesGestor(
     }
   }, [
     unidadeAtiva,
+    unidadeLoading,
+    userData?.id,
     userData?.unidades?.nome,
     filtroStatus,
     filtroCategoria,

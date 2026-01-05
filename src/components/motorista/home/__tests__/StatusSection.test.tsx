@@ -3,56 +3,62 @@ import React from 'react';
 
 import { StatusSection } from '../StatusSection';
 
-// Mock styles
-jest.mock('@/utils/styles', () => ({
-  StyleSheet: {
-    create: (fn: any) => {
-      const theme = {
-        colors: {
-          white: '#fff',
-          primary: '#007AFF',
-          success: '#10b981',
-          warning: '#f59e0b',
-          info: '#3b82f6',
-          gray100: '#f3f4f6',
-          gray200: '#e5e7eb',
-          gray500: '#6b7280',
-          gray700: '#374151',
-          gray900: '#111827',
-          successBg: '#d1fae5',
-          warningBg: '#fef3c7',
-          primaryLight: '#dbeafe',
-          infoBg: '#dbeafe',
-        },
-        spacing: { sm: 8, md: 12, lg: 16 },
-        typography: { sm: 14, xs: 12, '2xl': 24, fontDisplay: 'System' },
-      };
-      return typeof fn === 'function' ? fn(theme) : fn;
+// Mock styles - theme defined inside mock to avoid hoisting issues
+jest.mock('@/utils/styles', () => {
+  const mockTheme = {
+    colors: {
+      white: '#fff',
+      primary: '#007AFF',
+      success: '#10b981',
+      warning: '#f59e0b',
+      info: '#3b82f6',
+      gray100: '#f3f4f6',
+      gray200: '#e5e7eb',
+      gray500: '#6b7280',
+      gray700: '#374151',
+      gray900: '#111827',
+      successBg: '#d1fae5',
+      warningBg: '#fef3c7',
+      primaryLight: '#dbeafe',
+      infoBg: '#dbeafe',
     },
-  },
-  useUnistyles: () => ({
-    theme: {
-      colors: {
-        white: '#fff',
-        primary: '#007AFF',
-        success: '#10b981',
-        warning: '#f59e0b',
-        info: '#3b82f6',
-        gray100: '#f3f4f6',
-        gray200: '#e5e7eb',
-        gray500: '#6b7280',
-        gray700: '#374151',
-        gray900: '#111827',
-        successBg: '#d1fae5',
-        warningBg: '#fef3c7',
-        primaryLight: '#dbeafe',
-        infoBg: '#dbeafe',
+    spacing: {
+      sm: 8,
+      md: 12,
+      lg: 16,
+      '1': 4,
+      '1.5': 6,
+      '2': 8,
+      '2.5': 10,
+    },
+    borderRadius: {
+      xs: 4,
+      sm: 8,
+      md: 10,
+      lg: 12,
+      xl: 16,
+      full: 9999,
+    },
+    typography: {
+      sm: 14,
+      xs: 12,
+      '2xl': 24,
+      fontSize: {
+        xs: 12,
+        sm: 14,
       },
-      spacing: { sm: 8, md: 12, lg: 16 },
-      typography: { sm: 14, xs: 12, '2xl': 24, fontDisplay: 'System' },
+      fontDisplay: 'System',
+      fontSansSemiBold: 'System',
+      fontSansMedium: 'System',
     },
-  }),
-}));
+  };
+  return {
+    StyleSheet: {
+      create: (fn: any) => (typeof fn === 'function' ? fn(mockTheme) : fn),
+    },
+    useUnistyles: () => ({ theme: mockTheme }),
+  };
+});
 
 // Mock ConnectivityIndicator
 jest.mock('@/components/ConnectivityBanner', () => ({

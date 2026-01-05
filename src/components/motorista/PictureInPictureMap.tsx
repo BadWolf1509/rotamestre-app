@@ -274,7 +274,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     position: 'absolute',
     backgroundColor: theme.colors.white,
-    borderRadius: 12,
+    borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 4 },
@@ -288,15 +288,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   controls: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: theme.spacing['2'],
+    right: theme.spacing['2'],
     flexDirection: 'row',
-    gap: 8,
+    gap: theme.spacing['2'],
   },
   controlButton: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: theme.borderRadius.full,
     backgroundColor: withOpacity(theme.colors.black, 0.6),
     justifyContent: 'center',
     alignItems: 'center',
@@ -326,7 +326,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   destinationMarker: {
     backgroundColor: theme.colors.white,
     borderRadius: 15,
-    padding: 4,
+    padding: theme.spacing['1'],
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,

@@ -3,6 +3,26 @@
  *
  * Funções utilitárias para construir conteúdo de InfoWindows (web) e Callouts (mobile).
  * Centralizadas para manter consistência visual e facilitar manutenção.
+ *
+ * Design Token Mappings (for inline CSS values):
+ * -----------------------------------------------
+ * SPACING:
+ *   2px  → spacing['0.5']
+ *   4px  → spacing['1'] / spacing.xs
+ *   6px  → spacing['1.5']
+ *   8px  → spacing['2'] / spacing.sm
+ *   10px → spacing['2.5']
+ *   12px → spacing['3'] / spacing.md
+ *   16px → spacing['4'] / spacing.lg
+ *   20px → spacing['5'] / spacing.xl
+ *   24px → spacing['6'] / spacing.xxl
+ *
+ * BORDER-RADIUS:
+ *   4px  → borderRadius.xs
+ *   5px  → ~borderRadius.xs (non-standard, consider 4px)
+ *   8px  → borderRadius.sm
+ *   10px → borderRadius.md
+ *   12px → borderRadius.lg
  */
 
 import { escapeHtml } from '@/lib/utils';
@@ -69,9 +89,11 @@ export function buildParadaHeader(parada: ParadaInfo): HTMLElement {
   const statusColor = getStatusColor(parada.status);
 
   const container = document.createElement('div');
+  // gap: 8px → spacing['2'] / spacing.sm
   container.style.cssText = 'display:flex;align-items:center;gap:8px;font-family:sans-serif;';
 
   // Badge com número da parada (cor baseada no status)
+  // border-radius: 50% → borderRadius.full (circular)
   const badge = document.createElement('div');
   badge.style.cssText = `
     width:24px;
@@ -108,6 +130,13 @@ export function buildInfoContent(parada: ParadaInfo): string {
   const statusColor = getStatusColor(parada.status);
   const { text, background: _background } = INFO_WINDOW_COLORS;
 
+  // Spacing mappings:
+  // margin-bottom: 8px → spacing['2'] / spacing.sm
+  // margin-bottom: 6px → spacing['1.5']
+  // margin-bottom: 4px → spacing['1'] / spacing.xs
+  // gap: 6px → spacing['1.5']
+  // padding: 4px 8px → spacing['1'] spacing['2']
+  // border-radius: 12px → borderRadius.lg
   return `
     <style>
       ${INFO_WINDOW_ANIMATION_CSS}
@@ -142,8 +171,10 @@ export function buildCheckpointHeader(isPartida: boolean): HTMLElement {
     : 'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z'; // Home
 
   const container = document.createElement('div');
+  // gap: 8px → spacing['2'] / spacing.sm
   container.style.cssText = 'display:flex;align-items:center;gap:8px;font-family:sans-serif;';
 
+  // border-radius: 5px → ~borderRadius.xs (non-standard, consider 4px for consistency)
   const iconWrapper = document.createElement('div');
   iconWrapper.style.cssText = `
     width:24px;
@@ -179,6 +210,12 @@ export function buildCheckpointHeader(isPartida: boolean): HTMLElement {
 export function buildCheckpointInfoContent(parada: ParadaInfo, unidadeNome?: string): string {
   const { text, background } = INFO_WINDOW_COLORS;
 
+  // Spacing mappings:
+  // margin-bottom: 4px → spacing['1'] / spacing.xs
+  // margin-bottom: 10px → spacing['2.5']
+  // padding: 8px 12px → spacing['2'] spacing['3']
+  // gap: 6px → spacing['1.5']
+  // border-radius: 8px → borderRadius.sm
   return `
     <style>
       ${INFO_WINDOW_ANIMATION_CSS}
@@ -230,9 +267,11 @@ export function buildCheckpointInfoContent(parada: ParadaInfo, unidadeNome?: str
  */
 export function buildMotoristaHeader(motoristaNome: string, markerColor: string): HTMLElement {
   const container = document.createElement('div');
+  // gap: 8px → spacing['2'] / spacing.sm
   container.style.cssText = 'display:flex;align-items:center;gap:8px;font-family:sans-serif;';
 
   // Ícone de van de entrega em círculo colorido
+  // border-radius: 50% → borderRadius.full (circular)
   const iconWrapper = document.createElement('div');
   iconWrapper.style.cssText = `
     width:24px;
@@ -273,6 +312,11 @@ export function buildMotoristaInfoContent(
 ): string {
   const speedText = speed !== null ? `${Math.round(speed)} km/h` : 'N/A';
 
+  // Spacing mappings:
+  // gap: 6px → spacing['1.5']
+  // margin-bottom: 6px → spacing['1.5']
+  // padding: 4px 8px → spacing['1'] spacing['2']
+  // border-radius: 12px → borderRadius.lg
   return `
     <style>
       ${INFO_WINDOW_ANIMATION_CSS}

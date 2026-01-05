@@ -237,9 +237,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-around',
-    paddingHorizontal: 8,
-    paddingVertical: 12,
-    borderRadius: 16,
+    paddingHorizontal: theme.spacing['2'],
+    paddingVertical: theme.spacing['3'],
+    borderRadius: theme.borderRadius.xl,
     borderWidth: 1,
     borderColor: theme.colors.gray200,
     backgroundColor: theme.colors.white,
@@ -254,8 +254,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     minHeight: 64, // Mínimo 48x48 + padding
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+    paddingVertical: theme.spacing['2'],
+    paddingHorizontal: theme.spacing['2'],
   },
   iconContainer: {
     width: 48,
@@ -264,7 +264,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: `${theme.colors.primary}10`,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: theme.spacing['1'],
   },
   actionLabel: {
     fontSize: theme.typography.xs,
@@ -278,7 +278,7 @@ const fabStyles = StyleSheet.create((theme: Theme) => ({
   fab: {
     position: 'absolute',
     // bottom é definido dinamicamente via prop tabBarHeight
-    right: 20,
+    right: theme.spacing['5'],
     width: 64,
     height: 64,
     borderRadius: 32,
@@ -292,19 +292,19 @@ const fabStyles = StyleSheet.create((theme: Theme) => ({
   },
   fabLabel: {
     fontSize: theme.typography.fontSize.xs,
-    marginTop: 2,
+    marginTop: theme.spacing['0.5'],
     fontFamily: theme.typography.fontSansSemiBold,
   },
 }));
 
-const bottomBarStyles = StyleSheet.create((_theme: Theme) => ({
+const bottomBarStyles = StyleSheet.create((theme: Theme) => ({
   container: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingHorizontal: theme.spacing['4'],
+    paddingTop: theme.spacing['2'],
     backgroundColor: 'transparent',
   },
 }));

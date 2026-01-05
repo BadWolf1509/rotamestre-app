@@ -179,28 +179,28 @@ export function ProgressBar({
 
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: theme.spacing['4'],
+    paddingVertical: theme.spacing['4'],
     backgroundColor: theme.colors.white,
-    marginHorizontal: 16,
-    marginVertical: 16, // Unificado para 16px (8pt grid system)
-    borderRadius: 16, // Aumentado de 12 para 16 (consistência)
+    marginHorizontal: theme.spacing['4'],
+    marginVertical: theme.spacing['4'],
+    borderRadius: theme.borderRadius.xl,
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1, // Unificado com MainCard
-    shadowRadius: 8, // Unificado com MainCard
-    elevation: 3, // Unificado com MainCard
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: theme.spacing['3'],
   },
   labelContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: theme.spacing['1.5'],
   },
   label: {
     fontSize: theme.typography.sm,
@@ -252,12 +252,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
   stats: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 16,
+    marginTop: theme.spacing['4'],
   },
   stat: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: theme.spacing['2'],
   },
   statIcon: {
     width: 28,
@@ -272,16 +272,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   statLabel: {
     fontSize: theme.typography.xs,
-    color: theme.colors.gray600, // Mais escuro para melhor contraste (5.74:1)
+    color: theme.colors.gray600,
     marginTop: -2,
   },
   estimatedContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    marginTop: 12,
-    paddingTop: 12,
+    gap: theme.spacing['1'],
+    marginTop: theme.spacing['3'],
+    paddingTop: theme.spacing['3'],
     borderTopWidth: 1,
     borderTopColor: theme.colors.gray100,
   },

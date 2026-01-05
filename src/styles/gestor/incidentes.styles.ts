@@ -34,21 +34,12 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  statusBadge: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.sm,
-    alignSelf: 'flex-start',
-  },
-  statusText: {
-    fontSize: theme.typography.xs,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
 
   // Mobile
   mobileContainer: {
     flex: 1,
     backgroundColor: theme.colors.gray50,
+    padding: theme.spacing.md,
   },
   mobileHeader: {
     flexDirection: 'row',
@@ -142,7 +133,7 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.xs,
   },
   detalhesLabelCompact: {
-    fontSize: theme.typography.fontSize.sm,
+    fontSize: theme.typography.sm,
     marginBottom: theme.spacing.xs,
   },
   detalhesValue: {
@@ -150,19 +141,19 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray900,
   },
   detalhesValueCompact: {
-    fontSize: theme.typography.fontSize.sm,
+    fontSize: theme.typography.sm,
   },
   detalhesDescricao: {
     fontSize: theme.typography.base,
     color: theme.colors.gray900,
-    lineHeight: 24,
+    lineHeight: theme.typography.base * 1.5,
     backgroundColor: theme.colors.gray50,
     padding: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
   },
   detalhesDescricaoCompact: {
-    fontSize: theme.typography.fontSize.sm,
-    lineHeight: 20,
+    fontSize: theme.typography.sm,
+    lineHeight: theme.typography.sm * 1.43,
     padding: theme.spacing.sm,
   },
 
@@ -286,6 +277,15 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.sm,
     color: theme.colors.gray600,
   },
+  // Empty state para DataTable
+  emptyStateContainer: {
+    padding: theme.spacing['2xl'],
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    fontSize: theme.typography.base,
+    color: theme.colors.gray600,
+  },
 
   // Estatísticas por motorista
   motoristaStatsContainer: {
@@ -321,9 +321,9 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray900,
   },
   motoristaStats: {
-    fontSize: theme.typography.fontSize.sm,
+    fontSize: theme.typography.sm,
     color: theme.colors.gray500,
-    marginTop: 2,
+    marginTop: theme.spacing['0.5'],
   },
 
   // Link para histórico do motorista
@@ -344,7 +344,7 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.primary,
   },
   verHistoricoLinkTextCompact: {
-    fontSize: theme.typography.fontSize.sm,
+    fontSize: theme.typography.sm,
   },
 
   // Modal de histórico

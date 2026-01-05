@@ -224,7 +224,7 @@ export function DesktopModal({
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
+      gap: theme.spacing['1.5'],
       borderRadius: theme.borderRadius.sm,
       fontFamily: theme.typography.fontSansSemiBold,
       cursor: isDisabled ? 'not-allowed' : 'pointer',
@@ -323,7 +323,7 @@ export function DesktopModal({
           <ActivityIndicator
             size="small"
             color={isPrimary ? theme.colors.white : theme.colors.gray600}
-            style={{ marginRight: 6 }}
+            style={{ marginRight: theme.spacing['1.5'] }}
           />
         )}
         <Text
@@ -438,8 +438,8 @@ export function DesktopModal({
                 onClick={onClose}
                 aria-label="Fechar modal"
                 style={{
-                  padding: isDesktop ? 4 : theme.spacing.sm,
-                  marginRight: isDesktop ? -4 : -theme.spacing.sm,
+                  padding: isDesktop ? theme.spacing['1'] : theme.spacing.sm,
+                  marginRight: isDesktop ? -theme.spacing['1'] : -theme.spacing.sm,
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
@@ -603,7 +603,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
       }
       .modal-scroll::-webkit-scrollbar-thumb {
         background: transparent;
-        border-radius: 4px;
+        border-radius: ${defaultTheme.borderRadius.xs}px;
       }
       .modal-scroll:hover::-webkit-scrollbar-thumb {
         background: ${scrollbarThumb};

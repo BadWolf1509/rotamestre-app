@@ -174,7 +174,7 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
         <div
           style={{
             backgroundColor: theme.colors.white,
-            borderRadius: 16,
+            borderRadius: theme.borderRadius.xl,
             boxShadow: boxShadow(0, 25, 50, -12, theme.colors.black, 0.25),
             overflow: 'hidden',
           }}
@@ -186,10 +186,10 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              paddingTop: isDesktop ? 16 : 24,
-              paddingLeft: isDesktop ? 16 : 24,
-              paddingRight: isDesktop ? 16 : 24,
-              paddingBottom: isDesktop ? 12 : 16,
+              paddingTop: isDesktop ? theme.spacing['4'] : theme.spacing['6'],
+              paddingLeft: isDesktop ? theme.spacing['4'] : theme.spacing['6'],
+              paddingRight: isDesktop ? theme.spacing['4'] : theme.spacing['6'],
+              paddingBottom: isDesktop ? theme.spacing['3'] : theme.spacing['4'],
               borderBottom: `1px solid ${theme.colors.border}`,
             }}
           >
@@ -202,7 +202,7 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
-                marginBottom: isDesktop ? 10 : 12,
+                marginBottom: isDesktop ? theme.spacing['2.5'] : theme.spacing['3'],
               }}
             >
               <Ionicons name="help-circle" size={isDesktop ? 26 : 32} color={theme.colors.primary} />
@@ -214,7 +214,7 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                 fontSize: isDesktop ? 18 : 20,
                 fontWeight: 700,
                 color: theme.colors.gray900,
-                marginBottom: 4,
+                marginBottom: theme.spacing['1'],
               }}
             >
               Central de Ajuda
@@ -225,7 +225,7 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
           </div>
 
           {/* Contact Options */}
-          <div style={{ padding: isDesktop ? 12 : 16 }}>
+          <div style={{ padding: isDesktop ? theme.spacing['3'] : theme.spacing['4'] }}>
             <button
               className="support-contact-option"
               onClick={handleWhatsApp}
@@ -233,10 +233,10 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                 display: 'flex',
                 flexDirection: 'row',
                 alignItems: 'center',
-                padding: isDesktop ? 12 : 16,
+                padding: isDesktop ? theme.spacing['3'] : theme.spacing['4'],
                 backgroundColor: theme.colors.gray50,
-                borderRadius: isDesktop ? 10 : 12,
-                marginBottom: isDesktop ? 10 : 12,
+                borderRadius: isDesktop ? theme.borderRadius.md : theme.borderRadius.lg,
+                marginBottom: isDesktop ? theme.spacing['2.5'] : theme.spacing['3'],
                 border: 'none',
                 width: '100%',
                 cursor: 'pointer',
@@ -259,13 +259,13 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'center',
-                  marginRight: isDesktop ? 10 : 12,
+                  marginRight: isDesktop ? theme.spacing['2.5'] : theme.spacing['3'],
                 }}
               >
                 <Ionicons name="logo-whatsapp" size={isDesktop ? 20 : 24} color={theme.colors.white} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: isDesktop ? 11 : 12, color: theme.colors.gray500, marginBottom: 2 }}>WhatsApp</div>
+                <div style={{ fontSize: isDesktop ? 11 : 12, color: theme.colors.gray500, marginBottom: theme.spacing['0.5'] }}>WhatsApp</div>
                 <div style={{ fontSize: isDesktop ? 13 : 14, fontWeight: 600, color: theme.colors.gray900 }}>(83) 98715-6206</div>
               </div>
               <Ionicons name="chevron-forward" size={isDesktop ? 18 : 20} color={theme.colors.gray400} />
@@ -278,10 +278,10 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                 display: 'flex',
                 flexDirection: 'row',
                 alignItems: 'center',
-                padding: isDesktop ? 12 : 16,
+                padding: isDesktop ? theme.spacing['3'] : theme.spacing['4'],
                 backgroundColor: theme.colors.gray50,
-                borderRadius: isDesktop ? 10 : 12,
-                marginBottom: isDesktop ? 10 : 12,
+                borderRadius: isDesktop ? theme.borderRadius.md : theme.borderRadius.lg,
+                marginBottom: isDesktop ? theme.spacing['2.5'] : theme.spacing['3'],
                 border: 'none',
                 width: '100%',
                 cursor: 'pointer',
@@ -304,13 +304,13 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'center',
-                  marginRight: isDesktop ? 10 : 12,
+                  marginRight: isDesktop ? theme.spacing['2.5'] : theme.spacing['3'],
                 }}
               >
                 <Ionicons name="call" size={isDesktop ? 20 : 24} color={theme.colors.white} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: isDesktop ? 11 : 12, color: theme.colors.gray500, marginBottom: 2 }}>Telefone</div>
+                <div style={{ fontSize: isDesktop ? 11 : 12, color: theme.colors.gray500, marginBottom: theme.spacing['0.5'] }}>Telefone</div>
                 <div style={{ fontSize: isDesktop ? 13 : 14, fontWeight: 600, color: theme.colors.gray900 }}>(83) 98715-6206</div>
               </div>
               <Ionicons name="chevron-forward" size={isDesktop ? 18 : 20} color={theme.colors.gray400} />
@@ -323,9 +323,9 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                 display: 'flex',
                 flexDirection: 'row',
                 alignItems: 'center',
-                padding: isDesktop ? 12 : 16,
+                padding: isDesktop ? theme.spacing['3'] : theme.spacing['4'],
                 backgroundColor: theme.colors.gray50,
-                borderRadius: isDesktop ? 10 : 12,
+                borderRadius: isDesktop ? theme.borderRadius.md : theme.borderRadius.lg,
                 border: 'none',
                 width: '100%',
                 cursor: 'pointer',
@@ -348,13 +348,13 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'center',
-                  marginRight: isDesktop ? 10 : 12,
+                  marginRight: isDesktop ? theme.spacing['2.5'] : theme.spacing['3'],
                 }}
               >
                 <Ionicons name="mail" size={isDesktop ? 20 : 24} color={theme.colors.white} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: isDesktop ? 11 : 12, color: theme.colors.gray500, marginBottom: 2 }}>E-mail</div>
+                <div style={{ fontSize: isDesktop ? 11 : 12, color: theme.colors.gray500, marginBottom: theme.spacing['0.5'] }}>E-mail</div>
                 <div style={{ fontSize: isDesktop ? 13 : 14, fontWeight: 600, color: theme.colors.gray900 }}>contato@rotamestre.tec.br</div>
               </div>
               <Ionicons name="chevron-forward" size={isDesktop ? 18 : 20} color={theme.colors.gray400} />
@@ -362,15 +362,15 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
           </div>
 
           {/* Footer */}
-          <div style={{ padding: isDesktop ? 12 : 16, borderTop: `1px solid ${theme.colors.border}` }}>
+          <div style={{ padding: isDesktop ? theme.spacing['3'] : theme.spacing['4'], borderTop: `1px solid ${theme.colors.border}` }}>
             <button
               onClick={onClose}
               style={{
                 width: '100%',
                 backgroundColor: theme.colors.gray100,
-                paddingTop: isDesktop ? 10 : 12,
-                paddingBottom: isDesktop ? 10 : 12,
-                borderRadius: 8,
+                paddingTop: isDesktop ? theme.spacing['2.5'] : theme.spacing['3'],
+                paddingBottom: isDesktop ? theme.spacing['2.5'] : theme.spacing['3'],
+                borderRadius: theme.borderRadius.sm,
                 border: 'none',
                 cursor: 'pointer',
                 fontSize: isDesktop ? 14 : 16,

@@ -414,7 +414,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   labelCompact: {
     fontSize: theme.desktop.input.fontSize,
-    marginBottom: 4,
+    marginBottom: theme.spacing['1'],
   },
   labelInRow: {
     fontSize: theme.typography.sm,
@@ -433,10 +433,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
   validatedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: theme.spacing['1'],
     backgroundColor: `${theme.colors.success}15`,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: theme.spacing['2'],
+    paddingVertical: theme.spacing['0.5'],
     borderRadius: theme.borderRadius.sm,
   },
   validatedText: {
@@ -445,7 +445,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.success,
   },
   validatedTextCompact: {
-    fontSize: 11,
+    fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
   },
   input: {
     backgroundColor: theme.colors.gray50,
@@ -495,8 +495,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.white,
   },
   tipoButtonCompact: {
-    paddingVertical: 6,
-    gap: 4,
+    paddingVertical: theme.spacing['1.5'],
+    gap: theme.spacing['1'],
   },
   tipoButtonActive: {
     backgroundColor: theme.colors.info,
@@ -566,9 +566,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.gray200,
   },
   positionOptionCompact: {
-    paddingVertical: 6,
+    paddingVertical: theme.spacing['1.5'],
     paddingHorizontal: theme.desktop.section.padding,
-    marginBottom: 4,
+    marginBottom: theme.spacing['1'],
   },
   positionOptionSelected: {
     backgroundColor: `${theme.colors.primary}10`,
@@ -588,7 +588,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     width: 16,
     height: 16,
     borderRadius: 8,
-    marginRight: 6,
+    marginRight: theme.spacing['1.5'],
   },
   radioCircleSelected: {
     borderColor: theme.colors.primary,
@@ -617,15 +617,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
     width: 20,
     height: 20,
     borderRadius: 10,
-    marginRight: 6,
+    marginRight: theme.spacing['1.5'],
   },
   orderText: {
     color: theme.colors.white,
-    fontSize: 11,
+    fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
     fontFamily: theme.typography.fontSansBold,
   },
   orderTextCompact: {
-    fontSize: 10,
+    fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
   },
   positionText: {
     flex: 1,

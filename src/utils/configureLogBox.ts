@@ -57,6 +57,12 @@ export function configureLogBox() {
         return;
       }
 
+      // Suppress React Native Web deprecation warnings from dependencies
+      // These are internal to react-native-web and don't affect functionality
+      if (message.includes('pointerEvents') && message.includes('deprecated')) {
+        return;
+      }
+
       originalWarn.apply(console, args);
     };
 

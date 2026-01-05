@@ -144,31 +144,27 @@ export function MilestoneCard({ data, compact = false }: MilestoneCardProps) {
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     backgroundColor: theme.colors.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: theme.colors.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing['4'],
+    marginBottom: theme.spacing['3'],
+    ...theme.shadows.card, // Standardized shadow preset
   },
   containerCompact: {
-    padding: 12,
-    marginBottom: 8,
+    padding: theme.spacing['3'],
+    marginBottom: theme.spacing['2'],
   },
   loadingContainer: {
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: theme.spacing['2'],
   },
   loadingText: {
-    fontSize: 13,
+    fontSize: theme.typography.sm, // 14px
     color: theme.colors.gray500,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: theme.spacing['2.5'],
   },
   iconContainer: {
     width: 36,
@@ -176,7 +172,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: theme.spacing['2.5'],
   },
   headerText: {
     flex: 1,
@@ -189,12 +185,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
   subtitle: {
     fontSize: theme.typography.xs,
     color: theme.colors.gray600,
-    marginTop: 2,
+    marginTop: theme.spacing['0.5'],
   },
   badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: theme.spacing['2.5'],
+    paddingVertical: theme.spacing['1'],
+    borderRadius: theme.borderRadius.lg,
   },
   badgeText: {
     fontSize: theme.typography.xs,
@@ -203,18 +199,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
   progressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: theme.spacing['2.5'],
   },
   progressBar: {
     flex: 1,
     height: 8,
     backgroundColor: theme.colors.gray200,
-    borderRadius: 4,
+    borderRadius: theme.borderRadius.xs,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: theme.borderRadius.xs,
   },
   progressText: {
     fontSize: theme.typography.xs,
@@ -226,15 +222,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
   incentiveContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 10,
-    paddingTop: 10,
+    gap: theme.spacing['1.5'],
+    marginTop: theme.spacing['2.5'],
+    paddingTop: theme.spacing['2.5'],
     borderTopWidth: 1,
     borderTopColor: theme.colors.gray100,
   },
   incentiveContainerCompact: {
-    marginTop: 8,
-    paddingTop: 8,
+    marginTop: theme.spacing['2'],
+    paddingTop: theme.spacing['2'],
   },
   incentiveText: {
     fontSize: theme.typography.xs,
@@ -244,15 +240,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 10,
-    paddingTop: 10,
+    marginTop: theme.spacing['2.5'],
+    paddingTop: theme.spacing['2.5'],
     borderTopWidth: 1,
     borderTopColor: theme.colors.gray100,
   },
   statItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: theme.spacing['1'],
   },
   statText: {
     fontSize: theme.typography.xs,

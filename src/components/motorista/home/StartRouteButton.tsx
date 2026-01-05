@@ -155,17 +155,17 @@ export function StartRouteButton({
 
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: theme.spacing['4'],
+    paddingVertical: theme.spacing['3'],
   },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    gap: theme.spacing['3'],
+    paddingVertical: theme.spacing['4'],
+    paddingHorizontal: theme.spacing['6'],
+    borderRadius: theme.borderRadius.lg,
     minHeight: 56,
     // Shadow
     shadowColor: theme.colors.black,
@@ -190,11 +190,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
   subtitle: {
     fontSize: theme.typography.sm,
     color: withOpacity(theme.colors.white, 0.85),
-    marginTop: 2,
+    marginTop: theme.spacing['0.5'],
   },
   errorText: {
     fontSize: theme.typography.xs,
     color: withOpacity(theme.colors.white, 0.7),
-    marginTop: 2,
+    marginTop: theme.spacing['0.5'],
   },
 }));

@@ -7,6 +7,10 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 
+import {
+  ROUTE_STATUS_CONFIG,
+  type RouteStatusType,
+} from '@/constants/statusConfig';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import type { Rota, ResumoParadas } from './types';
@@ -20,14 +24,6 @@ interface RouteInfoHeaderCompactProps {
   onAddStopPress?: () => void;
   onReorderPress?: () => void;
 }
-
-const STATUS_CONFIG = {
-  pendente: { label: 'Pendente', color: 'warning' as const, icon: 'time' as const },
-  em_andamento: { label: 'Em rota', color: 'info' as const, icon: 'navigate' as const },
-  concluida: { label: 'Concluída', color: 'success' as const, icon: 'checkmark-circle' as const },
-  cancelada: { label: 'Cancelada', color: 'error' as const, icon: 'close-circle' as const },
-  nao_executada: { label: 'Não Executada', color: 'warning' as const, icon: 'alert-circle' as const },
-};
 
 function formatTempoTotal(minutos: number) {
   if (minutos <= 0) return '-';
@@ -49,11 +45,11 @@ export function RouteInfoHeaderCompact({
   const { theme } = useUnistyles();
 
   const statusConfig = useMemo(() => {
-    const status = rota.status as keyof typeof STATUS_CONFIG;
-    return STATUS_CONFIG[status] || STATUS_CONFIG.pendente;
+    const status = rota.status as RouteStatusType;
+    return ROUTE_STATUS_CONFIG[status] || ROUTE_STATUS_CONFIG.pendente;
   }, [rota.status]);
 
-  const statusColor = theme.colors[statusConfig.color];
+  const statusColor = theme.colors[statusConfig.colorKey];
   const canCancel = rota.status !== 'cancelada' && rota.status !== 'concluida' && rota.status !== 'nao_executada';
   const canReactivate = rota.status === 'nao_executada';
   const canChangeDriver = rota.status === 'pendente';
@@ -201,8 +197,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   changeDriverButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    paddingVertical: 4,
+    gap: theme.spacing['0.5'],
+    paddingVertical: theme.spacing['1'],
     paddingHorizontal: theme.spacing.xs + 2,
     borderRadius: theme.borderRadius.full,
     borderWidth: 1,
@@ -223,8 +219,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
+    gap: theme.spacing['1'],
+    paddingVertical: theme.spacing['1'],
     paddingHorizontal: theme.spacing.sm + 2,
     borderRadius: theme.borderRadius.full,
     borderWidth: 1,
@@ -241,7 +237,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   metric: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: theme.spacing['1'],
   },
   metricValue: {
     fontSize: theme.typography.fontSize.sm,
@@ -258,8 +254,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   addStopButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 6,
+    gap: theme.spacing['1'],
+    paddingVertical: theme.spacing['1.5'],
     paddingHorizontal: theme.spacing.sm + 2,
     borderRadius: theme.borderRadius.full,
     borderWidth: 1,
@@ -275,8 +271,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   reorderButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 6,
+    gap: theme.spacing['1'],
+    paddingVertical: theme.spacing['1.5'],
     paddingHorizontal: theme.spacing.sm + 2,
     borderRadius: theme.borderRadius.full,
     borderWidth: 1,
@@ -292,8 +288,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   cancelButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 6,
+    gap: theme.spacing['1'],
+    paddingVertical: theme.spacing['1.5'],
     paddingHorizontal: theme.spacing.sm + 2,
     borderRadius: theme.borderRadius.full,
     borderWidth: 1,
@@ -308,8 +304,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   reactivateButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 6,
+    gap: theme.spacing['1'],
+    paddingVertical: theme.spacing['1.5'],
     paddingHorizontal: theme.spacing.sm + 2,
     borderRadius: theme.borderRadius.full,
     borderWidth: 1,

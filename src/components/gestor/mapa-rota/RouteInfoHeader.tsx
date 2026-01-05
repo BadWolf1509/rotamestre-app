@@ -123,7 +123,7 @@ export function RouteInfoHeader({ rota, resumoParadas, onCancelPress }: RouteInf
         {/* Info Chips */}
         <View style={styles.infoHeaderChipGroup}>
           {/* Status */}
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', gap: theme.spacing['2'], alignItems: 'center' }}>
             <Text style={styles.infoChipLabel}>Status:</Text>
             <View
               style={[styles.statusBadge, styles.statusBadgeDesktop, statusBadgeVariant.container]}
@@ -138,7 +138,7 @@ export function RouteInfoHeader({ rota, resumoParadas, onCancelPress }: RouteInf
 
           {/* Distância */}
           {rota.distancia_total && (
-            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', gap: theme.spacing['2'], alignItems: 'center' }}>
               <Text style={styles.infoChipLabel}>Distancia Total:</Text>
               <Text style={styles.infoChipValue}>{rota.distancia_total.toFixed(1)} km</Text>
             </View>
@@ -146,14 +146,14 @@ export function RouteInfoHeader({ rota, resumoParadas, onCancelPress }: RouteInf
 
           {/* Tempo Estimado */}
           {rota.tempo_total && (
-            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', gap: theme.spacing['2'], alignItems: 'center' }}>
               <Text style={styles.infoChipLabel}>Tempo Estimado:</Text>
               <Text style={styles.infoChipValue}>{formatTempoTotal(rota.tempo_total)}</Text>
             </View>
           )}
 
           {/* Paradas */}
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', gap: theme.spacing['2'], alignItems: 'center' }}>
             <Text style={styles.infoChipLabel}>Paradas:</Text>
             <Text style={styles.infoChipValue}>
               {resumoParadas.total > 0

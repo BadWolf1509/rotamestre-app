@@ -140,12 +140,12 @@ export function MiniMap({
 
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
-    marginHorizontal: 16,
+    marginHorizontal: theme.spacing['4'],
     marginTop: 0,
-    marginBottom: 8,
+    marginBottom: theme.spacing['2'],
   },
   mapContainer: {
-    borderRadius: 12,
+    borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: theme.colors.gray200,
@@ -160,8 +160,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    gap: 10,
+    paddingHorizontal: theme.spacing['4'],
+    gap: theme.spacing['2.5'],
   },
   compactText: {
     flex: 1,
@@ -170,17 +170,17 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray700,
   },
   expandChevron: {
-    padding: 4,
+    padding: theme.spacing['1'],
   },
   // Layout expandido
   expandedContent: {
     flex: 1,
-    padding: 12,
+    padding: theme.spacing['3'],
   },
   routeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: theme.spacing['2.5'],
   },
   routeHeaderText: {
     flex: 1,
@@ -191,16 +191,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray900,
   },
   routeSubtitle: {
-    fontSize: 11,
+    fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
     color: theme.colors.gray500,
     marginTop: 1,
   },
   collapseButton: {
-    padding: 4,
+    padding: theme.spacing['1'],
   },
   stopsPreview: {
-    marginTop: 10,
-    paddingTop: 10,
+    marginTop: theme.spacing['2.5'],
+    paddingTop: theme.spacing['2.5'],
     borderTopWidth: 1,
     borderTopColor: theme.colors.gray100,
   },
@@ -216,11 +216,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.gray500,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
+    marginRight: theme.spacing['2'],
   },
   stopNumber: {
     color: theme.colors.white,
-    fontSize: 10,
+    fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
     fontWeight: '700',
   },
   stopAddress: {
@@ -229,7 +229,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray700,
   },
   moreStops: {
-    fontSize: 11,
+    fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
     color: theme.colors.gray500,
     fontStyle: 'italic',
     marginTop: 2,

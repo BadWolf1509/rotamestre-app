@@ -526,7 +526,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   unitBadge: {
     backgroundColor: `${theme.colors.primary}10`,
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: 6,
+    paddingVertical: theme.spacing['1.5'],
     borderRadius: theme.borderRadius.md,
     marginTop: theme.spacing.sm,
   },
@@ -538,7 +538,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   principalBadge: {
     backgroundColor: `${theme.colors.secondary}20`,
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: 6,
+    paddingVertical: theme.spacing['1.5'],
     borderRadius: theme.borderRadius.md,
     marginTop: theme.spacing.sm,
   },
@@ -596,7 +596,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderTopWidth: 1,
     borderTopColor: theme.colors.gray200,
     marginTop: 'auto',
-    gap: 4,
+    gap: theme.spacing['1'],
     backgroundColor: theme.colors.gray50,
   },
   footerItem: {
