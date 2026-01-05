@@ -29,12 +29,28 @@ function loadTsModule(filePath, baseRequire) {
   return sandbox.module.exports;
 }
 
+// Mock for react-native and related packages that contain Flow syntax
+// These are not needed for token extraction - we only need the theme values
+const REACT_NATIVE_MOCK = {
+  Platform: { OS: 'web', select: (obj) => obj.default || obj.web || obj.ios },
+  StyleSheet: { create: (styles) => styles, hairlineWidth: 1 },
+  Dimensions: { get: () => ({ width: 375, height: 812 }) },
+  PixelRatio: { get: () => 2, roundToNearestPixel: (v) => v },
+};
+
 function loadThemes() {
   const themeRequire = createRequire(THEME_PATH);
   const sandboxRequire = (modulePath) => {
     if (modulePath === './color') {
       const colorPath = path.join(path.dirname(THEME_PATH), 'color.ts');
       return loadTsModule(colorPath, themeRequire);
+    }
+    // Mock react-native and related packages to avoid Flow syntax errors
+    if (modulePath === 'react-native' || modulePath.startsWith('react-native/')) {
+      return REACT_NATIVE_MOCK;
+    }
+    if (modulePath === 'react-native-unistyles') {
+      return { createStyleSheet: (fn) => fn, useStyles: () => ({}) };
     }
     return themeRequire(modulePath);
   };

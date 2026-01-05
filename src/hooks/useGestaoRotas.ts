@@ -23,6 +23,13 @@ import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { formatDateBR, formatDateTimeBR } from '@/lib/dateUtils';
+import {
+  ROTA_STATUS_LABELS,
+  FILTRO_STATUS_OPTIONS as FILTRO_OPTIONS,
+  getRotaStatusLabel,
+  type RotaStatus,
+  type FiltroStatus,
+} from '@/lib/statusLabels';
 import { supabase } from '@/lib/supabase';
 
 // ============================================
@@ -40,8 +47,8 @@ interface CachedRotas {
 // TYPES
 // ============================================
 
-export type RotaStatus = 'pendente' | 'em_andamento' | 'concluida' | 'cancelada' | 'nao_executada';
-export type FiltroStatus = 'todas' | RotaStatus;
+// Re-export types for backwards compatibility
+export type { RotaStatus, FiltroStatus };
 
 export interface RotaHistorico {
   id: string;
@@ -57,25 +64,11 @@ export interface RotaHistorico {
 }
 
 // ============================================
-// CONSTANTS
+// CONSTANTS (re-exports for backwards compatibility)
 // ============================================
 
-export const STATUS_LABELS: Record<RotaStatus, string> = {
-  pendente: 'Pendente',
-  em_andamento: 'Em Andamento',
-  concluida: 'Concluída',
-  cancelada: 'Cancelada',
-  nao_executada: 'Não Executada',
-};
-
-export const FILTRO_STATUS_OPTIONS: FiltroStatus[] = [
-  'todas',
-  'pendente',
-  'em_andamento',
-  'concluida',
-  'nao_executada',
-  'cancelada',
-];
+export const STATUS_LABELS = ROTA_STATUS_LABELS;
+export const FILTRO_STATUS_OPTIONS = FILTRO_OPTIONS;
 
 // ============================================
 // HOOK
@@ -498,7 +491,7 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
   // ============================================
 
   const getStatusLabel = useCallback((status: RotaStatus | string): string => {
-    return STATUS_LABELS[status as RotaStatus] ?? status;
+    return getRotaStatusLabel(status);
   }, []);
 
   const getStatusColor = useCallback((status: RotaStatus | string): string => {

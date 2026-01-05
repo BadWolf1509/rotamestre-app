@@ -4,12 +4,20 @@ import { Text, View } from 'react-native';
 
 import { DrawerMenuProvider, useDrawerMenu } from '../DrawerMenuContext';
 
-// Mock do DrawerMenu
+// Mock do DrawerMenu com captura de props
+const mockDrawerMenu = jest.fn(() => null);
 jest.mock('@/components/DrawerMenu', () => ({
-  DrawerMenu: jest.fn(() => null),
+  DrawerMenu: (props: { visible: boolean; onClose: () => void }) => {
+    mockDrawerMenu(props);
+    return null;
+  },
 }));
 
 describe('DrawerMenuContext', () => {
+  beforeEach(() => {
+    mockDrawerMenu.mockClear();
+  });
+
   describe('DrawerMenuProvider', () => {
     it('deve renderizar children corretamente', () => {
       const { getByText } = render(
@@ -22,8 +30,6 @@ describe('DrawerMenuContext', () => {
     });
 
     it('deve renderizar DrawerMenu component', () => {
-      const mockDrawerMenu = require('@/components/DrawerMenu').DrawerMenu;
-
       render(
         <DrawerMenuProvider>
           <Text>Content</Text>
@@ -34,7 +40,6 @@ describe('DrawerMenuContext', () => {
     });
 
     it('deve renderizar DrawerMenu e children juntos', () => {
-      const mockDrawerMenu = require('@/components/DrawerMenu').DrawerMenu;
       const { getByText } = render(
         <DrawerMenuProvider>
           <Text>App Content</Text>
@@ -43,6 +48,30 @@ describe('DrawerMenuContext', () => {
 
       expect(mockDrawerMenu).toHaveBeenCalled();
       expect(getByText('App Content')).toBeTruthy();
+    });
+
+    it('deve inicializar com visible=false (drawer fechado)', () => {
+      render(
+        <DrawerMenuProvider>
+          <Text>Content</Text>
+        </DrawerMenuProvider>
+      );
+
+      // Verifica que DrawerMenu foi chamado com visible: false
+      expect(mockDrawerMenu).toHaveBeenCalledWith(
+        expect.objectContaining({ visible: false })
+      );
+    });
+
+    it('deve passar onClose como funcao para DrawerMenu', () => {
+      render(
+        <DrawerMenuProvider>
+          <Text>Content</Text>
+        </DrawerMenuProvider>
+      );
+
+      const lastCall = mockDrawerMenu.mock.calls[mockDrawerMenu.mock.calls.length - 1][0];
+      expect(typeof lastCall.onClose).toBe('function');
     });
   });
 
