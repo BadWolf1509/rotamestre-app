@@ -73,14 +73,40 @@ async function globalSetup(config: FullConfig) {
         throw new Error('React content not rendered');
       }
 
-      // Look for the password input
-      const passwordInput = page.locator('[data-testid="auth-login-password"]');
-      const submitButton = page.locator('[data-testid="auth-login-submit"]');
+      // Look for the password input using multiple selectors (same as login.page.ts)
+      const passwordInput = page.locator('[data-testid="auth-login-password"]').or(
+        page.locator('input[placeholder="Senha"], input[type="password"]')
+      );
+      const submitButton = page.locator('[data-testid="auth-login-submit"]').or(
+        page.locator('button:has-text("Entrar"), [role="button"]:has-text("Entrar")')
+      );
+      // Also check for any input as a basic hydration check
+      const anyInput = page.locator('input').first();
+
+      // Check if any input exists (basic hydration check)
+      const anyInputExists = await anyInput.count();
+      console.log(`[global-setup] Any input found: ${anyInputExists}`);
 
       // Check if elements exist in DOM (even if not visible)
       const passwordExists = await passwordInput.count();
       const submitExists = await submitButton.count();
       console.log(`[global-setup] Elements found - password: ${passwordExists}, submit: ${submitExists}`);
+
+      if (anyInputExists === 0) {
+        // No inputs at all - page hasn't hydrated or is showing loading state
+        console.log('[global-setup] No inputs found - page may be loading');
+
+        // Check for common loading states
+        const loadingExists = await page.locator('[data-testid="loading"], .loading, [role="progressbar"]').count();
+        console.log(`[global-setup] Loading indicators: ${loadingExists}`);
+
+        // Take screenshot for debugging
+        const screenshotPath = path.join(DEBUG_SCREENSHOTS_DIR, `attempt-${attempts}.png`);
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+        console.log(`[global-setup] Screenshot saved: ${screenshotPath}`);
+
+        throw new Error('No input fields found in DOM - page may be loading');
+      }
 
       if (passwordExists === 0) {
         // Take screenshot for debugging
@@ -96,11 +122,11 @@ async function globalSetup(config: FullConfig) {
       }
 
       // Wait for elements to be visible
-      await passwordInput.waitFor({
+      await passwordInput.first().waitFor({
         state: 'visible',
         timeout: LOGIN_WAIT_MS,
       });
-      await submitButton.waitFor({
+      await submitButton.first().waitFor({
         state: 'visible',
         timeout: LOGIN_WAIT_MS,
       });
