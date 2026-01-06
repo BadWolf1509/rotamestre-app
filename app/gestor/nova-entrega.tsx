@@ -727,18 +727,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   vinculoLabelDesktop: {
     fontSize: theme.desktop.input.fontSize,
-    marginBottom: 4,
+    marginBottom: theme.spacing.xs,
   },
   vinculoHint: {
     fontSize: theme.typography.xs,
     color: theme.colors.gray500,
     marginBottom: theme.spacing.md,
-    lineHeight: 16,
+    lineHeight: theme.spacing.lg,
   },
   vinculoHintDesktop: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     marginBottom: theme.desktop.section.gap,
-    lineHeight: 14,
+    lineHeight: theme.typography.fontSize.sm,
   },
   vinculoOptions: {
     flexDirection: 'row',
@@ -746,10 +746,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: theme.spacing.sm,
   },
   vinculoOptionsDesktop: {
-    gap: 6,
+    gap: theme.spacing['1.5'],
   },
   vinculoOption: {
-    paddingVertical: theme.spacing.sm + 2,
+    paddingVertical: theme.spacing['2.5'],
     paddingHorizontal: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
     borderWidth: 1,
@@ -760,7 +760,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     justifyContent: 'center',
   },
   vinculoOptionDesktop: {
-    paddingVertical: 4,
+    paddingVertical: theme.spacing.xs,
     paddingHorizontal: theme.desktop.section.padding,
     minWidth: 80,
     minHeight: 28,
@@ -775,7 +775,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     textAlign: 'center',
   },
   vinculoOptionTextDesktop: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
   },
   vinculoOptionTextActive: {
     color: theme.colors.info,
@@ -820,9 +820,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.sm,
   },
   errorTextDesktop: {
-    fontSize: 12,
-    marginTop: -8,
-    marginBottom: 8,
+    fontSize: theme.typography.fontSize.xs,
+    marginTop: -theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
   },
   // Add button - Mobile (full width)
   addButton: {
@@ -837,7 +837,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     justifyContent: 'center',
   },
   addButtonDesktop: {
-    paddingVertical: 6,
+    paddingVertical: theme.spacing['1.5'],
     paddingHorizontal: theme.spacing.xl,
     alignSelf: 'flex-start',
     marginTop: theme.spacing.xs,
@@ -865,9 +865,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     minHeight: 36,
   },
   clearCardButtonDesktop: {
-    gap: 4,
+    gap: theme.spacing.xs,
     paddingHorizontal: theme.desktop.button.paddingHorizontal,
-    paddingVertical: 4,
+    paddingVertical: theme.spacing.xs,
     minHeight: 28,
   },
   clearCardButtonDisabled: {

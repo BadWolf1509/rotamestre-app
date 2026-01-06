@@ -1,6 +1,11 @@
 /**
  * StopCompletionFlow - Componente unificado para conclusão de paradas
  *
+ * Refatorado para usar DesktopModal do design-system:
+ * - Web: HTML5 <dialog> com focus trap e ESC nativo
+ * - Mobile: Bottom sheet responsivo
+ * - API declarativa de botões
+ *
  * Encapsula o fluxo completo:
  * 1. Modal de câmera para foto de comprovante
  * 2. Confirmação da conclusão
@@ -11,21 +16,13 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  Modal,
-  TouchableOpacity,
-  Alert,
-  Platform,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, TouchableOpacity, Alert, Platform } from 'react-native';
 
 import CameraUpload from '@/components/CameraUpload';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { DesktopModal } from '@/components/desktop/DesktopModal';
 import { useRouteStatus, ParadaData } from '@/context/RouteStatusContext';
 import { useUser } from '@/hooks/useUser';
-import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface StopCompletionFlowProps {
@@ -161,127 +158,102 @@ export function StopCompletionFlow({
     setStep('photo');
   };
 
-  // Renderiza step de foto
-  const renderPhotoStep = () => (
-    <View style={styles.content}>
-      <View style={styles.header}>
-        <Text style={styles.title}>📸 Foto de Comprovante</Text>
-        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <Ionicons name="close" size={24} color={theme.colors.gray500} />
-        </TouchableOpacity>
-      </View>
+  // Título dinâmico baseado no step
+  const modalTitle = step === 'photo' ? 'Foto de Comprovante' : 'Confirmar Conclusão';
 
-      <Text style={styles.address}>{parada.endereco}</Text>
+  // Botões declarativos para o step de confirmação
+  const primaryButton = step === 'confirm' ? {
+    text: 'Concluir',
+    onPress: handleConfirmComplete,
+    loading: isCompleting,
+    color: theme.colors.success,
+  } : undefined;
 
-      {parada.destinatario && (
-        <Text style={styles.recipient}>👤 {parada.destinatario}</Text>
-      )}
-
-      <CameraUpload
-        unidadeId={userData.unidade_id!}
-        rotaId={route.id}
-        paradaId={parada.id}
-        onUploadSuccess={handlePhotoSuccess}
-        onUploadError={handlePhotoError}
-      />
-
-      {allowSkipPhoto && (
-        <TouchableOpacity
-          style={styles.skipButton}
-          onPress={handleSkipPhoto}
-        >
-          <Text style={styles.skipButtonText}>
-            Continuar sem foto →
-          </Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-
-  // Renderiza step de confirmação
-  const renderConfirmStep = () => (
-    <View style={styles.content}>
-      <View style={styles.header}>
-        <Text style={styles.title}>✓ Confirmar Conclusão</Text>
-        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <Ionicons name="close" size={24} color={theme.colors.gray500} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.confirmCard}>
-        <View style={styles.confirmRow}>
-          <Ionicons name="location" size={20} color={theme.colors.primary} />
-          <Text style={styles.confirmText}>{parada.endereco}</Text>
-        </View>
-
-        {parada.destinatario && (
-          <View style={styles.confirmRow}>
-            <Ionicons name="person" size={20} color={theme.colors.gray500} />
-            <Text style={styles.confirmText}>{parada.destinatario}</Text>
-          </View>
-        )}
-
-        <View style={styles.confirmRow}>
-          <Ionicons
-            name={photoUrl ? "camera" : "camera-outline"}
-            size={20}
-            color={photoUrl ? theme.colors.success : theme.colors.warning}
-          />
-          <Text style={[
-            styles.confirmText,
-            { color: photoUrl ? theme.colors.success : theme.colors.warning }
-          ]}>
-            {photoUrl ? 'Foto anexada' : 'Sem foto de comprovante'}
-          </Text>
-        </View>
-      </View>
-
-      <Text style={styles.confirmQuestion}>
-        Confirma a conclusão desta {parada.tipo}?
-      </Text>
-
-      <View style={styles.buttonRow}>
-        <TouchableOpacity
-          style={[styles.button, styles.buttonSecondary]}
-          onPress={handleBackToPhoto}
-          disabled={isCompleting}
-        >
-          <Text style={styles.buttonSecondaryText}>
-            ← Voltar
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.button, styles.buttonPrimary]}
-          onPress={handleConfirmComplete}
-          disabled={isCompleting}
-        >
-          {isCompleting ? (
-            <ActivityIndicator color={theme.colors.white} size="small" />
-          ) : (
-            <Text style={styles.buttonPrimaryText}>
-              ✓ Concluir
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+  const secondaryButton = step === 'confirm' ? {
+    text: 'Voltar',
+    onPress: handleBackToPhoto,
+    disabled: isCompleting,
+  } : undefined;
 
   return (
     <>
-      <Modal
+      <DesktopModal
         visible={visible}
-        animationType="slide"
-        transparent
-        onRequestClose={onClose}
+        onClose={onClose}
+        title={modalTitle}
+        maxWidth={440}
+        primaryButton={primaryButton}
+        secondaryButton={secondaryButton}
       >
-        <View style={styles.overlay}>
-          <View style={styles.container}>
-            {step === 'photo' ? renderPhotoStep() : renderConfirmStep()}
+        {step === 'photo' ? (
+          // Step 1: Captura de foto
+          <View>
+            <Text style={styles.address}>{parada.endereco}</Text>
+
+            {parada.destinatario && (
+              <Text style={styles.recipient}>{parada.destinatario}</Text>
+            )}
+
+            <CameraUpload
+              unidadeId={userData.unidade_id!}
+              rotaId={route.id}
+              paradaId={parada.id}
+              onUploadSuccess={handlePhotoSuccess}
+              onUploadError={handlePhotoError}
+            />
+
+            {allowSkipPhoto && (
+              <TouchableOpacity
+                style={styles.skipButton}
+                onPress={handleSkipPhoto}
+                accessibilityRole="button"
+                accessibilityLabel="Continuar sem foto"
+              >
+                <Text style={styles.skipButtonText}>
+                  Continuar sem foto
+                </Text>
+                <Ionicons name="arrow-forward" size={16} color={theme.colors.gray500} />
+              </TouchableOpacity>
+            )}
           </View>
-        </View>
-      </Modal>
+        ) : (
+          // Step 2: Confirmação
+          <View>
+            <View style={styles.confirmCard}>
+              <View style={styles.confirmRow}>
+                <Ionicons name="location" size={20} color={theme.colors.primary} />
+                <Text style={styles.confirmText}>{parada.endereco}</Text>
+              </View>
+
+              {parada.destinatario && (
+                <View style={styles.confirmRow}>
+                  <Ionicons name="person" size={20} color={theme.colors.gray500} />
+                  <Text style={styles.confirmText}>{parada.destinatario}</Text>
+                </View>
+              )}
+
+              <View style={styles.confirmRow}>
+                <Ionicons
+                  name={photoUrl ? "camera" : "camera-outline"}
+                  size={20}
+                  color={photoUrl ? theme.colors.success : theme.colors.warning}
+                />
+                <Text style={[
+                  styles.confirmText,
+                  { color: photoUrl ? theme.colors.success : theme.colors.warning }
+                ]}>
+                  {photoUrl ? 'Foto anexada' : 'Sem foto de comprovante'}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.confirmQuestion}>
+              Confirma a conclusão desta {parada.tipo}?
+            </Text>
+          </View>
+        )}
+      </DesktopModal>
+
       <ConfirmDialog
         visible={skipPhotoDialog.visible}
         title={skipPhotoDialog.errorMessage ? 'Erro no Upload' : 'Pular foto?'}
@@ -304,38 +276,6 @@ export function StopCompletionFlow({
 }
 
 const styles = StyleSheet.create((theme: Theme) => ({
-  overlay: {
-    flex: 1,
-    backgroundColor: withOpacity(theme.colors.black, 0.5),
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.md,
-  },
-  container: {
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.borderRadius.xl,
-    width: '100%',
-    maxWidth: 440,
-    maxHeight: '90%',
-    overflow: 'hidden',
-  },
-  content: {
-    padding: theme.spacing.lg,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.md,
-  },
-  title: {
-    fontSize: theme.typography.xl,
-    fontFamily: theme.typography.fontSansBold,
-    color: theme.colors.gray900,
-  },
-  closeButton: {
-    padding: theme.spacing.xs,
-  },
   address: {
     fontSize: theme.typography.base,
     fontFamily: theme.typography.fontSansMedium,
@@ -349,8 +289,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.md,
   },
   skipButton: {
-    paddingVertical: theme.spacing.md,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.md,
+    gap: theme.spacing.xs,
   },
   skipButtonText: {
     fontSize: theme.typography.sm,
@@ -380,33 +323,5 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.gray900,
     textAlign: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-  },
-  button: {
-    flex: 1,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonPrimary: {
-    backgroundColor: theme.colors.success,
-  },
-  buttonSecondary: {
-    backgroundColor: theme.colors.gray100,
-  },
-  buttonPrimaryText: {
-    fontSize: theme.typography.base,
-    fontFamily: theme.typography.fontSansBold,
-    color: theme.colors.white,
-  },
-  buttonSecondaryText: {
-    fontSize: theme.typography.base,
-    fontFamily: theme.typography.fontSansMedium,
-    color: theme.colors.gray600,
   },
 }));

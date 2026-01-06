@@ -13,6 +13,14 @@ import {
   daysDifference,
 } from '../dateUtils';
 
+// Helper para criar string ISO local (evita problemas de timezone)
+function toLocalISO(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 describe('lib/dateUtils', () => {
   // ============================================================================
   // parseLocalDate
@@ -203,7 +211,10 @@ describe('lib/dateUtils', () => {
     it('deve retornar a data de hoje', () => {
       const result = getTodayISO();
       const today = new Date();
-      const expected = today.toISOString().split('T')[0];
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const expected = `${year}-${month}-${day}`;
       expect(result).toBe(expected);
     });
 
@@ -231,14 +242,14 @@ describe('lib/dateUtils', () => {
     it('deve retornar false para data de ontem', () => {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayISO = yesterday.toISOString().split('T')[0];
+      const yesterdayISO = toLocalISO(yesterday);
       expect(isToday(yesterdayISO)).toBe(false);
     });
 
     it('deve retornar false para data de amanhã', () => {
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowISO = tomorrow.toISOString().split('T')[0];
+      const tomorrowISO = toLocalISO(tomorrow);
       expect(isToday(tomorrowISO)).toBe(false);
     });
 
@@ -261,14 +272,14 @@ describe('lib/dateUtils', () => {
     it('deve retornar false para data de ano passado mesmo dia/mês', () => {
       const lastYear = new Date();
       lastYear.setFullYear(lastYear.getFullYear() - 1);
-      const lastYearISO = lastYear.toISOString().split('T')[0];
+      const lastYearISO = toLocalISO(lastYear);
       expect(isToday(lastYearISO)).toBe(false);
     });
 
     it('deve retornar false para data de ano próximo mesmo dia/mês', () => {
       const nextYear = new Date();
       nextYear.setFullYear(nextYear.getFullYear() + 1);
-      const nextYearISO = nextYear.toISOString().split('T')[0];
+      const nextYearISO = toLocalISO(nextYear);
       expect(isToday(nextYearISO)).toBe(false);
     });
   });
@@ -285,28 +296,28 @@ describe('lib/dateUtils', () => {
     it('deve retornar true para data de ontem', () => {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayISO = yesterday.toISOString().split('T')[0];
+      const yesterdayISO = toLocalISO(yesterday);
       expect(isPast(yesterdayISO)).toBe(true);
     });
 
     it('deve retornar false para data de amanhã', () => {
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowISO = tomorrow.toISOString().split('T')[0];
+      const tomorrowISO = toLocalISO(tomorrow);
       expect(isPast(tomorrowISO)).toBe(false);
     });
 
     it('deve retornar true para data de uma semana atrás', () => {
       const lastWeek = new Date();
       lastWeek.setDate(lastWeek.getDate() - 7);
-      const lastWeekISO = lastWeek.toISOString().split('T')[0];
+      const lastWeekISO = toLocalISO(lastWeek);
       expect(isPast(lastWeekISO)).toBe(true);
     });
 
     it('deve retornar true para data de um ano atrás', () => {
       const lastYear = new Date();
       lastYear.setFullYear(lastYear.getFullYear() - 1);
-      const lastYearISO = lastYear.toISOString().split('T')[0];
+      const lastYearISO = toLocalISO(lastYear);
       expect(isPast(lastYearISO)).toBe(true);
     });
 
@@ -456,7 +467,7 @@ describe('lib/dateUtils', () => {
       const today = getTodayISO();
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayISO = yesterday.toISOString().split('T')[0];
+      const yesterdayISO = toLocalISO(yesterday);
       expect(daysDifference(today, yesterdayISO)).toBe(1);
     });
   });

@@ -44,17 +44,25 @@ jest.mock('@/utils/styles', () => {
             gray900: '#111827',
         },
         typography: {
-            xs: 12,
-            sm: 14,
-            base: 16,
-            lg: 18,
-            xl: 20,
+            fontSize: {
+                xs: 12,
+                sm: 14,
+                base: 16,
+                lg: 18,
+                xl: 20,
+            },
             fontSans: 'System',
             fontSansMedium: 'System',
             fontSansSemiBold: 'System',
             fontSansBold: 'System',
         },
         spacing: {
+            '1': 4,
+            '1.5': 6,
+            '2': 8,
+            '2.5': 10,
+            '3': 12,
+            '4': 16,
             xs: 4,
             sm: 8,
             md: 16,
@@ -63,10 +71,11 @@ jest.mock('@/utils/styles', () => {
             '2xl': 48,
         },
         borderRadius: {
-            sm: 4,
-            md: 8,
-            lg: 12,
-            xl: 16,
+            xs: 4,
+            sm: 8,
+            md: 12,
+            lg: 16,
+            xl: 20,
             full: 9999,
         },
         shadows: { sm: {}, md: {}, lg: {} },
@@ -85,11 +94,23 @@ jest.mock('@expo/vector-icons', () => ({
     Ionicons: 'Ionicons',
 }));
 
+// Mock useRouteDirections hook
+jest.mock('@/hooks/useRouteDirections', () => ({
+    useRouteDirections: () => ({
+        routeCoordinates: [],
+        routeInfo: null,
+        isLoading: false,
+        error: null,
+        refetch: jest.fn(),
+        isFromCache: false,
+    }),
+}));
+
 describe('MiniMap', () => {
     const defaultProps = {
         paradas: [
-            { id: 'p1', latitude: -23.55, longitude: -46.63, status: 'pendente', ordem: 1 },
-            { id: 'p2', latitude: -23.56, longitude: -46.64, status: 'concluida', ordem: 2 },
+            { id: 'p1', latitude: -23.55, longitude: -46.63, status: 'pendente', ordem: 1, endereco: 'Rua Teste 1' },
+            { id: 'p2', latitude: -23.56, longitude: -46.64, status: 'concluida', ordem: 2, endereco: 'Rua Teste 2' },
         ],
     };
 
@@ -184,8 +205,8 @@ describe('MiniMap', () => {
     describe('Paradas filtering', () => {
         it('deve filtrar paradas pendentes', () => {
             const paradas = [
-                { id: 'p1', latitude: -23.55, longitude: -46.63, status: 'pendente', ordem: 1 },
-                { id: 'p2', latitude: -23.56, longitude: -46.64, status: 'pendente', ordem: 2 },
+                { id: 'p1', latitude: -23.55, longitude: -46.63, status: 'pendente', ordem: 1, endereco: 'Rua A' },
+                { id: 'p2', latitude: -23.56, longitude: -46.64, status: 'pendente', ordem: 2, endereco: 'Rua B' },
             ];
 
             const { getByTestId } = render(
@@ -197,8 +218,8 @@ describe('MiniMap', () => {
 
         it('deve filtrar checkpoints', () => {
             const paradas = [
-                { id: 'p1', latitude: -23.55, longitude: -46.63, status: 'pendente', ordem: 1, is_checkpoint: true },
-                { id: 'p2', latitude: -23.56, longitude: -46.64, status: 'pendente', ordem: 2, is_checkpoint: false },
+                { id: 'p1', latitude: -23.55, longitude: -46.63, status: 'pendente', ordem: 1, is_checkpoint: true, endereco: 'Unidade A' },
+                { id: 'p2', latitude: -23.56, longitude: -46.64, status: 'pendente', ordem: 2, is_checkpoint: false, endereco: 'Unidade B' },
             ];
 
             const { getByTestId } = render(

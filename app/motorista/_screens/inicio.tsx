@@ -473,8 +473,8 @@ function MotoristaInicioContent() {
           testID="motorista-main-card"
         />
 
-        {/* Mini Map - Apenas no estado pending para preview da rota (colapsado por padrão) */}
-        {route && routeStatus === 'pending' && (
+        {/* Mini Map - Nos estados pending, active e last-stop para visualização da rota */}
+        {route && (routeStatus === 'pending' || routeStatus === 'active' || routeStatus === 'last-stop') && (
           <MiniMap
             paradas={paradas}
             userLocation={location ?? undefined}
@@ -535,7 +535,7 @@ function MotoristaInicioContent() {
         />
       )}
 
-      {(routeStatus === 'active' || routeStatus === 'last-stop') && (
+      {(routeStatus === 'pending' || routeStatus === 'active' || routeStatus === 'last-stop') && (
         <PictureInPictureMap
           visible={showPiPMap}
           userLocation={location}
@@ -543,11 +543,19 @@ function MotoristaInicioContent() {
             latitude: currentStop.latitude,
             longitude: currentStop.longitude,
             address: currentStop.endereco,
+          } : paradas[0] ? {
+            latitude: paradas[0].latitude,
+            longitude: paradas[0].longitude,
+            address: paradas[0].endereco,
           } : null}
           onClose={() => setShowPiPMap(false)}
           onExpand={() => {
             setShowPiPMap(false);
-            setNavigationMode(true);
+            if (routeStatus !== 'pending') {
+              setNavigationMode(true);
+            } else {
+              router.push('/motorista/mapa');
+            }
           }}
         />
       )}

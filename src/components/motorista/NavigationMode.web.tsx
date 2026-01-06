@@ -287,7 +287,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   mapPlaceholderText: {
     marginTop: theme.spacing['4'],
-    fontSize: 16,
+    fontSize: theme.typography.fontSize.base,
     color: theme.colors.gray500,
   },
   openMapButton: {
@@ -299,7 +299,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   openMapButtonText: {
     color: theme.colors.white,
-    fontSize: 16,
+    fontSize: theme.typography.fontSize.base,
     fontWeight: '600',
   },
   infoContainer: {
@@ -339,20 +339,20 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
   },
   stopLabel: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray500,
     marginBottom: theme.spacing['1'],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   stopAddress: {
-    fontSize: 16,
+    fontSize: theme.typography.fontSize.base,
     fontWeight: '600',
     color: theme.colors.gray900,
     marginBottom: theme.spacing['1'],
   },
   distanceText: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     color: theme.colors.primary,
     fontWeight: '500',
   },
@@ -379,7 +379,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.success,
   },
   actionButtonText: {
-    fontSize: 16,
+    fontSize: theme.typography.fontSize.base,
     fontWeight: '600',
   },
   exitButton: {
@@ -391,7 +391,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: theme.spacing['2'],
   },
   exitButtonText: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray500,
   },
 }));

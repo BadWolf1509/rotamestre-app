@@ -12,13 +12,17 @@ import { toast } from '@/utils/toast';
 import { useAuth } from './useAuth';
 import { useUser } from './useUser';
 
+const PAGE_SIZE = 20;
+
 interface UseNotificationsReturn {
   notificacoes: NotificacaoComDetalhes[];
   naoLidas: number;
   loading: boolean;
+  hasMore: boolean;
   marcarComoLida: (id: string) => Promise<void>;
   marcarTodasComoLidas: () => Promise<void>;
   refresh: () => Promise<void>;
+  loadMore: () => Promise<void>;
 }
 
 export function useNotifications(): UseNotificationsReturn {
@@ -27,19 +31,25 @@ export function useNotifications(): UseNotificationsReturn {
   const [notificacoes, setNotificacoes] = useState<NotificacaoComDetalhes[]>([]);
   const [naoLidas, setNaoLidas] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   // Ref para controle do Realtime (evita múltiplas subscriptions)
   const isSubscribed = useRef(false);
   const pollingInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastNaoLidas = useRef<number>(0);
 
-  const loadNotifications = useCallback(async () => {
+  const loadNotifications = useCallback(async (reset = true) => {
     if (!userData?.id) {
       setLoading(false);
       return;
     }
 
     try {
+      if (reset) {
+        setLoading(true);
+      }
+
       const { data, error } = await supabase
         .from('notificacoes')
         .select(`
@@ -50,19 +60,58 @@ export function useNotifications(): UseNotificationsReturn {
         `)
         .eq('usuario_id', userData.id)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .range(0, PAGE_SIZE - 1);
 
       if (error) throw error;
 
       const notificacoesComDetalhes = (data || []) as NotificacaoComDetalhes[];
       setNotificacoes(notificacoesComDetalhes);
       setNaoLidas(notificacoesComDetalhes.filter((n) => !n.lida).length);
+      setHasMore(notificacoesComDetalhes.length === PAGE_SIZE);
     } catch (error) {
       logger.error('[Notificações] Erro ao carregar', error);
     } finally {
       setLoading(false);
     }
   }, [userData?.id]);
+
+  // Load more notifications (pagination)
+  const loadMore = useCallback(async () => {
+    if (!userData?.id || !hasMore || isLoadingMore || loading) {
+      return;
+    }
+
+    setIsLoadingMore(true);
+
+    try {
+      const offset = notificacoes.length;
+      const { data, error } = await supabase
+        .from('notificacoes')
+        .select(`
+          *,
+          rota:rotas(data, status),
+          parada:paradas(endereco, ordem),
+          incidente:incidentes(categoria, descricao)
+        `)
+        .eq('usuario_id', userData.id)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + PAGE_SIZE - 1);
+
+      if (error) throw error;
+
+      const newNotificacoes = (data || []) as NotificacaoComDetalhes[];
+
+      if (newNotificacoes.length < PAGE_SIZE) {
+        setHasMore(false);
+      }
+
+      setNotificacoes((prev) => [...prev, ...newNotificacoes]);
+    } catch (error) {
+      logger.error('[Notificações] Erro ao carregar mais', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [userData?.id, hasMore, isLoadingMore, loading, notificacoes.length]);
 
   useEffect(() => {
     loadNotifications();
@@ -195,7 +244,7 @@ export function useNotifications(): UseNotificationsReturn {
 
           // Se aumentou, recarrega a lista completa para pegar novas notificações
           if (count > previousCount) {
-            await loadNotifications();
+            await loadNotifications(false);
           }
         }
       } catch {
@@ -256,16 +305,18 @@ export function useNotifications(): UseNotificationsReturn {
   }, [userData]);
 
   const refresh = useCallback(async () => {
-    setLoading(true);
-    await loadNotifications();
+    setHasMore(true);
+    await loadNotifications(true);
   }, [loadNotifications]);
 
   return {
     notificacoes,
     naoLidas,
     loading,
+    hasMore,
     marcarComoLida,
     marcarTodasComoLidas,
     refresh,
+    loadMore,
   };
 }

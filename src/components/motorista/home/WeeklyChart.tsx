@@ -316,10 +316,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing['1.5'],
   },
   titleCompact: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
   },
   totalValueCompact: {
-    fontSize: 16,
+    fontSize: theme.typography.fontSize.base,
   },
   chartContainerCompact: {
     height: 40,

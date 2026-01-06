@@ -208,7 +208,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   loadingText: {
     marginTop: theme.spacing['3'],
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray500,
   },
   header: {
@@ -224,7 +224,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing['4'],
   },
   backButtonText: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray600,
   },
   headerContent: {
@@ -237,7 +237,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing['2'],
   },
   headerSubtitle: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray500,
   },
   mainContent: {
@@ -277,7 +277,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.sm,
     paddingHorizontal: theme.spacing['4'],
     paddingVertical: theme.spacing['3'],
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray900,
     backgroundColor: theme.colors.white,
   },
@@ -301,7 +301,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     padding: theme.spacing['1'],
   },
   helperText: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray500,
     marginTop: theme.spacing['1'],
   },
@@ -312,7 +312,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.warning,
   },
   errorText: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     color: theme.colors.error,
     marginTop: theme.spacing['1'],
   },

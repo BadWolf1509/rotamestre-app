@@ -5,6 +5,8 @@ import {
   Alert,
   RefreshControl,
   Platform,
+  type ViewStyle,
+  type TextStyle,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -393,17 +395,17 @@ export default function CheckpointsMotorista() {
 
   if (loading) {
     content = (
-      <View style={styles.container}>
+      <View style={styles.container as ViewStyle}>
           {/* Skeleton Header */}
-          <View style={styles.header}>
+          <View style={styles.header as ViewStyle}>
             <View style={{ width: 200, height: 28, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm }} />
             <View style={{ width: 150, height: 14, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm, marginTop: theme.spacing.xs }} />
           </View>
 
           {/* Skeleton Stats */}
-          <View style={styles.statsRow}>
+          <View style={styles.statsRow as ViewStyle}>
             {[1, 2, 3].map((i) => (
-              <View key={i} style={styles.statItem}>
+              <View key={i} style={styles.statItem as ViewStyle}>
                 <View style={{ width: 40, height: 28, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm }} />
                 <View style={{ width: 60, height: 12, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm, marginTop: theme.spacing.xs }} />
               </View>
@@ -411,36 +413,42 @@ export default function CheckpointsMotorista() {
           </View>
 
           {/* Skeleton Progress */}
-          <View style={styles.progressSection}>
+          <View style={styles.progressSection as ViewStyle}>
             <View style={{ width: 120, height: 14, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm }} />
-            <View style={[styles.progressContainer, { marginTop: theme.spacing.xs }]}>
+            <View style={[styles.progressContainer as ViewStyle, { marginTop: theme.spacing.xs }]}>
               <View style={{ width: '30%', height: '100%', backgroundColor: theme.colors.gray300, borderRadius: theme.borderRadius.full }} />
             </View>
           </View>
 
           {/* Skeleton Cards */}
-          <View style={styles.listContainer}>
+          <View style={styles.listContainer as ViewStyle}>
             <ParadaCardSkeletonList count={3} />
           </View>
         </View>
     );
   } else {
+    // Estilo com overflow para web (scroll habilita rolagem)
+    const contentStyle: ViewStyle = {
+      ...(styles.contentContainer as ViewStyle),
+      ...(Platform.OS === 'web' && { overflow: 'scroll' }),
+    };
+
     content = (
-      <>
+      <View style={contentStyle}>
       {/* Header Compacto */}
-      <View style={styles.headerCompact}>
+      <View style={styles.headerCompact as ViewStyle}>
         {/* Linha 1: Título e unidade */}
-        <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Checkpoints</Text>
-          <Text style={styles.headerDivider}>·</Text>
-          <Text style={styles.headerSubtitleCompact} numberOfLines={1}>
+        <View style={styles.headerRow as ViewStyle}>
+          <Text style={styles.headerTitle as TextStyle}>Checkpoints</Text>
+          <Text style={styles.headerDivider as TextStyle}>·</Text>
+          <Text style={styles.headerSubtitleCompact as TextStyle} numberOfLines={1}>
             {route?.unidade_nome}
           </Text>
         </View>
 
         {/* Linha 2: Stats inline */}
-        <View style={styles.statsInline}>
-          <Text style={styles.statsInlineText}>
+        <View style={styles.statsInline as ViewStyle}>
+          <Text style={styles.statsInlineText as TextStyle}>
             {paradas.length} paradas ·{' '}
             <Text style={{ color: theme.colors.success }}>{paradasConcluidas}✓</Text> ·{' '}
             <Text style={{ color: theme.colors.warning }}>{paradasPendentes}○</Text>
@@ -454,10 +462,10 @@ export default function CheckpointsMotorista() {
         </View>
 
         {/* Barra de Progresso */}
-        <View style={styles.progressContainer}>
+        <View style={styles.progressContainer as ViewStyle}>
           <View
             style={[
-              styles.progressBar,
+              styles.progressBar as ViewStyle,
               { width: `${paradas.length > 0 ? (paradasConcluidas / paradas.length) * 100 : 0}%` },
             ]}
           />
@@ -470,7 +478,8 @@ export default function CheckpointsMotorista() {
         data={paradas}
         keyExtractor={keyExtractor}
         renderItem={renderParada}
-        contentContainerStyle={styles.listContainer}
+        style={styles.flatList as ViewStyle}
+        contentContainerStyle={styles.listContainer as ViewStyle}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -479,8 +488,8 @@ export default function CheckpointsMotorista() {
           />
         }
         ListEmptyComponent={
-          <View style={styles.emptyListContainer}>
-            <Text style={styles.emptyListText}>Nenhuma parada cadastrada</Text>
+          <View style={styles.emptyListContainer as ViewStyle}>
+            <Text style={styles.emptyListText as TextStyle}>Nenhuma parada cadastrada</Text>
           </View>
         }
       />
@@ -504,12 +513,15 @@ export default function CheckpointsMotorista() {
         />
       )}
 
-      </>
+      </View>
     );
   }
 
+  // Na web, GestureHandlerRootView pode bloquear scroll - usar View simples
+  const Container = Platform.OS === 'web' ? View : GestureHandlerRootView;
+
   return (
-    <GestureHandlerRootView style={styles.container}>
+    <Container style={styles.container as ViewStyle}>
       {content}
 
       {/* Modal de Conclusão de Parada (com foto) */}
@@ -541,7 +553,7 @@ export default function CheckpointsMotorista() {
         onCancel={() => setConfirmDialog({ visible: false, type: 'pular', parada: null })}
         type={confirmDialog.type === 'pular' ? 'destructive' : 'default'}
       />
-    </GestureHandlerRootView>
+    </Container>
   );
 }
 
@@ -549,6 +561,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,
+  },
+  contentContainer: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -642,6 +657,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
   progressBar: {
     height: '100%',
     backgroundColor: theme.colors.success,
+  },
+  flatList: {
+    flex: 1,
   },
   listContainer: {
     padding: theme.spacing.md,

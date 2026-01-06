@@ -1,19 +1,29 @@
+/**
+ * OptimizationAlert - Alerta de otimização de rota
+ *
+ * Componente com duas partes:
+ * 1. Banner animado (slide-in do topo) - Mantido como Animated.View para animações customizadas
+ * 2. Modal de detalhes - Refatorado para usar DesktopModal do design-system
+ *
+ * Melhorias:
+ * - Modal de detalhes com HTML5 <dialog> na web (focus trap, ESC nativo)
+ * - API declarativa de botões
+ * - Melhor acessibilidade (ARIA roles)
+ */
+
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
-  Dimensions,
-  Modal,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 
+import { DesktopModal } from '@/components/desktop/DesktopModal';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface OptimizationAlertProps {
   visible: boolean;
@@ -138,11 +148,22 @@ export function OptimizationAlert({
     return 'trending-up';
   };
 
+  // Handlers para o modal de detalhes
+  const handleDetailsAccept = useCallback(() => {
+    setShowDetails(false);
+    handleAccept();
+  }, [handleAccept]);
+
+  const handleDetailsReject = useCallback(() => {
+    setShowDetails(false);
+    handleReject();
+  }, [handleReject]);
+
   if (!visible || !optimization) return null;
 
   return (
     <>
-      {/* Alert Banner */}
+      {/* Alert Banner - Mantido como Animated.View para animações customizadas */}
       <Animated.View
         style={[
           styles.alertBanner,
@@ -153,6 +174,8 @@ export function OptimizationAlert({
             ],
           },
         ]}
+        accessibilityRole="alert"
+        accessibilityLiveRegion="polite"
       >
         <View style={styles.alertContent}>
           <View style={styles.alertHeader}>
@@ -174,6 +197,8 @@ export function OptimizationAlert({
             <TouchableOpacity
               style={styles.closeButton}
               onPress={onClose}
+              accessibilityLabel="Fechar alerta"
+              accessibilityRole="button"
             >
               <Ionicons name="close" size={20} color={theme.colors.gray500} />
             </TouchableOpacity>
@@ -208,6 +233,8 @@ export function OptimizationAlert({
             <TouchableOpacity
               style={[styles.actionButton, styles.rejectButton]}
               onPress={handleReject}
+              accessibilityLabel="Ignorar otimização"
+              accessibilityRole="button"
             >
               <Ionicons name="close-circle-outline" size={20} color={theme.colors.error} />
               <Text style={styles.rejectButtonText}>Ignorar</Text>
@@ -216,6 +243,8 @@ export function OptimizationAlert({
             <TouchableOpacity
               style={styles.detailsButton}
               onPress={() => setShowDetails(true)}
+              accessibilityLabel="Ver detalhes da otimização"
+              accessibilityRole="button"
             >
               <Ionicons name="information-circle-outline" size={20} color={theme.colors.primary} />
               <Text style={styles.detailsButtonText}>Detalhes</Text>
@@ -224,6 +253,8 @@ export function OptimizationAlert({
             <TouchableOpacity
               style={[styles.actionButton, styles.acceptButton]}
               onPress={handleAccept}
+              accessibilityLabel={autoAcceptTimer ? `Aceitar otimização em ${autoAcceptTimer} segundos` : 'Aceitar otimização'}
+              accessibilityRole="button"
             >
               <Ionicons name="checkmark-circle" size={20} color={theme.colors.white} />
               <Text style={styles.acceptButtonText}>
@@ -234,142 +265,114 @@ export function OptimizationAlert({
         </View>
       </Animated.View>
 
-      {/* Details Modal */}
-      <Modal
+      {/* Details Modal - Usando DesktopModal do design-system */}
+      <DesktopModal
         visible={showDetails}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowDetails(false)}
+        onClose={() => setShowDetails(false)}
+        title="Detalhes da Otimização"
+        maxWidth={520}
+        primaryButton={{
+          text: 'Aplicar Otimização',
+          onPress: handleDetailsAccept,
+          color: theme.colors.success,
+        }}
+        secondaryButton={{
+          text: 'Manter Rota Atual',
+          onPress: handleDetailsReject,
+        }}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Detalhes da Otimização</Text>
-              <TouchableOpacity
-                onPress={() => setShowDetails(false)}
-                style={styles.modalCloseButton}
-              >
-                <Ionicons name="close" size={24} color={theme.colors.gray700} />
-              </TouchableOpacity>
+        <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+          {/* Time Savings */}
+          <View style={styles.detailSection}>
+            <View style={styles.detailHeader}>
+              <Ionicons name="time-outline" size={20} color={theme.colors.primary} />
+              <Text style={styles.detailTitle}>Economia de Tempo</Text>
+            </View>
+            <Text style={styles.detailValue}>
+              {optimization.timeSaved} minutos ({Math.round(optimization.timeSaved / 60 * 10) / 10} horas)
+            </Text>
+          </View>
+
+          {/* Reason */}
+          <View style={styles.detailSection}>
+            <View style={styles.detailHeader}>
+              <Ionicons name="bulb-outline" size={20} color={theme.colors.warning} />
+              <Text style={styles.detailTitle}>Motivo</Text>
+            </View>
+            <Text style={styles.detailValue}>{optimization.reason}</Text>
+          </View>
+
+          {/* New Order */}
+          <View style={styles.detailSection}>
+            <View style={styles.detailHeader}>
+              <Ionicons name="list-outline" size={20} color={theme.colors.success} />
+              <Text style={styles.detailTitle}>Nova Ordem Sugerida</Text>
             </View>
 
-            <ScrollView style={styles.modalBody}>
-              {/* Time Savings */}
-              <View style={styles.detailSection}>
-                <View style={styles.detailHeader}>
-                  <Ionicons name="time-outline" size={20} color={theme.colors.primary} />
-                  <Text style={styles.detailTitle}>Economia de Tempo</Text>
-                </View>
-                <Text style={styles.detailValue}>
-                  {optimization.timeSaved} minutos ({Math.round(optimization.timeSaved / 60 * 10) / 10} horas)
-                </Text>
+            <View style={styles.orderComparison}>
+              {/* Current Order */}
+              <View style={styles.orderColumn}>
+                <Text style={styles.orderColumnTitle}>Ordem Atual</Text>
+                {currentOrder.map((stop, index) => (
+                  <View key={`current-${stop.id}`} style={styles.stopItem}>
+                    <Text style={styles.stopNumber}>{index + 1}</Text>
+                    <Text style={styles.stopAddress} numberOfLines={1}>
+                      {stop.endereco.split(',')[0]}
+                    </Text>
+                  </View>
+                ))}
               </View>
 
-              {/* Reason */}
-              <View style={styles.detailSection}>
-                <View style={styles.detailHeader}>
-                  <Ionicons name="bulb-outline" size={20} color={theme.colors.warning} />
-                  <Text style={styles.detailTitle}>Motivo</Text>
-                </View>
-                <Text style={styles.detailValue}>{optimization.reason}</Text>
+              {/* Arrow */}
+              <View style={styles.arrowContainer}>
+                <Ionicons name="arrow-forward" size={24} color={theme.colors.primary} />
               </View>
 
               {/* New Order */}
-              <View style={styles.detailSection}>
-                <View style={styles.detailHeader}>
-                  <Ionicons name="list-outline" size={20} color={theme.colors.success} />
-                  <Text style={styles.detailTitle}>Nova Ordem Sugerida</Text>
-                </View>
+              <View style={styles.orderColumn}>
+                <Text style={styles.orderColumnTitle}>Nova Ordem</Text>
+                {optimization.newOrder.map((stop, index) => {
+                  const oldIndex = currentOrder.findIndex(s => s.id === stop.id);
+                  const moved = oldIndex !== index;
 
-                <View style={styles.orderComparison}>
-                  {/* Current Order */}
-                  <View style={styles.orderColumn}>
-                    <Text style={styles.orderColumnTitle}>Ordem Atual</Text>
-                    {currentOrder.map((stop, index) => (
-                      <View key={`current-${stop.id}`} style={styles.stopItem}>
-                        <Text style={styles.stopNumber}>{index + 1}</Text>
-                        <Text style={styles.stopAddress} numberOfLines={1}>
-                          {stop.endereco.split(',')[0]}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-
-                  {/* Arrow */}
-                  <View style={styles.arrowContainer}>
-                    <Ionicons name="arrow-forward" size={24} color={theme.colors.primary} />
-                  </View>
-
-                  {/* New Order */}
-                  <View style={styles.orderColumn}>
-                    <Text style={styles.orderColumnTitle}>Nova Ordem</Text>
-                    {optimization.newOrder.map((stop, index) => {
-                      const oldIndex = currentOrder.findIndex(s => s.id === stop.id);
-                      const moved = oldIndex !== index;
-
-                      return (
-                        <View
-                          key={`new-${stop.id}`}
-                          style={[
-                            styles.stopItem,
-                            moved && styles.stopItemMoved,
-                          ]}
-                        >
-                          <Text style={[
-                            styles.stopNumber,
-                            moved && styles.stopNumberMoved,
-                          ]}>
-                            {index + 1}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.stopAddress,
-                              moved && styles.stopAddressMoved,
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {stop.endereco.split(',')[0]}
-                          </Text>
-                          {moved && (
-                            <Ionicons
-                              name={oldIndex > index ? 'arrow-up' : 'arrow-down'}
-                              size={14}
-                              color={theme.colors.primary}
-                            />
-                          )}
-                        </View>
-                      );
-                    })}
-                  </View>
-                </View>
+                  return (
+                    <View
+                      key={`new-${stop.id}`}
+                      style={[
+                        styles.stopItem,
+                        moved && styles.stopItemMoved,
+                      ]}
+                    >
+                      <Text style={[
+                        styles.stopNumber,
+                        moved && styles.stopNumberMoved,
+                      ]}>
+                        {index + 1}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.stopAddress,
+                          moved && styles.stopAddressMoved,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {stop.endereco.split(',')[0]}
+                      </Text>
+                      {moved && (
+                        <Ionicons
+                          name={oldIndex > index ? 'arrow-up' : 'arrow-down'}
+                          size={14}
+                          color={theme.colors.primary}
+                        />
+                      )}
+                    </View>
+                  );
+                })}
               </View>
-
-              {/* Actions */}
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.modalRejectButton]}
-                  onPress={() => {
-                    setShowDetails(false);
-                    handleReject();
-                  }}
-                >
-                  <Text style={styles.modalRejectButtonText}>Manter Rota Atual</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.modalAcceptButton]}
-                  onPress={() => {
-                    setShowDetails(false);
-                    handleAccept();
-                  }}
-                >
-                  <Text style={styles.modalAcceptButtonText}>Aplicar Otimização</Text>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
+            </View>
           </View>
-        </View>
-      </Modal>
+        </ScrollView>
+      </DesktopModal>
     </>
   );
 }
@@ -500,44 +503,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.white,
     fontSize: theme.typography.fontSize.sm,
     fontFamily: theme.typography.fontSansSemiBold,
-    // Brand guideline: text shadow for white text on colored background
     textShadowColor: withOpacity(theme.colors.black, 0.25),
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: withOpacity(theme.colors.black, 0.5),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    width: SCREEN_WIDTH - 32,
-    maxHeight: '80%',
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.borderRadius.xl,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: theme.spacing.xl,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray200,
-  },
-  modalTitle: {
-    fontSize: theme.typography.fontSize.lg,
-    fontFamily: theme.typography.fontSansBold,
-    color: theme.colors.gray900,
-  },
-  modalCloseButton: {
-    padding: theme.spacing.xs,
-  },
+  // Estilos do conteúdo do modal de detalhes
   modalBody: {
-    padding: theme.spacing.xl,
+    maxHeight: 400,
   },
   detailSection: {
-    marginBottom: theme.spacing.xl + 4,
+    marginBottom: theme.spacing.xl,
   },
   detailHeader: {
     flexDirection: 'row',
@@ -552,6 +527,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   detailValue: {
     fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSans,
     color: theme.colors.gray900,
     lineHeight: theme.typography.fontSize.sm * 1.4,
   },
@@ -606,38 +582,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
   stopAddress: {
     flex: 1,
     fontSize: theme.typography.fontSize.xs - 1,
+    fontFamily: theme.typography.fontSans,
     color: theme.colors.gray500,
   },
   stopAddressMoved: {
     color: theme.colors.secondaryDark,
     fontFamily: theme.typography.fontSansMedium,
   },
-  modalActions: {
-    flexDirection: 'row',
-    gap: theme.spacing.md,
-    marginTop: theme.spacing.xl + 4,
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.sm,
-    alignItems: 'center',
-  },
-  modalRejectButton: {
-    backgroundColor: theme.colors.gray100,
-  },
-  modalRejectButtonText: {
-    color: theme.colors.gray500,
-    fontSize: theme.typography.fontSize.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
-  modalAcceptButton: {
-    backgroundColor: theme.colors.success,
-  },
-  modalAcceptButtonText: {
-    color: theme.colors.white,
-    fontSize: theme.typography.fontSize.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
 }));
-

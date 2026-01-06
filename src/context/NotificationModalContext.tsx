@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import {
+  Animated,
   BackHandler,
   Dimensions,
   Platform,
@@ -34,19 +35,61 @@ interface NotificationModalProviderProps {
 
 export function NotificationModalProvider({ children }: NotificationModalProviderProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const screenHeight = Dimensions.get('screen').height;
 
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+
   const openModal = useCallback(() => {
+    setIsVisible(true);
     setIsOpen(true);
   }, []);
 
   const closeModal = useCallback(() => {
-    setIsOpen(false);
-  }, []);
+    // Animate out
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 50,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setIsVisible(false);
+      setIsOpen(false);
+    });
+  }, [fadeAnim, slideAnim]);
+
+  // Animate in when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fadeAnim.setValue(0);
+      slideAnim.setValue(50);
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          tension: 65,
+          friction: 10,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [isOpen, fadeAnim, slideAnim]);
 
   // Handle Android back button
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isOpen) return;
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -63,28 +106,54 @@ export function NotificationModalProvider({ children }: NotificationModalProvide
 
   // Modal width responsivo
   const getModalWidth = () => {
-    if (Platform.OS !== 'web') return windowWidth * 0.9;
+    if (Platform.OS !== 'web') return windowWidth * 0.92;
     if (isMobileWidth) return windowWidth * 0.95;
     if (isTabletWidth) return windowWidth * 0.85;
     return 480;
   };
 
+  // Modal height - usa screenHeight no Android para compensar navigation bar
+  const getModalMaxHeight = () => {
+    if (Platform.OS === 'android') {
+      // No Android, usar screen height para evitar problemas com navigation bar
+      return screenHeight * 0.7;
+    }
+    return windowHeight * 0.75;
+  };
+
   return (
     <NotificationModalContext.Provider value={{ isOpen, openModal, closeModal }}>
       {children}
-      {isOpen && (
+      {isVisible && (
         <View style={[styles.absoluteOverlay, { height: screenHeight }]}>
-          <Pressable
-            style={styles.modalOverlay}
-            onPress={closeModal}
+          <Animated.View
+            style={[
+              styles.modalOverlay,
+              { opacity: fadeAnim },
+            ]}
           >
             <Pressable
-              style={[styles.modalContent, { width: getModalWidth(), maxHeight: windowHeight * 0.8 }]}
-              onPress={(e) => e.stopPropagation()}
+              style={styles.overlayPressable}
+              onPress={closeModal}
             >
-              <NotificationList onClose={closeModal} />
+              <Animated.View
+                style={[
+                  styles.modalContent,
+                  {
+                    width: getModalWidth(),
+                    maxHeight: getModalMaxHeight(),
+                    transform: [{ translateY: slideAnim }],
+                  },
+                ]}
+              >
+                <Pressable onPress={(e) => e.stopPropagation()}>
+                  <View style={{ maxHeight: getModalMaxHeight() }}>
+                    <NotificationList onClose={closeModal} />
+                  </View>
+                </Pressable>
+              </Animated.View>
             </Pressable>
-          </Pressable>
+          </Animated.View>
         </View>
       )}
     </NotificationModalContext.Provider>
@@ -103,14 +172,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
   modalOverlay: {
     flex: 1,
     backgroundColor: theme.colors.overlay,
+  },
+  overlayPressable: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
     maxWidth: 600,
-    minHeight: 300,
     backgroundColor: theme.colors.white,
-    borderRadius: 16,
+    borderRadius: theme.borderRadius.xl,
     overflow: 'hidden',
     ...Platform.select({
       ios: {

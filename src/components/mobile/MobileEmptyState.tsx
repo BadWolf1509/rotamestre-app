@@ -64,7 +64,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.gray50,
   },
   icon: {
-    fontSize: 64,
+    fontSize: theme.typography.fontSize['4xl'] + 28,
     marginBottom: theme.spacing['2xl'],
   },
   title: {

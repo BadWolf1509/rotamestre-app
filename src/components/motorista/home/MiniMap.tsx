@@ -65,6 +65,8 @@ export function MiniMap({
   );
 
   // Checkpoints (pontos de partida/chegada da unidade) - NÃO são paradas de entrega
+  // is_checkpoint === false significa que É um checkpoint (partida/chegada da unidade)
+  // is_checkpoint === true ou undefined significa que é uma parada normal de entrega
   const checkpoints = useMemo(
     () => todasParadasComCoord.filter(p => p.is_checkpoint === false),
     [todasParadasComCoord]
@@ -158,6 +160,8 @@ export function MiniMap({
         style={[styles.mapContainer, { height }]}
         onPress={onOpenFullMap}
         activeOpacity={0.95}
+        accessibilityLabel={`Mapa da rota com ${paradasPendentes.length} paradas pendentes. Toque para abrir mapa completo`}
+        accessibilityRole="button"
       >
         <MapView
           ref={mapRef}
@@ -276,6 +280,8 @@ export function MiniMap({
                 onOpenPiP?.();
               }}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Abrir mapa flutuante"
+              accessibilityRole="button"
             >
               <Ionicons
                 name="copy-outline"
@@ -291,13 +297,15 @@ export function MiniMap({
                 onToggleExpand?.();
               }}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel={expanded ? 'Minimizar mapa' : 'Expandir mapa'}
+              accessibilityRole="button"
             >
               <Ionicons
                 name={expanded ? 'contract' : 'expand'}
                 size={20}
-              color={theme.colors.white}
-            />
-          </TouchableOpacity>
+                color={theme.colors.white}
+              />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -343,7 +351,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   infoText: {
     color: theme.colors.white,
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     fontWeight: '600',
   },
   controlButtons: {
@@ -403,7 +411,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   markerText: {
     color: theme.colors.white,
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     fontWeight: '700',
   },
   checkpointMarker: {

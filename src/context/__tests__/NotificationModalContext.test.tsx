@@ -5,12 +5,62 @@
 
 import { renderHook, act, render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
-import { View, Text, Pressable, BackHandler } from 'react-native';
+import { View, Text, Pressable, BackHandler, Animated } from 'react-native';
 
 import {
   useNotificationModal,
   NotificationModalProvider,
 } from '../NotificationModalContext';
+
+// Mock Animated to make animations complete immediately
+// Store originals before setup
+let originalTiming: typeof Animated.timing;
+let originalParallel: typeof Animated.parallel;
+let originalSpring: typeof Animated.spring;
+
+beforeAll(() => {
+  // Save originals
+  originalTiming = Animated.timing;
+  originalParallel = Animated.parallel;
+  originalSpring = Animated.spring;
+
+  // @ts-ignore - Mocking animated timing
+  Animated.timing = (value: Animated.Value, config: Animated.TimingAnimationConfig) => ({
+    start: (callback?: () => void) => {
+      if (config.toValue !== undefined) {
+        value.setValue(config.toValue as number);
+      }
+      callback?.();
+    },
+    stop: jest.fn(),
+  });
+
+  // @ts-ignore - Mocking animated parallel
+  Animated.parallel = (animations: Animated.CompositeAnimation[]) => ({
+    start: (callback?: () => void) => {
+      animations.forEach((anim) => anim.start());
+      callback?.();
+    },
+    stop: jest.fn(),
+  });
+
+  // @ts-ignore - Mocking animated spring (used in openModal animation)
+  Animated.spring = (value: Animated.Value, config: Animated.SpringAnimationConfig) => ({
+    start: (callback?: () => void) => {
+      if (config.toValue !== undefined) {
+        value.setValue(config.toValue as number);
+      }
+      callback?.();
+    },
+    stop: jest.fn(),
+  });
+});
+
+afterAll(() => {
+  Animated.timing = originalTiming;
+  Animated.parallel = originalParallel;
+  Animated.spring = originalSpring;
+});
 
 // Mock NotificationList
 jest.mock('@/components/NotificationList', () => ({
@@ -25,6 +75,31 @@ jest.mock('@/components/NotificationList', () => ({
       </View>
     );
   },
+}));
+
+// Mock styles
+jest.mock('@/utils/styles', () => {
+  const theme = {
+    colors: {
+      overlay: 'rgba(0,0,0,0.5)',
+      white: '#ffffff',
+      black: '#000000',
+    },
+    borderRadius: {
+      xl: 20,
+    },
+  };
+  return {
+    StyleSheet: {
+      create: (fn: (theme: typeof theme) => Record<string, unknown>) =>
+        typeof fn === 'function' ? fn(theme) : fn,
+    },
+  };
+});
+
+// Mock color utility
+jest.mock('@/utils/color', () => ({
+  boxShadow: () => '',
 }));
 
 // Mock BackHandler using spyOn

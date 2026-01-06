@@ -4,37 +4,43 @@ import { act } from 'react-test-renderer';
 import { useNotifications } from '../useNotifications';
 
 // Mock do Supabase
+const mockNotificacoesData = [
+  {
+    id: '1',
+    usuario_id: 'user-1',
+    tipo: 'rota_iniciada',
+    titulo: 'Rota Iniciada',
+    mensagem: 'O motorista João iniciou uma rota',
+    rota_id: 'rota-1',
+    lida: false,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: '2',
+    usuario_id: 'user-1',
+    tipo: 'rota_concluida',
+    titulo: 'Rota Concluída',
+    mensagem: 'O motorista João finalizou a rota com 5/5 paradas concluídas',
+    rota_id: 'rota-1',
+    lida: true,
+    created_at: new Date().toISOString(),
+  },
+];
+
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: jest.fn(() => ({
       select: jest.fn(() => ({
         eq: jest.fn(() => ({
           order: jest.fn(() => ({
-            limit: jest.fn(() => ({
-              data: [
-                {
-                  id: '1',
-                  usuario_id: 'user-1',
-                  tipo: 'rota_iniciada',
-                  titulo: 'Rota Iniciada',
-                  mensagem: 'O motorista João iniciou uma rota',
-                  rota_id: 'rota-1',
-                  lida: false,
-                  created_at: new Date().toISOString(),
-                },
-                {
-                  id: '2',
-                  usuario_id: 'user-1',
-                  tipo: 'rota_concluida',
-                  titulo: 'Rota Concluída',
-                  mensagem: 'O motorista João finalizou a rota com 5/5 paradas concluídas',
-                  rota_id: 'rota-1',
-                  lida: true,
-                  created_at: new Date().toISOString(),
-                },
-              ],
+            range: jest.fn(() => ({
+              data: mockNotificacoesData,
               error: null,
             })),
+          })),
+          eq: jest.fn(() => ({
+            data: mockNotificacoesData.filter(n => !n.lida),
+            error: null,
           })),
         })),
       })),

@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
@@ -22,10 +23,20 @@ interface NotificationListProps {
 }
 
 export function NotificationList({ onClose }: NotificationListProps) {
-  const { notificacoes, naoLidas, loading, marcarComoLida, marcarTodasComoLidas } =
+  const { notificacoes, naoLidas, loading, marcarComoLida, marcarTodasComoLidas, refresh, loadMore, hasMore } =
     useNotifications();
   const { userData } = useUser();
   const { theme } = useUnistyles();
+  const [refreshing, setRefreshing] = useState(false);
+
+  /**
+   * Pull-to-refresh handler
+   */
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refresh();
+    setRefreshing(false);
+  }, [refresh]);
 
   /**
    * Determina a rota de navegação baseada no tipo de notificação e papel do usuário
@@ -200,31 +211,44 @@ export function NotificationList({ onClose }: NotificationListProps) {
     </Pressable>
   );
 
+  const renderFooter = () => {
+    if (!hasMore) return null;
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color={theme.colors.primary} />
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Header - Layout responsivo com botão X fixo */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>Notificações</Text>
-          {naoLidas > 0 && <View style={styles.headerBadge}>
-            <Text style={styles.headerBadgeText}>{naoLidas}</Text>
-          </View>}
-        </View>
+        <View style={styles.headerMain}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerTitle}>Notificações</Text>
+            {naoLidas > 0 && (
+              <View style={styles.headerBadge}>
+                <Text style={styles.headerBadgeText}>{naoLidas}</Text>
+              </View>
+            )}
+          </View>
 
-        <View style={styles.headerActions}>
           {naoLidas > 0 && (
             <Pressable onPress={handleMarcarTodasLidas} style={styles.headerButton}>
-              <Text style={styles.headerButtonText}>Marcar todas como lidas</Text>
+              <Text style={styles.headerButtonText}>Marcar lidas</Text>
             </Pressable>
           )}
-          <Pressable onPress={onClose} style={styles.closeButton} testID="close-button">
-            <Ionicons name="close" size={24} color={theme.colors.gray500} />
-          </Pressable>
         </View>
+
+        {/* Botão de fechar - posição fixa no canto */}
+        <Pressable onPress={onClose} style={styles.closeButton} testID="close-button">
+          <Ionicons name="close" size={24} color={theme.colors.gray500} />
+        </Pressable>
       </View>
 
       {/* Content */}
-      {loading ? (
+      {loading && notificacoes.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
@@ -244,10 +268,22 @@ export function NotificationList({ onClose }: NotificationListProps) {
         </ScrollView>
       ) : (
         <FlatList
+          style={styles.flatList}
           data={notificacoes}
           renderItem={renderNotification}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[theme.colors.primary]}
+              tintColor={theme.colors.primary}
+            />
+          }
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={renderFooter}
         />
       )}
     </View>
@@ -263,26 +299,36 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: theme.spacing.xl,
+    paddingVertical: theme.spacing.md,
+    paddingLeft: theme.spacing.lg,
+    paddingRight: theme.spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+    minHeight: 56,
+  },
+  headerMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginRight: theme.spacing.sm,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
   headerTitle: {
     fontFamily: theme.typography.fontSansBold,
-    fontSize: theme.typography.fontSize.xl,
+    fontSize: theme.typography.fontSize.lg,
     color: theme.colors.gray900,
   },
   headerBadge: {
     backgroundColor: theme.colors.error,
-    borderRadius: theme.borderRadius.lg,
+    borderRadius: theme.borderRadius.full,
     paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs / 2,
-    minWidth: 24,
+    paddingVertical: 2,
+    minWidth: 22,
     alignItems: 'center',
   },
   headerBadgeText: {
@@ -290,24 +336,24 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.fontSize.xs,
     fontFamily: theme.typography.fontSansBold,
   },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.md,
-  },
   headerButton: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs + 2,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
   },
   headerButtonText: {
     color: theme.colors.primary,
-    fontSize: theme.typography.fontSize.sm,
+    fontSize: theme.typography.fontSize.xs,
     fontFamily: theme.typography.fontSansSemiBold,
   },
   closeButton: {
-    padding: theme.spacing.xs,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.gray50,
   },
   scrollView: {
+    flex: 1,
+  },
+  flatList: {
     flex: 1,
   },
   list: {
@@ -316,7 +362,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   notificationItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
     gap: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray100,
@@ -331,7 +377,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     position: 'relative',
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: theme.borderRadius.full,
     backgroundColor: theme.colors.gray50,
     justifyContent: 'center',
     alignItems: 'center',
@@ -352,7 +398,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: theme.spacing.xs,
   },
   titulo: {
-    fontSize: theme.typography.fontSize.base,
+    fontSize: theme.typography.fontSize.sm,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray700,
   },
@@ -361,16 +407,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray900,
   },
   mensagem: {
-    fontSize: theme.typography.fontSize.sm,
+    fontSize: theme.typography.fontSize.xs,
     fontFamily: theme.typography.fontSans,
     color: theme.colors.gray500,
-    lineHeight: theme.typography.fontSize.sm * 1.5,
+    lineHeight: theme.typography.fontSize.xs * 1.5,
   },
   timestamp: {
     fontSize: theme.typography.fontSize.xs,
     fontFamily: theme.typography.fontSans,
     color: theme.colors.gray400,
-    marginTop: theme.spacing.xs / 2,
   },
   loadingContainer: {
     flex: 1,
@@ -382,7 +427,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: theme.spacing['4xl'],
+    padding: theme.spacing['3xl'],
     gap: theme.spacing.md,
   },
   emptyText: {
@@ -395,5 +440,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontFamily: theme.typography.fontSans,
     color: theme.colors.gray400,
     textAlign: 'center',
+  },
+  footerLoader: {
+    paddingVertical: theme.spacing.lg,
+    alignItems: 'center',
   },
 }));

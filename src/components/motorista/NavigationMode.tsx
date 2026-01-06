@@ -537,7 +537,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'center',
   },
   distanceValue: {
-    fontSize: 32,
+    fontSize: theme.typography.fontSize['3xl'],
     fontFamily: theme.typography.fontSansBold,
     color: theme.colors.gray900,
   },
@@ -568,7 +568,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'center',
   },
   speedValue: {
-    fontSize: 28,
+    fontSize: theme.typography.fontSize['2xl'] + 4,
     fontFamily: theme.typography.fontSansBold,
     color: theme.colors.gray900,
   },

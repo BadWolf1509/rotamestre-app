@@ -104,6 +104,10 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [rotaToDelete, setRotaToDelete] = useState<RotaHistorico | null>(null);
 
+  // Estado para ordenação
+  const [sortColumn, setSortColumn] = useState<string>('data');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
   // Ref para controlar AbortController
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -268,7 +272,7 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
     },
   });
 
-  // Filtrar rotas (usando debouncedSearchQuery)
+  // Filtrar e ordenar rotas (usando debouncedSearchQuery)
   useEffect(() => {
     let resultado = [...rotas];
 
@@ -287,8 +291,54 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
       });
     }
 
+    // Ordenar resultados
+    resultado.sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortColumn) {
+        case 'data':
+          // Ordenar por data (string ISO)
+          comparison = a.data.localeCompare(b.data);
+          break;
+        case 'motorista': {
+          // Ordenar por nome do motorista (null-safe)
+          const nomeA = a.motorista_nome?.toLowerCase() || '';
+          const nomeB = b.motorista_nome?.toLowerCase() || '';
+          comparison = nomeA.localeCompare(nomeB);
+          break;
+        }
+        case 'status': {
+          // Ordenar por prioridade de status
+          const statusOrder: Record<RotaStatus, number> = {
+            em_andamento: 0,
+            pendente: 1,
+            concluida: 2,
+            cancelada: 3,
+            nao_executada: 4,
+          };
+          comparison = (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99);
+          break;
+        }
+        default:
+          comparison = 0;
+      }
+
+      // Aplicar direção da ordenação primária
+      comparison = sortDirection === 'asc' ? comparison : -comparison;
+
+      // Ordenação secundária: por hora de início (quando empate)
+      if (comparison === 0) {
+        const inicioA = a.iniciada_em || '';
+        const inicioB = b.iniciada_em || '';
+        // Secundária sempre DESC (mais recentes primeiro)
+        comparison = inicioB.localeCompare(inicioA);
+      }
+
+      return comparison;
+    });
+
     setRotasFiltradas(resultado);
-  }, [rotas, filtroStatus, debouncedSearchQuery]);
+  }, [rotas, filtroStatus, debouncedSearchQuery, sortColumn, sortDirection]);
 
   // ============================================
   // ACTIONS
@@ -487,6 +537,15 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
   }, [rotasFiltradas, filtroStatus, userData?.id]);
 
   // ============================================
+  // SORTING
+  // ============================================
+
+  const handleSort = useCallback((column: string, direction: 'asc' | 'desc') => {
+    setSortColumn(column);
+    setSortDirection(direction);
+  }, []);
+
+  // ============================================
   // HELPERS
   // ============================================
 
@@ -516,6 +575,11 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
     // State Setters
     setFiltroStatus,
     setSearchQuery,
+
+    // Sorting
+    sortColumn,
+    sortDirection,
+    handleSort,
 
     // Actions
     loadRotas,

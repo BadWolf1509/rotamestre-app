@@ -30,7 +30,6 @@ import {
   type DataTableAction,
   type DataTableColumn,
   DesktopCard,
-  DesktopModal,
   DesktopPageLayout,
   FilterChip,
   MobileCard,
@@ -88,6 +87,7 @@ export default function GestaoRotas() {
     getStatusColor,
     toastState,
     hideToast,
+    handleSort,
   } = useGestaoRotas({
     statusColorMap,
     defaultStatusColor: theme.colors.gray500,
@@ -107,14 +107,14 @@ export default function GestaoRotas() {
     {
       key: 'data',
       label: 'Data',
-      width: 120,
+      width: 100,
       sortable: true,
       render: (rota) => <Text style={styles.tableCellText}>{formatDateBR(rota.data)}</Text>,
     },
     {
       key: 'motorista',
       label: 'Motorista',
-      width: 220,
+      width: 180,
       noWrap: true,
       sortable: true,
       render: (rota) => <Text style={styles.tableCellText}>{rota.motorista_nome || 'Sem motorista'}</Text>,
@@ -122,14 +122,14 @@ export default function GestaoRotas() {
     {
       key: 'paradas',
       label: 'Paradas',
-      width: 120,
+      width: 80,
       align: 'center',
       render: (rota) => <Text style={styles.tableCellText}>{`${rota.paradas_concluidas}/${rota.paradas_count}`}</Text>,
     },
     {
       key: 'distancia',
       label: 'Distância',
-      width: 120,
+      width: 90,
       align: 'right',
       desktopOnly: true,
       render: (rota) => <Text style={styles.tableCellText}>{rota.distancia_total ? `${rota.distancia_total.toFixed(1)} km` : '-'}</Text>,
@@ -137,21 +137,21 @@ export default function GestaoRotas() {
     {
       key: 'iniciada_em',
       label: 'Iniciada',
-      width: 140,
+      width: 120,
       desktopOnly: true,
       render: (rota) => <Text style={styles.tableCellText}>{formatDateTimeBR(rota.iniciada_em)}</Text>,
     },
     {
       key: 'concluida_em',
       label: 'Concluída',
-      width: 140,
+      width: 120,
       desktopOnly: true,
       render: (rota) => <Text style={styles.tableCellText}>{formatDateTimeBR(rota.concluida_em)}</Text>,
     },
     {
       key: 'status',
       label: 'Status',
-      width: 140,
+      width: 110,
       sortable: true,
       render: (rota) => {
         if (!rota.status) {
@@ -306,6 +306,7 @@ export default function GestaoRotas() {
                 pagination
                 isLoading={loading}
                 skeletonRows={10}
+                onSort={handleSort}
                 emptyState={
                   <View style={styles.emptyState}>
                     <Text style={styles.emptyStateText}>📋</Text>
@@ -323,53 +324,16 @@ export default function GestaoRotas() {
         </DesktopPageLayout>
 
         {/* Modal de Confirmação - Desktop */}
-        <DesktopModal
+        <ConfirmModal
           visible={showConfirmModal}
-          onClose={handleCancelDelete}
-          title="Confirmar Exclusão"
-        >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalMessage}>
-              Tem certeza que deseja excluir esta rota?
-            </Text>
-
-            <View style={styles.modalInfoBox}>
-              <Text style={styles.modalInfoText}>
-                <Text style={styles.modalInfoLabel}>Motorista:</Text> {rotaToDelete?.motorista_nome || 'Sem motorista'}
-              </Text>
-              <Text style={styles.modalInfoText}>
-                <Text style={styles.modalInfoLabel}>Paradas:</Text> {rotaToDelete?.paradas_count || 0}
-              </Text>
-              <Text style={styles.modalInfoTextLast}>
-                <Text style={styles.modalInfoLabel}>Status:</Text> {rotaToDelete?.status ? getStatusLabel(rotaToDelete.status) : '-'}
-              </Text>
-            </View>
-
-            <Text style={styles.modalWarning}>
-              ⚠️ Esta ação não pode ser desfeita.
-            </Text>
-
-            <View style={styles.modalButtonsRow}>
-              <TouchableOpacity
-                style={styles.modalButtonCancel}
-                onPress={handleCancelDelete}
-                accessibilityRole="button"
-                accessibilityLabel="Cancelar exclusão"
-              >
-                <Text style={styles.modalButtonCancelText}>Cancelar</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.modalButtonDanger}
-                onPress={handleConfirmDelete}
-                accessibilityRole="button"
-                accessibilityLabel="Confirmar exclusão da rota"
-              >
-                <Text style={styles.modalButtonDangerText}>Excluir</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </DesktopModal>
+          title="Excluir Rota"
+          message={`Tem certeza que deseja excluir esta rota?\n\nMotorista: ${rotaToDelete?.motorista_nome || 'Sem motorista'}\nParadas: ${rotaToDelete?.paradas_count || 0}\nStatus: ${rotaToDelete?.status ? getStatusLabel(rotaToDelete.status) : '-'}\n\nEsta ação não pode ser desfeita.`}
+          confirmText="Excluir"
+          cancelText="Cancelar"
+          type="danger"
+          onConfirm={handleConfirmDelete}
+          onCancel={handleCancelDelete}
+        />
 
         {/* Toast de Feedback */}
         <Toast {...toastState} onDismiss={hideToast} />
@@ -392,91 +356,92 @@ export default function GestaoRotas() {
       {/* Content */}
       <ScrollView style={styles.scrollView}>
         <View style={styles.content}>
-        {/* Info e Filtros */}
-        <MobileCard
-          title="Filtros"
-          subtitle={`${rotasFiltradas.length} rota(s) encontrada(s)`}
-          variant="bordered"
-        >
-          {/* Search Input */}
-          <View style={styles.searchContainer}>
-            <TextInput
-              style={[styles.searchInput, isDesktop && styles.searchInputDesktop]}
-              placeholder="Buscar por motorista ou data..."
-              placeholderTextColor={theme.colors.gray400}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              accessibilityLabel="Buscar rotas"
-              accessibilityHint="Digite o nome do motorista ou data para filtrar"
-            />
-          </View>
+          {/* Info e Filtros */}
+          <MobileCard
+            title="Filtros"
+            subtitle={`${rotasFiltradas.length} rota(s) encontrada(s)`}
+            variant="bordered"
+          >
+            {/* Search Input */}
+            <View style={styles.searchContainer}>
+              <TextInput
+                style={[styles.searchInput, isDesktop && styles.searchInputDesktop]}
+                placeholder="Buscar por motorista ou data..."
+                placeholderTextColor={theme.colors.gray400}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                accessibilityLabel="Buscar rotas"
+                accessibilityHint="Digite o nome do motorista ou data para filtrar"
+              />
+            </View>
 
-          <Text style={styles.filtrosLabel} accessibilityRole="header">Filtrar por Status:</Text>
-          <View style={styles.filtrosButtons} accessibilityRole="radiogroup">
-            {FILTRO_STATUS_OPTIONS.map((status) => {
-              const label = status === 'todas' ? 'Todas' : getStatusLabel(status);
-              const isSelected = filtroStatus === status;
-              return (
-                <FilterChip
-                  key={status}
-                  label={label}
-                  selected={isSelected}
-                  size="regular"
-                  onPress={() => setFiltroStatus(status)}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: isSelected }}
-                  accessibilityLabel={`Filtrar por ${label}`}
-                />
-              );
-            })}
-          </View>
+            <Text style={styles.filtrosLabel} accessibilityRole="header">Filtrar por Status:</Text>
+            <View style={styles.filtrosButtons} accessibilityRole="radiogroup">
+              {FILTRO_STATUS_OPTIONS.map((status) => {
+                const label = status === 'todas' ? 'Todas' : getStatusLabel(status);
+                const isSelected = filtroStatus === status;
+                return (
+                  <FilterChip
+                    key={status}
+                    label={label}
+                    selected={isSelected}
+                    size="regular"
+                    onPress={() => setFiltroStatus(status)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: isSelected }}
+                    accessibilityLabel={`Filtrar por ${label}`}
+                  />
+                );
+              })}
+            </View>
 
-          {/* Botões de Ação */}
-          <View style={styles.mobileActionsRow}>
-            <TouchableOpacity
-              style={styles.mobileActionButtonSecondary}
-              onPress={exportarParaCSV}
-              accessibilityRole="button"
-              accessibilityLabel="Exportar rotas para CSV"
-            >
-              <Text style={styles.mobileActionButtonSecondaryText}>Exportar CSV</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.mobileActionButtonPrimary}
-              onPress={() => router.push('/gestor/nova-entrega')}
-              accessibilityRole="button"
-              accessibilityLabel="Criar nova rota"
-            >
-              <Text style={styles.mobileActionButtonPrimaryText}>Nova Rota</Text>
-            </TouchableOpacity>
-          </View>
-        </MobileCard>
+            {/* Botões de Ação */}
+            <View style={styles.mobileActionsRow}>
+              <TouchableOpacity
+                style={styles.mobileActionButtonSecondary}
+                onPress={exportarParaCSV}
+                accessibilityRole="button"
+                accessibilityLabel="Exportar rotas para CSV"
+              >
+                <Text style={styles.mobileActionButtonSecondaryText}>Exportar CSV</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.mobileActionButtonPrimary}
+                onPress={() => router.push('/gestor/nova-entrega')}
+                accessibilityRole="button"
+                accessibilityLabel="Criar nova rota"
+              >
+                <Text style={styles.mobileActionButtonPrimaryText}>Nova Rota</Text>
+              </TouchableOpacity>
+            </View>
+          </MobileCard>
 
-        {/* DataTable */}
-        <DataTable
-          testID="gestao-rotas-table"
-          data={rotasFiltradas}
-          columns={columns}
-          actions={actions}
-          keyExtractor={(rota) => rota.id}
-          itemsPerPage={20}
-          pagination
-          isLoading={loading}
-          skeletonRows={10}
-          emptyState={
-            <MobileEmptyState
-              icon="📋"
-              title="Nenhuma rota encontrada"
-              subtitle={
-                filtroStatus !== 'todas'
-                  ? 'Tente alterar os filtros'
-                  : 'Crie sua primeira rota de entrega'
-              }
-              actionLabel={filtroStatus === 'todas' ? 'Criar Nova Rota' : undefined}
-              onAction={filtroStatus === 'todas' ? () => router.push('/gestor/nova-entrega') : undefined}
-            />
-          }
-        />
+          {/* DataTable */}
+          <DataTable
+            testID="gestao-rotas-table"
+            data={rotasFiltradas}
+            columns={columns}
+            actions={actions}
+            keyExtractor={(rota) => rota.id}
+            itemsPerPage={20}
+            pagination
+            isLoading={loading}
+            skeletonRows={10}
+            onSort={handleSort}
+            emptyState={
+              <MobileEmptyState
+                icon="📋"
+                title="Nenhuma rota encontrada"
+                subtitle={
+                  filtroStatus !== 'todas'
+                    ? 'Tente alterar os filtros'
+                    : 'Crie sua primeira rota de entrega'
+                }
+                actionLabel={filtroStatus === 'todas' ? 'Criar Nova Rota' : undefined}
+                onAction={filtroStatus === 'todas' ? () => router.push('/gestor/nova-entrega') : undefined}
+              />
+            }
+          />
         </View>
       </ScrollView>
 
@@ -659,67 +624,5 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontFamily: theme.typography.fontSansSemiBold,
     fontSize: theme.typography.sm,
   },
-  // Modal Desktop Styles
-  modalContent: {
-    padding: theme.spacing.xl,
-  },
-  modalMessage: {
-    fontSize: theme.typography.base,
-    marginBottom: theme.spacing.xl,
-    lineHeight: 24,
-    color: theme.colors.gray900,
-  },
-  modalInfoBox: {
-    backgroundColor: theme.colors.gray50,
-    padding: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
-    marginBottom: theme.spacing.xl,
-  },
-  modalInfoText: {
-    fontSize: theme.typography.sm,
-    marginBottom: theme.spacing.sm,
-    color: theme.colors.gray700,
-  },
-  modalInfoTextLast: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray700,
-  },
-  modalInfoLabel: {
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
-  modalWarning: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.error,
-    marginBottom: theme.spacing['2xl'],
-  },
-  modalButtonsRow: {
-    flexDirection: 'row',
-    gap: theme.spacing.md,
-  },
-  modalButtonCancel: {
-    flex: 1,
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.xl,
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.gray300,
-    alignItems: 'center',
-  },
-  modalButtonCancelText: {
-    fontSize: theme.typography.base,
-    color: theme.colors.gray700,
-  },
-  modalButtonDanger: {
-    flex: 1,
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.xl,
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: theme.colors.error,
-    alignItems: 'center',
-  },
-  modalButtonDangerText: {
-    fontSize: theme.typography.base,
-    color: theme.colors.white,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
+
 }));

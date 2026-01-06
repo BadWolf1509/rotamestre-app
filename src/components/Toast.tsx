@@ -224,7 +224,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
   },
   icon: {
-    fontSize: 20,
+    fontSize: theme.typography.fontSize.xl,
     marginRight: theme.spacing['3'],
   },
   message: {

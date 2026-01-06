@@ -296,22 +296,22 @@ function DataTableInner<T = any>({
             <View key={keyExtractor(item)} style={styles.card}>
               {/* Dados do card */}
               {mobileColumns.map((column) => {
-                  const renderedContent = column.render ? column.render(item) : (item as any)[column.key];
-                  const isReactElement = typeof renderedContent === 'object' && renderedContent !== null && typeof renderedContent !== 'string';
+                const renderedContent = column.render ? column.render(item) : (item as any)[column.key];
+                const isReactElement = typeof renderedContent === 'object' && renderedContent !== null && typeof renderedContent !== 'string';
 
-                  return (
-                    <View key={column.key} style={styles.cardRow}>
-                      <Text style={styles.cardLabel}>{column.label}:</Text>
-                      {isReactElement ? (
-                        renderedContent
-                      ) : (
-                        <Text style={styles.cardValue}>
-                          {renderedContent}
-                        </Text>
-                      )}
-                    </View>
-                  );
-                })}
+                return (
+                  <View key={column.key} style={styles.cardRow}>
+                    <Text style={styles.cardLabel}>{column.label}:</Text>
+                    {isReactElement ? (
+                      renderedContent
+                    ) : (
+                      <Text style={styles.cardValue}>
+                        {renderedContent}
+                      </Text>
+                    )}
+                  </View>
+                );
+              })}
 
               {/* Ações */}
               {actions && actions.length > 0 && (
@@ -338,8 +338,8 @@ function DataTableInner<T = any>({
                               action.type === 'danger'
                                 ? theme.colors.error
                                 : action.type === 'secondary'
-                                ? theme.colors.gray600
-                                : theme.colors.primary
+                                  ? theme.colors.gray600
+                                  : theme.colors.primary
                             }
                           />
                         )}
@@ -486,8 +486,8 @@ function DataTableInner<T = any>({
                                 action.type === 'danger'
                                   ? theme.colors.error
                                   : action.type === 'secondary'
-                                  ? theme.colors.gray600
-                                  : theme.colors.primary
+                                    ? theme.colors.gray600
+                                    : theme.colors.primary
                               }
                             />
                           )}
@@ -670,6 +670,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.gray50,
     borderBottomWidth: 2,
     borderBottomColor: theme.colors.gray200,
+    paddingHorizontal: theme.spacing.md,
   },
   tableHeaderCell: {
     padding: theme.spacing.sm,
@@ -691,6 +692,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray200,
+    paddingHorizontal: theme.spacing.md,
     // Web-only hover state
     ...(Platform.OS === 'web' && ({
       cursor: 'default',
@@ -717,10 +719,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
   tableCellTextNoWrap: {
     ...(Platform.OS === 'web'
       ? {
-          whiteSpace: 'nowrap',
-          textOverflow: 'ellipsis',
-          overflow: 'hidden',
-        }
+        whiteSpace: 'nowrap',
+        textOverflow: 'ellipsis',
+        overflow: 'hidden',
+      }
       : {}),
   },
   tableCellActions: {

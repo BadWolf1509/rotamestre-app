@@ -56,7 +56,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     padding: theme.spacing.xs,
   },
   backIcon: {
-    fontSize: 24,
+    fontSize: theme.typography.fontSize['2xl'],
     color: theme.colors.gray700,
     fontFamily: theme.typography.fontSansSemiBold,
   },

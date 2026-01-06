@@ -10,7 +10,14 @@ jest.mock('@/utils/styles', () => ({
     create: (fn: Function) =>
       fn({
         spacing: { md: 12, '2xl': 24, '3xl': 32 },
-        typography: { sm: 14, '3xl': 30, fontDisplay: 'Poppins-Bold' },
+        typography: {
+          fontSize: { xs: 12, sm: 14, base: 16, lg: 18, xl: 20, '2xl': 24, '3xl': 30 },
+          fontDisplay: 'Poppins-Bold',
+          fontSans: 'System',
+          fontSansMedium: 'System',
+          fontSansSemiBold: 'System',
+          fontSansBold: 'System',
+        },
         colors: {
           white: '#FFFFFF',
           gray200: '#E5E7EB',

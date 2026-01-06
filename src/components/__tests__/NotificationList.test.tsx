@@ -4,6 +4,83 @@ import { useNotifications } from '@/hooks/useNotifications';
 
 import { NotificationList } from '../NotificationList';
 
+// Mock @expo/vector-icons
+jest.mock('@expo/vector-icons', () => ({
+  Ionicons: 'Ionicons',
+}));
+
+// Mock styles
+jest.mock('@/utils/styles', () => {
+  const theme = {
+    colors: {
+      primary: '#007AFF',
+      primaryBg: '#e6f0ff',
+      white: '#ffffff',
+      gray50: '#f9fafb',
+      gray100: '#f3f4f6',
+      gray200: '#e5e7eb',
+      gray300: '#d1d5db',
+      gray400: '#9ca3af',
+      gray500: '#6b7280',
+      gray600: '#4b5563',
+      gray700: '#374151',
+      gray900: '#111827',
+      success: '#10b981',
+      successBg: '#d1fae5',
+      warning: '#f59e0b',
+      warningBg: '#fef3c7',
+      error: '#ef4444',
+      errorBg: '#fee2e2',
+      info: '#3b82f6',
+      infoBg: '#dbeafe',
+    },
+    typography: {
+      fontSize: {
+        xs: 12,
+        sm: 14,
+        base: 16,
+        lg: 18,
+        xl: 20,
+        '2xl': 24,
+        '3xl': 30,
+      },
+      fontSans: 'System',
+      fontSansMedium: 'System',
+      fontSansSemiBold: 'System',
+      fontSansBold: 'System',
+    },
+    spacing: {
+      '1': 4,
+      '1.5': 6,
+      '2': 8,
+      '2.5': 10,
+      '3': 12,
+      '4': 16,
+      xs: 4,
+      sm: 8,
+      md: 16,
+      lg: 24,
+      xl: 32,
+    },
+    borderRadius: {
+      xs: 4,
+      sm: 8,
+      md: 12,
+      lg: 16,
+      xl: 20,
+      full: 9999,
+    },
+    shadows: { sm: {}, md: {}, lg: {} },
+  };
+  return {
+    defaultTheme: theme,
+    useUnistyles: () => ({ theme }),
+    StyleSheet: {
+      create: (fn: any) => (typeof fn === 'function' ? fn(theme) : fn),
+    },
+  };
+});
+
 // Mock useNotifications hook
 const mockMarcarComoLida = jest.fn();
 const mockMarcarTodasComoLidas = jest.fn();
@@ -92,10 +169,10 @@ describe('NotificationList', () => {
       expect(screen.queryByText('0')).toBeNull();
     });
 
-    it('não deve exibir botão "Marcar todas como lidas" quando não há notificações não lidas', () => {
+    it('não deve exibir botão "Marcar lidas" quando não há notificações não lidas', () => {
       render(<NotificationList onClose={mockOnClose} />);
 
-      expect(screen.queryByText('Marcar todas como lidas')).toBeNull();
+      expect(screen.queryByText('Marcar lidas')).toBeNull();
     });
   });
 
@@ -148,10 +225,10 @@ describe('NotificationList', () => {
       expect(screen.getByText('2')).toBeTruthy();
     });
 
-    it('deve exibir botão "Marcar todas como lidas"', () => {
+    it('deve exibir botão "Marcar lidas"', () => {
       render(<NotificationList onClose={mockOnClose} />);
 
-      expect(screen.getByText('Marcar todas como lidas')).toBeTruthy();
+      expect(screen.getByText('Marcar lidas')).toBeTruthy();
     });
   });
 
@@ -180,7 +257,7 @@ describe('NotificationList', () => {
     it('deve chamar marcarTodasComoLidas ao clicar no botão', () => {
       render(<NotificationList onClose={mockOnClose} />);
 
-      fireEvent.press(screen.getByText('Marcar todas como lidas'));
+      fireEvent.press(screen.getByText('Marcar lidas'));
 
       expect(mockMarcarTodasComoLidas).toHaveBeenCalledTimes(1);
     });

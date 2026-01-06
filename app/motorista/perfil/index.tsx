@@ -283,7 +283,7 @@ const styles = (theme: any) =>
       borderBottomColor: theme.colors.gray100,
     },
     sectionIcon: {
-      fontSize: 20,
+      fontSize: theme.typography.fontSize.xl,
       marginRight: theme.spacing.md,
     },
     sectionTitle: {
@@ -293,7 +293,7 @@ const styles = (theme: any) =>
       color: theme.colors.gray900,
     },
     sectionArrow: {
-      fontSize: 24,
+      fontSize: theme.typography.fontSize['2xl'],
       color: theme.colors.gray400,
     },
     sectionContent: {
@@ -318,7 +318,7 @@ const styles = (theme: any) =>
       textAlign: 'right',
     },
     itemAction: {
-      fontSize: 20,
+      fontSize: theme.typography.fontSize.xl,
       color: theme.colors.gray400,
       marginLeft: theme.spacing.sm,
     },

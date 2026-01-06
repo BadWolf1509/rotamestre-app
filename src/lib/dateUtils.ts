@@ -65,10 +65,14 @@ export function formatDateTimeBR(
 
 /**
  * Retorna a data atual no formato YYYY-MM-DD (para queries)
+ * Usa data local para evitar problemas de timezone
  */
 export function getTodayISO(): string {
   const today = new Date();
-  return today.toISOString().split('T')[0];
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /**

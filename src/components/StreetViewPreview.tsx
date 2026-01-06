@@ -318,7 +318,7 @@ const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
       borderStyle: 'dashed',
     },
     errorText: {
-      fontSize: 12,
+      fontSize: theme.typography.fontSize.xs,
       color: theme.colors.gray600,
       marginTop: theme.spacing['1'],
       fontWeight: '500',
@@ -403,7 +403,7 @@ const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
       borderBottomColor: theme.colors.gray200,
     },
     modalTitle: {
-      fontSize: 18,
+      fontSize: theme.typography.fontSize.lg,
       fontWeight: '600',
       color: theme.colors.gray800,
     },
@@ -435,7 +435,7 @@ const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
       backgroundColor: theme.colors.gray100,
     },
     modalErrorText: {
-      fontSize: 14,
+      fontSize: theme.typography.fontSize.sm,
       color: theme.colors.gray600,
       marginTop: theme.spacing['2'],
     },
@@ -447,11 +447,11 @@ const createStyles = (theme: ReturnType<typeof useUnistyles>['theme']) =>
     },
     modalAddressText: {
       flex: 1,
-      fontSize: 14,
+      fontSize: theme.typography.fontSize.sm,
       color: theme.colors.gray800,
     },
     modalHint: {
-      fontSize: 12,
+      fontSize: theme.typography.fontSize.xs,
       color: theme.colors.gray600,
       textAlign: 'center',
       padding: theme.spacing['3'],

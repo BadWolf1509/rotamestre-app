@@ -976,7 +976,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   loadingText: {
     marginTop: theme.spacing['2.5'],
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     color: theme.colors.textSecondary,
   },
   errorContainer: {
@@ -986,7 +986,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.errorLight,
   },
   errorText: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     color: theme.colors.error,
   },
 }));

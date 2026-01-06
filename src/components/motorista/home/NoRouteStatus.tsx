@@ -136,7 +136,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing['3'],
   },
   emoji: {
-    fontSize: 28,
+    fontSize: theme.typography.fontSize['2xl'] + 4,
   },
   title: {
     fontSize: theme.typography.lg,

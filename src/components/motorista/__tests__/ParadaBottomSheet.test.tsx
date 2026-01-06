@@ -18,6 +18,7 @@ jest.mock('@/utils/styles', () => {
       error: '#ef4444',
       primary: '#284093',
       primaryBg: '#e6ecfb',
+      overlay: 'rgba(0, 0, 0, 0.5)',
       gray50: '#f9fafb',
       gray100: '#f3f4f6',
       gray200: '#e5e7eb',
@@ -39,6 +40,7 @@ jest.mock('@/utils/styles', () => {
       base: 16,
       lg: 18,
       xl: 20,
+      fontSize: { xs: 12, sm: 14, base: 16, lg: 18, xl: 20 },
       fontSans: 'System',
       fontSansMedium: 'System',
       fontSansSemiBold: 'System',
@@ -50,16 +52,29 @@ jest.mock('@/utils/styles', () => {
       md: 16,
       lg: 24,
       xl: 32,
+      '1': 4,
+      '1.5': 6,
+      '2': 8,
       '2xl': 48,
     },
     borderRadius: {
+      xs: 2,
       sm: 4,
       md: 8,
       lg: 12,
       xl: 16,
       full: 9999,
     },
-    shadows: { sm: {}, md: {}, lg: {} },
+    shadows: {
+      sm: { shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2 },
+      md: { shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4 },
+      lg: { shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8 },
+    },
+    desktop: {
+      button: { height: 36, paddingHorizontal: 16, fontSize: 14 },
+      section: { padding: 24, gap: 12 },
+      modal: { footerGap: 8, footerPadding: 16 },
+    },
   };
   return {
     defaultTheme: theme,
@@ -69,6 +84,11 @@ jest.mock('@/utils/styles', () => {
     },
   };
 });
+
+// Mock responsive hook used by DesktopModal
+jest.mock('@/hooks/useResponsive', () => ({
+  useResponsive: () => ({ isDesktop: false, isMobile: true, isTablet: false }),
+}));
 
 // Mock navigation utils
 const mockShowNavigationOptions = jest.fn();

@@ -442,7 +442,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.white,
   },
   loadingText: {
-    fontSize: 16,
+    fontSize: theme.typography.fontSize.base,
     color: theme.colors.gray500,
   },
   map: {
@@ -480,13 +480,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
   },
   distanceText: {
-    fontSize: 24,
+    fontSize: theme.typography.fontSize['2xl'],
     fontWeight: '700',
     color: theme.colors.white,
     marginBottom: theme.spacing['1'],
   },
   instructionMainText: {
-    fontSize: 16,
+    fontSize: theme.typography.fontSize.base,
     color: theme.colors.white,
     opacity: 0.95,
   },
@@ -500,7 +500,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderTopColor: withOpacity(theme.colors.white, 0.1),
   },
   nextInstructionText: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray200,
     marginLeft: theme.spacing['2'],
   },
@@ -541,7 +541,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 20,
+    fontSize: theme.typography.fontSize.xl,
     fontWeight: '700',
     color: theme.colors.gray900,
   },
@@ -586,7 +586,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   exitButtonText: {
     color: theme.colors.white,
-    fontSize: 16,
+    fontSize: theme.typography.fontSize.base,
     fontWeight: '600',
   },
   destinationMarker: {

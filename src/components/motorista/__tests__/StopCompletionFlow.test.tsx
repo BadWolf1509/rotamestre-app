@@ -23,29 +23,53 @@ jest.mock('@/utils/styles', () => {
       error: '#ef4444',
       white: '#ffffff',
       black: '#000000',
+      overlay: 'rgba(0, 0, 0, 0.5)',
       gray50: '#f9fafb',
       gray100: '#f3f4f6',
       gray200: '#e5e7eb',
+      gray300: '#d1d5db',
       gray400: '#9ca3af',
       gray500: '#6b7280',
       gray600: '#4b5563',
       gray700: '#374151',
       gray900: '#111827',
     },
-    spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 },
+    spacing: {
+      xs: 4,
+      sm: 8,
+      md: 12,
+      lg: 16,
+      xl: 24,
+      '1': 4,
+      '1.5': 6,
+      '2': 8,
+    },
     typography: {
       xl: 20,
       lg: 18,
       base: 16,
       sm: 14,
+      fontSize: { xs: 12, sm: 14, base: 16, lg: 18, xl: 20 },
       fontSans: 'System',
       fontSansMedium: 'System',
+      fontSansSemiBold: 'System',
       fontSansBold: 'System-Bold',
     },
-    borderRadius: { lg: 12, xl: 16 },
+    borderRadius: { xs: 2, sm: 4, md: 8, lg: 12, xl: 16 },
+    shadows: {
+      sm: { shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2 },
+      md: { shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4 },
+      lg: { shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8 },
+    },
+    desktop: {
+      button: { height: 36, paddingHorizontal: 16, fontSize: 14 },
+      section: { padding: 24, gap: 12 },
+      modal: { footerGap: 8, footerPadding: 16 },
+    },
   };
 
   return {
+    defaultTheme: theme,
     useUnistyles: () => ({ theme }),
     StyleSheet: {
       create: (fn: (t: typeof theme) => Record<string, unknown>) => fn(theme),
@@ -53,6 +77,11 @@ jest.mock('@/utils/styles', () => {
     type: { Theme: {} },
   };
 });
+
+// Mock responsive hook used by DesktopModal
+jest.mock('@/hooks/useResponsive', () => ({
+  useResponsive: () => ({ isDesktop: false, isMobile: true, isTablet: false }),
+}));
 
 jest.mock('@/utils/color', () => ({
   withOpacity: (color: string, opacity: number) => `${color}${Math.round(opacity * 255).toString(16)}`,
@@ -175,7 +204,7 @@ describe('StopCompletionFlow', () => {
         <StopCompletionFlow {...defaultProps} parada={null} />
       );
 
-      expect(queryByText('📸 Foto de Comprovante')).toBeNull();
+      expect(queryByText('Foto de Comprovante')).toBeNull();
     });
 
     it('não deve renderizar quando visible é false', () => {
@@ -183,7 +212,7 @@ describe('StopCompletionFlow', () => {
         <StopCompletionFlow {...defaultProps} visible={false} />
       );
 
-      expect(queryByText('📸 Foto de Comprovante')).toBeNull();
+      expect(queryByText('Foto de Comprovante')).toBeNull();
     });
 
     it('deve renderizar step de foto por padrão', () => {
@@ -191,9 +220,9 @@ describe('StopCompletionFlow', () => {
         <StopCompletionFlow {...defaultProps} />
       );
 
-      expect(getByText('📸 Foto de Comprovante')).toBeTruthy();
+      expect(getByText('Foto de Comprovante')).toBeTruthy();
       expect(getByText('Rua das Flores, 123, Centro, São Paulo - SP')).toBeTruthy();
-      expect(getByText('👤 João Silva')).toBeTruthy();
+      expect(getByText('João Silva')).toBeTruthy();
       expect(getByTestId('camera-upload')).toBeTruthy();
     });
 
@@ -202,7 +231,7 @@ describe('StopCompletionFlow', () => {
         <StopCompletionFlow {...defaultProps} allowSkipPhoto={true} />
       );
 
-      expect(getByText('Continuar sem foto →')).toBeTruthy();
+      expect(getByText('Continuar sem foto')).toBeTruthy();
     });
 
     it('não deve exibir botão de pular foto quando allowSkipPhoto é false', () => {
@@ -210,7 +239,7 @@ describe('StopCompletionFlow', () => {
         <StopCompletionFlow {...defaultProps} allowSkipPhoto={false} />
       );
 
-      expect(queryByText('Continuar sem foto →')).toBeNull();
+      expect(queryByText('Continuar sem foto')).toBeNull();
     });
   });
 
@@ -223,7 +252,7 @@ describe('StopCompletionFlow', () => {
       fireEvent.press(getByTestId('simulate-upload-success'));
 
       await waitFor(() => {
-        expect(getByText('✓ Confirmar Conclusão')).toBeTruthy();
+        expect(getByText('Confirmar Conclusão')).toBeTruthy();
         expect(getByText('Foto anexada')).toBeTruthy();
       });
     });
@@ -235,7 +264,7 @@ describe('StopCompletionFlow', () => {
         <StopCompletionFlow {...defaultProps} allowSkipPhoto={true} />
       );
 
-      fireEvent.press(getByText('Continuar sem foto →'));
+      fireEvent.press(getByText('Continuar sem foto'));
 
       expect(getByTestId('confirm-dialog')).toBeTruthy();
     });
@@ -247,7 +276,7 @@ describe('StopCompletionFlow', () => {
         <StopCompletionFlow {...defaultProps} allowSkipPhoto={true} />
       );
 
-      fireEvent.press(getByText('Continuar sem foto →'));
+      fireEvent.press(getByText('Continuar sem foto'));
 
       expect(Alert.alert).toHaveBeenCalledWith(
         'Pular foto?',
@@ -266,7 +295,7 @@ describe('StopCompletionFlow', () => {
       fireEvent.press(getByTestId('simulate-upload-success'));
 
       await waitFor(() => {
-        expect(getByText('✓ Confirmar Conclusão')).toBeTruthy();
+        expect(getByText('Confirmar Conclusão')).toBeTruthy();
         expect(getByText('Rua das Flores, 123, Centro, São Paulo - SP')).toBeTruthy();
         expect(getByText('João Silva')).toBeTruthy();
         expect(getByText('Foto anexada')).toBeTruthy();
@@ -281,7 +310,7 @@ describe('StopCompletionFlow', () => {
       );
 
       // Pular foto
-      fireEvent.press(getByText('Continuar sem foto →'));
+      fireEvent.press(getByText('Continuar sem foto'));
       fireEvent.press(getByTestId('confirm-dialog-confirm'));
 
       await waitFor(() => {
@@ -309,7 +338,7 @@ describe('StopCompletionFlow', () => {
       fireEvent.press(getByTestId('simulate-upload-success'));
 
       await waitFor(() => {
-        expect(getByText('← Voltar')).toBeTruthy();
+        expect(getByText('Voltar')).toBeTruthy();
       });
     });
 
@@ -321,13 +350,13 @@ describe('StopCompletionFlow', () => {
       fireEvent.press(getByTestId('simulate-upload-success'));
 
       await waitFor(() => {
-        expect(getByText('✓ Confirmar Conclusão')).toBeTruthy();
+        expect(getByText('Confirmar Conclusão')).toBeTruthy();
       });
 
-      fireEvent.press(getByText('← Voltar'));
+      fireEvent.press(getByText('Voltar'));
 
       await waitFor(() => {
-        expect(getByText('📸 Foto de Comprovante')).toBeTruthy();
+        expect(getByText('Foto de Comprovante')).toBeTruthy();
       });
     });
   });
@@ -341,10 +370,10 @@ describe('StopCompletionFlow', () => {
       fireEvent.press(getByTestId('simulate-upload-success'));
 
       await waitFor(() => {
-        expect(getByText('✓ Concluir')).toBeTruthy();
+        expect(getByText('Concluir')).toBeTruthy();
       });
 
-      fireEvent.press(getByText('✓ Concluir'));
+      fireEvent.press(getByText('Concluir'));
 
       await waitFor(() => {
         expect(mockCompleteStop).toHaveBeenCalledWith('parada-1', 'https://example.com/photo.jpg');
@@ -359,14 +388,14 @@ describe('StopCompletionFlow', () => {
       );
 
       // Pular foto
-      fireEvent.press(getByText('Continuar sem foto →'));
+      fireEvent.press(getByText('Continuar sem foto'));
       fireEvent.press(getByTestId('confirm-dialog-confirm'));
 
       await waitFor(() => {
-        expect(getByText('✓ Concluir')).toBeTruthy();
+        expect(getByText('Concluir')).toBeTruthy();
       });
 
-      fireEvent.press(getByText('✓ Concluir'));
+      fireEvent.press(getByText('Concluir'));
 
       await waitFor(() => {
         expect(mockCompleteStop).toHaveBeenCalledWith('parada-1', undefined);
@@ -384,10 +413,10 @@ describe('StopCompletionFlow', () => {
       fireEvent.press(getByTestId('simulate-upload-success'));
 
       await waitFor(() => {
-        expect(getByText('✓ Concluir')).toBeTruthy();
+        expect(getByText('Concluir')).toBeTruthy();
       });
 
-      fireEvent.press(getByText('✓ Concluir'));
+      fireEvent.press(getByText('Concluir'));
 
       await waitFor(() => {
         expect(onSuccess).toHaveBeenCalled();
@@ -405,10 +434,10 @@ describe('StopCompletionFlow', () => {
       fireEvent.press(getByTestId('simulate-upload-success'));
 
       await waitFor(() => {
-        expect(getByText('✓ Concluir')).toBeTruthy();
+        expect(getByText('Concluir')).toBeTruthy();
       });
 
-      fireEvent.press(getByText('✓ Concluir'));
+      fireEvent.press(getByText('Concluir'));
 
       await waitFor(() => {
         expect(onClose).toHaveBeenCalled();
@@ -425,10 +454,10 @@ describe('StopCompletionFlow', () => {
       fireEvent.press(getByTestId('simulate-upload-success'));
 
       await waitFor(() => {
-        expect(getByText('✓ Concluir')).toBeTruthy();
+        expect(getByText('Concluir')).toBeTruthy();
       });
 
-      fireEvent.press(getByText('✓ Concluir'));
+      fireEvent.press(getByText('Concluir'));
 
       await waitFor(() => {
         expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Falha ao completar');
@@ -459,7 +488,7 @@ describe('StopCompletionFlow', () => {
       fireEvent.press(getByTestId('simulate-upload-success'));
 
       await waitFor(() => {
-        expect(getByText('✓ Confirmar Conclusão')).toBeTruthy();
+        expect(getByText('Confirmar Conclusão')).toBeTruthy();
       });
 
       // Fechar e reabrir
@@ -468,8 +497,8 @@ describe('StopCompletionFlow', () => {
 
       // Deve estar no step de foto novamente
       await waitFor(() => {
-        expect(getByText('📸 Foto de Comprovante')).toBeTruthy();
-        expect(queryByText('✓ Confirmar Conclusão')).toBeNull();
+        expect(getByText('Foto de Comprovante')).toBeTruthy();
+        expect(queryByText('Confirmar Conclusão')).toBeNull();
       });
     });
   });
