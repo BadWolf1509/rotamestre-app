@@ -65,7 +65,7 @@ describe('ParadaCard', () => {
       expect(getByText('Rua Teste, 123 - Centro')).toBeTruthy();
       expect(getByText('1')).toBeTruthy();
       expect(getByText('○ Pendente')).toBeTruthy();
-      expect(getByText('📦 Entrega')).toBeTruthy();
+      expect(getByText('Entrega')).toBeTruthy();
     });
 
     it('deve renderizar parada em andamento corretamente', () => {
@@ -106,7 +106,7 @@ describe('ParadaCard', () => {
         <ParadaCard {...defaultProps} parada={paradaRetirada} />
       );
 
-      expect(getByText('📥 Retirada')).toBeTruthy();
+      expect(getByText('Retirada')).toBeTruthy();
     });
 
     it('deve renderizar destinatário quando presente', () => {

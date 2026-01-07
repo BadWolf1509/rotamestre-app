@@ -15,11 +15,12 @@ import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // Tipos fortes para status
 export type ParadaStatus = 'pendente' | 'em_andamento' | 'concluida' | 'pulada';
-export type ParadaTipo = 'entrega' | 'retirada';
+export type ParadaTipo = 'entrega' | 'retirada' | 'origem';
 
 export interface Parada {
   id: string;
   endereco: string;
+  enderecoSecundario?: string;
   latitude: number;
   longitude: number;
   ordem: number;
@@ -28,6 +29,7 @@ export interface Parada {
   destinatario?: string;
   telefone?: string;
   observacoes?: string;
+  concluidaEm?: string;
   is_checkpoint?: boolean;
   vinculo_parada_id?: string | null;
 }
@@ -44,6 +46,7 @@ export interface ParadaCardProps {
   pulando?: boolean;
   retomando?: boolean;
   isProxima?: boolean;
+  variant?: 'default' | 'summary';
 }
 
 export const ParadaCard = memo<ParadaCardProps>(
@@ -59,8 +62,10 @@ export const ParadaCard = memo<ParadaCardProps>(
     pulando = false,
     retomando = false,
     isProxima = false,
+    variant = 'default',
   }) => {
     const { theme } = useUnistyles();
+    const isSummary = variant === 'summary';
 
     const isConcluida = parada.status === 'concluida';
     const isPulada = parada.status === 'pulada';
@@ -87,7 +92,25 @@ export const ParadaCard = memo<ParadaCardProps>(
         : isEmAndamento
           ? 'em rota'
           : 'pendente';
-    const tipoLabel = parada.tipo === 'entrega' ? 'entrega' : 'retirada';
+    const tipoInfo = parada.tipo === 'entrega'
+      ? { label: 'Entrega', icon: 'cube-outline', badgeStyle: styles.tipoBadgeEntrega }
+      : parada.tipo === 'retirada'
+        ? { label: 'Retirada', icon: 'download-outline', badgeStyle: styles.tipoBadgeRetirada }
+        : { label: 'Origem', icon: 'flag-outline', badgeStyle: styles.tipoBadgeOrigem };
+    const tipoLabel = tipoInfo.label.toLowerCase();
+    const statusBadgeText = isSummary
+      ? (isConcluida ? 'Concluída' : isPulada ? 'Pulada' : isEmAndamento ? 'Em rota' : 'Pendente')
+      : (isConcluida ? '✓ Concluída' : isPulada ? '↷ Pulada' : isEmAndamento ? 'Em rota' : '○ Pendente');
+    const enderecoA11y = parada.enderecoSecundario
+      ? `${parada.endereco}. ${parada.enderecoSecundario}`
+      : parada.endereco;
+    let resumoConclusaoHora: string | null = null;
+    if ((isConcluida || isPulada) && parada.concluidaEm) {
+      const dataConclusao = new Date(parada.concluidaEm);
+      resumoConclusaoHora = Number.isNaN(dataConclusao.getTime())
+        ? null
+        : dataConclusao.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    }
 
     // Animação de conclusão
     const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -144,8 +167,10 @@ export const ParadaCard = memo<ParadaCardProps>(
       }
     }, [parada.telefone]);
 
+    const canSwipe = !isSummary && isPendente && rotaEmAndamento;
+
     // Swipe actions para paradas pendentes
-    const leftActions = isPendente && rotaEmAndamento
+    const leftActions = canSwipe
       ? [
           {
             icon: 'checkmark-circle' as const,
@@ -156,7 +181,7 @@ export const ParadaCard = memo<ParadaCardProps>(
         ]
       : [];
 
-    const rightActions = isPendente && rotaEmAndamento
+    const rightActions = canSwipe
       ? [
           {
             icon: 'arrow-forward-circle' as const,
@@ -172,25 +197,25 @@ export const ParadaCard = memo<ParadaCardProps>(
         <SwipeableRow
           leftActions={leftActions}
           rightActions={rightActions}
-          enabled={isPendente && !concluindo && !pulando && rotaEmAndamento}
+          enabled={canSwipe && !concluindo && !pulando}
         >
           <View
           accessible={true}
-          accessibilityLabel={`Parada ${parada.ordem}, ${tipoLabel}, ${statusLabel}${isProxima ? ', próxima parada' : ''}. ${parada.endereco}`}
+          accessibilityLabel={`Parada ${parada.ordem}. Tipo ${tipoLabel}. Status ${statusLabel}${isProxima ? '. Próxima parada' : ''}. ${enderecoA11y}`}
           accessibilityHint={
-            isPendente
+            canSwipe
               ? 'Deslize para a esquerda para concluir ou para a direita para pular'
               : undefined
           }
           style={[
             styles.paradaCard,
-            isProxima && isPendente && styles.paradaCardProxima,
-            isConcluida && styles.paradaCardConcluida,
-            isPulada && styles.paradaCardPulada,
+            !isSummary && isProxima && isPendente && styles.paradaCardProxima,
+            !isSummary && isConcluida && styles.paradaCardConcluida,
+            !isSummary && isPulada && styles.paradaCardPulada,
           ]}
         >
           {/* Badge PRÓXIMA */}
-          {isProxima && isPendente && (
+          {!isSummary && isProxima && isPendente && (
             <View style={styles.proximaBadge}>
               <Text style={styles.proximaBadgeText}>PRÓXIMA</Text>
             </View>
@@ -211,29 +236,46 @@ export const ParadaCard = memo<ParadaCardProps>(
               ]}
             >
               <Text style={styles.statusBadgeText}>
-                {isConcluida
-                  ? '✓ Concluída'
-                  : isPulada
-                    ? '↷ Pulada'
-                    : isEmAndamento
-                      ? 'Em rota'
-                      : '○ Pendente'}
+                {statusBadgeText}
               </Text>
             </View>
             <View
               style={[
                 styles.tipoBadge,
-                parada.tipo === 'entrega' ? styles.tipoBadgeEntrega : styles.tipoBadgeRetirada,
+                tipoInfo.badgeStyle,
               ]}
             >
-              <Text style={styles.tipoBadgeText}>
-                {parada.tipo === 'entrega' ? '📦 Entrega' : '📥 Retirada'}
-              </Text>
+              <View style={styles.tipoBadgeContent}>
+                  <Ionicons
+                    name={tipoInfo.icon as keyof typeof Ionicons.glyphMap}
+                    size={12}
+                    color={theme.colors.gray900}
+                  />
+                <Text style={styles.tipoBadgeText}>{tipoInfo.label}</Text>
+              </View>
             </View>
           </View>
 
           {/* Endereço - clicável para expandir em cards processados */}
-          {isProcessada ? (
+          {isSummary ? (
+            <>
+              <View style={styles.enderecoResumo}>
+                <Text style={[styles.paradaEndereco, styles.paradaEnderecoResumo]} numberOfLines={2}>
+                  {parada.endereco}
+                </Text>
+                {parada.enderecoSecundario ? (
+                  <Text style={styles.paradaEnderecoSecundario} numberOfLines={1}>
+                    {parada.enderecoSecundario}
+                  </Text>
+                ) : null}
+              </View>
+              {resumoConclusaoHora ? (
+                <Text style={styles.paradaHorarioResumo}>
+                  {isConcluida ? 'Concluída às' : 'Pulada às'} {resumoConclusaoHora}
+                </Text>
+              ) : null}
+            </>
+          ) : isProcessada ? (
             <TouchableOpacity
               onPress={() => setCardExpandido(!cardExpandido)}
               activeOpacity={0.7}
@@ -258,7 +300,7 @@ export const ParadaCard = memo<ParadaCardProps>(
           )}
 
           {/* Detalhes expandidos para cards processados */}
-          {isProcessada && cardExpandido && (
+          {!isSummary && isProcessada && cardExpandido && (
             <>
               {/* Detalhes */}
               {(parada.destinatario || parada.telefone) && (
@@ -292,7 +334,7 @@ export const ParadaCard = memo<ParadaCardProps>(
           )}
 
           {/* Conteúdo expandido apenas para paradas pendentes */}
-          {!isProcessada && (
+          {!isSummary && !isProcessada && (
             <>
               {/* Street View Preview - lazy loading: só carrega para pendentes */}
               {/* Esconde completamente quando não há imagem disponível para o local */}
@@ -359,7 +401,7 @@ export const ParadaCard = memo<ParadaCardProps>(
           )}
 
           {/* Botões de Ação Primários */}
-          {!isConcluida && !isPulada && (
+          {!isSummary && !isConcluida && !isPulada && (
             <View style={styles.primaryActionsContainer}>
               <TouchableOpacity
                 style={styles.botaoNavegar}
@@ -388,7 +430,7 @@ export const ParadaCard = memo<ParadaCardProps>(
           )}
 
           {/* Botão Retomar para paradas PULADAS */}
-          {isPulada && (
+          {!isSummary && isPulada && (
             <View style={styles.retornarContainer}>
               <TouchableOpacity
                 style={[styles.botaoRetomar, retomando && styles.botaoDisabled]}
@@ -413,7 +455,7 @@ export const ParadaCard = memo<ParadaCardProps>(
           )}
 
           {/* Indicador visual de swipe para paradas pendentes */}
-          {isPendente && rotaEmAndamento && (
+          {!isSummary && isPendente && rotaEmAndamento && (
             <View style={styles.swipeHint}>
               <Ionicons name="swap-horizontal" size={16} color={theme.colors.gray400} />
               <Text style={styles.swipeHintText}>Deslize para ações</Text>
@@ -433,7 +475,8 @@ export const ParadaCard = memo<ParadaCardProps>(
       prevProps.pulando === nextProps.pulando &&
       prevProps.retomando === nextProps.retomando &&
       prevProps.rotaEmAndamento === nextProps.rotaEmAndamento &&
-      prevProps.isProxima === nextProps.isProxima
+      prevProps.isProxima === nextProps.isProxima &&
+      prevProps.variant === nextProps.variant
     );
   }
 );
@@ -528,11 +571,19 @@ const styles = StyleSheet.create((theme: Theme) => ({
     paddingVertical: theme.spacing.xs,
     borderRadius: theme.borderRadius.xl,
   },
+  tipoBadgeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
   tipoBadgeEntrega: {
     backgroundColor: theme.colors.blue100,
   },
   tipoBadgeRetirada: {
     backgroundColor: theme.colors.indigo100,
+  },
+  tipoBadgeOrigem: {
+    backgroundColor: theme.colors.gray100,
   },
   tipoBadgeText: {
     fontSize: theme.typography.fontSize.xs,
@@ -543,6 +594,19 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.fontSize.base,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
+    marginBottom: theme.spacing.xs,
+  },
+  paradaEnderecoResumo: {
+    fontSize: theme.typography.fontSize.sm,
+    marginBottom: 0,
+  },
+  paradaEnderecoSecundario: {
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSansMedium,
+    color: theme.colors.gray500,
+    marginBottom: 0,
+  },
+  enderecoResumo: {
     marginBottom: theme.spacing.xs,
   },
   paradaEnderecoCompacto: {
@@ -597,6 +661,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray900,
     fontStyle: 'italic',
+  },
+  paradaHorarioResumo: {
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.gray500,
+    marginTop: theme.spacing.xs,
   },
   botaoDisabled: {
     opacity: 0.6,

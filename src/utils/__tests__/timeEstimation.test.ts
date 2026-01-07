@@ -123,7 +123,7 @@ describe('timeEstimation utils', () => {
 
   describe('calcularProximaParada', () => {
     const paradas = [
-      { latitude: 0, longitude: 0, status: 'concluido', tipo: 'entrega' },
+      { latitude: 0, longitude: 0, status: 'concluida', tipo: 'entrega' },
       { latitude: 0, longitude: 1, status: 'pendente', tipo: 'entrega' },
     ];
 
@@ -136,7 +136,7 @@ describe('timeEstimation utils', () => {
 
     it('deve retornar null se não houver paradas pendentes', () => {
       const todasConcluidas = [
-        { latitude: 0, longitude: 0, status: 'concluido', tipo: 'entrega' },
+        { latitude: 0, longitude: 0, status: 'concluida', tipo: 'entrega' },
       ];
       expect(calcularProximaParada(todasConcluidas, { latitude: 0, longitude: 0 })).toBeNull();
     });

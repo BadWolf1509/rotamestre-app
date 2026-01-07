@@ -89,10 +89,18 @@ export function MiniMap({
   // Usar hook para buscar rota real do Google Directions API
   const { routeCoordinates, routeInfo, isLoading: isLoadingRoute } = useRouteDirections(paradasParaRota);
 
-  // Calcular região do mapa baseada APENAS nas paradas (não na localização do usuário)
+  const coordsForBounds = useMemo(() => {
+    if (routeCoordinates.length > 1) return routeCoordinates;
+    return todasParadasComCoord.map(p => ({
+      latitude: p.latitude,
+      longitude: p.longitude,
+    }));
+  }, [routeCoordinates, todasParadasComCoord]);
+
+  // Calcular região do mapa baseada na rota (ou nas paradas quando não há rota)
   const mapRegion = useMemo(() => {
     // Se não tem paradas, usar localização padrão (São Paulo)
-    if (todasParadasComCoord.length === 0) {
+    if (coordsForBounds.length === 0) {
       return {
         latitude: -23.550520,
         longitude: -46.633308,
@@ -103,8 +111,8 @@ export function MiniMap({
 
     // Centralizar APENAS nas paradas, não na localização do usuário
     // Isso evita que o mapa faça zoom out quando o usuário está longe das paradas
-    const lats = todasParadasComCoord.map(p => p.latitude);
-    const longs = todasParadasComCoord.map(p => p.longitude);
+    const lats = coordsForBounds.map(p => p.latitude);
+    const longs = coordsForBounds.map(p => p.longitude);
 
     const minLat = Math.min(...lats);
     const maxLat = Math.max(...lats);
@@ -121,33 +129,29 @@ export function MiniMap({
       latitudeDelta: latDelta,
       longitudeDelta: longDelta,
     };
-  }, [todasParadasComCoord]);
+  }, [coordsForBounds]);
 
   // Função para centralizar o mapa nas paradas (SEM incluir userLocation)
   const fitMapToParadas = useCallback(() => {
-    if (todasParadasComCoord.length === 0 || !mapRef.current) return;
+    if (coordsForBounds.length === 0 || !mapRef.current) return;
 
-    // Centralizar APENAS nas paradas, não na localização do usuário
-    // Isso evita zoom out excessivo quando o usuário está longe das paradas
-    const coordinates = todasParadasComCoord.map(p => ({
-      latitude: p.latitude,
-      longitude: p.longitude,
-    }));
+    // Centralizar na rota (ou nas paradas), evitando incluir a localização do usuário
+    const coordinates = coordsForBounds;
 
     mapRef.current.fitToCoordinates(coordinates, {
       edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
       animated: false,
     });
-  }, [todasParadasComCoord]);
+  }, [coordsForBounds]);
 
   // Ajustar mapa quando estiver pronto E quando paradas carregarem
   useEffect(() => {
-    if (mapReady && todasParadasComCoord.length > 0) {
+    if (mapReady && coordsForBounds.length > 0) {
       // Pequeno delay para garantir que o mapa está totalmente renderizado
       const timer = setTimeout(fitMapToParadas, 200);
       return () => clearTimeout(timer);
     }
-  }, [mapReady, todasParadasComCoord, fitMapToParadas]);
+  }, [mapReady, coordsForBounds, fitMapToParadas]);
 
   // Callback quando o mapa estiver pronto
   const handleMapReady = useCallback(() => {

@@ -1,8 +1,8 @@
 /* global google */
 
 import { Ionicons } from '@expo/vector-icons';
-import { GoogleMap, useJsApiLoader, Marker, Polyline } from '@react-google-maps/api';
-import React, { useMemo, useCallback, useState } from 'react';
+import { GoogleMap, useJsApiLoader, OverlayView, Polyline } from '@react-google-maps/api';
+import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { Text, TouchableOpacity, View, ActivityIndicator, Pressable } from 'react-native';
 
 import { useRouteDirections } from '@/hooks/useRouteDirections';
@@ -36,6 +36,7 @@ interface MiniMapProps {
 }
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+const GOOGLE_MAPS_MAP_ID = process.env.EXPO_PUBLIC_GOOGLE_MAPS_MAP_ID || '';
 
 export function MiniMap({
   paradas,
@@ -51,11 +52,17 @@ export function MiniMap({
   // Altura unificada com native: 150px colapsado, 300px expandido
   const height = expanded ? 300 : 150;
   const [_mapReady, setMapReady] = useState(false);
+  const [useAdvancedMarkers, setUseAdvancedMarkers] = useState(false);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const advancedMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
 
   // Carregar Google Maps API
+  const mapLibraries = useMemo(() => ['marker', 'places'] as ('marker' | 'places')[], []);
   const { isLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-minimap',
+    id: 'google-map-script',
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+    libraries: mapLibraries,
+    version: 'beta',
   });
 
   // Filtrar paradas por status (excluindo checkpoints para contagem)
@@ -94,27 +101,32 @@ export function MiniMap({
   // Usar hook para buscar rota real do Google Directions API
   const { routeCoordinates, routeInfo, isLoading: isLoadingRoute } = useRouteDirections(paradasParaRota);
 
+  const coordsForBounds = useMemo(() => {
+    if (routeCoordinates.length > 1) return routeCoordinates;
+    return todasParadasComCoord;
+  }, [routeCoordinates, todasParadasComCoord]);
+
   // Calcular centro do mapa
   const center = useMemo(() => {
-    if (todasParadasComCoord.length === 0) {
+    if (coordsForBounds.length === 0) {
       return { lat: -23.550520, lng: -46.633308 }; // São Paulo default
     }
 
-    const lats = todasParadasComCoord.map(p => p.latitude);
-    const longs = todasParadasComCoord.map(p => p.longitude);
+    const lats = coordsForBounds.map(p => p.latitude);
+    const longs = coordsForBounds.map(p => p.longitude);
 
     return {
       lat: (Math.min(...lats) + Math.max(...lats)) / 2,
       lng: (Math.min(...longs) + Math.max(...longs)) / 2,
     };
-  }, [todasParadasComCoord]);
+  }, [coordsForBounds]);
 
   // Calcular zoom baseado nos bounds
   const zoom = useMemo(() => {
-    if (todasParadasComCoord.length <= 1) return 15;
+    if (coordsForBounds.length <= 1) return 15;
 
-    const lats = todasParadasComCoord.map(p => p.latitude);
-    const longs = todasParadasComCoord.map(p => p.longitude);
+    const lats = coordsForBounds.map(p => p.latitude);
+    const longs = coordsForBounds.map(p => p.longitude);
 
     const latDiff = Math.max(...lats) - Math.min(...lats);
     const lngDiff = Math.max(...longs) - Math.min(...longs);
@@ -125,12 +137,202 @@ export function MiniMap({
     if (maxDiff > 0.1) return 12;
     if (maxDiff > 0.05) return 13;
     return 14;
-  }, [todasParadasComCoord]);
+  }, [coordsForBounds]);
 
   // Callback quando o mapa estiver pronto
-  const handleMapReady = useCallback(() => {
+  const handleMapReady = useCallback((map: google.maps.Map) => {
     setMapReady(true);
+    mapRef.current = map;
+    const AdvancedMarker = google.maps.marker?.AdvancedMarkerElement;
+    // AdvancedMarkerElement exige Map ID configurado
+    // @ts-expect-error - getMapId existe no Maps API mas não está nos tipos
+    const mapHasMapId = typeof map.getMapId === 'function' && map.getMapId();
+    setUseAdvancedMarkers(Boolean(GOOGLE_MAPS_MAP_ID && AdvancedMarker && mapHasMapId));
   }, []);
+
+  const handleMapUnmount = useCallback(() => {
+    advancedMarkersRef.current.forEach((marker) => {
+      marker.map = null;
+    });
+    advancedMarkersRef.current = [];
+    mapRef.current = null;
+    setUseAdvancedMarkers(false);
+  }, []);
+
+  useEffect(() => {
+    if (!_mapReady || !mapRef.current) return;
+    if (coordsForBounds.length === 0) return;
+
+    const bounds = new google.maps.LatLngBounds();
+    coordsForBounds.forEach((coord) => {
+      bounds.extend({ lat: coord.latitude, lng: coord.longitude });
+    });
+
+    if (coordsForBounds.length === 1) {
+      mapRef.current.setCenter({
+        lat: coordsForBounds[0].latitude,
+        lng: coordsForBounds[0].longitude,
+      });
+      mapRef.current.setZoom(15);
+      return;
+    }
+
+    mapRef.current.fitBounds(bounds, { top: 32, right: 32, bottom: 32, left: 32 });
+  }, [_mapReady, coordsForBounds]);
+
+  const getOverlayOffset = useCallback((width: number, height: number) => ({
+    x: -(width / 2),
+    y: -(height / 2),
+  }), []);
+
+  useEffect(() => {
+    if (!useAdvancedMarkers || !mapRef.current) return;
+
+    const AdvancedMarker = google.maps.marker?.AdvancedMarkerElement;
+    if (!AdvancedMarker) return;
+
+    advancedMarkersRef.current.forEach((marker) => {
+      marker.map = null;
+    });
+    advancedMarkersRef.current = [];
+
+    const markers: google.maps.marker.AdvancedMarkerElement[] = [];
+    try {
+
+      const createCircleMarker = (options: {
+        size: number;
+        backgroundColor: string;
+        borderColor?: string;
+        text?: string;
+        textColor?: string;
+        fontSize?: number;
+        fontWeight?: string;
+        opacity?: number;
+      }) => {
+        const el = document.createElement('div');
+        el.style.width = `${options.size}px`;
+        el.style.height = `${options.size}px`;
+        el.style.borderRadius = `${options.size / 2}px`;
+        el.style.background = options.backgroundColor;
+        el.style.border = `2px solid ${options.borderColor || theme.colors.white}`;
+        el.style.display = 'flex';
+        el.style.alignItems = 'center';
+        el.style.justifyContent = 'center';
+        el.style.color = options.textColor || theme.colors.white;
+        el.style.fontSize = `${options.fontSize ?? 12}px`;
+        el.style.fontWeight = options.fontWeight || '700';
+        el.style.boxSizing = 'border-box';
+        if (options.opacity !== undefined) {
+          el.style.opacity = String(options.opacity);
+        }
+        if (options.text) {
+          el.textContent = options.text;
+        }
+        return el;
+      };
+
+      const createUserMarker = () => {
+        const outer = document.createElement('div');
+        outer.style.width = '24px';
+        outer.style.height = '24px';
+        outer.style.borderRadius = '12px';
+        outer.style.background = withOpacity(theme.colors.info, 0.2);
+        outer.style.display = 'flex';
+        outer.style.alignItems = 'center';
+        outer.style.justifyContent = 'center';
+
+        const inner = document.createElement('div');
+        inner.style.width = '12px';
+        inner.style.height = '12px';
+        inner.style.borderRadius = `${theme.borderRadius.xs}px`;
+        inner.style.background = theme.colors.info;
+        inner.style.border = `2px solid ${theme.colors.white}`;
+        inner.style.boxSizing = 'border-box';
+
+        outer.appendChild(inner);
+        return outer;
+      };
+
+      const addMarker = (
+        position: google.maps.LatLngLiteral,
+        content: HTMLElement,
+        title: string,
+        zIndex: number
+      ) => {
+        markers.push(new AdvancedMarker({
+          map: mapRef.current!,
+          position,
+          content,
+          title,
+          zIndex,
+        }));
+      };
+
+      if (userLocation) {
+        addMarker(
+          { lat: userLocation.latitude, lng: userLocation.longitude },
+          createUserMarker(),
+          'Você está aqui',
+          5
+        );
+      }
+
+      paradasConcluidas.forEach((parada) => {
+        addMarker(
+          { lat: parada.latitude, lng: parada.longitude },
+          createCircleMarker({
+            size: 20,
+            backgroundColor: theme.colors.success,
+            opacity: 0.5,
+          }),
+          `Parada ${parada.ordem} concluída`,
+          2
+        );
+      });
+
+      paradasPendentes.forEach((parada, index) => {
+        addMarker(
+          { lat: parada.latitude, lng: parada.longitude },
+          createCircleMarker({
+            size: 28,
+            backgroundColor: index === 0 ? theme.colors.warning : theme.colors.gray500,
+            text: String(parada.ordem),
+          }),
+          `Parada ${parada.ordem}`,
+          3
+        );
+      });
+
+      checkpoints.forEach((checkpoint) => {
+        const label = checkpoint.ordem === 0 ? 'Partida (Unidade)' : 'Chegada (Unidade)';
+        addMarker(
+          { lat: checkpoint.latitude, lng: checkpoint.longitude },
+          createCircleMarker({
+            size: 20,
+            backgroundColor: theme.colors.primary,
+          }),
+          label,
+          1
+        );
+      });
+
+      advancedMarkersRef.current = markers;
+    } catch {
+      markers.forEach((marker) => {
+        marker.map = null;
+      });
+      advancedMarkersRef.current = [];
+      setUseAdvancedMarkers(false);
+      return;
+    }
+
+    return () => {
+      markers.forEach((marker) => {
+        marker.map = null;
+      });
+      advancedMarkersRef.current = [];
+    };
+  }, [useAdvancedMarkers, userLocation, paradasConcluidas, paradasPendentes, checkpoints, theme]);
 
   // Gerar URL do Google Maps para fallback
   const generateMapsUrl = useCallback(() => {
@@ -206,7 +408,7 @@ export function MiniMap({
         style={[styles.mapContainer, { height }]}
         onPress={handleMapClick}
         accessibilityLabel={`Mapa da rota com ${paradasPendentes.length} paradas pendentes. Toque para abrir mapa completo`}
-        accessibilityRole="button"
+        accessibilityRole="link"
       >
         <View style={[styles.mapWrapper, { height }]}>
           <GoogleMap
@@ -214,6 +416,7 @@ export function MiniMap({
             center={center}
             zoom={zoom}
             onLoad={handleMapReady}
+            onUnmount={handleMapUnmount}
             options={{
               disableDefaultUI: true,
               zoomControl: false,
@@ -221,6 +424,7 @@ export function MiniMap({
               draggable: false,
               clickableIcons: false,
               gestureHandling: 'none',
+              mapId: GOOGLE_MAPS_MAP_ID || undefined,
             }}
           >
             {/* Polyline da rota */}
@@ -235,78 +439,69 @@ export function MiniMap({
               />
             )}
 
-            {/* Marcador do usuário */}
-            {userLocation && (
-              <Marker
-                position={{ lat: userLocation.latitude, lng: userLocation.longitude }}
-                title="Você está aqui"
-                icon={{
-                  path: google.maps.SymbolPath.CIRCLE,
-                  fillColor: theme.colors.info,
-                  fillOpacity: 1,
-                  strokeColor: theme.colors.white,
-                  strokeWeight: 2,
-                  scale: 8,
-                }}
-              />
+            {/* Fallback para browsers sem AdvancedMarkerElement */}
+            {!useAdvancedMarkers && (
+              <>
+                {userLocation && (
+                  <OverlayView
+                    position={{ lat: userLocation.latitude, lng: userLocation.longitude }}
+                    mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+                    getPixelPositionOffset={getOverlayOffset}
+                  >
+                    <View style={styles.overlayUserMarker} pointerEvents="none">
+                      <View style={styles.overlayUserDot} />
+                    </View>
+                  </OverlayView>
+                )}
+
+                {paradasConcluidas.map((parada) => (
+                  <OverlayView
+                    key={`concluida-${parada.id}`}
+                    position={{ lat: parada.latitude, lng: parada.longitude }}
+                    mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+                    getPixelPositionOffset={getOverlayOffset}
+                  >
+                    <View
+                      style={[styles.overlayMarker, styles.overlayMarkerConcluida]}
+                      pointerEvents="none"
+                    />
+                  </OverlayView>
+                ))}
+
+                {paradasPendentes.map((parada, index) => (
+                  <OverlayView
+                    key={`pendente-${parada.id}`}
+                    position={{ lat: parada.latitude, lng: parada.longitude }}
+                    mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+                    getPixelPositionOffset={getOverlayOffset}
+                  >
+                    <View
+                      style={[
+                        styles.overlayMarker,
+                        index === 0 ? styles.overlayMarkerNext : styles.overlayMarkerPending,
+                      ]}
+                      pointerEvents="none"
+                    >
+                      <Text style={styles.overlayMarkerText}>{parada.ordem}</Text>
+                    </View>
+                  </OverlayView>
+                ))}
+
+                {checkpoints.map((checkpoint) => (
+                  <OverlayView
+                    key={`checkpoint-${checkpoint.id}`}
+                    position={{ lat: checkpoint.latitude, lng: checkpoint.longitude }}
+                    mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+                    getPixelPositionOffset={getOverlayOffset}
+                  >
+                    <View
+                      style={[styles.overlayMarker, styles.overlayMarkerCheckpoint]}
+                      pointerEvents="none"
+                    />
+                  </OverlayView>
+                ))}
+              </>
             )}
-
-            {/* Paradas concluídas */}
-            {paradasConcluidas.map((parada) => (
-              <Marker
-                key={`concluida-${parada.id}`}
-                position={{ lat: parada.latitude, lng: parada.longitude }}
-                opacity={0.5}
-                icon={{
-                  path: google.maps.SymbolPath.CIRCLE,
-                  fillColor: theme.colors.success,
-                  fillOpacity: 1,
-                  strokeColor: theme.colors.white,
-                  strokeWeight: 2,
-                  scale: 10,
-                }}
-              />
-            ))}
-
-            {/* Paradas pendentes */}
-            {paradasPendentes.map((parada, index) => (
-              <Marker
-                key={`pendente-${parada.id}`}
-                position={{ lat: parada.latitude, lng: parada.longitude }}
-                title={`Parada ${parada.ordem}`}
-                label={{
-                  text: String(parada.ordem),
-                  color: theme.colors.white,
-                  fontWeight: '700',
-                  fontSize: '12px',
-                }}
-                icon={{
-                  path: google.maps.SymbolPath.CIRCLE,
-                  fillColor: index === 0 ? theme.colors.warning : theme.colors.gray500,
-                  fillOpacity: 1,
-                  strokeColor: theme.colors.white,
-                  strokeWeight: 2,
-                  scale: 14,
-                }}
-              />
-            ))}
-
-            {/* Checkpoints */}
-            {checkpoints.map((checkpoint) => (
-              <Marker
-                key={`checkpoint-${checkpoint.id}`}
-                position={{ lat: checkpoint.latitude, lng: checkpoint.longitude }}
-                title={checkpoint.ordem === 0 ? 'Partida (Unidade)' : 'Chegada (Unidade)'}
-                icon={{
-                  path: google.maps.SymbolPath.CIRCLE,
-                  fillColor: theme.colors.primary,
-                  fillOpacity: 1,
-                  strokeColor: theme.colors.white,
-                  strokeWeight: 2,
-                  scale: 12,
-                }}
-              />
-            ))}
           </GoogleMap>
         </View>
 
@@ -459,5 +654,55 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  overlayMarker: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: theme.colors.white,
+    backgroundColor: theme.colors.gray500,
+  },
+  overlayMarkerText: {
+    color: theme.colors.white,
+    fontSize: theme.typography.fontSize.xs,
+    fontWeight: '700',
+  },
+  overlayMarkerPending: {
+    backgroundColor: theme.colors.gray500,
+  },
+  overlayMarkerNext: {
+    backgroundColor: theme.colors.warning,
+  },
+  overlayMarkerConcluida: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: theme.colors.success,
+    opacity: 0.5,
+  },
+  overlayMarkerCheckpoint: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: theme.colors.primary,
+  },
+  overlayUserMarker: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: withOpacity(theme.colors.info, 0.2),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  overlayUserDot: {
+    width: 12,
+    height: 12,
+    borderRadius: theme.borderRadius.xs,
+    backgroundColor: theme.colors.info,
+    borderWidth: 2,
+    borderColor: theme.colors.white,
   },
 }));

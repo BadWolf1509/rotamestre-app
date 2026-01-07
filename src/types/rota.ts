@@ -2,7 +2,7 @@ import { Endereco, Coordenadas } from './endereco';
 
 export type TipoCheckpoint = 'entrega' | 'retirada' | 'origem';
 export type StatusRota = 'pendente' | 'em_andamento' | 'concluida' | 'cancelada';
-export type StatusCheckpoint = 'pendente' | 'concluido' | 'pulado';
+export type StatusCheckpoint = 'pendente' | 'concluida' | 'pulada';
 
 export interface Checkpoint {
   id: string;
@@ -13,6 +13,8 @@ export interface Checkpoint {
   status: StatusCheckpoint;
   observacoes?: string;
   timestamp_conclusao?: string;
+  concluida_em?: string;
+  is_checkpoint?: boolean;
   created_at: string;
   /** ID da parada que deve ser executada ANTES desta (ex: retirada antes da entrega) */
   vinculo_parada_id?: string;

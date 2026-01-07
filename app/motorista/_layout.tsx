@@ -102,7 +102,7 @@ function MobileNavigation() {
       <Stack.Screen
         name="resumo"
         options={({ navigation }) => ({
-          title: 'Resumo',
+          title: 'Resumo da Rota',
           headerLeft: () => renderBackButton(navigation),
         })}
       />

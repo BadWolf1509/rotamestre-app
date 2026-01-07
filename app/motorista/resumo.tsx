@@ -1,155 +1,120 @@
-import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useCallback, useLayoutEffect, useMemo } from 'react';
+import { FlatList, RefreshControl, Text, View } from 'react-native';
 
+import { ParadaCard, type Parada } from '@/components/motorista/ParadaCard';
 import {
-  MobileButton,
   MobileCard,
   MobileEmptyState,
   MobileHeader,
   MobileLoading,
 } from '@/design-system';
-import { useUser } from '@/hooks/useUser';
+import { useResponsive } from '@/hooks/useResponsive';
+import { useResumoRota } from '@/hooks/useResumoRota';
 import { parseLocalDate } from '@/lib/dateUtils';
-import { logger } from '@/lib/logger';
-import { supabase } from '@/lib/supabase';
+import type { Checkpoint } from '@/types/rota';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
-interface Parada {
-  id: string;
-  endereco: string;
-  ordem: number;
-  status: string;
-  tipo: string;
-  concluida_em?: string;
-  is_checkpoint?: boolean;
-}
-
-interface Rota {
-  id: string;
-  status: string;
-  data: string;
-  distancia_total?: number;
-  tempo_total?: number;
-  iniciada_em?: string;
-  concluida_em?: string;
-  unidades: {
-    nome: string;
-  };
-}
 
 export default function ResumoMotorista() {
   const { theme } = useUnistyles();
-  const { userData } = useUser();
+  const { isDesktop } = useResponsive();
   const router = useRouter();
-  const [rota, setRota] = useState<Rota | null>(null);
-  const [paradas, setParadas] = useState<Parada[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [finalizando, setFinalizando] = useState(false);
+  const navigation = useNavigation();
+  const params = useLocalSearchParams<{ rota_id: string }>();
 
-  const loadRotaConcluida = useCallback(async () => {
-    if (!userData?.id) {
-      setRota(null);
-      setParadas([]);
-      setLoading(false);
-      return;
+  const {
+    rota,
+    paradas,
+    loading,
+    error,
+    recargar,
+  } = useResumoRota(params.rota_id);
+
+  const paradasReais = useMemo(
+    () => paradas.filter((p) => p.is_checkpoint !== false),
+    [paradas]
+  );
+  const isInitialLoading = loading && paradasReais.length === 0;
+
+  const resumoSubtitle = useMemo(() => {
+    if (!rota) return undefined;
+    const dataCriacao = parseLocalDate(rota.created_at.split('T')[0]);
+    const dataLabel = dataCriacao
+      ? dataCriacao.toLocaleDateString('pt-BR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'short',
+      })
+      : '';
+    return `${rota.unidades?.nome || 'Unidade'}${dataLabel ? ` • ${dataLabel}` : ''}`;
+  }, [rota]);
+
+  const formatEnderecoResumo = useCallback((endereco: Checkpoint['endereco']) => {
+    if (!endereco) return { linha1: 'Endereço não informado', linha2: '' };
+    if (typeof endereco === 'string') return { linha1: endereco, linha2: '' };
+    const numero = endereco.numero ? `, ${endereco.numero}` : '';
+    const complemento = endereco.complemento ? ` - ${endereco.complemento}` : '';
+    const linha1 = `${endereco.logradouro || ''}${numero}${complemento}`.trim();
+    if (!linha1 && endereco.endereco_completo) {
+      return { linha1: endereco.endereco_completo, linha2: '' };
     }
 
-    try {
-      setLoading(true);
-
-      const { data: rotasData, error: rotasError } = await supabase
-        .from('rotas')
-        .select('id, status, data, distancia_total, tempo_total, iniciada_em, concluida_em, unidades(nome)')
-        .eq('motorista_id', userData.id)
-        .eq('status', 'concluida')
-        .order('concluida_em', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (rotasError || !rotasData) {
-        setRota(null);
-        setParadas([]);
-        setLoading(false);
-        return;
-      }
-
-      setRota(rotasData as unknown as Rota);
-
-      const { data: paradasData, error: paradasError } = await supabase
-        .from('paradas')
-        .select('*')
-        .eq('rota_id', rotasData.id)
-        .or('is_checkpoint.is.null,is_checkpoint.eq.true')
-        .order('ordem');
-
-      if (paradasError) throw paradasError;
-
-      setParadas((paradasData as Parada[]) || []);
-    } catch (error) {
-      logger.error('Erro ao carregar resumo:', error);
-      Alert.alert('Erro', 'Não foi possível carregar o resumo da rota');
-    } finally {
-      setLoading(false);
+    const bairro = endereco.bairro?.trim();
+    const cidade = endereco.cidade?.trim();
+    const estado = endereco.estado?.trim();
+    let linha2 = '';
+    if (bairro && (cidade || estado)) {
+      linha2 = `${bairro} - ${cidade || ''}${estado ? `/${estado}` : ''}`.trim();
+    } else if (cidade || estado) {
+      linha2 = `${cidade || ''}${estado ? `/${estado}` : ''}`.trim();
     }
-  }, [userData?.id]);
 
-  useEffect(() => {
-    loadRotaConcluida();
-  }, [loadRotaConcluida]);
+    return {
+      linha1: linha1 || 'Endereço não informado',
+      linha2,
+    };
+  }, []);
 
-  async function confirmarFinalizacao() {
-    Alert.alert(
-      'Finalizar Rota',
-      'Confirma que todas as informações estão corretas e deseja finalizar esta rota?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Confirmar',
-          style: 'default',
-          onPress: finalizarRota,
-        },
-      ]
-    );
-  }
+  const handleNoop = useCallback((_parada: Parada) => {}, []);
 
-  async function finalizarRota() {
-    setFinalizando(true);
-    try {
-      // Filtrar apenas paradas reais (excluindo checkpoints)
-      const paradasReais = paradas.filter(p => p.is_checkpoint !== false);
+  const keyExtractor = useCallback((item: Checkpoint) => item.id, []);
 
-      // Criar log de finalização
-      await supabase.from('logs').insert({
-        usuario_id: userData!.id,
-        rota_id: rota!.id,
-        evento: 'rota_finalizada',
-        detalhes: {
-          total_paradas: paradasReais.length,
-          paradas_concluidas: paradasReais.filter((p) => p.status === 'concluida').length,
-          paradas_puladas: paradasReais.filter((p) => p.status === 'pulada').length,
-          tempo_total: rota!.tempo_total,
-          distancia_total: rota!.distancia_total,
-        },
-      });
+  const renderParada = useCallback(
+    ({ item }: { item: Checkpoint }) => {
+      const { linha1, linha2 } = formatEnderecoResumo(item.endereco);
+      const coordenadas = typeof item.endereco === 'object' ? item.endereco.coordenadas : undefined;
 
-      Alert.alert(
-        'Rota Finalizada!',
-        'Resumo enviado com sucesso. Obrigado pelo seu trabalho!',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.push('/motorista/historico'),
-          },
-        ]
+      const parada: Parada = {
+        id: item.id,
+        endereco: linha1,
+        enderecoSecundario: linha2 || undefined,
+        latitude: coordenadas?.latitude ?? 0,
+        longitude: coordenadas?.longitude ?? 0,
+        ordem: item.ordem,
+        status: (item.status ?? 'pendente') as Parada['status'],
+        tipo: (item.tipo ?? 'entrega') as Parada['tipo'],
+        observacoes: item.observacoes,
+        is_checkpoint: item.is_checkpoint,
+        vinculo_parada_id: item.vinculo_parada_id ?? null,
+        concluidaEm: item.concluida_em || item.timestamp_conclusao,
+      };
+
+      return (
+        <ParadaCard
+          parada={parada}
+          rotaEmAndamento={false}
+          onConcluir={handleNoop}
+          onPular={handleNoop}
+          onRetomar={handleNoop}
+          onNavegar={handleNoop}
+          onReportar={handleNoop}
+          variant="summary"
+        />
       );
-    } catch (error) {
-      logger.error('Erro ao finalizar rota:', error);
-      Alert.alert('Erro', 'Não foi possível finalizar a rota');
-    } finally {
-      setFinalizando(false);
-    }
-  }
+    },
+    [formatEnderecoResumo, handleNoop]
+  );
 
   function calcularTempoTotal() {
     if (!rota?.iniciada_em || !rota?.concluida_em) return null;
@@ -161,199 +126,188 @@ export default function ResumoMotorista() {
     return `${diffHoras}h ${diffMinutos}min`;
   }
 
-  if (loading) {
+  const renderDesktopHeader = (subtitle?: string) =>
+    isDesktop ? (
+      <MobileHeader
+        title="Resumo da Rota"
+        subtitle={subtitle}
+        showBack={!!params.rota_id}
+        onBack={() => router.back()}
+      />
+    ) : null;
+
+  useLayoutEffect(() => {
+    if (isDesktop) return;
+    navigation.setOptions({
+      headerTitle: () => (
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle}>Resumo da Rota</Text>
+        </View>
+      ),
+    });
+  }, [isDesktop, navigation]);
+
+  if (isInitialLoading) {
     return <MobileLoading message="Carregando resumo..." />;
   }
 
-  if (!rota || paradas.length === 0) {
+  if (error) {
     return (
-      <MobileEmptyState
-        icon="📊"
-        title="Nenhuma rota concluída recentemente"
-        subtitle="Complete uma rota para visualizar o resumo"
-        actionLabel="Ver Rotas Disponíveis"
-        onAction={() => router.push('/motorista')}
-      />
+      <>
+        {renderDesktopHeader()}
+        <MobileEmptyState
+          icon="⚠️"
+          title="Não foi possível carregar o resumo"
+          subtitle={error}
+          actionLabel="Tentar novamente"
+          onAction={recargar}
+          fullScreen
+        />
+      </>
     );
   }
 
-  // Filtrar apenas paradas reais (excluindo checkpoints de partida/chegada)
-  const paradasReais = paradas.filter(p => p.is_checkpoint !== false);
-  const paradasConcluidas = paradasReais.filter((p) => p.status === 'concluida').length;
-  const paradasPuladas = paradasReais.filter((p) => p.status === 'pulada').length;
-  const taxaConclusao = paradasReais.length > 0 ? Math.round((paradasConcluidas / paradasReais.length) * 100) : 0;
+  if (!rota || paradasReais.length === 0) {
+    return (
+      <>
+        {renderDesktopHeader()}
+        <MobileEmptyState
+          icon="🛣️"
+          title="Nenhuma rota concluída disponível"
+          subtitle="Complete uma rota para visualizar o resumo"
+          actionLabel="Ver Rotas Disponíveis"
+          onAction={() => router.push('/motorista')}
+          fullScreen
+        />
+      </>
+    );
+  }
+
+  const isConcluidaStatus = (status?: string) => status === 'concluida';
+  const isPuladaStatus = (status?: string) => status === 'pulada';
+
+  const paradasConcluidas = paradasReais.filter((p) => isConcluidaStatus(p.status)).length;
+  const paradasPuladas = paradasReais.filter((p) => isPuladaStatus(p.status)).length;
+  const taxaConclusao =
+    paradasReais.length > 0 ? Math.round((paradasConcluidas / paradasReais.length) * 100) : 0;
+  const taxaConclusaoRatio = `${paradasConcluidas}/${paradasReais.length}`;
   const tempoTotal = calcularTempoTotal();
+  const distanciaFormatada = rota.distancia_total !== undefined && rota.distancia_total !== null
+    ? rota.distancia_total.toLocaleString('pt-BR', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    })
+    : null;
 
   return (
     <>
-      {/* Header */}
-      <MobileHeader
-        title="Resumo da Rota"
-        subtitle={`${rota.unidades.nome} • ${parseLocalDate(rota.data)?.toLocaleDateString('pt-BR', {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'short',
-        }) || rota.data}`}
-      />
+      {renderDesktopHeader(resumoSubtitle)}
 
-      <ScrollView style={styles.container}>
-
-      {/* Card de Performance */}
-      <MobileCard title="Desempenho" variant="highlight">
-        <View style={styles.performanceGrid}>
-          <View style={styles.performanceItem}>
-            <View style={[styles.performanceIcon, { backgroundColor: theme.colors.primary }]}>
-              <Text style={styles.performanceIconText}>📍</Text>
-            </View>
-            <Text style={styles.performanceValue}>{paradasReais.length}</Text>
-            <Text style={styles.performanceLabel}>Total de Paradas</Text>
-          </View>
-
-          <View style={styles.performanceItem}>
-            <View style={[styles.performanceIcon, { backgroundColor: theme.colors.success }]}>
-              <Text style={styles.performanceIconText}>✓</Text>
-            </View>
-            <Text style={styles.performanceValue}>{paradasConcluidas}</Text>
-            <Text style={styles.performanceLabel}>Concluídas</Text>
-          </View>
-
-          <View style={styles.performanceItem}>
-            <View style={[styles.performanceIcon, { backgroundColor: theme.colors.error }]}>
-              <Text style={styles.performanceIconText}>⊘</Text>
-            </View>
-            <Text style={styles.performanceValue}>{paradasPuladas}</Text>
-            <Text style={styles.performanceLabel}>Puladas</Text>
-          </View>
-
-          <View style={styles.performanceItem}>
-            <View style={[styles.performanceIcon, { backgroundColor: theme.colors.purple600 }]}>
-              <Text style={styles.performanceIconText}>%</Text>
-            </View>
-            <Text style={styles.performanceValue}>{taxaConclusao}%</Text>
-            <Text style={styles.performanceLabel}>Taxa de Sucesso</Text>
-          </View>
-        </View>
-      </MobileCard>
-
-      {/* Informações da Rota */}
-      <MobileCard title="Informações da Rota">
-
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Horário de Início:</Text>
-          <Text style={styles.infoValue}>
-            {rota.iniciada_em
-              ? new Date(rota.iniciada_em).toLocaleTimeString('pt-BR', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
-              : 'N/A'}
+      {!isDesktop && resumoSubtitle ? (
+        <View style={styles.headerCompact}>
+          <Text style={styles.headerCompactSubtitle} numberOfLines={2} ellipsizeMode="tail">
+            {resumoSubtitle}
           </Text>
         </View>
+      ) : null}
 
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Horário de Conclusão:</Text>
-          <Text style={styles.infoValue}>
-            {rota.concluida_em
-              ? new Date(rota.concluida_em).toLocaleTimeString('pt-BR', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
-              : 'N/A'}
-          </Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Tempo Total:</Text>
-          <Text style={styles.infoValue}>{tempoTotal || 'N/A'}</Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Distância Percorrida:</Text>
-          <Text style={styles.infoValue}>
-            {rota.distancia_total ? `${rota.distancia_total.toFixed(1)} km` : 'N/A'}
-          </Text>
-        </View>
-      </MobileCard>
-
-      {/* Lista de Paradas */}
-      <MobileCard title="Detalhes das Paradas">
-
-        {paradas.map((parada) => {
-          const isConcluida = parada.status === 'concluida';
-          const isPulada = parada.status === 'pulada';
-
-          return (
-            <View
-              key={parada.id}
-              style={[
-                styles.paradaItem,
-                isConcluida && styles.paradaItemConcluida,
-                isPulada && styles.paradaItemPulada,
-              ]}
-            >
-              <View style={styles.paradaHeader}>
-                <View style={styles.paradaOrdemBadge}>
-                  <Text style={styles.paradaOrdemText}>{parada.ordem}</Text>
-                </View>
-                <View style={styles.paradaInfo}>
-                  <Text style={styles.paradaEndereco} numberOfLines={2}>
-                    {parada.endereco}
-                  </Text>
-                  <View style={styles.paradaBadges}>
-                    <View
-                      style={[
-                        styles.paradaTipoBadge,
-                        parada.tipo === 'entrega'
-                          ? styles.tipoBadgeEntrega
-                          : styles.tipoBadgeRetirada,
-                      ]}
-                    >
-                      <Text style={styles.paradaTipoText}>
-                        {parada.tipo === 'entrega' ? '📦 Entrega' : '📥 Retirada'}
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.paradaStatusBadge,
-                        isConcluida && styles.statusBadgeConcluida,
-                        isPulada && styles.statusBadgePulada,
-                      ]}
-                    >
-                      <Text style={styles.paradaStatusText}>
-                        {isConcluida ? '✓ Concluída' : isPulada ? '⊘ Pulada' : 'Pendente'}
-                      </Text>
-                    </View>
+      <FlatList
+        data={paradasReais}
+        keyExtractor={keyExtractor}
+        renderItem={renderParada}
+        style={styles.container}
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={recargar}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+          />
+        }
+        ListHeaderComponent={
+          <View>
+            {/* Card de Performance */}
+            <MobileCard title="Desempenho" variant="highlight">
+              <View style={styles.performanceGrid}>
+                <View style={styles.performanceItem}>
+                  <View style={[styles.performanceIcon, { backgroundColor: theme.colors.primary }]}>
+                    <Ionicons name="location" size={22} color={theme.colors.white} />
                   </View>
-                  {isConcluida && parada.concluida_em && (
-                    <Text style={styles.paradaHorario}>
-                      Concluída às{' '}
-                      {new Date(parada.concluida_em).toLocaleTimeString('pt-BR', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </Text>
-                  )}
+                  <Text style={styles.performanceValue}>{paradasReais.length}</Text>
+                  <Text style={styles.performanceLabel}>Total de Paradas</Text>
+                </View>
+
+                <View style={styles.performanceItem}>
+                  <View style={[styles.performanceIcon, { backgroundColor: theme.colors.success }]}>
+                    <Ionicons name="checkmark-circle" size={22} color={theme.colors.white} />
+                  </View>
+                  <Text style={styles.performanceValue}>{paradasConcluidas}</Text>
+                  <Text style={styles.performanceLabel}>Concluídas</Text>
+                </View>
+
+                <View style={styles.performanceItem}>
+                  <View style={[styles.performanceIcon, { backgroundColor: theme.colors.error }]}>
+                    <Ionicons name="arrow-forward-circle" size={22} color={theme.colors.white} />
+                  </View>
+                  <Text style={styles.performanceValue}>{paradasPuladas}</Text>
+                  <Text style={styles.performanceLabel}>Puladas</Text>
+                </View>
+
+                <View style={styles.performanceItem}>
+                  <View style={[styles.performanceIcon, { backgroundColor: theme.colors.purple600 }]}>
+                    <Ionicons name="analytics" size={22} color={theme.colors.white} />
+                  </View>
+                  <Text style={styles.performanceValue}>{taxaConclusao}%</Text>
+                  <Text style={styles.performanceLabel}>Taxa de Sucesso</Text>
+                  <Text style={styles.performanceMeta}>{taxaConclusaoRatio}</Text>
                 </View>
               </View>
-            </View>
-          );
-        })}
-      </MobileCard>
+            </MobileCard>
 
-      {/* Botão de Finalização */}
-      <MobileCard>
-        <MobileButton
-          title="✓ Confirmar e Finalizar"
-          onPress={confirmarFinalizacao}
-          loading={finalizando}
-          variant="success"
-          fullWidth
-        />
-        <Text style={styles.finalizarButtonSubtext}>
-          Enviar resumo completo da rota
-        </Text>
-      </MobileCard>
-    </ScrollView>
+            {/* Informações da Rota */}
+            <MobileCard title="Informações da Rota">
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Horário de Início:</Text>
+                <Text style={styles.infoValue}>
+                  {rota.iniciada_em
+                    ? new Date(rota.iniciada_em).toLocaleTimeString('pt-BR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                    : 'N/A'}
+                </Text>
+              </View>
+
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Horário de Conclusão:</Text>
+                <Text style={styles.infoValue}>
+                  {rota.concluida_em
+                    ? new Date(rota.concluida_em).toLocaleTimeString('pt-BR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                    : 'N/A'}
+                </Text>
+              </View>
+
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Tempo Total:</Text>
+                <Text style={styles.infoValue}>{tempoTotal || 'N/A'}</Text>
+              </View>
+
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Distância Percorrida:</Text>
+                <Text style={styles.infoValue}>
+                  {distanciaFormatada ? `${distanciaFormatada} km` : 'N/A'}
+                </Text>
+              </View>
+            </MobileCard>
+
+            <Text style={styles.sectionTitle}>Detalhes das Paradas</Text>
+          </View>
+        }
+      />
     </>
   );
 }
@@ -362,6 +316,38 @@ const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,
+  },
+  listContent: {
+    paddingTop: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingBottom: theme.spacing.xl,
+  },
+  headerTitleContainer: {
+    paddingVertical: theme.spacing.xs,
+    alignItems: 'flex-start',
+  },
+  headerTitle: {
+    fontSize: theme.typography.lg,
+    fontFamily: theme.typography.fontSansBold,
+    color: theme.colors.white,
+  },
+  headerCompact: {
+    backgroundColor: theme.colors.white,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.gray200,
+  },
+  headerCompactSubtitle: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansMedium,
+    color: theme.colors.gray500,
+  },
+  sectionTitle: {
+    marginBottom: theme.spacing.sm,
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray700,
   },
   performanceGrid: {
     flexDirection: 'row',
@@ -382,9 +368,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'center',
     marginBottom: theme.spacing.sm,
   },
-  performanceIconText: {
-    fontSize: theme.typography['2xl'],
-  },
   performanceValue: {
     fontSize: theme.typography['2xl'],
     fontFamily: theme.typography.fontSansBold,
@@ -395,6 +378,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.xs,
     color: theme.colors.gray500,
     textAlign: 'center',
+  },
+  performanceMeta: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray500,
+    marginTop: theme.spacing.xs,
   },
   infoRow: {
     flexDirection: 'row',
@@ -412,97 +400,5 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.sm,
     color: theme.colors.gray900,
     fontFamily: theme.typography.fontSansSemiBold,
-  },
-  paradaItem: {
-    marginBottom: theme.spacing.md,
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.gray50,
-    borderRadius: theme.borderRadius.md,
-    borderLeftWidth: 4,
-    borderLeftColor: theme.colors.gray300,
-  },
-  paradaItemConcluida: {
-    borderLeftColor: theme.colors.success,
-    backgroundColor: theme.colors.green50,
-  },
-  paradaItemPulada: {
-    borderLeftColor: theme.colors.error,
-    backgroundColor: theme.colors.red50,
-  },
-  paradaHeader: {
-    flexDirection: 'row',
-    gap: theme.spacing.md,
-  },
-  paradaOrdemBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  paradaOrdemText: {
-    color: theme.colors.white,
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSansBold,
-  },
-  paradaInfo: {
-    flex: 1,
-  },
-  paradaEndereco: {
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray900,
-    marginBottom: theme.spacing.sm,
-  },
-  paradaBadges: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-    marginBottom: theme.spacing.xs,
-  },
-  paradaTipoBadge: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.md,
-  },
-  tipoBadgeEntrega: {
-    backgroundColor: theme.colors.blue100,
-  },
-  tipoBadgeRetirada: {
-    backgroundColor: theme.colors.indigo100,
-  },
-  paradaTipoText: {
-    fontSize: theme.typography.xs,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray900,
-  },
-  paradaStatusBadge: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.yellow100,
-  },
-  statusBadgeConcluida: {
-    backgroundColor: theme.colors.green100,
-  },
-  statusBadgePulada: {
-    backgroundColor: theme.colors.red100,
-  },
-  paradaStatusText: {
-    fontSize: theme.typography.xs,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray900,
-  },
-  paradaHorario: {
-    fontSize: theme.typography.xs,
-    color: theme.colors.gray500,
-    fontStyle: 'italic',
-    marginTop: theme.spacing.xs,
-  },
-  finalizarButtonSubtext: {
-    color: theme.colors.gray500,
-    fontSize: theme.typography.xs,
-    textAlign: 'center',
-    marginTop: theme.spacing.sm,
   },
 }));
