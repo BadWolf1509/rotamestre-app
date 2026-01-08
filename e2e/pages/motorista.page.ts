@@ -81,7 +81,7 @@ export class MotoristaPage {
   }
 
   async goto() {
-    await this.page.goto('/motorista');
+    await this.page.goto('/motorista?e2e=true');
     await this.page.waitForLoadState('networkidle');
   }
 

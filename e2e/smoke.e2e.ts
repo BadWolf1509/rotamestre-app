@@ -1,12 +1,14 @@
 import { test, expect } from '@playwright/test';
 
+import { e2eUrl } from './fixtures/test-fixtures';
+
 /**
  * Smoke test - minimal test to verify Playwright can load the app
  */
 test.describe('Smoke Tests', () => {
   test('should load the app homepage', async ({ page }) => {
-    // Navigate to root
-    const response = await page.goto('/', { timeout: 30000 });
+    // Navigate to root with e2e param to skip font loading
+    const response = await page.goto(e2eUrl('/'), { timeout: 30000 });
 
     // Should get a response
     expect(response).not.toBeNull();
@@ -20,7 +22,7 @@ test.describe('Smoke Tests', () => {
 
   test('should navigate to login page', async ({ page }) => {
     // Navigate to login
-    const response = await page.goto('/auth/login', { timeout: 30000 });
+    const response = await page.goto(e2eUrl('/auth/login'), { timeout: 30000 });
 
     // Should get a response
     expect(response).not.toBeNull();
@@ -35,7 +37,7 @@ test.describe('Smoke Tests', () => {
   });
 
   test('should find email input on login page', async ({ page }) => {
-    await page.goto('/auth/login', { timeout: 30000 });
+    await page.goto(e2eUrl('/auth/login'), { timeout: 30000 });
     await page.waitForTimeout(3000);
 
     // Try different selectors for email input

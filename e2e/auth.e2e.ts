@@ -1,4 +1,4 @@
-import { test, expect, testUsers } from './fixtures/test-fixtures';
+import { test, expect, testUsers, e2eUrl } from './fixtures/test-fixtures';
 import { LoginPage } from './pages/login.page';
 
 test.describe('Authentication E2E Tests', () => {
@@ -90,7 +90,7 @@ test.describe('Authentication E2E Tests', () => {
       await page.waitForURL(/.*motorista.*/, { timeout: 15000 });
 
       // Now try to access login page again
-      await page.goto('/auth/login', { waitUntil: 'domcontentloaded' });
+      await page.goto(e2eUrl('/auth/login'), { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(3000);
 
       // Should either be redirected away OR stay on login (depends on app behavior)

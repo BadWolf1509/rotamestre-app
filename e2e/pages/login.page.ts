@@ -32,7 +32,8 @@ export class LoginPage {
   }
 
   async goto() {
-    await this.page.goto('/auth/login', { waitUntil: 'commit' });
+    // Include e2e=true to skip font loading wait in React Native Web
+    await this.page.goto('/auth/login?e2e=true', { waitUntil: 'commit' });
     await this.page.waitForTimeout(2000);
     try {
       await this.waitForLoginForm(20000);

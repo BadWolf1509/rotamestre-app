@@ -17,6 +17,14 @@ export const testUsers = {
 };
 
 /**
+ * Helper to append e2e=true param to URL for skipping font wait
+ */
+export function e2eUrl(path: string): string {
+  const separator = path.includes('?') ? '&' : '?';
+  return `${path}${separator}e2e=true`;
+}
+
+/**
  * Wait for React Native Web app to fully load
  */
 async function waitForAppReady(page: Page) {
@@ -33,7 +41,8 @@ async function waitForAppReady(page: Page) {
 async function login(page: Page, userType: 'motorista' | 'gestor') {
   const user = testUsers[userType];
 
-  await page.goto('/auth/login', { waitUntil: 'domcontentloaded' });
+  // Include e2e=true to skip font loading wait in React Native Web
+  await page.goto('/auth/login?e2e=true', { waitUntil: 'domcontentloaded' });
   await waitForAppReady(page);
 
   // React Native Web renders TextInput as standard <input> elements

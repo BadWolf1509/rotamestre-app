@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 
-import { test } from './fixtures/test-fixtures';
+import { test, e2eUrl } from './fixtures/test-fixtures';
 import { GestorPage } from './pages/gestor.page';
 import { MotoristaPage } from './pages/motorista.page';
 
@@ -8,7 +8,7 @@ test.describe('Critical Flows @visual', () => {
   test.skip(!process.env.VISUAL_REGRESSION, 'Set VISUAL_REGRESSION=1 to enable visual snapshots.');
 
   test('renders auth login', async ({ page }) => {
-    await page.goto('/auth/login');
+    await page.goto(e2eUrl('/auth/login'));
     await page.waitForLoadState('networkidle');
     await page.getByText('Entrar', { exact: true }).waitFor();
     await expect(page).toHaveScreenshot('visual-auth-login.png', {
@@ -18,7 +18,7 @@ test.describe('Critical Flows @visual', () => {
   });
 
   test('renders auth register', async ({ page }) => {
-    await page.goto('/auth/register');
+    await page.goto(e2eUrl('/auth/register'));
     await page.waitForLoadState('networkidle');
     await page.getByTestId('auth-register-card').waitFor();
     await expect(page).toHaveScreenshot('visual-auth-register.png', {
@@ -28,7 +28,7 @@ test.describe('Critical Flows @visual', () => {
   });
 
   test('renders auth forgot password', async ({ page }) => {
-    await page.goto('/auth/forgot-password');
+    await page.goto(e2eUrl('/auth/forgot-password'));
     await page.waitForLoadState('networkidle');
     await page.getByText(/recuperar|reset/i).first().waitFor();
     await expect(page).toHaveScreenshot('visual-auth-forgot-password.png', {
@@ -38,7 +38,7 @@ test.describe('Critical Flows @visual', () => {
   });
 
   test('renders onboarding first password', async ({ page }) => {
-    await page.goto('/onboarding/first-password');
+    await page.goto(e2eUrl('/onboarding/first-password'));
     await page.waitForLoadState('networkidle');
     await page.getByTestId('onboarding-first-password-card').waitFor();
     await expect(page).toHaveScreenshot('visual-onboarding-first-password.png', {
@@ -84,7 +84,7 @@ test.describe('Critical Flows @visual', () => {
 
   test('renders gestor mapa rota empty', async ({ page, loginAsGestor }) => {
     await loginAsGestor();
-    await page.goto('/gestor/mapa-rota');
+    await page.goto(e2eUrl('/gestor/mapa-rota'));
     await page.waitForLoadState('networkidle');
     await page.getByText(/nenhuma rota/i).first().waitFor();
     await expect(page).toHaveScreenshot('visual-gestor-mapa-rota-empty.png', {
@@ -149,7 +149,7 @@ test.describe('Critical Flows @visual', () => {
 
   test('renders motorista historico', async ({ page, loginAsMotorista }) => {
     await loginAsMotorista();
-    await page.goto('/motorista/historico', { waitUntil: 'domcontentloaded', timeout: 45000 });
+    await page.goto(e2eUrl('/motorista/historico'), { waitUntil: 'domcontentloaded', timeout: 45000 });
     const list = page.getByTestId('motorista-historico-list');
     await list.waitFor({ state: 'visible', timeout: 30000 });
     const mask = (await list.count()) > 0 ? [list] : [];

@@ -42,7 +42,8 @@ async function globalSetup(config: FullConfig) {
     try {
       // Navigate and wait for network to be mostly idle
       // Use 'load' instead of 'domcontentloaded' to ensure all resources are loaded
-      await page.goto('/auth/login', {
+      // Pass e2e=true to skip font loading wait
+      await page.goto('/auth/login?e2e=true', {
         waitUntil: 'load',
         timeout: LOGIN_WAIT_MS,
       });

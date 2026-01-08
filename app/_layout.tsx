@@ -75,7 +75,23 @@ function ConditionalLayout({ children }: { children: React.ReactNode }) {
 }
 
 // Detect E2E/CI environment at module level (before component mounts)
-const isE2EEnvironment = typeof navigator !== 'undefined' && (navigator as any).webdriver === true;
+// Check multiple signals: URL param, navigator.webdriver, or CI env variable
+function detectE2EEnvironment(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  // Check URL query parameter (most reliable for Playwright)
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('e2e') === 'true') return true;
+
+  // Check navigator.webdriver (Playwright/Selenium sets this)
+  if ((navigator as any).webdriver === true) return true;
+
+  // Check for Playwright-specific userAgent pattern
+  if (navigator.userAgent.includes('HeadlessChrome')) return true;
+
+  return false;
+}
+const isE2EEnvironment = detectE2EEnvironment();
 
 export default function RootLayout() {
   const { theme } = useUnistyles();

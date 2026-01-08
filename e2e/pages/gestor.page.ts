@@ -133,29 +133,29 @@ export class GestorPage {
 
   // Navigation methods
   async goto() {
-    await this.page.goto('/gestor');
+    await this.page.goto('/gestor?e2e=true');
     await this.page.waitForLoadState('networkidle');
     await this.page.waitForTimeout(2000);
   }
 
   async gotoInicio() {
-    await this.page.goto('/gestor/inicio');
+    await this.page.goto('/gestor/inicio?e2e=true');
     await this.page.waitForLoadState('networkidle');
   }
 
   async gotoNovaEntrega() {
-    await this.page.goto('/gestor/nova-entrega');
+    await this.page.goto('/gestor/nova-entrega?e2e=true');
     await this.page.waitForLoadState('networkidle');
     await this.page.waitForTimeout(2000);
   }
 
   async gotoGestaoRotas() {
-    await this.page.goto('/gestor/gestao-rotas');
+    await this.page.goto('/gestor/gestao-rotas?e2e=true');
     await this.page.waitForLoadState('networkidle');
   }
 
   async gotoMotoristas() {
-    await this.page.goto('/gestor/motoristas');
+    await this.page.goto('/gestor/motoristas?e2e=true');
     await this.page.waitForLoadState('networkidle');
   }
 
