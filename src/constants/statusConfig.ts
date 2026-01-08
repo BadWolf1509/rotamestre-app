@@ -127,3 +127,25 @@ export function getStatusIcon(status: RouteStatusType | StopStatusType): IconNam
     'help-circle-outline'
   );
 }
+
+/**
+ * Get status color hex value from status type.
+ * Uses a color resolver function to get actual hex values from theme.
+ *
+ * @param status - Route or stop status
+ * @param colorResolver - Function that maps colorKey to hex value
+ * @returns Hex color string
+ */
+export function getStatusColor(
+  status: RouteStatusType | StopStatusType | string | undefined,
+  colorResolver: (colorKey: StatusColorKey) => string
+): string {
+  if (!status) return colorResolver('warning');
+
+  const colorKey =
+    ROUTE_STATUS_CONFIG[status as RouteStatusType]?.colorKey ||
+    STOP_STATUS_CONFIG[status as StopStatusType]?.colorKey ||
+    'warning';
+
+  return colorResolver(colorKey);
+}

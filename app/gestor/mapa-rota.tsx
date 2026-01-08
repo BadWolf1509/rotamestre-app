@@ -43,6 +43,7 @@ import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
+import { formatDateBR } from '@/lib/dateUtils';
 import { logger } from '@/lib/logger';
 import { removerParadaERecalcular, reordenarParadas, recalcularRota, normalizarOrdemParadas, notificarMotoristaRotaEditada } from '@/lib/routeUtils';
 import { supabase } from '@/lib/supabase';
@@ -50,16 +51,6 @@ import { useUnistyles } from '@/utils/styles';
 
 // Altura otimizada do mapa (menor que antes para mais espaço às paradas)
 const OPTIMIZED_MAP_HEIGHT = 480;
-
-// ===== Utility Functions =====
-
-function formatarDataLocal(dateStr?: string, locale = 'pt-BR'): string {
-  if (!dateStr) return '-';
-  const [year, month, day] = dateStr.split('-').map(Number);
-  if (!year || !month || !day) return '-';
-  const date = new Date(year, month - 1, day);
-  return date.toLocaleDateString(locale);
-}
 
 // ===== Main Component =====
 
@@ -908,7 +899,7 @@ export default function MapaRota() {
       {/* Route Info */}
       <View style={styles.rotaInfo}>
         <Text style={styles.motoristaData}>
-          {rota?.motorista?.nome || 'Sem motorista'}  {formatarDataLocal(rota?.data)}
+          {rota?.motorista?.nome || 'Sem motorista'}  {formatDateBR(rota?.data)}
         </Text>
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Status:</Text>

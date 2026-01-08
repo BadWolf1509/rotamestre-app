@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import type { IconName } from '@/types/icons';
 import type { Theme } from '@/utils/styles';
@@ -368,7 +369,7 @@ export function useIncidentesGestor(
 
       setIncidentes(incidentesFormatados);
     } catch (error) {
-      console.error('❌ Erro ao buscar incidentes:', error);
+      logger.error('❌ Erro ao buscar incidentes:', error);
       showToast('Erro ao carregar incidentes', 'error');
     } finally {
       setLoading(false);
@@ -446,7 +447,7 @@ export function useIncidentesGestor(
       setShowAlterarStatusModal(false);
       fetchIncidentes();
     } catch (error) {
-      console.error('❌ Erro ao atualizar status:', error);
+      logger.error('❌ Erro ao atualizar status:', error);
       showToast('Erro ao atualizar status', 'error');
     } finally {
       setAtualizando(false);

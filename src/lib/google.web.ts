@@ -1,6 +1,13 @@
 /* global google */
 
+import {
+  type RoutesAPIResponse,
+  adaptRoutesAPIResponse,
+  mapRoutesAPIError,
+  parseDuration,
+} from './google-shared';
 import { logger } from './logger';
+import { mergePolylines } from './polyline';
 import {
   RouteError,
   RouteResult,
@@ -14,222 +21,10 @@ import { supabase } from './supabase';
 import { Coordenadas, EnderecoGeocodificado } from '../types/endereco';
 import { GoogleDirectionsLeg, GoogleDirectionsResult } from '../types/google-directions';
 
-// ============================================================================
-// ROUTES API TYPES & ADAPTER (para Edge Functions)
-// ============================================================================
-
-/**
- * Interface para resposta da Routes API (via Edge Function)
- */
-interface RoutesAPIResponse {
-  routes: Array<{
-    duration: string; // "1234s"
-    distanceMeters: number;
-    polyline: {
-      encodedPolyline: string;
-    };
-    legs: Array<{
-      duration: string;
-      distanceMeters: number;
-      startLocation: {
-        latLng: { latitude: number; longitude: number };
-      };
-      endLocation: {
-        latLng: { latitude: number; longitude: number };
-      };
-      polyline?: {
-        encodedPolyline: string;
-      };
-    }>;
-    optimizedIntermediateWaypointIndex?: number[];
-  }>;
-  error?: {
-    code: number;
-    message: string;
-    status: string;
-  };
-}
-
-/**
- * Converte duração da Routes API ("1234s") para segundos
- */
-function parseDuration(duration: string): number {
-  if (!duration) return 0;
-  return parseInt(duration.replace('s', ''), 10) || 0;
-}
-
-/**
- * Adapta resposta da Routes API para o formato interno GoogleDirectionsResult
- */
-function adaptRoutesAPIResponse(apiResponse: RoutesAPIResponse): GoogleDirectionsResult {
-  const route = apiResponse.routes?.[0];
-
-  if (!route) {
-    throw new Error('No routes found in response');
-  }
-
-  const legs: GoogleDirectionsLeg[] = route.legs.map((leg) => ({
-    distancia_metros: leg.distanceMeters || 0,
-    duracao_segundos: parseDuration(leg.duration),
-    endereco_inicio: `${leg.startLocation.latLng.latitude.toFixed(6)}, ${leg.startLocation.latLng.longitude.toFixed(6)}`,
-    endereco_fim: `${leg.endLocation.latLng.latitude.toFixed(6)}, ${leg.endLocation.latLng.longitude.toFixed(6)}`,
-    coordenadas_inicio: {
-      latitude: leg.startLocation.latLng.latitude,
-      longitude: leg.startLocation.latLng.longitude,
-    },
-    coordenadas_fim: {
-      latitude: leg.endLocation.latLng.latitude,
-      longitude: leg.endLocation.latLng.longitude,
-    },
-  }));
-
-  return {
-    polyline: route.polyline.encodedPolyline,
-    distancia_total_metros: route.distanceMeters,
-    duracao_total_segundos: parseDuration(route.duration),
-    ordem_otimizada: route.optimizedIntermediateWaypointIndex || [],
-    legs,
-  };
-}
-
-/**
- * Mapeia erros da Routes API para status compatível
- */
-function mapRoutesAPIError(error: RoutesAPIResponse['error']): string {
-  if (!error) return 'UNKNOWN_ERROR';
-
-  const statusMap: Record<string, string> = {
-    'INVALID_ARGUMENT': 'INVALID_REQUEST',
-    'NOT_FOUND': 'NOT_FOUND',
-    'PERMISSION_DENIED': 'REQUEST_DENIED',
-    'RESOURCE_EXHAUSTED': 'OVER_QUERY_LIMIT',
-    'UNAVAILABLE': 'UNKNOWN_ERROR',
-  };
-
-  return statusMap[error.status] || error.status || 'UNKNOWN_ERROR';
-}
-
-// ============================================================================
-// POLYLINE UTILITIES
-// ============================================================================
-
-/**
- * Decodifica uma polyline encoded do Google para array de coordenadas.
- * Baseado no algoritmo oficial do Google:
- * https://developers.google.com/maps/documentation/utilities/polylinealgorithm
- */
-export function decodePolyline(encoded: string): Coordenadas[] {
-  const points: Coordenadas[] = [];
-  let index = 0;
-  let lat = 0;
-  let lng = 0;
-
-  while (index < encoded.length) {
-    // Decode latitude
-    let shift = 0;
-    let result = 0;
-    let byte: number;
-
-    do {
-      byte = encoded.charCodeAt(index++) - 63;
-      result |= (byte & 0x1f) << shift;
-      shift += 5;
-    } while (byte >= 0x20);
-
-    const dlat = result & 1 ? ~(result >> 1) : result >> 1;
-    lat += dlat;
-
-    // Decode longitude
-    shift = 0;
-    result = 0;
-
-    do {
-      byte = encoded.charCodeAt(index++) - 63;
-      result |= (byte & 0x1f) << shift;
-      shift += 5;
-    } while (byte >= 0x20);
-
-    const dlng = result & 1 ? ~(result >> 1) : result >> 1;
-    lng += dlng;
-
-    points.push({
-      latitude: lat / 1e5,
-      longitude: lng / 1e5,
-    });
-  }
-
-  return points;
-}
-
-/**
- * Codifica um array de coordenadas em polyline encoded.
- */
-export function encodePolyline(points: Coordenadas[]): string {
-  let encoded = '';
-  let prevLat = 0;
-  let prevLng = 0;
-
-  for (const point of points) {
-    const lat = Math.round(point.latitude * 1e5);
-    const lng = Math.round(point.longitude * 1e5);
-
-    encoded += encodeNumber(lat - prevLat);
-    encoded += encodeNumber(lng - prevLng);
-
-    prevLat = lat;
-    prevLng = lng;
-  }
-
-  return encoded;
-}
-
-function encodeNumber(num: number): string {
-  let encoded = '';
-  let value = num < 0 ? ~(num << 1) : num << 1;
-
-  while (value >= 0x20) {
-    encoded += String.fromCharCode((0x20 | (value & 0x1f)) + 63);
-    value >>= 5;
-  }
-
-  encoded += String.fromCharCode(value + 63);
-  return encoded;
-}
-
-/**
- * Combina múltiplas polylines em uma única polyline válida.
- * Decodifica cada uma, concatena os pontos e recodifica.
- */
-export function mergePolylines(polylines: string[]): string {
-  const allPoints: Coordenadas[] = [];
-
-  for (const polyline of polylines) {
-    if (!polyline) continue;
-
-    const points = decodePolyline(polyline);
-
-    // Se já temos pontos, verificar se precisa remover duplicata
-    if (allPoints.length > 0 && points.length > 0) {
-      const lastPoint = allPoints[allPoints.length - 1];
-      const firstPoint = points[0];
-
-      // Se o último ponto é muito próximo do primeiro, remover duplicata
-      const distance = Math.sqrt(
-        Math.pow(lastPoint.latitude - firstPoint.latitude, 2) +
-        Math.pow(lastPoint.longitude - firstPoint.longitude, 2)
-      );
-
-      if (distance < 0.0001) {
-        // ~11 metros
-        points.shift(); // Remove primeiro ponto duplicado
-      }
-    }
-
-    allPoints.push(...points);
-  }
-
-  return encodePolyline(allPoints);
-}
+// Re-export polyline utilities for backwards compatibility
+export { decodePolyline, encodePolyline, mergePolylines } from './polyline';
+// Re-export shared utilities for backwards compatibility
+export { RoutesAPIResponse, adaptRoutesAPIResponse, mapRoutesAPIError, parseDuration } from './google-shared';
 
 // Interface para sugestões (mesma do google.ts)
 export interface PlaceSuggestion {

@@ -119,3 +119,37 @@ export function daysDifference(
   const diffTime = Math.abs(date2.getTime() - date1.getTime());
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 }
+
+/**
+ * Formata data para exibição relativa (ex: "ontem", "20/12")
+ * Útil para cards e listas onde se quer mostrar contexto temporal
+ *
+ * @param dateStr - String no formato YYYY-MM-DD
+ * @returns "ontem" se for ontem, senão data formatada como "DD/MM"
+ */
+export function formatDateRelative(dateStr: string | undefined | null): string {
+  if (!dateStr) return '-';
+
+  const date = parseLocalDate(dateStr);
+  if (!date) return '-';
+
+  // Normalizar para meio-dia para comparação de datas
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  date.setHours(12, 0, 0, 0);
+
+  // Se for ontem
+  if (date.toDateString() === yesterday.toDateString()) {
+    return 'ontem';
+  }
+
+  // Caso contrário, formatar como DD/MM
+  return date.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+  });
+}

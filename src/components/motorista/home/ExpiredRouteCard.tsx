@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 
+import { formatDateRelative } from '@/lib/dateUtils';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface ExpiredRouteData {
@@ -31,32 +32,11 @@ interface ExpiredRouteCardProps {
   onDismiss?: () => void;
 }
 
-/**
- * Formata data para exibição (ex: "ontem", "20/12")
- */
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr + 'T12:00:00');
-  const today = new Date();
-  today.setHours(12, 0, 0, 0);
-
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  if (date.toDateString() === yesterday.toDateString()) {
-    return 'ontem';
-  }
-
-  return date.toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-  });
-}
-
 export function ExpiredRouteCard({ data, onDismiss }: ExpiredRouteCardProps) {
   const { theme } = useUnistyles();
   const router = useRouter();
 
-  const dataFormatada = formatDate(data.data);
+  const dataFormatada = formatDateRelative(data.data);
   const hasCompletedSome = data.paradas_concluidas > 0;
 
   const handleViewHistory = () => {

@@ -23,6 +23,7 @@ import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { formatDateBR, formatDateTimeBR } from '@/lib/dateUtils';
+import { logger } from '@/lib/logger';
 import {
   ROTA_STATUS_LABELS,
   FILTRO_STATUS_OPTIONS as FILTRO_OPTIONS,
@@ -241,7 +242,7 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
       }
       // Só mostrar erro se não tiver dados em cache
       if (!cachedData || cachedData.length === 0) {
-        if (__DEV__) console.error('Erro ao carregar rotas:', error);
+        logger.error('Erro ao carregar rotas:', error);
         Alert.alert('Erro', 'Não foi possível carregar as rotas');
       }
     } finally {
@@ -390,7 +391,7 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
 
       loadRotas();
     } catch (error) {
-      if (__DEV__) console.error('Erro ao excluir rota:', error);
+      logger.error('Erro ao excluir rota:', error);
     }
   }, [userData?.id, showToast, withToast, loadRotas]);
 
@@ -523,7 +524,7 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
             plataforma: Platform.OS,
           },
         }).then(({ error }) => {
-          if (__DEV__ && error) console.warn('Falha ao registrar log de exportação:', error.message);
+          if (error) logger.warn('Falha ao registrar log de exportação:', error.message);
         });
       }
 
@@ -531,7 +532,7 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
         Alert.alert('Sucesso', `${rotasFiltradas.length} rotas exportadas com sucesso!`);
       }
     } catch (error) {
-      if (__DEV__) console.error('Erro ao exportar:', error);
+      logger.error('Erro ao exportar:', error);
       Alert.alert('Erro', 'Não foi possível exportar os dados');
     }
   }, [rotasFiltradas, filtroStatus, userData?.id]);

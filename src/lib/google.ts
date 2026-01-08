@@ -1,8 +1,15 @@
 import { Platform } from 'react-native';
 
 import { logger } from '@/lib/logger';
+import { mergePolylines } from '@/lib/polyline';
 import { supabase } from '@/lib/supabase';
 
+import {
+  type RoutesAPIResponse,
+  adaptRoutesAPIResponse,
+  mapRoutesAPIError,
+  parseDuration,
+} from './google-shared';
 import {
   RouteError,
   RouteResult,
@@ -14,6 +21,11 @@ import {
 } from './routeErrors';
 import { Coordenadas, EnderecoGeocodificado } from '../types/endereco';
 import { GoogleDirectionsLeg, GoogleDirectionsResult } from '../types/google-directions';
+
+// Re-export polyline utilities for backwards compatibility
+export { decodePolyline, encodePolyline, mergePolylines } from '@/lib/polyline';
+// Re-export shared utilities for backwards compatibility
+export { RoutesAPIResponse, adaptRoutesAPIResponse, mapRoutesAPIError, parseDuration } from './google-shared';
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
@@ -34,89 +46,8 @@ const ROUTES_API_FIELD_MASK = [
 ].join(',');
 
 // ============================================================================
-// ROUTES API TYPES & ADAPTER
+// ROUTES API REQUEST BUILDER
 // ============================================================================
-
-/**
- * Interface para resposta da Routes API
- */
-interface RoutesAPIResponse {
-  routes: Array<{
-    duration: string; // "1234s"
-    distanceMeters: number;
-    polyline: {
-      encodedPolyline: string;
-    };
-    legs: Array<{
-      duration: string;
-      distanceMeters: number;
-      startLocation: {
-        latLng: { latitude: number; longitude: number };
-      };
-      endLocation: {
-        latLng: { latitude: number; longitude: number };
-      };
-      polyline?: {
-        encodedPolyline: string;
-      };
-    }>;
-    optimizedIntermediateWaypointIndex?: number[];
-  }>;
-  error?: {
-    code: number;
-    message: string;
-    status: string;
-  };
-}
-
-/**
- * Converte duração da Routes API ("1234s") para segundos
- */
-function parseDuration(duration: string): number {
-  if (!duration) return 0;
-  return parseInt(duration.replace('s', ''), 10) || 0;
-}
-
-/**
- * Adapta resposta da Routes API para o formato interno GoogleDirectionsResult
- * Mantém compatibilidade com código existente
- */
-function adaptRoutesAPIResponse(
-  apiResponse: RoutesAPIResponse,
-  storedAddresses?: { start?: string; end?: string; waypoints?: string[] }
-): GoogleDirectionsResult {
-  const route = apiResponse.routes?.[0];
-
-  if (!route) {
-    throw new Error('No routes found in response');
-  }
-
-  const legs: GoogleDirectionsLeg[] = route.legs.map((leg, index) => ({
-    distancia_metros: leg.distanceMeters || 0,
-    duracao_segundos: parseDuration(leg.duration),
-    // Routes API não retorna endereços formatados - usar dados armazenados ou coordenadas
-    endereco_inicio: storedAddresses?.waypoints?.[index] ||
-      `${leg.startLocation.latLng.latitude.toFixed(6)}, ${leg.startLocation.latLng.longitude.toFixed(6)}`,
-    endereco_fim: storedAddresses?.waypoints?.[index + 1] ||
-      `${leg.endLocation.latLng.latitude.toFixed(6)}, ${leg.endLocation.latLng.longitude.toFixed(6)}`,
-    coordenadas_inicio: {
-      latitude: leg.startLocation.latLng.latitude,
-      longitude: leg.startLocation.latLng.longitude,
-    },
-    coordenadas_fim: {
-      latitude: leg.endLocation.latLng.latitude,
-      longitude: leg.endLocation.latLng.longitude,
-    },
-  }));
-
-  return {
-    polyline: route.polyline.encodedPolyline,
-    distancia_total_metros: route.distanceMeters,
-    duracao_total_segundos: parseDuration(route.duration),
-    ordem_otimizada: route.optimizedIntermediateWaypointIndex || [],
-    legs,
-  };
-}
 
 /**
  * Constrói request body para Routes API
@@ -168,136 +99,9 @@ function buildRoutesAPIRequest(
   return request;
 }
 
-/**
- * Mapeia erros da Routes API para status compatível com código existente
- */
-function mapRoutesAPIError(error: RoutesAPIResponse['error']): string {
-  if (!error) return 'UNKNOWN_ERROR';
-
-  const statusMap: Record<string, string> = {
-    'INVALID_ARGUMENT': 'INVALID_REQUEST',
-    'NOT_FOUND': 'NOT_FOUND',
-    'PERMISSION_DENIED': 'REQUEST_DENIED',
-    'RESOURCE_EXHAUSTED': 'OVER_QUERY_LIMIT',
-    'UNAVAILABLE': 'UNKNOWN_ERROR',
-  };
-
-  return statusMap[error.status] || error.status || 'UNKNOWN_ERROR';
-}
-
 // ============================================================================
-// POLYLINE UTILITIES
+// GEOCODING
 // ============================================================================
-
-/**
- * Decodifica uma polyline encoded do Google para array de coordenadas.
- */
-export function decodePolyline(encoded: string): Coordenadas[] {
-  const points: Coordenadas[] = [];
-  let index = 0;
-  let lat = 0;
-  let lng = 0;
-
-  while (index < encoded.length) {
-    let shift = 0;
-    let result = 0;
-    let byte: number;
-
-    do {
-      byte = encoded.charCodeAt(index++) - 63;
-      result |= (byte & 0x1f) << shift;
-      shift += 5;
-    } while (byte >= 0x20);
-
-    const dlat = result & 1 ? ~(result >> 1) : result >> 1;
-    lat += dlat;
-
-    shift = 0;
-    result = 0;
-
-    do {
-      byte = encoded.charCodeAt(index++) - 63;
-      result |= (byte & 0x1f) << shift;
-      shift += 5;
-    } while (byte >= 0x20);
-
-    const dlng = result & 1 ? ~(result >> 1) : result >> 1;
-    lng += dlng;
-
-    points.push({
-      latitude: lat / 1e5,
-      longitude: lng / 1e5,
-    });
-  }
-
-  return points;
-}
-
-/**
- * Codifica um array de coordenadas em polyline encoded.
- */
-export function encodePolyline(points: Coordenadas[]): string {
-  let encoded = '';
-  let prevLat = 0;
-  let prevLng = 0;
-
-  for (const point of points) {
-    const lat = Math.round(point.latitude * 1e5);
-    const lng = Math.round(point.longitude * 1e5);
-
-    encoded += encodeNumber(lat - prevLat);
-    encoded += encodeNumber(lng - prevLng);
-
-    prevLat = lat;
-    prevLng = lng;
-  }
-
-  return encoded;
-}
-
-function encodeNumber(num: number): string {
-  let encoded = '';
-  let value = num < 0 ? ~(num << 1) : num << 1;
-
-  while (value >= 0x20) {
-    encoded += String.fromCharCode((0x20 | (value & 0x1f)) + 63);
-    value >>= 5;
-  }
-
-  encoded += String.fromCharCode(value + 63);
-  return encoded;
-}
-
-/**
- * Combina múltiplas polylines em uma única polyline válida.
- */
-export function mergePolylines(polylines: string[]): string {
-  const allPoints: Coordenadas[] = [];
-
-  for (const polyline of polylines) {
-    if (!polyline) continue;
-
-    const points = decodePolyline(polyline);
-
-    if (allPoints.length > 0 && points.length > 0) {
-      const lastPoint = allPoints[allPoints.length - 1];
-      const firstPoint = points[0];
-
-      const distance = Math.sqrt(
-        Math.pow(lastPoint.latitude - firstPoint.latitude, 2) +
-        Math.pow(lastPoint.longitude - firstPoint.longitude, 2)
-      );
-
-      if (distance < 0.0001) {
-        points.shift();
-      }
-    }
-
-    allPoints.push(...points);
-  }
-
-  return encodePolyline(allPoints);
-}
 
 // Helper function: retorna apenas as coordenadas (simplificado)
 export async function getCoordinates(endereco: string): Promise<{ lat: number; lng: number } | null> {

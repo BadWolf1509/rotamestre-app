@@ -22,6 +22,7 @@ interface SupportModalProps {
 }
 
 // Inject global styles for dialog backdrop (once)
+// Uses same animation as DesktopModal for consistency (scale 0.98, blur backdrop)
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   const styleId = 'support-modal-backdrop-styles';
   if (!document.getElementById(styleId)) {
@@ -30,14 +31,15 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     style.textContent = `
       dialog.support-modal-dialog::backdrop {
         background-color: ${defaultTheme.colors.overlay};
+        backdrop-filter: blur(2px);
       }
       dialog.support-modal-dialog[open] {
-        animation: support-modal-fade-in 0.2s ease-out;
+        animation: support-modal-fade-in 0.15s ease-out;
       }
       @keyframes support-modal-fade-in {
         from {
           opacity: 0;
-          transform: scale(0.95);
+          transform: scale(0.98);
         }
         to {
           opacity: 1;
@@ -174,7 +176,7 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
         <div
           style={{
             backgroundColor: theme.colors.white,
-            borderRadius: theme.borderRadius.xl,
+            borderRadius: theme.borderRadius.lg, // Consistent with DesktopModal
             boxShadow: boxShadow(0, 25, 50, -12, theme.colors.black, 0.25),
             overflow: 'hidden',
           }}
@@ -479,7 +481,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   modalContainer: {
     backgroundColor: theme.colors.white,
-    borderRadius: theme.borderRadius.xl,
+    borderRadius: theme.borderRadius.lg, // Consistent with DesktopModal
     width: '90%',
     maxWidth: 400,
     ...theme.shadows.lg,

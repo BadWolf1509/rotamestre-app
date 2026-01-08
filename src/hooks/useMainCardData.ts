@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { RouteStatus } from '@/context/RouteStatusContext';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
 export interface MotoristaStats {
@@ -121,7 +122,7 @@ export function useMainCardData({
         }));
       }
     } catch (error) {
-      console.error('Error loading yesterday stats:', error);
+      logger.error('Error loading yesterday stats:', error);
     }
   }, [motoristaId]);
 
@@ -168,7 +169,7 @@ export function useMainCardData({
         distanciaHoje: Math.round(distanciaTotal),
       }));
     } catch (error) {
-      console.error('Error loading today stats:', error);
+      logger.error('Error loading today stats:', error);
     }
   }, [motoristaId]);
 
@@ -208,7 +209,7 @@ export function useMainCardData({
 
       setStreak(currentStreak);
     } catch (error) {
-      console.error('Error loading streak:', error);
+      logger.error('Error loading streak:', error);
     }
   }, [motoristaId]);
 
@@ -276,7 +277,7 @@ export function useMainCardData({
         tempo_total: tempoTotal,
       });
     } catch (error) {
-      console.error('Error loading last route:', error);
+      logger.error('Error loading last route:', error);
       setLastRoute(null);
     }
   }, [motoristaId]);
@@ -332,7 +333,7 @@ export function useMainCardData({
         paradas_concluidas: paradasConcluidas,
       });
     } catch (error) {
-      console.error('Error loading expired route:', error);
+      logger.error('Error loading expired route:', error);
       setExpiredRoute(null);
     }
   }, [motoristaId]);

@@ -14,6 +14,7 @@ import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import { Button, ConfirmModal, DesktopPageLayout, Text, Toast } from '@/design-system';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useMotoristas } from '@/hooks/useMotoristas';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -120,7 +121,7 @@ export function DashboardDesktop({
 
       onRefresh(); // Refresh the dashboard
     } catch (error) {
-      console.error('Erro ao excluir rota:', error);
+      logger.error('Erro ao excluir rota:', error);
 
       if (Platform.OS === 'web') {
         showToast('Erro ao excluir a rota', 'error');

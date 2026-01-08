@@ -26,6 +26,7 @@ interface AlertDialogProps {
 }
 
 // Inject global styles for dialog backdrop (once)
+// Uses same animation as DesktopModal for consistency (scale 0.98, blur backdrop)
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   const styleId = 'alert-dialog-backdrop-styles';
   if (!document.getElementById(styleId)) {
@@ -34,6 +35,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     style.textContent = `
       dialog.alert-dialog::backdrop {
         background-color: ${defaultTheme.colors.overlay};
+        backdrop-filter: blur(2px);
       }
       dialog.alert-dialog[open] {
         animation: alert-dialog-fade-in 0.15s ease-out;
@@ -41,7 +43,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
       @keyframes alert-dialog-fade-in {
         from {
           opacity: 0;
-          transform: scale(0.95);
+          transform: scale(0.98);
         }
         to {
           opacity: 1;
@@ -210,7 +212,7 @@ export function AlertDialog({
         <div
           style={{
             backgroundColor: theme.colors.white,
-            borderRadius: theme.borderRadius.xl,
+            borderRadius: theme.borderRadius.lg, // Consistent with DesktopModal
             padding: isDesktop ? theme.desktop.dialog.containerPadding : theme.spacing.xl,
             boxShadow: [
               boxShadow(0, 20, 25, -5, theme.colors.black, 0.1),
@@ -352,7 +354,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   container: {
     backgroundColor: theme.colors.white,
-    borderRadius: theme.borderRadius.xl,
+    borderRadius: theme.borderRadius.lg, // Consistent with DesktopModal
     padding: theme.spacing.xl,
     width: '100%',
     maxWidth: 360,

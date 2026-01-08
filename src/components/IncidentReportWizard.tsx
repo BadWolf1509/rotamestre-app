@@ -17,17 +17,11 @@
  * - Memoizado para evitar re-renders
  */
 
-import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState, useCallback, memo } from 'react';
 import {
-  ActivityIndicator,
   Alert,
-  Image,
   ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
   View,
   useWindowDimensions,
 } from 'react-native';
@@ -37,15 +31,15 @@ import { useIncidentSubmit } from '@/hooks/useIncidentSubmit';
 import { useResponsive } from '@/hooks/useResponsive';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-// Tipo para chaves de cores de incidente no tema
-type IncidentColorKey = keyof Theme['colors']['incident'];
+import {
+  CategoryStep,
+  PhotoStep,
+  DescriptionStep,
+  ReviewStep,
+  type IncidentReport,
+} from './incident-wizard';
 
-interface IncidentCategory {
-  value: string;
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  colorKey: IncidentColorKey;
-}
+export type { IncidentReport };
 
 interface IncidentReportWizardProps {
   visible: boolean;
@@ -56,33 +50,6 @@ interface IncidentReportWizardProps {
   motoristaId: string;
   endereco?: string;
 }
-
-export interface IncidentReport {
-  category: string;
-  description: string;
-  photoUri?: string;
-  paradaId?: string;
-  rotaId?: string;
-  motoristaId: string;
-  endereco?: string;
-  timestamp: string;
-}
-
-// Categorias de incidente usando tokens do tema
-const INCIDENT_CATEGORIES: IncidentCategory[] = [
-  { value: 'accident', label: 'Acidente/Incidente', icon: 'warning', colorKey: 'accident' },
-  { value: 'absent', label: 'Cliente ausente', icon: 'home-outline', colorKey: 'absent' },
-  { value: 'wrong_address', label: 'Endereço incorreto', icon: 'location-outline', colorKey: 'wrongAddress' },
-  { value: 'blocked', label: 'Acesso bloqueado', icon: 'lock-closed-outline', colorKey: 'blocked' },
-  { value: 'vehicle_issue', label: 'Problema no veículo', icon: 'car-outline', colorKey: 'vehicle' },
-  { value: 'weather', label: 'Condições climáticas', icon: 'rainy-outline', colorKey: 'weather' },
-  { value: 'other', label: 'Outro problema', icon: 'help-circle-outline', colorKey: 'other' },
-];
-
-// Helper para obter cor do tema baseado na chave
-const getIncidentColor = (theme: Theme, colorKey: IncidentColorKey): string => {
-  return theme.colors.incident[colorKey];
-};
 
 const STEPS: Step[] = [
   { id: 'category', title: 'Tipo de Problema' },
@@ -294,265 +261,58 @@ function IncidentReportWizardComponent({
     setManualEndereco(text);
   }, []);
 
-  // Step 1: Category Selection
-  const renderCategoryStep = () => (
-    <View style={styles.stepContent}>
-      <Text style={[styles.stepTitle, isDesktop && styles.stepTitleDesktop]}>
-        Qual o tipo de problema?
-      </Text>
-      <Text style={styles.stepSubtitle}>
-        Selecione a categoria que melhor descreve a situação
-      </Text>
-
-      <View style={[styles.categoriesContainer, isDesktop && styles.categoriesContainerDesktop]}>
-        {INCIDENT_CATEGORIES.map((category) => (
-          <TouchableOpacity
-            key={category.value}
-            style={[
-              styles.categoryCard,
-              isDesktop && styles.categoryCardDesktop,
-              selectedCategory === category.value && styles.categoryCardSelected,
-            ]}
-            onPress={() => handleCategorySelect(category.value)}
-            accessibilityRole="radio"
-            accessibilityState={{ checked: selectedCategory === category.value }}
-            accessibilityLabel={category.label}
-          >
-            <View style={[styles.categoryIcon, { backgroundColor: getIncidentColor(theme, category.colorKey) + '20' }]}>
-              <Ionicons name={category.icon} size={24} color={getIncidentColor(theme, category.colorKey)} />
-            </View>
-            <Text
-              style={[
-                styles.categoryLabel,
-                selectedCategory === category.value && styles.categoryLabelSelected,
-              ]}
-            >
-              {category.label}
-            </Text>
-            {selectedCategory === category.value && (
-              <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
-            )}
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
-
-  // Step 2: Photo Upload
-  const renderPhotoStep = () => (
-    <View style={styles.stepContent}>
-      <Text style={[styles.stepTitle, isDesktop && styles.stepTitleDesktop]}>
-        Adicionar foto do problema
-      </Text>
-      <Text style={styles.stepSubtitle}>
-        Uma foto ajuda a documentar melhor o incidente
-      </Text>
-
-      {photoUri ? (
-        <View style={styles.photoContainer}>
-          {/* Loading indicator */}
-          {isPhotoLoading && !hasPhotoError && (
-            <View style={styles.photoLoadingContainer}>
-              <ActivityIndicator size="large" color={theme.colors.primary} />
-              <Text style={styles.photoLoadingText}>Carregando foto...</Text>
-            </View>
-          )}
-
-          {/* Error state with retry */}
-          {hasPhotoError && (
-            <View style={styles.photoErrorContainer}>
-              <Ionicons name="image-outline" size={48} color={theme.colors.gray400} />
-              <Text style={styles.photoErrorText}>Não foi possível carregar a foto</Text>
-              <TouchableOpacity
-                style={styles.photoRetryButton}
-                onPress={handlePhotoRetry}
-                accessibilityRole="button"
-                accessibilityLabel="Tentar carregar a foto novamente"
-              >
-                <Ionicons name="refresh" size={16} color={theme.colors.primary} />
-                <Text style={styles.photoRetryText}>Tentar novamente</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Photo image */}
-          {!hasPhotoError && (
-            <Image
-              source={{ uri: displayPhotoUri }}
-              style={[
-                styles.photo,
-                { width: imageWidth, opacity: isPhotoLoading ? 0 : 1 },
-              ]}
-              resizeMode="cover"
-              accessibilityLabel="Foto do incidente"
-              onLoad={handlePhotoLoad}
-              onError={handlePhotoError}
-            />
-          )}
-
-          <TouchableOpacity
-            style={styles.removePhotoButton}
-            onPress={removePhoto}
-            accessibilityRole="button"
-            accessibilityLabel="Remover foto"
-          >
-            <Ionicons name="close-circle" size={28} color={theme.colors.white} />
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <View style={[styles.photoOptions, isDesktop && styles.photoOptionsDesktop]}>
-          <TouchableOpacity
-            style={styles.photoOption}
-            onPress={takePhoto}
-            accessibilityRole="button"
-            accessibilityLabel="Tirar foto com a câmera"
-          >
-            <Ionicons name="camera" size={32} color={theme.colors.primary} />
-            <Text style={styles.photoOptionText}>Tirar Foto</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.photoOption}
-            onPress={pickImage}
-            accessibilityRole="button"
-            accessibilityLabel="Escolher foto da galeria"
-          >
-            <Ionicons name="images" size={32} color={theme.colors.primary} />
-            <Text style={styles.photoOptionText}>Escolher da Galeria</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <TouchableOpacity
-        style={styles.skipButton}
-        onPress={handleNext}
-        accessibilityRole="button"
-        accessibilityLabel="Pular este passo"
-      >
-        <Text style={styles.skipButtonText}>Pular este passo</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  // Step 3: Description
-  const renderDescriptionStep = () => (
-    <View style={styles.stepContent}>
-      <Text style={[styles.stepTitle, isDesktop && styles.stepTitleDesktop]}>
-        Descreva o problema
-      </Text>
-      <Text style={styles.stepSubtitle}>
-        Forneça detalhes sobre o que aconteceu
-      </Text>
-
-      <TextInput
-        style={[styles.descriptionInput, isDesktop && styles.descriptionInputDesktop]}
-        multiline
-        numberOfLines={isDesktop ? 4 : 6}
-        placeholder="Ex: Cheguei ao local mas o portão estava fechado e não havia ninguém para receber. Tentei ligar mas ninguém atendeu..."
-        placeholderTextColor={theme.colors.gray400}
-        value={description}
-        onChangeText={handleDescriptionChange}
-        textAlignVertical="top"
-        maxLength={500}
-        accessibilityLabel="Descrição do problema"
-        accessibilityHint="Digite pelo menos 20 caracteres"
-      />
-
-      <Text style={styles.charCount}>
-        {description.length}/500 caracteres (mínimo 20)
-      </Text>
-    </View>
-  );
-
-  // Step 4: Review
-  const renderReviewStep = () => {
-    const category = INCIDENT_CATEGORIES.find((c) => c.value === selectedCategory);
-
-    return (
-      <View style={styles.stepContent}>
-        <Text style={[styles.stepTitle, isDesktop && styles.stepTitleDesktop]}>
-          Revisar informações
-        </Text>
-
-        {/* Barra de progresso durante upload */}
-        {isSubmitting && (
-          <View style={styles.uploadProgressContainer}>
-            <View style={styles.uploadProgressBar}>
-              <View
-                style={[
-                  styles.uploadProgressFill,
-                  { width: `${uploadProgress}%` },
-                ]}
-              />
-            </View>
-            <Text style={styles.uploadProgressText}>
-              {uploadRetryCount > 1
-                ? `Tentativa ${uploadRetryCount}/3 - Enviando...`
-                : `Enviando reporte... ${uploadProgress}%`}
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.reviewSection}>
-          <Text style={styles.reviewLabel}>LOCAL:</Text>
-          {!endereco ? (
-            <TextInput
-              style={styles.manualAddressInput}
-              placeholder="Informe o local do incidente..."
-              placeholderTextColor={theme.colors.gray400}
-              value={manualEndereco}
-              onChangeText={handleManualEnderecoChange}
-              accessibilityLabel="Local do incidente"
-              editable={!isSubmitting}
-            />
-          ) : (
-            <Text style={styles.reviewValue}>{endereco}</Text>
-          )}
-        </View>
-
-        <View style={styles.reviewSection}>
-          <Text style={styles.reviewLabel}>TIPO DE PROBLEMA:</Text>
-          <View style={styles.reviewCategory}>
-            <Ionicons
-              name={category?.icon || 'help-circle-outline'}
-              size={20}
-              color={category ? getIncidentColor(theme, category.colorKey) : theme.colors.gray500}
-            />
-            <Text style={styles.reviewValue}>{category?.label}</Text>
-          </View>
-        </View>
-
-        {photoUri && (
-          <View style={styles.reviewSection}>
-            <Text style={styles.reviewLabel}>FOTO:</Text>
-            <Image
-              source={{ uri: photoUri }}
-              style={styles.reviewPhoto}
-              resizeMode="cover"
-              accessibilityLabel="Foto do incidente anexada"
-            />
-          </View>
-        )}
-
-        <View style={styles.reviewSection}>
-          <Text style={styles.reviewLabel}>DESCRIÇÃO:</Text>
-          <Text style={styles.reviewDescription}>{description}</Text>
-        </View>
-      </View>
-    );
-  };
-
   // Render current step content
   const renderStepContent = () => {
     switch (currentStep) {
       case 0:
-        return renderCategoryStep();
+        return (
+          <CategoryStep
+            selectedCategory={selectedCategory}
+            onSelectCategory={handleCategorySelect}
+            isDesktop={isDesktop}
+          />
+        );
       case 1:
-        return renderPhotoStep();
+        return (
+          <PhotoStep
+            photoUri={photoUri}
+            isPhotoLoading={isPhotoLoading}
+            hasPhotoError={hasPhotoError}
+            onTakePhoto={takePhoto}
+            onPickImage={pickImage}
+            onRemovePhoto={removePhoto}
+            onPhotoLoad={handlePhotoLoad}
+            onPhotoError={handlePhotoError}
+            onPhotoRetry={handlePhotoRetry}
+            onSkip={handleNext}
+            displayPhotoUri={displayPhotoUri}
+            imageWidth={imageWidth}
+            isDesktop={isDesktop}
+          />
+        );
       case 2:
-        return renderDescriptionStep();
+        return (
+          <DescriptionStep
+            description={description}
+            onDescriptionChange={handleDescriptionChange}
+            isDesktop={isDesktop}
+          />
+        );
       case 3:
-        return renderReviewStep();
+        return (
+          <ReviewStep
+            selectedCategory={selectedCategory}
+            description={description}
+            photoUri={photoUri}
+            endereco={endereco}
+            manualEndereco={manualEndereco}
+            onManualEnderecoChange={handleManualEnderecoChange}
+            isSubmitting={isSubmitting}
+            uploadProgress={uploadProgress}
+            uploadRetryCount={uploadRetryCount}
+            isDesktop={isDesktop}
+          />
+        );
       default:
         return null;
     }
@@ -660,266 +420,11 @@ function IncidentReportWizardComponent({
 // Memoizar componente para evitar re-renders desnecessários
 export const IncidentReportWizard = memo(IncidentReportWizardComponent);
 
-const styles = StyleSheet.create((theme: Theme) => ({
+const styles = StyleSheet.create((_theme: Theme) => ({
   container: {
     flex: 1,
   },
   scrollContent: {
     flex: 1,
-  },
-
-  // Step Content
-  stepContent: {
-    paddingHorizontal: theme.spacing.md,
-    paddingBottom: theme.spacing.xl,
-  },
-  stepTitle: {
-    fontSize: theme.typography.xl,
-    fontFamily: theme.typography.fontSansBold,
-    color: theme.colors.gray900,
-    marginBottom: theme.spacing.xs,
-  },
-  stepTitleDesktop: {
-    fontSize: theme.typography.lg,
-  },
-  stepSubtitle: {
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSans,
-    color: theme.colors.gray500,
-    marginBottom: theme.spacing.lg,
-  },
-
-  // Category Step
-  categoriesContainer: {
-    gap: theme.spacing.sm,
-  },
-  categoriesContainerDesktop: {
-    gap: theme.spacing.xs,
-  },
-  categoryCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.gray50,
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  categoryCardDesktop: {
-    padding: theme.spacing.sm,
-  },
-  categoryCardSelected: {
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.primaryBg,
-  },
-  categoryIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: theme.spacing.md,
-  },
-  categoryLabel: {
-    flex: 1,
-    fontSize: theme.typography.base,
-    fontFamily: theme.typography.fontSans,
-    color: theme.colors.gray700,
-  },
-  categoryLabelSelected: {
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray900,
-  },
-
-  // Photo Step
-  photoContainer: {
-    alignItems: 'center',
-    marginVertical: theme.spacing.lg,
-    minHeight: 200,
-    justifyContent: 'center',
-  },
-  photo: {
-    height: 200,
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: theme.colors.gray100,
-  },
-  photoLoadingContainer: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.md,
-  },
-  photoLoadingText: {
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSans,
-    color: theme.colors.gray500,
-  },
-  photoErrorContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.md,
-    padding: theme.spacing.xl,
-  },
-  photoErrorText: {
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSans,
-    color: theme.colors.gray500,
-    textAlign: 'center',
-  },
-  photoRetryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.primaryBg,
-    marginTop: theme.spacing.sm,
-  },
-  photoRetryText: {
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.primary,
-  },
-  removePhotoButton: {
-    position: 'absolute',
-    top: theme.spacing.sm,
-    right: theme.spacing.sm,
-    backgroundColor: theme.colors.overlay,
-    borderRadius: 14,
-  },
-  photoOptions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginVertical: theme.spacing.xl,
-    gap: theme.spacing.md,
-  },
-  photoOptionsDesktop: {
-    justifyContent: 'center',
-    gap: theme.spacing.xl,
-  },
-  photoOption: {
-    alignItems: 'center',
-    padding: theme.spacing.lg,
-    backgroundColor: theme.colors.gray50,
-    borderRadius: theme.borderRadius.lg,
-    minWidth: 120,
-  },
-  photoOptionText: {
-    marginTop: theme.spacing.sm,
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSans,
-    color: theme.colors.gray700,
-  },
-  skipButton: {
-    alignItems: 'center',
-    marginTop: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-  },
-  skipButtonText: {
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSans,
-    color: theme.colors.gray500,
-    textDecorationLine: 'underline',
-  },
-
-  // Description Step
-  descriptionInput: {
-    borderWidth: 1,
-    borderColor: theme.colors.gray200,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.md,
-    fontSize: theme.typography.base,
-    fontFamily: theme.typography.fontSans,
-    color: theme.colors.gray900,
-    minHeight: 150,
-    backgroundColor: theme.colors.gray50,
-  },
-  descriptionInputDesktop: {
-    minHeight: 120,
-  },
-  charCount: {
-    fontSize: theme.typography.xs,
-    fontFamily: theme.typography.fontSans,
-    color: theme.colors.gray500,
-    marginTop: theme.spacing.xs,
-    textAlign: 'right',
-  },
-
-  // Review Step
-  reviewSection: {
-    marginBottom: theme.spacing.lg,
-  },
-  reviewLabel: {
-    fontSize: theme.typography.xs,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray500,
-    marginBottom: theme.spacing.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  reviewValue: {
-    fontSize: theme.typography.base,
-    fontFamily: theme.typography.fontSans,
-    color: theme.colors.gray800,
-  },
-  reviewCategory: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  reviewPhoto: {
-    width: 150,
-    height: 100,
-    borderRadius: theme.borderRadius.md,
-    marginTop: theme.spacing.xs,
-    backgroundColor: theme.colors.gray100,
-  },
-  reviewDescription: {
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSans,
-    color: theme.colors.gray700,
-    lineHeight: 20,
-    backgroundColor: theme.colors.gray50,
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    marginTop: theme.spacing.xs,
-  },
-  manualAddressInput: {
-    borderWidth: 1,
-    borderColor: theme.colors.gray200,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.sm,
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSans,
-    color: theme.colors.gray900,
-    backgroundColor: theme.colors.gray50,
-    marginTop: theme.spacing.xs,
-  },
-
-  // Upload Progress
-  uploadProgressContainer: {
-    marginBottom: theme.spacing.lg,
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.primaryBg,
-    borderRadius: theme.borderRadius.md,
-  },
-  uploadProgressBar: {
-    height: 6,
-    backgroundColor: theme.colors.gray200,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: theme.spacing.sm,
-  },
-  uploadProgressFill: {
-    height: '100%',
-    backgroundColor: theme.colors.primary,
-    borderRadius: 3,
-  },
-  uploadProgressText: {
-    fontSize: theme.typography.xs,
-    fontFamily: theme.typography.fontSans,
-    color: theme.colors.primary,
-    textAlign: 'center',
   },
 }));

@@ -25,6 +25,11 @@
  *   12px → borderRadius.lg
  */
 
+import {
+  getStatusColor as getStatusColorFromConfig,
+  getStatusLabel as getStatusLabelFromConfig,
+  type StatusColorKey,
+} from '@/constants/statusConfig';
 import { escapeHtml } from '@/lib/utils';
 import { INFO_WINDOW_ANIMATION_CSS, INFO_WINDOW_COLORS } from '@/utils/webTokens';
 
@@ -43,38 +48,42 @@ export interface ParadaInfo {
 }
 
 // ============================================================================
-// Utility Functions
+// Color Resolver for InfoWindow
 // ============================================================================
 
-export function getStatusColor(status?: string): string {
+/**
+ * Maps statusColorKey to actual hex color from INFO_WINDOW_COLORS.
+ * Used as resolver for getStatusColor from statusConfig.
+ */
+function infoWindowColorResolver(colorKey: StatusColorKey): string {
   const statusColors = INFO_WINDOW_COLORS.status;
-  switch (status) {
-    case 'concluida':
+  switch (colorKey) {
+    case 'success':
       return statusColors.success;
-    case 'em_andamento':
+    case 'info':
       return statusColors.info;
-    case 'cancelada':
+    case 'error':
       return statusColors.error;
-    case 'pulada':
+    case 'warning':
+      return statusColors.warning;
+    case 'gray600':
       return statusColors.muted;
     default:
       return statusColors.warning;
   }
 }
 
+// ============================================================================
+// Utility Functions (delegating to centralized statusConfig)
+// ============================================================================
+
+export function getStatusColor(status?: string): string {
+  return getStatusColorFromConfig(status, infoWindowColorResolver);
+}
+
 export function getStatusLabel(status?: string): string {
-  switch (status) {
-    case 'concluida':
-      return 'Concluída';
-    case 'em_andamento':
-      return 'Em rota';
-    case 'pendente':
-      return 'Pendente';
-    case 'pulada':
-      return 'Pulada';
-    default:
-      return status || '';
-  }
+  if (!status) return '';
+  return getStatusLabelFromConfig(status as Parameters<typeof getStatusLabelFromConfig>[0]);
 }
 
 // ============================================================================
