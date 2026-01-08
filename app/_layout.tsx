@@ -74,27 +74,35 @@ function ConditionalLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Detect E2E/CI environment at module level (before component mounts)
-// Check multiple signals: URL param, navigator.webdriver, or CI env variable
-function detectE2EEnvironment(): boolean {
+// Check for E2E environment at module level (fallback signals)
+function detectE2EAtModuleLevel(): boolean {
   if (typeof window === 'undefined') return false;
-
-  // Check URL query parameter (most reliable for Playwright)
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('e2e') === 'true') return true;
 
   // Check navigator.webdriver (Playwright/Selenium sets this)
   if ((navigator as any).webdriver === true) return true;
 
-  // Check for Playwright-specific userAgent pattern
+  // Check for headless browser patterns in userAgent
   if (navigator.userAgent.includes('HeadlessChrome')) return true;
+  if (navigator.userAgent.includes('Headless')) return true;
 
   return false;
 }
-const isE2EEnvironment = detectE2EEnvironment();
+const isE2EAtModuleLevel = detectE2EAtModuleLevel();
+
+// Check URL param for E2E (called during render to catch navigation)
+function checkE2EUrlParam(): boolean {
+  if (typeof window === 'undefined') return false;
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get('e2e') === 'true';
+}
 
 export default function RootLayout() {
   const { theme } = useUnistyles();
+
+  // Check E2E both at module level AND via URL param (for navigation)
+  // URL param check happens on every render to catch when Playwright navigates
+  const isE2EEnvironment = isE2EAtModuleLevel || checkE2EUrlParam();
+
   // Track font loading timeout for CI environments
   // In E2E, skip waiting for fonts entirely to allow tests to proceed
   const [fontTimeout, setFontTimeout] = React.useState(isE2EEnvironment);
@@ -119,8 +127,12 @@ export default function RootLayout() {
   const fontTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    // Skip timeout setup in E2E (we already set fontTimeout to true)
-    if (isE2EEnvironment) return;
+    // Skip timeout setup in E2E (render condition handles this)
+    if (isE2EEnvironment) {
+      // In E2E, immediately set fontTimeout to true so splash screen hides
+      if (!fontTimeout) setFontTimeout(true);
+      return;
+    }
 
     if (Platform.OS === 'web' && !fontsLoaded && !fontError) {
       // 10 second timeout for normal users
@@ -140,7 +152,7 @@ export default function RootLayout() {
       clearTimeout(fontTimeoutRef.current);
       fontTimeoutRef.current = null;
     }
-  }, [fontsLoaded, fontError]);
+  }, [fontsLoaded, fontError, isE2EEnvironment, fontTimeout]);
 
   // Esconder splash screen quando fontes carregarem
   useEffect(() => {
@@ -232,8 +244,9 @@ export default function RootLayout() {
     applyPreference();
   }, []);
 
-  // Don't render until fonts are loaded (or timeout on web)
-  if (!fontsLoaded && !fontError && !fontTimeout) {
+  // Don't render until fonts are loaded (or timeout on web, or E2E mode)
+  // isE2EEnvironment is checked here to handle navigation to ?e2e=true URLs
+  if (!fontsLoaded && !fontError && !fontTimeout && !isE2EEnvironment) {
     return null;
   }
 
