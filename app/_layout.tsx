@@ -75,10 +75,12 @@ function ConditionalLayout({ children }: { children: React.ReactNode }) {
 }
 
 // Check for E2E environment using multiple detection methods
+// NOTE: This is intentionally NOT evaluated at module level
+// because in CI, the module loads before the browser navigates to the e2e URL
 function detectE2EEnvironment(): boolean {
   if (typeof window === 'undefined') return false;
 
-  // Method 1: Check for Playwright-injected window flag (most reliable)
+  // Method 1: Check for Playwright-injected window flag
   if ((window as any).__PLAYWRIGHT_E2E__ === true) return true;
 
   // Method 2: Check for localStorage flag (set by global-setup)
@@ -95,21 +97,23 @@ function detectE2EEnvironment(): boolean {
   const ua = navigator.userAgent.toLowerCase();
   if (ua.includes('headlesschrome') || ua.includes('headless')) return true;
 
-  // Method 5: Check URL param for E2E
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('e2e') === 'true') return true;
+  // Method 5: Check URL param for E2E (most reliable in CI)
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('e2e') === 'true') return true;
+  } catch {
+    // URL parsing may fail in some environments
+  }
 
   return false;
 }
-// Evaluate at module load time
-const isE2EAtModuleLevel = detectE2EEnvironment();
 
 export default function RootLayout() {
   const { theme } = useUnistyles();
 
-  // Check E2E at render time (re-evaluate in case flags were set after module load)
-  // This catches cases where Playwright navigates to ?e2e=true after initial module load
-  const isE2EEnvironment = isE2EAtModuleLevel || detectE2EEnvironment();
+  // Check E2E at render time - this is intentionally evaluated during render
+  // because in CI, the module loads before the browser navigates to ?e2e=true
+  const isE2EEnvironment = detectE2EEnvironment();
 
   // Track font loading timeout for CI environments
   // In E2E, skip waiting for fonts entirely to allow tests to proceed
