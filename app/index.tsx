@@ -30,7 +30,18 @@ export default function Index() {
 
   async function checkSessionAndRedirect() {
     try {
-      const session = await authService.getSession();
+      // Add timeout to prevent hanging in CI when Supabase isn't configured
+      // See: https://github.com/supabase/supabase/issues/35754
+      const SESSION_TIMEOUT = 5000; // 5 seconds
+      const sessionPromise = authService.getSession();
+      const timeoutPromise = new Promise<null>((resolve) => {
+        setTimeout(() => {
+          logger.warn('⏱️ Session check timeout - assuming not authenticated');
+          resolve(null);
+        }, SESSION_TIMEOUT);
+      });
+
+      const session = await Promise.race([sessionPromise, timeoutPromise]);
 
       if (session?.user) {
         // Usuário autenticado: redireciona para área correspondente
