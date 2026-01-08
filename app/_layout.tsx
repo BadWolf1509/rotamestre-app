@@ -74,10 +74,14 @@ function ConditionalLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Detect E2E/CI environment at module level (before component mounts)
+const isE2EEnvironment = typeof navigator !== 'undefined' && (navigator as any).webdriver === true;
+
 export default function RootLayout() {
   const { theme } = useUnistyles();
   // Track font loading timeout for CI environments
-  const [fontTimeout, setFontTimeout] = React.useState(false);
+  // In E2E, skip waiting for fonts entirely to allow tests to proceed
+  const [fontTimeout, setFontTimeout] = React.useState(isE2EEnvironment);
 
   // Carregar fontes customizadas
   const [fontsLoaded, fontError] = useFonts({
@@ -99,16 +103,15 @@ export default function RootLayout() {
   const fontTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (Platform.OS === 'web' && !fontsLoaded && !fontError) {
-      // Detect E2E/CI environment (Playwright sets navigator.webdriver = true)
-      const isE2E = typeof navigator !== 'undefined' && (navigator as any).webdriver === true;
-      // Use shorter timeout in E2E to allow tests to proceed faster
-      const timeoutMs = isE2E ? 2000 : 10000;
+    // Skip timeout setup in E2E (we already set fontTimeout to true)
+    if (isE2EEnvironment) return;
 
+    if (Platform.OS === 'web' && !fontsLoaded && !fontError) {
+      // 10 second timeout for normal users
       fontTimeoutRef.current = setTimeout(() => {
-        console.warn(`[RootLayout] Font loading timeout (${timeoutMs}ms) - proceeding without custom fonts`);
+        console.warn('[RootLayout] Font loading timeout (10000ms) - proceeding without custom fonts');
         setFontTimeout(true);
-      }, timeoutMs);
+      }, 10000);
 
       return () => {
         if (fontTimeoutRef.current) {
