@@ -256,13 +256,13 @@ export default function RootLayout() {
     applyPreference();
   }, []);
 
-  // Don't render until fonts are loaded (or timeout on web, or E2E mode)
-  // isE2EEnvironment is checked here to handle navigation to ?e2e=true URLs
-  if (!fontsLoaded && !fontError && !fontTimeout && !isE2EEnvironment) {
-    return null;
-  }
+  // NOTE: Per Expo Router best practices, we do NOT return null while fonts load.
+  // This pattern "breaks navigation hydration" and causes issues on web (static rendering).
+  // See: https://github.com/expo/expo/issues/37391
+  // Since React Native 0.72+ (SDK 49), fonts swap automatically when loaded.
+  // The SplashScreen is kept visible until fonts are ready (see useEffect above).
 
-  // Se houver erro ao carregar fontes, mostrar no console mas continuar
+  // Log font error but continue rendering (fonts will use fallback)
   if (fontError) {
     console.error('Erro ao carregar fontes:', fontError);
   }
