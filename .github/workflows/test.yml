@@ -14,35 +14,6 @@ on:
         type: boolean
 
 jobs:
-  changes:
-    name: Detect Design System Changes
-    runs-on: ubuntu-latest
-
-    outputs:
-      design_system: ${{ steps.filter.outputs.design_system }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Filter paths
-        id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            design_system:
-              - 'src/components/**'
-              - 'src/design-system/**'
-              - 'src/utils/styles.base.ts'
-              - 'src/lib/design-tokens.ts'
-              - 'tokens/**'
-              - 'docs/design-system-*.md'
-              - 'e2e/design-system.e2e.ts'
-              - 'e2e/visual-critical.e2e.ts'
-              - 'e2e/*.e2e.ts-snapshots/**'
-
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -182,8 +153,6 @@ jobs:
   visual-regression:
     name: Visual Regression
     runs-on: ubuntu-latest
-    needs: changes
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_visual == 'true') || (needs.changes.outputs.design_system == 'true') }}
 
     strategy:
       matrix:
