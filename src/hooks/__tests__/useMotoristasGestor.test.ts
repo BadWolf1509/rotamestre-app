@@ -3,8 +3,8 @@ import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
+import { validatePhone } from '@/lib/phone';
 import { supabase } from '@/lib/supabase';
-import { validatePhone } from '@/utils/phoneValidation';
 
 import { useMotoristasGestor, MotoristaDetalhado } from '../useMotoristasGestor';
 
@@ -42,7 +42,7 @@ jest.mock('@/lib/logger', () => ({
 }));
 
 // Mocks de utilitarios de telefone
-jest.mock('@/utils/phoneValidation', () => ({
+jest.mock('@/lib/phone', () => ({
   maskPhone: jest.fn((text: string) => text),
   validatePhone: jest.fn((phone: string) => phone.length >= 10),
   getPhoneErrorMessage: jest.fn((phone: string) => (phone.length < 10 ? 'Telefone incompleto' : null)),

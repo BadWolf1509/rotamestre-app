@@ -34,8 +34,8 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
+import { maskPhone, validatePhone, getPhoneErrorMessage } from '@/lib/phone';
 import { supabase } from '@/lib/supabase';
-import { maskPhone, validatePhone, getPhoneErrorMessage } from '@/utils/phoneValidation';
 import { useUnistyles, StyleSheet } from '@/utils/styles';
 
 export default function MotoristaPerfil() {

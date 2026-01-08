@@ -139,19 +139,21 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     },
   });
 
+  // Error handler stable reference
+  const handleError = useCallback((msg: string) => {
+    showToast(msg, 'error');
+  }, [showToast]);
+
   // Composed hooks (extracted for reusability)
-  const { enderecoUnidade } = useEnderecoUnidade(
-    (msg) => showToast(msg, 'error')
-  );
+  // Agora passando callback estável para evitar re-renders infinitos
+  const { enderecoUnidade } = useEnderecoUnidade(handleError);
 
   const {
     motoristas,
     motoristaSelecionado,
     setMotoristaSelecionado,
     isLoading: isLoadingMotoristas,
-  } = useMotoristaSelection(
-    (msg) => showToast(msg, 'error')
-  );
+  } = useMotoristaSelection(handleError);
 
   // Cleanup do timeout ao desmontar
   useEffect(() => {

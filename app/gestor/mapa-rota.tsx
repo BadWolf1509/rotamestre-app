@@ -1,10 +1,15 @@
 /**
  * Mapa da Rota - Página de visualização de rota do gestor
  * Layout otimizado baseado em melhores práticas SaaS 2024/2025
+ *
+ * Modular architecture:
+ * - hooks/useMapaRotaData.ts: Data loading and computed values
+ * - hooks/useMapaRotaHandlers.ts: Action handlers
+ * - hooks/useMapaRotaModals.ts: Modal state management
  */
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { View, ScrollView, TouchableOpacity, Platform } from 'react-native';
 
 import {
@@ -26,7 +31,12 @@ import {
   formatStatusLabel,
   styles,
 } from '@/components/gestor/mapa-rota';
-import type { Parada, Rota, ResumoParadas, DraggableStopListControl } from '@/components/gestor/mapa-rota';
+import type { DraggableStopListControl } from '@/components/gestor/mapa-rota';
+import {
+  useMapaRotaData,
+  useMapaRotaHandlers,
+  useMapaRotaModals,
+} from '@/components/gestor/mapa-rota/hooks';
 import { MapaAdapter } from '@/components/MapaAdapter';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
@@ -44,21 +54,16 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { formatDateBR } from '@/lib/dateUtils';
-import { logger } from '@/lib/logger';
-import { removerParadaERecalcular, reordenarParadas, recalcularRota, normalizarOrdemParadas, notificarMotoristaRotaEditada } from '@/lib/routeUtils';
-import { supabase } from '@/lib/supabase';
 import { useUnistyles } from '@/utils/styles';
 
-// Altura otimizada do mapa (menor que antes para mais espaço às paradas)
+// Optimized map height
 const OPTIMIZED_MAP_HEIGHT = 480;
-
-// ===== Main Component =====
 
 export default function MapaRota() {
   const { theme } = useUnistyles();
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { toast, showToast, hideToast } = useToast();
+  const { toast, hideToast } = useToast();
   const { isDesktop } = useResponsive();
   const { userData } = useUser();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
@@ -66,469 +71,75 @@ export default function MapaRota() {
     userImageUrl: userData?.foto_url,
   });
 
-  // State
-  const [loading, setLoading] = useState(true);
-  const [rota, setRota] = useState<Rota | null>(null);
-  const [paradas, setParadas] = useState<Parada[]>([]);
-  const [fotoSelecionada, setFotoSelecionada] = useState<string | null>(null);
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [showReactivateModal, setShowReactivateModal] = useState(false);
-  const [showChangeDriverModal, setShowChangeDriverModal] = useState(false);
-  const [showRemoveStopModal, setShowRemoveStopModal] = useState(false);
-  const [paradaToRemove, setParadaToRemove] = useState<Parada | null>(null);
-  const [showEditStopModal, setShowEditStopModal] = useState(false);
-  const [paradaToEdit, setParadaToEdit] = useState<Parada | null>(null);
-  const [showAddStopModal, setShowAddStopModal] = useState(false);
-  const [showReorderModal, setShowReorderModal] = useState(false);
-  const [isReordering, setIsReordering] = useState(false);
-  const [hasReorderChanges, setHasReorderChanges] = useState(false);
-  const [showReorderConfirmClose, setShowReorderConfirmClose] = useState(false);
-  const [selectedParadaId, setSelectedParadaId] = useState<string | null>(null);
-
-  // Refs
-  const listaParadasRef = useRef<ScrollView | null>(null);
-  const paradaPositions = useRef<Record<string, number>>({});
+  // Ref for reorder control
   const reorderControlRef = useRef<DraggableStopListControl | null>(null);
 
   // Constants
   const pageMeta = getGestorPageMeta('mapaRota');
 
-  // Memoized values
+  // ===== Data Hook =====
+  const {
+    loading,
+    rota,
+    paradas,
+    paradasReais,
+    pontosBase,
+    resumoParadas,
+    enderecoUnidade,
+    loadRotaEParadas,
+  } = useMapaRotaData({
+    rotaId: id,
+    onError: () => router.back(),
+  });
+
+  // ===== Handlers Hook =====
+  const {
+    selectedParadaId,
+    fotoSelecionada,
+    paradaToRemove,
+    paradaToEdit,
+    isReordering,
+    hasReorderChanges,
+    setHasReorderChanges,
+    listaParadasRef,
+    handleMarkerPress,
+    handleMapPress,
+    handleParadaPress,
+    handleParadaLayout,
+    handleImagePress,
+    clearFotoSelecionada,
+    handleConfirmCancel,
+    handleConfirmReactivate,
+    handleChangeDriver,
+    handleRemoveStopRequest,
+    handleConfirmRemoveStop,
+    clearParadaToRemove,
+    handleEditStop,
+    handleEditStopSave,
+    clearParadaToEdit,
+    handleAddStopSave,
+    handleReorderParadas,
+  } = useMapaRotaHandlers({
+    rotaId: id,
+    rota,
+    paradas,
+    paradasReais,
+    enderecoUnidade,
+    loadRotaEParadas,
+  });
+
+  // ===== Modal State Hook =====
+  const modals = useMapaRotaModals();
+
+  // ===== Computed Values =====
   const statusBadgeVariant = useMemo(
     () => getStatusBadgeVariant(theme, rota?.status),
     [theme, rota?.status]
   );
   const statusLabel = useMemo(() => formatStatusLabel(rota?.status), [rota?.status]);
-
-  const paradasReais = useMemo(
-    () => paradas.filter((parada) => parada.is_checkpoint !== false),
-    [paradas]
-  );
-
-  const pontosBase = useMemo(
-    () => paradas.filter((parada) => parada.is_checkpoint === false),
-    [paradas]
-  );
-
   const hasBaseInfo = useHasBaseInfo(pontosBase);
 
-  const resumoParadas: ResumoParadas = useMemo(() => {
-    const total = paradasReais.length;
-    const concluidas = paradasReais.filter((p) => p.status === 'concluida').length;
-    const pendentes = paradasReais.filter((p) => p.status === 'pendente').length;
-    const emAndamento = paradasReais.filter((p) => p.status === 'em_andamento').length;
-    return { total, concluidas, pendentes, emAndamento };
-  }, [paradasReais]);
-
-  // Callbacks
-  const loadRotaEParadas = useCallback(async () => {
-    if (!id) return;
-
-    try {
-      setLoading(true);
-
-      const { data: rotaData, error: rotaError } = await supabase
-        .from('rotas')
-        .select('id, data, status, distancia_total, tempo_total, created_at, updated_at, motorista_id, unidade_id, usuarios!rotas_motorista_id_fkey(nome), unidades(nome)')
-        .eq('id', id)
-        .single();
-
-      if (rotaError) throw rotaError;
-
-      setRota({
-        ...rotaData,
-        motorista: Array.isArray(rotaData.usuarios) ? rotaData.usuarios[0] : rotaData.usuarios,
-        unidade: Array.isArray(rotaData.unidades) ? rotaData.unidades[0] : rotaData.unidades,
-      });
-
-      const { data: paradasData, error: paradasError } = await supabase
-        .from('paradas')
-        .select('*')
-        .eq('rota_id', id)
-        .order('ordem');
-
-      if (paradasError) throw paradasError;
-
-      // Check if order needs normalization (arrival checkpoint not at end)
-      if (paradasData && paradasData.length > 0) {
-        const chegada = paradasData.find((p) => p.is_checkpoint === false && p.ordem > 0);
-        const paradasReaisArr = paradasData.filter((p) => p.is_checkpoint !== false);
-        const expectedChegadaOrdem = paradasReaisArr.length + 1;
-
-        if (chegada && chegada.ordem !== expectedChegadaOrdem) {
-          logger.debug('[mapa-rota] Normalizing order', { chegadaOrdem: chegada.ordem, expectedChegadaOrdem });
-          await normalizarOrdemParadas(String(id));
-          // Reload paradas after normalization
-          const { data: reloadedParadas } = await supabase
-            .from('paradas')
-            .select('*')
-            .eq('rota_id', id)
-            .order('ordem');
-          setParadas(reloadedParadas || []);
-          return;
-        }
-      }
-
-      setParadas(paradasData || []);
-    } catch (error) {
-      logger.error('[mapa-rota] Erro ao carregar rota', error);
-      showToast('Não foi possível carregar os dados da rota', 'error');
-      router.back();
-    } finally {
-      setLoading(false);
-    }
-  }, [id, router, showToast]);
-
-  const handleConfirmCancel = useCallback(async () => {
-    if (!id) return;
-    try {
-      const rotaId = Array.isArray(id) ? id[0] : id;
-      await supabase.from('rotas').update({ status: 'cancelada' }).eq('id', rotaId);
-      showToast('Rota cancelada com sucesso', 'success');
-      setShowCancelModal(false);
-      await loadRotaEParadas();
-    } catch (error) {
-      logger.error('[mapa-rota] Erro ao cancelar rota', error);
-      showToast('Erro ao cancelar rota', 'error');
-    }
-  }, [id, loadRotaEParadas, showToast]);
-
-  const handleConfirmReactivate = useCallback(async () => {
-    if (!id) return;
-    try {
-      const rotaId = Array.isArray(id) ? id[0] : id;
-
-      // Obter data de hoje no formato YYYY-MM-DD
-      const today = new Date();
-      const todayStr = today.toISOString().split('T')[0];
-
-      // Reativar a rota: status volta para pendente, data atualizada para hoje
-      await supabase
-        .from('rotas')
-        .update({
-          status: 'pendente',
-          data: todayStr,
-          iniciada_em: null,
-          concluida_em: null,
-        })
-        .eq('id', rotaId);
-
-      // Resetar status das paradas pendentes
-      await supabase
-        .from('paradas')
-        .update({ status: 'pendente', concluida_em: null })
-        .eq('rota_id', rotaId)
-        .neq('status', 'concluida');
-
-      // Registrar log da reativação
-      await supabase.from('logs').insert({
-        usuario_id: userData?.id,
-        rota_id: rotaId,
-        evento: 'rota_reativada',
-        detalhes: {
-          nova_data: todayStr,
-          reativado_por: userData?.nome,
-        },
-      });
-
-      showToast('Rota reativada com sucesso', 'success');
-      setShowReactivateModal(false);
-      await loadRotaEParadas();
-    } catch (error) {
-      logger.error('[mapa-rota] Erro ao reativar rota', error);
-      showToast('Erro ao reativar rota', 'error');
-    }
-  }, [id, loadRotaEParadas, showToast, userData?.id, userData?.nome]);
-
-  const handleChangeDriver = useCallback(
-    async (newMotoristaId: string, newMotoristaNome: string) => {
-      if (!id || !rota) return;
-      try {
-        const rotaId = Array.isArray(id) ? id[0] : id;
-
-        // Atualizar motorista_id na rota
-        const { error: updateError } = await supabase
-          .from('rotas')
-          .update({ motorista_id: newMotoristaId })
-          .eq('id', rotaId);
-
-        if (updateError) throw updateError;
-
-        // Registrar log da alteração
-        await supabase.from('logs').insert({
-          usuario_id: userData?.id,
-          rota_id: rotaId,
-          evento: 'motorista_alterado',
-          detalhes: {
-            motorista_anterior_id: rota.motorista_id,
-            motorista_anterior_nome: rota.motorista?.nome,
-            motorista_novo_id: newMotoristaId,
-            motorista_novo_nome: newMotoristaNome,
-            alterado_por: userData?.nome,
-          },
-        });
-
-        showToast('Motorista alterado com sucesso', 'success');
-        setShowChangeDriverModal(false);
-        await loadRotaEParadas();
-      } catch (error) {
-        logger.error('[mapa-rota] Erro ao alterar motorista', error);
-        showToast('Erro ao alterar motorista', 'error');
-      }
-    },
-    [id, rota, loadRotaEParadas, showToast, userData?.id, userData?.nome]
-  );
-
-  const scrollToParada = useCallback((paradaId: string) => {
-    const positionY = paradaPositions.current[paradaId];
-    if (positionY != null && listaParadasRef.current) {
-      listaParadasRef.current.scrollTo({ y: Math.max(positionY - 12, 0), animated: true });
-    }
-  }, []);
-
-  const handleMarkerPress = useCallback(
-    (paradaId: string) => {
-      setSelectedParadaId(paradaId);
-      scrollToParada(paradaId);
-    },
-    [scrollToParada]
-  );
-
-  // Handler para tap no mapa (fora dos marcadores) - deseleciona
-  const handleMapPress = useCallback(() => {
-    setSelectedParadaId(null);
-  }, []);
-
-  const handleParadaPress = useCallback((paradaId: string) => {
-    setSelectedParadaId(paradaId);
-  }, []);
-
-  const handleParadaLayout = useCallback((idParada: string, y: number) => {
-    paradaPositions.current[idParada] = y;
-  }, []);
-
-  const handleImagePress = useCallback((url: string) => {
-    setFotoSelecionada(url);
-  }, []);
-
-  // Handler para iniciar remoção de parada (abre modal de confirmação)
-  const handleRemoveStopRequest = useCallback((parada: Parada) => {
-    setParadaToRemove(parada);
-    setShowRemoveStopModal(true);
-  }, []);
-
-  // Handler para confirmar remoção de parada
-  const handleConfirmRemoveStop = useCallback(async () => {
-    if (!paradaToRemove || !id || !rota) return;
-
-    try {
-      // Obter coordenadas da unidade a partir dos pontos base
-      const pontoBase = paradas.find((p) => p.is_checkpoint === false);
-      if (!pontoBase?.latitude || !pontoBase?.longitude) {
-        showToast('Erro: Coordenadas da unidade não encontradas', 'error');
-        return;
-      }
-
-      const enderecoUnidade = {
-        latitude: pontoBase.latitude,
-        longitude: pontoBase.longitude,
-      };
-
-      // Filtrar paradas restantes (excluir a removida)
-      const paradasRestantes = paradasReais
-        .filter((p) => p.id !== paradaToRemove.id)
-        .map((p, idx) => ({
-          ...p,
-          ordem: idx + 1,
-        }));
-
-      const result = await removerParadaERecalcular(
-        paradaToRemove.id,
-        Array.isArray(id) ? id[0] : id,
-        paradasRestantes,
-        enderecoUnidade,
-        userData?.id
-      );
-
-      if (result.success) {
-        // Notify motorista about the removal (if assigned)
-        if (rota.motorista_id) {
-          await notificarMotoristaRotaEditada({
-            rotaId: Array.isArray(id) ? id[0] : id,
-            motoristaId: rota.motorista_id,
-            tipo: 'rota_parada_removida',
-            titulo: '🗑️ Parada removida',
-            mensagem: `Uma parada foi removida da sua rota: ${paradaToRemove.endereco?.substring(0, 50)}${(paradaToRemove.endereco?.length || 0) > 50 ? '...' : ''}`,
-          });
-        }
-
-        showToast('Parada removida com sucesso', 'success');
-        setShowRemoveStopModal(false);
-        setParadaToRemove(null);
-        await loadRotaEParadas();
-      } else {
-        showToast(result.error || 'Erro ao remover parada', 'error');
-      }
-    } catch (error) {
-      logger.error('[mapa-rota] Erro ao remover parada', error);
-      showToast('Erro ao remover parada', 'error');
-    }
-  }, [paradaToRemove, id, rota, paradas, paradasReais, loadRotaEParadas, showToast, userData?.id]);
-
-  // Handler para editar parada
-  const handleEditStop = useCallback((parada: Parada) => {
-    setParadaToEdit(parada);
-    setShowEditStopModal(true);
-  }, []);
-
-  // Handler quando edição é salva
-  const handleEditStopSave = useCallback(async () => {
-    setShowEditStopModal(false);
-    setParadaToEdit(null);
-    showToast('Parada atualizada com sucesso', 'success');
-    await loadRotaEParadas();
-  }, [loadRotaEParadas, showToast]);
-
-  // Handler quando nova parada é adicionada
-  const handleAddStopSave = useCallback(async () => {
-    setShowAddStopModal(false);
-    showToast('Parada adicionada com sucesso', 'success');
-    await loadRotaEParadas();
-  }, [loadRotaEParadas, showToast]);
-
-  // Handler para reordenar paradas
-  const handleReorderParadas = useCallback(
-    async (newOrder: Parada[]) => {
-      if (!id || !rota) {
-        throw new Error('Rota não encontrada');
-      }
-
-      try {
-        setIsReordering(true);
-
-        // Obter coordenadas da unidade a partir dos pontos base
-        const pontoBase = paradas.find((p) => p.is_checkpoint === false);
-        if (!pontoBase?.latitude || !pontoBase?.longitude) {
-          const errorMsg = 'Erro: Coordenadas da unidade não encontradas';
-          showToast(errorMsg, 'error');
-          throw new Error(errorMsg);
-        }
-
-        const enderecoUnidade = {
-          latitude: pontoBase.latitude,
-          longitude: pontoBase.longitude,
-        };
-
-        // 1. Atualizar ordem no banco
-        const reorderResult = await reordenarParadas(
-          newOrder.map((p, idx) => ({
-            id: p.id,
-            ordem: idx + 1,
-            latitude: p.latitude,
-            longitude: p.longitude,
-            is_checkpoint: p.is_checkpoint,
-          }))
-        );
-
-        if (!reorderResult.success) {
-          const errorMsg = reorderResult.error || 'Erro ao reordenar paradas';
-          showToast(errorMsg, 'error');
-          throw new Error(errorMsg);
-        }
-
-        // 2. Recalcular rota com nova ordem
-        // Se falhar, a ordem já foi salva - mostrar aviso mas continuar
-        const rotaId = Array.isArray(id) ? id[0] : id;
-        let recalcWarning = false;
-        try {
-          const recalcResult = await recalcularRota(
-            rotaId,
-            newOrder.map((p, idx) => ({
-              id: p.id,
-              ordem: idx + 1,
-              latitude: p.latitude,
-              longitude: p.longitude,
-              is_checkpoint: p.is_checkpoint,
-            })),
-            enderecoUnidade
-          );
-
-          if (!recalcResult.success) {
-            logger.warn('[mapa-rota] handleReorderParadas Recálculo falhou', { error: recalcResult.error });
-            recalcWarning = true;
-          }
-        } catch (recalcError) {
-          logger.warn('[mapa-rota] handleReorderParadas Erro no recálculo', recalcError);
-          recalcWarning = true;
-        }
-
-        // 3. Registrar log
-        await supabase.from('logs').insert({
-          usuario_id: userData?.id,
-          rota_id: rotaId,
-          evento: 'paradas_reordenadas',
-          detalhes: {
-            nova_ordem: newOrder.map((p) => ({ id: p.id, ordem: p.ordem })),
-            alterado_por: userData?.nome,
-          },
-        });
-
-        // 4. Notify motorista about the reorder (if assigned)
-        if (rota.motorista_id) {
-          await notificarMotoristaRotaEditada({
-            rotaId,
-            motoristaId: rota.motorista_id,
-            tipo: 'rota_reordenada',
-            titulo: '🔄 Rota reordenada',
-            mensagem: `A ordem das paradas da sua rota foi alterada. Verifique a nova sequência.`,
-          });
-        }
-
-        if (recalcWarning) {
-          showToast('Ordem salva! Distância/tempo podem estar desatualizados.', 'info');
-        } else {
-          showToast('Paradas reordenadas com sucesso', 'success');
-        }
-        setShowReorderModal(false);
-        await loadRotaEParadas();
-      } catch (error) {
-        logger.error('[mapa-rota] Erro ao reordenar paradas', error);
-        // Only show toast if it wasn't already shown (check if it's a new error)
-        if (error instanceof Error && !error.message.startsWith('Erro')) {
-          showToast('Erro ao reordenar paradas', 'error');
-        }
-        // Re-throw to signal failure to caller (DraggableStopList)
-        throw error;
-      } finally {
-        setIsReordering(false);
-      }
-    },
-    [id, rota, paradas, loadRotaEParadas, showToast, userData?.id, userData?.nome]
-  );
-
-  // Memoized enderecoUnidade para o modal de edição
-  const enderecoUnidadeMemo = useMemo(() => {
-    const pontoBase = paradas.find((p) => p.is_checkpoint === false);
-    if (pontoBase?.latitude && pontoBase?.longitude) {
-      return {
-        latitude: pontoBase.latitude,
-        longitude: pontoBase.longitude,
-      };
-    }
-    return null;
-  }, [paradas]);
-
-  // Effects
-  useEffect(() => {
-    if (id) {
-      loadRotaEParadas();
-    } else {
-      setLoading(false);
-    }
-  }, [id, loadRotaEParadas]);
-
   // ===== Loading State =====
-
   if (loading) {
     return (
       <>
@@ -543,7 +154,6 @@ export default function MapaRota() {
   }
 
   // ===== Empty State (No ID) =====
-
   if (!id) {
     return (
       <>
@@ -584,7 +194,6 @@ export default function MapaRota() {
   }
 
   // ===== Error State (No Route) =====
-
   if (!rota) {
     return (
       <>
@@ -602,8 +211,7 @@ export default function MapaRota() {
     );
   }
 
-  // ===== Desktop Layout (Otimizado) =====
-
+  // ===== Desktop Layout =====
   if (isDesktop) {
     return (
       <>
@@ -616,18 +224,18 @@ export default function MapaRota() {
           fullWidth
           noPadding
         >
-          {/* Header Compacto */}
+          {/* Compact Header */}
           <RouteInfoHeaderCompact
             rota={rota}
             resumoParadas={resumoParadas}
-            onCancelPress={() => setShowCancelModal(true)}
-            onReactivatePress={() => setShowReactivateModal(true)}
-            onChangeDriverPress={() => setShowChangeDriverModal(true)}
-            onAddStopPress={() => setShowAddStopModal(true)}
-            onReorderPress={() => setShowReorderModal(true)}
+            onCancelPress={modals.openCancelModal}
+            onReactivatePress={modals.openReactivateModal}
+            onChangeDriverPress={modals.openChangeDriverModal}
+            onAddStopPress={modals.openAddStopModal}
+            onReorderPress={modals.openReorderModal}
           />
 
-          {/* Split View: Mapa | Paradas */}
+          {/* Split View: Map | Stops */}
           {paradas.length > 0 ? (
             <SplitView
               left={
@@ -654,7 +262,6 @@ export default function MapaRota() {
               }
               right={
                 <View style={{ gap: 12, flex: 1 }}>
-                  {/* Lista de Paradas Compacta */}
                   <DesktopCard
                     title="Paradas"
                     icon="list-outline"
@@ -690,7 +297,6 @@ export default function MapaRota() {
                       )}
                     </ScrollView>
 
-                    {/* Resumo Inline */}
                     {paradasReais.length > 0 && (
                       <View style={{ marginTop: 12 }}>
                         <ResumoInline resumoParadas={resumoParadas} />
@@ -711,12 +317,12 @@ export default function MapaRota() {
             </DesktopCard>
           )}
 
-          {/* Timeline Colapsável no Rodapé */}
+          {/* Collapsible Timeline */}
           <View style={{ marginTop: 16 }}>
             <TimelineCollapsible rotaId={id as string} rotaCreatedAt={rota?.created_at} />
           </View>
 
-          {/* Pontos da Unidade (apenas se houver) */}
+          {/* Unit Base Points */}
           {hasBaseInfo && (
             <View style={{ marginTop: 16 }}>
               <DesktopCard
@@ -739,99 +345,110 @@ export default function MapaRota() {
           )}
         </DesktopPageLayout>
 
-        {/* Photo Modal */}
+        {/* Modals */}
         <PhotoModal
           visible={!!fotoSelecionada}
           photoUrl={fotoSelecionada}
-          onClose={() => setFotoSelecionada(null)}
+          onClose={clearFotoSelecionada}
         />
 
-        {/* Cancel Confirmation Modal */}
         <ConfirmModal
-          visible={showCancelModal}
+          visible={modals.showCancelModal}
           title="Cancelar rota"
           message="Tem certeza que deseja cancelar esta rota? Esta ação não pode ser desfeita."
           confirmText="Sim, cancelar"
           cancelText="Não"
-          onConfirm={handleConfirmCancel}
-          onCancel={() => setShowCancelModal(false)}
+          onConfirm={async () => {
+            await handleConfirmCancel();
+            modals.closeCancelModal();
+          }}
+          onCancel={modals.closeCancelModal}
           type="danger"
         />
 
-        {/* Reactivate Confirmation Modal */}
         <ConfirmModal
-          visible={showReactivateModal}
+          visible={modals.showReactivateModal}
           title="Reativar rota"
           message="Deseja reativar esta rota expirada? A rota será reprogramada para hoje e as paradas não concluídas voltarão ao status pendente."
           confirmText="Sim, reativar"
           cancelText="Cancelar"
-          onConfirm={handleConfirmReactivate}
-          onCancel={() => setShowReactivateModal(false)}
+          onConfirm={async () => {
+            await handleConfirmReactivate();
+            modals.closeReactivateModal();
+          }}
+          onCancel={modals.closeReactivateModal}
           type="success"
         />
 
-        {/* Change Driver Modal */}
         <ChangeDriverModal
-          visible={showChangeDriverModal}
+          visible={modals.showChangeDriverModal}
           currentMotoristaId={rota.motorista_id}
           currentMotoristaNome={rota.motorista?.nome}
           unidadeId={rota.unidade_id || ''}
-          onConfirm={handleChangeDriver}
-          onCancel={() => setShowChangeDriverModal(false)}
+          onConfirm={async (newId, newNome) => {
+            await handleChangeDriver(newId, newNome);
+            modals.closeChangeDriverModal();
+          }}
+          onCancel={modals.closeChangeDriverModal}
         />
 
-        {/* Remove Stop Confirmation Modal */}
         <ConfirmModal
-          visible={showRemoveStopModal}
+          visible={modals.showRemoveStopModal && !!paradaToRemove}
           title="Remover parada"
           message={`Tem certeza que deseja remover esta parada?\n\n${paradaToRemove?.endereco || ''}\n\nA rota será recalculada automaticamente.`}
           confirmText="Sim, remover"
           cancelText="Cancelar"
-          onConfirm={handleConfirmRemoveStop}
+          onConfirm={async () => {
+            await handleConfirmRemoveStop();
+            modals.closeRemoveStopModal();
+          }}
           onCancel={() => {
-            setShowRemoveStopModal(false);
-            setParadaToRemove(null);
+            modals.closeRemoveStopModal();
+            clearParadaToRemove();
           }}
           type="danger"
         />
 
-        {/* Edit Stop Modal */}
         <EditStopModal
-          visible={showEditStopModal}
+          visible={modals.showEditStopModal && !!paradaToEdit}
           parada={paradaToEdit}
-          rotaId={Array.isArray(id) ? id[0] : (id || '')}
-          enderecoUnidade={enderecoUnidadeMemo}
+          rotaId={Array.isArray(id) ? id[0] : id || ''}
+          enderecoUnidade={enderecoUnidade}
           allParadas={paradasReais}
-          onSave={handleEditStopSave}
+          onSave={async () => {
+            await handleEditStopSave();
+            modals.closeEditStopModal();
+          }}
           onCancel={() => {
-            setShowEditStopModal(false);
-            setParadaToEdit(null);
+            modals.closeEditStopModal();
+            clearParadaToEdit();
           }}
           usuarioId={userData?.id}
           motoristaId={rota?.motorista_id}
         />
 
-        {/* Add Stop Modal */}
         <AddStopModal
-          visible={showAddStopModal}
-          rotaId={Array.isArray(id) ? id[0] : (id || '')}
-          enderecoUnidade={enderecoUnidadeMemo}
+          visible={modals.showAddStopModal}
+          rotaId={Array.isArray(id) ? id[0] : id || ''}
+          enderecoUnidade={enderecoUnidade}
           currentParadasCount={paradasReais.length}
           allParadas={paradasReais}
-          onSave={handleAddStopSave}
-          onCancel={() => setShowAddStopModal(false)}
+          onSave={async () => {
+            await handleAddStopSave();
+            modals.closeAddStopModal();
+          }}
+          onCancel={modals.closeAddStopModal}
           usuarioId={userData?.id}
           motoristaId={rota?.motorista_id}
         />
 
-        {/* Reorder Stops Modal */}
         <DesktopModal
-          visible={showReorderModal}
+          visible={modals.showReorderModal}
           onClose={() => {
             if (hasReorderChanges) {
-              setShowReorderConfirmClose(true);
+              modals.openReorderConfirmClose();
             } else {
-              setShowReorderModal(false);
+              modals.closeReorderModal();
             }
           }}
           title="Reordenar Paradas"
@@ -861,7 +478,10 @@ export default function MapaRota() {
         >
           <DraggableStopList
             paradas={paradas}
-            onReorder={handleReorderParadas}
+            onReorder={async (newOrder) => {
+              await handleReorderParadas(newOrder);
+              modals.closeReorderModal();
+            }}
             rotaStatus={rota?.status || ''}
             isLoading={isReordering}
             onWebChangesChange={setHasReorderChanges}
@@ -869,9 +489,8 @@ export default function MapaRota() {
           />
         </DesktopModal>
 
-        {/* Confirm close reorder modal */}
         <ConfirmModal
-          visible={showReorderConfirmClose}
+          visible={modals.showReorderConfirmClose}
           title="Descartar Alterações?"
           message="Você tem alterações não salvas na ordem das paradas. Deseja descartá-las?"
           type="warning"
@@ -880,10 +499,10 @@ export default function MapaRota() {
           onConfirm={() => {
             reorderControlRef.current?.cancelChanges();
             setHasReorderChanges(false);
-            setShowReorderConfirmClose(false);
-            setShowReorderModal(false);
+            modals.closeReorderConfirmClose();
+            modals.closeReorderModal();
           }}
-          onCancel={() => setShowReorderConfirmClose(false)}
+          onCancel={modals.closeReorderConfirmClose}
         />
 
         <Toast {...toast} onDismiss={hideToast} />
@@ -893,10 +512,8 @@ export default function MapaRota() {
   }
 
   // ===== Mobile Layout =====
-
   return (
     <>
-      {/* Route Info */}
       <View style={styles.rotaInfo}>
         <Text style={styles.motoristaData}>
           {rota?.motorista?.nome || 'Sem motorista'}  {formatDateBR(rota?.data)}
@@ -915,7 +532,6 @@ export default function MapaRota() {
         )}
       </View>
 
-      {/* Content */}
       <ScrollView style={styles.scrollView}>
         <View style={styles.content}>
           {paradas.length > 0 ? (
@@ -933,7 +549,6 @@ export default function MapaRota() {
                 />
               </View>
 
-              {/* Lista de Paradas */}
               <View style={styles.paradasContainer}>
                 <Text style={styles.paradasTitle}>Paradas ({resumoParadas.total})</Text>
 
@@ -970,11 +585,10 @@ export default function MapaRota() {
         </View>
       </ScrollView>
 
-      {/* Photo Modal */}
       <PhotoModal
         visible={!!fotoSelecionada}
         photoUrl={fotoSelecionada}
-        onClose={() => setFotoSelecionada(null)}
+        onClose={clearFotoSelecionada}
       />
 
       <Toast {...toast} onDismiss={hideToast} />

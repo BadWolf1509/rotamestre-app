@@ -5,10 +5,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
+
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { googleMapsService } from '@/lib/google';
 import { logger } from '@/lib/logger';
+import type { UnidadeComSede } from '@/types/usuario';
 
 export interface EnderecoUnidade {
   latitude: number;
@@ -29,8 +31,8 @@ export function useEnderecoUnidade(): UseEnderecoUnidadeReturn {
   const [enderecoUnidade, setEnderecoUnidade] = useState<EnderecoUnidade | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadEnderecoUnidade = useCallback(async () => {
-    if (!unidadeAtivaData) {
+  const loadEnderecoUnidade = useCallback(async (unidade: UnidadeComSede | null) => {
+    if (!unidade) {
       logger.warn('[useEnderecoUnidade] Usuário sem unidade vinculada');
       setIsLoading(false);
       return;
@@ -44,15 +46,15 @@ export function useEnderecoUnidade(): UseEnderecoUnidadeReturn {
         return Number.isFinite(numeric) ? numeric : null;
       };
 
-      const latitudeFromDb = parseCoordinate(unidadeAtivaData.sede_latitude);
-      const longitudeFromDb = parseCoordinate(unidadeAtivaData.sede_longitude);
-      const enderecoBase = unidadeAtivaData.sede_endereco || unidadeAtivaData.endereco;
+      const latitudeFromDb = parseCoordinate(unidade.sede_latitude);
+      const longitudeFromDb = parseCoordinate(unidade.sede_longitude);
+      const enderecoBase = unidade.sede_endereco || unidade.endereco;
 
       const enderecoCompleto = [
         enderecoBase,
-        unidadeAtivaData.cidade,
-        unidadeAtivaData.uf,
-        unidadeAtivaData.cep,
+        unidade.cidade,
+        unidade.uf,
+        unidade.cep,
       ]
         .filter((parte) => typeof parte === 'string' && parte.trim().length > 0)
         .join(', ');
@@ -91,17 +93,19 @@ export function useEnderecoUnidade(): UseEnderecoUnidadeReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [showToast, unidadeAtivaData]);
+  }, [showToast]);
 
   useEffect(() => {
     if (unidadeAtivaData) {
-      loadEnderecoUnidade();
+      loadEnderecoUnidade(unidadeAtivaData);
     }
-  }, [loadEnderecoUnidade, unidadeAtivaData]);
+    // Only reload when id or updated_at changes, not on every object reference change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadEnderecoUnidade, unidadeAtivaData?.id, unidadeAtivaData?.updated_at]);
 
   return {
     enderecoUnidade,
     isLoading,
-    reload: loadEnderecoUnidade,
+    reload: () => loadEnderecoUnidade(unidadeAtivaData),
   };
 }

@@ -22,8 +22,8 @@ import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
+import { cleanPhone, formatPhone } from '@/lib/phone';
 import { supabase } from '@/lib/supabase';
-import { cleanPhone, formatPhone } from '@/utils/phoneValidation';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface UnidadeData {

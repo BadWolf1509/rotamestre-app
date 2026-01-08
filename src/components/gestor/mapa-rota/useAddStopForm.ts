@@ -12,9 +12,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { googleMapsService } from '@/lib/google';
+import { maskPhone } from '@/lib/phone';
 import { recalcularRota, notificarMotoristaRotaEditada } from '@/lib/routeUtils';
 import { supabase } from '@/lib/supabase';
-import { maskPhone } from '@/utils/phoneValidation';
 
 import type { Parada } from './types';
 

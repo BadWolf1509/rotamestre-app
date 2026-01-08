@@ -9,9 +9,9 @@ import {
   validatePhone,
   maskPhone,
   getPhoneErrorMessage,
-} from '@/utils/phoneValidation';
+} from '../phone';
 
-describe('phoneValidation utils', () => {
+describe('phone utils', () => {
   describe('cleanPhone', () => {
     it('deve remover todos os caracteres não numéricos', () => {
       expect(cleanPhone('(11) 98765-4321')).toBe('11987654321');

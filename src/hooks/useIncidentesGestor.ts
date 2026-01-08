@@ -1,6 +1,6 @@
 /**
  * Hook para gerenciamento de incidentes (tela do Gestor)
- * Extrai state, callbacks e computed values
+ * Composes data fetching, filtering, stats, and modal management
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -10,72 +10,36 @@ import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
-import type { IconName } from '@/types/icons';
 import type { Theme } from '@/utils/styles';
 
-// ============================================================================
-// Types
-// ============================================================================
+import {
+  createCategoriaLabels,
+  createStatusLabels,
+  formatIncidentDate,
+  useIncidentesModals,
+  useIncidentesStats,
+} from './incidentes-gestor';
 
-export interface Incidente {
-  id: string;
-  categoria: string;
-  descricao: string;
-  endereco: string;
-  status: string;
-  foto_url: string | null;
-  created_at: string;
-  motorista_nome: string;
-  motorista_id: string;
-  unidade_nome: string;
-  rota_id: string | null;
-  rota_data: string | null;
-  parada_endereco: string | null;
-  observacoes_gestao: string | null;
-}
+import type {
+  CategoriaLabel,
+  EstatisticaMotorista,
+  FiltroCategoria,
+  FiltroStatus,
+  Incidente,
+  ResumoGeral,
+  StatusLabel,
+} from './incidentes-gestor';
 
-export type FiltroStatus =
-  | 'todos'
-  | 'aberto'
-  | 'em_analise'
-  | 'resolvido'
-  | 'fechado';
-export type FiltroCategoria =
-  | 'todos'
-  | 'accident'
-  | 'absent'
-  | 'wrong_address'
-  | 'blocked'
-  | 'vehicle'
-  | 'other';
-
-export interface CategoriaLabel {
-  label: string;
-  icon: IconName;
-  color: string;
-}
-
-export interface StatusLabel {
-  label: string;
-  color: string;
-}
-
-export interface EstatisticaMotorista {
-  id: string;
-  nome: string;
-  total: number;
-  abertos: number;
-  resolvidos: number;
-}
-
-export interface ResumoGeral {
-  total: number;
-  abertos: number;
-  emAnalise: number;
-  resolvidos: number;
-  fechados: number;
-  porCategoria: Record<string, number>;
-}
+// Re-export types for backwards compatibility
+export type {
+  Incidente,
+  FiltroStatus,
+  FiltroCategoria,
+  CategoriaLabel,
+  StatusLabel,
+  EstatisticaMotorista,
+  ResumoGeral,
+};
 
 export interface UseIncidentesGestorReturn {
   // Data
@@ -133,168 +97,27 @@ export interface UseIncidentesGestorReturn {
   formatDate: (dateString: string) => string;
 }
 
-// ============================================================================
-// Hook
-// ============================================================================
-
-export function useIncidentesGestor(
-  theme: Theme
-): UseIncidentesGestorReturn {
+/**
+ * Main hook for incident management - composes sub-hooks
+ */
+export function useIncidentesGestor(theme: Theme): UseIncidentesGestorReturn {
   const { userData } = useUser();
   const { unidadeAtiva, loading: unidadeLoading } = useUnidadeAtiva();
   const { toast: toastState, showToast, hideToast } = useToast();
 
-  // ============================================================================
   // Labels (memoized based on theme)
-  // ============================================================================
+  const categoriaLabels = useMemo(() => createCategoriaLabels(theme), [theme]);
+  const statusLabels = useMemo(() => createStatusLabels(theme), [theme]);
 
-  const categoriaLabels = useMemo<Record<string, CategoriaLabel>>(
-    () => ({
-      accident: {
-        label: 'Acidente/Incidente',
-        icon: 'warning',
-        color: theme.colors.incident.accident,
-      },
-      absent: {
-        label: 'Cliente ausente',
-        icon: 'home-outline',
-        color: theme.colors.incident.absent,
-      },
-      wrong_address: {
-        label: 'Endereço incorreto',
-        icon: 'location-outline',
-        color: theme.colors.incident.wrongAddress,
-      },
-      blocked: {
-        label: 'Acesso bloqueado',
-        icon: 'lock-closed-outline',
-        color: theme.colors.incident.blocked,
-      },
-      vehicle: {
-        label: 'Problema no veículo',
-        icon: 'car-outline',
-        color: theme.colors.incident.vehicle,
-      },
-      other: {
-        label: 'Outros',
-        icon: 'ellipsis-horizontal-outline',
-        color: theme.colors.incident.other,
-      },
-    }),
-    [theme]
-  );
-
-  const statusLabels = useMemo<Record<string, StatusLabel>>(
-    () => ({
-      aberto: { label: 'Aberto', color: theme.colors.error },
-      em_analise: { label: 'Em Análise', color: theme.colors.warning },
-      resolvido: { label: 'Resolvido', color: theme.colors.success },
-      fechado: { label: 'Fechado', color: theme.colors.gray500 },
-    }),
-    [theme]
-  );
-
-  // ============================================================================
-  // State
-  // ============================================================================
-
+  // Core state
   const [incidentes, setIncidentes] = useState<Incidente[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('todos');
   const [filtroCategoria, setFiltroCategoria] =
     useState<FiltroCategoria>('todos');
 
-  // Detalhes modal
-  const [incidenteSelecionado, setIncidenteSelecionado] =
-    useState<Incidente | null>(null);
-  const [showDetalhesModal, setShowDetalhesModal] = useState(false);
-  const [fotoLoading, setFotoLoading] = useState(true);
-  const [fotoError, setFotoError] = useState(false);
-  const [fotoRetryCount, setFotoRetryCount] = useState(0);
-
-  // Status modal
-  const [showAlterarStatusModal, setShowAlterarStatusModal] = useState(false);
-  const [novoStatus, setNovoStatus] = useState('');
-  const [observacoes, setObservacoes] = useState('');
-  const [atualizando, setAtualizando] = useState(false);
-
-  // Histórico motorista modal
-  const [showHistoricoMotoristaModal, setShowHistoricoMotoristaModal] =
-    useState(false);
-  const [motoristaSelecionado, setMotoristaSelecionado] = useState<{
-    id: string;
-    nome: string;
-  } | null>(null);
-  const [incidentesMotorista, setIncidentesMotorista] = useState<Incidente[]>(
-    []
-  );
-
-  // ============================================================================
-  // Computed values
-  // ============================================================================
-
-  const estatisticasMotorista = useMemo(() => {
-    const stats: Record<
-      string,
-      { nome: string; total: number; abertos: number; resolvidos: number }
-    > = {};
-
-    incidentes.forEach((inc) => {
-      if (!stats[inc.motorista_id]) {
-        stats[inc.motorista_id] = {
-          nome: inc.motorista_nome,
-          total: 0,
-          abertos: 0,
-          resolvidos: 0,
-        };
-      }
-      stats[inc.motorista_id].total++;
-      if (inc.status === 'aberto' || inc.status === 'em_analise') {
-        stats[inc.motorista_id].abertos++;
-      }
-      if (inc.status === 'resolvido' || inc.status === 'fechado') {
-        stats[inc.motorista_id].resolvidos++;
-      }
-    });
-
-    return Object.entries(stats)
-      .map(([id, data]) => ({ id, ...data }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 5);
-  }, [incidentes]);
-
-  const resumoGeral = useMemo(() => {
-    const abertos = incidentes.filter((i) => i.status === 'aberto').length;
-    const emAnalise = incidentes.filter(
-      (i) => i.status === 'em_analise'
-    ).length;
-    const resolvidos = incidentes.filter(
-      (i) => i.status === 'resolvido'
-    ).length;
-    const fechados = incidentes.filter((i) => i.status === 'fechado').length;
-
-    const porCategoria: Record<string, number> = {};
-    incidentes.forEach((inc) => {
-      porCategoria[inc.categoria] = (porCategoria[inc.categoria] || 0) + 1;
-    });
-
-    return {
-      total: incidentes.length,
-      abertos,
-      emAnalise,
-      resolvidos,
-      fechados,
-      porCategoria,
-    };
-  }, [incidentes]);
-
-  // ============================================================================
-  // Fetch incidentes
-  // ============================================================================
-
+  // Fetch incidentes from database
   const fetchIncidentes = useCallback(async () => {
-    // Wait for all data to be ready before fetching
-    // unidadeAtiva is set asynchronously after userData loads
     if (unidadeLoading || !userData?.id || !unidadeAtiva) {
       return;
     }
@@ -331,6 +154,7 @@ export function useIncidentesGestor(
           foto_url,
           created_at,
           observacoes_gestao,
+          motorista_id,
           motorista:usuarios!motorista_id (nome),
           rota:rotas (id, data),
           parada:paradas (endereco)
@@ -369,7 +193,7 @@ export function useIncidentesGestor(
 
       setIncidentes(incidentesFormatados);
     } catch (error) {
-      logger.error('❌ Erro ao buscar incidentes:', error);
+      logger.error('Erro ao buscar incidentes:', error);
       showToast('Erro ao carregar incidentes', 'error');
     } finally {
       setLoading(false);
@@ -388,98 +212,16 @@ export function useIncidentesGestor(
     fetchIncidentes();
   }, [fetchIncidentes]);
 
-  // ============================================================================
-  // Handlers
-  // ============================================================================
+  // Statistics (computed from incidentes)
+  const { estatisticasMotorista, resumoGeral } = useIncidentesStats({
+    incidentes,
+  });
 
-  const handleVerDetalhes = (incidente: Incidente) => {
-    setIncidenteSelecionado(incidente);
-    setFotoLoading(true);
-    setFotoError(false);
-    setFotoRetryCount(0);
-    setShowDetalhesModal(true);
-  };
-
-  const handleFotoLoad = () => {
-    setFotoLoading(false);
-    setFotoError(false);
-  };
-
-  const handleFotoError = () => {
-    setFotoLoading(false);
-    setFotoError(true);
-  };
-
-  const handleFotoRetry = () => {
-    setFotoRetryCount((prev) => prev + 1);
-    setFotoLoading(true);
-    setFotoError(false);
-  };
-
-  const handleAlterarStatus = (incidente: Incidente) => {
-    setIncidenteSelecionado(incidente);
-    setNovoStatus(incidente.status);
-    setObservacoes(incidente.observacoes_gestao || '');
-    setShowAlterarStatusModal(true);
-  };
-
-  const confirmarAlterarStatus = async () => {
-    if (!incidenteSelecionado) return;
-
-    try {
-      setAtualizando(true);
-
-      const { error } = await supabase
-        .from('incidentes')
-        .update({
-          status: novoStatus,
-          observacoes_gestao: observacoes || null,
-          updated_at: new Date().toISOString(),
-          ...(novoStatus === 'resolvido' && {
-            resolvido_em: new Date().toISOString(),
-          }),
-        })
-        .eq('id', incidenteSelecionado.id);
-
-      if (error) throw error;
-
-      showToast('Status atualizado com sucesso', 'success');
-      setShowAlterarStatusModal(false);
-      fetchIncidentes();
-    } catch (error) {
-      logger.error('❌ Erro ao atualizar status:', error);
-      showToast('Erro ao atualizar status', 'error');
-    } finally {
-      setAtualizando(false);
-    }
-  };
-
-  const handleVerHistoricoMotorista = (
-    motoristaId: string,
-    motoristaNome: string
-  ) => {
-    setMotoristaSelecionado({ id: motoristaId, nome: motoristaNome });
-    const incidentesDoMotorista = incidentes.filter(
-      (inc) => inc.motorista_id === motoristaId
-    );
-    setIncidentesMotorista(incidentesDoMotorista);
-    setShowHistoricoMotoristaModal(true);
-  };
-
-  // ============================================================================
-  // Helpers
-  // ============================================================================
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  // Modal management
+  const modals = useIncidentesModals({
+    incidentes,
+    onStatusUpdate: fetchIncidentes,
+  });
 
   return {
     // Data
@@ -497,34 +239,34 @@ export function useIncidentesGestor(
     setFiltroCategoria,
 
     // Detalhes modal
-    incidenteSelecionado,
-    showDetalhesModal,
-    fotoLoading,
-    fotoError,
-    fotoRetryCount,
-    handleVerDetalhes,
-    handleFotoLoad,
-    handleFotoError,
-    handleFotoRetry,
-    setShowDetalhesModal,
+    incidenteSelecionado: modals.incidenteSelecionado,
+    showDetalhesModal: modals.showDetalhesModal,
+    fotoLoading: modals.fotoLoading,
+    fotoError: modals.fotoError,
+    fotoRetryCount: modals.fotoRetryCount,
+    handleVerDetalhes: modals.handleVerDetalhes,
+    handleFotoLoad: modals.handleFotoLoad,
+    handleFotoError: modals.handleFotoError,
+    handleFotoRetry: modals.handleFotoRetry,
+    setShowDetalhesModal: modals.setShowDetalhesModal,
 
     // Status modal
-    showAlterarStatusModal,
-    novoStatus,
-    observacoes,
-    atualizando,
-    handleAlterarStatus,
-    confirmarAlterarStatus,
-    setNovoStatus,
-    setObservacoes,
-    setShowAlterarStatusModal,
+    showAlterarStatusModal: modals.showAlterarStatusModal,
+    novoStatus: modals.novoStatus,
+    observacoes: modals.observacoes,
+    atualizando: modals.atualizando,
+    handleAlterarStatus: modals.handleAlterarStatus,
+    confirmarAlterarStatus: modals.confirmarAlterarStatus,
+    setNovoStatus: modals.setNovoStatus,
+    setObservacoes: modals.setObservacoes,
+    setShowAlterarStatusModal: modals.setShowAlterarStatusModal,
 
     // Histórico motorista modal
-    showHistoricoMotoristaModal,
-    motoristaSelecionado,
-    incidentesMotorista,
-    handleVerHistoricoMotorista,
-    setShowHistoricoMotoristaModal,
+    showHistoricoMotoristaModal: modals.showHistoricoMotoristaModal,
+    motoristaSelecionado: modals.motoristaSelecionado,
+    incidentesMotorista: modals.incidentesMotorista,
+    handleVerHistoricoMotorista: modals.handleVerHistoricoMotorista,
+    setShowHistoricoMotoristaModal: modals.setShowHistoricoMotoristaModal,
 
     // Actions
     fetchIncidentes,
@@ -534,6 +276,6 @@ export function useIncidentesGestor(
     hideToast,
 
     // Helpers
-    formatDate,
+    formatDate: formatIncidentDate,
   };
 }

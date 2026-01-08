@@ -15,6 +15,7 @@ import { Platform, Text, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 
 import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
+import { NotificationDataProvider } from '@/context/NotificationDataContext';
 import { NotificationModalProvider } from '@/context/NotificationModalContext';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUser } from '@/hooks/useUser';
@@ -218,9 +219,10 @@ export default function RootLayout() {
   }
 
   return (
-    <NotificationModalProvider>
-      <ConditionalLayout>
-        <Stack
+    <NotificationDataProvider>
+      <NotificationModalProvider>
+        <ConditionalLayout>
+          <Stack
           screenOptions={{
             headerStyle: {
               backgroundColor: theme.colors.primary,
@@ -258,16 +260,17 @@ export default function RootLayout() {
             }}
           />
         </Stack>
-      </ConditionalLayout>
-      <Toast
-        config={{
-          success: ({ text1, text2 }) => renderToast(theme.colors.success, text1, text2),
-          error: ({ text1, text2 }) => renderToast(theme.colors.error, text1, text2),
-          info: ({ text1, text2 }) => renderToast(theme.colors.primary, text1, text2),
-          warning: ({ text1, text2 }) => renderToast(theme.colors.secondary, text1, text2),
-        }}
-      />
-    </NotificationModalProvider>
+        </ConditionalLayout>
+        <Toast
+          config={{
+            success: ({ text1, text2 }) => renderToast(theme.colors.success, text1, text2),
+            error: ({ text1, text2 }) => renderToast(theme.colors.error, text1, text2),
+            info: ({ text1, text2 }) => renderToast(theme.colors.primary, text1, text2),
+            warning: ({ text1, text2 }) => renderToast(theme.colors.secondary, text1, text2),
+          }}
+        />
+      </NotificationModalProvider>
+    </NotificationDataProvider>
   );
 }
 

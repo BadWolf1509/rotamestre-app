@@ -41,7 +41,7 @@ import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useNovaEntrega } from '@/hooks/useNovaEntrega';
 import { useResponsive } from '@/hooks/useResponsive';
 import { googleMapsService } from '@/lib/google';
-import { maskPhone } from '@/utils/phoneValidation';
+import { maskPhone } from '@/lib/phone';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // ============================================

@@ -24,6 +24,20 @@ jest.mock('@/context/NotificationModalContext', () => ({
   })),
 }));
 
+// Mock useNotifications hook (now uses context)
+jest.mock('@/hooks/useNotifications', () => ({
+  useNotifications: jest.fn(() => ({
+    notificacoes: [],
+    naoLidas: 0,
+    loading: false,
+    hasMore: false,
+    marcarComoLida: jest.fn(),
+    marcarTodasComoLidas: jest.fn(),
+    refresh: jest.fn(),
+    loadMore: jest.fn(),
+  })),
+}));
+
 // Mock useUnistyles
 jest.mock('@/utils/styles', () => {
   const mockTheme = {

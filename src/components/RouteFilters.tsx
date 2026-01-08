@@ -1,58 +1,31 @@
+/**
+ * Route Filters Component
+ *
+ * Main component that orchestrates filter sections for routes.
+ * Supports desktop (sidebar) and mobile (modal) variants.
+ */
+
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import React, { useMemo, useState } from 'react';
-import { View, Text, Pressable, Modal, ScrollView, Platform } from 'react-native';
-import DateTimePickerModal, { useDefaultStyles } from 'react-native-ui-datepicker';
+import React, { useState } from 'react';
+import { View, Text, Pressable, Modal, ScrollView } from 'react-native';
 
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-// Tipos para períodos pré-definidos
-export type PeriodPreset = 'hoje' | 'ultima_semana' | 'ultimo_mes' | 'este_mes' | 'personalizado';
+import {
+  DateRangeFilterSection,
+  MotoristaFilterSection,
+  StatusFilterSection,
+  countActiveFilters,
+  type RouteFiltersProps,
+  type RouteFiltersState,
+  type PeriodPreset,
+} from './route-filters';
+import { getPresetDates } from './route-filters/utils';
 
-export interface RouteFiltersState {
-  status?: 'pendente' | 'em_andamento' | 'concluida' | 'cancelada' | null;
-  dataInicio?: Date | null;
-  dataFim?: Date | null;
-  motoristaId?: string | null;
-}
 
-interface RouteFiltersProps {
-  filters: RouteFiltersState;
-  onFiltersChange: (filters: RouteFiltersState) => void;
-  motoristas?: Array<{ id: string; nome: string }>;
-  variant?: 'desktop' | 'mobile';
-}
-
-// Helper para calcular datas de períodos pré-definidos
-export const getPresetDates = (preset: PeriodPreset): { startDate: Date; endDate: Date } | null => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  switch (preset) {
-    case 'hoje': {
-      const endOfDay = new Date(today);
-      endOfDay.setHours(23, 59, 59, 999);
-      return { startDate: today, endDate: endOfDay };
-    }
-    case 'ultima_semana': {
-      const startDate = new Date(today);
-      startDate.setDate(today.getDate() - 7);
-      return { startDate, endDate: today };
-    }
-    case 'ultimo_mes': {
-      const startDate = new Date(today);
-      startDate.setDate(today.getDate() - 30);
-      return { startDate, endDate: today };
-    }
-    case 'este_mes': {
-      const startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-      return { startDate, endDate: today };
-    }
-    case 'personalizado':
-    default:
-      return null;
-  }
-};
+// Re-export types for backwards compatibility
+export type { PeriodPreset, RouteFiltersState };
+export { getPresetDates };
 
 export function RouteFilters({
   filters,
@@ -62,184 +35,19 @@ export function RouteFilters({
 }: RouteFiltersProps) {
   const { theme } = useUnistyles();
   const [modalVisible, setModalVisible] = useState(false);
-  const [showDateInicioPicker, setShowDateInicioPicker] = useState(false);
-  const [showDateFimPicker, setShowDateFimPicker] = useState(false);
 
-  // Web: Controle do modal de período unificado
-  const [showWebRangePicker, setShowWebRangePicker] = useState(false);
-  const [calendarMonth, setCalendarMonth] = useState(new Date());
-
-  // Estado para controlar período pré-definido selecionado
-  const [_selectedPreset, setSelectedPreset] = useState<PeriodPreset | null>(null);
-
-  // Estilos customizados para o calendário
-  const defaultStyles = useDefaultStyles('light');
-  const calendarStyles = useMemo(() => ({
-    ...defaultStyles,
-    headerText: {
-      color: theme.colors.gray900,
-      fontWeight: '600',
-    },
-    monthText: {
-      color: theme.colors.gray900,
-      fontWeight: '700',
-    },
-    weekDaysText: {
-      color: theme.colors.gray800,
-      fontWeight: '600',
-    },
-    dayText: {
-      color: theme.colors.gray900,
-      fontWeight: '500',
-    },
-    dayNumber: {
-      color: theme.colors.gray900,
-    },
-    daySelectedText: {
-      color: theme.colors.gray900,
-      fontWeight: '700',
-    },
-    button_prev: {
-      padding: theme.spacing.sm,
-      borderRadius: theme.borderRadius.sm,
-    },
-    button_next: {
-      padding: theme.spacing.sm,
-      borderRadius: theme.borderRadius.sm,
-    },
-    button_prev_image: {
-      tintColor: theme.colors.gray900,
-    },
-    button_next_image: {
-      tintColor: theme.colors.gray900,
-    },
-    range_fill: {
-      backgroundColor: theme.colors.primaryBg,
-    },
-    range_start: {
-      backgroundColor: theme.colors.primary,
-    },
-    range_end: {
-      backgroundColor: theme.colors.primary,
-    },
-    range_middle: {
-      backgroundColor: theme.colors.primaryLight,
-    },
-    selected: {
-      backgroundColor: theme.colors.primary,
-    },
-  }), [defaultStyles, theme]);
-
-  const datePickerComponents = useMemo(() => ({
-    IconPrev: <Ionicons name="chevron-back" size={18} color={theme.colors.gray900} />,
-    IconNext: <Ionicons name="chevron-forward" size={18} color={theme.colors.gray900} />,
-  }), [theme]);
-
-  // Estado temporário para seleção de range na Web
-  const [rangeSelection, setRangeSelection] = useState<{
-    startDate: Date | undefined;
-    endDate: Date | undefined;
-  }>({
-    startDate: undefined,
-    endDate: undefined,
-  });
-
-  const statusOptions = useMemo(() => ([
-    { value: null, label: 'Todos', color: undefined },
-    { value: 'pendente', label: 'Pendente', color: theme.colors.warning },
-    { value: 'em_andamento', label: 'Em Andamento', color: theme.colors.info },
-    { value: 'concluida', label: 'Conclu¡da', color: theme.colors.success },
-    { value: 'cancelada', label: 'Cancelada', color: theme.colors.error },
-  ] as const), [theme]);
+  const activeFiltersCount = countActiveFilters(filters);
 
   const handleStatusChange = (status: RouteFiltersState['status']) => {
-    const newStatus = filters.status === status ? null : status;
-    onFiltersChange({ ...filters, status: newStatus });
+    onFiltersChange({ ...filters, status });
+  };
+
+  const handleDateRangeChange = (dataInicio: Date | null, dataFim: Date | null) => {
+    onFiltersChange({ ...filters, dataInicio, dataFim });
   };
 
   const handleMotoristaChange = (motoristaId: string | null) => {
-    const newMotoristaId = filters.motoristaId === motoristaId ? null : motoristaId;
-    onFiltersChange({ ...filters, motoristaId: newMotoristaId });
-  };
-
-  // Mobile Handlers
-  const handleDataInicioChange = (event: any, selectedDate?: Date) => {
-    setShowDateInicioPicker(false);
-    if (selectedDate) {
-      onFiltersChange({ ...filters, dataInicio: selectedDate });
-    }
-  };
-
-  const handleDataFimChange = (event: any, selectedDate?: Date) => {
-    setShowDateFimPicker(false);
-    if (selectedDate) {
-      onFiltersChange({ ...filters, dataFim: selectedDate });
-    }
-  };
-
-  // Web Range Handlers
-  const openWebRangePicker = () => {
-    setRangeSelection({
-      startDate: filters.dataInicio || undefined,
-      endDate: filters.dataFim || undefined,
-    });
-    setCalendarMonth(filters.dataInicio || new Date());
-    setShowWebRangePicker(true);
-  };
-
-  // Handler para seleção de período pré-definido
-  const _handlePresetSelect = (preset: PeriodPreset) => {
-    setSelectedPreset(preset);
-    const dates = getPresetDates(preset);
-    if (dates) {
-      setRangeSelection({
-        startDate: dates.startDate,
-        endDate: dates.endDate,
-      });
-    }
-  };
-
-  // Handler para seleção manual no calendário
-  const handleManualDateChange = (params: any) => {
-    setSelectedPreset('personalizado');
-    setRangeSelection({
-      startDate: params.startDate as Date | undefined,
-      endDate: params.endDate as Date | undefined,
-    });
-  };
-
-  // Limpar período selecionado
-  /* istanbul ignore next - usado somente em fluxo web completo */
-  const _clearDateRange = () => {
-    setRangeSelection({
-      startDate: undefined,
-      endDate: undefined,
-    });
-    setSelectedPreset(null);
-  };
-
-  const applyWebRangeFilter = () => {
-    onFiltersChange({
-      ...filters,
-      dataInicio: rangeSelection.startDate || null,
-      dataFim: rangeSelection.endDate || null,
-    });
-    setShowWebRangePicker(false);
-  };
-
-  // Helpers para navegação do calendário
-  /* istanbul ignore next - navegação de mês não exercitada em testes */
-  const _goToPreviousMonth = () => {
-    const newDate = new Date(calendarMonth);
-    newDate.setMonth(newDate.getMonth() - 1);
-    setCalendarMonth(newDate);
-  };
-
-  /* istanbul ignore next - navegação de mês não exercitada em testes */
-  const _goToNextMonth = () => {
-    const newDate = new Date(calendarMonth);
-    newDate.setMonth(newDate.getMonth() + 1);
-    setCalendarMonth(newDate);
+    onFiltersChange({ ...filters, motoristaId });
   };
 
   const clearFilters = () => {
@@ -251,233 +59,24 @@ export function RouteFilters({
     });
   };
 
-  const activeFiltersCount = [
-    filters.status,
-    filters.dataInicio,
-    filters.dataFim,
-    filters.motoristaId,
-  ].filter(Boolean).length;
-
-  const formatDate = (date: Date | null | undefined) => {
-    if (!date) return 'Selecionar';
-    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  };
-
-  const getRangeLabel = () => {
-    if (filters.dataInicio && filters.dataFim) {
-      return `${formatDate(filters.dataInicio)} - ${formatDate(filters.dataFim)}`;
-    }
-    if (filters.dataInicio) {
-      return `A partir de ${formatDate(filters.dataInicio)}`;
-    }
-    if (filters.dataFim) {
-      return `Até ${formatDate(filters.dataFim)}`;
-    }
-    return 'Selecionar Período';
-  };
-
-  // Calcular quantos dias estão selecionados
-  /* istanbul ignore next - feedback visual apenas no modal */
-  const _getSelectedDaysCount = () => {
-    if (rangeSelection.startDate && rangeSelection.endDate) {
-      const diffTime = Math.abs(rangeSelection.endDate.getTime() - rangeSelection.startDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays + 1; // +1 para incluir o dia inicial
-    }
-    return 0;
-  };
-
   const FilterContent = () => (
     <ScrollView style={styles.filterContainer}>
-      {/* Status Filter */}
-      <View style={styles.filterSection}>
-        <Text style={styles.sectionTitle}>Status</Text>
-        <View style={styles.statusGrid}>
-          {statusOptions.map((option) => (
-            <Pressable
-              key={option.value || 'all'}
-              testID={`filter-status-${option.value || 'all'}`}
-              style={[
-                styles.statusOption,
-                filters.status === option.value && styles.statusOptionActive,
-                option.color && { borderColor: option.color },
-                filters.status === option.value &&
-                  option.color && { backgroundColor: `${option.color}15` },
-              ]}
-              onPress={() => handleStatusChange(option.value)}
-            >
-              <Text
-                style={[
-                  styles.statusOptionText,
-                  filters.status === option.value && styles.statusOptionTextActive,
-                  filters.status === option.value && option.color && { color: option.color },
-                ]}
-              >
-                {option.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
+      <StatusFilterSection
+        status={filters.status}
+        onStatusChange={handleStatusChange}
+      />
 
-      {/* Date Range Filter */}
-      <View style={styles.filterSection}>
-        <Text style={styles.sectionTitle}>Período</Text>
-        <View style={styles.dateRow}>
-          {Platform.OS === 'web' ? (
-            <>
-              {/* ✅ Web: Botão Único de Range */}
-              <Pressable
-                style={styles.dateButton}
-                testID="filter-date-range"
-                onPress={openWebRangePicker}
-              >
-                <Ionicons name="calendar-outline" size={20} color={theme.colors.gray500} />
-                <Text style={styles.dateButtonText}>{getRangeLabel()}</Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              {/* ✅ Mobile: DateTimePicker nativo (mantido) */}
-              <Pressable
-                style={styles.dateButton}
-                onPress={() => setShowDateInicioPicker(true)}
-              >
-                <Ionicons name="calendar-outline" size={20} color={theme.colors.gray500} />
-                <Text style={styles.dateButtonText}>{formatDate(filters.dataInicio)}</Text>
-              </Pressable>
+      <DateRangeFilterSection
+        dataInicio={filters.dataInicio}
+        dataFim={filters.dataFim}
+        onDateRangeChange={handleDateRangeChange}
+      />
 
-              <Text style={styles.dateSeparator}>até</Text>
-
-              <Pressable
-                style={styles.dateButton}
-                onPress={() => setShowDateFimPicker(true)}
-              >
-                <Ionicons name="calendar-outline" size={20} color={theme.colors.gray500} />
-                <Text style={styles.dateButtonText}>{formatDate(filters.dataFim)}</Text>
-              </Pressable>
-            </>
-          )}
-        </View>
-
-        {/* ✅ Mobile: Mostrar DateTimePicker quando ativo */}
-        {Platform.OS !== 'web' && showDateInicioPicker && (
-          <DateTimePicker
-            value={filters.dataInicio || new Date()}
-            mode="date"
-            display="default"
-            onChange={handleDataInicioChange}
-          />
-        )}
-
-        {Platform.OS !== 'web' && showDateFimPicker && (
-          <DateTimePicker
-            value={filters.dataFim || new Date()}
-            mode="date"
-            display="default"
-            onChange={handleDataFimChange}
-          />
-        )}
-
-        {/* ✅ Web: Date Range Picker Modal */}
-        {Platform.OS === 'web' && (
-          <Modal
-            visible={showWebRangePicker}
-            transparent
-            animationType="fade"
-            onRequestClose={() => setShowWebRangePicker(false)}
-          >
-            <View style={styles.modalOverlay}>
-              <Pressable
-                style={styles.modalDismissArea}
-                onPress={() => setShowWebRangePicker(false)}
-              />
-              <View style={styles.datePickerContainer}>
-                <View style={styles.datePickerHeader}>
-                  <Text style={styles.datePickerTitle}>Selecionar Período</Text>
-                  <Pressable onPress={() => setShowWebRangePicker(false)}>
-                    <Ionicons name="close" size={24} color={theme.colors.gray500} />
-                  </Pressable>
-                </View>
-
-
-
-                <DateTimePickerModal
-                  mode="range"
-                  date={calendarMonth}
-                  startDate={rangeSelection.startDate}
-                  endDate={rangeSelection.endDate}
-                  onChange={handleManualDateChange}
-                  styles={calendarStyles}
-                  components={datePickerComponents}
-                  locale="pt-BR"
-                />
-
-                <View style={styles.modalFooter}>
-                  <Pressable
-                    style={[styles.footerButton, styles.cancelButton]}
-                    onPress={() => setShowWebRangePicker(false)}
-                  >
-                    <Text style={styles.cancelButtonText}>Cancelar</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.footerButton, styles.applyButton]}
-                    onPress={applyWebRangeFilter}
-                  >
-                    <Text style={styles.applyButtonText}>Aplicar</Text>
-                  </Pressable>
-                </View>
-              </View>
-            </View>
-          </Modal>
-        )}
-      </View>
-
-      {/* Motorista Filter */}
-      {motoristas.length > 0 && (
-        <View style={styles.filterSection}>
-          <Text style={styles.sectionTitle}>Motorista</Text>
-          <View style={styles.motoristaList}>
-            <Pressable
-              style={[
-                styles.motoristaOption,
-                !filters.motoristaId && styles.motoristaOptionActive,
-              ]}
-              onPress={() => handleMotoristaChange(null)}
-            >
-              <Text
-                style={[
-                  styles.motoristaOptionText,
-                  !filters.motoristaId && styles.motoristaOptionTextActive,
-                ]}
-              >
-                Todos
-              </Text>
-            </Pressable>
-
-            {motoristas.map((motorista) => (
-              <Pressable
-                key={motorista.id}
-                testID={`filter-motorista-${motorista.id}`}
-                style={[
-                  styles.motoristaOption,
-                  filters.motoristaId === motorista.id && styles.motoristaOptionActive,
-                ]}
-                onPress={() => handleMotoristaChange(motorista.id)}
-              >
-                <Text
-                  style={[
-                    styles.motoristaOptionText,
-                    filters.motoristaId === motorista.id && styles.motoristaOptionTextActive,
-                  ]}
-                >
-                  {motorista.nome}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-      )}
+      <MotoristaFilterSection
+        motoristaId={filters.motoristaId}
+        motoristas={motoristas}
+        onMotoristaChange={handleMotoristaChange}
+      />
 
       {/* Clear Filters Button */}
       {activeFiltersCount > 0 && (
@@ -608,113 +207,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
     padding: theme.spacing.lg,
   },
-  filterSection: {
-    marginBottom: theme.spacing['2xl'],
-  },
-  sectionTitle: {
-    fontSize: theme.typography.fontSize.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray600,
-    marginBottom: theme.spacing.md,
-  },
-  statusGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.sm,
-  },
-  statusOption: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.white,
-  },
-  statusOptionActive: {
-    backgroundColor: theme.colors.primaryBg,
-    borderColor: theme.colors.primary,
-    borderWidth: 2,
-  },
-  statusOptionText: {
-    fontSize: theme.typography.fontSize.sm - 1,
-    color: theme.colors.gray500,
-    fontFamily: theme.typography.fontSansMedium,
-  },
-  statusOptionTextActive: {
-    color: theme.colors.primary,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  dateButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm + 2,
-    borderRadius: theme.borderRadius.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.white,
-  },
-  dateButtonText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.gray700,
-  },
-  dateInputWrapper: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm + 2,
-    borderRadius: theme.borderRadius.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.white,
-  },
-  calendarIcon: {
-    flexShrink: 0,
-  },
-  dateTextInput: {
-    flex: 1,
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.gray700,
-    padding: 0,
-  },
-  dateSeparator: {
-    fontSize: theme.typography.fontSize.sm - 1,
-    color: theme.colors.gray500,
-  },
-  motoristaList: {
-    gap: theme.spacing.sm,
-  },
-  motoristaOption: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.white,
-  },
-  motoristaOptionActive: {
-    backgroundColor: theme.colors.primaryBg,
-    borderColor: theme.colors.primary,
-    borderWidth: 2,
-  },
-  motoristaOptionText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.gray500,
-    fontFamily: theme.typography.fontSansMedium,
-  },
-  motoristaOptionTextActive: {
-    color: theme.colors.primary,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
   clearFiltersButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -731,171 +223,5 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.fontSize.sm,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.error,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: theme.colors.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalDismissArea: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  datePickerContainer: {
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
-    minWidth: 320,
-    maxWidth: 400,
-    ...theme.shadows.lg,
-  },
-  datePickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  datePickerTitle: {
-    fontSize: theme.typography.fontSize.lg,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray900,
-  },
-  dateInputSection: {
-    marginBottom: theme.spacing.lg,
-    paddingBottom: theme.spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  dateInputLabel: {
-    fontSize: theme.typography.fontSize.sm - 1,
-    color: theme.colors.gray500,
-    marginBottom: theme.spacing.sm,
-  },
-  dateManualInput: {
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.sm,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm + 2,
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.gray700,
-    backgroundColor: theme.colors.white,
-  },
-  calendarNavigation: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.lg,
-    paddingHorizontal: theme.spacing.sm,
-  },
-  navButton: {
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.sm,
-    backgroundColor: theme.colors.gray50,
-  },
-  monthYear: {
-    fontSize: theme.typography.fontSize.base,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray700,
-    textTransform: 'capitalize',
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: theme.spacing.md,
-    marginTop: theme.spacing.lg,
-    paddingTop: theme.spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-  },
-  footerButton: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm + 2,
-    borderRadius: theme.borderRadius.sm,
-    minWidth: 100,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: theme.colors.gray100,
-  },
-  applyButton: {
-    backgroundColor: theme.colors.primary,
-  },
-  cancelButtonText: {
-    color: theme.colors.gray500,
-    fontFamily: theme.typography.fontSansSemiBold,
-    fontSize: theme.typography.fontSize.sm,
-  },
-  applyButtonText: {
-    color: theme.colors.white,
-    fontFamily: theme.typography.fontSansSemiBold,
-    fontSize: theme.typography.fontSize.sm,
-  },
-  // Estilos para botäes de per¡odos pr‚-definidos
-  presetButtonsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.sm,
-    marginBottom: theme.spacing.lg,
-    paddingBottom: theme.spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  presetButton: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.white,
-    minWidth: 90,
-    alignItems: 'center',
-  },
-  presetButtonActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  presetButtonText: {
-    fontSize: theme.typography.fontSize.sm - 1,
-    color: theme.colors.gray500,
-    fontFamily: theme.typography.fontSansMedium,
-  },
-  presetButtonTextActive: {
-    color: theme.colors.white,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
-  // Resumo do per¡odo selecionado
-  rangeSummary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs + 2,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    backgroundColor: theme.colors.primaryBg,
-    borderRadius: theme.borderRadius.sm,
-    marginBottom: theme.spacing.lg,
-  },
-  rangeSummaryText: {
-    fontSize: theme.typography.fontSize.sm - 1,
-    color: theme.colors.primary,
-    fontFamily: theme.typography.fontSansMedium,
-  },
-  // Footer reorganizado
-  footerRightButtons: {
-    flexDirection: 'row',
-    gap: theme.spacing.md,
-  },
-  clearPeriodButton: {
-    backgroundColor: theme.colors.red50,
-    borderWidth: 1,
-    borderColor: theme.colors.errorBg,
-  },
-  clearPeriodButtonText: {
-    color: theme.colors.error,
-    fontFamily: theme.typography.fontSansSemiBold,
-    fontSize: theme.typography.fontSize.sm,
   },
 }));

@@ -44,7 +44,7 @@ jest.mock('@/hooks/useResponsive', () => ({
   }),
 }));
 
-jest.mock('@/utils/phoneValidation', () => ({
+jest.mock('@/lib/phone', () => ({
   maskPhone: (text: string) => text.replace(/\D/g, '').replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3'),
 }));
 

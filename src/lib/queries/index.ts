@@ -63,6 +63,23 @@ export type {
   MotoristaListItem,
 } from './usuarios';
 
+// Incidentes queries
+export * as incidentesQueries from './incidentes';
+export type {
+  IncidenteDB,
+  IncidenteWithRelations,
+  IncidenteInsert,
+  IncidenteUpdate,
+  IncidenteStatus,
+  IncidenteCategoria,
+  FetchIncidentesOptions,
+} from './incidentes';
+
+// Logs queries
+export * as logsQueries from './logs';
+export type { LogEntry, LogDB, LogEvent } from './logs';
+export { LOG_EVENTS } from './logs';
+
 // Re-export individual functions for direct imports
 export {
   // Rotas
@@ -111,3 +128,23 @@ export {
   checkEmailExists,
   fetchMotoristaKPIs,
 } from './usuarios';
+
+export {
+  // Incidentes
+  fetchIncidentesForGestor,
+  fetchIncidenteById,
+  fetchIncidentesByMotorista,
+  createIncidente,
+  updateIncidenteStatus,
+  updateIncidente,
+  fetchIncidentesStats,
+  logIncidenteAction,
+} from './incidentes';
+
+export {
+  // Logs (centralized logging utilities)
+  logAction,
+  logUserAction,
+  // Note: logRotaAction and logParadaAction are also available in rotas.ts and paradas.ts
+  // Use logsQueries.logRotaAction or logsQueries.logParadaAction for the centralized versions
+} from './logs';
