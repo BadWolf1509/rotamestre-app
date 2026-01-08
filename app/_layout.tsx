@@ -74,34 +74,42 @@ function ConditionalLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Check for E2E environment at module level (fallback signals)
-function detectE2EAtModuleLevel(): boolean {
+// Check for E2E environment using multiple detection methods
+function detectE2EEnvironment(): boolean {
   if (typeof window === 'undefined') return false;
 
-  // Check navigator.webdriver (Playwright/Selenium sets this)
+  // Method 1: Check for Playwright-injected window flag (most reliable)
+  if ((window as any).__PLAYWRIGHT_E2E__ === true) return true;
+
+  // Method 2: Check for localStorage flag (set by global-setup)
+  try {
+    if (localStorage.getItem('e2e_mode') === 'true') return true;
+  } catch {
+    // localStorage may not be available
+  }
+
+  // Method 3: Check navigator.webdriver (Playwright/Selenium sets this)
   if ((navigator as any).webdriver === true) return true;
 
-  // Check for headless browser patterns in userAgent
-  if (navigator.userAgent.includes('HeadlessChrome')) return true;
-  if (navigator.userAgent.includes('Headless')) return true;
+  // Method 4: Check for headless browser patterns in userAgent (case-insensitive)
+  const ua = navigator.userAgent.toLowerCase();
+  if (ua.includes('headlesschrome') || ua.includes('headless')) return true;
+
+  // Method 5: Check URL param for E2E
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('e2e') === 'true') return true;
 
   return false;
 }
-const isE2EAtModuleLevel = detectE2EAtModuleLevel();
-
-// Check URL param for E2E (called during render to catch navigation)
-function checkE2EUrlParam(): boolean {
-  if (typeof window === 'undefined') return false;
-  const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.get('e2e') === 'true';
-}
+// Evaluate at module load time
+const isE2EAtModuleLevel = detectE2EEnvironment();
 
 export default function RootLayout() {
   const { theme } = useUnistyles();
 
-  // Check E2E both at module level AND via URL param (for navigation)
-  // URL param check happens on every render to catch when Playwright navigates
-  const isE2EEnvironment = isE2EAtModuleLevel || checkE2EUrlParam();
+  // Check E2E at render time (re-evaluate in case flags were set after module load)
+  // This catches cases where Playwright navigates to ?e2e=true after initial module load
+  const isE2EEnvironment = isE2EAtModuleLevel || detectE2EEnvironment();
 
   // Track font loading timeout for CI environments
   // In E2E, skip waiting for fonts entirely to allow tests to proceed

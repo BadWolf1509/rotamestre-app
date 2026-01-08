@@ -26,6 +26,14 @@ async function globalSetup(config: FullConfig) {
   const context = await browser.newContext({ baseURL });
   const page = await context.newPage();
 
+  // Inject E2E flag into localStorage BEFORE navigating
+  // This ensures the app detects E2E mode on first render
+  await page.addInitScript(() => {
+    localStorage.setItem('e2e_mode', 'true');
+    // Also set a window flag for immediate access
+    (window as any).__PLAYWRIGHT_E2E__ = true;
+  });
+
   // Ensure debug screenshots directory exists
   if (!fs.existsSync(DEBUG_SCREENSHOTS_DIR)) {
     fs.mkdirSync(DEBUG_SCREENSHOTS_DIR, { recursive: true });
