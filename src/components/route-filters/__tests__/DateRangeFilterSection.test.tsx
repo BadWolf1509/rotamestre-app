@@ -2,8 +2,8 @@
  * DateRangeFilterSection - Tests
  */
 
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
+import React from 'react';
 import { Platform } from 'react-native';
 
 import { DateRangeFilterSection } from '../DateRangeFilterSection';
@@ -16,10 +16,7 @@ jest.mock('react-native-ui-datepicker', () => ({
 }));
 
 // Mock @react-native-community/datetimepicker
-jest.mock('@react-native-community/datetimepicker', () => {
-  const React = require('react');
-  return jest.fn(() => null);
-});
+jest.mock('@react-native-community/datetimepicker', () => jest.fn(() => null));
 
 describe('DateRangeFilterSection', () => {
   const mockOnDateRangeChange = jest.fn();

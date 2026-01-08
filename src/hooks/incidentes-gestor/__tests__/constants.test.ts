@@ -2,8 +2,9 @@
  * incidentes-gestor constants - Tests
  */
 
-import { createCategoriaLabels, createStatusLabels, formatIncidentDate } from '../constants';
 import type { Theme } from '@/utils/styles';
+
+import { createCategoriaLabels, createStatusLabels, formatIncidentDate } from '../constants';
 
 // Mock theme object with necessary colors
 const mockTheme = {

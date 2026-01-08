@@ -5,6 +5,7 @@
 import { renderHook } from '@testing-library/react-native';
 
 import { useIncidentesStats } from '../useIncidentesStats';
+
 import type { Incidente } from '../types';
 
 const createMockIncidente = (overrides: Partial<Incidente> = {}): Incidente => ({

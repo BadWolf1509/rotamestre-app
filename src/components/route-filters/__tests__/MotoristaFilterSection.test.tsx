@@ -2,10 +2,11 @@
  * MotoristaFilterSection - Tests
  */
 
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
+import React from 'react';
 
 import { MotoristaFilterSection } from '../MotoristaFilterSection';
+
 import type { Motorista } from '../types';
 
 describe('MotoristaFilterSection', () => {
