@@ -100,10 +100,15 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (Platform.OS === 'web' && !fontsLoaded && !fontError) {
+      // Detect E2E/CI environment (Playwright sets navigator.webdriver = true)
+      const isE2E = typeof navigator !== 'undefined' && (navigator as any).webdriver === true;
+      // Use shorter timeout in E2E to allow tests to proceed faster
+      const timeoutMs = isE2E ? 2000 : 10000;
+
       fontTimeoutRef.current = setTimeout(() => {
-        console.warn('[RootLayout] Font loading timeout - proceeding without custom fonts');
+        console.warn(`[RootLayout] Font loading timeout (${timeoutMs}ms) - proceeding without custom fonts`);
         setFontTimeout(true);
-      }, 10000); // 10 second timeout for fonts
+      }, timeoutMs);
 
       return () => {
         if (fontTimeoutRef.current) {
