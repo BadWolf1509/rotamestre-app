@@ -103,7 +103,10 @@ export default defineConfig({
   expect: {
     timeout: process.env.CI ? 15000 : 10000,
     toHaveScreenshot: {
-      maxDiffPixelRatio: 0.02,
+      // More tolerant for cross-platform differences (Windows vs Linux font rendering)
+      maxDiffPixelRatio: 0.10,
+      // Allow small per-pixel differences
+      threshold: 0.3,
     },
   },
 
