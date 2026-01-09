@@ -199,14 +199,14 @@ jobs:
 
       - name: Update visual regression snapshots
         if: ${{ github.event.inputs.update_snapshots == 'true' }}
-        run: npx playwright test --update-snapshots
+        run: npx playwright test --update-snapshots || true
         env:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
           EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
 
       - name: Upload updated snapshots
-        if: ${{ github.event.inputs.update_snapshots == 'true' }}
+        if: ${{ github.event.inputs.update_snapshots == 'true' && always() }}
         uses: actions/upload-artifact@v6
         with:
           name: updated-snapshots
