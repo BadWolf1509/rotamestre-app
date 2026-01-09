@@ -12,6 +12,11 @@ on:
         required: false
         default: false
         type: boolean
+      update_snapshots:
+        description: 'Update visual regression snapshots'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   lint:
@@ -185,11 +190,29 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run visual regression tests
+        if: ${{ github.event.inputs.update_snapshots != 'true' }}
         run: npm run test:visual
         env:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
           EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+
+      - name: Update visual regression snapshots
+        if: ${{ github.event.inputs.update_snapshots == 'true' }}
+        run: npx playwright test --update-snapshots
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+
+      - name: Upload updated snapshots
+        if: ${{ github.event.inputs.update_snapshots == 'true' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: updated-snapshots
+          path: |
+            e2e/**/*-snapshots/**/*.png
+          retention-days: 30
 
       - name: Upload visual regression report
         if: failure()
