@@ -58,11 +58,11 @@ export default defineConfig({
     // Timezone
     timezoneId: 'America/Sao_Paulo',
 
-    // Action timeout (click, fill, etc) - otimizado baseado em análise de tempos reais
-    actionTimeout: 10000,
+    // Action timeout (click, fill, etc) - CI is slower
+    actionTimeout: process.env.CI ? 15000 : 10000,
 
-    // Navigation timeout - reduzido de 60s (máx real observado: ~13s)
-    navigationTimeout: 30000,
+    // Navigation timeout - CI is slower (~2x)
+    navigationTimeout: process.env.CI ? 60000 : 30000,
   },
 
   // Configure projects for major browsers
@@ -78,9 +78,9 @@ export default defineConfig({
       name: 'mobile-chrome',
       use: {
         ...devices['Pixel 5'],
-        // Mobile tests - timeouts otimizados (máx real: ~21s)
-        actionTimeout: 15000,
-        navigationTimeout: 45000,
+        // Mobile tests - CI is slower (~2x)
+        actionTimeout: process.env.CI ? 20000 : 15000,
+        navigationTimeout: process.env.CI ? 90000 : 45000,
       },
     },
   ],
@@ -95,12 +95,13 @@ export default defineConfig({
     stderr: 'pipe',
   },
 
-  // Global timeout for each test - otimizado de 60s para 30s (máx real: ~21s)
-  timeout: 30000,
+  // Global timeout for each test
+  // CI is slower (~2x), so use 60s on CI, 30s locally (máx local: ~21s)
+  timeout: process.env.CI ? 60000 : 30000,
 
-  // Expect timeout - otimizado de 15s para 10s
+  // Expect timeout - CI is slower
   expect: {
-    timeout: 10000,
+    timeout: process.env.CI ? 15000 : 10000,
     toHaveScreenshot: {
       maxDiffPixelRatio: 0.02,
     },
