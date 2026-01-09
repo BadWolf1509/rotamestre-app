@@ -6,8 +6,16 @@ import { getCache, setCache, clearCache, CACHE_TTL, CACHE_KEYS } from '../lib/ca
 import { logger } from '../lib/logger';
 import { initializePushNotifications } from '../lib/notifications';
 import { onProfileUpdate } from '../lib/profileEvents';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Usuario } from '../types/usuario';
+
+// Mock user data storage for E2E/CI environments
+let mockUserData: Usuario | null = null;
+
+// Export function to set mock user data (called after login)
+export function setMockUserData(user: Usuario | null) {
+  mockUserData = user;
+}
 
 export function useUser() {
   const { user, loading: authLoading } = useAuth();
@@ -20,6 +28,46 @@ export function useUser() {
 
   const fetchUserData = useCallback(async (): Promise<Usuario | null> => {
     if (!userId) return null;
+
+    // For E2E/CI: Return mock user data
+    if (!isSupabaseConfigured) {
+      const isGestor = userId.includes('gestor');
+      const mockUnidadeId = 'mock-unidade-id';
+
+      return {
+        id: userId,
+        email: isGestor ? 'gestor.test@rotamestre.tec.br' : 'motorista.test@rotamestre.tec.br',
+        nome: isGestor ? 'Gestor Teste' : 'Motorista Teste',
+        papel: isGestor ? 'gestor' : 'motorista',
+        ativo: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        unidade_id: mockUnidadeId,
+        unidades: {
+          id: mockUnidadeId,
+          nome: 'Unidade Teste',
+          cidade: 'São Paulo',
+          ativa: true,
+          sede_latitude: -23.5505,
+          sede_longitude: -46.6333,
+        } as any,
+        usuario_unidades: [{
+          id: 'vinculo-mock-1',
+          usuario_id: userId,
+          unidade_id: mockUnidadeId,
+          papel: isGestor ? 'gestor' : 'motorista',
+          is_principal: true,
+          ativo: true,
+          created_at: new Date().toISOString(),
+          unidades: {
+            id: mockUnidadeId,
+            nome: 'Unidade Teste',
+            cidade: 'São Paulo',
+            ativa: true,
+          }
+        }]
+      } as Usuario;
+    }
 
     const { data, error } = await supabase
       .from('usuarios')

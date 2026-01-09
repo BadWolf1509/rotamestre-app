@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useUser } from './useUser';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { UsuarioUnidade, UnidadeComSede } from '../types/usuario';
 
 const STORAGE_KEY = '@rotamestre:unidade_ativa';
@@ -50,6 +50,44 @@ export function useUnidadeAtiva(): UseUnidadeAtivaReturn {
 
     try {
       setLoading(true);
+
+      // For E2E/CI: Return mock vinculações
+      if (!isSupabaseConfigured) {
+        const mockUnidadeId = 'mock-unidade-id';
+        const isGestor = userData.papel === 'gestor';
+
+        const mockVinculacoes: UsuarioUnidade[] = [{
+          id: 'vinculo-mock-1',
+          usuario_id: userData.id,
+          unidade_id: mockUnidadeId,
+          papel: isGestor ? 'gestor' : 'motorista',
+          is_principal: true,
+          ativo: true,
+          created_at: new Date().toISOString(),
+          unidades: {
+            id: mockUnidadeId,
+            nome: 'Unidade Teste',
+            cnpj: '00.000.000/0001-00',
+            cidade: 'São Paulo',
+            endereco: 'Rua Teste, 123',
+            telefone: '11999999999',
+            email: 'teste@unidade.com',
+            ativa: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            sede_latitude: -23.5505,
+            sede_longitude: -46.6333,
+            sede_endereco: 'Rua Teste, 123 - São Paulo',
+            uf: 'SP',
+            cep: '01310-100'
+          } as UnidadeComSede
+        }];
+
+        setVinculacoes(mockVinculacoes);
+        setUnidadeAtiva(mockUnidadeId);
+        setLoading(false);
+        return;
+      }
 
       const { data, error } = await supabase
         .from('usuario_unidades')

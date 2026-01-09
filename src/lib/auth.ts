@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
+import { setMockSession, clearMockSession } from '../hooks/useAuth';
 import { Usuario, TipoUsuario } from '../types/usuario';
 
 export const authService = {
@@ -10,25 +11,39 @@ export const authService = {
       await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
 
       const isGestor = email.includes('gestor');
+      const mockUserId = isGestor ? 'mock-gestor-id' : 'mock-motorista-id';
+      const mockUnidadeId = 'mock-unidade-id';
+
       const mockUser: Usuario = {
-        id: 'mock-user-id',
+        id: mockUserId,
         email,
         nome: isGestor ? 'Gestor Teste' : 'Motorista Teste',
         papel: isGestor ? 'gestor' : 'motorista',
         ativo: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        unidades: { nome: 'Unidade Teste' } as any
+        unidade_id: mockUnidadeId,
+        unidades: {
+          id: mockUnidadeId,
+          nome: 'Unidade Teste',
+          cidade: 'São Paulo',
+          ativa: true
+        } as any
       };
 
+      const mockSession = {
+        access_token: 'mock-token',
+        refresh_token: 'mock-refresh',
+        expires_in: 3600,
+        token_type: 'bearer',
+        user: { id: mockUserId, email: mockUser.email }
+      } as any;
+
+      // Store mock session for useAuth hook to pick up
+      setMockSession(mockSession, mockSession.user);
+
       return {
-        session: {
-          access_token: 'mock-token',
-          refresh_token: 'mock-refresh',
-          expires_in: 3600,
-          token_type: 'bearer',
-          user: { id: mockUser.id, email: mockUser.email }
-        } as any,
+        session: mockSession,
         usuario: mockUser
       };
     }

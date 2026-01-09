@@ -5,7 +5,23 @@ import { Platform } from 'react-native';
 import { clearAllCache, cleanExpiredCache } from '../lib/cache';
 import { logger } from '../lib/logger';
 import { unregisterPushToken } from '../lib/notifications';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
+
+// Mock session storage for E2E/CI environments
+let mockSession: Session | null = null;
+let mockUser: User | null = null;
+
+// Export function to set mock session (called by authService.signIn)
+export function setMockSession(session: Session | null, user: User | null) {
+  mockSession = session;
+  mockUser = user;
+}
+
+// Export function to clear mock session (called by signOut)
+export function clearMockSession() {
+  mockSession = null;
+  mockUser = null;
+}
 
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
@@ -14,6 +30,17 @@ export function useAuth() {
   const lastUserId = useRef<string | null>(null);
 
   useEffect(() => {
+    // For E2E/CI: Check mock session first
+    if (!isSupabaseConfigured) {
+      if (mockSession && mockUser) {
+        setSession(mockSession);
+        setUser(mockUser);
+        lastUserId.current = mockUser.id;
+      }
+      setLoading(false);
+      return;
+    }
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
