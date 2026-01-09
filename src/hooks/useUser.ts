@@ -9,14 +9,6 @@ import { onProfileUpdate } from '../lib/profileEvents';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Usuario } from '../types/usuario';
 
-// Mock user data storage for E2E/CI environments
-let mockUserData: Usuario | null = null;
-
-// Export function to set mock user data (called after login)
-export function setMockUserData(user: Usuario | null) {
-  mockUserData = user;
-}
-
 export function useUser() {
   const { user, loading: authLoading } = useAuth();
   const userId = user?.id ?? null;

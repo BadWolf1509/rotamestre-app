@@ -173,7 +173,7 @@ export function useUnidadeAtiva(): UseUnidadeAtivaReturn {
     } finally {
       setLoading(false);
     }
-  }, [userData?.id, userData?.unidade_id]);
+  }, [userData?.id, userData?.unidade_id, userData?.papel]);
 
   // Trocar de unidade ativa
   const trocarUnidade = useCallback(async (unidadeId: string) => {

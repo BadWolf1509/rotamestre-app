@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
-import { setMockSession, clearMockSession } from '../hooks/useAuth';
+import { setMockSession } from '../hooks/useAuth';
 import { Usuario, TipoUsuario } from '../types/usuario';
 
 export const authService = {
