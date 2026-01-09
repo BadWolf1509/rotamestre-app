@@ -18,7 +18,8 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import React, { useMemo, useState, useCallback, useRef } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import {
   ScrollView,
   Text,
@@ -965,6 +966,39 @@ export default function DesignSystemScreen() {
   const { isDesktop, isMobile } = useResponsive();
   const scrollRef = useRef<ScrollView>(null);
   const sectionOffsets = useRef<Record<string, number>>({});
+
+  // Query params para testes E2E de visual regression
+  const searchParams = useLocalSearchParams<{
+    theme?: 'light' | 'dark';
+    density?: 'regular' | 'compact';
+    contrast?: 'normal' | 'high';
+  }>();
+
+  // Aplicar tema baseado nos query params (para testes E2E)
+  useEffect(() => {
+    const themeParam = searchParams.theme;
+    const densityParam = searchParams.density;
+    const contrastParam = searchParams.contrast;
+
+    if (themeParam || densityParam || contrastParam) {
+      // Construir nome do tema baseado nos parâmetros
+      const baseTheme = themeParam || 'light';
+      const density = densityParam === 'compact' ? 'Compact' : '';
+      const contrast = contrastParam === 'high' ? 'HighContrast' : '';
+      
+      // Formato: light, lightCompact, lightHighContrast, lightCompactHighContrast
+      // ou: dark, darkCompact, darkHighContrast, darkCompactHighContrast
+      const newThemeName = `${baseTheme}${density}${contrast}` as Parameters<typeof UnistylesRuntime.setTheme>[0];
+      
+      // Desabilitar adaptiveThemes para permitir setTheme manual
+      UnistylesRuntime.setAdaptiveThemes(false);
+      
+      // Aplicar tema se diferente do atual
+      if (UnistylesRuntime.themeName !== newThemeName) {
+        UnistylesRuntime.setTheme(newThemeName);
+      }
+    }
+  }, [searchParams.theme, searchParams.density, searchParams.contrast]);
 
   // Estados
   const [activeSection, setActiveSection] = useState<SectionId>('cores');

@@ -25,29 +25,34 @@ test.describe('Design System @visual', () => {
   // =============================================
 
   test('renders light theme', async ({ page }) => {
-    await page.goto(e2eUrl('/design-system'));
+    await page.goto(e2eUrl('/design-system?theme=light'));
     await page.waitForLoadState('networkidle');
+    await page.getByText('Design System').first().waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForTimeout(500);
     await expect(page).toHaveScreenshot('design-system-light.png', { fullPage: true });
   });
 
   test('renders light compact', async ({ page }) => {
     await page.goto(e2eUrl('/design-system?theme=light&density=compact'));
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(300);
+    await page.getByText('Design System').first().waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForTimeout(500);
     await expect(page).toHaveScreenshot('design-system-light-compact.png', { fullPage: true });
   });
 
   test('renders light high contrast', async ({ page }) => {
     await page.goto(e2eUrl('/design-system?theme=light&contrast=high'));
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(300);
+    await page.getByText('Design System').first().waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForTimeout(500);
     await expect(page).toHaveScreenshot('design-system-light-high-contrast.png', { fullPage: true });
   });
 
   test('renders light compact high contrast', async ({ page }) => {
     await page.goto(e2eUrl('/design-system?theme=light&density=compact&contrast=high'));
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(300);
+    await page.getByText('Design System').first().waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForTimeout(500);
     await expect(page).toHaveScreenshot('design-system-light-compact-high-contrast.png', { fullPage: true });
   });
 
@@ -58,28 +63,32 @@ test.describe('Design System @visual', () => {
   test('renders dark theme', async ({ page }) => {
     await page.goto(e2eUrl('/design-system?theme=dark'));
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(300);
+    await page.getByText('Design System').first().waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForTimeout(500);
     await expect(page).toHaveScreenshot('design-system-dark.png', { fullPage: true });
   });
 
   test('renders dark compact', async ({ page }) => {
     await page.goto(e2eUrl('/design-system?theme=dark&density=compact'));
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(300);
+    await page.getByText('Design System').first().waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForTimeout(500);
     await expect(page).toHaveScreenshot('design-system-dark-compact.png', { fullPage: true });
   });
 
   test('renders dark high contrast', async ({ page }) => {
     await page.goto(e2eUrl('/design-system?theme=dark&contrast=high'));
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(300);
+    await page.getByText('Design System').first().waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForTimeout(500);
     await expect(page).toHaveScreenshot('design-system-dark-high-contrast.png', { fullPage: true });
   });
 
   test('renders dark compact high contrast', async ({ page }) => {
     await page.goto(e2eUrl('/design-system?theme=dark&density=compact&contrast=high'));
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(300);
+    await page.getByText('Design System').first().waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForTimeout(500);
     await expect(page).toHaveScreenshot('design-system-dark-compact-high-contrast.png', { fullPage: true });
   });
 
