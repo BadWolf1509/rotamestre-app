@@ -31,6 +31,9 @@ test.describe('Critical Flows @visual', () => {
     await page.goto(e2eUrl('/auth/forgot-password'));
     await page.waitForLoadState('networkidle');
     await page.getByText(/recuperar|reset/i).first().waitFor();
+    // Wait for logo to load (mobile has horizontal logo above title)
+    await page.locator('img[src*="logo"]').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(500);
     await expect(page).toHaveScreenshot('visual-auth-forgot-password.png', {
       fullPage: true,
       animations: 'disabled',
