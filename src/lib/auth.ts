@@ -17,6 +17,7 @@ export const authService = {
         papel: isGestor ? 'gestor' : 'motorista',
         ativo: true,
         created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
         unidades: { nome: 'Unidade Teste' } as any
       };
 

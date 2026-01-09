@@ -265,11 +265,11 @@ describe('DashboardMobile', () => {
         });
     });
 
-    describe('ScrollView', () => {
-        it('deve ter testID no ScrollView', () => {
+    describe('FlatList', () => {
+        it('deve ter testID no FlatList', () => {
             const { getByTestId } = render(<DashboardMobile {...defaultProps} />);
 
-            expect(getByTestId('dashboard-scroll-view')).toBeTruthy();
+            expect(getByTestId('dashboard-flat-list')).toBeTruthy();
         });
     });
 });

@@ -2,6 +2,7 @@ import { authService } from '../auth';
 import { supabase } from '../supabase';
 
 // O mock do supabase já está configurado globalmente no jest.setup.js
+// (inclui isSupabaseConfigured: true para que os testes usem o path do Supabase mockado)
 // Apenas fazemos o cast para usar com TypeScript
 const mockSupabase = supabase as jest.Mocked<typeof supabase>;
 

@@ -58,11 +58,11 @@ export default defineConfig({
     // Timezone
     timezoneId: 'America/Sao_Paulo',
 
-    // Action timeout (click, fill, etc)
-    actionTimeout: 15000,
+    // Action timeout (click, fill, etc) - otimizado baseado em análise de tempos reais
+    actionTimeout: 10000,
 
-    // Navigation timeout
-    navigationTimeout: 60000,
+    // Navigation timeout - reduzido de 60s (máx real observado: ~13s)
+    navigationTimeout: 30000,
   },
 
   // Configure projects for major browsers
@@ -78,9 +78,9 @@ export default defineConfig({
       name: 'mobile-chrome',
       use: {
         ...devices['Pixel 5'],
-        // Mobile tests need longer timeouts due to smaller viewport and slower rendering
-        actionTimeout: 20000,
-        navigationTimeout: 90000,
+        // Mobile tests - timeouts otimizados (máx real: ~21s)
+        actionTimeout: 15000,
+        navigationTimeout: 45000,
       },
     },
   ],
@@ -95,12 +95,12 @@ export default defineConfig({
     stderr: 'pipe',
   },
 
-  // Global timeout for each test (60 seconds for React Native Web)
-  timeout: 60000,
+  // Global timeout for each test - otimizado de 60s para 30s (máx real: ~21s)
+  timeout: 30000,
 
-  // Expect timeout
+  // Expect timeout - otimizado de 15s para 10s
   expect: {
-    timeout: 15000,
+    timeout: 10000,
     toHaveScreenshot: {
       maxDiffPixelRatio: 0.02,
     },
