@@ -105,4 +105,8 @@ export default defineConfig({
       maxDiffPixelRatio: 0.02,
     },
   },
+
+  // Snapshot path template - remove platform suffix for cross-platform compatibility
+  // {testDir}/{testFileDir}/{testFileName}-snapshots/{arg}-{projectName}{ext}
+  snapshotPathTemplate: '{testDir}/{testFileDir}/{testFileName}-snapshots/{arg}-{projectName}{ext}',
 });
