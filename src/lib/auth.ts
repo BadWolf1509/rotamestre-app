@@ -1,9 +1,37 @@
-import { supabase } from './supabase';
+import { supabase, isSupabaseConfigured } from './supabase';
 import { Usuario, TipoUsuario } from '../types/usuario';
 
 export const authService = {
   // Login
   async signIn(email: string, password: string) {
+    // Mock for E2E/CI when credentials are missing
+    if (!isSupabaseConfigured) {
+      console.warn('[Auth] Mocking sign in for E2E/CI');
+      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+
+      const isGestor = email.includes('gestor');
+      const mockUser: Usuario = {
+        id: 'mock-user-id',
+        email,
+        nome: isGestor ? 'Gestor Teste' : 'Motorista Teste',
+        papel: isGestor ? 'gestor' : 'motorista',
+        ativo: true,
+        created_at: new Date().toISOString(),
+        unidades: { nome: 'Unidade Teste' } as any
+      };
+
+      return {
+        session: {
+          access_token: 'mock-token',
+          refresh_token: 'mock-refresh',
+          expires_in: 3600,
+          token_type: 'bearer',
+          user: { id: mockUser.id, email: mockUser.email }
+        } as any,
+        usuario: mockUser
+      };
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,

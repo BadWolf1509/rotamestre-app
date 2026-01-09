@@ -103,3 +103,4 @@ if (isSupabaseConfigured) {
 
 
 export const supabase = supabaseClient;
+export { isSupabaseConfigured };
