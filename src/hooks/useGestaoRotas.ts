@@ -31,7 +31,7 @@ import {
   type RotaStatus,
   type FiltroStatus,
 } from '@/lib/statusLabels';
-import { supabase } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 import { useRotasCache, useRotasFiltering, exportRotasToCSV } from './gestao-rotas';
 
@@ -117,6 +117,55 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
       // Only show loading if no cache
       if (!cachedData || cachedData.length === 0) {
         setLoading(true);
+      }
+
+      // MOCK DATA FOR E2E/CI
+      if (!isSupabaseConfigured) {
+        console.warn('[GestaoRotas] Mocking data for E2E/CI');
+        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
+
+        const mockRotas: RotaHistorico[] = [
+          {
+            id: 'rota-1',
+            data: new Date().toISOString(),
+            status: 'em_andamento',
+            distancia_total: 15.5,
+            iniciada_em: new Date().toISOString(),
+            concluida_em: null,
+            motorista_id: 'mot-1',
+            motorista_nome: 'Motorista Teste 1',
+            paradas_count: 10,
+            paradas_concluidas: 4
+          },
+          {
+            id: 'rota-2',
+            data: new Date(Date.now() - 86400000).toISOString(),
+            status: 'concluida',
+            distancia_total: 12.0,
+            iniciada_em: new Date(Date.now() - 90000000).toISOString(),
+            concluida_em: new Date(Date.now() - 86400000).toISOString(),
+            motorista_id: 'mot-2',
+            motorista_nome: 'Motorista Teste 2',
+            paradas_count: 8,
+            paradas_concluidas: 8
+          },
+          {
+            id: 'rota-3',
+            data: new Date().toISOString(),
+            status: 'pendente',
+            distancia_total: 8.2,
+            iniciada_em: null,
+            concluida_em: null,
+            motorista_id: null,
+            motorista_nome: 'Sem motorista',
+            paradas_count: 5,
+            paradas_concluidas: 0
+          }
+        ];
+
+        setRotas(mockRotas);
+        setLoading(false);
+        return;
       }
 
       // Fetch routes and stops in parallel (2 queries instead of N+1)

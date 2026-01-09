@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRealtimeRoutes } from '@/hooks/useRealtimeRoutes';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
-import { supabase } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 export interface Stats {
   total: number;
@@ -221,6 +221,71 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
           } else {
             setLoading(true);
           }
+        }
+
+        // MOCK DATA FOR E2E/CI
+        if (!isSupabaseConfigured) {
+          console.warn('[Dashboard] Mocking data for E2E/CI');
+          await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
+
+          if (!mountedRef.current) return;
+
+          const mockRotas: RotaResumo[] = [
+            {
+              id: 'rota-1',
+              data: new Date().toISOString(),
+              status: 'em_andamento',
+              motorista_nome: 'Motorista Teste 1',
+              motorista_id: 'mot-1',
+              total_paradas: 10,
+              paradas_concluidas: 4,
+              distancia_total: 15.5
+            },
+            {
+              id: 'rota-2',
+              data: new Date().toISOString(),
+              status: 'concluida',
+              motorista_nome: 'Motorista Teste 2',
+              motorista_id: 'mot-2',
+              total_paradas: 8,
+              paradas_concluidas: 8,
+              distancia_total: 12.0
+            },
+            {
+              id: 'rota-3',
+              data: new Date().toISOString(),
+              status: 'pendente',
+              motorista_nome: 'Sem motorista',
+              motorista_id: null,
+              total_paradas: 5,
+              paradas_concluidas: 0,
+              distancia_total: 8.2
+            }
+          ];
+
+          setRotas(mockRotas);
+          setStats({
+            total: 3,
+            emAndamento: 1,
+            concluidas: 1,
+            distanciaTotal: 35.7,
+            incidentesAbertos: 1
+          });
+          setTodayStats({ totalHoje: 3 });
+          setKpis({
+            rotasSemana: 15,
+            rotasMes: 45,
+            taxaSucesso: 95,
+            tempoMedioMinutos: 45,
+            totalParadas: 150,
+            paradasConcluidas: 142,
+            motoristaDestaque: { nome: 'Motorista Teste 2', rotasConcluidas: 20 }
+          });
+          
+          setLoading(false);
+          setRefreshing(false);
+          loadingRef.current = false;
+          return;
         }
 
         const hoje = new Date().toISOString().split('T')[0];
