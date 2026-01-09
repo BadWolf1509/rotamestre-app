@@ -38,6 +38,7 @@ jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: (...args: unknown[]) => mockFrom(...args),
   },
+  isSupabaseConfigured: true,
 }));
 
 describe('useUnidadeAtiva', () => {

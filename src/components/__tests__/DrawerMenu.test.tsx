@@ -16,60 +16,60 @@ jest.mock('expo-router', () => ({
   usePathname: () => mockPathname,
 }));
 
-// Mock supabase
-const mockSelect = jest.fn();
-const mockEq = jest.fn();
-const mockSingle = jest.fn();
+// Mock useUser hook - this is what DrawerMenu uses after decomposition
+const mockUserData = {
+  id: '123',
+  nome: 'João Silva',
+  email: 'joao@example.com',
+  papel: 'usuario',
+  is_gestor_principal: false,
+};
 
+const mockUnidade = { nome: 'Unidade Centro' };
+
+jest.mock('@/hooks/useUser', () => ({
+  useUser: jest.fn(() => ({
+    userData: mockUserData,
+    unidade: mockUnidade,
+    loading: false,
+    isGestor: false,
+    isMotorista: false,
+  })),
+}));
+
+// Mock supabase - still needed for logout
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
-      getUser: jest.fn(),
-      getSession: jest.fn(),
       signOut: jest.fn(),
-      onAuthStateChange: jest.fn(() => ({
-        data: { subscription: { unsubscribe: jest.fn() } },
-      })),
     },
-    from: jest.fn(),
   },
+  isSupabaseConfigured: true,
 }));
 
 describe('DrawerMenu Component', () => {
   const mockOnClose = jest.fn();
   const { supabase } = require('@/lib/supabase');
+  const { useUser } = require('@/hooks/useUser');
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // Setup default mocks
-    const mockUserData = {
-      data: { user: { id: '123' } },
-      error: null,
-    };
-
-    const mockProfileData = {
-      data: {
+    // Setup default mock for useUser
+    useUser.mockReturnValue({
+      userData: {
         id: '123',
         nome: 'João Silva',
         email: 'joao@example.com',
         papel: 'usuario',
         is_gestor_principal: false,
-        unidades: { nome: 'Unidade Centro' },
       },
-      error: null,
-    };
-
-    mockSingle.mockResolvedValue(mockProfileData);
-    mockEq.mockReturnValue({ single: mockSingle });
-    mockSelect.mockReturnValue({ eq: mockEq });
-
-    supabase.auth.getUser.mockResolvedValue(mockUserData);
-    supabase.auth.getSession.mockResolvedValue({
-      data: { session: { user: { id: '123' } } },
-      error: null,
+      unidade: { nome: 'Unidade Centro' },
+      loading: false,
+      isGestor: false,
+      isMotorista: false,
     });
-    supabase.from.mockReturnValue({ select: mockSelect });
+
     supabase.auth.signOut.mockResolvedValue({ error: null });
   });
 
@@ -174,23 +174,19 @@ describe('DrawerMenu Component', () => {
 
   describe('Menu Items para Gestor', () => {
     beforeEach(() => {
-      const { supabase } = require('@/lib/supabase');
-
-      mockSingle.mockResolvedValue({
-        data: {
+      useUser.mockReturnValue({
+        userData: {
           id: '123',
           nome: 'Maria Gestora',
           email: 'maria@example.com',
           papel: 'gestor',
           is_gestor_principal: false,
-          unidades: { nome: 'Unidade Centro' },
         },
-        error: null,
+        unidade: { nome: 'Unidade Centro' },
+        loading: false,
+        isGestor: true,
+        isMotorista: false,
       });
-
-      mockEq.mockReturnValue({ single: mockSingle });
-      mockSelect.mockReturnValue({ eq: mockEq });
-      supabase.from.mockReturnValue({ select: mockSelect });
     });
 
     it('deve renderizar Minha Unidade para gestor', async () => {
@@ -217,23 +213,19 @@ describe('DrawerMenu Component', () => {
 
   describe('Badge Gestor Principal', () => {
     it('deve exibir badge quando is_gestor_principal=true', async () => {
-      const { supabase } = require('@/lib/supabase');
-
-      mockSingle.mockResolvedValue({
-        data: {
+      useUser.mockReturnValue({
+        userData: {
           id: '123',
           nome: 'Carlos Principal',
           email: 'carlos@example.com',
           papel: 'gestor',
           is_gestor_principal: true,
-          unidades: { nome: 'Unidade Centro' },
         },
-        error: null,
+        unidade: { nome: 'Unidade Centro' },
+        loading: false,
+        isGestor: true,
+        isMotorista: false,
       });
-
-      mockEq.mockReturnValue({ single: mockSingle });
-      mockSelect.mockReturnValue({ eq: mockEq });
-      supabase.from.mockReturnValue({ select: mockSelect });
 
       const { getByText } = render(
         <DrawerMenu visible={true} onClose={mockOnClose} />
@@ -435,14 +427,9 @@ describe('DrawerMenu Component', () => {
 
   describe('Visibilidade', () => {
     it('deve carregar perfil quando drawer fica visível', async () => {
-      const { supabase } = require('@/lib/supabase');
-
       const { rerender, getByText } = render(
         <DrawerMenu visible={false} onClose={mockOnClose} />
       );
-
-      // Limpa chamadas anteriores
-      supabase.auth.getUser.mockClear();
 
       rerender(<DrawerMenu visible={true} onClose={mockOnClose} />);
 
@@ -455,21 +442,19 @@ describe('DrawerMenu Component', () => {
 
   describe('Tratamento de Erro', () => {
     it('deve exibir ? quando não há nome', async () => {
-      const { supabase } = require('@/lib/supabase');
-
-      mockSingle.mockResolvedValue({
-        data: {
+      useUser.mockReturnValue({
+        userData: {
           id: '123',
           email: 'teste@example.com',
           papel: 'usuario',
           is_gestor_principal: false,
+          // nome is undefined
         },
-        error: null,
+        unidade: null,
+        loading: false,
+        isGestor: false,
+        isMotorista: false,
       });
-
-      mockEq.mockReturnValue({ single: mockSingle });
-      mockSelect.mockReturnValue({ eq: mockEq });
-      supabase.from.mockReturnValue({ select: mockSelect });
 
       const { getByText } = render(
         <DrawerMenu visible={true} onClose={mockOnClose} />

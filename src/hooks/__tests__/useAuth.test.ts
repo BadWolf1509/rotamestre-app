@@ -15,6 +15,7 @@ jest.mock('../../lib/supabase', () => ({
       setAuth: jest.fn(),
     },
   },
+  isSupabaseConfigured: true,
 }));
 
 describe('useAuth', () => {
