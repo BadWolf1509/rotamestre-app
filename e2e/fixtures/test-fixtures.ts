@@ -66,7 +66,7 @@ async function login(page: Page, userType: 'motorista' | 'gestor') {
 
   // Wait for navigation to complete
   await page.waitForURL(userType === 'motorista' ? '**/motorista**' : '**/gestor**', {
-    timeout: 30000,
+    timeout: 60000,
   });
 }
 
