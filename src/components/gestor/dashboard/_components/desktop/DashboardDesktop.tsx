@@ -1,12 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  View,
-  TouchableOpacity,
-  RefreshControl,
-  Alert,
-  Platform,
-} from 'react-native';
+import { View, TouchableOpacity, RefreshControl } from 'react-native';
 
 import { RouteFilters } from '@/components/RouteFilters';
 import type { RouteFiltersState as RouteFiltersType } from '@/components/RouteFilters';
@@ -80,28 +74,9 @@ export function DashboardDesktop({
   });
 
   const handleDeleteRota = async (rotaId: string) => {
-    // Web: usar modal customizado
-    if (Platform.OS === 'web') {
-      setRotaToDelete(rotaId);
-      setShowConfirmModal(true);
-    } else {
-      // Mobile: usar Alert.alert nativo
-      Alert.alert(
-        'Confirmar Exclusão',
-        'Tem certeza que deseja excluir esta rota? Esta ação não pode ser desfeita.',
-        [
-          {
-            text: 'Cancelar',
-            style: 'cancel',
-          },
-          {
-            text: 'Excluir',
-            style: 'destructive',
-            onPress: () => executeDelete(rotaId),
-          },
-        ]
-      );
-    }
+    // Usar ConfirmModal em todas as plataformas para UX consistente
+    setRotaToDelete(rotaId);
+    setShowConfirmModal(true);
   };
 
   const executeDelete = async (rotaId: string) => {
@@ -113,21 +88,11 @@ export function DashboardDesktop({
 
       if (error) throw error;
 
-      if (Platform.OS === 'web') {
-        showToast('Rota excluída com sucesso', 'success');
-      } else {
-        Alert.alert('Sucesso', 'Rota excluída com sucesso');
-      }
-
-      onRefresh(); // Refresh the dashboard
+      showToast('Rota excluída com sucesso', 'success');
+      onRefresh();
     } catch (error) {
       logger.error('Erro ao excluir rota:', error);
-
-      if (Platform.OS === 'web') {
-        showToast('Erro ao excluir a rota', 'error');
-      } else {
-        Alert.alert('Erro', 'Não foi possível excluir a rota');
-      }
+      showToast('Erro ao excluir a rota', 'error');
     }
   };
 
