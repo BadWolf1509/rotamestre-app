@@ -17,7 +17,7 @@ import { e2eUrl } from './fixtures/test-fixtures';
  * | Dark  | Regular | High     | dark-high-contrast |
  * | Dark  | Compact | High     | dark-compact-high-contrast |
  */
-test.describe('Design System @visual', () => {
+test.describe('Design System @visual @public', () => {
   test.skip(!process.env.VISUAL_REGRESSION, 'Set VISUAL_REGRESSION=1 to enable visual snapshots.');
 
   // =============================================

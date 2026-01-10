@@ -4,7 +4,8 @@ import { test, e2eUrl } from './fixtures/test-fixtures';
 import { GestorPage } from './pages/gestor.page';
 import { MotoristaPage } from './pages/motorista.page';
 
-test.describe('Critical Flows @visual', () => {
+// Tests that do NOT require authentication
+test.describe('Critical Flows - Public @visual @public', () => {
   test.skip(!process.env.VISUAL_REGRESSION, 'Set VISUAL_REGRESSION=1 to enable visual snapshots.');
 
   test('renders auth login', async ({ page }) => {
@@ -49,6 +50,11 @@ test.describe('Critical Flows @visual', () => {
       animations: 'disabled',
     });
   });
+});
+
+// Tests that REQUIRE authentication (gestor/motorista login)
+test.describe('Critical Flows - Authenticated @visual @auth', () => {
+  test.skip(!process.env.VISUAL_REGRESSION, 'Set VISUAL_REGRESSION=1 to enable visual snapshots.');
 
   test('renders gestor dashboard', async ({ page, loginAsGestor }) => {
     const gestorPage = new GestorPage(page);
