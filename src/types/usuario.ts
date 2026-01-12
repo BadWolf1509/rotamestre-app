@@ -62,6 +62,9 @@ export interface Usuario {
   is_gestor_principal?: boolean;
   foto_url?: string | null;
 
+  // Push notifications (migration 20251220)
+  push_token?: string | null;
+
   // Dados da unidade quando faz join com select('*, unidades(*)')
   // LEGACY: Unidade ativa atual (cache)
   unidades?: UnidadeDB;

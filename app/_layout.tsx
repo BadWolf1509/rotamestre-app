@@ -19,6 +19,7 @@ import { NotificationDataProvider } from '@/context/NotificationDataContext';
 import { NotificationModalProvider } from '@/context/NotificationModalContext';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUser } from '@/hooks/useUser';
+import { setupNotificationResponseHandler } from '@/lib/notificationHandlers';
 import { initializeNotifications } from '@/lib/notifications';
 import { setupOfflineSync } from '@/lib/offline';
 import {
@@ -176,14 +177,18 @@ export default function RootLayout() {
   // Inicializar notificações e sync offline (apenas mobile)
   useEffect(() => {
     if (Platform.OS !== 'web') {
-      // Inicializar sistema de notificações
+      // Inicializar sistema de notificações locais
       initializeNotifications();
 
       // Configurar sync automático quando conexão mudar
-      const unsubscribe = setupOfflineSync();
+      const unsubscribeOffline = setupOfflineSync();
+
+      // Configurar handler de clique em notificações (deep linking)
+      const unsubscribeNotifications = setupNotificationResponseHandler();
 
       return () => {
-        unsubscribe();
+        unsubscribeOffline();
+        unsubscribeNotifications?.remove();
       };
     }
   }, []);

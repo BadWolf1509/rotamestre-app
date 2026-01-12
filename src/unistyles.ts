@@ -59,7 +59,7 @@ declare module 'react-native-unistyles' {
 // ===== CONFIGURE =====
 StyleSheet.configure({
   settings: {
-    adaptiveThemes: true, // enable automatic dark mode detection
+    adaptiveThemes: false, // respect user's saved preference from AsyncStorage
   },
   themes: {
     light: lightTheme,

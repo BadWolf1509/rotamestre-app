@@ -23,11 +23,10 @@ const STORAGE_KEYS = {
   EXPORT_FORMAT: '@rotamestre:gestor:export_format',
 };
 
-type ExportFormat = 'csv' | 'pdf';
+type ExportFormat = 'csv';
 
 const EXPORT_OPTIONS: { value: ExportFormat; label: string; icon: string }[] = [
   { value: 'csv', label: 'CSV (Excel)', icon: '📊' },
-  { value: 'pdf', label: 'PDF', icon: '📄' },
 ];
 
 export default function ConfiguracoesGestorScreen() {
