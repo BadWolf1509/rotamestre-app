@@ -9,7 +9,7 @@
  */
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useMemo, useRef } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import { View, ScrollView, TouchableOpacity, Platform } from 'react-native';
 
 import {
@@ -77,6 +77,9 @@ export default function MapaRota() {
   // Constants
   const pageMeta = getGestorPageMeta('mapaRota');
 
+  // Memoized error handler to prevent infinite re-render loop
+  const handleDataError = useCallback(() => router.back(), [router]);
+
   // ===== Data Hook =====
   const {
     loading,
@@ -89,7 +92,7 @@ export default function MapaRota() {
     loadRotaEParadas,
   } = useMapaRotaData({
     rotaId: id,
-    onError: () => router.back(),
+    onError: handleDataError,
   });
 
   // ===== Handlers Hook =====
