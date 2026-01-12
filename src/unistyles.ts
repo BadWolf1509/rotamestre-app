@@ -60,6 +60,7 @@ declare module 'react-native-unistyles' {
 StyleSheet.configure({
   settings: {
     adaptiveThemes: false, // respect user's saved preference from AsyncStorage
+    initialTheme: 'light', // required when adaptiveThemes is false
   },
   themes: {
     light: lightTheme,
