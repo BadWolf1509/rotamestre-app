@@ -6,7 +6,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { memo } from 'react';
 import { Text, View } from 'react-native';
 
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -43,7 +43,11 @@ function formatTime(isoString: string): string {
   }
 }
 
-export function LastRouteCard({ data }: LastRouteCardProps) {
+/**
+ * LastRouteCard - Card memoizado de resumo da última rota
+ * Memoizado para evitar re-renders desnecessários
+ */
+export const LastRouteCard = memo(function LastRouteCard({ data }: LastRouteCardProps) {
   const { theme } = useUnistyles();
 
   const horario = formatTime(data.concluida_em);
@@ -123,7 +127,7 @@ export function LastRouteCard({ data }: LastRouteCardProps) {
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {

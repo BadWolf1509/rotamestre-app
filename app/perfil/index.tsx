@@ -8,9 +8,8 @@ import {
   View,
 } from 'react-native';
 
-import { AlertDialog } from '@/components/AlertDialog';
 import { AvatarEditable } from '@/components/AvatarEditable';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { Dialog } from '@/components/Dialog';
 import { PerfilDesktopLayout } from '@/components/perfil/PerfilDesktopLayout';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import { DesktopPageLayout, Text } from '@/design-system';
@@ -148,15 +147,17 @@ export default function PerfilGestor() {
           />
         </DesktopPageLayout>
         {logoutModal}
-        <ConfirmDialog
+        <Dialog
           visible={confirmDialog.visible}
+          variant="confirm"
           title={confirmDialog.title}
           message={confirmDialog.message}
           onConfirm={confirmDialog.onConfirm}
           onCancel={closeConfirmDialog}
         />
-        <AlertDialog
+        <Dialog
           visible={alertDialog.visible}
+          variant="alert"
           title={alertDialog.title}
           message={alertDialog.message}
           type={alertDialog.type}
@@ -260,15 +261,17 @@ export default function PerfilGestor() {
       ))}
       </ScrollView>
       {logoutModal}
-      <ConfirmDialog
+      <Dialog
         visible={confirmDialog.visible}
+        variant="confirm"
         title={confirmDialog.title}
         message={confirmDialog.message}
         onConfirm={confirmDialog.onConfirm}
         onCancel={closeConfirmDialog}
       />
-      <AlertDialog
+      <Dialog
         visible={alertDialog.visible}
+        variant="alert"
         title={alertDialog.title}
         message={alertDialog.message}
         type={alertDialog.type}

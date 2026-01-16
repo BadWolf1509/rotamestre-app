@@ -36,11 +36,12 @@ export class LoginPage {
     await this.page.goto('/auth/login?e2e=true', { waitUntil: 'commit' });
     await this.page.waitForTimeout(2000);
     try {
-      await this.waitForLoginForm(20000);
+      await this.waitForLoginForm(30000);
     } catch {
+      // Retry with reload if first attempt fails
       await this.page.reload({ waitUntil: 'commit' });
-      await this.page.waitForTimeout(2000);
-      await this.waitForLoginForm(60000);
+      await this.page.waitForTimeout(3000);
+      await this.waitForLoginForm(45000);
     }
   }
 

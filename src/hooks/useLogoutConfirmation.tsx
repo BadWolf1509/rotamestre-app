@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 
-import { ConfirmModal } from '@/design-system';
+import { Dialog } from '@/design-system';
 import { authService } from '@/lib/auth';
 
 export function useLogoutConfirmation() {
@@ -24,8 +24,9 @@ export function useLogoutConfirmation() {
   };
 
   const modal = (
-    <ConfirmModal
+    <Dialog
       visible={visible}
+      variant="confirm"
       title="Sair da conta"
       message="Deseja realmente encerrar sua sessao?"
       confirmText="Sair"

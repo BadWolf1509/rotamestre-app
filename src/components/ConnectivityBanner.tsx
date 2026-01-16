@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
 import { Animated, Text, View, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useIsOnline, useNetworkStatus } from '@/hooks/useNetworkStatus';
 import type { IconName } from '@/types/icons';
@@ -37,6 +38,7 @@ export function ConnectivityBanner({
   reconnectDuration = 3000,
 }: ConnectivityBannerProps) {
   const { theme } = useUnistyles();
+  const insets = useSafeAreaInsets();
   const isOnline = useIsOnline();
   const { connectionType, isWifi } = useNetworkStatus();
 
@@ -110,6 +112,8 @@ export function ConnectivityBanner({
         {
           backgroundColor,
           transform: [{ translateY: slideAnim }],
+          // Adiciona padding para safe area quando posicionado no bottom
+          ...(position === 'bottom' && { paddingBottom: theme.components.connectivityBanner.paddingV + insets.bottom }),
         },
       ]}
     >

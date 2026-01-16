@@ -18,13 +18,13 @@ jest.mock('@/lib/auth', () => ({
   },
 }));
 
-// Variable to capture ConfirmModal props
+// Variable to capture Dialog props
 let capturedProps: any = null;
 
-// Mock ConfirmModal
-jest.mock('@/components/ConfirmModal', () => {
+// Mock Dialog
+jest.mock('@/components/Dialog', () => {
   return {
-    ConfirmModal: jest.fn((props) => {
+    Dialog: jest.fn((props) => {
       capturedProps = props;
       return null;
     }),
@@ -69,7 +69,7 @@ describe('useLogoutConfirmation', () => {
     expect(result.current.logoutModal.type).toBeTruthy();
   });
 
-  it('should pass correct props to ConfirmModal initially', () => {
+  it('should pass correct props to Dialog initially', () => {
     render(<TestComponent />);
 
     expect(capturedProps).toBeTruthy();

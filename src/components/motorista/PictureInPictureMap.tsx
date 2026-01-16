@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -29,6 +30,9 @@ interface PictureInPictureMapProps {
   onExpand: () => void;
 }
 
+// Altura base da Tab Bar (sem safe area)
+const TAB_BAR_BASE_HEIGHT = 60;
+
 export function PictureInPictureMap({
   visible,
   userLocation,
@@ -37,10 +41,22 @@ export function PictureInPictureMap({
   onExpand,
 }: PictureInPictureMapProps) {
   const { theme } = useUnistyles();
+  const insets = useSafeAreaInsets();
+
+  // Refs para bounds seguros (atualizados quando insets mudam)
+  const safeTopBoundRef = useRef(insets.top + 10);
+  const safeBottomBoundRef = useRef(SCREEN_HEIGHT - PIP_HEIGHT - TAB_BAR_BASE_HEIGHT - insets.bottom - EDGE_PADDING);
+
+  // Atualizar refs quando insets mudarem
+  useEffect(() => {
+    safeTopBoundRef.current = insets.top + 10;
+    safeBottomBoundRef.current = SCREEN_HEIGHT - PIP_HEIGHT - TAB_BAR_BASE_HEIGHT - insets.bottom - EDGE_PADDING;
+  }, [insets.top, insets.bottom]);
+
   // Animation values
   const pan = useRef(new Animated.ValueXY({
     x: SCREEN_WIDTH - PIP_WIDTH - EDGE_PADDING,
-    y: 100,
+    y: Math.max(safeTopBoundRef.current, 100),
   })).current;
   const scale = useRef(new Animated.Value(1)).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -77,11 +93,11 @@ export function PictureInPictureMap({
           ? EDGE_PADDING
           : SCREEN_WIDTH - PIP_WIDTH - EDGE_PADDING;
 
-        // Keep within screen bounds
+        // Keep within screen bounds (usando refs para valores atualizados de safe area)
         const finalY = Math.max(
-          50, // Top padding (below status bar)
+          safeTopBoundRef.current, // Abaixo da status bar
           Math.min(
-            SCREEN_HEIGHT - PIP_HEIGHT - 100, // Bottom padding (above tab bar)
+            safeBottomBoundRef.current, // Acima da tab bar + navigation bar
             gestureState.moveY - PIP_HEIGHT / 2
           )
         );
@@ -128,12 +144,12 @@ export function PictureInPictureMap({
         }),
       ]).start();
     } else {
-      // Collapse to corner
+      // Collapse to corner (usando safe bounds)
       Animated.parallel([
         Animated.spring(pan, {
           toValue: {
             x: SCREEN_WIDTH - PIP_WIDTH - EDGE_PADDING,
-            y: 100,
+            y: Math.max(safeTopBoundRef.current, 100),
           },
           useNativeDriver: false,
           tension: 40,

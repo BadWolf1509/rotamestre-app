@@ -4,7 +4,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef } from 'react';
+import React, { memo, useEffect, useRef } from 'react';
 import { Animated, Text, View } from 'react-native';
 
 import { MilestoneData } from '@/hooks/useMilestones';
@@ -16,7 +16,11 @@ interface MilestoneCardProps {
   compact?: boolean;
 }
 
-export function MilestoneCard({ data, compact = false }: MilestoneCardProps) {
+/**
+ * MilestoneCard - Card de progresso memoizado
+ * Memoizado para evitar re-renders desnecessários quando renderizado em listas
+ */
+export const MilestoneCard = memo(function MilestoneCard({ data, compact = false }: MilestoneCardProps) {
   const { theme } = useUnistyles();
   const progressAnim = useRef(new Animated.Value(0)).current;
 
@@ -139,7 +143,7 @@ export function MilestoneCard({ data, compact = false }: MilestoneCardProps) {
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {

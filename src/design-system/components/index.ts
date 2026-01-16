@@ -6,13 +6,12 @@ export { ErrorBoundary } from '@/components/ErrorBoundary';
 export { SwipeableRow } from '@/components/SwipeableRow';
 
 // Base Components
-export { AlertDialog } from '@/components/AlertDialog';
 export { Avatar } from '@/components/Avatar';
 export { Badge } from '@/components/Badge';
 export { Button } from '@/components/Button';
 export { Card } from '@/components/Card';
-export { ConfirmDialog } from '@/components/ConfirmDialog';
-export { ConfirmModal } from '@/components/ConfirmModal';
+export { Dialog } from '@/components/Dialog';
+export type { DialogProps, DialogType, DialogVariant } from '@/components/Dialog';
 export { DataTable } from '@/components/DataTable';
 export type { DataTableAction, DataTableColumn } from '@/components/DataTable';
 export { EmptyState } from '@/components/EmptyState';

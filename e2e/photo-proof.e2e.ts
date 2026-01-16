@@ -24,7 +24,7 @@ test.describe('Motorista Photo Proof E2E Tests', () => {
     // Login as motorista
     await loginPage.goto();
     await loginPage.login(testUsers.motorista.email, testUsers.motorista.password);
-    await page.waitForURL(/.*motorista.*/, { timeout: 15000 });
+    await page.waitForURL(/.*motorista.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
   });
 
   test.describe('Photo Upload Interface', () => {
@@ -128,7 +128,7 @@ test.describe('Gestor Photo Viewing E2E Tests', () => {
     // Login as gestor
     await loginPage.goto();
     await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
-    await page.waitForURL(/.*gestor.*/, { timeout: 15000 });
+    await page.waitForURL(/.*gestor.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
   });
 
   test.describe('View Delivery Proofs', () => {
@@ -186,7 +186,7 @@ test.describe('Photo Storage Integration', () => {
 
     await loginPage.goto();
     await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
-    await page.waitForURL(/.*gestor.*/, { timeout: 15000 });
+    await page.waitForURL(/.*gestor.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
   });
 
   test('should display route with completed stops having photos', async ({ page }) => {

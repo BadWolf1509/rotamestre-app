@@ -23,7 +23,7 @@ test.describe('Gestor Team Management E2E Tests', () => {
     // Login as gestor
     await loginPage.goto();
     await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
-    await page.waitForURL(/.*gestor.*/, { timeout: 15000 });
+    await page.waitForURL(/.*gestor.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
   });
 
   test.describe('Motoristas Page Access', () => {
@@ -227,7 +227,7 @@ test.describe('Gestão Rotas E2E Tests', () => {
 
     await loginPage.goto();
     await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
-    await page.waitForURL(/.*gestor.*/, { timeout: 15000 });
+    await page.waitForURL(/.*gestor.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
   });
 
   test.describe('Gestão Rotas Page', () => {

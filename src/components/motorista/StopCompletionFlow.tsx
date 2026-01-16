@@ -19,8 +19,8 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, Platform } from 'react-native';
 
 import CameraUpload from '@/components/CameraUpload';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { DesktopModal } from '@/components/desktop/DesktopModal';
+import { Dialog } from '@/components/Dialog';
 import { useRouteStatus, ParadaData } from '@/context/RouteStatusContext';
 import { useUser } from '@/hooks/useUser';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -254,8 +254,9 @@ export function StopCompletionFlow({
         )}
       </DesktopModal>
 
-      <ConfirmDialog
+      <Dialog
         visible={skipPhotoDialog.visible}
+        variant="confirm"
         title={skipPhotoDialog.errorMessage ? 'Erro no Upload' : 'Pular foto?'}
         message={
           skipPhotoDialog.errorMessage
@@ -269,7 +270,7 @@ export function StopCompletionFlow({
           setStep('confirm');
         }}
         onCancel={() => setSkipPhotoDialog({ visible: false })}
-        type="destructive"
+        type="danger"
       />
     </>
   );

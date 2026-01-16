@@ -37,17 +37,17 @@ exports[`Button deve renderizar ícone se fornecido 1`] = `
     [
       {
         "alignItems": "center",
-        "borderRadius": 8,
+        "borderRadius": 10,
         "flexDirection": "row",
         "justifyContent": "center",
       },
       {
-        "backgroundColor": "#284093",
+        "backgroundColor": "#1e5aa8",
       },
       {
-        "minHeight": 40,
+        "minHeight": 44,
         "paddingHorizontal": 16,
-        "paddingVertical": 10,
+        "paddingVertical": 12,
       },
       {
         "minHeight": 44,
@@ -63,7 +63,7 @@ exports[`Button deve renderizar ícone se fornecido 1`] = `
   <Ionicons
     color="#ffffff"
     name="add"
-    size={17}
+    size={19}
     style={
       {
         "marginRight": 8,
@@ -74,13 +74,13 @@ exports[`Button deve renderizar ícone se fornecido 1`] = `
     style={
       [
         {
-          "fontFamily": "NunitoSans-SemiBold",
+          "fontFamily": "System",
         },
         {
           "color": "#ffffff",
         },
         {
-          "fontSize": 14,
+          "fontSize": 16,
         },
         undefined,
       ]

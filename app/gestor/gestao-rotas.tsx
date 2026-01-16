@@ -25,12 +25,12 @@ import {
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
-  ConfirmModal,
   DataTable,
   type DataTableAction,
   type DataTableColumn,
   DesktopCard,
   DesktopPageLayout,
+  Dialog,
   FilterChip,
   MobileCard,
   MobileEmptyState,
@@ -324,8 +324,9 @@ export default function GestaoRotas() {
         </DesktopPageLayout>
 
         {/* Modal de Confirmação - Desktop */}
-        <ConfirmModal
+        <Dialog
           visible={showConfirmModal}
+          variant="confirm"
           title="Excluir Rota"
           message={`Tem certeza que deseja excluir esta rota?\n\nMotorista: ${rotaToDelete?.motorista_nome || 'Sem motorista'}\nParadas: ${rotaToDelete?.paradas_count || 0}\nStatus: ${rotaToDelete?.status ? getStatusLabel(rotaToDelete.status) : '-'}\n\nEsta ação não pode ser desfeita.`}
           confirmText="Excluir"
@@ -446,8 +447,9 @@ export default function GestaoRotas() {
       </ScrollView>
 
       {/* Modal de Confirmação de Exclusão - Mobile */}
-      <ConfirmModal
+      <Dialog
         visible={showConfirmModal}
+        variant="confirm"
         title="Confirmar Exclusão"
         message={`Tem certeza que deseja excluir esta rota?\n\nMotorista: ${rotaToDelete?.motorista_nome || 'Sem motorista'}\nParadas: ${rotaToDelete?.paradas_count || 0}\nStatus: ${rotaToDelete?.status ? getStatusLabel(rotaToDelete.status) : '-'}\n\nEsta ação não pode ser desfeita.`}
         confirmText="Excluir"

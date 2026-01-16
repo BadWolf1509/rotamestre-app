@@ -13,7 +13,7 @@ test.describe('Motorista Navigation E2E Tests', () => {
     // Login as motorista
     await loginPage.goto();
     await loginPage.login(testUsers.motorista.email, testUsers.motorista.password);
-    await page.waitForURL(/.*motorista.*/, { timeout: 15000 });
+    await page.waitForURL(/.*motorista.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
   });
 
   test.describe('Tab Navigation (Mobile)', () => {

@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Platform, Switch, TouchableOpacity, View } from 'react-native';
 
-import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { Dialog } from '@/components/Dialog';
 import { Text } from '@/design-system';
 import {
   getThemePreferences,
@@ -329,15 +329,16 @@ export function ThemeSettings({
       )}
 
       {/* Reset Confirmation Dialog */}
-      <ConfirmDialog
+      <Dialog
         visible={showResetDialog}
+        variant="confirm"
         title="Restaurar padrões"
         message="Tem certeza que deseja restaurar as configurações de aparência para os valores padrão?"
         confirmText="Restaurar"
         cancelText="Cancelar"
         onConfirm={handleConfirmReset}
         onCancel={handleCancelReset}
-        type="destructive"
+        type="danger"
       />
     </View>
   );

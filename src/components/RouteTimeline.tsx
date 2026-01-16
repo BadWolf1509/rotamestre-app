@@ -9,14 +9,13 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList, ListRenderItemInfo } from '@shopify/flash-list';
 import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   Platform,
   TouchableOpacity,
-  RefreshControl,
   Animated,
   LayoutAnimation,
   UIManager,
@@ -44,6 +43,12 @@ import {
   type FilterType,
   PAGE_SIZE,
 } from './timeline';
+
+// Types for FlashList items
+type ListItemType =
+  | { type: 'header'; date: string }
+  | { type: 'event'; event: TimelineEvent; isLastInGroup: boolean; nextEvent?: TimelineEvent }
+  | { type: 'loadMore' };
 
 // Habilitar LayoutAnimation no Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -348,6 +353,84 @@ export function RouteTimeline({
     incidentes: events.filter((e) => e.type === 'incidente').length,
   }), [events]);
 
+  // Flatten grouped events for FlashList virtualization
+  const flatListData = useMemo((): ListItemType[] => {
+    const items: ListItemType[] = [];
+
+    groupedEvents.forEach((group) => {
+      // Add date header
+      items.push({ type: 'header', date: group.date });
+
+      // Add events
+      group.events.forEach((event, index) => {
+        items.push({
+          type: 'event',
+          event,
+          isLastInGroup: index === group.events.length - 1,
+          nextEvent: group.events[index + 1],
+        });
+      });
+    });
+
+    // Add load more button if needed
+    if (hasMore && !loading) {
+      items.push({ type: 'loadMore' });
+    }
+
+    return items;
+  }, [groupedEvents, hasMore, loading]);
+
+  // Key extractor for FlashList
+  const keyExtractor = useCallback((item: ListItemType): string => {
+    if (item.type === 'header') return `header-${item.date}`;
+    if (item.type === 'event') return item.event.id;
+    return 'load-more';
+  }, []);
+
+  // Render item for FlashList
+  const renderItem = useCallback(({ item }: ListRenderItemInfo<ListItemType>) => {
+    if (item.type === 'header') {
+      return <TimelineDateHeader date={item.date} />;
+    }
+
+    if (item.type === 'event') {
+      return (
+        <TimelineEventCard
+          event={item.event}
+          isLastInGroup={item.isLastInGroup}
+          nextEvent={item.nextEvent}
+          isExpanded={expandedEvents.has(item.event.id)}
+          onToggleExpand={() => toggleExpanded(item.event.id)}
+          pulseAnim={item.event.isCritical ? pulseAnim : undefined}
+        />
+      );
+    }
+
+    // Load more button
+    return (
+      <TouchableOpacity
+        style={styles.loadMoreButton}
+        onPress={handleLoadMore}
+        disabled={loadingMore}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={loadingMore ? 'Carregando mais eventos' : 'Carregar mais eventos'}
+      >
+        {loadingMore ? (
+          <Text style={styles.loadMoreText}>Carregando...</Text>
+        ) : (
+          <>
+            <Ionicons name="chevron-down" size={16} color={theme.colors.info} />
+            <Text style={styles.loadMoreText}>Carregar mais eventos</Text>
+          </>
+        )}
+      </TouchableOpacity>
+    );
+  }, [expandedEvents, toggleExpanded, pulseAnim, handleLoadMore, loadingMore, theme.colors.info]);
+
+  // Get item type for FlashList optimization
+  const getItemType = useCallback((item: ListItemType): string => item.type, []);
+
   // Render
   if (loading) return <TimelineSkeleton showFilters={showFilters} />;
 
@@ -370,66 +453,25 @@ export function RouteTimeline({
         />
       )}
 
-      <ScrollView
-        style={styles.scrollView}
+      <FlashList
+        data={flatListData}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        getItemType={getItemType}
         showsVerticalScrollIndicator={Platform.OS === 'web'}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[theme.colors.info]}
-            tintColor={theme.colors.info}
-          />
-        }
-      >
-        {groupedEvents.map((group, groupIndex) => (
-          <View key={group.date}>
-            <TimelineDateHeader date={group.date} />
-            {group.events.map((event, index) => (
-              <TimelineEventCard
-                key={event.id}
-                event={event}
-                isLastInGroup={index === group.events.length - 1}
-                nextEvent={group.events[index + 1]}
-                isExpanded={expandedEvents.has(event.id)}
-                onToggleExpand={() => toggleExpanded(event.id)}
-                pulseAnim={event.isCritical ? pulseAnim : undefined}
-              />
-            ))}
-            {groupIndex < groupedEvents.length - 1 && <View style={styles.groupSpacer} />}
-          </View>
-        ))}
-
-        {hasMore && !loading && (
-          <TouchableOpacity
-            style={styles.loadMoreButton}
-            onPress={handleLoadMore}
-            disabled={loadingMore}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel={loadingMore ? 'Carregando mais eventos' : 'Carregar mais eventos'}
-          >
-            {loadingMore ? (
-              <Text style={styles.loadMoreText}>Carregando...</Text>
-            ) : (
-              <>
-                <Ionicons name="chevron-down" size={16} color={theme.colors.info} />
-                <Text style={styles.loadMoreText}>Carregar mais eventos</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        )}
-      </ScrollView>
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
+        drawDistance={300}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create((theme: Theme) => ({
   container: { flex: 1 },
-  scrollView: { flex: 1 },
+  listContent: { paddingBottom: theme.spacing.md },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: theme.spacing.xl * 1.6 },
   emptyText: { marginTop: theme.spacing.md, fontSize: theme.typography.fontSize.sm, color: theme.colors.gray500 },
-  groupSpacer: { height: theme.spacing.sm },
   loadMoreButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: theme.spacing.lg, marginHorizontal: theme.spacing.lg, marginVertical: theme.spacing.sm, backgroundColor: theme.colors.gray50, borderRadius: theme.borderRadius.lg, borderWidth: 1, borderColor: theme.colors.gray200, gap: theme.spacing.sm },
   loadMoreText: { fontSize: theme.typography.fontSize.sm, fontFamily: theme.typography.fontSansMedium, color: theme.colors.info },
 }));

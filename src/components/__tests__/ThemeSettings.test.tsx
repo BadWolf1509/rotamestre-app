@@ -108,14 +108,14 @@ jest.mock('@expo/vector-icons', () => ({
   },
 }));
 
-// Mock ConfirmDialog
-jest.mock('@/components/ConfirmDialog', () => ({
-  ConfirmDialog: ({ visible, title, message, onConfirm, onCancel }: {
+// Mock Dialog
+jest.mock('@/components/Dialog', () => ({
+  Dialog: ({ visible, title, message, onConfirm, onCancel }: {
     visible: boolean;
     title: string;
     message: string;
     onConfirm: () => void;
-    onCancel: () => void;
+    onCancel?: () => void;
   }) => {
     const { View, Text, TouchableOpacity } = require('react-native');
     if (!visible) return null;
@@ -126,9 +126,11 @@ jest.mock('@/components/ConfirmDialog', () => ({
         <TouchableOpacity testID="confirm-reset" onPress={onConfirm}>
           <Text>Restaurar</Text>
         </TouchableOpacity>
-        <TouchableOpacity testID="cancel-reset" onPress={onCancel}>
-          <Text>Cancelar</Text>
-        </TouchableOpacity>
+        {onCancel && (
+          <TouchableOpacity testID="cancel-reset" onPress={onCancel}>
+            <Text>Cancelar</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   },

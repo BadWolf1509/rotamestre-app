@@ -390,9 +390,9 @@ describe('DrawerMenu Component', () => {
         expect(getByText('Erro ao sair')).toBeTruthy();
       });
 
-      // Fechar dialog clicando em "Fechar"
+      // Fechar dialog clicando em "Entendi"
       await waitFor(() => {
-        fireEvent.press(getByText('Fechar'));
+        fireEvent.press(getByText('Entendi'));
       });
 
       consoleErrorSpy.mockRestore();

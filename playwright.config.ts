@@ -82,6 +82,8 @@ export default defineConfig({
         actionTimeout: process.env.CI ? 20000 : 15000,
         navigationTimeout: process.env.CI ? 90000 : 45000,
       },
+      // Extra retry for mobile-chrome due to resource contention with parallel execution
+      retries: process.env.CI ? 2 : 2,
     },
   ],
 

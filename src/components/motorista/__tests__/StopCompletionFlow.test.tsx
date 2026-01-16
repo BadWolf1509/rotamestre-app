@@ -66,6 +66,13 @@ jest.mock('@/utils/styles', () => {
       section: { padding: 24, gap: 12 },
       modal: { footerGap: 8, footerPadding: 16 },
     },
+    components: {
+      dialog: {
+        buttonGap: 12,
+        buttonPaddingV: 12,
+        buttonPaddingH: 16,
+      },
+    },
   };
 
   return {
@@ -127,9 +134,9 @@ jest.mock('@/components/CameraUpload', () => {
   };
 });
 
-// Mock ConfirmDialog
-jest.mock('@/components/ConfirmDialog', () => ({
-  ConfirmDialog: ({ visible, title, message, onConfirm, onCancel }: {
+// Mock Dialog (migrated from ConfirmDialog)
+jest.mock('@/components/Dialog', () => ({
+  Dialog: ({ visible, title, message, onConfirm, onCancel }: {
     visible: boolean;
     title: string;
     message: string;

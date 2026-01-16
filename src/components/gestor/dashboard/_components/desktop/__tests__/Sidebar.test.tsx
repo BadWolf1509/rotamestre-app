@@ -21,9 +21,9 @@ jest.mock('@/lib/auth', () => ({
     },
 }));
 
-// Mock ConfirmDialog
-jest.mock('@/components/ConfirmDialog', () => ({
-    ConfirmDialog: ({ visible, onConfirm, onCancel }: any) => {
+// Mock Dialog
+jest.mock('@/components/Dialog', () => ({
+    Dialog: ({ visible, onConfirm, onCancel }: any) => {
         if (!visible) return null;
         const { View, TouchableOpacity, Text } = require('react-native');
         return (
@@ -31,9 +31,11 @@ jest.mock('@/components/ConfirmDialog', () => ({
                 <TouchableOpacity testID="confirm-btn" onPress={onConfirm}>
                     <Text>Confirmar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity testID="cancel-btn" onPress={onCancel}>
-                    <Text>Cancelar</Text>
-                </TouchableOpacity>
+                {onCancel && (
+                    <TouchableOpacity testID="cancel-btn" onPress={onCancel}>
+                        <Text>Cancelar</Text>
+                    </TouchableOpacity>
+                )}
             </View>
         );
     },

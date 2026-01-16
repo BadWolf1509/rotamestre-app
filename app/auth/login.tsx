@@ -15,7 +15,7 @@ import { UnistylesRuntime } from 'react-native-unistyles';
 import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
 import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
-import { AlertDialog } from '@/design-system';
+import { Dialog } from '@/design-system';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { getErrorMessage } from '@/lib/errorMapping';
@@ -194,8 +194,9 @@ export default function Login() {
         </View>
 
         {/* Alert Dialog */}
-        <AlertDialog
+        <Dialog
           visible={alertConfig.visible}
+          variant="alert"
           title={alertConfig.title}
           message={alertConfig.message}
           type={alertConfig.type}
@@ -278,8 +279,9 @@ export default function Login() {
       </View>
 
       {/* Alert Dialog */}
-      <AlertDialog
+      <Dialog
         visible={alertConfig.visible}
+        variant="alert"
         title={alertConfig.title}
         message={alertConfig.message}
         type={alertConfig.type}

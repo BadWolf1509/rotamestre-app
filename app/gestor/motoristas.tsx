@@ -13,13 +13,13 @@ import {
 
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
-  ConfirmModal,
   DataTable,
   type DataTableAction,
   type DataTableColumn,
   DesktopCard,
   DesktopModal,
   DesktopPageLayout,
+  Dialog,
   MobileEmptyState,
   StatusBadge,
   Toast,
@@ -337,8 +337,9 @@ export default function MotoristasGestor() {
   // ============================================
 
   const confirmModal = (
-    <ConfirmModal
+    <Dialog
       visible={showConfirmModal}
+      variant="confirm"
       title={motoristaParaToggle?.ativo ? 'Desativar Motorista' : 'Ativar Motorista'}
       message={`Deseja realmente ${motoristaParaToggle?.ativo ? 'desativar' : 'ativar'} ${motoristaParaToggle?.nome}?`}
       confirmText="Confirmar"

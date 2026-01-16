@@ -26,7 +26,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
-import { ConfirmModal, DesktopModal, StepIndicator, type Step } from '@/design-system';
+import { DesktopModal, Dialog, StepIndicator, type Step } from '@/design-system';
 import { useIncidentSubmit } from '@/hooks/useIncidentSubmit';
 import { useResponsive } from '@/hooks/useResponsive';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -379,8 +379,9 @@ function IncidentReportWizardComponent({
       </DesktopModal>
 
       {/* Modal de confirmação para fechar */}
-      <ConfirmModal
+      <Dialog
         visible={showConfirmClose}
+        variant="confirm"
         title="Cancelar Reporte"
         message="Tem certeza que deseja cancelar o reporte do incidente? As informações preenchidas serão perdidas."
         confirmText="Sim, cancelar"
@@ -391,27 +392,25 @@ function IncidentReportWizardComponent({
       />
 
       {/* Modal de sucesso */}
-      <ConfirmModal
+      <Dialog
         visible={showSuccessModal}
+        variant="alert"
         title="Incidente Reportado"
         message="O problema foi registrado e será analisado pela gestão."
         confirmText="OK"
-        cancelText=""
         type="info"
         onConfirm={handleSuccessConfirm}
-        onCancel={handleSuccessConfirm}
       />
 
       {/* Modal de erro */}
-      <ConfirmModal
+      <Dialog
         visible={showErrorModal}
+        variant="alert"
         title="Atenção"
         message={errorMessage}
         confirmText="OK"
-        cancelText=""
         type="warning"
         onConfirm={() => setShowErrorModal(false)}
-        onCancel={() => setShowErrorModal(false)}
       />
     </>
   );

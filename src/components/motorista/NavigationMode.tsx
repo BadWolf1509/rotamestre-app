@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { abrirNavegacao } from '@/lib/navigation';
 import LocationTrackingService from '@/services/locationTracking';
@@ -40,6 +41,7 @@ export function NavigationMode({
   onExit,
 }: NavigationModeProps) {
   const { theme } = useUnistyles();
+  const insets = useSafeAreaInsets();
   const [userLocation, setUserLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -355,7 +357,7 @@ export function NavigationMode({
       </View>
 
       {/* Navigation Info Panel */}
-      <View style={styles.infoPanel}>
+      <View style={[styles.infoPanel, { paddingBottom: theme.spacing.xl + insets.bottom }]}>
         {/* Distance and ETA */}
         <View style={styles.mainInfo}>
           <View style={styles.distanceContainer}>
@@ -518,7 +520,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderTopRightRadius: theme.borderRadius.xl,
     paddingTop: theme.spacing.xl,
     paddingHorizontal: theme.spacing.lg,
-    paddingBottom: Platform.OS === 'ios' ? 30 : theme.spacing.xl,
+    // paddingBottom é definido dinamicamente com insets.bottom
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,

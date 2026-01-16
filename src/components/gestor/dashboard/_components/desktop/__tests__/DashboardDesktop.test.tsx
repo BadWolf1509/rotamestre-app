@@ -66,9 +66,9 @@ jest.mock('@/components/Toast', () => ({
     Toast: () => null,
 }));
 
-// Mock ConfirmModal
-jest.mock('@/components/ConfirmModal', () => ({
-    ConfirmModal: () => null,
+// Mock Dialog
+jest.mock('@/components/Dialog', () => ({
+    Dialog: () => null,
 }));
 
 // Mock RotasTable

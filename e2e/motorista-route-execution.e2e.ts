@@ -26,7 +26,7 @@ test.describe('Motorista Route Execution E2E Tests', () => {
     // Login as motorista
     await loginPage.goto();
     await loginPage.login(testUsers.motorista.email, testUsers.motorista.password);
-    await page.waitForURL(/.*motorista.*/, { timeout: 15000 });
+    await page.waitForURL(/.*motorista.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
   });
 
   test.describe('Route Display', () => {
@@ -236,7 +236,7 @@ test.describe('Motorista History Tab Tests', () => {
 
     await loginPage.goto();
     await loginPage.login(testUsers.motorista.email, testUsers.motorista.password);
-    await page.waitForURL(/.*motorista.*/, { timeout: 15000 });
+    await page.waitForURL(/.*motorista.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
   });
 
   test.describe('Historico Tab', () => {

@@ -6,7 +6,7 @@ import { UnistylesRuntime } from 'react-native-unistyles';
 
 import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
 import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
-import { ConfirmDialog } from '@/design-system';
+import { Dialog } from '@/design-system';
 import { authService } from '@/lib/auth';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -147,26 +147,26 @@ export function Sidebar({ onNavigate, userData }: SidebarProps) {
       </View>
 
       {/* Dialogs */}
-      <ConfirmDialog
+      <Dialog
         visible={showLogoutDialog}
+        variant="confirm"
         title="Sair da conta"
         message="Deseja realmente encerrar sua sessão? Você precisará fazer login novamente."
         confirmText="Sair"
         cancelText="Cancelar"
-        type="destructive"
+        type="danger"
         onConfirm={handleLogoutConfirm}
         onCancel={() => setShowLogoutDialog(false)}
       />
 
-      <ConfirmDialog
+      <Dialog
         visible={showErrorDialog}
+        variant="alert"
         title="Erro ao sair"
         message="Não foi possível encerrar sua sessão. Verifique sua conexão e tente novamente."
         confirmText="Entendi"
-        cancelText="Fechar"
-        type="destructive"
+        type="danger"
         onConfirm={() => setShowErrorDialog(false)}
-        onCancel={() => setShowErrorDialog(false)}
       />
     </>
   );

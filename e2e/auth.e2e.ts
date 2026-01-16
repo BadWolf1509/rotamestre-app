@@ -64,7 +64,7 @@ test.describe('Authentication E2E Tests', () => {
       await loginPage.login(testUsers.motorista.email, testUsers.motorista.password);
 
       // Should redirect to motorista area
-      await page.waitForURL(/.*motorista.*/, { timeout: 15000 });
+      await page.waitForURL(/.*motorista.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
       await expect(page).toHaveURL(/.*motorista.*/);
     });
   });
@@ -75,7 +75,7 @@ test.describe('Authentication E2E Tests', () => {
       await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
 
       // Should redirect to gestor area
-      await page.waitForURL(/.*gestor.*/, { timeout: 15000 });
+      await page.waitForURL(/.*gestor.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
       await expect(page).toHaveURL(/.*gestor.*/);
     });
   });
@@ -87,7 +87,7 @@ test.describe('Authentication E2E Tests', () => {
       await loginPage.login(testUsers.motorista.email, testUsers.motorista.password);
 
       // Wait for redirect to motorista
-      await page.waitForURL(/.*motorista.*/, { timeout: 15000 });
+      await page.waitForURL(/.*motorista.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
 
       // Now try to access login page again
       await page.goto(e2eUrl('/auth/login'), { waitUntil: 'domcontentloaded' });

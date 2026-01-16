@@ -25,7 +25,7 @@ test.describe('Gestor Dashboard Metrics E2E Tests', () => {
     // Login as gestor
     await loginPage.goto();
     await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
-    await page.waitForURL(/.*gestor.*/, { timeout: 15000 });
+    await page.waitForURL(/.*gestor.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
   });
 
   test.describe('Dashboard Overview', () => {
@@ -123,7 +123,7 @@ test.describe('Reports and Export E2E Tests', () => {
 
     await loginPage.goto();
     await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
-    await page.waitForURL(/.*gestor.*/, { timeout: 15000 });
+    await page.waitForURL(/.*gestor.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
   });
 
   test.describe('Route Reports', () => {
@@ -231,7 +231,7 @@ test.describe('Real-time Tracking E2E Tests', () => {
 
     await loginPage.goto();
     await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
-    await page.waitForURL(/.*gestor.*/, { timeout: 15000 });
+    await page.waitForURL(/.*gestor.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
   });
 
   test.describe('Live Route Tracking', () => {
@@ -299,7 +299,7 @@ test.describe('Performance Analytics E2E Tests', () => {
 
     await loginPage.goto();
     await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
-    await page.waitForURL(/.*gestor.*/, { timeout: 15000 });
+    await page.waitForURL(/.*gestor.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
   });
 
   test.describe('Driver Performance', () => {

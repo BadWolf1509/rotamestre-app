@@ -12,6 +12,7 @@ import { Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect } from 'react';
 import { Platform, Text, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
 import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
@@ -273,58 +274,60 @@ export default function RootLayout() {
   }
 
   return (
-    <NotificationDataProvider>
-      <NotificationModalProvider>
-        <ConditionalLayout>
-          <Stack
-          screenOptions={{
-            headerStyle: {
-              backgroundColor: theme.colors.primary,
-            },
-            headerTintColor: theme.colors.white,
-            headerTitleStyle: {
-              fontFamily: theme.typography.fontDisplay,
-              fontSize: theme.typography.lg,
-            },
-            headerShown: false,
-          }}
-        >
-          <Stack.Screen
-            name="index"
-            options={{
-              title: 'Rota Mestre - Início'
+    <SafeAreaProvider>
+      <NotificationDataProvider>
+        <NotificationModalProvider>
+          <ConditionalLayout>
+            <Stack
+            screenOptions={{
+              headerStyle: {
+                backgroundColor: theme.colors.primary,
+              },
+              headerTintColor: theme.colors.white,
+              headerTitleStyle: {
+                fontFamily: theme.typography.fontDisplay,
+                fontSize: theme.typography.lg,
+              },
+              headerShown: false,
+            }}
+          >
+            <Stack.Screen
+              name="index"
+              options={{
+                title: 'Rota Mestre - Início'
+              }}
+            />
+            <Stack.Screen
+              name="auth"
+              options={{
+                title: 'Rota Mestre - Autenticação'
+              }}
+            />
+            <Stack.Screen
+              name="gestor"
+              options={{
+                title: 'Rota Mestre - Painel do Gestor'
+              }}
+            />
+            <Stack.Screen
+              name="motorista"
+              options={{
+                title: 'Rota Mestre - Motorista'
+              }}
+            />
+          </Stack>
+          </ConditionalLayout>
+          <Toast
+            config={{
+              success: ({ text1, text2 }) => renderToast(theme.colors.success, text1, text2),
+              error: ({ text1, text2 }) => renderToast(theme.colors.error, text1, text2),
+              info: ({ text1, text2 }) => renderToast(theme.colors.primary, text1, text2),
+              warning: ({ text1, text2 }) => renderToast(theme.colors.secondary, text1, text2),
             }}
           />
-          <Stack.Screen
-            name="auth"
-            options={{
-              title: 'Rota Mestre - Autenticação'
-            }}
-          />
-          <Stack.Screen
-            name="gestor"
-            options={{
-              title: 'Rota Mestre - Painel do Gestor'
-            }}
-          />
-          <Stack.Screen
-            name="motorista"
-            options={{
-              title: 'Rota Mestre - Motorista'
-            }}
-          />
-        </Stack>
-        </ConditionalLayout>
-        <Toast
-          config={{
-            success: ({ text1, text2 }) => renderToast(theme.colors.success, text1, text2),
-            error: ({ text1, text2 }) => renderToast(theme.colors.error, text1, text2),
-            info: ({ text1, text2 }) => renderToast(theme.colors.primary, text1, text2),
-            warning: ({ text1, text2 }) => renderToast(theme.colors.secondary, text1, text2),
-          }}
-        />
-      </NotificationModalProvider>
-    </NotificationDataProvider>
+        </NotificationModalProvider>
+      </NotificationDataProvider>
+    </SafeAreaProvider>
   );
 }
 

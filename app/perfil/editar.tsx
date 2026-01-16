@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 
 import { FormDesktopLayout } from '@/components/perfil/FormDesktopLayout';
-import { AlertDialog, Button, Input, Text } from '@/design-system';
+import { Button, Dialog, Input, Text } from '@/design-system';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
@@ -202,8 +202,9 @@ export default function EditarPerfilGestor() {
           loading={saving}
           backPath="/perfil"
         />
-        <AlertDialog
+        <Dialog
           visible={alertConfig.visible}
+          variant="alert"
           title={alertConfig.title}
           message={alertConfig.message}
           type={alertConfig.type}
@@ -278,8 +279,9 @@ export default function EditarPerfilGestor() {
         </View>
       </ScrollView>
 
-      <AlertDialog
+      <Dialog
         visible={alertConfig.visible}
+        variant="alert"
         title={alertConfig.title}
         message={alertConfig.message}
         type={alertConfig.type}

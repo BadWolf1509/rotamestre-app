@@ -5,7 +5,7 @@ import { View, TouchableOpacity, RefreshControl } from 'react-native';
 import { RouteFilters } from '@/components/RouteFilters';
 import type { RouteFiltersState as RouteFiltersType } from '@/components/RouteFilters';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
-import { Button, ConfirmModal, DesktopPageLayout, Text, Toast } from '@/design-system';
+import { Button, DesktopPageLayout, Dialog, Text, Toast } from '@/design-system';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useMotoristas } from '@/hooks/useMotoristas';
 import { logger } from '@/lib/logger';
@@ -211,8 +211,9 @@ export function DashboardDesktop({
         </View>
       </DesktopPageLayout>
 
-      <ConfirmModal
+      <Dialog
         visible={showConfirmModal}
+        variant="confirm"
         title="Excluir Rota"
         message="Tem certeza que deseja excluir esta rota? Esta ação não pode ser desfeita."
         confirmText="Excluir"

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { memo } from 'react';
 import { View, Text } from 'react-native';
 
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -18,8 +19,9 @@ interface StatsCardProps {
 /**
  * Card de estatística unificado - mobile e desktop
  * Suporta modo simples (compatível com versão anterior) e detalhado
+ * Memoizado para evitar re-renders desnecessários em listas
  */
-export function StatsCard({
+export const StatsCard = memo(function StatsCard({
   value,
   label,
   backgroundColor,
@@ -99,7 +101,7 @@ export function StatsCard({
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create((theme: Theme) => ({
   // Modo detalhado (padrão)

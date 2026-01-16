@@ -7,6 +7,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { RouteStatus } from '@/context/RouteStatusContext';
 import type { IconName } from '@/types/icons';
@@ -142,8 +143,8 @@ export function QuickActions({
 }
 
 // FAB Component
-// Altura padrão da Tab Bar (60px base + ~20px para safe area média)
-const DEFAULT_TAB_BAR_HEIGHT = 80;
+// Altura base da Tab Bar (sem safe area)
+const TAB_BAR_BASE_HEIGHT = 60;
 
 interface FloatingActionButtonProps {
   icon: IconName;
@@ -151,7 +152,7 @@ interface FloatingActionButtonProps {
   onPress: () => void;
   label?: string;
   disabled?: boolean;
-  /** Altura da tab bar (para posicionar o FAB acima dela). Default: 80 */
+  /** Margem extra acima da tab bar. Default: 16 */
   tabBarHeight?: number;
 }
 
@@ -161,9 +162,10 @@ export function FloatingActionButton({
   onPress,
   label,
   disabled = false,
-  tabBarHeight = DEFAULT_TAB_BAR_HEIGHT,
+  tabBarHeight = 16,
 }: FloatingActionButtonProps) {
   const { theme } = useUnistyles();
+  const insets = useSafeAreaInsets();
 
   const handlePress = async () => {
     if (disabled) return;
@@ -171,8 +173,8 @@ export function FloatingActionButton({
     onPress();
   };
 
-  // FAB fica 16px acima da tab bar
-  const fabBottom = tabBarHeight + 16;
+  // FAB fica acima da tab bar (60px base + insets.bottom + margem extra)
+  const fabBottom = TAB_BAR_BASE_HEIGHT + insets.bottom + tabBarHeight;
 
   return (
     <TouchableOpacity

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { Dialog } from '@/components/Dialog';
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
 import { MobileEmptyState } from '@/components/mobile/MobileEmptyState';
 import { ParadaCard, Parada } from '@/components/motorista/ParadaCard';
@@ -536,9 +536,10 @@ export default function CheckpointsMotorista() {
         allowSkipPhoto={true}
       />
 
-      {/* ConfirmDialog para pular/retomar parada */}
-      <ConfirmDialog
+      {/* Dialog para pular/retomar parada */}
+      <Dialog
         visible={confirmDialog.visible}
+        variant="confirm"
         title={confirmDialog.type === 'pular' ? 'Pular Parada' : 'Retomar Parada'}
         message={
           confirmDialog.parada
@@ -551,7 +552,7 @@ export default function CheckpointsMotorista() {
         cancelText="Cancelar"
         onConfirm={handleConfirmDialogAction}
         onCancel={() => setConfirmDialog({ visible: false, type: 'pular', parada: null })}
-        type={confirmDialog.type === 'pular' ? 'destructive' : 'default'}
+        type={confirmDialog.type === 'pular' ? 'danger' : 'default'}
       />
     </Container>
   );

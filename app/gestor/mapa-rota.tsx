@@ -41,10 +41,10 @@ import { MapaAdapter } from '@/components/MapaAdapter';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
   Button,
-  ConfirmModal,
   DesktopCard,
   DesktopModal,
   DesktopPageLayout,
+  Dialog,
   SplitView,
   Text,
   Toast,
@@ -355,8 +355,9 @@ export default function MapaRota() {
           onClose={clearFotoSelecionada}
         />
 
-        <ConfirmModal
+        <Dialog
           visible={modals.showCancelModal}
+          variant="confirm"
           title="Cancelar rota"
           message="Tem certeza que deseja cancelar esta rota? Esta ação não pode ser desfeita."
           confirmText="Sim, cancelar"
@@ -369,8 +370,9 @@ export default function MapaRota() {
           type="danger"
         />
 
-        <ConfirmModal
+        <Dialog
           visible={modals.showReactivateModal}
+          variant="confirm"
           title="Reativar rota"
           message="Deseja reativar esta rota expirada? A rota será reprogramada para hoje e as paradas não concluídas voltarão ao status pendente."
           confirmText="Sim, reativar"
@@ -395,8 +397,9 @@ export default function MapaRota() {
           onCancel={modals.closeChangeDriverModal}
         />
 
-        <ConfirmModal
+        <Dialog
           visible={modals.showRemoveStopModal && !!paradaToRemove}
+          variant="confirm"
           title="Remover parada"
           message={`Tem certeza que deseja remover esta parada?\n\n${paradaToRemove?.endereco || ''}\n\nA rota será recalculada automaticamente.`}
           confirmText="Sim, remover"
@@ -492,8 +495,9 @@ export default function MapaRota() {
           />
         </DesktopModal>
 
-        <ConfirmModal
+        <Dialog
           visible={modals.showReorderConfirmClose}
+          variant="confirm"
           title="Descartar Alterações?"
           message="Você tem alterações não salvas na ordem das paradas. Deseja descartá-las?"
           type="warning"

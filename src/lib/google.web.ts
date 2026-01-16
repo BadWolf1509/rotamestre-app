@@ -2,39 +2,34 @@
 
 import {
   type RoutesAPIResponse,
-  adaptRoutesAPIResponse,
-  mapRoutesAPIError,
-  parseDuration,
+  type PlaceSuggestion,
+  type GoogleAddressComponent,
+  type DistanceMatrixRow,
+  type DistanceMatrixElement,
+  validateAndAdaptRoutesResponse,
+  processDirectionsSegment,
+  createAccumulators,
+  handleDirectionsError,
+  parseGoogleError,
+  createNetworkError,
+  RouteResult,
+  success,
+  failure,
 } from './google-shared';
 import { logger } from './logger';
 import { mergePolylines } from './polyline';
-import {
-  RouteError,
-  RouteResult,
-  parseGoogleError,
-  createNetworkError,
-  success,
-  failure,
-  formatErrorForLog,
-} from './routeErrors';
+import { formatErrorForLog } from './routeErrors';
 import { supabase } from './supabase';
 import { Coordenadas, EnderecoGeocodificado } from '../types/endereco';
-import { GoogleDirectionsLeg, GoogleDirectionsResult } from '../types/google-directions';
+import { GoogleDirectionsResult } from '../types/google-directions';
 
 // Re-export polyline utilities for backwards compatibility
 export { decodePolyline, encodePolyline, mergePolylines } from './polyline';
 // Re-export shared utilities for backwards compatibility
 export { RoutesAPIResponse, adaptRoutesAPIResponse, mapRoutesAPIError, parseDuration } from './google-shared';
 
-// Interface para sugestões (mesma do google.ts)
-export interface PlaceSuggestion {
-  place_id: string;
-  description: string;
-  structured_formatting: {
-    main_text: string;
-    secondary_text: string;
-  };
-}
+// PlaceSuggestion is now exported from google-shared.ts
+export type { PlaceSuggestion } from './google-shared';
 
 // Aguardar Google Maps JavaScript API (carregada pelo MapaWeb.tsx via useJsApiLoader)
 // NÃO criar script duplicado - usar a API já carregada
@@ -155,9 +150,9 @@ export const googleMapsService = {
               const result = results[0];
               const location = result.geometry.location;
 
-              const addressComponents = result.address_components;
+              const addressComponents: GoogleAddressComponent[] = result.address_components;
               const getComponent = (type: string) =>
-                addressComponents.find((c: any) => c.types.includes(type))?.long_name || '';
+                addressComponents.find((c) => c.types.includes(type))?.long_name || '';
 
               resolve({
                 logradouro: getComponent('route'),
@@ -271,39 +266,15 @@ export const googleMapsService = {
         hasError: !!data?.error,
       });
 
-      const apiResponse = data as RoutesAPIResponse;
-
-      // Verificar erros da Routes API
-      if (apiResponse.error) {
-        const errorStatus = mapRoutesAPIError(apiResponse.error);
-        const error = parseGoogleError(errorStatus, apiResponse.error.message);
-        logger.warn('[Google.web] Directions ' + formatErrorForLog(error));
-        return failure(error);
+      // Validar e adaptar resposta usando helper compartilhado
+      const result = validateAndAdaptRoutesResponse(data as RoutesAPIResponse);
+      if (!result.success) {
+        logger.warn('[Google.web] Directions ' + formatErrorForLog(result.error!));
       }
+      return result;
 
-      // Verificar se tem rotas
-      if (!apiResponse.routes || apiResponse.routes.length === 0) {
-        const error = parseGoogleError('ZERO_RESULTS', 'No routes found');
-        logger.warn('[Google.web] Directions ' + formatErrorForLog(error));
-        return failure(error);
-      }
-
-      // Adaptar resposta para formato interno
-      const result = adaptRoutesAPIResponse(apiResponse);
-      return success(result);
-
-    } catch (err: any) {
-      // Tratar diferentes tipos de erro
-      let error: RouteError;
-
-      if (err?.name === 'AbortError') {
-        error = parseGoogleError('TIMEOUT', 'Request aborted due to timeout');
-      } else if (err instanceof TypeError || err?.message?.includes('fetch')) {
-        error = createNetworkError(err);
-      } else {
-        error = parseGoogleError('UNKNOWN_ERROR', err?.message);
-      }
-
+    } catch (err) {
+      const error = handleDirectionsError(err);
       logger.error('[Google.web] Directions ' + formatErrorForLog(error));
       return failure(error);
     }
@@ -345,10 +316,7 @@ export const googleMapsService = {
         }
       }
 
-      let totalDistanceMeters = 0;
-      let totalDurationSeconds = 0;
-      const allLegs: GoogleDirectionsLeg[] = [];
-      const polylineSegments: string[] = [];
+      const accumulators = createAccumulators();
 
       // Calcular cada segmento via Edge Function
       for (let i = 0; i < allPoints.length - 1; i++) {
@@ -377,60 +345,24 @@ export const googleMapsService = {
           continue; // Continua com próximo segmento
         }
 
-        const apiResponse = data as RoutesAPIResponse;
-
-        // Processar resposta do segmento
-        if (apiResponse.routes && apiResponse.routes.length > 0) {
-          const route = apiResponse.routes[0];
-          const leg = route.legs[0];
-
-          totalDistanceMeters += leg.distanceMeters || 0;
-          totalDurationSeconds += parseDuration(leg.duration);
-
-          allLegs.push({
-            distancia_metros: leg.distanceMeters || 0,
-            duracao_segundos: parseDuration(leg.duration),
-            endereco_inicio: `${leg.startLocation.latLng.latitude.toFixed(6)}, ${leg.startLocation.latLng.longitude.toFixed(6)}`,
-            endereco_fim: `${leg.endLocation.latLng.latitude.toFixed(6)}, ${leg.endLocation.latLng.longitude.toFixed(6)}`,
-            coordenadas_inicio: {
-              latitude: leg.startLocation.latLng.latitude,
-              longitude: leg.startLocation.latLng.longitude,
-            },
-            coordenadas_fim: {
-              latitude: leg.endLocation.latLng.latitude,
-              longitude: leg.endLocation.latLng.longitude,
-            },
-          });
-
-          if (route.polyline?.encodedPolyline) {
-            polylineSegments.push(route.polyline.encodedPolyline);
-          }
-        } else {
-          logger.warn(`[Google.web] Sequential Segment ${i + 1} failed: ${apiResponse.error?.status || 'NO_ROUTES'}`);
+        // Processar resposta do segmento usando helper compartilhado
+        if (!processDirectionsSegment(data as RoutesAPIResponse, accumulators)) {
+          logger.warn(`[Google.web] Sequential Segment ${i + 1} failed: ${(data as RoutesAPIResponse).error?.status || 'NO_ROUTES'}`);
         }
       }
 
       // Usar mergePolylines para combinar corretamente as polylines
-      const mergedPolyline = mergePolylines(polylineSegments);
+      const mergedPolyline = mergePolylines(accumulators.polylineSegments);
 
       return success({
         polyline: mergedPolyline,
-        distancia_total_metros: totalDistanceMeters,
-        duracao_total_segundos: totalDurationSeconds,
+        distancia_total_metros: accumulators.totalDistanceMeters,
+        duracao_total_segundos: accumulators.totalDurationSeconds,
         ordem_otimizada: [],
-        legs: allLegs,
+        legs: accumulators.legs,
       });
-    } catch (err: any) {
-      let error: RouteError;
-
-      if (err?.name === 'AbortError') {
-        error = parseGoogleError('TIMEOUT', 'Request aborted due to timeout');
-      } else if (err instanceof TypeError || err?.message?.includes('fetch')) {
-        error = createNetworkError(err);
-      } else {
-        error = parseGoogleError('UNKNOWN_ERROR', err?.message);
-      }
-
+    } catch (err) {
+      const error = handleDirectionsError(err);
       logger.error('[Google.web] Sequential ' + formatErrorForLog(error));
       return failure(error);
     }
@@ -458,9 +390,9 @@ export const googleMapsService = {
 
       // Processar resposta da Distance Matrix API
       if (data?.status === 'OK' && data?.rows) {
-        const matrix = data.rows.map((row: any, i: number) => ({
+        const matrix = (data.rows as DistanceMatrixRow[]).map((row, i: number) => ({
           origem: origins[i],
-          destinos: row.elements.map((element: any, j: number) => ({
+          destinos: row.elements.map((element: DistanceMatrixElement, j: number) => ({
             destino: destinations[j],
             distancia: element.distance?.value || 0,
             tempo: element.duration_in_traffic?.value || element.duration?.value || 0,

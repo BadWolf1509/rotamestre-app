@@ -15,7 +15,7 @@ import { useRouter, usePathname } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
 import { TouchableOpacity, Modal, ScrollView, SafeAreaView } from 'react-native';
 
-import { ConfirmDialog } from '@/design-system';
+import { Dialog } from '@/design-system';
 import { useUser } from '@/hooks/useUser';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
@@ -135,27 +135,27 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
       </TouchableOpacity>
 
       {/* Logout Dialog */}
-      <ConfirmDialog
+      <Dialog
         visible={showLogoutDialog}
+        variant="confirm"
         title="Sair da conta"
         message="Deseja realmente encerrar sua sessão?"
         confirmText="Sair"
         cancelText="Cancelar"
-        type="destructive"
+        type="danger"
         onConfirm={handleLogoutConfirm}
         onCancel={handleLogoutCancel}
       />
 
       {/* Error Dialog */}
-      <ConfirmDialog
+      <Dialog
         visible={showErrorDialog}
+        variant="alert"
         title="Erro ao sair"
         message="Não foi possível encerrar sua sessão. Tente novamente."
         confirmText="Entendi"
-        cancelText="Fechar"
-        type="destructive"
+        type="danger"
         onConfirm={handleErrorDismiss}
-        onCancel={handleErrorDismiss}
       />
 
       {/* Contact Modal (Web) */}

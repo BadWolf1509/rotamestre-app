@@ -20,7 +20,7 @@ import { OptimizationAlert } from '@/components/motorista/OptimizationAlert';
 import { PictureInPictureMap } from '@/components/motorista/PictureInPictureMap';
 import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
 import { useRouteStatus, type ParadaData } from '@/context/RouteStatusContext';
-import { ConfirmModal, SupportModal } from '@/design-system';
+import { Dialog, SupportModal } from '@/design-system';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
@@ -589,8 +589,9 @@ function MotoristaInicioContent() {
       />
 
       {/* Modal de Confirmação para Finalizar Rota */}
-      <ConfirmModal
+      <Dialog
         visible={showCompleteRouteModal}
+        variant="confirm"
         title="Finalizar Rota"
         message="Todas as paradas foram concluídas. Deseja finalizar a rota?"
         type="success"

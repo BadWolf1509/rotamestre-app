@@ -7,7 +7,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { memo } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 
 import { formatDateRelative } from '@/lib/dateUtils';
@@ -32,7 +32,11 @@ interface ExpiredRouteCardProps {
   onDismiss?: () => void;
 }
 
-export function ExpiredRouteCard({ data, onDismiss }: ExpiredRouteCardProps) {
+/**
+ * ExpiredRouteCard - Card memoizado de aviso de rota expirada
+ * Memoizado para evitar re-renders desnecessários
+ */
+export const ExpiredRouteCard = memo(function ExpiredRouteCard({ data, onDismiss }: ExpiredRouteCardProps) {
   const { theme } = useUnistyles();
   const router = useRouter();
 
@@ -113,7 +117,7 @@ export function ExpiredRouteCard({ data, onDismiss }: ExpiredRouteCardProps) {
       </TouchableOpacity>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {

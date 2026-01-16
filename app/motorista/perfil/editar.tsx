@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 
-import { AlertDialog, Button, Input, Text } from '@/design-system';
+import { Button, Dialog, Input, Text } from '@/design-system';
 import { authService } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
@@ -223,8 +223,9 @@ export default function EditarPerfil() {
         </View>
       </ScrollView>
 
-      <AlertDialog
+      <Dialog
         visible={alertConfig.visible}
+        variant="alert"
         title={alertConfig.title}
         message={alertConfig.message}
         type={alertConfig.type}

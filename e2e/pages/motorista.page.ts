@@ -80,9 +80,11 @@ export class MotoristaPage {
     this.drawerLogoutButton = page.getByText(/sair/i);
   }
 
+  // Note: Using 'domcontentloaded' instead of 'networkidle' because Supabase
+  // subscriptions keep the network active, causing 'networkidle' to timeout.
   async goto() {
-    await this.page.goto('/motorista?e2e=true');
-    await this.page.waitForLoadState('networkidle');
+    await this.page.goto('/motorista?e2e=true', { waitUntil: 'domcontentloaded' });
+    await this.page.waitForTimeout(1500);
   }
 
   async expectOnMotoristaDashboard() {
@@ -95,25 +97,25 @@ export class MotoristaPage {
   async navigateToInicio() {
     await this.inicioTab.waitFor({ state: 'visible', timeout: 30000 });
     await this.inicioTab.click();
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForTimeout(1000);
   }
 
   async navigateToParadas() {
     await this.paradasTab.waitFor({ state: 'visible', timeout: 30000 });
     await this.paradasTab.click();
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForTimeout(1000);
   }
 
   async navigateToMapa() {
     await this.mapaTab.waitFor({ state: 'visible', timeout: 30000 });
     await this.mapaTab.click();
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForTimeout(1000);
   }
 
   async navigateToHistorico() {
     await this.historicoTab.waitFor({ state: 'visible', timeout: 30000 });
     await this.historicoTab.click();
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForTimeout(1000);
   }
 
   // Tab visibility checks
@@ -158,6 +160,6 @@ export class MotoristaPage {
 
   async startRoute() {
     await this.startRouteButton.click();
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForTimeout(2000);
   }
 }

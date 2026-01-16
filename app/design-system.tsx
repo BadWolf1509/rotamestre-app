@@ -33,13 +33,12 @@ import {
 import { UnistylesRuntime } from 'react-native-unistyles';
 
 import {
-  AlertDialog,
   Avatar,
   Badge,
   Button,
   Card,
-  ConfirmDialog,
   DataTable,
+  Dialog,
   DesktopCard,
   DesktopCardGrid,
   DesktopLayout,
@@ -70,7 +69,6 @@ import {
   Toast,
   type Step,
   AddressAutocomplete,
-  ConfirmModal,
   // Tokens (via @/design-system)
   colors,
   typography,
@@ -1009,7 +1007,6 @@ export default function DesignSystemScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [alertVisible, setAlertVisible] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
-  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [confirmModalDestructiveVisible, setConfirmModalDestructiveVisible] = useState(false);
   const [supportModalVisible, setSupportModalVisible] = useState(false);
   const [desktopModalVisible, setDesktopModalVisible] = useState(false);
@@ -2381,43 +2378,27 @@ const themeName = UnistylesRuntime.themeName;`}
             />
           </View>
 
-          <Text style={styles.groupTitle}>AlertDialog Props</Text>
+          <Text style={styles.groupTitle}>Dialog Props (Unificado)</Text>
           <PropsTable
             props={[
               { name: 'visible', type: 'boolean', required: true, description: 'Controla visibilidade do diálogo' },
-              { name: 'title', type: 'string', required: true, description: 'Título do alerta' },
-              { name: 'message', type: 'string', required: true, description: 'Mensagem do alerta' },
-              { name: 'confirmText', type: 'string', default: "'OK'", description: 'Texto do botão de confirmação' },
-              { name: 'onConfirm', type: '() => void', required: true, description: 'Callback ao confirmar' },
-              { name: 'type', type: "'default' | 'error' | 'success' | 'warning'", default: "'default'", description: 'Tipo visual (ícone e cor)' },
-            ]}
-          />
-
-          <Text style={styles.groupTitle}>ConfirmDialog Props</Text>
-          <PropsTable
-            props={[
-              { name: 'visible', type: 'boolean', required: true, description: 'Controla visibilidade do diálogo' },
+              { name: 'variant', type: "'alert' | 'confirm'", default: "'alert'", description: 'Alert (só OK) ou Confirm (OK + Cancelar)' },
               { name: 'title', type: 'string', required: true, description: 'Título do diálogo' },
               { name: 'message', type: 'string', required: true, description: 'Mensagem do diálogo' },
-              { name: 'confirmText', type: 'string', default: "'Confirmar'", description: 'Texto do botão de confirmação' },
-              { name: 'cancelText', type: 'string', default: "'Cancelar'", description: 'Texto do botão de cancelar' },
+              { name: 'type', type: "'default' | 'error' | 'success' | 'warning' | 'danger' | 'info'", default: "'default'", description: 'Tipo visual (ícone e cor)' },
+              { name: 'confirmText', type: 'string', default: "'OK' ou 'Confirmar'", description: 'Texto do botão de confirmação' },
+              { name: 'cancelText', type: 'string', default: "'Cancelar'", description: 'Texto do botão cancelar (variant=confirm)' },
               { name: 'onConfirm', type: '() => void', required: true, description: 'Callback ao confirmar' },
-              { name: 'onCancel', type: '() => void', required: true, description: 'Callback ao cancelar' },
-              { name: 'type', type: "'default' | 'danger' | 'warning'", default: "'default'", description: 'Tipo visual (ícone e cor)' },
-              { name: 'confirmLoading', type: 'boolean', default: 'false', description: 'Exibe spinner no botão confirmar' },
+              { name: 'onCancel', type: '() => void', description: 'Callback ao cancelar (variant=confirm)' },
+              { name: 'loading', type: 'boolean', default: 'false', description: 'Exibe spinner no botão confirmar' },
             ]}
           />
 
-          <Text style={styles.groupTitle}>ConfirmModal</Text>
+          <Text style={styles.groupTitle}>Dialog Destructive</Text>
           <Text style={{ fontSize: 13, color: theme.colors.gray600, marginBottom: theme.spacing.sm }}>
-            Modal de confirmação avançado com tipos (danger, warning, success, info) e suporte a confirmação destrutiva.
+            Dialog com variant="destructive" para ações perigosas que requerem confirmação por digitação.
           </Text>
           <View style={styles.componentRow}>
-            <Button
-              title="Confirm Modal"
-              variant="outline"
-              onPress={() => setConfirmModalVisible(true)}
-            />
             <Button
               title="Destrutivo"
               variant="danger"
@@ -2427,14 +2408,9 @@ const themeName = UnistylesRuntime.themeName;`}
 
           <PropsTable
             props={[
-              { name: 'visible', type: 'boolean', required: true, description: 'Controla visibilidade' },
-              { name: 'title', type: 'string', required: true, description: 'Título do modal' },
-              { name: 'message', type: 'string', required: true, description: 'Mensagem de confirmação' },
-              { name: 'type', type: "'danger' | 'warning' | 'success' | 'info'", default: "'danger'", description: 'Tipo visual com ícone' },
-              { name: 'destructiveConfirmText', type: 'string', description: 'Texto obrigatório para confirmar ação destrutiva' },
-              { name: 'loading', type: 'boolean', default: 'false', description: 'Exibe spinner no botão' },
-              { name: 'onConfirm', type: '() => void', required: true, description: 'Callback de confirmação' },
-              { name: 'onCancel', type: '() => void', required: true, description: 'Callback de cancelamento' },
+              { name: 'variant', type: "'destructive'", required: true, description: 'Variante destrutiva' },
+              { name: 'destructiveConfirmText', type: 'string', required: true, description: 'Texto que o usuário deve digitar para confirmar' },
+              { name: 'type', type: "'danger' | 'warning'", default: "'danger'", description: 'Tipo visual com ícone' },
             ]}
           />
 
@@ -2459,14 +2435,45 @@ const themeName = UnistylesRuntime.themeName;`}
           />
 
           <CodeBlock
-            code={`import { Modal, AlertDialog, ConfirmDialog, DesktopModal } from '@/design-system';
-import { ConfirmModal } from '@/components/ConfirmModal';
-import { SupportModal } from '@/components/SupportModal';
+            code={`import { Modal, Dialog, DesktopModal, SupportModal } from '@/design-system';
 
 // Modal básico
 <Modal visible={visible} onClose={handleClose} title="Título">
   <Text>Conteúdo do modal</Text>
 </Modal>
+
+// Dialog unificado (Alert - só OK)
+<Dialog
+  visible={visible}
+  variant="alert"
+  title="Sucesso"
+  message="Operação realizada."
+  type="success"
+  onConfirm={handleClose}
+/>
+
+// Dialog unificado (Confirm - OK + Cancelar)
+<Dialog
+  visible={visible}
+  variant="confirm"
+  title="Confirmar Ação"
+  message="Tem certeza?"
+  type="danger"
+  onConfirm={handleConfirm}
+  onCancel={handleCancel}
+/>
+
+// Dialog unificado (Destructive - requer digitação)
+<Dialog
+  visible={visible}
+  variant="destructive"
+  title="Excluir Conta"
+  message="Esta ação não pode ser desfeita."
+  type="danger"
+  destructiveConfirmText="EXCLUIR"
+  onConfirm={handleDelete}
+  onCancel={handleCancel}
+/>
 
 // Modal responsivo (dialog web / bottom sheet mobile)
 <DesktopModal
@@ -2478,27 +2485,6 @@ import { SupportModal } from '@/components/SupportModal';
 >
   <Input label="Campo" placeholder="Digite..." />
 </DesktopModal>
-
-// Modal de confirmação com tipo
-<ConfirmModal
-  visible={visible}
-  title="Excluir Rota"
-  message="Esta ação não pode ser desfeita."
-  type="danger"
-  onConfirm={handleDelete}
-  onCancel={handleClose}
-/>
-
-// Modal de confirmação destrutiva
-<ConfirmModal
-  visible={visible}
-  title="Excluir Conta"
-  message="Todos os dados serão perdidos permanentemente."
-  type="danger"
-  destructiveConfirmText="EXCLUIR"
-  onConfirm={handleDeleteAccount}
-  onCancel={handleClose}
-/>
 
 // Modal de suporte
 <SupportModal visible={showSupport} onClose={() => setShowSupport(false)} />`}
@@ -3479,16 +3465,18 @@ interface SwipeAction {
         </View>
       </Modal>
 
-      <AlertDialog
+      <Dialog
         visible={alertVisible}
+        variant="alert"
         title="Operação Concluída"
         message="Os dados foram salvos com sucesso no sistema."
         type="success"
         onConfirm={() => setAlertVisible(false)}
       />
 
-      <ConfirmDialog
+      <Dialog
         visible={confirmVisible}
+        variant="confirm"
         title="Confirmar Ação"
         message="Tem certeza que deseja continuar? Esta ação não pode ser desfeita."
         confirmText="Sim, continuar"
@@ -3524,22 +3512,9 @@ interface SwipeAction {
         </View>
       </DesktopModal>
 
-      <ConfirmModal
-        visible={confirmModalVisible}
-        title="Confirmar Ação"
-        message="Tem certeza que deseja realizar esta operação? Esta é uma demonstração do ConfirmModal com tipo warning."
-        type="warning"
-        confirmText="Sim, confirmar"
-        cancelText="Cancelar"
-        onConfirm={() => {
-          setConfirmModalVisible(false);
-          showToast('success');
-        }}
-        onCancel={() => setConfirmModalVisible(false)}
-      />
-
-      <ConfirmModal
+      <Dialog
         visible={confirmModalDestructiveVisible}
+        variant="destructive"
         title="Excluir Permanentemente"
         message="Esta ação não pode ser desfeita. Todos os dados relacionados serão removidos permanentemente do sistema."
         type="danger"

@@ -132,31 +132,31 @@ export class GestorPage {
   }
 
   // Navigation methods
+  // Note: Using 'domcontentloaded' instead of 'networkidle' because Supabase
+  // subscriptions keep the network active, causing 'networkidle' to timeout.
   async goto() {
-    await this.page.goto('/gestor?e2e=true');
-    await this.page.waitForLoadState('networkidle');
+    await this.page.goto('/gestor?e2e=true', { waitUntil: 'domcontentloaded' });
     await this.page.waitForTimeout(2000);
   }
 
   async gotoInicio() {
-    await this.page.goto('/gestor/inicio?e2e=true');
-    await this.page.waitForLoadState('networkidle');
+    await this.page.goto('/gestor/inicio?e2e=true', { waitUntil: 'domcontentloaded' });
+    await this.page.waitForTimeout(1500);
   }
 
   async gotoNovaEntrega() {
-    await this.page.goto('/gestor/nova-entrega?e2e=true');
-    await this.page.waitForLoadState('networkidle');
+    await this.page.goto('/gestor/nova-entrega?e2e=true', { waitUntil: 'domcontentloaded' });
     await this.page.waitForTimeout(2000);
   }
 
   async gotoGestaoRotas() {
-    await this.page.goto('/gestor/gestao-rotas?e2e=true');
-    await this.page.waitForLoadState('networkidle');
+    await this.page.goto('/gestor/gestao-rotas?e2e=true', { waitUntil: 'domcontentloaded' });
+    await this.page.waitForTimeout(1500);
   }
 
   async gotoMotoristas() {
-    await this.page.goto('/gestor/motoristas?e2e=true');
-    await this.page.waitForLoadState('networkidle');
+    await this.page.goto('/gestor/motoristas?e2e=true', { waitUntil: 'domcontentloaded' });
+    await this.page.waitForTimeout(1500);
   }
 
   // Assertions

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 
 import { formatDateBR } from '@/lib/dateUtils';
@@ -42,8 +43,9 @@ function getStatusLabel(status: string): string {
 
 /**
  * Card de rota compartilhado entre mobile e desktop
+ * Memoizado para evitar re-renders desnecessários em listas
  */
-export function RotaCard({ rota, onPress }: RotaCardProps) {
+export const RotaCard = memo(function RotaCard({ rota, onPress }: RotaCardProps) {
   const { theme } = useUnistyles();
 
   const progressPercent = rota.total_paradas > 0
@@ -104,7 +106,13 @@ export function RotaCard({ rota, onPress }: RotaCardProps) {
       )}
     </TouchableOpacity>
   );
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison - re-render apenas se dados relevantes mudarem
+  return prevProps.rota.id === nextProps.rota.id &&
+         prevProps.rota.status === nextProps.rota.status &&
+         prevProps.rota.paradas_concluidas === nextProps.rota.paradas_concluidas &&
+         prevProps.rota.total_paradas === nextProps.rota.total_paradas;
+});
 
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {

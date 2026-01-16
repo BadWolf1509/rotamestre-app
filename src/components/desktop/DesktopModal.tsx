@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Modal, View, Text, TouchableOpacity, Pressable, ViewStyle, DimensionValue, Platform, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useResponsive } from '@/hooks/useResponsive';
 import { boxShadow, withOpacity } from '@/utils/color';
@@ -132,6 +133,7 @@ export function DesktopModal({
 }: DesktopModalProps) {
   const { isDesktop } = useResponsive();
   const { theme } = useUnistyles();
+  const insets = useSafeAreaInsets();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const scrollPositionRef = useRef(0);
 
@@ -548,7 +550,13 @@ export function DesktopModal({
 
           {/* Footer */}
           {shouldRenderFooter && (
-            <View style={styles.footer}>{renderFooterContent(false)}</View>
+            <View style={[
+              styles.footer,
+              // No mobile (bottom sheet), adiciona padding para safe area
+              !isDesktop && { paddingBottom: theme.spacing.lg + insets.bottom }
+            ]}>
+              {renderFooterContent(false)}
+            </View>
           )}
         </Pressable>
 

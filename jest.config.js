@@ -2,7 +2,7 @@ module.exports = {
   preset: 'jest-expo',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo-router|escape-string-regexp)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|react-native-unistyles|@sentry/.*)',
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo-router|escape-string-regexp)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|react-native-unistyles|@sentry/.*|@shopify/flash-list)',
   ],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
@@ -15,8 +15,6 @@ module.exports = {
     '!src/lib/supabase.web.ts',
     '!src/modules/AndroidWidget.ts',
     '!src/services/locationTracking.ts',
-    '!src/services/performanceOptimizer.ts',
-    '!src/hooks/useLocationTracking.ts',
     '!src/components/motorista/NavigationMode.web.tsx',
     '!src/components/motorista/home/MiniMap.web.tsx',
     '!src/components/motorista/PictureInPictureMap.web.tsx',
@@ -50,6 +48,8 @@ module.exports = {
   moduleNameMapper: {
     // Mock para todos os assets de imagem (deve vir ANTES do alias @/)
     '\\.(png|jpg|jpeg|gif|svg|webp|bmp|ico)$': '<rootDir>/__mocks__/fileMock.js',
+    // Mock @/utils/color - required because styles.base.ts calls boxShadow() at module level
+    '^@/utils/color$': '<rootDir>/src/utils/__mocks__/color.ts',
     // Alias @/ para src/
     '^@/(.*)$': '<rootDir>/src/$1',
   },

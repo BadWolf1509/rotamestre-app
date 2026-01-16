@@ -8,9 +8,8 @@ import {
   Platform,
 } from 'react-native';
 
-import { AlertDialog } from '@/components/AlertDialog';
 import { AvatarEditable } from '@/components/AvatarEditable';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { Dialog } from '@/components/Dialog';
 import { useProfile } from '@/hooks/useProfile';
 import { authService } from '@/lib/auth';
 import { logger } from '@/lib/logger';
@@ -175,15 +174,17 @@ export default function PerfilMotorista() {
       {/* Espaçamento inferior */}
       <View style={styles(theme).footer} />
 
-      <ConfirmDialog
+      <Dialog
         visible={confirmDialog.visible}
+        variant="confirm"
         title={confirmDialog.title}
         message={confirmDialog.message}
         onConfirm={confirmDialog.onConfirm}
         onCancel={closeConfirmDialog}
       />
-      <AlertDialog
+      <Dialog
         visible={alertDialog.visible}
+        variant="alert"
         title={alertDialog.title}
         message={alertDialog.message}
         type={alertDialog.type}

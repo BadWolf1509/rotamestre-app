@@ -22,10 +22,10 @@ import {
 } from '@/components/gestor/motorista-perfil';
 import type { Motorista, MotoristaPerformance, RotaRecente } from '@/components/gestor/motorista-perfil';
 import {
-  ConfirmModal,
   DesktopCard,
   DesktopModal,
   DesktopPageLayout,
+  Dialog,
   SplitView,
   Toast,
 } from '@/design-system';
@@ -410,8 +410,9 @@ export default function MotoristaPerfil() {
         </DesktopModal>
 
         {/* Toggle Status Modal */}
-        <ConfirmModal
+        <Dialog
           visible={showToggleModal}
+          variant="confirm"
           title={motorista.ativo ? 'Desativar Motorista' : 'Ativar Motorista'}
           message={`Tem certeza que deseja ${motorista.ativo ? 'desativar' : 'ativar'} ${motorista.nome}?`}
           confirmText={motorista.ativo ? 'Desativar' : 'Ativar'}
@@ -479,8 +480,9 @@ export default function MotoristaPerfil() {
       </DesktopModal>
 
       {/* Toggle Status Modal */}
-      <ConfirmModal
+      <Dialog
         visible={showToggleModal}
+        variant="confirm"
         title={motorista.ativo ? 'Desativar Motorista' : 'Ativar Motorista'}
         message={`Tem certeza que deseja ${motorista.ativo ? 'desativar' : 'ativar'} ${motorista.nome}?`}
         confirmText={motorista.ativo ? 'Desativar' : 'Ativar'}

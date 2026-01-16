@@ -1,11 +1,12 @@
 /* global jest */
 // Setup para Jest
+// Note: @/utils/color is mocked via moduleNameMapper in jest.config.js
 
 import '@testing-library/jest-native/extend-expect';
 
 global.fetch = jest.fn();
 
-// Aumentar timeout global para evitar falhas intermitentes em integra��o
+// Aumentar timeout global para evitar falhas intermitentes em integração
 jest.setTimeout(20000);
 
 // Modulariza mocks principais de React Native / window
@@ -257,6 +258,163 @@ const mockTheme = {
       bodyPadding: 16,
       footerPadding: 16,
     },
+    dialog: {
+      maxWidth: 320,
+      containerPadding: 16,
+      iconCircleSize: 44,
+      iconSize: 22,
+      titleFontSize: 16,
+      messageFontSize: 13,
+      buttonHeight: 36,
+      buttonPaddingV: 8,
+      buttonPaddingH: 14,
+      buttonGap: 10,
+    },
+    badge: {
+      size: {
+        small: {
+          paddingHorizontal: 8,
+          paddingVertical: 4,
+          fontSize: 12,
+        },
+        medium: {
+          paddingHorizontal: 12,
+          paddingVertical: 6,
+          fontSize: 14,
+        },
+        large: {
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+          fontSize: 16,
+        },
+      },
+    },
+    avatar: {
+      size: {
+        sm: 32,
+        md: 48,
+        lg: 64,
+        xl: 80,
+      },
+    },
+    connectivityBanner: {
+      paddingV: 8,
+      messageFontSize: 13,
+      badgePaddingH: 8,
+      badgePaddingV: 4,
+      badgeFontSize: 11,
+      badgeBorderRadius: 12,
+      dotSize: 8,
+    },
+    minTouchTarget: 44,
+    statsCard: {
+      padding: 20,
+      radius: 12,
+      valueFontSize: 28,
+      labelFontSize: 13,
+      labelLetterSpacing: 0.5,
+      iconSize: 20,
+      iconContainerSize: 32,
+      iconContainerRadius: 8,
+      changeFontSize: 13,
+    },
+    table: {
+      headerFontSize: 12,
+      rowFontSize: 14,
+      cellPaddingX: 8,
+      cellPaddingY: 8,
+      badgePaddingX: 12,
+      badgePaddingY: 4,
+      actionButtonPaddingX: 12,
+      actionButtonPaddingY: 6,
+      actionButtonFontSize: 13,
+      paginationFontSize: 14,
+    },
+    card: {
+      padding: {
+        none: 0,
+        small: 12,
+        medium: 16,
+        large: 20,
+      },
+    },
+    sidebar: {
+      logoHeight: 180,
+      itemHeight: 40,
+      itemFontSize: 14,
+      itemIconSize: 20,
+      sectionTitleFontSize: 12,
+      footerFontSize: 13,
+    },
+    pageLayout: {
+      contentPadding: 32,
+      headerTitleFontSize: 24,
+      headerSubtitleFontSize: 14,
+      breadcrumbFontSize: 13,
+    },
+    map: {
+      markerSize: 40,
+      clusterSize: 48,
+      controlButtonSize: 44,
+      infoBoxPadding: 16,
+    },
+    drawer: {
+      avatarSize: 64,
+      menuIconSize: 20,
+      menuIconWidth: 24,
+      headerPadding: 20,
+      itemPaddingV: 12,
+      footerPadding: 20,
+    },
+    errorBoundary: {
+      containerPadding: 24,
+      cardPadding: 32,
+      cardBorderRadius: 16,
+      iconSize: 64,
+      titleFontSize: 20,
+      messageFontSize: 14,
+      errorDetailFontSize: 12,
+      buttonPaddingV: 12,
+      buttonPaddingH: 24,
+      buttonBorderRadius: 8,
+      buttonFontSize: 16,
+      buttonIconSize: 20,
+    },
+    desktopCard: {
+      borderRadius: 12,
+      headerPadding: 20,
+      contentPadding: 20,
+      iconContainerSize: 40,
+      iconContainerRadius: 10,
+      iconSize: 20,
+      titleFontSize: 16,
+      subtitleFontSize: 13,
+      headerGap: 12,
+      actionsGap: 8,
+    },
+    sectionHeader: {
+      fontSize: 12,
+      fontWeight: 'semiBold',
+      letterSpacing: 0.5,
+      marginBottom: 8,
+      paddingHorizontal: 0,
+      textTransform: 'uppercase',
+    },
+    hint: {
+      fontSize: 12,
+      lineHeight: 16,
+      marginTop: 4,
+    },
+    confirmModal: {
+      iconCircleSize: 44,
+      iconSize: 24,
+      titleFontSize: 20,
+      messageFontSize: 15,
+      messageLineHeight: 24,
+      destructiveLabelFontSize: 14,
+      destructiveInputFontSize: 15,
+      destructiveInputPaddingV: 10,
+    },
   },
 };
 
@@ -317,19 +475,19 @@ jest.mock('react-native-unistyles', () => ({
   },
 }));
 
-// Mock @/utils/styles with defaultTheme for tests that don't override it
+// Mock @/utils/styles with mockTheme for tests
+// Note: We use mockTheme directly instead of requiring from styles.base
+// to avoid module-level side effects with color functions
 jest.mock('@/utils/styles', () => {
-  const { defaultTheme } = require('@/utils/styles.base');
-
   return {
-    defaultTheme,
+    defaultTheme: mockTheme,
     useUnistyles: () => ({
-      theme: defaultTheme,
+      theme: mockTheme,
     }),
     StyleSheet: {
       create: (stylesOrFunction) =>
         typeof stylesOrFunction === 'function'
-          ? stylesOrFunction(defaultTheme)
+          ? stylesOrFunction(mockTheme)
           : stylesOrFunction || {},
     },
   };
@@ -490,3 +648,22 @@ jest.mock('@mapbox/polyline', () => ({
   decode: jest.fn(() => [[0, 0], [1, 1]]),
   encode: jest.fn(() => 'encoded-polyline'),
 }));
+
+// Mock react-native-safe-area-context
+jest.mock('react-native-safe-area-context', () => {
+  const React = require('react');
+  const defaultInsets = { top: 0, right: 0, bottom: 0, left: 0 };
+  const defaultFrame = { x: 0, y: 0, width: 390, height: 844 };
+
+  return {
+    SafeAreaProvider: ({ children }) => children,
+    SafeAreaView: ({ children, style }) =>
+      React.createElement('SafeAreaView', { style }, children),
+    useSafeAreaInsets: () => defaultInsets,
+    useSafeAreaFrame: () => defaultFrame,
+    initialWindowMetrics: {
+      insets: defaultInsets,
+      frame: defaultFrame,
+    },
+  };
+});

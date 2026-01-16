@@ -56,6 +56,27 @@ export interface ParadaData {
   auto_concluida?: boolean;
 }
 
+/** Dados retornados pela query de rotas do Supabase */
+interface RotaQueryRow {
+  id: string;
+  status: string;
+  distancia_total: number | null;
+  tempo_total: number | null;
+  iniciada_em: string | null;
+  concluida_em: string | null;
+  created_at: string;
+  data: string | null;
+  // Supabase returns related tables as single object or array depending on relation type
+  unidades: { nome: string } | { nome: string }[] | null;
+}
+
+/** Dados para atualização de parada */
+interface ParadaUpdateData {
+  status: string;
+  concluida_em: string;
+  foto_url?: string;
+}
+
 interface RouteStatusContextData {
   routeStatus: RouteStatus;
   route: RouteData | null;
@@ -196,12 +217,23 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
       setLoading(true);
 
       // Helper para montar o objeto RouteData
-      const buildRouteData = (rota: any): RouteData => {
-        const unidadeData = rota.unidades as unknown as { nome: string } | null;
+      const buildRouteData = (rota: RotaQueryRow): RouteData => {
+        // Handle both single object and array cases from Supabase joins
+        const unidadeNome = Array.isArray(rota.unidades)
+          ? rota.unidades[0]?.nome || ''
+          : rota.unidades?.nome || '';
+
         return {
-          ...rota,
-          unidade_nome: unidadeData?.nome || '',
-        } as RouteData;
+          id: rota.id,
+          status: rota.status,
+          distancia_total: rota.distancia_total ?? undefined,
+          tempo_total: rota.tempo_total ?? undefined,
+          iniciada_em: rota.iniciada_em ?? undefined,
+          concluida_em: rota.concluida_em ?? undefined,
+          data: rota.data ?? undefined,
+          created_at: rota.created_at,
+          unidade_nome: unidadeNome,
+        };
       };
 
       // ========================================
@@ -418,14 +450,11 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const updateData: any = {
+      const updateData: ParadaUpdateData = {
         status: 'concluida',
         concluida_em: new Date().toISOString(),
+        ...(fotoUrl && { foto_url: fotoUrl }),
       };
-
-      if (fotoUrl) {
-        updateData.foto_url = fotoUrl;
-      }
 
       const { error } = await supabase
         .from('paradas')

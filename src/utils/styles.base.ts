@@ -7,7 +7,7 @@
 
 import { Platform } from 'react-native';
 
-import { boxShadow, withOpacity } from './color';
+import { boxShadow, withOpacity } from '@/utils/color';
 
 import type { Theme } from './styles.types';
 
