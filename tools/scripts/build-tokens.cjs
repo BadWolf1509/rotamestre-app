@@ -41,7 +41,8 @@ const REACT_NATIVE_MOCK = {
 function loadThemes() {
   const themeRequire = createRequire(THEME_PATH);
   const sandboxRequire = (modulePath) => {
-    if (modulePath === './color') {
+    // Handle path alias @/utils/color and relative ./color
+    if (modulePath === './color' || modulePath === '@/utils/color') {
       const colorPath = path.join(path.dirname(THEME_PATH), 'color.ts');
       return loadTsModule(colorPath, themeRequire);
     }
