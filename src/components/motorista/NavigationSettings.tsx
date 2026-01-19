@@ -1,7 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-
-import Slider from '@/components/Slider';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
@@ -16,6 +14,7 @@ import {
   View,
 } from 'react-native';
 
+import Slider from '@/components/Slider';
 import LocationTrackingService from '@/services/locationTracking';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
