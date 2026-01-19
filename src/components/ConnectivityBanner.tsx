@@ -113,7 +113,8 @@ export function ConnectivityBanner({
           backgroundColor,
           transform: [{ translateY: slideAnim }],
           // Adiciona padding para safe area quando posicionado no bottom
-          ...(position === 'bottom' && { paddingBottom: theme.components.connectivityBanner.paddingV + insets.bottom }),
+          // Usa Math.max para garantir mínimo de 34px (Android 15 pode retornar insets.bottom = 0)
+          ...(position === 'bottom' && { paddingBottom: theme.components.connectivityBanner.paddingV + Math.max(insets.bottom, 34) }),
         },
       ]}
     >

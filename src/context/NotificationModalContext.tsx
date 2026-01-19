@@ -113,12 +113,30 @@ export function NotificationModalProvider({ children }: NotificationModalProvide
   };
 
   // Modal height - usa screenHeight no Android para compensar navigation bar
+  // Cada notificação ocupa ~110px, header ~56px
+  // Para exibir 5 notificações: 56 + (5 × 110) = 606px
   const getModalMaxHeight = () => {
     if (Platform.OS === 'android') {
-      // No Android, usar screen height para evitar problemas com navigation bar
-      return screenHeight * 0.7;
+      // Android: 80% do screen height (evita problemas com navigation bar)
+      return screenHeight * 0.8;
     }
+    if (Platform.OS === 'ios') {
+      return windowHeight * 0.8;
+    }
+    // Web: mobile usa mais altura, desktop limita para não ficar muito grande
+    if (isMobileWidth) return windowHeight * 0.85;
     return windowHeight * 0.75;
+  };
+
+  // Altura mínima para mostrar pelo menos 4-5 notificações
+  const getModalMinHeight = () => {
+    const baseHeight = Platform.OS === 'android' ? screenHeight : windowHeight;
+    // Mobile: pelo menos 50% da tela, mas entre 400-550px
+    if (Platform.OS !== 'web' || isMobileWidth) {
+      return Math.max(400, Math.min(baseHeight * 0.55, 550));
+    }
+    // Desktop: altura fixa mínima
+    return 450;
   };
 
   return (
@@ -141,15 +159,22 @@ export function NotificationModalProvider({ children }: NotificationModalProvide
                   styles.modalContent,
                   {
                     width: getModalWidth(),
+                    minHeight: getModalMinHeight(),
                     maxHeight: getModalMaxHeight(),
                     transform: [{ translateY: slideAnim }],
                   },
                 ]}
               >
-                <Pressable onPress={(e) => e.stopPropagation()}>
-                  <View style={{ maxHeight: getModalMaxHeight() }}>
-                    <NotificationList onClose={closeModal} />
-                  </View>
+                {/*
+                  View wrapper com altura definida para Android.
+                  O Pressable captura eventos para evitar fechar ao clicar no conteúdo.
+                  No Android, flex:1 requer altura explícita no container pai.
+                */}
+                <Pressable
+                  onPress={(e) => e.stopPropagation()}
+                  style={{ flex: 1 }}
+                >
+                  <NotificationList onClose={closeModal} />
                 </Pressable>
               </Animated.View>
             </Pressable>
@@ -180,6 +205,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   modalContent: {
     maxWidth: 600,
+    // minHeight é definido dinamicamente via getModalMinHeight()
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.xl,
     overflow: 'hidden',

@@ -6,7 +6,7 @@ import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { Text, TouchableOpacity, View, ActivityIndicator, Pressable } from 'react-native';
 
 import { useRouteDirections } from '@/hooks/useRouteDirections';
-import { withOpacity } from '@/utils/color';
+import { boxShadow, withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface Parada {
@@ -38,6 +38,14 @@ interface MiniMapProps {
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 const GOOGLE_MAPS_MAP_ID = process.env.EXPO_PUBLIC_GOOGLE_MAPS_MAP_ID || '';
 
+/**
+ * Verifica se as coordenadas estão em range válido
+ */
+const isValidCoordinate = (lat: number, lng: number): boolean =>
+  !isNaN(lat) && !isNaN(lng) &&
+  lat >= -90 && lat <= 90 &&
+  lng >= -180 && lng <= 180;
+
 export function MiniMap({
   paradas,
   userLocation,
@@ -50,11 +58,48 @@ export function MiniMap({
 }: MiniMapProps) {
   const { theme } = useUnistyles();
   // Altura unificada com native: 150px colapsado, 300px expandido
-  const height = expanded ? 300 : 150;
+  const expectedHeight = expanded ? 300 : 150;
   const [_mapReady, setMapReady] = useState(false);
+  const [actualMapHeight, setActualMapHeight] = useState(0);
   const [useAdvancedMarkers, setUseAdvancedMarkers] = useState(false);
   const mapRef = useRef<google.maps.Map | null>(null);
   const advancedMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+
+  // Extrair cores do theme para ref estável (evita recriação de markers a cada mudança de tema)
+  const themeColorsRef = useRef(theme.colors);
+  const themeBorderRadiusRef = useRef(theme.borderRadius);
+  useEffect(() => {
+    themeColorsRef.current = theme.colors;
+    themeBorderRadiusRef.current = theme.borderRadius;
+  }, [theme.colors, theme.borderRadius]);
+
+  // Injetar CSS de animação de pulso para o marker do usuário
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const styleId = 'minimap-pulse-animation';
+    if (document.getElementById(styleId)) return; // Já existe
+
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      @keyframes minimap-pulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.3); opacity: 0.7; }
+      }
+      .minimap-user-marker-pulse {
+        animation: minimap-pulse 2s ease-in-out infinite;
+      }
+    `;
+    document.head.appendChild(style);
+
+    return () => {
+      const existingStyle = document.getElementById(styleId);
+      if (existingStyle) {
+        document.head.removeChild(existingStyle);
+      }
+    };
+  }, []);
 
   // Carregar Google Maps API
   const mapLibraries = useMemo(() => ['marker', 'places'] as ('marker' | 'places')[], []);
@@ -66,8 +111,11 @@ export function MiniMap({
   });
 
   // Filtrar paradas por status (excluindo checkpoints para contagem)
-  const paradasPendentes = useMemo(
-    () => paradas.filter(p => p.status === 'pendente' && p.is_checkpoint !== false),
+  // Paradas restantes = pendentes + em andamento (não concluídas e não puladas)
+  const paradasRestantes = useMemo(
+    () => paradas.filter(p =>
+      p.status !== 'concluida' && p.status !== 'pulada' && p.is_checkpoint !== false
+    ),
     [paradas]
   );
   const paradasConcluidas = useMemo(
@@ -101,10 +149,30 @@ export function MiniMap({
   // Usar hook para buscar rota real do Google Directions API
   const { routeCoordinates, routeInfo, isLoading: isLoadingRoute } = useRouteDirections(paradasParaRota);
 
+  // Coordenadas das paradas restantes para calcular bounds do zoom
+  // Foca o mapa nas paradas que ainda precisam ser visitadas
+  const coordsParadasRestantes = useMemo(() => {
+    const restantes = paradas.filter(p =>
+      p.status !== 'concluida' && p.status !== 'pulada' &&
+      isValidCoordinate(p.latitude, p.longitude)
+    );
+    return restantes.map(p => ({
+      latitude: p.latitude,
+      longitude: p.longitude,
+    }));
+  }, [paradas]);
+
+  // Coordenadas para bounds: prioriza paradas restantes, fallback para rota completa
   const coordsForBounds = useMemo(() => {
+    // Se tem paradas restantes, focar nelas
+    if (coordsParadasRestantes.length > 0) return coordsParadasRestantes;
+    // Fallback para rota completa se todas as paradas foram concluídas
     if (routeCoordinates.length > 1) return routeCoordinates;
-    return todasParadasComCoord;
-  }, [routeCoordinates, todasParadasComCoord]);
+    return todasParadasComCoord.map(p => ({
+      latitude: p.latitude,
+      longitude: p.longitude,
+    }));
+  }, [coordsParadasRestantes, routeCoordinates, todasParadasComCoord]);
 
   // Calcular centro do mapa
   const center = useMemo(() => {
@@ -177,8 +245,24 @@ export function MiniMap({
       return;
     }
 
-    mapRef.current.fitBounds(bounds, { top: 32, right: 32, bottom: 32, left: 32 });
-  }, [_mapReady, coordsForBounds]);
+    // Padding PROPORCIONAL à altura do mapa para zoom consistente:
+    // - Mapa colapsado (150px): padding maior proporcional → zoom OUT para ver rota toda
+    // - Mapa expandido (300px): padding menor proporcional → zoom IN para ver detalhes
+    //
+    // Usando porcentagens da altura do mapa para diferença mais visível:
+    // - Colapsado: ~40% vertical, ~30% horizontal (bem afastado)
+    // - Expandido: ~12% vertical, ~8% horizontal (bem próximo)
+    const topPadding = expanded ? 30 : 60;    // 10% vs 40% da altura
+    const bottomPadding = expanded ? 5 : 20;  // ~2% vs ~13% da altura
+    const horizontalPadding = expanded ? 20 : 45; // ~7% vs ~30% da largura típica
+
+    mapRef.current.fitBounds(bounds, {
+      top: topPadding,
+      right: horizontalPadding,
+      bottom: bottomPadding,
+      left: horizontalPadding,
+    });
+  }, [_mapReady, coordsForBounds, expanded, actualMapHeight]);
 
   const getOverlayOffset = useCallback((width: number, height: number) => ({
     x: -(width / 2),
@@ -197,8 +281,11 @@ export function MiniMap({
     advancedMarkersRef.current = [];
 
     const markers: google.maps.marker.AdvancedMarkerElement[] = [];
-    try {
+    // Usar refs para cores do tema (evita recriação a cada mudança de tema)
+    const colors = themeColorsRef.current;
+    const borderRadius = themeBorderRadiusRef.current;
 
+    try {
       const createCircleMarker = (options: {
         size: number;
         backgroundColor: string;
@@ -214,11 +301,11 @@ export function MiniMap({
         el.style.height = `${options.size}px`;
         el.style.borderRadius = `${options.size / 2}px`;
         el.style.background = options.backgroundColor;
-        el.style.border = `2px solid ${options.borderColor || theme.colors.white}`;
+        el.style.border = `2px solid ${options.borderColor || colors.white}`;
         el.style.display = 'flex';
         el.style.alignItems = 'center';
         el.style.justifyContent = 'center';
-        el.style.color = options.textColor || theme.colors.white;
+        el.style.color = options.textColor || colors.white;
         el.style.fontSize = `${options.fontSize ?? 12}px`;
         el.style.fontWeight = options.fontWeight || '700';
         el.style.boxSizing = 'border-box';
@@ -236,7 +323,7 @@ export function MiniMap({
         outer.style.width = '24px';
         outer.style.height = '24px';
         outer.style.borderRadius = '12px';
-        outer.style.background = withOpacity(theme.colors.info, 0.2);
+        outer.style.background = withOpacity(colors.info, 0.2);
         outer.style.display = 'flex';
         outer.style.alignItems = 'center';
         outer.style.justifyContent = 'center';
@@ -244,9 +331,9 @@ export function MiniMap({
         const inner = document.createElement('div');
         inner.style.width = '12px';
         inner.style.height = '12px';
-        inner.style.borderRadius = `${theme.borderRadius.xs}px`;
-        inner.style.background = theme.colors.info;
-        inner.style.border = `2px solid ${theme.colors.white}`;
+        inner.style.borderRadius = `${borderRadius.xs}px`;
+        inner.style.background = colors.info;
+        inner.style.border = `2px solid ${colors.white}`;
         inner.style.boxSizing = 'border-box';
 
         outer.appendChild(inner);
@@ -282,7 +369,7 @@ export function MiniMap({
           { lat: parada.latitude, lng: parada.longitude },
           createCircleMarker({
             size: 20,
-            backgroundColor: theme.colors.success,
+            backgroundColor: colors.success,
             opacity: 0.5,
           }),
           `Parada ${parada.ordem} concluída`,
@@ -290,12 +377,12 @@ export function MiniMap({
         );
       });
 
-      paradasPendentes.forEach((parada, index) => {
+      paradasRestantes.forEach((parada, index) => {
         addMarker(
           { lat: parada.latitude, lng: parada.longitude },
           createCircleMarker({
             size: 28,
-            backgroundColor: index === 0 ? theme.colors.warning : theme.colors.gray500,
+            backgroundColor: index === 0 ? colors.warning : colors.gray500,
             text: String(parada.ordem),
           }),
           `Parada ${parada.ordem}`,
@@ -309,7 +396,7 @@ export function MiniMap({
           { lat: checkpoint.latitude, lng: checkpoint.longitude },
           createCircleMarker({
             size: 20,
-            backgroundColor: theme.colors.primary,
+            backgroundColor: colors.primary,
           }),
           label,
           1
@@ -332,7 +419,7 @@ export function MiniMap({
       });
       advancedMarkersRef.current = [];
     };
-  }, [useAdvancedMarkers, userLocation, paradasConcluidas, paradasPendentes, checkpoints, theme]);
+  }, [useAdvancedMarkers, userLocation, paradasConcluidas, paradasRestantes, checkpoints]);
 
   // Gerar URL do Google Maps para fallback
   const generateMapsUrl = useCallback(() => {
@@ -394,7 +481,7 @@ export function MiniMap({
   if (!isLoaded) {
     return (
       <View style={styles.container} testID={testID}>
-        <View style={[styles.mapContainer, styles.loadingContainer, { height }]}>
+        <View style={[styles.mapContainer, styles.loadingContainer, { height: expectedHeight }]}>
           <ActivityIndicator size="small" color={theme.colors.primary} />
           <Text style={styles.loadingText}>Carregando mapa...</Text>
         </View>
@@ -405,12 +492,15 @@ export function MiniMap({
   return (
     <View style={styles.container} testID={testID}>
       <Pressable
-        style={[styles.mapContainer, { height }]}
+        style={[styles.mapContainer, { height: expectedHeight }]}
         onPress={handleMapClick}
-        accessibilityLabel={`Mapa da rota com ${paradasPendentes.length} paradas pendentes. Toque para abrir mapa completo`}
+        accessibilityLabel={`Mapa da rota com ${paradasRestantes.length} paradas restantes. Toque para expandir`}
         accessibilityRole="link"
       >
-        <View style={[styles.mapWrapper, { height }]}>
+        <View
+          style={[styles.mapWrapper, { height: expectedHeight }]}
+          onLayout={(e) => setActualMapHeight(e.nativeEvent.layout.height)}
+        >
           <GoogleMap
             mapContainerStyle={{ width: '100%', height: '100%' }}
             center={center}
@@ -448,9 +538,11 @@ export function MiniMap({
                     mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
                     getPixelPositionOffset={getOverlayOffset}
                   >
-                    <View style={styles.overlayUserMarker} pointerEvents="none">
-                      <View style={styles.overlayUserDot} />
-                    </View>
+                    <div className="minimap-user-marker-pulse">
+                      <View style={styles.overlayUserMarker} pointerEvents="none">
+                        <View style={styles.overlayUserDot} />
+                      </View>
+                    </div>
                   </OverlayView>
                 )}
 
@@ -468,7 +560,7 @@ export function MiniMap({
                   </OverlayView>
                 ))}
 
-                {paradasPendentes.map((parada, index) => (
+                {paradasRestantes.map((parada, index) => (
                   <OverlayView
                     key={`pendente-${parada.id}`}
                     position={{ lat: parada.latitude, lng: parada.longitude }}
@@ -515,11 +607,11 @@ export function MiniMap({
               </View>
             ) : (
               <Text style={styles.infoText}>
-                {paradasPendentes.length} paradas
+                {paradasRestantes.length} restantes
                 {routeInfo
-                  ? ` • ${(routeInfo.distanceMeters / 1000).toFixed(1)} km • ${Math.round(routeInfo.durationSeconds / 60)} min`
+                  ? ` • ${(routeInfo.distanceMeters / 1000).toFixed(1)} km total`
                   : route?.distancia_total
-                    ? ` • ${Math.round(route.distancia_total)} km`
+                    ? ` • ${Math.round(route.distancia_total)} km total`
                     : ''}
               </Text>
             )}
@@ -618,8 +710,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     padding: theme.spacing['2'],
   },
   infoBox: {
-    backgroundColor: theme.colors.primary,
-    opacity: 0.9,
+    backgroundColor: withOpacity(theme.colors.primary, 0.9),
     paddingHorizontal: theme.spacing['3'],
     paddingVertical: theme.spacing['1.5'],
     borderRadius: theme.borderRadius.xs,
@@ -647,8 +738,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'center',
   },
   pipButton: {
-    backgroundColor: theme.colors.primary,
-    opacity: 0.85,
+    backgroundColor: withOpacity(theme.colors.primary, 0.85),
     width: 32,
     height: 32,
     borderRadius: theme.borderRadius.full,
@@ -675,6 +765,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   overlayMarkerNext: {
     backgroundColor: theme.colors.warning,
+    width: 34, // Maior que os outros (28)
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 3, // Borda mais grossa
+    // Web box-shadow para efeito de glow
+    boxShadow: boxShadow(0, 0, 8, 2, theme.colors.warning, 0.6),
   },
   overlayMarkerConcluida: {
     width: 20,
@@ -700,7 +796,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   overlayUserDot: {
     width: 12,
     height: 12,
-    borderRadius: theme.borderRadius.xs,
+    borderRadius: 6, // Metade de 12px para círculo perfeito
     backgroundColor: theme.colors.info,
     borderWidth: 2,
     borderColor: theme.colors.white,

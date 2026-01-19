@@ -71,23 +71,37 @@ export function NotificationDataProvider({ children }: NotificationDataProviderP
         setLoading(true);
       }
 
-      const { data, error } = await supabase
-        .from('notificacoes')
-        .select(`
-          *,
-          rota:rotas(data, status),
-          parada:paradas(endereco, ordem),
-          incidente:incidentes(categoria, descricao)
-        `)
-        .eq('usuario_id', userData.id)
-        .order('created_at', { ascending: false })
-        .range(0, PAGE_SIZE - 1);
+      // Buscar notificações paginadas e contagem total de não lidas em paralelo
+      const [notificacoesResult, countResult] = await Promise.all([
+        supabase
+          .from('notificacoes')
+          .select(`
+            *,
+            rota:rotas(data, status),
+            parada:paradas(endereco, ordem),
+            incidente:incidentes(categoria, descricao)
+          `)
+          .eq('usuario_id', userData.id)
+          .order('created_at', { ascending: false })
+          .range(0, PAGE_SIZE - 1),
+        // Contagem separada de TODAS as não lidas (não apenas da primeira página)
+        supabase
+          .from('notificacoes')
+          .select('id', { count: 'exact', head: true })
+          .eq('usuario_id', userData.id)
+          .eq('lida', false),
+      ]);
 
-      if (error) throw error;
+      if (notificacoesResult.error) throw notificacoesResult.error;
 
-      const notificacoesComDetalhes = (data || []) as NotificacaoComDetalhes[];
+      const notificacoesComDetalhes = (notificacoesResult.data || []) as NotificacaoComDetalhes[];
       setNotificacoes(notificacoesComDetalhes);
-      setNaoLidas(notificacoesComDetalhes.filter((n) => !n.lida).length);
+
+      // Usar contagem exata do banco, não apenas da página atual
+      const totalNaoLidas = countResult.count ?? notificacoesComDetalhes.filter((n) => !n.lida).length;
+      setNaoLidas(totalNaoLidas);
+      lastNaoLidas.current = totalNaoLidas;
+
       setHasMore(notificacoesComDetalhes.length === PAGE_SIZE);
     } catch (error) {
       logger.error('[Notificações] Erro ao carregar', error);

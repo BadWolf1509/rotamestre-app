@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
-import { Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { Text, TouchableOpacity, View, ActivityIndicator, InteractionManager, Animated } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { useRouteDirections } from '@/hooks/useRouteDirections';
@@ -21,6 +21,23 @@ interface Rota {
   id: string;
   distancia_total?: number;
 }
+
+/**
+ * Verifica se as coordenadas estão em range válido
+ */
+const isValidCoordinate = (lat: number, lng: number): boolean =>
+  !isNaN(lat) && !isNaN(lng) &&
+  lat >= -90 && lat <= 90 &&
+  lng >= -180 && lng <= 180;
+
+/**
+ * Determina se uma parada é um ponto de entrega (não é checkpoint de unidade)
+ *
+ * ATENÇÃO: A lógica de is_checkpoint é invertida:
+ * - is_checkpoint === false → É checkpoint (partida/chegada da unidade)
+ * - is_checkpoint === true ou undefined → É parada de entrega normal
+ */
+const isDeliveryStop = (p: Parada): boolean => p.is_checkpoint !== false;
 
 interface MiniMapProps {
   paradas: Parada[];
@@ -44,31 +61,55 @@ export function MiniMap({
   testID,
 }: MiniMapProps) {
   const { theme } = useUnistyles();
-  const height = expanded ? 300 : 150;
+  const expectedHeight = expanded ? 300 : 150;
   const mapRef = useRef<MapView>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [actualMapHeight, setActualMapHeight] = useState(0);
 
-  // Filtrar paradas por status (excluindo checkpoints)
-  const paradasPendentes = useMemo(
-    () => paradas.filter(p => p.status === 'pendente' && p.is_checkpoint !== false),
+  // Animação de pulso para o marker do usuário
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.3,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [pulseAnim]);
+
+  // Filtrar paradas por status (usando helper isDeliveryStop para clareza)
+  // Paradas restantes = pendentes + em andamento (não concluídas e não puladas)
+  const paradasRestantes = useMemo(
+    () => paradas.filter(p =>
+      p.status !== 'concluida' && p.status !== 'pulada' && isDeliveryStop(p)
+    ),
     [paradas]
   );
   const paradasConcluidas = useMemo(
-    () => paradas.filter(p => p.status === 'concluida' && p.is_checkpoint !== false),
+    () => paradas.filter(p => p.status === 'concluida' && isDeliveryStop(p)),
     [paradas]
   );
 
   // Todas as paradas com coordenadas válidas (para centralização)
   const todasParadasComCoord = useMemo(
-    () => paradas.filter(p => p.latitude && p.longitude && !isNaN(p.latitude) && !isNaN(p.longitude)),
+    () => paradas.filter(p => isValidCoordinate(p.latitude, p.longitude)),
     [paradas]
   );
 
   // Checkpoints (pontos de partida/chegada da unidade) - NÃO são paradas de entrega
-  // is_checkpoint === false significa que É um checkpoint (partida/chegada da unidade)
-  // is_checkpoint === true ou undefined significa que é uma parada normal de entrega
   const checkpoints = useMemo(
-    () => todasParadasComCoord.filter(p => p.is_checkpoint === false),
+    () => todasParadasComCoord.filter(p => !isDeliveryStop(p)),
     [todasParadasComCoord]
   );
 
@@ -89,13 +130,30 @@ export function MiniMap({
   // Usar hook para buscar rota real do Google Directions API
   const { routeCoordinates, routeInfo, isLoading: isLoadingRoute } = useRouteDirections(paradasParaRota);
 
+  // Coordenadas das paradas restantes para calcular bounds do zoom
+  // Foca o mapa nas paradas que ainda precisam ser visitadas
+  const coordsParadasRestantes = useMemo(() => {
+    const restantes = paradas.filter(p =>
+      p.status !== 'concluida' && p.status !== 'pulada' &&
+      isValidCoordinate(p.latitude, p.longitude)
+    );
+    return restantes.map(p => ({
+      latitude: p.latitude,
+      longitude: p.longitude,
+    }));
+  }, [paradas]);
+
+  // Coordenadas para bounds: prioriza paradas restantes, fallback para rota completa
   const coordsForBounds = useMemo(() => {
+    // Se tem paradas restantes, focar nelas
+    if (coordsParadasRestantes.length > 0) return coordsParadasRestantes;
+    // Fallback para rota completa se todas as paradas foram concluídas
     if (routeCoordinates.length > 1) return routeCoordinates;
     return todasParadasComCoord.map(p => ({
       latitude: p.latitude,
       longitude: p.longitude,
     }));
-  }, [routeCoordinates, todasParadasComCoord]);
+  }, [coordsParadasRestantes, routeCoordinates, todasParadasComCoord]);
 
   // Calcular região do mapa baseada na rota (ou nas paradas quando não há rota)
   const mapRegion = useMemo(() => {
@@ -119,9 +177,11 @@ export function MiniMap({
     const minLong = Math.min(...longs);
     const maxLong = Math.max(...longs);
 
-    // Calcular deltas com padding mínimo
-    const latDelta = Math.max((maxLat - minLat) * 1.5, 0.01);
-    const longDelta = Math.max((maxLong - minLong) * 1.5, 0.01);
+    // Calcular deltas com padding adequado para visualização
+    // Usar multiplicador de 1.3 (30% de margem) para zoom mais próximo da rota
+    // Mínimo de 0.008 para rotas concentradas (permite ver detalhes dos markers)
+    const latDelta = Math.max((maxLat - minLat) * 1.3, 0.008);
+    const longDelta = Math.max((maxLong - minLong) * 1.3, 0.008);
 
     return {
       latitude: (minLat + maxLat) / 2,
@@ -138,20 +198,61 @@ export function MiniMap({
     // Centralizar na rota (ou nas paradas), evitando incluir a localização do usuário
     const coordinates = coordsForBounds;
 
-    mapRef.current.fitToCoordinates(coordinates, {
-      edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-      animated: false,
-    });
-  }, [coordsForBounds]);
+    // Padding PROPORCIONAL à altura do mapa para zoom consistente:
+    // - Mapa colapsado (150px): padding maior proporcional → zoom OUT para ver rota toda
+    // - Mapa expandido (300px): padding menor proporcional → zoom IN para ver detalhes
+    //
+    // Usando porcentagens da altura do mapa para diferença mais visível:
+    // - Colapsado: ~40% vertical, ~30% horizontal (bem afastado)
+    // - Expandido: ~12% vertical, ~8% horizontal (bem próximo)
+    const topPadding = expanded ? 30 : 60;    // 10% vs 40% da altura
+    const bottomPadding = expanded ? 5 : 20;  // ~2% vs ~13% da altura
+    const horizontalPadding = expanded ? 20 : 45; // ~7% vs ~30% da largura típica
 
-  // Ajustar mapa quando estiver pronto E quando paradas carregarem
+    mapRef.current.fitToCoordinates(coordinates, {
+      edgePadding: {
+        top: topPadding,
+        right: horizontalPadding,
+        bottom: bottomPadding,
+        left: horizontalPadding,
+      },
+      animated: true, // Animar para feedback visual
+    });
+  }, [coordsForBounds, expanded]);
+
+  // Callback quando o layout do mapa mudar (detecta redimensionamento real)
+  const handleMapLayout = useCallback((event: { nativeEvent: { layout: { height: number } } }) => {
+    const { height } = event.nativeEvent.layout;
+    setActualMapHeight(height);
+  }, []);
+
+  // Ajustar mapa quando:
+  // 1. O mapa estiver pronto
+  // 2. Tiver coordenadas para mostrar
+  // 3. A altura real do mapa estiver próxima da esperada (tolerância de 10px para variações)
   useEffect(() => {
-    if (mapReady && coordsForBounds.length > 0) {
-      // Pequeno delay para garantir que o mapa está totalmente renderizado
-      const timer = setTimeout(fitMapToParadas, 200);
-      return () => clearTimeout(timer);
+    const heightMatches = Math.abs(actualMapHeight - expectedHeight) < 10;
+
+    if (mapReady && coordsForBounds.length > 0 && heightMatches) {
+      // Usar InteractionManager para aguardar animações concluírem
+      const handle = InteractionManager.runAfterInteractions(() => {
+        fitMapToParadas();
+      });
+      return () => handle.cancel();
     }
-  }, [mapReady, coordsForBounds, fitMapToParadas]);
+  }, [mapReady, coordsForBounds, actualMapHeight, expectedHeight, fitMapToParadas]);
+
+  // Trigger adicional quando expanded muda - aguarda um frame para o layout atualizar
+  useEffect(() => {
+    if (!mapReady || coordsForBounds.length === 0) return;
+
+    // Aguardar um pouco para o layout atualizar e então fazer o fit
+    const timeoutId = setTimeout(() => {
+      fitMapToParadas();
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [expanded, mapReady, coordsForBounds.length, fitMapToParadas]);
 
   // Callback quando o mapa estiver pronto
   const handleMapReady = useCallback(() => {
@@ -161,18 +262,19 @@ export function MiniMap({
   return (
     <View style={styles.container} testID={testID}>
       <TouchableOpacity
-        style={[styles.mapContainer, { height }]}
+        style={[styles.mapContainer, { height: expectedHeight }]}
         onPress={onOpenFullMap}
         activeOpacity={0.95}
-        accessibilityLabel={`Mapa da rota com ${paradasPendentes.length} paradas pendentes. Toque para abrir mapa completo`}
+        accessibilityLabel={`Mapa da rota com ${paradasRestantes.length} paradas restantes. Toque para expandir`}
         accessibilityRole="button"
       >
         <MapView
           ref={mapRef}
           provider={PROVIDER_GOOGLE}
-          style={[styles.map, { height }]}
+          style={[styles.map, { height: expectedHeight }]}
           initialRegion={mapRegion}
           onMapReady={handleMapReady}
+          onLayout={handleMapLayout}
           scrollEnabled={false}
           zoomEnabled={false}
           rotateEnabled={false}
@@ -182,11 +284,11 @@ export function MiniMap({
             <Marker
               coordinate={userLocation}
               title="Você está aqui"
-              tracksViewChanges={false}
+              tracksViewChanges={true} // Necessário para animação
             >
-              <View style={styles.userMarker}>
+              <Animated.View style={[styles.userMarker, { transform: [{ scale: pulseAnim }] }]}>
                 <View style={styles.userMarkerDot} />
-              </View>
+              </Animated.View>
             </Marker>
           )}
 
@@ -206,7 +308,7 @@ export function MiniMap({
             </Marker>
           ))}
 
-          {paradasPendentes.map((parada, index) => (
+          {paradasRestantes.map((parada, index) => (
             <Marker
               key={`pendente-${parada.id}`}
               coordinate={{
@@ -266,11 +368,11 @@ export function MiniMap({
               </View>
             ) : (
               <Text style={styles.infoText}>
-                {paradasPendentes.length} paradas
+                {paradasRestantes.length} restantes
                 {routeInfo
-                  ? ` • ${(routeInfo.distanceMeters / 1000).toFixed(1)} km • ${Math.round(routeInfo.durationSeconds / 60)} min`
+                  ? ` • ${(routeInfo.distanceMeters / 1000).toFixed(1)} km total`
                   : route?.distancia_total
-                    ? ` • ${Math.round(route.distancia_total)} km`
+                    ? ` • ${Math.round(route.distancia_total)} km total`
                     : ''}
               </Text>
             )}
@@ -280,7 +382,7 @@ export function MiniMap({
             <TouchableOpacity
               style={styles.pipButton}
               onPress={(e) => {
-                e.stopPropagation();
+                e?.stopPropagation?.();
                 onOpenPiP?.();
               }}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -297,7 +399,7 @@ export function MiniMap({
             <TouchableOpacity
               style={styles.expandButton}
               onPress={(e) => {
-                e.stopPropagation();
+                e?.stopPropagation?.();
                 onToggleExpand?.();
               }}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -342,8 +444,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     padding: theme.spacing['2'],
   },
   infoBox: {
-    backgroundColor: theme.colors.primary,
-    opacity: 0.9,
+    backgroundColor: withOpacity(theme.colors.primary, 0.9),
     paddingHorizontal: theme.spacing['3'],
     paddingVertical: theme.spacing['1.5'],
     borderRadius: theme.borderRadius.xs,
@@ -371,8 +472,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'center',
   },
   pipButton: {
-    backgroundColor: theme.colors.primary,
-    opacity: 0.85,
+    backgroundColor: withOpacity(theme.colors.primary, 0.85),
     width: 32,
     height: 32,
     borderRadius: theme.borderRadius.full,
@@ -390,7 +490,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   userMarkerDot: {
     width: 12,
     height: 12,
-    borderRadius: theme.borderRadius.xs,
+    borderRadius: 6, // Metade de 12px para círculo perfeito
     backgroundColor: theme.colors.info,
     borderWidth: 2,
     borderColor: theme.colors.white,
@@ -406,6 +506,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   markerNext: {
     backgroundColor: theme.colors.warning,
+    width: 34, // Maior que os outros (28)
+    height: 34,
+    borderWidth: 3, // Borda mais grossa
+    shadowColor: theme.colors.warning,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 6,
+    elevation: 6,
   },
   markerPending: {
     backgroundColor: theme.colors.gray500,

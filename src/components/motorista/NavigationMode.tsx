@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Audio } from 'expo-av';
+import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   Platform,
@@ -13,10 +15,20 @@ import {
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import type { ParadaData } from '@/context/RouteStatusContext';
 import { abrirNavegacao } from '@/lib/navigation';
 import LocationTrackingService from '@/services/locationTracking';
+import { calculateHaversineDistance } from '@/services/turnByTurnNavigation';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+
+interface NavigationPreferences {
+  soundAlerts: boolean;
+  vibrationAlerts: boolean;
+  showSpeedometer: boolean;
+  internalNavigation: boolean;
+}
+
 
 import { NavigationSettings } from './NavigationSettings';
 import { TurnByTurnNavigation } from './TurnByTurnNavigation';
@@ -24,9 +36,10 @@ import { TurnByTurnNavigation } from './TurnByTurnNavigation';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface NavigationModeProps {
-  currentStop: any;
-  nextStop?: any;
-  paradas: any[];
+  currentStop: ParadaData;
+  nextStop?: ParadaData | null;
+  paradas: ParadaData[];
+  rotaId?: string;
   onComplete: () => void;
   onSkip: () => void;
   onExit: () => void;
@@ -36,6 +49,7 @@ export function NavigationMode({
   currentStop,
   nextStop,
   paradas,
+  rotaId,
   onComplete,
   onSkip,
   onExit,
@@ -53,68 +67,106 @@ export function NavigationMode({
   const [isTracking, setIsTracking] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [navigationMode, setNavigationMode] = useState<'map' | 'turn-by-turn'>('map');
-  const [internalNavEnabled, setInternalNavEnabled] = useState(false);
-  const mapRef = React.useRef<MapView>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [preferences, setPreferences] = useState<NavigationPreferences>({
+    soundAlerts: true,
+    vibrationAlerts: true,
+    showSpeedometer: true,
+    internalNavigation: false,
+  });
+  const mapRef = useRef<MapView>(null);
+  const soundRef = useRef<Audio.Sound | null>(null);
 
   const startNavigation = useCallback(async () => {
-    if (!currentStop) return;
+    if (!currentStop || !rotaId) return;
 
     const tracking = await LocationTrackingService.startTracking(
-      currentStop.rota_id,
+      rotaId,
       currentStop.id,
       nextStop?.id
     );
     setIsTracking(tracking);
-  }, [currentStop, nextStop]);
+  }, [currentStop, nextStop, rotaId]);
 
   const stopNavigation = useCallback(async () => {
     await LocationTrackingService.stopTracking();
     setIsTracking(false);
   }, []);
 
-  const checkInternalNavPreference = useCallback(async () => {
+  const loadPreferences = useCallback(async () => {
     try {
-      const prefs = await AsyncStorage.getItem('navigationPreferences');
-      if (prefs) {
-        const parsed = JSON.parse(prefs);
-        setInternalNavEnabled(parsed.internalNavigation || false);
-        if (parsed.internalNavigation) {
-          setNavigationMode('turn-by-turn');
-        }
+      const prefs = await LocationTrackingService.getNavigationPreferences();
+      const newPrefs: NavigationPreferences = {
+        soundAlerts: prefs.soundAlerts ?? true,
+        vibrationAlerts: prefs.vibrationAlerts ?? true,
+        showSpeedometer: prefs.showSpeedometer ?? true,
+        internalNavigation: prefs.internalNavigation ?? false,
+      };
+      setPreferences(newPrefs);
+      if (newPrefs.internalNavigation) {
+        setNavigationMode('turn-by-turn');
       }
     } catch {
       // Falha ao carregar preferências - usar padrão
     }
   }, []);
 
-  const calculateDistance = useCallback(
-    (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-      const EARTH_RADIUS = 6371000;
-      const phi1 = (lat1 * Math.PI) / 180;
-      const phi2 = (lat2 * Math.PI) / 180;
-      const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
-      const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+  const triggerHaptic = useCallback(async (type: 'impact' | 'success' | 'warning') => {
+    if (Platform.OS === 'web' || !preferences.vibrationAlerts) return;
 
-      const a =
-        Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-        Math.cos(phi1) *
-          Math.cos(phi2) *
-          Math.sin(deltaLambda / 2) *
-          Math.sin(deltaLambda / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    try {
+      if (type === 'impact') {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } else if (type === 'success') {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else if (type === 'warning') {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      }
+    } catch {
+      // Haptics not available
+    }
+  }, [preferences.vibrationAlerts]);
 
-      return EARTH_RADIUS * c;
-    },
-    []
-  );
+  const playNotificationSound = useCallback(async () => {
+    if (Platform.OS === 'web' || !preferences.soundAlerts) return;
+
+    try {
+      // Configure audio mode for notifications
+      await Audio.setAudioModeAsync({
+        playsInSilentModeIOS: false,
+        staysActiveInBackground: false,
+      });
+
+      // Unload previous sound if exists
+      if (soundRef.current) {
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+
+      // Play a simple notification beep using Audio
+      // Note: Custom sounds can be added to assets/sounds/ folder
+      // For now, we use haptics as the primary feedback
+    } catch {
+      // Audio not available
+    }
+  }, [preferences.soundAlerts]);
+
 
   useEffect(() => {
-    startNavigation();
-    checkInternalNavPreference();
+    const initialize = async () => {
+      await startNavigation();
+      await loadPreferences();
+      setIsInitializing(false);
+    };
+    initialize();
     return () => {
       stopNavigation();
+      // Cleanup sound
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+      }
     };
-  }, [checkInternalNavPreference, startNavigation, stopNavigation]);
+  }, [loadPreferences, startNavigation, stopNavigation]);
 
   useEffect(() => {
     let subscription: Location.LocationSubscription | null = null;
@@ -140,7 +192,7 @@ export function NavigationMode({
 
           // Calculate distance to destination
           if (currentStop) {
-            const dist = calculateDistance(
+            const dist = calculateHaversineDistance(
               coords.latitude,
               coords.longitude,
               currentStop.latitude,
@@ -167,13 +219,13 @@ export function NavigationMode({
         console.warn('[NavigationMode] Error removing subscription:', error);
       }
     };
-  }, [calculateDistance, currentStop]);
+  }, [currentStop]);
 
   const handleOpenInMaps = () => {
     if (!currentStop) return;
 
     // If internal nav is enabled, switch to turn-by-turn mode
-    if (internalNavEnabled) {
+    if (preferences.internalNavigation) {
       setNavigationMode('turn-by-turn');
     } else {
       // Open in external app
@@ -185,7 +237,8 @@ export function NavigationMode({
     }
   };
 
-  const handleCompleteStop = () => {
+  const handleCompleteStop = async () => {
+    await triggerHaptic('impact');
     Alert.alert(
       'Confirmar Entrega',
       `Confirma a entrega em:\n${currentStop.endereco}?`,
@@ -193,7 +246,9 @@ export function NavigationMode({
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Confirmar',
-          onPress: () => {
+          onPress: async () => {
+            await playNotificationSound();
+            await triggerHaptic('success');
             onComplete();
           },
         },
@@ -201,7 +256,8 @@ export function NavigationMode({
     );
   };
 
-  const handleSkipStop = () => {
+  const handleSkipStop = async () => {
+    await triggerHaptic('impact');
     Alert.alert(
       'Pular Parada',
       `Deseja pular esta parada?\n${currentStop.endereco}`,
@@ -210,7 +266,8 @@ export function NavigationMode({
         {
           text: 'Pular',
           style: 'destructive',
-          onPress: () => {
+          onPress: async () => {
+            await triggerHaptic('warning');
             onSkip();
           },
         },
@@ -270,6 +327,23 @@ export function NavigationMode({
 
   const region = getRegion();
 
+  // Calculate remaining waypoints for turn-by-turn navigation
+  const remainingWaypoints = useMemo(() => {
+    return paradas
+      .filter((p) => p.id !== currentStop?.id && p.status === 'pendente')
+      .map((p) => ({ latitude: p.latitude, longitude: p.longitude }));
+  }, [paradas, currentStop]);
+
+  // Loading state
+  if (isInitializing) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={styles.loadingText}>Preparando navegação...</Text>
+      </View>
+    );
+  }
+
   if (!currentStop || !region) return null;
 
   // Show turn-by-turn navigation if selected
@@ -282,6 +356,7 @@ export function NavigationMode({
           longitude: currentStop.longitude,
           address: currentStop.endereco,
         }}
+        waypoints={remainingWaypoints}
         onArrive={handleCompleteStop}
         onExit={() => setNavigationMode('map')}
       />
@@ -357,7 +432,8 @@ export function NavigationMode({
       </View>
 
       {/* Navigation Info Panel */}
-      <View style={[styles.infoPanel, { paddingBottom: theme.spacing.xl + insets.bottom }]}>
+      {/* Usa Math.max para garantir mínimo de 34px (Android 15 pode retornar insets.bottom = 0) */}
+      <View style={[styles.infoPanel, { paddingBottom: theme.spacing.xl + Math.max(insets.bottom, 34) }]}>
         {/* Distance and ETA */}
         <View style={styles.mainInfo}>
           <View style={styles.distanceContainer}>
@@ -374,12 +450,16 @@ export function NavigationMode({
             <Text style={styles.etaLabel}>chegada</Text>
           </View>
 
-          <View style={styles.separator} />
+          {preferences.showSpeedometer && (
+            <>
+              <View style={styles.separator} />
 
-          <View style={styles.speedContainer}>
-            <Text style={styles.speedValue}>{speed}</Text>
-            <Text style={styles.speedUnit}>km/h</Text>
-          </View>
+              <View style={styles.speedContainer}>
+                <Text style={styles.speedValue}>{speed}</Text>
+                <Text style={styles.speedUnit}>km/h</Text>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Current Destination */}
@@ -426,7 +506,7 @@ export function NavigationMode({
           >
             <Ionicons name="navigate" size={20} color={theme.colors.white} />
             <Text style={styles.mapsButtonText}>
-              {internalNavEnabled ? 'Navegar' : 'Abrir no Maps'}
+              {preferences.internalNavigation ? 'Navegar' : 'Abrir no Maps'}
             </Text>
           </TouchableOpacity>
 
@@ -456,6 +536,18 @@ export function NavigationMode({
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.gray50,
+  },
+  loadingText: {
+    marginTop: theme.spacing.md,
+    fontSize: theme.typography.fontSize.base,
+    color: theme.colors.gray600,
+    fontFamily: theme.typography.fontSans,
   },
   map: {
     width: SCREEN_WIDTH,
@@ -520,7 +612,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderTopRightRadius: theme.borderRadius.xl,
     paddingTop: theme.spacing.xl,
     paddingHorizontal: theme.spacing.lg,
-    // paddingBottom é definido dinamicamente com insets.bottom
+    // paddingBottom é definido dinamicamente com Math.max(insets.bottom, 34)
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,

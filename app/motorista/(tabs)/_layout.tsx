@@ -4,6 +4,7 @@
  */
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { useEffect } from 'react';
 import { Platform, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -22,6 +23,13 @@ export default function TabLayout() {
   const { openDrawer } = useDrawerMenu();
   const routeStatus = useRouteStatus();
   const { theme } = useUnistyles();
+
+  // Debug: Log insets para verificar se estão corretos
+  useEffect(() => {
+    if (__DEV__ && Platform.OS === 'android') {
+      console.log('[TabLayout] Safe area insets:', insets);
+    }
+  }, [insets]);
 
   // Calcular paradas pendentes para badge
   const paradasPendentes = routeStatus?.paradas?.filter(

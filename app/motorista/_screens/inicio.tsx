@@ -413,6 +413,7 @@ function MotoristaInicioContent() {
         currentStop={currentStop}
         nextStop={nextStop}
         paradas={paradas}
+        rotaId={route?.id}
         onComplete={handleNavigationComplete}
         onSkip={handleNavigationSkip}
         onExit={handleNavigationExit}
@@ -481,7 +482,10 @@ function MotoristaInicioContent() {
             expanded={miniMapExpanded}
             onToggleExpand={() => setMiniMapExpanded(!miniMapExpanded)}
             onOpenFullMap={() => router.push('/motorista/mapa')}
-            onOpenPiP={() => setShowPiPMap(true)}
+            onOpenPiP={() => {
+              setMiniMapExpanded(false); // Auto-colapsar MiniMap quando PiP abre
+              setShowPiPMap(true);
+            }}
             route={route}
             testID="motorista-mini-map"
           />
@@ -539,15 +543,27 @@ function MotoristaInicioContent() {
         <PictureInPictureMap
           visible={showPiPMap}
           userLocation={location}
-          destination={currentStop ? {
-            latitude: currentStop.latitude,
-            longitude: currentStop.longitude,
-            address: currentStop.endereco,
-          } : paradas[0] ? {
-            latitude: paradas[0].latitude,
-            longitude: paradas[0].longitude,
-            address: paradas[0].endereco,
-          } : null}
+          destination={(() => {
+            // Usar currentStop se disponível
+            if (currentStop) {
+              return {
+                latitude: currentStop.latitude,
+                longitude: currentStop.longitude,
+                address: currentStop.endereco,
+              };
+            }
+            // Fallback: encontrar primeira parada real (não checkpoint)
+            // is_checkpoint === false significa que É checkpoint (partida/chegada da unidade)
+            const primeiraParadaReal = paradas.find(p => p.is_checkpoint !== false);
+            if (primeiraParadaReal) {
+              return {
+                latitude: primeiraParadaReal.latitude,
+                longitude: primeiraParadaReal.longitude,
+                address: primeiraParadaReal.endereco,
+              };
+            }
+            return null;
+          })()}
           onClose={() => setShowPiPMap(false)}
           onExpand={() => {
             setShowPiPMap(false);

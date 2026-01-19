@@ -526,6 +526,9 @@ export function DesktopModal({
             styles.modalContainer,
             isDesktop ? styles.desktopModal : styles.mobileModal,
             isDesktop && { maxWidth: effectiveMaxWidth, maxHeight: maxHeight as DimensionValue },
+            // No mobile, eleva o modal para ficar acima da navigation bar do Android
+            // Usa Math.max para garantir mínimo de 34px (Android 15 pode retornar insets.bottom = 0)
+            !isDesktop && { bottom: Math.max(insets.bottom, 34) },
             contentStyle,
           ]}
           onPress={(e) => e?.stopPropagation?.()}
@@ -550,11 +553,7 @@ export function DesktopModal({
 
           {/* Footer */}
           {shouldRenderFooter && (
-            <View style={[
-              styles.footer,
-              // No mobile (bottom sheet), adiciona padding para safe area
-              !isDesktop && { paddingBottom: theme.spacing.lg + insets.bottom }
-            ]}>
+            <View style={styles.footer}>
               {renderFooterContent(false)}
             </View>
           )}
@@ -649,10 +648,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
   mobileModal: {
     width: '100%',
     position: 'absolute',
+    top: '10%',
     bottom: 0,
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
-    maxHeight: '90%',
+    // bottom é sobrescrito dinamicamente com Math.max(insets.bottom, 34)
   },
   header: {
     flexDirection: 'row',
@@ -674,6 +674,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginRight: -theme.spacing.sm,
   },
   content: {
+    flex: 1,
     padding: theme.spacing.lg,
   },
   footer: {

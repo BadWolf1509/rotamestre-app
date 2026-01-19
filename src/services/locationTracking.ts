@@ -30,6 +30,12 @@ interface NavigationState {
   soundAlerts: boolean;
   vibrationAlerts: boolean;
   proximityRadius: number;
+  // Extended preferences from NavigationSettings
+  showSpeedometer?: boolean;
+  preventScreenSleep?: boolean;
+  voiceNavigation?: boolean;
+  internalNavigation?: boolean;
+  // Navigation session state
   rotaId?: string;
   currentStopId?: string;
   nextStopId?: string;

@@ -174,7 +174,8 @@ export function FloatingActionButton({
   };
 
   // FAB fica acima da tab bar (60px base + insets.bottom + margem extra)
-  const fabBottom = TAB_BAR_BASE_HEIGHT + insets.bottom + tabBarHeight;
+  // Usa Math.max para garantir mínimo de 34px (Android 15 pode retornar insets.bottom = 0)
+  const fabBottom = TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, 34) + tabBarHeight;
 
   return (
     <TouchableOpacity

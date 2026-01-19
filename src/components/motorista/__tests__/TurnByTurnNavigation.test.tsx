@@ -1,11 +1,12 @@
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import React from 'react';
 
 import { TurnByTurnNavigation } from '../TurnByTurnNavigation';
 
 // Mock expo-keep-awake
 jest.mock('expo-keep-awake', () => ({
     useKeepAwake: jest.fn(),
+    activateKeepAwakeAsync: jest.fn().mockResolvedValue(undefined),
+    deactivateKeepAwake: jest.fn(),
 }));
 
 // Mock expo-location
@@ -23,14 +24,49 @@ jest.mock('expo-speech', () => ({
     stop: jest.fn(),
 }));
 
+// Mock expo-haptics
+jest.mock('expo-haptics', () => ({
+    impactAsync: jest.fn().mockResolvedValue(undefined),
+    notificationAsync: jest.fn().mockResolvedValue(undefined),
+    ImpactFeedbackStyle: {
+        Light: 'light',
+        Medium: 'medium',
+        Heavy: 'heavy',
+    },
+    NotificationFeedbackType: {
+        Success: 'success',
+        Warning: 'warning',
+        Error: 'error',
+    },
+}));
+
+// Mock useOffRouteDetection hook
+jest.mock('@/hooks/useOffRouteDetection', () => ({
+    useOffRouteDetection: jest.fn().mockReturnValue({
+        status: 'on-route',
+        distanceFromRoute: 0,
+        nearestPointOnRoute: null,
+        isRecalculating: false,
+    }),
+}));
+
 // Mock react-native-maps
 jest.mock('react-native-maps', () => {
     const { View } = require('react-native');
+    const React = require('react');
+
+    const MockMapView = React.forwardRef(({ children, ...props }: any, ref: any) => {
+        // Expose animateCamera method via ref
+        React.useImperativeHandle(ref, () => ({
+            animateCamera: jest.fn(),
+            animateToRegion: jest.fn(),
+        }));
+        return <View testID="map-view" {...props}>{children}</View>;
+    });
+
     return {
         __esModule: true,
-        default: ({ children, ...props }: any) => (
-            <View testID="map-view" {...props}>{children}</View>
-        ),
+        default: MockMapView,
         Marker: ({ children, ...props }: any) => (
             <View testID="marker" {...props}>{children}</View>
         ),

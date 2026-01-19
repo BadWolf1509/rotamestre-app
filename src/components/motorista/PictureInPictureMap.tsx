@@ -1,25 +1,25 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef, useState } from 'react';
+import * as Haptics from 'expo-haptics';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import {
   Animated,
-  Dimensions,
   PanResponder,
   TouchableOpacity,
   View,
+  Text,
+  useWindowDimensions,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-// PiP dimensions
-const PIP_WIDTH = 120;
-const PIP_HEIGHT = 180;
-const EXPANDED_WIDTH = SCREEN_WIDTH * 0.9;
-const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.4;
+// PiP dimensions (constantes base) - Unificado entre plataformas
+const PIP_WIDTH = 140;
+const PIP_HEIGHT = 200;
 const EDGE_PADDING = 16;
 
 interface PictureInPictureMapProps {
@@ -33,6 +33,31 @@ interface PictureInPictureMapProps {
 // Altura base da Tab Bar (sem safe area)
 const TAB_BAR_BASE_HEIGHT = 60;
 
+// Velocidade média urbana para estimativa de tempo (km/h)
+const AVERAGE_URBAN_SPEED_KMH = 30;
+
+/**
+ * Calcula a distância em km entre dois pontos usando fórmula Haversine
+ */
+function calculateDistanceKm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371; // Raio da Terra em km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 export function PictureInPictureMap({
   visible,
   userLocation,
@@ -42,56 +67,153 @@ export function PictureInPictureMap({
 }: PictureInPictureMapProps) {
   const { theme } = useUnistyles();
   const insets = useSafeAreaInsets();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
 
-  // Refs para bounds seguros (atualizados quando insets mudam)
+  // Dimensões calculadas dinamicamente (reativas a rotação/split-screen)
+  const expandedWidth = useMemo(() => screenWidth * 0.9, [screenWidth]);
+  const expandedHeight = useMemo(() => screenHeight * 0.4, [screenHeight]);
+
+  // Refs para bounds seguros (atualizados quando insets ou dimensões mudam)
+  // Usa Math.max para garantir mínimo de 34px (Android 15 pode retornar insets.bottom = 0)
   const safeTopBoundRef = useRef(insets.top + 10);
-  const safeBottomBoundRef = useRef(SCREEN_HEIGHT - PIP_HEIGHT - TAB_BAR_BASE_HEIGHT - insets.bottom - EDGE_PADDING);
+  const safeBottomBoundRef = useRef(screenHeight - PIP_HEIGHT - TAB_BAR_BASE_HEIGHT - Math.max(insets.bottom, 34) - EDGE_PADDING);
 
-  // Atualizar refs quando insets mudarem
+  // Atualizar refs quando insets ou dimensões mudarem
   useEffect(() => {
     safeTopBoundRef.current = insets.top + 10;
-    safeBottomBoundRef.current = SCREEN_HEIGHT - PIP_HEIGHT - TAB_BAR_BASE_HEIGHT - insets.bottom - EDGE_PADDING;
-  }, [insets.top, insets.bottom]);
+    safeBottomBoundRef.current = screenHeight - PIP_HEIGHT - TAB_BAR_BASE_HEIGHT - Math.max(insets.bottom, 34) - EDGE_PADDING;
+  }, [insets.top, insets.bottom, screenHeight]);
+
+  // Posição inicial (canto inferior direito)
+  const initialX = screenWidth - PIP_WIDTH - EDGE_PADDING;
+  const initialY = Math.max(safeTopBoundRef.current, 100);
+
+  // Ref para rastrear posição atual (evita acessar _value interno)
+  const currentPositionRef = useRef({ x: initialX, y: initialY });
 
   // Animation values
   const pan = useRef(new Animated.ValueXY({
-    x: SCREEN_WIDTH - PIP_WIDTH - EDGE_PADDING,
-    y: Math.max(safeTopBoundRef.current, 100),
+    x: initialX,
+    y: initialY,
   })).current;
-  const scale = useRef(new Animated.Value(1)).current;
+  const animatedWidth = useRef(new Animated.Value(PIP_WIDTH)).current;
+  const animatedHeight = useRef(new Animated.Value(PIP_HEIGHT)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
   // State
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [mapLoading, setMapLoading] = useState(true);
+
+  // Calcular distância e tempo estimado até o destino
+  const routeInfo = useMemo(() => {
+    if (!userLocation || !destination) return null;
+
+    const distanceKm = calculateDistanceKm(
+      userLocation.latitude,
+      userLocation.longitude,
+      destination.latitude,
+      destination.longitude
+    );
+
+    // Estimar tempo baseado em velocidade média urbana
+    const estimatedMinutes = Math.ceil((distanceKm / AVERAGE_URBAN_SPEED_KMH) * 60);
+
+    return {
+      distanceKm,
+      estimatedMinutes,
+      // Formatar para exibição
+      distanceText: distanceKm < 1
+        ? `${Math.round(distanceKm * 1000)} m`
+        : `${distanceKm.toFixed(1)} km`,
+      timeText: estimatedMinutes < 60
+        ? `${estimatedMinutes} min`
+        : `${Math.floor(estimatedMinutes / 60)}h${estimatedMinutes % 60}`,
+    };
+  }, [userLocation, destination]);
+
+  // Ref para isExpanded (necessário para PanResponder que captura closure)
+  const isExpandedRef = useRef(isExpanded);
+  useEffect(() => {
+    isExpandedRef.current = isExpanded;
+  }, [isExpanded]);
+
+  // Atualizar posição quando dimensões mudarem (rotação)
+  useEffect(() => {
+    if (!isExpandedRef.current) {
+      // Reposicionar no canto direito após rotação
+      const newX = screenWidth - PIP_WIDTH - EDGE_PADDING;
+      const newY = Math.max(safeTopBoundRef.current, Math.min(currentPositionRef.current.y, safeBottomBoundRef.current));
+      pan.setValue({ x: newX, y: newY });
+      currentPositionRef.current = { x: newX, y: newY };
+    } else {
+      // Recentralizar se expandido
+      const centerX = (screenWidth - expandedWidth) / 2;
+      const centerY = (screenHeight - expandedHeight) / 2;
+      pan.setValue({ x: centerX, y: centerY });
+      animatedWidth.setValue(expandedWidth);
+      animatedHeight.setValue(expandedHeight);
+    }
+  }, [screenWidth, screenHeight, expandedWidth, expandedHeight, pan, animatedWidth, animatedHeight]);
+
+  // Listener para rastrear posição atual
+  useEffect(() => {
+    const listenerId = pan.addListener((value) => {
+      currentPositionRef.current = value;
+    });
+    return () => {
+      pan.removeListener(listenerId);
+    };
+  }, [pan]);
+
+  // Refs para dimensões da tela (necessário para PanResponder que captura closure)
+  const screenWidthRef = useRef(screenWidth);
+  const screenHeightRef = useRef(screenHeight);
+  useEffect(() => {
+    screenWidthRef.current = screenWidth;
+    screenHeightRef.current = screenHeight;
+  }, [screenWidth, screenHeight]);
 
   // Pan responder for dragging
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => !isExpanded,
-      onMoveShouldSetPanResponder: () => !isExpanded,
+      onStartShouldSetPanResponder: () => !isExpandedRef.current,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Só capturar se houver movimento significativo e não estiver expandido
+        return !isExpandedRef.current && (Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2);
+      },
       onPanResponderGrant: () => {
         setIsDragging(true);
-        Animated.spring(scale, {
-          toValue: 0.9,
-          useNativeDriver: true,
-        }).start();
+        // Haptic feedback ao iniciar drag
+        if (Platform.OS !== 'web') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+        // Salvar posição atual como offset antes de começar o drag
+        pan.setOffset({
+          x: currentPositionRef.current.x,
+          y: currentPositionRef.current.y,
+        });
+        pan.setValue({ x: 0, y: 0 });
       },
       onPanResponderMove: Animated.event(
         [null, { dx: pan.x, dy: pan.y }],
-        { useNativeDriver: false }
+        { useNativeDriver: false } // Deve ser false pois width/height no mesmo View não suportam native driver
       ),
       onPanResponderRelease: (_, gestureState) => {
         setIsDragging(false);
-        Animated.spring(scale, {
-          toValue: 1,
-          useNativeDriver: true,
-        }).start();
+        // Consolidar offset com valor atual
+        pan.flattenOffset();
 
-        // Snap to edges
-        const finalX = gestureState.moveX < SCREEN_WIDTH / 2
+        // Haptic feedback ao soltar (snap)
+        if (Platform.OS !== 'web') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
+
+        // Snap to edges (usando refs para valores atualizados)
+        const currentScreenWidth = screenWidthRef.current;
+        const finalX = gestureState.moveX < currentScreenWidth / 2
           ? EDGE_PADDING
-          : SCREEN_WIDTH - PIP_WIDTH - EDGE_PADDING;
+          : currentScreenWidth - PIP_WIDTH - EDGE_PADDING;
 
         // Keep within screen bounds (usando refs para valores atualizados de safe area)
         const finalY = Math.max(
@@ -117,12 +239,17 @@ export function PictureInPictureMap({
     Animated.timing(opacity, {
       toValue: visible ? 1 : 0,
       duration: 300,
-      useNativeDriver: true,
+      useNativeDriver: false, // Deve ser false pois width/height no mesmo View não suportam native driver
     }).start();
   }, [opacity, visible]);
 
   // Toggle expansion
   const toggleExpand = () => {
+    // Haptic feedback ao expandir/colapsar
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+
     const newExpanded = !isExpanded;
     setIsExpanded(newExpanded);
 
@@ -131,16 +258,24 @@ export function PictureInPictureMap({
       Animated.parallel([
         Animated.spring(pan, {
           toValue: {
-            x: (SCREEN_WIDTH - EXPANDED_WIDTH) / 2,
-            y: (SCREEN_HEIGHT - EXPANDED_HEIGHT) / 2,
+            x: (screenWidth - expandedWidth) / 2,
+            y: (screenHeight - expandedHeight) / 2,
           },
           useNativeDriver: false,
           tension: 40,
           friction: 8,
         }),
-        Animated.spring(scale, {
-          toValue: EXPANDED_WIDTH / PIP_WIDTH,
-          useNativeDriver: true,
+        Animated.spring(animatedWidth, {
+          toValue: expandedWidth,
+          useNativeDriver: false,
+          tension: 40,
+          friction: 8,
+        }),
+        Animated.spring(animatedHeight, {
+          toValue: expandedHeight,
+          useNativeDriver: false,
+          tension: 40,
+          friction: 8,
         }),
       ]).start();
     } else {
@@ -148,19 +283,35 @@ export function PictureInPictureMap({
       Animated.parallel([
         Animated.spring(pan, {
           toValue: {
-            x: SCREEN_WIDTH - PIP_WIDTH - EDGE_PADDING,
+            x: screenWidth - PIP_WIDTH - EDGE_PADDING,
             y: Math.max(safeTopBoundRef.current, 100),
           },
           useNativeDriver: false,
           tension: 40,
           friction: 8,
         }),
-        Animated.spring(scale, {
-          toValue: 1,
-          useNativeDriver: true,
+        Animated.spring(animatedWidth, {
+          toValue: PIP_WIDTH,
+          useNativeDriver: false,
+          tension: 40,
+          friction: 8,
+        }),
+        Animated.spring(animatedHeight, {
+          toValue: PIP_HEIGHT,
+          useNativeDriver: false,
+          tension: 40,
+          friction: 8,
         }),
       ]).start();
     }
+  };
+
+  // Handler para fechar com haptic
+  const handleClose = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.selectionAsync();
+    }
+    onClose();
   };
 
   // Calculate region
@@ -197,15 +348,15 @@ export function PictureInPictureMap({
 
   return (
     <Animated.View
+      testID="pip-map-container"
       style={[
         styles.container,
         {
-          width: isExpanded ? EXPANDED_WIDTH : PIP_WIDTH,
-          height: isExpanded ? EXPANDED_HEIGHT : PIP_HEIGHT,
+          width: animatedWidth,
+          height: animatedHeight,
           transform: [
             { translateX: pan.x },
             { translateY: pan.y },
-            { scale },
           ],
           opacity,
         },
@@ -214,6 +365,7 @@ export function PictureInPictureMap({
     >
       {/* Map */}
       <MapView
+        testID="pip-map-view"
         style={[styles.map, { pointerEvents: isExpanded ? 'auto' : 'none' }]}
         provider={PROVIDER_GOOGLE}
         region={region}
@@ -224,11 +376,26 @@ export function PictureInPictureMap({
         scrollEnabled={isExpanded}
         zoomEnabled={isExpanded}
         toolbarEnabled={false}
+        onMapReady={() => setMapLoading(false)}
       >
+        {/* Polyline conectando usuário ao destino */}
+        {userLocation && destination && (
+          <Polyline
+            coordinates={[
+              { latitude: userLocation.latitude, longitude: userLocation.longitude },
+              { latitude: destination.latitude, longitude: destination.longitude },
+            ]}
+            strokeColor={theme.colors.primary}
+            strokeWidth={3}
+            lineDashPattern={[10, 5]}
+          />
+        )}
+
         {destination && (
           <Marker
             coordinate={destination}
             title={destination.address}
+            tracksViewChanges={false}
           >
             <View style={styles.destinationMarker}>
               <Ionicons name="location" size={20} color={theme.colors.error} />
@@ -237,20 +404,41 @@ export function PictureInPictureMap({
         )}
       </MapView>
 
+      {/* Loading overlay */}
+      {mapLoading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+        </View>
+      )}
+
+      {/* ETA Badge - apenas quando colapsado */}
+      {!isExpanded && routeInfo && (
+        <View style={styles.etaBadge}>
+          <Ionicons name="navigate-outline" size={12} color={theme.colors.white} />
+          <Text style={styles.etaText}>
+            {routeInfo.distanceText} • {routeInfo.timeText}
+          </Text>
+        </View>
+      )}
+
       {/* Controls overlay */}
       <View style={[styles.controls, { pointerEvents: 'box-none' }]}>
         {/* Expand/Collapse button */}
         <TouchableOpacity
+          testID="pip-expand-button"
           style={[
             styles.controlButton,
             isExpanded && styles.collapseButton,
           ]}
           onPress={toggleExpand}
           activeOpacity={0.8}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel={isExpanded ? 'Minimizar mapa' : 'Expandir mapa'}
+          accessibilityRole="button"
         >
           <Ionicons
             name={isExpanded ? 'contract' : 'expand'}
-            size={16}
+            size={18}
             color={theme.colors.white}
           />
         </TouchableOpacity>
@@ -258,21 +446,29 @@ export function PictureInPictureMap({
         {/* Open full navigation button (only when expanded) */}
         {isExpanded && (
           <TouchableOpacity
+            testID="pip-navigate-button"
             style={[styles.controlButton, styles.navigateButton]}
             onPress={onExpand}
             activeOpacity={0.8}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel="Abrir navegação completa"
+            accessibilityRole="button"
           >
-            <Ionicons name="navigate" size={16} color={theme.colors.white} />
+            <Ionicons name="navigate" size={18} color={theme.colors.white} />
           </TouchableOpacity>
         )}
 
         {/* Close button */}
         <TouchableOpacity
+          testID="pip-close-button"
           style={[styles.controlButton, styles.closeButton]}
-          onPress={onClose}
+          onPress={handleClose}
           activeOpacity={0.8}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel="Fechar mapa"
+          accessibilityRole="button"
         >
-          <Ionicons name="close" size={16} color={theme.colors.white} />
+          <Ionicons name="close" size={18} color={theme.colors.white} />
         </TouchableOpacity>
       </View>
 
@@ -302,6 +498,29 @@ const styles = StyleSheet.create((theme: Theme) => ({
   map: {
     flex: 1,
   },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: withOpacity(theme.colors.white, 0.8),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  etaBadge: {
+    position: 'absolute',
+    bottom: theme.spacing['2'],
+    left: theme.spacing['2'],
+    backgroundColor: withOpacity(theme.colors.primary, 0.9),
+    borderRadius: theme.borderRadius.xs,
+    paddingHorizontal: theme.spacing['2'],
+    paddingVertical: theme.spacing['1'],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing['1'],
+  },
+  etaText: {
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.white,
+    fontWeight: '600',
+  },
   controls: {
     position: 'absolute',
     top: theme.spacing['2'],
@@ -310,8 +529,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: theme.spacing['2'],
   },
   controlButton: {
-    width: 28,
-    height: 28,
+    width: 44,
+    height: 44,
     borderRadius: theme.borderRadius.full,
     backgroundColor: withOpacity(theme.colors.black, 0.6),
     justifyContent: 'center',

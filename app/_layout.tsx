@@ -96,7 +96,8 @@ function detectE2EEnvironment(): boolean {
   if ((navigator as any).webdriver === true) return true;
 
   // Method 4: Check for headless browser patterns in userAgent (case-insensitive)
-  const ua = navigator.userAgent.toLowerCase();
+  // Note: navigator.userAgent may be undefined in React Native on Android
+  const ua = navigator.userAgent?.toLowerCase() || '';
   if (ua.includes('headlesschrome') || ua.includes('headless')) return true;
 
   // Method 5: Check URL param for E2E (most reliable in CI)

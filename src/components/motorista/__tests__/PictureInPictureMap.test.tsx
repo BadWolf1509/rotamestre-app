@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
 
 import { PictureInPictureMap } from '../PictureInPictureMap';
@@ -14,6 +14,9 @@ jest.mock('react-native-maps', () => {
         Marker: ({ children, ...props }: any) => (
             <View testID="marker" {...props}>{children}</View>
         ),
+        Polyline: (props: any) => (
+            <View testID="polyline" {...props} />
+        ),
         PROVIDER_GOOGLE: 'google',
     };
 });
@@ -21,6 +24,22 @@ jest.mock('react-native-maps', () => {
 // Mock Ionicons
 jest.mock('@expo/vector-icons', () => ({
     Ionicons: 'Ionicons',
+}));
+
+// Mock expo-haptics
+jest.mock('expo-haptics', () => ({
+    impactAsync: jest.fn(),
+    selectionAsync: jest.fn(),
+    ImpactFeedbackStyle: {
+        Light: 'light',
+        Medium: 'medium',
+        Heavy: 'heavy',
+    },
+}));
+
+// Mock safe area
+jest.mock('react-native-safe-area-context', () => ({
+    useSafeAreaInsets: () => ({ top: 44, bottom: 34, left: 0, right: 0 }),
 }));
 
 describe('PictureInPictureMap', () => {
@@ -40,7 +59,8 @@ describe('PictureInPictureMap', () => {
         it('deve renderizar quando visible é true', () => {
             const { getByTestId } = render(<PictureInPictureMap {...defaultProps} />);
 
-            expect(getByTestId('map-view')).toBeTruthy();
+            expect(getByTestId('pip-map-container')).toBeTruthy();
+            expect(getByTestId('pip-map-view')).toBeTruthy();
         });
 
         it('não deve renderizar quando visible é false', () => {
@@ -48,7 +68,7 @@ describe('PictureInPictureMap', () => {
                 <PictureInPictureMap {...defaultProps} visible={false} />
             );
 
-            expect(queryByTestId('map-view')).toBeNull();
+            expect(queryByTestId('pip-map-container')).toBeNull();
         });
 
         it('não deve renderizar quando não há userLocation nem destination', () => {
@@ -60,7 +80,7 @@ describe('PictureInPictureMap', () => {
                 />
             );
 
-            expect(queryByTestId('map-view')).toBeNull();
+            expect(queryByTestId('pip-map-container')).toBeNull();
         });
 
         it('deve renderizar apenas com userLocation', () => {
@@ -71,7 +91,7 @@ describe('PictureInPictureMap', () => {
                 />
             );
 
-            expect(getByTestId('map-view')).toBeTruthy();
+            expect(getByTestId('pip-map-view')).toBeTruthy();
         });
 
         it('deve renderizar marker quando há destination', () => {
@@ -93,20 +113,28 @@ describe('PictureInPictureMap', () => {
     });
 
     describe('Controls', () => {
+        it('deve renderizar botões de controle', () => {
+            const { getByTestId } = render(<PictureInPictureMap {...defaultProps} />);
+
+            expect(getByTestId('pip-expand-button')).toBeTruthy();
+            expect(getByTestId('pip-close-button')).toBeTruthy();
+        });
+
         it('deve chamar onClose quando botão close é pressionado', () => {
             const onClose = jest.fn();
-            const { UNSAFE_getAllByType: _UNSAFE_getAllByType } = render(
+            const { getByTestId } = render(
                 <PictureInPictureMap {...defaultProps} onClose={onClose} />
             );
 
-            // O componente deve ter botões de controle
-            expect(onClose).not.toHaveBeenCalled();
+            fireEvent.press(getByTestId('pip-close-button'));
+
+            expect(onClose).toHaveBeenCalledTimes(1);
         });
 
-        it('deve ter botão de expand/collapse', () => {
-            const { toJSON } = render(<PictureInPictureMap {...defaultProps} />);
+        it('não deve mostrar botão navigate quando colapsado', () => {
+            const { queryByTestId } = render(<PictureInPictureMap {...defaultProps} />);
 
-            expect(toJSON()).toBeTruthy();
+            expect(queryByTestId('pip-navigate-button')).toBeNull();
         });
     });
 
@@ -114,14 +142,14 @@ describe('PictureInPictureMap', () => {
         it('deve calcular região corretamente com userLocation e destination', () => {
             const { getByTestId } = render(<PictureInPictureMap {...defaultProps} />);
 
-            const mapView = getByTestId('map-view');
+            const mapView = getByTestId('pip-map-view');
             expect(mapView.props.region).toBeDefined();
         });
 
         it('deve calcular centro da região entre userLocation e destination', () => {
             const { getByTestId } = render(<PictureInPictureMap {...defaultProps} />);
 
-            const mapView = getByTestId('map-view');
+            const mapView = getByTestId('pip-map-view');
             const region = mapView.props.region;
 
             // Centro deve estar entre userLocation e destination
@@ -137,7 +165,7 @@ describe('PictureInPictureMap', () => {
                 />
             );
 
-            const mapView = getByTestId('map-view');
+            const mapView = getByTestId('pip-map-view');
             const region = mapView.props.region;
 
             expect(region.latitude).toBe(-23.5505);
@@ -149,35 +177,45 @@ describe('PictureInPictureMap', () => {
         it('deve mostrar user location', () => {
             const { getByTestId } = render(<PictureInPictureMap {...defaultProps} />);
 
-            const mapView = getByTestId('map-view');
+            const mapView = getByTestId('pip-map-view');
             expect(mapView.props.showsUserLocation).toBe(true);
         });
 
         it('deve usar PROVIDER_GOOGLE', () => {
             const { getByTestId } = render(<PictureInPictureMap {...defaultProps} />);
 
-            const mapView = getByTestId('map-view');
+            const mapView = getByTestId('pip-map-view');
             expect(mapView.props.provider).toBe('google');
         });
 
-        it('deve desabilitar botões de navegação do mapa quando collapsed', () => {
+        it('deve desabilitar interações quando colapsado', () => {
             const { getByTestId } = render(<PictureInPictureMap {...defaultProps} />);
 
-            const mapView = getByTestId('map-view');
+            const mapView = getByTestId('pip-map-view');
+            expect(mapView.props.scrollEnabled).toBe(false);
+            expect(mapView.props.zoomEnabled).toBe(false);
             expect(mapView.props.showsMyLocationButton).toBe(false);
             expect(mapView.props.showsCompass).toBe(false);
             expect(mapView.props.toolbarEnabled).toBe(false);
+        });
+
+        it('deve ter marker com tracksViewChanges false para performance', () => {
+            const { getByTestId } = render(<PictureInPictureMap {...defaultProps} />);
+
+            // tracksViewChanges is a Marker prop, not MapView - verify marker exists
+            const marker = getByTestId('marker');
+            expect(marker.props.tracksViewChanges).toBe(false);
         });
     });
 
     describe('Visibility animation', () => {
         it('deve iniciar animação quando visible muda', () => {
-            const { rerender, toJSON } = render(
+            const { rerender, toJSON, queryByTestId } = render(
                 <PictureInPictureMap {...defaultProps} visible={false} />
             );
 
             // Inicialmente não visível
-            expect(toJSON()).toBeNull();
+            expect(queryByTestId('pip-map-container')).toBeNull();
 
             // Mudar para visível
             rerender(<PictureInPictureMap {...defaultProps} visible={true} />);
@@ -187,7 +225,7 @@ describe('PictureInPictureMap', () => {
     });
 
     describe('Marker', () => {
-        it('deve mostrar destination marker com endereço correto', () => {
+        it('deve mostrar destination marker com coordenadas corretas', () => {
             const { getByTestId } = render(<PictureInPictureMap {...defaultProps} />);
 
             const marker = getByTestId('marker');
@@ -216,7 +254,7 @@ describe('PictureInPictureMap', () => {
 
             const { getByTestId } = render(<PictureInPictureMap {...props} />);
 
-            const mapView = getByTestId('map-view');
+            const mapView = getByTestId('pip-map-view');
             const region = mapView.props.region;
 
             // Deve ter delta mínimo
@@ -233,7 +271,7 @@ describe('PictureInPictureMap', () => {
 
             const { getByTestId } = render(<PictureInPictureMap {...props} />);
 
-            expect(getByTestId('map-view')).toBeTruthy();
+            expect(getByTestId('pip-map-view')).toBeTruthy();
         });
 
         it('deve lidar com destination ao sul do userLocation', () => {
@@ -245,7 +283,29 @@ describe('PictureInPictureMap', () => {
 
             const { getByTestId } = render(<PictureInPictureMap {...props} />);
 
-            expect(getByTestId('map-view')).toBeTruthy();
+            expect(getByTestId('pip-map-view')).toBeTruthy();
+        });
+    });
+
+    describe('Accessibility', () => {
+        it('deve ter labels de acessibilidade nos botões', () => {
+            const { getByTestId } = render(<PictureInPictureMap {...defaultProps} />);
+
+            const expandButton = getByTestId('pip-expand-button');
+            const closeButton = getByTestId('pip-close-button');
+
+            expect(expandButton.props.accessibilityLabel).toBe('Expandir mapa');
+            expect(closeButton.props.accessibilityLabel).toBe('Fechar mapa');
+        });
+
+        it('deve ter role de botão', () => {
+            const { getByTestId } = render(<PictureInPictureMap {...defaultProps} />);
+
+            const expandButton = getByTestId('pip-expand-button');
+            const closeButton = getByTestId('pip-close-button');
+
+            expect(expandButton.props.accessibilityRole).toBe('button');
+            expect(closeButton.props.accessibilityRole).toBe('button');
         });
     });
 

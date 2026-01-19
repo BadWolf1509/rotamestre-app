@@ -4,6 +4,30 @@ import { Platform } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
 
+/**
+ * Calculate distance between two coordinates using Haversine formula
+ * Returns distance in meters
+ */
+export function calculateHaversineDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const EARTH_RADIUS = 6371000; // meters
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return EARTH_RADIUS * c;
+}
+
 // Types
 export interface NavigationInstruction {
   distance: number; // meters
@@ -352,20 +376,9 @@ class TurnByTurnNavigationService {
     }
   }
 
-  // Calculate distance between two points
+  // Calculate distance between two points (uses exported utility)
   private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const EARTH_RADIUS = 6371000;
-    const phi1 = (lat1 * Math.PI) / 180;
-    const phi2 = (lat2 * Math.PI) / 180;
-    const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
-    const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
-
-    const a =
-      Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-      Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return EARTH_RADIUS * c;
+    return calculateHaversineDistance(lat1, lon1, lat2, lon2);
   }
 
   // Decode polyline to coordinates
@@ -392,12 +405,25 @@ class TurnByTurnNavigationService {
     return this.decodePolyline(this.currentRoute.polyline);
   }
 
-  // Get progress percentage
+  // Get progress percentage (by instruction count)
   getProgress(): number {
     if (!this.currentRoute) return 0;
     const total = this.currentRoute.instructions.length;
     if (total === 0) return 100;
     return Math.round((this.currentInstructionIndex / total) * 100);
+  }
+
+  // Get progress percentage by distance traveled (more accurate)
+  getProgressByDistance(): number {
+    if (!this.currentRoute) return 0;
+
+    const totalDistance = this.currentRoute.distance;
+    if (totalDistance === 0) return 100;
+
+    const remainingDistance = this.getRemainingDistance();
+    const traveled = totalDistance - remainingDistance;
+
+    return Math.round((traveled / totalDistance) * 100);
   }
 
   // Get remaining distance

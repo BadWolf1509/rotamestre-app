@@ -1,4 +1,4 @@
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import { Alert } from 'react-native';
 
@@ -45,6 +45,37 @@ jest.mock('@/services/locationTracking', () => ({
     default: {
         startTracking: jest.fn().mockResolvedValue(true),
         stopTracking: jest.fn().mockResolvedValue(undefined),
+        getNavigationPreferences: jest.fn().mockResolvedValue({
+            internalNavigation: false,
+            autoAdvance: true,
+            proximityRadius: 50,
+        }),
+    },
+}));
+
+// Mock expo-haptics
+jest.mock('expo-haptics', () => ({
+    impactAsync: jest.fn().mockResolvedValue(undefined),
+    notificationAsync: jest.fn().mockResolvedValue(undefined),
+    ImpactFeedbackStyle: {
+        Light: 'light',
+        Medium: 'medium',
+        Heavy: 'heavy',
+    },
+    NotificationFeedbackType: {
+        Success: 'success',
+        Warning: 'warning',
+        Error: 'error',
+    },
+}));
+
+// Mock expo-av
+jest.mock('expo-av', () => ({
+    Audio: {
+        Sound: {
+            createAsync: jest.fn().mockResolvedValue({ sound: { unloadAsync: jest.fn() } }),
+        },
+        setAudioModeAsync: jest.fn().mockResolvedValue(undefined),
     },
 }));
 
@@ -133,11 +164,12 @@ describe('NavigationMode', () => {
     const defaultProps = {
         currentStop: {
             id: 'stop-1',
-            rota_id: 'rota-1',
             endereco: 'Rua Destino, 456',
             latitude: -23.5600,
             longitude: -46.6400,
             ordem: 1,
+            status: 'pendente',
+            tipo: 'entrega',
         },
         nextStop: {
             id: 'stop-2',
@@ -145,11 +177,14 @@ describe('NavigationMode', () => {
             latitude: -23.5700,
             longitude: -46.6500,
             ordem: 2,
+            status: 'pendente',
+            tipo: 'entrega',
         },
         paradas: [
-            { id: 'stop-1', endereco: 'Rua Destino, 456', latitude: -23.5600, longitude: -46.6400, ordem: 1, status: 'pendente' },
-            { id: 'stop-2', endereco: 'Próxima Rua, 789', latitude: -23.5700, longitude: -46.6500, ordem: 2, status: 'pendente' },
+            { id: 'stop-1', endereco: 'Rua Destino, 456', latitude: -23.5600, longitude: -46.6400, ordem: 1, status: 'pendente', tipo: 'entrega' },
+            { id: 'stop-2', endereco: 'Próxima Rua, 789', latitude: -23.5700, longitude: -46.6500, ordem: 2, status: 'pendente', tipo: 'entrega' },
         ],
+        rotaId: 'rota-1',
         onComplete: jest.fn(),
         onSkip: jest.fn(),
         onExit: jest.fn(),
@@ -160,91 +195,129 @@ describe('NavigationMode', () => {
     });
 
     describe('Rendering', () => {
-        it('deve retornar null quando currentStop é null', () => {
-            const { toJSON } = render(
-                <NavigationMode {...defaultProps} currentStop={null} />
-            );
+        it('deve mostrar loading inicialmente', () => {
+            const { getByText } = render(<NavigationMode {...defaultProps} />);
 
-            expect(toJSON()).toBeNull();
+            expect(getByText('Preparando navegação...')).toBeTruthy();
         });
 
-        it('deve renderizar o mapa quando currentStop existe', () => {
+        it('deve renderizar o mapa quando currentStop existe', async () => {
             const { getByTestId } = render(<NavigationMode {...defaultProps} />);
 
-            expect(getByTestId('map-view')).toBeTruthy();
+            await waitFor(() => {
+                expect(getByTestId('map-view')).toBeTruthy();
+            });
         });
 
-        it('deve renderizar marker de destino', () => {
+        it('deve renderizar marker de destino', async () => {
             const { getAllByTestId } = render(<NavigationMode {...defaultProps} />);
 
-            const markers = getAllByTestId('marker');
-            expect(markers.length).toBeGreaterThan(0);
+            await waitFor(() => {
+                const markers = getAllByTestId('marker');
+                expect(markers.length).toBeGreaterThan(0);
+            });
         });
     });
 
     describe('Complete stop', () => {
-        it('deve mostrar Alert de confirmação ao completar', () => {
+        it('deve mostrar Alert de confirmação ao completar', async () => {
             const { getByText } = render(<NavigationMode {...defaultProps} />);
+
+            await waitFor(() => {
+                expect(getByText('Concluir')).toBeTruthy();
+            });
 
             const completeButton = getByText('Concluir');
             fireEvent.press(completeButton);
 
-            expect(Alert.alert).toHaveBeenCalledWith(
-                'Confirmar Entrega',
-                expect.stringContaining('Rua Destino, 456'),
-                expect.any(Array)
-            );
+            // Wait for async handler to complete
+            await waitFor(() => {
+                expect(Alert.alert).toHaveBeenCalledWith(
+                    'Confirmar Entrega',
+                    expect.stringContaining('Rua Destino, 456'),
+                    expect.any(Array)
+                );
+            });
         });
 
-        it('deve chamar onComplete quando confirmado', () => {
+        it('deve chamar onComplete quando confirmado', async () => {
             const { getByText } = render(<NavigationMode {...defaultProps} />);
+
+            await waitFor(() => {
+                expect(getByText('Concluir')).toBeTruthy();
+            });
 
             const completeButton = getByText('Concluir');
             fireEvent.press(completeButton);
+
+            // Wait for async handler and get the Alert call
+            await waitFor(() => {
+                expect(Alert.alert).toHaveBeenCalled();
+            });
 
             // Simular confirmação no Alert
             const alertCall = (Alert.alert as jest.Mock).mock.calls[0];
             const confirmButton = alertCall[2].find((btn: any) => btn.text === 'Confirmar');
-            confirmButton.onPress();
+            await confirmButton.onPress();
 
             expect(defaultProps.onComplete).toHaveBeenCalled();
         });
     });
 
     describe('Skip stop', () => {
-        it('deve mostrar Alert de confirmação ao pular', () => {
+        it('deve mostrar Alert de confirmação ao pular', async () => {
             const { getByText } = render(<NavigationMode {...defaultProps} />);
+
+            await waitFor(() => {
+                expect(getByText('Pular')).toBeTruthy();
+            });
 
             const skipButton = getByText('Pular');
             fireEvent.press(skipButton);
 
-            expect(Alert.alert).toHaveBeenCalledWith(
-                'Pular Parada',
-                expect.stringContaining('Rua Destino, 456'),
-                expect.any(Array)
-            );
+            // Wait for async handler to complete
+            await waitFor(() => {
+                expect(Alert.alert).toHaveBeenCalledWith(
+                    'Pular Parada',
+                    expect.stringContaining('Rua Destino, 456'),
+                    expect.any(Array)
+                );
+            });
         });
 
-        it('deve chamar onSkip quando confirmado', () => {
+        it('deve chamar onSkip quando confirmado', async () => {
             const { getByText } = render(<NavigationMode {...defaultProps} />);
+
+            await waitFor(() => {
+                expect(getByText('Pular')).toBeTruthy();
+            });
 
             const skipButton = getByText('Pular');
             fireEvent.press(skipButton);
+
+            // Wait for async handler and get the Alert call
+            await waitFor(() => {
+                expect(Alert.alert).toHaveBeenCalled();
+            });
 
             // Simular confirmação no Alert
             const alertCall = (Alert.alert as jest.Mock).mock.calls[0];
             const skipConfirm = alertCall[2].find((btn: any) => btn.text === 'Pular');
-            skipConfirm.onPress();
+            await skipConfirm.onPress();
 
             expect(defaultProps.onSkip).toHaveBeenCalled();
         });
     });
 
     describe('Open in maps', () => {
-        it('deve abrir navegação externa quando botão pressionado', () => {
+        it('deve abrir navegação externa quando botão pressionado', async () => {
             const { abrirNavegacao } = require('@/lib/navigation');
 
             const { getByText } = render(<NavigationMode {...defaultProps} />);
+
+            await waitFor(() => {
+                expect(getByText('Abrir no Maps')).toBeTruthy();
+            });
 
             const mapsButton = getByText('Abrir no Maps');
             fireEvent.press(mapsButton);
@@ -258,33 +331,43 @@ describe('NavigationMode', () => {
     });
 
     describe('Info panel', () => {
-        it('deve mostrar parada atual', () => {
+        it('deve mostrar parada atual', async () => {
             const { getByText } = render(<NavigationMode {...defaultProps} />);
 
-            expect(getByText('Rua Destino, 456')).toBeTruthy();
+            await waitFor(() => {
+                expect(getByText('Rua Destino, 456')).toBeTruthy();
+            });
         });
 
-        it('deve mostrar número da parada', () => {
+        it('deve mostrar número da parada', async () => {
             const { getByText } = render(<NavigationMode {...defaultProps} />);
 
-            expect(getByText('PARADA 1/2')).toBeTruthy();
+            await waitFor(() => {
+                expect(getByText('PARADA 1/2')).toBeTruthy();
+            });
         });
 
-        it('deve mostrar hint da próxima parada', () => {
+        it('deve mostrar hint da próxima parada', async () => {
             const { getByText } = render(<NavigationMode {...defaultProps} />);
 
-            expect(getByText(/Próxima:/)).toBeTruthy();
+            await waitFor(() => {
+                expect(getByText(/Próxima:/)).toBeTruthy();
+            });
         });
 
-        it('não deve mostrar hint quando não há nextStop', () => {
-            const { queryByText } = render(
+        it('não deve mostrar hint quando não há nextStop', async () => {
+            const { queryByText, getByText } = render(
                 <NavigationMode {...defaultProps} nextStop={undefined} />
             );
+
+            await waitFor(() => {
+                expect(getByText('Rua Destino, 456')).toBeTruthy();
+            });
 
             expect(queryByText(/Próxima:/)).toBeNull();
         });
 
-        it('deve mostrar destinatário quando fornecido', () => {
+        it('deve mostrar destinatário quando fornecido', async () => {
             const props = {
                 ...defaultProps,
                 currentStop: {
@@ -295,10 +378,12 @@ describe('NavigationMode', () => {
 
             const { getByText } = render(<NavigationMode {...props} />);
 
-            expect(getByText('João Silva')).toBeTruthy();
+            await waitFor(() => {
+                expect(getByText('João Silva')).toBeTruthy();
+            });
         });
 
-        it('deve mostrar observações quando fornecidas', () => {
+        it('deve mostrar observações quando fornecidas', async () => {
             const props = {
                 ...defaultProps,
                 currentStop: {
@@ -309,33 +394,41 @@ describe('NavigationMode', () => {
 
             const { getByText } = render(<NavigationMode {...props} />);
 
-            expect(getByText('Tocar interfone 123')).toBeTruthy();
+            await waitFor(() => {
+                expect(getByText('Tocar interfone 123')).toBeTruthy();
+            });
         });
     });
 
     describe('Map properties', () => {
-        it('deve usar PROVIDER_GOOGLE', () => {
+        it('deve usar PROVIDER_GOOGLE', async () => {
             const { getByTestId } = render(<NavigationMode {...defaultProps} />);
 
-            const mapView = getByTestId('map-view');
-            expect(mapView.props.provider).toBe('google');
+            await waitFor(() => {
+                const mapView = getByTestId('map-view');
+                expect(mapView.props.provider).toBe('google');
+            });
         });
 
-        it('deve mostrar user location', () => {
+        it('deve mostrar user location', async () => {
             const { getByTestId } = render(<NavigationMode {...defaultProps} />);
 
-            const mapView = getByTestId('map-view');
-            expect(mapView.props.showsUserLocation).toBe(true);
+            await waitFor(() => {
+                const mapView = getByTestId('map-view');
+                expect(mapView.props.showsUserLocation).toBe(true);
+            });
         });
     });
 
     describe('Region calculation', () => {
-        it('deve usar currentStop como centro quando não há userLocation', () => {
+        it('deve usar currentStop como centro quando não há userLocation', async () => {
             const { getByTestId } = render(<NavigationMode {...defaultProps} />);
 
-            const mapView = getByTestId('map-view');
-            expect(mapView.props.region.latitude).toBe(-23.5600);
-            expect(mapView.props.region.longitude).toBe(-46.6400);
+            await waitFor(() => {
+                const mapView = getByTestId('map-view');
+                expect(mapView.props.region.latitude).toBe(-23.5600);
+                expect(mapView.props.region.longitude).toBe(-46.6400);
+            });
         });
     });
 });

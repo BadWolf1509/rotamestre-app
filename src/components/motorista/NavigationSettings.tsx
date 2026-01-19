@@ -1,9 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import Slider from '@react-native-community/slider';
+import * as Haptics from 'expo-haptics';
+
+import Slider from '@/components/Slider';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
+  Dimensions,
+  Modal,
   Platform,
+  Pressable,
   ScrollView,
   Switch,
   Text,
@@ -19,20 +24,36 @@ interface NavigationSettingsProps {
   onClose: () => void;
 }
 
+interface NavigationSettingsState {
+  autoAdvance: boolean;
+  soundAlerts: boolean;
+  vibrationAlerts: boolean;
+  proximityRadius: number;
+  showSpeedometer: boolean;
+  preventScreenSleep: boolean;
+  voiceNavigation: boolean;
+  internalNavigation: boolean;
+}
+
+type SettingKey = keyof NavigationSettingsState;
+type SettingValue<K extends SettingKey> = NavigationSettingsState[K];
+
+const DEFAULT_SETTINGS: NavigationSettingsState = {
+  autoAdvance: true,
+  soundAlerts: true,
+  vibrationAlerts: true,
+  proximityRadius: 50,
+  showSpeedometer: true,
+  preventScreenSleep: true,
+  voiceNavigation: false,
+  internalNavigation: false,
+};
+
 export function NavigationSettings({ visible, onClose }: NavigationSettingsProps) {
   const { theme } = useUnistyles();
   const isWeb = Platform.OS === 'web';
 
-  const [settings, setSettings] = useState({
-    autoAdvance: true,
-    soundAlerts: true,
-    vibrationAlerts: true,
-    proximityRadius: 50,
-    showSpeedometer: true,
-    preventScreenSleep: true,
-    voiceNavigation: false,
-    internalNavigation: false,
-  });
+  const [settings, setSettings] = useState<NavigationSettingsState>(DEFAULT_SETTINGS);
 
   useEffect(() => {
     loadSettings();
@@ -42,14 +63,39 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
     const prefs = await LocationTrackingService.getNavigationPreferences();
     setSettings(prev => ({
       ...prev,
-      autoAdvance: prefs.autoAdvance ?? true,
-      soundAlerts: prefs.soundAlerts ?? true,
-      vibrationAlerts: prefs.vibrationAlerts ?? true,
-      proximityRadius: prefs.proximityRadius ?? 50,
+      autoAdvance: prefs.autoAdvance ?? DEFAULT_SETTINGS.autoAdvance,
+      soundAlerts: prefs.soundAlerts ?? DEFAULT_SETTINGS.soundAlerts,
+      vibrationAlerts: prefs.vibrationAlerts ?? DEFAULT_SETTINGS.vibrationAlerts,
+      proximityRadius: prefs.proximityRadius ?? DEFAULT_SETTINGS.proximityRadius,
+      showSpeedometer: prefs.showSpeedometer ?? DEFAULT_SETTINGS.showSpeedometer,
+      preventScreenSleep: prefs.preventScreenSleep ?? DEFAULT_SETTINGS.preventScreenSleep,
+      voiceNavigation: prefs.voiceNavigation ?? DEFAULT_SETTINGS.voiceNavigation,
+      internalNavigation: prefs.internalNavigation ?? DEFAULT_SETTINGS.internalNavigation,
     }));
   };
 
-  const handleSettingChange = async (key: string, value: any) => {
+  const triggerHapticFeedback = async () => {
+    if (Platform.OS !== 'web') {
+      try {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch {
+        // Haptics not available
+      }
+    }
+  };
+
+  const handleSettingChange = async <K extends SettingKey>(
+    key: K,
+    value: SettingValue<K>
+  ) => {
+    // Validate proximity radius
+    if (key === 'proximityRadius') {
+      const numValue = value as number;
+      if (numValue < 20 || numValue > 100) return;
+    }
+
+    await triggerHapticFeedback();
+
     const newSettings = { ...settings, [key]: value };
     setSettings(newSettings);
 
@@ -69,18 +115,9 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
           text: 'Restaurar',
           style: 'destructive',
           onPress: async () => {
-            const defaults = {
-              autoAdvance: true,
-              soundAlerts: true,
-              vibrationAlerts: true,
-              proximityRadius: 50,
-              showSpeedometer: true,
-              preventScreenSleep: true,
-              voiceNavigation: false,
-              internalNavigation: false,
-            };
-            setSettings(defaults);
-            await LocationTrackingService.updateNavigationPreferences(defaults);
+            await triggerHapticFeedback();
+            setSettings(DEFAULT_SETTINGS);
+            await LocationTrackingService.updateNavigationPreferences(DEFAULT_SETTINGS);
             Alert.alert('Sucesso', 'Configurações restauradas');
           },
         },
@@ -88,19 +125,34 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
     );
   };
 
-  if (!visible) return null;
-
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Configurações de Navegação</Text>
-        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <Ionicons name="close" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
-      </View>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View style={styles.backdrop}>
+        {/* Backdrop pressable para fechar */}
+        <Pressable style={styles.backdropPressable} onPress={onClose} />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={Platform.OS === 'web'}>
+        {/* Container do modal - View para não interferir no scroll */}
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Configurações de Navegação</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            style={styles.content}
+            contentContainerStyle={styles.contentContainer}
+            showsVerticalScrollIndicator={Platform.OS === 'web'}
+            bounces={false}
+            nestedScrollEnabled={true}
+          >
         {/* Auto-advance Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Modo Automático</Text>
@@ -296,21 +348,33 @@ export function NavigationSettings({ visible, onClose }: NavigationSettingsProps
           <Text style={styles.resetButtonText}>Restaurar Padrões</Text>
         </TouchableOpacity>
 
-        <View style={{ height: theme.spacing['12'] }} />
-      </ScrollView>
-    </View>
+            <View style={{ height: theme.spacing['12'] }} />
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
+// Obter altura da tela para cálculo do modal
+const { height: SCREEN_HEIGHT } = Dimensions.get('screen');
+
 const styles = StyleSheet.create((theme: Theme) => ({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  backdropPressable: {
+    flex: 1,
+  },
   container: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
     backgroundColor: theme.colors.white,
-    zIndex: 1000,
+    borderTopLeftRadius: theme.borderRadius.lg,
+    borderTopRightRadius: theme.borderRadius.lg,
+    // Android precisa de altura fixa, não percentual
+    maxHeight: Platform.OS === 'android' ? SCREEN_HEIGHT * 0.85 : '90%',
+    // Altura mínima para garantir que o conteúdo seja visível
+    minHeight: Platform.OS === 'android' ? SCREEN_HEIGHT * 0.6 : 400,
   },
   header: {
     flexDirection: 'row',
@@ -329,8 +393,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     padding: theme.spacing['2'],
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+  },
+  contentContainer: {
     padding: theme.spacing['4'],
+    paddingBottom: theme.spacing['8'],
   },
   section: {
     marginBottom: theme.spacing['6'],

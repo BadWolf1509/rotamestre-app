@@ -13,7 +13,8 @@
 
 import { useRouter, usePathname } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
-import { TouchableOpacity, Modal, ScrollView, SafeAreaView } from 'react-native';
+import { TouchableOpacity, Modal, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Dialog } from '@/design-system';
 import { useUser } from '@/hooks/useUser';

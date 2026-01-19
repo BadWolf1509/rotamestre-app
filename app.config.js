@@ -60,6 +60,8 @@ module.exports = ({ config }) => {
       predictiveBackGestureEnabled: false,
       package: "br.tec.rotamestre",
       versionCode: resolvedAndroidVersionCode, // From package.json
+      // Firebase Cloud Messaging para Push Notifications
+      googleServicesFile: "./google-services.json",
       permissions: [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",

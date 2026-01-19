@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useKeepAwake } from 'expo-keep-awake';
+import * as Haptics from 'expo-haptics';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Location from 'expo-location';
 import * as Speech from 'expo-speech';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Platform,
   Text,
@@ -12,27 +14,20 @@ import {
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
-import TurnByTurnNavigationService from '@/services/turnByTurnNavigation';
+import { useOffRouteDetection } from '@/hooks/useOffRouteDetection';
+import LocationTrackingService from '@/services/locationTracking';
+import TurnByTurnNavigationService, {
+  calculateHaversineDistance,
+  type NavigationInstruction,
+} from '@/services/turnByTurnNavigation';
 import type { IconName } from '@/types/icons';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-// Calculate distance between two coordinates (Haversine formula)
-// Moved outside component to avoid useEffect dependency issues
-const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-  const EARTH_RADIUS = 6371000;
-  const phi1 = (lat1 * Math.PI) / 180;
-  const phi2 = (lat2 * Math.PI) / 180;
-  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
-  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
-
-  const a =
-    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return EARTH_RADIUS * c;
-};
+// Default values (used when preferences not loaded)
+const DEFAULT_PROXIMITY_RADIUS = 30; // meters
+const DEFAULT_VOICE_ENABLED = true;
+const DEFAULT_PREVENT_SCREEN_SLEEP = true;
 
 interface TurnByTurnNavigationProps {
   origin: { latitude: number; longitude: number };
@@ -49,32 +44,132 @@ export function TurnByTurnNavigation({
   onArrive,
   onExit,
 }: TurnByTurnNavigationProps) {
-  useKeepAwake(); // Keep screen awake during navigation
   const { theme } = useUnistyles();
   const mapRef = useRef<MapView>(null);
 
-  // State
+  // User preferences state
+  const [proximityRadius, setProximityRadius] = useState(DEFAULT_PROXIMITY_RADIUS);
+  const [preventScreenSleep, setPreventScreenSleep] = useState(DEFAULT_PREVENT_SCREEN_SLEEP);
+  const [vibrationAlerts, setVibrationAlerts] = useState(true);
+
+  // Navigation state
   const [userLocation, setUserLocation] = useState(origin);
   const [speed, setSpeed] = useState(0);
   const [heading, setHeading] = useState(0);
-  const [currentInstruction, setCurrentInstruction] = useState<any>(null);
-  const [nextInstruction, setNextInstruction] = useState<any>(null);
+  const [currentInstruction, setCurrentInstruction] = useState<NavigationInstruction | null>(null);
+  const [nextInstruction, setNextInstruction] = useState<NavigationInstruction | null>(null);
   const [distanceToTurn, setDistanceToTurn] = useState(0);
   const [routeCoordinates, setRouteCoordinates] = useState<Array<{ latitude: number; longitude: number }>>([]);
   const [remainingDistance, setRemainingDistance] = useState(0);
   const [remainingTime, setRemainingTime] = useState(0);
   const [progress, setProgress] = useState(0);
-  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [voiceEnabled, setVoiceEnabled] = useState(DEFAULT_VOICE_ENABLED);
   const [isLoading, setIsLoading] = useState(true);
   const [mapView, setMapView] = useState<'north-up' | 'heading-up'>('heading-up');
   const voiceEnabledRef = useRef(voiceEnabled);
+
+  // Load user preferences on mount
+  useEffect(() => {
+    const loadPreferences = async () => {
+      try {
+        const prefs = await LocationTrackingService.getNavigationPreferences();
+        if (prefs.proximityRadius !== undefined) {
+          setProximityRadius(prefs.proximityRadius);
+        }
+        if (prefs.voiceNavigation !== undefined) {
+          setVoiceEnabled(prefs.voiceNavigation);
+          TurnByTurnNavigationService.setVoiceEnabled(prefs.voiceNavigation);
+        }
+        if (prefs.preventScreenSleep !== undefined) {
+          setPreventScreenSleep(prefs.preventScreenSleep);
+        }
+        if (prefs.vibrationAlerts !== undefined) {
+          setVibrationAlerts(prefs.vibrationAlerts);
+        }
+      } catch (error) {
+        console.warn('[TurnByTurn] Error loading preferences:', error);
+      }
+    };
+    loadPreferences();
+  }, []);
+
+  // Manage screen awake state based on preference
+  useEffect(() => {
+    if (preventScreenSleep && Platform.OS !== 'web') {
+      activateKeepAwakeAsync('turn-by-turn-navigation');
+    }
+    return () => {
+      deactivateKeepAwake('turn-by-turn-navigation');
+    };
+  }, [preventScreenSleep]);
 
   useEffect(() => {
     voiceEnabledRef.current = voiceEnabled;
   }, [voiceEnabled]);
 
+  // Haptic feedback helper that respects preference
+  const triggerHaptic = useCallback(async (type: 'light' | 'success' | 'warning') => {
+    if (Platform.OS === 'web' || !vibrationAlerts) return;
+
+    try {
+      if (type === 'light') {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } else if (type === 'success') {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else if (type === 'warning') {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      }
+    } catch {
+      // Haptics not available
+    }
+  }, [vibrationAlerts]);
+
+  // Reroute callback for off-route detection
+  const handleReroute = useCallback(async () => {
+    // Reset service and recalculate route from current position
+    TurnByTurnNavigationService.reset();
+
+    const route = await TurnByTurnNavigationService.getDirections(
+      userLocation, // Use current location as new origin
+      destination,
+      waypoints
+    );
+
+    if (route) {
+      const coordinates = TurnByTurnNavigationService.getRouteCoordinates();
+      setRouteCoordinates(coordinates);
+      setRemainingDistance(route.distance);
+      setRemainingTime(route.duration);
+
+      const firstInstruction = TurnByTurnNavigationService.getCurrentInstruction();
+      setCurrentInstruction(firstInstruction);
+
+      const secondInstruction = TurnByTurnNavigationService.getNextInstruction();
+      setNextInstruction(secondInstruction);
+    }
+  }, [userLocation, destination, waypoints]);
+
+  // Off-route detection hook
+  const {
+    status: offRouteStatus,
+    distanceFromRoute,
+    isRecalculating,
+  } = useOffRouteDetection(
+    userLocation,
+    routeCoordinates,
+    handleReroute,
+    {
+      warningThreshold: 100,
+      criticalThreshold: 200,
+      enabled: !isLoading,
+    }
+  );
+
   // Handle arrival at destination - defined before useEffect that uses it
-  const handleArrival = useCallback(() => {
+  const handleArrival = useCallback(async () => {
+    // Haptic feedback for arrival
+    await triggerHaptic('success');
+
     Speech.speak('Voce chegou ao seu destino', {
       language: 'pt-BR',
       pitch: 1.0,
@@ -84,7 +179,7 @@ export function TurnByTurnNavigation({
     setTimeout(() => {
       onArrive();
     }, 2000);
-  }, [onArrive]);
+  }, [onArrive, triggerHaptic]);
 
   // Update navigation based on position - defined before useEffect that uses it
   const updateNavigation = useCallback(
@@ -100,7 +195,7 @@ export function TurnByTurnNavigation({
       setCurrentInstruction(update.currentInstruction);
       setNextInstruction(update.nextInstruction);
       setDistanceToTurn(update.distanceToNextTurn);
-      setProgress(TurnByTurnNavigationService.getProgress());
+      setProgress(TurnByTurnNavigationService.getProgressByDistance());
       setRemainingDistance(TurnByTurnNavigationService.getRemainingDistance());
       setRemainingTime(TurnByTurnNavigationService.getRemainingTime());
 
@@ -201,14 +296,14 @@ export function TurnByTurnNavigation({
           await updateNavigation(coords, location.coords.speed || 0);
 
           // Check if arrived at destination
-          const distToDestination = calculateDistance(
+          const distToDestination = calculateHaversineDistance(
             coords.latitude,
             coords.longitude,
             destination.latitude,
             destination.longitude
           );
 
-          if (distToDestination < 30) {
+          if (distToDestination < proximityRadius) {
             handleArrival();
           }
         }
@@ -223,7 +318,7 @@ export function TurnByTurnNavigation({
         console.warn('[TurnByTurn] Error removing subscription:', error);
       }
     };
-  }, [destination, handleArrival, updateNavigation]);
+  }, [destination, handleArrival, proximityRadius, updateNavigation]);
 
   // Format distance
   const formatDistance = (meters: number): string => {
@@ -267,7 +362,9 @@ export function TurnByTurnNavigation({
   };
 
   // Toggle voice
-  const toggleVoice = () => {
+  const toggleVoice = async () => {
+    await triggerHaptic('light');
+
     const newState = !voiceEnabled;
     setVoiceEnabled(newState);
     TurnByTurnNavigationService.setVoiceEnabled(newState);
@@ -278,21 +375,25 @@ export function TurnByTurnNavigation({
   };
 
   // Toggle map view
-  const toggleMapView = () => {
+  const toggleMapView = async () => {
+    await triggerHaptic('light');
     setMapView(prev => prev === 'north-up' ? 'heading-up' : 'north-up');
   };
 
-  // Get camera settings for map
-  const getCameraSettings = () => {
-    const baseCamera = {
-      center: userLocation,
-      zoom: 17,
-      pitch: mapView === 'heading-up' ? 60 : 0,
-      heading: mapView === 'heading-up' ? heading : 0,
-    };
-
-    return baseCamera;
-  };
+  // Animate camera when user location or heading changes
+  useEffect(() => {
+    if (mapRef.current && userLocation && !isLoading) {
+      mapRef.current.animateCamera(
+        {
+          center: userLocation,
+          zoom: 17,
+          pitch: mapView === 'heading-up' ? 60 : 0,
+          heading: mapView === 'heading-up' ? heading : 0,
+        },
+        { duration: 500 }
+      );
+    }
+  }, [userLocation, heading, mapView, isLoading]);
 
   if (isLoading) {
     return (
@@ -309,7 +410,12 @@ export function TurnByTurnNavigation({
         ref={mapRef}
         style={styles.map}
         provider={PROVIDER_GOOGLE}
-        camera={getCameraSettings()}
+        initialCamera={{
+          center: origin,
+          zoom: 17,
+          pitch: 60,
+          heading: 0,
+        }}
         showsUserLocation
         showsMyLocationButton={false}
         showsCompass={false}
@@ -324,6 +430,19 @@ export function TurnByTurnNavigation({
             strokeWidth={5}
           />
         )}
+
+        {/* Waypoint markers */}
+        {waypoints?.map((wp, index) => (
+          <Marker
+            key={`waypoint-${index}`}
+            coordinate={wp}
+            title={`Parada ${index + 1}`}
+          >
+            <View style={styles.waypointMarker}>
+              <Text style={styles.waypointText}>{index + 1}</Text>
+            </View>
+          </Marker>
+        ))}
 
         {/* Destination marker */}
         <Marker
@@ -341,7 +460,7 @@ export function TurnByTurnNavigation({
         <View style={styles.instructionContent}>
           <View style={styles.maneuverIcon}>
             <Ionicons
-              name={getManeuverIcon(currentInstruction?.maneuver)}
+              name={getManeuverIcon(currentInstruction?.maneuver || '')}
               size={40}
               color={theme.colors.white}
             />
@@ -370,6 +489,30 @@ export function TurnByTurnNavigation({
           </View>
         )}
       </View>
+
+      {/* Off-route warning banner */}
+      {offRouteStatus === 'warning' && !isRecalculating && (
+        <View style={styles.warningBanner}>
+          <Ionicons name="warning" size={20} color={theme.colors.warning} />
+          <Text style={styles.warningText}>
+            Você saiu da rota ({Math.round(distanceFromRoute)}m)
+          </Text>
+          <TouchableOpacity
+            style={styles.recalculateButton}
+            onPress={handleReroute}
+          >
+            <Text style={styles.recalculateButtonText}>Recalcular</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Off-route critical/recalculating banner */}
+      {(offRouteStatus === 'critical' || isRecalculating) && (
+        <View style={styles.criticalBanner}>
+          <ActivityIndicator size="small" color={theme.colors.white} />
+          <Text style={styles.criticalText}>Recalculando rota...</Text>
+        </View>
+      )}
 
       {/* Bottom info panel */}
       <View style={styles.bottomPanel}>
@@ -598,6 +741,85 @@ const styles = StyleSheet.create((theme: Theme) => ({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 5,
+  },
+  waypointMarker: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: theme.colors.gray500,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: theme.colors.white,
+    shadowColor: theme.colors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  waypointText: {
+    color: theme.colors.white,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  warningBanner: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 160 : 140,
+    left: theme.spacing['4'],
+    right: theme.spacing['4'],
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: withOpacity(theme.colors.warning, 0.95),
+    paddingHorizontal: theme.spacing['4'],
+    paddingVertical: theme.spacing['3'],
+    borderRadius: theme.borderRadius.lg,
+    shadowColor: theme.colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+    gap: theme.spacing['3'],
+  },
+  warningText: {
+    flex: 1,
+    color: theme.colors.gray900,
+    fontSize: theme.typography.fontSize.sm,
+    fontWeight: '600',
+  },
+  recalculateButton: {
+    backgroundColor: theme.colors.white,
+    paddingHorizontal: theme.spacing['3'],
+    paddingVertical: theme.spacing['2'],
+    borderRadius: theme.borderRadius.md,
+  },
+  recalculateButtonText: {
+    color: theme.colors.warning,
+    fontSize: theme.typography.fontSize.sm,
+    fontWeight: '600',
+  },
+  criticalBanner: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 160 : 140,
+    left: theme.spacing['4'],
+    right: theme.spacing['4'],
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: withOpacity(theme.colors.primary, 0.95),
+    paddingHorizontal: theme.spacing['4'],
+    paddingVertical: theme.spacing['3'],
+    borderRadius: theme.borderRadius.lg,
+    shadowColor: theme.colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+    gap: theme.spacing['3'],
+  },
+  criticalText: {
+    color: theme.colors.white,
+    fontSize: theme.typography.fontSize.sm,
+    fontWeight: '600',
   },
 }));
 
