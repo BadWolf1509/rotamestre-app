@@ -1,31 +1,29 @@
 /**
  * Dynamic Route Rerouting Service
  *
- * ⚠️ SUSPENDED FOR MVP - High API costs
- *
- * This service provides real-time route optimization using Google Maps APIs:
- * - Distance Matrix API: Traffic data between waypoints (~$5-10 per 1000 requests)
- * - Directions API: Optimized waypoint ordering (~$5 per 1000 requests)
+ * MIGRADO PARA OSRM (Open Source Routing Machine)
+ * - Custo: GRATUITO (vs ~R$900/mês do Google APIs)
+ * - Limitação: Sem dados de tráfego em tempo real
  *
  * Current Status: DISABLED (commented out in inicio.tsx)
- * Reason: API costs too high for MVP phase
+ * Reason: Feature não prioritária para MVP
  *
- * Alternative solutions to consider:
- * 1. Client-side optimization using Haversine distance (free, less accurate)
- * 2. Batch optimization once per day during off-peak hours
- * 3. Only optimize routes with 5+ stops
- * 4. Use cached traffic patterns instead of real-time data
+ * O serviço agora usa OSRM para otimização de rotas:
+ * - getOptimizedDirections: Otimização TSP via Trip API
+ * - getDistance: Cálculo de distância/duração entre pontos
  *
- * To re-enable:
- * 1. Uncomment useEffect in app/motorista/inicio.tsx (lines 106-125)
- * 2. Deploy Edge Functions: supabase functions deploy google-directions --no-verify-jwt
- * 3. Set GOOGLE_MAPS_API_KEY in Supabase dashboard
- * 4. Monitor API usage and costs in Google Cloud Console
+ * Nota: OSRM não possui dados de tráfego em tempo real.
+ * Para tráfego real, seria necessário integrar com serviço pago.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
 
+import {
+  getOptimizedDirections,
+  getDistance,
+  calculateHaversineDistance,
+  type Coordinate,
+} from '@/lib/osrm';
 import { supabase } from '@/lib/supabase';
 
 // Types
@@ -65,14 +63,13 @@ interface OptimizationSettings {
 
 class DynamicReroutingService {
   private static instance: DynamicReroutingService;
-  private googleMapsApiKey: string;
   private settings: OptimizationSettings;
   private lastCheckTime: number = 0;
   private checkInterval: ReturnType<typeof setInterval> | null = null;
   private currentRouteId: string | null = null;
 
   private constructor() {
-    this.googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+    // OSRM não precisa de API key (é gratuito!)
     this.settings = {
       enabled: true,
       checkInterval: 5, // 5 minutes
@@ -195,72 +192,57 @@ class DynamicReroutingService {
     return { duration: totalDuration, route: stops };
   }
 
-  // Get traffic data between two points
+  // Get distance/duration between two points using OSRM (gratuito!)
+  // Nota: OSRM não tem dados de tráfego em tempo real
   private async getTrafficData(origin: Stop, destination: Stop): Promise<TrafficData> {
     try {
-      let data;
+      const originCoord: Coordinate = {
+        latitude: origin.latitude,
+        longitude: origin.longitude,
+      };
+      const destCoord: Coordinate = {
+        latitude: destination.latitude,
+        longitude: destination.longitude,
+      };
 
-      if (Platform.OS === 'web') {
-        // Use Supabase Edge Function to avoid CORS
-        const { data: edgeData, error } = await supabase.functions.invoke('google-distance-matrix', {
-          body: {
-            origins: `${origin.latitude},${origin.longitude}`,
-            destinations: `${destination.latitude},${destination.longitude}`,
-            mode: 'driving',
-            departureTime: 'now',
-          },
-        });
+      // Usar OSRM para obter distância e duração
+      const result = await getDistance(originCoord, destCoord);
 
-        if (error) throw error;
-        data = edgeData;
-      } else {
-        // Mobile: call Google API directly
-        const url = `https://maps.googleapis.com/maps/api/distancematrix/json?` +
-          `origins=${origin.latitude},${origin.longitude}` +
-          `&destinations=${destination.latitude},${destination.longitude}` +
-          `&mode=driving` +
-          `&departure_time=now` +
-          `&traffic_model=best_guess` +
-          `&key=${this.googleMapsApiKey}`;
-
-        const response = await fetch(url);
-        data = await response.json();
-      }
-
-      if (data.rows && data.rows[0] && data.rows[0].elements[0]) {
-        const element = data.rows[0].elements[0];
-
-        // Calculate traffic level based on duration difference
-        const normalDuration = element.duration?.value || 0;
-        const trafficDuration = element.duration_in_traffic?.value || normalDuration;
-        const trafficRatio = trafficDuration / normalDuration;
-
-        let trafficLevel: 'low' | 'medium' | 'heavy' = 'low';
-        if (trafficRatio > 1.5) {
-          trafficLevel = 'heavy';
-        } else if (trafficRatio > 1.2) {
-          trafficLevel = 'medium';
-        }
-
+      if (result) {
         return {
-          duration: trafficDuration,
-          distance: element.distance?.value || 0,
-          trafficLevel,
+          duration: result.duration,
+          distance: result.distance,
+          // OSRM não tem dados de tráfego, sempre retorna 'low'
+          trafficLevel: 'low',
         };
       }
 
-      // Fallback if API fails
+      // Fallback com Haversine se OSRM falhar
+      const distance = calculateHaversineDistance(
+        origin.latitude,
+        origin.longitude,
+        destination.latitude,
+        destination.longitude
+      ) * 1.3; // Fator de correção para ruas
+
       return {
-        duration: 600, // 10 minutes default
-        distance: 5000, // 5km default
+        duration: Math.round((distance / 1000) * 2 * 60), // 30 km/h média
+        distance: Math.round(distance),
         trafficLevel: 'low',
       };
     } catch (error) {
-      console.error('Error getting traffic data:', error);
-      // Return default values
+      console.error('Error getting distance data:', error);
+      // Fallback com Haversine
+      const distance = calculateHaversineDistance(
+        origin.latitude,
+        origin.longitude,
+        destination.latitude,
+        destination.longitude
+      ) * 1.3;
+
       return {
-        duration: 600,
-        distance: 5000,
+        duration: Math.round((distance / 1000) * 2 * 60),
+        distance: Math.round(distance),
         trafficLevel: 'low',
       };
     }
@@ -284,10 +266,10 @@ class DynamicReroutingService {
       }
     }
 
-    // 3. Try Google's optimized waypoints
-    const googleOptimized = await this.googleOptimizedRoute(stops);
-    if (googleOptimized) {
-      optimizations.push(googleOptimized);
+    // 3. Try OSRM's optimized waypoints (gratuito!)
+    const osrmOptimized = await this.osrmOptimizedRoute(stops);
+    if (osrmOptimized) {
+      optimizations.push(osrmOptimized);
     }
 
     return optimizations;
@@ -349,88 +331,53 @@ class DynamicReroutingService {
     return await this.calculateRouteDuration(sorted);
   }
 
-  // Use Google's waypoint optimization
-  private async googleOptimizedRoute(stops: Stop[]): Promise<{ duration: number; route: Stop[] } | null> {
+  // Usar OSRM para otimização de waypoints (gratuito!)
+  private async osrmOptimizedRoute(stops: Stop[]): Promise<{ duration: number; route: Stop[] } | null> {
     if (stops.length < 2) return null;
 
     try {
-      const origin = `${stops[0].latitude},${stops[0].longitude}`;
-      const destination = `${stops[stops.length - 1].latitude},${stops[stops.length - 1].longitude}`;
+      const origin: Coordinate = {
+        latitude: stops[0].latitude,
+        longitude: stops[0].longitude,
+      };
+      const destination: Coordinate = {
+        latitude: stops[stops.length - 1].latitude,
+        longitude: stops[stops.length - 1].longitude,
+      };
 
-      const waypoints = stops.slice(1, -1)
-        .map(s => `${s.latitude},${s.longitude}`)
-        .join('|');
+      const waypoints: Coordinate[] = stops.slice(1, -1).map(s => ({
+        latitude: s.latitude,
+        longitude: s.longitude,
+      }));
 
-      let data;
+      // Usar OSRM com otimização
+      const result = await getOptimizedDirections(origin, destination, waypoints, true);
 
-      if (Platform.OS === 'web') {
-        // Use Supabase Edge Function to avoid CORS
-        const { data: edgeData, error } = await supabase.functions.invoke('google-directions', {
-          body: {
-            origin,
-            destination,
-            waypoints: `optimize:true|${waypoints}`,
-            mode: 'driving',
-            departureTime: 'now',
-          },
-        });
+      if (result) {
+        const waypointOrder = result.ordem_otimizada || [];
 
-        if (error) throw error;
-        data = edgeData;
-      } else {
-        // Mobile: call Google API directly
-        const url = `https://maps.googleapis.com/maps/api/directions/json?` +
-          `origin=${origin}` +
-          `&destination=${destination}` +
-          `&waypoints=optimize:true|${waypoints}` +
-          `&mode=driving` +
-          `&departure_time=now` +
-          `&traffic_model=best_guess` +
-          `&key=${this.googleMapsApiKey}`;
-
-        const response = await fetch(url);
-        data = await response.json();
-      }
-
-      if (data.routes && data.routes[0]) {
-        const route = data.routes[0];
-        const waypointOrder = route.waypoint_order || [];
-
-        // Reorder stops based on Google's optimization
+        // Reorder stops based on OSRM's optimization
         const optimizedStops = [stops[0]];
         for (const index of waypointOrder) {
           optimizedStops.push(stops[index + 1]);
         }
         optimizedStops.push(stops[stops.length - 1]);
 
-        // Calculate total duration
-        const duration = route.legs.reduce((sum: number, leg: any) =>
-          sum + (leg.duration_in_traffic?.value || leg.duration?.value || 0), 0
-        );
-
-        return { duration, route: optimizedStops };
+        return {
+          duration: result.duracao_total_segundos,
+          route: optimizedStops,
+        };
       }
     } catch (error) {
-      console.error('Error getting Google optimized route:', error);
+      console.error('Error getting OSRM optimized route:', error);
     }
 
     return null;
   }
 
-  // Calculate distance between two points
+  // Calculate distance between two points (usa utilitário OSRM)
   private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const R = 6371000; // Earth radius in meters
-    const φ1 = (lat1 * Math.PI) / 180;
-    const φ2 = (lat2 * Math.PI) / 180;
-    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-    const a =
-      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c;
+    return calculateHaversineDistance(lat1, lon1, lat2, lon2);
   }
 
   // Get optimization reason

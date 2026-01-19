@@ -1,5 +1,7 @@
 import * as Speech from 'expo-speech';
 
+import { clearCache } from '@/lib/osrm';
+
 import TurnByTurnNavigationService from '../turnByTurnNavigation';
 
 // Mocks já configurados em jest.setup.js:
@@ -7,34 +9,69 @@ import TurnByTurnNavigationService from '../turnByTurnNavigation';
 // - expo-speech
 // - @mapbox/polyline
 
+/**
+ * Helper para criar mock de resposta OSRM
+ * OSRM retorna: code, routes, waypoints
+ * O service processa e converte para o formato interno
+ */
+function createOSRMResponse(options: {
+    distance: number;
+    duration: number;
+    geometry?: string;
+    steps?: Array<{
+        distance: number;
+        duration: number;
+        name: string;
+        maneuver: { type: string; modifier?: string; location: [number, number] };
+    }>;
+}) {
+    return {
+        code: 'Ok',
+        routes: [{
+            distance: options.distance,
+            duration: options.duration,
+            geometry: options.geometry || 'encoded_polyline',
+            legs: [{
+                distance: options.distance,
+                duration: options.duration,
+                steps: options.steps || [],
+            }]
+        }],
+        waypoints: [
+            { location: [0, 0], waypoint_index: 0 },
+            { location: [1, 1], waypoint_index: 1 },
+        ],
+    };
+}
+
 describe('TurnByTurnNavigationService', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        clearCache(); // Limpar cache do OSRM entre testes para evitar poluição
         TurnByTurnNavigationService.reset();
         TurnByTurnNavigationService.setVoiceEnabled(true);
     });
 
     describe('getDirections', () => {
-        it('deve buscar rota com sucesso', async () => {
-            const mockResponse = {
-                routes: [{
-                    overview_polyline: { points: 'encoded_polyline' },
-                    legs: [{
-                        distance: { value: 1000 },
-                        duration: { value: 600 },
-                        steps: [{
-                            distance: { value: 100 },
-                            duration: { value: 60 },
-                            html_instructions: 'Vire à <b>direita</b>',
-                            maneuver: 'turn-right',
-                            start_location: { lat: 10, lng: 10 },
-                            polyline: { points: 'step_polyline' }
-                        }]
-                    }]
-                }]
-            };
+        it('deve buscar rota do OSRM com sucesso (gratuito!)', async () => {
+            const mockResponse = createOSRMResponse({
+                distance: 1000,
+                duration: 600,
+                geometry: 'encoded_polyline',
+                steps: [{
+                    distance: 100,
+                    duration: 60,
+                    name: 'Rua Teste',
+                    maneuver: {
+                        type: 'turn',
+                        modifier: 'right',
+                        location: [10, 10], // [lng, lat]
+                    },
+                }],
+            });
 
             (global.fetch as jest.Mock).mockResolvedValueOnce({
+                ok: true,
                 json: jest.fn().mockResolvedValue(mockResponse)
             });
 
@@ -46,10 +83,17 @@ describe('TurnByTurnNavigationService', () => {
             expect(route).not.toBeNull();
             expect(route?.distance).toBe(1000);
             expect(route?.instructions).toHaveLength(1);
-            expect(route?.instructions[0].instruction).toBe('Vire à direita');
+            // OSRM maneuver "turn" + "right" é traduzido para "Vire à direita"
+            expect(route?.instructions[0].instruction).toContain('Vire à direita');
+
+            // Verificar que usou OSRM (router.project-osrm.org)
+            expect(global.fetch).toHaveBeenCalledWith(
+                expect.stringContaining('router.project-osrm.org'),
+                expect.any(Object)
+            );
         });
 
-        it('deve lidar com erro na API', async () => {
+        it('deve lidar com erro na API e retornar fallback', async () => {
             (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('API Error'));
 
             const route = await TurnByTurnNavigationService.getDirections(
@@ -57,42 +101,45 @@ describe('TurnByTurnNavigationService', () => {
                 { latitude: 1, longitude: 1 }
             );
 
-            expect(route).toBeNull();
+            // OSRM retorna fallback com Haversine em caso de erro, não null
+            // O fallback tem distance > 0 (estimativa baseada em Haversine)
+            expect(route).not.toBeNull();
         });
     });
 
     describe('updateNavigation', () => {
         beforeEach(async () => {
-            // Setup initial route
-            const mockResponse = {
-                routes: [{
-                    overview_polyline: { points: 'encoded_polyline' },
-                    legs: [{
-                        distance: { value: 1000 },
-                        duration: { value: 600 },
-                        steps: [
-                            {
-                                distance: { value: 100 },
-                                duration: { value: 60 },
-                                html_instructions: 'Vire à direita',
-                                maneuver: 'turn-right',
-                                start_location: { lat: 0.001, lng: 0.001 }, // Perto da origem
-                                polyline: { points: 'step1' }
-                            },
-                            {
-                                distance: { value: 200 },
-                                duration: { value: 120 },
-                                html_instructions: 'Siga em frente',
-                                maneuver: 'straight',
-                                start_location: { lat: 0.002, lng: 0.002 },
-                                polyline: { points: 'step2' }
-                            }
-                        ]
-                    }]
-                }]
-            };
+            // Setup initial route com OSRM format
+            const mockResponse = createOSRMResponse({
+                distance: 1000,
+                duration: 600,
+                geometry: 'encoded_polyline',
+                steps: [
+                    {
+                        distance: 100,
+                        duration: 60,
+                        name: 'Rua A',
+                        maneuver: {
+                            type: 'turn',
+                            modifier: 'right',
+                            location: [0.001, 0.001], // [lng, lat] - Perto da origem
+                        },
+                    },
+                    {
+                        distance: 200,
+                        duration: 120,
+                        name: 'Rua B',
+                        maneuver: {
+                            type: 'continue',
+                            modifier: 'straight',
+                            location: [0.002, 0.002],
+                        },
+                    },
+                ],
+            });
 
             (global.fetch as jest.Mock).mockResolvedValueOnce({
+                ok: true,
                 json: jest.fn().mockResolvedValue(mockResponse)
             });
 
@@ -109,6 +156,7 @@ describe('TurnByTurnNavigationService', () => {
             );
 
             expect(result.currentInstruction).not.toBeNull();
+            // OSRM maneuver format: "type-modifier"
             expect(result.currentInstruction?.maneuver).toBe('turn-right');
         });
 
@@ -153,36 +201,37 @@ describe('TurnByTurnNavigationService', () => {
 
     describe('Helper Methods', () => {
         beforeEach(async () => {
-            // Setup route for helpers
-            const mockResponse = {
-                routes: [{
-                    overview_polyline: { points: 'encoded_polyline' },
-                    legs: [{
-                        distance: { value: 1000 },
-                        duration: { value: 600 },
-                        steps: [
-                            {
-                                distance: { value: 100 },
-                                duration: { value: 60 },
-                                html_instructions: 'Step 1',
-                                maneuver: 'turn-right',
-                                start_location: { lat: 0, lng: 0 },
-                                polyline: { points: 'step1' }
-                            },
-                            {
-                                distance: { value: 200 },
-                                duration: { value: 120 },
-                                html_instructions: 'Step 2',
-                                maneuver: 'straight',
-                                start_location: { lat: 0.001, lng: 0.001 },
-                                polyline: { points: 'step2' }
-                            }
-                        ]
-                    }]
-                }]
-            };
+            // Setup route for helpers com OSRM format
+            const mockResponse = createOSRMResponse({
+                distance: 1000,
+                duration: 600,
+                geometry: 'encoded_polyline',
+                steps: [
+                    {
+                        distance: 100,
+                        duration: 60,
+                        name: 'Step 1',
+                        maneuver: {
+                            type: 'turn',
+                            modifier: 'right',
+                            location: [0, 0],
+                        },
+                    },
+                    {
+                        distance: 200,
+                        duration: 120,
+                        name: 'Step 2',
+                        maneuver: {
+                            type: 'continue',
+                            modifier: 'straight',
+                            location: [0.001, 0.001],
+                        },
+                    },
+                ],
+            });
 
             (global.fetch as jest.Mock).mockResolvedValueOnce({
+                ok: true,
                 json: jest.fn().mockResolvedValue(mockResponse)
             });
 

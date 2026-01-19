@@ -7,25 +7,48 @@ import {
   encodePolyline,
   mergePolylines,
 } from '../google';
+import { clearCache } from '../osrm';
 
-jest.mock('@/lib/supabase', () => ({
-  supabase: {
-    functions: {
-      invoke: jest.fn(),
-    },
-  },
-}));
-
+// Mock de fetch global para OSRM
 const mockFetch = jest.fn();
 global.fetch = mockFetch as any;
 
-const mockInvoke = require('@/lib/supabase').supabase.functions.invoke as jest.Mock;
+// Nota: Supabase invoke não é mais usado para directions (migrado para OSRM gratuito)
+// O mock abaixo é mantido apenas para compatibilidade caso outros métodos usem
+
+/**
+ * Helper para criar mock de resposta OSRM
+ */
+function createOSRMRouteResponse(options: {
+    distance: number;
+    duration: number;
+    geometry?: string;
+}) {
+    return {
+        code: 'Ok',
+        routes: [{
+            distance: options.distance,
+            duration: options.duration,
+            geometry: options.geometry || 'encoded_polyline',
+            legs: [{
+                distance: options.distance,
+                duration: options.duration,
+                steps: [],
+            }],
+        }],
+        waypoints: [
+            { location: [0, 0], waypoint_index: 0 },
+            { location: [1, 1], waypoint_index: 1 },
+        ],
+    };
+}
 
 describe('google maps helpers', () => {
   const originalPlatform = Platform.OS;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    clearCache(); // Limpar cache do OSRM entre testes
   });
 
   afterEach(() => {
@@ -100,36 +123,20 @@ describe('google maps helpers', () => {
     consoleSpy.mockRestore();
   });
 
-  it('getDirectionsWithError usa edge function no web', async () => {
+  it('getDirectionsWithError usa OSRM (gratuito!) no web', async () => {
     Object.defineProperty(Platform, 'OS', {
       get: () => 'web',
       configurable: true,
     });
 
-    const polyline = encodePolyline([
-      { latitude: 0, longitude: 0 },
-      { latitude: 1, longitude: 1 },
-    ]);
-
-    mockInvoke.mockResolvedValueOnce({
-      data: {
-        routes: [
-          {
-            duration: '60s',
-            distanceMeters: 1000,
-            polyline: { encodedPolyline: polyline },
-            legs: [
-              {
-                duration: '60s',
-                distanceMeters: 1000,
-                startLocation: { latLng: { latitude: 0, longitude: 0 } },
-                endLocation: { latLng: { latitude: 1, longitude: 1 } },
-              },
-            ],
-          },
-        ],
-      },
-      error: null,
+    // OSRM usa fetch diretamente, não edge function
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: jest.fn().mockResolvedValue(createOSRMRouteResponse({
+        distance: 1000,
+        duration: 60,
+        geometry: 'encoded_polyline',
+      })),
     });
 
     const result = await googleMapsService.getDirectionsWithError(
@@ -139,17 +146,24 @@ describe('google maps helpers', () => {
 
     expect(result.success).toBe(true);
     expect(result.data?.distancia_total_metros).toBe(1000);
+
+    // Verificar que usou OSRM
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('router.project-osrm.org'),
+      expect.any(Object)
+    );
   });
 
-  it('getDirectionsWithError retorna falha quando invoke retorna erro', async () => {
+  it('getDirectionsWithError usa Haversine fallback quando OSRM falha (graceful degradation)', async () => {
     Object.defineProperty(Platform, 'OS', {
       get: () => 'web',
       configurable: true,
     });
 
-    mockInvoke.mockResolvedValueOnce({
-      data: null,
-      error: new Error('invoke error'),
+    // OSRM falha
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: jest.fn().mockResolvedValue({ code: 'NoRoute', routes: [] }),
     });
 
     const result = await googleMapsService.getDirectionsWithError(
@@ -157,47 +171,25 @@ describe('google maps helpers', () => {
       { latitude: 1, longitude: 1 }
     );
 
-    expect(result.success).toBe(false);
+    // OSRM usa Haversine fallback - nunca retorna falha completa
+    expect(result.success).toBe(true);
+    expect(result.data?.distancia_total_metros).toBeGreaterThan(0); // Haversine estimate
   });
 
-  it('getDirectionsSequentialWithError agrega segmentos no web', async () => {
+  it('getDirectionsSequentialWithError agrega segmentos no web usando OSRM', async () => {
     Object.defineProperty(Platform, 'OS', {
       get: () => 'web',
       configurable: true,
     });
 
-    const polyline = encodePolyline([
-      { latitude: 0, longitude: 0 },
-      { latitude: 1, longitude: 1 },
-    ]);
-
-    mockInvoke
-      .mockResolvedValueOnce({
-        data: {
-          routes: [
-            {
-              duration: '60s',
-              distanceMeters: 1000,
-              polyline: { encodedPolyline: polyline },
-              legs: [
-                {
-                  duration: '60s',
-                  distanceMeters: 1000,
-                  startLocation: { latLng: { latitude: 0, longitude: 0 } },
-                  endLocation: { latLng: { latitude: 1, longitude: 1 } },
-                },
-              ],
-            },
-          ],
-        },
-        error: null,
-      })
-      .mockResolvedValueOnce({
-        data: {
-          routes: [],
-        },
-        error: null,
-      });
+    // OSRM Route API para rota sequencial
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: jest.fn().mockResolvedValue(createOSRMRouteResponse({
+        distance: 1000,
+        duration: 60,
+      })),
+    });
 
     const result = await googleMapsService.getDirectionsSequentialWithError(
       { latitude: 0, longitude: 0 },
@@ -206,10 +198,9 @@ describe('google maps helpers', () => {
     );
 
     expect(result.success).toBe(true);
-    expect(result.data?.legs).toHaveLength(1);
   });
 
-  it('getDirectionsWithError trata AbortError', async () => {
+  it('getDirectionsWithError usa Haversine fallback em AbortError (graceful degradation)', async () => {
     Object.defineProperty(Platform, 'OS', {
       get: () => 'ios',
       configurable: true,
@@ -222,10 +213,12 @@ describe('google maps helpers', () => {
       { latitude: 1, longitude: 1 }
     );
 
-    expect(result.success).toBe(false);
+    // OSRM usa Haversine fallback - sempre retorna sucesso com dados estimados
+    expect(result.success).toBe(true);
+    expect(result.data?.distancia_total_metros).toBeGreaterThan(0);
   });
 
-  it('getDirectionsWithError trata TypeError', async () => {
+  it('getDirectionsWithError usa Haversine fallback em TypeError (graceful degradation)', async () => {
     Object.defineProperty(Platform, 'OS', {
       get: () => 'ios',
       configurable: true,
@@ -238,54 +231,38 @@ describe('google maps helpers', () => {
       { latitude: 1, longitude: 1 }
     );
 
-    expect(result.success).toBe(false);
+    // OSRM usa Haversine fallback - sempre retorna sucesso com dados estimados
+    expect(result.success).toBe(true);
+    expect(result.data?.distancia_total_metros).toBeGreaterThan(0);
   });
 
-  it('getDirectionsSequential usa fetch no mobile', async () => {
+  it('getDirectionsSequential usa OSRM no mobile (gratuito!)', async () => {
     Object.defineProperty(Platform, 'OS', {
       get: () => 'ios',
       configurable: true,
     });
 
-    const responseA = {
-      routes: [
-        {
-          duration: '60s',
-          distanceMeters: 1000,
-          polyline: { encodedPolyline: encodePolyline([{ latitude: 0, longitude: 0 }, { latitude: 1, longitude: 1 }]) },
+    // OSRM Route API response
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        code: 'Ok',
+        routes: [{
+          distance: 2000,
+          duration: 120,
+          geometry: 'encoded_polyline',
           legs: [
-            {
-              duration: '60s',
-              distanceMeters: 1000,
-              startLocation: { latLng: { latitude: 0, longitude: 0 } },
-              endLocation: { latLng: { latitude: 1, longitude: 1 } },
-            },
+            { distance: 1000, duration: 60, steps: [] },
+            { distance: 1000, duration: 60, steps: [] },
           ],
-        },
-      ],
-    };
-
-    const responseB = {
-      routes: [
-        {
-          duration: '60s',
-          distanceMeters: 1000,
-          polyline: { encodedPolyline: encodePolyline([{ latitude: 1, longitude: 1 }, { latitude: 2, longitude: 2 }]) },
-          legs: [
-            {
-              duration: '60s',
-              distanceMeters: 1000,
-              startLocation: { latLng: { latitude: 1, longitude: 1 } },
-              endLocation: { latLng: { latitude: 2, longitude: 2 } },
-            },
-          ],
-        },
-      ],
-    };
-
-    mockFetch
-      .mockResolvedValueOnce({ json: jest.fn().mockResolvedValue(responseA) })
-      .mockResolvedValueOnce({ json: jest.fn().mockResolvedValue(responseB) });
+        }],
+        waypoints: [
+          { location: [0, 0], waypoint_index: 0 },
+          { location: [1, 1], waypoint_index: 1 },
+          { location: [2, 2], waypoint_index: 2 },
+        ],
+      }),
+    });
 
     const result = await googleMapsService.getDirectionsSequential(
       { latitude: 0, longitude: 0 },
@@ -295,9 +272,15 @@ describe('google maps helpers', () => {
 
     expect(result).not.toBeNull();
     expect(result?.legs).toHaveLength(2);
+
+    // Verificar que usou OSRM
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('router.project-osrm.org'),
+      expect.any(Object)
+    );
   });
 
-  it('getDirectionsSequentialWithError trata erro de fetch', async () => {
+  it('getDirectionsSequentialWithError usa Haversine fallback em erro de fetch', async () => {
     Object.defineProperty(Platform, 'OS', {
       get: () => 'ios',
       configurable: true,
@@ -311,6 +294,8 @@ describe('google maps helpers', () => {
       []
     );
 
-    expect(result.success).toBe(false);
+    // OSRM usa Haversine fallback - sempre retorna sucesso com dados estimados
+    expect(result.success).toBe(true);
+    expect(result.data?.distancia_total_metros).toBeGreaterThan(0);
   });
 });

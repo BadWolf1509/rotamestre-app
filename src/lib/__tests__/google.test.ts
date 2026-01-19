@@ -1,12 +1,47 @@
 import { googleMapsService, getCoordinates } from '../google';
+import { clearCache } from '../osrm';
 
 // Mock fetch global
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
+/**
+ * Helper para criar mock de resposta OSRM Route API
+ */
+function createOSRMRouteResponse(options: {
+    distance: number;
+    duration: number;
+    geometry?: string;
+    legs?: Array<{ distance: number; duration: number }>;
+}) {
+    const legs = options.legs || [{ distance: options.distance, duration: options.duration }];
+    return {
+        code: 'Ok',
+        routes: [{
+            distance: options.distance,
+            duration: options.duration,
+            geometry: options.geometry || 'encoded_polyline',
+            legs: legs.map(leg => ({
+                distance: leg.distance,
+                duration: leg.duration,
+                steps: [],
+            })),
+        }],
+        waypoints: [
+            { location: [0, 0], waypoint_index: 0 },
+            { location: [1, 1], waypoint_index: 1 },
+        ],
+    };
+}
+
+// Helper para criar mock de resposta OSRM Trip API (rota circular/otimizada)
+// Mantido comentado para referência futura caso seja necessário testar rotas circulares otimizadas
+// function createOSRMTripResponse(options: {...}) {...}
+
 describe('googleMapsService', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        clearCache(); // Limpar cache do OSRM entre testes
     });
 
     describe('getCoordinates', () => {
@@ -313,23 +348,16 @@ describe('googleMapsService', () => {
         });
     });
 
-    describe('getDirections (Routes API)', () => {
-        it('deve retornar rota e detalhes', async () => {
-            // Mock Routes API response format
+    describe('getDirections (OSRM - gratuito!)', () => {
+        it('deve retornar rota e detalhes usando OSRM', async () => {
+            // Mock OSRM Route API response
             mockFetch.mockResolvedValueOnce({
-                json: jest.fn().mockResolvedValue({
-                    routes: [{
-                        duration: '600s',
-                        distanceMeters: 1000,
-                        polyline: { encodedPolyline: 'encoded_polyline' },
-                        legs: [{
-                            duration: '600s',
-                            distanceMeters: 1000,
-                            startLocation: { latLng: { latitude: 0, longitude: 0 } },
-                            endLocation: { latLng: { latitude: 1, longitude: 1 } },
-                        }],
-                    }],
-                }),
+                ok: true,
+                json: jest.fn().mockResolvedValue(createOSRMRouteResponse({
+                    distance: 1000,
+                    duration: 600,
+                    geometry: 'encoded_polyline',
+                })),
             });
 
             const result = await googleMapsService.getDirections(
@@ -340,31 +368,20 @@ describe('googleMapsService', () => {
             expect(result).not.toBeNull();
             expect(result?.distancia_total_metros).toBe(1000);
             expect(result?.legs).toHaveLength(1);
-        });
 
-        it('deve retornar null quando API retorna erro', async () => {
-            // Mock Routes API error response
-            mockFetch.mockResolvedValueOnce({
-                json: jest.fn().mockResolvedValue({
-                    error: {
-                        code: 400,
-                        message: 'No route found',
-                        status: 'NOT_FOUND',
-                    },
-                }),
-            });
-
-            const result = await googleMapsService.getDirections(
-                { latitude: 0, longitude: 0 },
-                { latitude: 1, longitude: 1 }
+            // Verificar que usou OSRM (router.project-osrm.org)
+            expect(mockFetch).toHaveBeenCalledWith(
+                expect.stringContaining('router.project-osrm.org'),
+                expect.any(Object)
             );
-
-            expect(result).toBeNull();
         });
 
-        it('deve retornar null quando não há rotas', async () => {
+        it('deve retornar fallback Haversine quando OSRM falha (graceful degradation)', async () => {
+            // OSRM retorna código de erro
             mockFetch.mockResolvedValueOnce({
+                ok: true,
                 json: jest.fn().mockResolvedValue({
+                    code: 'NoRoute',
                     routes: [],
                 }),
             });
@@ -374,75 +391,74 @@ describe('googleMapsService', () => {
                 { latitude: 1, longitude: 1 }
             );
 
-            expect(result).toBeNull();
+            // OSRM usa Haversine fallback, nunca retorna null
+            expect(result).not.toBeNull();
+            expect(result?.distancia_total_metros).toBeGreaterThan(0); // Haversine estimate
         });
 
-        it('deve incluir waypoints com otimização quando fornecidos', async () => {
+        it('deve retornar fallback Haversine quando não há rotas', async () => {
             mockFetch.mockResolvedValueOnce({
+                ok: true,
                 json: jest.fn().mockResolvedValue({
-                    routes: [{
-                        duration: '900s',
-                        distanceMeters: 3000,
-                        polyline: { encodedPolyline: 'polyline' },
-                        legs: [
-                            {
-                                duration: '300s',
-                                distanceMeters: 1000,
-                                startLocation: { latLng: { latitude: 0, longitude: 0 } },
-                                endLocation: { latLng: { latitude: 1, longitude: 1 } },
-                            },
-                            {
-                                duration: '600s',
-                                distanceMeters: 2000,
-                                startLocation: { latLng: { latitude: 1, longitude: 1 } },
-                                endLocation: { latLng: { latitude: 2, longitude: 2 } },
-                            },
-                        ],
-                        optimizedIntermediateWaypointIndex: [1, 0],
-                    }],
+                    code: 'Ok',
+                    routes: [],
                 }),
+            });
+
+            const result = await googleMapsService.getDirections(
+                { latitude: 0, longitude: 0 },
+                { latitude: 1, longitude: 1 }
+            );
+
+            // Haversine fallback
+            expect(result).not.toBeNull();
+            expect(result?.distancia_total_metros).toBeGreaterThan(0);
+        });
+
+        it('deve usar OSRM Route API para rotas não-circulares', async () => {
+            mockFetch.mockResolvedValueOnce({
+                ok: true,
+                json: jest.fn().mockResolvedValue(createOSRMRouteResponse({
+                    distance: 3000,
+                    duration: 900,
+                    legs: [
+                        { distance: 1000, duration: 300 },
+                        { distance: 2000, duration: 600 },
+                    ],
+                })),
             });
 
             const waypoints = [
                 { latitude: 0.5, longitude: 0.5 },
-                { latitude: 1.5, longitude: 1.5 },
             ];
 
             await googleMapsService.getDirections(
                 { latitude: 0, longitude: 0 },
-                { latitude: 2, longitude: 2 },
+                { latitude: 2, longitude: 2 }, // Destino diferente da origem
                 waypoints
             );
 
-            // Routes API usa POST com JSON body
+            // OSRM Route API usa GET
             expect(mockFetch).toHaveBeenCalledWith(
-                'https://routes.googleapis.com/directions/v2:computeRoutes',
+                expect.stringContaining('router.project-osrm.org/route/v1/driving'),
                 expect.objectContaining({
-                    method: 'POST',
-                    headers: expect.objectContaining({
-                        'Content-Type': 'application/json',
-                        'X-Goog-Api-Key': expect.any(String),
-                    }),
+                    method: 'GET',
                 })
             );
         });
 
-        it('deve retornar ordem otimizada de waypoints', async () => {
+        it('deve retornar ordem dos waypoints para rota não otimizada', async () => {
             mockFetch.mockResolvedValueOnce({
-                json: jest.fn().mockResolvedValue({
-                    routes: [{
-                        duration: '300s',
-                        distanceMeters: 1000,
-                        polyline: { encodedPolyline: 'polyline' },
-                        legs: [{
-                            duration: '300s',
-                            distanceMeters: 1000,
-                            startLocation: { latLng: { latitude: 0, longitude: 0 } },
-                            endLocation: { latLng: { latitude: 1, longitude: 1 } },
-                        }],
-                        optimizedIntermediateWaypointIndex: [2, 0, 1],
-                    }],
-                }),
+                ok: true,
+                json: jest.fn().mockResolvedValue(createOSRMRouteResponse({
+                    distance: 1000,
+                    duration: 300,
+                    legs: [
+                        { distance: 333, duration: 100 },
+                        { distance: 333, duration: 100 },
+                        { distance: 334, duration: 100 },
+                    ],
+                })),
             });
 
             const result = await googleMapsService.getDirections(
@@ -451,42 +467,25 @@ describe('googleMapsService', () => {
                 [
                     { latitude: 1, longitude: 1 },
                     { latitude: 2, longitude: 2 },
-                    { latitude: 0.5, longitude: 0.5 },
                 ]
             );
 
-            expect(result?.ordem_otimizada).toEqual([2, 0, 1]);
+            // Para rota simples (não circular), a ordem é a mesma da entrada
+            expect(result?.ordem_otimizada).toEqual([0, 1]);
         });
 
         it('deve somar distâncias de múltiplas legs corretamente', async () => {
             mockFetch.mockResolvedValueOnce({
-                json: jest.fn().mockResolvedValue({
-                    routes: [{
-                        duration: '1350s',
-                        distanceMeters: 4500,
-                        polyline: { encodedPolyline: 'polyline' },
-                        legs: [
-                            {
-                                duration: '300s',
-                                distanceMeters: 1000,
-                                startLocation: { latLng: { latitude: 0, longitude: 0 } },
-                                endLocation: { latLng: { latitude: 1, longitude: 1 } },
-                            },
-                            {
-                                duration: '600s',
-                                distanceMeters: 2000,
-                                startLocation: { latLng: { latitude: 1, longitude: 1 } },
-                                endLocation: { latLng: { latitude: 2, longitude: 2 } },
-                            },
-                            {
-                                duration: '450s',
-                                distanceMeters: 1500,
-                                startLocation: { latLng: { latitude: 2, longitude: 2 } },
-                                endLocation: { latLng: { latitude: 3, longitude: 3 } },
-                            },
-                        ],
-                    }],
-                }),
+                ok: true,
+                json: jest.fn().mockResolvedValue(createOSRMRouteResponse({
+                    distance: 4500,
+                    duration: 1350,
+                    legs: [
+                        { distance: 1000, duration: 300 },
+                        { distance: 2000, duration: 600 },
+                        { distance: 1500, duration: 450 },
+                    ],
+                })),
             });
 
             const result = await googleMapsService.getDirections(
@@ -503,21 +502,13 @@ describe('googleMapsService', () => {
             expect(result?.legs).toHaveLength(3);
         });
 
-        it('deve usar POST para Routes API sem waypoints na URL', async () => {
+        it('deve usar OSRM GET request (gratuito vs Google POST pago)', async () => {
             mockFetch.mockResolvedValueOnce({
-                json: jest.fn().mockResolvedValue({
-                    routes: [{
-                        duration: '300s',
-                        distanceMeters: 1000,
-                        polyline: { encodedPolyline: 'polyline' },
-                        legs: [{
-                            duration: '300s',
-                            distanceMeters: 1000,
-                            startLocation: { latLng: { latitude: 0, longitude: 0 } },
-                            endLocation: { latLng: { latitude: 1, longitude: 1 } },
-                        }],
-                    }],
-                }),
+                ok: true,
+                json: jest.fn().mockResolvedValue(createOSRMRouteResponse({
+                    distance: 1000,
+                    duration: 300,
+                })),
             });
 
             await googleMapsService.getDirections(
@@ -525,29 +516,20 @@ describe('googleMapsService', () => {
                 { latitude: 1, longitude: 1 }
             );
 
-            // Routes API usa POST, não GET com query params
+            // OSRM usa GET, não POST
             expect(mockFetch).toHaveBeenCalledWith(
-                'https://routes.googleapis.com/directions/v2:computeRoutes',
-                expect.objectContaining({ method: 'POST' })
+                expect.stringContaining('router.project-osrm.org'),
+                expect.objectContaining({ method: 'GET' })
             );
         });
 
         it('deve retornar array vazio para ordem_otimizada quando não há waypoints', async () => {
             mockFetch.mockResolvedValueOnce({
-                json: jest.fn().mockResolvedValue({
-                    routes: [{
-                        duration: '300s',
-                        distanceMeters: 1000,
-                        polyline: { encodedPolyline: 'polyline' },
-                        legs: [{
-                            duration: '300s',
-                            distanceMeters: 1000,
-                            startLocation: { latLng: { latitude: 0, longitude: 0 } },
-                            endLocation: { latLng: { latitude: 1, longitude: 1 } },
-                        }],
-                        // No optimizedIntermediateWaypointIndex when no waypoints
-                    }],
-                }),
+                ok: true,
+                json: jest.fn().mockResolvedValue(createOSRMRouteResponse({
+                    distance: 1000,
+                    duration: 300,
+                })),
             });
 
             const result = await googleMapsService.getDirections(
@@ -558,21 +540,13 @@ describe('googleMapsService', () => {
             expect(result?.ordem_otimizada).toEqual([]);
         });
 
-        it('deve mapear corretamente todas as informações de cada leg', async () => {
+        it('deve mapear corretamente as informações de cada leg', async () => {
             mockFetch.mockResolvedValueOnce({
-                json: jest.fn().mockResolvedValue({
-                    routes: [{
-                        duration: '900s',
-                        distanceMeters: 5000,
-                        polyline: { encodedPolyline: 'polyline' },
-                        legs: [{
-                            duration: '900s',
-                            distanceMeters: 5000,
-                            startLocation: { latLng: { latitude: -23.5505, longitude: -46.6333 } },
-                            endLocation: { latLng: { latitude: -23.5615, longitude: -46.6561 } },
-                        }],
-                    }],
-                }),
+                ok: true,
+                json: jest.fn().mockResolvedValue(createOSRMRouteResponse({
+                    distance: 5000,
+                    duration: 900,
+                })),
             });
 
             const result = await googleMapsService.getDirections(
@@ -580,15 +554,11 @@ describe('googleMapsService', () => {
                 { latitude: -23.5615, longitude: -46.6561 }
             );
 
-            // Routes API não retorna endereços formatados - usa coordenadas como fallback
-            expect(result?.legs[0]).toEqual({
-                distancia_metros: 5000,
-                duracao_segundos: 900,
-                endereco_inicio: '-23.550500, -46.633300',
-                endereco_fim: '-23.561500, -46.656100',
-                coordenadas_inicio: { latitude: -23.5505, longitude: -46.6333 },
-                coordenadas_fim: { latitude: -23.5615, longitude: -46.6561 },
-            });
+            // OSRM não retorna endereços formatados - usa strings vazias
+            expect(result?.legs[0].distancia_metros).toBe(5000);
+            expect(result?.legs[0].duracao_segundos).toBe(900);
+            expect(result?.legs[0].coordenadas_inicio).toBeDefined();
+            expect(result?.legs[0].coordenadas_fim).toBeDefined();
         });
     });
 

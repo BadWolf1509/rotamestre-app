@@ -169,38 +169,42 @@ describe('DynamicReroutingService', () => {
     });
 
     describe('Traffic Data Integration', () => {
-        it('deve usar Google API no mobile', async () => {
+        it('deve usar OSRM para obter distância (gratuito)', async () => {
             Platform.OS = 'ios';
 
             await (service as any).getTrafficData(mockStops[0], mockStops[1]);
 
+            // OSRM usa router.project-osrm.org
             expect(global.fetch).toHaveBeenCalledWith(
-                expect.stringContaining('maps.googleapis.com')
-            );
-        });
-
-        it('deve usar Supabase Edge Function na web', async () => {
-            Platform.OS = 'web';
-
-            await (service as any).getTrafficData(mockStops[0], mockStops[1]);
-
-            expect(supabase.functions.invoke).toHaveBeenCalledWith(
-                'google-distance-matrix',
+                expect.stringContaining('router.project-osrm.org'),
                 expect.any(Object)
             );
         });
 
-        it('deve lidar com falhas na API retornando valores padrão', async () => {
+        it('deve usar OSRM também na web (não precisa de Edge Function)', async () => {
+            Platform.OS = 'web';
+
+            await (service as any).getTrafficData(mockStops[0], mockStops[1]);
+
+            // OSRM funciona igual em todas as plataformas
+            expect(global.fetch).toHaveBeenCalledWith(
+                expect.stringContaining('router.project-osrm.org'),
+                expect.any(Object)
+            );
+        });
+
+        it('deve usar Haversine como fallback se OSRM falhar', async () => {
             Platform.OS = 'ios';
-            (global.fetch as jest.Mock).mockRejectedValue(new Error('API Error'));
+            (global.fetch as jest.Mock).mockRejectedValue(new Error('OSRM Error'));
 
             const data = await (service as any).getTrafficData(mockStops[0], mockStops[1]);
 
-            expect(data).toEqual({
-                duration: 600,
-                distance: 5000,
-                trafficLevel: 'low',
-            });
+            // Fallback retorna valores calculados via Haversine
+            expect(data).toHaveProperty('duration');
+            expect(data).toHaveProperty('distance');
+            expect(data.trafficLevel).toBe('low');
+            // Haversine retorna valores baseados na distância real entre os pontos
+            expect(data.distance).toBeGreaterThan(0);
         });
     });
 

@@ -1,23 +1,18 @@
 /* global google */
 
 import {
-  type RoutesAPIResponse,
   type PlaceSuggestion,
   type GoogleAddressComponent,
   type DistanceMatrixRow,
   type DistanceMatrixElement,
-  validateAndAdaptRoutesResponse,
-  processDirectionsSegment,
-  createAccumulators,
   handleDirectionsError,
   parseGoogleError,
-  createNetworkError,
   RouteResult,
   success,
   failure,
 } from './google-shared';
 import { logger } from './logger';
-import { mergePolylines } from './polyline';
+import { getOptimizedDirections as osrmGetDirections } from './osrm';
 import { formatErrorForLog } from './routeErrors';
 import { supabase } from './supabase';
 import { Coordenadas, EnderecoGeocodificado } from '../types/endereco';
@@ -221,7 +216,7 @@ export const googleMapsService = {
       .then(result => result.success ? result.data! : null);
   },
 
-  // Versão com erro detalhado - usando Edge Function (não depende da JS API)
+  // MIGRADO PARA OSRM - Gratuito! (vs Edge Function → Google Routes API)
   async getDirectionsWithError(
     origin: Coordenadas,
     destination: Coordenadas,
@@ -229,53 +224,44 @@ export const googleMapsService = {
     optimize: boolean = true
   ): Promise<RouteResult<GoogleDirectionsResult>> {
     try {
-      // Log dos parâmetros para debug
-      logger.debug('[Google.web] Directions Request', {
-        origin: { lat: origin.latitude, lng: origin.longitude },
-        destination: { lat: destination.latitude, lng: destination.longitude },
-        waypointsCount: waypoints?.length || 0,
-        optimize,
-      });
+      // Usar OSRM (gratuito!) em vez de Edge Function → Google Routes API
+      const osrmResult = await osrmGetDirections(
+        { latitude: origin.latitude, longitude: origin.longitude },
+        { latitude: destination.latitude, longitude: destination.longitude },
+        waypoints?.map(wp => ({ latitude: wp.latitude, longitude: wp.longitude })),
+        optimize
+      );
 
-      // Usar Edge Function do Supabase (evita CORS e não depende da JS API)
-      const { data, error: invokeError } = await supabase.functions.invoke('google-directions', {
-        body: {
-          origin: { latitude: origin.latitude, longitude: origin.longitude },
-          destination: { latitude: destination.latitude, longitude: destination.longitude },
-          waypoints: waypoints || [],
-          optimize,
-        },
-      });
-
-      // Melhor tratamento de erros da Edge Function
-      if (invokeError) {
-        logger.error('[Google.web] Directions Edge Function error', invokeError);
-        // Tentar extrair dados do erro se disponível (para status 4xx)
-        const errorContext = (invokeError as any)?.context;
-        if (errorContext) {
-          logger.error('[Google.web] Directions Error context', errorContext);
-        }
-        const error = createNetworkError(invokeError);
-        return failure(error);
+      if (!osrmResult) {
+        return failure(parseGoogleError('ZERO_RESULTS', 'Não foi possível calcular a rota'));
       }
 
-      // Log da resposta para debug
-      logger.debug('[Google.web] Directions Response', {
-        hasRoutes: !!(data?.routes?.length),
-        routesCount: data?.routes?.length || 0,
-        hasError: !!data?.error,
-      });
+      // Converter formato OSRM para formato Google (compatibilidade)
+      const googleResult: GoogleDirectionsResult = {
+        polyline: osrmResult.polyline,
+        distancia_total_metros: osrmResult.distancia_total_metros,
+        duracao_total_segundos: osrmResult.duracao_total_segundos,
+        ordem_otimizada: osrmResult.ordem_otimizada,
+        legs: osrmResult.legs.map(leg => ({
+          distancia_metros: leg.distancia_metros,
+          duracao_segundos: leg.duracao_segundos,
+          endereco_inicio: leg.endereco_inicio,
+          endereco_fim: leg.endereco_fim,
+          coordenadas_inicio: {
+            latitude: leg.coordenadas_inicio.latitude,
+            longitude: leg.coordenadas_inicio.longitude,
+          },
+          coordenadas_fim: {
+            latitude: leg.coordenadas_fim.latitude,
+            longitude: leg.coordenadas_fim.longitude,
+          },
+        })),
+      };
 
-      // Validar e adaptar resposta usando helper compartilhado
-      const result = validateAndAdaptRoutesResponse(data as RoutesAPIResponse);
-      if (!result.success) {
-        logger.warn('[Google.web] Directions ' + formatErrorForLog(result.error!));
-      }
-      return result;
-
+      return success(googleResult);
     } catch (err) {
       const error = handleDirectionsError(err);
-      logger.error('[Google.web] Directions ' + formatErrorForLog(error));
+      logger.error('[OSRM.web] ' + formatErrorForLog(error));
       return failure(error);
     }
   },
@@ -290,80 +276,51 @@ export const googleMapsService = {
       .then(result => result.success ? result.data! : null);
   },
 
-  // Versão com erro detalhado - usando Edge Function (não depende da JS API)
+  // MIGRADO PARA OSRM - Usa optimize=false para manter ordem manual
   async getDirectionsSequentialWithError(
     origin: Coordenadas,
     destination: Coordenadas,
     waypoints: Coordenadas[]
   ): Promise<RouteResult<GoogleDirectionsResult>> {
     try {
-      const allPoints = [origin, ...waypoints, destination];
+      // Usar OSRM com optimize=false para manter a ordem
+      const osrmResult = await osrmGetDirections(
+        { latitude: origin.latitude, longitude: origin.longitude },
+        { latitude: destination.latitude, longitude: destination.longitude },
+        waypoints.map(wp => ({ latitude: wp.latitude, longitude: wp.longitude })),
+        false // Não otimizar - manter ordem manual
+      );
 
-      // Validar todas as coordenadas antes de fazer requisições
-      for (let i = 0; i < allPoints.length; i++) {
-        const point = allPoints[i];
-        if (
-          !point ||
-          typeof point.latitude !== 'number' ||
-          typeof point.longitude !== 'number' ||
-          isNaN(point.latitude) ||
-          isNaN(point.longitude)
-        ) {
-          const pointName = i === 0 ? 'origin' : i === allPoints.length - 1 ? 'destination' : `waypoint ${i}`;
-          logger.error(`[Google.web] Sequential Invalid coordinates at ${pointName}`, point);
-          const error = parseGoogleError('INVALID_REQUEST', `Invalid coordinates at ${pointName}`);
-          return failure(error);
-        }
+      if (!osrmResult) {
+        return failure(parseGoogleError('ZERO_RESULTS', 'Não foi possível calcular a rota sequencial'));
       }
 
-      const accumulators = createAccumulators();
-
-      // Calcular cada segmento via Edge Function
-      for (let i = 0; i < allPoints.length - 1; i++) {
-        const segmentOrigin = allPoints[i];
-        const segmentDestination = allPoints[i + 1];
-
-        // Log debug para primeira execução
-        if (i === 0) {
-          logger.debug('[Google.web] Sequential First segment coords', {
-            origin: { lat: segmentOrigin.latitude, lng: segmentOrigin.longitude },
-            dest: { lat: segmentDestination.latitude, lng: segmentDestination.longitude },
-          });
-        }
-
-        const { data, error: invokeError } = await supabase.functions.invoke('google-directions', {
-          body: {
-            origin: { latitude: segmentOrigin.latitude, longitude: segmentOrigin.longitude },
-            destination: { latitude: segmentDestination.latitude, longitude: segmentDestination.longitude },
-            waypoints: [],
-            optimize: false,
+      // Converter formato OSRM para formato Google
+      const googleResult: GoogleDirectionsResult = {
+        polyline: osrmResult.polyline,
+        distancia_total_metros: osrmResult.distancia_total_metros,
+        duracao_total_segundos: osrmResult.duracao_total_segundos,
+        ordem_otimizada: [], // Vazio porque não otimizou
+        legs: osrmResult.legs.map(leg => ({
+          distancia_metros: leg.distancia_metros,
+          duracao_segundos: leg.duracao_segundos,
+          endereco_inicio: leg.endereco_inicio,
+          endereco_fim: leg.endereco_fim,
+          coordenadas_inicio: {
+            latitude: leg.coordenadas_inicio.latitude,
+            longitude: leg.coordenadas_inicio.longitude,
           },
-        });
+          coordenadas_fim: {
+            latitude: leg.coordenadas_fim.latitude,
+            longitude: leg.coordenadas_fim.longitude,
+          },
+        })),
+      };
 
-        if (invokeError) {
-          logger.warn(`[Google.web] Sequential Segment ${i + 1} Edge Function error`, invokeError);
-          continue; // Continua com próximo segmento
-        }
-
-        // Processar resposta do segmento usando helper compartilhado
-        if (!processDirectionsSegment(data as RoutesAPIResponse, accumulators)) {
-          logger.warn(`[Google.web] Sequential Segment ${i + 1} failed: ${(data as RoutesAPIResponse).error?.status || 'NO_ROUTES'}`);
-        }
-      }
-
-      // Usar mergePolylines para combinar corretamente as polylines
-      const mergedPolyline = mergePolylines(accumulators.polylineSegments);
-
-      return success({
-        polyline: mergedPolyline,
-        distancia_total_metros: accumulators.totalDistanceMeters,
-        duracao_total_segundos: accumulators.totalDurationSeconds,
-        ordem_otimizada: [],
-        legs: accumulators.legs,
-      });
+      return success(googleResult);
     } catch (err) {
       const error = handleDirectionsError(err);
-      logger.error('[Google.web] Sequential ' + formatErrorForLog(error));
+      logger.error('[OSRM.web Sequential] ' + formatErrorForLog(error));
       return failure(error);
     }
   },

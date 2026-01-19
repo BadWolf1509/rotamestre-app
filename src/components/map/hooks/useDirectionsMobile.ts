@@ -1,23 +1,23 @@
 /**
  * Hook for fetching directions on React Native (mobile)
- * Uses Google Directions API via fetch
+ *
+ * MIGRADO PARA OSRM (Open Source Routing Machine)
+ * - Custo: GRATUITO (vs Google Directions API)
+ * - Cache: 5 minutos (gerenciado pelo serviço OSRM)
+ *
+ * @see src/lib/osrm.ts
  */
 
 import { useCallback, useEffect, useState } from 'react';
 
 import { logger } from '@/lib/logger';
-import { decodePolyline } from '@/lib/polyline';
+import { getRoute, decodePolyline, type Coordinate } from '@/lib/osrm';
 
 interface Parada {
   id: string;
   latitude: number;
   longitude: number;
   ordem: number;
-}
-
-interface Coordinate {
-  latitude: number;
-  longitude: number;
 }
 
 interface DirectionsResult {
@@ -39,10 +39,8 @@ interface UseDirectionsMobileResult {
   refetch: () => Promise<void>;
 }
 
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-
 /**
- * Hook to fetch directions from Google Directions API (for React Native)
+ * Hook to fetch directions using OSRM (gratuito!)
  */
 export function useDirectionsMobile({
   paradas,
@@ -65,34 +63,29 @@ export function useDirectionsMobile({
       const destino = paradas[paradas.length - 1];
       const waypoints = paradas.slice(1, -1);
 
-      const waypointsParam = waypoints.length > 0
-        ? `&waypoints=${waypoints.map(w => `${w.latitude},${w.longitude}`).join('|')}`
-        : '';
+      // Converter para formato OSRM
+      const originCoord: Coordinate = {
+        latitude: origem.latitude,
+        longitude: origem.longitude,
+      };
+      const destCoord: Coordinate = {
+        latitude: destino.latitude,
+        longitude: destino.longitude,
+      };
+      const waypointCoords: Coordinate[] = waypoints.map(wp => ({
+        latitude: wp.latitude,
+        longitude: wp.longitude,
+      }));
 
-      const url =
-        `https://maps.googleapis.com/maps/api/directions/json?` +
-        `origin=${origem.latitude},${origem.longitude}` +
-        `&destination=${destino.latitude},${destino.longitude}` +
-        `${waypointsParam}` +
-        `&key=${GOOGLE_MAPS_API_KEY}`;
+      // Buscar rota do OSRM (gratuito!)
+      const route = await getRoute(originCoord, destCoord, waypointCoords, { steps: false });
 
-      const response = await fetch(url);
-      const data = await response.json();
+      if (route && route.polyline) {
+        // Decodificar polyline
+        const coordinates = decodePolyline(route.polyline);
 
-      if (data.routes && data.routes.length > 0) {
-        const route = data.routes[0];
-
-        // Decode polyline
-        const coordinates = decodePolyline(route.overview_polyline.points);
-
-        // Extract distance and duration
-        let totalDistanceMeters = 0;
-        let totalDurationSeconds = 0;
-
-        route.legs.forEach((leg: { distance: { value: number }; duration: { value: number } }) => {
-          totalDistanceMeters += leg.distance.value;
-          totalDurationSeconds += leg.duration.value;
-        });
+        const totalDistanceMeters = route.distance;
+        const totalDurationSeconds = route.duration;
 
         const distanceKm = totalDistanceMeters / 1000;
         const durationMins = Math.ceil(totalDurationSeconds / 60);
@@ -108,13 +101,38 @@ export function useDirectionsMobile({
         });
         setError(null);
       } else {
-        setError('No route found');
-        setDirections(null);
+        // Fallback: usar linhas retas
+        logger.warn('[useDirectionsMobile] OSRM não retornou rota válida, usando linhas retas');
+        const coordinates: Coordinate[] = paradas.map(p => ({
+          latitude: p.latitude,
+          longitude: p.longitude,
+        }));
+
+        setDirections({
+          coordinates,
+          distanceMeters: 0,
+          durationSeconds: 0,
+          distanceText: '--',
+          durationText: '--',
+        });
+        setError(null);
       }
     } catch (err) {
-      logger.error('Error fetching directions:', err);
+      logger.error('[useDirectionsMobile] Error fetching directions:', err);
       setError('Failed to fetch directions');
-      setDirections(null);
+
+      // Fallback em caso de erro: usar linhas retas
+      const coordinates: Coordinate[] = paradas.map(p => ({
+        latitude: p.latitude,
+        longitude: p.longitude,
+      }));
+      setDirections({
+        coordinates,
+        distanceMeters: 0,
+        durationSeconds: 0,
+        distanceText: '--',
+        durationText: '--',
+      });
     } finally {
       setIsLoading(false);
     }

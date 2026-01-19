@@ -80,10 +80,11 @@ export function PictureInPictureMap({
   // Dimensões da viewport
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
 
-  // Carregar Google Maps API
+  // Carregar Google Maps API - IMPORTANTE: usar mesmo ID que outros componentes
+  // para evitar erro "Loader must not be called again with different options"
   const mapLibraries = useMemo(() => ['marker', 'places'] as ('marker' | 'places')[], []);
   const { isLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-script-pip',
+    id: 'google-map-script', // Deve ser igual em todos os componentes
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
     libraries: mapLibraries,
     version: 'beta',
