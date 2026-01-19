@@ -1,32 +1,25 @@
-import { decode } from '@mapbox/polyline';
 import * as Speech from 'expo-speech';
-import { Platform } from 'react-native';
 
-import { supabase } from '@/lib/supabase';
+import {
+  getRoute,
+  decodePolyline as osrmDecodePolyline,
+  calculateHaversineDistance,
+  type Coordinate,
+} from '@/lib/osrm';
 
 /**
- * Calculate distance between two coordinates using Haversine formula
- * Returns distance in meters
+ * Turn-by-Turn Navigation Service
+ *
+ * MIGRADO PARA OSRM (Open Source Routing Machine)
+ * - Custo: GRATUITO (vs ~R$900/mês do Google Routes API)
+ * - Cache: 5 minutos (gerenciado pelo serviço OSRM)
+ * - Rate limit: 1 req/segundo (gerenciado pelo serviço OSRM)
+ *
+ * @see src/lib/osrm.ts
  */
-export function calculateHaversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const EARTH_RADIUS = 6371000; // meters
-  const phi1 = (lat1 * Math.PI) / 180;
-  const phi2 = (lat2 * Math.PI) / 180;
-  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
-  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
 
-  const a =
-    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return EARTH_RADIUS * c;
-}
+// Re-export for backwards compatibility
+export { calculateHaversineDistance } from '@/lib/osrm';
 
 // Types
 export interface NavigationInstruction {
@@ -48,40 +41,15 @@ export interface NavigationRoute {
   instructions: NavigationInstruction[];
 }
 
-interface DirectionsAPIResponse {
-  routes: Array<{
-    overview_polyline: {
-      points: string;
-    };
-    legs: Array<{
-      distance: { value: number };
-      duration: { value: number };
-      steps: Array<{
-        distance: { value: number };
-        duration: { value: number };
-        html_instructions: string;
-        maneuver?: string;
-        polyline: { points: string };
-        start_location: {
-          lat: number;
-          lng: number;
-        };
-      }>;
-    }>;
-  }>;
-}
-
 class TurnByTurnNavigationService {
   private static instance: TurnByTurnNavigationService;
   private currentRoute: NavigationRoute | null = null;
   private currentInstructionIndex: number = 0;
   private voiceEnabled: boolean = true;
   private lastSpokenInstruction: number = -1;
-  private googleMapsApiKey: string = '';
 
   private constructor() {
-    // Load API key from env
-    this.googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+    // OSRM não precisa de API key (é gratuito!)
   }
 
   static getInstance(): TurnByTurnNavigationService {
@@ -91,103 +59,53 @@ class TurnByTurnNavigationService {
     return TurnByTurnNavigationService.instance;
   }
 
-  // Get directions from Google Directions API
+  // Get directions from OSRM (gratuito!)
   async getDirections(
     origin: { latitude: number; longitude: number },
     destination: { latitude: number; longitude: number },
     waypoints?: Array<{ latitude: number; longitude: number }>
   ): Promise<NavigationRoute | null> {
     try {
-      // Build URL
-      const originStr = `${origin.latitude},${origin.longitude}`;
-      const destStr = `${destination.latitude},${destination.longitude}`;
+      // Usar OSRM em vez de Google (R$900/mês de economia!)
+      const osrmRoute = await getRoute(
+        origin as Coordinate,
+        destination as Coordinate,
+        waypoints as Coordinate[],
+        { steps: true }
+      );
 
-      let waypointsParam: string | undefined;
-      if (waypoints && waypoints.length > 0) {
-        const waypointsStr = waypoints
-          .map(w => `${w.latitude},${w.longitude}`)
-          .join('|');
-        waypointsParam = `optimize:true|${waypointsStr}`;
-      }
-
-      let data: DirectionsAPIResponse;
-
-      if (Platform.OS === 'web') {
-        // Web: usar Edge Function para evitar CORS
-        const { data: edgeData, error } = await supabase.functions.invoke('google-directions', {
-          body: {
-            origin: originStr,
-            destination: destStr,
-            waypoints: waypointsParam,
-            mode: 'driving',
-          },
-        });
-
-        if (error) throw error;
-        data = edgeData;
-      } else {
-        // Mobile: chamar API diretamente (sem CORS)
-        let url = `https://maps.googleapis.com/maps/api/directions/json?` +
-          `origin=${originStr}&destination=${destStr}` +
-          `&mode=driving&language=pt-BR&key=${this.googleMapsApiKey}`;
-
-        if (waypointsParam) {
-          url += `&waypoints=${waypointsParam}`;
-        }
-
-        const response = await fetch(url);
-        data = await response.json();
-      }
-
-      if (!data.routes || data.routes.length === 0) {
+      if (!osrmRoute) {
         throw new Error('Nenhuma rota encontrada');
       }
 
-      const route = data.routes[0];
-      const leg = route.legs[0];
-
-      // Process instructions
-      const instructions: NavigationInstruction[] = leg.steps.map(step => ({
-        distance: step.distance.value,
-        duration: step.duration.value,
-        instruction: this.cleanHtmlInstructions(step.html_instructions),
-        maneuver: step.maneuver || 'straight',
-        location: {
-          latitude: step.start_location.lat,
-          longitude: step.start_location.lng,
-        },
+      // Convert OSRM steps to NavigationInstruction format
+      const instructions: NavigationInstruction[] = osrmRoute.steps.map(step => ({
+        distance: step.distance,
+        duration: step.duration,
+        instruction: step.instruction,
+        maneuver: step.maneuver,
+        location: step.location,
         voiceInstruction: this.generateVoiceInstruction(
-          this.cleanHtmlInstructions(step.html_instructions),
-          step.distance.value,
+          step.instruction,
+          step.distance,
           step.maneuver
         ),
       }));
 
       // Create route object
       this.currentRoute = {
-        distance: leg.distance.value,
-        duration: leg.duration.value,
-        polyline: route.overview_polyline.points,
+        distance: osrmRoute.distance,
+        duration: osrmRoute.duration,
+        polyline: osrmRoute.polyline,
         instructions,
       };
 
       this.currentInstructionIndex = 0;
       return this.currentRoute;
     } catch (error) {
-      console.error('Error getting directions:', error);
+      console.error('Error getting directions from OSRM:', error);
       return null;
     }
-  }
-
-  // Clean HTML from instructions
-  private cleanHtmlInstructions(html: string): string {
-    return html
-      .replace(/<[^>]*>/g, '') // Remove HTML tags
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"');
   }
 
   // Generate voice-optimized instruction
@@ -376,15 +294,14 @@ class TurnByTurnNavigationService {
     }
   }
 
-  // Calculate distance between two points (uses exported utility)
+  // Calculate distance between two points (uses OSRM utility)
   private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
     return calculateHaversineDistance(lat1, lon1, lat2, lon2);
   }
 
-  // Decode polyline to coordinates
+  // Decode polyline to coordinates (uses OSRM utility)
   decodePolyline(encoded: string): Array<{ latitude: number; longitude: number }> {
-    const decoded = decode(encoded, 5);
-    return decoded.map(([lat, lng]) => ({ latitude: lat, longitude: lng }));
+    return osrmDecodePolyline(encoded);
   }
 
   // Set voice enabled/disabled

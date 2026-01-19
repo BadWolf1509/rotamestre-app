@@ -1,24 +1,20 @@
 /**
  * Hook useRouteDirections
- * Busca a rota real do Google Directions API usando fetch direto
- * e decodifica a polyline para uso no react-native-maps
- * Com cache em AsyncStorage para modo offline
+ *
+ * MIGRADO PARA OSRM (Open Source Routing Machine)
+ * - Custo: GRATUITO (vs ~R$900/mês do Google Routes API)
+ * - Cache: AsyncStorage para modo offline
+ * - Fallback: Linhas retas se OSRM falhar
+ *
+ * @see src/lib/osrm.ts
  */
-import polyline from '@mapbox/polyline';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useEffect, useCallback } from 'react';
-import { Platform } from 'react-native';
 
-import { supabase } from '@/lib/supabase';
+import { getRoute, decodePolyline, type Coordinate } from '@/lib/osrm';
 
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 const CACHE_PREFIX = 'route_cache_';
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 horas em ms
-
-interface Coordinate {
-  latitude: number;
-  longitude: number;
-}
 
 interface Parada {
   id: string;
@@ -99,7 +95,7 @@ async function saveToCache(key: string, coordinates: Coordinate[], routeInfo: Ro
 }
 
 /**
- * Hook para buscar e decodificar a rota real entre paradas usando Google Directions API
+ * Hook para buscar e decodificar a rota real entre paradas usando OSRM (gratuito!)
  *
  * @param paradas - Array de paradas com coordenadas
  * @returns Coordenadas decodificadas da polyline, informações da rota e estados
@@ -127,19 +123,6 @@ export function useRouteDirections(paradas: Parada[]): UseRouteDirectionsResult 
     // Gerar chave de cache
     const cacheKey = generateCacheKey(validParadas);
 
-    // Se não tiver API key, usar fallback de linhas retas
-    if (!GOOGLE_MAPS_API_KEY) {
-      console.warn('[useRouteDirections] Sem API key, usando linhas retas');
-      setRouteCoordinates(
-        validParadas.map((p) => ({
-          latitude: p.latitude!,
-          longitude: p.longitude!,
-        }))
-      );
-      setIsFromCache(false);
-      return;
-    }
-
     setIsLoading(true);
     setError(null);
 
@@ -153,19 +136,19 @@ export function useRouteDirections(paradas: Parada[]): UseRouteDirectionsResult 
         setIsLoading(false);
 
         // Só buscar atualização em background se cache estiver próximo de expirar
-        // (menos de 1 hora restante) - evita chamadas desnecessárias à API
+        // (menos de 1 hora restante) - evita chamadas desnecessárias
         const cacheAge = Date.now() - cachedData.timestamp;
         const oneHour = 60 * 60 * 1000;
         const shouldRefresh = cacheAge > CACHE_TTL - oneHour;
 
         if (shouldRefresh) {
-          fetchFromAPI(validParadas, cacheKey, false);
+          fetchFromOSRM(validParadas, cacheKey, false);
         }
         return;
       }
 
-      // Sem cache, buscar da API
-      await fetchFromAPI(validParadas, cacheKey, true);
+      // Sem cache, buscar do OSRM
+      await fetchFromOSRM(validParadas, cacheKey, true);
     } catch (err) {
       console.error('[useRouteDirections] Erro:', err);
       setError(err instanceof Error ? err.message : 'Erro ao buscar rota');
@@ -198,8 +181,8 @@ export function useRouteDirections(paradas: Parada[]): UseRouteDirectionsResult 
     }
   }, [paradas]);
 
-  // Função interna para buscar da API (migrado para Routes API)
-  const fetchFromAPI = async (
+  // Função interna para buscar do OSRM (gratuito!)
+  const fetchFromOSRM = async (
     validParadas: Parada[],
     cacheKey: string,
     updateState: boolean
@@ -209,130 +192,46 @@ export function useRouteDirections(paradas: Parada[]): UseRouteDirectionsResult 
       const destination = validParadas[validParadas.length - 1];
       const waypoints = validParadas.slice(1, -1);
 
-      let data;
+      // Converter para formato OSRM
+      const originCoord: Coordinate = {
+        latitude: origin.latitude!,
+        longitude: origin.longitude!,
+      };
+      const destCoord: Coordinate = {
+        latitude: destination.latitude!,
+        longitude: destination.longitude!,
+      };
+      const waypointCoords: Coordinate[] = waypoints.map((wp) => ({
+        latitude: wp.latitude!,
+        longitude: wp.longitude!,
+      }));
 
-      if (Platform.OS === 'web') {
-        // Web: usar Edge Function para evitar CORS
-        // Edge Function já usa Routes API internamente
-        const { data: edgeData, error } = await supabase.functions.invoke('google-directions', {
-          body: {
-            origin: { latitude: origin.latitude, longitude: origin.longitude },
-            destination: { latitude: destination.latitude, longitude: destination.longitude },
-            waypoints: waypoints.map((wp) => ({
-              latitude: wp.latitude,
-              longitude: wp.longitude,
-            })),
-            optimize: false,
-          },
-        });
+      // Buscar rota do OSRM (gratuito!)
+      const route = await getRoute(originCoord, destCoord, waypointCoords, { steps: false });
 
-        if (error) throw error;
-        data = edgeData;
+      if (route && route.polyline) {
+        // Decodificar polyline
+        const coordinates = decodePolyline(route.polyline);
 
-        // Processar resposta da Routes API (via Edge Function)
-        if (data.routes && data.routes.length > 0) {
-          const route = data.routes[0];
-          const encodedPolyline = route.polyline?.encodedPolyline;
-
-          if (encodedPolyline) {
-            const decodedPoints = polyline.decode(encodedPolyline);
-            const coordinates: Coordinate[] = decodedPoints.map(([lat, lng]: [number, number]) => ({
-              latitude: lat,
-              longitude: lng,
-            }));
-
-            const distanceMeters = route.distanceMeters || 0;
-            const durationSeconds = route.duration
-              ? parseInt(route.duration.replace('s', ''), 10)
-              : 0;
-
-            const newRouteInfo = { distanceMeters, durationSeconds };
-
-            await saveToCache(cacheKey, coordinates, newRouteInfo);
-
-            if (updateState) {
-              setRouteCoordinates(coordinates);
-              setRouteInfo(newRouteInfo);
-              setIsFromCache(false);
-            }
-            return;
-          }
-        }
-      } else {
-        // Mobile: chamar Routes API diretamente (POST)
-        const requestBody: Record<string, unknown> = {
-          origin: {
-            location: {
-              latLng: { latitude: origin.latitude, longitude: origin.longitude },
-            },
-          },
-          destination: {
-            location: {
-              latLng: { latitude: destination.latitude, longitude: destination.longitude },
-            },
-          },
-          travelMode: 'DRIVE',
-          computeAlternativeRoutes: false,
-          languageCode: 'pt-BR',
-          units: 'METRIC',
+        const newRouteInfo: RouteInfo = {
+          distanceMeters: route.distance,
+          durationSeconds: route.duration,
         };
 
-        if (waypoints.length > 0) {
-          requestBody.intermediates = waypoints.map((wp) => ({
-            location: {
-              latLng: { latitude: wp.latitude, longitude: wp.longitude },
-            },
-          }));
+        // Salvar no cache
+        await saveToCache(cacheKey, coordinates, newRouteInfo);
+
+        if (updateState) {
+          setRouteCoordinates(coordinates);
+          setRouteInfo(newRouteInfo);
+          setIsFromCache(false);
         }
-
-        const response = await fetch(
-          'https://routes.googleapis.com/directions/v2:computeRoutes',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
-              'X-Goog-FieldMask': 'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline',
-            },
-            body: JSON.stringify(requestBody),
-          }
-        );
-
-        data = await response.json();
-
-        if (data.routes && data.routes.length > 0) {
-          const route = data.routes[0];
-          const encodedPolyline = route.polyline?.encodedPolyline;
-
-          if (encodedPolyline) {
-            const decodedPoints = polyline.decode(encodedPolyline);
-            const coordinates: Coordinate[] = decodedPoints.map(([lat, lng]: [number, number]) => ({
-              latitude: lat,
-              longitude: lng,
-            }));
-
-            const distanceMeters = route.distanceMeters || 0;
-            const durationSeconds = route.duration
-              ? parseInt(route.duration.replace('s', ''), 10)
-              : 0;
-
-            const newRouteInfo = { distanceMeters, durationSeconds };
-
-            await saveToCache(cacheKey, coordinates, newRouteInfo);
-
-            if (updateState) {
-              setRouteCoordinates(coordinates);
-              setRouteInfo(newRouteInfo);
-              setIsFromCache(false);
-            }
-            return;
-          }
-        }
+        return;
       }
 
-      // Fallback se API não retornou rotas válidas
+      // Fallback se OSRM não retornou rotas válidas
       if (updateState) {
-        console.warn('[useRouteDirections] Routes API não retornou rotas válidas');
+        console.warn('[useRouteDirections] OSRM não retornou rotas válidas, usando linhas retas');
         setRouteCoordinates(
           validParadas.map((p) => ({
             latitude: p.latitude!,
@@ -344,7 +243,7 @@ export function useRouteDirections(paradas: Parada[]): UseRouteDirectionsResult 
       }
     } catch (err) {
       if (updateState) {
-        console.error('[useRouteDirections] Erro na Routes API:', err);
+        console.error('[useRouteDirections] Erro no OSRM:', err);
         setRouteCoordinates(
           validParadas.map((p) => ({
             latitude: p.latitude!,
