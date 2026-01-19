@@ -70,6 +70,9 @@ playwright/.cache/
 # MCP configurations (contain sensitive credentials)
 .mcp.json
 
+# Supabase CLI linked project config (contains DB credentials!)
+.supabase/
+
 # Temporary check scripts
 check-*.js
 
