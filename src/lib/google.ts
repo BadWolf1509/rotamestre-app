@@ -1,20 +1,14 @@
-import { Platform } from 'react-native';
-
 import { logger } from '@/lib/logger';
-import { mergePolylines } from '@/lib/polyline';
-import { supabase } from '@/lib/supabase';
+import { getOptimizedDirections as osrmGetDirections } from '@/lib/osrm';
 
 import {
-  type RoutesAPIResponse,
   type PlaceSuggestion,
   type GoogleAddressComponent,
   type GoogleAutocompletePrediction,
   type RouteMatrixElement,
-  validateAndAdaptRoutesResponse,
-  processDirectionsSegment,
-  createAccumulators,
   handleDirectionsError,
   RouteResult,
+  parseGoogleError,
   success,
   failure,
 } from './google-shared';
@@ -28,76 +22,6 @@ export { decodePolyline, encodePolyline, mergePolylines } from '@/lib/polyline';
 export { RoutesAPIResponse, adaptRoutesAPIResponse, mapRoutesAPIError, parseDuration } from './google-shared';
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-
-/** Timeout para requisições em ms */
-const REQUEST_TIMEOUT = 30000;
-
-/** Field mask para Routes API - otimiza custos (Basic tier: $5 CPM vs $15 CPM) */
-const ROUTES_API_FIELD_MASK = [
-  'routes.duration',
-  'routes.distanceMeters',
-  'routes.polyline.encodedPolyline',
-  'routes.legs.duration',
-  'routes.legs.distanceMeters',
-  'routes.legs.startLocation',
-  'routes.legs.endLocation',
-  'routes.legs.polyline.encodedPolyline',
-  'routes.optimizedIntermediateWaypointIndex',
-].join(',');
-
-// ============================================================================
-// ROUTES API REQUEST BUILDER
-// ============================================================================
-
-/**
- * Constrói request body para Routes API
- */
-function buildRoutesAPIRequest(
-  origin: Coordenadas,
-  destination: Coordenadas,
-  waypoints?: Coordenadas[],
-  optimize: boolean = true
-): object {
-  const request: Record<string, unknown> = {
-    origin: {
-      location: {
-        latLng: {
-          latitude: origin.latitude,
-          longitude: origin.longitude,
-        },
-      },
-    },
-    destination: {
-      location: {
-        latLng: {
-          latitude: destination.latitude,
-          longitude: destination.longitude,
-        },
-      },
-    },
-    travelMode: 'DRIVE',
-    routingPreference: 'TRAFFIC_AWARE',
-    computeAlternativeRoutes: false,
-    languageCode: 'pt-BR',
-    units: 'METRIC',
-  };
-
-  if (waypoints && waypoints.length > 0) {
-    request.intermediates = waypoints.map((wp) => ({
-      location: {
-        latLng: {
-          latitude: wp.latitude,
-          longitude: wp.longitude,
-        },
-      },
-    }));
-
-    // optimizeWaypointOrder habilita reordenação automática
-    request.optimizeWaypointOrder = optimize;
-  }
-
-  return request;
-}
 
 // ============================================================================
 // GEOCODING
@@ -273,7 +197,8 @@ export const googleMapsService = {
     }
   },
 
-  // Calcular rota entre pontos usando Google Routes API
+  // Calcular rota entre pontos
+  // MIGRADO PARA OSRM - Gratuito! (vs ~R$900/mês do Google Routes API)
   // optimize: true = reordena waypoints para menor distância (padrão)
   // optimize: false = mantém a ordem fornecida dos waypoints
   async getDirections(
@@ -286,8 +211,9 @@ export const googleMapsService = {
       .then(result => result.success ? result.data! : null);
   },
 
-  // Versão com erro detalhado - usando Google Routes API
-  // Migrado da Directions API (deprecada em 01/03/2025)
+  // Versão com erro detalhado
+  // MIGRADO PARA OSRM - Economia de ~R$900/mês!
+  // Usa OSRM Trip API para otimização (TSP) - solução ÓTIMA para <10 waypoints
   async getDirectionsWithError(
     origin: Coordenadas,
     destination: Coordenadas,
@@ -295,67 +221,51 @@ export const googleMapsService = {
     optimize: boolean = true
   ): Promise<RouteResult<GoogleDirectionsResult>> {
     try {
-      let data: RoutesAPIResponse;
+      // Usar OSRM (gratuito!) em vez de Google Routes API (~R$900/mês)
+      const osrmResult = await osrmGetDirections(
+        { latitude: origin.latitude, longitude: origin.longitude },
+        { latitude: destination.latitude, longitude: destination.longitude },
+        waypoints?.map(wp => ({ latitude: wp.latitude, longitude: wp.longitude })),
+        optimize
+      );
 
-      // Timeout com AbortController
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
-
-      try {
-        if (Platform.OS === 'web') {
-          // Web: Usar Edge Function (evita CORS)
-          const { data: edgeData, error } = await supabase.functions.invoke('google-directions', {
-            body: {
-              origin: { latitude: origin.latitude, longitude: origin.longitude },
-              destination: { latitude: destination.latitude, longitude: destination.longitude },
-              waypoints: waypoints || [],
-              optimize,
-            },
-          });
-
-          if (error) throw error;
-          data = edgeData as RoutesAPIResponse;
-        } else {
-          // Mobile: Chamar Routes API diretamente
-          const requestBody = buildRoutesAPIRequest(origin, destination, waypoints, optimize);
-
-          const response = await fetch(
-            'https://routes.googleapis.com/directions/v2:computeRoutes',
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
-                'X-Goog-FieldMask': ROUTES_API_FIELD_MASK,
-              },
-              body: JSON.stringify(requestBody),
-              signal: controller.signal,
-            }
-          );
-
-          data = await response.json() as RoutesAPIResponse;
-        }
-      } finally {
-        clearTimeout(timeoutId);
+      if (!osrmResult) {
+        return failure(parseGoogleError('ZERO_RESULTS', 'Não foi possível calcular a rota'));
       }
 
-      // Validar e adaptar resposta usando helper compartilhado
-      const result = validateAndAdaptRoutesResponse(data);
-      if (!result.success) {
-        logger.warn('[Routes API] ' + formatErrorForLog(result.error!));
-      }
-      return result;
+      // Converter formato OSRM para formato Google (compatibilidade)
+      const googleResult: GoogleDirectionsResult = {
+        polyline: osrmResult.polyline,
+        distancia_total_metros: osrmResult.distancia_total_metros,
+        duracao_total_segundos: osrmResult.duracao_total_segundos,
+        ordem_otimizada: osrmResult.ordem_otimizada,
+        legs: osrmResult.legs.map(leg => ({
+          distancia_metros: leg.distancia_metros,
+          duracao_segundos: leg.duracao_segundos,
+          endereco_inicio: leg.endereco_inicio,
+          endereco_fim: leg.endereco_fim,
+          coordenadas_inicio: {
+            latitude: leg.coordenadas_inicio.latitude,
+            longitude: leg.coordenadas_inicio.longitude,
+          },
+          coordenadas_fim: {
+            latitude: leg.coordenadas_fim.latitude,
+            longitude: leg.coordenadas_fim.longitude,
+          },
+        })),
+      };
+
+      return success(googleResult);
     } catch (err) {
       const error = handleDirectionsError(err);
-      logger.error('[Routes API] ' + formatErrorForLog(error));
+      logger.error('[OSRM] ' + formatErrorForLog(error));
       return failure(error);
     }
   },
 
   // Calcular rota segmento por segmento (garante ordem manual)
-  // Útil quando API ignora optimize:false em rotas circulares
-  // Faz N chamadas separadas (origem→p1, p1→p2, ..., pN→destino)
-  // Migrado para Routes API
+  // MIGRADO PARA OSRM - Gratuito!
+  // Útil quando queremos manter a ordem exata dos waypoints
   async getDirectionsSequential(
     origin: Coordenadas,
     destination: Coordenadas,
@@ -365,83 +275,52 @@ export const googleMapsService = {
       .then(result => result.success ? result.data! : null);
   },
 
-  // Versão com erro detalhado para rota sequencial - usando Routes API
+  // Versão com erro detalhado para rota sequencial
+  // MIGRADO PARA OSRM - Usa optimize=false para manter ordem
   async getDirectionsSequentialWithError(
     origin: Coordenadas,
     destination: Coordenadas,
     waypoints: Coordenadas[]
   ): Promise<RouteResult<GoogleDirectionsResult>> {
     try {
-      const allPoints = [origin, ...waypoints, destination];
-      const accumulators = createAccumulators();
+      // Usar OSRM com optimize=false para manter a ordem
+      const osrmResult = await osrmGetDirections(
+        { latitude: origin.latitude, longitude: origin.longitude },
+        { latitude: destination.latitude, longitude: destination.longitude },
+        waypoints.map(wp => ({ latitude: wp.latitude, longitude: wp.longitude })),
+        false // Não otimizar - manter ordem manual
+      );
 
-      for (let i = 0; i < allPoints.length - 1; i++) {
-        const segmentOrigin = allPoints[i];
-        const segmentDestination = allPoints[i + 1];
-
-        let data: RoutesAPIResponse;
-
-        // Criar AbortController para timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
-
-        try {
-          if (Platform.OS === 'web') {
-            // Web: Usar Edge Function
-            const { data: edgeData, error } = await supabase.functions.invoke('google-directions', {
-              body: {
-                origin: { latitude: segmentOrigin.latitude, longitude: segmentOrigin.longitude },
-                destination: { latitude: segmentDestination.latitude, longitude: segmentDestination.longitude },
-                waypoints: [],
-                optimize: false,
-              },
-            });
-
-            if (error) throw error;
-            data = edgeData as RoutesAPIResponse;
-          } else {
-            // Mobile: Routes API diretamente
-            const requestBody = buildRoutesAPIRequest(segmentOrigin, segmentDestination, [], false);
-
-            const response = await fetch(
-              'https://routes.googleapis.com/directions/v2:computeRoutes',
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
-                  'X-Goog-FieldMask': ROUTES_API_FIELD_MASK,
-                },
-                body: JSON.stringify(requestBody),
-                signal: controller.signal,
-              }
-            );
-
-            data = await response.json() as RoutesAPIResponse;
-          }
-        } finally {
-          clearTimeout(timeoutId);
-        }
-
-        // Processar resposta do segmento usando helper compartilhado
-        if (!processDirectionsSegment(data, accumulators)) {
-          logger.warn(`[Routes API] Segmento ${i + 1} falhou: ${data.error?.status || 'NO_ROUTES'}`);
-        }
+      if (!osrmResult) {
+        return failure(parseGoogleError('ZERO_RESULTS', 'Não foi possível calcular a rota sequencial'));
       }
 
-      // Usar mergePolylines para combinar corretamente
-      const mergedPolyline = mergePolylines(accumulators.polylineSegments);
+      // Converter formato OSRM para formato Google
+      const googleResult: GoogleDirectionsResult = {
+        polyline: osrmResult.polyline,
+        distancia_total_metros: osrmResult.distancia_total_metros,
+        duracao_total_segundos: osrmResult.duracao_total_segundos,
+        ordem_otimizada: [], // Vazio porque não otimizou
+        legs: osrmResult.legs.map(leg => ({
+          distancia_metros: leg.distancia_metros,
+          duracao_segundos: leg.duracao_segundos,
+          endereco_inicio: leg.endereco_inicio,
+          endereco_fim: leg.endereco_fim,
+          coordenadas_inicio: {
+            latitude: leg.coordenadas_inicio.latitude,
+            longitude: leg.coordenadas_inicio.longitude,
+          },
+          coordenadas_fim: {
+            latitude: leg.coordenadas_fim.latitude,
+            longitude: leg.coordenadas_fim.longitude,
+          },
+        })),
+      };
 
-      return success({
-        polyline: mergedPolyline,
-        distancia_total_metros: accumulators.totalDistanceMeters,
-        duracao_total_segundos: accumulators.totalDurationSeconds,
-        ordem_otimizada: [],
-        legs: accumulators.legs,
-      });
+      return success(googleResult);
     } catch (err) {
       const error = handleDirectionsError(err);
-      logger.error('[Routes API Sequential] ' + formatErrorForLog(error));
+      logger.error('[OSRM Sequential] ' + formatErrorForLog(error));
       return failure(error);
     }
   },

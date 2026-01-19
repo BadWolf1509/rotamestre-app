@@ -603,3 +603,320 @@ export function getCacheStats(): { size: number; oldestEntry: number | null } {
     oldestEntry: oldest ? Date.now() - oldest : null,
   };
 }
+
+// ============================================================================
+// GOOGLE DIRECTIONS FORMAT ADAPTER
+// ============================================================================
+
+/**
+ * Formato compatível com GoogleDirectionsResult
+ * Usado para substituir chamadas ao Google Routes API
+ */
+export interface DirectionsResultLeg {
+  distancia_metros: number;
+  duracao_segundos: number;
+  endereco_inicio: string;
+  endereco_fim: string;
+  coordenadas_inicio: Coordinate;
+  coordenadas_fim: Coordinate;
+}
+
+export interface DirectionsResult {
+  polyline: string;
+  distancia_total_metros: number;
+  duracao_total_segundos: number;
+  ordem_otimizada: number[];
+  legs: DirectionsResultLeg[];
+}
+
+interface OSRMTripResponse {
+  code: string;
+  trips: Array<{
+    distance: number;
+    duration: number;
+    geometry: string;
+    legs: Array<{
+      distance: number;
+      duration: number;
+      steps: Array<{
+        distance: number;
+        duration: number;
+        name: string;
+        maneuver: {
+          type: string;
+          modifier?: string;
+          location: [number, number];
+        };
+      }>;
+    }>;
+  }>;
+  waypoints: Array<{
+    location: [number, number];
+    waypoint_index: number;
+    trips_index: number;
+  }>;
+}
+
+/**
+ * Obtém rota otimizada no formato compatível com Google Directions
+ *
+ * Esta função substitui googleMapsService.getDirections para economia de custos.
+ * Usa OSRM Trip API para otimização (TSP) e Route API para rotas simples.
+ *
+ * @param origin - Ponto de origem
+ * @param destination - Ponto de destino
+ * @param waypoints - Pontos intermediários (opcional)
+ * @param optimize - Se true, otimiza a ordem dos waypoints (padrão: true)
+ * @returns Resultado no formato GoogleDirectionsResult ou null se falhar
+ */
+export async function getOptimizedDirections(
+  origin: Coordinate,
+  destination: Coordinate,
+  waypoints?: Coordinate[],
+  optimize: boolean = true
+): Promise<DirectionsResult | null> {
+  const allCoords = [origin, ...(waypoints || []), destination];
+  const cacheKey = getCacheKey(`directions-${optimize}`, allCoords);
+
+  // Check cache
+  const cached = getFromCache<DirectionsResult>(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  try {
+    // Verificar se é rota circular (origem == destino)
+    const isCircular =
+      Math.abs(origin.latitude - destination.latitude) < 0.0001 &&
+      Math.abs(origin.longitude - destination.longitude) < 0.0001;
+
+    // Se tem waypoints e quer otimizar, usar Trip API
+    if (waypoints && waypoints.length > 0 && optimize && isCircular) {
+      return await getOptimizedCircularRoute(origin, waypoints, cacheKey);
+    }
+
+    // Caso contrário, usar Route API simples
+    return await getSimpleRoute(origin, destination, waypoints, cacheKey);
+  } catch (error) {
+    console.error('OSRM getOptimizedDirections error:', error);
+    // Fallback com Haversine
+    return createFallbackDirections(origin, destination, waypoints);
+  }
+}
+
+/**
+ * Rota circular otimizada usando Trip API (TSP)
+ */
+async function getOptimizedCircularRoute(
+  origin: Coordinate,
+  waypoints: Coordinate[],
+  cacheKey: string
+): Promise<DirectionsResult | null> {
+  await waitForRateLimit();
+
+  // Trip API: origem + waypoints, roundtrip=true para voltar à origem
+  const allPoints = [origin, ...waypoints];
+  const coordsStr = allPoints
+    .map(c => `${c.longitude},${c.latitude}`)
+    .join(';');
+
+  const url = `${OSRM_BASE_URL}/trip/v1/driving/${coordsStr}?roundtrip=true&source=first&geometries=polyline&overview=full&steps=false`;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'RotaMestre/1.0 (https://app.rotamestre.tec.br)',
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`OSRM Trip error: ${response.status}`);
+    }
+
+    const data: OSRMTripResponse = await response.json();
+
+    if (data.code !== 'Ok' || !data.trips || data.trips.length === 0) {
+      console.warn('OSRM Trip: No route found, falling back');
+      return createFallbackDirections(origin, origin, waypoints);
+    }
+
+    const trip = data.trips[0];
+
+    // Extrair ordem otimizada dos waypoints (excluindo origem que é índice 0)
+    // waypoint_index indica a posição no array de entrada
+    const waypointOrder = data.waypoints
+      .filter(wp => wp.waypoint_index > 0) // Excluir origem
+      .sort((a, b) => {
+        // Ordenar pela ordem em que aparecem na trip
+        const aLegIndex = data.waypoints.findIndex(w => w.waypoint_index === a.waypoint_index);
+        const bLegIndex = data.waypoints.findIndex(w => w.waypoint_index === b.waypoint_index);
+        return aLegIndex - bLegIndex;
+      })
+      .map(wp => wp.waypoint_index - 1); // Ajustar índice (remover offset da origem)
+
+    // Construir legs
+    const legs: DirectionsResultLeg[] = trip.legs.map((leg, index) => {
+      const startWp = data.waypoints[index];
+      const endWp = data.waypoints[index + 1] || data.waypoints[0]; // Volta à origem
+
+      return {
+        distancia_metros: leg.distance,
+        duracao_segundos: leg.duration,
+        endereco_inicio: '',
+        endereco_fim: '',
+        coordenadas_inicio: {
+          latitude: startWp.location[1],
+          longitude: startWp.location[0],
+        },
+        coordenadas_fim: {
+          latitude: endWp.location[1],
+          longitude: endWp.location[0],
+        },
+      };
+    });
+
+    const result: DirectionsResult = {
+      polyline: trip.geometry,
+      distancia_total_metros: trip.distance,
+      duracao_total_segundos: trip.duration,
+      ordem_otimizada: waypointOrder,
+      legs,
+    };
+
+    setCache(cacheKey, result);
+    return result;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
+/**
+ * Rota simples (não circular ou sem otimização)
+ */
+async function getSimpleRoute(
+  origin: Coordinate,
+  destination: Coordinate,
+  waypoints: Coordinate[] | undefined,
+  cacheKey: string
+): Promise<DirectionsResult | null> {
+  await waitForRateLimit();
+
+  const allCoords = [origin, ...(waypoints || []), destination];
+  const coordsStr = allCoords
+    .map(c => `${c.longitude},${c.latitude}`)
+    .join(';');
+
+  const url = `${OSRM_BASE_URL}/route/v1/driving/${coordsStr}?overview=full&geometries=polyline&steps=false`;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'RotaMestre/1.0 (https://app.rotamestre.tec.br)',
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`OSRM Route error: ${response.status}`);
+    }
+
+    const data: OSRMRouteResponse = await response.json();
+
+    if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+      return createFallbackDirections(origin, destination, waypoints);
+    }
+
+    const route = data.routes[0];
+
+    // Para rota simples, a ordem é a mesma da entrada
+    const waypointOrder = (waypoints || []).map((_, i) => i);
+
+    // Construir legs
+    const legs: DirectionsResultLeg[] = route.legs.map((leg, index) => {
+      const startCoord = allCoords[index];
+      const endCoord = allCoords[index + 1];
+
+      return {
+        distancia_metros: leg.distance,
+        duracao_segundos: leg.duration,
+        endereco_inicio: '',
+        endereco_fim: '',
+        coordenadas_inicio: startCoord,
+        coordenadas_fim: endCoord,
+      };
+    });
+
+    const result: DirectionsResult = {
+      polyline: route.geometry,
+      distancia_total_metros: route.distance,
+      duracao_total_segundos: route.duration,
+      ordem_otimizada: waypointOrder,
+      legs,
+    };
+
+    setCache(cacheKey, result);
+    return result;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
+/**
+ * Cria resultado de fallback usando Haversine
+ */
+function createFallbackDirections(
+  origin: Coordinate,
+  destination: Coordinate,
+  waypoints?: Coordinate[]
+): DirectionsResult {
+  const allCoords = [origin, ...(waypoints || []), destination];
+  let totalDistance = 0;
+  let totalDuration = 0;
+  const legs: DirectionsResultLeg[] = [];
+
+  for (let i = 0; i < allCoords.length - 1; i++) {
+    const dist = calculateHaversineDistance(
+      allCoords[i].latitude,
+      allCoords[i].longitude,
+      allCoords[i + 1].latitude,
+      allCoords[i + 1].longitude
+    ) * 1.3; // Fator de correção
+
+    const duration = (dist / 1000) * 2 * 60; // 30 km/h média
+
+    totalDistance += dist;
+    totalDuration += duration;
+
+    legs.push({
+      distancia_metros: Math.round(dist),
+      duracao_segundos: Math.round(duration),
+      endereco_inicio: '',
+      endereco_fim: '',
+      coordenadas_inicio: allCoords[i],
+      coordenadas_fim: allCoords[i + 1],
+    });
+  }
+
+  return {
+    polyline: '',
+    distancia_total_metros: Math.round(totalDistance),
+    duracao_total_segundos: Math.round(totalDuration),
+    ordem_otimizada: (waypoints || []).map((_, i) => i),
+    legs,
+  };
+}
