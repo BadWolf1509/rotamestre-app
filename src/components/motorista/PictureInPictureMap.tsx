@@ -14,49 +14,19 @@ import {
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import {
+  DOUBLE_TAP_DELAY,
+  EDGE_PADDING,
+  PIP_HEIGHT,
+  PIP_WIDTH,
+  TAB_BAR_BASE_HEIGHT,
+  usePiPRouteInfo,
+} from '@/hooks/navigation';
+import type { PictureInPictureMapProps } from '@/hooks/navigation';
+import { usePiPPosition } from '@/hooks/usePiPPosition';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-// PiP dimensions (constantes base) - Unificado entre plataformas
-const PIP_WIDTH = 140;
-const PIP_HEIGHT = 200;
-const EDGE_PADDING = 16;
-
-interface PictureInPictureMapProps {
-  visible: boolean;
-  userLocation: { latitude: number; longitude: number } | null;
-  destination: { latitude: number; longitude: number; address: string } | null;
-  onClose: () => void;
-  onExpand: () => void;
-}
-
-// Altura base da Tab Bar (sem safe area)
-const TAB_BAR_BASE_HEIGHT = 60;
-
-// Velocidade média urbana para estimativa de tempo (km/h)
-const AVERAGE_URBAN_SPEED_KMH = 30;
-
-/**
- * Calcula a distância em km entre dois pontos usando fórmula Haversine
- */
-function calculateDistanceKm(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const R = 6371; // Raio da Terra em km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
 
 export function PictureInPictureMap({
   visible,
@@ -64,10 +34,17 @@ export function PictureInPictureMap({
   destination,
   onClose,
   onExpand,
+  progress,
+  currentStopOrder,
+  stopType,
+  userHeading,
+  nextInstruction,
+  avoidAreas,
 }: PictureInPictureMapProps) {
   const { theme } = useUnistyles();
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const { savedPosition, savePosition } = usePiPPosition();
 
   // Dimensões calculadas dinamicamente (reativas a rotação/split-screen)
   const expandedWidth = useMemo(() => screenWidth * 0.9, [screenWidth]);
@@ -84,9 +61,16 @@ export function PictureInPictureMap({
     safeBottomBoundRef.current = screenHeight - PIP_HEIGHT - TAB_BAR_BASE_HEIGHT - Math.max(insets.bottom, 34) - EDGE_PADDING;
   }, [insets.top, insets.bottom, screenHeight]);
 
-  // Posição inicial (canto inferior direito)
-  const initialX = screenWidth - PIP_WIDTH - EDGE_PADDING;
-  const initialY = Math.max(safeTopBoundRef.current, 100);
+  // Posição inicial (usa posição salva ou canto superior direito)
+  const defaultX = screenWidth - PIP_WIDTH - EDGE_PADDING;
+  const defaultY = Math.max(safeTopBoundRef.current, 100);
+  // Usa posição salva se disponível e válida para as dimensões atuais
+  const initialX = savedPosition
+    ? Math.max(EDGE_PADDING, Math.min(savedPosition.x, screenWidth - PIP_WIDTH - EDGE_PADDING))
+    : defaultX;
+  const initialY = savedPosition
+    ? Math.max(safeTopBoundRef.current, Math.min(savedPosition.y, safeBottomBoundRef.current))
+    : defaultY;
 
   // Ref para rastrear posição atual (evita acessar _value interno)
   const currentPositionRef = useRef({ x: initialX, y: initialY });
@@ -99,44 +83,141 @@ export function PictureInPictureMap({
   const animatedWidth = useRef(new Animated.Value(PIP_WIDTH)).current;
   const animatedHeight = useRef(new Animated.Value(PIP_HEIGHT)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // State
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [mapLoading, setMapLoading] = useState(true);
 
-  // Calcular distância e tempo estimado até o destino
-  const routeInfo = useMemo(() => {
-    if (!userLocation || !destination) return null;
-
-    const distanceKm = calculateDistanceKm(
-      userLocation.latitude,
-      userLocation.longitude,
-      destination.latitude,
-      destination.longitude
-    );
-
-    // Estimar tempo baseado em velocidade média urbana
-    const estimatedMinutes = Math.ceil((distanceKm / AVERAGE_URBAN_SPEED_KMH) * 60);
-
-    return {
-      distanceKm,
-      estimatedMinutes,
-      // Formatar para exibição
-      distanceText: distanceKm < 1
-        ? `${Math.round(distanceKm * 1000)} m`
-        : `${distanceKm.toFixed(1)} km`,
-      timeText: estimatedMinutes < 60
-        ? `${estimatedMinutes} min`
-        : `${Math.floor(estimatedMinutes / 60)}h${estimatedMinutes % 60}`,
-    };
-  }, [userLocation, destination]);
+  // Use shared hook for route info and OSRM route fetching
+  const { routeInfo, isNearDestination, routePath } = usePiPRouteInfo({
+    visible,
+    userLocation,
+    destination,
+  });
+  useEffect(() => {
+    if (isNearDestination && !isExpanded) {
+      // Iniciar animação de pulso
+      const pulseAnimation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.15,
+            duration: 500,
+            useNativeDriver: false,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: false,
+          }),
+        ])
+      );
+      pulseAnimation.start();
+      // Haptic feedback de sucesso ao chegar perto
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      return () => pulseAnimation.stop();
+    } else {
+      // Reset animação
+      pulseAnim.setValue(1);
+    }
+  }, [isNearDestination, isExpanded, pulseAnim]);
 
   // Ref para isExpanded (necessário para PanResponder que captura closure)
   const isExpandedRef = useRef(isExpanded);
+  // Ref para detectar double-tap
+  const lastTapRef = useRef<number>(0);
+  // Ref para toggleExpand (necessário para PanResponder que captura closure)
+  const toggleExpandRef = useRef<() => void>(() => {});
+  // Ref para savePosition (necessário para PanResponder que captura closure)
+  const savePositionRef = useRef(savePosition);
+  // Ref para onClose (necessário para PanResponder que captura closure)
+  const onCloseRef = useRef(onClose);
   useEffect(() => {
     isExpandedRef.current = isExpanded;
   }, [isExpanded]);
+  useEffect(() => {
+    savePositionRef.current = savePosition;
+  }, [savePosition]);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  // Atualizar posição quando a posição salva for carregada
+  useEffect(() => {
+    if (savedPosition && !isExpandedRef.current) {
+      const validX = Math.max(EDGE_PADDING, Math.min(savedPosition.x, screenWidth - PIP_WIDTH - EDGE_PADDING));
+      const validY = Math.max(safeTopBoundRef.current, Math.min(savedPosition.y, safeBottomBoundRef.current));
+      pan.setValue({ x: validX, y: validY });
+      currentPositionRef.current = { x: validX, y: validY };
+    }
+  }, [savedPosition, pan, screenWidth]);
+
+  // Auto-reposicionamento para evitar colisão com avoidAreas
+  useEffect(() => {
+    if (!avoidAreas || avoidAreas.length === 0 || isExpandedRef.current || !visible) return;
+
+    const currentX = currentPositionRef.current.x;
+    const currentY = currentPositionRef.current.y;
+    const pipRight = currentX + PIP_WIDTH;
+    const pipBottom = currentY + PIP_HEIGHT;
+
+    // Verificar colisão com cada área
+    const hasCollision = avoidAreas.some(area => {
+      const areaRight = area.x + area.width;
+      const areaBottom = area.y + area.height;
+      return !(pipRight < area.x || currentX > areaRight || pipBottom < area.y || currentY > areaBottom);
+    });
+
+    if (hasCollision) {
+      // Calcular posições seguras (4 cantos)
+      const safePositions = [
+        { x: EDGE_PADDING, y: safeTopBoundRef.current }, // Superior esquerdo
+        { x: screenWidth - PIP_WIDTH - EDGE_PADDING, y: safeTopBoundRef.current }, // Superior direito
+        { x: EDGE_PADDING, y: safeBottomBoundRef.current }, // Inferior esquerdo
+        { x: screenWidth - PIP_WIDTH - EDGE_PADDING, y: safeBottomBoundRef.current }, // Inferior direito
+      ];
+
+      // Encontrar posição segura mais próxima que não colida
+      let bestPosition = safePositions[1]; // Fallback: superior direito
+      let minDistance = Infinity;
+
+      for (const pos of safePositions) {
+        const posRight = pos.x + PIP_WIDTH;
+        const posBottom = pos.y + PIP_HEIGHT;
+
+        // Verificar se essa posição colide
+        const wouldCollide = avoidAreas.some(area => {
+          const areaRight = area.x + area.width;
+          const areaBottom = area.y + area.height;
+          return !(posRight < area.x || pos.x > areaRight || posBottom < area.y || pos.y > areaBottom);
+        });
+
+        if (!wouldCollide) {
+          const distance = Math.sqrt(
+            Math.pow(pos.x - currentX, 2) + Math.pow(pos.y - currentY, 2)
+          );
+          if (distance < minDistance) {
+            minDistance = distance;
+            bestPosition = pos;
+          }
+        }
+      }
+
+      // Animar para posição segura
+      Animated.spring(pan, {
+        toValue: bestPosition,
+        useNativeDriver: false,
+        tension: 40,
+        friction: 8,
+      }).start(() => {
+        currentPositionRef.current = bestPosition;
+        savePositionRef.current(bestPosition);
+      });
+    }
+  }, [avoidAreas, visible, pan, screenWidth]);
 
   // Atualizar posição quando dimensões mudarem (rotação)
   useEffect(() => {
@@ -183,6 +264,19 @@ export function PictureInPictureMap({
         return !isExpandedRef.current && (Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2);
       },
       onPanResponderGrant: () => {
+        const now = Date.now();
+        // Detectar double-tap para expandir
+        if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
+          // Double-tap detectado - expandir
+          if (Platform.OS !== 'web') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          }
+          toggleExpandRef.current();
+          lastTapRef.current = 0; // Reset para evitar triple-tap
+          return;
+        }
+        lastTapRef.current = now;
+
         setIsDragging(true);
         // Haptic feedback ao iniciar drag
         if (Platform.OS !== 'web') {
@@ -203,6 +297,22 @@ export function PictureInPictureMap({
         setIsDragging(false);
         // Consolidar offset com valor atual
         pan.flattenOffset();
+
+        // Detectar swipe para baixo rápido (velocidade > 1.5 e distância > 50px)
+        if (gestureState.vy > 1.5 && gestureState.dy > 50) {
+          // Swipe down - fechar com animação
+          if (Platform.OS !== 'web') {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          }
+          Animated.timing(pan.y, {
+            toValue: screenHeightRef.current + PIP_HEIGHT,
+            duration: 200,
+            useNativeDriver: false,
+          }).start(() => {
+            onCloseRef.current();
+          });
+          return;
+        }
 
         // Haptic feedback ao soltar (snap)
         if (Platform.OS !== 'web') {
@@ -229,7 +339,10 @@ export function PictureInPictureMap({
           useNativeDriver: false,
           tension: 40,
           friction: 8,
-        }).start();
+        }).start(() => {
+          // Persistir posição após snap
+          savePositionRef.current({ x: finalX, y: finalY });
+        });
       },
     })
   ).current;
@@ -306,6 +419,11 @@ export function PictureInPictureMap({
     }
   };
 
+  // Atualizar ref do toggleExpand para PanResponder
+  useEffect(() => {
+    toggleExpandRef.current = toggleExpand;
+  });
+
   // Handler para fechar com haptic
   const handleClose = () => {
     if (Platform.OS !== 'web') {
@@ -369,7 +487,7 @@ export function PictureInPictureMap({
         style={[styles.map, { pointerEvents: isExpanded ? 'auto' : 'none' }]}
         provider={PROVIDER_GOOGLE}
         region={region}
-        showsUserLocation
+        showsUserLocation={userHeading === undefined}
         showsMyLocationButton={false}
         showsCompass={false}
         rotateEnabled={false}
@@ -378,17 +496,28 @@ export function PictureInPictureMap({
         toolbarEnabled={false}
         onMapReady={() => setMapLoading(false)}
       >
-        {/* Polyline conectando usuário ao destino */}
-        {userLocation && destination && (
+        {/* Polyline conectando usuário ao destino via OSRM */}
+        {routePath.length >= 2 && (
           <Polyline
-            coordinates={[
-              { latitude: userLocation.latitude, longitude: userLocation.longitude },
-              { latitude: destination.latitude, longitude: destination.longitude },
-            ]}
+            coordinates={routePath}
             strokeColor={theme.colors.primary}
-            strokeWidth={3}
-            lineDashPattern={[10, 5]}
+            strokeWidth={4}
           />
+        )}
+
+        {/* Marcador do usuário com seta direcional (quando heading disponível) */}
+        {userLocation && userHeading !== undefined && (
+          <Marker
+            coordinate={userLocation}
+            anchor={{ x: 0.5, y: 0.5 }}
+            flat
+            rotation={userHeading}
+            tracksViewChanges={false}
+          >
+            <View style={styles.userDirectionMarker}>
+              <Ionicons name="navigate" size={20} color={theme.colors.info} />
+            </View>
+          </Marker>
         )}
 
         {destination && (
@@ -404,6 +533,16 @@ export function PictureInPictureMap({
         )}
       </MapView>
 
+      {/* Drag Overlay - cobre o mapa quando colapsado para permitir drag em toda área */}
+      {/* Necessário porque MapView no Android pode capturar eventos mesmo com pointerEvents: 'none' */}
+      {!isExpanded && (
+        <View
+          testID="pip-drag-overlay"
+          style={styles.dragOverlay}
+          // pointerEvents padrão é 'auto' - captura toques e permite PanResponder funcionar
+        />
+      )}
+
       {/* Loading overlay */}
       {mapLoading && (
         <View style={styles.loadingOverlay}>
@@ -411,14 +550,43 @@ export function PictureInPictureMap({
         </View>
       )}
 
+      {/* Navigation Instruction - apenas quando colapsado e há instrução */}
+      {!isExpanded && nextInstruction && (
+        <View style={styles.instructionBar}>
+          <Ionicons name="compass-outline" size={14} color={theme.colors.white} />
+          <Text style={styles.instructionText} numberOfLines={1}>
+            {nextInstruction}
+          </Text>
+        </View>
+      )}
+
+      {/* Progress Badge - apenas quando colapsado e há progresso */}
+      {!isExpanded && progress && (
+        <View style={[styles.progressBadge, nextInstruction && styles.progressBadgeWithInstruction]}>
+          <Ionicons name="checkmark-circle-outline" size={12} color={theme.colors.white} />
+          <Text style={styles.progressText}>
+            {currentStopOrder ?? progress.completed + 1} de {progress.total}
+          </Text>
+        </View>
+      )}
+
       {/* ETA Badge - apenas quando colapsado */}
       {!isExpanded && routeInfo && (
-        <View style={styles.etaBadge}>
-          <Ionicons name="navigate-outline" size={12} color={theme.colors.white} />
+        <Animated.View
+          style={[
+            styles.etaBadge,
+            isNearDestination && { transform: [{ scale: pulseAnim }] },
+          ]}
+        >
+          <Ionicons
+            name={stopType === 'retirada' ? 'cube-outline' : 'gift-outline'}
+            size={12}
+            color={theme.colors.white}
+          />
           <Text style={styles.etaText}>
             {routeInfo.distanceText} • {routeInfo.timeText}
           </Text>
-        </View>
+        </Animated.View>
       )}
 
       {/* Controls overlay */}
@@ -498,11 +666,59 @@ const styles = StyleSheet.create((theme: Theme) => ({
   map: {
     flex: 1,
   },
+  dragOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+    zIndex: 5, // Acima do mapa, abaixo dos controles
+  },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: withOpacity(theme.colors.white, 0.8),
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  instructionBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: withOpacity(theme.colors.gray800, 0.9),
+    paddingHorizontal: theme.spacing['2'],
+    paddingVertical: theme.spacing['1.5'],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing['1.5'],
+    zIndex: 15, // Acima de tudo no PiP
+    borderTopLeftRadius: theme.borderRadius.lg,
+    borderTopRightRadius: theme.borderRadius.lg,
+  },
+  instructionText: {
+    flex: 1,
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.white,
+    fontWeight: '500',
+  },
+  progressBadge: {
+    position: 'absolute',
+    top: theme.spacing['2'],
+    left: theme.spacing['2'],
+    backgroundColor: withOpacity(theme.colors.success, 0.9),
+    borderRadius: theme.borderRadius.xs,
+    paddingHorizontal: theme.spacing['2'],
+    paddingVertical: theme.spacing['1'],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing['1'],
+    zIndex: 10, // Acima do drag overlay
+  },
+  progressBadgeWithInstruction: {
+    // Ajustar posição quando há instrução
+    top: theme.spacing['8'],
+  },
+  progressText: {
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.white,
+    fontWeight: '600',
   },
   etaBadge: {
     position: 'absolute',
@@ -515,6 +731,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing['1'],
+    zIndex: 10, // Acima do drag overlay
   },
   etaText: {
     fontSize: theme.typography.fontSize.xs,
@@ -527,6 +744,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     right: theme.spacing['2'],
     flexDirection: 'row',
     gap: theme.spacing['2'],
+    zIndex: 20, // Acima do drag overlay (z-index: 5)
   },
   controlButton: {
     width: 44,
@@ -551,6 +769,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     left: 0,
     right: 0,
     alignItems: 'center',
+    zIndex: 10, // Visível acima do drag overlay
+    pointerEvents: 'none', // Não bloqueia eventos
   },
   dragBar: {
     width: 30,
@@ -567,5 +787,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
     shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 3,
+  },
+  userDirectionMarker: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: theme.colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 5,
   },
 }));

@@ -1,42 +1,33 @@
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import {
   View,
   ScrollView,
   TouchableOpacity,
   Switch,
-  Alert,
-  Platform,
 } from 'react-native';
 
+import { NavigationSettings } from '@/components/motorista/NavigationSettings';
 import { ThemeSettings } from '@/components/ThemeSettings';
 import { MobileCard, Text } from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
 import { getAppVersion, getBuildNumber, getPlatformName } from '@/lib/appVersion';
 import { logger } from '@/lib/logger';
 import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
 
-// Storage keys
+// Storage keys (only for settings NOT managed by NavigationSettings)
 const STORAGE_KEYS = {
-  NAV_APP: '@rotamestre:nav_app_preference',
   NOTIFICATIONS_ENABLED: '@rotamestre:notifications_enabled',
-  SOUND_ENABLED: '@rotamestre:sound_enabled',
 };
-
-type NavAppPreference = 'waze' | 'google_maps' | 'apple_maps' | 'default';
-
-const NAV_APP_OPTIONS: { value: NavAppPreference; label: string; icon: string; platform?: string }[] = [
-  { value: 'default', label: 'Padrão do Sistema', icon: '📱' },
-  { value: 'waze', label: 'Waze', icon: '🗺️' },
-  { value: 'google_maps', label: 'Google Maps', icon: '🌍' },
-  { value: 'apple_maps', label: 'Apple Maps', icon: '🍎', platform: 'ios' },
-];
 
 export default function ConfiguracoesScreen() {
   const { theme } = useUnistyles();
+  const router = useRouter();
+  const { showSuccess, showError, showConfirm, AlertDialog } = useAlert();
 
-  const [navAppPreference, setNavAppPreference] = useState<NavAppPreference>('default');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [cacheSize, setCacheSize] = useState<string | null>(null);
 
@@ -44,15 +35,9 @@ export default function ConfiguracoesScreen() {
   useEffect(() => {
     async function loadSettings() {
       try {
-        const [navApp, notifications, sound] = await Promise.all([
-          AsyncStorage.getItem(STORAGE_KEYS.NAV_APP),
-          AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED),
-          AsyncStorage.getItem(STORAGE_KEYS.SOUND_ENABLED),
-        ]);
+        const notifications = await AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED);
 
-        if (navApp) setNavAppPreference(navApp as NavAppPreference);
         if (notifications !== null) setNotificationsEnabled(notifications === 'true');
-        if (sound !== null) setSoundEnabled(sound === 'true');
 
         // Estimate cache size
         const keys = await AsyncStorage.getAllKeys();
@@ -66,16 +51,6 @@ export default function ConfiguracoesScreen() {
     loadSettings();
   }, []);
 
-  async function saveNavAppPreference(value: NavAppPreference) {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEYS.NAV_APP, value);
-      setNavAppPreference(value);
-    } catch (error) {
-      logger.error('Erro ao salvar preferência de navegação:', error);
-      Alert.alert('Erro', 'Não foi possível salvar a preferência.');
-    }
-  }
-
   async function toggleNotifications(value: boolean) {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED, String(value));
@@ -85,48 +60,31 @@ export default function ConfiguracoesScreen() {
     }
   }
 
-  async function toggleSound(value: boolean) {
+  async function handleClearCache() {
+    const confirmed = await showConfirm({
+      title: 'Limpar Cache',
+      message: 'Isso irá remover dados temporários do app. Você precisará fazer login novamente. Deseja continuar?',
+      confirmText: 'Limpar',
+      cancelText: 'Cancelar',
+      type: 'danger',
+    });
+
+    if (!confirmed) return;
+
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.SOUND_ENABLED, String(value));
-      setSoundEnabled(value);
+      // Get all keys except auth keys
+      const keys = await AsyncStorage.getAllKeys();
+      const keysToRemove = keys.filter(
+        (k) => !k.includes('supabase') && !k.includes('auth')
+      );
+      await AsyncStorage.multiRemove(keysToRemove);
+      setCacheSize('0 itens');
+      showSuccess('Sucesso', 'Cache limpo com sucesso!');
     } catch (error) {
-      logger.error('Erro ao salvar configuração de som:', error);
+      logger.error('Erro ao limpar cache:', error);
+      showError({ title: 'Erro', message: 'Não foi possível limpar o cache.' });
     }
   }
-
-  async function handleClearCache() {
-    Alert.alert(
-      'Limpar Cache',
-      'Isso irá remover dados temporários do app. Você precisará fazer login novamente. Deseja continuar?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Limpar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Get all keys except auth keys
-              const keys = await AsyncStorage.getAllKeys();
-              const keysToRemove = keys.filter(
-                (k) => !k.includes('supabase') && !k.includes('auth')
-              );
-              await AsyncStorage.multiRemove(keysToRemove);
-              setCacheSize('0 itens');
-              Alert.alert('Sucesso', 'Cache limpo com sucesso!');
-            } catch (error) {
-              logger.error('Erro ao limpar cache:', error);
-              Alert.alert('Erro', 'Não foi possível limpar o cache.');
-            }
-          },
-        },
-      ]
-    );
-  }
-
-  // Filter nav options based on platform
-  const navOptions = NAV_APP_OPTIONS.filter(
-    (opt) => !opt.platform || opt.platform === Platform.OS
-  );
 
   if (loading) {
     return (
@@ -138,111 +96,88 @@ export default function ConfiguracoesScreen() {
 
   return (
     <ScrollView style={styles.container}>
-        {/* Navegação */}
-        <MobileCard title="Navegação">
-          <Text style={styles.settingDescription}>
-            Escolha o app de navegação preferido para abrir rotas
-          </Text>
-          <View style={styles.navOptions}>
-            {navOptions.map((option) => (
-              <TouchableOpacity
-                key={option.value}
-                style={[
-                  styles.navOption,
-                  navAppPreference === option.value && styles.navOptionActive,
-                ]}
-                onPress={() => saveNavAppPreference(option.value)}
-              >
-                <Text style={styles.navOptionIcon}>{option.icon}</Text>
-                <Text
-                  style={[
-                    styles.navOptionLabel,
-                    navAppPreference === option.value && styles.navOptionLabelActive,
-                  ]}
-                >
-                  {option.label}
-                </Text>
-                {navAppPreference === option.value && (
-                  <Text style={styles.navOptionCheck}>✓</Text>
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </MobileCard>
+      {/* Navegação - Usando NavigationSettings inline */}
+      <MobileCard title="Navegação">
+        <NavigationSettings variant="inline" />
+      </MobileCard>
 
-        {/* Notificações */}
-        <MobileCard title="Notificações">
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>Notificações Push</Text>
-              <Text style={styles.settingSubtext}>
-                Receber alertas de novas rotas e atualizações
-              </Text>
-            </View>
-            <Switch
-              value={notificationsEnabled}
-              onValueChange={toggleNotifications}
-              trackColor={{ false: theme.colors.gray300, true: theme.colors.primary + '60' }}
-              thumbColor={notificationsEnabled ? theme.colors.primary : theme.colors.gray400}
-            />
+      {/* Notificações Push - Simplificado */}
+      <MobileCard title="Notificações">
+        <View style={[styles.settingRow, styles.settingRowLast]}>
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingLabel}>Notificações Push</Text>
+            <Text style={styles.settingSubtext}>
+              Receber alertas de novas rotas e atualizações
+            </Text>
           </View>
-
-          <View style={[styles.settingRow, styles.settingRowLast]}>
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>Sons</Text>
-              <Text style={styles.settingSubtext}>
-                Tocar som ao receber notificações
-              </Text>
-            </View>
-            <Switch
-              value={soundEnabled}
-              onValueChange={toggleSound}
-              trackColor={{ false: theme.colors.gray300, true: theme.colors.primary + '60' }}
-              thumbColor={soundEnabled ? theme.colors.primary : theme.colors.gray400}
-              disabled={!notificationsEnabled}
-            />
-          </View>
-        </MobileCard>
-
-        {/* Aparência - Using unified ThemeSettings component */}
-        <View style={styles.themeSettingsWrapper}>
-          <ThemeSettings showPreview={true} compact={true} />
+          <Switch
+            value={notificationsEnabled}
+            onValueChange={toggleNotifications}
+            trackColor={{ false: theme.colors.gray300, true: theme.colors.primary + '60' }}
+            thumbColor={notificationsEnabled ? theme.colors.primary : theme.colors.gray400}
+          />
         </View>
+      </MobileCard>
 
-        {/* Dados */}
-        <MobileCard title="Dados e Armazenamento">
-          <TouchableOpacity
-            style={styles.settingRow}
-            onPress={handleClearCache}
-          >
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>Limpar Cache</Text>
-              <Text style={styles.settingSubtext}>
-                Cache atual: {cacheSize || 'Calculando...'}
-              </Text>
-            </View>
-            <Text style={styles.settingAction}>Limpar</Text>
-          </TouchableOpacity>
-        </MobileCard>
+      {/* Aparência - Using unified ThemeSettings component */}
+      <View style={styles.themeSettingsWrapper}>
+        <ThemeSettings showPreview={true} compact={true} />
+      </View>
 
-        {/* Sobre */}
-        <MobileCard title="Sobre o App">
-          <View style={styles.aboutRow}>
-            <Text style={styles.aboutLabel}>Versão</Text>
-            <Text style={styles.aboutValue}>{getAppVersion()}</Text>
+      {/* Dados */}
+      <MobileCard title="Dados e Armazenamento">
+        <TouchableOpacity
+          style={styles.settingRow}
+          onPress={handleClearCache}
+        >
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingLabel}>Limpar Cache</Text>
+            <Text style={styles.settingSubtext}>
+              Cache atual: {cacheSize || 'Calculando...'}
+            </Text>
           </View>
-          <View style={styles.aboutRow}>
-            <Text style={styles.aboutLabel}>Plataforma</Text>
-            <Text style={styles.aboutValue}>{getPlatformName()}</Text>
-          </View>
-          <View style={[styles.aboutRow, styles.aboutRowLast]}>
-            <Text style={styles.aboutLabel}>Build</Text>
-            <Text style={styles.aboutValue}>{getBuildNumber()}</Text>
-          </View>
-        </MobileCard>
+          <Text style={styles.settingAction}>Limpar</Text>
+        </TouchableOpacity>
+      </MobileCard>
 
-        <View style={styles.footer} />
-      </ScrollView>
+      {/* Sobre */}
+      <MobileCard title="Sobre o App">
+        <View style={styles.aboutRow}>
+          <Text style={styles.aboutLabel}>Versão</Text>
+          <Text style={styles.aboutValue}>{getAppVersion()}</Text>
+        </View>
+        <View style={styles.aboutRow}>
+          <Text style={styles.aboutLabel}>Plataforma</Text>
+          <Text style={styles.aboutValue}>{getPlatformName()}</Text>
+        </View>
+        <View style={[styles.aboutRow, styles.aboutRowLast]}>
+          <Text style={styles.aboutLabel}>Build</Text>
+          <Text style={styles.aboutValue}>{getBuildNumber()}</Text>
+        </View>
+      </MobileCard>
+
+      {/* Suporte */}
+      <MobileCard title="Suporte">
+        <TouchableOpacity
+          style={[styles.supportRow, styles.settingRowLast]}
+          onPress={() => router.push('/motorista/ajuda')}
+        >
+          <View style={styles.supportIcon}>
+            <Ionicons name="help-circle-outline" size={24} color={theme.colors.primary} />
+          </View>
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingLabel}>Central de Ajuda</Text>
+            <Text style={styles.settingSubtext}>
+              FAQ, contatos e links úteis
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={theme.colors.gray400} />
+        </TouchableOpacity>
+      </MobileCard>
+
+      <View style={styles.footer} />
+      {AlertDialog}
+    </ScrollView>
   );
 }
 
@@ -264,45 +199,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
   themeSettingsWrapper: {
     marginHorizontal: theme.spacing.md,
     marginVertical: theme.spacing.sm,
-  },
-  settingDescription: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
-    marginBottom: theme.spacing.md,
-  },
-  navOptions: {
-    gap: theme.spacing.sm,
-  },
-  navOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.gray50,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.gray200,
-  },
-  navOptionActive: {
-    backgroundColor: theme.colors.primary + '10',
-    borderColor: theme.colors.primary,
-  },
-  navOptionIcon: {
-    fontSize: theme.typography.xl,
-    marginRight: theme.spacing.md,
-  },
-  navOptionLabel: {
-    flex: 1,
-    fontSize: theme.typography.base,
-    color: theme.colors.gray700,
-  },
-  navOptionLabelActive: {
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.primary,
-  },
-  navOptionCheck: {
-    fontSize: theme.typography.lg,
-    color: theme.colors.primary,
-    fontFamily: theme.typography.fontSansBold,
   },
   settingRow: {
     flexDirection: 'row',
@@ -351,8 +247,21 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontFamily: theme.typography.fontSansMedium,
     color: theme.colors.gray900,
   },
+  supportRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.md,
+  },
+  supportIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: theme.spacing.md,
+  },
   footer: {
     height: theme.spacing['3xl'],
   },
 }));
-

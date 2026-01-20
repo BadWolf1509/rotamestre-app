@@ -1,13 +1,15 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, TouchableOpacity, View } from 'react-native';
+import { ScrollView, TouchableOpacity, View } from 'react-native';
 
 import { Button, Card, Input, Text } from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
 import { authService } from '@/lib/auth';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
 export default function ForgotPassword() {
   const router = useRouter();
+  const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +25,7 @@ export default function ForgotPassword() {
 
   async function handleResetPassword() {
     if (!email) {
-      Alert.alert('Erro', 'Digite seu e-mail');
+      showWarning('Erro', 'Digite seu e-mail');
       return;
     }
 
@@ -31,13 +33,14 @@ export default function ForgotPassword() {
 
     try {
       await authService.resetPassword(email.trim());
-      Alert.alert(
+      showSuccess(
         'Sucesso',
         'Instrucoes de recuperacao foram enviadas para seu e-mail',
-        [{ text: 'OK', onPress: () => router.back() }]
+        () => router.back()
       );
-    } catch (resetError: any) {
-      Alert.alert('Erro', resetError.message || 'Erro ao recuperar senha');
+    } catch (resetError: unknown) {
+      const message = resetError instanceof Error ? resetError.message : 'Erro ao recuperar senha';
+      showError({ title: 'Erro', message });
     } finally {
       setLoading(false);
     }
@@ -58,6 +61,7 @@ export default function ForgotPassword() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.scrollContent}>
+      {AlertDialog}
       <View style={styles.cardContainer}>
         <Card padding="large" style={styles.card} testID="auth-forgot-simple-card">
           <Text variant="title" style={styles.title}>

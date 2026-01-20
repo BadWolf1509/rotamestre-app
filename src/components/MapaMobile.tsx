@@ -3,11 +3,12 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import React, { useRef, useEffect, useMemo, useCallback, useState } from 'react';
-import { View, Text, ActivityIndicator, TouchableOpacity, Alert, Platform, Pressable, Linking } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity, Platform, Pressable, Linking } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region, Callout } from 'react-native-maps';
 
 import { getStatusLabel } from '@/components/map/infoWindowBuilders';
 import { MotoristaMarker } from '@/components/MotoristaMarker';
+import { useAlert } from '@/hooks/useAlert';
 import { useRouteDirections } from '@/hooks/useRouteDirections';
 import { withOpacity } from '@/utils/color';
 import { showNavigationOptions } from '@/utils/navigation';
@@ -61,6 +62,7 @@ export function MapaMobile({
   unidadeNome,
 }: MapaMobileProps) {
   const { theme } = useUnistyles();
+  const { showWarning, showError, AlertDialog } = useAlert();
   const mapRef = useRef<MapView>(null);
   const [isLocating, setIsLocating] = useState(false);
 
@@ -208,7 +210,7 @@ export function MapaMobile({
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permissão negada', 'Permita o acesso à localização para usar esta função.');
+        showWarning('Permissão negada', 'Permita o acesso à localização para usar esta função.');
         return;
       }
 
@@ -228,16 +230,17 @@ export function MapaMobile({
       }, 500);
     } catch (error) {
       console.error('[MapaMobile] Erro ao obter localização:', error);
-      Alert.alert('Erro', 'Não foi possível obter sua localização.');
+      showError({ title: 'Erro', message: 'Não foi possível obter sua localização.' });
     } finally {
       setIsLocating(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Navegar para próxima parada usando app externo
   const handleNavigate = useCallback(() => {
     if (!proximaParadaPendente) {
-      Alert.alert('Nenhuma parada', 'Não há paradas pendentes para navegar.');
+      showWarning('Nenhuma parada', 'Não há paradas pendentes para navegar.');
       return;
     }
 
@@ -246,6 +249,7 @@ export function MapaMobile({
       longitude: proximaParadaPendente.longitude!,
       label: `Parada ${proximaParadaPendente.ordem} - ${proximaParadaPendente.endereco}`,
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [proximaParadaPendente]);
 
   // Ajustar mapa para mostrar todas as paradas
@@ -536,6 +540,7 @@ export function MapaMobile({
           </TouchableOpacity>
         )}
       </View>
+      {AlertDialog}
     </View>
   );
 }

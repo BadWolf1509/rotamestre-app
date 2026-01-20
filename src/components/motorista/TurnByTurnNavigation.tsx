@@ -3,10 +3,9 @@ import * as Haptics from 'expo-haptics';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Location from 'expo-location';
 import * as Speech from 'expo-speech';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   Text,
   TouchableOpacity,
@@ -14,6 +13,7 @@ import {
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
+import { useAlert } from '@/hooks/useAlert';
 import { useOffRouteDetection } from '@/hooks/useOffRouteDetection';
 import LocationTrackingService from '@/services/locationTracking';
 import TurnByTurnNavigationService, {
@@ -45,7 +45,14 @@ export function TurnByTurnNavigation({
   onExit,
 }: TurnByTurnNavigationProps) {
   const { theme } = useUnistyles();
+  const { showError, AlertDialog } = useAlert();
   const mapRef = useRef<MapView>(null);
+
+  // Refs for preventing race conditions and multiple triggers
+  const hasArrivedRef = useRef(false);
+  const lastProcessedLocation = useRef<{ lat: number; lng: number } | null>(null);
+  const lastAnimatedLocation = useRef<{ lat: number; lng: number } | null>(null);
+  const lastAnimatedHeading = useRef<number>(0);
 
   // User preferences state
   const [proximityRadius, setProximityRadius] = useState(DEFAULT_PROXIMITY_RADIUS);
@@ -65,6 +72,7 @@ export function TurnByTurnNavigation({
   const [progress, setProgress] = useState(0);
   const [voiceEnabled, setVoiceEnabled] = useState(DEFAULT_VOICE_ENABLED);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRouteReady, setIsRouteReady] = useState(false);
   const [mapView, setMapView] = useState<'north-up' | 'heading-up'>('heading-up');
   const voiceEnabledRef = useRef(voiceEnabled);
 
@@ -126,6 +134,9 @@ export function TurnByTurnNavigation({
 
   // Reroute callback for off-route detection
   const handleReroute = useCallback(async () => {
+    // Mark route as not ready during recalculation
+    setIsRouteReady(false);
+
     // Reset service and recalculate route from current position
     TurnByTurnNavigationService.reset();
 
@@ -146,6 +157,9 @@ export function TurnByTurnNavigation({
 
       const secondInstruction = TurnByTurnNavigationService.getNextInstruction();
       setNextInstruction(secondInstruction);
+
+      // Mark route as ready
+      setIsRouteReady(true);
     }
   }, [userLocation, destination, waypoints]);
 
@@ -167,14 +181,21 @@ export function TurnByTurnNavigation({
 
   // Handle arrival at destination - defined before useEffect that uses it
   const handleArrival = useCallback(async () => {
+    // Prevent multiple arrival triggers (debounce)
+    if (hasArrivedRef.current) return;
+    hasArrivedRef.current = true;
+
     // Haptic feedback for arrival
     await triggerHaptic('success');
 
-    Speech.speak('Voce chegou ao seu destino', {
-      language: 'pt-BR',
-      pitch: 1.0,
-      rate: 0.9,
-    });
+    // Respect voice preference
+    if (voiceEnabledRef.current) {
+      Speech.speak('Você chegou ao seu destino', {
+        language: 'pt-BR',
+        pitch: 1.0,
+        rate: 0.9,
+      });
+    }
 
     setTimeout(() => {
       onArrive();
@@ -222,7 +243,7 @@ export function TurnByTurnNavigation({
     );
 
     if (!route) {
-      Alert.alert('Erro', 'Não foi possível calcular a rota');
+      showError({ title: 'Erro', message: 'Não foi possível calcular a rota' });
       onExit();
       return;
     }
@@ -243,6 +264,7 @@ export function TurnByTurnNavigation({
     setNextInstruction(secondInstruction);
 
     setIsLoading(false);
+    setIsRouteReady(true);
 
     // Speak initial instruction
     if (firstInstruction?.voiceInstruction && voiceEnabledRef.current) {
@@ -254,6 +276,7 @@ export function TurnByTurnNavigation({
         });
       }, 1000);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [destination, onExit, origin, voiceEnabledRef, waypoints]);
 
   // Initialize navigation
@@ -262,6 +285,7 @@ export function TurnByTurnNavigation({
     return () => {
       TurnByTurnNavigationService.reset();
       Speech.stop();
+      hasArrivedRef.current = false;
     };
   }, [initializeNavigation]);
 
@@ -272,7 +296,7 @@ export function TurnByTurnNavigation({
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Erro', 'Permissão de localização negada');
+        showError({ title: 'Erro', message: 'Permissão de localização negada' });
         return;
       }
 
@@ -287,13 +311,31 @@ export function TurnByTurnNavigation({
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
           };
+          const accuracy = location.coords.accuracy || 50;
+
+          // Throttle: only process if moved > 3m (reduces unnecessary processing)
+          const lastLoc = lastProcessedLocation.current;
+          if (lastLoc) {
+            const delta = calculateHaversineDistance(
+              lastLoc.lat,
+              lastLoc.lng,
+              coords.latitude,
+              coords.longitude
+            );
+            if (delta < 3) {
+              return; // Skip insignificant movement
+            }
+          }
+          lastProcessedLocation.current = { lat: coords.latitude, lng: coords.longitude };
 
           setUserLocation(coords);
           setSpeed(Math.round((location.coords.speed || 0) * 3.6)); // m/s to km/h
           setHeading(location.coords.heading || 0);
 
-          // Update navigation
-          await updateNavigation(coords, location.coords.speed || 0);
+          // Only update navigation if route is ready (prevents race condition)
+          if (isRouteReady) {
+            await updateNavigation(coords, location.coords.speed || 0);
+          }
 
           // Check if arrived at destination
           const distToDestination = calculateHaversineDistance(
@@ -303,7 +345,14 @@ export function TurnByTurnNavigation({
             destination.longitude
           );
 
-          if (distToDestination < proximityRadius) {
+          // Arrival detection with GPS accuracy consideration:
+          // 1. Distance < proximity radius
+          // 2. GPS accuracy is good (< 30m) OR very close (< 10m regardless of accuracy)
+          const isArrived =
+            distToDestination < proximityRadius &&
+            (accuracy < 30 || distToDestination < 10);
+
+          if (isArrived && !hasArrivedRef.current) {
             handleArrival();
           }
         }
@@ -318,7 +367,8 @@ export function TurnByTurnNavigation({
         console.warn('[TurnByTurn] Error removing subscription:', error);
       }
     };
-  }, [destination, handleArrival, proximityRadius, updateNavigation]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [destination, handleArrival, isRouteReady, proximityRadius, updateNavigation]);
 
   // Format distance
   const formatDistance = (meters: number): string => {
@@ -339,27 +389,77 @@ export function TurnByTurnNavigation({
     return `${minutes} min`;
   };
 
-  // Get maneuver icon
-  const getManeuverIcon = (maneuver: string): IconName => {
+  // Memoized formatted values to prevent unnecessary recalculations
+  const formattedRemainingDistance = useMemo(
+    () => formatDistance(remainingDistance),
+    [remainingDistance]
+  );
+
+  const formattedRemainingTime = useMemo(
+    () => formatDuration(remainingTime),
+    [remainingTime]
+  );
+
+  const formattedDistanceToTurn = useMemo(
+    () => formatDistance(distanceToTurn),
+    [distanceToTurn]
+  );
+
+  // Get maneuver icon - expanded mapping for all OSRM maneuver types
+  const getManeuverIcon = useCallback((maneuver: string): IconName => {
     const iconMap: Record<string, IconName> = {
+      // Turns
       'turn-left': 'arrow-back',
       'turn-right': 'arrow-forward',
       'turn-sharp-left': 'return-up-back',
       'turn-sharp-right': 'return-up-forward',
+      'turn-slight-left': 'chevron-back',
+      'turn-slight-right': 'chevron-forward',
+
+      // Straight
       'straight': 'arrow-up',
+      'continue': 'arrow-up',
+      'depart': 'navigate',
+      'arrive': 'flag',
+
+      // Merges and exits
       'merge': 'git-merge',
+      'on-ramp': 'trending-up',
+      'off-ramp': 'exit-outline',
+      'fork-left': 'git-branch',
+      'fork-right': 'git-branch',
+
+      // Roundabouts
       'roundabout': 'sync',
+      'rotary': 'sync',
+      'roundabout-turn': 'sync',
+
+      // U-turns
       'uturn': 'refresh',
+      'uturn-left': 'refresh',
+      'uturn-right': 'refresh',
+
+      // Special
+      'ferry': 'boat',
+      'notification': 'information-circle',
+      'end-of-road': 'stop-circle',
+      'new-name': 'arrow-up',
     };
 
+    // Exact match first
+    if (iconMap[maneuver]) {
+      return iconMap[maneuver];
+    }
+
+    // Partial match
     for (const [key, icon] of Object.entries(iconMap)) {
       if (maneuver?.includes(key)) {
         return icon;
       }
     }
 
-    return 'arrow-up';
-  };
+    return 'arrow-up'; // fallback
+  }, []);
 
   // Toggle voice
   const toggleVoice = async () => {
@@ -380,18 +480,44 @@ export function TurnByTurnNavigation({
     setMapView(prev => prev === 'north-up' ? 'heading-up' : 'north-up');
   };
 
-  // Animate camera when user location or heading changes
+  // Animate camera when user location or heading changes (throttled)
   useEffect(() => {
     if (mapRef.current && userLocation && !isLoading) {
-      mapRef.current.animateCamera(
-        {
-          center: userLocation,
-          zoom: 17,
-          pitch: mapView === 'heading-up' ? 60 : 0,
-          heading: mapView === 'heading-up' ? heading : 0,
-        },
-        { duration: 500 }
-      );
+      const lastLoc = lastAnimatedLocation.current;
+      const lastHead = lastAnimatedHeading.current;
+
+      // Calculate deltas
+      const locationDelta = lastLoc
+        ? calculateHaversineDistance(
+            lastLoc.lat,
+            lastLoc.lng,
+            userLocation.latitude,
+            userLocation.longitude
+          )
+        : Infinity;
+
+      const headingDelta = Math.abs(heading - lastHead);
+
+      // Only animate if moved > 10m or rotated > 15° (reduces unnecessary animations)
+      const shouldAnimate = locationDelta > 10 || headingDelta > 15;
+
+      if (shouldAnimate) {
+        mapRef.current.animateCamera(
+          {
+            center: userLocation,
+            zoom: 17,
+            pitch: mapView === 'heading-up' ? 60 : 0,
+            heading: mapView === 'heading-up' ? heading : 0,
+          },
+          { duration: 500 }
+        );
+
+        lastAnimatedLocation.current = {
+          lat: userLocation.latitude,
+          lng: userLocation.longitude,
+        };
+        lastAnimatedHeading.current = heading;
+      }
     }
   }, [userLocation, heading, mapView, isLoading]);
 
@@ -468,7 +594,7 @@ export function TurnByTurnNavigation({
 
           <View style={styles.instructionText}>
             <Text style={styles.distanceText}>
-              {formatDistance(distanceToTurn)}
+              {formattedDistanceToTurn}
             </Text>
             <Text style={styles.instructionMainText} numberOfLines={2}>
               {currentInstruction?.instruction || 'Calculando...'}
@@ -524,14 +650,14 @@ export function TurnByTurnNavigation({
         {/* Stats */}
         <View style={styles.statsRow}>
           <View style={styles.stat}>
-            <Text style={styles.statValue}>{formatDistance(remainingDistance)}</Text>
+            <Text style={styles.statValue}>{formattedRemainingDistance}</Text>
             <Text style={styles.statLabel}>restante</Text>
           </View>
 
           <View style={styles.statSeparator} />
 
           <View style={styles.stat}>
-            <Text style={styles.statValue}>{formatDuration(remainingTime)}</Text>
+            <Text style={styles.statValue}>{formattedRemainingTime}</Text>
             <Text style={styles.statLabel}>chegada</Text>
           </View>
 
@@ -570,6 +696,7 @@ export function TurnByTurnNavigation({
           </TouchableOpacity>
         </View>
       </View>
+      {AlertDialog}
     </View>
   );
 }

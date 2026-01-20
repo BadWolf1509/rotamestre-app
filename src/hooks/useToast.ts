@@ -87,8 +87,8 @@ export function useToast() {
         const result = await asyncFn();
         showToast(messages.success, 'success');
         return result;
-      } catch (error: any) {
-        const errorMessage = messages.error || error.message || 'Ocorreu um erro';
+      } catch (error: unknown) {
+        const errorMessage = messages.error || (error instanceof Error ? error.message : 'Ocorreu um erro');
         showToast(errorMessage, 'error', 5000);
         throw error;
       }

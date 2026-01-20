@@ -4,7 +4,6 @@ import {
   View,
   TouchableOpacity,
   ScrollView,
-  Alert,
 } from 'react-native';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -18,6 +17,7 @@ import {
   Text,
   Toast,
 } from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
@@ -40,6 +40,7 @@ export default function TransferirGestaoScreen() {
     userImageUrl: userData?.foto_url,
   });
   const { toast: toastState, showToast, hideToast } = useToast();
+  const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
   const { isDesktop } = useResponsive();
   const pageMeta = getGestorPageMeta('transferirUnidade');
   const [gestores, setGestores] = useState<GestorElegivel[]>([]);
@@ -100,7 +101,7 @@ export default function TransferirGestaoScreen() {
 
   async function handleConfirmTransfer() {
     if (confirmationText !== 'TRANSFERIR') {
-      Alert.alert('Erro', 'Digite "TRANSFERIR" para confirmar a operação.');
+      showWarning('Erro', 'Digite "TRANSFERIR" para confirmar a operação.');
       return;
     }
 
@@ -144,24 +145,17 @@ export default function TransferirGestaoScreen() {
       //   unidade_id: userData!.unidade_id,
       // });
 
-      Alert.alert(
+      showSuccess(
         'Transferência Concluída!',
         `A gestão principal foi transferida para ${novoGestor.nome}. Você continuará como gestor, mas sem privilégios de gestor principal.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              router.replace('/gestor/inicio');
-            },
-          },
-        ]
+        () => router.replace('/gestor/inicio')
       );
     } catch (error) {
       console.error('Erro ao transferir gestão:', error);
-      Alert.alert(
-        'Erro',
-        'Não foi possível transferir a gestão. Tente novamente ou entre em contato com o suporte.'
-      );
+      showError({
+        title: 'Erro',
+        message: 'Não foi possível transferir a gestão. Tente novamente ou entre em contato com o suporte.',
+      });
     } finally {
       setTransferring(false);
     }
@@ -326,6 +320,7 @@ export default function TransferirGestaoScreen() {
             </View>
           </DesktopPageLayout>
           <Toast {...toastState} onDismiss={hideToast} />
+          {AlertDialog}
           {logoutModal}
         </ErrorBoundary>
       );
@@ -345,6 +340,7 @@ export default function TransferirGestaoScreen() {
           {renderMainContent()}
         </DesktopPageLayout>
         <Toast {...toastState} onDismiss={hideToast} />
+        {AlertDialog}
         {logoutModal}
       </ErrorBoundary>
     );
@@ -393,6 +389,7 @@ export default function TransferirGestaoScreen() {
       </ScrollView>
 
       <Toast {...toastState} onDismiss={hideToast} />
+      {AlertDialog}
       {logoutModal}
     </ErrorBoundary>
   );

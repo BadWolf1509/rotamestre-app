@@ -4,12 +4,12 @@ import {
   View,
   FlatList,
   TouchableOpacity,
-  Alert,
   RefreshControl,
 } from 'react-native';
 
 import { RotaCardSkeleton } from '@/components/motorista/RotaCardSkeleton';
 import { Text } from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
 import { useUser } from '@/hooks/useUser';
 import { parseLocalDate } from '@/lib/dateUtils';
 import { supabase } from '@/lib/supabase';
@@ -47,6 +47,7 @@ interface Metricas {
 export default function HistoricoMotorista() {
   const { theme } = useUnistyles();
   const { userData } = useUser();
+  const { showError, AlertDialog } = useAlert();
   const [rotas, setRotas] = useState<RotaHistorico[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -230,12 +231,12 @@ export default function HistoricoMotorista() {
       setRotas(rotasComParadas as unknown as RotaHistorico[]);
     } catch (error) {
       console.error('Erro ao carregar histórico:', error);
-      Alert.alert('Erro', 'Não foi possível carregar o histórico');
+      showError({ title: 'Erro', message: 'Não foi possível carregar o histórico' });
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [userData?.id]);
+  }, [userData?.id, showError]);
 
   useEffect(() => {
     loadHistorico();
@@ -596,6 +597,7 @@ export default function HistoricoMotorista() {
           </View>
         }
       />
+      {AlertDialog}
     </View>
   );
 }

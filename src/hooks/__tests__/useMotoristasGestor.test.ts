@@ -41,6 +41,15 @@ jest.mock('@/lib/logger', () => ({
   },
 }));
 
+// Mock centralized queries
+const mockUpdateUsuario = jest.fn();
+const mockLogUserAction = jest.fn();
+
+jest.mock('@/lib/queries', () => ({
+  updateUsuario: (...args: unknown[]) => mockUpdateUsuario(...args),
+  logUserAction: (...args: unknown[]) => mockLogUserAction(...args),
+}));
+
 // Mocks de utilitarios de telefone
 jest.mock('@/lib/phone', () => ({
   maskPhone: jest.fn((text: string) => text),
@@ -82,6 +91,12 @@ describe('useMotoristasGestor Hook', () => {
     jest.clearAllMocks();
     mockQueryBuilder = criarMockQueryBuilder();
     (supabase.from as jest.Mock).mockReturnValue(mockQueryBuilder);
+
+    // Reset centralized query mocks
+    mockUpdateUsuario.mockReset();
+    mockUpdateUsuario.mockResolvedValue({ success: true, data: {} });
+    mockLogUserAction.mockReset();
+    mockLogUserAction.mockResolvedValue(undefined);
 
     // Recapturar mockShowToast
     mockShowToast = jest.fn();
@@ -868,15 +883,6 @@ describe('useMotoristasGestor Hook', () => {
     it('deve atualizar motorista com sucesso', async () => {
       (validatePhone as jest.Mock).mockReturnValue(true);
 
-      const updateBuilder = {
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ data: {}, error: null }),
-      };
-
-      const insertBuilder = {
-        insert: jest.fn().mockResolvedValue({ data: {}, error: null }),
-      };
-
       // Primeiro deixar carregar motoristas inicialmente
       const initialBuilder = criarMockQueryBuilder();
       initialBuilder.returns.mockResolvedValue({ data: [], error: null });
@@ -887,12 +893,6 @@ describe('useMotoristasGestor Hook', () => {
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
       });
-
-      // Agora configurar mocks para a edicao
-      (supabase.from as jest.Mock)
-        .mockReturnValueOnce(updateBuilder) // usuarios update
-        .mockReturnValueOnce(insertBuilder) // logs insert
-        .mockReturnValue(initialBuilder); // para recarregar motoristas
 
       const motorista = criarMotoristaMock({ id: 'motorista-edit' });
 
@@ -907,12 +907,21 @@ describe('useMotoristasGestor Hook', () => {
         await result.current.editarMotorista();
       });
 
-      expect(supabase.from).toHaveBeenCalledWith('usuarios');
-      expect(updateBuilder.update).toHaveBeenCalledWith({
+      // Now uses centralized updateUsuario
+      expect(mockUpdateUsuario).toHaveBeenCalledWith('motorista-edit', {
         nome: 'Nome Atualizado',
         email: 'novo@email.com',
         telefone: null,
       });
+      // And logs via centralized logUserAction
+      expect(mockLogUserAction).toHaveBeenCalledWith(
+        'user-123',
+        'motorista_editado',
+        expect.objectContaining({
+          motorista_id: 'motorista-edit',
+          motorista_nome: 'Nome Atualizado',
+        })
+      );
       expect(mockShowToast).toHaveBeenCalledWith(
         'Motorista atualizado com sucesso!',
         'success'
@@ -935,13 +944,11 @@ describe('useMotoristasGestor Hook', () => {
         expect(result.current.loading).toBe(false);
       });
 
-      // Agora configurar mock para update que vai falhar
-      const updateBuilder = {
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ data: null, error: { message: 'Update failed' } }),
-      };
-
-      (supabase.from as jest.Mock).mockReturnValue(updateBuilder);
+      // Configure centralized update to fail
+      mockUpdateUsuario.mockResolvedValue({
+        success: false,
+        error: { message: 'Update failed' },
+      });
 
       act(() => {
         result.current.abrirModalEditar(criarMotoristaMock());
@@ -958,19 +965,24 @@ describe('useMotoristasGestor Hook', () => {
     it('deve gerenciar estado de salvando durante edicao', async () => {
       (validatePhone as jest.Mock).mockReturnValue(true);
 
-      let resolveUpdate: any;
-      const updateBuilder = {
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnValue(
-          new Promise(resolve => {
-            resolveUpdate = resolve;
-          })
-        ),
-      };
+      // Configure centralized update to return pending promise
+      let resolveUpdate: (value: any) => void;
+      mockUpdateUsuario.mockReturnValue(
+        new Promise(resolve => {
+          resolveUpdate = resolve;
+        })
+      );
 
-      (supabase.from as jest.Mock).mockReturnValue(updateBuilder);
+      // Primeiro deixar carregar motoristas inicialmente
+      const initialBuilder = criarMockQueryBuilder();
+      initialBuilder.returns.mockResolvedValue({ data: [], error: null });
+      (supabase.from as jest.Mock).mockReturnValue(initialBuilder);
 
       const { result } = renderHook(() => useMotoristasGestor());
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
 
       act(() => {
         result.current.abrirModalEditar(criarMotoristaMock());
@@ -984,7 +996,7 @@ describe('useMotoristasGestor Hook', () => {
       expect(result.current.salvando).toBe(true);
 
       await act(async () => {
-        resolveUpdate({ data: null, error: { message: 'Error' } });
+        resolveUpdate!({ success: false, error: { message: 'Error' } });
         await editPromise;
       });
 
@@ -1039,21 +1051,6 @@ describe('useMotoristasGestor Hook', () => {
         expect(result.current.loading).toBe(false);
       });
 
-      // Agora configurar mocks para toggle
-      const updateBuilder = {
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ data: {}, error: null }),
-      };
-
-      const insertBuilder = {
-        insert: jest.fn().mockResolvedValue({ data: {}, error: null }),
-      };
-
-      (supabase.from as jest.Mock)
-        .mockReturnValueOnce(updateBuilder)
-        .mockReturnValueOnce(insertBuilder)
-        .mockReturnValue(initialBuilder);
-
       const motorista = criarMotoristaMock({ ativo: true });
 
       act(() => {
@@ -1064,8 +1061,8 @@ describe('useMotoristasGestor Hook', () => {
         await result.current.confirmarToggleAtivo();
       });
 
-      expect(supabase.from).toHaveBeenCalledWith('usuarios');
-      expect(updateBuilder.update).toHaveBeenCalledWith({ ativo: false });
+      // Now uses centralized updateUsuario
+      expect(mockUpdateUsuario).toHaveBeenCalledWith(motorista.id, { ativo: false });
       expect(result.current.showConfirmModal).toBe(false);
       expect(result.current.motoristaParaToggle).toBeNull();
     });
@@ -1093,21 +1090,6 @@ describe('useMotoristasGestor Hook', () => {
         expect(result.current.loading).toBe(false);
       });
 
-      // Agora configurar mocks para toggle
-      const updateBuilder = {
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ data: {}, error: null }),
-      };
-
-      const insertBuilder = {
-        insert: jest.fn().mockResolvedValue({ data: {}, error: null }),
-      };
-
-      (supabase.from as jest.Mock)
-        .mockReturnValueOnce(updateBuilder)
-        .mockReturnValueOnce(insertBuilder)
-        .mockReturnValue(initialBuilder);
-
       const motorista = criarMotoristaMock({ ativo: false });
 
       act(() => {
@@ -1118,7 +1100,8 @@ describe('useMotoristasGestor Hook', () => {
         await result.current.confirmarToggleAtivo();
       });
 
-      expect(updateBuilder.update).toHaveBeenCalledWith({ ativo: true });
+      // Now uses centralized updateUsuario
+      expect(mockUpdateUsuario).toHaveBeenCalledWith(motorista.id, { ativo: true });
     });
 
     it('nao deve fazer nada se nao houver motoristaParaToggle', async () => {
@@ -1128,12 +1111,8 @@ describe('useMotoristasGestor Hook', () => {
         await result.current.confirmarToggleAtivo();
       });
 
-      // Nao deve ter chamado supabase.from para update
-      // O from pode ter sido chamado para loadMotoristas inicial
-      const fromCalls = (supabase.from as jest.Mock).mock.calls;
-      const usuariosCalls = fromCalls.filter((call: string[]) => call[0] === 'usuarios');
-      // Nenhuma chamada para 'usuarios' alem da inicial
-      expect(usuariosCalls.length).toBe(0);
+      // updateUsuario should not be called when no motorista is selected
+      expect(mockUpdateUsuario).not.toHaveBeenCalled();
     });
 
     it('deve criar log ao alterar status do motorista', async () => {
@@ -1159,21 +1138,6 @@ describe('useMotoristasGestor Hook', () => {
         expect(result.current.loading).toBe(false);
       });
 
-      // Agora configurar mocks para toggle
-      const updateBuilder = {
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ data: {}, error: null }),
-      };
-
-      const insertBuilder = {
-        insert: jest.fn().mockResolvedValue({ data: {}, error: null }),
-      };
-
-      (supabase.from as jest.Mock)
-        .mockReturnValueOnce(updateBuilder)
-        .mockReturnValueOnce(insertBuilder)
-        .mockReturnValue(initialBuilder);
-
       const motorista = criarMotoristaMock({ ativo: true, nome: 'Joao' });
 
       act(() => {
@@ -1184,14 +1148,13 @@ describe('useMotoristasGestor Hook', () => {
         await result.current.confirmarToggleAtivo();
       });
 
-      expect(supabase.from).toHaveBeenCalledWith('logs');
-      expect(insertBuilder.insert).toHaveBeenCalledWith(
+      // Now uses centralized logUserAction
+      expect(mockLogUserAction).toHaveBeenCalledWith(
+        'user-123',
+        'motorista_desativado',
         expect.objectContaining({
-          usuario_id: 'user-123',
-          evento: 'motorista_desativado',
-          detalhes: expect.objectContaining({
-            motorista_nome: 'Joao',
-          }),
+          motorista_id: motorista.id,
+          motorista_nome: 'Joao',
         })
       );
     });

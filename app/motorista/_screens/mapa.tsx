@@ -1,16 +1,18 @@
 import { useCallback, useState, useMemo } from 'react';
-import { View, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { View, ActivityIndicator, TouchableOpacity } from 'react-native';
 
 import { MapaAdapter } from '@/components/MapaAdapter';
 import { MobileEmptyState } from '@/components/mobile/MobileEmptyState';
 import { ParadaBottomSheet } from '@/components/motorista/ParadaBottomSheet';
 import { useRouteStatus } from '@/context/RouteStatusContext';
 import { Text } from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export default function MapaMotorista() {
   const { theme } = useUnistyles();
+  const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
 
   // Usar contexto como fonte única de dados (com realtime automático)
   const {
@@ -61,10 +63,9 @@ export default function MapaMotorista() {
   const handleMarkComplete = useCallback(async (parada: { id: string; ordem: number }) => {
     // Validar se a rota foi iniciada
     if (route?.status !== 'em_andamento') {
-      Alert.alert(
+      showWarning(
         'Rota não iniciada',
-        'Você precisa iniciar a rota antes de concluir paradas.',
-        [{ text: 'OK' }]
+        'Você precisa iniciar a rota antes de concluir paradas.'
       );
       return;
     }
@@ -72,12 +73,12 @@ export default function MapaMotorista() {
     try {
       // Usar completeStop do contexto (já faz update + log + refresh)
       await completeStop(parada.id);
-      Alert.alert('Sucesso', `Parada ${parada.ordem} marcada como concluída!`);
+      showSuccess('Sucesso', `Parada ${parada.ordem} marcada como concluída!`);
     } catch (error) {
       console.error('Erro ao marcar parada como concluída:', error);
-      Alert.alert('Erro', 'Não foi possível atualizar a parada.');
+      showError({ title: 'Erro', message: 'Não foi possível atualizar a parada.' });
     }
-  }, [route?.status, completeStop]);
+  }, [route?.status, completeStop, showWarning, showSuccess, showError]);
 
   if (loading) {
     return (
@@ -169,6 +170,7 @@ export default function MapaMotorista() {
         onClose={handleCloseBottomSheet}
         onMarkComplete={handleMarkComplete}
       />
+      {AlertDialog}
     </View>
   );
 }

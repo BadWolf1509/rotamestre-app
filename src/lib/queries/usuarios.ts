@@ -36,6 +36,7 @@ export interface UsuarioDB {
  */
 export interface UsuarioUpdate {
   nome?: string;
+  email?: string;
   telefone?: string | null;
   avatar_url?: string | null;
   ativo?: boolean;

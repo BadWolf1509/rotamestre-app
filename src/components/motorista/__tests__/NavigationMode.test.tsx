@@ -1,8 +1,22 @@
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import React from 'react';
-import { Alert } from 'react-native';
 
 import { NavigationMode } from '../NavigationMode';
+
+// Access global useAlert mock
+declare global {
+  var mockUseAlert: {
+    showAlert: jest.Mock;
+    showSuccess: jest.Mock;
+    showWarning: jest.Mock;
+    showError: jest.Mock;
+    showConfirm: jest.Mock;
+    showDestructive: jest.Mock;
+    hideAlert: jest.Mock;
+    isVisible: boolean;
+    AlertDialog: null;
+  };
+}
 
 // Mock expo-location
 jest.mock('expo-location', () => ({
@@ -157,9 +171,6 @@ jest.mock('../TurnByTurnNavigation', () => ({
     TurnByTurnNavigation: () => null,
 }));
 
-// Mock Alert
-jest.spyOn(Alert, 'alert');
-
 describe('NavigationMode', () => {
     const defaultProps = {
         currentStop: {
@@ -220,7 +231,7 @@ describe('NavigationMode', () => {
     });
 
     describe('Complete stop', () => {
-        it('deve mostrar Alert de confirmação ao completar', async () => {
+        it('deve mostrar confirmação ao completar', async () => {
             const { getByText } = render(<NavigationMode {...defaultProps} />);
 
             await waitFor(() => {
@@ -232,15 +243,19 @@ describe('NavigationMode', () => {
 
             // Wait for async handler to complete
             await waitFor(() => {
-                expect(Alert.alert).toHaveBeenCalledWith(
-                    'Confirmar Entrega',
-                    expect.stringContaining('Rua Destino, 456'),
-                    expect.any(Array)
+                expect(global.mockUseAlert.showConfirm).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        title: 'Confirmar Entrega',
+                        message: expect.stringContaining('Rua Destino, 456'),
+                    })
                 );
             });
         });
 
         it('deve chamar onComplete quando confirmado', async () => {
+            // Mock showConfirm to return true (user confirms)
+            global.mockUseAlert.showConfirm.mockResolvedValue(true);
+
             const { getByText } = render(<NavigationMode {...defaultProps} />);
 
             await waitFor(() => {
@@ -250,22 +265,15 @@ describe('NavigationMode', () => {
             const completeButton = getByText('Concluir');
             fireEvent.press(completeButton);
 
-            // Wait for async handler and get the Alert call
+            // Wait for onComplete to be called after confirmation
             await waitFor(() => {
-                expect(Alert.alert).toHaveBeenCalled();
+                expect(defaultProps.onComplete).toHaveBeenCalled();
             });
-
-            // Simular confirmação no Alert
-            const alertCall = (Alert.alert as jest.Mock).mock.calls[0];
-            const confirmButton = alertCall[2].find((btn: any) => btn.text === 'Confirmar');
-            await confirmButton.onPress();
-
-            expect(defaultProps.onComplete).toHaveBeenCalled();
         });
     });
 
     describe('Skip stop', () => {
-        it('deve mostrar Alert de confirmação ao pular', async () => {
+        it('deve mostrar confirmação ao pular', async () => {
             const { getByText } = render(<NavigationMode {...defaultProps} />);
 
             await waitFor(() => {
@@ -277,15 +285,19 @@ describe('NavigationMode', () => {
 
             // Wait for async handler to complete
             await waitFor(() => {
-                expect(Alert.alert).toHaveBeenCalledWith(
-                    'Pular Parada',
-                    expect.stringContaining('Rua Destino, 456'),
-                    expect.any(Array)
+                expect(global.mockUseAlert.showConfirm).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        title: 'Pular Parada',
+                        message: expect.stringContaining('Rua Destino, 456'),
+                    })
                 );
             });
         });
 
         it('deve chamar onSkip quando confirmado', async () => {
+            // Mock showConfirm to return true (user confirms)
+            global.mockUseAlert.showConfirm.mockResolvedValue(true);
+
             const { getByText } = render(<NavigationMode {...defaultProps} />);
 
             await waitFor(() => {
@@ -295,17 +307,10 @@ describe('NavigationMode', () => {
             const skipButton = getByText('Pular');
             fireEvent.press(skipButton);
 
-            // Wait for async handler and get the Alert call
+            // Wait for onSkip to be called after confirmation
             await waitFor(() => {
-                expect(Alert.alert).toHaveBeenCalled();
+                expect(defaultProps.onSkip).toHaveBeenCalled();
             });
-
-            // Simular confirmação no Alert
-            const alertCall = (Alert.alert as jest.Mock).mock.calls[0];
-            const skipConfirm = alertCall[2].find((btn: any) => btn.text === 'Pular');
-            await skipConfirm.onPress();
-
-            expect(defaultProps.onSkip).toHaveBeenCalled();
         });
     });
 
@@ -343,7 +348,8 @@ describe('NavigationMode', () => {
             const { getByText } = render(<NavigationMode {...defaultProps} />);
 
             await waitFor(() => {
-                expect(getByText('PARADA 1/2')).toBeTruthy();
+                // Component renders "• Parada {currentStopIndex}/{realParadas.length}"
+                expect(getByText(/Parada 1\/2/)).toBeTruthy();
             });
         });
 

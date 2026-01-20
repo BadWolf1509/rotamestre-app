@@ -31,8 +31,9 @@ import * as Location from 'expo-location';
 import { useState, useCallback } from 'react';
 
 import { googleMapsService } from '@/lib/google';
+import { createIncidente, logIncidenteAction } from '@/lib/queries';
+import type { IncidenteCategoria } from '@/lib/queries';
 import { storageService } from '@/lib/storage';
-import { supabase } from '@/lib/supabase';
 
 // Configuração de retry
 const UPLOAD_MAX_RETRIES = 3;
@@ -195,43 +196,36 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
 
         setUploadProgress(60);
 
-        // 3. Criar registro no banco
-        const { data: insertedData, error: dbError } = await supabase
-          .from('incidentes')
-          .insert({
-            rota_id: data.rotaId || null,
-            parada_id: data.paradaId || null,
-            motorista_id: data.motoristaId,
-            categoria: data.category,
-            descricao: data.description,
-            foto_url: uploadedPhotoUrl,
-            endereco: finalEndereco,
-            status: 'aberto',
-            created_at: new Date().toISOString(),
-          })
-          .select('id')
-          .single();
+        // 3. Criar registro no banco usando query centralizada
+        const result = await createIncidente({
+          rota_id: data.rotaId || null,
+          parada_id: data.paradaId || null,
+          motorista_id: data.motoristaId,
+          categoria: data.category as IncidenteCategoria,
+          descricao: data.description,
+          foto_url: uploadedPhotoUrl || null,
+          endereco: finalEndereco,
+          status: 'aberto',
+        });
 
-        if (dbError) {
-          throw new Error(`Erro ao salvar incidente: ${dbError.message}`);
+        if (!result.success) {
+          throw new Error(`Erro ao salvar incidente: ${result.error.message}`);
         }
+
+        const insertedData = result.data;
 
         setUploadProgress(80);
 
-        // 4. Criar log (apenas se tiver rota_id)
-        if (data.rotaId) {
-          await supabase.from('logs').insert({
-            usuario_id: data.motoristaId,
+        // 4. Criar log usando query centralizada (fire-and-forget)
+        if (data.rotaId && insertedData) {
+          logIncidenteAction(data.motoristaId, insertedData.id, 'incidente_reportado', {
+            categoria: data.category,
+            descricao: data.description,
+            tem_foto: !!data.photoUri,
+            foto_upload_sucesso: !!uploadedPhotoUrl,
+            parada_id: data.paradaId || null,
+            endereco: finalEndereco,
             rota_id: data.rotaId,
-            evento: 'incidente_reportado',
-            detalhes: {
-              categoria: data.category,
-              descricao: data.description,
-              tem_foto: !!data.photoUri,
-              foto_upload_sucesso: !!uploadedPhotoUrl,
-              parada_id: data.paradaId || null,
-              endereco: finalEndereco,
-            },
           });
         }
 

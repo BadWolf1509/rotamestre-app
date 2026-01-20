@@ -17,6 +17,7 @@ import {
   Platform
 } from 'react-native';
 
+import { useAlert } from '@/hooks/useAlert';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import { isOnline, queuePhotoUpload, hasOfflinePhoto, getOfflinePhotoPath } from '../lib/offline';
@@ -38,6 +39,7 @@ export default function CameraUpload({
   onUploadError
 }: CameraUploadProps) {
   const { theme } = useUnistyles();
+  const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [pendingSync, setPendingSync] = useState(false);
@@ -109,10 +111,7 @@ export default function CameraUpload({
     const hasPermission = await requestCameraPermission();
 
     if (!hasPermission) {
-      Alert.alert(
-        'Permissão negada',
-        'Precisamos de acesso à câmera para tirar fotos do comprovante de entrega.'
-      );
+      showWarning('Permissão negada', 'Precisamos de acesso à câmera para tirar fotos do comprovante de entrega.');
       return;
     }
 
@@ -136,10 +135,7 @@ export default function CameraUpload({
     const hasPermission = await requestGalleryPermission();
 
     if (!hasPermission) {
-      Alert.alert(
-        'Permissão negada',
-        'Precisamos de acesso à galeria para selecionar fotos.'
-      );
+      showWarning('Permissão negada', 'Precisamos de acesso à galeria para selecionar fotos.');
       return;
     }
 
@@ -161,7 +157,7 @@ export default function CameraUpload({
    */
   const handleUpload = async () => {
     if (!selectedImage) {
-      Alert.alert('Atenção', 'Tire uma foto ou selecione da galeria primeiro.');
+      showWarning('Atenção', 'Tire uma foto ou selecione da galeria primeiro.');
       return;
     }
 
@@ -181,10 +177,10 @@ export default function CameraUpload({
         );
 
         if (success) {
-          // No web, não usar Alert.alert para evitar conflitos com o modal do StopCompletionFlow
+          // No web, não usar alert para evitar conflitos com o modal do StopCompletionFlow
           // O step 'confirm' já dá feedback visual suficiente
           if (Platform.OS !== 'web') {
-            Alert.alert('Sucesso!', 'Foto enviada com sucesso!');
+            showSuccess('Sucesso!', 'Foto enviada com sucesso!');
           }
 
           if (onUploadSuccess) {
@@ -198,20 +194,13 @@ export default function CameraUpload({
       } else {
         // Modo offline - salvar localmente para sync posterior
         if (Platform.OS === 'web') {
-          Alert.alert(
-            'Sem conexão',
-            'Você está offline. Conecte-se à internet para enviar a foto.'
-          );
+          showWarning('Sem conexão', 'Você está offline. Conecte-se à internet para enviar a foto.');
           return;
         }
 
         await queuePhotoUpload(unidadeId, rotaId, paradaId, selectedImage);
 
-        Alert.alert(
-          'Foto salva',
-          'Você está offline. A foto será enviada automaticamente quando a conexão for restaurada.',
-          [{ text: 'OK' }]
-        );
+        showSuccess('Foto salva', 'Você está offline. A foto será enviada automaticamente quando a conexão for restaurada.');
 
         setPendingSync(true);
         setOfflinePhotoPath(selectedImage);
@@ -230,11 +219,7 @@ export default function CameraUpload({
         try {
           await queuePhotoUpload(unidadeId, rotaId, paradaId, selectedImage);
 
-          Alert.alert(
-            'Erro de conexão',
-            'Não foi possível enviar a foto agora. Ela será enviada automaticamente quando a conexão for restaurada.',
-            [{ text: 'OK' }]
-          );
+          showWarning('Erro de conexão', 'Não foi possível enviar a foto agora. Ela será enviada automaticamente quando a conexão for restaurada.');
 
           setPendingSync(true);
           setOfflinePhotoPath(selectedImage);
@@ -250,7 +235,7 @@ export default function CameraUpload({
         }
       }
 
-      Alert.alert('Erro', 'Não foi possível enviar a foto. Tente novamente.');
+      showError({ title: 'Erro', message: 'Não foi possível enviar a foto. Tente novamente.' });
 
       if (onUploadError) {
         onUploadError(error instanceof Error ? error.message : 'Erro desconhecido');
@@ -304,6 +289,7 @@ export default function CameraUpload({
             </Text>
           </View>
         </View>
+        {AlertDialog}
       </View>
     );
   }
@@ -347,6 +333,7 @@ export default function CameraUpload({
           <Text style={styles.addButtonText}>📸 Adicionar Foto do Comprovante</Text>
         </TouchableOpacity>
       )}
+      {AlertDialog}
     </View>
   );
 }

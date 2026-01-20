@@ -10,10 +10,10 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Platform, Switch, TouchableOpacity, View } from 'react-native';
+import { Switch, TouchableOpacity, View } from 'react-native';
 
-import { Dialog } from '@/components/Dialog';
 import { Text } from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
 import {
   getThemePreferences,
   setContrastPreference,
@@ -60,11 +60,11 @@ export function ThemeSettings({
   compact = false,
 }: ThemeSettingsProps) {
   const { theme } = useUnistyles();
+  const { showError, showConfirm, AlertDialog } = useAlert();
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
   const [compactDensityEnabled, setCompactDensityEnabled] = useState(false);
   const [highContrastEnabled, setHighContrastEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [showResetDialog, setShowResetDialog] = useState(false);
 
   // Load saved preferences on mount
   useEffect(() => {
@@ -112,7 +112,7 @@ export function ThemeSettings({
       );
     } catch (error) {
       console.warn('Failed to update theme preference:', error);
-      Alert.alert('Erro', 'Falha ao salvar preferência de tema.');
+      showError({ title: 'Erro', message: 'Falha ao salvar preferência de tema.' });
       setDarkModeEnabled(!value); // Revert on error
     }
   };
@@ -128,7 +128,7 @@ export function ThemeSettings({
       );
     } catch (error) {
       console.warn('Failed to update density preference:', error);
-      Alert.alert('Erro', 'Falha ao salvar preferência de densidade.');
+      showError({ title: 'Erro', message: 'Falha ao salvar preferência de densidade.' });
       setCompactDensityEnabled(!value); // Revert on error
     }
   };
@@ -144,7 +144,7 @@ export function ThemeSettings({
       );
     } catch (error) {
       console.warn('Failed to update contrast preference:', error);
-      Alert.alert('Erro', 'Falha ao salvar preferência de contraste.');
+      showError({ title: 'Erro', message: 'Falha ao salvar preferência de contraste.' });
       setHighContrastEnabled(!value); // Revert on error
     }
   };
@@ -165,37 +165,21 @@ export function ThemeSettings({
       notifyChange('light', 'regular', 'normal');
     } catch (error) {
       console.warn('Failed to reset preferences:', error);
-      Alert.alert('Erro', 'Falha ao restaurar configurações padrão.');
+      showError({ title: 'Erro', message: 'Falha ao restaurar configurações padrão.' });
     }
   };
 
-  const handleResetToDefaults = () => {
-    // Use ConfirmDialog on web, Alert.alert on mobile
-    if (Platform.OS === 'web') {
-      setShowResetDialog(true);
-    } else {
-      Alert.alert(
-        'Restaurar padrões',
-        'Tem certeza que deseja restaurar as configurações de aparência para os valores padrão?',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Restaurar',
-            style: 'destructive',
-            onPress: doReset,
-          },
-        ]
-      );
+  const handleResetToDefaults = async () => {
+    const confirmed = await showConfirm({
+      title: 'Restaurar padrões',
+      message: 'Tem certeza que deseja restaurar as configurações de aparência para os valores padrão?',
+      confirmText: 'Restaurar',
+      cancelText: 'Cancelar',
+      type: 'warning',
+    });
+    if (confirmed) {
+      await doReset();
     }
-  };
-
-  const handleConfirmReset = async () => {
-    setShowResetDialog(false);
-    await doReset();
-  };
-
-  const handleCancelReset = () => {
-    setShowResetDialog(false);
   };
 
   const hasChanges =
@@ -328,18 +312,7 @@ export function ThemeSettings({
         </TouchableOpacity>
       )}
 
-      {/* Reset Confirmation Dialog */}
-      <Dialog
-        visible={showResetDialog}
-        variant="confirm"
-        title="Restaurar padrões"
-        message="Tem certeza que deseja restaurar as configurações de aparência para os valores padrão?"
-        confirmText="Restaurar"
-        cancelText="Cancelar"
-        onConfirm={handleConfirmReset}
-        onCancel={handleCancelReset}
-        type="danger"
-      />
+      {AlertDialog}
     </View>
   );
 }

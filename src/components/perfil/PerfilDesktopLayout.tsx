@@ -7,7 +7,7 @@ import { TouchableOpacity, View } from 'react-native';
 import { AvatarEditable } from '@/components/AvatarEditable';
 import { ThemeSettings } from '@/components/ThemeSettings';
 import { Text } from '@/design-system';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface PerfilDesktopLayoutProps {
   usuario: any;
@@ -166,7 +166,7 @@ export function PerfilDesktopLayout({
   );
 }
 
-const styles = (theme: any) =>
+const styles = (theme: Theme) =>
   StyleSheet.create({
     wrapper: {
       flexDirection: 'row',

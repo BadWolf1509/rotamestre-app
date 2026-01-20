@@ -1,16 +1,18 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { Button, Input, Text } from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
 import { authService } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export default function AlterarSenha() {
   const { theme } = useUnistyles();
   const router = useRouter();
+  const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
   const [saving, setSaving] = useState(false);
 
   const [senhaAtual, setSenhaAtual] = useState('');
@@ -23,27 +25,27 @@ export default function AlterarSenha() {
 
   async function handleSave() {
     if (!senhaAtual) {
-      Alert.alert('Erro', 'Digite sua senha atual');
+      showWarning('Erro', 'Digite sua senha atual');
       return;
     }
 
     if (!novaSenha) {
-      Alert.alert('Erro', 'Digite a nova senha');
+      showWarning('Erro', 'Digite a nova senha');
       return;
     }
 
     if (novaSenha.length < 6) {
-      Alert.alert('Erro', 'A nova senha deve ter no minimo 6 caracteres');
+      showWarning('Erro', 'A nova senha deve ter no minimo 6 caracteres');
       return;
     }
 
     if (novaSenha !== confirmarSenha) {
-      Alert.alert('Erro', 'As senhas nao coincidem');
+      showWarning('Erro', 'As senhas nao coincidem');
       return;
     }
 
     if (senhaAtual === novaSenha) {
-      Alert.alert('Erro', 'A nova senha deve ser diferente da atual');
+      showWarning('Erro', 'A nova senha deve ser diferente da atual');
       return;
     }
 
@@ -71,15 +73,10 @@ export default function AlterarSenha() {
         })
         .eq('id', session.user.id);
 
-      Alert.alert('Sucesso!', 'Senha alterada com sucesso!', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]);
-    } catch (error: any) {
+      showSuccess('Sucesso!', 'Senha alterada com sucesso!', () => router.back());
+    } catch (error: unknown) {
       logger.error('Erro ao alterar senha:', error);
-      Alert.alert('Erro', error.message || 'Nao foi possivel alterar a senha');
+      showError(error);
     } finally {
       setSaving(false);
     }
@@ -211,11 +208,12 @@ export default function AlterarSenha() {
           </View>
         </View>
       </ScrollView>
+      {AlertDialog}
     </View>
   );
 }
 
-const styles = (theme: any) =>
+const styles = (theme: Theme) =>
   StyleSheet.create({
     container: {
       flex: 1,

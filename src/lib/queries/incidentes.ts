@@ -106,6 +106,24 @@ export interface FetchIncidentesOptions {
 }
 
 /**
+ * Raw incidente query result with relations (from Supabase join)
+ */
+interface IncidenteQueryRow {
+  id: string;
+  categoria: IncidenteCategoria;
+  descricao: string;
+  endereco: string;
+  status: IncidenteStatus;
+  foto_url: string | null;
+  created_at: string;
+  observacoes_gestao: string | null;
+  motorista_id: string;
+  motorista: { nome: string } | null;
+  rota: { id: string; data: string } | null;
+  parada: { endereco: string } | null;
+}
+
+/**
  * Fetch incidentes with relations for gestor view
  */
 export async function fetchIncidentesForGestor(
@@ -151,22 +169,25 @@ export async function fetchIncidentesForGestor(
 
     if (error) throw error;
 
-    return (data || []).map((inc: any) => ({
-      id: inc.id,
-      categoria: inc.categoria,
-      descricao: inc.descricao,
-      endereco: inc.endereco,
-      status: inc.status,
-      foto_url: inc.foto_url,
-      created_at: inc.created_at,
-      observacoes_gestao: inc.observacoes_gestao,
-      motorista_nome: inc.motorista?.nome || 'Desconhecido',
-      motorista_id: inc.motorista_id,
-      unidade_nome: '',
-      rota_id: inc.rota?.id || null,
-      rota_data: inc.rota?.data || null,
-      parada_endereco: inc.parada?.endereco || null,
-    }));
+    return (data || []).map((inc) => {
+      const row = inc as unknown as IncidenteQueryRow;
+      return {
+        id: row.id,
+        categoria: row.categoria,
+        descricao: row.descricao,
+        endereco: row.endereco,
+        status: row.status,
+        foto_url: row.foto_url,
+        created_at: row.created_at,
+        observacoes_gestao: row.observacoes_gestao,
+        motorista_nome: row.motorista?.nome || 'Desconhecido',
+        motorista_id: row.motorista_id,
+        unidade_nome: '',
+        rota_id: row.rota?.id || null,
+        rota_data: row.rota?.data || null,
+        parada_endereco: row.parada?.endereco || null,
+      };
+    });
   });
 }
 

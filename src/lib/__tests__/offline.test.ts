@@ -13,6 +13,10 @@ import {
     hasOfflineData,
     getOfflineQueueSize,
     setupOfflineSync,
+    getOfflinePhotosIndex,
+    getPendingPhotosCount,
+    hasOfflinePhoto,
+    getOfflinePhotoPath,
 } from '../offline';
 
 // Mock NetInfo
@@ -401,6 +405,113 @@ describe('offline', () => {
 
             const result = await getOfflineQueueSize();
             expect(result).toBe(0);
+        });
+    });
+
+    describe('getOfflinePhotosIndex', () => {
+        it('deve retornar array vazio quando não há fotos', async () => {
+            mockAsyncStorage.getItem.mockResolvedValueOnce(null);
+
+            const result = await getOfflinePhotosIndex();
+            expect(result).toEqual([]);
+        });
+
+        it('deve retornar fotos parseadas do storage', async () => {
+            const photos = [
+                { localPath: '/path/1.jpg', paradaId: 'p1', unidadeId: 'u1', rotaId: 'r1' },
+                { localPath: '/path/2.jpg', paradaId: 'p2', unidadeId: 'u1', rotaId: 'r1' },
+            ];
+            mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(photos));
+
+            const result = await getOfflinePhotosIndex();
+            expect(result).toEqual(photos);
+        });
+
+        it('deve retornar array vazio quando há erro ao ler', async () => {
+            mockAsyncStorage.getItem.mockRejectedValueOnce(new Error('Storage error'));
+
+            const result = await getOfflinePhotosIndex();
+            expect(result).toEqual([]);
+        });
+    });
+
+    describe('getPendingPhotosCount', () => {
+        it('deve retornar 0 quando não há fotos pendentes', async () => {
+            mockAsyncStorage.getItem.mockResolvedValueOnce(null);
+
+            const result = await getPendingPhotosCount();
+            expect(result).toBe(0);
+        });
+
+        it('deve retornar quantidade correta de fotos pendentes', async () => {
+            const photos = [
+                { localPath: '/path/1.jpg', paradaId: 'p1' },
+                { localPath: '/path/2.jpg', paradaId: 'p2' },
+                { localPath: '/path/3.jpg', paradaId: 'p3' },
+            ];
+            mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(photos));
+
+            const result = await getPendingPhotosCount();
+            expect(result).toBe(3);
+        });
+    });
+
+    describe('hasOfflinePhoto', () => {
+        it('deve retornar false quando não há fotos', async () => {
+            mockAsyncStorage.getItem.mockResolvedValueOnce(null);
+
+            const result = await hasOfflinePhoto('p1');
+            expect(result).toBe(false);
+        });
+
+        it('deve retornar true quando parada tem foto offline', async () => {
+            const photos = [
+                { localPath: '/path/1.jpg', paradaId: 'p1' },
+                { localPath: '/path/2.jpg', paradaId: 'p2' },
+            ];
+            mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(photos));
+
+            const result = await hasOfflinePhoto('p1');
+            expect(result).toBe(true);
+        });
+
+        it('deve retornar false quando parada não tem foto offline', async () => {
+            const photos = [
+                { localPath: '/path/1.jpg', paradaId: 'p1' },
+            ];
+            mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(photos));
+
+            const result = await hasOfflinePhoto('p3');
+            expect(result).toBe(false);
+        });
+    });
+
+    describe('getOfflinePhotoPath', () => {
+        it('deve retornar null quando não há fotos', async () => {
+            mockAsyncStorage.getItem.mockResolvedValueOnce(null);
+
+            const result = await getOfflinePhotoPath('p1');
+            expect(result).toBeNull();
+        });
+
+        it('deve retornar caminho da foto quando existe', async () => {
+            const photos = [
+                { localPath: '/path/to/photo.jpg', paradaId: 'p1' },
+            ];
+            mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(photos));
+
+            const result = await getOfflinePhotoPath('p1');
+            expect(result).toBe('/path/to/photo.jpg');
+        });
+
+        it('deve retornar null quando foto não existe para parada', async () => {
+            const photos = [
+                { localPath: '/path/to/photo.jpg', paradaId: 'p1' },
+            ];
+            mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(photos));
+
+            const result = await getOfflinePhotoPath('p2');
+            expect(result).toBeNull();
         });
     });
 

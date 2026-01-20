@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import {
   View,
   FlatList,
-  Alert,
   RefreshControl,
   Platform,
   type ViewStyle,
@@ -10,7 +9,6 @@ import {
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { Dialog } from '@/components/Dialog';
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
 import { MobileEmptyState } from '@/components/mobile/MobileEmptyState';
 import { ParadaCard, Parada } from '@/components/motorista/ParadaCard';
@@ -18,6 +16,7 @@ import { ParadaCardSkeletonList } from '@/components/motorista/ParadaCardSkeleto
 import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
 import { useRouteStatus, ParadaData } from '@/context/RouteStatusContext';
 import { Text } from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
@@ -28,6 +27,7 @@ import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 export default function CheckpointsMotorista() {
   const { theme } = useUnistyles();
   const { userData } = useUser();
+  const { showWarning, showSuccess, showError, showConfirm, AlertDialog } = useAlert();
 
   // Usar contexto como fonte única de dados (com realtime automático)
   const {
@@ -48,12 +48,6 @@ export default function CheckpointsMotorista() {
   // Estado para o modal de conclusão de parada (com foto)
   const [showCompletionFlow, setShowCompletionFlow] = useState(false);
   const [selectedParadaForCompletion, setSelectedParadaForCompletion] = useState<ParadaData | null>(null);
-  // Estado para o ConfirmDialog (pular/retomar parada)
-  const [confirmDialog, setConfirmDialog] = useState<{
-    visible: boolean;
-    type: 'pular' | 'retomar';
-    parada: Parada | null;
-  }>({ visible: false, type: 'pular', parada: null });
 
   // Filtrar apenas paradas reais (excluindo checkpoints de partida/chegada)
   // e fazer cast para tipo Parada do ParadaCard
@@ -73,11 +67,7 @@ export default function CheckpointsMotorista() {
     (parada: Parada) => {
       // Validar se a rota foi iniciada
       if (route?.status !== 'em_andamento') {
-        Alert.alert(
-          'Rota não iniciada',
-          'Você precisa iniciar a rota antes de concluir paradas.',
-          [{ text: 'OK' }]
-        );
+        showWarning('Rota não iniciada', 'Você precisa iniciar a rota antes de concluir paradas.');
         return;
       }
 
@@ -85,7 +75,7 @@ export default function CheckpointsMotorista() {
       setSelectedParadaForCompletion(parada as unknown as ParadaData);
       setShowCompletionFlow(true);
     },
-    [route?.status]
+    [route?.status, showWarning]
   );
 
   // Handler quando conclusão é bem-sucedida
@@ -96,206 +86,96 @@ export default function CheckpointsMotorista() {
 
   const pularParada = useCallback(
     async (parada: Parada) => {
-      // Função que executa a ação de pular
-      const executePular = async () => {
-        setPulandoParada(parada.id);
-        try {
-          // Atualizar status da parada
-          const { error: updateError } = await supabase
-            .from('paradas')
-            .update({ status: 'pulada' })
-            .eq('id', parada.id);
-
-          if (updateError) throw updateError;
-
-          // Criar log
-          await supabase.from('logs').insert({
-            usuario_id: userData!.id,
-            rota_id: route!.id,
-            parada_id: parada.id,
-            evento: 'parada_pulada',
-            detalhes: {
-              endereco: parada.endereco,
-              tipo: parada.tipo,
-              ordem: parada.ordem,
-            },
-          });
-
-          Alert.alert('Parada Pulada', 'Parada marcada como pulada');
-          refreshRoute(); // Contexto atualiza automaticamente
-        } catch (error) {
-          logger.error('Erro ao pular parada:', error);
-          Alert.alert('Erro', 'Não foi possível pular a parada');
-        } finally {
-          setPulandoParada(null);
-        }
-      };
-
-      // Na web, usa ConfirmDialog
-      if (Platform.OS === 'web') {
-        setConfirmDialog({ visible: true, type: 'pular', parada });
-      } else {
-        // No mobile, usa Alert.alert
-        Alert.alert(
-          'Pular Parada',
-          `Deseja pular esta ${parada.tipo}?\n\n${parada.endereco}\n\nEsta parada ficará marcada como "pulada" e poderá ser retomada depois.`,
-          [
-            { text: 'Cancelar', style: 'cancel' },
-            {
-              text: 'Pular',
-              style: 'destructive',
-              onPress: executePular,
-            },
-          ]
-        );
-      }
-    },
-    [userData, route, refreshRoute]
-  );
-
-  // Executa a ação de pular (chamada pelo ConfirmDialog)
-  const executePularParada = useCallback(async () => {
-    const parada = confirmDialog.parada;
-    if (!parada) return;
-
-    setConfirmDialog({ visible: false, type: 'pular', parada: null });
-    setPulandoParada(parada.id);
-
-    try {
-      const { error: updateError } = await supabase
-        .from('paradas')
-        .update({ status: 'pulada' })
-        .eq('id', parada.id);
-
-      if (updateError) throw updateError;
-
-      await supabase.from('logs').insert({
-        usuario_id: userData!.id,
-        rota_id: route!.id,
-        parada_id: parada.id,
-        evento: 'parada_pulada',
-        detalhes: {
-          endereco: parada.endereco,
-          tipo: parada.tipo,
-          ordem: parada.ordem,
-        },
+      const confirmed = await showConfirm({
+        title: 'Pular Parada',
+        message: `Deseja pular esta ${parada.tipo}?\n\n${parada.endereco}\n\nEsta parada ficará marcada como "pulada" e poderá ser retomada depois.`,
+        confirmText: 'Pular',
+        cancelText: 'Cancelar',
+        type: 'warning',
       });
 
-      Alert.alert('Parada Pulada', 'Parada marcada como pulada');
-      refreshRoute();
-    } catch (error) {
-      logger.error('Erro ao pular parada:', error);
-      Alert.alert('Erro', 'Não foi possível pular a parada');
-    } finally {
-      setPulandoParada(null);
-    }
-  }, [confirmDialog.parada, userData, route, refreshRoute]);
+      if (!confirmed) return;
+
+      setPulandoParada(parada.id);
+      try {
+        // Atualizar status da parada
+        const { error: updateError } = await supabase
+          .from('paradas')
+          .update({ status: 'pulada' })
+          .eq('id', parada.id);
+
+        if (updateError) throw updateError;
+
+        // Criar log
+        await supabase.from('logs').insert({
+          usuario_id: userData!.id,
+          rota_id: route!.id,
+          parada_id: parada.id,
+          evento: 'parada_pulada',
+          detalhes: {
+            endereco: parada.endereco,
+            tipo: parada.tipo,
+            ordem: parada.ordem,
+          },
+        });
+
+        showSuccess('Parada Pulada', 'Parada marcada como pulada');
+        refreshRoute(); // Contexto atualiza automaticamente
+      } catch (error) {
+        logger.error('Erro ao pular parada:', error);
+        showError(error);
+      } finally {
+        setPulandoParada(null);
+      }
+    },
+    [userData, route, refreshRoute, showConfirm, showSuccess, showError]
+  );
 
   const retomarParada = useCallback(
     async (parada: Parada) => {
-      // Função que executa a ação de retomar
-      const executeRetomar = async () => {
-        setRetomandoParada(parada.id);
-        try {
-          // Atualizar status da parada para pendente
-          const { error: updateError } = await supabase
-            .from('paradas')
-            .update({ status: 'pendente' })
-            .eq('id', parada.id);
-
-          if (updateError) throw updateError;
-
-          // Criar log
-          await supabase.from('logs').insert({
-            usuario_id: userData!.id,
-            rota_id: route!.id,
-            parada_id: parada.id,
-            evento: 'parada_retomada',
-            detalhes: {
-              endereco: parada.endereco,
-              tipo: parada.tipo,
-              ordem: parada.ordem,
-            },
-          });
-
-          Alert.alert('Parada Retomada', 'Parada voltou para pendente');
-          refreshRoute(); // Contexto atualiza automaticamente
-        } catch (error) {
-          logger.error('Erro ao retomar parada:', error);
-          Alert.alert('Erro', 'Não foi possível retomar a parada');
-        } finally {
-          setRetomandoParada(null);
-        }
-      };
-
-      // Na web, usa ConfirmDialog
-      if (Platform.OS === 'web') {
-        setConfirmDialog({ visible: true, type: 'retomar', parada });
-      } else {
-        // No mobile, usa Alert.alert
-        Alert.alert(
-          'Retomar Parada',
-          `Deseja retomar esta ${parada.tipo}?\n\n${parada.endereco}\n\nA parada voltará para o status "pendente".`,
-          [
-            { text: 'Cancelar', style: 'cancel' },
-            {
-              text: 'Retomar',
-              style: 'default',
-              onPress: executeRetomar,
-            },
-          ]
-        );
-      }
-    },
-    [userData, route, refreshRoute]
-  );
-
-  // Executa a ação de retomar (chamada pelo ConfirmDialog)
-  const executeRetomarParada = useCallback(async () => {
-    const parada = confirmDialog.parada;
-    if (!parada) return;
-
-    setConfirmDialog({ visible: false, type: 'retomar', parada: null });
-    setRetomandoParada(parada.id);
-
-    try {
-      const { error: updateError } = await supabase
-        .from('paradas')
-        .update({ status: 'pendente' })
-        .eq('id', parada.id);
-
-      if (updateError) throw updateError;
-
-      await supabase.from('logs').insert({
-        usuario_id: userData!.id,
-        rota_id: route!.id,
-        parada_id: parada.id,
-        evento: 'parada_retomada',
-        detalhes: {
-          endereco: parada.endereco,
-          tipo: parada.tipo,
-          ordem: parada.ordem,
-        },
+      const confirmed = await showConfirm({
+        title: 'Retomar Parada',
+        message: `Deseja retomar esta ${parada.tipo}?\n\n${parada.endereco}\n\nA parada voltará para o status "pendente".`,
+        confirmText: 'Retomar',
+        cancelText: 'Cancelar',
       });
 
-      Alert.alert('Parada Retomada', 'Parada voltou para pendente');
-      refreshRoute();
-    } catch (error) {
-      logger.error('Erro ao retomar parada:', error);
-      Alert.alert('Erro', 'Não foi possível retomar a parada');
-    } finally {
-      setRetomandoParada(null);
-    }
-  }, [confirmDialog.parada, userData, route, refreshRoute]);
+      if (!confirmed) return;
 
-  // Handler para confirmar a ação do dialog
-  const handleConfirmDialogAction = useCallback(() => {
-    if (confirmDialog.type === 'pular') {
-      executePularParada();
-    } else {
-      executeRetomarParada();
-    }
-  }, [confirmDialog.type, executePularParada, executeRetomarParada]);
+      setRetomandoParada(parada.id);
+      try {
+        // Atualizar status da parada para pendente
+        const { error: updateError } = await supabase
+          .from('paradas')
+          .update({ status: 'pendente' })
+          .eq('id', parada.id);
+
+        if (updateError) throw updateError;
+
+        // Criar log
+        await supabase.from('logs').insert({
+          usuario_id: userData!.id,
+          rota_id: route!.id,
+          parada_id: parada.id,
+          evento: 'parada_retomada',
+          detalhes: {
+            endereco: parada.endereco,
+            tipo: parada.tipo,
+            ordem: parada.ordem,
+          },
+        });
+
+        showSuccess('Parada Retomada', 'Parada voltou para pendente');
+        refreshRoute(); // Contexto atualiza automaticamente
+      } catch (error) {
+        logger.error('Erro ao retomar parada:', error);
+        showError(error);
+      } finally {
+        setRetomandoParada(null);
+      }
+    },
+    [userData, route, refreshRoute, showConfirm, showSuccess, showError]
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -536,24 +416,7 @@ export default function CheckpointsMotorista() {
         allowSkipPhoto={true}
       />
 
-      {/* Dialog para pular/retomar parada */}
-      <Dialog
-        visible={confirmDialog.visible}
-        variant="confirm"
-        title={confirmDialog.type === 'pular' ? 'Pular Parada' : 'Retomar Parada'}
-        message={
-          confirmDialog.parada
-            ? confirmDialog.type === 'pular'
-              ? `Deseja pular esta ${confirmDialog.parada.tipo}?\n\n${confirmDialog.parada.endereco}\n\nEsta parada ficará marcada como "pulada" e poderá ser retomada depois.`
-              : `Deseja retomar esta ${confirmDialog.parada.tipo}?\n\n${confirmDialog.parada.endereco}\n\nA parada voltará para o status "pendente".`
-            : ''
-        }
-        confirmText={confirmDialog.type === 'pular' ? 'Pular' : 'Retomar'}
-        cancelText="Cancelar"
-        onConfirm={handleConfirmDialogAction}
-        onCancel={() => setConfirmDialog({ visible: false, type: 'pular', parada: null })}
-        type={confirmDialog.type === 'pular' ? 'danger' : 'default'}
-      />
+      {AlertDialog}
     </Container>
   );
 }

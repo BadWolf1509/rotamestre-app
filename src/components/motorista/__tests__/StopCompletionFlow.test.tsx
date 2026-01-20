@@ -4,11 +4,27 @@
  */
 
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
 import type { ParadaData } from '@/context/RouteStatusContext';
 
 import { StopCompletionFlow } from '../StopCompletionFlow';
+
+// TypeScript declaration for global mock
+declare global {
+   
+  var mockUseAlert: {
+    showAlert: jest.Mock;
+    showSuccess: jest.Mock;
+    showWarning: jest.Mock;
+    showError: jest.Mock;
+    showConfirm: jest.Mock;
+    showDestructive: jest.Mock;
+    hideAlert: jest.Mock;
+    isVisible: boolean;
+    AlertDialog: null;
+  };
+}
 
 
 // Mock dependencies
@@ -134,31 +150,6 @@ jest.mock('@/components/CameraUpload', () => {
   };
 });
 
-// Mock Dialog (migrated from ConfirmDialog)
-jest.mock('@/components/Dialog', () => ({
-  Dialog: ({ visible, title, message, onConfirm, onCancel }: {
-    visible: boolean;
-    title: string;
-    message: string;
-    onConfirm: () => void;
-    onCancel: () => void;
-  }) => {
-    const { View, Text, TouchableOpacity } = require('react-native');
-    if (!visible) return null;
-    return (
-      <View testID="confirm-dialog">
-        <Text>{title}</Text>
-        <Text>{message}</Text>
-        <TouchableOpacity testID="confirm-dialog-confirm" onPress={onConfirm}>
-          <Text>Confirm</Text>
-        </TouchableOpacity>
-        <TouchableOpacity testID="confirm-dialog-cancel" onPress={onCancel}>
-          <Text>Cancel</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  },
-}));
 
 // Mock RouteStatusContext
 const mockCompleteStop = jest.fn();
@@ -175,9 +166,6 @@ jest.mock('@/hooks/useUser', () => ({
     userData: { unidade_id: 'unit-1' },
   }),
 }));
-
-// Mock Alert
-jest.spyOn(Alert, 'alert');
 
 describe('StopCompletionFlow', () => {
   const mockParada: ParadaData = {
@@ -264,19 +252,26 @@ describe('StopCompletionFlow', () => {
       });
     });
 
-    it('deve mostrar dialog ao pular foto (web)', () => {
+    it('deve mostrar confirmação ao pular foto (web)', async () => {
       Platform.OS = 'web' as typeof Platform.OS;
 
-      const { getByText, getByTestId } = render(
+      const { getByText } = render(
         <StopCompletionFlow {...defaultProps} allowSkipPhoto={true} />
       );
 
       fireEvent.press(getByText('Continuar sem foto'));
 
-      expect(getByTestId('confirm-dialog')).toBeTruthy();
+      await waitFor(() => {
+        expect(global.mockUseAlert.showConfirm).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Pular foto?',
+            message: 'A foto serve como prova de entrega. Deseja continuar sem foto?',
+          })
+        );
+      });
     });
 
-    it('deve mostrar Alert ao pular foto (mobile)', () => {
+    it('deve mostrar confirmação ao pular foto (mobile)', async () => {
       Platform.OS = 'ios';
 
       const { getByText } = render(
@@ -285,11 +280,14 @@ describe('StopCompletionFlow', () => {
 
       fireEvent.press(getByText('Continuar sem foto'));
 
-      expect(Alert.alert).toHaveBeenCalledWith(
-        'Pular foto?',
-        'A foto serve como prova de entrega. Deseja continuar sem foto?',
-        expect.any(Array)
-      );
+      await waitFor(() => {
+        expect(global.mockUseAlert.showConfirm).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Pular foto?',
+            message: 'A foto serve como prova de entrega. Deseja continuar sem foto?',
+          })
+        );
+      });
     });
   });
 
@@ -311,14 +309,15 @@ describe('StopCompletionFlow', () => {
 
     it('deve indicar quando não há foto', async () => {
       Platform.OS = 'web' as typeof Platform.OS;
+      // Mock showConfirm to return true (user confirms)
+      global.mockUseAlert.showConfirm.mockResolvedValueOnce(true);
 
-      const { getByText, getByTestId } = render(
+      const { getByText } = render(
         <StopCompletionFlow {...defaultProps} allowSkipPhoto={true} />
       );
 
-      // Pular foto
+      // Pular foto - showConfirm is async and returns true
       fireEvent.press(getByText('Continuar sem foto'));
-      fireEvent.press(getByTestId('confirm-dialog-confirm'));
 
       await waitFor(() => {
         expect(getByText('Sem foto de comprovante')).toBeTruthy();
@@ -389,14 +388,15 @@ describe('StopCompletionFlow', () => {
 
     it('deve chamar completeStop sem foto quando pulada', async () => {
       Platform.OS = 'web' as typeof Platform.OS;
+      // Mock showConfirm to return true (user confirms)
+      global.mockUseAlert.showConfirm.mockResolvedValueOnce(true);
 
-      const { getByText, getByTestId } = render(
+      const { getByText } = render(
         <StopCompletionFlow {...defaultProps} allowSkipPhoto={true} />
       );
 
-      // Pular foto
+      // Pular foto - showConfirm is async and returns true
       fireEvent.press(getByText('Continuar sem foto'));
-      fireEvent.press(getByTestId('confirm-dialog-confirm'));
 
       await waitFor(() => {
         expect(getByText('Concluir')).toBeTruthy();
@@ -452,7 +452,8 @@ describe('StopCompletionFlow', () => {
     });
 
     it('deve exibir erro quando conclusão falha', async () => {
-      mockCompleteStop.mockRejectedValueOnce(new Error('Falha ao completar'));
+      const testError = new Error('Falha ao completar');
+      mockCompleteStop.mockRejectedValueOnce(testError);
 
       const { getByTestId, getByText } = render(
         <StopCompletionFlow {...defaultProps} />
@@ -467,7 +468,7 @@ describe('StopCompletionFlow', () => {
       fireEvent.press(getByText('Concluir'));
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Falha ao completar');
+        expect(global.mockUseAlert.showError).toHaveBeenCalledWith(testError);
       });
     });
   });

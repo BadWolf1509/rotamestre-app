@@ -5,9 +5,21 @@ import { authService } from '@/lib/auth';
 
 import ResetPassword from '../../../auth/reset-password';
 
-// Mock do Alert está configurado globalmente no jest.setup.js
-// Acessar via global.mockAlert
-const Alert = { alert: (global as any).mockAlert };
+// TypeScript declaration for global mock
+declare global {
+   
+  var mockUseAlert: {
+    showAlert: jest.Mock;
+    showSuccess: jest.Mock;
+    showWarning: jest.Mock;
+    showError: jest.Mock;
+    showConfirm: jest.Mock;
+    showDestructive: jest.Mock;
+    hideAlert: jest.Mock;
+    isVisible: boolean;
+    AlertDialog: null;
+  };
+}
 
 // Mock do expo-router já está configurado globalmente no jest.setup.js
 const mockRouter = require('expo-router').useRouter();
@@ -22,8 +34,6 @@ jest.mock('@/lib/auth', () => ({
 describe('Reset Password Screen - Integration Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Limpar também o mock do Alert
-    (global as any).mockAlert.mockClear();
   });
 
   // ============================================
@@ -97,7 +107,7 @@ describe('Reset Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Digite sua nova senha');
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'Digite sua nova senha');
       });
     });
 
@@ -111,7 +121,7 @@ describe('Reset Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Digite sua nova senha');
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'Digite sua nova senha');
       });
     });
 
@@ -128,7 +138,7 @@ describe('Reset Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith(
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
           'Erro',
           'A senha deve ter no mínimo 8 caracteres'
         );
@@ -148,7 +158,7 @@ describe('Reset Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'As senhas não coincidem');
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'As senhas não coincidem');
       });
     });
 
@@ -192,10 +202,10 @@ describe('Reset Password Screen - Integration Tests', () => {
 
       await waitFor(() => {
         expect(authService.updatePassword).toHaveBeenCalledWith('novaSenha123');
-        expect(Alert.alert).toHaveBeenCalledWith(
+        expect(global.mockUseAlert.showSuccess).toHaveBeenCalledWith(
           'Senha atualizada!',
           'Sua senha foi redefinida com sucesso. Faça login com sua nova senha.',
-          [{ text: 'OK', onPress: expect.any(Function) }]
+          expect.any(Function)
         );
       });
     });
@@ -215,13 +225,13 @@ describe('Reset Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalled();
+        expect(global.mockUseAlert.showSuccess).toHaveBeenCalled();
       });
 
-      // Simular clique no botão OK do Alert
-      const alertCall = (Alert.alert as jest.Mock).mock.calls[0];
-      const okButton = alertCall[2][0];
-      okButton.onPress();
+      // Simular callback de sucesso
+      const successCall = global.mockUseAlert.showSuccess.mock.calls[0];
+      const onDismissCallback = successCall[2];
+      onDismissCallback();
 
       expect(mockRouter.replace).toHaveBeenCalledWith('/auth/login');
     });
@@ -274,9 +284,8 @@ describe('Reset Password Screen - Integration Tests', () => {
   // ============================================
   describe('Tratamento de Erros', () => {
     it('deve exibir erro quando atualização falha', async () => {
-      (authService.updatePassword as jest.Mock).mockRejectedValue(
-        new Error('Token de recuperação inválido ou expirado')
-      );
+      const testError = new Error('Token de recuperação inválido ou expirado');
+      (authService.updatePassword as jest.Mock).mockRejectedValue(testError);
 
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
@@ -290,15 +299,13 @@ describe('Reset Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith(
-          'Erro',
-          'Token de recuperação inválido ou expirado'
-        );
+        expect(global.mockUseAlert.showError).toHaveBeenCalledWith(testError);
       });
     });
 
     it('deve exibir erro genérico quando ocorre erro desconhecido', async () => {
-      (authService.updatePassword as jest.Mock).mockRejectedValue(new Error());
+      const testError = new Error();
+      (authService.updatePassword as jest.Mock).mockRejectedValue(testError);
 
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
@@ -312,7 +319,7 @@ describe('Reset Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Erro ao atualizar senha');
+        expect(global.mockUseAlert.showError).toHaveBeenCalledWith(testError);
       });
     });
 
@@ -330,7 +337,7 @@ describe('Reset Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'As senhas não coincidem');
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'As senhas não coincidem');
       });
 
       expect(authService.updatePassword).not.toHaveBeenCalled();
@@ -379,14 +386,13 @@ describe('Reset Password Screen - Integration Tests', () => {
 
       await waitFor(() => {
         expect(authService.updatePassword).toHaveBeenCalledWith('novaSenha123');
-        expect(Alert.alert).toHaveBeenCalled();
+        expect(global.mockUseAlert.showSuccess).toHaveBeenCalled();
       });
     });
 
     it('deve exibir Alert após tratamento de erro', async () => {
-      (authService.updatePassword as jest.Mock).mockRejectedValue(
-        new Error('Erro de teste')
-      );
+      const testError = new Error('Erro de teste');
+      (authService.updatePassword as jest.Mock).mockRejectedValue(testError);
 
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
@@ -401,7 +407,7 @@ describe('Reset Password Screen - Integration Tests', () => {
 
       await waitFor(() => {
         expect(authService.updatePassword).toHaveBeenCalled();
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Erro de teste');
+        expect(global.mockUseAlert.showError).toHaveBeenCalledWith(testError);
       });
     });
   });
@@ -419,7 +425,7 @@ describe('Reset Password Screen - Integration Tests', () => {
       expect(mockRouter.replace).toHaveBeenCalledWith('/auth/login');
     });
 
-    it('deve exibir Alert de sucesso com botão de confirmação', async () => {
+    it('deve exibir Alert de sucesso com callback de confirmação', async () => {
       (authService.updatePassword as jest.Mock).mockResolvedValue(undefined);
 
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
@@ -434,18 +440,17 @@ describe('Reset Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith(
+        expect(global.mockUseAlert.showSuccess).toHaveBeenCalledWith(
           'Senha atualizada!',
           'Sua senha foi redefinida com sucesso. Faça login com sua nova senha.',
-          [{ text: 'OK', onPress: expect.any(Function) }]
+          expect.any(Function)
         );
       });
     });
 
     it('não deve navegar quando atualização falha', async () => {
-      (authService.updatePassword as jest.Mock).mockRejectedValue(
-        new Error('Erro de teste')
-      );
+      const testError = new Error('Erro de teste');
+      (authService.updatePassword as jest.Mock).mockRejectedValue(testError);
 
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
@@ -459,7 +464,7 @@ describe('Reset Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Erro de teste');
+        expect(global.mockUseAlert.showError).toHaveBeenCalledWith(testError);
       });
 
       // Não deve ter chamado replace (exceto pelo mock inicial)
@@ -474,8 +479,9 @@ describe('Reset Password Screen - Integration Tests', () => {
   describe('Casos de Borda', () => {
     it('deve permitir múltiplas tentativas de atualização após erro', async () => {
       // Configurar mock para duas chamadas: primeira falha, segunda sucesso
+      const firstError = new Error('Erro temporário');
       (authService.updatePassword as jest.Mock)
-        .mockRejectedValueOnce(new Error('Erro temporário'))
+        .mockRejectedValueOnce(firstError)
         .mockResolvedValueOnce(undefined);
 
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
@@ -490,7 +496,7 @@ describe('Reset Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Erro temporário');
+        expect(global.mockUseAlert.showError).toHaveBeenCalledWith(firstError);
         expect(authService.updatePassword).toHaveBeenCalledTimes(1);
       });
 
@@ -520,7 +526,7 @@ describe('Reset Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Digite sua nova senha');
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'Digite sua nova senha');
       });
 
       jest.clearAllMocks();
@@ -531,7 +537,7 @@ describe('Reset Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith(
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
           'Erro',
           'A senha deve ter no mínimo 8 caracteres'
         );
@@ -545,7 +551,7 @@ describe('Reset Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'As senhas não coincidem');
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'As senhas não coincidem');
       });
     });
 
@@ -563,7 +569,7 @@ describe('Reset Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'As senhas não coincidem');
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'As senhas não coincidem');
       });
     });
   });

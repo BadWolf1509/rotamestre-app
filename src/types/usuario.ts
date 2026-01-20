@@ -1,3 +1,5 @@
+import type { Session } from '@supabase/supabase-js';
+
 export type TipoUsuario = 'gestor' | 'motorista';
 
 /**
@@ -76,6 +78,6 @@ export interface Usuario {
 
 export interface AuthState {
   usuario: Usuario | null;
-  session: any;
+  session: Session | null;
   loading: boolean;
 }

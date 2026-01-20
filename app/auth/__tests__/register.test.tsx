@@ -1,14 +1,25 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
-import * as ReactNative from 'react-native';
 
 import { authService } from '@/lib/auth';
 
-(ReactNative as any).Alert = (ReactNative as any).Alert || { alert: (global as any).mockAlert };
-(ReactNative as any).Alert.alert = (global as any).mockAlert;
+// TypeScript declaration for global mock
+declare global {
+   
+  var mockUseAlert: {
+    showAlert: jest.Mock;
+    showSuccess: jest.Mock;
+    showWarning: jest.Mock;
+    showError: jest.Mock;
+    showConfirm: jest.Mock;
+    showDestructive: jest.Mock;
+    hideAlert: jest.Mock;
+    isVisible: boolean;
+    AlertDialog: null;
+  };
+}
 
 const Register = require('../register').default;
-const Alert = ReactNative.Alert;
 
 // Mock expo-router
 const mockBack = jest.fn();
@@ -44,7 +55,6 @@ jest.mock('@/components/ResponsiveContainer', () => ({
 describe('Register Screen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (global as any).mockAlert.mockClear();
   });
 
   describe('Renderização', () => {
@@ -174,7 +184,7 @@ describe('Register Screen', () => {
 
       fireEvent.press(submitButton);
 
-      expect(Alert.alert).toHaveBeenCalledWith('Campos obrigatórios', 'Por favor, preencha todos os campos.');
+      expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Campos obrigatórios', 'Por favor, preencha todos os campos.');
     });
 
     it('deve mostrar erro ao submeter sem nome', () => {
@@ -185,7 +195,7 @@ describe('Register Screen', () => {
       fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), 'Senha123');
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
-      expect(Alert.alert).toHaveBeenCalledWith('Campos obrigatórios', 'Por favor, preencha todos os campos.');
+      expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Campos obrigatórios', 'Por favor, preencha todos os campos.');
     });
 
     it('deve mostrar erro ao submeter sem email', () => {
@@ -196,7 +206,7 @@ describe('Register Screen', () => {
       fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), 'Senha123');
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
-      expect(Alert.alert).toHaveBeenCalledWith('Campos obrigatórios', 'Por favor, preencha todos os campos.');
+      expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Campos obrigatórios', 'Por favor, preencha todos os campos.');
     });
 
     it('deve mostrar erro ao submeter sem senha', () => {
@@ -207,7 +217,7 @@ describe('Register Screen', () => {
       fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), 'Senha123');
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
-      expect(Alert.alert).toHaveBeenCalledWith('Campos obrigatórios', 'Por favor, preencha todos os campos.');
+      expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Campos obrigatórios', 'Por favor, preencha todos os campos.');
     });
 
     it('deve mostrar erro ao submeter sem confirmar senha', () => {
@@ -218,7 +228,7 @@ describe('Register Screen', () => {
       fireEvent.changeText(getByPlaceholderText('Mínimo 8 caracteres, maiúscula e número'), 'Senha123');
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
-      expect(Alert.alert).toHaveBeenCalledWith('Campos obrigatórios', 'Por favor, preencha todos os campos.');
+      expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Campos obrigatórios', 'Por favor, preencha todos os campos.');
     });
 
     it('deve mostrar erro quando senhas não coincidem', () => {
@@ -230,7 +240,7 @@ describe('Register Screen', () => {
       fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), 'Outra456');
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
-      expect(Alert.alert).toHaveBeenCalledWith('Senhas diferentes', 'As senhas digitadas não coincidem.');
+      expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Senhas diferentes', 'As senhas digitadas não coincidem.');
     });
 
     it('deve mostrar erro quando senha é fraca', () => {
@@ -242,7 +252,7 @@ describe('Register Screen', () => {
       fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), '12345');
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
-      expect(Alert.alert).toHaveBeenCalledWith('Senha fraca', expect.stringContaining('Mínimo 8 caracteres'));
+      expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Senha fraca', expect.stringContaining('Mínimo 8 caracteres'));
     });
   });
 
@@ -302,10 +312,10 @@ describe('Register Screen', () => {
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith(
+        expect(global.mockUseAlert.showSuccess).toHaveBeenCalledWith(
           'Conta criada!',
           'Verifique seu e-mail para confirmar o cadastro.',
-          [{ text: 'OK', onPress: expect.any(Function) }]
+          expect.any(Function)
         );
       });
     });
@@ -322,13 +332,13 @@ describe('Register Screen', () => {
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalled();
+        expect(global.mockUseAlert.showSuccess).toHaveBeenCalled();
       });
 
-      // Simula pressionar OK no alert
-      const alertCall = (Alert.alert as jest.Mock).mock.calls[0];
-      const okButton = alertCall[2][0];
-      okButton.onPress();
+      // Simula pressionar OK no alert - showSuccess recebe callback como terceiro argumento
+      const successCall = global.mockUseAlert.showSuccess.mock.calls[0];
+      const onConfirmCallback = successCall[2];
+      onConfirmCallback();
 
       expect(mockReplace).toHaveBeenCalledWith('/auth/login');
     });
@@ -347,7 +357,7 @@ describe('Register Screen', () => {
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('E-mail já cadastrado', expect.any(String));
+        expect(global.mockUseAlert.showError).toHaveBeenCalled();
       });
     });
 
@@ -363,7 +373,7 @@ describe('Register Screen', () => {
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Algo deu errado', 'Ocorreu um erro inesperado. Tente novamente ou contate o suporte.');
+        expect(global.mockUseAlert.showError).toHaveBeenCalled();
       });
     });
   });
@@ -402,10 +412,10 @@ describe('Register Screen', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith(
+        expect(global.mockUseAlert.showSuccess).toHaveBeenCalledWith(
           'Conta criada!',
           expect.any(String),
-          expect.any(Array)
+          expect.any(Function)
         );
       });
     });

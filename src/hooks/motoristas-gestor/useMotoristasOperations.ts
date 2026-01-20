@@ -11,6 +11,7 @@ import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
 import { validatePhone } from '@/lib/phone';
+import { updateUsuario, logUserAction } from '@/lib/queries';
 import { supabase } from '@/lib/supabase';
 
 import type { MotoristaDetalhado } from '../useMotoristasGestor';
@@ -222,33 +223,28 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
 
         logger.info('[Motoristas] Motorista criado', result);
 
-        // Create log
+        // Create log using centralized logging
         if (userData) {
           logger.debug('[Motoristas] Criando log...');
-          const { error: logError } = await supabase.from('logs').insert({
-            usuario_id: userData.id,
-            evento: 'motorista_criado',
-            detalhes: {
-              motorista_nome: nome.trim(),
-              motorista_email: email.trim(),
-            },
+          logUserAction(userData.id, 'motorista_criado', {
+            motorista_nome: nome.trim(),
+            motorista_email: email.trim(),
           });
-
-          if (logError) {
-            logger.warn('[Motoristas] Erro ao criar log (não crítico)', logError);
-          }
         }
 
         logger.info('[Motoristas] Processo concluído com sucesso!');
         showToast('Motorista adicionado com sucesso!', 'success');
         onSuccess();
         loadMotoristas();
-      } catch (error: any) {
+      } catch (error: unknown) {
         logger.error('[Motoristas] Erro inesperado ao adicionar motorista', error);
-        showToast(
-          error.message || 'Não foi possível adicionar o motorista',
-          'error'
-        );
+        let message = 'Não foi possível adicionar o motorista';
+        if (error instanceof Error) {
+          message = error.message;
+        } else if (error && typeof error === 'object' && 'message' in error) {
+          message = String(error.message);
+        }
+        showToast(message, 'error');
       } finally {
         setSalvando(false);
       }
@@ -282,37 +278,35 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
 
       setSalvando(true);
       try {
-        const { error: updateError } = await supabase
-          .from('usuarios')
-          .update({
-            nome: nome.trim(),
-            email: email.trim(),
-            telefone: telefone.trim() || null,
-          })
-          .eq('id', motoristaId);
+        // Use centralized query for update
+        const result = await updateUsuario(motoristaId, {
+          nome: nome.trim(),
+          email: email.trim(),
+          telefone: telefone.trim() || null,
+        });
 
-        if (updateError) throw updateError;
+        if (!result.success) throw new Error(result.error.message);
 
+        // Log action using centralized logging
         if (userData) {
-          await supabase.from('logs').insert({
-            usuario_id: userData.id,
-            evento: 'motorista_editado',
-            detalhes: {
-              motorista_id: motoristaId,
-              motorista_nome: nome.trim(),
-            },
+          logUserAction(userData.id, 'motorista_editado', {
+            motorista_id: motoristaId,
+            motorista_nome: nome.trim(),
           });
         }
 
         showToast('Motorista atualizado com sucesso!', 'success');
         onSuccess();
         loadMotoristas();
-      } catch (error: any) {
+      } catch (error: unknown) {
         logger.error('[Motoristas] Erro ao editar motorista', error);
-        showToast(
-          error.message || 'Não foi possível editar o motorista',
-          'error'
-        );
+        let message = 'Não foi possível editar o motorista';
+        if (error instanceof Error) {
+          message = error.message;
+        } else if (error && typeof error === 'object' && 'message' in error) {
+          message = String(error.message);
+        }
+        showToast(message, 'error');
       } finally {
         setSalvando(false);
       }
@@ -331,21 +325,15 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
       try {
         await withToast(
           async () => {
-            const { error } = await supabase
-              .from('usuarios')
-              .update({ ativo: novoStatus })
-              .eq('id', motorista.id);
+            // Use centralized query for update
+            const result = await updateUsuario(motorista.id, { ativo: novoStatus });
+            if (!result.success) throw new Error(result.error.message);
 
-            if (error) throw error;
-
+            // Log action using centralized logging
             if (userData) {
-              await supabase.from('logs').insert({
-                usuario_id: userData.id,
-                evento: novoStatus ? 'motorista_ativado' : 'motorista_desativado',
-                detalhes: {
-                  motorista_id: motorista.id,
-                  motorista_nome: motorista.nome,
-                },
+              logUserAction(userData.id, novoStatus ? 'motorista_ativado' : 'motorista_desativado', {
+                motorista_id: motorista.id,
+                motorista_nome: motorista.nome,
               });
             }
           },
@@ -357,7 +345,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
         );
         onSuccess();
         loadMotoristas();
-      } catch (error: any) {
+      } catch (error: unknown) {
         logger.error('[Motoristas] Erro ao alterar status', error);
       }
     },

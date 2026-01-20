@@ -1,20 +1,25 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, Platform, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
+
 
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
 import { ResponsiveContainer } from '@/components/ResponsiveContainer';
 import { Button, Card, Input, Text } from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
 import { useProfile } from '@/hooks/useProfile';
 import { useResponsive } from '@/hooks/useResponsive';
 import { supabase } from '@/lib/supabase';
 import { isPasswordValid } from '@/utils/passwordValidation';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
+import type { User } from '@supabase/supabase-js';
+
 export default function FirstPasswordScreen() {
   const router = useRouter();
   const { isDesktop } = useResponsive();
-  const [user, setUser] = useState<any>(null);
+  const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
+  const [user, setUser] = useState<User | null>(null);
   const { profile } = useProfile(user);
 
   const [newPassword, setNewPassword] = useState('');
@@ -31,29 +36,20 @@ export default function FirstPasswordScreen() {
     loadUser();
   }, []);
 
-  // Helper para mostrar alertas cross-platform
-  const showAlert = (title: string, message: string) => {
-    if (Platform.OS === 'web') {
-      window.alert(`${title}\n\n${message}`);
-    } else {
-      Alert.alert(title, message);
-    }
-  };
-
   async function handleSetPassword() {
     // Validacoes
     if (!newPassword || !confirmPassword) {
-      showAlert('Erro', 'Preencha todos os campos');
+      showWarning('Erro', 'Preencha todos os campos');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      showAlert('Erro', 'As senhas nao coincidem');
+      showWarning('Erro', 'As senhas nao coincidem');
       return;
     }
 
     if (!isPasswordValid(newPassword)) {
-      showAlert(
+      showWarning(
         'Senha Fraca',
         'A senha nao atende aos requisitos minimos de seguranca. Por favor, crie uma senha mais forte.'
       );
@@ -67,7 +63,7 @@ export default function FirstPasswordScreen() {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
-        showAlert('Erro', 'Sessao expirada. Por favor, faca login novamente.');
+        showWarning('Erro', 'Sessao expirada. Por favor, faca login novamente.');
         await supabase.auth.signOut();
         router.replace('/auth/login');
         return;
@@ -75,7 +71,7 @@ export default function FirstPasswordScreen() {
 
       // Verificar se o perfil esta carregado
       if (!user || !profile) {
-        showAlert('Erro', 'Nao foi possivel carregar os dados do usuario.');
+        showWarning('Erro', 'Nao foi possivel carregar os dados do usuario.');
         setLoading(false);
         return;
       }
@@ -96,7 +92,7 @@ export default function FirstPasswordScreen() {
       if (updateError) {
         if (updateError.message.includes('should be different') ||
             updateError.message.includes('same')) {
-          showAlert(
+          showWarning(
             'Senha Invalida',
             'A nova senha nao pode ser igual a senha temporaria que voce recebeu. Por favor, escolha uma senha diferente.'
           );
@@ -112,7 +108,7 @@ export default function FirstPasswordScreen() {
       const { error: dbError } = await supabase
         .from('usuarios')
         .update({ primeira_senha: false })
-        .eq('id', user.id);
+        .eq('id', user!.id);
 
       if (dbError) {
         console.error('Erro ao atualizar primeira_senha:', dbError);
@@ -128,24 +124,11 @@ export default function FirstPasswordScreen() {
         `Bem-vindo ao Rota Mestre, ${profile.nome}! ` +
         `Voce sera redirecionado para sua area de ${papelNome}.`;
 
-      if (Platform.OS === 'web') {
-        window.alert(`Senha Definida com Sucesso!\n\n${successMessage}`);
-        router.replace(targetRoute);
-      } else {
-        Alert.alert(
-          'Senha Definida com Sucesso!',
-          successMessage,
-          [
-            {
-              text: 'Continuar',
-              onPress: () => router.replace(targetRoute),
-            },
-          ]
-        );
-      }
-    } catch (error: any) {
+      showSuccess('Senha Definida com Sucesso!', successMessage, () => router.replace(targetRoute));
+    } catch (error: unknown) {
       console.error('Erro completo:', error);
-      showAlert('Erro', error.message || 'Erro ao definir senha. Tente novamente.');
+      const message = error instanceof Error ? error.message : 'Erro ao definir senha. Tente novamente.';
+      showError({ title: 'Erro', message });
     } finally {
       setLoading(false);
     }
@@ -153,6 +136,7 @@ export default function FirstPasswordScreen() {
 
   return (
     <ResponsiveContainer>
+      {AlertDialog}
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}

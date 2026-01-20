@@ -5,9 +5,24 @@
 
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import React from 'react';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
 import { ThemeSettings } from '../ThemeSettings';
+
+// Access global useAlert mock
+declare global {
+  var mockUseAlert: {
+    showAlert: jest.Mock;
+    showSuccess: jest.Mock;
+    showWarning: jest.Mock;
+    showError: jest.Mock;
+    showConfirm: jest.Mock;
+    showDestructive: jest.Mock;
+    hideAlert: jest.Mock;
+    isVisible: boolean;
+    AlertDialog: null;
+  };
+}
 
 // Mock theme preferences
 const mockGetThemePreferences = jest.fn();
@@ -108,33 +123,6 @@ jest.mock('@expo/vector-icons', () => ({
   },
 }));
 
-// Mock Dialog
-jest.mock('@/components/Dialog', () => ({
-  Dialog: ({ visible, title, message, onConfirm, onCancel }: {
-    visible: boolean;
-    title: string;
-    message: string;
-    onConfirm: () => void;
-    onCancel?: () => void;
-  }) => {
-    const { View, Text, TouchableOpacity } = require('react-native');
-    if (!visible) return null;
-    return (
-      <View testID="confirm-dialog">
-        <Text>{title}</Text>
-        <Text>{message}</Text>
-        <TouchableOpacity testID="confirm-reset" onPress={onConfirm}>
-          <Text>Restaurar</Text>
-        </TouchableOpacity>
-        {onCancel && (
-          <TouchableOpacity testID="cancel-reset" onPress={onCancel}>
-            <Text>Cancelar</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    );
-  },
-}));
 
 // Mock Text from design-system
 jest.mock('@/design-system', () => ({
@@ -144,8 +132,6 @@ jest.mock('@/design-system', () => ({
   },
 }));
 
-// Mock Alert
-jest.spyOn(Alert, 'alert');
 
 describe('ThemeSettings', () => {
   beforeEach(() => {
@@ -283,7 +269,10 @@ describe('ThemeSettings', () => {
       });
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Falha ao salvar preferência de tema.');
+        expect(global.mockUseAlert.showError).toHaveBeenCalledWith({
+          title: 'Erro',
+          message: 'Falha ao salvar preferência de tema.',
+        });
       });
     });
   });
@@ -323,7 +312,10 @@ describe('ThemeSettings', () => {
       });
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Falha ao salvar preferência de densidade.');
+        expect(global.mockUseAlert.showError).toHaveBeenCalledWith({
+          title: 'Erro',
+          message: 'Falha ao salvar preferência de densidade.',
+        });
       });
     });
   });
@@ -363,7 +355,10 @@ describe('ThemeSettings', () => {
       });
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Falha ao salvar preferência de contraste.');
+        expect(global.mockUseAlert.showError).toHaveBeenCalledWith({
+          title: 'Erro',
+          message: 'Falha ao salvar preferência de contraste.',
+        });
       });
     });
   });
@@ -392,7 +387,7 @@ describe('ThemeSettings', () => {
       });
     });
 
-    it('deve mostrar Alert ao clicar reset em mobile', async () => {
+    it('deve mostrar showConfirm ao clicar reset em mobile', async () => {
       Platform.OS = 'ios';
 
       mockGetThemePreferences.mockResolvedValueOnce({
@@ -409,14 +404,18 @@ describe('ThemeSettings', () => {
 
       fireEvent.press(getByText('Restaurar padrões'));
 
-      expect(Alert.alert).toHaveBeenCalledWith(
-        'Restaurar padrões',
-        'Tem certeza que deseja restaurar as configurações de aparência para os valores padrão?',
-        expect.any(Array)
-      );
+      await waitFor(() => {
+        expect(global.mockUseAlert.showConfirm).toHaveBeenCalledWith({
+          title: 'Restaurar padrões',
+          message: 'Tem certeza que deseja restaurar as configurações de aparência para os valores padrão?',
+          confirmText: 'Restaurar',
+          cancelText: 'Cancelar',
+          type: 'warning',
+        });
+      });
     });
 
-    it('deve mostrar ConfirmDialog ao clicar reset em web', async () => {
+    it('deve mostrar showConfirm ao clicar reset em web', async () => {
       Platform.OS = 'web' as typeof Platform.OS;
 
       mockGetThemePreferences.mockResolvedValueOnce({
@@ -425,7 +424,7 @@ describe('ThemeSettings', () => {
         contrast: 'normal',
       });
 
-      const { getByText, getByTestId } = render(<ThemeSettings />);
+      const { getByText } = render(<ThemeSettings />);
 
       await waitFor(() => {
         expect(getByText('Restaurar padrões')).toBeTruthy();
@@ -434,12 +433,19 @@ describe('ThemeSettings', () => {
       fireEvent.press(getByText('Restaurar padrões'));
 
       await waitFor(() => {
-        expect(getByTestId('confirm-dialog')).toBeTruthy();
+        expect(global.mockUseAlert.showConfirm).toHaveBeenCalledWith({
+          title: 'Restaurar padrões',
+          message: 'Tem certeza que deseja restaurar as configurações de aparência para os valores padrão?',
+          confirmText: 'Restaurar',
+          cancelText: 'Cancelar',
+          type: 'warning',
+        });
       });
     });
 
-    it('deve restaurar padroes ao confirmar em web', async () => {
-      Platform.OS = 'web' as typeof Platform.OS;
+    it('deve restaurar padroes ao confirmar', async () => {
+      // Mock showConfirm to return true (user confirmed)
+      global.mockUseAlert.showConfirm.mockResolvedValueOnce(true);
 
       mockGetThemePreferences.mockResolvedValueOnce({
         mode: 'dark',
@@ -448,7 +454,7 @@ describe('ThemeSettings', () => {
       });
 
       const onSettingsChange = jest.fn();
-      const { getByText, getByTestId } = render(
+      const { getByText } = render(
         <ThemeSettings onSettingsChange={onSettingsChange} />
       );
 
@@ -456,14 +462,8 @@ describe('ThemeSettings', () => {
         expect(getByText('Restaurar padrões')).toBeTruthy();
       });
 
-      fireEvent.press(getByText('Restaurar padrões'));
-
-      await waitFor(() => {
-        expect(getByTestId('confirm-dialog')).toBeTruthy();
-      });
-
       await act(async () => {
-        fireEvent.press(getByTestId('confirm-reset'));
+        fireEvent.press(getByText('Restaurar padrões'));
       });
 
       await waitFor(() => {
@@ -474,8 +474,9 @@ describe('ThemeSettings', () => {
       });
     });
 
-    it('deve cancelar reset e fechar dialog', async () => {
-      Platform.OS = 'web' as typeof Platform.OS;
+    it('deve cancelar reset quando usuario nao confirmar', async () => {
+      // Mock showConfirm to return false (user cancelled)
+      global.mockUseAlert.showConfirm.mockResolvedValueOnce(false);
 
       mockGetThemePreferences.mockResolvedValueOnce({
         mode: 'dark',
@@ -483,23 +484,22 @@ describe('ThemeSettings', () => {
         contrast: 'normal',
       });
 
-      const { getByText, getByTestId, queryByTestId } = render(<ThemeSettings />);
+      const { getByText } = render(<ThemeSettings />);
 
       await waitFor(() => {
         expect(getByText('Restaurar padrões')).toBeTruthy();
       });
 
-      fireEvent.press(getByText('Restaurar padrões'));
-
-      await waitFor(() => {
-        expect(getByTestId('confirm-dialog')).toBeTruthy();
+      await act(async () => {
+        fireEvent.press(getByText('Restaurar padrões'));
       });
 
-      fireEvent.press(getByTestId('cancel-reset'));
-
       await waitFor(() => {
-        expect(queryByTestId('confirm-dialog')).toBeNull();
+        expect(global.mockUseAlert.showConfirm).toHaveBeenCalled();
       });
+
+      // Verify reset functions were NOT called since user cancelled
+      expect(mockApplyThemePreferences).not.toHaveBeenCalled();
     });
   });
 

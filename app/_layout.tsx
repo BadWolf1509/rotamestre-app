@@ -31,6 +31,7 @@ import {
   type ThemePreference,
 } from '@/lib/themePreference';
 import { configureLogBox } from '@/utils/configureLogBox';
+import { migrateNavigationPreferences } from '@/utils/navigationPreferencesMigration';
 // NOTA: Unistyles é configurado automaticamente em @/utils/styles (linha 312)
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -193,6 +194,11 @@ export default function RootLayout() {
         unsubscribeNotifications?.remove();
       };
     }
+  }, []);
+
+  // Migrar preferências de navegação para o sistema unificado
+  useEffect(() => {
+    migrateNavigationPreferences();
   }, []);
 
   // Configurar título da página para web apenas

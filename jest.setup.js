@@ -1,4 +1,4 @@
-/* global jest */
+/* global jest, beforeEach */
 // Setup para Jest
 // Note: @/utils/color is mocked via moduleNameMapper in jest.config.js
 
@@ -667,3 +667,43 @@ jest.mock('react-native-safe-area-context', () => {
     },
   };
 });
+
+// Mock useAlert - Provides testable alert functions
+// Tests can spy on these functions to verify alert behavior
+const mockShowAlert = jest.fn();
+const mockShowSuccess = jest.fn();
+const mockShowWarning = jest.fn();
+const mockShowError = jest.fn();
+const mockShowConfirm = jest.fn().mockResolvedValue(true);
+const mockShowDestructive = jest.fn().mockResolvedValue(true);
+const mockHideAlert = jest.fn();
+
+// Reset useAlert mocks before each test
+beforeEach(() => {
+  mockShowAlert.mockClear();
+  mockShowSuccess.mockClear();
+  mockShowWarning.mockClear();
+  mockShowError.mockClear();
+  mockShowConfirm.mockClear().mockResolvedValue(true);
+  mockShowDestructive.mockClear().mockResolvedValue(true);
+  mockHideAlert.mockClear();
+});
+
+// Expose mocks globally for tests to access
+global.mockUseAlert = {
+  showAlert: mockShowAlert,
+  showSuccess: mockShowSuccess,
+  showWarning: mockShowWarning,
+  showError: mockShowError,
+  showConfirm: mockShowConfirm,
+  showDestructive: mockShowDestructive,
+  hideAlert: mockHideAlert,
+  isVisible: false,
+  AlertDialog: null,
+};
+
+jest.mock('@/hooks/useAlert', () => ({
+  __esModule: true,
+  useAlert: () => global.mockUseAlert,
+  default: () => global.mockUseAlert,
+}));

@@ -6,53 +6,20 @@ import {
   Text,
   TouchableOpacity,
   ActivityIndicator,
-  Pressable,
 } from 'react-native';
 
+import {
+  EDGE_PADDING,
+  PIP_HEIGHT,
+  PIP_WIDTH,
+  SWIPE_DOWN_THRESHOLD,
+  usePiPCollisionDetection,
+  usePiPRouteInfo,
+} from '@/hooks/navigation';
+import type { PictureInPictureMapProps } from '@/hooks/navigation';
+import { usePiPPosition } from '@/hooks/usePiPPosition';
 import { boxShadow, withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
-// PiP dimensions (constantes base) - Unificado entre plataformas
-const PIP_WIDTH = 140;
-const PIP_HEIGHT = 200;
-const EDGE_PADDING = 16;
-
-// Velocidade média urbana para estimativa de tempo (km/h)
-const AVERAGE_URBAN_SPEED_KMH = 30;
-
-/**
- * Calcula a distância em km entre dois pontos usando fórmula Haversine
- */
-function calculateDistanceKm(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const R = 6371; // Raio da Terra em km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-interface PictureInPictureMapProps {
-  visible: boolean;
-  userLocation: { latitude: number; longitude: number } | null;
-  destination: {
-    latitude: number;
-    longitude: number;
-    address: string;
-  } | null;
-  onClose: () => void;
-  onExpand: () => void;
-}
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 const GOOGLE_MAPS_MAP_ID = process.env.EXPO_PUBLIC_GOOGLE_MAPS_MAP_ID || '';
@@ -63,8 +30,15 @@ export function PictureInPictureMap({
   destination,
   onClose,
   onExpand,
+  progress,
+  currentStopOrder,
+  stopType,
+  userHeading,
+  nextInstruction,
+  avoidAreas,
 }: PictureInPictureMapProps) {
   const { theme } = useUnistyles();
+  const { savedPosition, savePosition } = usePiPPosition();
 
   // Estado de expansão e arrasto
   const [isExpanded, setIsExpanded] = useState(false);
@@ -72,10 +46,19 @@ export function PictureInPictureMap({
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [mapReady, setMapReady] = useState(false);
 
+  // Use shared hooks for route info and collision detection
+  const { routeInfo, isNearDestination, routePath } = usePiPRouteInfo({
+    visible,
+    userLocation,
+    destination,
+  });
+  const { checkCollision, findSafePosition } = usePiPCollisionDetection();
+
   // Refs para arrasto
   const containerRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const positionRef = useRef({ x: 0, y: 0 });
+  const dragStartPosRef = useRef({ x: 0, y: 0 }); // Posição inicial do PiP quando começou o drag
 
   // Dimensões da viewport
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
@@ -96,32 +79,30 @@ export function PictureInPictureMap({
   const currentWidth = isExpanded ? expandedWidth : PIP_WIDTH;
   const currentHeight = isExpanded ? expandedHeight : PIP_HEIGHT;
 
-  // Calcular distância e tempo estimado até o destino
-  const routeInfo = useMemo(() => {
-    if (!userLocation || !destination) return null;
+  // Injetar CSS keyframes para animação de pulso (apenas web)
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
 
-    const distanceKm = calculateDistanceKm(
-      userLocation.latitude,
-      userLocation.longitude,
-      destination.latitude,
-      destination.longitude
-    );
+    const styleId = 'pip-pulse-keyframes';
+    if (document.getElementById(styleId)) return;
 
-    // Estimar tempo baseado em velocidade média urbana
-    const estimatedMinutes = Math.ceil((distanceKm / AVERAGE_URBAN_SPEED_KMH) * 60);
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      @keyframes pip-pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.15); }
+      }
+    `;
+    document.head.appendChild(style);
 
-    return {
-      distanceKm,
-      estimatedMinutes,
-      // Formatar para exibição
-      distanceText: distanceKm < 1
-        ? `${Math.round(distanceKm * 1000)} m`
-        : `${distanceKm.toFixed(1)} km`,
-      timeText: estimatedMinutes < 60
-        ? `${estimatedMinutes} min`
-        : `${Math.floor(estimatedMinutes / 60)}h${estimatedMinutes % 60}`,
+    return () => {
+      const existingStyle = document.getElementById(styleId);
+      if (existingStyle) {
+        existingStyle.remove();
+      }
     };
-  }, [userLocation, destination]);
+  }, []);
 
   // Inicializar posição no canto inferior direito
   useEffect(() => {
@@ -135,25 +116,84 @@ export function PictureInPictureMap({
     }
   }, []);
 
-  // Posicionar no canto quando visível
+  // Posicionar no canto quando visível (usa posição salva se disponível)
   useEffect(() => {
     if (visible && viewport.width > 0 && !isExpanded) {
-      const initialX = viewport.width - PIP_WIDTH - EDGE_PADDING - 80; // 80px para tab bar
-      const initialY = viewport.height - PIP_HEIGHT - EDGE_PADDING - 120; // 120px para tab bar
+      // Posição padrão (canto inferior direito)
+      const defaultX = viewport.width - PIP_WIDTH - EDGE_PADDING - 80;
+      const defaultY = viewport.height - PIP_HEIGHT - EDGE_PADDING - 120;
+
+      // Usar posição salva se disponível e válida
+      let initialX = defaultX;
+      let initialY = defaultY;
+
+      if (savedPosition) {
+        initialX = Math.max(EDGE_PADDING, Math.min(savedPosition.x, viewport.width - PIP_WIDTH - EDGE_PADDING));
+        initialY = Math.max(EDGE_PADDING, Math.min(savedPosition.y, viewport.height - PIP_HEIGHT - EDGE_PADDING - 60));
+      }
+
       setPosition({ x: initialX, y: initialY });
       positionRef.current = { x: initialX, y: initialY };
     }
-  }, [visible, viewport, isExpanded]);
+  }, [visible, viewport, isExpanded, savedPosition]);
+
+  // Auto-reposicionamento para evitar colisão com avoidAreas
+  useEffect(() => {
+    if (!avoidAreas || avoidAreas.length === 0 || isExpanded || !visible || viewport.width === 0) return;
+
+    const currentPosition = positionRef.current;
+
+    // Use shared collision detection hook
+    const hasCollision = checkCollision(currentPosition, avoidAreas);
+
+    if (hasCollision) {
+      const minY = EDGE_PADDING;
+      const maxY = viewport.height - PIP_HEIGHT - EDGE_PADDING - 60;
+
+      const bestPosition = findSafePosition(currentPosition, avoidAreas, {
+        width: viewport.width,
+        height: viewport.height,
+        minY,
+        maxY,
+      });
+
+      // Reposicionar (com transição CSS)
+      positionRef.current = bestPosition;
+      setPosition(bestPosition);
+      savePosition(bestPosition);
+    }
+  }, [avoidAreas, visible, isExpanded, viewport, savePosition, checkCollision, findSafePosition]);
+
+  // Snap to edges helper
+  const snapToEdge = useCallback(() => {
+    const { x, y } = positionRef.current;
+    const centerX = x + PIP_WIDTH / 2;
+    const snapX = centerX < viewport.width / 2
+      ? EDGE_PADDING
+      : viewport.width - PIP_WIDTH - EDGE_PADDING;
+
+    // Clamp Y dentro dos bounds
+    const minY = EDGE_PADDING;
+    const maxY = viewport.height - PIP_HEIGHT - EDGE_PADDING - 60;
+    const snapY = Math.max(minY, Math.min(maxY, y));
+
+    positionRef.current = { x: snapX, y: snapY };
+    setPosition({ x: snapX, y: snapY });
+    // Persistir posição após snap
+    savePosition({ x: snapX, y: snapY });
+  }, [viewport, savePosition]);
 
   // Handlers de arrasto com mouse
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (isExpanded) return;
     e.preventDefault();
+    e.stopPropagation();
     setIsDragging(true);
     dragStartRef.current = {
       x: e.clientX - positionRef.current.x,
       y: e.clientY - positionRef.current.y,
     };
+    dragStartPosRef.current = { ...positionRef.current };
   }, [isExpanded]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
@@ -168,33 +208,69 @@ export function PictureInPictureMap({
     if (!isDragging) return;
     setIsDragging(false);
 
-    // Snap to edges
-    const { x, y } = positionRef.current;
-    const centerX = x + PIP_WIDTH / 2;
-    const snapX = centerX < viewport.width / 2
-      ? EDGE_PADDING
-      : viewport.width - PIP_WIDTH - EDGE_PADDING;
+    // Detectar swipe para baixo (distância > 100px)
+    const deltaY = positionRef.current.y - dragStartPosRef.current.y;
+    if (deltaY > SWIPE_DOWN_THRESHOLD) {
+      // Swipe down - fechar
+      onClose();
+      return;
+    }
 
-    // Clamp Y dentro dos bounds
-    const minY = EDGE_PADDING;
-    const maxY = viewport.height - PIP_HEIGHT - EDGE_PADDING - 60;
-    const snapY = Math.max(minY, Math.min(maxY, y));
+    snapToEdge();
+  }, [isDragging, snapToEdge, onClose]);
 
-    positionRef.current = { x: snapX, y: snapY };
-    setPosition({ x: snapX, y: snapY });
-  }, [isDragging, viewport]);
+  // Handlers de arrasto com touch (mobile/tablet)
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (isExpanded) return;
+    // Não usar preventDefault aqui - causa o warning "cancelable=false"
+    e.stopPropagation();
+    setIsDragging(true);
+    const touch = e.touches[0];
+    dragStartRef.current = {
+      x: touch.clientX - positionRef.current.x,
+      y: touch.clientY - positionRef.current.y,
+    };
+    dragStartPosRef.current = { ...positionRef.current };
+  }, [isExpanded]);
 
-  // Event listeners globais para arrasto
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    if (!isDragging || isExpanded) return;
+    const touch = e.touches[0];
+    const newX = touch.clientX - dragStartRef.current.x;
+    const newY = touch.clientY - dragStartRef.current.y;
+    positionRef.current = { x: newX, y: newY };
+    setPosition({ x: newX, y: newY });
+  }, [isDragging, isExpanded]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!isDragging) return;
+    setIsDragging(false);
+
+    // Detectar swipe para baixo (distância > 100px)
+    const deltaY = positionRef.current.y - dragStartPosRef.current.y;
+    if (deltaY > SWIPE_DOWN_THRESHOLD) {
+      // Swipe down - fechar
+      onClose();
+      return;
+    }
+    snapToEdge();
+  }, [isDragging, snapToEdge, onClose]);
+
+  // Event listeners globais para arrasto (mouse)
   useEffect(() => {
     if (isDragging) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchmove', handleTouchMove, { passive: true });
+      window.addEventListener('touchend', handleTouchEnd);
       return () => {
         window.removeEventListener('mousemove', handleMouseMove);
         window.removeEventListener('mouseup', handleMouseUp);
+        window.removeEventListener('touchmove', handleTouchMove);
+        window.removeEventListener('touchend', handleTouchEnd);
       };
     }
-  }, [isDragging, handleMouseMove, handleMouseUp]);
+  }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd]);
 
   // Toggle expansão
   const toggleExpand = useCallback(() => {
@@ -359,18 +435,34 @@ export function PictureInPictureMap({
         width: currentWidth,
         height: currentHeight,
         zIndex: 9999,
-        cursor: isExpanded ? 'default' : (isDragging ? 'grabbing' : 'grab'),
         transition: isDragging ? 'none' : 'all 0.3s ease-out',
         borderRadius: 16,
         overflow: 'hidden',
         boxShadow: boxShadow(0, 4, 16, 0, '#000000', 0.25),
       }}
-      onMouseDown={handleMouseDown}
     >
-      <Pressable
-        style={[styles.container, { width: currentWidth, height: currentHeight }]}
-        onPress={isExpanded ? undefined : openGoogleMaps}
-      >
+      <View style={[styles.container, { width: currentWidth, height: currentHeight }]}>
+        {/* Drag Overlay - cobre toda área quando colapsado para permitir drag */}
+        {!isExpanded && (
+          <div
+            data-testid="pip-drag-overlay"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 10, // Acima do mapa, abaixo dos controles (z-index: 20)
+              cursor: isDragging ? 'grabbing' : 'grab',
+              touchAction: 'none', // Essencial para touch funcionar
+              background: 'transparent',
+            }}
+            onMouseDown={handleMouseDown}
+            onTouchStart={handleTouchStart}
+            onDoubleClick={toggleExpand}
+          />
+        )}
+
         {/* Mapa Google */}
         <GoogleMap
           mapContainerStyle={{ width: '100%', height: '100%' }}
@@ -387,17 +479,15 @@ export function PictureInPictureMap({
             mapId: GOOGLE_MAPS_MAP_ID || undefined,
           }}
         >
-          {/* Polyline conectando usuário ao destino */}
-          {userLocation && destination && (
+          {/* Polyline da rota real via OSRM */}
+          {mapReady && routePath.length >= 2 && (
             <Polyline
-              path={[
-                { lat: userLocation.latitude, lng: userLocation.longitude },
-                { lat: destination.latitude, lng: destination.longitude },
-              ]}
+              path={routePath.map(coord => ({ lat: coord.latitude, lng: coord.longitude }))}
               options={{
                 strokeColor: theme.colors.primary,
-                strokeWeight: 3,
-                strokeOpacity: 0.8,
+                strokeWeight: 4,
+                strokeOpacity: 1,
+                geodesic: true,
               }}
             />
           )}
@@ -409,9 +499,23 @@ export function PictureInPictureMap({
               mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
               getPixelPositionOffset={getOverlayOffset}
             >
-              <View style={styles.userMarker} pointerEvents="none">
-                <View style={styles.userMarkerDot} />
-              </View>
+              {userHeading !== undefined ? (
+                // Seta direcional quando heading disponível
+                <View
+                  style={[
+                    styles.userDirectionMarker,
+                    { transform: [{ rotate: `${userHeading}deg` }] },
+                  ]}
+                  pointerEvents="none"
+                >
+                  <Ionicons name="navigate" size={20} color={theme.colors.info} />
+                </View>
+              ) : (
+                // Ponto azul padrão
+                <View style={styles.userMarker} pointerEvents="none">
+                  <View style={styles.userMarkerDot} />
+                </View>
+              )}
             </OverlayView>
           )}
 
@@ -436,10 +540,39 @@ export function PictureInPictureMap({
           </View>
         )}
 
+        {/* Navigation Instruction - apenas quando colapsado e há instrução */}
+        {!isExpanded && nextInstruction && (
+          <View style={styles.instructionBar}>
+            <Ionicons name="compass-outline" size={14} color={theme.colors.white} />
+            <Text style={styles.instructionText} numberOfLines={1}>
+              {nextInstruction}
+            </Text>
+          </View>
+        )}
+
+        {/* Progress Badge - apenas quando colapsado e há progresso */}
+        {!isExpanded && progress && (
+          <View style={[styles.progressBadge, nextInstruction && styles.progressBadgeWithInstruction]}>
+            <Ionicons name="checkmark-circle-outline" size={12} color={theme.colors.white} />
+            <Text style={styles.progressText}>
+              {currentStopOrder ?? progress.completed + 1} de {progress.total}
+            </Text>
+          </View>
+        )}
+
         {/* ETA Badge - apenas quando colapsado */}
         {!isExpanded && routeInfo && (
-          <View style={styles.etaBadge}>
-            <Ionicons name="navigate-outline" size={12} color={theme.colors.white} />
+          <View
+            style={[
+              styles.etaBadge,
+              isNearDestination && styles.etaBadgePulse,
+            ]}
+          >
+            <Ionicons
+              name={stopType === 'retirada' ? 'cube-outline' : 'gift-outline'}
+              size={12}
+              color={theme.colors.white}
+            />
             <Text style={styles.etaText}>
               {routeInfo.distanceText} • {routeInfo.timeText}
             </Text>
@@ -500,7 +633,7 @@ export function PictureInPictureMap({
             <View style={styles.dragBar} />
           </View>
         )}
-      </Pressable>
+      </View>
     </div>
   );
 }
@@ -564,6 +697,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     right: theme.spacing['2'],
     flexDirection: 'row',
     gap: theme.spacing['2'],
+    zIndex: 20, // Acima do drag overlay (z-index: 10)
   },
   controlButton: {
     width: 44,
@@ -582,6 +716,49 @@ const styles = StyleSheet.create((theme: Theme) => ({
   closeButton: {
     backgroundColor: withOpacity(theme.colors.error, 0.9),
   },
+  instructionBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: withOpacity(theme.colors.gray800, 0.9),
+    paddingHorizontal: theme.spacing['2'],
+    paddingVertical: theme.spacing['1.5'],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing['1.5'],
+    zIndex: 15, // Acima de tudo no PiP
+    borderTopLeftRadius: theme.borderRadius.lg,
+    borderTopRightRadius: theme.borderRadius.lg,
+  },
+  instructionText: {
+    flex: 1,
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.white,
+    fontWeight: '500',
+  },
+  progressBadge: {
+    position: 'absolute',
+    top: theme.spacing['2'],
+    left: theme.spacing['2'],
+    backgroundColor: withOpacity(theme.colors.success, 0.9),
+    borderRadius: theme.borderRadius.xs,
+    paddingHorizontal: theme.spacing['2'],
+    paddingVertical: theme.spacing['1'],
+    flexDirection: 'row',
+    zIndex: 15, // Visível acima do drag overlay
+    alignItems: 'center',
+    gap: theme.spacing['1'],
+  },
+  progressBadgeWithInstruction: {
+    // Ajustar posição quando há instrução
+    top: theme.spacing['8'],
+  },
+  progressText: {
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.white,
+    fontWeight: '600',
+  },
   etaBadge: {
     position: 'absolute',
     bottom: theme.spacing['2'],
@@ -591,8 +768,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
     paddingHorizontal: theme.spacing['2'],
     paddingVertical: theme.spacing['1'],
     flexDirection: 'row',
+    zIndex: 15, // Visível acima do drag overlay
     alignItems: 'center',
     gap: theme.spacing['1'],
+  },
+  etaBadgePulse: {
+    // CSS animation para web (React Native Web suporta isso)
+    animation: 'pip-pulse 1s ease-in-out infinite',
+    backgroundColor: withOpacity(theme.colors.success, 0.95),
   },
   etaText: {
     fontSize: theme.typography.fontSize.xs,
@@ -605,6 +788,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     left: 0,
     right: 0,
     alignItems: 'center',
+    zIndex: 15, // Visível acima do drag overlay
+    pointerEvents: 'none', // Não bloqueia eventos do overlay
   },
   dragBar: {
     width: 30,
@@ -627,6 +812,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.info,
     borderWidth: 2,
     borderColor: theme.colors.white,
+  },
+  userDirectionMarker: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: theme.colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
   },
   destinationMarker: {
     backgroundColor: theme.colors.white,

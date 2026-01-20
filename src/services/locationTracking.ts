@@ -35,6 +35,8 @@ interface NavigationState {
   preventScreenSleep?: boolean;
   voiceNavigation?: boolean;
   internalNavigation?: boolean;
+  // Unified preferences (migrated from configuracoes.tsx)
+  preferredNavApp?: 'waze' | 'google_maps' | 'apple_maps' | 'default';
   // Navigation session state
   rotaId?: string;
   currentStopId?: string;

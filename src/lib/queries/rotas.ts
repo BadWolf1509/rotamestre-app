@@ -30,6 +30,8 @@ export interface RotaDB {
   observacoes: string | null;
   distancia_total: number | null;
   duracao_total_minutos: number | null;
+  tempo_total: number | null; // Alias for duracao_total_minutos (legacy compatibility)
+  polyline: string | null; // Encoded polyline for route visualization
   criado_em: string;
   iniciada_em: string | null;
   concluida_em: string | null;
@@ -118,6 +120,8 @@ export interface RotaInsert {
   observacoes?: string | null;
   distancia_total?: number | null;
   duracao_total_minutos?: number | null;
+  tempo_total?: number | null; // Alias for duracao_total_minutos (legacy compatibility)
+  polyline?: string | null; // Encoded polyline for route visualization
 }
 
 /**

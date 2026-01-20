@@ -2,7 +2,6 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Text,
   TextInput,
@@ -14,6 +13,7 @@ import { UnistylesRuntime } from 'react-native-unistyles';
 import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
 import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
+import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -22,6 +22,7 @@ export default function ForgotPassword() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { isDesktop } = useResponsive();
+  const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -31,7 +32,7 @@ export default function ForgotPassword() {
 
   async function handleResetPassword() {
     if (!email.trim()) {
-      Alert.alert('Erro', 'Digite seu e-mail');
+      showWarning('Erro', 'Digite seu e-mail');
       return;
     }
 
@@ -39,13 +40,14 @@ export default function ForgotPassword() {
 
     try {
       await authService.resetPassword(email);
-      Alert.alert(
+      showSuccess(
         'Email enviado!',
         'Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.',
-        [{ text: 'OK', onPress: () => router.back() }]
+        () => router.back()
       );
-    } catch (error: any) {
-      Alert.alert('Erro', error.message || 'Erro ao enviar email de recuperação');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro ao enviar email de recuperação';
+      showError({ title: 'Erro', message });
     } finally {
       setLoading(false);
     }
@@ -64,6 +66,7 @@ export default function ForgotPassword() {
 
         {/* Right Side - Form */}
         <View style={styles.rightPanel}>
+          {AlertDialog}
           <View style={styles.formContainerDesktop}>
             <View style={styles.headerDesktop}>
               <Text style={styles.titleDesktop}>Recuperar Senha</Text>
@@ -116,6 +119,7 @@ export default function ForgotPassword() {
   // ============================================
   return (
     <View style={styles.container}>
+      {AlertDialog}
       <View style={styles.header}>
         <View style={styles.logoHorizontal}>
           <Image

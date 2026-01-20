@@ -2,7 +2,6 @@ import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   RefreshControl,
   ScrollView,
 } from 'react-native';
@@ -15,12 +14,12 @@ import { FloatingActionButton } from '@/components/motorista/home/QuickActions';
 import { StartRouteButton } from '@/components/motorista/home/StartRouteButton';
 import { StatusSection } from '@/components/motorista/home/StatusSection';
 import { NavigationMode } from '@/components/motorista/NavigationMode';
-import { NavigationSettings } from '@/components/motorista/NavigationSettings';
 import { OptimizationAlert } from '@/components/motorista/OptimizationAlert';
 import { PictureInPictureMap } from '@/components/motorista/PictureInPictureMap';
 import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
 import { useRouteStatus, type ParadaData } from '@/context/RouteStatusContext';
 import { Dialog, SupportModal } from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
@@ -34,6 +33,7 @@ function MotoristaInicioContent() {
   const router = useRouter();
   const { theme } = useUnistyles();
   const { userData } = useUser();
+  const { showWarning, showSuccess, showError, showConfirm, AlertDialog } = useAlert();
   useSafeAreaInsets(); // Mantido para compatibilidade futura
 
   // Route context
@@ -64,7 +64,6 @@ function MotoristaInicioContent() {
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [showIncidentWizard, setShowIncidentWizard] = useState(false);
   const [navigationMode, setNavigationMode] = useState(false);
-  const [showNavigationSettings, setShowNavigationSettings] = useState(false);
   const [showPiPMap, setShowPiPMap] = useState(false);
   const [optimization, setOptimization] = useState<any>(null);
   const [showOptimization, setShowOptimization] = useState(false);
@@ -192,7 +191,7 @@ function MotoristaInicioContent() {
   const handleStartRoute = async () => {
     // Verificar checklist
     if (!canStartRoute) {
-      Alert.alert(
+      showWarning(
         'GPS Necessário',
         'Ative o GPS do seu dispositivo para iniciar a rota.'
       );
@@ -206,7 +205,7 @@ function MotoristaInicioContent() {
         concluida: 'Esta rota já foi concluída.',
         cancelada: 'Esta rota foi cancelada.',
       };
-      Alert.alert(
+      showWarning(
         'Rota não pode ser iniciada',
         statusMessages[route?.status || ''] || 'Status da rota inválido.'
       );
@@ -216,10 +215,9 @@ function MotoristaInicioContent() {
     try {
       setIsStartingRoute(true);
       await startRoute();
-      Alert.alert('Rota Iniciada', 'Boa viagem! Dirija com segurança.');
+      showSuccess('Rota Iniciada', 'Boa viagem! Dirija com segurança.');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Não foi possível iniciar a rota';
-      Alert.alert('Erro', message);
+      showError(error);
     } finally {
       setIsStartingRoute(false);
     }
@@ -258,26 +256,22 @@ function MotoristaInicioContent() {
   const handleSkipStop = async () => {
     if (!currentStop) return;
 
-    Alert.alert(
-      'Pular Parada',
-      `Deseja pular esta parada?\n${currentStop.endereco}`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Pular',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await skipStop(currentStop.id);
-              Alert.alert('Parada Pulada', 'Você pode voltar a ela mais tarde');
-            } catch (error) {
-              const message = error instanceof Error ? error.message : 'Não foi possível pular a parada';
-              Alert.alert('Erro', message);
-            }
-          }
-        }
-      ]
-    );
+    const confirmed = await showConfirm({
+      title: 'Pular Parada',
+      message: `Deseja pular esta parada?\n${currentStop.endereco}`,
+      confirmText: 'Pular',
+      cancelText: 'Cancelar',
+      type: 'warning',
+    });
+
+    if (confirmed) {
+      try {
+        await skipStop(currentStop.id);
+        showSuccess('Parada Pulada', 'Você pode voltar a ela mais tarde');
+      } catch (error) {
+        showError(error);
+      }
+    }
   };
 
   // Complete route - abre modal de confirmação (funciona em web e mobile)
@@ -291,9 +285,9 @@ function MotoristaInicioContent() {
     try {
       await completeRoute();
       setShowCompleteRouteModal(false);
-      Alert.alert('Parabéns!', 'Rota concluída com sucesso!');
-    } catch {
-      Alert.alert('Erro', 'Não foi possível finalizar a rota');
+      showSuccess('Parabéns!', 'Rota concluída com sucesso!');
+    } catch (error) {
+      showError(error);
     } finally {
       setIsCompletingRoute(false);
     }
@@ -392,11 +386,11 @@ function MotoristaInicioContent() {
       // Refresh route data
       await refreshRoute();
 
-      Alert.alert('Sucesso', `Rota otimizada! Você economizará ${optimization.timeSaved} minutos.`);
+      showSuccess('Sucesso', `Rota otimizada! Você economizará ${optimization.timeSaved} minutos.`);
       setShowOptimization(false);
       setOptimization(null);
-    } catch {
-      Alert.alert('Erro', 'Não foi possível aplicar a otimização');
+    } catch (error) {
+      showError(error);
     }
   };
 
@@ -532,13 +526,6 @@ function MotoristaInicioContent() {
         />
       )}
 
-      {showNavigationSettings && (
-        <NavigationSettings
-          visible={showNavigationSettings}
-          onClose={() => setShowNavigationSettings(false)}
-        />
-      )}
-
       {(routeStatus === 'pending' || routeStatus === 'active' || routeStatus === 'last-stop') && (
         <PictureInPictureMap
           visible={showPiPMap}
@@ -617,6 +604,9 @@ function MotoristaInicioContent() {
         onConfirm={confirmCompleteRoute}
         onCancel={() => setShowCompleteRouteModal(false)}
       />
+
+      {/* AlertDialog for useAlert hook */}
+      {AlertDialog}
     </>
   );
 }

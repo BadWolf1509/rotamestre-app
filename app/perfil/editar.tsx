@@ -8,7 +8,7 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { Usuario } from '@/types/usuario';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export default function EditarPerfilGestor() {
   const { theme } = useUnistyles();
@@ -127,11 +127,12 @@ export default function EditarPerfilGestor() {
         confirmText: 'Voltar',
         onConfirm: () => router.replace('/perfil'),
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao salvar:', error);
+      const message = error instanceof Error ? error.message : 'Não foi possível salvar as alterações.';
       showAlert({
         title: 'Erro ao salvar',
-        message: error.message || 'Nao foi possivel salvar as alteracoes.',
+        message,
         type: 'error',
       });
     } finally {
@@ -295,7 +296,7 @@ export default function EditarPerfilGestor() {
   );
 }
 
-const styles = (theme: any) =>
+const styles = (theme: Theme) =>
   StyleSheet.create({
     container: {
       flex: 1,

@@ -1,19 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { FormDesktopLayout } from '@/components/perfil/FormDesktopLayout';
 import { Button, Input, Text } from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export default function AlterarSenha() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { isDesktop } = useResponsive();
+  const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
   const [saving, setSaving] = useState(false);
 
   const [senhaAtual, setSenhaAtual] = useState('');
@@ -26,28 +28,28 @@ export default function AlterarSenha() {
 
   async function handleSave() {
     if (!senhaAtual) {
-      Alert.alert('Erro', 'Digite sua senha atual');
+      showWarning('Erro', 'Digite sua senha atual');
       return;
     }
 
     if (!novaSenha) {
-      Alert.alert('Erro', 'Digite a nova senha');
+      showWarning('Erro', 'Digite a nova senha');
       return;
     }
 
     const validation = validatePassword(novaSenha);
     if (!validation.isValid) {
-      Alert.alert('Erro', validation.message);
+      showWarning('Erro', validation.message);
       return;
     }
 
     if (novaSenha !== confirmarSenha) {
-      Alert.alert('Erro', 'As senhas nao coincidem');
+      showWarning('Erro', 'As senhas nao coincidem');
       return;
     }
 
     if (senhaAtual === novaSenha) {
-      Alert.alert('Erro', 'A nova senha deve ser diferente da atual');
+      showWarning('Erro', 'A nova senha deve ser diferente da atual');
       return;
     }
 
@@ -75,15 +77,10 @@ export default function AlterarSenha() {
         })
         .eq('id', session.user.id);
 
-      Alert.alert('Sucesso!', 'Senha alterada com sucesso!', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]);
-    } catch (error: any) {
+      showSuccess('Sucesso!', 'Senha alterada com sucesso!', () => router.back());
+    } catch (error: unknown) {
       console.error('Erro ao alterar senha:', error);
-      Alert.alert('Erro', error.message || 'Nao foi possivel alterar a senha');
+      showError(error);
     } finally {
       setSaving(false);
     }
@@ -244,26 +241,29 @@ export default function AlterarSenha() {
     );
 
     return (
-      <FormDesktopLayout
-        title="Alterar Senha"
-        subtitle="Crie uma senha forte para proteger sua conta"
-        fields={fields}
-        primaryButtonText="Alterar Senha"
-        primaryButtonDisabled={
-          saving ||
-          !senhaAtual ||
-          !novaSenha ||
-          !confirmarSenha ||
-          !passwordsMatch ||
-          (passwordStrength ? !passwordStrength.isValid : true)
-        }
-        onPrimaryPress={handleSave}
-        secondaryButtonText="Cancelar"
-        onSecondaryPress={() => router.push('/perfil')}
-        loading={saving}
-        sidePanel={sidePanel}
-        backPath="/perfil"
-      />
+      <>
+        <FormDesktopLayout
+          title="Alterar Senha"
+          subtitle="Crie uma senha forte para proteger sua conta"
+          fields={fields}
+          primaryButtonText="Alterar Senha"
+          primaryButtonDisabled={
+            saving ||
+            !senhaAtual ||
+            !novaSenha ||
+            !confirmarSenha ||
+            !passwordsMatch ||
+            (passwordStrength ? !passwordStrength.isValid : true)
+          }
+          onPrimaryPress={handleSave}
+          secondaryButtonText="Cancelar"
+          onSecondaryPress={() => router.push('/perfil')}
+          loading={saving}
+          sidePanel={sidePanel}
+          backPath="/perfil"
+        />
+        {AlertDialog}
+      </>
     );
   }
 
@@ -428,11 +428,12 @@ export default function AlterarSenha() {
           </View>
         </View>
       </ScrollView>
+      {AlertDialog}
     </View>
   );
 }
 
-const desktopStyles = (theme: any) =>
+const desktopStyles = (theme: Theme) =>
   StyleSheet.create({
     sidePanel: {
       flex: 1,
@@ -475,7 +476,7 @@ const desktopStyles = (theme: any) =>
     },
   });
 
-const styles = (theme: any) =>
+const styles = (theme: Theme) =>
   StyleSheet.create({
     container: {
       flex: 1,

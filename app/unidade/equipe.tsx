@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { View, ScrollView, Alert } from 'react-native';
+import { View, ScrollView } from 'react-native';
 
 import { Avatar } from '@/components/Avatar';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -14,6 +14,7 @@ import {
   Text,
   Toast,
 } from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
@@ -40,6 +41,7 @@ export default function EquipeScreen() {
     userImageUrl: userData?.foto_url,
   });
   const { toast: toastState, showToast, hideToast } = useToast();
+  const { showWarning, showConfirm, AlertDialog } = useAlert();
   const { isDesktop } = useResponsive();
   const pageMeta = getGestorPageMeta('equipe');
   const [membros, setMembros] = useState<Membro[]>([]);
@@ -99,13 +101,13 @@ export default function EquipeScreen() {
   async function handleToggleAtivo(membro: Membro) {
     // Não permitir desativar o próprio usuário
     if (membro.id === userData?.id) {
-      Alert.alert('Erro', 'Você não pode desativar sua própria conta.');
+      showWarning('Erro', 'Você não pode desativar sua própria conta.');
       return;
     }
 
     // Não permitir desativar gestor principal
     if (membro.is_gestor_principal) {
-      Alert.alert(
+      showWarning(
         'Erro',
         'O gestor principal não pode ser desativado. Transfira a gestão primeiro.'
       );
@@ -113,36 +115,34 @@ export default function EquipeScreen() {
     }
 
     const action = membro.ativo ? 'desativar' : 'reativar';
-    Alert.alert(
-      `Confirmar ${action}`,
-      `Deseja ${action} o usuário ${membro.nome}?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Confirmar',
-          onPress: async () => {
-            try {
-              const { error } = await supabase
-                .from('usuarios')
-                .update({ ativo: !membro.ativo })
-                .eq('id', membro.id);
+    const confirmed = await showConfirm({
+      title: `Confirmar ${action}`,
+      message: `Deseja ${action} o usuário ${membro.nome}?`,
+      confirmText: 'Confirmar',
+      cancelText: 'Cancelar',
+      type: membro.ativo ? 'danger' : 'default',
+    });
 
-              if (error) throw error;
+    if (!confirmed) return;
 
-              showToast(
-                `Usuário ${membro.ativo ? 'desativado' : 'reativado'} com sucesso!`,
-                'success',
-                3000
-              );
-              await loadMembros();
-            } catch (error) {
-              console.error('Erro ao atualizar usuário:', error);
-              showToast('Erro ao atualizar usuário', 'error', 4000);
-            }
-          },
-        },
-      ]
-    );
+    try {
+      const { error } = await supabase
+        .from('usuarios')
+        .update({ ativo: !membro.ativo })
+        .eq('id', membro.id);
+
+      if (error) throw error;
+
+      showToast(
+        `Usuário ${membro.ativo ? 'desativado' : 'reativado'} com sucesso!`,
+        'success',
+        3000
+      );
+      await loadMembros();
+    } catch (error) {
+      console.error('Erro ao atualizar usuário:', error);
+      showToast('Erro ao atualizar usuário', 'error', 4000);
+    }
   }
 
   function getPapelLabel(papel: string): string {
@@ -352,6 +352,7 @@ export default function EquipeScreen() {
           {renderMembersSection(true)}
         </DesktopPageLayout>
         <Toast {...toastState} onDismiss={hideToast} />
+        {AlertDialog}
         {logoutModal}
       </ErrorBoundary>
     );
@@ -384,6 +385,7 @@ export default function EquipeScreen() {
         {footerSection}
       </ScrollView>
       <Toast {...toastState} onDismiss={hideToast} />
+      {AlertDialog}
       {logoutModal}
     </ErrorBoundary>
   );

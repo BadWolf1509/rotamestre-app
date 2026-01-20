@@ -5,9 +5,21 @@ import { authService } from '@/lib/auth';
 
 import ForgotPassword from '../../../auth/forgot-password';
 
-// Mock do Alert está configurado globalmente no jest.setup.js
-// Acessar via global.mockAlert
-const Alert = { alert: (global as any).mockAlert };
+// TypeScript declaration for global mock
+declare global {
+   
+  var mockUseAlert: {
+    showAlert: jest.Mock;
+    showSuccess: jest.Mock;
+    showWarning: jest.Mock;
+    showError: jest.Mock;
+    showConfirm: jest.Mock;
+    showDestructive: jest.Mock;
+    hideAlert: jest.Mock;
+    isVisible: boolean;
+    AlertDialog: null;
+  };
+}
 
 // Mock do expo-router já está configurado globalmente no jest.setup.js
 const mockRouter = require('expo-router').useRouter();
@@ -22,8 +34,6 @@ jest.mock('@/lib/auth', () => ({
 describe('Forgot Password Screen - Integration Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Limpar também o mock do Alert
-    (global as any).mockAlert.mockClear();
   });
 
   // ============================================
@@ -74,7 +84,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Digite seu e-mail');
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'Digite seu e-mail');
       });
     });
 
@@ -88,7 +98,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Digite seu e-mail');
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'Digite seu e-mail');
       });
     });
   });
@@ -112,10 +122,10 @@ describe('Forgot Password Screen - Integration Tests', () => {
         expect(authService.resetPassword).toHaveBeenCalledWith(
           'usuario@rotamestre.com'
         );
-        expect(Alert.alert).toHaveBeenCalledWith(
+        expect(global.mockUseAlert.showSuccess).toHaveBeenCalledWith(
           'Email enviado!',
           'Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.',
-          [{ text: 'OK', onPress: expect.any(Function) }]
+          expect.any(Function)
         );
       });
     });
@@ -131,10 +141,15 @@ describe('Forgot Password Screen - Integration Tests', () => {
       const submitButton = getByText('Enviar Link');
       fireEvent.press(submitButton);
 
-      // Alert.alert chama onPress automaticamente, então aguardar router.back ser chamado
+      // showSuccess receives a callback as third parameter that calls router.back
       await waitFor(() => {
-        expect(mockRouter.back).toHaveBeenCalled();
+        expect(global.mockUseAlert.showSuccess).toHaveBeenCalled();
+        // Get the callback and call it to simulate user pressing OK
+        const callback = global.mockUseAlert.showSuccess.mock.calls[0][2];
+        if (callback) callback();
       });
+
+      expect(mockRouter.back).toHaveBeenCalled();
     });
 
     it('deve aceitar diferentes formatos de email', async () => {
@@ -175,12 +190,13 @@ describe('Forgot Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Usuário não encontrado');
+        expect(global.mockUseAlert.showError).toHaveBeenCalledWith({ title: 'Erro', message: 'Usuário não encontrado' });
       });
     });
 
     it('deve exibir erro genérico quando ocorre erro desconhecido', async () => {
-      (authService.resetPassword as jest.Mock).mockRejectedValue(new Error());
+      // Pass a non-Error object to trigger the fallback message
+      (authService.resetPassword as jest.Mock).mockRejectedValue('unknown error');
 
       const { getByPlaceholderText, getByText } = render(<ForgotPassword />);
 
@@ -191,10 +207,10 @@ describe('Forgot Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith(
-          'Erro',
-          'Erro ao enviar email de recuperação'
-        );
+        expect(global.mockUseAlert.showError).toHaveBeenCalledWith({
+          title: 'Erro',
+          message: 'Erro ao enviar email de recuperação'
+        });
       });
     });
 
@@ -212,10 +228,10 @@ describe('Forgot Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith(
-          'Erro',
-          'Servidor temporariamente indisponível'
-        );
+        expect(global.mockUseAlert.showError).toHaveBeenCalledWith({
+          title: 'Erro',
+          message: 'Servidor temporariamente indisponível'
+        });
       });
     });
   });
@@ -260,7 +276,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
         expect(authService.resetPassword).toHaveBeenCalledWith(
           'usuario@rotamestre.com'
         );
-        expect(Alert.alert).toHaveBeenCalled();
+        expect(global.mockUseAlert.showSuccess).toHaveBeenCalled();
       });
     });
 
@@ -279,7 +295,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
 
       await waitFor(() => {
         expect(authService.resetPassword).toHaveBeenCalled();
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Erro de teste');
+        expect(global.mockUseAlert.showError).toHaveBeenCalledWith({ title: 'Erro', message: 'Erro de teste' });
       });
     });
   });
@@ -297,7 +313,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
       expect(mockRouter.push).toHaveBeenCalledWith('/auth/login');
     });
 
-    it('deve exibir Alert de sucesso com botão de confirmação', async () => {
+    it('deve exibir Alert de sucesso com callback de confirmação', async () => {
       (authService.resetPassword as jest.Mock).mockResolvedValue(undefined);
 
       const { getByPlaceholderText, getByText } = render(<ForgotPassword />);
@@ -309,10 +325,10 @@ describe('Forgot Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith(
+        expect(global.mockUseAlert.showSuccess).toHaveBeenCalledWith(
           'Email enviado!',
           'Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.',
-          [{ text: 'OK', onPress: expect.any(Function) }]
+          expect.any(Function)
         );
       });
     });
@@ -331,7 +347,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Erro de teste');
+        expect(global.mockUseAlert.showError).toHaveBeenCalledWith({ title: 'Erro', message: 'Erro de teste' });
       });
 
       expect(mockRouter.back).not.toHaveBeenCalled();
@@ -358,7 +374,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Erro temporário');
+        expect(global.mockUseAlert.showError).toHaveBeenCalledWith({ title: 'Erro', message: 'Erro temporário' });
         expect(authService.resetPassword).toHaveBeenCalledTimes(1);
       });
 

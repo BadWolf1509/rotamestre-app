@@ -30,6 +30,7 @@ import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { googleMapsService } from '@/lib/google';
 import { logger } from '@/lib/logger';
+import { createRota, createParadasBatch, logRotaAction, type RotaInsert, type ParadaInsert } from '@/lib/queries';
 import {
   otimizarRotaComDependencias,
   ParadaParaOtimizar,
@@ -37,7 +38,6 @@ import {
   MAX_WAYPOINTS,
   WAYPOINTS_RECOMENDADO,
 } from '@/lib/routeOptimization';
-import { supabase } from '@/lib/supabase';
 import { z } from '@/lib/zod';
 
 import {
@@ -383,16 +383,20 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     return { distanciaKm: null, tempoMin: null, polyline: undefined };
   }, [enderecoUnidade, ordemManual, paradas, rotaOtimizada]);
 
-  // Helper: Registrar log
+  // Helper: Registrar log (usa query centralizada fire-and-forget)
   const registrarLogRota = useCallback(async (rotaId: string, temVinculos: boolean, totalVinculos: number, distanciaKm: number | null, tempoMin: number | null) => {
     if (!userData?.id) { logger.warn('[NovaEntrega] Não foi possível registrar log: userData não disponível'); return; }
-    try {
-      const { error } = await supabase.from('logs').insert({
-        usuario_id: userData.id, rota_id: rotaId, evento: 'rota_criada',
-        detalhes: { total_paradas: paradas.length, motorista_id: motoristaSelecionado, foi_otimizada: rotaOtimizada !== null && !ordemManual, ordem_manual: ordemManual, tem_vinculos: temVinculos, total_vinculos: totalVinculos, distancia_km: distanciaKm, tempo_min: tempoMin, rota_circular: enderecoUnidade !== null },
-      });
-      if (error) logger.error('[NovaEntrega] Erro ao registrar log de criação da rota', error);
-    } catch (error) { logger.error('[NovaEntrega] Erro inesperado ao registrar log', error); }
+    logRotaAction(userData.id, rotaId, 'rota_criada', {
+      total_paradas: paradas.length,
+      motorista_id: motoristaSelecionado,
+      foi_otimizada: rotaOtimizada !== null && !ordemManual,
+      ordem_manual: ordemManual,
+      tem_vinculos: temVinculos,
+      total_vinculos: totalVinculos,
+      distancia_km: distanciaKm,
+      tempo_min: tempoMin,
+      rota_circular: enderecoUnidade !== null,
+    });
   }, [enderecoUnidade, motoristaSelecionado, ordemManual, paradas.length, rotaOtimizada, userData]);
 
   // Actions: Limpar formulário
@@ -409,6 +413,7 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
   const gerarRota = useCallback(async () => {
     if (paradas.length === 0) { showToast('Adicione pelo menos uma parada antes de gerar a rota', 'info'); return; }
     if (!motoristaSelecionado) { showToast('Selecione um motorista para a rota', 'info'); return; }
+    if (!unidadeAtiva) { showToast('Unidade não selecionada', 'error'); return; }
     if (isLoading) return;
 
     setIsLoading(true);
@@ -416,19 +421,40 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
       const { distanciaKm, tempoMin, polyline } = await calcularDadosRota();
       const hoje = new Date();
       const dataHoje = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
-      const rotaPayload: Record<string, unknown> = { unidade_id: unidadeAtiva, motorista_id: motoristaSelecionado, status: 'pendente', data: dataHoje };
-      if (distanciaKm !== null) rotaPayload.distancia_total = distanciaKm;
-      if (tempoMin !== null) rotaPayload.tempo_total = tempoMin;
-      if (polyline) rotaPayload.polyline = polyline;
 
-      const { data: rotaData, error: rotaError } = await supabase.from('rotas').insert(rotaPayload).select().single();
-      if (rotaError) throw rotaError;
+      // Build typed rota payload using centralized query types
+      const rotaPayload: RotaInsert = {
+        unidade_id: unidadeAtiva,
+        motorista_id: motoristaSelecionado,
+        status: 'pendente',
+        data: dataHoje,
+        distancia_total: distanciaKm,
+        tempo_total: tempoMin,
+        polyline: polyline || null,
+      };
+
+      // Create rota using centralized query
+      const rotaResult = await createRota(rotaPayload);
+      if (!rotaResult.success) throw new Error(rotaResult.error.message);
+
+      const rotaData = rotaResult.data;
 
       const paradasPreparadas = prepararParadasParaInserir({ rotaId: rotaData.id, paradas, enderecoUnidade, nomeUnidade: unidadeAtivaData?.nome || 'Base' });
-      const paradasLimpas = paradasPreparadas.map((p) => { const { _temp_id, _temp_vinculo_id, ...paradaLimpa } = p; return paradaLimpa; });
-      const { data: paradasInseridas, error: paradasError } = await supabase.from('paradas').insert(paradasLimpas).select('id, ordem');
-      if (paradasError) throw paradasError;
-      if (paradasInseridas) await atualizarVinculosParadas(paradasPreparadas, paradasInseridas);
+
+      // Strip temp fields and cast to ParadaInsert
+      const paradasLimpas = paradasPreparadas.map((p) => {
+        const { _temp_id, _temp_vinculo_id, ...paradaLimpa } = p;
+        return paradaLimpa as ParadaInsert;
+      });
+
+      // Create paradas using centralized query
+      const paradasResult = await createParadasBatch(paradasLimpas);
+      if (!paradasResult.success) throw new Error(paradasResult.error.message);
+
+      const paradasInseridas = paradasResult.data;
+      if (paradasInseridas && paradasInseridas.length > 0) {
+        await atualizarVinculosParadas(paradasPreparadas, paradasInseridas.map(p => ({ id: p.id, ordem: p.ordem })));
+      }
 
       const temVinculos = paradasPreparadas.some((p) => p._temp_vinculo_id);
       const totalVinculos = paradasPreparadas.filter((p) => p._temp_vinculo_id).length;

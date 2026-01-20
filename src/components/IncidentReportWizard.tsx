@@ -20,13 +20,13 @@
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState, useCallback, memo } from 'react';
 import {
-  Alert,
   ScrollView,
   View,
   useWindowDimensions,
 } from 'react-native';
 
 import { DesktopModal, Dialog, StepIndicator, type Step } from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
 import { useIncidentSubmit } from '@/hooks/useIncidentSubmit';
 import { useResponsive } from '@/hooks/useResponsive';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -70,6 +70,7 @@ function IncidentReportWizardComponent({
   const { theme } = useUnistyles();
   const { isDesktop } = useResponsive();
   const { width: screenWidth } = useWindowDimensions();
+  const { showWarning, AlertDialog } = useAlert();
 
   // Hook de submissão com retry automático
   const {
@@ -152,7 +153,7 @@ function IncidentReportWizardComponent({
   const takePhoto = useCallback(async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permissão necessária', 'Precisamos da permissão da câmera para tirar fotos');
+      showWarning('Permissão necessária', 'Precisamos da permissão da câmera para tirar fotos');
       return;
     }
 
@@ -165,12 +166,13 @@ function IncidentReportWizardComponent({
     if (!result.canceled && result.assets[0]) {
       setPhotoUri(result.assets[0].uri);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const pickImage = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permissão necessária', 'Precisamos da permissão para acessar suas fotos');
+      showWarning('Permissão necessária', 'Precisamos da permissão para acessar suas fotos');
       return;
     }
 
@@ -184,6 +186,7 @@ function IncidentReportWizardComponent({
     if (!result.canceled && result.assets[0]) {
       setPhotoUri(result.assets[0].uri);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const removePhoto = useCallback(() => {
@@ -412,6 +415,7 @@ function IncidentReportWizardComponent({
         type="warning"
         onConfirm={() => setShowErrorModal(false)}
       />
+      {AlertDialog}
     </>
   );
 }

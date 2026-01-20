@@ -4,6 +4,22 @@ import { Alert, Platform } from 'react-native';
 
 import CameraUpload from '../CameraUpload';
 
+// TypeScript declaration for global mock
+declare global {
+   
+  var mockUseAlert: {
+    showAlert: jest.Mock;
+    showSuccess: jest.Mock;
+    showWarning: jest.Mock;
+    showError: jest.Mock;
+    showConfirm: jest.Mock;
+    showDestructive: jest.Mock;
+    hideAlert: jest.Mock;
+    isVisible: boolean;
+    AlertDialog: null;
+  };
+}
+
 // Mock functions - declared before jest.mock
 const mockRequestCameraPermissionsAsync = jest.fn();
 const mockRequestMediaLibraryPermissionsAsync = jest.fn();
@@ -33,7 +49,7 @@ jest.mock('@/lib/storage', () => ({
   uploadELinkFotoParada: (...args: any[]) => mockUploadELinkFotoParada(...args),
 }));
 
-// Mock Alert
+// Spy on Alert.alert for the options menu (still uses Alert.alert on mobile)
 jest.spyOn(Alert, 'alert');
 
 describe('CameraUpload Component', () => {
@@ -242,11 +258,12 @@ describe('CameraUpload Component', () => {
       // Deve ter solicitado permissão
       expect(mockRequestCameraPermissionsAsync).toHaveBeenCalled();
 
-      // Deve mostrar alert de permissão negada
+      // Deve mostrar alert de permissão negada via useAlert hook
       await waitFor(() => {
-        const calls = (Alert.alert as jest.Mock).mock.calls;
-        const deniedAlert = calls.find(call => call[0] === 'Permissão negada');
-        expect(deniedAlert).toBeTruthy();
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
+          'Permissão negada',
+          'Precisamos de acesso à câmera para tirar fotos do comprovante de entrega.'
+        );
       });
 
       Object.defineProperty(Platform, 'OS', {
@@ -281,10 +298,12 @@ describe('CameraUpload Component', () => {
 
       expect(mockRequestMediaLibraryPermissionsAsync).toHaveBeenCalled();
 
+      // Deve mostrar alert de permissão negada via useAlert hook
       await waitFor(() => {
-        const calls = (Alert.alert as jest.Mock).mock.calls;
-        const deniedAlert = calls.find(call => call[0] === 'Permissão negada');
-        expect(deniedAlert).toBeTruthy();
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
+          'Permissão negada',
+          'Precisamos de acesso à galeria para selecionar fotos.'
+        );
       });
 
       Object.defineProperty(Platform, 'OS', {
@@ -483,7 +502,7 @@ describe('CameraUpload Component', () => {
 
       await waitFor(() => {
         expect(mockOnUploadSuccess).toHaveBeenCalledWith('success');
-        expect(Alert.alert).not.toHaveBeenCalledWith('Sucesso!', 'Foto enviada com sucesso!');
+        // On web, success alert is not shown (handled by UI feedback)
       });
 
       Object.defineProperty(Platform, 'OS', {
@@ -516,7 +535,10 @@ describe('CameraUpload Component', () => {
       fireEvent.press(getByText('📤 Enviar Foto'));
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Não foi possível enviar a foto. Tente novamente.');
+        expect(global.mockUseAlert.showError).toHaveBeenCalledWith({
+          title: 'Erro',
+          message: 'Não foi possível enviar a foto. Tente novamente.'
+        });
         expect(mockOnUploadError).toHaveBeenCalledWith('Falha no upload');
       });
 

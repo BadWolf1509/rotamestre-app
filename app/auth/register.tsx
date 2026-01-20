@@ -1,12 +1,12 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, ScrollView, TouchableOpacity, View } from 'react-native';
+import { ScrollView, TouchableOpacity, View } from 'react-native';
 
 import { ResponsiveContainer } from '@/components/ResponsiveContainer';
 import { Button, Card, Input, Text } from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
-import { getErrorMessage } from '@/lib/errorMapping';
 import { signupRateLimiter } from '@/lib/rateLimiter';
 import { validatePassword, PASSWORD_MIN_LENGTH, isValidEmail } from '@/lib/validation';
 import { TipoUsuario } from '@/types/usuario';
@@ -15,6 +15,7 @@ import { StyleSheet, type Theme } from '@/utils/styles';
 export default function Register() {
   const router = useRouter();
   const { isDesktop } = useResponsive();
+  const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,26 +26,26 @@ export default function Register() {
   async function handleRegister() {
     // Validação de campos obrigatórios
     if (!nome || !email || !password || !confirmPassword) {
-      Alert.alert('Campos obrigatórios', 'Por favor, preencha todos os campos.');
+      showWarning('Campos obrigatórios', 'Por favor, preencha todos os campos.');
       return;
     }
 
     // Validação de nome (mínimo 3 caracteres)
     if (nome.trim().length < 3) {
-      Alert.alert('Nome inválido', 'O nome deve ter pelo menos 3 caracteres.');
+      showWarning('Nome inválido', 'O nome deve ter pelo menos 3 caracteres.');
       return;
     }
 
     // Validação de email
     if (!isValidEmail(email)) {
-      Alert.alert('E-mail inválido', 'Por favor, insira um e-mail válido.');
+      showWarning('E-mail inválido', 'Por favor, insira um e-mail válido.');
       return;
     }
 
     // Validação de senha forte
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.valid) {
-      Alert.alert(
+      showWarning(
         'Senha fraca',
         `A senha precisa:\n• ${passwordValidation.errors.join('\n• ')}`
       );
@@ -53,14 +54,14 @@ export default function Register() {
 
     // Verificar se senhas coincidem
     if (password !== confirmPassword) {
-      Alert.alert('Senhas diferentes', 'As senhas digitadas não coincidem.');
+      showWarning('Senhas diferentes', 'As senhas digitadas não coincidem.');
       return;
     }
 
     // Verificar rate limit (proteção contra spam de registros)
     const rateLimitCheck = await signupRateLimiter.checkLimit(email.toLowerCase());
     if (!rateLimitCheck.allowed) {
-      Alert.alert('Muitas tentativas', rateLimitCheck.message || 'Aguarde antes de tentar novamente.');
+      showWarning('Muitas tentativas', rateLimitCheck.message || 'Aguarde antes de tentar novamente.');
       return;
     }
 
@@ -72,18 +73,17 @@ export default function Register() {
       // Registro bem-sucedido: resetar rate limit
       await signupRateLimiter.recordAttempt(email.toLowerCase(), true);
 
-      Alert.alert(
+      showSuccess(
         'Conta criada!',
         'Verifique seu e-mail para confirmar o cadastro.',
-        [{ text: 'OK', onPress: () => router.replace('/auth/login') }]
+        () => router.replace('/auth/login')
       );
     } catch (error: unknown) {
       // Registrar tentativa falha
       await signupRateLimiter.recordAttempt(email.toLowerCase(), false);
 
       // Usar error mapping para mensagem amigável
-      const friendlyError = getErrorMessage(error);
-      Alert.alert(friendlyError.title, friendlyError.message);
+      showError(error);
     } finally {
       setLoading(false);
     }
@@ -184,6 +184,7 @@ export default function Register() {
           </Card>
         </View>
       </ScrollView>
+      {AlertDialog}
     </ResponsiveContainer>
   );
 }

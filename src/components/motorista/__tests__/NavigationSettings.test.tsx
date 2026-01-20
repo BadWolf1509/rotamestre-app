@@ -1,8 +1,23 @@
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import React from 'react';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
 import { NavigationSettings } from '../NavigationSettings';
+
+// Access global useAlert mock
+declare global {
+  var mockUseAlert: {
+    showAlert: jest.Mock;
+    showSuccess: jest.Mock;
+    showWarning: jest.Mock;
+    showError: jest.Mock;
+    showConfirm: jest.Mock;
+    showDestructive: jest.Mock;
+    hideAlert: jest.Mock;
+    isVisible: boolean;
+    AlertDialog: null;
+  };
+}
 
 // Mock LocationTrackingService
 jest.mock('@/services/locationTracking', () => ({
@@ -82,9 +97,6 @@ jest.mock('@react-native-community/slider', () => {
     return (props: any) => <View testID="slider" {...props} />;
 });
 
-// Mock Alert
-jest.spyOn(Alert, 'alert');
-
 describe('NavigationSettings', () => {
     const defaultProps = {
         visible: true,
@@ -113,9 +125,15 @@ describe('NavigationSettings', () => {
         expect(getByText('Avanço Automático')).toBeTruthy();
     });
 
-    it('deve mostrar seção de Navegação', () => {
+    it('deve mostrar seção de App de Navegação', () => {
         const { getByText } = render(<NavigationSettings {...defaultProps} />);
-        expect(getByText('Navegação')).toBeTruthy();
+        expect(getByText('App de Navegação')).toBeTruthy();
+        expect(getByText('Escolha o app preferido para abrir rotas')).toBeTruthy();
+    });
+
+    it('deve mostrar seção de Navegação Interna', () => {
+        const { getByText } = render(<NavigationSettings {...defaultProps} />);
+        expect(getByText('Navegação Interna')).toBeTruthy();
     });
 
     it('deve mostrar seção de Notificações', () => {
@@ -140,19 +158,19 @@ describe('NavigationSettings', () => {
         expect(getByText('Restaurar Padrões')).toBeTruthy();
     });
 
-    it('deve abrir alerta ao clicar em Restaurar Padrões', () => {
+    it('deve abrir alerta ao clicar em Restaurar Padrões', async () => {
         const { getByText } = render(<NavigationSettings {...defaultProps} />);
 
         fireEvent.press(getByText('Restaurar Padrões'));
 
-        expect(Alert.alert).toHaveBeenCalledWith(
-            'Restaurar Padrões',
-            'Deseja restaurar todas as configurações para os valores padrão?',
-            expect.arrayContaining([
-                expect.objectContaining({ text: 'Cancelar' }),
-                expect.objectContaining({ text: 'Restaurar' }),
-            ])
-        );
+        await waitFor(() => {
+            expect(global.mockUseAlert.showConfirm).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    title: 'Restaurar Padrões',
+                    message: 'Deseja restaurar todas as configurações para os valores padrão?',
+                })
+            );
+        });
     });
 
     it('deve mostrar descrição do Avanço Automático', () => {
@@ -203,6 +221,21 @@ describe('NavigationSettings', () => {
             const { getByText } = render(<NavigationSettings {...defaultProps} />);
 
             expect(getByText(/Algumas opções.*estão disponíveis apenas no app mobile/)).toBeTruthy();
+        });
+    });
+
+    describe('Nav App Selector', () => {
+        it('deve mostrar opções de app de navegação', () => {
+            const { getByText } = render(<NavigationSettings {...defaultProps} />);
+            expect(getByText('Padrão do Sistema')).toBeTruthy();
+            expect(getByText('Waze')).toBeTruthy();
+            expect(getByText('Google Maps')).toBeTruthy();
+        });
+
+        it('deve ter Padrão do Sistema selecionado por padrão', () => {
+            const { getByText } = render(<NavigationSettings {...defaultProps} />);
+            // Check mark appears next to selected option
+            expect(getByText('✓')).toBeTruthy();
         });
     });
 

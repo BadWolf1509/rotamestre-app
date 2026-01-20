@@ -2,7 +2,6 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Text,
   TextInput,
@@ -14,6 +13,7 @@ import { UnistylesRuntime } from 'react-native-unistyles';
 import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
 import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
+import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -22,6 +22,7 @@ export default function ResetPassword() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { isDesktop } = useResponsive();
+  const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -32,17 +33,17 @@ export default function ResetPassword() {
 
   function validatePassword() {
     if (!password.trim()) {
-      Alert.alert('Erro', 'Digite sua nova senha');
+      showWarning('Erro', 'Digite sua nova senha');
       return false;
     }
 
     if (password.length < 8) {
-      Alert.alert('Erro', 'A senha deve ter no mínimo 8 caracteres');
+      showWarning('Erro', 'A senha deve ter no mínimo 8 caracteres');
       return false;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Erro', 'As senhas não coincidem');
+      showWarning('Erro', 'As senhas não coincidem');
       return false;
     }
 
@@ -58,13 +59,13 @@ export default function ResetPassword() {
 
     try {
       await authService.updatePassword(password);
-      Alert.alert(
+      showSuccess(
         'Senha atualizada!',
         'Sua senha foi redefinida com sucesso. Faça login com sua nova senha.',
-        [{ text: 'OK', onPress: () => router.replace('/auth/login') }]
+        () => router.replace('/auth/login')
       );
-    } catch (error: any) {
-      Alert.alert('Erro', error.message || 'Erro ao atualizar senha');
+    } catch (error: unknown) {
+      showError(error);
     } finally {
       setLoading(false);
     }
@@ -137,6 +138,7 @@ export default function ResetPassword() {
             </View>
           </View>
         </View>
+        {AlertDialog}
       </View>
     );
   }
@@ -195,6 +197,7 @@ export default function ResetPassword() {
         <Text style={styles.backButtonText}>Voltar para login</Text>
         </TouchableOpacity>
       </View>
+      {AlertDialog}
     </View>
   );
 }

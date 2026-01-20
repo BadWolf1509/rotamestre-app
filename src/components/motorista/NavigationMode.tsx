@@ -2,48 +2,30 @@ import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
-  Alert,
+  Animated,
   Dimensions,
   Platform,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { ParadaData } from '@/context/RouteStatusContext';
+import { useNavigationModeLogic, type NavigationModeProps } from '@/hooks/navigation';
+import { useAlert } from '@/hooks/useAlert';
 import { abrirNavegacao } from '@/lib/navigation';
-import LocationTrackingService from '@/services/locationTracking';
 import { calculateHaversineDistance } from '@/services/turnByTurnNavigation';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
-interface NavigationPreferences {
-  soundAlerts: boolean;
-  vibrationAlerts: boolean;
-  showSpeedometer: boolean;
-  internalNavigation: boolean;
-}
-
 
 import { NavigationSettings } from './NavigationSettings';
 import { TurnByTurnNavigation } from './TurnByTurnNavigation';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-interface NavigationModeProps {
-  currentStop: ParadaData;
-  nextStop?: ParadaData | null;
-  paradas: ParadaData[];
-  rotaId?: string;
-  onComplete: () => void;
-  onSkip: () => void;
-  onExit: () => void;
-}
 
 export function NavigationMode({
   currentStop,
@@ -56,60 +38,54 @@ export function NavigationMode({
 }: NavigationModeProps) {
   const { theme } = useUnistyles();
   const insets = useSafeAreaInsets();
-  const [userLocation, setUserLocation] = useState<{
-    latitude: number;
-    longitude: number;
-    heading?: number;
-  } | null>(null);
-  const [speed, setSpeed] = useState(0);
-  const [distance, setDistance] = useState<number | null>(null);
-  const [eta, setEta] = useState<string | null>(null);
-  const [isTracking, setIsTracking] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [navigationMode, setNavigationMode] = useState<'map' | 'turn-by-turn'>('map');
-  const [isInitializing, setIsInitializing] = useState(true);
-  const [preferences, setPreferences] = useState<NavigationPreferences>({
-    soundAlerts: true,
-    vibrationAlerts: true,
-    showSpeedometer: true,
-    internalNavigation: false,
+  const { showConfirm, AlertDialog } = useAlert();
+
+  // Use shared navigation logic hook
+  const {
+    userLocation,
+    speed,
+    distance,
+    eta,
+    isTracking,
+    showSettings,
+    setShowSettings,
+    routePath,
+    preferences,
+    navigationMode,
+    setNavigationMode,
+    isInitializing,
+    setIsInitializing,
+    realParadas,
+    startCheckpoint,
+    endCheckpoint,
+    currentStopIndex,
+    nextStopAfterCurrent,
+    remainingWaypoints,
+    isEntrega,
+    formatDistance,
+    getSpeedColor,
+    loadPreferences,
+    startNavigation,
+    stopNavigation,
+    updateLocationFromCoords,
+  } = useNavigationModeLogic({
+    currentStop,
+    nextStop,
+    paradas,
+    rotaId,
   });
+
   const mapRef = useRef<MapView>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
 
-  const startNavigation = useCallback(async () => {
-    if (!currentStop || !rotaId) return;
-
-    const tracking = await LocationTrackingService.startTracking(
-      rotaId,
-      currentStop.id,
-      nextStop?.id
-    );
-    setIsTracking(tracking);
-  }, [currentStop, nextStop, rotaId]);
-
-  const stopNavigation = useCallback(async () => {
-    await LocationTrackingService.stopTracking();
-    setIsTracking(false);
-  }, []);
-
-  const loadPreferences = useCallback(async () => {
-    try {
-      const prefs = await LocationTrackingService.getNavigationPreferences();
-      const newPrefs: NavigationPreferences = {
-        soundAlerts: prefs.soundAlerts ?? true,
-        vibrationAlerts: prefs.vibrationAlerts ?? true,
-        showSpeedometer: prefs.showSpeedometer ?? true,
-        internalNavigation: prefs.internalNavigation ?? false,
-      };
-      setPreferences(newPrefs);
-      if (newPrefs.internalNavigation) {
-        setNavigationMode('turn-by-turn');
-      }
-    } catch {
-      // Falha ao carregar preferências - usar padrão
-    }
-  }, []);
+  // Animation refs for UI improvements
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const buttonScaleAnims = useRef({
+    skip: new Animated.Value(1),
+    maps: new Animated.Value(1),
+    complete: new Animated.Value(1),
+  }).current;
+  const isPulsingRef = useRef(false);
 
   const triggerHaptic = useCallback(async (type: 'impact' | 'success' | 'warning') => {
     if (Platform.OS === 'web' || !preferences.vibrationAlerts) return;
@@ -166,7 +142,7 @@ export function NavigationMode({
         soundRef.current.unloadAsync();
       }
     };
-  }, [loadPreferences, startNavigation, stopNavigation]);
+  }, [loadPreferences, setIsInitializing, startNavigation, stopNavigation]);
 
   useEffect(() => {
     let subscription: Location.LocationSubscription | null = null;
@@ -182,31 +158,14 @@ export function NavigationMode({
           distanceInterval: 5,
         },
         (location) => {
-          const coords = {
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-            heading: location.coords.heading || undefined,
-          };
-          setUserLocation(coords);
-          setSpeed(Math.round((location.coords.speed || 0) * 3.6)); // m/s to km/h
-
-          // Calculate distance to destination
-          if (currentStop) {
-            const dist = calculateHaversineDistance(
-              coords.latitude,
-              coords.longitude,
-              currentStop.latitude,
-              currentStop.longitude
-            );
-            setDistance(dist);
-
-            // Estimate time of arrival
-            if (location.coords.speed && location.coords.speed > 0) {
-              const timeInSeconds = dist / location.coords.speed;
-              const minutes = Math.ceil(timeInSeconds / 60);
-              setEta(`${minutes} min`);
-            }
-          }
+          updateLocationFromCoords(
+            {
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+              heading: location.coords.heading,
+            },
+            location.coords.speed
+          );
         }
       );
     })();
@@ -219,7 +178,9 @@ export function NavigationMode({
         console.warn('[NavigationMode] Error removing subscription:', error);
       }
     };
-  }, [currentStop]);
+  }, [updateLocationFromCoords]);
+
+  // OSRM route fetching is now handled by useNavigationModeLogic hook
 
   const handleOpenInMaps = () => {
     if (!currentStop) return;
@@ -239,79 +200,92 @@ export function NavigationMode({
 
   const handleCompleteStop = async () => {
     await triggerHaptic('impact');
-    Alert.alert(
-      'Confirmar Entrega',
-      `Confirma a entrega em:\n${currentStop.endereco}?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Confirmar',
-          onPress: async () => {
-            await playNotificationSound();
-            await triggerHaptic('success');
-            onComplete();
-          },
-        },
-      ]
-    );
+    const confirmed = await showConfirm({
+      title: 'Confirmar Entrega',
+      message: `Confirma a entrega em:\n${currentStop.endereco}?`,
+      confirmText: 'Confirmar',
+      cancelText: 'Cancelar',
+    });
+    if (confirmed) {
+      await playNotificationSound();
+      await triggerHaptic('success');
+      onComplete();
+    }
   };
 
   const handleSkipStop = async () => {
     await triggerHaptic('impact');
-    Alert.alert(
-      'Pular Parada',
-      `Deseja pular esta parada?\n${currentStop.endereco}`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Pular',
-          style: 'destructive',
-          onPress: async () => {
-            await triggerHaptic('warning');
-            onSkip();
-          },
-        },
-      ]
-    );
-  };
-
-  const handleExitNavigation = () => {
-    Alert.alert(
-      'Sair da Navegação',
-      'Deseja sair do modo de navegação?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Sair',
-          style: 'destructive',
-          onPress: async () => {
-            await stopNavigation();
-            onExit();
-          },
-        },
-      ]
-    );
-  };
-
-  const formatDistance = (meters: number): string => {
-    if (meters < 1000) {
-      return `${Math.round(meters)}m`;
+    const confirmed = await showConfirm({
+      title: 'Pular Parada',
+      message: `Deseja pular esta parada?\n${currentStop.endereco}`,
+      confirmText: 'Pular',
+      cancelText: 'Cancelar',
+      type: 'danger',
+    });
+    if (confirmed) {
+      await triggerHaptic('warning');
+      onSkip();
     }
-    return `${(meters / 1000).toFixed(1)}km`;
   };
 
-  const getRegion = () => {
+  const handleExitNavigation = async () => {
+    const confirmed = await showConfirm({
+      title: 'Sair da Navegação',
+      message: 'Deseja sair do modo de navegação?',
+      confirmText: 'Sair',
+      cancelText: 'Cancelar',
+      type: 'danger',
+    });
+    if (confirmed) {
+      await stopNavigation();
+      onExit();
+    }
+  };
+
+  // formatDistance is now provided by useNavigationModeLogic hook
+
+  // Calcular região do mapa com zoom apropriado para navegação
+  const getRegion = useCallback(() => {
     if (userLocation && currentStop) {
-      const minLat = Math.min(userLocation.latitude, currentStop.latitude);
-      const maxLat = Math.max(userLocation.latitude, currentStop.latitude);
-      const minLon = Math.min(userLocation.longitude, currentStop.longitude);
-      const maxLon = Math.max(userLocation.longitude, currentStop.longitude);
+      // Calcular distância para decidir o zoom
+      const distanceToDestination = calculateHaversineDistance(
+        userLocation.latitude,
+        userLocation.longitude,
+        currentStop.latitude,
+        currentStop.longitude
+      );
+
+      // Se está perto (< 1km), mostrar ambos os pontos com padding
+      if (distanceToDestination < 1000) {
+        const minLat = Math.min(userLocation.latitude, currentStop.latitude);
+        const maxLat = Math.max(userLocation.latitude, currentStop.latitude);
+        const minLon = Math.min(userLocation.longitude, currentStop.longitude);
+        const maxLon = Math.max(userLocation.longitude, currentStop.longitude);
+
+        // Adicionar padding de 30% para não ficar muito apertado
+        const latPadding = Math.max(0.003, (maxLat - minLat) * 0.3);
+        const lonPadding = Math.max(0.003, (maxLon - minLon) * 0.3);
+
+        return {
+          latitude: (minLat + maxLat) / 2,
+          longitude: (minLon + maxLon) / 2,
+          latitudeDelta: Math.max(0.008, (maxLat - minLat) + latPadding * 2),
+          longitudeDelta: Math.max(0.008, (maxLon - minLon) + lonPadding * 2),
+        };
+      }
+
+      // Se está longe, focar no usuário com zoom mais alto para navegação
+      // Calcular zoom baseado na distância (quanto mais longe, menos zoom)
+      let delta = 0.01; // ~1km view - padrão para navegação
+      if (distanceToDestination > 10000) delta = 0.05; // ~5km view
+      else if (distanceToDestination > 5000) delta = 0.03; // ~3km view
+      else if (distanceToDestination > 2000) delta = 0.02; // ~2km view
 
       return {
-        latitude: (minLat + maxLat) / 2,
-        longitude: (minLon + maxLon) / 2,
-        latitudeDelta: Math.max(0.01, (maxLat - minLat) * 1.5),
-        longitudeDelta: Math.max(0.01, (maxLon - minLon) * 1.5),
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+        latitudeDelta: delta,
+        longitudeDelta: delta,
       };
     }
 
@@ -323,16 +297,63 @@ export function NavigationMode({
           longitudeDelta: 0.01,
         }
       : null;
-  };
+  }, [userLocation, currentStop]);
 
   const region = getRegion();
 
-  // Calculate remaining waypoints for turn-by-turn navigation
-  const remainingWaypoints = useMemo(() => {
-    return paradas
-      .filter((p) => p.id !== currentStop?.id && p.status === 'pendente')
-      .map((p) => ({ latitude: p.latitude, longitude: p.longitude }));
-  }, [paradas, currentStop]);
+  // Proximity alert animation (pulse when < 100m)
+  useEffect(() => {
+    if (distance !== null && distance < 100 && !isPulsingRef.current) {
+      isPulsingRef.current = true;
+      triggerHaptic('success');
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.15,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else if (distance !== null && distance >= 100 && isPulsingRef.current) {
+      isPulsingRef.current = false;
+      pulseAnim.stopAnimation();
+      pulseAnim.setValue(1);
+    }
+  }, [distance, pulseAnim, triggerHaptic]);
+
+  // Button press animation helpers
+  const animateButtonPress = (button: 'skip' | 'maps' | 'complete', pressed: boolean) => {
+    Animated.spring(buttonScaleAnims[button], {
+      toValue: pressed ? 0.95 : 1,
+      useNativeDriver: true,
+      friction: 8,
+    }).start();
+  };
+
+  // getSpeedColor is now provided by useNavigationModeLogic hook
+
+  // Recenter map on user location
+  const recenterMap = useCallback(() => {
+    if (mapRef.current && userLocation) {
+      triggerHaptic('impact');
+      mapRef.current.animateToRegion({
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
+      }, 500);
+    }
+  }, [userLocation, triggerHaptic]);
+
+  // isEntrega, realParadas, checkpoints, startCheckpoint, endCheckpoint,
+  // currentStopIndex, nextStopAfterCurrent, remainingWaypoints are now
+  // provided by useNavigationModeLogic hook
 
   // Loading state
   if (isInitializing) {
@@ -377,7 +398,7 @@ export function NavigationMode({
         rotateEnabled={false}
         toolbarEnabled={false}
       >
-        {/* Destination Marker */}
+        {/* Current Destination Marker (parada atual) */}
         <Marker
           coordinate={{
             latitude: currentStop.latitude,
@@ -385,29 +406,89 @@ export function NavigationMode({
           }}
           title={currentStop.endereco}
           description={currentStop.observacoes}
+          anchor={{ x: 0.5, y: 0.5 }}
         >
-          <View style={styles.destinationMarker}>
-            <Ionicons name="location" size={30} color={theme.colors.error} />
+          <View style={[
+            styles.currentDestinationMarker,
+            isEntrega ? styles.currentDestinationEntrega : styles.currentDestinationRetirada,
+          ]}>
+            <Ionicons
+              name={isEntrega ? 'cube' : 'arrow-up-circle'}
+              size={18}
+              color={theme.colors.white}
+            />
           </View>
         </Marker>
 
-        {/* Other stops */}
-        {paradas
+        {/* Other pending stops (excluding current and checkpoints) */}
+        {realParadas
           .filter((p) => p.id !== currentStop.id && p.status === 'pendente')
-          .map((parada) => (
-            <Marker
-              key={parada.id}
-              coordinate={{
-                latitude: parada.latitude,
-                longitude: parada.longitude,
-              }}
-              opacity={0.6}
-            >
-              <View style={styles.otherMarker}>
-                <Text style={styles.markerText}>{parada.ordem}</Text>
-              </View>
-            </Marker>
-          ))}
+          .map((parada) => {
+            const isNextStop = nextStopAfterCurrent?.id === parada.id;
+            return (
+              <Marker
+                key={parada.id}
+                coordinate={{
+                  latitude: parada.latitude,
+                  longitude: parada.longitude,
+                }}
+                opacity={isNextStop ? 1 : 0.6}
+              >
+                <View style={[
+                  styles.otherMarker,
+                  isNextStop && styles.nextStopMarker,
+                ]}>
+                  <Text style={[
+                    styles.markerText,
+                    isNextStop && styles.nextStopMarkerText,
+                  ]}>
+                    {parada.ordem}
+                  </Text>
+                </View>
+              </Marker>
+            );
+          })}
+
+        {/* Route Polyline */}
+        {routePath.length >= 2 && (
+          <Polyline
+            coordinates={routePath}
+            strokeColor={theme.colors.primary}
+            strokeWidth={4}
+          />
+        )}
+
+        {/* Start Checkpoint Marker (ponto de partida) */}
+        {startCheckpoint && startCheckpoint.id !== currentStop.id && (
+          <Marker
+            coordinate={{
+              latitude: startCheckpoint.latitude,
+              longitude: startCheckpoint.longitude,
+            }}
+            title="Ponto de Partida"
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            <View style={styles.checkpointMarker}>
+              <Ionicons name="flag" size={14} color={theme.colors.success} />
+            </View>
+          </Marker>
+        )}
+
+        {/* End Checkpoint Marker (ponto de chegada/retorno) */}
+        {endCheckpoint && endCheckpoint.id !== currentStop.id && (
+          <Marker
+            coordinate={{
+              latitude: endCheckpoint.latitude,
+              longitude: endCheckpoint.longitude,
+            }}
+            title="Ponto de Retorno"
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            <View style={styles.checkpointMarker}>
+              <Ionicons name="home" size={14} color={theme.colors.info} />
+            </View>
+          </Marker>
+        )}
       </MapView>
 
       {/* Top Bar */}
@@ -431,17 +512,81 @@ export function NavigationMode({
         </TouchableOpacity>
       </View>
 
+      {/* Recenter Button */}
+      {userLocation && (
+        <TouchableOpacity
+          style={styles.recenterButton}
+          onPress={recenterMap}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="locate" size={22} color={theme.colors.primary} />
+        </TouchableOpacity>
+      )}
+
       {/* Navigation Info Panel */}
       {/* Usa Math.max para garantir mínimo de 34px (Android 15 pode retornar insets.bottom = 0) */}
       <View style={[styles.infoPanel, { paddingBottom: theme.spacing.xl + Math.max(insets.bottom, 34) }]}>
+        {/* Progress Indicator (only real stops, not checkpoints) */}
+        <View style={styles.progressContainer}>
+          {realParadas.map((parada, index) => {
+            const isCompleted = parada.status === 'concluida';
+            const isCurrent = parada.id === currentStop.id;
+            const isPending = parada.status === 'pendente' && !isCurrent;
+            return (
+              <React.Fragment key={parada.id}>
+                <View
+                  style={[
+                    styles.progressDot,
+                    isCompleted && styles.progressDotCompleted,
+                    isCurrent && styles.progressDotCurrent,
+                    isPending && styles.progressDotPending,
+                  ]}
+                >
+                  {isCurrent && (
+                    <Ionicons name="navigate" size={10} color={theme.colors.white} />
+                  )}
+                  {isCompleted && (
+                    <Ionicons name="checkmark" size={10} color={theme.colors.white} />
+                  )}
+                  {isPending && (
+                    <Text style={styles.progressDotText}>{index + 1}</Text>
+                  )}
+                </View>
+                {index < realParadas.length - 1 && (
+                  <View
+                    style={[
+                      styles.progressLine,
+                      isCompleted && styles.progressLineCompleted,
+                    ]}
+                  />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </View>
+
         {/* Distance and ETA */}
         <View style={styles.mainInfo}>
-          <View style={styles.distanceContainer}>
-            <Text style={styles.distanceValue}>
+          <Animated.View
+            style={[
+              styles.distanceContainer,
+              distance !== null && distance < 100 && {
+                transform: [{ scale: pulseAnim }],
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.distanceValue,
+                distance !== null && distance < 100 && styles.distanceValueNear,
+              ]}
+            >
               {distance ? formatDistance(distance) : '--'}
             </Text>
-            <Text style={styles.distanceLabel}>distância</Text>
-          </View>
+            <Text style={styles.distanceLabel}>
+              {distance !== null && distance < 100 ? '🎯 Chegando!' : 'distância'}
+            </Text>
+          </Animated.View>
 
           <View style={styles.separator} />
 
@@ -455,7 +600,9 @@ export function NavigationMode({
               <View style={styles.separator} />
 
               <View style={styles.speedContainer}>
-                <Text style={styles.speedValue}>{speed}</Text>
+                <Text style={[styles.speedValue, { color: getSpeedColor(speed) }]}>
+                  {speed}
+                </Text>
                 <Text style={styles.speedUnit}>km/h</Text>
               </View>
             </>
@@ -465,9 +612,31 @@ export function NavigationMode({
         {/* Current Destination */}
         <View style={styles.destinationInfo}>
           <View style={styles.destinationHeader}>
-            <Text style={styles.destinationLabel}>
-              PARADA {currentStop.ordem}/{paradas.length}
-            </Text>
+            <View style={styles.destinationHeaderLeft}>
+              <View
+                style={[
+                  styles.typeBadge,
+                  isEntrega ? styles.typeBadgeEntrega : styles.typeBadgeRetirada,
+                ]}
+              >
+                <Ionicons
+                  name={isEntrega ? 'cube' : 'arrow-up-circle'}
+                  size={12}
+                  color={isEntrega ? theme.colors.success : theme.colors.warning}
+                />
+                <Text
+                  style={[
+                    styles.typeBadgeText,
+                    isEntrega ? styles.typeBadgeTextEntrega : styles.typeBadgeTextRetirada,
+                  ]}
+                >
+                  {isEntrega ? 'Entrega' : 'Retirada'}
+                </Text>
+              </View>
+              <Text style={styles.destinationLabel}>
+                • Parada {currentStopIndex}/{realParadas.length}
+              </Text>
+            </View>
             {nextStop && (
               <Text style={styles.nextStopHint}>
                 Próxima: {nextStop.endereco.split(',')[0]}
@@ -492,31 +661,46 @@ export function NavigationMode({
 
         {/* Action Buttons */}
         <View style={styles.actions}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.skipButton]}
-            onPress={handleSkipStop}
-          >
-            <Ionicons name="arrow-forward-circle-outline" size={20} color={theme.colors.warning} />
-            <Text style={styles.skipButtonText}>Pular</Text>
-          </TouchableOpacity>
+          <Animated.View style={{ flex: 1, transform: [{ scale: buttonScaleAnims.skip }] }}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.skipButton]}
+              onPress={handleSkipStop}
+              onPressIn={() => animateButtonPress('skip', true)}
+              onPressOut={() => animateButtonPress('skip', false)}
+              activeOpacity={1}
+            >
+              <Ionicons name="arrow-forward-circle-outline" size={20} color={theme.colors.warning} />
+              <Text style={styles.skipButtonText}>Pular</Text>
+            </TouchableOpacity>
+          </Animated.View>
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.mapsButton]}
-            onPress={handleOpenInMaps}
-          >
-            <Ionicons name="navigate" size={20} color={theme.colors.white} />
-            <Text style={styles.mapsButtonText}>
-              {preferences.internalNavigation ? 'Navegar' : 'Abrir no Maps'}
-            </Text>
-          </TouchableOpacity>
+          <Animated.View style={{ flex: 1, transform: [{ scale: buttonScaleAnims.maps }] }}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.mapsButton]}
+              onPress={handleOpenInMaps}
+              onPressIn={() => animateButtonPress('maps', true)}
+              onPressOut={() => animateButtonPress('maps', false)}
+              activeOpacity={1}
+            >
+              <Ionicons name="navigate" size={20} color={theme.colors.white} />
+              <Text style={styles.mapsButtonText}>
+                {preferences.internalNavigation ? 'Navegar' : 'Abrir no Maps'}
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.completeButton]}
-            onPress={handleCompleteStop}
-          >
-            <Ionicons name="checkmark-circle" size={20} color={theme.colors.white} />
-            <Text style={styles.completeButtonText}>Concluir</Text>
-          </TouchableOpacity>
+          <Animated.View style={{ flex: 1, transform: [{ scale: buttonScaleAnims.complete }] }}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.completeButton]}
+              onPress={handleCompleteStop}
+              onPressIn={() => animateButtonPress('complete', true)}
+              onPressOut={() => animateButtonPress('complete', false)}
+              activeOpacity={1}
+            >
+              <Ionicons name="checkmark-circle" size={20} color={theme.colors.white} />
+              <Text style={styles.completeButtonText}>Concluir</Text>
+            </TouchableOpacity>
+          </Animated.View>
         </View>
       </View>
 
@@ -529,6 +713,7 @@ export function NavigationMode({
           />
         </View>
       )}
+      {AlertDialog}
     </View>
   );
 }
@@ -582,6 +767,22 @@ const styles = StyleSheet.create((theme: Theme) => ({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  recenterButton: {
+    position: 'absolute',
+    right: theme.spacing.lg,
+    bottom: 380, // Above info panel
+    width: 44,
+    height: 44,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: theme.colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
   trackingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -610,7 +811,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.white,
     borderTopLeftRadius: theme.borderRadius.xl,
     borderTopRightRadius: theme.borderRadius.xl,
-    paddingTop: theme.spacing.xl,
+    paddingTop: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
     // paddingBottom é definido dinamicamente com Math.max(insets.bottom, 34)
     shadowColor: theme.colors.black,
@@ -618,6 +819,47 @@ const styles = StyleSheet.create((theme: Theme) => ({
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 10,
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
+  progressDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.gray300,
+  },
+  progressDotCompleted: {
+    backgroundColor: theme.colors.success,
+  },
+  progressDotCurrent: {
+    backgroundColor: theme.colors.primary,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+  },
+  progressDotPending: {
+    backgroundColor: theme.colors.gray300,
+  },
+  progressDotText: {
+    fontSize: 9,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray600,
+  },
+  progressLine: {
+    width: 20,
+    height: 2,
+    backgroundColor: theme.colors.gray300,
+    marginHorizontal: 2,
+  },
+  progressLineCompleted: {
+    backgroundColor: theme.colors.success,
   },
   mainInfo: {
     flexDirection: 'row',
@@ -639,6 +881,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.fontSize.xs - 1,
     color: theme.colors.gray500,
     marginTop: 2,
+  },
+  distanceValueNear: {
+    color: theme.colors.success,
   },
   separator: {
     width: 1,
@@ -681,6 +926,35 @@ const styles = StyleSheet.create((theme: Theme) => ({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: theme.spacing.sm,
+  },
+  destinationHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
+  typeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 3,
+    borderRadius: theme.borderRadius.full,
+  },
+  typeBadgeEntrega: {
+    backgroundColor: withOpacity(theme.colors.success, 0.15),
+  },
+  typeBadgeRetirada: {
+    backgroundColor: withOpacity(theme.colors.warning, 0.15),
+  },
+  typeBadgeText: {
+    fontSize: theme.typography.fontSize.xs - 2,
+    fontFamily: theme.typography.fontSansSemiBold,
+  },
+  typeBadgeTextEntrega: {
+    color: theme.colors.success,
+  },
+  typeBadgeTextRetirada: {
+    color: theme.colors.warning,
   },
   destinationLabel: {
     fontSize: theme.typography.fontSize.xs - 2,
@@ -764,30 +1038,76 @@ const styles = StyleSheet.create((theme: Theme) => ({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
-  destinationMarker: {
-    backgroundColor: theme.colors.white,
+  // Current destination (parada atual em navegação) marker
+  currentDestinationMarker: {
+    width: 36,
+    height: 36,
     borderRadius: theme.borderRadius.full,
-    padding: theme.spacing.xs + 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: theme.spacing.xs,
-    elevation: 5,
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 6,
+    borderWidth: 3,
+    borderColor: theme.colors.white,
   },
+  currentDestinationEntrega: {
+    backgroundColor: theme.colors.error,
+  },
+  currentDestinationRetirada: {
+    backgroundColor: theme.colors.warning,
+  },
+  // Checkpoint markers (start/end)
+  checkpointMarker: {
+    width: 28,
+    height: 28,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: theme.colors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+    borderWidth: 2,
+    borderColor: theme.colors.gray200,
+  },
+  // Other pending stops marker
   otherMarker: {
-    backgroundColor: theme.colors.gray500,
-    width: 30,
-    height: 30,
+    backgroundColor: theme.colors.gray400,
+    width: 24,
+    height: 24,
     borderRadius: theme.borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: theme.colors.white,
   },
+  // Next stop marker (highlighted)
+  nextStopMarker: {
+    backgroundColor: theme.colors.warning,
+    width: 28,
+    height: 28,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 2,
+    borderColor: theme.colors.white,
+    shadowColor: theme.colors.warning,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 4,
+  },
   markerText: {
     color: theme.colors.white,
-    fontSize: theme.typography.fontSize.xs,
+    fontSize: 10,
     fontFamily: theme.typography.fontSansSemiBold,
+  },
+  nextStopMarkerText: {
+    fontSize: 11,
+    fontFamily: theme.typography.fontSansBold,
   },
   settingsOverlay: {
     position: 'absolute',

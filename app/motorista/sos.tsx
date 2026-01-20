@@ -6,13 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   Linking,
   Platform,
   ActivityIndicator,
 } from 'react-native';
 
 import { useRouteStatus } from '@/context/RouteStatusContext';
+import { useAlert } from '@/hooks/useAlert';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
@@ -32,6 +32,7 @@ export default function SOSScreen() {
   const { theme } = useUnistyles();
   const { userData, loading: userLoading } = useUser();
   const routeStatus = useRouteStatus();
+  const { showWarning, showSuccess, showError, showConfirm, AlertDialog } = useAlert();
 
   const [descricao, setDescricao] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -96,7 +97,7 @@ export default function SOSScreen() {
 
     if (contactId === 'gestor') {
       if (!gestorTelefone) {
-        Alert.alert('Telefone não cadastrado', `O gestor ${gestorNome || ''} não possui telefone cadastrado.`);
+        showWarning('Telefone não cadastrado', `O gestor ${gestorNome || ''} não possui telefone cadastrado.`);
         return;
       }
 
@@ -126,23 +127,21 @@ export default function SOSScreen() {
   async function handleSOSActivation() {
     await heavyHaptic();
 
-    Alert.alert(
-      'Confirmar SOS',
-      'Isso vai notificar seu gestor e registrar sua localização atual. Deseja continuar?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'CONFIRMAR SOS',
-          style: 'destructive',
-          onPress: enviarSOS,
-        },
-      ]
-    );
+    const confirmed = await showConfirm({
+      title: 'Confirmar SOS',
+      message: 'Isso vai notificar seu gestor e registrar sua localização atual. Deseja continuar?',
+      confirmText: 'CONFIRMAR SOS',
+      cancelText: 'Cancelar',
+      type: 'danger',
+    });
+    if (confirmed) {
+      await enviarSOS();
+    }
   }
 
   async function enviarSOS() {
     if (!userData?.id) {
-      Alert.alert('Erro', 'Usuário não identificado');
+      showError({ title: 'Erro', message: 'Usuário não identificado' });
       return;
     }
 
@@ -150,7 +149,7 @@ export default function SOSScreen() {
 
     try {
       // Registrar log no banco
-      const logData: any = {
+      const logData: Record<string, unknown> = {
         usuario_id: userData.id,
         evento: 'sos_acionado',
         detalhes: {
@@ -162,13 +161,13 @@ export default function SOSScreen() {
       // Adicionar rota se existir
       if (routeStatus?.route?.id) {
         logData.rota_id = routeStatus.route.id;
-        logData.detalhes.rota_id = routeStatus.route.id;
-        logData.detalhes.rota_status = routeStatus.route.status;
+        (logData.detalhes as Record<string, unknown>).rota_id = routeStatus.route.id;
+        (logData.detalhes as Record<string, unknown>).rota_status = routeStatus.route.status;
       }
 
       // Adicionar localização se disponível
       if (location) {
-        logData.detalhes.localizacao = {
+        (logData.detalhes as Record<string, unknown>).localizacao = {
           latitude: location.latitude,
           longitude: location.longitude,
           google_maps_url: `https://www.google.com/maps?q=${location.latitude},${location.longitude}`,
@@ -179,16 +178,15 @@ export default function SOSScreen() {
 
       if (error) throw error;
 
-      Alert.alert(
+      showSuccess(
         'SOS Enviado',
-        'Seu gestor foi notificado da emergência. Se precisar de ajuda imediata, use os botões de ligação abaixo.',
-        [{ text: 'OK' }]
+        'Seu gestor foi notificado da emergência. Se precisar de ajuda imediata, use os botões de ligação abaixo.'
       );
 
       setDescricao('');
     } catch (error) {
       logger.error('Erro ao enviar SOS:', error);
-      Alert.alert('Erro', 'Não foi possível enviar o SOS. Tente ligar diretamente para os números de emergência.');
+      showError({ title: 'Erro', message: 'Não foi possível enviar o SOS. Tente ligar diretamente para os números de emergência.' });
     } finally {
       setEnviando(false);
     }
@@ -298,6 +296,7 @@ export default function SOSScreen() {
         </View>
 
         <View style={styles.footer} />
+      {AlertDialog}
     </ScrollView>
   );
 }

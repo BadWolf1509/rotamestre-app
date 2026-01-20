@@ -14,7 +14,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { authService } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { Usuario } from '@/types/usuario';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface SectionItem {
   label: string;
@@ -194,7 +194,7 @@ export default function PerfilMotorista() {
   );
 }
 
-const styles = (theme: any) =>
+const styles = (theme: Theme) =>
   StyleSheet.create({
     container: {
       flex: 1,

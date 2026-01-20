@@ -7,7 +7,7 @@ import { authService } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { Usuario } from '@/types/usuario';
-import { StyleSheet, useUnistyles } from '@/utils/styles';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export default function EditarPerfil() {
   const { theme } = useUnistyles();
@@ -127,11 +127,12 @@ export default function EditarPerfil() {
         confirmText: 'Voltar',
         onConfirm: () => router.replace('/motorista/perfil'),
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Erro ao salvar:', error);
+      const message = error instanceof Error ? error.message : 'Não foi possível salvar as alterações.';
       showAlert({
         title: 'Erro ao salvar',
-        message: error.message || 'Nao foi possivel salvar as alteracoes.',
+        message,
         type: 'error',
       });
     } finally {
@@ -239,7 +240,7 @@ export default function EditarPerfil() {
   );
 }
 
-const styles = (theme: any) =>
+const styles = (theme: Theme) =>
   StyleSheet.create({
     container: {
       flex: 1,

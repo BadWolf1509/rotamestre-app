@@ -11,7 +11,7 @@ interface RotaCardProps {
   onPress?: () => void;
 }
 
-function getStatusColor(status: string, theme: any): string {
+function getStatusColor(status: string, theme: Theme): string {
   switch (status) {
     case 'em_andamento':
       return theme.colors.secondary;

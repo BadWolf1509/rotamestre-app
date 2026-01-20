@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -18,6 +17,7 @@ import {
   MobileLoading,
   Toast,
 } from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
@@ -55,6 +55,7 @@ export default function UnidadeScreen() {
     userImageUrl: userData?.foto_url,
   });
   const { toast: toastState, showToast, hideToast } = useToast();
+  const { showWarning, AlertDialog } = useAlert();
   const { isDesktop } = useResponsive();
   const pageMeta = getGestorPageMeta('minhaUnidade');
   const [unidade, setUnidade] = useState<UnidadeData | null>(null);
@@ -133,7 +134,7 @@ export default function UnidadeScreen() {
 
   async function handleSave() {
     if (!nome.trim()) {
-      Alert.alert('Erro', 'O nome da unidade é obrigatório');
+      showWarning('Erro', 'O nome da unidade é obrigatório');
       return;
     }
 
@@ -375,6 +376,7 @@ export default function UnidadeScreen() {
           </View>
         </DesktopPageLayout>
         <Toast {...toastState} onDismiss={hideToast} />
+        {AlertDialog}
         {logoutModal}
       </ErrorBoundary>
     );
@@ -413,6 +415,7 @@ export default function UnidadeScreen() {
       </ScrollView>
 
       <Toast {...toastState} onDismiss={hideToast} />
+      {AlertDialog}
       {logoutModal}
     </ErrorBoundary>
   );

@@ -5,11 +5,11 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
-  Alert,
 } from 'react-native';
 
 import { ThemeSettings } from '@/components/ThemeSettings';
 import { MobileCard, Text } from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
 import { getAppVersion, getBuildNumber, getPlatformName } from '@/lib/appVersion';
 import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
 
@@ -31,6 +31,7 @@ const EXPORT_OPTIONS: { value: ExportFormat; label: string; icon: string }[] = [
 
 export default function ConfiguracoesGestorScreen() {
   const { theme } = useUnistyles();
+  const { showSuccess, showError, showConfirm, AlertDialog } = useAlert();
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [incidentAlerts, setIncidentAlerts] = useState(true);
@@ -123,35 +124,32 @@ export default function ConfiguracoesGestorScreen() {
       await AsyncStorage.setItem(STORAGE_KEYS.EXPORT_FORMAT, value);
       setExportFormat(value);
     } catch {
-      Alert.alert('Erro', 'Não foi possível salvar a preferência.');
+      showError({ title: 'Erro', message: 'Não foi possível salvar a preferência.' });
     }
   }
 
   async function handleClearCache() {
-    Alert.alert(
-      'Limpar Cache',
-      'Isso irá remover dados temporários do app. Você precisará fazer login novamente. Deseja continuar?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Limpar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const keys = await AsyncStorage.getAllKeys();
-              const keysToRemove = keys.filter(
-                (k) => !k.includes('supabase') && !k.includes('auth')
-              );
-              await AsyncStorage.multiRemove(keysToRemove);
-              setCacheSize('0 itens');
-              Alert.alert('Sucesso', 'Cache limpo com sucesso!');
-            } catch {
-              Alert.alert('Erro', 'Não foi possível limpar o cache.');
-            }
-          },
-        },
-      ]
-    );
+    const confirmed = await showConfirm({
+      title: 'Limpar Cache',
+      message: 'Isso irá remover dados temporários do app. Você precisará fazer login novamente. Deseja continuar?',
+      confirmText: 'Limpar',
+      cancelText: 'Cancelar',
+      type: 'danger',
+    });
+
+    if (!confirmed) return;
+
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const keysToRemove = keys.filter(
+        (k) => !k.includes('supabase') && !k.includes('auth')
+      );
+      await AsyncStorage.multiRemove(keysToRemove);
+      setCacheSize('0 itens');
+      showSuccess('Sucesso', 'Cache limpo com sucesso!');
+    } catch {
+      showError({ title: 'Erro', message: 'Não foi possível limpar o cache.' });
+    }
   }
 
   if (loading) {
@@ -318,6 +316,7 @@ export default function ConfiguracoesGestorScreen() {
       </MobileCard>
 
       <View style={styles.footer} />
+      {AlertDialog}
     </ScrollView>
   );
 }

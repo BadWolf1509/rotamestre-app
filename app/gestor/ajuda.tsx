@@ -6,9 +6,9 @@ import {
   TouchableOpacity,
   Linking,
   Platform,
-  Alert,
 } from 'react-native';
 
+import { useAlert } from '@/hooks/useAlert';
 import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
 
 interface FAQItem {
@@ -96,6 +96,7 @@ const SUPPORT_OPTIONS = [
 
 export default function AjudaGestorScreen() {
   const { theme: _theme } = useUnistyles();
+  const { showWarning, showError, AlertDialog } = useAlert();
   const [expandedFAQ, setExpandedFAQ] = useState<string | null>(null);
 
   function toggleFAQ(id: string) {
@@ -103,7 +104,7 @@ export default function AjudaGestorScreen() {
   }
 
   async function handleSupportAction(action: string) {
-    const supportPhone = '5511999999999';
+    const supportPhone = '5583987156206';
     const supportEmail = 'suporte@rotamestre.tec.br';
 
     switch (action) {
@@ -118,10 +119,10 @@ export default function AjudaGestorScreen() {
           if (canOpen) {
             await Linking.openURL(whatsappUrl);
           } else {
-            Alert.alert('WhatsApp não instalado', 'Tente outro método de contato.');
+            showWarning('WhatsApp não instalado', 'Tente outro método de contato.');
           }
         } catch {
-          Alert.alert('Erro', 'Não foi possível abrir o WhatsApp.');
+          showError({ title: 'Erro', message: 'Não foi possível abrir o WhatsApp.' });
         }
         break;
       }
@@ -238,6 +239,7 @@ export default function AjudaGestorScreen() {
       </View>
 
       <View style={styles.footer} />
+      {AlertDialog}
     </ScrollView>
   );
 }

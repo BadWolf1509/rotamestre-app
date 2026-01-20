@@ -1,9 +1,10 @@
 import React, { useMemo, useCallback } from 'react';
-import { View, TouchableOpacity, Text, Linking, Platform, Alert } from 'react-native';
+import { View, TouchableOpacity, Text, Linking, Platform } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { useDirectionsMobile } from '@/components/map/hooks';
 import { getStatusColor } from '@/components/map/infoWindowBuilders';
+import { useAlert } from '@/hooks/useAlert';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface Parada {
@@ -24,6 +25,7 @@ interface MapaRNProps {
 
 export function MapaRN({ paradas, rotaAtiva = false, onMarkerPress }: MapaRNProps) {
   const { theme } = useUnistyles();
+  const { showError, AlertDialog } = useAlert();
 
   // Filter paradas with valid coordinates
   const validParadas = useMemo(
@@ -54,9 +56,9 @@ export function MapaRN({ paradas, rotaAtiva = false, onMarkerPress }: MapaRNProp
     if (supported) {
       await Linking.openURL(url);
     } else {
-      Alert.alert('Erro', 'Google Maps não está instalado no dispositivo.');
+      showError({ title: 'Erro', message: 'Google Maps não está instalado no dispositivo.' });
     }
-  }, [validParadas]);
+  }, [showError, validParadas]);
 
   // Get marker color based on status
   const getMarkerStyle = useCallback((parada: Parada) => {
@@ -154,6 +156,7 @@ export function MapaRN({ paradas, rotaAtiva = false, onMarkerPress }: MapaRNProp
           <Text style={styles.botaoTexto}>🧭 Iniciar Navegação</Text>
         </TouchableOpacity>
       )}
+      {AlertDialog}
     </View>
   );
 }

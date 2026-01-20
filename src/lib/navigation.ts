@@ -1,5 +1,28 @@
 import { Linking, Platform, Alert, ActionSheetIOS } from 'react-native';
 
+import LocationTrackingService from '@/services/locationTracking';
+
+/**
+ * Tipo para preferência de app de navegação (usado no NavigationSettings)
+ */
+type NavAppPreference = 'waze' | 'google_maps' | 'apple_maps' | 'default';
+
+/**
+ * Mapeia preferência do usuário para formato interno
+ */
+function mapPreferenceToApp(pref: NavAppPreference): 'waze' | 'google' | 'apple' | null {
+  switch (pref) {
+    case 'waze':
+      return 'waze';
+    case 'google_maps':
+      return 'google';
+    case 'apple_maps':
+      return 'apple';
+    default:
+      return null;
+  }
+}
+
 /**
  * Interface para representar coordenadas de uma parada
  */
@@ -138,8 +161,9 @@ function abrirMenuAndroid(opcoes: OpcaoNavegacao[], coords: Coordenadas) {
 /**
  * FUNÇÃO PRINCIPAL: Abre navegação para uma parada
  *
- * Mostra menu de escolha com Waze, Google Maps e Apple Maps (iOS)
- * Se app não estiver instalado, abre versão web automaticamente
+ * Se o usuário configurou um app preferido, abre diretamente nele.
+ * Caso contrário, mostra menu de escolha com Waze, Google Maps e Apple Maps (iOS).
+ * Se app não estiver instalado, abre versão web automaticamente.
  *
  * @param coords - Coordenadas da parada (latitude, longitude)
  *
@@ -159,7 +183,7 @@ function abrirMenuAndroid(opcoes: OpcaoNavegacao[], coords: Coordenadas) {
  * });
  * ```
  */
-export function abrirNavegacao(coords: Coordenadas) {
+export async function abrirNavegacao(coords: Coordenadas): Promise<void> {
   // Validar coordenadas
   if (!coords.latitude || !coords.longitude) {
     Alert.alert(
@@ -183,6 +207,33 @@ export function abrirNavegacao(coords: Coordenadas) {
     return;
   }
 
+  // Verificar se há um app preferido configurado
+  try {
+    const prefs = await LocationTrackingService.getNavigationPreferences();
+    const preferredNavApp = prefs.preferredNavApp as NavAppPreference | undefined;
+    const appPreferido = preferredNavApp ? mapPreferenceToApp(preferredNavApp) : null;
+
+    if (appPreferido) {
+      // Usuário tem app preferido - abrir diretamente
+      const sucesso = await abrirNavegacaoDireta(coords, appPreferido);
+      if (sucesso) {
+        return; // App abriu com sucesso
+      }
+      // Se falhou, continua para mostrar menu de escolha
+    }
+  } catch (error) {
+    // Se falhar ao ler preferências, continua com comportamento padrão (menu)
+    console.warn('[Navigation] Erro ao ler preferências:', error);
+  }
+
+  // Comportamento padrão: mostrar menu de escolha
+  mostrarMenuNavegacao(coords);
+}
+
+/**
+ * Mostra o menu de escolha de app de navegação
+ */
+function mostrarMenuNavegacao(coords: Coordenadas): void {
   // Gerar opções de navegação
   const opcoes: OpcaoNavegacao[] = [
     gerarUrlWaze(coords),

@@ -8,6 +8,16 @@ import {
     Coordenadas,
 } from '../navigation';
 
+// Mock LocationTrackingService
+jest.mock('@/services/locationTracking', () => ({
+    __esModule: true,
+    default: {
+        getNavigationPreferences: jest.fn().mockResolvedValue({
+            preferredNavApp: 'default',
+        }),
+    },
+}));
+
 // Mock Linking
 jest.mock('react-native', () => ({
     Linking: {
@@ -43,12 +53,52 @@ describe('navigation lib', () => {
     });
 
     describe('abrirNavegacao', () => {
-        it('deve ser uma função', () => {
+        it('deve ser uma função async', () => {
             expect(typeof abrirNavegacao).toBe('function');
         });
 
-        it('deve aceitar coordenadas como parâmetro', () => {
-            expect(() => abrirNavegacao(mockCoords)).not.toThrow();
+        it('deve aceitar coordenadas como parâmetro', async () => {
+            await expect(abrirNavegacao(mockCoords)).resolves.not.toThrow();
+        });
+
+        it('deve usar app preferido quando configurado', async () => {
+            const LocationTrackingService = require('@/services/locationTracking').default;
+            LocationTrackingService.getNavigationPreferences.mockResolvedValueOnce({
+                preferredNavApp: 'waze',
+            });
+            (Linking.canOpenURL as jest.Mock).mockResolvedValueOnce(true);
+
+            await abrirNavegacao(mockCoords);
+
+            // Deve tentar abrir Waze diretamente
+            expect(Linking.openURL).toHaveBeenCalled();
+            const openedUrl = (Linking.openURL as jest.Mock).mock.calls[0][0];
+            expect(openedUrl).toContain('waze://');
+        });
+
+        it('deve usar app preferido google_maps', async () => {
+            const LocationTrackingService = require('@/services/locationTracking').default;
+            LocationTrackingService.getNavigationPreferences.mockResolvedValueOnce({
+                preferredNavApp: 'google_maps',
+            });
+            (Linking.canOpenURL as jest.Mock).mockResolvedValueOnce(true);
+
+            await abrirNavegacao(mockCoords);
+
+            expect(Linking.openURL).toHaveBeenCalled();
+        });
+
+        it('deve mostrar menu quando preferência é default', async () => {
+            const LocationTrackingService = require('@/services/locationTracking').default;
+            LocationTrackingService.getNavigationPreferences.mockResolvedValueOnce({
+                preferredNavApp: 'default',
+            });
+            const { ActionSheetIOS } = require('react-native');
+
+            await abrirNavegacao(mockCoords);
+
+            // No iOS, deve mostrar ActionSheet
+            expect(ActionSheetIOS.showActionSheetWithOptions).toHaveBeenCalled();
         });
     });
 
