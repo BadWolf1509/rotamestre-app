@@ -23,12 +23,12 @@ import { SkeletonMobile, SkeletonDesktop } from './SkeletonLoader';
 import { dataTableStyles as styles } from './styles';
 import { useDataTableState } from './useDataTableState';
 
-import type { DataTableProps } from './types';
+import type { DataTableProps, DataTableItem } from './types';
 
 // Re-export types for external use
-export type { DataTableColumn, DataTableAction, DataTableProps } from './types';
+export type { DataTableColumn, DataTableAction, DataTableProps, DataTableItem } from './types';
 
-function DataTableInner<T = any>({
+function DataTableInner<T extends DataTableItem = DataTableItem>({
   data,
   columns,
   actions,

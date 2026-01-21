@@ -8,9 +8,15 @@ import type React from 'react';
 
 
 /**
+ * Base type for DataTable items - allows any object type
+ * Using 'object' constraint for flexibility with TypeScript interfaces
+ */
+export type DataTableItem = object;
+
+/**
  * Column definition for DataTable
  */
-export interface DataTableColumn<T = any> {
+export interface DataTableColumn<T = DataTableItem> {
   /** Unique column identifier */
   key: string;
   /** Header label */
@@ -30,9 +36,26 @@ export interface DataTableColumn<T = any> {
 }
 
 /**
+ * Type-safe column accessor for DataTable
+ * Use this when accessing item[column.key] to avoid scattered 'as any' casts
+ */
+export function getColumnDisplayValue(
+  item: DataTableItem,
+  key: string
+): string | number | null | undefined {
+  // Safe type assertion - item is always an object from DataTable
+  const record = item as Record<string, unknown>;
+  const value = record[key];
+  if (value === null || value === undefined) return value;
+  if (typeof value === 'string' || typeof value === 'number') return value;
+  // For complex values, convert to string
+  return String(value);
+}
+
+/**
  * Action definition for DataTable rows
  */
-export interface DataTableAction<T = any> {
+export interface DataTableAction<T = DataTableItem> {
   /** Action label (string or function returning string based on item) */
   label: string | ((item: T) => string);
   /** Icon (IconName or function returning IconName based on item) */
@@ -48,7 +71,7 @@ export interface DataTableAction<T = any> {
 /**
  * DataTable component props
  */
-export interface DataTableProps<T = any> {
+export interface DataTableProps<T extends DataTableItem = DataTableItem> {
   /** Data to display */
   data: T[];
   /** Column definitions */

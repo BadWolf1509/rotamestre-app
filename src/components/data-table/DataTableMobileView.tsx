@@ -10,8 +10,9 @@ import { useUnistyles } from '@/utils/styles';
 
 import { PaginationMobile } from './DataTablePagination';
 import { dataTableStyles as styles } from './styles';
+import { getColumnDisplayValue } from './types';
 
-import type { DataTableColumn, DataTableAction } from './types';
+import type { DataTableColumn, DataTableAction, DataTableItem } from './types';
 
 interface DataTableMobileViewProps<T> {
   data: T[];
@@ -58,7 +59,7 @@ function DataTableMobileViewInner<T>({
             {mobileColumns.map((column) => {
               const renderedContent = column.render
                 ? column.render(item)
-                : (item as any)[column.key];
+                : getColumnDisplayValue(item as DataTableItem, column.key);
               const isReactElement =
                 typeof renderedContent === 'object' &&
                 renderedContent !== null &&

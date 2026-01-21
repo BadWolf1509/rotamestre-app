@@ -16,8 +16,9 @@ import { useUnistyles } from '@/utils/styles';
 
 import { PaginationDesktop } from './DataTablePagination';
 import { dataTableStyles as styles } from './styles';
+import { getColumnDisplayValue } from './types';
 
-import type { DataTableColumn, DataTableAction } from './types';
+import type { DataTableColumn, DataTableAction, DataTableItem } from './types';
 
 interface DataTableDesktopViewProps<T> {
   data: T[];
@@ -134,7 +135,7 @@ function DataTableDesktopViewInner<T>({
                         numberOfLines={column.noWrap ? 1 : undefined}
                         ellipsizeMode={column.noWrap ? 'tail' : undefined}
                       >
-                        {(item as any)[column.key]}
+                        {getColumnDisplayValue(item as DataTableItem, column.key)}
                       </Text>
                     )}
                   </View>
