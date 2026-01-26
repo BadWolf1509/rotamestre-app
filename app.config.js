@@ -96,6 +96,7 @@ module.exports = ({ config }) => {
       "expo-router",
       "expo-asset",
       "expo-font",
+      "@react-native-community/datetimepicker",
       [
         "expo-location",
         {
