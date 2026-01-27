@@ -7,7 +7,8 @@ const ALLOWLIST = new Set([
   'src/utils/styles.base.ts',
   'app/design-system.tsx', // Showcase page - hex colors for demonstration
   // Web-specific files with justified hex usage:
-  'src/components/motorista/NavigationMode.web.tsx', // Google Blue (#4285F4) for map marker
+  'src/components/MapaWebMapLibre.tsx', // MapLibre marker colors
+  'src/components/motorista/NavigationMode.web.tsx', // Map marker colors
   'src/components/motorista/PictureInPictureMap.web.tsx', // boxShadow helper
   'src/components/motorista/TurnByTurnNavigation.web.tsx', // boxShadow helper
   'src/components/Slider.web.tsx', // iOS system colors for defaults
