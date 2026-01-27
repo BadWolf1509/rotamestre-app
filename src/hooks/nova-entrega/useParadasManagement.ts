@@ -12,8 +12,8 @@ import type {
   ParadasStatus,
   RotaOtimizadaState,
 } from '@/components/gestor/nova-entrega/types';
-import { googleMapsService } from '@/lib/google';
 import { logger } from '@/lib/logger';
+import { photonService } from '@/lib/photon';
 import { MAX_WAYPOINTS, WAYPOINTS_RECOMENDADO } from '@/lib/routeOptimization';
 
 import { generateUniqueId } from '../useNovaEntrega.helpers';
@@ -95,7 +95,8 @@ export function useParadasManagement({
       const extendedData = paradaData as ParadaFormDataWithCoords;
 
       if (!extendedData.latitude || !extendedData.longitude) {
-        const result = await googleMapsService.geocodeAddress(paradaData.endereco);
+        // Usa Photon (gratuito!) para geocoding
+        const result = await photonService.geocodeAddress(paradaData.endereco);
 
         if (!result) {
           showToast('Não foi possível localizar o endereço. Use o autocomplete para selecionar um endereço válido.', 'error');

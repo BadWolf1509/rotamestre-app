@@ -128,12 +128,7 @@ describe('ParadaCardSkeleton', () => {
       const { toJSON } = render(<ParadaCardSkeleton />);
       const tree = toJSON();
       expect(tree).toBeTruthy();
-      // A estrutura contém: header com badges, endereço, streetview, detalhes, ações
-    });
-
-    it('deve ter placeholder para Street View', () => {
-      const { root } = render(<ParadaCardSkeleton />);
-      expect(root).toBeTruthy();
+      // A estrutura contém: header com badges, endereço, detalhes, ações
     });
 
     it('deve ter placeholders para botões de ação', () => {

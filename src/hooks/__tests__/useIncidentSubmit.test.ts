@@ -44,9 +44,9 @@ jest.mock('expo-location', () => ({
   Accuracy: { Balanced: 3 },
 }));
 
-// Mock google maps service
-jest.mock('@/lib/google', () => ({
-  googleMapsService: {
+// Mock Photon service (migrado de Google)
+jest.mock('@/lib/photon', () => ({
+  photonService: {
     reverseGeocode: jest.fn(() => Promise.resolve('Rua Teste, 123')),
   },
 }));

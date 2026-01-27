@@ -14,11 +14,6 @@ jest.mock('@/components/SwipeableRow', () => ({
   SwipeableRow: ({ children }: { children: React.ReactNode }) => children,
 }));
 
-// Mock StreetViewPreview
-jest.mock('@/components/StreetViewPreview', () => ({
-  StreetViewPreview: () => null,
-}));
-
 describe('ParadaCard', () => {
   const mockParadaPendente: Parada = {
     id: '1',

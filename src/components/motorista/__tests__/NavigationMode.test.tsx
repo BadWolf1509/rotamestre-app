@@ -44,7 +44,9 @@ jest.mock('react-native-maps', () => {
         Marker: ({ children, ...props }: any) => (
             <View testID="marker" {...props}>{children}</View>
         ),
-        PROVIDER_GOOGLE: 'google',
+        UrlTile: (props: any) => (
+            <View testID="url-tile" {...props} />
+        ),
     };
 });
 
@@ -407,12 +409,12 @@ describe('NavigationMode', () => {
     });
 
     describe('Map properties', () => {
-        it('deve usar PROVIDER_GOOGLE', async () => {
+        it('deve usar OSM tiles (UrlTile)', async () => {
             const { getByTestId } = render(<NavigationMode {...defaultProps} />);
 
             await waitFor(() => {
-                const mapView = getByTestId('map-view');
-                expect(mapView.props.provider).toBe('google');
+                const urlTile = getByTestId('url-tile');
+                expect(urlTile.props.urlTemplate).toContain('openstreetmap.org');
             });
         });
 

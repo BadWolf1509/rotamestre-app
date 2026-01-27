@@ -1,8 +1,14 @@
-/* global google */
+/**
+ * NavigationMode.web.tsx - Modo de navegação para motorista (Web)
+ *
+ * Migrado de Google Maps para MapLibre GL JS + OpenFreeMap (Jan/2025)
+ * - Usa tiles gratuitos do OpenFreeMap
+ * - Não requer API key
+ */
 
 import { Ionicons } from '@expo/vector-icons';
-import { GoogleMap, useJsApiLoader, OverlayView, Polyline } from '@react-google-maps/api';
 import * as Location from 'expo-location';
+import maplibregl from 'maplibre-gl';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,17 +18,17 @@ import {
   View,
 } from 'react-native';
 
+import 'maplibre-gl/dist/maplibre-gl.css';
+
 import { useNavigationModeLogic, type NavigationModeProps } from '@/hooks/navigation';
 import { useAlert } from '@/hooks/useAlert';
 import { abrirNavegacao } from '@/lib/navigation';
+import { getOpenFreeMapStyle, installOpenFreeMapMissingImageHandler } from '@/lib/openFreeMapStyle';
 import { calculateHaversineDistance } from '@/services/turnByTurnNavigation';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import { NavigationSettings } from './NavigationSettings';
-
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-const mapLibraries: ('marker' | 'places')[] = ['marker', 'places'];
 
 export function NavigationMode({
   currentStop,
@@ -35,7 +41,11 @@ export function NavigationMode({
 }: NavigationModeProps) {
   const { theme } = useUnistyles();
   const { showWarning, AlertDialog } = useAlert();
-  const mapRef = useRef<google.maps.Map | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
+  const userMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
   // Use shared navigation logic hook
   const {
@@ -68,14 +78,6 @@ export function NavigationMode({
     rotaId,
   });
 
-  // Load Google Maps
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    libraries: mapLibraries,
-    version: 'beta',
-  });
-
   const [buttonPressed, setButtonPressed] = useState<string | null>(null);
   const { autoAdvance, proximityRadius, showSpeedometer } = {
     autoAdvance: preferences.autoAdvance ?? true,
@@ -83,15 +85,12 @@ export function NavigationMode({
     showSpeedometer: preferences.showSpeedometer ?? true,
   };
 
-  // Calculate map center and zoom based on distance for navigation
-  const { mapCenter, mapZoom } = useMemo(() => {
+  // Calculate map center based on user location and destination
+  const mapCenter = useMemo(() => {
     if (!userLocation || !currentStop) {
-      return {
-        mapCenter: currentStop
-          ? { lat: currentStop.latitude, lng: currentStop.longitude }
-          : { lat: -23.5505, lng: -46.6333 }, // São Paulo default
-        mapZoom: 15,
-      };
+      return currentStop
+        ? [currentStop.longitude, currentStop.latitude] as [number, number]
+        : [-46.6333, -23.5505] as [number, number]; // São Paulo default
     }
 
     const distance = calculateHaversineDistance(
@@ -101,60 +100,313 @@ export function NavigationMode({
       currentStop.longitude
     );
 
-    // Se está perto (< 1km), centralizar entre os dois pontos
+    // If close, center between both points
     if (distance < 1000) {
-      return {
-        mapCenter: {
-          lat: (userLocation.latitude + currentStop.latitude) / 2,
-          lng: (userLocation.longitude + currentStop.longitude) / 2,
-        },
-        mapZoom: distance < 500 ? 16 : 15,
-      };
+      return [
+        (userLocation.longitude + currentStop.longitude) / 2,
+        (userLocation.latitude + currentStop.latitude) / 2,
+      ] as [number, number];
     }
 
-    // Se está longe, focar no usuário com zoom mais alto para navegação
-    let zoom = 15; // Zoom padrão para navegação
-    if (distance > 10000) zoom = 13;
-    else if (distance > 5000) zoom = 14;
-    else if (distance > 2000) zoom = 14;
-
-    return {
-      mapCenter: {
-        lat: userLocation.latitude,
-        lng: userLocation.longitude,
-      },
-      mapZoom: zoom,
-    };
+    // If far, focus on user
+    return [userLocation.longitude, userLocation.latitude] as [number, number];
   }, [userLocation, currentStop]);
+
+  // Initialize MapLibre map (only once on mount)
+  useEffect(() => {
+    if (!mapContainerRef.current || mapRef.current) return;
+
+    // Capture initial center value
+    const initialCenter = mapCenter;
+    let cancelled = false;
+    let mapInstance: maplibregl.Map | null = null;
+    let removeMissingImageHandler: (() => void) | null = null;
+
+    const initializeMap = async () => {
+      try {
+        const style = await getOpenFreeMapStyle();
+        if (cancelled || !mapContainerRef.current) return;
+
+        mapInstance = new maplibregl.Map({
+          container: mapContainerRef.current,
+          style,
+          center: initialCenter,
+          zoom: 15,
+        });
+        removeMissingImageHandler = installOpenFreeMapMissingImageHandler(mapInstance);
+
+        mapInstance.on('load', () => {
+          setMapLoaded(true);
+        });
+
+        mapRef.current = mapInstance;
+      } catch (error) {
+        if (cancelled) return;
+        console.error('[NavigationMode.web] Failed to initialize map:', error);
+      }
+    };
+
+    initializeMap();
+
+    // Copy refs to local variables for cleanup
+    const markers = markersRef.current;
+    const userMarker = userMarkerRef.current;
+
+    return () => {
+      cancelled = true;
+      if (removeMissingImageHandler) {
+        removeMissingImageHandler();
+      }
+      markers.forEach(marker => marker.remove());
+      markers.clear();
+      userMarker?.remove();
+      if (mapInstance) {
+        mapInstance.remove();
+      }
+      mapRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Update map center when user location changes
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded || !userLocation) return;
+    mapRef.current.setCenter([userLocation.longitude, userLocation.latitude]);
+  }, [userLocation, mapLoaded]);
+
+  // Create/update user location marker
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded || !userLocation) return;
+
+    // Remove old marker
+    userMarkerRef.current?.remove();
+
+    // Create user marker element
+    const el = document.createElement('div');
+    const hasHeading = userLocation.heading !== undefined;
+
+    if (hasHeading) {
+      el.innerHTML = `
+        <div style="
+          width: 32px;
+          height: 32px;
+          border-radius: 16px;
+          background: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+          transform: rotate(${userLocation.heading}deg);
+        ">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="${theme.colors.info}">
+            <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71L12 2z"/>
+          </svg>
+        </div>
+      `;
+    } else {
+      el.innerHTML = `
+        <div style="
+          width: 24px;
+          height: 24px;
+          border-radius: 12px;
+          background: rgba(66, 133, 244, 0.3);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        ">
+          <div style="
+            width: 12px;
+            height: 12px;
+            border-radius: 6px;
+            background: #4285F4;
+            border: 2px solid white;
+          "></div>
+        </div>
+      `;
+    }
+
+    userMarkerRef.current = new maplibregl.Marker({ element: el })
+      .setLngLat([userLocation.longitude, userLocation.latitude])
+      .addTo(mapRef.current);
+  }, [userLocation, mapLoaded, theme.colors.info]);
+
+  // Create/update destination and stop markers
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded) return;
+
+    // Clear existing markers
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current.clear();
+
+    // Current destination marker
+    const destEl = document.createElement('div');
+    const destColor = isEntrega ? theme.colors.error : theme.colors.warning;
+    destEl.innerHTML = `
+      <div style="
+        width: 36px;
+        height: 36px;
+        border-radius: 18px;
+        background: ${destColor};
+        border: 3px solid white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      ">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+          ${isEntrega
+            ? '<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2l4-4-4-4v3H8v2h4v3z"/>'
+            : '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>'
+          }
+        </svg>
+      </div>
+    `;
+    const destMarker = new maplibregl.Marker({ element: destEl })
+      .setLngLat([currentStop.longitude, currentStop.latitude])
+      .addTo(mapRef.current);
+    markersRef.current.set('current', destMarker);
+
+    // Other pending stops
+    pendingStops.forEach((parada) => {
+      const isNext = nextStopAfterCurrent?.id === parada.id;
+      const el = document.createElement('div');
+      el.innerHTML = `
+        <div style="
+          width: ${isNext ? '28px' : '24px'};
+          height: ${isNext ? '28px' : '24px'};
+          border-radius: ${isNext ? '14px' : '12px'};
+          background: ${isNext ? theme.colors.warning : theme.colors.gray400};
+          border: 2px solid white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-size: ${isNext ? '11px' : '10px'};
+          font-weight: 600;
+          ${isNext ? `box-shadow: 0 1px 3px ${theme.colors.warning}80;` : ''}
+        ">
+          ${parada.ordem}
+        </div>
+      `;
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([parada.longitude, parada.latitude])
+        .addTo(mapRef.current!);
+      markersRef.current.set(parada.id, marker);
+    });
+
+    // Start checkpoint
+    if (startCheckpoint && startCheckpoint.id !== currentStop.id) {
+      const el = document.createElement('div');
+      el.innerHTML = `
+        <div style="
+          width: 28px;
+          height: 28px;
+          border-radius: 14px;
+          background: white;
+          border: 2px solid ${theme.colors.gray200};
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+        ">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="${theme.colors.success}">
+            <path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/>
+          </svg>
+        </div>
+      `;
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([startCheckpoint.longitude, startCheckpoint.latitude])
+        .addTo(mapRef.current!);
+      markersRef.current.set('start', marker);
+    }
+
+    // End checkpoint
+    if (endCheckpoint && endCheckpoint.id !== currentStop.id) {
+      const el = document.createElement('div');
+      el.innerHTML = `
+        <div style="
+          width: 28px;
+          height: 28px;
+          border-radius: 14px;
+          background: white;
+          border: 2px solid ${theme.colors.gray200};
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+        ">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="${theme.colors.info}">
+            <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+          </svg>
+        </div>
+      `;
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([endCheckpoint.longitude, endCheckpoint.latitude])
+        .addTo(mapRef.current!);
+      markersRef.current.set('end', marker);
+    }
+  }, [currentStop, pendingStops, nextStopAfterCurrent, startCheckpoint, endCheckpoint, isEntrega, mapLoaded, theme]);
+
+  // Add/update route polyline
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded || routePath.length < 2) return;
+
+    const map = mapRef.current;
+    const sourceId = 'route-source';
+    const layerId = 'route-layer';
+
+    // Remove existing route
+    if (map.getLayer(layerId)) map.removeLayer(layerId);
+    if (map.getSource(sourceId)) map.removeSource(sourceId);
+
+    // Add route
+    map.addSource(sourceId, {
+      type: 'geojson',
+      data: {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'LineString',
+          coordinates: routePath.map(c => [c.longitude, c.latitude]),
+        },
+      },
+    });
+
+    map.addLayer({
+      id: layerId,
+      type: 'line',
+      source: sourceId,
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: {
+        'line-color': theme.colors.primary,
+        'line-width': 4,
+        'line-opacity': 1,
+      },
+    });
+
+    return () => {
+      if (map.getLayer(layerId)) map.removeLayer(layerId);
+      if (map.getSource(sourceId)) map.removeSource(sourceId);
+    };
+  }, [routePath, mapLoaded, theme.colors.primary]);
 
   // Recenter map on user location
   const recenterMap = useCallback(() => {
     if (mapRef.current && userLocation) {
-      mapRef.current.panTo({
-        lat: userLocation.latitude,
-        lng: userLocation.longitude,
+      mapRef.current.flyTo({
+        center: [userLocation.longitude, userLocation.latitude],
+        zoom: 16,
       });
-      mapRef.current.setZoom(16);
     }
   }, [userLocation]);
-
-  // isEntrega is now provided by useNavigationModeLogic hook
-  // loadPreferences is now provided by useNavigationModeLogic hook
 
   const handleArrival = useCallback(() => {
     Alert.alert(
       'Chegou ao Destino!',
       `Você chegou em: ${currentStop.endereco}`,
       [
-        {
-          text: 'Pular',
-          style: 'destructive',
-          onPress: onSkip,
-        },
-        {
-          text: 'Concluir',
-          onPress: onComplete,
-        },
+        { text: 'Pular', style: 'destructive', onPress: onSkip },
+        { text: 'Concluir', onPress: onComplete },
       ]
     );
   }, [currentStop, onComplete, onSkip]);
@@ -177,7 +429,6 @@ export function NavigationMode({
 
     setIsTracking(true);
 
-    // Get initial location
     try {
       const location = await Location.getCurrentPositionAsync({});
       updateLocationFromCoords(
@@ -192,7 +443,6 @@ export function NavigationMode({
       console.warn('[NavigationMode.web] Error getting initial location:', error);
     }
 
-    // Watch location updates
     const subscription = await Location.watchPositionAsync(
       {
         accuracy: Location.Accuracy.BestForNavigation,
@@ -219,14 +469,12 @@ export function NavigationMode({
         console.warn('[NavigationMode.web] Error removing subscription:', error);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setIsTracking, updateLocationFromCoords]);
+  }, [setIsTracking, updateLocationFromCoords, showWarning]);
 
   useEffect(() => {
     loadPreferences();
   }, [loadPreferences]);
 
-  // Check for auto-advance when distance changes
   useEffect(() => {
     if (distanceToStop !== null) {
       checkProximityAndAutoAdvance(distanceToStop);
@@ -252,9 +500,7 @@ export function NavigationMode({
 
     return () => {
       const existingStyle = document.getElementById(styleId);
-      if (existingStyle) {
-        existingStyle.remove();
-      }
+      if (existingStyle) existingStyle.remove();
     };
   }, []);
 
@@ -272,8 +518,6 @@ export function NavigationMode({
     };
   }, [startLocationTracking]);
 
-  // OSRM route fetching and formatDistance are now handled by useNavigationModeLogic hook
-
   const openExternalNavigation = () => {
     abrirNavegacao({
       latitude: currentStop.latitude,
@@ -282,12 +526,8 @@ export function NavigationMode({
     });
   };
 
-  const onMapLoad = useCallback((map: google.maps.Map) => {
-    mapRef.current = map;
-  }, []);
-
   // Loading state
-  if (!isLoaded) {
+  if (!mapLoaded) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -296,34 +536,11 @@ export function NavigationMode({
     );
   }
 
-  // Error state
-  if (loadError) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.mapContainer}>
-          <View style={styles.mapPlaceholder}>
-            <Ionicons name="warning-outline" size={80} color={theme.colors.warning} />
-            <Text style={styles.mapPlaceholderText}>
-              Erro ao carregar o mapa
-            </Text>
-            <TouchableOpacity
-              style={styles.openMapButton}
-              onPress={openExternalNavigation}
-            >
-              <Text style={styles.openMapButtonText}>Abrir no Google Maps</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-        {renderInfoPanel()}
-      </View>
-    );
-  }
-
   // Info panel render function
   function renderInfoPanel() {
     return (
       <View style={styles.infoContainer}>
-        {/* Progress Indicator (only real stops, not checkpoints) */}
+        {/* Progress Indicator */}
         <View style={styles.progressContainer}>
           {realParadas.map((parada, index) => {
             const isCompleted = parada.status === 'concluida';
@@ -508,121 +725,12 @@ export function NavigationMode({
 
   return (
     <View style={styles.container}>
-      {/* Google Map */}
+      {/* MapLibre Map */}
       <View style={styles.mapContainer}>
-        <GoogleMap
-          mapContainerStyle={{ width: '100%', height: '100%' }}
-          center={mapCenter}
-          zoom={mapZoom}
-          onLoad={onMapLoad}
-          options={{
-            disableDefaultUI: true,
-            zoomControl: true,
-            mapTypeControl: false,
-            streetViewControl: false,
-            fullscreenControl: false,
-          }}
-        >
-          {/* User Location Marker */}
-          {userLocation && (
-            <OverlayView
-              position={{ lat: userLocation.latitude, lng: userLocation.longitude }}
-              mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-            >
-              {userLocation.heading !== undefined ? (
-                <View
-                  style={[
-                    styles.userDirectionMarker,
-                    { transform: [{ rotate: `${userLocation.heading}deg` }] },
-                  ]}
-                >
-                  <Ionicons name="navigate" size={20} color={theme.colors.info} />
-                </View>
-              ) : (
-                <View style={styles.userMarker}>
-                  <View style={styles.userMarkerInner} />
-                </View>
-              )}
-            </OverlayView>
-          )}
-
-          {/* Current Destination Marker (parada atual) */}
-          <OverlayView
-            position={{ lat: currentStop.latitude, lng: currentStop.longitude }}
-            mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-          >
-            <View style={[
-              styles.currentDestinationMarker,
-              isEntrega ? styles.currentDestinationEntrega : styles.currentDestinationRetirada,
-            ]}>
-              <Ionicons
-                name={isEntrega ? 'cube' : 'arrow-up-circle'}
-                size={18}
-                color={theme.colors.white}
-              />
-            </View>
-          </OverlayView>
-
-          {/* Other Pending Stops */}
-          {pendingStops.map((parada) => {
-            const isNextStop = nextStopAfterCurrent?.id === parada.id;
-            return (
-              <OverlayView
-                key={parada.id}
-                position={{ lat: parada.latitude, lng: parada.longitude }}
-                mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-              >
-                <View style={[
-                  styles.otherMarker,
-                  isNextStop && styles.nextStopMarker,
-                ]}>
-                  <Text style={[
-                    styles.markerText,
-                    isNextStop && styles.nextStopMarkerText,
-                  ]}>
-                    {parada.ordem}
-                  </Text>
-                </View>
-              </OverlayView>
-            );
-          })}
-
-          {/* Route Polyline */}
-          {routePath.length >= 2 && (
-            <Polyline
-              path={routePath.map(coord => ({ lat: coord.latitude, lng: coord.longitude }))}
-              options={{
-                strokeColor: theme.colors.primary,
-                strokeOpacity: 1,
-                strokeWeight: 4,
-              }}
-            />
-          )}
-
-          {/* Start Checkpoint Marker (ponto de partida) */}
-          {startCheckpoint && startCheckpoint.id !== currentStop.id && (
-            <OverlayView
-              position={{ lat: startCheckpoint.latitude, lng: startCheckpoint.longitude }}
-              mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-            >
-              <View style={styles.checkpointMarker}>
-                <Ionicons name="flag" size={14} color={theme.colors.success} />
-              </View>
-            </OverlayView>
-          )}
-
-          {/* End Checkpoint Marker (ponto de chegada/retorno) */}
-          {endCheckpoint && endCheckpoint.id !== currentStop.id && (
-            <OverlayView
-              position={{ lat: endCheckpoint.latitude, lng: endCheckpoint.longitude }}
-              mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-            >
-              <View style={styles.checkpointMarker}>
-                <Ionicons name="home" size={14} color={theme.colors.info} />
-              </View>
-            </OverlayView>
-          )}
-        </GoogleMap>
+        <div
+          ref={mapContainerRef}
+          style={{ width: '100%', height: '100%' }}
+        />
 
         {/* Top Bar */}
         <View style={styles.topBar}>
@@ -694,29 +802,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
     backgroundColor: theme.colors.gray100,
     position: 'relative',
-  },
-  mapPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.colors.gray50,
-  },
-  mapPlaceholderText: {
-    marginTop: theme.spacing['4'],
-    fontSize: theme.typography.fontSize.base,
-    color: theme.colors.gray500,
-  },
-  openMapButton: {
-    marginTop: theme.spacing['6'],
-    paddingHorizontal: theme.spacing['6'],
-    paddingVertical: theme.spacing['3'],
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.sm,
-  },
-  openMapButtonText: {
-    color: theme.colors.white,
-    fontSize: theme.typography.fontSize.base,
-    fontWeight: '600',
   },
   topBar: {
     position: 'absolute',
@@ -832,9 +917,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     paddingBottom: theme.spacing['4'],
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray200,
-  },
-  distanceContainer: {
-    alignItems: 'center',
   },
   distanceValue: {
     fontSize: theme.typography.fontSize['3xl'],
@@ -1002,102 +1084,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     textShadowColor: withOpacity(theme.colors.black, 0.25),
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
-  },
-  userMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(66, 133, 244, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  userMarkerInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#4285F4',
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  userDirectionMarker: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: theme.colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: theme.colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-  },
-  // Current destination (parada atual em navegação) marker - smaller, no label
-  currentDestinationMarker: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: theme.colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    borderWidth: 3,
-    borderColor: theme.colors.white,
-  },
-  currentDestinationEntrega: {
-    backgroundColor: theme.colors.error,
-  },
-  currentDestinationRetirada: {
-    backgroundColor: theme.colors.warning,
-  },
-  // Checkpoint (partida/chegada) marker - smaller, no label
-  checkpointMarker: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: theme.colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: theme.colors.gray200,
-    shadowColor: theme.colors.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-  },
-  // Other pending stops marker - smaller
-  otherMarker: {
-    backgroundColor: theme.colors.gray400,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: theme.colors.white,
-  },
-  // Next stop marker (highlighted) - smaller
-  nextStopMarker: {
-    backgroundColor: theme.colors.warning,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: theme.colors.white,
-    shadowColor: theme.colors.warning,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-  },
-  markerText: {
-    color: theme.colors.white,
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  nextStopMarkerText: {
-    fontSize: 11,
-    fontWeight: '700',
   },
   settingsOverlay: {
     position: 'absolute',

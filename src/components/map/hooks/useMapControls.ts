@@ -83,10 +83,25 @@ export function useMapControls({
 
   // Handler for recenter button click
   const handleRecenter = useCallback(() => {
-    if (boundsRef.current && !boundsRef.current.isEmpty()) {
-      mapRef.current?.fitBounds(boundsRef.current);
-    } else if (hasParadas && mapRef.current) {
-      mapRef.current.panTo(center);
+    const map = mapRef.current;
+    if (!map) return;
+
+    try {
+      const bounds = boundsRef.current;
+      if (bounds && typeof bounds.isEmpty === 'function' && !bounds.isEmpty()) {
+        map.fitBounds(bounds);
+        return;
+      }
+    } catch {
+      // Fallback to panTo when bounds are invalid or map throws
+    }
+
+    if (hasParadas) {
+      try {
+        map.panTo(center);
+      } catch {
+        // Ignore panTo errors to avoid crash on web
+      }
     }
   }, [boundsRef, mapRef, hasParadas, center]);
 
@@ -95,34 +110,42 @@ export function useMapControls({
 
     // Capture the map instance at effect time for cleanup
     const map = mapRef.current;
+    const leftPosition = google.maps.ControlPosition.LEFT_BOTTOM;
+    const rightPosition = google.maps.ControlPosition.RIGHT_BOTTOM;
 
     // Create and add legend
     const legend = createLegendElement(theme);
     legendControlRef.current = legend;
-    map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(legend);
+    map.controls[leftPosition].push(legend);
 
     // Create and add recenter button
     const recenter = createRecenterElement(theme, handleRecenter);
     recenterControlRef.current = recenter;
-    map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(recenter);
+    map.controls[rightPosition].push(recenter);
 
     return () => {
+      const leftControls = map.controls?.[leftPosition];
+      const rightControls = map.controls?.[rightPosition];
+
       // Remove legend
-      if (legendControlRef.current) {
-        const idx = map.controls[google.maps.ControlPosition.LEFT_BOTTOM]
-          .getArray()
-          .indexOf(legendControlRef.current);
-        if (idx != null && idx >= 0) {
-          map.controls[google.maps.ControlPosition.LEFT_BOTTOM].removeAt(idx);
+      if (legendControlRef.current && leftControls?.getArray) {
+        const leftArray = leftControls.getArray();
+        if (Array.isArray(leftArray)) {
+          const idx = leftArray.indexOf(legendControlRef.current);
+          if (idx >= 0) {
+            leftControls.removeAt(idx);
+          }
         }
       }
       // Remove recenter
-      if (recenterControlRef.current) {
-        const idx = map.controls[google.maps.ControlPosition.RIGHT_BOTTOM]
-          .getArray()
-          .indexOf(recenterControlRef.current);
-        if (idx != null && idx >= 0) {
-          map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].removeAt(idx);
+      if (recenterControlRef.current && rightControls?.getArray) {
+        recenterControlRef.current.removeEventListener('click', handleRecenter);
+        const rightArray = rightControls.getArray();
+        if (Array.isArray(rightArray)) {
+          const idx = rightArray.indexOf(recenterControlRef.current);
+          if (idx >= 0) {
+            rightControls.removeAt(idx);
+          }
         }
       }
     };

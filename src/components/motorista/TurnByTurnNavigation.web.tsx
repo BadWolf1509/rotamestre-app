@@ -1,8 +1,6 @@
-/* global google */
-
 import { Ionicons } from '@expo/vector-icons';
-import { GoogleMap, useJsApiLoader, Polyline, OverlayView } from '@react-google-maps/api';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import maplibregl from 'maplibre-gl';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -11,6 +9,9 @@ import {
   View,
 } from 'react-native';
 
+import 'maplibre-gl/dist/maplibre-gl.css';
+
+import { getOpenFreeMapStyle, installOpenFreeMapMissingImageHandler } from '@/lib/openFreeMapStyle';
 import LocationTrackingService from '@/services/locationTracking';
 import TurnByTurnNavigationService, {
   calculateHaversineDistance,
@@ -23,9 +24,6 @@ import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 // Default values
 const DEFAULT_PROXIMITY_RADIUS = 30;
 const DEFAULT_VOICE_ENABLED = true;
-
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-const mapLibraries: ('marker' | 'places')[] = ['marker', 'places'];
 
 interface TurnByTurnNavigationProps {
   origin: { latitude: number; longitude: number };
@@ -43,15 +41,9 @@ export function TurnByTurnNavigation({
   onExit,
 }: TurnByTurnNavigationProps) {
   const { theme } = useUnistyles();
-  const mapRef = useRef<google.maps.Map | null>(null);
-
-  // Load Google Maps
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    libraries: mapLibraries,
-    version: 'beta',
-  });
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const markersRef = useRef<maplibregl.Marker[]>([]);
 
   // User preferences
   const [proximityRadius, setProximityRadius] = useState(DEFAULT_PROXIMITY_RADIUS);
@@ -67,10 +59,15 @@ export function TurnByTurnNavigation({
   const [progress, setProgress] = useState(0);
   const [voiceEnabled, setVoiceEnabled] = useState(DEFAULT_VOICE_ENABLED);
   const [isLoading, setIsLoading] = useState(true);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
   const [speed, setSpeed] = useState(0);
 
   // Geolocation watch ID
   const watchIdRef = useRef<number | null>(null);
+
+  // User marker ref for updates
+  const userMarkerRef = useRef<maplibregl.Marker | null>(null);
 
   // Load user preferences
   useEffect(() => {
@@ -202,6 +199,236 @@ export function TurnByTurnNavigation({
     };
   }, [destination, proximityRadius, handleArrival]);
 
+  // Initialize MapLibre map
+  useEffect(() => {
+    if (!mapContainerRef.current || mapRef.current || isLoading) return;
+
+    let cancelled = false;
+    let mapInstance: maplibregl.Map | null = null;
+    let removeMissingImageHandler: (() => void) | null = null;
+
+    const initializeMap = async () => {
+      try {
+        const style = await getOpenFreeMapStyle();
+        if (cancelled || !mapContainerRef.current) return;
+
+        mapInstance = new maplibregl.Map({
+          container: mapContainerRef.current,
+          style,
+          center: [userLocation.longitude, userLocation.latitude],
+          zoom: 17,
+          attributionControl: false,
+        });
+        removeMissingImageHandler = installOpenFreeMapMissingImageHandler(mapInstance);
+
+        mapInstance.on('load', () => {
+          setMapLoaded(true);
+          mapRef.current = mapInstance;
+        });
+
+        mapInstance.on('error', (e) => {
+          console.error('[TurnByTurn.web] Map error:', e);
+          setMapError('Erro ao carregar mapa');
+        });
+      } catch (error) {
+        if (cancelled) return;
+        console.error('[TurnByTurn.web] Failed to initialize map:', error);
+        setMapError('Erro ao inicializar mapa');
+      }
+    };
+
+    initializeMap();
+
+    return () => {
+      cancelled = true;
+      if (removeMissingImageHandler) {
+        removeMissingImageHandler();
+      }
+      // Cleanup markers
+      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current = [];
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove();
+        userMarkerRef.current = null;
+      }
+      if (mapInstance) {
+        mapInstance.remove();
+      }
+      mapRef.current = null;
+      setMapLoaded(false);
+    };
+  }, [isLoading, userLocation.latitude, userLocation.longitude]);
+
+  // Create user marker element
+  const createUserMarkerElement = useCallback(() => {
+    const el = document.createElement('div');
+    el.style.cssText = `
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background-color: ${theme.colors.info};
+      border: 3px solid white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+
+    const inner = document.createElement('div');
+    inner.style.cssText = `
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: white;
+    `;
+    el.appendChild(inner);
+
+    return el;
+  }, [theme.colors.info]);
+
+  // Create destination marker element
+  const createDestinationMarkerElement = useCallback(() => {
+    const el = document.createElement('div');
+    el.style.cssText = `
+      background-color: ${theme.colors.white};
+      border-radius: 16px;
+      padding: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+
+    const icon = document.createElement('div');
+    icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 512 512"><path fill="${theme.colors.error}" d="M80 464V68.14a8 8 0 0 1 4-6.9C91.81 56.66 112.92 48 160 48c64 0 145 48 192 48a199.53 199.53 0 0 0 77.23-15.77a2 2 0 0 1 2.77 1.85v219.36a4 4 0 0 1-2.39 3.65C421.37 308.7 392.33 320 352 320c-48 0-128-32-192-32s-80 16-80 16"/><path fill="${theme.colors.error}" d="M80 464a16 16 0 0 1-16-16V68.14a24 24 0 0 1 12-20.9C91.55 38 112.91 32 160 32c61.31 0 140.63 40 184 40c48.47 0 80.27-16.3 90.14-21.42a16 16 0 0 1 17.71 2.63A15.94 15.94 0 0 1 456 67.57v237.31a23.93 23.93 0 0 1-14.36 21.93C423.45 334.9 384.05 352 352 352c-50.44 0-129.44-32-192-32c-31.81 0-54.07 6.84-64 12.64V448a16 16 0 0 1-16 16"/></svg>`;
+    el.appendChild(icon);
+
+    return el;
+  }, [theme.colors.white, theme.colors.error]);
+
+  // Create waypoint marker element
+  const createWaypointMarkerElement = useCallback((index: number) => {
+    const el = document.createElement('div');
+    el.style.cssText = `
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background-color: ${theme.colors.gray500};
+      border: 2px solid white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+      font-weight: 700;
+    `;
+    el.textContent = String(index + 1);
+
+    return el;
+  }, [theme.colors.gray500]);
+
+  // Add markers to map
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded) return;
+
+    // Clear existing markers (except user marker)
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current = [];
+
+    // Add destination marker
+    const destMarker = new maplibregl.Marker({ element: createDestinationMarkerElement() })
+      .setLngLat([destination.longitude, destination.latitude])
+      .addTo(mapRef.current);
+    markersRef.current.push(destMarker);
+
+    // Add waypoint markers
+    waypoints?.forEach((wp, index) => {
+      const wpMarker = new maplibregl.Marker({ element: createWaypointMarkerElement(index) })
+        .setLngLat([wp.longitude, wp.latitude])
+        .addTo(mapRef.current!);
+      markersRef.current.push(wpMarker);
+    });
+
+    // Add or update user marker
+    if (!userMarkerRef.current) {
+      userMarkerRef.current = new maplibregl.Marker({ element: createUserMarkerElement() })
+        .setLngLat([userLocation.longitude, userLocation.latitude])
+        .addTo(mapRef.current);
+    }
+  }, [mapLoaded, destination, waypoints, createDestinationMarkerElement, createWaypointMarkerElement, createUserMarkerElement, userLocation]);
+
+  // Update user marker position
+  useEffect(() => {
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setLngLat([userLocation.longitude, userLocation.latitude]);
+    }
+
+    // Center map on user (smooth pan)
+    if (mapRef.current && mapLoaded) {
+      mapRef.current.panTo([userLocation.longitude, userLocation.latitude], { duration: 300 });
+    }
+  }, [userLocation, mapLoaded]);
+
+  // Add route polyline
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded || routeCoordinates.length === 0) return;
+
+    const sourceId = 'route-source';
+    const layerId = 'route-layer';
+
+    // Remove existing layer and source if they exist
+    if (mapRef.current.getLayer(layerId)) {
+      mapRef.current.removeLayer(layerId);
+    }
+    if (mapRef.current.getSource(sourceId)) {
+      mapRef.current.removeSource(sourceId);
+    }
+
+    // Add route source
+    mapRef.current.addSource(sourceId, {
+      type: 'geojson',
+      data: {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'LineString',
+          coordinates: routeCoordinates.map(c => [c.longitude, c.latitude]),
+        },
+      },
+    });
+
+    // Add route layer
+    mapRef.current.addLayer({
+      id: layerId,
+      type: 'line',
+      source: sourceId,
+      layout: {
+        'line-join': 'round',
+        'line-cap': 'round',
+      },
+      paint: {
+        'line-color': theme.colors.primary,
+        'line-width': 5,
+        'line-opacity': 0.8,
+      },
+    });
+
+    // Fit bounds to show entire route
+    if (routeCoordinates.length > 0) {
+      const bounds = new maplibregl.LngLatBounds();
+      routeCoordinates.forEach(coord => {
+        bounds.extend([coord.longitude, coord.latitude]);
+      });
+      bounds.extend([userLocation.longitude, userLocation.latitude]);
+
+      mapRef.current.fitBounds(bounds, {
+        padding: { top: 150, right: 50, bottom: 200, left: 50 },
+        duration: 500,
+      });
+    }
+  }, [mapLoaded, routeCoordinates, theme.colors.primary, userLocation]);
+
   // Format distance
   const formatDistance = (meters: number): string => {
     if (meters < 1000) {
@@ -256,40 +483,8 @@ export function TurnByTurnNavigation({
     Linking.openURL(url);
   };
 
-  // Polyline path for Google Maps
-  const polylinePath = useMemo(() => {
-    return routeCoordinates.map(coord => ({
-      lat: coord.latitude,
-      lng: coord.longitude,
-    }));
-  }, [routeCoordinates]);
-
-  // Map center
-  const mapCenter = useMemo(() => ({
-    lat: userLocation.latitude,
-    lng: userLocation.longitude,
-  }), [userLocation]);
-
-  // Handle map load
-  const handleMapLoad = useCallback((map: google.maps.Map) => {
-    mapRef.current = map;
-  }, []);
-
-  // Fit bounds when route loads
-  useEffect(() => {
-    if (!mapRef.current || routeCoordinates.length === 0) return;
-
-    const bounds = new google.maps.LatLngBounds();
-    routeCoordinates.forEach(coord => {
-      bounds.extend({ lat: coord.latitude, lng: coord.longitude });
-    });
-    bounds.extend({ lat: userLocation.latitude, lng: userLocation.longitude });
-
-    mapRef.current.fitBounds(bounds, { top: 150, right: 50, bottom: 200, left: 50 });
-  }, [routeCoordinates, userLocation]);
-
   // Loading state
-  if (!isLoaded || isLoading) {
+  if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -299,11 +494,11 @@ export function TurnByTurnNavigation({
   }
 
   // Error state
-  if (loadError) {
+  if (mapError) {
     return (
       <View style={styles.loadingContainer}>
         <Ionicons name="alert-circle" size={48} color={theme.colors.error} />
-        <Text style={styles.loadingText}>Erro ao carregar mapa</Text>
+        <Text style={styles.loadingText}>{mapError}</Text>
         <TouchableOpacity style={styles.fallbackButton} onPress={openInGoogleMaps}>
           <Text style={styles.fallbackButtonText}>Abrir no Google Maps</Text>
         </TouchableOpacity>
@@ -314,65 +509,19 @@ export function TurnByTurnNavigation({
   return (
     <View style={styles.container}>
       {/* Map */}
-      <GoogleMap
-        mapContainerStyle={{ flex: 1 }}
-        center={mapCenter}
-        zoom={17}
-        onLoad={handleMapLoad}
-        options={{
-          disableDefaultUI: true,
-          zoomControl: false,
-          scrollwheel: true,
-          draggable: true,
-          clickableIcons: false,
-          gestureHandling: 'greedy',
+      <div
+        ref={mapContainerRef}
+        style={{
+          flex: 1,
+          width: '100%',
+          height: '100%',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
         }}
-      >
-        {/* Route polyline */}
-        {polylinePath.length > 0 && (
-          <Polyline
-            path={polylinePath}
-            options={{
-              strokeColor: theme.colors.primary,
-              strokeWeight: 5,
-              strokeOpacity: 0.8,
-            }}
-          />
-        )}
-
-        {/* User location marker */}
-        <OverlayView
-          position={mapCenter}
-          mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-        >
-          <View style={[styles.userMarker, { backgroundColor: theme.colors.info }]}>
-            <View style={styles.userMarkerInner} />
-          </View>
-        </OverlayView>
-
-        {/* Destination marker */}
-        <OverlayView
-          position={{ lat: destination.latitude, lng: destination.longitude }}
-          mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-        >
-          <View style={[styles.destinationMarker, { backgroundColor: theme.colors.white }]}>
-            <Ionicons name="flag" size={24} color={theme.colors.error} />
-          </View>
-        </OverlayView>
-
-        {/* Waypoint markers */}
-        {waypoints?.map((wp, index) => (
-          <OverlayView
-            key={`waypoint-${index}`}
-            position={{ lat: wp.latitude, lng: wp.longitude }}
-            mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-          >
-            <View style={[styles.waypointMarker, { backgroundColor: theme.colors.gray500 }]}>
-              <Text style={styles.waypointText}>{index + 1}</Text>
-            </View>
-          </OverlayView>
-        ))}
-      </GoogleMap>
+      />
 
       {/* Top instruction bar */}
       <View style={[styles.instructionBar, { backgroundColor: theme.colors.primary }]}>

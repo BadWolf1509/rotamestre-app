@@ -28,6 +28,7 @@ interface UseMotoristaTrackingOptions {
   mapReady: boolean;
   theme: Theme;
   mapId?: string;
+  allowAdvancedMarkers?: boolean;
 }
 
 interface UseMotoristaTrackingResult {
@@ -122,16 +123,35 @@ export function useMotoristaTracking({
   mapReady,
   theme,
   mapId,
+  allowAdvancedMarkers = true,
 }: UseMotoristaTrackingOptions): UseMotoristaTrackingResult {
   const [motoristaLocation, setMotoristaLocation] = useState<MotoristaLocation | null>(null);
   const motoristaMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | google.maps.Marker | null>(null);
   const motoristaInfoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  const allowAdvancedMarkersRef = useRef(allowAdvancedMarkers);
+
+  useEffect(() => {
+    allowAdvancedMarkersRef.current = allowAdvancedMarkers;
+  }, [allowAdvancedMarkers]);
 
   // Clear motorista marker
   const clearMotoristaMarker = useCallback(() => {
     if (motoristaMarkerRef.current) {
       if ('map' in motoristaMarkerRef.current) {
-        motoristaMarkerRef.current.map = null;
+        try {
+          if (!motoristaMarkerRef.current.content && typeof document !== 'undefined') {
+            motoristaMarkerRef.current.content = document.createElement('div');
+          }
+          motoristaMarkerRef.current.map = null;
+        } catch (error) {
+          logger.warn('[useMotoristaTracking] Failed to detach marker:', error);
+        }
+      } else if ('setMap' in motoristaMarkerRef.current) {
+        try {
+          (motoristaMarkerRef.current as google.maps.Marker).setMap(null);
+        } catch (error) {
+          logger.warn('[useMotoristaTracking] Failed to detach legacy marker:', error);
+        }
       }
       motoristaMarkerRef.current = null;
     }
@@ -220,30 +240,46 @@ export function useMotoristaTracking({
     const AdvancedMarker = google.maps.marker?.AdvancedMarkerElement;
     // @ts-expect-error - getMapId() exists in Maps API but not in types
     const mapHasMapId = mapRef.current && typeof mapRef.current.getMapId === 'function' && mapRef.current.getMapId();
-    const canUseAdvancedMarkers = Boolean(mapId && AdvancedMarker && mapHasMapId);
+    const canUseAdvancedMarkers = Boolean(allowAdvancedMarkersRef.current && mapId && AdvancedMarker && mapHasMapId);
 
     // If marker already exists, update position
     if (motoristaMarkerRef.current) {
-      if (canUseAdvancedMarkers && 'position' in motoristaMarkerRef.current) {
+      if (!canUseAdvancedMarkers && 'map' in motoristaMarkerRef.current) {
+        // Advanced marker no longer allowed; recreate as legacy marker
+        clearMotoristaMarker();
+      } else if (canUseAdvancedMarkers && 'position' in motoristaMarkerRef.current) {
         motoristaMarkerRef.current.position = position;
         motoristaMarkerRef.current.content = createMotoristaMarkerContent(markerColor, motoristaNome);
+        return;
       } else if ('setPosition' in motoristaMarkerRef.current) {
         const marker = motoristaMarkerRef.current as google.maps.Marker;
         marker.setPosition(position);
+        return;
       }
-      return;
     }
 
     // Create new marker
     if (canUseAdvancedMarkers && AdvancedMarker) {
       try {
+        const content = createMotoristaMarkerContent(markerColor, motoristaNome);
+        if (!content || typeof content.getRootNode !== 'function') {
+          throw new Error('Invalid AdvancedMarker content');
+        }
+
         const marker = new AdvancedMarker({
-          map: mapRef.current,
+          map: null,
           position,
-          content: createMotoristaMarkerContent(markerColor, motoristaNome),
+          content,
           title: motoristaNome,
           zIndex: 9999,
         });
+
+        try {
+          marker.map = mapRef.current;
+        } catch (error) {
+          logger.warn('[useMotoristaTracking] Failed to attach advanced marker:', error);
+          throw error;
+        }
 
         if (!motoristaInfoWindowRef.current) {
           motoristaInfoWindowRef.current = new google.maps.InfoWindow();
@@ -295,7 +331,7 @@ export function useMotoristaTracking({
     });
 
     motoristaMarkerRef.current = marker;
-  }, [mapReady, isLoaded, showMotorista, motoristaLocation, motoristaNome, theme, mapId, mapRef, clearMotoristaMarker]);
+  }, [mapReady, isLoaded, showMotorista, motoristaLocation, motoristaNome, theme, mapId, mapRef, clearMotoristaMarker, allowAdvancedMarkers]);
 
   // Cleanup on unmount
   useEffect(() => {

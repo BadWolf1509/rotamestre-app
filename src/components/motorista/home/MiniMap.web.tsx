@@ -1,11 +1,12 @@
-/* global google */
-
 import { Ionicons } from '@expo/vector-icons';
-import { GoogleMap, useJsApiLoader, OverlayView, Polyline } from '@react-google-maps/api';
+import maplibregl from 'maplibre-gl';
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { Text, TouchableOpacity, View, ActivityIndicator, Pressable } from 'react-native';
 
+import 'maplibre-gl/dist/maplibre-gl.css';
+
 import { useRouteDirections } from '@/hooks/useRouteDirections';
+import { getOpenFreeMapStyle, installOpenFreeMapMissingImageHandler } from '@/lib/openFreeMapStyle';
 import { boxShadow, withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -35,9 +36,6 @@ interface MiniMapProps {
   testID?: string;
 }
 
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-const GOOGLE_MAPS_MAP_ID = process.env.EXPO_PUBLIC_GOOGLE_MAPS_MAP_ID || '';
-
 /**
  * Verifica se as coordenadas estão em range válido
  */
@@ -59,11 +57,11 @@ export function MiniMap({
   const { theme } = useUnistyles();
   // Altura unificada com native: 150px colapsado, 300px expandido
   const expectedHeight = expanded ? 300 : 150;
-  const [_mapReady, setMapReady] = useState(false);
-  const [actualMapHeight, setActualMapHeight] = useState(0);
-  const [useAdvancedMarkers, setUseAdvancedMarkers] = useState(false);
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const advancedMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const [mapReady, setMapReady] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const markersRef = useRef<maplibregl.Marker[]>([]);
 
   // Extrair cores do theme para ref estável (evita recriação de markers a cada mudança de tema)
   const themeColorsRef = useRef(theme.colors);
@@ -101,15 +99,6 @@ export function MiniMap({
     };
   }, []);
 
-  // Carregar Google Maps API
-  const mapLibraries = useMemo(() => ['marker', 'places'] as ('marker' | 'places')[], []);
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    libraries: mapLibraries,
-    version: 'beta',
-  });
-
   // Filtrar paradas por status (excluindo checkpoints para contagem)
   // Paradas restantes = pendentes + em andamento (não concluídas e não puladas)
   const paradasRestantes = useMemo(
@@ -146,7 +135,7 @@ export function MiniMap({
     }));
   }, [todasParadasComCoord]);
 
-  // Usar hook para buscar rota real do Google Directions API
+  // Usar hook para buscar rota real via OSRM
   const { routeCoordinates, routeInfo, isLoading: isLoadingRoute } = useRouteDirections(paradasParaRota);
 
   // Coordenadas das paradas restantes para calcular bounds do zoom
@@ -177,7 +166,7 @@ export function MiniMap({
   // Calcular centro do mapa
   const center = useMemo(() => {
     if (coordsForBounds.length === 0) {
-      return { lat: -23.550520, lng: -46.633308 }; // São Paulo default
+      return { lng: -46.633308, lat: -23.550520 }; // São Paulo default
     }
 
     const lats = coordsForBounds.map(p => p.latitude);
@@ -207,219 +196,271 @@ export function MiniMap({
     return 14;
   }, [coordsForBounds]);
 
-  // Callback quando o mapa estiver pronto
-  const handleMapReady = useCallback((map: google.maps.Map) => {
-    setMapReady(true);
-    mapRef.current = map;
-    const AdvancedMarker = google.maps.marker?.AdvancedMarkerElement;
-    // AdvancedMarkerElement exige Map ID configurado
-    // @ts-expect-error - getMapId existe no Maps API mas não está nos tipos
-    const mapHasMapId = typeof map.getMapId === 'function' && map.getMapId();
-    setUseAdvancedMarkers(Boolean(GOOGLE_MAPS_MAP_ID && AdvancedMarker && mapHasMapId));
+  // Create marker element helpers
+  const createUserMarkerElement = useCallback(() => {
+    const colors = themeColorsRef.current;
+    const borderRadius = themeBorderRadiusRef.current;
+
+    const outer = document.createElement('div');
+    outer.className = 'minimap-user-marker-pulse';
+    outer.style.cssText = `
+      width: 24px;
+      height: 24px;
+      border-radius: 12px;
+      background: ${withOpacity(colors.info, 0.2)};
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+
+    const inner = document.createElement('div');
+    inner.style.cssText = `
+      width: 12px;
+      height: 12px;
+      border-radius: ${borderRadius.xs}px;
+      background: ${colors.info};
+      border: 2px solid ${colors.white};
+      box-sizing: border-box;
+    `;
+
+    outer.appendChild(inner);
+    return outer;
   }, []);
 
-  const handleMapUnmount = useCallback(() => {
-    advancedMarkersRef.current.forEach((marker) => {
-      marker.map = null;
-    });
-    advancedMarkersRef.current = [];
-    mapRef.current = null;
-    setUseAdvancedMarkers(false);
+  const createStopMarkerElement = useCallback((options: {
+    size: number;
+    backgroundColor: string;
+    text?: string;
+    opacity?: number;
+    isNext?: boolean;
+  }) => {
+    const colors = themeColorsRef.current;
+
+    const el = document.createElement('div');
+    el.style.cssText = `
+      width: ${options.size}px;
+      height: ${options.size}px;
+      border-radius: ${options.size / 2}px;
+      background: ${options.backgroundColor};
+      border: ${options.isNext ? '3px' : '2px'} solid ${colors.white};
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: ${colors.white};
+      font-size: 12px;
+      font-weight: 700;
+      box-sizing: border-box;
+      ${options.opacity !== undefined ? `opacity: ${options.opacity};` : ''}
+      ${options.isNext ? `box-shadow: 0 0 8px 2px ${withOpacity(options.backgroundColor, 0.6)};` : ''}
+    `;
+
+    if (options.text) {
+      el.textContent = options.text;
+    }
+
+    return el;
   }, []);
 
+  // Initialize MapLibre map
   useEffect(() => {
-    if (!_mapReady || !mapRef.current) return;
-    if (coordsForBounds.length === 0) return;
+    if (!mapContainerRef.current) return;
 
-    const bounds = new google.maps.LatLngBounds();
-    coordsForBounds.forEach((coord) => {
-      bounds.extend({ lat: coord.latitude, lng: coord.longitude });
-    });
+    // Clean up existing map
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+    }
+
+    let cancelled = false;
+    let mapInstance: maplibregl.Map | null = null;
+    let removeMissingImageHandler: (() => void) | null = null;
+
+    const initializeMap = async () => {
+      try {
+        const style = await getOpenFreeMapStyle();
+        if (cancelled || !mapContainerRef.current) return;
+
+        mapInstance = new maplibregl.Map({
+          container: mapContainerRef.current,
+          style,
+          center: [center.lng, center.lat],
+          zoom,
+          attributionControl: false,
+          interactive: false, // MiniMap is not interactive
+        });
+        removeMissingImageHandler = installOpenFreeMapMissingImageHandler(mapInstance);
+
+        mapInstance.on('load', () => {
+          setMapReady(true);
+          mapRef.current = mapInstance;
+        });
+
+        mapInstance.on('error', (e) => {
+          console.error('[MiniMap.web] Map error:', e);
+          setMapError('Erro ao carregar mapa');
+        });
+      } catch (error) {
+        if (cancelled) return;
+        console.error('[MiniMap.web] Failed to initialize map:', error);
+        setMapError('Erro ao inicializar mapa');
+      }
+    };
+
+    initializeMap();
+
+    return () => {
+      cancelled = true;
+      if (removeMissingImageHandler) {
+        removeMissingImageHandler();
+      }
+      // Clean up markers
+      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current = [];
+      if (mapInstance) {
+        mapInstance.remove();
+      }
+      mapRef.current = null;
+      setMapReady(false);
+    };
+  }, [center.lat, center.lng, zoom]);
+
+  // Fit bounds when map is ready and coordinates change
+  useEffect(() => {
+    if (!mapRef.current || !mapReady || coordsForBounds.length === 0) return;
 
     if (coordsForBounds.length === 1) {
-      mapRef.current.setCenter({
-        lat: coordsForBounds[0].latitude,
-        lng: coordsForBounds[0].longitude,
-      });
+      mapRef.current.setCenter([coordsForBounds[0].longitude, coordsForBounds[0].latitude]);
       mapRef.current.setZoom(15);
       return;
     }
 
-    // Padding PROPORCIONAL à altura do mapa para zoom consistente:
-    // - Mapa colapsado (150px): padding maior proporcional → zoom OUT para ver rota toda
-    // - Mapa expandido (300px): padding menor proporcional → zoom IN para ver detalhes
-    //
-    // Usando porcentagens da altura do mapa para diferença mais visível:
-    // - Colapsado: ~40% vertical, ~30% horizontal (bem afastado)
-    // - Expandido: ~12% vertical, ~8% horizontal (bem próximo)
-    const topPadding = expanded ? 30 : 60;    // 10% vs 40% da altura
-    const bottomPadding = expanded ? 5 : 20;  // ~2% vs ~13% da altura
-    const horizontalPadding = expanded ? 20 : 45; // ~7% vs ~30% da largura típica
+    const bounds = new maplibregl.LngLatBounds();
+    coordsForBounds.forEach((coord) => {
+      bounds.extend([coord.longitude, coord.latitude]);
+    });
+
+    // Padding PROPORCIONAL à altura do mapa para zoom consistente
+    const topPadding = expanded ? 30 : 60;
+    const bottomPadding = expanded ? 5 : 20;
+    const horizontalPadding = expanded ? 20 : 45;
 
     mapRef.current.fitBounds(bounds, {
-      top: topPadding,
-      right: horizontalPadding,
-      bottom: bottomPadding,
-      left: horizontalPadding,
+      padding: {
+        top: topPadding,
+        right: horizontalPadding,
+        bottom: bottomPadding,
+        left: horizontalPadding,
+      },
+      duration: 0,
     });
-  }, [_mapReady, coordsForBounds, expanded, actualMapHeight]);
+  }, [mapReady, coordsForBounds, expanded]);
 
-  const getOverlayOffset = useCallback((width: number, height: number) => ({
-    x: -(width / 2),
-    y: -(height / 2),
-  }), []);
-
+  // Add markers
   useEffect(() => {
-    if (!useAdvancedMarkers || !mapRef.current) return;
+    if (!mapRef.current || !mapReady) return;
 
-    const AdvancedMarker = google.maps.marker?.AdvancedMarkerElement;
-    if (!AdvancedMarker) return;
-
-    advancedMarkersRef.current.forEach((marker) => {
-      marker.map = null;
-    });
-    advancedMarkersRef.current = [];
-
-    const markers: google.maps.marker.AdvancedMarkerElement[] = [];
-    // Usar refs para cores do tema (evita recriação a cada mudança de tema)
     const colors = themeColorsRef.current;
-    const borderRadius = themeBorderRadiusRef.current;
 
-    try {
-      const createCircleMarker = (options: {
-        size: number;
-        backgroundColor: string;
-        borderColor?: string;
-        text?: string;
-        textColor?: string;
-        fontSize?: number;
-        fontWeight?: string;
-        opacity?: number;
-      }) => {
-        const el = document.createElement('div');
-        el.style.width = `${options.size}px`;
-        el.style.height = `${options.size}px`;
-        el.style.borderRadius = `${options.size / 2}px`;
-        el.style.background = options.backgroundColor;
-        el.style.border = `2px solid ${options.borderColor || colors.white}`;
-        el.style.display = 'flex';
-        el.style.alignItems = 'center';
-        el.style.justifyContent = 'center';
-        el.style.color = options.textColor || colors.white;
-        el.style.fontSize = `${options.fontSize ?? 12}px`;
-        el.style.fontWeight = options.fontWeight || '700';
-        el.style.boxSizing = 'border-box';
-        if (options.opacity !== undefined) {
-          el.style.opacity = String(options.opacity);
-        }
-        if (options.text) {
-          el.textContent = options.text;
-        }
-        return el;
-      };
+    // Clear existing markers
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current = [];
 
-      const createUserMarker = () => {
-        const outer = document.createElement('div');
-        outer.style.width = '24px';
-        outer.style.height = '24px';
-        outer.style.borderRadius = '12px';
-        outer.style.background = withOpacity(colors.info, 0.2);
-        outer.style.display = 'flex';
-        outer.style.alignItems = 'center';
-        outer.style.justifyContent = 'center';
-
-        const inner = document.createElement('div');
-        inner.style.width = '12px';
-        inner.style.height = '12px';
-        inner.style.borderRadius = `${borderRadius.xs}px`;
-        inner.style.background = colors.info;
-        inner.style.border = `2px solid ${colors.white}`;
-        inner.style.boxSizing = 'border-box';
-
-        outer.appendChild(inner);
-        return outer;
-      };
-
-      const addMarker = (
-        position: google.maps.LatLngLiteral,
-        content: HTMLElement,
-        title: string,
-        zIndex: number
-      ) => {
-        markers.push(new AdvancedMarker({
-          map: mapRef.current!,
-          position,
-          content,
-          title,
-          zIndex,
-        }));
-      };
-
-      if (userLocation) {
-        addMarker(
-          { lat: userLocation.latitude, lng: userLocation.longitude },
-          createUserMarker(),
-          'Você está aqui',
-          5
-        );
-      }
-
-      paradasConcluidas.forEach((parada) => {
-        addMarker(
-          { lat: parada.latitude, lng: parada.longitude },
-          createCircleMarker({
-            size: 20,
-            backgroundColor: colors.success,
-            opacity: 0.5,
-          }),
-          `Parada ${parada.ordem} concluída`,
-          2
-        );
-      });
-
-      paradasRestantes.forEach((parada, index) => {
-        addMarker(
-          { lat: parada.latitude, lng: parada.longitude },
-          createCircleMarker({
-            size: 28,
-            backgroundColor: index === 0 ? colors.warning : colors.gray500,
-            text: String(parada.ordem),
-          }),
-          `Parada ${parada.ordem}`,
-          3
-        );
-      });
-
-      checkpoints.forEach((checkpoint) => {
-        const label = checkpoint.ordem === 0 ? 'Partida (Unidade)' : 'Chegada (Unidade)';
-        addMarker(
-          { lat: checkpoint.latitude, lng: checkpoint.longitude },
-          createCircleMarker({
-            size: 20,
-            backgroundColor: colors.primary,
-          }),
-          label,
-          1
-        );
-      });
-
-      advancedMarkersRef.current = markers;
-    } catch {
-      markers.forEach((marker) => {
-        marker.map = null;
-      });
-      advancedMarkersRef.current = [];
-      setUseAdvancedMarkers(false);
-      return;
+    // Add user marker
+    if (userLocation) {
+      const userMarker = new maplibregl.Marker({ element: createUserMarkerElement() })
+        .setLngLat([userLocation.longitude, userLocation.latitude])
+        .addTo(mapRef.current);
+      markersRef.current.push(userMarker);
     }
 
-    return () => {
-      markers.forEach((marker) => {
-        marker.map = null;
-      });
-      advancedMarkersRef.current = [];
-    };
-  }, [useAdvancedMarkers, userLocation, paradasConcluidas, paradasRestantes, checkpoints]);
+    // Add completed stop markers
+    paradasConcluidas.forEach((parada) => {
+      const marker = new maplibregl.Marker({
+        element: createStopMarkerElement({
+          size: 20,
+          backgroundColor: colors.success,
+          opacity: 0.5,
+        }),
+      })
+        .setLngLat([parada.longitude, parada.latitude])
+        .addTo(mapRef.current!);
+      markersRef.current.push(marker);
+    });
+
+    // Add pending stop markers
+    paradasRestantes.forEach((parada, index) => {
+      const isNext = index === 0;
+      const marker = new maplibregl.Marker({
+        element: createStopMarkerElement({
+          size: isNext ? 34 : 28,
+          backgroundColor: isNext ? colors.warning : colors.gray500,
+          text: String(parada.ordem),
+          isNext,
+        }),
+      })
+        .setLngLat([parada.longitude, parada.latitude])
+        .addTo(mapRef.current!);
+      markersRef.current.push(marker);
+    });
+
+    // Add checkpoint markers
+    checkpoints.forEach((checkpoint) => {
+      const marker = new maplibregl.Marker({
+        element: createStopMarkerElement({
+          size: 20,
+          backgroundColor: colors.primary,
+        }),
+      })
+        .setLngLat([checkpoint.longitude, checkpoint.latitude])
+        .addTo(mapRef.current!);
+      markersRef.current.push(marker);
+    });
+  }, [mapReady, userLocation, paradasConcluidas, paradasRestantes, checkpoints, createUserMarkerElement, createStopMarkerElement]);
+
+  // Add route polyline
+  useEffect(() => {
+    if (!mapRef.current || !mapReady || routeCoordinates.length < 2) return;
+
+    const sourceId = 'minimap-route-source';
+    const layerId = 'minimap-route-layer';
+
+    // Remove existing layer and source if they exist
+    if (mapRef.current.getLayer(layerId)) {
+      mapRef.current.removeLayer(layerId);
+    }
+    if (mapRef.current.getSource(sourceId)) {
+      mapRef.current.removeSource(sourceId);
+    }
+
+    // Add route source
+    mapRef.current.addSource(sourceId, {
+      type: 'geojson',
+      data: {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'LineString',
+          coordinates: routeCoordinates.map(c => [c.longitude, c.latitude]),
+        },
+      },
+    });
+
+    // Add route layer
+    mapRef.current.addLayer({
+      id: layerId,
+      type: 'line',
+      source: sourceId,
+      layout: {
+        'line-join': 'round',
+        'line-cap': 'round',
+      },
+      paint: {
+        'line-color': theme.colors.primary,
+        'line-width': 3,
+        'line-opacity': 0.8,
+      },
+    });
+  }, [mapReady, routeCoordinates, theme.colors.primary]);
 
   // Gerar URL do Google Maps para fallback
   const generateMapsUrl = useCallback(() => {
@@ -451,14 +492,8 @@ export function MiniMap({
     }
   }, [onOpenFullMap, openGoogleMaps]);
 
-  // Converter coordenadas para formato Google Maps
-  const polylinePath = useMemo(() =>
-    routeCoordinates.map(coord => ({ lat: coord.latitude, lng: coord.longitude })),
-    [routeCoordinates]
-  );
-
-  // Estado de loading ou erro
-  if (loadError) {
+  // Estado de erro
+  if (mapError) {
     return (
       <View style={styles.container} testID={testID}>
         <TouchableOpacity
@@ -478,17 +513,6 @@ export function MiniMap({
     );
   }
 
-  if (!isLoaded) {
-    return (
-      <View style={styles.container} testID={testID}>
-        <View style={[styles.mapContainer, styles.loadingContainer, { height: expectedHeight }]}>
-          <ActivityIndicator size="small" color={theme.colors.primary} />
-          <Text style={styles.loadingText}>Carregando mapa...</Text>
-        </View>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container} testID={testID}>
       <Pressable
@@ -497,105 +521,21 @@ export function MiniMap({
         accessibilityLabel={`Mapa da rota com ${paradasRestantes.length} paradas restantes. Toque para expandir`}
         accessibilityRole="link"
       >
-        <View
-          style={[styles.mapWrapper, { height: expectedHeight }]}
-          onLayout={(e) => setActualMapHeight(e.nativeEvent.layout.height)}
-        >
-          <GoogleMap
-            mapContainerStyle={{ width: '100%', height: '100%' }}
-            center={center}
-            zoom={zoom}
-            onLoad={handleMapReady}
-            onUnmount={handleMapUnmount}
-            options={{
-              disableDefaultUI: true,
-              zoomControl: false,
-              scrollwheel: false,
-              draggable: false,
-              clickableIcons: false,
-              gestureHandling: 'none',
-              mapId: GOOGLE_MAPS_MAP_ID || undefined,
-            }}
-          >
-            {/* Polyline da rota */}
-            {polylinePath.length > 1 && (
-              <Polyline
-                path={polylinePath}
-                options={{
-                  strokeColor: theme.colors.primary,
-                  strokeWeight: 3,
-                  strokeOpacity: 0.8,
-                }}
-              />
-            )}
+        <div
+          ref={mapContainerRef}
+          style={{
+            width: '100%',
+            height: expectedHeight,
+          }}
+        />
 
-            {/* Fallback para browsers sem AdvancedMarkerElement */}
-            {!useAdvancedMarkers && (
-              <>
-                {userLocation && (
-                  <OverlayView
-                    position={{ lat: userLocation.latitude, lng: userLocation.longitude }}
-                    mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-                    getPixelPositionOffset={getOverlayOffset}
-                  >
-                    <div className="minimap-user-marker-pulse">
-                      <View style={styles.overlayUserMarker} pointerEvents="none">
-                        <View style={styles.overlayUserDot} />
-                      </View>
-                    </div>
-                  </OverlayView>
-                )}
-
-                {paradasConcluidas.map((parada) => (
-                  <OverlayView
-                    key={`concluida-${parada.id}`}
-                    position={{ lat: parada.latitude, lng: parada.longitude }}
-                    mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-                    getPixelPositionOffset={getOverlayOffset}
-                  >
-                    <View
-                      style={[styles.overlayMarker, styles.overlayMarkerConcluida]}
-                      pointerEvents="none"
-                    />
-                  </OverlayView>
-                ))}
-
-                {paradasRestantes.map((parada, index) => (
-                  <OverlayView
-                    key={`pendente-${parada.id}`}
-                    position={{ lat: parada.latitude, lng: parada.longitude }}
-                    mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-                    getPixelPositionOffset={getOverlayOffset}
-                  >
-                    <View
-                      style={[
-                        styles.overlayMarker,
-                        index === 0 ? styles.overlayMarkerNext : styles.overlayMarkerPending,
-                      ]}
-                      pointerEvents="none"
-                    >
-                      <Text style={styles.overlayMarkerText}>{parada.ordem}</Text>
-                    </View>
-                  </OverlayView>
-                ))}
-
-                {checkpoints.map((checkpoint) => (
-                  <OverlayView
-                    key={`checkpoint-${checkpoint.id}`}
-                    position={{ lat: checkpoint.latitude, lng: checkpoint.longitude }}
-                    mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-                    getPixelPositionOffset={getOverlayOffset}
-                  >
-                    <View
-                      style={[styles.overlayMarker, styles.overlayMarkerCheckpoint]}
-                      pointerEvents="none"
-                    />
-                  </OverlayView>
-                ))}
-              </>
-            )}
-          </GoogleMap>
-        </View>
+        {/* Loading overlay */}
+        {!mapReady && (
+          <View style={[styles.loadingOverlay, { height: expectedHeight }]}>
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+            <Text style={styles.loadingText}>Carregando mapa...</Text>
+          </View>
+        )}
 
         {/* Overlay com informações */}
         <View style={styles.overlay}>
@@ -670,11 +610,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: theme.colors.gray200,
+    position: 'relative',
   },
-  mapWrapper: {
-    width: '100%',
-  },
-  loadingContainer: {
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     backgroundColor: theme.colors.gray100,
     justifyContent: 'center',
     alignItems: 'center',

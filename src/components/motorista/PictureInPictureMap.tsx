@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Polyline, UrlTile } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -485,7 +485,6 @@ export function PictureInPictureMap({
       <MapView
         testID="pip-map-view"
         style={[styles.map, { pointerEvents: isExpanded ? 'auto' : 'none' }]}
-        provider={PROVIDER_GOOGLE}
         region={region}
         showsUserLocation={userHeading === undefined}
         showsMyLocationButton={false}
@@ -496,6 +495,13 @@ export function PictureInPictureMap({
         toolbarEnabled={false}
         onMapReady={() => setMapLoading(false)}
       >
+        {/* OSM Tiles - gratuito! Migrado de Google Maps em Dez/2024 */}
+        <UrlTile
+          urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maximumZ={19}
+          tileSize={256}
+        />
+
         {/* Polyline conectando usuário ao destino via OSRM */}
         {routePath.length >= 2 && (
           <Polyline

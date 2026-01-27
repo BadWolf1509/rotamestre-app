@@ -6,7 +6,6 @@
 import React, { memo, useCallback, useState, useRef, useEffect } from 'react';
 import { View, Text, Animated } from 'react-native';
 
-import { StreetViewPreview } from '@/components/StreetViewPreview';
 import { SwipeableRow } from '@/components/SwipeableRow';
 import { successHaptic } from '@/utils/haptics';
 import { useUnistyles } from '@/utils/styles';
@@ -45,7 +44,6 @@ export const ParadaCard = memo<ParadaCardProps>(
 
     // Local state
     const [cardExpandido, setCardExpandido] = useState(false);
-    const [streetViewUnavailable, setStreetViewUnavailable] = useState(false);
 
     // Animation for completion
     const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -173,29 +171,12 @@ export const ParadaCard = memo<ParadaCardProps>(
 
             {/* Expanded content for pending cards */}
             {!isSummary && !isProcessada && (
-              <>
-                {/* Street View Preview */}
-                {!streetViewUnavailable && (
-                  <View style={styles.streetViewContainer}>
-                    <StreetViewPreview
-                      latitude={parada.latitude}
-                      longitude={parada.longitude}
-                      address={parada.endereco}
-                      size="medium"
-                      onUnavailable={() => setStreetViewUnavailable(true)}
-                      fallback="none"
-                    />
-                  </View>
-                )}
-
-                {/* Details */}
-                <ParadaCardDetails
-                  destinatario={parada.destinatario}
-                  telefone={parada.telefone}
-                  observacoes={parada.observacoes}
-                  isProcessada={false}
-                />
-              </>
+              <ParadaCardDetails
+                destinatario={parada.destinatario}
+                telefone={parada.telefone}
+                observacoes={parada.observacoes}
+                isProcessada={false}
+              />
             )}
 
             {/* Primary actions for pending cards */}

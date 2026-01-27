@@ -9,13 +9,14 @@ jest.mock('../MapaMobile', () => ({
   MapaMobile: jest.fn(() => null),
 }));
 
-jest.mock('../MapaWeb', () => ({
+// Mock MapaWebMapLibre (migrado de Google Maps para MapLibre)
+jest.mock('../MapaWebMapLibre', () => ({
   __esModule: true,
   default: jest.fn(() => null),
 }));
 
 const mockMapaMobile = require('../MapaMobile').MapaMobile;
-const mockMapaWeb = require('../MapaWeb').default;
+const mockMapaWebMapLibre = require('../MapaWebMapLibre').default;
 
 describe('MapaAdapter', () => {
   const mockParadas = [
@@ -57,23 +58,23 @@ describe('MapaAdapter', () => {
     it('deve renderizar MapaWeb quando Platform.OS é "web"', () => {
       render(<MapaAdapter paradas={mockParadas} />);
 
-      expect(mockMapaWeb).toHaveBeenCalledTimes(1);
+      expect(mockMapaWebMapLibre).toHaveBeenCalledTimes(1);
       expect(mockMapaMobile).not.toHaveBeenCalled();
     });
 
     it('deve passar paradas para MapaWeb', () => {
       render(<MapaAdapter paradas={mockParadas} />);
 
-      expect(mockMapaWeb).toHaveBeenCalled();
-      const callArgs = mockMapaWeb.mock.calls[0][0];
+      expect(mockMapaWebMapLibre).toHaveBeenCalled();
+      const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
       expect(callArgs.paradas).toEqual(mockParadas);
     });
 
     it('deve renderizar MapaWeb com paradas vazias', () => {
       render(<MapaAdapter paradas={[]} />);
 
-      expect(mockMapaWeb).toHaveBeenCalled();
-      const callArgs = mockMapaWeb.mock.calls[0][0];
+      expect(mockMapaWebMapLibre).toHaveBeenCalled();
+      const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
       expect(callArgs.paradas).toEqual([]);
     });
   });
@@ -91,7 +92,7 @@ describe('MapaAdapter', () => {
       render(<MapaAdapter paradas={mockParadas} />);
 
       expect(mockMapaMobile).toHaveBeenCalledTimes(1);
-      expect(mockMapaWeb).not.toHaveBeenCalled();
+      expect(mockMapaWebMapLibre).not.toHaveBeenCalled();
     });
 
     it('deve passar paradas para MapaMobile', () => {
@@ -116,7 +117,7 @@ describe('MapaAdapter', () => {
       render(<MapaAdapter paradas={mockParadas} />);
 
       expect(mockMapaMobile).toHaveBeenCalledTimes(1);
-      expect(mockMapaWeb).not.toHaveBeenCalled();
+      expect(mockMapaWebMapLibre).not.toHaveBeenCalled();
     });
 
     it('deve passar paradas para MapaMobile', () => {
@@ -150,8 +151,8 @@ describe('MapaAdapter', () => {
 
       render(<MapaAdapter paradas={paradasSemCoordenadas} />);
 
-      expect(mockMapaWeb).toHaveBeenCalled();
-      const callArgs = mockMapaWeb.mock.calls[0][0];
+      expect(mockMapaWebMapLibre).toHaveBeenCalled();
+      const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
       expect(callArgs.paradas).toEqual(paradasSemCoordenadas);
     });
 
@@ -169,8 +170,8 @@ describe('MapaAdapter', () => {
 
       render(<MapaAdapter paradas={paradasSemTipo} />);
 
-      expect(mockMapaWeb).toHaveBeenCalled();
-      const callArgs = mockMapaWeb.mock.calls[0][0];
+      expect(mockMapaWebMapLibre).toHaveBeenCalled();
+      const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
       expect(callArgs.paradas).toEqual(paradasSemTipo);
     });
 
@@ -189,8 +190,8 @@ describe('MapaAdapter', () => {
 
       render(<MapaAdapter paradas={paradasSemCheckpoint} />);
 
-      expect(mockMapaWeb).toHaveBeenCalled();
-      const callArgs = mockMapaWeb.mock.calls[0][0];
+      expect(mockMapaWebMapLibre).toHaveBeenCalled();
+      const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
       expect(callArgs.paradas).toEqual(paradasSemCheckpoint);
     });
 
@@ -228,8 +229,8 @@ describe('MapaAdapter', () => {
 
       render(<MapaAdapter paradas={paradasMistas} />);
 
-      expect(mockMapaWeb).toHaveBeenCalled();
-      const callArgs = mockMapaWeb.mock.calls[0][0];
+      expect(mockMapaWebMapLibre).toHaveBeenCalled();
+      const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
       expect(callArgs.paradas).toEqual(paradasMistas);
     });
   });
@@ -245,7 +246,7 @@ describe('MapaAdapter', () => {
     it('deve renderizar com array vazio de paradas', () => {
       render(<MapaAdapter paradas={[]} />);
 
-      expect(mockMapaWeb).toHaveBeenCalledTimes(1);
+      expect(mockMapaWebMapLibre).toHaveBeenCalledTimes(1);
     });
 
     it('deve renderizar com uma única parada', () => {
@@ -253,8 +254,8 @@ describe('MapaAdapter', () => {
 
       render(<MapaAdapter paradas={unicaParada} />);
 
-      expect(mockMapaWeb).toHaveBeenCalled();
-      const callArgs = mockMapaWeb.mock.calls[0][0];
+      expect(mockMapaWebMapLibre).toHaveBeenCalled();
+      const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
       expect(callArgs.paradas).toEqual(unicaParada);
     });
 
@@ -270,8 +271,8 @@ describe('MapaAdapter', () => {
 
       render(<MapaAdapter paradas={muitasParadas} />);
 
-      expect(mockMapaWeb).toHaveBeenCalled();
-      const callArgs = mockMapaWeb.mock.calls[0][0];
+      expect(mockMapaWebMapLibre).toHaveBeenCalled();
+      const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
       expect(callArgs.paradas).toEqual(muitasParadas);
     });
   });

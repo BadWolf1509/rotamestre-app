@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import { Text, TouchableOpacity, View, ActivityIndicator, InteractionManager, Animated } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Polyline, UrlTile } from 'react-native-maps';
 
 import { useRouteDirections } from '@/hooks/useRouteDirections';
 import { withOpacity } from '@/utils/color';
@@ -270,7 +270,6 @@ export function MiniMap({
       >
         <MapView
           ref={mapRef}
-          provider={PROVIDER_GOOGLE}
           style={[styles.map, { height: expectedHeight }]}
           initialRegion={mapRegion}
           onMapReady={handleMapReady}
@@ -280,6 +279,13 @@ export function MiniMap({
           rotateEnabled={false}
           pitchEnabled={false}
         >
+          {/* OSM Tiles - gratuito! Migrado de Google Maps em Dez/2024 */}
+          <UrlTile
+            urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+            maximumZ={19}
+            tileSize={256}
+          />
+
           {userLocation && (
             <Marker
               coordinate={userLocation}

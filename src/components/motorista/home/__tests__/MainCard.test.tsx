@@ -50,11 +50,6 @@ jest.mock('@/lib/supabase', () => ({
     },
 }));
 
-// Mock StreetViewPreview
-jest.mock('@/components/StreetViewPreview', () => ({
-    StreetViewPreview: () => null,
-}));
-
 // Mock SwipeableRow
 jest.mock('@/components/SwipeableRow', () => ({
     SwipeableRow: ({ children }: any) => children,

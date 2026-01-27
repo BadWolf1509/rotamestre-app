@@ -342,11 +342,6 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.fontSize.xs,
     color: theme.colors.warningText,
   },
-  streetViewContainer: {
-    marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-    alignItems: 'center',
-  },
   distanceBar: {
     flexDirection: 'row',
     alignItems: 'center',

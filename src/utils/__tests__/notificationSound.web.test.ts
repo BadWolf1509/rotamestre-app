@@ -47,6 +47,7 @@ class MockAudioContext {
 
 describe('notificationSound web', () => {
   let originalWindow: any;
+  let originalNavigator: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -55,6 +56,8 @@ describe('notificationSound web', () => {
 
     originalWindow = (global as any).window;
     (global as any).window = { AudioContext: MockAudioContext };
+    originalNavigator = (global as any).navigator;
+    (global as any).navigator = { userActivation: { hasBeenActive: true } };
   });
 
   afterEach(() => {
@@ -66,6 +69,13 @@ describe('notificationSound web', () => {
     } else {
       // @ts-expect-error - cleanup test env
       delete (global as any).window;
+    }
+
+    if (originalNavigator) {
+      (global as any).navigator = originalNavigator;
+    } else {
+      // @ts-expect-error - cleanup test env
+      delete (global as any).navigator;
     }
   });
 

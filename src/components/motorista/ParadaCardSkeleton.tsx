@@ -65,9 +65,6 @@ export function ParadaCardSkeleton() {
         <SkeletonPulse style={styles.enderecoLine2} />
       </View>
 
-      {/* Street View placeholder */}
-      <SkeletonPulse style={styles.streetView} />
-
       {/* Detalhes */}
       <View style={styles.detalhesContainer}>
         <SkeletonPulse style={styles.detalhe} />
@@ -142,12 +139,6 @@ const makeStyles = (theme: Theme) =>
     enderecoLine2: {
       width: '60%',
       height: 16,
-    },
-    streetView: {
-      width: '100%',
-      height: 120,
-      borderRadius: theme.borderRadius.md,
-      marginBottom: theme.spacing.sm,
     },
     detalhesContainer: {
       flexDirection: 'row',

@@ -8,8 +8,8 @@ import { useState, useEffect, useCallback } from 'react';
 
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
-import { googleMapsService } from '@/lib/google';
 import { logger } from '@/lib/logger';
+import { photonService } from '@/lib/photon';
 import type { UnidadeComSede } from '@/types/usuario';
 
 export interface EnderecoUnidade {
@@ -76,8 +76,8 @@ export function useEnderecoUnidade(): UseEnderecoUnidadeReturn {
         return;
       }
 
-      // Geocodificar endereço
-      const result = await googleMapsService.geocodeAddress(enderecoCompleto);
+      // Geocodificar endereço (Photon - gratuito!)
+      const result = await photonService.geocodeAddress(enderecoCompleto);
       if (result?.coordenadas) {
         setEnderecoUnidade({
           latitude: result.coordenadas.latitude,

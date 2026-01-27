@@ -9,7 +9,7 @@ jest.mock('react-native-maps', () => {
     return {
         __esModule: true,
         default: ({ children, ...props }: any) => (
-            <View testID="map-view" {...props}>{children}</View>
+            <View testID="pip-map-view" {...props}>{children}</View>
         ),
         Marker: ({ children, ...props }: any) => (
             <View testID="marker" {...props}>{children}</View>
@@ -17,7 +17,9 @@ jest.mock('react-native-maps', () => {
         Polyline: (props: any) => (
             <View testID="polyline" {...props} />
         ),
-        PROVIDER_GOOGLE: 'google',
+        UrlTile: (props: any) => (
+            <View testID="url-tile" {...props} />
+        ),
     };
 });
 
@@ -187,11 +189,11 @@ describe('PictureInPictureMap', () => {
             expect(mapView.props.showsUserLocation).toBe(true);
         });
 
-        it('deve usar PROVIDER_GOOGLE', () => {
+        it('deve usar OSM tiles (UrlTile)', () => {
             const { getByTestId } = render(<PictureInPictureMap {...defaultProps} />);
 
-            const mapView = getByTestId('pip-map-view');
-            expect(mapView.props.provider).toBe('google');
+            const urlTile = getByTestId('url-tile');
+            expect(urlTile.props.urlTemplate).toContain('openstreetmap.org');
         });
 
         it('deve desabilitar interações quando colapsado', () => {

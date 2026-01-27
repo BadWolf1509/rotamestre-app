@@ -111,7 +111,6 @@ Resolved in Wave 1:
 Additional cleanups (Waves 2-5):
 - `src/components/AddressAutocomplete.tsx`
 - `src/components/DataTable.tsx`
-- `src/components/StreetViewPreview.tsx`
 - `src/components/Toast.tsx`
 - `src/components/gestor/mapa-rota/DraggableStopList/StopCard.tsx`
 - `src/components/gestor/mapa-rota/ParadaCard.tsx`

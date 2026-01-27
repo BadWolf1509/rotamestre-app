@@ -28,8 +28,9 @@ import type {
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
-import { googleMapsService } from '@/lib/google';
+import { googleMapsService } from '@/lib/google'; // Para getDirections (usa OSRM)
 import { logger } from '@/lib/logger';
+import { photonService } from '@/lib/photon'; // Para geocoding (gratuito!)
 import { createRota, createParadasBatch, logRotaAction, type RotaInsert, type ParadaInsert } from '@/lib/queries';
 import {
   otimizarRotaComDependencias,
@@ -221,7 +222,8 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     try {
       const extendedData = paradaData as ParadaFormDataWithCoords;
       if (!extendedData.latitude || !extendedData.longitude) {
-        const result = await googleMapsService.geocodeAddress(paradaData.endereco);
+        // Usa Photon (gratuito!) para geocoding
+        const result = await photonService.geocodeAddress(paradaData.endereco);
         if (!result) {
           showToast('Não foi possível localizar o endereço. Use o autocomplete para selecionar um endereço válido.', 'error');
           return;

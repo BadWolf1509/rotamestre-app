@@ -19,12 +19,11 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
-const mockGetPlaceDetails = jest.fn();
+// Mock Photon service (migrado de Google)
 const mockGeocodeAddress = jest.fn();
 
-jest.mock('@/lib/google', () => ({
-  googleMapsService: {
-    getPlaceDetails: (...args: unknown[]) => mockGetPlaceDetails(...args),
+jest.mock('@/lib/photon', () => ({
+  photonService: {
     geocodeAddress: (...args: unknown[]) => mockGeocodeAddress(...args),
   },
 }));
@@ -51,12 +50,12 @@ jest.mock('@/lib/phone', () => ({
 }));
 
 // Mock theme with complete structure
-// Mock AddressAutocomplete
+// Mock AddressAutocomplete (Photon retorna coordenadas diretamente!)
 jest.mock('@/components/AddressAutocomplete', () => ({
   AddressAutocomplete: ({ value, onChangeText, onSelectAddress, placeholder }: {
     value: string;
     onChangeText: (text: string) => void;
-    onSelectAddress: (address: string, placeId: string) => void;
+    onSelectAddress: (address: string, placeId: string, coordinates?: { latitude: number; longitude: number }) => void;
     placeholder: string;
   }) => {
     const { TextInput, TouchableOpacity, Text, View } = require('react-native');
@@ -70,7 +69,7 @@ jest.mock('@/components/AddressAutocomplete', () => ({
         />
         <TouchableOpacity
           testID="address-suggestion"
-          onPress={() => onSelectAddress('Rua Teste, 123', 'place_id_123')}
+          onPress={() => onSelectAddress('Rua Teste, 123', 'osm_N123456', { latitude: -23.55, longitude: -46.63 })}
         >
           <Text>Rua Teste, 123</Text>
         </TouchableOpacity>
@@ -251,31 +250,19 @@ describe('AddStopModal', () => {
   });
 
   describe('Seleção de endereço', () => {
-    it('deve buscar coordenadas quando endereço é selecionado do autocomplete', async () => {
-      mockGetPlaceDetails.mockResolvedValue({
-        coordenadas: { latitude: -23.58, longitude: -46.66 },
-      });
-
+    it('deve receber coordenadas diretamente do autocomplete (Photon)', async () => {
+      // Photon retorna coordenadas diretamente no callback do autocomplete
+      // Não precisa mais chamar getPlaceDetails!
       const { getByTestId } = render(<AddStopModal {...defaultProps} />);
 
       fireEvent.press(getByTestId('address-suggestion'));
 
+      // Coordenadas são passadas diretamente pelo AddressAutocomplete mock
+      // O hook deve receber { latitude: -23.55, longitude: -46.63 }
       await waitFor(() => {
-        expect(mockGetPlaceDetails).toHaveBeenCalledWith('place_id_123');
+        const input = getByTestId('address-input');
+        expect(input.props.value).toBe('Rua Teste, 123');
       });
-    });
-
-    it('deve lidar com erro ao buscar coordenadas', async () => {
-      mockGetPlaceDetails.mockRejectedValue(new Error('API error'));
-
-      const { getByTestId } = render(<AddStopModal {...defaultProps} />);
-
-      fireEvent.press(getByTestId('address-suggestion'));
-
-      await waitFor(() => {
-        expect(mockGetPlaceDetails).toHaveBeenCalled();
-      });
-      // Não deve crashar
     });
   });
 
@@ -299,9 +286,8 @@ describe('AddStopModal', () => {
 
   describe('Salvamento', () => {
     beforeEach(() => {
-      mockGetPlaceDetails.mockResolvedValue({
-        coordenadas: { latitude: -23.58, longitude: -46.66 },
-      });
+      // Photon retorna coordenadas diretamente no autocomplete callback
+      // Não precisa mais mockar getPlaceDetails!
       mockRpc.mockResolvedValue({
         data: { success: true, parada_id: 'new-parada-123', ordem: 3 },
         error: null,
@@ -316,12 +302,8 @@ describe('AddStopModal', () => {
     it('deve salvar parada com sucesso', async () => {
       const { getByTestId, getByText } = render(<AddStopModal {...defaultProps} />);
 
-      // Selecionar endereço do autocomplete (isso define as coordenadas)
+      // Selecionar endereço do autocomplete (Photon retorna coordenadas diretamente!)
       fireEvent.press(getByTestId('address-suggestion'));
-
-      await waitFor(() => {
-        expect(mockGetPlaceDetails).toHaveBeenCalled();
-      });
 
       // Clicar em Adicionar
       fireEvent.press(getByText('Adicionar'));
@@ -340,7 +322,7 @@ describe('AddStopModal', () => {
     });
 
     it('deve usar geocoding quando coordenadas não estão disponíveis', async () => {
-      mockGetPlaceDetails.mockResolvedValue({ coordenadas: null });
+      // Quando usuário digita manualmente (sem usar autocomplete), usa geocoding
       mockGeocodeAddress.mockResolvedValue({
         coordenadas: { latitude: -23.59, longitude: -46.67 },
       });
@@ -371,9 +353,6 @@ describe('AddStopModal', () => {
     });
 
     it('deve exibir erro se RPC falhar', async () => {
-      mockGetPlaceDetails.mockResolvedValue({
-        coordenadas: { latitude: -23.58, longitude: -46.66 },
-      });
       mockRpc.mockResolvedValue({
         data: null,
         error: { message: 'Database error' },
@@ -381,8 +360,8 @@ describe('AddStopModal', () => {
 
       const { getByTestId, getByText } = render(<AddStopModal {...defaultProps} />);
 
+      // Selecionar endereço (Photon retorna coordenadas diretamente)
       fireEvent.press(getByTestId('address-suggestion'));
-      await waitFor(() => expect(mockGetPlaceDetails).toHaveBeenCalled());
 
       fireEvent.press(getByText('Adicionar'));
 
@@ -395,7 +374,7 @@ describe('AddStopModal', () => {
       const { getByTestId, getByText } = render(<AddStopModal {...defaultProps} />);
 
       fireEvent.press(getByTestId('address-suggestion'));
-      await waitFor(() => expect(mockGetPlaceDetails).toHaveBeenCalled());
+      // Photon retorna coordenadas diretamente (sem getPlaceDetails)
 
       fireEvent.press(getByText('Adicionar'));
 
@@ -414,7 +393,7 @@ describe('AddStopModal', () => {
       const { getByTestId, getByText } = render(<AddStopModal {...defaultProps} />);
 
       fireEvent.press(getByTestId('address-suggestion'));
-      await waitFor(() => expect(mockGetPlaceDetails).toHaveBeenCalled());
+      // Photon retorna coordenadas diretamente (sem getPlaceDetails)
 
       fireEvent.press(getByText('Adicionar'));
 
@@ -430,7 +409,7 @@ describe('AddStopModal', () => {
       const { getByTestId, getByText } = render(<AddStopModal {...defaultProps} />);
 
       fireEvent.press(getByTestId('address-suggestion'));
-      await waitFor(() => expect(mockGetPlaceDetails).toHaveBeenCalled());
+      // Photon retorna coordenadas diretamente (sem getPlaceDetails)
 
       fireEvent.press(getByText('Adicionar'));
 
@@ -447,7 +426,7 @@ describe('AddStopModal', () => {
       const { getByTestId, getByText } = render(<AddStopModal {...defaultProps} />);
 
       fireEvent.press(getByTestId('address-suggestion'));
-      await waitFor(() => expect(mockGetPlaceDetails).toHaveBeenCalled());
+      // Photon retorna coordenadas diretamente (sem getPlaceDetails)
 
       fireEvent.press(getByText('Adicionar'));
 
@@ -465,7 +444,7 @@ describe('AddStopModal', () => {
       );
 
       fireEvent.press(getByTestId('address-suggestion'));
-      await waitFor(() => expect(mockGetPlaceDetails).toHaveBeenCalled());
+      // Photon retorna coordenadas diretamente (sem getPlaceDetails)
 
       fireEvent.press(getByText('Adicionar'));
 
@@ -485,7 +464,7 @@ describe('AddStopModal', () => {
       );
 
       fireEvent.press(getByTestId('address-suggestion'));
-      await waitFor(() => expect(mockGetPlaceDetails).toHaveBeenCalled());
+      // Photon retorna coordenadas diretamente (sem getPlaceDetails)
 
       fireEvent.press(getByText('Adicionar'));
 

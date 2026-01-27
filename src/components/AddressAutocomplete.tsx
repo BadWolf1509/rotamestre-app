@@ -11,14 +11,23 @@ import {
 } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
-import { googleMapsService, PlaceSuggestion } from '@/lib/google';
+import { photonService, PhotonPlaceSuggestion } from '@/lib/photon';
+import type { Coordenadas } from '@/types/endereco';
 import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+
 
 interface AddressAutocompleteProps {
   value: string;
   onChangeText: (text: string) => void;
-  onSelectAddress: (address: string, placeId: string) => void;
+  /**
+   * Callback ao selecionar endereço.
+   * Com Photon, coordenadas são retornadas diretamente (não precisa de getPlaceDetails).
+   * @param address - Endereço formatado
+   * @param placeId - ID único (formato: osm_N12345 ou osm_W12345)
+   * @param coordinates - Coordenadas do local (Photon retorna automaticamente)
+   */
+  onSelectAddress: (address: string, placeId: string, coordinates?: Coordenadas) => void;
   placeholder?: string;
   error?: string;
   multiline?: boolean;
@@ -27,14 +36,14 @@ interface AddressAutocompleteProps {
 }
 
 /**
- * Componente de autocomplete de endereços usando Google Places API
+ * Componente de autocomplete de endereços usando Photon API (OpenStreetMap)
  *
  * Features:
  * - Busca a partir de 3 caracteres
  * - Debounce de 1000ms (1 segundo) para não interromper digitação rápida
- * - Session tokens para agrupar chamadas e reduzir custos
+ * - 100% gratuito (vs Google Places API ~$50/mês)
  * - Lista de sugestões com separação de texto principal e secundário
- * - Coordenadas obtidas automaticamente ao selecionar
+ * - Coordenadas retornadas diretamente (não precisa de getPlaceDetails!)
  * - TextInput otimizado com useCallback e React.memo para evitar perda de foco
  */
 const AddressAutocompleteComponent = function AddressAutocomplete({
@@ -50,10 +59,9 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   const { isDesktop } = useResponsive();
   // Use explicit compact prop if provided, otherwise auto-detect from viewport
   const useCompact = compact ?? isDesktop;
-  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<PhotonPlaceSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [sessionToken] = useState(() => generateSessionToken());
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Track if last value change was from selection (not typing)
   const wasSelectedRef = useRef(false);
@@ -100,7 +108,8 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
       setShowSuggestions(true);
 
       try {
-        const results = await googleMapsService.autocompleteAddress(value, sessionToken);
+        // Usa Photon API (gratuito!) em vez de Google Places (~$50/mês)
+        const results = await photonService.autocompleteAddress(value);
         setSuggestions(results);
       } catch (error) {
         console.error('Erro no autocomplete:', error);
@@ -115,13 +124,14 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
         clearTimeout(debounceTimer.current);
       }
     };
-  }, [value, sessionToken]);
+  }, [value]);
 
   // Memoizar handlers para evitar re-renders
-  const handleSelectSuggestion = useCallback((suggestion: PlaceSuggestion) => {
+  const handleSelectSuggestion = useCallback((suggestion: PhotonPlaceSuggestion) => {
     // Mark that next value change is from selection, not typing
     wasSelectedRef.current = true;
-    onSelectAddress(suggestion.description, suggestion.place_id);
+    // Photon já retorna coordenadas! Não precisa de getPlaceDetails
+    onSelectAddress(suggestion.description, suggestion.place_id, suggestion.coordinates);
     setSuggestions([]);
     setShowSuggestions(false);
     Keyboard?.dismiss?.();
@@ -143,7 +153,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
 
   // Memoizar renderItem para estabilizar callbacks em testes
   const renderSuggestionItem = useCallback(
-    ({ item }: { item: PlaceSuggestion }) => (
+    ({ item }: { item: PhotonPlaceSuggestion }) => (
       <TouchableOpacity
         testID="suggestion-item"
         style={[styles.suggestionItem, useCompact && styles.suggestionItemCompact]}
@@ -275,11 +285,6 @@ export const AddressAutocomplete = React.memo(
     );
   }
 );
-
-// Gerar session token único para agrupar chamadas
-function generateSessionToken(): string {
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-}
 
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {

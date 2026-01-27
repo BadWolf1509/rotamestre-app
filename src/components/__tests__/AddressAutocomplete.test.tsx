@@ -1,13 +1,13 @@
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import React, { useState } from 'react';
 
-import { googleMapsService } from '@/lib/google';
+import { photonService } from '@/lib/photon';
 
 import { AddressAutocomplete } from '../AddressAutocomplete';
 
-// Mock do googleMapsService
-jest.mock('@/lib/google', () => ({
-  googleMapsService: {
+// Mock do photonService (migrado de Google para Photon)
+jest.mock('@/lib/photon', () => ({
+  photonService: {
     autocompleteAddress: jest.fn(),
   },
 }));
@@ -103,18 +103,23 @@ describe('AddressAutocomplete', () => {
   });
 
   it('deve buscar endereços após debounce', async () => {
+    // Mock Photon retorna coordenadas diretamente (diferente do Google)
     const mockSuggestions = [
       {
-        place_id: '1',
+        place_id: 'osm_N123456',
         description: 'Rua Teste, 123',
         structured_formatting: {
           main_text: 'Rua Teste',
           secondary_text: '123, Cidade',
         },
+        coordinates: {
+          latitude: -23.5505,
+          longitude: -46.6333,
+        },
       },
     ];
 
-    (googleMapsService.autocompleteAddress as jest.Mock).mockResolvedValue(mockSuggestions);
+    (photonService.autocompleteAddress as jest.Mock).mockResolvedValue(mockSuggestions);
 
     const { getByPlaceholderText, getByText, queryByText } = render(<TestWrapper />);
 
@@ -134,9 +139,9 @@ describe('AddressAutocomplete', () => {
       jest.advanceTimersByTime(1000);
     });
 
-    // Verificar chamada API
+    // Verificar chamada API (Photon não usa sessionToken)
     await waitFor(() => {
-      expect(googleMapsService.autocompleteAddress).toHaveBeenCalledWith('Rua Teste', expect.any(String));
+      expect(photonService.autocompleteAddress).toHaveBeenCalledWith('Rua Teste');
     });
 
     // Verificar se sugestões apareceram
@@ -147,18 +152,23 @@ describe('AddressAutocomplete', () => {
   });
 
   it('deve selecionar um endereço e esconder sugestões', async () => {
+    // Mock Photon retorna coordenadas diretamente
     const mockSuggestions = [
       {
-        place_id: '1',
+        place_id: 'osm_N123456',
         description: 'Rua Teste, 123',
         structured_formatting: {
           main_text: 'Rua Teste',
           secondary_text: '123, Cidade',
         },
+        coordinates: {
+          latitude: -23.5505,
+          longitude: -46.6333,
+        },
       },
     ];
 
-    (googleMapsService.autocompleteAddress as jest.Mock).mockResolvedValue(mockSuggestions);
+    (photonService.autocompleteAddress as jest.Mock).mockResolvedValue(mockSuggestions);
     const onSelectAddress = jest.fn();
 
     // Criar wrapper com callback
@@ -168,8 +178,8 @@ describe('AddressAutocomplete', () => {
         <AddressAutocomplete
           value={value}
           onChangeText={setValue}
-          onSelectAddress={(desc, id) => {
-            onSelectAddress(desc, id);
+          onSelectAddress={(desc, id, coords) => {
+            onSelectAddress(desc, id, coords);
             setValue(desc);
           }}
         />
@@ -206,11 +216,16 @@ describe('AddressAutocomplete', () => {
       expect(queryByTestId('suggestion-item')).toBeNull();
     }, { timeout: 2000 });
 
-    expect(onSelectAddress).toHaveBeenCalledWith('Rua Teste, 123', '1');
+    // Photon retorna coordenadas diretamente no callback
+    expect(onSelectAddress).toHaveBeenCalledWith(
+      'Rua Teste, 123',
+      'osm_N123456',
+      { latitude: -23.5505, longitude: -46.6333 }
+    );
   });
 
   it('deve mostrar mensagem quando não encontrar resultados', async () => {
-    (googleMapsService.autocompleteAddress as jest.Mock).mockResolvedValue([]);
+    (photonService.autocompleteAddress as jest.Mock).mockResolvedValue([]);
 
     const { getByPlaceholderText, getByText } = render(<TestWrapper />);
 

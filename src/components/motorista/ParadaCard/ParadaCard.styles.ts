@@ -309,10 +309,4 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray500,
     fontFamily: theme.typography.fontSansMedium,
   },
-
-  // Street View
-  streetViewContainer: {
-    marginTop: theme.spacing.sm,
-    alignItems: 'center',
-  },
 }));

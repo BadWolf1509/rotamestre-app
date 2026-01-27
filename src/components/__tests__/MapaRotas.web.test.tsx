@@ -1,8 +1,8 @@
 import { render } from '@testing-library/react-native';
 import React from 'react';
 
-// Mock do MapaWeb (default export) - precisa ser definido antes do import
-jest.mock('../MapaWeb', () => {
+// Mock do MapaWebMapLibre (default export) - migrado de Google Maps para MapLibre
+jest.mock('../MapaWebMapLibre', () => {
   const mockFn = jest.fn(() => null);
   return {
     __esModule: true,
@@ -11,9 +11,9 @@ jest.mock('../MapaWeb', () => {
 });
 
 import { MapaRotas } from '../MapaRotas.web';
-import MapaWeb from '../MapaWeb';
+import MapaWebMapLibre from '../MapaWebMapLibre';
 
-const mockMapaWeb = MapaWeb as jest.Mock;
+const mockMapaWebMapLibre = MapaWebMapLibre as jest.Mock;
 
 describe('MapaRotas.web', () => {
   const mockParadas = [
@@ -50,9 +50,9 @@ describe('MapaRotas.web', () => {
   it('deve renderizar MapaWeb com paradas', () => {
     render(<MapaRotas paradas={mockParadas} />);
 
-    expect(mockMapaWeb).toHaveBeenCalledTimes(1);
+    expect(mockMapaWebMapLibre).toHaveBeenCalledTimes(1);
 
-    const callArgs = mockMapaWeb.mock.calls[0][0];
+    const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
 
     // MapaRotas.web agora passa apenas paradas para MapaWeb
     expect(callArgs.paradas).toEqual(mockParadas);
@@ -63,8 +63,8 @@ describe('MapaRotas.web', () => {
 
     render(<MapaRotas paradas={duasParadas} />);
 
-    expect(mockMapaWeb).toHaveBeenCalled();
-    const callArgs = mockMapaWeb.mock.calls[0][0];
+    expect(mockMapaWebMapLibre).toHaveBeenCalled();
+    const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
 
     expect(callArgs.paradas).toEqual(duasParadas);
   });
@@ -72,8 +72,8 @@ describe('MapaRotas.web', () => {
   it('deve renderizar com array vazio', () => {
     render(<MapaRotas paradas={[]} />);
 
-    expect(mockMapaWeb).toHaveBeenCalled();
-    const callArgs = mockMapaWeb.mock.calls[0][0];
+    expect(mockMapaWebMapLibre).toHaveBeenCalled();
+    const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
     expect(callArgs.paradas).toEqual([]);
   });
 
@@ -82,8 +82,8 @@ describe('MapaRotas.web', () => {
 
     render(<MapaRotas paradas={umaParada} />);
 
-    expect(mockMapaWeb).toHaveBeenCalled();
-    const callArgs = mockMapaWeb.mock.calls[0][0];
+    expect(mockMapaWebMapLibre).toHaveBeenCalled();
+    const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
 
     expect(callArgs.paradas).toEqual(umaParada);
   });
@@ -91,8 +91,8 @@ describe('MapaRotas.web', () => {
   it('deve passar paradas para MapaWeb', () => {
     render(<MapaRotas paradas={mockParadas} rotaAtiva={true} />);
 
-    expect(mockMapaWeb).toHaveBeenCalled();
-    const callArgs = mockMapaWeb.mock.calls[0][0];
+    expect(mockMapaWebMapLibre).toHaveBeenCalled();
+    const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
     expect(callArgs.paradas).toEqual(mockParadas);
   });
 
@@ -107,8 +107,8 @@ describe('MapaRotas.web', () => {
 
     render(<MapaRotas paradas={muitasParadas} />);
 
-    expect(mockMapaWeb).toHaveBeenCalled();
-    const callArgs = mockMapaWeb.mock.calls[0][0];
+    expect(mockMapaWebMapLibre).toHaveBeenCalled();
+    const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
 
     expect(callArgs.paradas).toEqual(muitasParadas);
     expect(callArgs.paradas).toHaveLength(5);

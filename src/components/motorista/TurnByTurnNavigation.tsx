@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Polyline, UrlTile } from 'react-native-maps';
 
 import { useAlert } from '@/hooks/useAlert';
 import { useOffRouteDetection } from '@/hooks/useOffRouteDetection';
@@ -535,7 +535,6 @@ export function TurnByTurnNavigation({
       <MapView
         ref={mapRef}
         style={styles.map}
-        provider={PROVIDER_GOOGLE}
         initialCamera={{
           center: origin,
           zoom: 17,
@@ -548,6 +547,13 @@ export function TurnByTurnNavigation({
         rotateEnabled={false}
         toolbarEnabled={false}
       >
+        {/* OSM Tiles - gratuito! Migrado de Google Maps em Dez/2024 */}
+        <UrlTile
+          urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maximumZ={19}
+          tileSize={256}
+        />
+
         {/* Route polyline */}
         {routeCoordinates.length > 0 && (
           <Polyline

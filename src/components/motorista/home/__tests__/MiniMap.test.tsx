@@ -17,7 +17,9 @@ jest.mock('react-native-maps', () => {
         Polyline: (props: any) => (
             <View testID="polyline" {...props} />
         ),
-        PROVIDER_GOOGLE: 'google',
+        UrlTile: (props: any) => (
+            <View testID="url-tile" {...props} />
+        ),
     };
 });
 
@@ -388,11 +390,11 @@ describe('MiniMap', () => {
             expect(mapView.props.pitchEnabled).toBe(false);
         });
 
-        it('deve usar PROVIDER_GOOGLE', () => {
+        it('deve usar OSM tiles (UrlTile)', () => {
             const { getByTestId } = render(<MiniMap {...defaultProps} />);
 
-            const mapView = getByTestId('map-view');
-            expect(mapView.props.provider).toBe('google');
+            const urlTile = getByTestId('url-tile');
+            expect(urlTile.props.urlTemplate).toContain('openstreetmap.org');
         });
     });
 });

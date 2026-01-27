@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Polyline, UrlTile } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useNavigationModeLogic, type NavigationModeProps } from '@/hooks/navigation';
@@ -390,7 +390,6 @@ export function NavigationMode({
       <MapView
         ref={mapRef}
         style={styles.map}
-        provider={PROVIDER_GOOGLE}
         region={region}
         showsUserLocation
         showsMyLocationButton={false}
@@ -398,6 +397,13 @@ export function NavigationMode({
         rotateEnabled={false}
         toolbarEnabled={false}
       >
+        {/* OSM Tiles - gratuito! Migrado de Google Maps em Dez/2024 */}
+        <UrlTile
+          urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maximumZ={19}
+          tileSize={256}
+        />
+
         {/* Current Destination Marker (parada atual) */}
         <Marker
           coordinate={{

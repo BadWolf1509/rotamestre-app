@@ -15,7 +15,7 @@
 
 **Core Flow:**
 1. Gestor logs in → Creates route with stops → Assigns to motorista
-2. System optimizes route order (Google Directions API)
+2. System optimizes route order (OSRM - free routing engine)
 3. Motorista sees route → Navigates to each stop → Marks complete + uploads photo proof
 
 ### ✅ Migration Complete (2025-12-06)
@@ -42,7 +42,10 @@
 - Expo Router 6 (file-based routing)
 
 ### Key Libraries
-- **Maps:** react-native-maps + Google Maps API
+- **Maps (Web):** MapLibre GL JS + OpenFreeMap tiles (FREE!)
+- **Maps (Mobile):** react-native-maps + OpenStreetMap tiles (FREE!)
+- **Geocoding:** Photon API (komoot.io - FREE!)
+- **Routing:** OSRM (FREE!) via googleMapsService wrapper
 - **Forms:** react-hook-form + zod
 - **Storage:** @react-native-async-storage/async-storage
 - **Camera:** expo-camera + expo-image-picker
@@ -125,11 +128,13 @@ const { isMobile, isTablet, isDesktop, width } = useResponsive();
 ### Components
 13 reusable components in `src/components/`:
 - **AppButton, AppCard, AppInput** - Basic UI
-- **AddressAutocomplete** - Google Places autocomplete
+- **AddressAutocomplete** - Photon geocoding autocomplete (FREE!)
 - **CameraUpload** - Photo capture/upload
 - **DataTable** - Responsive table/cards
 - **GestorSidebar** - Desktop sidebar navigation
 - **ResponsiveContainer** - Max-width container
+- **MapaWebMapLibre** - Web map component (MapLibre + OpenFreeMap)
+- **MapaRN** - Mobile map component (react-native-maps + OSM tiles)
 
 ---
 
@@ -138,8 +143,8 @@ const { isMobile, isTablet, isDesktop, width } = useResponsive();
 ### Gestor Features
 - ✅ Dashboard with statistics cards
 - ✅ Responsive layout (sidebar desktop, bottom tabs mobile)
-- ✅ Create route with address autocomplete (Google Places)
-- ✅ Route optimization (Google Directions API)
+- ✅ Create route with address autocomplete (Photon API - FREE!)
+- ✅ Route optimization (OSRM - FREE!)
 - ✅ Assign route to motorista
 - ✅ View route history (DataTable)
 - ✅ Manage motoristas (CRUD)
@@ -155,25 +160,41 @@ const { isMobile, isTablet, isDesktop, width } = useResponsive();
 
 ---
 
-## 🗺️ Google Maps Integration
+## 🗺️ Maps & Geocoding (100% FREE!)
 
-### APIs Used
-1. **Places API Autocomplete** - Address suggestions as you type
+### Migration Complete (Jan/2025)
+All Google APIs replaced with free open-source alternatives:
+- **Cost savings:** ~$350/month eliminated!
+- **No API keys required** for maps (public tiles)
+
+### Services Used
+1. **Photon API** (komoot.io) - Address autocomplete & geocoding
    - Debounced (500ms)
-   - Session tokens (cost optimization)
-   - Returns coordinates automatically
+   - Returns coordinates directly (no session tokens needed)
+   - OpenStreetMap data (excellent for Brazil)
+   - File: `src/lib/photon.ts`
 
-2. **Directions API** - Route optimization
+2. **OSRM** - Route optimization & directions
    - `optimize: true` reorders stops
    - Returns total distance/duration
    - Turn-by-turn directions
+   - File: `src/lib/google.ts` (wrapper, uses OSRM backend)
 
-3. **Geocoding API** - Fallback if Places fails
-   - Address → Coordinates
+3. **MapLibre GL JS** - Web maps
+   - Uses OpenFreeMap tiles (FREE!)
+   - Style: `https://tiles.openfreemap.org/styles/liberty/style.json`
+   - File: `src/components/MapaWebMapLibre.tsx`
 
-### Files
-- `src/components/AddressAutocomplete.tsx` - Autocomplete component
-- `app/gestor/criar-rota.tsx` - Uses autocomplete
+4. **OpenStreetMap Tiles** - Mobile maps
+   - react-native-maps with UrlTile
+   - Template: `https://tile.openstreetmap.org/{z}/{x}/{y}.png`
+   - Files: `src/components/MapaRN.tsx`, `src/components/MapaMobile.tsx`
+
+### Key Files
+- `src/lib/photon.ts` - Geocoding service
+- `src/components/AddressAutocomplete.tsx` - Uses Photon
+- `src/components/MapaWebMapLibre.tsx` - Web map component
+- `src/components/MapaRN.tsx` - Mobile map component
 - `src/lib/navigation.ts` - GPS navigation helper
 
 ---
@@ -382,9 +403,12 @@ eas build --platform android --profile preview
 
 **Must read when working on:**
 - Auth: `src/lib/supabase.ts`, `src/hooks/useAuth.ts`
-- Maps: `src/lib/navigation.ts`, `src/components/AddressAutocomplete.tsx`
+- Maps (Web): `src/components/MapaWebMapLibre.tsx`, `src/components/MapaAdapter.tsx`
+- Maps (Mobile): `src/components/MapaRN.tsx`, `src/components/MapaMobile.tsx`
+- Geocoding: `src/lib/photon.ts`, `src/components/AddressAutocomplete.tsx`
+- Routing/Directions: `src/lib/google.ts` (OSRM wrapper)
 - Forms: Any file using `react-hook-form` + `zod`
-- Routing: `app/**/*.tsx` (Expo Router file-based)
+- Navigation: `app/**/*.tsx` (Expo Router file-based)
 - Design: `src/lib/design-tokens.ts`, `src/components/`
 
 **Reference:**

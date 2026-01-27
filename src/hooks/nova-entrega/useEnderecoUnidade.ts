@@ -7,8 +7,8 @@ import { useState, useCallback, useEffect } from 'react';
 
 import type { EnderecoUnidade } from '@/components/gestor/nova-entrega/types';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
-import { googleMapsService } from '@/lib/google';
 import { logger } from '@/lib/logger';
+import { photonService } from '@/lib/photon';
 
 export interface UseEnderecoUnidadeReturn {
   enderecoUnidade: EnderecoUnidade | null;
@@ -70,9 +70,9 @@ export function useEnderecoUnidade(
       return;
     }
 
-    // Geocodificar o endereço
+    // Geocodificar o endereço (Photon - gratuito!)
     try {
-      const result = await googleMapsService.geocodeAddress(enderecoCompleto);
+      const result = await photonService.geocodeAddress(enderecoCompleto);
       if (result?.coordenadas) {
         setEnderecoUnidade({
           latitude: result.coordenadas.latitude,

@@ -26,15 +26,17 @@ export { RoutesAPIResponse, adaptRoutesAPIResponse, mapRoutesAPIError, parseDura
 // PlaceSuggestion is now exported from google-shared.ts
 export type { PlaceSuggestion } from './google-shared';
 
-// Aguardar Google Maps JavaScript API (carregada pelo MapaWeb.tsx via useJsApiLoader)
-// NÃO criar script duplicado - usar a API já carregada
+// Aguardar Google Maps JavaScript API (se carregada externamente)
+// NOTA: Os componentes de mapa web foram migrados para MapLibre GL JS.
+// As funções de geocoding abaixo ainda dependem da Google Maps JS API quando disponível.
 
 let waitingForGooglePromise: Promise<void> | null = null;
 
 /**
  * Aguarda a Google Maps API estar disponível.
- * A API é carregada pelo MapaWeb.tsx via @react-google-maps/api useJsApiLoader.
- * Esta função apenas espera que google.maps esteja disponível, sem criar script duplicado.
+ * NOTA: Os componentes de mapa web foram migrados para MapLibre GL JS.
+ * Esta função é usada apenas para funções de geocoding que ainda dependem da Google Maps JS API.
+ * TODO: Migrar geocoding para Photon API (gratuito) para eliminar esta dependência.
  */
 async function waitForGoogleMapsAPI(): Promise<void> {
   if (typeof window === 'undefined') {

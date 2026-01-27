@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import React, { useRef, useEffect, useMemo, useCallback, useState } from 'react';
 import { View, Text, ActivityIndicator, TouchableOpacity, Platform, Pressable, Linking } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region, Callout } from 'react-native-maps';
+import MapView, { Marker, Polyline, UrlTile, Region, Callout } from 'react-native-maps';
 
 import { getStatusLabel } from '@/components/map/infoWindowBuilders';
 import { MotoristaMarker } from '@/components/MotoristaMarker';
@@ -293,7 +293,6 @@ export function MapaMobile({
     <View style={styles.container}>
       <MapView
         ref={mapRef}
-        provider={PROVIDER_GOOGLE}
         style={styles.map}
         initialRegion={initialRegion}
         showsUserLocation={true}
@@ -306,6 +305,12 @@ export function MapaMobile({
         accessible={true}
         accessibilityLabel="Mapa de paradas da rota"
       >
+        {/* OSM Tiles - gratuito! Migrado de Google Maps em Dez/2024 */}
+        <UrlTile
+          urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maximumZ={19}
+          tileSize={256}
+        />
         {/* Rota real (via Google Directions API) ou fallback para linhas retas */}
         {routeCoordinates.length > 1 && (
           <Polyline

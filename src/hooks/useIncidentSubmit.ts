@@ -30,7 +30,7 @@
 import * as Location from 'expo-location';
 import { useState, useCallback } from 'react';
 
-import { googleMapsService } from '@/lib/google';
+import { photonService } from '@/lib/photon';
 import { createIncidente, logIncidenteAction } from '@/lib/queries';
 import type { IncidenteCategoria } from '@/lib/queries';
 import { storageService } from '@/lib/storage';
@@ -139,7 +139,8 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
         accuracy: Location.Accuracy.Balanced,
       });
 
-      const address = await googleMapsService.reverseGeocode({
+      // Usa Photon (gratuito!) para reverse geocoding
+      const address = await photonService.reverseGeocode({
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
       });

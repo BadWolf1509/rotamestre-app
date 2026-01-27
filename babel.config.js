@@ -10,6 +10,7 @@ module.exports = function(api) {
           autoProcessImports: ['@/utils/styles'],
         },
       ],
+      'react-native-reanimated/plugin',
     ],
   };
 };

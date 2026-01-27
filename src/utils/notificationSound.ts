@@ -16,6 +16,61 @@ const SOUND_ENABLED_KEY = '@rotamestre:notification_sound_enabled';
 // Sound enabled flag (can be controlled by user settings)
 let soundEnabled = true;
 let soundPreferenceLoaded = false;
+let webAudioContext: AudioContext | null = null;
+let webAudioUnlocked = false;
+let webAudioUnlockListenersAttached = false;
+
+function canStartWebAudio(): boolean {
+  if (typeof navigator !== 'undefined') {
+    const activation = (navigator as any).userActivation;
+    if (activation?.hasBeenActive || activation?.isActive) {
+      webAudioUnlocked = true;
+    }
+  }
+
+  return webAudioUnlocked;
+}
+
+function attachWebAudioUnlockListeners(): void {
+  if (webAudioUnlockListenersAttached) return;
+  if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
+
+  webAudioUnlockListenersAttached = true;
+
+  const unlock = () => {
+    webAudioUnlocked = true;
+
+    if (webAudioContext && webAudioContext.state === 'suspended') {
+      webAudioContext.resume().catch(() => {});
+    }
+  };
+
+  window.addEventListener('pointerdown', unlock, { once: true });
+  window.addEventListener('touchstart', unlock, { once: true });
+  window.addEventListener('keydown', unlock, { once: true });
+}
+
+function getWebAudioContext(): AudioContext | null {
+  if (typeof window === 'undefined') return null;
+
+  if (!canStartWebAudio()) {
+    attachWebAudioUnlockListeners();
+    return null;
+  }
+
+  const AudioContextConstructor = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioContextConstructor) return null;
+
+  if (!webAudioContext || webAudioContext.state === 'closed') {
+    webAudioContext = new AudioContextConstructor();
+  }
+
+  if (webAudioContext.state === 'suspended') {
+    webAudioContext.resume().catch(() => {});
+  }
+
+  return webAudioContext;
+}
 
 /**
  * Initialize audio mode and load sound preference from storage
@@ -24,7 +79,10 @@ export async function initializeNotificationAudio(): Promise<void> {
   // Load sound preference from storage
   await loadSoundPreference();
 
-  if (Platform.OS === 'web') return;
+  if (Platform.OS === 'web') {
+    attachWebAudioUnlockListeners();
+    return;
+  }
 
   try {
     await Audio.setAudioModeAsync({
@@ -276,7 +334,8 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
  */
 function playWebNotificationSound(): void {
   try {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const audioContext = getWebAudioContext();
+    if (!audioContext) return;
 
     // Create oscillator for notification tone
     const oscillator = audioContext.createOscillator();
@@ -321,7 +380,8 @@ function playWebNotificationSound(): void {
  */
 function playWebSuccessSound(): void {
   try {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const audioContext = getWebAudioContext();
+    if (!audioContext) return;
 
     // Success chord: C-E-G
     const notes = [523.25, 659.25, 783.99]; // C5, E5, G5

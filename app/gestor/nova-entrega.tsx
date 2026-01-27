@@ -40,8 +40,8 @@ import {
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useNovaEntrega } from '@/hooks/useNovaEntrega';
 import { useResponsive } from '@/hooks/useResponsive';
-import { googleMapsService } from '@/lib/google';
 import { maskPhone } from '@/lib/phone';
+import type { Coordenadas } from '@/types/endereco';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // ============================================
@@ -214,12 +214,12 @@ const FormularioParadaMemoized = memo(function FormularioParada({
           <AddressAutocomplete
             value={value || ''}
             onChangeText={onChange}
-            onSelectAddress={async (address, placeId) => {
+            onSelectAddress={(address, _placeId, coordinates?: Coordenadas) => {
               onChange(address);
-              const details = await googleMapsService.getPlaceDetails(placeId);
-              if (details) {
-                setValue('latitude', details.coordenadas.latitude);
-                setValue('longitude', details.coordenadas.longitude);
+              // Photon já retorna coordenadas diretamente - não precisa de getPlaceDetails!
+              if (coordinates) {
+                setValue('latitude', coordinates.latitude);
+                setValue('longitude', coordinates.longitude);
               }
             }}
             placeholder="Digite o endereço completo"

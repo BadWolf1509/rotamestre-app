@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import { GoogleMap, useJsApiLoader, OverlayView, Polyline } from '@react-google-maps/api';
-import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import maplibregl from 'maplibre-gl';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+
+import 'maplibre-gl/dist/maplibre-gl.css';
 
 import {
   EDGE_PADDING,
@@ -18,11 +20,9 @@ import {
 } from '@/hooks/navigation';
 import type { PictureInPictureMapProps } from '@/hooks/navigation';
 import { usePiPPosition } from '@/hooks/usePiPPosition';
+import { getOpenFreeMapStyle, installOpenFreeMapMissingImageHandler } from '@/lib/openFreeMapStyle';
 import { boxShadow, withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-const GOOGLE_MAPS_MAP_ID = process.env.EXPO_PUBLIC_GOOGLE_MAPS_MAP_ID || '';
 
 export function PictureInPictureMap({
   visible,
@@ -45,6 +45,7 @@ export function PictureInPictureMap({
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [mapReady, setMapReady] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
 
   // Use shared hooks for route info and collision detection
   const { routeInfo, isNearDestination, routePath } = usePiPRouteInfo({
@@ -56,26 +57,22 @@ export function PictureInPictureMap({
 
   // Refs para arrasto
   const containerRef = useRef<HTMLDivElement>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const positionRef = useRef({ x: 0, y: 0 });
   const dragStartPosRef = useRef({ x: 0, y: 0 }); // Posição inicial do PiP quando começou o drag
 
+  // Marker refs
+  const userMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const destMarkerRef = useRef<maplibregl.Marker | null>(null);
+
   // Dimensões da viewport
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
 
-  // Carregar Google Maps API - IMPORTANTE: usar mesmo ID que outros componentes
-  // para evitar erro "Loader must not be called again with different options"
-  const mapLibraries = useMemo(() => ['marker', 'places'] as ('marker' | 'places')[], []);
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-script', // Deve ser igual em todos os componentes
-    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    libraries: mapLibraries,
-    version: 'beta',
-  });
-
   // Dimensões calculadas
-  const expandedWidth = useMemo(() => Math.min(viewport.width * 0.9, 600), [viewport.width]);
-  const expandedHeight = useMemo(() => Math.min(viewport.height * 0.5, 400), [viewport.height]);
+  const expandedWidth = Math.min(viewport.width * 0.9, 600);
+  const expandedHeight = Math.min(viewport.height * 0.5, 400);
   const currentWidth = isExpanded ? expandedWidth : PIP_WIDTH;
   const currentHeight = isExpanded ? expandedHeight : PIP_HEIGHT;
 
@@ -301,26 +298,26 @@ export function PictureInPictureMap({
       const maxLon = Math.max(userLocation.longitude, destination.longitude);
 
       return {
-        lat: (minLat + maxLat) / 2,
         lng: (minLon + maxLon) / 2,
+        lat: (minLat + maxLat) / 2,
       };
     }
 
     if (userLocation) {
       return {
-        lat: userLocation.latitude,
         lng: userLocation.longitude,
+        lat: userLocation.latitude,
       };
     }
 
     if (destination) {
       return {
-        lat: destination.latitude,
         lng: destination.longitude,
+        lat: destination.latitude,
       };
     }
 
-    return { lat: -23.5505, lng: -46.6333 }; // São Paulo default
+    return { lng: -46.6333, lat: -23.5505 }; // São Paulo default
   }, [userLocation, destination]);
 
   // Calcular zoom
@@ -354,19 +351,240 @@ export function PictureInPictureMap({
     }
   }, [userLocation, destination]);
 
-  // Callback para offset do overlay
-  const getOverlayOffset = useCallback((width: number, height: number) => ({
-    x: -(width / 2),
-    y: -(height / 2),
-  }), []);
+  // Create user marker element
+  const createUserMarkerElement = useCallback((heading?: number) => {
+    const el = document.createElement('div');
+
+    if (heading !== undefined) {
+      // Seta direcional quando heading disponível
+      el.style.cssText = `
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background-color: ${theme.colors.white};
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+        transform: rotate(${heading}deg);
+      `;
+      el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 512 512"><path fill="${theme.colors.info}" d="m256 64l192 192-64 64-96-96v224h-64V224l-96 96-64-64z"/></svg>`;
+    } else {
+      // Ponto azul padrão
+      el.style.cssText = `
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background-color: ${withOpacity(theme.colors.info, 0.2)};
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      `;
+
+      const dot = document.createElement('div');
+      dot.style.cssText = `
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: ${theme.colors.info};
+        border: 2px solid ${theme.colors.white};
+      `;
+      el.appendChild(dot);
+    }
+
+    return el;
+  }, [theme.colors.info, theme.colors.white]);
+
+  // Create destination marker element
+  const createDestinationMarkerElement = useCallback(() => {
+    const el = document.createElement('div');
+    el.style.cssText = `
+      background-color: ${theme.colors.white};
+      border-radius: 15px;
+      padding: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+    el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 512 512"><path fill="${theme.colors.error}" d="M256 32C167.67 32 96 96.51 96 176c0 128 160 304 160 304s160-176 160-304c0-79.49-71.67-144-160-144m0 224a64 64 0 1 1 64-64a64.07 64.07 0 0 1-64 64"/></svg>`;
+
+    return el;
+  }, [theme.colors.white, theme.colors.error]);
+
+  // Initialize MapLibre map
+  useEffect(() => {
+    if (!mapContainerRef.current || !visible || !destination) return;
+
+    // Clean up existing map
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+    }
+
+    let cancelled = false;
+    let mapInstance: maplibregl.Map | null = null;
+    let removeMissingImageHandler: (() => void) | null = null;
+
+    const initializeMap = async () => {
+      try {
+        const style = await getOpenFreeMapStyle();
+        if (cancelled || !mapContainerRef.current) return;
+
+        const center = getRegion();
+        const zoom = getZoom();
+
+        mapInstance = new maplibregl.Map({
+          container: mapContainerRef.current,
+          style,
+          center: [center.lng, center.lat],
+          zoom,
+          attributionControl: false,
+          interactive: isExpanded,
+        });
+        removeMissingImageHandler = installOpenFreeMapMissingImageHandler(mapInstance);
+
+        mapInstance.on('load', () => {
+          setMapReady(true);
+          mapRef.current = mapInstance;
+        });
+
+        mapInstance.on('error', (e) => {
+          console.error('[PiP.web] Map error:', e);
+          setMapError('Erro ao carregar mapa');
+        });
+      } catch (error) {
+        if (cancelled) return;
+        console.error('[PiP.web] Failed to initialize map:', error);
+        setMapError('Erro ao inicializar mapa');
+      }
+    };
+
+    initializeMap();
+
+    return () => {
+      cancelled = true;
+      if (removeMissingImageHandler) {
+        removeMissingImageHandler();
+      }
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove();
+        userMarkerRef.current = null;
+      }
+      if (destMarkerRef.current) {
+        destMarkerRef.current.remove();
+        destMarkerRef.current = null;
+      }
+      if (mapInstance) {
+        mapInstance.remove();
+      }
+      mapRef.current = null;
+      setMapReady(false);
+    };
+  }, [visible, destination, isExpanded, getRegion, getZoom]);
+
+  // Update map interactivity when expanded state changes
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    if (isExpanded) {
+      mapRef.current.scrollZoom.enable();
+      mapRef.current.dragPan.enable();
+      mapRef.current.doubleClickZoom.enable();
+    } else {
+      mapRef.current.scrollZoom.disable();
+      mapRef.current.dragPan.disable();
+      mapRef.current.doubleClickZoom.disable();
+    }
+  }, [isExpanded]);
+
+  // Add/update markers
+  useEffect(() => {
+    if (!mapRef.current || !mapReady) return;
+
+    // Update or create user marker
+    if (userLocation) {
+      if (userMarkerRef.current) {
+        userMarkerRef.current.setLngLat([userLocation.longitude, userLocation.latitude]);
+        // Update marker element if heading changed
+        const newEl = createUserMarkerElement(userHeading);
+        userMarkerRef.current.getElement().replaceWith(newEl);
+      } else {
+        userMarkerRef.current = new maplibregl.Marker({ element: createUserMarkerElement(userHeading) })
+          .setLngLat([userLocation.longitude, userLocation.latitude])
+          .addTo(mapRef.current);
+      }
+    }
+
+    // Update or create destination marker
+    if (destination) {
+      if (destMarkerRef.current) {
+        destMarkerRef.current.setLngLat([destination.longitude, destination.latitude]);
+      } else {
+        destMarkerRef.current = new maplibregl.Marker({ element: createDestinationMarkerElement() })
+          .setLngLat([destination.longitude, destination.latitude])
+          .addTo(mapRef.current);
+      }
+    }
+  }, [mapReady, userLocation, destination, userHeading, createUserMarkerElement, createDestinationMarkerElement]);
+
+  // Add route polyline
+  useEffect(() => {
+    if (!mapRef.current || !mapReady || routePath.length < 2) return;
+
+    const sourceId = 'pip-route-source';
+    const layerId = 'pip-route-layer';
+
+    // Remove existing layer and source if they exist
+    if (mapRef.current.getLayer(layerId)) {
+      mapRef.current.removeLayer(layerId);
+    }
+    if (mapRef.current.getSource(sourceId)) {
+      mapRef.current.removeSource(sourceId);
+    }
+
+    // Add route source
+    mapRef.current.addSource(sourceId, {
+      type: 'geojson',
+      data: {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'LineString',
+          coordinates: routePath.map(c => [c.longitude, c.latitude]),
+        },
+      },
+    });
+
+    // Add route layer
+    mapRef.current.addLayer({
+      id: layerId,
+      type: 'line',
+      source: sourceId,
+      layout: {
+        'line-join': 'round',
+        'line-cap': 'round',
+      },
+      paint: {
+        'line-color': theme.colors.primary,
+        'line-width': 4,
+        'line-opacity': 1,
+      },
+    });
+  }, [mapReady, routePath, theme.colors.primary]);
+
+  // Update map center when user location changes
+  useEffect(() => {
+    if (!mapRef.current || !mapReady || !userLocation) return;
+
+    const center = getRegion();
+    mapRef.current.setCenter([center.lng, center.lat]);
+  }, [mapReady, userLocation, getRegion]);
 
   if (!visible || !destination) return null;
 
-  const center = getRegion();
-  const zoom = getZoom();
-
-  // Estado de erro ou carregando
-  if (loadError) {
+  // Estado de erro
+  if (mapError) {
     return (
       <div
         ref={containerRef}
@@ -399,26 +617,6 @@ export function PictureInPictureMap({
               <Ionicons name="close" size={18} color={theme.colors.white} />
             </TouchableOpacity>
           </View>
-        </View>
-      </div>
-    );
-  }
-
-  if (!isLoaded) {
-    return (
-      <div
-        style={{
-          position: 'fixed',
-          left: position.x,
-          top: position.y,
-          width: currentWidth,
-          height: currentHeight,
-          zIndex: 9999,
-        }}
-      >
-        <View style={[styles.container, styles.loadingContainer, { width: currentWidth, height: currentHeight }]}>
-          <ActivityIndicator size="small" color={theme.colors.primary} />
-          <Text style={styles.loadingText}>Carregando mapa...</Text>
         </View>
       </div>
     );
@@ -463,75 +661,14 @@ export function PictureInPictureMap({
           />
         )}
 
-        {/* Mapa Google */}
-        <GoogleMap
-          mapContainerStyle={{ width: '100%', height: '100%' }}
-          center={center}
-          zoom={zoom}
-          onLoad={() => setMapReady(true)}
-          options={{
-            disableDefaultUI: true,
-            zoomControl: isExpanded,
-            scrollwheel: isExpanded,
-            draggable: isExpanded,
-            clickableIcons: false,
-            gestureHandling: isExpanded ? 'auto' : 'none',
-            mapId: GOOGLE_MAPS_MAP_ID || undefined,
+        {/* MapLibre Map */}
+        <div
+          ref={mapContainerRef}
+          style={{
+            width: '100%',
+            height: '100%',
           }}
-        >
-          {/* Polyline da rota real via OSRM */}
-          {mapReady && routePath.length >= 2 && (
-            <Polyline
-              path={routePath.map(coord => ({ lat: coord.latitude, lng: coord.longitude }))}
-              options={{
-                strokeColor: theme.colors.primary,
-                strokeWeight: 4,
-                strokeOpacity: 1,
-                geodesic: true,
-              }}
-            />
-          )}
-
-          {/* Marker do usuário */}
-          {userLocation && (
-            <OverlayView
-              position={{ lat: userLocation.latitude, lng: userLocation.longitude }}
-              mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-              getPixelPositionOffset={getOverlayOffset}
-            >
-              {userHeading !== undefined ? (
-                // Seta direcional quando heading disponível
-                <View
-                  style={[
-                    styles.userDirectionMarker,
-                    { transform: [{ rotate: `${userHeading}deg` }] },
-                  ]}
-                  pointerEvents="none"
-                >
-                  <Ionicons name="navigate" size={20} color={theme.colors.info} />
-                </View>
-              ) : (
-                // Ponto azul padrão
-                <View style={styles.userMarker} pointerEvents="none">
-                  <View style={styles.userMarkerDot} />
-                </View>
-              )}
-            </OverlayView>
-          )}
-
-          {/* Marker do destino */}
-          {destination && (
-            <OverlayView
-              position={{ lat: destination.latitude, lng: destination.longitude }}
-              mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-              getPixelPositionOffset={getOverlayOffset}
-            >
-              <View style={styles.destinationMarker} pointerEvents="none">
-                <Ionicons name="location" size={20} color={theme.colors.error} />
-              </View>
-            </OverlayView>
-          )}
-        </GoogleMap>
+        />
 
         {/* Loading overlay */}
         {!mapReady && (

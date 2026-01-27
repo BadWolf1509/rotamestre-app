@@ -17,12 +17,11 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
-const mockGetPlaceDetails = jest.fn();
+// Mock Photon service (migrado de Google)
 const mockGeocodeAddress = jest.fn();
 
-jest.mock('@/lib/google', () => ({
-  googleMapsService: {
-    getPlaceDetails: (...args: unknown[]) => mockGetPlaceDetails(...args),
+jest.mock('@/lib/photon', () => ({
+  photonService: {
     geocodeAddress: (...args: unknown[]) => mockGeocodeAddress(...args),
   },
 }));
@@ -49,12 +48,12 @@ jest.mock('@/lib/phone', () => ({
 }));
 
 // Mock theme
-// Mock AddressAutocomplete
+// Mock AddressAutocomplete (Photon retorna coordenadas diretamente!)
 jest.mock('@/components/AddressAutocomplete', () => ({
   AddressAutocomplete: ({ value, onChangeText, onSelectAddress, placeholder }: {
     value: string;
     onChangeText: (text: string) => void;
-    onSelectAddress: (address: string, placeId: string) => void;
+    onSelectAddress: (address: string, placeId: string, coordinates?: { latitude: number; longitude: number }) => void;
     placeholder: string;
   }) => {
     const { TextInput, TouchableOpacity, Text, View } = require('react-native');
@@ -68,7 +67,7 @@ jest.mock('@/components/AddressAutocomplete', () => ({
         />
         <TouchableOpacity
           testID="address-suggestion"
-          onPress={() => onSelectAddress('Rua Nova, 456', 'place_id_456')}
+          onPress={() => onSelectAddress('Rua Nova, 456', 'osm_N654321', { latitude: -23.57, longitude: -46.65 })}
         >
           <Text>Rua Nova, 456</Text>
         </TouchableOpacity>
@@ -229,10 +228,7 @@ describe('EditStopModal', () => {
     });
 
     it('deve exibir nota quando endereço é alterado', async () => {
-      mockGetPlaceDetails.mockResolvedValue({
-        coordenadas: { latitude: -23.58, longitude: -46.66 },
-      });
-
+      // Photon retorna coordenadas diretamente no autocomplete
       const { getByTestId, getByText } = render(<EditStopModal {...defaultProps} />);
 
       // Selecionar novo endereço
@@ -271,15 +267,11 @@ describe('EditStopModal', () => {
     });
 
     it('deve recalcular rota quando endereço muda', async () => {
-      mockGetPlaceDetails.mockResolvedValue({
-        coordenadas: { latitude: -23.58, longitude: -46.66 },
-      });
-
+      // Photon retorna coordenadas diretamente no autocomplete
       const { getByTestId, getByText } = render(<EditStopModal {...defaultProps} />);
 
-      // Alterar endereço
+      // Alterar endereço (Photon envia coordenadas diretamente)
       fireEvent.press(getByTestId('address-suggestion'));
-      await waitFor(() => expect(mockGetPlaceDetails).toHaveBeenCalled());
 
       // Salvar
       fireEvent.press(getByText('Salvar'));

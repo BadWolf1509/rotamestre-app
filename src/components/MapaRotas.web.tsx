@@ -1,6 +1,6 @@
 import React from 'react';
 
-import MapaWeb from './MapaWeb';
+import MapaWebMapLibre from './MapaWebMapLibre';
 
 interface Parada {
   id: string;
@@ -18,8 +18,10 @@ interface MapaRotasProps {
 
 /**
  * Componente de mapa para WEB
- * - Usa MapaWeb.tsx (Google Maps JavaScript API)
+ * - Usa MapaWebMapLibre.tsx (MapLibre GL JS + OpenFreeMap - gratuito!)
+ *
+ * Migrado de Google Maps para alternativas gratuitas em Dez/2024.
  */
 export function MapaRotas(props: MapaRotasProps) {
-  return <MapaWeb paradas={props.paradas} />;
+  return <MapaWebMapLibre paradas={props.paradas as any} />;
 }

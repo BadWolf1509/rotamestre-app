@@ -6,7 +6,6 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { memo } from 'react';
 import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
 
-import { StreetViewPreview } from '@/components/StreetViewPreview';
 import { SwipeableRow } from '@/components/SwipeableRow';
 import { RouteStatus } from '@/context/RouteStatusContext';
 import { Text } from '@/design-system';
@@ -133,16 +132,6 @@ export const MainCardActive = memo(function MainCardActive({
               <Text style={styles.observationText}>{currentStop.observacoes}</Text>
             </View>
           )}
-
-          <View style={styles.streetViewContainer}>
-            <StreetViewPreview
-              latitude={currentStop.latitude}
-              longitude={currentStop.longitude}
-              address={currentStop.endereco}
-              size="medium"
-              fallback="static-map"
-            />
-          </View>
 
           <View style={[styles.distanceBar, { backgroundColor: theme.colors.primary }]}>
             {distanceInfo.isLoading ? (

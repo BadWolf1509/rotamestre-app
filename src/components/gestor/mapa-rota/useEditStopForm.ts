@@ -12,10 +12,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { googleMapsService } from '@/lib/google';
 import { maskPhone } from '@/lib/phone';
+import { photonService } from '@/lib/photon';
 import { recalcularRota, notificarMotoristaRotaEditada } from '@/lib/routeUtils';
 import { supabase } from '@/lib/supabase';
+import type { Coordenadas } from '@/types/endereco';
 
 import type { Parada } from './types';
 
@@ -83,20 +84,16 @@ export function useEditStopForm({
     : false;
 
   // Handle address selection from autocomplete
-  const handleAddressSelect = useCallback(async (address: string, placeId: string) => {
+  // Photon já retorna coordenadas diretamente - não precisa de getPlaceDetails!
+  const handleAddressSelect = useCallback((address: string, _placeId: string, coordinates?: Coordenadas) => {
     setEndereco(address);
     setAddressChanged(true);
     setError(null);
 
-    // Get coordinates from place details
-    try {
-      const details = await googleMapsService.getPlaceDetails(placeId);
-      if (details?.coordenadas) {
-        setLatitude(details.coordenadas.latitude);
-        setLongitude(details.coordenadas.longitude);
-      }
-    } catch (err) {
-      console.error('Erro ao obter coordenadas:', err);
+    // Photon retorna coordenadas diretamente no autocomplete
+    if (coordinates) {
+      setLatitude(coordinates.latitude);
+      setLongitude(coordinates.longitude);
     }
   }, []);
 
@@ -134,7 +131,8 @@ export function useEditStopForm({
       let finalLongitude = longitude;
 
       if (addressChanged && (!finalLatitude || !finalLongitude)) {
-        const geocoded = await googleMapsService.geocodeAddress(endereco);
+        // Usa Photon (gratuito!) em vez de Google Geocoding API
+        const geocoded = await photonService.geocodeAddress(endereco);
         if (geocoded?.coordenadas) {
           finalLatitude = geocoded.coordenadas.latitude;
           finalLongitude = geocoded.coordenadas.longitude;

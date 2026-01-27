@@ -33,9 +33,10 @@ jest.mock('@/hooks/useUnidadeAtiva', () => ({
   }),
 }));
 
+// Mock Photon service (migrado de Google)
 const mockGeocodeAddress = jest.fn();
-jest.mock('@/lib/google', () => ({
-  googleMapsService: {
+jest.mock('@/lib/photon', () => ({
+  photonService: {
     geocodeAddress: (...args: unknown[]) => mockGeocodeAddress(...args),
   },
 }));

@@ -143,7 +143,6 @@ Consider exporting these via `@/design-system` for consistency.
 - `MapaMobile` - Mobile-specific map (`@/components/map/MapaMobile`)
 - `MapaRotas` - Route-specific map (`@/components/map/MapaRotas`)
 - `MotoristaMarker` - Driver marker on map (`@/components/MotoristaMarker`)
-- `StreetViewPreview` - Street view integration (`@/components/StreetViewPreview`)
 
 ## Infrastructure Components
 - `DrawerMenu` - Drawer navigation menu (`@/components/DrawerMenu`)

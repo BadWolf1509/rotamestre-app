@@ -6,9 +6,9 @@ import { renderHook, act } from '@testing-library/react-native';
 
 import type { ParadaFormData, ParadaFormDataWithCoords } from '@/components/gestor/nova-entrega/types'; // eslint-disable-line import/order
 
-// Mock googleMapsService
-jest.mock('@/lib/google', () => ({
-  googleMapsService: {
+// Mock photonService (migrado de Google para Photon)
+jest.mock('@/lib/photon', () => ({
+  photonService: {
     geocodeAddress: jest.fn(),
   },
 }));
@@ -33,7 +33,7 @@ jest.mock('@/lib/routeOptimization', () => ({
   WAYPOINTS_RECOMENDADO: 8,
 }));
 
-import { googleMapsService } from '@/lib/google';
+import { photonService } from '@/lib/photon';
 
 import { useParadasManagement } from '../useParadasManagement';
 
@@ -103,7 +103,7 @@ describe('useParadasManagement', () => {
     });
 
     it('should geocode address if no coordinates', async () => {
-      (googleMapsService.geocodeAddress as jest.Mock).mockResolvedValueOnce({
+      (photonService.geocodeAddress as jest.Mock).mockResolvedValueOnce({
         coordenadas: { latitude: -23.5, longitude: -46.6 },
       });
 
@@ -121,12 +121,12 @@ describe('useParadasManagement', () => {
         await result.current.onAddParada(paradaData);
       });
 
-      expect(googleMapsService.geocodeAddress).toHaveBeenCalledWith('Rua A, 123');
+      expect(photonService.geocodeAddress).toHaveBeenCalledWith('Rua A, 123');
       expect(result.current.paradas).toHaveLength(1);
     });
 
     it('should show error if geocoding fails', async () => {
-      (googleMapsService.geocodeAddress as jest.Mock).mockResolvedValueOnce(null);
+      (photonService.geocodeAddress as jest.Mock).mockResolvedValueOnce(null);
 
       const { result } = renderHook(() => useParadasManagement(defaultOptions));
 

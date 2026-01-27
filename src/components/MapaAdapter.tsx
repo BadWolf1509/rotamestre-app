@@ -2,15 +2,17 @@
  * MapaAdapter - Wrapper Inteligente para Mapa
  *
  * Detecta automaticamente a plataforma e renderiza o componente apropriado:
- * - Web: MapaWeb (Google Maps JavaScript API)
- * - Mobile: MapaMobile (react-native-maps)
+ * - Web: MapaWebMapLibre (MapLibre GL JS + OpenFreeMap - gratuito!)
+ * - Mobile: MapaMobile (react-native-maps + OSM tiles)
+ *
+ * Migrado de Google Maps para alternativas gratuitas em Dez/2024.
  */
 
 import React from 'react';
 import { Platform } from 'react-native';
 
 import { MapaMobile } from './MapaMobile';
-import MapaWeb from './MapaWeb';
+import MapaWebMapLibre from './MapaWebMapLibre';
 
 interface Parada {
   id: string;
@@ -59,10 +61,10 @@ export function MapaAdapter({
   showMotorista,
   unidadeNome,
 }: MapaAdapterProps) {
-  // Web: Usa MapaWeb (Google Maps JavaScript API)
+  // Web: Usa MapaWebMapLibre (MapLibre GL JS + OpenFreeMap - gratuito!)
   if (Platform.OS === 'web') {
     return (
-      <MapaWeb
+      <MapaWebMapLibre
         paradas={paradas as any}
         selectedParadaId={selectedParadaId}
         onMarkerPress={onMarkerPress}

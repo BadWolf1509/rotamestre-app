@@ -19,9 +19,13 @@ let mockUserData: any = {
 };
 
 const mockGoogleMapsService = {
-  geocodeAddress: jest.fn(),
   getDirections: jest.fn(),
   getDirectionsSequential: jest.fn(),
+};
+
+// Mock Photon service (migrado de Google para geocoding)
+const mockPhotonService = {
+  geocodeAddress: jest.fn(),
 };
 
 const mockOtimizarRotaComDependencias = jest.fn();
@@ -45,6 +49,10 @@ jest.mock('@/hooks/useUser', () => ({
 
 jest.mock('@/lib/google', () => ({
   googleMapsService: mockGoogleMapsService,
+}));
+
+jest.mock('@/lib/photon', () => ({
+  photonService: mockPhotonService,
 }));
 
 jest.mock('@/lib/routeOptimization', () => ({
@@ -85,7 +93,7 @@ describe('useNovaEntrega', () => {
   beforeEach(() => {
     mockShowToast.mockReset();
     mockHideToast.mockReset();
-    mockGoogleMapsService.geocodeAddress.mockReset();
+    mockPhotonService.geocodeAddress.mockReset();
     mockGoogleMapsService.getDirections.mockReset();
     mockGoogleMapsService.getDirectionsSequential.mockReset();
     mockOtimizarRotaComDependencias.mockReset();
@@ -125,7 +133,7 @@ describe('useNovaEntrega', () => {
   });
 
   it('tenta geocodificar quando faltam coordenadas e falha', async () => {
-    mockGoogleMapsService.geocodeAddress.mockResolvedValueOnce(null);
+    mockPhotonService.geocodeAddress.mockResolvedValueOnce(null);
     const { result } = renderHook(() => useNovaEntrega());
 
     await act(async () => {
