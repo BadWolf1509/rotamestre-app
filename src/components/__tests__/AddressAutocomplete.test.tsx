@@ -99,7 +99,7 @@ describe('AddressAutocomplete', () => {
 
   it('deve renderizar corretamente', () => {
     const { getByPlaceholderText } = render(<TestWrapper />);
-    expect(getByPlaceholderText('Digite o endereco completo')).toBeTruthy();
+    expect(getByPlaceholderText('Digite o endereço completo')).toBeTruthy();
   });
 
   it('deve buscar endereços após debounce', async () => {
@@ -123,7 +123,7 @@ describe('AddressAutocomplete', () => {
 
     const { getByPlaceholderText, getByText, queryByText } = render(<TestWrapper />);
 
-    const input = getByPlaceholderText('Digite o endereco completo');
+    const input = getByPlaceholderText('Digite o endereço completo');
 
     // Focar no input para habilitar busca (necessário após fix de busca inicial)
     fireEvent(input, 'focus');
@@ -188,7 +188,7 @@ describe('AddressAutocomplete', () => {
 
     const { getByPlaceholderText, getByText, getAllByTestId, queryByTestId, UNSAFE_getAllByType } = render(<TestWrapperWithCallback />);
 
-    const input = getByPlaceholderText('Digite o endereco completo');
+    const input = getByPlaceholderText('Digite o endereço completo');
     fireEvent(input, 'focus');
     fireEvent.changeText(input, 'Rua Teste');
 
@@ -229,7 +229,7 @@ describe('AddressAutocomplete', () => {
 
     const { getByPlaceholderText, getByText } = render(<TestWrapper />);
 
-    const input = getByPlaceholderText('Digite o endereco completo');
+    const input = getByPlaceholderText('Digite o endereço completo');
 
     // Focar no input para habilitar busca (necessário após fix de busca inicial)
     fireEvent(input, 'focus');
@@ -242,6 +242,364 @@ describe('AddressAutocomplete', () => {
 
     await waitFor(() => {
       expect(getByText('Nenhum endereço encontrado. Tente ser mais específico.')).toBeTruthy();
+    });
+  });
+
+  describe('Extração de número', () => {
+    it('deve preservar número digitado após vírgula', async () => {
+      const mockSuggestions = [
+        {
+          place_id: 'osm_N123456',
+          description: 'Rua Teste, Centro, Cidade',
+          structured_formatting: {
+            main_text: 'Rua Teste',
+            secondary_text: 'Centro, Cidade',
+          },
+          coordinates: { latitude: -23.5505, longitude: -46.6333 },
+        },
+      ];
+
+      (photonService.autocompleteAddress as jest.Mock).mockResolvedValue(mockSuggestions);
+      const onSelectAddress = jest.fn();
+
+      const TestWrapperWithNumber = () => {
+        const [value, setValue] = useState('');
+        return (
+          <AddressAutocomplete
+            value={value}
+            onChangeText={setValue}
+            onSelectAddress={(desc, id, coords) => {
+              onSelectAddress(desc, id, coords);
+              setValue(desc);
+            }}
+          />
+        );
+      };
+
+      const { getByPlaceholderText, getAllByTestId, UNSAFE_getAllByType } = render(<TestWrapperWithNumber />);
+
+      const input = getByPlaceholderText('Digite o endereço completo');
+      fireEvent(input, 'focus');
+      fireEvent.changeText(input, 'Rua Teste, 430');
+
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      await waitFor(() => {
+        expect(getAllByTestId('suggestion-item').length).toBeGreaterThan(0);
+      });
+
+      const { TouchableOpacity } = require('react-native');
+      const touchables = UNSAFE_getAllByType(TouchableOpacity);
+      const suggestion = touchables.find((node: any) => node.props.testID === 'suggestion-item');
+
+      act(() => {
+        suggestion!.props.onPress();
+      });
+
+      await waitFor(() => {
+        expect(onSelectAddress).toHaveBeenCalledWith(
+          'Rua Teste, 430, Centro, Cidade',
+          'osm_N123456',
+          expect.any(Object)
+        );
+      });
+    });
+
+    it('deve preservar número com letra (ex: 430A)', async () => {
+      const mockSuggestions = [
+        {
+          place_id: 'osm_N123456',
+          description: 'Rua Maria, Centro',
+          structured_formatting: {
+            main_text: 'Rua Maria',
+            secondary_text: 'Centro',
+          },
+          coordinates: { latitude: -23.5505, longitude: -46.6333 },
+        },
+      ];
+
+      (photonService.autocompleteAddress as jest.Mock).mockResolvedValue(mockSuggestions);
+      const onSelectAddress = jest.fn();
+
+      const TestWrapperWithNumber = () => {
+        const [value, setValue] = useState('');
+        return (
+          <AddressAutocomplete
+            value={value}
+            onChangeText={setValue}
+            onSelectAddress={(desc, id, coords) => {
+              onSelectAddress(desc, id, coords);
+              setValue(desc);
+            }}
+          />
+        );
+      };
+
+      const { getByPlaceholderText, getAllByTestId, UNSAFE_getAllByType } = render(<TestWrapperWithNumber />);
+
+      const input = getByPlaceholderText('Digite o endereço completo');
+      fireEvent(input, 'focus');
+      fireEvent.changeText(input, 'Rua Maria 430A');
+
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      await waitFor(() => {
+        expect(getAllByTestId('suggestion-item').length).toBeGreaterThan(0);
+      });
+
+      const { TouchableOpacity } = require('react-native');
+      const touchables = UNSAFE_getAllByType(TouchableOpacity);
+      const suggestion = touchables.find((node: any) => node.props.testID === 'suggestion-item');
+
+      act(() => {
+        suggestion!.props.onPress();
+      });
+
+      await waitFor(() => {
+        expect(onSelectAddress).toHaveBeenCalledWith(
+          'Rua Maria, 430A, Centro',
+          'osm_N123456',
+          expect.any(Object)
+        );
+      });
+    });
+
+    it('deve preservar número com hífen (ex: 430-B)', async () => {
+      const mockSuggestions = [
+        {
+          place_id: 'osm_N123456',
+          description: 'Rua José, Bairro',
+          structured_formatting: {
+            main_text: 'Rua José',
+            secondary_text: 'Bairro',
+          },
+          coordinates: { latitude: -23.5505, longitude: -46.6333 },
+        },
+      ];
+
+      (photonService.autocompleteAddress as jest.Mock).mockResolvedValue(mockSuggestions);
+      const onSelectAddress = jest.fn();
+
+      const TestWrapperWithNumber = () => {
+        const [value, setValue] = useState('');
+        return (
+          <AddressAutocomplete
+            value={value}
+            onChangeText={setValue}
+            onSelectAddress={(desc, id, coords) => {
+              onSelectAddress(desc, id, coords);
+              setValue(desc);
+            }}
+          />
+        );
+      };
+
+      const { getByPlaceholderText, getAllByTestId, UNSAFE_getAllByType } = render(<TestWrapperWithNumber />);
+
+      const input = getByPlaceholderText('Digite o endereço completo');
+      fireEvent(input, 'focus');
+      fireEvent.changeText(input, 'Rua José 430-B');
+
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      await waitFor(() => {
+        expect(getAllByTestId('suggestion-item').length).toBeGreaterThan(0);
+      });
+
+      const { TouchableOpacity } = require('react-native');
+      const touchables = UNSAFE_getAllByType(TouchableOpacity);
+      const suggestion = touchables.find((node: any) => node.props.testID === 'suggestion-item');
+
+      act(() => {
+        suggestion!.props.onPress();
+      });
+
+      await waitFor(() => {
+        expect(onSelectAddress).toHaveBeenCalledWith(
+          'Rua José, 430-B, Bairro',
+          'osm_N123456',
+          expect.any(Object)
+        );
+      });
+    });
+
+    it('não deve duplicar número se sugestão já contém número', async () => {
+      const mockSuggestions = [
+        {
+          place_id: 'osm_N123456',
+          description: 'Rua Teste, 100, Centro',
+          structured_formatting: {
+            main_text: 'Rua Teste, 100',
+            secondary_text: 'Centro',
+          },
+          coordinates: { latitude: -23.5505, longitude: -46.6333 },
+        },
+      ];
+
+      (photonService.autocompleteAddress as jest.Mock).mockResolvedValue(mockSuggestions);
+      const onSelectAddress = jest.fn();
+
+      const TestWrapperWithNumber = () => {
+        const [value, setValue] = useState('');
+        return (
+          <AddressAutocomplete
+            value={value}
+            onChangeText={setValue}
+            onSelectAddress={(desc, id, coords) => {
+              onSelectAddress(desc, id, coords);
+              setValue(desc);
+            }}
+          />
+        );
+      };
+
+      const { getByPlaceholderText, getAllByTestId, UNSAFE_getAllByType } = render(<TestWrapperWithNumber />);
+
+      const input = getByPlaceholderText('Digite o endereço completo');
+      fireEvent(input, 'focus');
+      fireEvent.changeText(input, 'Rua Teste 430');
+
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      await waitFor(() => {
+        expect(getAllByTestId('suggestion-item').length).toBeGreaterThan(0);
+      });
+
+      const { TouchableOpacity } = require('react-native');
+      const touchables = UNSAFE_getAllByType(TouchableOpacity);
+      const suggestion = touchables.find((node: any) => node.props.testID === 'suggestion-item');
+
+      act(() => {
+        suggestion!.props.onPress();
+      });
+
+      await waitFor(() => {
+        // Deve manter o número original da sugestão, não adicionar o digitado
+        expect(onSelectAddress).toHaveBeenCalledWith(
+          'Rua Teste, 100, Centro',
+          'osm_N123456',
+          expect.any(Object)
+        );
+      });
+    });
+  });
+
+  describe('Botão limpar', () => {
+    it('deve limpar o input ao pressionar o botão X', async () => {
+      const TestWrapperWithClear = () => {
+        const [value, setValue] = useState('Rua Teste 123');
+        return (
+          <AddressAutocomplete
+            value={value}
+            onChangeText={setValue}
+            onSelectAddress={() => {}}
+          />
+        );
+      };
+
+      const { UNSAFE_getAllByType, getByPlaceholderText } = render(<TestWrapperWithClear />);
+
+      // Verificar que o input tem valor inicial
+      const input = getByPlaceholderText('Digite o endereço completo');
+      expect(input.props.value).toBe('Rua Teste 123');
+
+      // Encontrar e pressionar o botão limpar
+      const { TouchableOpacity } = require('react-native');
+      const touchables = UNSAFE_getAllByType(TouchableOpacity);
+      const clearButton = touchables.find((node: any) =>
+        node.props.accessibilityLabel === 'Limpar endereço'
+      );
+
+      expect(clearButton).toBeTruthy();
+
+      act(() => {
+        clearButton!.props.onPress();
+      });
+
+      // O estado no TestWrapper será atualizado
+      await waitFor(() => {
+        const updatedInput = getByPlaceholderText('Digite o endereço completo');
+        expect(updatedInput.props.value).toBe('');
+      });
+    });
+  });
+
+  describe('Acessibilidade', () => {
+    it('deve ter labels de acessibilidade no input', () => {
+      const { getByPlaceholderText } = render(<TestWrapper />);
+      const input = getByPlaceholderText('Digite o endereço completo');
+
+      expect(input.props.accessibilityLabel).toBe('Campo de endereço');
+      expect(input.props.accessibilityHint).toBe('Digite o endereço para buscar sugestões');
+    });
+
+    it('deve ter labels de acessibilidade no botão limpar', () => {
+      const TestWrapperWithValue = () => {
+        const [value, setValue] = useState('Rua Teste');
+        return (
+          <AddressAutocomplete
+            value={value}
+            onChangeText={setValue}
+            onSelectAddress={() => {}}
+          />
+        );
+      };
+
+      const { UNSAFE_getAllByType } = render(<TestWrapperWithValue />);
+
+      const { TouchableOpacity } = require('react-native');
+      const touchables = UNSAFE_getAllByType(TouchableOpacity);
+      const clearButton = touchables.find((node: any) =>
+        node.props.accessibilityLabel === 'Limpar endereço'
+      );
+
+      expect(clearButton).toBeTruthy();
+      expect(clearButton!.props.accessibilityRole).toBe('button');
+    });
+
+    it('deve ter labels de acessibilidade nas sugestões', async () => {
+      const mockSuggestions = [
+        {
+          place_id: 'osm_N123456',
+          description: 'Rua Teste, Centro',
+          structured_formatting: {
+            main_text: 'Rua Teste',
+            secondary_text: 'Centro',
+          },
+          coordinates: { latitude: -23.5505, longitude: -46.6333 },
+        },
+      ];
+
+      (photonService.autocompleteAddress as jest.Mock).mockResolvedValue(mockSuggestions);
+
+      const { getByPlaceholderText, UNSAFE_getAllByType } = render(<TestWrapper />);
+
+      const input = getByPlaceholderText('Digite o endereço completo');
+      fireEvent(input, 'focus');
+      fireEvent.changeText(input, 'Rua Teste');
+
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      await waitFor(() => {
+        const { TouchableOpacity } = require('react-native');
+        const touchables = UNSAFE_getAllByType(TouchableOpacity);
+        const suggestion = touchables.find((node: any) => node.props.testID === 'suggestion-item');
+
+        expect(suggestion).toBeTruthy();
+        expect(suggestion!.props.accessibilityRole).toBe('button');
+        expect(suggestion!.props.accessibilityLabel).toContain('Selecionar endereço');
+        expect(suggestion!.props.accessibilityHint).toBe('Toque para selecionar este endereço');
+      });
     });
   });
 });

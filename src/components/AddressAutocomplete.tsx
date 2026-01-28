@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   TextInput,
@@ -50,7 +50,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   value,
   onChangeText,
   onSelectAddress,
-  placeholder = 'Digite o endereco completo',
+  placeholder = 'Digite o endereço completo',
   error,
   multiline = false,
   compact,
@@ -129,11 +129,12 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   // Extrair número do texto digitado pelo usuário
   const extractNumberFromInput = useCallback((input: string): string | null => {
     // Procura por padrões de número no final do texto ou após vírgula
-    // Ex: "rua maria 430" → "430", "rua maria, 430" → "430"
+    // Ex: "rua maria 430" → "430", "rua maria, 430" → "430", "rua maria 430-A" → "430-A"
     const patterns = [
-      /,\s*(\d+[a-zA-Z]?)\s*$/,      // "rua maria, 430" ou "rua maria, 430A"
-      /\s+(\d+[a-zA-Z]?)\s*$/,        // "rua maria 430" no final
-      /\s+n[º°.]?\s*(\d+[a-zA-Z]?)/i, // "rua maria nº 430" ou "n. 430"
+      /,\s*(\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?)\s*$/,  // "rua maria, 430" ou "430-A"
+      /\s+(\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?)\s*$/,    // "rua maria 430" ou "430-A"
+      /\s+n[º°.]?\s*(\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?)/i, // "nº 430" ou "n. 430-A"
+      /\s+n[úu]mero\s*(\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?)/i, // "número 430"
     ];
 
     for (const pattern of patterns) {
@@ -145,30 +146,32 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
     return null;
   }, []);
 
+  // Memoizar número extraído para evitar recálculos em cada render
+  const extractedNumber = useMemo(() => {
+    return extractNumberFromInput(value);
+  }, [value, extractNumberFromInput]);
+
   // Memoizar handlers para evitar re-renders
   const handleSelectSuggestion = useCallback((suggestion: PhotonPlaceSuggestion) => {
     // Mark that next value change is from selection, not typing
     wasSelectedRef.current = true;
 
-    // Extrair número do texto que o usuário digitou
-    const userNumber = extractNumberFromInput(value);
-
     // Verificar se a sugestão já tem número
-    const suggestionHasNumber = /,\s*\d+[a-zA-Z]?(\s|,|$)/.test(suggestion.description);
+    const suggestionHasNumber = /,\s*\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?(\s|,|$)/.test(suggestion.description);
 
     // Se o usuário digitou um número e a sugestão não tem, adicionar
     let finalAddress = suggestion.description;
-    if (userNumber && !suggestionHasNumber) {
+    if (extractedNumber && !suggestionHasNumber) {
       // Inserir número após o nome da rua (antes da primeira vírgula)
       const firstCommaIndex = suggestion.description.indexOf(',');
       if (firstCommaIndex > 0) {
         finalAddress =
           suggestion.description.slice(0, firstCommaIndex) +
-          ', ' + userNumber +
+          ', ' + extractedNumber +
           suggestion.description.slice(firstCommaIndex);
       } else {
         // Sem vírgula, adiciona no final
-        finalAddress = suggestion.description + ', ' + userNumber;
+        finalAddress = suggestion.description + ', ' + extractedNumber;
       }
     }
 
@@ -177,7 +180,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
     setSuggestions([]);
     setShowSuggestions(false);
     Keyboard?.dismiss?.();
-  }, [onSelectAddress, value, extractNumberFromInput]);
+  }, [onSelectAddress, extractedNumber]);
 
   const handleClearInput = useCallback(() => {
     onChangeText('');
@@ -193,25 +196,75 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
     }
   }, [suggestions.length]);
 
+  // Fechar dropdown ao perder foco (com delay para permitir clique nas sugestões)
+  const handleBlur = useCallback(() => {
+    setTimeout(() => {
+      setShowSuggestions(false);
+    }, 150);
+  }, []);
+
+  // Estado para navegação por teclado (web)
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+
+  // Reset selectedIndex quando sugestões mudam
+  useEffect(() => {
+    setSelectedIndex(-1);
+  }, [suggestions]);
+
+  // Navegação por teclado (apenas web)
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedIndex(prev =>
+          prev < suggestions.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedIndex(prev => prev > 0 ? prev - 1 : -1);
+        break;
+      case 'Enter':
+        if (selectedIndex >= 0) {
+          e.preventDefault();
+          handleSelectSuggestion(suggestions[selectedIndex]);
+        }
+        break;
+      case 'Escape':
+        setShowSuggestions(false);
+        setSelectedIndex(-1);
+        break;
+    }
+  }, [showSuggestions, suggestions, selectedIndex, handleSelectSuggestion]);
+
   // Memoizar renderItem para estabilizar callbacks em testes
   const renderSuggestionItem = useCallback(
-    ({ item }: { item: PhotonPlaceSuggestion }) => {
-      // Extrair número digitado pelo usuário para exibir na sugestão
-      const userNumber = extractNumberFromInput(value);
-      const suggestionHasNumber = /,\s*\d+[a-zA-Z]?(\s|,|$)/.test(item.structured_formatting.main_text);
+    ({ item, index }: { item: PhotonPlaceSuggestion; index: number }) => {
+      const suggestionHasNumber = /,\s*\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?(\s|,|$)/.test(item.structured_formatting.main_text);
 
       // Adicionar número ao texto principal se não tiver
       let displayMainText = item.structured_formatting.main_text;
-      if (userNumber && !suggestionHasNumber) {
-        displayMainText = `${item.structured_formatting.main_text}, ${userNumber}`;
+      if (extractedNumber && !suggestionHasNumber) {
+        displayMainText = `${item.structured_formatting.main_text}, ${extractedNumber}`;
       }
+
+      const isSelected = index === selectedIndex;
 
       return (
         <TouchableOpacity
           testID="suggestion-item"
-          style={[styles.suggestionItem, useCompact && styles.suggestionItemCompact]}
+          style={[
+            styles.suggestionItem,
+            useCompact && styles.suggestionItemCompact,
+            isSelected && styles.suggestionItemSelected,
+          ]}
           onPress={() => handleSelectSuggestion(item)}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={`Selecionar endereço: ${displayMainText}`}
+          accessibilityHint="Toque para selecionar este endereço"
         >
           <View style={[styles.suggestionIcon, useCompact && styles.suggestionIconCompact]}>
             <Text style={[styles.suggestionIconText, useCompact && styles.suggestionIconTextCompact]}>📍</Text>
@@ -227,8 +280,11 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
         </TouchableOpacity>
       );
     },
-    [handleSelectSuggestion, useCompact, value, extractNumberFromInput]
+    [handleSelectSuggestion, useCompact, extractedNumber, selectedIndex]
   );
+
+  // ItemSeparator extraído para evitar recriação a cada render
+  const ItemSeparator = useCallback(() => <View style={styles.separator} />, []);
 
   // Conteúdo do dropdown (loading, sugestões, no results, hint)
   const renderDropdownContent = () => {
@@ -248,7 +304,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
             data={suggestions}
             keyExtractor={(item) => item.place_id}
             renderItem={renderSuggestionItem}
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
+            ItemSeparatorComponent={ItemSeparator}
             style={styles.suggestionsList}
             keyboardShouldPersistTaps="handled"
             nestedScrollEnabled
@@ -294,6 +350,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
           value={value || ''}
           onChangeText={onChangeText}
           onFocus={handleFocus}
+          onBlur={handleBlur}
           multiline={multiline}
           numberOfLines={multiline ? 2 : 1}
           textAlignVertical={multiline ? 'top' : 'center'}
@@ -303,12 +360,17 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
           returnKeyType="done"
           editable={true}
           selectTextOnFocus={false}
+          accessibilityLabel="Campo de endereço"
+          accessibilityHint="Digite o endereço para buscar sugestões"
+          {...(Platform.OS === 'web' ? { onKeyDown: handleKeyDown as unknown as undefined } : {})}
         />
         {value && value.length > 0 && (
           <TouchableOpacity
             style={[styles.clearButton, useCompact && styles.clearButtonCompact]}
             onPress={handleClearInput}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Limpar endereço"
           >
             <Text style={[styles.clearButtonText, useCompact && styles.clearButtonTextCompact]}>×</Text>
           </TouchableOpacity>
@@ -450,6 +512,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   suggestionItemCompact: {
     padding: theme.spacing.xs,
+  },
+  suggestionItemSelected: {
+    backgroundColor: theme.colors.disabled,
   },
   suggestionIcon: {
     width: theme.spacing.lg,
