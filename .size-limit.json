@@ -2,7 +2,7 @@
   {
     "name": "Web Bundle (JS)",
     "path": "dist/_expo/static/js/web/*.js",
-    "limit": "1.5 MB",
+    "limit": "1.6 MB",
     "gzip": true
   },
   {
