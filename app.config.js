@@ -11,7 +11,7 @@ module.exports = ({ config }) => {
     name: "Rota Mestre",
     slug: "rotamestre",
     version, // Lê automaticamente do package.json
-    orientation: "portrait",
+    orientation: "default", // Permite portrait e landscape (recomendado para Android 16+)
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
     newArchEnabled: true,
@@ -88,7 +88,7 @@ module.exports = ({ config }) => {
       themeColor: "#284093",
       backgroundColor: "#ffffff",
       display: "standalone",
-      orientation: "portrait",
+      orientation: "any", // PWA suporta qualquer orientação
       startUrl: "/",
       lang: "pt-BR"
     },

@@ -5,7 +5,7 @@
   "start_url": "https://app.rotamestre.tec.br/",
   "scope": "https://app.rotamestre.tec.br/",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "theme_color": "#2563eb",
   "background_color": "#ffffff",
   "lang": "pt-BR",
