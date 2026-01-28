@@ -1,7 +1,7 @@
 {
   "name": "rotamestre-app",
   "version": "1.9.0",
-  "androidVersionCode": 3011,
+  "androidVersionCode": 3012,
   "main": "index.ts",
   "scripts": {
     "start": "expo start",

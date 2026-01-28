@@ -47,6 +47,18 @@
         "serviceAccountKeyPath": "./play-store-credentials.json",
         "track": "production"
       }
+    },
+    "internal": {
+      "android": {
+        "serviceAccountKeyPath": "./play-store-credentials.json",
+        "track": "internal"
+      }
+    },
+    "alpha": {
+      "android": {
+        "serviceAccountKeyPath": "./play-store-credentials.json",
+        "track": "alpha"
+      }
     }
   }
 }
