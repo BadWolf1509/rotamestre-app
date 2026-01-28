@@ -16,6 +16,7 @@ import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
 import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
+import { passwordResetRateLimiter } from '@/lib/rateLimiter';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export default function ForgotPassword() {
@@ -31,23 +32,58 @@ export default function ForgotPassword() {
   const LogoHorizontal = isDarkMode ? LogoHorizontalDark : LogoHorizontalLight;
 
   async function handleResetPassword() {
-    if (!email.trim()) {
+    const trimmedEmail = email.trim().toLowerCase();
+
+    if (!trimmedEmail) {
       showWarning('Erro', 'Digite seu e-mail');
+      return;
+    }
+
+    // Verificar rate limit local ANTES de chamar o Supabase
+    const rateLimitCheck = await passwordResetRateLimiter.checkLimit(trimmedEmail);
+    if (!rateLimitCheck.allowed) {
+      showWarning('Aguarde', rateLimitCheck.message || 'Muitas tentativas. Tente novamente mais tarde.');
       return;
     }
 
     setLoading(true);
 
     try {
-      await authService.resetPassword(email);
+      await authService.resetPassword(trimmedEmail);
+
+      // Registrar tentativa bem-sucedida (reseta o contador)
+      await passwordResetRateLimiter.recordAttempt(trimmedEmail, true);
+
       showSuccess(
         'Email enviado!',
         'Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.',
         () => router.back()
       );
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro ao enviar email de recuperação';
-      showError({ title: 'Erro', message });
+      // Registrar tentativa falha
+      await passwordResetRateLimiter.recordAttempt(trimmedEmail, false);
+
+      // Tratar erros específicos do Supabase
+      const errorMessage = error instanceof Error ? error.message : '';
+
+      if (errorMessage.includes('rate limit') || errorMessage.includes('429')) {
+        showWarning(
+          'Limite de envios atingido',
+          'Por segurança, aguarde alguns minutos antes de solicitar outro email de recuperação.'
+        );
+      } else if (errorMessage.includes('not found') || errorMessage.includes('invalid')) {
+        // Não revelar se email existe ou não (segurança)
+        showSuccess(
+          'Email enviado!',
+          'Se o email estiver cadastrado, você receberá as instruções para redefinir sua senha.',
+          () => router.back()
+        );
+      } else {
+        showError({
+          title: 'Erro',
+          message: 'Não foi possível enviar o email. Tente novamente mais tarde.'
+        });
+      }
     } finally {
       setLoading(false);
     }
