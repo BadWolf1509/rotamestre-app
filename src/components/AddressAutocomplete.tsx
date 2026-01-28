@@ -126,16 +126,58 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
     };
   }, [value]);
 
+  // Extrair número do texto digitado pelo usuário
+  const extractNumberFromInput = useCallback((input: string): string | null => {
+    // Procura por padrões de número no final do texto ou após vírgula
+    // Ex: "rua maria 430" → "430", "rua maria, 430" → "430"
+    const patterns = [
+      /,\s*(\d+[a-zA-Z]?)\s*$/,      // "rua maria, 430" ou "rua maria, 430A"
+      /\s+(\d+[a-zA-Z]?)\s*$/,        // "rua maria 430" no final
+      /\s+n[º°.]?\s*(\d+[a-zA-Z]?)/i, // "rua maria nº 430" ou "n. 430"
+    ];
+
+    for (const pattern of patterns) {
+      const match = input.match(pattern);
+      if (match) {
+        return match[1];
+      }
+    }
+    return null;
+  }, []);
+
   // Memoizar handlers para evitar re-renders
   const handleSelectSuggestion = useCallback((suggestion: PhotonPlaceSuggestion) => {
     // Mark that next value change is from selection, not typing
     wasSelectedRef.current = true;
+
+    // Extrair número do texto que o usuário digitou
+    const userNumber = extractNumberFromInput(value);
+
+    // Verificar se a sugestão já tem número
+    const suggestionHasNumber = /,\s*\d+[a-zA-Z]?(\s|,|$)/.test(suggestion.description);
+
+    // Se o usuário digitou um número e a sugestão não tem, adicionar
+    let finalAddress = suggestion.description;
+    if (userNumber && !suggestionHasNumber) {
+      // Inserir número após o nome da rua (antes da primeira vírgula)
+      const firstCommaIndex = suggestion.description.indexOf(',');
+      if (firstCommaIndex > 0) {
+        finalAddress =
+          suggestion.description.slice(0, firstCommaIndex) +
+          ', ' + userNumber +
+          suggestion.description.slice(firstCommaIndex);
+      } else {
+        // Sem vírgula, adiciona no final
+        finalAddress = suggestion.description + ', ' + userNumber;
+      }
+    }
+
     // Photon já retorna coordenadas! Não precisa de getPlaceDetails
-    onSelectAddress(suggestion.description, suggestion.place_id, suggestion.coordinates);
+    onSelectAddress(finalAddress, suggestion.place_id, suggestion.coordinates);
     setSuggestions([]);
     setShowSuggestions(false);
     Keyboard?.dismiss?.();
-  }, [onSelectAddress]);
+  }, [onSelectAddress, value, extractNumberFromInput]);
 
   const handleClearInput = useCallback(() => {
     onChangeText('');
@@ -153,27 +195,39 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
 
   // Memoizar renderItem para estabilizar callbacks em testes
   const renderSuggestionItem = useCallback(
-    ({ item }: { item: PhotonPlaceSuggestion }) => (
-      <TouchableOpacity
-        testID="suggestion-item"
-        style={[styles.suggestionItem, useCompact && styles.suggestionItemCompact]}
-        onPress={() => handleSelectSuggestion(item)}
-        activeOpacity={0.7}
-      >
-        <View style={[styles.suggestionIcon, useCompact && styles.suggestionIconCompact]}>
-          <Text style={[styles.suggestionIconText, useCompact && styles.suggestionIconTextCompact]}>📍</Text>
-        </View>
-        <View style={styles.suggestionTextContainer}>
-          <Text style={[styles.suggestionMainText, useCompact && styles.suggestionMainTextCompact]}>
-            {item.structured_formatting.main_text}
-          </Text>
-          <Text style={[styles.suggestionSecondaryText, useCompact && styles.suggestionSecondaryTextCompact]}>
-            {item.structured_formatting.secondary_text}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    ),
-    [handleSelectSuggestion, useCompact]
+    ({ item }: { item: PhotonPlaceSuggestion }) => {
+      // Extrair número digitado pelo usuário para exibir na sugestão
+      const userNumber = extractNumberFromInput(value);
+      const suggestionHasNumber = /,\s*\d+[a-zA-Z]?(\s|,|$)/.test(item.structured_formatting.main_text);
+
+      // Adicionar número ao texto principal se não tiver
+      let displayMainText = item.structured_formatting.main_text;
+      if (userNumber && !suggestionHasNumber) {
+        displayMainText = `${item.structured_formatting.main_text}, ${userNumber}`;
+      }
+
+      return (
+        <TouchableOpacity
+          testID="suggestion-item"
+          style={[styles.suggestionItem, useCompact && styles.suggestionItemCompact]}
+          onPress={() => handleSelectSuggestion(item)}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.suggestionIcon, useCompact && styles.suggestionIconCompact]}>
+            <Text style={[styles.suggestionIconText, useCompact && styles.suggestionIconTextCompact]}>📍</Text>
+          </View>
+          <View style={styles.suggestionTextContainer}>
+            <Text style={[styles.suggestionMainText, useCompact && styles.suggestionMainTextCompact]}>
+              {displayMainText}
+            </Text>
+            <Text style={[styles.suggestionSecondaryText, useCompact && styles.suggestionSecondaryTextCompact]}>
+              {item.structured_formatting.secondary_text}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      );
+    },
+    [handleSelectSuggestion, useCompact, value, extractNumberFromInput]
   );
 
   // Conteúdo do dropdown (loading, sugestões, no results, hint)
