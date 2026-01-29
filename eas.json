@@ -9,7 +9,8 @@
       "distribution": "internal",
       "channel": "development",
       "android": {
-        "gradleCommand": ":app:assembleDebug"
+        "gradleCommand": ":app:assembleDebug",
+        "image": "latest"
       },
       "ios": {
         "simulator": true
@@ -18,9 +19,9 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
-      "node": "22.18.0",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "image": "latest"
       },
       "ios": {
         "distribution": "internal"
