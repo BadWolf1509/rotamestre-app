@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import MapLibreGL, { type CameraRef } from '@maplibre/maplibre-react-native';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import {
@@ -11,7 +12,6 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import MapView, { Marker, Polyline, UrlTile } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -24,6 +24,7 @@ import {
 } from '@/hooks/navigation';
 import type { PictureInPictureMapProps } from '@/hooks/navigation';
 import { usePiPPosition } from '@/hooks/usePiPPosition';
+import { MAPLIBRE_RASTER_STYLE, toLineString, toLngLat, zoomFromLongitudeDelta } from '@/lib/maplibre';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -45,6 +46,7 @@ export function PictureInPictureMap({
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const { savedPosition, savePosition } = usePiPPosition();
+  const cameraRef = useRef<CameraRef>(null);
 
   // Dimensões calculadas dinamicamente (reativas a rotação/split-screen)
   const expandedWidth = useMemo(() => screenWidth * 0.9, [screenWidth]);
@@ -96,6 +98,11 @@ export function PictureInPictureMap({
     userLocation,
     destination,
   });
+
+  const routeShape = useMemo(
+    () => (routePath.length >= 2 ? toLineString(routePath) : null),
+    [routePath]
+  );
   useEffect(() => {
     if (isNearDestination && !isExpanded) {
       // Iniciar animação de pulso
@@ -461,6 +468,17 @@ export function PictureInPictureMap({
   };
 
   const region = getRegion();
+  const cameraSettings = useMemo(() => {
+    if (!region) return null;
+    return {
+      centerCoordinate: toLngLat({
+        latitude: region.latitude,
+        longitude: region.longitude,
+      }),
+      zoomLevel: zoomFromLongitudeDelta(region.longitudeDelta),
+      animationDuration: 500,
+    };
+  }, [region]);
 
   if (!visible || !region) return null;
 
@@ -482,62 +500,66 @@ export function PictureInPictureMap({
       {...panResponder.panHandlers}
     >
       {/* Map */}
-      <MapView
+      <MapLibreGL.MapView
         testID="pip-map-view"
         style={[styles.map, { pointerEvents: isExpanded ? 'auto' : 'none' }]}
-        region={region}
-        showsUserLocation={userHeading === undefined}
-        showsMyLocationButton={false}
-        showsCompass={false}
+        mapStyle={MAPLIBRE_RASTER_STYLE}
         rotateEnabled={false}
+        pitchEnabled={false}
         scrollEnabled={isExpanded}
         zoomEnabled={isExpanded}
-        toolbarEnabled={false}
-        onMapReady={() => setMapLoading(false)}
+        compassEnabled={false}
+        logoEnabled={false}
+        attributionEnabled={false}
+        onDidFinishLoadingMap={() => setMapLoading(false)}
       >
-        {/* OSM Tiles - gratuito! Migrado de Google Maps em Dez/2024 */}
-        <UrlTile
-          urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-          maximumZ={19}
-          tileSize={256}
-        />
+        {cameraSettings && (
+          <MapLibreGL.Camera ref={cameraRef} {...cameraSettings} />
+        )}
 
         {/* Polyline conectando usuário ao destino via OSRM */}
-        {routePath.length >= 2 && (
-          <Polyline
-            coordinates={routePath}
-            strokeColor={theme.colors.primary}
-            strokeWidth={4}
-          />
+        {routeShape && (
+          <MapLibreGL.ShapeSource id="rota-pip" shape={routeShape}>
+            <MapLibreGL.LineLayer
+              id="rota-pip-line"
+              style={{ lineColor: theme.colors.primary, lineWidth: 4 }}
+            />
+          </MapLibreGL.ShapeSource>
         )}
 
         {/* Marcador do usuário com seta direcional (quando heading disponível) */}
         {userLocation && userHeading !== undefined && (
-          <Marker
-            coordinate={userLocation}
+          <MapLibreGL.MarkerView
+            coordinate={toLngLat(userLocation)}
             anchor={{ x: 0.5, y: 0.5 }}
-            flat
-            rotation={userHeading}
-            tracksViewChanges={false}
           >
-            <View style={styles.userDirectionMarker}>
+            <View style={[styles.userDirectionMarker, { transform: [{ rotate: `${userHeading}deg` }] }]}>
               <Ionicons name="navigate" size={20} color={theme.colors.info} />
             </View>
-          </Marker>
+          </MapLibreGL.MarkerView>
+        )}
+
+        {/* Marcador do usuário (sem heading) */}
+        {userLocation && userHeading === undefined && (
+          <MapLibreGL.MarkerView
+            coordinate={toLngLat(userLocation)}
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            <View style={styles.userLocationMarker} />
+          </MapLibreGL.MarkerView>
         )}
 
         {destination && (
-          <Marker
-            coordinate={destination}
-            title={destination.address}
-            tracksViewChanges={false}
+          <MapLibreGL.MarkerView
+            coordinate={toLngLat(destination)}
+            anchor={{ x: 0.5, y: 0.5 }}
           >
             <View style={styles.destinationMarker}>
               <Ionicons name="location" size={20} color={theme.colors.error} />
             </View>
-          </Marker>
+          </MapLibreGL.MarkerView>
         )}
-      </MapView>
+      </MapLibreGL.MapView>
 
       {/* Drag Overlay - cobre o mapa quando colapsado para permitir drag em toda área */}
       {/* Necessário porque MapView no Android pode capturar eventos mesmo com pointerEvents: 'none' */}
@@ -806,5 +828,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     shadowOpacity: 0.25,
     shadowRadius: 3,
     elevation: 5,
+  },
+  userLocationMarker: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: withOpacity(theme.colors.info, 0.35),
+    borderWidth: 2,
+    borderColor: theme.colors.white,
   },
 }));

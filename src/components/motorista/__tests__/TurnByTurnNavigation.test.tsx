@@ -65,35 +65,6 @@ jest.mock('@/hooks/useOffRouteDetection', () => ({
     }),
 }));
 
-// Mock react-native-maps
-jest.mock('react-native-maps', () => {
-    const { View } = require('react-native');
-    const React = require('react');
-
-    const MockMapView = React.forwardRef(({ children, ...props }: any, ref: any) => {
-        // Expose animateCamera method via ref
-        React.useImperativeHandle(ref, () => ({
-            animateCamera: jest.fn(),
-            animateToRegion: jest.fn(),
-        }));
-        return <View testID="map-view" {...props}>{children}</View>;
-    });
-
-    return {
-        __esModule: true,
-        default: MockMapView,
-        Marker: ({ children, ...props }: any) => (
-            <View testID="marker" {...props}>{children}</View>
-        ),
-        Polyline: (props: any) => (
-            <View testID="polyline" {...props} />
-        ),
-        UrlTile: (props: any) => (
-            <View testID="url-tile" {...props} />
-        ),
-    };
-});
-
 // Mock navigation service
 jest.mock('@/services/turnByTurnNavigation', () => ({
     __esModule: true,
@@ -241,15 +212,15 @@ describe('TurnByTurnNavigation', () => {
             const { getByTestId } = render(<TurnByTurnNavigation {...defaultProps} />);
 
             await waitFor(() => {
-                expect(getByTestId('polyline')).toBeTruthy();
+                expect(getByTestId('line-layer')).toBeTruthy();
             });
         });
 
         it('deve renderizar marker de destino', async () => {
-            const { getByTestId } = render(<TurnByTurnNavigation {...defaultProps} />);
+            const { getAllByTestId } = render(<TurnByTurnNavigation {...defaultProps} />);
 
             await waitFor(() => {
-                expect(getByTestId('marker')).toBeTruthy();
+                expect(getAllByTestId('marker').length).toBeGreaterThan(0);
             });
         });
     });
@@ -270,21 +241,12 @@ describe('TurnByTurnNavigation', () => {
     });
 
     describe('Map view', () => {
-        it('deve usar OSM tiles (UrlTile)', async () => {
-            const { getByTestId } = render(<TurnByTurnNavigation {...defaultProps} />);
-
-            await waitFor(() => {
-                const urlTile = getByTestId('url-tile');
-                expect(urlTile.props.urlTemplate).toContain('openstreetmap.org');
-            });
-        });
-
-        it('deve mostrar user location', async () => {
+        it('deve configurar estilo MapLibre', async () => {
             const { getByTestId } = render(<TurnByTurnNavigation {...defaultProps} />);
 
             await waitFor(() => {
                 const mapView = getByTestId('map-view');
-                expect(mapView.props.showsUserLocation).toBe(true);
+                expect(mapView.props.mapStyle).toBeTruthy();
             });
         });
     });

@@ -7,7 +7,7 @@
  *
  * Migrated from Google Maps to free alternatives in Dec/2024:
  * - Web: MapLibre GL JS + OpenFreeMap tiles
- * - Mobile: react-native-maps + OSM tiles
+ * - Mobile: MapLibre Native + Carto/OSM tiles
  */
 
 // Map Components

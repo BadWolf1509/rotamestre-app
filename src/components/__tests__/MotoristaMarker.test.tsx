@@ -8,14 +8,6 @@ jest.mock('@expo/vector-icons', () => ({
     Ionicons: 'Ionicons',
 }));
 
-// Mock react-native-maps
-jest.mock('react-native-maps', () => ({
-    Marker: ({ children, ...props }: any) => {
-        const { View } = require('react-native');
-        return <View testID="marker" {...props}>{children}</View>;
-    },
-}));
-
 // Mock supabase com todos os métodos encadeados
 const mockLocation = {
     latitude: -23.5505,

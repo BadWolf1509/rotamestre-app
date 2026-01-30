@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import MapLibreGL, { type CameraRef } from '@maplibre/maplibre-react-native';
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -12,11 +13,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Marker, Polyline, UrlTile } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useNavigationModeLogic, type NavigationModeProps } from '@/hooks/navigation';
 import { useAlert } from '@/hooks/useAlert';
+import { MAPLIBRE_RASTER_STYLE, toLineString, toLngLat, zoomFromLongitudeDelta } from '@/lib/maplibre';
 import { abrirNavegacao } from '@/lib/navigation';
 import { calculateHaversineDistance } from '@/services/turnByTurnNavigation';
 import { withOpacity } from '@/utils/color';
@@ -75,7 +76,12 @@ export function NavigationMode({
     rotaId,
   });
 
-  const mapRef = useRef<MapView>(null);
+  const routeShape = useMemo(
+    () => (routePath.length >= 2 ? toLineString(routePath) : null),
+    [routePath]
+  );
+
+  const cameraRef = useRef<CameraRef>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
 
   // Animation refs for UI improvements
@@ -300,6 +306,17 @@ export function NavigationMode({
   }, [userLocation, currentStop]);
 
   const region = getRegion();
+  const cameraSettings = useMemo(() => {
+    if (!region) return null;
+    return {
+      centerCoordinate: toLngLat({
+        latitude: region.latitude,
+        longitude: region.longitude,
+      }),
+      zoomLevel: zoomFromLongitudeDelta(region.longitudeDelta),
+      animationDuration: 500,
+    };
+  }, [region]);
 
   // Proximity alert animation (pulse when < 100m)
   useEffect(() => {
@@ -340,14 +357,13 @@ export function NavigationMode({
 
   // Recenter map on user location
   const recenterMap = useCallback(() => {
-    if (mapRef.current && userLocation) {
+    if (cameraRef.current && userLocation) {
       triggerHaptic('impact');
-      mapRef.current.animateToRegion({
-        latitude: userLocation.latitude,
-        longitude: userLocation.longitude,
-        latitudeDelta: 0.005,
-        longitudeDelta: 0.005,
-      }, 500);
+      cameraRef.current.setCamera({
+        centerCoordinate: toLngLat(userLocation),
+        zoomLevel: zoomFromLongitudeDelta(0.005),
+        animationDuration: 500,
+      });
     }
   }, [userLocation, triggerHaptic]);
 
@@ -387,31 +403,37 @@ export function NavigationMode({
   return (
     <View style={styles.container}>
       {/* Map */}
-      <MapView
-        ref={mapRef}
+      <MapLibreGL.MapView
+        testID="map-view"
         style={styles.map}
-        region={region}
-        showsUserLocation
-        showsMyLocationButton={false}
-        showsCompass={false}
+        mapStyle={MAPLIBRE_RASTER_STYLE}
         rotateEnabled={false}
-        toolbarEnabled={false}
+        pitchEnabled={false}
+        compassEnabled={false}
+        logoEnabled={false}
+        attributionEnabled={false}
       >
-        {/* OSM Tiles - gratuito! Migrado de Google Maps em Dez/2024 */}
-        <UrlTile
-          urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-          maximumZ={19}
-          tileSize={256}
-        />
+        {cameraSettings && (
+          <MapLibreGL.Camera ref={cameraRef} {...cameraSettings} />
+        )}
+
+        {userLocation && (
+          <MapLibreGL.MarkerView
+            coordinate={toLngLat(userLocation)}
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            <View style={styles.userLocationMarker}>
+              <View style={styles.userLocationDot} />
+            </View>
+          </MapLibreGL.MarkerView>
+        )}
 
         {/* Current Destination Marker (parada atual) */}
-        <Marker
-          coordinate={{
+        <MapLibreGL.MarkerView
+          coordinate={toLngLat({
             latitude: currentStop.latitude,
             longitude: currentStop.longitude,
-          }}
-          title={currentStop.endereco}
-          description={currentStop.observacoes}
+          })}
           anchor={{ x: 0.5, y: 0.5 }}
         >
           <View style={[
@@ -424,7 +446,7 @@ export function NavigationMode({
               color={theme.colors.white}
             />
           </View>
-        </Marker>
+        </MapLibreGL.MarkerView>
 
         {/* Other pending stops (excluding current and checkpoints) */}
         {realParadas
@@ -432,17 +454,18 @@ export function NavigationMode({
           .map((parada) => {
             const isNextStop = nextStopAfterCurrent?.id === parada.id;
             return (
-              <Marker
+              <MapLibreGL.MarkerView
                 key={parada.id}
-                coordinate={{
+                coordinate={toLngLat({
                   latitude: parada.latitude,
                   longitude: parada.longitude,
-                }}
-                opacity={isNextStop ? 1 : 0.6}
+                })}
+                anchor={{ x: 0.5, y: 0.5 }}
               >
                 <View style={[
                   styles.otherMarker,
                   isNextStop && styles.nextStopMarker,
+                  !isNextStop && { opacity: 0.6 },
                 ]}>
                   <Text style={[
                     styles.markerText,
@@ -451,51 +474,50 @@ export function NavigationMode({
                     {parada.ordem}
                   </Text>
                 </View>
-              </Marker>
+              </MapLibreGL.MarkerView>
             );
           })}
 
         {/* Route Polyline */}
-        {routePath.length >= 2 && (
-          <Polyline
-            coordinates={routePath}
-            strokeColor={theme.colors.primary}
-            strokeWidth={4}
-          />
+        {routeShape && (
+          <MapLibreGL.ShapeSource id="rota-navigation" shape={routeShape}>
+            <MapLibreGL.LineLayer
+              id="rota-navigation-line"
+              style={{ lineColor: theme.colors.primary, lineWidth: 4 }}
+            />
+          </MapLibreGL.ShapeSource>
         )}
 
         {/* Start Checkpoint Marker (ponto de partida) */}
         {startCheckpoint && startCheckpoint.id !== currentStop.id && (
-          <Marker
-            coordinate={{
+          <MapLibreGL.MarkerView
+            coordinate={toLngLat({
               latitude: startCheckpoint.latitude,
               longitude: startCheckpoint.longitude,
-            }}
-            title="Ponto de Partida"
+            })}
             anchor={{ x: 0.5, y: 0.5 }}
           >
             <View style={styles.checkpointMarker}>
               <Ionicons name="flag" size={14} color={theme.colors.success} />
             </View>
-          </Marker>
+          </MapLibreGL.MarkerView>
         )}
 
         {/* End Checkpoint Marker (ponto de chegada/retorno) */}
         {endCheckpoint && endCheckpoint.id !== currentStop.id && (
-          <Marker
-            coordinate={{
+          <MapLibreGL.MarkerView
+            coordinate={toLngLat({
               latitude: endCheckpoint.latitude,
               longitude: endCheckpoint.longitude,
-            }}
-            title="Ponto de Retorno"
+            })}
             anchor={{ x: 0.5, y: 0.5 }}
           >
             <View style={styles.checkpointMarker}>
               <Ionicons name="home" size={14} color={theme.colors.info} />
             </View>
-          </Marker>
+          </MapLibreGL.MarkerView>
         )}
-      </MapView>
+      </MapLibreGL.MapView>
 
       {/* Top Bar */}
       <View style={styles.topBar}>
@@ -1058,6 +1080,22 @@ const styles = StyleSheet.create((theme: Theme) => ({
     elevation: 6,
     borderWidth: 3,
     borderColor: theme.colors.white,
+  },
+  userLocationMarker: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: withOpacity(theme.colors.info, 0.2),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: theme.colors.white,
+  },
+  userLocationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.colors.info,
   },
   currentDestinationEntrega: {
     backgroundColor: theme.colors.error,

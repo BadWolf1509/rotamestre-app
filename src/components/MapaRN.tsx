@@ -1,10 +1,11 @@
+import MapLibreGL from '@maplibre/maplibre-react-native';
 import React, { useMemo, useCallback } from 'react';
 import { View, TouchableOpacity, Text, Linking, Platform } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { useDirectionsMobile } from '@/components/map/hooks';
 import { getStatusColor } from '@/components/map/infoWindowBuilders';
 import { useAlert } from '@/hooks/useAlert';
+import { MAPLIBRE_RASTER_STYLE, toLineString, toLngLat, zoomFromLongitudeDelta } from '@/lib/maplibre';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface Parada {
@@ -37,6 +38,11 @@ export function MapaRN({ paradas, rotaAtiva = false, onMarkerPress }: MapaRNProp
   const { directions } = useDirectionsMobile({
     paradas: validParadas,
   });
+
+  const routeShape = useMemo(
+    () => (directions?.coordinates?.length ? toLineString(directions.coordinates) : null),
+    [directions]
+  );
 
   // Start navigation handler
   const handleIniciarNavegacao = useCallback(async () => {
@@ -75,6 +81,24 @@ export function MapaRN({ paradas, rotaAtiva = false, onMarkerPress }: MapaRNProp
     };
   }, [theme.colors.primary]);
 
+  // Calculate initial camera settings (must be before any conditional returns)
+  const initialCamera = useMemo(() => {
+    if (validParadas.length === 0) {
+      return {
+        centerCoordinate: [-43.1729, -22.9068] as [number, number], // Default: Rio de Janeiro
+        zoomLevel: 10,
+      };
+    }
+    const firstParada = validParadas[0];
+    return {
+      centerCoordinate: toLngLat({
+        latitude: firstParada.latitude,
+        longitude: firstParada.longitude,
+      }),
+      zoomLevel: zoomFromLongitudeDelta(0.05),
+    };
+  }, [validParadas]);
+
   if (validParadas.length === 0) {
     return (
       <View style={styles.emptyContainer}>
@@ -83,59 +107,61 @@ export function MapaRN({ paradas, rotaAtiva = false, onMarkerPress }: MapaRNProp
     );
   }
 
-  const region = {
-    latitude: validParadas[0].latitude,
-    longitude: validParadas[0].longitude,
-    latitudeDelta: 0.05,
-    longitudeDelta: 0.05,
-  };
-
   return (
     <View style={styles.container}>
-      <MapView
+      <MapLibreGL.MapView
         style={styles.map}
-        provider={PROVIDER_GOOGLE}
-        initialRegion={region}
+        mapStyle={MAPLIBRE_RASTER_STYLE}
+        logoEnabled={false}
+        attributionEnabled={false}
       >
+        <MapLibreGL.Camera defaultSettings={initialCamera} />
+
         {/* Stop Markers */}
         {validParadas.map((parada) => {
           const markerStyle = getMarkerStyle(parada);
           return (
-            <Marker
+            <MapLibreGL.MarkerView
               key={parada.id}
-              coordinate={{
+              coordinate={toLngLat({
                 latitude: parada.latitude,
                 longitude: parada.longitude,
-              }}
-              title={markerStyle.isCheckpoint ? 'Ponto de Partida/Chegada' : `Parada ${parada.ordem}`}
-              description={parada.endereco}
-              onPress={() => onMarkerPress?.(parada.id)}
+              })}
+              anchor={{ x: 0.5, y: 0.5 }}
             >
-              <View style={styles.markerContainer}>
-                <View style={[
-                  styles.marker,
-                  { backgroundColor: markerStyle.backgroundColor },
-                ]}>
-                  {markerStyle.isCheckpoint ? (
-                    <Text style={styles.markerIcon}>📍</Text>
-                  ) : (
-                    <Text style={styles.markerText}>{parada.ordem}</Text>
-                  )}
+              <TouchableOpacity
+                onPress={() => onMarkerPress?.(parada.id)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={markerStyle.isCheckpoint ? 'Ponto de Partida/Chegada' : `Parada ${parada.ordem}`}
+              >
+                <View style={styles.markerContainer}>
+                  <View style={[
+                    styles.marker,
+                    { backgroundColor: markerStyle.backgroundColor },
+                  ]}>
+                    {markerStyle.isCheckpoint ? (
+                      <Text style={styles.markerIcon}>📍</Text>
+                    ) : (
+                      <Text style={styles.markerText}>{parada.ordem}</Text>
+                    )}
+                  </View>
                 </View>
-              </View>
-            </Marker>
+              </TouchableOpacity>
+            </MapLibreGL.MarkerView>
           );
         })}
 
         {/* Route Polyline */}
-        {directions && directions.coordinates.length > 0 && (
-          <Polyline
-            coordinates={directions.coordinates}
-            strokeColor={theme.colors.primary}
-            strokeWidth={4}
-          />
+        {routeShape && (
+          <MapLibreGL.ShapeSource id="rota-gestor" shape={routeShape}>
+            <MapLibreGL.LineLayer
+              id="rota-gestor-line"
+              style={{ lineColor: theme.colors.primary, lineWidth: 4 }}
+            />
+          </MapLibreGL.ShapeSource>
         )}
-      </MapView>
+      </MapLibreGL.MapView>
 
       {/* Route Info Box */}
       {directions && (

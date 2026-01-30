@@ -3,26 +3,6 @@ import React from 'react';
 
 import { PictureInPictureMap } from '../PictureInPictureMap';
 
-// Mock react-native-maps
-jest.mock('react-native-maps', () => {
-    const { View } = require('react-native');
-    return {
-        __esModule: true,
-        default: ({ children, ...props }: any) => (
-            <View testID="pip-map-view" {...props}>{children}</View>
-        ),
-        Marker: ({ children, ...props }: any) => (
-            <View testID="marker" {...props}>{children}</View>
-        ),
-        Polyline: (props: any) => (
-            <View testID="polyline" {...props} />
-        ),
-        UrlTile: (props: any) => (
-            <View testID="url-tile" {...props} />
-        ),
-    };
-});
-
 // Mock Ionicons
 jest.mock('@expo/vector-icons', () => ({
     Ionicons: 'Ionicons',
@@ -103,20 +83,26 @@ describe('PictureInPictureMap', () => {
         });
 
         it('deve renderizar marker quando há destination', () => {
-            const { getByTestId } = render(<PictureInPictureMap {...defaultProps} />);
+            const { getAllByTestId } = render(<PictureInPictureMap {...defaultProps} />);
 
-            expect(getByTestId('marker')).toBeTruthy();
+            const markers = getAllByTestId('marker');
+            expect(markers.length).toBeGreaterThan(0);
         });
 
         it('não deve renderizar marker quando destination é null', () => {
-            const { queryByTestId } = render(
+            const { queryAllByTestId } = render(
                 <PictureInPictureMap
                     {...defaultProps}
                     destination={null}
                 />
             );
 
-            expect(queryByTestId('marker')).toBeNull();
+            const markers = queryAllByTestId('marker');
+            const destinationMarker = markers.find((marker) => (
+                marker.props.coordinate?.[0] === -46.6400 &&
+                marker.props.coordinate?.[1] === -23.5600
+            ));
+            expect(destinationMarker).toBeUndefined();
         });
     });
 
@@ -150,19 +136,19 @@ describe('PictureInPictureMap', () => {
         it('deve calcular região corretamente com userLocation e destination', () => {
             const { getByTestId } = render(<PictureInPictureMap {...defaultProps} />);
 
-            const mapView = getByTestId('pip-map-view');
-            expect(mapView.props.region).toBeDefined();
+            const camera = getByTestId('map-camera');
+            expect(camera.props.centerCoordinate).toBeDefined();
         });
 
         it('deve calcular centro da região entre userLocation e destination', () => {
             const { getByTestId } = render(<PictureInPictureMap {...defaultProps} />);
 
-            const mapView = getByTestId('pip-map-view');
-            const region = mapView.props.region;
+            const camera = getByTestId('map-camera');
+            const center = camera.props.centerCoordinate;
 
             // Centro deve estar entre userLocation e destination
-            expect(region.latitude).toBeGreaterThanOrEqual(-23.5600);
-            expect(region.latitude).toBeLessThanOrEqual(-23.5505);
+            expect(center[1]).toBeGreaterThanOrEqual(-23.5600);
+            expect(center[1]).toBeLessThanOrEqual(-23.5505);
         });
 
         it('deve usar userLocation como região quando não há destination', () => {
@@ -173,27 +159,17 @@ describe('PictureInPictureMap', () => {
                 />
             );
 
-            const mapView = getByTestId('pip-map-view');
-            const region = mapView.props.region;
-
-            expect(region.latitude).toBe(-23.5505);
-            expect(region.longitude).toBe(-46.6333);
+            const camera = getByTestId('map-camera');
+            expect(camera.props.centerCoordinate).toEqual([-46.6333, -23.5505]);
         });
     });
 
     describe('Map properties', () => {
-        it('deve mostrar user location', () => {
+        it('deve configurar estilo MapLibre', () => {
             const { getByTestId } = render(<PictureInPictureMap {...defaultProps} />);
 
             const mapView = getByTestId('pip-map-view');
-            expect(mapView.props.showsUserLocation).toBe(true);
-        });
-
-        it('deve usar OSM tiles (UrlTile)', () => {
-            const { getByTestId } = render(<PictureInPictureMap {...defaultProps} />);
-
-            const urlTile = getByTestId('url-tile');
-            expect(urlTile.props.urlTemplate).toContain('openstreetmap.org');
+            expect(mapView.props.mapStyle).toBeTruthy();
         });
 
         it('deve desabilitar interações quando colapsado', () => {
@@ -202,17 +178,7 @@ describe('PictureInPictureMap', () => {
             const mapView = getByTestId('pip-map-view');
             expect(mapView.props.scrollEnabled).toBe(false);
             expect(mapView.props.zoomEnabled).toBe(false);
-            expect(mapView.props.showsMyLocationButton).toBe(false);
-            expect(mapView.props.showsCompass).toBe(false);
-            expect(mapView.props.toolbarEnabled).toBe(false);
-        });
-
-        it('deve ter marker com tracksViewChanges false para performance', () => {
-            const { getByTestId } = render(<PictureInPictureMap {...defaultProps} />);
-
-            // tracksViewChanges is a Marker prop, not MapView - verify marker exists
-            const marker = getByTestId('marker');
-            expect(marker.props.tracksViewChanges).toBe(false);
+            expect(mapView.props.compassEnabled).toBe(false);
         });
     });
 
@@ -234,21 +200,15 @@ describe('PictureInPictureMap', () => {
 
     describe('Marker', () => {
         it('deve mostrar destination marker com coordenadas corretas', () => {
-            const { getByTestId } = render(<PictureInPictureMap {...defaultProps} />);
+            const { getAllByTestId } = render(<PictureInPictureMap {...defaultProps} />);
 
-            const marker = getByTestId('marker');
-            expect(marker.props.coordinate).toEqual({
-                latitude: -23.5600,
-                longitude: -46.6400,
-                address: 'Rua Teste, 123',
-            });
-        });
+            const markers = getAllByTestId('marker');
+            const destinationMarker = markers.find((marker) => (
+                marker.props.coordinate?.[0] === -46.6400 &&
+                marker.props.coordinate?.[1] === -23.5600
+            ));
 
-        it('deve ter title com address do destination', () => {
-            const { getByTestId } = render(<PictureInPictureMap {...defaultProps} />);
-
-            const marker = getByTestId('marker');
-            expect(marker.props.title).toBe('Rua Teste, 123');
+            expect(destinationMarker).toBeTruthy();
         });
     });
 
@@ -262,12 +222,9 @@ describe('PictureInPictureMap', () => {
 
             const { getByTestId } = render(<PictureInPictureMap {...props} />);
 
-            const mapView = getByTestId('pip-map-view');
-            const region = mapView.props.region;
-
-            // Deve ter delta mínimo
-            expect(region.latitudeDelta).toBeGreaterThanOrEqual(0.01);
-            expect(region.longitudeDelta).toBeGreaterThanOrEqual(0.01);
+            const camera = getByTestId('map-camera');
+            expect(camera.props.centerCoordinate).toBeDefined();
+            expect(camera.props.zoomLevel).toBeGreaterThan(0);
         });
 
         it('deve lidar com destination ao norte do userLocation', () => {

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import MapLibreGL, { type CameraRef } from '@maplibre/maplibre-react-native';
 import * as Haptics from 'expo-haptics';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Location from 'expo-location';
@@ -11,10 +12,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Marker, Polyline, UrlTile } from 'react-native-maps';
 
 import { useAlert } from '@/hooks/useAlert';
 import { useOffRouteDetection } from '@/hooks/useOffRouteDetection';
+import { MAPLIBRE_RASTER_STYLE, toLineString, toLngLat } from '@/lib/maplibre';
 import LocationTrackingService from '@/services/locationTracking';
 import TurnByTurnNavigationService, {
   calculateHaversineDistance,
@@ -46,7 +47,7 @@ export function TurnByTurnNavigation({
 }: TurnByTurnNavigationProps) {
   const { theme } = useUnistyles();
   const { showError, AlertDialog } = useAlert();
-  const mapRef = useRef<MapView>(null);
+  const cameraRef = useRef<CameraRef>(null);
 
   // Refs for preventing race conditions and multiple triggers
   const hasArrivedRef = useRef(false);
@@ -405,6 +406,21 @@ export function TurnByTurnNavigation({
     [distanceToTurn]
   );
 
+  const routeShape = useMemo(
+    () => (routeCoordinates.length > 0 ? toLineString(routeCoordinates) : null),
+    [routeCoordinates]
+  );
+
+  const initialCamera = useMemo(
+    () => ({
+      centerCoordinate: toLngLat(origin),
+      zoomLevel: 17,
+      pitch: 60,
+      heading: 0,
+    }),
+    [origin]
+  );
+
   // Get maneuver icon - expanded mapping for all OSRM maneuver types
   const getManeuverIcon = useCallback((maneuver: string): IconName => {
     const iconMap: Record<string, IconName> = {
@@ -482,7 +498,7 @@ export function TurnByTurnNavigation({
 
   // Animate camera when user location or heading changes (throttled)
   useEffect(() => {
-    if (mapRef.current && userLocation && !isLoading) {
+    if (cameraRef.current && userLocation && !isLoading) {
       const lastLoc = lastAnimatedLocation.current;
       const lastHead = lastAnimatedHeading.current;
 
@@ -502,15 +518,13 @@ export function TurnByTurnNavigation({
       const shouldAnimate = locationDelta > 10 || headingDelta > 15;
 
       if (shouldAnimate) {
-        mapRef.current.animateCamera(
-          {
-            center: userLocation,
-            zoom: 17,
-            pitch: mapView === 'heading-up' ? 60 : 0,
-            heading: mapView === 'heading-up' ? heading : 0,
-          },
-          { duration: 500 }
-        );
+        cameraRef.current.setCamera({
+          centerCoordinate: toLngLat(userLocation),
+          zoomLevel: 17,
+          pitch: mapView === 'heading-up' ? 60 : 0,
+          heading: mapView === 'heading-up' ? heading : 0,
+          animationDuration: 500,
+        });
 
         lastAnimatedLocation.current = {
           lat: userLocation.latitude,
@@ -532,60 +546,61 @@ export function TurnByTurnNavigation({
   return (
     <View style={styles.container}>
       {/* Map */}
-      <MapView
-        ref={mapRef}
+      <MapLibreGL.MapView
+        testID="map-view"
         style={styles.map}
-        initialCamera={{
-          center: origin,
-          zoom: 17,
-          pitch: 60,
-          heading: 0,
-        }}
-        showsUserLocation
-        showsMyLocationButton={false}
-        showsCompass={false}
+        mapStyle={MAPLIBRE_RASTER_STYLE}
         rotateEnabled={false}
-        toolbarEnabled={false}
+        compassEnabled={false}
+        logoEnabled={false}
+        attributionEnabled={false}
       >
-        {/* OSM Tiles - gratuito! Migrado de Google Maps em Dez/2024 */}
-        <UrlTile
-          urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-          maximumZ={19}
-          tileSize={256}
-        />
+        <MapLibreGL.Camera ref={cameraRef} defaultSettings={initialCamera} />
 
         {/* Route polyline */}
-        {routeCoordinates.length > 0 && (
-          <Polyline
-            coordinates={routeCoordinates}
-            strokeColor={theme.colors.primary}
-            strokeWidth={5}
-          />
+        {routeShape && (
+          <MapLibreGL.ShapeSource id="rota-turnbyturn" shape={routeShape}>
+            <MapLibreGL.LineLayer
+              id="rota-turnbyturn-line"
+              style={{ lineColor: theme.colors.primary, lineWidth: 5 }}
+            />
+          </MapLibreGL.ShapeSource>
+        )}
+
+        {userLocation && (
+          <MapLibreGL.MarkerView
+            coordinate={toLngLat(userLocation)}
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            <View style={[styles.userDirectionMarker, { transform: [{ rotate: `${heading}deg` }] }]}>
+              <Ionicons name="navigate" size={20} color={theme.colors.primary} />
+            </View>
+          </MapLibreGL.MarkerView>
         )}
 
         {/* Waypoint markers */}
         {waypoints?.map((wp, index) => (
-          <Marker
+          <MapLibreGL.MarkerView
             key={`waypoint-${index}`}
-            coordinate={wp}
-            title={`Parada ${index + 1}`}
+            coordinate={toLngLat(wp)}
+            anchor={{ x: 0.5, y: 0.5 }}
           >
             <View style={styles.waypointMarker}>
               <Text style={styles.waypointText}>{index + 1}</Text>
             </View>
-          </Marker>
+          </MapLibreGL.MarkerView>
         ))}
 
         {/* Destination marker */}
-        <Marker
-          coordinate={destination}
-          title={destination.address}
+        <MapLibreGL.MarkerView
+          coordinate={toLngLat(destination)}
+          anchor={{ x: 0.5, y: 0.5 }}
         >
           <View style={styles.destinationMarker}>
             <Ionicons name="flag" size={24} color={theme.colors.error} />
           </View>
-        </Marker>
-      </MapView>
+        </MapLibreGL.MarkerView>
+      </MapLibreGL.MapView>
 
       {/* Top instruction bar */}
       <View style={styles.instructionBar}>
@@ -894,6 +909,19 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.white,
     fontSize: 12,
     fontWeight: '700',
+  },
+  userDirectionMarker: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: theme.colors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
   },
   warningBanner: {
     position: 'absolute',

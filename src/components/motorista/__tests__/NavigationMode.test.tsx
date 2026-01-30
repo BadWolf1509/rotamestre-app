@@ -33,23 +33,6 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
     setItem: jest.fn(),
 }));
 
-// Mock react-native-maps
-jest.mock('react-native-maps', () => {
-    const { View } = require('react-native');
-    return {
-        __esModule: true,
-        default: ({ children, ...props }: any) => (
-            <View testID="map-view" {...props}>{children}</View>
-        ),
-        Marker: ({ children, ...props }: any) => (
-            <View testID="marker" {...props}>{children}</View>
-        ),
-        UrlTile: (props: any) => (
-            <View testID="url-tile" {...props} />
-        ),
-    };
-});
-
 // Mock navigation lib
 jest.mock('@/lib/navigation', () => ({
     abrirNavegacao: jest.fn(),
@@ -409,21 +392,12 @@ describe('NavigationMode', () => {
     });
 
     describe('Map properties', () => {
-        it('deve usar OSM tiles (UrlTile)', async () => {
-            const { getByTestId } = render(<NavigationMode {...defaultProps} />);
-
-            await waitFor(() => {
-                const urlTile = getByTestId('url-tile');
-                expect(urlTile.props.urlTemplate).toContain('openstreetmap.org');
-            });
-        });
-
-        it('deve mostrar user location', async () => {
+        it('deve configurar estilo MapLibre', async () => {
             const { getByTestId } = render(<NavigationMode {...defaultProps} />);
 
             await waitFor(() => {
                 const mapView = getByTestId('map-view');
-                expect(mapView.props.showsUserLocation).toBe(true);
+                expect(mapView.props.mapStyle).toBeTruthy();
             });
         });
     });
@@ -433,9 +407,8 @@ describe('NavigationMode', () => {
             const { getByTestId } = render(<NavigationMode {...defaultProps} />);
 
             await waitFor(() => {
-                const mapView = getByTestId('map-view');
-                expect(mapView.props.region.latitude).toBe(-23.5600);
-                expect(mapView.props.region.longitude).toBe(-46.6400);
+                const camera = getByTestId('map-camera');
+                expect(camera.props.centerCoordinate).toEqual([-46.6400, -23.5600]);
             });
         });
     });

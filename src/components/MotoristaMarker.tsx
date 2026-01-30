@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import MapLibreGL from '@maplibre/maplibre-react-native';
 import React, { useEffect, useState, useMemo, useCallback, memo } from 'react';
 import { View, Text } from 'react-native';
-import { Marker } from 'react-native-maps';
 
+import { toLngLat } from '@/lib/maplibre';
 import { supabase } from '@/lib/supabase';
 import type { MotoristaLocation } from '@/types/notifications';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -110,15 +111,12 @@ function MotoristaMarkerComponent({
   if (!location) return null;
 
   return (
-    <Marker
-      coordinate={{
+    <MapLibreGL.MarkerView
+      coordinate={toLngLat({
         latitude: Number(location.latitude),
         longitude: Number(location.longitude),
-      }}
+      })}
       anchor={{ x: 0.5, y: 0.5 }}
-      title={motoristaNome || 'Motorista'}
-      description={`Atualizado ${timeSinceUpdate}`}
-      tracksViewChanges={false}
       accessible={true}
       accessibilityLabel={`Localização do motorista ${motoristaNome || ''}, ${location.velocidade ? `${Math.round(location.velocidade)} quilômetros por hora` : 'velocidade desconhecida'}, atualizado ${timeSinceUpdate}`}
       accessibilityHint="Mostra a posição atual do motorista em tempo real"
@@ -172,7 +170,7 @@ function MotoristaMarkerComponent({
           <Text style={styles.calloutTime}>{timeSinceUpdate}</Text>
         </View>
       </View>
-    </Marker>
+    </MapLibreGL.MarkerView>
   );
 }
 

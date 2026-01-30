@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import MapLibreGL, { type CameraRef } from '@maplibre/maplibre-react-native';
 import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import { Text, TouchableOpacity, View, ActivityIndicator, InteractionManager, Animated } from 'react-native';
-import MapView, { Marker, Polyline, UrlTile } from 'react-native-maps';
 
 import { useRouteDirections } from '@/hooks/useRouteDirections';
+import { MAPLIBRE_RASTER_STYLE, getBounds, toLineString, toLngLat, zoomFromLongitudeDelta } from '@/lib/maplibre';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -62,7 +63,7 @@ export function MiniMap({
 }: MiniMapProps) {
   const { theme } = useUnistyles();
   const expectedHeight = expanded ? 300 : 150;
-  const mapRef = useRef<MapView>(null);
+  const cameraRef = useRef<CameraRef>(null);
   const [mapReady, setMapReady] = useState(false);
   const [actualMapHeight, setActualMapHeight] = useState(0);
 
@@ -130,6 +131,11 @@ export function MiniMap({
   // Usar hook para buscar rota real do Google Directions API
   const { routeCoordinates, routeInfo, isLoading: isLoadingRoute } = useRouteDirections(paradasParaRota);
 
+  const routeShape = useMemo(
+    () => (routeCoordinates.length > 1 ? toLineString(routeCoordinates) : null),
+    [routeCoordinates]
+  );
+
   // Coordenadas das paradas restantes para calcular bounds do zoom
   // Foca o mapa nas paradas que ainda precisam ser visitadas
   const coordsParadasRestantes = useMemo(() => {
@@ -191,12 +197,23 @@ export function MiniMap({
     };
   }, [coordsForBounds]);
 
+  const initialCamera = useMemo(
+    () => ({
+      centerCoordinate: toLngLat({
+        latitude: mapRegion.latitude,
+        longitude: mapRegion.longitude,
+      }),
+      zoomLevel: zoomFromLongitudeDelta(mapRegion.longitudeDelta),
+    }),
+    [mapRegion]
+  );
+
   // Função para centralizar o mapa nas paradas (SEM incluir userLocation)
   const fitMapToParadas = useCallback(() => {
-    if (coordsForBounds.length === 0 || !mapRef.current) return;
+    if (coordsForBounds.length === 0 || !cameraRef.current) return;
 
-    // Centralizar na rota (ou nas paradas), evitando incluir a localização do usuário
-    const coordinates = coordsForBounds;
+    const bounds = getBounds(coordsForBounds);
+    if (!bounds) return;
 
     // Padding PROPORCIONAL à altura do mapa para zoom consistente:
     // - Mapa colapsado (150px): padding maior proporcional → zoom OUT para ver rota toda
@@ -209,15 +226,12 @@ export function MiniMap({
     const bottomPadding = expanded ? 5 : 20;  // ~2% vs ~13% da altura
     const horizontalPadding = expanded ? 20 : 45; // ~7% vs ~30% da largura típica
 
-    mapRef.current.fitToCoordinates(coordinates, {
-      edgePadding: {
-        top: topPadding,
-        right: horizontalPadding,
-        bottom: bottomPadding,
-        left: horizontalPadding,
-      },
-      animated: true, // Animar para feedback visual
-    });
+    cameraRef.current.fitBounds(
+      bounds.ne,
+      bounds.sw,
+      [topPadding, horizontalPadding, bottomPadding, horizontalPadding],
+      500
+    );
   }, [coordsForBounds, expanded]);
 
   // Callback quando o layout do mapa mudar (detecta redimensionamento real)
@@ -268,83 +282,74 @@ export function MiniMap({
         accessibilityLabel={`Mapa da rota com ${paradasRestantes.length} paradas restantes. Toque para expandir`}
         accessibilityRole="button"
       >
-        <MapView
-          ref={mapRef}
-          style={[styles.map, { height: expectedHeight }]}
-          initialRegion={mapRegion}
-          onMapReady={handleMapReady}
-          onLayout={handleMapLayout}
-          scrollEnabled={false}
-          zoomEnabled={false}
-          rotateEnabled={false}
-          pitchEnabled={false}
-        >
-          {/* OSM Tiles - gratuito! Migrado de Google Maps em Dez/2024 */}
-          <UrlTile
-            urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-            maximumZ={19}
-            tileSize={256}
-          />
+        <View style={{ flex: 1 }} onLayout={handleMapLayout}>
+          <MapLibreGL.MapView
+            testID="map-view"
+            style={[styles.map, { height: expectedHeight }]}
+            mapStyle={MAPLIBRE_RASTER_STYLE}
+            onDidFinishLoadingMap={handleMapReady}
+            scrollEnabled={false}
+            zoomEnabled={false}
+            rotateEnabled={false}
+            pitchEnabled={false}
+            logoEnabled={false}
+            attributionEnabled={false}
+          >
+          <MapLibreGL.Camera ref={cameraRef} defaultSettings={initialCamera} />
 
           {userLocation && (
-            <Marker
-              coordinate={userLocation}
-              title="Você está aqui"
-              tracksViewChanges={true} // Necessário para animação
+            <MapLibreGL.MarkerView
+              coordinate={toLngLat(userLocation)}
+              anchor={{ x: 0.5, y: 0.5 }}
             >
-              <Animated.View style={[styles.userMarker, { transform: [{ scale: pulseAnim }] }]}>
+              <Animated.View testID="marker" style={[styles.userMarker, { transform: [{ scale: pulseAnim }] }]}>
                 <View style={styles.userMarkerDot} />
               </Animated.View>
-            </Marker>
+            </MapLibreGL.MarkerView>
           )}
 
           {paradasConcluidas.map((parada) => (
-            <Marker
+            <MapLibreGL.MarkerView
               key={`concluida-${parada.id}`}
-              coordinate={{
+              coordinate={toLngLat({
                 latitude: parada.latitude,
                 longitude: parada.longitude,
-              }}
-              opacity={0.5}
-              tracksViewChanges={false}
+              })}
+              anchor={{ x: 0.5, y: 0.5 }}
             >
-              <View style={[styles.marker, styles.markerConcluida]}>
+              <View testID="marker" style={[styles.marker, styles.markerConcluida, { opacity: 0.5 }]}>
                 <Ionicons name="checkmark" size={12} color={theme.colors.white} />
               </View>
-            </Marker>
+            </MapLibreGL.MarkerView>
           ))}
 
           {paradasRestantes.map((parada, index) => (
-            <Marker
+            <MapLibreGL.MarkerView
               key={`pendente-${parada.id}`}
-              coordinate={{
+              coordinate={toLngLat({
                 latitude: parada.latitude,
                 longitude: parada.longitude,
-              }}
-              title={`Parada ${parada.ordem}`}
-              description={parada.endereco}
-              tracksViewChanges={false}
+              })}
+              anchor={{ x: 0.5, y: 0.5 }}
             >
-              <View style={[
+              <View testID="marker" style={[
                 styles.marker,
-                index === 0 ? styles.markerNext : styles.markerPending
+                index === 0 ? styles.markerNext : styles.markerPending,
               ]}>
                 <Text style={styles.markerText}>{parada.ordem}</Text>
               </View>
-            </Marker>
+            </MapLibreGL.MarkerView>
           ))}
 
           {/* Checkpoints - Pontos de partida/chegada da unidade (não são paradas de entrega) */}
           {checkpoints.map((checkpoint) => (
-            <Marker
+            <MapLibreGL.MarkerView
               key={`checkpoint-${checkpoint.id}`}
-              coordinate={{
+              coordinate={toLngLat({
                 latitude: checkpoint.latitude,
                 longitude: checkpoint.longitude,
-              }}
-              title={checkpoint.ordem === 0 ? 'Partida (Unidade)' : 'Chegada (Unidade)'}
-              description={checkpoint.endereco}
-              tracksViewChanges={false}
+              })}
+              anchor={{ x: 0.5, y: 0.5 }}
             >
               <View style={styles.checkpointMarker}>
                 <Ionicons
@@ -353,17 +358,19 @@ export function MiniMap({
                   color={theme.colors.primary}
                 />
               </View>
-            </Marker>
+            </MapLibreGL.MarkerView>
           ))}
 
-          {routeCoordinates.length > 1 && (
-            <Polyline
-              coordinates={routeCoordinates}
-              strokeColor={theme.colors.primary}
-              strokeWidth={3}
-            />
+          {routeShape && (
+            <MapLibreGL.ShapeSource id="rota-mini" shape={routeShape}>
+              <MapLibreGL.LineLayer
+                id="rota-mini-line"
+                style={{ lineColor: theme.colors.primary, lineWidth: 3 }}
+              />
+            </MapLibreGL.ShapeSource>
           )}
-        </MapView>
+          </MapLibreGL.MapView>
+        </View>
 
         <View style={styles.overlay}>
           <View style={styles.infoBox}>

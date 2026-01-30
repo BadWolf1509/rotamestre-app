@@ -22,7 +22,7 @@ interface MapaRotasProps {
 /**
  * Componente de mapa multiplataforma
  * - Web: Usa MapaWebMapLibre.tsx (MapLibre GL JS + OpenFreeMap - gratuito!)
- * - Mobile: Usa MapaRN.tsx (react-native-maps + OSM tiles)
+ * - Mobile: Usa MapaRN.tsx (MapLibre Native + tiles Carto/OSM)
  *
  * Migrado de Google Maps para alternativas gratuitas em Dez/2024.
  */

@@ -1,24 +1,26 @@
 import { render } from '@testing-library/react-native';
 import React from 'react';
-import { Platform } from 'react-native';
 
 import { MapaAdapter } from '../MapaAdapter';
 
-// Mock dos componentes de mapa
+/**
+ * MapaAdapter Tests
+ *
+ * Nota: A arquitetura usa platform-specific file resolution do Metro:
+ * - MapaAdapter.tsx (mobile) → sempre usa MapaMobile
+ * - MapaAdapter.web.tsx (web) → sempre usa MapaWebMapLibre
+ *
+ * Jest resolve apenas MapaAdapter.tsx, então testamos a versão mobile.
+ */
+
+// Mock do componente de mapa mobile
 jest.mock('../MapaMobile', () => ({
   MapaMobile: jest.fn(() => null),
 }));
 
-// Mock MapaWebMapLibre (migrado de Google Maps para MapLibre)
-jest.mock('../MapaWebMapLibre', () => ({
-  __esModule: true,
-  default: jest.fn(() => null),
-}));
-
 const mockMapaMobile = require('../MapaMobile').MapaMobile;
-const mockMapaWebMapLibre = require('../MapaWebMapLibre').default;
 
-describe('MapaAdapter', () => {
+describe('MapaAdapter (Mobile)', () => {
   const mockParadas = [
     {
       id: '1',
@@ -46,97 +48,82 @@ describe('MapaAdapter', () => {
     jest.clearAllMocks();
   });
 
-  describe('Plataforma Web', () => {
-    beforeEach(() => {
-      // Mock Platform.OS como 'web'
-      Object.defineProperty(Platform, 'OS', {
-        get: jest.fn(() => 'web'),
-        configurable: true,
-      });
-    });
-
-    it('deve renderizar MapaWeb quando Platform.OS é "web"', () => {
+  describe('Renderização', () => {
+    it('deve renderizar MapaMobile', () => {
       render(<MapaAdapter paradas={mockParadas} />);
 
-      expect(mockMapaWebMapLibre).toHaveBeenCalledTimes(1);
-      expect(mockMapaMobile).not.toHaveBeenCalled();
+      expect(mockMapaMobile).toHaveBeenCalledTimes(1);
     });
 
-    it('deve passar paradas para MapaWeb', () => {
+    it('deve passar paradas para MapaMobile', () => {
       render(<MapaAdapter paradas={mockParadas} />);
 
-      expect(mockMapaWebMapLibre).toHaveBeenCalled();
-      const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
+      expect(mockMapaMobile).toHaveBeenCalled();
+      const callArgs = mockMapaMobile.mock.calls[0][0];
       expect(callArgs.paradas).toEqual(mockParadas);
     });
 
-    it('deve renderizar MapaWeb com paradas vazias', () => {
+    it('deve renderizar com paradas vazias', () => {
       render(<MapaAdapter paradas={[]} />);
 
-      expect(mockMapaWebMapLibre).toHaveBeenCalled();
-      const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
+      expect(mockMapaMobile).toHaveBeenCalled();
+      const callArgs = mockMapaMobile.mock.calls[0][0];
       expect(callArgs.paradas).toEqual([]);
     });
   });
 
-  describe('Plataforma iOS', () => {
-    beforeEach(() => {
-      // Mock Platform.OS como 'ios'
-      Object.defineProperty(Platform, 'OS', {
-        get: jest.fn(() => 'ios'),
-        configurable: true,
-      });
-    });
+  describe('Props opcionais', () => {
+    it('deve passar selectedParadaId', () => {
+      render(<MapaAdapter paradas={mockParadas} selectedParadaId="1" />);
 
-    it('deve renderizar MapaMobile quando Platform.OS é "ios"', () => {
-      render(<MapaAdapter paradas={mockParadas} />);
-
-      expect(mockMapaMobile).toHaveBeenCalledTimes(1);
-      expect(mockMapaWebMapLibre).not.toHaveBeenCalled();
-    });
-
-    it('deve passar paradas para MapaMobile', () => {
-      render(<MapaAdapter paradas={mockParadas} />);
-
-      expect(mockMapaMobile).toHaveBeenCalled();
       const callArgs = mockMapaMobile.mock.calls[0][0];
-      expect(callArgs.paradas).toEqual(mockParadas);
-    });
-  });
-
-  describe('Plataforma Android', () => {
-    beforeEach(() => {
-      // Mock Platform.OS como 'android'
-      Object.defineProperty(Platform, 'OS', {
-        get: jest.fn(() => 'android'),
-        configurable: true,
-      });
+      expect(callArgs.selectedParadaId).toBe('1');
     });
 
-    it('deve renderizar MapaMobile quando Platform.OS é "android"', () => {
-      render(<MapaAdapter paradas={mockParadas} />);
+    it('deve passar callbacks', () => {
+      const onMarkerPress = jest.fn();
+      const onMapPress = jest.fn();
 
-      expect(mockMapaMobile).toHaveBeenCalledTimes(1);
-      expect(mockMapaWebMapLibre).not.toHaveBeenCalled();
-    });
+      render(
+        <MapaAdapter
+          paradas={mockParadas}
+          onMarkerPress={onMarkerPress}
+          onMapPress={onMapPress}
+        />
+      );
 
-    it('deve passar paradas para MapaMobile', () => {
-      render(<MapaAdapter paradas={mockParadas} />);
-
-      expect(mockMapaMobile).toHaveBeenCalled();
       const callArgs = mockMapaMobile.mock.calls[0][0];
-      expect(callArgs.paradas).toEqual(mockParadas);
+      expect(callArgs.onMarkerPress).toBe(onMarkerPress);
+      expect(callArgs.onMapPress).toBe(onMapPress);
+    });
+
+    it('deve passar statusFilter', () => {
+      render(<MapaAdapter paradas={mockParadas} statusFilter="pendente" />);
+
+      const callArgs = mockMapaMobile.mock.calls[0][0];
+      expect(callArgs.statusFilter).toBe('pendente');
+    });
+
+    it('deve passar props de rota e motorista', () => {
+      render(
+        <MapaAdapter
+          paradas={mockParadas}
+          rotaId="rota-123"
+          motoristaNome="João"
+          showMotorista={true}
+          unidadeNome="Unidade Centro"
+        />
+      );
+
+      const callArgs = mockMapaMobile.mock.calls[0][0];
+      expect(callArgs.rotaId).toBe('rota-123');
+      expect(callArgs.motoristaNome).toBe('João');
+      expect(callArgs.showMotorista).toBe(true);
+      expect(callArgs.unidadeNome).toBe('Unidade Centro');
     });
   });
 
   describe('Diferentes tipos de paradas', () => {
-    beforeEach(() => {
-      Object.defineProperty(Platform, 'OS', {
-        get: jest.fn(() => 'web'),
-        configurable: true,
-      });
-    });
-
     it('deve lidar com paradas sem coordenadas', () => {
       const paradasSemCoordenadas = [
         {
@@ -151,8 +138,8 @@ describe('MapaAdapter', () => {
 
       render(<MapaAdapter paradas={paradasSemCoordenadas} />);
 
-      expect(mockMapaWebMapLibre).toHaveBeenCalled();
-      const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
+      expect(mockMapaMobile).toHaveBeenCalled();
+      const callArgs = mockMapaMobile.mock.calls[0][0];
       expect(callArgs.paradas).toEqual(paradasSemCoordenadas);
     });
 
@@ -170,8 +157,8 @@ describe('MapaAdapter', () => {
 
       render(<MapaAdapter paradas={paradasSemTipo} />);
 
-      expect(mockMapaWebMapLibre).toHaveBeenCalled();
-      const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
+      expect(mockMapaMobile).toHaveBeenCalled();
+      const callArgs = mockMapaMobile.mock.calls[0][0];
       expect(callArgs.paradas).toEqual(paradasSemTipo);
     });
 
@@ -190,8 +177,8 @@ describe('MapaAdapter', () => {
 
       render(<MapaAdapter paradas={paradasSemCheckpoint} />);
 
-      expect(mockMapaWebMapLibre).toHaveBeenCalled();
-      const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
+      expect(mockMapaMobile).toHaveBeenCalled();
+      const callArgs = mockMapaMobile.mock.calls[0][0];
       expect(callArgs.paradas).toEqual(paradasSemCheckpoint);
     });
 
@@ -229,33 +216,20 @@ describe('MapaAdapter', () => {
 
       render(<MapaAdapter paradas={paradasMistas} />);
 
-      expect(mockMapaWebMapLibre).toHaveBeenCalled();
-      const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
+      expect(mockMapaMobile).toHaveBeenCalled();
+      const callArgs = mockMapaMobile.mock.calls[0][0];
       expect(callArgs.paradas).toEqual(paradasMistas);
     });
   });
 
-  describe('Props vazias ou edge cases', () => {
-    beforeEach(() => {
-      Object.defineProperty(Platform, 'OS', {
-        get: jest.fn(() => 'web'),
-        configurable: true,
-      });
-    });
-
-    it('deve renderizar com array vazio de paradas', () => {
-      render(<MapaAdapter paradas={[]} />);
-
-      expect(mockMapaWebMapLibre).toHaveBeenCalledTimes(1);
-    });
-
+  describe('Edge cases', () => {
     it('deve renderizar com uma única parada', () => {
       const unicaParada = [mockParadas[0]];
 
       render(<MapaAdapter paradas={unicaParada} />);
 
-      expect(mockMapaWebMapLibre).toHaveBeenCalled();
-      const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
+      expect(mockMapaMobile).toHaveBeenCalled();
+      const callArgs = mockMapaMobile.mock.calls[0][0];
       expect(callArgs.paradas).toEqual(unicaParada);
     });
 
@@ -271,8 +245,8 @@ describe('MapaAdapter', () => {
 
       render(<MapaAdapter paradas={muitasParadas} />);
 
-      expect(mockMapaWebMapLibre).toHaveBeenCalled();
-      const callArgs = mockMapaWebMapLibre.mock.calls[0][0];
+      expect(mockMapaMobile).toHaveBeenCalled();
+      const callArgs = mockMapaMobile.mock.calls[0][0];
       expect(callArgs.paradas).toEqual(muitasParadas);
     });
   });

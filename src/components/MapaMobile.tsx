@@ -1,15 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
+import MapLibreGL, { type CameraRef } from '@maplibre/maplibre-react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import React, { useRef, useEffect, useMemo, useCallback, useState } from 'react';
 import { View, Text, ActivityIndicator, TouchableOpacity, Platform, Pressable, Linking } from 'react-native';
-import MapView, { Marker, Polyline, UrlTile, Region, Callout } from 'react-native-maps';
 
 import { getStatusLabel } from '@/components/map/infoWindowBuilders';
 import { MotoristaMarker } from '@/components/MotoristaMarker';
 import { useAlert } from '@/hooks/useAlert';
 import { useRouteDirections } from '@/hooks/useRouteDirections';
+import { MAPLIBRE_RASTER_STYLE, getBounds, toLineString, toLngLat, zoomFromLongitudeDelta } from '@/lib/maplibre';
 import { withOpacity } from '@/utils/color';
 import { showNavigationOptions } from '@/utils/navigation';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -29,6 +30,13 @@ interface Parada {
 }
 
 type StatusFilter = 'all' | 'pendente' | 'em_andamento' | 'concluida';
+
+type MapRegion = {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+};
 
 interface MapaMobileProps {
   paradas: Parada[];
@@ -63,8 +71,9 @@ export function MapaMobile({
 }: MapaMobileProps) {
   const { theme } = useUnistyles();
   const { showWarning, showError, AlertDialog } = useAlert();
-  const mapRef = useRef<MapView>(null);
+  const cameraRef = useRef<CameraRef>(null);
   const [isLocating, setIsLocating] = useState(false);
+  const [selectedCheckpointId, setSelectedCheckpointId] = useState<string | null>(null);
 
   // Filtrar paradas com coordenadas válidas
   const paradasComCoord = useMemo(
@@ -97,18 +106,16 @@ export function MapaMobile({
 
     // Ajustar mapa para mostrar todas as paradas após carregar
   useEffect(() => {
-    if (paradasComCoord.length > 1 && mapRef.current) {
+    if (paradasComCoord.length > 1 && cameraRef.current) {
+      const bounds = getBounds(
+        paradasComCoord.map((parada) => ({
+          latitude: parada.latitude!,
+          longitude: parada.longitude!,
+        }))
+      );
+      if (!bounds) return undefined;
       const timer = setTimeout(() => {
-        mapRef.current?.fitToCoordinates(
-          paradasComCoord.map((p) => ({
-            latitude: p.latitude!,
-            longitude: p.longitude!,
-          })),
-          {
-            edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-            animated: true,
-          }
-        );
+        cameraRef.current?.fitBounds(bounds.ne, bounds.sw, [50, 50, 50, 50], 500);
       }, 500);
 
       return () => clearTimeout(timer);
@@ -117,7 +124,7 @@ export function MapaMobile({
   }, [paradasComCoord]);
 
   // Calcular região inicial (centro das paradas)
-  const initialRegion = useMemo<Region>(() => {
+  const initialRegion = useMemo<MapRegion>(() => {
     if (!hasParadasComCoordenadas) {
       return {
         latitude: 0,
@@ -162,6 +169,17 @@ export function MapaMobile({
     };
   }, [hasParadasComCoordenadas, paradasComCoord]);
 
+  const initialCamera = useMemo(
+    () => ({
+      centerCoordinate: toLngLat({
+        latitude: initialRegion.latitude,
+        longitude: initialRegion.longitude,
+      }),
+      zoomLevel: zoomFromLongitudeDelta(initialRegion.longitudeDelta),
+    }),
+    [initialRegion]
+  );
+
 // Função para determinar cor do marcador baseado no status - usa design tokens
   const getMarkerColor = useCallback((status: string): string => {
     switch (status) {
@@ -181,6 +199,7 @@ export function MapaMobile({
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
+    setSelectedCheckpointId(null);
     onMarkerPress?.(paradaId);
   }, [onMarkerPress]);
 
@@ -194,6 +213,7 @@ export function MapaMobile({
 
   // Handler para tap no mapa (deselecionar)
   const handleMapPress = useCallback(() => {
+    setSelectedCheckpointId(null);
     onMapPress?.();
   }, [onMapPress]);
 
@@ -223,11 +243,11 @@ export function MapaMobile({
         longitude: location.coords.longitude,
       };
 
-      mapRef.current?.animateToRegion({
-        ...newUserLocation,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      }, 500);
+      cameraRef.current?.setCamera({
+        centerCoordinate: toLngLat(newUserLocation),
+        zoomLevel: zoomFromLongitudeDelta(0.01),
+        animationDuration: 500,
+      });
     } catch (error) {
       console.error('[MapaMobile] Erro ao obter localização:', error);
       showError({ title: 'Erro', message: 'Não foi possível obter sua localização.' });
@@ -254,17 +274,15 @@ export function MapaMobile({
 
   // Ajustar mapa para mostrar todas as paradas
   const handleFitAll = useCallback(() => {
-    if (paradasComCoord.length > 0 && mapRef.current) {
-      mapRef.current.fitToCoordinates(
-        paradasComCoord.map((p) => ({
-          latitude: p.latitude!,
-          longitude: p.longitude!,
-        })),
-        {
-          edgePadding: { top: 80, right: 50, bottom: 120, left: 50 },
-          animated: true,
-        }
+    if (paradasComCoord.length > 0 && cameraRef.current) {
+      const bounds = getBounds(
+        paradasComCoord.map((parada) => ({
+          latitude: parada.latitude!,
+          longitude: parada.longitude!,
+        }))
       );
+      if (!bounds) return;
+      cameraRef.current.fitBounds(bounds.ne, bounds.sw, [80, 50, 120, 50], 500);
     }
   }, [paradasComCoord]);
 
@@ -279,6 +297,11 @@ export function MapaMobile({
     }
   }, []);
 
+  const routeShape = useMemo(
+    () => (routeCoordinates.length > 1 ? toLineString(routeCoordinates) : null),
+    [routeCoordinates]
+  );
+
   if (!hasParadasComCoordenadas) {
     return (
       <View style={styles.emptyContainer}>
@@ -291,33 +314,24 @@ export function MapaMobile({
 
   return (
     <View style={styles.container}>
-      <MapView
-        ref={mapRef}
+      <MapLibreGL.MapView
         style={styles.map}
-        initialRegion={initialRegion}
-        showsUserLocation={true}
-        showsMyLocationButton={true}
-        showsCompass={true}
-        loadingEnabled={true}
-        loadingIndicatorColor={theme.colors.primary}
-        loadingBackgroundColor={theme.colors.white}
+        mapStyle={MAPLIBRE_RASTER_STYLE}
+        logoEnabled={false}
+        attributionEnabled={false}
+        compassEnabled={true}
         onPress={handleMapPress}
-        accessible={true}
-        accessibilityLabel="Mapa de paradas da rota"
       >
-        {/* OSM Tiles - gratuito! Migrado de Google Maps em Dez/2024 */}
-        <UrlTile
-          urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-          maximumZ={19}
-          tileSize={256}
-        />
+        <MapLibreGL.Camera ref={cameraRef} defaultSettings={initialCamera} />
+
         {/* Rota real (via Google Directions API) ou fallback para linhas retas */}
-        {routeCoordinates.length > 1 && (
-          <Polyline
-            coordinates={routeCoordinates}
-            strokeColor={theme.colors.primary}
-            strokeWidth={4}
-          />
+        {routeShape && (
+          <MapLibreGL.ShapeSource id="rota" shape={routeShape}>
+            <MapLibreGL.LineLayer
+              id="rota-line"
+              style={{ lineColor: theme.colors.primary, lineWidth: 4 }}
+            />
+          </MapLibreGL.ShapeSource>
         )}
 
         {/* Marcadores dos checkpoints (PARTIDA/CHEGADA) */}
@@ -325,142 +339,145 @@ export function MapaMobile({
           const isPartida = index === 0;
           const checkpointLabel = isPartida ? 'PARTIDA' : 'CHEGADA';
           const iconName = isPartida ? 'flag' : 'home';
+          const isSelected = selectedCheckpointId === parada.id;
 
           return (
-            <Marker
+            <MapLibreGL.MarkerView
               key={parada.id}
-              coordinate={{
+              coordinate={toLngLat({
                 latitude: parada.latitude!,
                 longitude: parada.longitude!,
-              }}
-              onPress={handleMapPress}
-              tracksViewChanges={false}
+              })}
               anchor={{ x: 0.5, y: 1 }}
               accessible={true}
               accessibilityLabel={`${checkpointLabel}, ${parada.endereco}`}
               accessibilityHint="Toque para ver informações"
             >
-              {/* Marcador compacto azul marca - ícones distintos */}
-              <View style={styles.checkpointMarkerCompact}>
-                <Ionicons name={iconName} size={14} color={theme.colors.white} />
-              </View>
-              {/* Callout para checkpoint */}
-              <Callout tooltip accessible={true} accessibilityLabel={`Detalhes do ${checkpointLabel}`}>
-                <View style={styles.checkpointCalloutContainer}>
-                  <View style={styles.checkpointCalloutHeader}>
-                    <View style={styles.checkpointIconBadge}>
-                      <Ionicons name={iconName} size={12} color={theme.colors.white} />
+              <View style={styles.markerWrapper}>
+                {isSelected && (
+                  <View style={styles.calloutWrapper}>
+                    <View style={styles.checkpointCalloutContainer}>
+                      <View style={styles.checkpointCalloutHeader}>
+                        <View style={styles.checkpointIconBadge}>
+                          <Ionicons name={iconName} size={12} color={theme.colors.white} />
+                        </View>
+                        <Text style={styles.checkpointCalloutTitle}>{checkpointLabel}</Text>
+                      </View>
+                      {unidadeNome && (
+                        <Text style={styles.checkpointCalloutUnidade}>{unidadeNome}</Text>
+                      )}
+                      <Text style={styles.checkpointCalloutAddress} numberOfLines={2}>
+                        {parada.endereco}
+                      </Text>
+                      {/* Botão copiar endereço */}
+                      <TouchableOpacity
+                        style={styles.copyButton}
+                        onPress={() => handleCopyAddress(parada.endereco)}
+                        accessibilityLabel="Copiar endereço"
+                        accessibilityRole="button"
+                      >
+                        <Ionicons name="copy-outline" size={14} color={theme.colors.textSecondary} />
+                        <Text style={styles.copyButtonText}>Copiar endereço</Text>
+                      </TouchableOpacity>
                     </View>
-                    <Text style={styles.checkpointCalloutTitle}>{checkpointLabel}</Text>
                   </View>
-                  {unidadeNome && (
-                    <Text style={styles.checkpointCalloutUnidade}>{unidadeNome}</Text>
-                  )}
-                  <Text style={styles.checkpointCalloutAddress} numberOfLines={2}>
-                    {parada.endereco}
-                  </Text>
-                  {/* Botão copiar endereço */}
-                  <TouchableOpacity
-                    style={styles.copyButton}
-                    onPress={() => handleCopyAddress(parada.endereco)}
-                    accessibilityLabel="Copiar endereço"
-                    accessibilityRole="button"
-                  >
-                    <Ionicons name="copy-outline" size={14} color={theme.colors.textSecondary} />
-                    <Text style={styles.copyButtonText}>Copiar endereço</Text>
-                  </TouchableOpacity>
-                </View>
-              </Callout>
-            </Marker>
+                )}
+
+                <Pressable
+                  onPress={() => setSelectedCheckpointId((prev) => (prev === parada.id ? null : parada.id))}
+                  style={styles.checkpointMarkerCompact}
+                  accessibilityLabel={`${checkpointLabel}, ${parada.endereco}`}
+                  accessibilityRole="button"
+                >
+                  <Ionicons name={iconName} size={14} color={theme.colors.white} />
+                </Pressable>
+              </View>
+            </MapLibreGL.MarkerView>
           );
         })}
 
         {/* Marcadores das paradas reais (entregas/retiradas) - filtradas por status */}
         {paradasFiltradas.map((parada) => (
-          <Marker
+          <MapLibreGL.MarkerView
             key={parada.id}
-            coordinate={{
+            coordinate={toLngLat({
               latitude: parada.latitude!,
               longitude: parada.longitude!,
-            }}
-            onPress={() => handleMarkerPress(parada.id)}
-            onCalloutPress={() => handleMarkerPress(parada.id)}
-            tracksViewChanges={false}
-            // Acessibilidade
+            })}
+            anchor={{ x: 0.5, y: 1 }}
             accessible={true}
             accessibilityLabel={`Parada ${parada.ordem}, ${parada.endereco}, ${getStatusLabel(parada.status)}`}
             accessibilityHint="Toque para ver detalhes. Mantenha pressionado para ações rápidas"
           >
-            {/* Customizar marcador com número da ordem - Pressable para suporte a long-press */}
-            <Pressable
-              onLongPress={() => handleMarkerLongPress(parada.id)}
-              delayLongPress={400}
-              style={({ pressed }) => [
-                styles.markerContainer,
-                { backgroundColor: getMarkerColor(parada.status) },
-                selectedParadaId === parada.id && styles.markerSelected,
-                pressed && styles.markerPressed,
-              ]}
-            >
-              <Text style={styles.markerText}>{parada.ordem}</Text>
-            </Pressable>
-            {/* Callout com informações da parada */}
-            <Callout
-              tooltip
-              onPress={() => handleMarkerPress(parada.id)}
-              accessible={true}
-              accessibilityLabel={`Detalhes da parada ${parada.ordem}`}
-            >
-              <View style={styles.calloutContainer}>
-                <Text style={styles.calloutTitle}>Parada {parada.ordem}</Text>
-                <Text style={styles.calloutAddress} numberOfLines={2}>{parada.endereco}</Text>
+            <View style={styles.markerWrapper}>
+              {selectedParadaId === parada.id && (
+                <View style={styles.calloutWrapper}>
+                  <View style={styles.calloutContainer}>
+                    <Text style={styles.calloutTitle}>Parada {parada.ordem}</Text>
+                    <Text style={styles.calloutAddress} numberOfLines={2}>{parada.endereco}</Text>
 
-                {/* Destinatário */}
-                {parada.destinatario && (
-                  <View style={styles.calloutDetailRow}>
-                    <Ionicons name="person-outline" size={14} color={theme.colors.textSecondary} />
-                    <Text style={styles.calloutDetailText} numberOfLines={1}>
-                      {parada.destinatario}
-                    </Text>
-                  </View>
-                )}
+                    {/* Destinatário */}
+                    {parada.destinatario && (
+                      <View style={styles.calloutDetailRow}>
+                        <Ionicons name="person-outline" size={14} color={theme.colors.textSecondary} />
+                        <Text style={styles.calloutDetailText} numberOfLines={1}>
+                          {parada.destinatario}
+                        </Text>
+                      </View>
+                    )}
 
-                {/* Telefone clicável */}
-                {parada.telefone && (
-                  <TouchableOpacity
-                    style={styles.calloutDetailRow}
-                    onPress={() => Linking.openURL(`tel:${parada.telefone}`)}
-                    accessibilityLabel={`Ligar para ${parada.telefone}`}
-                    accessibilityRole="button"
-                  >
-                    <Ionicons name="call-outline" size={14} color={theme.colors.primary} />
-                    <Text style={styles.calloutPhoneText}>{parada.telefone}</Text>
-                  </TouchableOpacity>
-                )}
+                    {/* Telefone clicável */}
+                    {parada.telefone && (
+                      <TouchableOpacity
+                        style={styles.calloutDetailRow}
+                        onPress={() => Linking.openURL(`tel:${parada.telefone}`)}
+                        accessibilityLabel={`Ligar para ${parada.telefone}`}
+                        accessibilityRole="button"
+                      >
+                        <Ionicons name="call-outline" size={14} color={theme.colors.primary} />
+                        <Text style={styles.calloutPhoneText}>{parada.telefone}</Text>
+                      </TouchableOpacity>
+                    )}
 
-                {/* Badges: Status e Tipo */}
-                <View style={styles.calloutBadges}>
-                  <View style={[styles.calloutStatus, { backgroundColor: `${getMarkerColor(parada.status)}20` }]}>
-                    <Text style={[styles.calloutStatusText, { color: getMarkerColor(parada.status) }]}>
-                      {parada.status === 'concluida' ? 'Concluída' : parada.status === 'em_andamento' ? 'Em andamento' : 'Pendente'}
-                    </Text>
-                  </View>
-                  {parada.tipo && (
-                    <View style={styles.calloutTypeBadge}>
-                      <Ionicons
-                        name={parada.tipo === 'entrega' ? 'cube-outline' : 'arrow-up-circle-outline'}
-                        size={12}
-                        color={theme.colors.textSecondary}
-                      />
-                      <Text style={styles.calloutTypeText}>
-                        {parada.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
-                      </Text>
+                    {/* Badges: Status e Tipo */}
+                    <View style={styles.calloutBadges}>
+                      <View style={[styles.calloutStatus, { backgroundColor: `${getMarkerColor(parada.status)}20` }]}>
+                        <Text style={[styles.calloutStatusText, { color: getMarkerColor(parada.status) }]}>
+                          {parada.status === 'concluida' ? 'Concluída' : parada.status === 'em_andamento' ? 'Em andamento' : 'Pendente'}
+                        </Text>
+                      </View>
+                      {parada.tipo && (
+                        <View style={styles.calloutTypeBadge}>
+                          <Ionicons
+                            name={parada.tipo === 'entrega' ? 'cube-outline' : 'arrow-up-circle-outline'}
+                            size={12}
+                            color={theme.colors.textSecondary}
+                          />
+                          <Text style={styles.calloutTypeText}>
+                            {parada.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
+                          </Text>
+                        </View>
+                      )}
                     </View>
-                  )}
+                  </View>
                 </View>
-              </View>
-            </Callout>
-          </Marker>
+              )}
+
+              <Pressable
+                onPress={() => handleMarkerPress(parada.id)}
+                onLongPress={() => handleMarkerLongPress(parada.id)}
+                delayLongPress={400}
+                style={({ pressed }) => [
+                  styles.markerContainer,
+                  { backgroundColor: getMarkerColor(parada.status) },
+                  selectedParadaId === parada.id && styles.markerSelected,
+                  pressed && styles.markerPressed,
+                ]}
+              >
+                <Text style={styles.markerText}>{parada.ordem}</Text>
+              </Pressable>
+            </View>
+          </MapLibreGL.MarkerView>
         ))}
 
         {/* Marcador do motorista em tempo real */}
@@ -471,7 +488,7 @@ export function MapaMobile({
             realtime={true}
           />
         )}
-      </MapView>
+      </MapLibreGL.MapView>
 
       {/* Info Badge - mostra paradas e info da rota */}
       <View
@@ -588,6 +605,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
+  },
+  markerWrapper: {
+    alignItems: 'center',
+  },
+  calloutWrapper: {
+    marginBottom: theme.spacing['2'],
   },
   // Checkpoint compacto azul marca - ícones distintos para PARTIDA/CHEGADA
   checkpointMarkerCompact: {

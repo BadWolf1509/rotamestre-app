@@ -1,15 +1,13 @@
 /**
- * MapaAdapter (Mobile) - Wrapper para plataformas nativas (iOS/Android)
+ * MapaAdapter (Web) - Wrapper para plataforma Web
  *
- * Usa MapaMobile (MapLibre Native + tiles Carto/OSM)
- * Metro automaticamente resolve este arquivo para builds native.
- *
- * Nota: A versão web está em MapaAdapter.web.tsx
+ * Usa MapaWebMapLibre (MapLibre GL JS + OpenFreeMap - gratuito!)
+ * Metro automaticamente resolve este arquivo para builds web.
  */
 
 import React from 'react';
 
-import { MapaMobile } from './MapaMobile';
+import MapaWebMapLibre from './MapaWebMapLibre';
 
 interface Parada {
   id: string;
@@ -38,14 +36,13 @@ interface MapaAdapterProps {
 }
 
 /**
- * MapaAdapter para Mobile - usa MapLibre Native
+ * MapaAdapter para Web - usa MapLibre GL JS
  */
 export function MapaAdapter({
   paradas,
   selectedParadaId,
   onMarkerPress,
   onMapPress,
-  onMarkerLongPress,
   statusFilter,
   rotaId,
   motoristaNome,
@@ -53,12 +50,11 @@ export function MapaAdapter({
   unidadeNome,
 }: MapaAdapterProps) {
   return (
-    <MapaMobile
+    <MapaWebMapLibre
       paradas={paradas as any}
       selectedParadaId={selectedParadaId}
       onMarkerPress={onMarkerPress}
       onMapPress={onMapPress}
-      onMarkerLongPress={onMarkerLongPress}
       statusFilter={statusFilter}
       rotaId={rotaId}
       motoristaNome={motoristaNome}
