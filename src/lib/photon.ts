@@ -280,22 +280,47 @@ export const photonService = {
     }
 
     try {
+      // Remover número da query para melhorar resultados
+      // O Photon prioriza endereços com números cadastrados no OSM,
+      // o que favorece cidades com dados mais completos (ex: SP).
+      // O número será preservado pelo AddressAutocomplete ao selecionar.
+      const queryWithoutNumber = input
+        // Remove número após vírgula no meio: "Rua X, 29, Bairro" → "Rua X, Bairro"
+        .replace(/,\s*\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?\s*,/g, ',')
+        // Remove número após vírgula no final: "Rua X, 29" → "Rua X"
+        .replace(/,\s*\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?\s*$/, '')
+        // Remove número após espaço no final: "Rua X 29" → "Rua X"
+        .replace(/\s+\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?\s*$/, '')
+        // Remove "nº 29" ou "número 29"
+        .replace(/\s+n[º°.]?\s*\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?/gi, '')
+        .replace(/\s+n[úu]mero\s*\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?/gi, '')
+        .trim();
+
       // Construir URL com parâmetros
       const params = new URLSearchParams({
-        q: input,
+        q: queryWithoutNumber || input, // Fallback para input original se regex remover tudo
         limit: String(DEFAULT_LIMIT),
       });
 
       // Adicionar location bias se fornecido (melhora relevância)
+      // Ref: https://github.com/komoot/photon#search
       if (locationBias) {
         params.append('lat', String(locationBias.latitude));
         params.append('lon', String(locationBias.longitude));
+        // zoom: controla o raio de influência do bias
+        // Fórmula: 0.25km * 2^(18-zoom)
+        // zoom=8 → ~256km de raio (bom para bias regional no Brasil)
+        params.append('zoom', '8');
+        // location_bias_scale: 0.0 = ignora prominência completamente
+        // Usamos 0.0 para priorizar APENAS proximidade (ignora popularidade)
+        params.append('location_bias_scale', '0.0');
       }
 
       // Filtrar apenas Brasil usando bounding box
       params.append('bbox', `${BRAZIL_BBOX.minLon},${BRAZIL_BBOX.minLat},${BRAZIL_BBOX.maxLon},${BRAZIL_BBOX.maxLat}`);
 
       const url = `${PHOTON_API_URL}/api/?${params.toString()}`;
+
       const response = await fetchWithTimeout(url);
 
       if (!response.ok) {

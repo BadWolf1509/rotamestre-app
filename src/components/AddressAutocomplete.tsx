@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   TextInput,
@@ -33,6 +33,11 @@ interface AddressAutocompleteProps {
   multiline?: boolean;
   /** Force compact mode (auto-detects desktop if not provided) */
   compact?: boolean;
+  /**
+   * Coordenadas para priorizar resultados próximos (location bias).
+   * Útil para priorizar endereços na região da unidade do usuário.
+   */
+  locationBias?: Coordenadas;
 }
 
 /**
@@ -54,6 +59,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   error,
   multiline = false,
   compact,
+  locationBias,
 }: AddressAutocompleteProps) {
   const { theme } = useUnistyles();
   const { isDesktop } = useResponsive();
@@ -109,7 +115,8 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
 
       try {
         // Usa Photon API (gratuito!) em vez de Google Places (~$50/mês)
-        const results = await photonService.autocompleteAddress(value);
+        // Passa locationBias para priorizar resultados próximos da região do usuário
+        const results = await photonService.autocompleteAddress(value, locationBias);
         setSuggestions(results);
       } catch (error) {
         console.error('Erro no autocomplete:', error);
@@ -124,17 +131,36 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
         clearTimeout(debounceTimer.current);
       }
     };
-  }, [value]);
+  }, [value, locationBias]);
 
   // Extrair número do texto digitado pelo usuário
   const extractNumberFromInput = useCallback((input: string): string | null => {
-    // Procura por padrões de número no final do texto ou após vírgula
-    // Ex: "rua maria 430" → "430", "rua maria, 430" → "430", "rua maria 430-A" → "430-A"
+    // Procura por padrões de número em várias posições do endereço brasileiro
+    // Formatos comuns:
+    // - "Rua X, 123" (número no final)
+    // - "Rua X, 123, Bairro, Cidade" (número após primeira vírgula, seguido de mais vírgulas)
+    // - "Rua X 123" (número após espaço no final)
+    // - "Rua X nº 123" ou "número 123"
     const patterns = [
-      /,\s*(\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?)\s*$/,  // "rua maria, 430" ou "430-A"
-      /\s+(\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?)\s*$/,    // "rua maria 430" ou "430-A"
-      /\s+n[º°.]?\s*(\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?)/i, // "nº 430" ou "n. 430-A"
-      /\s+n[úu]mero\s*(\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?)/i, // "número 430"
+      // Número após primeira vírgula, seguido de outra vírgula (endereço completo)
+      // Ex: "Rua X, 29, Bairro, Cidade" → captura "29"
+      /,\s*(\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?)\s*,/,
+
+      // Número após vírgula no final do texto
+      // Ex: "Rua X, 430" ou "Rua X, 430-A"
+      /,\s*(\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?)\s*$/,
+
+      // Número após espaço no final do texto
+      // Ex: "Rua X 430" ou "Rua X 430-A"
+      /\s+(\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?)\s*$/,
+
+      // Número com prefixo "nº", "n.", "n°"
+      // Ex: "Rua X nº 430" ou "Rua X n. 430-A"
+      /\s+n[º°.]?\s*(\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?)/i,
+
+      // Número com prefixo "número"
+      // Ex: "Rua X número 430"
+      /\s+n[úu]mero\s*(\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?)/i,
     ];
 
     for (const pattern of patterns) {
@@ -146,32 +172,42 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
     return null;
   }, []);
 
-  // Memoizar número extraído para evitar recálculos em cada render
-  const extractedNumber = useMemo(() => {
-    return extractNumberFromInput(value);
-  }, [value, extractNumberFromInput]);
+  // Ref para guardar o valor digitado (evita problemas de closure stale)
+  const lastTypedValueRef = useRef(value);
+  useEffect(() => {
+    // Atualiza ref apenas quando usuário digita (não quando seleciona)
+    if (!wasSelectedRef.current) {
+      lastTypedValueRef.current = value;
+    }
+  }, [value]);
 
   // Memoizar handlers para evitar re-renders
   const handleSelectSuggestion = useCallback((suggestion: PhotonPlaceSuggestion) => {
     // Mark that next value change is from selection, not typing
     wasSelectedRef.current = true;
 
+    // Usar o valor do ref para garantir que temos o valor correto
+    const currentTypedValue = lastTypedValueRef.current;
+
+    // Extrair número do valor digitado AGORA (não do closure)
+    const numberFromInput = extractNumberFromInput(currentTypedValue);
+
     // Verificar se a sugestão já tem número
     const suggestionHasNumber = /,\s*\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?(\s|,|$)/.test(suggestion.description);
 
     // Se o usuário digitou um número e a sugestão não tem, adicionar
     let finalAddress = suggestion.description;
-    if (extractedNumber && !suggestionHasNumber) {
+    if (numberFromInput && !suggestionHasNumber) {
       // Inserir número após o nome da rua (antes da primeira vírgula)
       const firstCommaIndex = suggestion.description.indexOf(',');
       if (firstCommaIndex > 0) {
         finalAddress =
           suggestion.description.slice(0, firstCommaIndex) +
-          ', ' + extractedNumber +
+          ', ' + numberFromInput +
           suggestion.description.slice(firstCommaIndex);
       } else {
         // Sem vírgula, adiciona no final
-        finalAddress = suggestion.description + ', ' + extractedNumber;
+        finalAddress = suggestion.description + ', ' + numberFromInput;
       }
     }
 
@@ -180,7 +216,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
     setSuggestions([]);
     setShowSuggestions(false);
     Keyboard?.dismiss?.();
-  }, [onSelectAddress, extractedNumber]);
+  }, [onSelectAddress, extractNumberFromInput]);
 
   const handleClearInput = useCallback(() => {
     onChangeText('');
@@ -244,10 +280,13 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
     ({ item, index }: { item: PhotonPlaceSuggestion; index: number }) => {
       const suggestionHasNumber = /,\s*\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?(\s|,|$)/.test(item.structured_formatting.main_text);
 
+      // Extrair número do valor atual (usar ref para valor mais recente)
+      const currentNumber = extractNumberFromInput(lastTypedValueRef.current);
+
       // Adicionar número ao texto principal se não tiver
       let displayMainText = item.structured_formatting.main_text;
-      if (extractedNumber && !suggestionHasNumber) {
-        displayMainText = `${item.structured_formatting.main_text}, ${extractedNumber}`;
+      if (currentNumber && !suggestionHasNumber) {
+        displayMainText = `${item.structured_formatting.main_text}, ${currentNumber}`;
       }
 
       const isSelected = index === selectedIndex;
@@ -280,7 +319,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
         </TouchableOpacity>
       );
     },
-    [handleSelectSuggestion, useCompact, extractedNumber, selectedIndex]
+    [handleSelectSuggestion, useCompact, extractNumberFromInput, selectedIndex]
   );
 
   // ItemSeparator extraído para evitar recriação a cada render
@@ -390,14 +429,16 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
 export const AddressAutocomplete = React.memo(
   AddressAutocompleteComponent,
   (prevProps, nextProps) => {
-    // Comparar apenas value, placeholder, error, multiline e compact
+    // Comparar apenas value, placeholder, error, multiline, compact e locationBias
     // Ignorar funções (onChangeText, onSelectAddress) para evitar re-renders
     return (
       prevProps.value === nextProps.value &&
       prevProps.placeholder === nextProps.placeholder &&
       prevProps.error === nextProps.error &&
       prevProps.multiline === nextProps.multiline &&
-      prevProps.compact === nextProps.compact
+      prevProps.compact === nextProps.compact &&
+      prevProps.locationBias?.latitude === nextProps.locationBias?.latitude &&
+      prevProps.locationBias?.longitude === nextProps.locationBias?.longitude
     );
   }
 );

@@ -139,9 +139,9 @@ describe('AddressAutocomplete', () => {
       jest.advanceTimersByTime(1000);
     });
 
-    // Verificar chamada API (Photon não usa sessionToken)
+    // Verificar chamada API (Photon não usa sessionToken, mas aceita locationBias opcional)
     await waitFor(() => {
-      expect(photonService.autocompleteAddress).toHaveBeenCalledWith('Rua Teste');
+      expect(photonService.autocompleteAddress).toHaveBeenCalledWith('Rua Teste', undefined);
     });
 
     // Verificar se sugestões apareceram
@@ -424,6 +424,72 @@ describe('AddressAutocomplete', () => {
         expect(onSelectAddress).toHaveBeenCalledWith(
           'Rua José, 430-B, Bairro',
           'osm_N123456',
+          expect.any(Object)
+        );
+      });
+    });
+
+    it('deve preservar número no meio do endereço (ex: Rua X, 29, Bairro, Cidade)', async () => {
+      // Cenário real reportado: usuário digita endereço completo com número no meio
+      // "Rua Antônio Francisco de Araújo, 29, Morada Nova, Cabedelo, Paraíba"
+      const mockSuggestions = [
+        {
+          place_id: 'osm_N789',
+          description: 'Rua Antônio Francisco de Araújo, Morada Nova, Cabedelo',
+          structured_formatting: {
+            main_text: 'Rua Antônio Francisco de Araújo',
+            secondary_text: 'Morada Nova, Cabedelo, Paraíba',
+          },
+          coordinates: { latitude: -7.0453, longitude: -34.8347 },
+        },
+      ];
+
+      (photonService.autocompleteAddress as jest.Mock).mockResolvedValue(mockSuggestions);
+      const onSelectAddress = jest.fn();
+
+      const TestWrapperWithNumber = () => {
+        const [value, setValue] = useState('');
+        return (
+          <AddressAutocomplete
+            value={value}
+            onChangeText={setValue}
+            onSelectAddress={(desc, id, coords) => {
+              onSelectAddress(desc, id, coords);
+              setValue(desc);
+            }}
+          />
+        );
+      };
+
+      const { getByPlaceholderText, getAllByTestId, UNSAFE_getAllByType } = render(<TestWrapperWithNumber />);
+
+      const input = getByPlaceholderText('Digite o endereço completo');
+      fireEvent(input, 'focus');
+      // Usuário digita endereço completo com número entre vírgulas
+      fireEvent.changeText(input, 'Rua Antônio Francisco de Araújo, 29, Morada Nova, Cabedelo');
+
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      await waitFor(() => {
+        expect(getAllByTestId('suggestion-item').length).toBeGreaterThan(0);
+      });
+
+      const { TouchableOpacity } = require('react-native');
+      const touchables = UNSAFE_getAllByType(TouchableOpacity);
+      const suggestion = touchables.find((node: any) => node.props.testID === 'suggestion-item');
+
+      act(() => {
+        suggestion!.props.onPress();
+      });
+
+      await waitFor(() => {
+        // O número 29 deve ser preservado e inserido após o nome da rua
+        // A descrição do resultado usa o campo 'description' do Photon
+        expect(onSelectAddress).toHaveBeenCalledWith(
+          'Rua Antônio Francisco de Araújo, 29, Morada Nova, Cabedelo',
+          'osm_N789',
           expect.any(Object)
         );
       });
