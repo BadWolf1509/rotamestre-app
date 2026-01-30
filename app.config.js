@@ -97,6 +97,7 @@ module.exports = ({ config }) => {
       "expo-asset",
       "expo-font",
       "@react-native-community/datetimepicker",
+      "@maplibre/maplibre-react-native",
       [
         "expo-location",
         {
@@ -105,8 +106,7 @@ module.exports = ({ config }) => {
           isAndroidForegroundServiceEnabled: true
         }
       ]
-      // ❌ NÃO adicionar react-native-maps aqui - não tem plugin!
-      // As configurações estão em ios.config.googleMapsApiKey e android.config.googleMaps.apiKey
+      // MapLibre usa plugin oficial para ajustes nativos (gradle/podfile)
     ]
   };
 };

@@ -6,6 +6,56 @@ import '@testing-library/jest-native/extend-expect';
 
 global.fetch = jest.fn();
 
+// Mock MapLibre Native (avoid native module errors in tests)
+jest.mock('@maplibre/maplibre-react-native', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+
+  const createView = (defaultTestId) => ({ children, testID, ...props }) =>
+    React.createElement(View, { testID: testID ?? defaultTestId, ...props }, children);
+
+  const Camera = React.forwardRef(({ children, testID, ...props }, ref) => {
+    React.useImperativeHandle(ref, () => ({
+      setCamera: jest.fn(),
+      fitBounds: jest.fn(),
+      flyTo: jest.fn(),
+      moveTo: jest.fn(),
+      zoomTo: jest.fn(),
+    }));
+    return React.createElement(View, { testID: testID ?? 'map-camera', ...props }, children);
+  });
+
+  const MapView = createView('map-view');
+  const MarkerView = createView('marker');
+  const ShapeSource = createView('shape-source');
+  const LineLayer = createView('line-layer');
+  const Callout = createView('callout');
+  const PointAnnotation = createView('point-annotation');
+  const UserLocation = createView('user-location');
+
+  return {
+    __esModule: true,
+    default: {
+      MapView,
+      Camera,
+      MarkerView,
+      ShapeSource,
+      LineLayer,
+      Callout,
+      PointAnnotation,
+      UserLocation,
+    },
+    MapView,
+    Camera,
+    MarkerView,
+    ShapeSource,
+    LineLayer,
+    Callout,
+    PointAnnotation,
+    UserLocation,
+  };
+});
+
 // Aumentar timeout global para evitar falhas intermitentes em integração
 jest.setTimeout(20000);
 
