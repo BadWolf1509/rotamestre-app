@@ -19,7 +19,7 @@ npm install
 
 # Configure .env
 cp .env.example .env
-# Edite .env com suas credenciais Supabase e Google Maps
+# Edite .env com suas credenciais Supabase (e Google Maps se ainda usar APIs Google)
 ```
 
 ### Variáveis de Ambiente
@@ -162,7 +162,7 @@ npx expo start --clear
 - **Supabase** - Backend (auth, database, storage)
 - **Unistyles** - Design system
 - **Expo Router** - Navegação
-- **react-native-maps** - Mapas mobile
+- **@maplibre/maplibre-react-native** - Mapas mobile
 - **react-hook-form + zod** - Formulários
 
 ---

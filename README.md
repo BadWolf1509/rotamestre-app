@@ -6,7 +6,7 @@
 
 > Sistema completo de gestão de rotas para gestores e motoristas
 
-**Stack:** React Native • Expo SDK 54 • TypeScript • Supabase • Unistyles • Google Maps
+**Stack:** React Native • Expo SDK 54 • TypeScript • Supabase • Unistyles • MapLibre
 
 **Produção:** https://app.rotamestre.tec.br
 
@@ -172,7 +172,7 @@ Sistema de auth com Supabase:
 - ✅ **Gestão de incidentes** (reportar e gerenciar)
 - ✅ **App do motorista** (visualizar rotas, marcar checkpoints)
 - ✅ **Upload de fotos** (comprovantes de entrega)
-- ✅ **Mapas** (Google Maps web, react-native-maps mobile)
+- ✅ **Mapas** (MapLibre web + MapLibre Native mobile)
 - ✅ **Filtros avançados** (período com presets, status, motorista)
 - ✅ **Responsivo** (mobile-first com melhorias desktop)
 - ✅ **Design system** (Unistyles v3)

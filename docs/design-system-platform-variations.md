@@ -70,10 +70,10 @@ Component.web.tsx   # Web implementation
 
 | Component | Mobile | Web | Reason |
 |-----------|--------|-----|--------|
-| `MapaRotas` | react-native-maps | @vis.gl/react-google-maps | Different map libraries |
-| `MapaMobile` | react-native-maps | react-google-maps/api | Different map libraries |
-| `MiniMap` | react-native-maps | @vis.gl/react-google-maps | Different map libraries |
-| `PictureInPictureMap` | react-native-maps | @vis.gl/react-google-maps | Different map libraries |
+| `MapaRotas` | MapLibre Native | MapLibre GL JS | Different map renderers |
+| `MapaMobile` | MapLibre Native | Stub (no map) | Mobile-only map |
+| `MiniMap` | MapLibre Native | MapLibre GL JS | Different map renderers |
+| `PictureInPictureMap` | MapLibre Native | MapLibre GL JS | Different map renderers |
 | `NavigationMode` | expo-linking (Waze/GMaps) | window.open | Navigation launch |
 
 ### Import Guidelines

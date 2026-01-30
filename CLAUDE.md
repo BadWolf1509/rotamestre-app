@@ -43,7 +43,7 @@
 
 ### Key Libraries
 - **Maps (Web):** MapLibre GL JS + OpenFreeMap tiles (FREE!)
-- **Maps (Mobile):** react-native-maps + OpenStreetMap tiles (FREE!)
+- **Maps (Mobile):** MapLibre Native + Carto/OSM raster tiles (FREE!)
 - **Geocoding:** Photon API (komoot.io - FREE!)
 - **Routing:** OSRM (FREE!) via googleMapsService wrapper
 - **Forms:** react-hook-form + zod
@@ -134,7 +134,7 @@ const { isMobile, isTablet, isDesktop, width } = useResponsive();
 - **GestorSidebar** - Desktop sidebar navigation
 - **ResponsiveContainer** - Max-width container
 - **MapaWebMapLibre** - Web map component (MapLibre + OpenFreeMap)
-- **MapaRN** - Mobile map component (react-native-maps + OSM tiles)
+- **MapaRN** - Mobile map component (MapLibre Native + raster tiles)
 
 ---
 
@@ -185,9 +185,9 @@ All Google APIs replaced with free open-source alternatives:
    - Style: `https://tiles.openfreemap.org/styles/liberty/style.json`
    - File: `src/components/MapaWebMapLibre.tsx`
 
-4. **OpenStreetMap Tiles** - Mobile maps
-   - react-native-maps with UrlTile
-   - Template: `https://tile.openstreetmap.org/{z}/{x}/{y}.png`
+4. **MapLibre Native** - Mobile maps
+   - Raster style (Carto Voyager)
+   - Style: `src/lib/maplibre.ts`
    - Files: `src/components/MapaRN.tsx`, `src/components/MapaMobile.tsx`
 
 ### Key Files
@@ -334,7 +334,7 @@ resolver: {
 }
 ```
 
-### 2. react-native-maps error on web build
+### 2. MapLibre Native error on web build
 **Solution:** Don't import Maps components in web-only code
 **Example:** Moved `rota-backup.tsx` out of `app/` folder
 
