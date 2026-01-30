@@ -1,6 +1,6 @@
 {
   "name": "rotamestre-app",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "androidVersionCode": 3013,
   "main": "index.ts",
   "scripts": {
