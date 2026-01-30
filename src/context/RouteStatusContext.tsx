@@ -112,6 +112,8 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
   // Refs para controle do Realtime
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const isSubscribed = useRef(false);
+  const reconnectAttempts = useRef(0);
+  const maxReconnectAttempts = 3;
 
   // Determina o status da UI baseado na rota selecionada
   // NOTA: A priorização (ativas > concluídas) é feita em loadActiveRoute()
@@ -651,9 +653,39 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
         }
       )
       .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          logger.error('[RouteStatus] Realtime Erro na conexão', { status });
+        if (status === 'SUBSCRIBED') {
+          reconnectAttempts.current = 0; // Reset on successful connection
+          logger.info('[RouteStatus] Realtime conectado com sucesso');
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          logger.warn('[RouteStatus] Realtime erro na conexão', {
+            status,
+            attempt: reconnectAttempts.current + 1,
+            maxAttempts: maxReconnectAttempts,
+          });
           isSubscribed.current = false;
+
+          // Tentar reconectar com backoff exponencial
+          if (reconnectAttempts.current < maxReconnectAttempts) {
+            reconnectAttempts.current += 1;
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
+
+            setTimeout(() => {
+              // Atualizar token antes de reconectar
+              if (session?.access_token) {
+                supabase.realtime.setAuth(session.access_token);
+              }
+              channel.subscribe();
+            }, delay);
+          } else {
+            logger.error('[RouteStatus] Realtime máximo de tentativas atingido - usando polling');
+            // Fallback: recarregar dados manualmente a cada 30s
+            const pollInterval = setInterval(() => {
+              if (motoristaId) loadActiveRoute();
+            }, 30000);
+
+            // Limpar interval quando componente desmontar
+            return () => clearInterval(pollInterval);
+          }
         }
       });
 
