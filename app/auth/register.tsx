@@ -9,7 +9,7 @@ import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { signupRateLimiter } from '@/lib/rateLimiter';
-import { validatePassword, PASSWORD_MIN_LENGTH, isValidEmail } from '@/lib/validation';
+import { validatePassword, PASSWORD_MIN_LENGTH, isValidEmail } from '@/lib/schemas';
 import { TipoUsuario } from '@/types/usuario';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
@@ -133,7 +133,7 @@ export default function Register() {
               <Input
                 label="Senha"
                 required
-                placeholder={`Mínimo ${PASSWORD_MIN_LENGTH} caracteres, maiúscula e número`}
+                placeholder={`Mínimo ${PASSWORD_MIN_LENGTH} caracteres, maiúscula, número e especial`}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry

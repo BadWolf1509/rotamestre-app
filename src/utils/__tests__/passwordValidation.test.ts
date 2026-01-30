@@ -50,9 +50,14 @@ describe('passwordValidation', () => {
       expect(isPasswordValid('123456')).toBe(false);
     });
 
-    it('deve retornar true para senha forte (score >= 4)', () => {
-      // Score 4: 8 chars, maiúscula, minúscula, número
-      expect(isPasswordValid('Senha123')).toBe(true);
+    it('deve retornar false para senha sem caractere especial', () => {
+      // Score 4: 8 chars, maiúscula, minúscula, número (falta especial)
+      expect(isPasswordValid('Senha123')).toBe(false);
+    });
+
+    it('deve retornar true para senha forte (score >= 5)', () => {
+      // Score 5+: 8 chars, maiúscula, minúscula, número E especial
+      expect(isPasswordValid('Senha123!')).toBe(true);
     });
   });
 });

@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ScrollView, TouchableOpacity, View } from 'react-native';
 
 import { Button, Card, Input, Text } from '@/design-system';
@@ -12,16 +12,6 @@ export default function ForgotPassword() {
   const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    try {
-      console.log('ForgotPassword mounted');
-    } catch (err) {
-      console.error('Mount error:', err);
-      setError(String(err));
-    }
-  }, []);
 
   async function handleResetPassword() {
     if (!email) {
@@ -44,19 +34,6 @@ export default function ForgotPassword() {
     } finally {
       setLoading(false);
     }
-  }
-
-  if (error) {
-    return (
-      <View style={styles.errorState}>
-        <Text variant="subtitle" tone="error" style={styles.errorTitle}>
-          Erro ao carregar tela
-        </Text>
-        <Text tone="error" style={styles.errorMessage}>
-          {error}
-        </Text>
-      </View>
-    );
   }
 
   return (
@@ -131,18 +108,5 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   backLinkText: {
     fontSize: theme.typography.sm,
-  },
-  errorState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-    backgroundColor: theme.colors.errorBg,
-  },
-  errorTitle: {
-    marginBottom: 8,
-  },
-  errorMessage: {
-    textAlign: 'center',
   },
 }));

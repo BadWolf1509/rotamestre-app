@@ -1,7 +1,33 @@
 /**
  * Basic Field Schemas
  *
- * Reusable Zod schemas for common field types.
+ * Reusable Zod schemas for common field types used across the app.
+ * All schemas include proper error messages in Portuguese.
+ *
+ * Available Schemas:
+ * - emailSchema: Email validation with trimming/lowercase
+ * - passwordSchema: Strong password validation (8+ chars, uppercase, number, special)
+ * - nomeSchema: Person name (3-100 chars, letters only)
+ * - enderecoSchema: Address string (5-200 chars)
+ * - observacoesSchema: Optional notes (max 500 chars)
+ * - coordenadasSchema: Geographic coordinates (lat/lng)
+ *
+ * Helper Functions:
+ * - validatePassword(): Returns detailed validation result with strength
+ * - isValidCoordinates(): Validates lat/lng ranges
+ * - isValidEmail(): Simple email validation
+ *
+ * @example
+ * ```ts
+ * import { emailSchema, passwordSchema } from '@/lib/schemas/basic';
+ *
+ * const loginSchema = z.object({
+ *   email: emailSchema,
+ *   password: passwordSchema,
+ * });
+ * ```
+ *
+ * @see src/utils/passwordValidation.ts for visual password strength feedback
  */
 
 import { z } from 'zod';
@@ -15,7 +41,7 @@ export const PASSWORD_REQUIREMENTS = {
   minLength: PASSWORD_MIN_LENGTH,
   requireUppercase: true,
   requireNumber: true,
-  requireSpecial: false, // Optional for now
+  requireSpecial: true, // Segurança: agora obrigatório
 };
 
 // ============================================================================
@@ -38,6 +64,7 @@ export const emailSchema = z
 
 /**
  * Strong password validation schema
+ * Requer: 8+ caracteres, maiúscula, número e caractere especial
  */
 export const passwordSchema = z
   .string()
@@ -47,6 +74,9 @@ export const passwordSchema = z
   })
   .refine((val) => /[0-9]/.test(val), {
     message: 'Senha deve conter pelo menos um número',
+  })
+  .refine((val) => /[!@#$%^&*(),.?":{}|<>_\-+=[\]\\;'/~`]/.test(val), {
+    message: 'Senha deve conter pelo menos um caractere especial (!@#$%...)',
   });
 
 /**
@@ -71,9 +101,14 @@ export function validatePassword(password: string): {
     errors.push('Precisa de número');
   }
 
+  // Caractere especial agora é obrigatório
+  if (!/[!@#$%^&*(),.?":{}|<>_\-+=[\]\\;'/~`]/.test(password)) {
+    errors.push('Precisa de caractere especial (!@#$%...)');
+  }
+
   // Calculate strength
   let strength: 'weak' | 'medium' | 'strong' = 'weak';
-  const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+  const hasSpecial = /[!@#$%^&*(),.?":{}|<>_\-+=[\]\\;'/~`]/.test(password);
   const hasLower = /[a-z]/.test(password);
   const hasUpper = /[A-Z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
