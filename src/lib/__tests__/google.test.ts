@@ -1,4 +1,4 @@
-import { googleMapsService, getCoordinates } from '../google';
+import { googleMapsService } from '../google';
 import { clearCache } from '../osrm';
 
 // Mock fetch global
@@ -42,29 +42,6 @@ describe('googleMapsService', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         clearCache(); // Limpar cache do OSRM entre testes
-    });
-
-    describe('getCoordinates', () => {
-        it('deve retornar coordenadas quando API responde OK', async () => {
-            mockFetch.mockResolvedValueOnce({
-                json: jest.fn().mockResolvedValue({
-                    status: 'OK',
-                    results: [{ geometry: { location: { lat: 10, lng: 20 } } }],
-                }),
-            });
-
-            const result = await getCoordinates('Rua Teste');
-            expect(result).toEqual({ lat: 10, lng: 20 });
-        });
-
-        it('deve retornar null quando API falha ou não encontra', async () => {
-            mockFetch.mockResolvedValueOnce({
-                json: jest.fn().mockResolvedValue({ status: 'ZERO_RESULTS', results: [] }),
-            });
-
-            const result = await getCoordinates('Rua Inexistente');
-            expect(result).toBeNull();
-        });
     });
 
     describe('autocompleteAddress', () => {
@@ -312,39 +289,6 @@ describe('googleMapsService', () => {
 
             const result = await googleMapsService.getPlaceDetails('invalid');
             expect(result).toBeNull();
-        });
-    });
-
-    describe('geocodeAddress', () => {
-        it('deve geocodificar endereço', async () => {
-            mockFetch.mockResolvedValueOnce({
-                json: jest.fn().mockResolvedValue({
-                    status: 'OK',
-                    results: [{
-                        formatted_address: 'Endereço Formatado',
-                        geometry: { location: { lat: 10, lng: 20 } },
-                        address_components: [],
-                    }],
-                }),
-            });
-
-            const result = await googleMapsService.geocodeAddress('Rua Teste');
-            expect(result).not.toBeNull();
-            expect(result?.coordenadas).toEqual({ latitude: 10, longitude: 20 });
-        });
-    });
-
-    describe('reverseGeocode', () => {
-        it('deve retornar endereço formatado', async () => {
-            mockFetch.mockResolvedValueOnce({
-                json: jest.fn().mockResolvedValue({
-                    status: 'OK',
-                    results: [{ formatted_address: 'Rua Teste, 123' }],
-                }),
-            });
-
-            const result = await googleMapsService.reverseGeocode({ latitude: 10, longitude: 20 });
-            expect(result).toBe('Rua Teste, 123');
         });
     });
 
@@ -764,30 +708,6 @@ describe('googleMapsService', () => {
             mockFetch.mockRejectedValueOnce(new Error('API error'));
 
             const result = await googleMapsService.getPlaceDetails('invalid_id');
-            expect(result).toBeNull();
-        });
-
-        it('geocodeAddress deve retornar null quando não encontra resultados', async () => {
-            mockFetch.mockResolvedValueOnce({
-                json: jest.fn().mockResolvedValue({
-                    status: 'ZERO_RESULTS',
-                    results: [],
-                }),
-            });
-
-            const result = await googleMapsService.geocodeAddress('Endereço Inexistente');
-            expect(result).toBeNull();
-        });
-
-        it('reverseGeocode deve retornar null em caso de erro', async () => {
-            mockFetch.mockResolvedValueOnce({
-                json: jest.fn().mockResolvedValue({
-                    status: 'ERROR',
-                    results: [],
-                }),
-            });
-
-            const result = await googleMapsService.reverseGeocode({ latitude: 999, longitude: 999 });
             expect(result).toBeNull();
         });
     });

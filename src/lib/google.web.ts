@@ -1,8 +1,5 @@
-/* global google */
-
 import {
   type PlaceSuggestion,
-  type GoogleAddressComponent,
   type DistanceMatrixRow,
   type DistanceMatrixElement,
   handleDirectionsError,
@@ -26,61 +23,10 @@ export { RoutesAPIResponse, adaptRoutesAPIResponse, mapRoutesAPIError, parseDura
 // PlaceSuggestion is now exported from google-shared.ts
 export type { PlaceSuggestion } from './google-shared';
 
-// Aguardar Google Maps JavaScript API (se carregada externamente)
-// NOTA: Os componentes de mapa web foram migrados para MapLibre GL JS.
-// As funções de geocoding abaixo ainda dependem da Google Maps JS API quando disponível.
-
-let waitingForGooglePromise: Promise<void> | null = null;
-
-/**
- * Aguarda a Google Maps API estar disponível.
- * NOTA: Os componentes de mapa web foram migrados para MapLibre GL JS.
- * Esta função é usada apenas para funções de geocoding que ainda dependem da Google Maps JS API.
- * TODO: Migrar geocoding para Photon API (gratuito) para eliminar esta dependência.
- */
-async function waitForGoogleMapsAPI(): Promise<void> {
-  if (typeof window === 'undefined') {
-    throw new Error('Window not available');
-  }
-
-  // Se já está carregada, retornar imediatamente
-  if (window.google?.maps) {
-    return;
-  }
-
-  // Se já está aguardando, retornar a mesma promise
-  if (waitingForGooglePromise) {
-    return waitingForGooglePromise;
-  }
-
-  // Aguardar a API ser carregada (por MapaWeb ou outro componente)
-  waitingForGooglePromise = new Promise((resolve, reject) => {
-    const maxWaitTime = 15000; // 15 segundos max
-    const checkInterval = 100; // Verificar a cada 100ms
-    let elapsed = 0;
-
-    const checkLoaded = () => {
-      if (window.google?.maps) {
-        waitingForGooglePromise = null;
-        resolve();
-        return;
-      }
-
-      elapsed += checkInterval;
-      if (elapsed >= maxWaitTime) {
-        waitingForGooglePromise = null;
-        reject(new Error('Timeout waiting for Google Maps API. Ensure MapaWeb is rendered.'));
-        return;
-      }
-
-      setTimeout(checkLoaded, checkInterval);
-    };
-
-    checkLoaded();
-  });
-
-  return waitingForGooglePromise;
-}
+// NOTA: Maps migrado para MapLibre GL JS (grátis!)
+// NOTA: Geocoding migrado para Photon API (grátis!)
+// NOTA: Routing migrado para OSRM (grátis!)
+// Este arquivo mantém apenas funções que ainda usam Edge Functions (autocomplete, place details)
 
 export const googleMapsService = {
   // Autocomplete usando Edge Function (não depende da JS API estar carregada)
@@ -128,85 +74,7 @@ export const googleMapsService = {
     }
   },
 
-  // Geocodificar endereço (endereço -> coordenadas)
-  async geocodeAddress(endereco: string): Promise<EnderecoGeocodificado | null> {
-    try {
-      await waitForGoogleMapsAPI();
-
-      const geocoder = new google.maps.Geocoder();
-
-      return new Promise((resolve) => {
-        geocoder.geocode(
-          {
-            address: endereco,
-            componentRestrictions: { country: 'BR' },
-            language: 'pt-BR',
-          },
-          (results, status) => {
-            if (status === 'OK' && results && results.length > 0) {
-              const result = results[0];
-              const location = result.geometry.location;
-
-              const addressComponents: GoogleAddressComponent[] = result.address_components;
-              const getComponent = (type: string) =>
-                addressComponents.find((c) => c.types.includes(type))?.long_name || '';
-
-              resolve({
-                logradouro: getComponent('route'),
-                numero: getComponent('street_number'),
-                bairro: getComponent('sublocality') || getComponent('neighborhood'),
-                cidade: getComponent('locality') || getComponent('administrative_area_level_2'),
-                estado: getComponent('administrative_area_level_1'),
-                cep: getComponent('postal_code'),
-                coordenadas: {
-                  latitude: location.lat(),
-                  longitude: location.lng(),
-                },
-                formatted_address: result.formatted_address,
-              });
-            } else {
-              logger.error('[Google.web] Geocoding error', { status });
-              resolve(null);
-            }
-          }
-        );
-      });
-    } catch (error) {
-      logger.error('[Google.web] Erro no geocoding', error);
-      return null;
-    }
-  },
-
-  // Geocodificar reverso (coordenadas -> endereço)
-  async reverseGeocode(coords: Coordenadas): Promise<string | null> {
-    try {
-      await waitForGoogleMapsAPI();
-
-      const geocoder = new google.maps.Geocoder();
-
-      return new Promise((resolve) => {
-        geocoder.geocode(
-          {
-            location: { lat: coords.latitude, lng: coords.longitude },
-            language: 'pt-BR',
-          },
-          (results, status) => {
-            if (status === 'OK' && results && results.length > 0) {
-              resolve(results[0].formatted_address);
-            } else {
-              logger.error('[Google.web] Reverse geocoding error', { status });
-              resolve(null);
-            }
-          }
-        );
-      });
-    } catch (error) {
-      logger.error('[Google.web] Erro no reverse geocoding', error);
-      return null;
-    }
-  },
-
-  // Calcular rota entre pontos usando Edge Function (evita dependência da JS API)
+  // Calcular rota entre pontos usando OSRM (gratuito!)
   // Retorna RouteResult com erro detalhado ou resultado
   async getDirections(
     origin: Coordenadas,
@@ -268,7 +136,7 @@ export const googleMapsService = {
     }
   },
 
-  // Calcular rota segmento por segmento usando Edge Function (respeita ordem manual)
+  // Calcular rota segmento por segmento usando OSRM (respeita ordem manual)
   async getDirectionsSequential(
     origin: Coordenadas,
     destination: Coordenadas,
@@ -326,6 +194,7 @@ export const googleMapsService = {
       return failure(error);
     }
   },
+
   // Calcular matriz de distâncias usando Edge Function (não depende da JS API)
   async getDistanceMatrix(origins: Coordenadas[], destinations: Coordenadas[]) {
     try {
@@ -368,15 +237,3 @@ export const googleMapsService = {
     }
   },
 };
-
-// Helper function: retorna apenas as coordenadas (simplificado)
-export async function getCoordinates(endereco: string): Promise<{ lat: number; lng: number } | null> {
-  const result = await googleMapsService.geocodeAddress(endereco);
-  if (result) {
-    return {
-      lat: result.coordenadas.latitude,
-      lng: result.coordenadas.longitude,
-    };
-  }
-  return null;
-}

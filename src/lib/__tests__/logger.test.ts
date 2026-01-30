@@ -270,4 +270,156 @@ describe('logger', () => {
       expect(consoleLogSpy).toHaveBeenCalledWith('[PERF] 🚀 errorOp: 150ms');
     });
   });
+
+  describe('network', () => {
+    it('should log network request without status', () => {
+      logger.network('GET', '/api/users');
+
+      expect(consoleLogSpy).toHaveBeenCalledWith('[NET] 🌐 GET /api/users');
+    });
+
+    it('should log network request with status and duration', () => {
+      logger.network('POST', '/api/routes', 201, 150);
+
+      expect(consoleLogSpy).toHaveBeenCalledWith('[NET] 🌐 POST /api/routes → 201 (150ms)');
+    });
+
+    it('should log network error with warning emoji', () => {
+      logger.network('GET', '/api/users', 404, 50);
+
+      expect(consoleLogSpy).toHaveBeenCalledWith('[NET] ⚠️ GET /api/users → 404 (50ms)');
+    });
+
+    it('should log network error with error message', () => {
+      logger.network('POST', '/api/data', undefined, undefined, 'Network error');
+
+      expect(consoleLogSpy).toHaveBeenCalledWith('[NET] ❌ POST /api/data - Network error');
+    });
+  });
+
+  describe('action', () => {
+    it('should log user action', () => {
+      logger.action('button_click', 'Save Route');
+
+      expect(consoleLogSpy).toHaveBeenCalledWith('[ACTION] 👆 button_click: Save Route', '');
+    });
+
+    it('should log user action with data', () => {
+      logger.action('form_submit', 'Create Route', { routeId: '123' });
+
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        '[ACTION] 👆 form_submit: Create Route',
+        { routeId: '123' }
+      );
+    });
+
+    it('should sanitize sensitive data in actions', () => {
+      logger.action('login', 'User logged in', { email: 'test@example.com' });
+
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        '[ACTION] 👆 login: User logged in',
+        { email: '[REDACTED]' }
+      );
+    });
+  });
+
+  describe('breadcrumbs', () => {
+    beforeEach(() => {
+      logger.clearBreadcrumbs();
+    });
+
+    it('should collect breadcrumbs from actions', () => {
+      logger.action('click', 'Button A');
+      logger.action('click', 'Button B');
+
+      const crumbs = logger.getBreadcrumbs();
+
+      expect(crumbs).toHaveLength(2);
+      expect(crumbs[0].message).toBe('click: Button A');
+      expect(crumbs[1].message).toBe('click: Button B');
+    });
+
+    it('should collect breadcrumbs from network calls', () => {
+      logger.network('GET', '/api/users', 200, 50);
+
+      const crumbs = logger.getBreadcrumbs();
+
+      expect(crumbs).toHaveLength(1);
+      expect(crumbs[0].type).toBe('network');
+      expect(crumbs[0].message).toContain('GET /api/users');
+    });
+
+    it('should limit breadcrumbs to MAX_BREADCRUMBS', () => {
+      // Add more than MAX_BREADCRUMBS (50)
+      for (let i = 0; i < 60; i++) {
+        logger.action('click', `Button ${i}`);
+      }
+
+      const crumbs = logger.getBreadcrumbs();
+
+      expect(crumbs.length).toBeLessThanOrEqual(50);
+      // Should have the most recent ones
+      expect(crumbs[crumbs.length - 1].message).toBe('click: Button 59');
+    });
+
+    it('should clear breadcrumbs', () => {
+      logger.action('click', 'Button');
+      logger.clearBreadcrumbs();
+
+      const crumbs = logger.getBreadcrumbs();
+
+      expect(crumbs).toHaveLength(0);
+    });
+  });
+
+  describe('operation tracking', () => {
+    let consoleGroupSpy: jest.SpyInstance;
+    let consoleGroupEndSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      consoleGroupSpy = jest.spyOn(console, 'group').mockImplementation();
+      consoleGroupEndSpy = jest.spyOn(console, 'groupEnd').mockImplementation();
+      logger.clearBreadcrumbs();
+    });
+
+    afterEach(() => {
+      consoleGroupSpy.mockRestore();
+      consoleGroupEndSpy.mockRestore();
+    });
+
+    it('should start operation and return correlation ID', () => {
+      const correlationId = logger.startOperation('Create Route');
+
+      expect(correlationId).toBeDefined();
+      expect(correlationId.length).toBe(6);
+      expect(consoleGroupSpy).toHaveBeenCalledWith(expect.stringContaining('Create Route'));
+    });
+
+    it('should end operation', () => {
+      logger.startOperation('Test Op');
+      logger.endOperation(true);
+
+      expect(consoleGroupEndSpy).toHaveBeenCalled();
+    });
+
+    it('should track correlation ID', () => {
+      const id = logger.startOperation('Test');
+
+      expect(logger.getCorrelationId()).toBe(id);
+
+      logger.endOperation();
+
+      expect(logger.getCorrelationId()).toBeNull();
+    });
+
+    it('should add operation to breadcrumbs', () => {
+      logger.startOperation('Important Op');
+      logger.endOperation(false);
+
+      const crumbs = logger.getBreadcrumbs();
+
+      expect(crumbs.some(c => c.message.includes('Started: Important Op'))).toBe(true);
+      expect(crumbs.some(c => c.message.includes('Ended: failure'))).toBe(true);
+    });
+  });
 });

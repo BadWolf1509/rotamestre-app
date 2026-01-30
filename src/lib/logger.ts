@@ -1,14 +1,44 @@
 /**
- * Logger seguro para produção
+ * Secure Logger for Production
  *
- * - Em desenvolvimento (__DEV__): loga normalmente
- * - Em produção: filtra dados sensíveis e só loga erros
+ * Features:
+ * - Development (__DEV__): Full logging with all details
+ * - Production: Only errors, with sensitive data redacted
+ * - Automatic sanitization of passwords, tokens, emails, CPF, CNPJ
+ * - Performance timing with visual indicators
+ * - Breadcrumb trail for debugging user flows
+ * - Network request/response logging
+ * - Correlation IDs for tracking operations across components
  *
- * USO:
+ * Log Levels:
+ * - debug: Detailed debugging (DEV only)
+ * - info: General information (DEV only)
+ * - warn: Warnings (DEV only)
+ * - error: Errors (always logged, sanitized in production)
+ * - api: API operations (DEV only)
+ * - navigation: Screen navigation (DEV only)
+ * - perf: Performance metrics (DEV only)
+ * - network: HTTP requests/responses (DEV only)
+ * - action: User actions for debugging (DEV only)
+ *
+ * @example
+ * ```ts
  * import { logger } from '@/lib/logger';
- * logger.info('Operação realizada'); // Só aparece em DEV
- * logger.error('Falha na operação'); // Aparece sempre (sem dados sensíveis)
- * logger.warn('Aviso'); // Só aparece em DEV
+ *
+ * // Basic logging
+ * logger.info('Route created');
+ * logger.error('Failed to save', error);
+ *
+ * // Track user actions (breadcrumb trail)
+ * logger.action('button_click', 'Save Route');
+ * logger.action('navigation', 'Dashboard → RouteDetails');
+ *
+ * // Network logging
+ * logger.network('POST', '/api/routes', 201, 150);
+ *
+ * // Get breadcrumbs for error reporting
+ * const breadcrumbs = logger.getBreadcrumbs();
+ * ```
  */
 
 // Campos que NUNCA devem ser logados
@@ -81,6 +111,56 @@ function sanitize(data: unknown): unknown {
  */
 function formatArgs(args: unknown[]): unknown[] {
   return args.map(sanitize);
+}
+
+// ============================================================================
+// BREADCRUMB SYSTEM
+// ============================================================================
+
+interface Breadcrumb {
+  timestamp: number;
+  type: 'action' | 'navigation' | 'network' | 'error' | 'info';
+  message: string;
+  data?: Record<string, unknown>;
+}
+
+const MAX_BREADCRUMBS = 50;
+const breadcrumbs: Breadcrumb[] = [];
+
+/**
+ * Adds a breadcrumb to the trail (for debugging)
+ */
+function addBreadcrumb(
+  type: Breadcrumb['type'],
+  message: string,
+  data?: Record<string, unknown>
+): void {
+  const breadcrumb: Breadcrumb = {
+    timestamp: Date.now(),
+    type,
+    message,
+    data: data ? (sanitize(data) as Record<string, unknown>) : undefined,
+  };
+
+  breadcrumbs.push(breadcrumb);
+
+  // Keep only last MAX_BREADCRUMBS
+  if (breadcrumbs.length > MAX_BREADCRUMBS) {
+    breadcrumbs.shift();
+  }
+}
+
+// ============================================================================
+// CORRELATION ID
+// ============================================================================
+
+let currentCorrelationId: string | null = null;
+
+/**
+ * Generates a short correlation ID for tracking operations
+ */
+function generateCorrelationId(): string {
+  return Math.random().toString(36).substring(2, 8);
 }
 
 /**
@@ -159,6 +239,93 @@ export const logger = {
       console.log(`[PERF] ${emoji} ${operation}: ${durationMs}ms`);
     }
   },
+
+  /**
+   * Log de requisição HTTP - útil para debugging de API
+   */
+  network: (
+    method: string,
+    url: string,
+    status?: number,
+    durationMs?: number,
+    error?: string
+  ) => {
+    const message = status
+      ? `${method} ${url} → ${status}${durationMs ? ` (${durationMs}ms)` : ''}`
+      : `${method} ${url}`;
+
+    addBreadcrumb('network', message, { method, url, status, durationMs, error });
+
+    if (__DEV__) {
+      const emoji = error ? '❌' : status && status >= 400 ? '⚠️' : '🌐';
+      if (error) {
+        console.log(`[NET] ${emoji} ${message} - ${error}`);
+      } else {
+        console.log(`[NET] ${emoji} ${message}`);
+      }
+    }
+  },
+
+  /**
+   * Log de ação do usuário - cria breadcrumb trail
+   * Útil para entender fluxo do usuário antes de um erro
+   */
+  action: (type: string, detail: string, data?: Record<string, unknown>) => {
+    const message = `${type}: ${detail}`;
+    addBreadcrumb('action', message, data);
+
+    if (__DEV__) {
+      console.log(`[ACTION] 👆 ${message}`, data ? formatArgs([data])[0] : '');
+    }
+  },
+
+  /**
+   * Retorna breadcrumbs para relatório de erro
+   * Útil para enviar contexto quando ocorre um erro
+   */
+  getBreadcrumbs: (): Breadcrumb[] => {
+    return [...breadcrumbs];
+  },
+
+  /**
+   * Limpa breadcrumbs (ex: após login)
+   */
+  clearBreadcrumbs: () => {
+    breadcrumbs.length = 0;
+  },
+
+  /**
+   * Inicia um grupo de operações correlacionadas
+   * Retorna um correlation ID para rastrear logs relacionados
+   */
+  startOperation: (name: string): string => {
+    currentCorrelationId = generateCorrelationId();
+    if (__DEV__) {
+      console.group(`[OP:${currentCorrelationId}] ${name}`);
+    }
+    addBreadcrumb('info', `Started: ${name}`, { correlationId: currentCorrelationId });
+    return currentCorrelationId;
+  },
+
+  /**
+   * Finaliza um grupo de operações
+   */
+  endOperation: (success: boolean = true) => {
+    if (__DEV__) {
+      console.groupEnd();
+    }
+    if (currentCorrelationId) {
+      addBreadcrumb('info', `Ended: ${success ? 'success' : 'failure'}`, {
+        correlationId: currentCorrelationId,
+      });
+    }
+    currentCorrelationId = null;
+  },
+
+  /**
+   * Retorna o correlation ID atual (para incluir em requests)
+   */
+  getCorrelationId: (): string | null => currentCorrelationId,
 };
 
 /**
@@ -183,5 +350,8 @@ export function measureTime<T>(
     throw error;
   }
 }
+
+// Export types
+export type { Breadcrumb };
 
 export default logger;

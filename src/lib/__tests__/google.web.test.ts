@@ -2,7 +2,6 @@ import { Platform } from 'react-native';
 
 import {
   googleMapsService,
-  getCoordinates,
   decodePolyline,
   encodePolyline,
   mergePolylines,
@@ -88,39 +87,6 @@ describe('google maps helpers', () => {
     const mergedPoints = decodePolyline(merged);
 
     expect(mergedPoints).toHaveLength(3);
-  });
-
-  it('getCoordinates trata erro de fetch', async () => {
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-    mockFetch.mockRejectedValueOnce(new Error('network error'));
-
-    const result = await getCoordinates('Rua Teste');
-
-    expect(result).toBeNull();
-    expect(consoleSpy).toHaveBeenCalled();
-    consoleSpy.mockRestore();
-  });
-
-  it('geocodeAddress trata erro de fetch', async () => {
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-    mockFetch.mockRejectedValueOnce(new Error('network error'));
-
-    const result = await googleMapsService.geocodeAddress('Rua Teste');
-
-    expect(result).toBeNull();
-    expect(consoleSpy).toHaveBeenCalled();
-    consoleSpy.mockRestore();
-  });
-
-  it('reverseGeocode trata erro de fetch', async () => {
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-    mockFetch.mockRejectedValueOnce(new Error('network error'));
-
-    const result = await googleMapsService.reverseGeocode({ latitude: 1, longitude: 2 });
-
-    expect(result).toBeNull();
-    expect(consoleSpy).toHaveBeenCalled();
-    consoleSpy.mockRestore();
   });
 
   it('getDirectionsWithError usa OSRM (gratuito!) no web', async () => {

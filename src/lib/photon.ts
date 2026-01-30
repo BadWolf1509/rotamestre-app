@@ -18,6 +18,7 @@
  * @see https://github.com/komoot/photon
  */
 
+import { CACHE_TTL, getCache, setCache } from '@/lib/cache';
 import { logger } from '@/lib/logger';
 
 import type { PlaceSuggestion } from './google-shared';
@@ -279,6 +280,19 @@ export const photonService = {
       return [];
     }
 
+    // Cache key baseada na query normalizada e location bias
+    const normalizedInput = input.toLowerCase().trim();
+    const biasKey = locationBias
+      ? `_${locationBias.latitude.toFixed(2)}_${locationBias.longitude.toFixed(2)}`
+      : '';
+    const cacheKey = `photon_autocomplete_${normalizedInput}${biasKey}`;
+
+    // Verificar cache primeiro
+    const cached = await getCache<PhotonPlaceSuggestion[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     try {
       // Remover número da query para melhorar resultados
       // O Photon prioriza endereços com números cadastrados no OSM,
@@ -335,7 +349,14 @@ export const photonService = {
         (f) => f.properties.countrycode === 'BR'
       );
 
-      return brazilFeatures.map(featureToSuggestion);
+      const suggestions = brazilFeatures.map(featureToSuggestion);
+
+      // Salvar no cache (5 minutos)
+      if (suggestions.length > 0) {
+        await setCache(cacheKey, suggestions, CACHE_TTL.AUTOCOMPLETE);
+      }
+
+      return suggestions;
     } catch (error) {
       if ((error as Error).name === 'AbortError') {
         logger.warn('[Photon] Request timeout');
@@ -374,6 +395,16 @@ export const photonService = {
       return null;
     }
 
+    // Cache key baseada no endereço normalizado
+    const normalizedEndereco = endereco.toLowerCase().trim();
+    const cacheKey = `photon_geocode_${normalizedEndereco}`;
+
+    // Verificar cache primeiro
+    const cached = await getCache<EnderecoGeocodificado>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     try {
       const params = new URLSearchParams({
         q: endereco,
@@ -399,7 +430,12 @@ export const photonService = {
         return null;
       }
 
-      return featureToEndereco(feature);
+      const result = featureToEndereco(feature);
+
+      // Salvar no cache (30 minutos - endereços não mudam)
+      await setCache(cacheKey, result, CACHE_TTL.GEOCODING);
+
+      return result;
     } catch (error) {
       logger.error('[Photon] Erro no geocoding', error);
       return null;
@@ -413,6 +449,15 @@ export const photonService = {
    * @returns Endereço formatado ou null
    */
   async reverseGeocode(coords: Coordenadas): Promise<string | null> {
+    // Cache key baseada nas coordenadas (arredondadas para 5 casas decimais ~1m precisão)
+    const cacheKey = `photon_reverse_${coords.latitude.toFixed(5)}_${coords.longitude.toFixed(5)}`;
+
+    // Verificar cache primeiro
+    const cached = await getCache<string>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     try {
       const params = new URLSearchParams({
         lat: String(coords.latitude),
@@ -434,7 +479,12 @@ export const photonService = {
         return null;
       }
 
-      return formatAddress(data.features[0].properties);
+      const address = formatAddress(data.features[0].properties);
+
+      // Salvar no cache (30 minutos - endereços não mudam)
+      await setCache(cacheKey, address, CACHE_TTL.GEOCODING);
+
+      return address;
     } catch (error) {
       logger.error('[Photon] Erro no reverse geocoding', error);
       return null;
@@ -460,6 +510,15 @@ export const photonService = {
    * @returns Endereço geocodificado completo ou null
    */
   async reverseGeocodeDetailed(coords: Coordenadas): Promise<EnderecoGeocodificado | null> {
+    // Cache key baseada nas coordenadas
+    const cacheKey = `photon_reverse_detailed_${coords.latitude.toFixed(5)}_${coords.longitude.toFixed(5)}`;
+
+    // Verificar cache primeiro
+    const cached = await getCache<EnderecoGeocodificado>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     try {
       const params = new URLSearchParams({
         lat: String(coords.latitude),
@@ -479,7 +538,12 @@ export const photonService = {
         return null;
       }
 
-      return featureToEndereco(data.features[0]);
+      const result = featureToEndereco(data.features[0]);
+
+      // Salvar no cache (30 minutos)
+      await setCache(cacheKey, result, CACHE_TTL.GEOCODING);
+
+      return result;
     } catch (error) {
       logger.error('[Photon] Erro no reverse geocoding detalhado', error);
       return null;

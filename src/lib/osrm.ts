@@ -749,17 +749,26 @@ async function getOptimizedCircularRoute(
 
     const trip = data.trips[0];
 
-    // Extrair ordem otimizada dos waypoints (excluindo origem que é índice 0)
-    // waypoint_index indica a posição no array de entrada
-    const waypointOrder = data.waypoints
-      .filter(wp => wp.waypoint_index > 0) // Excluir origem
-      .sort((a, b) => {
-        // Ordenar pela ordem em que aparecem na trip
-        const aLegIndex = data.waypoints.findIndex(w => w.waypoint_index === a.waypoint_index);
-        const bLegIndex = data.waypoints.findIndex(w => w.waypoint_index === b.waypoint_index);
-        return aLegIndex - bLegIndex;
-      })
-      .map(wp => wp.waypoint_index - 1); // Ajustar índice (remover offset da origem)
+    // Extrair ordem otimizada dos waypoints
+    // IMPORTANTE: data.waypoints mantém a ORDEM DE ENTRADA
+    // waypoint_index indica a POSIÇÃO NA TRIP OTIMIZADA
+    //
+    // Exemplo: entrada [origem, A, B, C], trip otimizada visita na ordem [origem, B, A, C]
+    // data.waypoints[0] (origem): waypoint_index = 0
+    // data.waypoints[1] (A): waypoint_index = 2 (visitado em 3º lugar)
+    // data.waypoints[2] (B): waypoint_index = 1 (visitado em 2º lugar)
+    // data.waypoints[3] (C): waypoint_index = 3 (visitado em 4º lugar)
+    //
+    // Para obter a ordem otimizada, ordenamos pelo waypoint_index e pegamos os índices originais
+    const waypointsComIndice = data.waypoints
+      .map((wp, indiceOriginal) => ({ indiceOriginal, posicaoNaTrip: wp.waypoint_index }))
+      .filter(wp => wp.indiceOriginal > 0); // Excluir origem (índice 0)
+
+    // Ordenar pela posição na trip otimizada
+    waypointsComIndice.sort((a, b) => a.posicaoNaTrip - b.posicaoNaTrip);
+
+    // Extrair índices originais (ajustados: -1 porque origem não conta nas paradas)
+    const waypointOrder = waypointsComIndice.map(wp => wp.indiceOriginal - 1);
 
     // Construir legs
     const legs: DirectionsResultLeg[] = trip.legs.map((leg, index) => {
