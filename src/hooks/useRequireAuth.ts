@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 
 import { useAuth } from './useAuth';
 import { useUser } from './useUser';
+import { logger } from '../lib/logger';
 
 type RequiredRole = 'gestor' | 'motorista' | 'any';
 
@@ -59,7 +60,26 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
 
     // Se user existe mas userData ainda está carregando, aguardar
     // Isso evita race condition após login quando useUser ainda não carregou
-    if (userLoading || !userData) {
+    if (userLoading) {
+      return;
+    }
+
+    // userData ausente após carregamento -> tratar como não autorizado
+    if (!userData) {
+      logger.warn('[Auth] userData ausente após carregar. Redirecionando para login.');
+      setIsReady(true);
+      setIsAuthorized(false);
+      router.replace(redirectTo);
+      return;
+    }
+
+    // IMPORTANTE: Verificar se usuário precisa trocar senha (primeira_senha)
+    // Isso evita tela branca caso o usuário acesse diretamente uma rota protegida
+    if (userData.primeira_senha === true) {
+      logger.warn('[Auth] Usuário precisa trocar senha. Redirecionando para first-password.');
+      setIsReady(true);
+      setIsAuthorized(false);
+      router.replace('/onboarding/first-password');
       return;
     }
 

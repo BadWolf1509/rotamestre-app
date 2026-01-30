@@ -205,14 +205,16 @@ describe('useRequireAuth', () => {
       expect(result.current.isLoading).toBe(true);
     });
 
-    it('deve aguardar quando userData não está disponível', async () => {
+    it('deve aguardar quando userData ainda está carregando', async () => {
       mockUserData = null;
       mockUser = { id: 'user-1' };
+      mockUserLoading = true; // userData ainda carregando
 
       const { result } = renderHook(() => useRequireAuth());
 
-      // Não deve redirecionar enquanto userData não carregou
+      // Não deve marcar como ready enquanto userData está carregando
       expect(result.current.isReady).toBe(false);
+      expect(result.current.isLoading).toBe(true);
     });
   });
 

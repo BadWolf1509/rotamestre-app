@@ -80,7 +80,23 @@ export function useUser() {
       .eq('id', userId)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      // Fallback para query simples (evita falhas por RLS em joins)
+      logger.warn('[useUser] Query completa falhou, tentando fallback simples', error);
+      const { data: basicData, error: basicError } = await supabase
+        .from('usuarios')
+        .select('*, unidades(*)')
+        .eq('id', userId)
+        .single();
+
+      if (basicError) throw basicError;
+
+      return {
+        ...basicData,
+        usuario_unidades: basicData?.usuario_unidades ?? [],
+      } as Usuario;
+    }
+
     return data;
   }, [userId]);
 
