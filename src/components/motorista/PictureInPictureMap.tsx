@@ -1,3 +1,51 @@
+/**
+ * PictureInPictureMap - Floating Mini Map Component (Native)
+ *
+ * A draggable, expandable mini-map overlay that shows the user's current
+ * location and destination during navigation. Optimized for React Native.
+ *
+ * ## Features
+ * - **Draggable**: Snap to left/right edges with spring animation
+ * - **Expandable**: Double-tap or button to expand to 90% width
+ * - **Swipe to close**: Quick swipe down dismisses the PiP
+ * - **Haptic feedback**: Touch feedback on all interactions
+ * - **Position persistence**: Remembers last position across sessions
+ * - **Collision avoidance**: Auto-repositions to avoid FABs/bottom sheets
+ * - **Real-time route**: Shows OSRM route polyline
+ * - **ETA display**: Distance and time to destination
+ * - **Pulse animation**: Pulses when near destination (<100m)
+ *
+ * ## Gestures
+ * - **Tap**: No action (allows map interaction when expanded)
+ * - **Double-tap**: Toggle expand/collapse
+ * - **Drag**: Move PiP, snaps to nearest edge on release
+ * - **Swipe down**: Close PiP (velocity > 1.5, distance > 50px)
+ *
+ * ## Performance
+ * - Uses Animated API with spring physics
+ * - Refs for stable closures in PanResponder
+ * - Memoized calculations for route shape
+ * - Safe area aware positioning
+ *
+ * @example
+ * ```tsx
+ * <PictureInPictureMap
+ *   visible={showPiP}
+ *   userLocation={{ latitude: -23.55, longitude: -46.63 }}
+ *   destination={{ latitude: -23.56, longitude: -46.64, address: 'Rua...' }}
+ *   onClose={() => setShowPiP(false)}
+ *   onExpand={() => openFullNavigation()}
+ *   progress={{ completed: 2, total: 5 }}
+ *   currentStopOrder={3}
+ *   stopType="entrega"
+ * />
+ * ```
+ *
+ * @see PictureInPictureMap.web.tsx for web version
+ * @see usePiPRouteInfo for route calculation logic
+ * @see usePiPPosition for position persistence
+ */
+
 import { Ionicons } from '@expo/vector-icons';
 import MapLibreGL, { type CameraRef } from '@maplibre/maplibre-react-native';
 import * as Haptics from 'expo-haptics';
@@ -15,10 +63,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
+  ANDROID_MIN_NAV_BAR_HEIGHT,
   DOUBLE_TAP_DELAY,
   EDGE_PADDING,
+  MIN_SAFE_TOP_POSITION,
+  OPACITY_ANIMATION_DURATION,
   PIP_HEIGHT,
   PIP_WIDTH,
+  SWIPE_VELOCITY_THRESHOLD,
   TAB_BAR_BASE_HEIGHT,
   usePiPRouteInfo,
 } from '@/hooks/navigation';
@@ -53,19 +105,19 @@ export function PictureInPictureMap({
   const expandedHeight = useMemo(() => screenHeight * 0.4, [screenHeight]);
 
   // Refs para bounds seguros (atualizados quando insets ou dimensões mudam)
-  // Usa Math.max para garantir mínimo de 34px (Android 15 pode retornar insets.bottom = 0)
+  // Usa Math.max para garantir mínimo (Android 15 pode retornar insets.bottom = 0)
   const safeTopBoundRef = useRef(insets.top + 10);
-  const safeBottomBoundRef = useRef(screenHeight - PIP_HEIGHT - TAB_BAR_BASE_HEIGHT - Math.max(insets.bottom, 34) - EDGE_PADDING);
+  const safeBottomBoundRef = useRef(screenHeight - PIP_HEIGHT - TAB_BAR_BASE_HEIGHT - Math.max(insets.bottom, ANDROID_MIN_NAV_BAR_HEIGHT) - EDGE_PADDING);
 
   // Atualizar refs quando insets ou dimensões mudarem
   useEffect(() => {
     safeTopBoundRef.current = insets.top + 10;
-    safeBottomBoundRef.current = screenHeight - PIP_HEIGHT - TAB_BAR_BASE_HEIGHT - Math.max(insets.bottom, 34) - EDGE_PADDING;
+    safeBottomBoundRef.current = screenHeight - PIP_HEIGHT - TAB_BAR_BASE_HEIGHT - Math.max(insets.bottom, ANDROID_MIN_NAV_BAR_HEIGHT) - EDGE_PADDING;
   }, [insets.top, insets.bottom, screenHeight]);
 
   // Posição inicial (usa posição salva ou canto superior direito)
   const defaultX = screenWidth - PIP_WIDTH - EDGE_PADDING;
-  const defaultY = Math.max(safeTopBoundRef.current, 100);
+  const defaultY = Math.max(safeTopBoundRef.current, MIN_SAFE_TOP_POSITION);
   // Usa posição salva se disponível e válida para as dimensões atuais
   const initialX = savedPosition
     ? Math.max(EDGE_PADDING, Math.min(savedPosition.x, screenWidth - PIP_WIDTH - EDGE_PADDING))
@@ -305,8 +357,8 @@ export function PictureInPictureMap({
         // Consolidar offset com valor atual
         pan.flattenOffset();
 
-        // Detectar swipe para baixo rápido (velocidade > 1.5 e distância > 50px)
-        if (gestureState.vy > 1.5 && gestureState.dy > 50) {
+        // Detectar swipe para baixo rápido (velocidade > threshold e distância > 50px)
+        if (gestureState.vy > SWIPE_VELOCITY_THRESHOLD && gestureState.dy > 50) {
           // Swipe down - fechar com animação
           if (Platform.OS !== 'web') {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -358,7 +410,7 @@ export function PictureInPictureMap({
   useEffect(() => {
     Animated.timing(opacity, {
       toValue: visible ? 1 : 0,
-      duration: 300,
+      duration: OPACITY_ANIMATION_DURATION,
       useNativeDriver: false, // Deve ser false pois width/height no mesmo View não suportam native driver
     }).start();
   }, [opacity, visible]);
@@ -404,7 +456,7 @@ export function PictureInPictureMap({
         Animated.spring(pan, {
           toValue: {
             x: screenWidth - PIP_WIDTH - EDGE_PADDING,
-            y: Math.max(safeTopBoundRef.current, 100),
+            y: Math.max(safeTopBoundRef.current, MIN_SAFE_TOP_POSITION),
           },
           useNativeDriver: false,
           tension: 40,

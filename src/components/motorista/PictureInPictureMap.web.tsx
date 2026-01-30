@@ -1,3 +1,51 @@
+/**
+ * PictureInPictureMap - Floating Mini Map Component (Web)
+ *
+ * A draggable, expandable mini-map overlay that shows the user's current
+ * location and destination during navigation. Optimized for web browsers.
+ *
+ * ## Features
+ * - **Draggable**: Snap to left/right edges with CSS transitions
+ * - **Expandable**: Double-click or button to expand to 90% width
+ * - **Swipe to close**: Quick swipe down dismisses the PiP (touch devices)
+ * - **Position persistence**: Remembers last position across sessions
+ * - **Collision avoidance**: Auto-repositions to avoid FABs/bottom sheets
+ * - **Real-time route**: Shows OSRM route polyline via MapLibre GL JS
+ * - **ETA display**: Distance and time to destination
+ * - **Pulse animation**: CSS animation when near destination (<100m)
+ * - **Fallback UI**: Shows Google Maps link if map fails to load
+ *
+ * ## Interactions
+ * - **Click**: No action (allows map interaction when expanded)
+ * - **Double-click**: Toggle expand/collapse
+ * - **Drag (mouse)**: Move PiP, snaps to nearest edge on release
+ * - **Drag (touch)**: Same as mouse, optimized for touch devices
+ * - **Swipe down**: Close PiP (distance > 100px)
+ *
+ * ## Performance
+ * - MapLibre GL JS for hardware-accelerated rendering
+ * - OpenFreeMap tiles (free, no API key required)
+ * - CSS transitions instead of JS animations where possible
+ * - Marker refs to avoid recreation on updates
+ *
+ * @example
+ * ```tsx
+ * <PictureInPictureMap
+ *   visible={showPiP}
+ *   userLocation={{ latitude: -23.55, longitude: -46.63 }}
+ *   destination={{ latitude: -23.56, longitude: -46.64, address: 'Rua...' }}
+ *   onClose={() => setShowPiP(false)}
+ *   onExpand={() => openFullNavigation()}
+ *   progress={{ completed: 2, total: 5 }}
+ *   stopType="entrega"
+ * />
+ * ```
+ *
+ * @see PictureInPictureMap.tsx for native version
+ * @see usePiPRouteInfo for route calculation logic
+ * @see usePiPCollisionDetection for collision avoidance logic
+ */
+
 import { Ionicons } from '@expo/vector-icons';
 import maplibregl from 'maplibre-gl';
 import React, { useState, useRef, useCallback, useEffect } from 'react';

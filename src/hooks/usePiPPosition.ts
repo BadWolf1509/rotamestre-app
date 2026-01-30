@@ -1,27 +1,75 @@
+/**
+ * usePiPPosition - PiP Position Persistence Hook
+ *
+ * Persists the user's preferred PiP (Picture-in-Picture) window position
+ * across app sessions using AsyncStorage. When the user drags the PiP
+ * to a new position, it's saved and restored on next app launch.
+ *
+ * ## Features
+ * - **Persistence**: Saves position to AsyncStorage
+ * - **Validation**: Validates loaded data has correct structure
+ * - **Error handling**: Graceful fallback on storage errors
+ * - **Loading state**: Indicates when initial position is being loaded
+ *
+ * ## Storage Key
+ * `@rotamestre:pip_position`
+ *
+ * ## Data Format
+ * ```json
+ * { "x": 200, "y": 100 }
+ * ```
+ *
+ * @example
+ * ```tsx
+ * function MyPiPComponent() {
+ *   const { savedPosition, savePosition, isLoading } = usePiPPosition();
+ *
+ *   // Use savedPosition as initial position
+ *   const [position, setPosition] = useState(
+ *     savedPosition ?? { x: 100, y: 100 }
+ *   );
+ *
+ *   // Save on drag end
+ *   const handleDragEnd = (newPos) => {
+ *     setPosition(newPos);
+ *     savePosition(newPos);
+ *   };
+ * }
+ * ```
+ *
+ * @see PictureInPictureMap for usage context
+ */
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
 
+/** Storage key for PiP position */
 const STORAGE_KEY = '@rotamestre:pip_position';
 
+/** Screen position coordinates */
 interface PiPPosition {
+  /** X coordinate (pixels from left edge) */
   x: number;
+  /** Y coordinate (pixels from top edge) */
   y: number;
 }
 
+/** Return type for usePiPPosition hook */
 interface UsePiPPositionReturn {
-  /** Posição salva (pode ser undefined se não houver posição salva) */
+  /** Saved position (undefined if no saved position or still loading) */
   savedPosition: PiPPosition | undefined;
-  /** Salvar nova posição */
+  /** Save a new position to storage */
   savePosition: (position: PiPPosition) => Promise<void>;
-  /** Se está carregando a posição inicial */
+  /** Whether initial position is being loaded from storage */
   isLoading: boolean;
-  /** Limpar posição salva */
+  /** Clear saved position from storage */
   clearPosition: () => Promise<void>;
 }
 
 /**
- * Hook para persistir a posição preferida do PiP
- * Usa AsyncStorage para salvar a última posição após drag
+ * Hook for persisting PiP window position across sessions.
+ *
+ * @returns Object containing saved position, save/clear functions, and loading state
  */
 export function usePiPPosition(): UsePiPPositionReturn {
   const [savedPosition, setSavedPosition] = useState<PiPPosition | undefined>(undefined);

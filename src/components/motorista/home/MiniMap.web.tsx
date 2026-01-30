@@ -7,7 +7,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { useRouteDirections } from '@/hooks/useRouteDirections';
 import { getOpenFreeMapStyle, installOpenFreeMapMissingImageHandler } from '@/lib/openFreeMapStyle';
-import { boxShadow, withOpacity } from '@/utils/color';
+import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface Parada {
@@ -686,61 +686,5 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  overlayMarker: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: theme.colors.white,
-    backgroundColor: theme.colors.gray500,
-  },
-  overlayMarkerText: {
-    color: theme.colors.white,
-    fontSize: theme.typography.fontSize.xs,
-    fontWeight: '700',
-  },
-  overlayMarkerPending: {
-    backgroundColor: theme.colors.gray500,
-  },
-  overlayMarkerNext: {
-    backgroundColor: theme.colors.warning,
-    width: 34, // Maior que os outros (28)
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 3, // Borda mais grossa
-    // Web box-shadow para efeito de glow
-    boxShadow: boxShadow(0, 0, 8, 2, theme.colors.warning, 0.6),
-  },
-  overlayMarkerConcluida: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: theme.colors.success,
-    opacity: 0.5,
-  },
-  overlayMarkerCheckpoint: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: theme.colors.primary,
-  },
-  overlayUserMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: withOpacity(theme.colors.info, 0.2),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  overlayUserDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6, // Metade de 12px para círculo perfeito
-    backgroundColor: theme.colors.info,
-    borderWidth: 2,
-    borderColor: theme.colors.white,
   },
 }));
