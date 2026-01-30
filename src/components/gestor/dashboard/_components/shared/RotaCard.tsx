@@ -1,4 +1,22 @@
-import { memo } from 'react';
+/**
+ * RotaCard - Route summary card for dashboard
+ *
+ * Displays a route's key information: driver name, date, status, and progress.
+ * Used in both mobile (card list) and desktop (within RotasTable) views.
+ *
+ * Features:
+ * - Status badge with color coding
+ * - Progress bar showing completed/total stops
+ * - Distance display
+ * - Touch handling for navigation to details
+ *
+ * Performance Optimizations:
+ * - Memoized with custom comparison function
+ * - useMemo for computed values (progressPercent, statusColor, statusLabel)
+ * - Only re-renders when id, status, or paradas counts change
+ */
+
+import { memo, useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 
 import { formatDateBR } from '@/lib/dateUtils';
@@ -7,7 +25,9 @@ import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 import type { RotaResumo } from '../../_hooks/useDashboardData';
 
 interface RotaCardProps {
+  /** Route data to display */
   rota: RotaResumo;
+  /** Callback when card is pressed */
   onPress?: () => void;
 }
 
@@ -48,11 +68,14 @@ function getStatusLabel(status: string): string {
 export const RotaCard = memo(function RotaCard({ rota, onPress }: RotaCardProps) {
   const { theme } = useUnistyles();
 
-  const progressPercent = rota.total_paradas > 0
-    ? (rota.paradas_concluidas / rota.total_paradas) * 100
-    : 0;
-
-  const statusColor = getStatusColor(rota.status, theme);
+  // Memoize computed values para evitar recálculo a cada render
+  const { progressPercent, statusColor, statusLabel } = useMemo(() => ({
+    progressPercent: rota.total_paradas > 0
+      ? (rota.paradas_concluidas / rota.total_paradas) * 100
+      : 0,
+    statusColor: getStatusColor(rota.status, theme),
+    statusLabel: getStatusLabel(rota.status),
+  }), [rota.total_paradas, rota.paradas_concluidas, rota.status, theme]);
 
   return (
     <TouchableOpacity
@@ -68,7 +91,7 @@ export const RotaCard = memo(function RotaCard({ rota, onPress }: RotaCardProps)
         </Text>
         <View style={[styles.badge, { backgroundColor: statusColor }]}>
           <Text style={styles.badgeText}>
-            {getStatusLabel(rota.status)}
+            {statusLabel}
           </Text>
         </View>
       </View>

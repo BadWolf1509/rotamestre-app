@@ -553,9 +553,12 @@ describe('ErrorBoundary Component', () => {
       const Ionicons = require('@expo/vector-icons').Ionicons;
       const icons = UNSAFE_getAllByType(Ionicons);
 
-      // Deve ter 2 icones: o principal e o do botao
-      expect(icons.length).toBe(2);
+      // Deve ter 4 icones: alert, refresh, home, bug
+      expect(icons.length).toBe(4);
+      expect(icons[0].props.name).toBe('alert-circle-outline');
       expect(icons[1].props.name).toBe('refresh-outline');
+      expect(icons[2].props.name).toBe('home-outline');
+      expect(icons[3].props.name).toBe('bug-outline');
     });
 
     it('deve mostrar mensagem de erro em modo DEV', () => {
@@ -568,8 +571,10 @@ describe('ErrorBoundary Component', () => {
         </ErrorBoundary>
       );
 
-      // Em modo DEV, deve mostrar a mensagem de erro
-      expect(getByText(errorMessage)).toBeTruthy();
+      // Em modo DEV, deve mostrar o label e a mensagem de erro
+      expect(getByText('Detalhes (DEV):')).toBeTruthy();
+      // A mensagem agora inclui o tipo do erro (Error: message)
+      expect(getByText(/Mensagem de erro detalhada/)).toBeTruthy();
     });
   });
 
@@ -680,6 +685,50 @@ describe('ErrorBoundary Component', () => {
       );
 
       expect(getByText('Algo deu errado')).toBeTruthy();
+    });
+  });
+
+  describe('Botoes Secundarios', () => {
+    it('deve renderizar botao Inicio por padrao', () => {
+      const { getByLabelText, getByText } = render(
+        <ErrorBoundary>
+          <ThrowError shouldThrow={true} />
+        </ErrorBoundary>
+      );
+
+      expect(getByLabelText('Voltar ao início')).toBeTruthy();
+      expect(getByText('Início')).toBeTruthy();
+    });
+
+    it('deve renderizar botao Reportar por padrao', () => {
+      const { getByLabelText, getByText } = render(
+        <ErrorBoundary>
+          <ThrowError shouldThrow={true} />
+        </ErrorBoundary>
+      );
+
+      expect(getByLabelText('Reportar problema')).toBeTruthy();
+      expect(getByText('Reportar')).toBeTruthy();
+    });
+
+    it('deve ocultar botao Inicio quando showGoHome=false', () => {
+      const { queryByLabelText } = render(
+        <ErrorBoundary showGoHome={false}>
+          <ThrowError shouldThrow={true} />
+        </ErrorBoundary>
+      );
+
+      expect(queryByLabelText('Voltar ao início')).toBeNull();
+    });
+
+    it('deve ocultar botao Reportar quando showReportBug=false', () => {
+      const { queryByLabelText } = render(
+        <ErrorBoundary showReportBug={false}>
+          <ThrowError shouldThrow={true} />
+        </ErrorBoundary>
+      );
+
+      expect(queryByLabelText('Reportar problema')).toBeNull();
     });
   });
 

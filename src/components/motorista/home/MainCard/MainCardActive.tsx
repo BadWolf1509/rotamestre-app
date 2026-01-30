@@ -1,9 +1,24 @@
 /**
- * MainCardActive - Content for active/last-stop states
+ * MainCardActive - Content for active route states
+ *
+ * Displays the current stop information with swipe actions for the motorista.
+ * Used in both 'active' (route in progress) and 'last-stop' (final delivery) states.
+ *
+ * Features:
+ * - Swipe left to skip stop
+ * - Swipe right to complete stop
+ * - Shows distance/duration to current stop
+ * - Displays next stop preview
+ * - Expiration warning for time-sensitive deliveries
+ *
+ * Performance Optimizations:
+ * - Memoized with React.memo for shallow prop comparison
+ * - useMemo for computed values (paradasReais, upcomingStop, swipeActions)
+ * - Prevents unnecessary SwipeableRow re-renders
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
 
 import { SwipeableRow } from '@/components/SwipeableRow';
@@ -54,16 +69,20 @@ export const MainCardActive = memo(function MainCardActive({
 }: MainCardActiveProps) {
   const { theme } = useUnistyles();
 
-  const paradasReais = filterRealStops(paradas);
+  // Memoize paradas reais para evitar recálculo a cada render
+  const paradasReais = useMemo(() => filterRealStops(paradas), [paradas]);
 
-  // Encontrar próxima parada
-  const upcomingStop = nextStop || paradas.find(p =>
-    p.is_checkpoint !== false &&
-    p.status === 'pendente' &&
-    p.id !== currentStop?.id
-  );
+  // Memoize próxima parada
+  const upcomingStop = useMemo(() => (
+    nextStop || paradas.find(p =>
+      p.is_checkpoint !== false &&
+      p.status === 'pendente' &&
+      p.id !== currentStop?.id
+    )
+  ), [nextStop, paradas, currentStop?.id]);
 
-  const swipeActions = {
+  // Memoize swipe actions para evitar re-render do SwipeableRow
+  const swipeActions = useMemo(() => ({
     leftActions: [{
       icon: 'checkmark-circle' as const,
       label: 'Concluir',
@@ -76,7 +95,7 @@ export const MainCardActive = memo(function MainCardActive({
       color: theme.colors.warning,
       onPress: onSwipeLeft || (() => {}),
     }],
-  };
+  }), [theme.colors.success, theme.colors.warning, onSwipeRight, onSwipeLeft]);
 
   return (
     <>

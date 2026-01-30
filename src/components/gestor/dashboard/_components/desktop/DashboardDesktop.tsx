@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { View, TouchableOpacity, RefreshControl } from 'react-native';
 
 import { RouteFilters } from '@/components/RouteFilters';
@@ -64,22 +64,25 @@ export function DashboardDesktop({
     type: 'info',
   });
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info') => {
+  // Memoize showToast para evitar recriação
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info') => {
     setToast({ visible: true, message, type });
-  };
+  }, []);
 
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
     userImageUrl: userData?.foto_url,
   });
 
-  const handleDeleteRota = async (rotaId: string) => {
+  // Memoize delete handler para evitar re-render do RotasTable
+  const handleDeleteRota = useCallback((rotaId: string) => {
     // Usar ConfirmModal em todas as plataformas para UX consistente
     setRotaToDelete(rotaId);
     setShowConfirmModal(true);
-  };
+  }, []);
 
-  const executeDelete = async (rotaId: string) => {
+  // Memoize execute delete
+  const executeDelete = useCallback(async (rotaId: string) => {
     try {
       const { error } = await supabase
         .from('rotas')
@@ -94,20 +97,32 @@ export function DashboardDesktop({
       logger.error('Erro ao excluir rota:', error);
       showToast('Erro ao excluir a rota', 'error');
     }
-  };
+  }, [showToast, onRefresh]);
 
-  const handleConfirmDelete = () => {
+  // Memoize confirm handler
+  const handleConfirmDelete = useCallback(() => {
     setShowConfirmModal(false);
     if (rotaToDelete) {
       executeDelete(rotaToDelete);
       setRotaToDelete(null);
     }
-  };
+  }, [rotaToDelete, executeDelete]);
 
-  const handleCancelDelete = () => {
+  // Memoize cancel handler
+  const handleCancelDelete = useCallback(() => {
     setShowConfirmModal(false);
     setRotaToDelete(null);
-  };
+  }, []);
+
+  // Memoize view details handler
+  const handleViewDetails = useCallback((rotaId: string) => {
+    router.push(`/gestor/mapa-rota?id=${rotaId}`);
+  }, [router]);
+
+  // Memoize toast dismiss
+  const handleToastDismiss = useCallback(() => {
+    setToast(prev => ({ ...prev, visible: false }));
+  }, []);
 
   return (
     <>
@@ -205,7 +220,7 @@ export function DashboardDesktop({
 
           <RotasTable
             rotas={rotas}
-            onViewDetails={(rotaId) => router.push(`/gestor/mapa-rota?id=${rotaId}`)}
+            onViewDetails={handleViewDetails}
             onDelete={handleDeleteRota}
           />
         </View>
@@ -227,7 +242,7 @@ export function DashboardDesktop({
         visible={toast.visible}
         message={toast.message}
         type={toast.type}
-        onDismiss={() => setToast({ ...toast, visible: false })}
+        onDismiss={handleToastDismiss}
       />
       {logoutModal}
     </>

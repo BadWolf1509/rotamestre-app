@@ -6,9 +6,9 @@
 import React from 'react';
 import { Animated } from 'react-native';
 
+import { useMainCardData } from '@/hooks/main-card-data';
 import { useDistanceToStop } from '@/hooks/useDistanceToStop';
 import { useMainCardAnimations } from '@/hooks/useMainCardAnimations';
-import { useMainCardData } from '@/hooks/useMainCardData';
 import { useMilestones } from '@/hooks/useMilestones';
 import { useSwipeHint } from '@/hooks/useSwipeHint';
 import { useUser } from '@/hooks/useUser';

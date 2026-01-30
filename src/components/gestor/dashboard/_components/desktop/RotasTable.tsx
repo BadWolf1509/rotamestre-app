@@ -1,3 +1,4 @@
+import React, { useMemo } from 'react';
 import { View } from 'react-native';
 
 import {
@@ -26,21 +27,8 @@ interface RotasTableProps {
  * Responsive: Cards on mobile, Table on desktop
  */
 export function RotasTable({ rotas, onViewDetails, onDelete }: RotasTableProps) {
-  if (rotas.length === 0) {
-    return (
-      <View testID="rotas-table">
-        <EmptyState
-          icon="map-outline"
-          title="Nenhuma rota cadastrada hoje"
-          description="Crie sua primeira rota de entrega"
-          style={styles.emptyState}
-        />
-      </View>
-    );
-  }
-
-  // Define columns for DataTable using design-system renderers
-  const columns: DataTableColumn<RotaResumo>[] = [
+  // Memoize columns para evitar re-render de todas as linhas da tabela
+  const columns = useMemo<DataTableColumn<RotaResumo>[]>(() => [
     {
       key: 'motorista_nome',
       label: 'Motorista',
@@ -79,27 +67,44 @@ export function RotasTable({ rotas, onViewDetails, onDelete }: RotasTableProps) 
       align: 'center',
       render: (rota) => <DistanceCell km={rota.distancia_total} />,
     },
-  ];
+  ], []);
 
-  // Define actions for DataTable
-  const actions: DataTableAction<RotaResumo>[] = [];
+  // Memoize actions para evitar re-render desnecessário
+  const actions = useMemo<DataTableAction<RotaResumo>[]>(() => {
+    const result: DataTableAction<RotaResumo>[] = [];
 
-  if (onViewDetails) {
-    actions.push({
-      icon: 'eye-outline',
-      label: 'Detalhes',
-      type: 'primary',
-      onPress: (rota) => onViewDetails(rota.id),
-    });
-  }
+    if (onViewDetails) {
+      result.push({
+        icon: 'eye-outline',
+        label: 'Detalhes',
+        type: 'primary',
+        onPress: (rota) => onViewDetails(rota.id),
+      });
+    }
 
-  if (onDelete) {
-    actions.push({
-      icon: 'trash-outline',
-      label: 'Excluir',
-      type: 'danger',
-      onPress: (rota) => onDelete(rota.id),
-    });
+    if (onDelete) {
+      result.push({
+        icon: 'trash-outline',
+        label: 'Excluir',
+        type: 'danger',
+        onPress: (rota) => onDelete(rota.id),
+      });
+    }
+
+    return result;
+  }, [onViewDetails, onDelete]);
+
+  if (rotas.length === 0) {
+    return (
+      <View testID="rotas-table">
+        <EmptyState
+          icon="map-outline"
+          title="Nenhuma rota cadastrada hoje"
+          description="Crie sua primeira rota de entrega"
+          style={styles.emptyState}
+        />
+      </View>
+    );
   }
 
   return (

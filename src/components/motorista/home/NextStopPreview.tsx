@@ -1,10 +1,23 @@
 /**
- * Preview colapsável da próxima parada
- * Mostra informação resumida da próxima parada quando em estado active
+ * NextStopPreview - Collapsible preview of the upcoming stop
+ *
+ * Shows condensed information about the next stop when the motorista
+ * is currently handling another stop. Expands on tap to show full details.
+ *
+ * Features:
+ * - Expandable/collapsible with smooth animation
+ * - Shows distance and duration to next stop
+ * - Displays recipient and address info
+ * - Delivery/pickup type indicator
+ *
+ * Performance Optimizations:
+ * - useMemo for destination coordinates (prevents useDistanceToStop re-fetch)
+ * - useMemo for truncated address (string operations)
+ * - useCallback for toggleExpand handler
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   LayoutAnimation,
   Platform,
@@ -48,22 +61,31 @@ export function NextStopPreview({
   const { theme } = useUnistyles();
   const [expanded, setExpanded] = useState(false);
 
+  // Memoize destination para evitar recriação de objeto a cada render
+  const destination = useMemo(() => ({
+    latitude: nextStop.latitude,
+    longitude: nextStop.longitude,
+  }), [nextStop.latitude, nextStop.longitude]);
+
   // Calcular distância até a próxima parada
   const distanceInfo = useDistanceToStop(
     currentLocation,
-    { latitude: nextStop.latitude, longitude: nextStop.longitude },
+    destination,
     { enabled: !!currentLocation }
   );
 
-  const toggleExpand = () => {
+  // Memoize toggle para evitar recriação a cada render
+  const toggleExpand = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpanded(!expanded);
-  };
+    setExpanded(prev => !prev);
+  }, []);
 
-  // Truncar endereço se muito longo
-  const truncatedAddress = nextStop.endereco.length > 40 && !expanded
-    ? nextStop.endereco.substring(0, 40) + '...'
-    : nextStop.endereco;
+  // Memoize truncatedAddress para evitar recálculo de string
+  const truncatedAddress = useMemo(() => (
+    nextStop.endereco.length > 40 && !expanded
+      ? nextStop.endereco.substring(0, 40) + '...'
+      : nextStop.endereco
+  ), [nextStop.endereco, expanded]);
 
   return (
     <TouchableOpacity
