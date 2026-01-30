@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Switch,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemeSettings } from '@/components/ThemeSettings';
 import { MobileCard, Text } from '@/design-system';
@@ -31,6 +32,7 @@ const EXPORT_OPTIONS: { value: ExportFormat; label: string; icon: string }[] = [
 
 export default function ConfiguracoesGestorScreen() {
   const { theme } = useUnistyles();
+  const insets = useSafeAreaInsets();
   const { showSuccess, showError, showConfirm, AlertDialog } = useAlert();
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -161,7 +163,10 @@ export default function ConfiguracoesGestorScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+    >
       {/* Notificações */}
       <MobileCard title="Notificações">
         <View style={styles.settingRow}>

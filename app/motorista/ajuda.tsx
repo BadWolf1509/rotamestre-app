@@ -7,6 +7,7 @@ import {
   Linking,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAlert } from '@/hooks/useAlert';
 import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
@@ -96,6 +97,7 @@ const SUPPORT_OPTIONS = [
 
 export default function AjudaScreen() {
   const { theme: _theme } = useUnistyles();
+  const insets = useSafeAreaInsets();
   const { showWarning, showError, AlertDialog } = useAlert();
   const [expandedFAQ, setExpandedFAQ] = useState<string | null>(null);
 
@@ -142,7 +144,10 @@ export default function AjudaScreen() {
   }
 
   return (
-      <ScrollView style={styles.container}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+      >
         {/* FAQ Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Perguntas Frequentes</Text>

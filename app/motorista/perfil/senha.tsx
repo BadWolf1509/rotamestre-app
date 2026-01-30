@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Input, Text } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
@@ -12,6 +13,7 @@ import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 export default function AlterarSenha() {
   const { theme } = useUnistyles();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
   const [saving, setSaving] = useState(false);
 
@@ -35,12 +37,12 @@ export default function AlterarSenha() {
     }
 
     if (novaSenha.length < 6) {
-      showWarning('Erro', 'A nova senha deve ter no minimo 6 caracteres');
+      showWarning('Erro', 'A nova senha deve ter no mínimo 6 caracteres');
       return;
     }
 
     if (novaSenha !== confirmarSenha) {
-      showWarning('Erro', 'As senhas nao coincidem');
+      showWarning('Erro', 'As senhas não coincidem');
       return;
     }
 
@@ -54,7 +56,7 @@ export default function AlterarSenha() {
     try {
       const session = await authService.getSession();
       if (!session?.user?.email) {
-        throw new Error('Sessao nao encontrada');
+        throw new Error('Sessão não encontrada');
       }
 
       try {
@@ -87,13 +89,13 @@ export default function AlterarSenha() {
     message: string;
   } {
     if (password.length < 6) {
-      return { isValid: false, message: 'Minimo 6 caracteres' };
+      return { isValid: false, message: 'Mínimo 6 caracteres' };
     }
     if (password.length >= 6 && password.length < 8) {
       return { isValid: true, message: 'Senha fraca' };
     }
     if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
-      return { isValid: true, message: 'Senha media' };
+      return { isValid: true, message: 'Senha média' };
     }
     return { isValid: true, message: 'Senha forte' };
   }
@@ -103,7 +105,10 @@ export default function AlterarSenha() {
 
   return (
     <View style={styles(theme).container}>
-      <ScrollView style={styles(theme).scrollView}>
+      <ScrollView
+        style={styles(theme).scrollView}
+        contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+      >
         <View style={styles(theme).header}>
           <View style={styles(theme).headerContent}>
             <Text style={styles(theme).headerSubtitle}>
@@ -174,14 +179,14 @@ export default function AlterarSenha() {
                   : styles(theme).helperTextError,
               ]}
             >
-              {passwordsMatch ? 'Senhas coincidem' : 'Senhas nao coincidem'}
+              {passwordsMatch ? 'Senhas coincidem' : 'Senhas não coincidem'}
             </Text>
           )}
 
           <View style={styles(theme).tipsContainer}>
             <Text style={styles(theme).tipsTitle}>Dicas para uma senha forte:</Text>
-            <Text style={styles(theme).tipText}>- Minimo de 6 caracteres</Text>
-            <Text style={styles(theme).tipText}>- Use letras maiusculas e minusculas</Text>
+            <Text style={styles(theme).tipText}>- Mínimo de 6 caracteres</Text>
+            <Text style={styles(theme).tipText}>- Use letras maiúsculas e minúsculas</Text>
             <Text style={styles(theme).tipText}>- Inclua numeros</Text>
             <Text style={styles(theme).tipText}>
               - Adicione caracteres especiais (@, #, $, etc.)

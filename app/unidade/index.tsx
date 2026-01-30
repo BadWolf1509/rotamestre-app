@@ -8,6 +8,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
@@ -49,6 +50,7 @@ const formatCnpj = (value?: string | null): string => {
 export default function UnidadeScreen() {
   const router = useRouter();
   const { theme } = useUnistyles();
+  const insets = useSafeAreaInsets();
   const { userData, loading: userLoading } = useUser();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
@@ -393,7 +395,10 @@ export default function UnidadeScreen() {
 
   return (
     <ErrorBoundary>
-      <ScrollView style={styles.container}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+      >
         <View style={styles.content}>
           {isGestorPrincipal && !editMode && (
             <View style={styles.mobileEditButtonContainer}>

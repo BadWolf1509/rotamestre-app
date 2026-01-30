@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FormDesktopLayout } from '@/components/perfil/FormDesktopLayout';
 import { Button, Input, Text } from '@/design-system';
@@ -15,6 +16,7 @@ export default function AlterarSenha() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { isDesktop } = useResponsive();
+  const insets = useSafeAreaInsets();
   const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
   const [saving, setSaving] = useState(false);
 
@@ -44,7 +46,7 @@ export default function AlterarSenha() {
     }
 
     if (novaSenha !== confirmarSenha) {
-      showWarning('Erro', 'As senhas nao coincidem');
+      showWarning('Erro', 'As senhas não coincidem');
       return;
     }
 
@@ -58,7 +60,7 @@ export default function AlterarSenha() {
     try {
       const session = await authService.getSession();
       if (!session?.user?.email) {
-        throw new Error('Sessao nao encontrada');
+        throw new Error('Sessão não encontrada');
       }
 
       try {
@@ -92,19 +94,19 @@ export default function AlterarSenha() {
     strength: 'weak' | 'medium' | 'strong' | 'invalid';
   } {
     if (password.length < 8) {
-      return { isValid: false, message: 'Minimo 8 caracteres', strength: 'invalid' };
+      return { isValid: false, message: 'Mínimo 8 caracteres', strength: 'invalid' };
     }
 
     if (!/[A-Z]/.test(password)) {
-      return { isValid: false, message: 'Deve conter letra maiuscula', strength: 'invalid' };
+      return { isValid: false, message: 'Deve conter letra maiúscula', strength: 'invalid' };
     }
 
     if (!/[a-z]/.test(password)) {
-      return { isValid: false, message: 'Deve conter letra minuscula', strength: 'invalid' };
+      return { isValid: false, message: 'Deve conter letra minúscula', strength: 'invalid' };
     }
 
     if (!/[0-9]/.test(password)) {
-      return { isValid: false, message: 'Deve conter numero', strength: 'invalid' };
+      return { isValid: false, message: 'Deve conter número', strength: 'invalid' };
     }
 
     const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
@@ -163,14 +165,14 @@ export default function AlterarSenha() {
         autoCapitalize: 'none' as const,
         helperText: confirmarSenha && passwordsMatch ? 'Senhas coincidem' : undefined,
         helperTextType: passwordsMatch ? 'success' as const : undefined,
-        error: confirmarSenha && !passwordsMatch ? 'Senhas nao coincidem' : undefined,
+        error: confirmarSenha && !passwordsMatch ? 'Senhas não coincidem' : undefined,
       },
     ];
 
     const sidePanel = (
       <View style={desktopStyles(theme).sidePanel}>
         <View style={desktopStyles(theme).tipsCard}>
-          <Text style={desktopStyles(theme).tipsTitle}>Requisitos obrigatorios:</Text>
+          <Text style={desktopStyles(theme).tipsTitle}>Requisitos obrigatórios:</Text>
           <View style={desktopStyles(theme).tipsList}>
             <View style={desktopStyles(theme).tipRow}>
               <Ionicons
@@ -269,7 +271,10 @@ export default function AlterarSenha() {
 
   return (
     <View style={styles(theme).container}>
-      <ScrollView style={styles(theme).scrollView}>
+      <ScrollView
+        style={styles(theme).scrollView}
+        contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+      >
         <View style={styles(theme).header}>
           <View style={styles(theme).headerContent}>
             <Text style={styles(theme).headerSubtitle}>
@@ -338,12 +343,12 @@ export default function AlterarSenha() {
                   : styles(theme).helperTextError,
               ]}
             >
-              {passwordsMatch ? 'Senhas coincidem' : 'Senhas nao coincidem'}
+              {passwordsMatch ? 'Senhas coincidem' : 'Senhas não coincidem'}
             </Text>
           )}
 
           <View style={styles(theme).tipsContainer}>
-            <Text style={styles(theme).tipsTitle}>Requisitos obrigatorios:</Text>
+            <Text style={styles(theme).tipsTitle}>Requisitos obrigatórios:</Text>
             <View style={styles(theme).tipRow}>
               <Ionicons
                 name={novaSenha.length >= 8 ? 'checkmark-circle' : 'ellipse-outline'}

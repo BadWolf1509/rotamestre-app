@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UnistylesRuntime } from 'react-native-unistyles';
 
 import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
@@ -26,6 +27,7 @@ export default function Login() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { isDesktop } = useResponsive();
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -210,7 +212,7 @@ export default function Login() {
   // RENDER: Mobile/Tablet (Vertical Centered)
   // ============================================
   return (
-    <View style={styles.container} testID="auth-login-view">
+    <View style={[styles.container, { paddingBottom: Math.max(20, insets.bottom + 20) }]} testID="auth-login-view">
       <View style={styles.header}>
         <View style={styles.logoHorizontal}>
           <Image

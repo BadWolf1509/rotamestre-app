@@ -10,6 +10,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useRouteStatus } from '@/context/RouteStatusContext';
 import { useAlert } from '@/hooks/useAlert';
@@ -30,6 +31,7 @@ const EMERGENCY_CONTACTS = [
 
 export default function SOSScreen() {
   const { theme } = useUnistyles();
+  const insets = useSafeAreaInsets();
   const { userData, loading: userLoading } = useUser();
   const routeStatus = useRouteStatus();
   const { showWarning, showSuccess, showError, showConfirm, AlertDialog } = useAlert();
@@ -193,7 +195,10 @@ export default function SOSScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+    >
         {/* Botão Grande de Emergência */}
         <View style={styles.emergencySection}>
           <TouchableOpacity

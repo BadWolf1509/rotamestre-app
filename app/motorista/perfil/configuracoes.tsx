@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Switch,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NavigationSettings } from '@/components/motorista/NavigationSettings';
 import { ThemeSettings } from '@/components/ThemeSettings';
@@ -25,6 +26,7 @@ const STORAGE_KEYS = {
 export default function ConfiguracoesScreen() {
   const { theme } = useUnistyles();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { showSuccess, showError, showConfirm, AlertDialog } = useAlert();
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -95,7 +97,10 @@ export default function ConfiguracoesScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+    >
       {/* Navegação - Usando NavigationSettings inline */}
       <MobileCard title="Navegação">
         <NavigationSettings variant="inline" />

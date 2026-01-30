@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UnistylesRuntime } from 'react-native-unistyles';
 
 import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
@@ -22,6 +23,7 @@ export default function ResetPassword() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { isDesktop } = useResponsive();
+  const insets = useSafeAreaInsets();
   const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -147,7 +149,7 @@ export default function ResetPassword() {
   // RENDER: Mobile/Tablet
   // ============================================
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: Math.max(20, insets.bottom + 20) }]}>
       <View style={styles.header}>
         <View style={styles.logoHorizontal}>
           <Image

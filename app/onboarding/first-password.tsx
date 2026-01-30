@@ -1,10 +1,9 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
-import { ResponsiveContainer } from '@/components/ResponsiveContainer';
 import { Button, Card, Input, Text } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
 import { useProfile } from '@/hooks/useProfile';
@@ -18,6 +17,7 @@ import type { User } from '@supabase/supabase-js';
 export default function FirstPasswordScreen() {
   const router = useRouter();
   const { isDesktop } = useResponsive();
+  const insets = useSafeAreaInsets();
   const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
   const [user, setUser] = useState<User | null>(null);
   const { profile } = useProfile(user);
@@ -44,14 +44,14 @@ export default function FirstPasswordScreen() {
     }
 
     if (newPassword !== confirmPassword) {
-      showWarning('Erro', 'As senhas nao coincidem');
+      showWarning('Erro', 'As senhas não coincidem');
       return;
     }
 
     if (!isPasswordValid(newPassword)) {
       showWarning(
         'Senha Fraca',
-        'A senha nao atende aos requisitos minimos de seguranca. Por favor, crie uma senha mais forte.'
+        'A senha não atende aos requisitos mínimos de segurança. Por favor, crie uma senha mais forte.'
       );
       return;
     }
@@ -59,26 +59,26 @@ export default function FirstPasswordScreen() {
     try {
       setLoading(true);
 
-      // Verificar se ha uma sessao ativa
+      // Verificar se há uma sessão ativa
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
-        showWarning('Erro', 'Sessao expirada. Por favor, faca login novamente.');
+        showWarning('Erro', 'Sessão expirada. Por favor, faça login novamente.');
         await supabase.auth.signOut();
         router.replace('/auth/login');
         return;
       }
 
-      // Verificar se o perfil esta carregado
+      // Verificar se o perfil está carregado
       if (!user || !profile) {
-        showWarning('Erro', 'Nao foi possivel carregar os dados do usuario.');
+        showWarning('Erro', 'Não foi possível carregar os dados do usuário.');
         setLoading(false);
         return;
       }
 
-      // Seguranca: verificar se realmente esta marcado como primeira_senha
+      // Segurança: verificar se realmente está marcado como primeira_senha
       if (profile.primeira_senha !== true) {
-        console.warn('Usuario tentou acessar first-password sem estar marcado como primeira_senha');
+        console.warn('Usuário tentou acessar first-password sem estar marcado como primeira_senha');
         const targetRoute = profile.papel === 'gestor' ? '/gestor/inicio' : '/motorista';
         router.replace(targetRoute);
         return;
@@ -93,8 +93,8 @@ export default function FirstPasswordScreen() {
         if (updateError.message.includes('should be different') ||
             updateError.message.includes('same')) {
           showWarning(
-            'Senha Invalida',
-            'A nova senha nao pode ser igual a senha temporaria que voce recebeu. Por favor, escolha uma senha diferente.'
+            'Senha Inválida',
+            'A nova senha não pode ser igual à senha temporária que você recebeu. Por favor, escolha uma senha diferente.'
           );
           setLoading(false);
           return;
@@ -135,11 +135,15 @@ export default function FirstPasswordScreen() {
   }
 
   return (
-    <ResponsiveContainer>
+    <View style={styles.wrapper}>
       {AlertDialog}
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(20, insets.bottom + 20) },
+        ]}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={[styles.content, isDesktop && styles.contentDesktop]}>
           <Card padding="large" style={styles.card} testID="onboarding-first-password-card">
@@ -220,14 +224,17 @@ export default function FirstPasswordScreen() {
           </Card>
         </View>
       </ScrollView>
-    </ResponsiveContainer>
+    </View>
   );
 }
 
 const styles = StyleSheet.create((theme: Theme) => ({
-  container: {
+  wrapper: {
     flex: 1,
     backgroundColor: theme.colors.gray50,
+  },
+  container: {
+    flex: 1,
   },
   scrollContent: {
     flexGrow: 1,

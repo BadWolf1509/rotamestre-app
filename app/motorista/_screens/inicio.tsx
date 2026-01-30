@@ -34,7 +34,7 @@ function MotoristaInicioContent() {
   const { theme } = useUnistyles();
   const { userData } = useUser();
   const { showWarning, showSuccess, showError, showConfirm, AlertDialog } = useAlert();
-  useSafeAreaInsets(); // Mantido para compatibilidade futura
+  const insets = useSafeAreaInsets();
 
   // Route context
   const {
@@ -427,8 +427,8 @@ function MotoristaInicioContent() {
           styles.scrollContent,
           {
             paddingBottom: (routeStatus === 'no-route' || routeStatus === 'pending')
-              ? 16
-              : 72
+              ? Math.max(16, insets.bottom + 16)
+              : Math.max(72, insets.bottom + 72)
           },
         ]}
         refreshControl={

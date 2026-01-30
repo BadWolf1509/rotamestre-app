@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useRouter, useSegments } from 'expo-router';
+import { useEffect, useState, useRef } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 
 import { authService } from '@/lib/auth';
@@ -21,7 +21,9 @@ import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 export default function Index() {
   const { theme } = useUnistyles();
   const router = useRouter();
+  const segments = useSegments();
   const [loading, setLoading] = useState(true);
+  const hasRedirected = useRef(false);
 
   useEffect(() => {
     checkSessionAndRedirect();
@@ -29,10 +31,24 @@ export default function Index() {
   }, []);
 
   async function checkSessionAndRedirect() {
+    // Evitar redirecionamentos duplicados
+    if (hasRedirected.current) {
+      setLoading(false);
+      return;
+    }
+
+    // Se já estamos em uma rota autenticada, não fazer nada
+    const currentRoute = segments[0];
+    if (currentRoute === 'gestor' || currentRoute === 'motorista') {
+      logger.debug('📍 Já em rota autenticada, ignorando verificação');
+      setLoading(false);
+      return;
+    }
+
     try {
       // Add timeout to prevent hanging in CI when Supabase isn't configured
       // See: https://github.com/supabase/supabase/issues/35754
-      const SESSION_TIMEOUT = 5000; // 5 seconds
+      const SESSION_TIMEOUT = 10000; // 10 seconds (increased for slow emulators)
       const sessionPromise = authService.getSession();
       const timeoutPromise = new Promise<null>((resolve) => {
         setTimeout(() => {
@@ -44,13 +60,29 @@ export default function Index() {
       const session = await Promise.race([sessionPromise, timeoutPromise]);
 
       if (session?.user) {
-        // Usuário autenticado: redireciona para área correspondente
-        const tipo = await authService.verificarTipoUsuario(session.user.id);
+        // Usuário autenticado: buscar dados completos para verificar primeira_senha
+        const usuario = await authService.getUsuario(session.user.id);
 
-        if (tipo === 'gestor') {
+        if (!usuario) {
+          logger.warn('⚠️ Usuário não encontrado no banco, redirecionando para login');
+          hasRedirected.current = true;
+          router.replace('/auth/login');
+          return;
+        }
+
+        // IMPORTANTE: Verificar se precisa trocar senha antes de redirecionar
+        if (usuario.primeira_senha === true) {
+          logger.debug('🔐 Usuário precisa trocar senha → /onboarding/first-password');
+          hasRedirected.current = true;
+          router.replace('/onboarding/first-password');
+          return;
+        }
+
+        hasRedirected.current = true;
+        if (usuario.papel === 'gestor') {
           logger.debug('✅ Usuário autenticado como gestor → /gestor/inicio');
           router.replace('/gestor/inicio');
-        } else if (tipo === 'motorista') {
+        } else if (usuario.papel === 'motorista') {
           logger.debug('✅ Usuário autenticado como motorista → /motorista');
           router.replace('/motorista');
         } else {
@@ -60,6 +92,7 @@ export default function Index() {
         }
       } else {
         // Não autenticado: redireciona para login
+        hasRedirected.current = true;
         logger.debug('👤 Usuário não autenticado → /auth/login');
         router.replace('/auth/login');
       }

@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Dialog, Input, Text } from '@/design-system';
 import { authService } from '@/lib/auth';
@@ -12,6 +13,7 @@ import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 export default function EditarPerfil() {
   const { theme } = useUnistyles();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [usuario, setUsuario] = useState<Usuario | null>(null);
@@ -66,11 +68,11 @@ export default function EditarPerfil() {
         setTelefone(userData?.telefone || '');
       }
     } catch (error) {
-      logger.error('Erro ao carregar usuario:', error);
+      logger.error('Erro ao carregar usuário:', error);
       setAlertConfig({
         visible: true,
         title: 'Erro ao carregar dados',
-        message: 'Nao foi possivel carregar o seu perfil. Tente novamente.',
+        message: 'Não foi possível carregar o seu perfil. Tente novamente.',
         type: 'error',
         confirmText: 'OK',
         onConfirm: () => router.back(),
@@ -97,7 +99,7 @@ export default function EditarPerfil() {
 
     if (telefone && !/^\(\d{2}\)\s\d{4,5}-\d{4}$/.test(telefone)) {
       showAlert({
-        title: 'Telefone invalido',
+        title: 'Telefone inválido',
         message: 'Use o formato (11) 99999-9999.',
         type: 'error',
       });
@@ -107,7 +109,7 @@ export default function EditarPerfil() {
     setSaving(true);
 
     try {
-      if (!usuario?.id) throw new Error('Usuario nao encontrado');
+      if (!usuario?.id) throw new Error('Usuário não encontrado');
 
       const { error } = await supabase
         .from('usuarios')
@@ -165,7 +167,10 @@ export default function EditarPerfil() {
 
   return (
     <View style={styles(theme).container}>
-      <ScrollView style={styles(theme).scrollView}>
+      <ScrollView
+        style={styles(theme).scrollView}
+        contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+      >
         <View style={styles(theme).header}>
           <View style={styles(theme).headerContent}>
             <Text style={styles(theme).headerSubtitle}>

@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
@@ -34,6 +35,7 @@ interface GestorElegivel {
 
 export default function TransferirGestaoScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { userData, loading: userLoading } = useUser();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
@@ -380,7 +382,10 @@ export default function TransferirGestaoScreen() {
 
   return (
     <ErrorBoundary>
-      <ScrollView style={styles.container}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+      >
         <View style={styles.mobileContent}>
           <MobileCard title="Transferir Gestão Principal" subtitle={userData?.unidades?.nome} variant="bordered">
             {renderMainContent()}

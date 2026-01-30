@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ResponsiveContainer } from '@/components/ResponsiveContainer';
 import { Button, Card, Input, Text } from '@/design-system';
@@ -15,6 +16,7 @@ import { StyleSheet, type Theme } from '@/utils/styles';
 export default function Register() {
   const router = useRouter();
   const { isDesktop } = useResponsive();
+  const insets = useSafeAreaInsets();
   const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
@@ -93,7 +95,10 @@ export default function Register() {
     <ResponsiveContainer>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(20, insets.bottom + 20) },
+        ]}
       >
         <View style={[styles.content, isDesktop && styles.contentDesktop]}>
           <Card padding="large" style={styles.card} testID="auth-register-card">

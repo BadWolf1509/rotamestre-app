@@ -20,6 +20,7 @@ import {
   ActivityIndicator,
   TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -59,6 +60,8 @@ interface FormularioParadaProps {
   retiradasDisponiveis: Parada[];
   vinculoSelecionado: string;
   setVinculoSelecionado: (id: string) => void;
+  /** Coordenadas da unidade para priorizar resultados próximos */
+  locationBias?: Coordenadas;
 }
 
 const FormularioParadaMemoized = memo(function FormularioParada({
@@ -72,6 +75,7 @@ const FormularioParadaMemoized = memo(function FormularioParada({
   retiradasDisponiveis,
   vinculoSelecionado,
   setVinculoSelecionado,
+  locationBias,
 }: FormularioParadaProps) {
   const { theme } = useUnistyles();
   const { isDesktop, isTablet, isMobile } = useResponsive();
@@ -225,6 +229,7 @@ const FormularioParadaMemoized = memo(function FormularioParada({
             placeholder="Digite o endereço completo"
             error={errors.endereco?.message}
             multiline
+            locationBias={locationBias}
           />
         )}
       />
@@ -335,6 +340,7 @@ const FormularioParadaMemoized = memo(function FormularioParada({
 export default function NovaEntrega() {
   const { theme } = useUnistyles();
   const { isDesktop, isTablet } = useResponsive();
+  const insets = useSafeAreaInsets();
   const pageMeta = getGestorPageMeta('novaRota');
 
   const {
@@ -449,6 +455,7 @@ export default function NovaEntrega() {
                   retiradasDisponiveis={retiradasDisponiveis}
                   vinculoSelecionado={vinculoSelecionado}
                   setVinculoSelecionado={setVinculoSelecionado}
+                  locationBias={enderecoUnidade ?? undefined}
                 />
               </DesktopCard>
             </View>
@@ -507,7 +514,10 @@ export default function NovaEntrega() {
   if (isTablet) {
     return (
       <ErrorBoundary>
-        <ScrollView style={styles.scrollView}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+        >
           <View style={styles.tabletContainer}>
             <View style={styles.twoColumnLayout}>
               {/* Formulário - 40% */}
@@ -523,6 +533,7 @@ export default function NovaEntrega() {
                   retiradasDisponiveis={retiradasDisponiveis}
                   vinculoSelecionado={vinculoSelecionado}
                   setVinculoSelecionado={setVinculoSelecionado}
+                  locationBias={enderecoUnidade ?? undefined}
                 />
               </View>
 
@@ -542,7 +553,10 @@ export default function NovaEntrega() {
   // Mobile Layout - Single Column
   return (
     <ErrorBoundary>
-      <ScrollView style={styles.scrollView}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+      >
         <View style={styles.content}>
           <MobileCard title="Adicionar Parada" variant="bordered">
             <FormularioParadaMemoized
@@ -556,6 +570,7 @@ export default function NovaEntrega() {
                 retiradasDisponiveis={retiradasDisponiveis}
                 vinculoSelecionado={vinculoSelecionado}
                 setVinculoSelecionado={setVinculoSelecionado}
+                locationBias={enderecoUnidade ?? undefined}
               />
           </MobileCard>
           <MobileCard

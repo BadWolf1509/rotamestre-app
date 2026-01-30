@@ -21,6 +21,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
@@ -56,6 +57,7 @@ export default function GestaoRotas() {
   const { theme } = useUnistyles();
   const { isDesktop } = useResponsive();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const pageMeta = getGestorPageMeta('gestao-rotas');
 
   // Status color map (precisa do theme)
@@ -355,7 +357,10 @@ export default function GestaoRotas() {
   return (
     <ErrorBoundary>
       {/* Content */}
-      <ScrollView style={styles.scrollView}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+      >
         <View style={styles.content}>
           {/* Info e Filtros */}
           <MobileCard

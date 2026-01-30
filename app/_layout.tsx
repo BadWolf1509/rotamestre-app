@@ -322,6 +322,12 @@ export default function RootLayout() {
                 title: 'Rota Mestre - Motorista'
               }}
             />
+            <Stack.Screen
+              name="onboarding"
+              options={{
+                title: 'Rota Mestre - Configuração Inicial'
+              }}
+            />
           </Stack>
           </ConditionalLayout>
           <Toast
