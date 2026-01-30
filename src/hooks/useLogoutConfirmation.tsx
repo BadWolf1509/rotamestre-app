@@ -28,7 +28,7 @@ export function useLogoutConfirmation() {
       visible={visible}
       variant="confirm"
       title="Sair da conta"
-      message="Deseja realmente encerrar sua sessao?"
+      message="Deseja realmente encerrar sua sessão?"
       confirmText="Sair"
       cancelText="Cancelar"
       type="danger"

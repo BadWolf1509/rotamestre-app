@@ -74,7 +74,7 @@ describe('useLogoutConfirmation', () => {
 
     expect(capturedProps).toBeTruthy();
     expect(capturedProps.title).toBe('Sair da conta');
-    expect(capturedProps.message).toBe('Deseja realmente encerrar sua sessao?');
+    expect(capturedProps.message).toBe('Deseja realmente encerrar sua sessão?');
     expect(capturedProps.confirmText).toBe('Sair');
     expect(capturedProps.cancelText).toBe('Cancelar');
     expect(capturedProps.type).toBe('danger');

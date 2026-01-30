@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FormDesktopLayout } from '@/components/perfil/FormDesktopLayout';
 import { Button, Dialog, Input, Text } from '@/design-system';
@@ -14,6 +15,7 @@ export default function EditarPerfilGestor() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { isDesktop } = useResponsive();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [usuario, setUsuario] = useState<Usuario | null>(null);
@@ -68,10 +70,10 @@ export default function EditarPerfilGestor() {
         setTelefone(userData?.telefone || '');
       }
     } catch (error) {
-      console.error('Erro ao carregar usuario:', error);
+      console.error('Erro ao carregar usuário:', error);
       showAlert({
         title: 'Erro ao carregar dados',
-        message: 'Nao foi possivel carregar o seu perfil. Tente novamente.',
+        message: 'Não foi possível carregar o seu perfil. Tente novamente.',
         type: 'error',
         onConfirm: () => router.back(),
       });
@@ -97,7 +99,7 @@ export default function EditarPerfilGestor() {
 
     if (telefone && !/^\(\d{2}\)\s\d{4,5}-\d{4}$/.test(telefone)) {
       showAlert({
-        title: 'Telefone invalido',
+        title: 'Telefone inválido',
         message: 'Use o formato (11) 99999-9999.',
         type: 'error',
       });
@@ -107,7 +109,7 @@ export default function EditarPerfilGestor() {
     setSaving(true);
 
     try {
-      if (!usuario?.id) throw new Error('Usuario nao encontrado');
+      if (!usuario?.id) throw new Error('Usuário não encontrado');
 
       const { error } = await supabase
         .from('usuarios')
@@ -176,7 +178,7 @@ export default function EditarPerfilGestor() {
         label: 'Email',
         value: usuario?.email || '',
         editable: false,
-        helperText: 'O email nao pode ser alterado',
+        helperText: 'O email não pode ser alterado',
         onChange: () => {},
       },
       {
@@ -193,9 +195,9 @@ export default function EditarPerfilGestor() {
       <>
         <FormDesktopLayout
           title="Editar Perfil"
-          subtitle="Atualize suas informacoes pessoais"
+          subtitle="Atualize suas informações pessoais"
           fields={fields}
-          primaryButtonText="Salvar Alteracoes"
+          primaryButtonText="Salvar Alterações"
           primaryButtonDisabled={saving || !nome.trim()}
           onPrimaryPress={handleSave}
           secondaryButtonText="Cancelar"
@@ -221,7 +223,10 @@ export default function EditarPerfilGestor() {
 
   return (
     <View style={styles(theme).container}>
-      <ScrollView style={styles(theme).scrollView}>
+      <ScrollView
+        style={styles(theme).scrollView}
+        contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+      >
         <View style={styles(theme).header}>
           <View style={styles(theme).headerContent}>
             <Text style={styles(theme).headerSubtitle}>

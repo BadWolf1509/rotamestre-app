@@ -179,11 +179,11 @@ export async function notifySyncComplete(
 ): Promise<void> {
   if (actionsCount === 0 && photosCount === 0) return;
 
-  let message = 'Sincronizacao concluida: ';
+  let message = 'Sincronização concluída: ';
   const parts: string[] = [];
 
   if (actionsCount > 0) {
-    parts.push(`${actionsCount} ${actionsCount === 1 ? 'acao' : 'acoes'}`);
+    parts.push(`${actionsCount} ${actionsCount === 1 ? 'ação' : 'ações'}`);
   }
   if (photosCount > 0) {
     parts.push(`${photosCount} ${photosCount === 1 ? 'foto' : 'fotos'}`);
@@ -191,7 +191,7 @@ export async function notifySyncComplete(
 
   message += parts.join(' e ') + ' sincronizadas.';
 
-  await sendLocalNotification('Sincronizacao', message, { type: 'sync_complete' });
+  await sendLocalNotification('Sincronização', message, { type: 'sync_complete' });
 }
 
 /**

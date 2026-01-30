@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AvatarEditable } from '@/components/AvatarEditable';
 import { Dialog } from '@/components/Dialog';
@@ -45,6 +46,7 @@ export default function PerfilGestor() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { isDesktop } = useResponsive();
+  const insets = useSafeAreaInsets();
   const [user, setUser] = useState<any>(null);
   const [usuario, setUsuario] = useState<UsuarioComUnidade | null>(null);
   const [loading, setLoading] = useState(true);
@@ -132,7 +134,7 @@ export default function PerfilGestor() {
       <>
         <DesktopPageLayout
           title={pageMeta.title}
-          subtitle="Gerencie suas informacoes pessoais e configuracoes"
+          subtitle="Gerencie suas informações pessoais e configurações"
           breadcrumbs={pageMeta.breadcrumbs}
           userMenuTrigger={userMenuTrigger}
           userMenuItems={userMenuItems}
@@ -201,7 +203,10 @@ export default function PerfilGestor() {
 
   return (
     <>
-      <ScrollView style={styles(theme).container}>
+      <ScrollView
+        style={styles(theme).container}
+        contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+      >
       <View style={styles(theme).header}>
         <AvatarEditable
           name={usuario?.nome || 'Gestor'}
