@@ -26,7 +26,6 @@ import type {
   RotaOtimizadaState,
   EnderecoUnidade,
   DistanciaManualReal,
-  DistanciaManualAproximada,
   ParadasStatus,
 } from './types';
 
@@ -38,7 +37,6 @@ export interface ParadasListAndActionsProps {
   rotaOtimizada: RotaOtimizadaState | null;
   ordemManual: boolean;
   distanciaManualReal: DistanciaManualReal | null;
-  distanciaManualAproximada: DistanciaManualAproximada | null;
   enderecoUnidade: EnderecoUnidade | null;
   isOptimizing: boolean;
   isCalculandoReal: boolean;
@@ -48,7 +46,6 @@ export interface ParadasListAndActionsProps {
   onMoveDown: (index: number) => void;
   onRemove: (index: number) => void;
   onOptimize: () => void;
-  onCalculateReal: () => void;
   onSelectMotorista: (id: string) => void;
   onGenerateRoute: () => void;
 }
@@ -61,7 +58,6 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
   rotaOtimizada,
   ordemManual,
   distanciaManualReal,
-  distanciaManualAproximada,
   enderecoUnidade,
   isOptimizing,
   isCalculandoReal,
@@ -71,7 +67,6 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
   onMoveDown,
   onRemove,
   onOptimize,
-  onCalculateReal,
   onSelectMotorista,
   onGenerateRoute,
 }: ParadasListAndActionsProps) {
@@ -167,11 +162,9 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
             <OrdemManualBanner
               rotaOtimizada={rotaOtimizada}
               distanciaManualReal={distanciaManualReal}
-              distanciaManualAproximada={distanciaManualAproximada}
               isOptimizing={isOptimizing}
               isCalculandoReal={isCalculandoReal}
               onReoptimize={onOptimize}
-              onCalculateReal={onCalculateReal}
             />
           )}
         </View>

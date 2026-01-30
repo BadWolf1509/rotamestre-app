@@ -55,12 +55,6 @@ export interface DistanciaManualReal {
   segundos: number;
 }
 
-export interface DistanciaManualAproximada {
-  metros: number;
-  diferenca: number;
-  percentual: number;
-}
-
 export interface ParadasStatus {
   texto: string;
   cor: 'default' | 'warning' | 'error';

@@ -44,7 +44,6 @@ describe('ParadasListAndActions', () => {
     rotaOtimizada: null,
     ordemManual: false,
     distanciaManualReal: null,
-    distanciaManualAproximada: null,
     enderecoUnidade: { latitude: -7.1, longitude: -34.9, endereco: 'Rua Base' },
     isOptimizing: false,
     isCalculandoReal: false,
@@ -54,7 +53,6 @@ describe('ParadasListAndActions', () => {
     onMoveDown: jest.fn(),
     onRemove: jest.fn(),
     onOptimize: jest.fn(),
-    onCalculateReal: jest.fn(),
     onSelectMotorista: jest.fn(),
     onGenerateRoute: jest.fn(),
   };

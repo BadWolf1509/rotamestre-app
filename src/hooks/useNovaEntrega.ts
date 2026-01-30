@@ -22,7 +22,6 @@ import type {
   RotaOtimizadaState,
   EnderecoUnidade,
   DistanciaManualReal,
-  DistanciaManualAproximada,
   ParadasStatus,
 } from '@/components/gestor/nova-entrega/types';
 import { useToast } from '@/hooks/useToast';
@@ -44,17 +43,14 @@ import { z } from '@/lib/zod';
 import {
   useEnderecoUnidade,
   useMotoristaSelection,
+  useDistanceCalculation,
 } from './nova-entrega';
 import {
   generateUniqueId,
   prepararParadasParaInserir,
   atualizarVinculosParadas,
-  distanceInMeters,
   ordenarParadasPorRota,
 } from './useNovaEntrega.helpers';
-
-// Constante para fator de correção Haversine em áreas urbanas
-const HAVERSINE_URBAN_CORRECTION_FACTOR = 1.3;
 
 // Schema de validação (inclui latitude/longitude para coordenadas do autocomplete)
 const paradaSchema = z.object({
@@ -92,7 +88,6 @@ export interface UseNovaEntregaReturn {
   enderecoUnidade: EnderecoUnidade | null;
   retiradasDisponiveis: Parada[];
   paradasStatus: ParadasStatus;
-  distanciaManualAproximada: DistanciaManualAproximada | null;
   toastState: ReturnType<typeof useToast>['toast'];
   showToast: ReturnType<typeof useToast>['showToast'];
   hideToast: ReturnType<typeof useToast>['hideToast'];
@@ -103,7 +98,6 @@ export interface UseNovaEntregaReturn {
   moveParadaUp: (index: number) => void;
   moveParadaDown: (index: number) => void;
   otimizarRota: () => Promise<void>;
-  calcularDistanciaReal: () => Promise<void>;
   gerarRota: () => Promise<void>;
   limparFormulario: () => void;
   userData: ReturnType<typeof useUser>['userData'];
@@ -125,8 +119,6 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [rotaOtimizada, setRotaOtimizada] = useState<RotaOtimizadaState | null>(null);
   const [ordemManual, setOrdemManual] = useState(false);
-  const [distanciaManualReal, setDistanciaManualReal] = useState<DistanciaManualReal | null>(null);
-  const [isCalculandoReal, setIsCalculandoReal] = useState(false);
 
   // Form
   const form = useForm<ParadaFormDataWithCoords>({
@@ -156,6 +148,18 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     isLoading: isLoadingMotoristas,
   } = useMotoristaSelection(handleError);
 
+  // Auto-cálculo de distância com debounce
+  const {
+    distanciaManualReal,
+    isCalculandoReal,
+    resetDistanciaReal,
+  } = useDistanceCalculation({
+    paradas,
+    enderecoUnidade,
+    rotaOtimizada,
+    ordemManual,
+  });
+
   // Cleanup do timeout ao desmontar
   useEffect(() => {
     return () => {
@@ -183,35 +187,6 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     }
     return { texto: 'Nenhuma parada adicionada', cor: 'default', icone: null };
   }, [paradas.length]);
-
-  // Computed: distância aproximada (Haversine com correção)
-  const calcularDistanciaAproximada = useCallback(() => {
-    if (!enderecoUnidade || paradas.length === 0) return 0;
-    let distanciaTotal = 0;
-    let pontoAnterior = { latitude: enderecoUnidade.latitude, longitude: enderecoUnidade.longitude };
-    for (const parada of paradas) {
-      if (parada.latitude && parada.longitude) {
-        const distancia = distanceInMeters(parada, pontoAnterior);
-        if (distancia !== Number.POSITIVE_INFINITY) distanciaTotal += distancia;
-        pontoAnterior = { latitude: parada.latitude, longitude: parada.longitude };
-      }
-    }
-    const distanciaRetorno = distanceInMeters(
-      { latitude: enderecoUnidade.latitude, longitude: enderecoUnidade.longitude },
-      pontoAnterior
-    );
-    if (distanciaRetorno !== Number.POSITIVE_INFINITY) distanciaTotal += distanciaRetorno;
-    return distanciaTotal;
-  }, [enderecoUnidade, paradas]);
-
-  const distanciaManualAproximada = useMemo((): DistanciaManualAproximada | null => {
-    if (!ordemManual || !rotaOtimizada) return null;
-    const distanciaMetros = calcularDistanciaAproximada();
-    const distanciaCorrigida = distanciaMetros * HAVERSINE_URBAN_CORRECTION_FACTOR;
-    const distanciaBase = rotaOtimizada.distancia_total_metros;
-    const percentual = distanciaBase > 0 ? ((distanciaCorrigida - distanciaBase) / distanciaBase) * 100 : 0;
-    return { metros: distanciaCorrigida, diferenca: distanciaCorrigida - distanciaBase, percentual };
-  }, [ordemManual, rotaOtimizada, calcularDistanciaAproximada]);
 
   // Computed: nome da unidade
   const unidadeNome = unidadeAtivaData?.nome || userData?.unidades?.nome || '';
@@ -272,40 +247,16 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     const novasParadas = [...paradas];
     [novasParadas[index - 1], novasParadas[index]] = [novasParadas[index], novasParadas[index - 1]];
     setParadas(novasParadas.map((p, i) => ({ ...p, ordem: i + 1 })));
-    if (rotaOtimizada) { setOrdemManual(true); setDistanciaManualReal(null); }
-  }, [paradas, rotaOtimizada]);
+    if (rotaOtimizada) { setOrdemManual(true); resetDistanciaReal(); }
+  }, [paradas, rotaOtimizada, resetDistanciaReal]);
 
   const moveParadaDown = useCallback((index: number) => {
     if (index >= paradas.length - 1) return;
     const novasParadas = [...paradas];
     [novasParadas[index], novasParadas[index + 1]] = [novasParadas[index + 1], novasParadas[index]];
     setParadas(novasParadas.map((p, i) => ({ ...p, ordem: i + 1 })));
-    if (rotaOtimizada) { setOrdemManual(true); setDistanciaManualReal(null); }
-  }, [paradas, rotaOtimizada]);
-
-  // Actions: Calcular distância real
-  const calcularDistanciaReal = useCallback(async () => {
-    if (!enderecoUnidade || paradas.length === 0) return;
-    setIsCalculandoReal(true);
-    try {
-      const pontoUnidade = { latitude: enderecoUnidade.latitude, longitude: enderecoUnidade.longitude };
-      const waypoints = paradas
-        .filter((p): p is Parada & { latitude: number; longitude: number } => p.latitude != null && p.longitude != null)
-        .map((p) => ({ latitude: p.latitude, longitude: p.longitude }));
-      const resultado = await googleMapsService.getDirections(pontoUnidade, pontoUnidade, waypoints, false);
-      if (resultado) {
-        setDistanciaManualReal({ metros: resultado.distancia_total_metros, segundos: resultado.duracao_total_segundos });
-        showToast('Distância real calculada!', 'success');
-      } else {
-        showToast('Não foi possível calcular a distância real', 'error');
-      }
-    } catch (error) {
-      logger.error('[NovaEntrega] Erro ao calcular distância real', error);
-      showToast('Erro ao calcular distância', 'error');
-    } finally {
-      setIsCalculandoReal(false);
-    }
-  }, [enderecoUnidade, paradas, showToast]);
+    if (rotaOtimizada) { setOrdemManual(true); resetDistanciaReal(); }
+  }, [paradas, rotaOtimizada, resetDistanciaReal]);
 
   // Actions: Otimizar rota
   const otimizarRota = useCallback(async () => {
@@ -407,9 +358,9 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     setMotoristaSelecionado('');
     setRotaOtimizada(null);
     setOrdemManual(false);
-    setDistanciaManualReal(null);
+    resetDistanciaReal();
     form.reset();
-  }, [form, setMotoristaSelecionado]);
+  }, [form, setMotoristaSelecionado, resetDistanciaReal]);
 
   // Actions: Gerar rota
   const gerarRota = useCallback(async () => {
@@ -476,7 +427,7 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
   return {
     form, paradas, motoristas, motoristaSelecionado, vinculoSelecionado, isLoading, isLoadingMotoristas, isOptimizing,
     rotaOtimizada, ordemManual, distanciaManualReal, isCalculandoReal, enderecoUnidade, retiradasDisponiveis, paradasStatus,
-    distanciaManualAproximada, toastState, showToast, hideToast, setMotoristaSelecionado, setVinculoSelecionado, onAddParada,
-    removeParada, moveParadaUp, moveParadaDown, otimizarRota, calcularDistanciaReal, gerarRota, limparFormulario, userData, unidadeNome,
+    toastState, showToast, hideToast, setMotoristaSelecionado, setVinculoSelecionado, onAddParada,
+    removeParada, moveParadaUp, moveParadaDown, otimizarRota, gerarRota, limparFormulario, userData, unidadeNome,
   };
 }

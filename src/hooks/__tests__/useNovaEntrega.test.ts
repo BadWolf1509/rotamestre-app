@@ -177,16 +177,6 @@ describe('useNovaEntrega', () => {
     expect(result.current.paradas[0].vinculo_parada_id).toBeUndefined();
   });
 
-  it('nao calcula distancia real sem endereco ou paradas', async () => {
-    const { result } = renderHook(() => useNovaEntrega());
-
-    await act(async () => {
-      await result.current.calcularDistanciaReal();
-    });
-
-    expect(mockGoogleMapsService.getDirectionsSequential).not.toHaveBeenCalled();
-  });
-
   it('informa quando nao ha paradas para otimizar', async () => {
     const { result } = renderHook(() => useNovaEntrega());
 

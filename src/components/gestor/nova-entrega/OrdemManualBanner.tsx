@@ -1,6 +1,7 @@
 /**
  * Banner exibido quando a ordem das paradas foi alterada manualmente
  * Mostra comparativo entre rota otimizada e ordem atual
+ * Auto-calcula distância real via OSRM com debounce
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -13,34 +14,35 @@ import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 import type {
   RotaOtimizadaState,
   DistanciaManualReal,
-  DistanciaManualAproximada,
 } from './types';
-
-// Tamanho menor que xs (12) para texto de nota/disclaimer
-const FONT_SIZE_XXS = 10;
 
 export interface OrdemManualBannerProps {
   rotaOtimizada: RotaOtimizadaState;
   distanciaManualReal: DistanciaManualReal | null;
-  distanciaManualAproximada: DistanciaManualAproximada | null;
   isOptimizing: boolean;
   isCalculandoReal: boolean;
   onReoptimize: () => void;
-  onCalculateReal: () => void;
 }
 
 export const OrdemManualBanner = memo(function OrdemManualBanner({
   rotaOtimizada,
   distanciaManualReal,
-  distanciaManualAproximada,
   isOptimizing,
   isCalculandoReal,
   onReoptimize,
-  onCalculateReal,
 }: OrdemManualBannerProps) {
   const { theme } = useUnistyles();
   const { isDesktop } = useResponsive();
   const styles = createStyles(theme, isDesktop);
+
+  // Calcular diferença quando temos distância real
+  const diferenca = distanciaManualReal
+    ? distanciaManualReal.metros - rotaOtimizada.distancia_total_metros
+    : 0;
+  const percentual = distanciaManualReal && rotaOtimizada.distancia_total_metros > 0
+    ? (diferenca / rotaOtimizada.distancia_total_metros) * 100
+    : 0;
+  const isPositiva = diferenca > 0;
 
   return (
     <View style={styles.ordemManualBanner}>
@@ -91,27 +93,22 @@ export const OrdemManualBanner = memo(function OrdemManualBanner({
             <Ionicons name="navigate" size={16} color={theme.colors.warning} />
             <Text style={styles.comparativoLabel}>Ordem Atual:</Text>
           </View>
-          {distanciaManualReal ? (
+          {isCalculandoReal ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={theme.colors.warning} />
+              <Text style={styles.loadingText}>Calculando...</Text>
+            </View>
+          ) : distanciaManualReal ? (
             <>
               <Text style={[
                 styles.comparativoValue,
-                distanciaManualReal.metros > rotaOtimizada.distancia_total_metros && styles.comparativoValueWarning,
+                isPositiva && styles.comparativoValueWarning,
               ]}>
                 {(distanciaManualReal.metros / 1000).toFixed(1)} km
               </Text>
               <Text style={styles.comparativoTime}>
                 ~{Math.round(distanciaManualReal.segundos / 60)} min
               </Text>
-            </>
-          ) : distanciaManualAproximada ? (
-            <>
-              <Text style={[
-                styles.comparativoValue,
-                distanciaManualAproximada.diferenca > 0 && styles.comparativoValueWarning,
-              ]}>
-                ~{(distanciaManualAproximada.metros / 1000).toFixed(1)} km*
-              </Text>
-              <Text style={styles.comparativoAproximado}>*aproximado</Text>
             </>
           ) : (
             <Text style={styles.comparativoValue}>--</Text>
@@ -120,57 +117,20 @@ export const OrdemManualBanner = memo(function OrdemManualBanner({
 
         <View style={styles.comparativoItem}>
           <Text style={styles.comparativoLabel}>Diferença:</Text>
-          {distanciaManualReal ? (() => {
-            const distanciaBase = rotaOtimizada.distancia_total_metros;
-            const diferenca = distanciaManualReal.metros - distanciaBase;
-            const isPositiva = diferenca > 0;
-            const percentual = distanciaBase > 0 ? (diferenca / distanciaBase) * 100 : 0;
-            return (
-              <Text style={[
-                styles.comparativoDiferenca,
-                isPositiva ? styles.comparativoDiferencaNegativa : styles.comparativoDiferencaPositiva,
-              ]}>
-                {isPositiva ? '+' : ''}{(diferenca / 1000).toFixed(1)} km ({isPositiva ? '+' : ''}{percentual.toFixed(0)}%)
-              </Text>
-            );
-          })() : distanciaManualAproximada ? (
+          {isCalculandoReal ? (
+            <Text style={styles.comparativoDiferenca}>--</Text>
+          ) : distanciaManualReal ? (
             <Text style={[
               styles.comparativoDiferenca,
-              distanciaManualAproximada.diferenca > 0
-                ? styles.comparativoDiferencaNegativa
-                : styles.comparativoDiferencaPositiva,
+              isPositiva ? styles.comparativoDiferencaNegativa : styles.comparativoDiferencaPositiva,
             ]}>
-              {distanciaManualAproximada.diferenca > 0 ? '+' : ''}
-              {(distanciaManualAproximada.diferenca / 1000).toFixed(1)} km*
-              {' '}
-              ({distanciaManualAproximada.percentual > 0 ? '+' : ''}
-              {distanciaManualAproximada.percentual.toFixed(0)}%)
+              {isPositiva ? '+' : ''}{(diferenca / 1000).toFixed(1)} km ({isPositiva ? '+' : ''}{percentual.toFixed(0)}%)
             </Text>
           ) : (
             <Text style={styles.comparativoDiferenca}>--</Text>
           )}
         </View>
       </View>
-
-      {!distanciaManualReal && (
-        <TouchableOpacity
-          style={styles.calcularRealButton}
-          onPress={onCalculateReal}
-          disabled={isCalculandoReal}
-          accessibilityLabel="Calcular distância real da rota atual"
-          accessibilityRole="button"
-          accessibilityState={{ disabled: isCalculandoReal }}
-        >
-          {isCalculandoReal ? (
-            <ActivityIndicator size="small" color={theme.colors.info} />
-          ) : (
-            <>
-              <Ionicons name="navigate-circle-outline" size={18} color={theme.colors.info} />
-              <Text style={styles.calcularRealButtonText}>Calcular distância real</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      )}
     </View>
   );
 });
@@ -258,9 +218,13 @@ const createStyles = (theme: Theme, isDesktop: boolean) => StyleSheet.create({
     color: theme.colors.gray500,
     marginTop: isDesktop ? 2 : theme.spacing.xs,
   },
-  comparativoAproximado: {
-    fontSize: FONT_SIZE_XXS,
-    color: theme.colors.gray400,
+  loadingContainer: {
+    alignItems: 'center',
+    gap: isDesktop ? 4 : theme.spacing.xs,
+  },
+  loadingText: {
+    fontSize: isDesktop ? 11 : theme.typography.xs,
+    color: theme.colors.gray500,
     fontStyle: 'italic',
   },
   comparativoSeparator: {
@@ -278,25 +242,5 @@ const createStyles = (theme: Theme, isDesktop: boolean) => StyleSheet.create({
   },
   comparativoDiferencaPositiva: {
     color: theme.colors.success,
-  },
-  // Botão Calcular Real - compacto no desktop, não full-width
-  calcularRealButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: isDesktop ? 6 : theme.spacing.sm,
-    backgroundColor: theme.colors.info + '15',
-    borderWidth: 1,
-    borderColor: theme.colors.info + '40',
-    borderRadius: theme.borderRadius.md,
-    paddingVertical: isDesktop ? 6 : theme.spacing.md,
-    paddingHorizontal: isDesktop ? theme.spacing.lg : theme.spacing.lg,
-    alignSelf: isDesktop ? 'flex-start' : 'stretch',
-    minHeight: isDesktop ? theme.desktop.button.height : 44,
-  },
-  calcularRealButtonText: {
-    fontSize: isDesktop ? theme.desktop.button.fontSize : theme.typography.sm,
-    fontFamily: theme.typography.fontSansMedium,
-    color: theme.colors.info,
   },
 });

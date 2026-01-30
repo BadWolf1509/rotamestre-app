@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { render } from '@testing-library/react-native';
 import { ActivityIndicator } from 'react-native';
 
 import { OrdemManualBanner } from '../OrdemManualBanner';
@@ -21,77 +21,113 @@ describe('OrdemManualBanner', () => {
     mockUseResponsive.mockReturnValue({ isDesktop: false });
   });
 
-  it('mostra comparativo com distancia real e oculta calcular real', () => {
-    const { getByText, queryByText } = render(
+  it('mostra comparativo com distancia real', () => {
+    const { getByText } = render(
       <OrdemManualBanner
         rotaOtimizada={rotaOtimizada}
         distanciaManualReal={{ metros: 12000, segundos: 1500 }}
-        distanciaManualAproximada={null}
         isOptimizing={false}
         isCalculandoReal={false}
         onReoptimize={jest.fn()}
-        onCalculateReal={jest.fn()}
       />
     );
 
     expect(getByText('Ordem alterada manualmente')).toBeTruthy();
     expect(getByText(/\+2\.0 km/)).toBeTruthy();
-    expect(queryByText(/Calcular/i)).toBeNull();
+    expect(getByText('12.0 km')).toBeTruthy();
+    expect(getByText(/~25 min/)).toBeTruthy();
   });
 
-  it('mostra comparativo aproximado e aciona calculo real', () => {
-    const onCalculateReal = jest.fn();
-    const { getByText } = render(
+  it('mostra loading enquanto calcula distancia', () => {
+    const { getByText, UNSAFE_getAllByType } = render(
       <OrdemManualBanner
         rotaOtimizada={rotaOtimizada}
         distanciaManualReal={null}
-        distanciaManualAproximada={{ metros: 11000, diferenca: 1000, percentual: 10 }}
         isOptimizing={false}
-        isCalculandoReal={false}
+        isCalculandoReal={true}
         onReoptimize={jest.fn()}
-        onCalculateReal={onCalculateReal}
       />
     );
 
-    expect(getByText('*aproximado')).toBeTruthy();
-    fireEvent.press(getByText(/Calcular/i));
-    expect(onCalculateReal).toHaveBeenCalled();
+    expect(getByText('Calculando...')).toBeTruthy();
+    expect(UNSAFE_getAllByType(ActivityIndicator).length).toBeGreaterThan(0);
   });
 
-  it('mostra placeholders quando nao ha distancia', () => {
+  it('mostra placeholders quando nao ha distancia e nao esta calculando', () => {
     const { getAllByText } = render(
       <OrdemManualBanner
         rotaOtimizada={rotaOtimizada}
         distanciaManualReal={null}
-        distanciaManualAproximada={null}
         isOptimizing={false}
         isCalculandoReal={false}
         onReoptimize={jest.fn()}
-        onCalculateReal={jest.fn()}
       />
     );
 
     expect(getAllByText('--').length).toBeGreaterThan(0);
   });
 
-  it('desabilita botoes durante processamento', () => {
+  it('mostra diferenca positiva em vermelho (pior rota)', () => {
+    const { getByText } = render(
+      <OrdemManualBanner
+        rotaOtimizada={rotaOtimizada}
+        distanciaManualReal={{ metros: 15000, segundos: 1800 }}
+        isOptimizing={false}
+        isCalculandoReal={false}
+        onReoptimize={jest.fn()}
+      />
+    );
+
+    // 15000 - 10000 = +5000m = +5.0 km
+    expect(getByText(/\+5\.0 km/)).toBeTruthy();
+    expect(getByText(/\+50%/)).toBeTruthy();
+  });
+
+  it('mostra diferenca negativa em verde (melhor rota)', () => {
+    const { getByText } = render(
+      <OrdemManualBanner
+        rotaOtimizada={rotaOtimizada}
+        distanciaManualReal={{ metros: 8000, segundos: 1000 }}
+        isOptimizing={false}
+        isCalculandoReal={false}
+        onReoptimize={jest.fn()}
+      />
+    );
+
+    // 8000 - 10000 = -2000m = -2.0 km
+    expect(getByText(/-2\.0 km/)).toBeTruthy();
+  });
+
+  it('desabilita botao reotimizar durante processamento', () => {
     const { getByLabelText, UNSAFE_getAllByType } = render(
       <OrdemManualBanner
         rotaOtimizada={rotaOtimizada}
         distanciaManualReal={null}
-        distanciaManualAproximada={null}
         isOptimizing={true}
-        isCalculandoReal={true}
+        isCalculandoReal={false}
         onReoptimize={jest.fn()}
-        onCalculateReal={jest.fn()}
       />
     );
 
     const reoptimize = getByLabelText('Re-otimizar rota para o melhor percurso');
-    const calculate = getByLabelText(/Calcular/i);
-
     expect(reoptimize.props.accessibilityState.disabled).toBe(true);
-    expect(calculate.props.accessibilityState.disabled).toBe(true);
     expect(UNSAFE_getAllByType(ActivityIndicator).length).toBeGreaterThan(0);
+  });
+
+  it('funciona corretamente em modo desktop', () => {
+    mockUseResponsive.mockReturnValue({ isDesktop: true });
+
+    const { getByText } = render(
+      <OrdemManualBanner
+        rotaOtimizada={rotaOtimizada}
+        distanciaManualReal={{ metros: 12000, segundos: 1500 }}
+        isOptimizing={false}
+        isCalculandoReal={false}
+        onReoptimize={jest.fn()}
+      />
+    );
+
+    expect(getByText('Ordem alterada manualmente')).toBeTruthy();
+    expect(getByText('12.0 km')).toBeTruthy();
   });
 });

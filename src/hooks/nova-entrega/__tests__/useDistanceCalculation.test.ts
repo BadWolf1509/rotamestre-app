@@ -1,5 +1,5 @@
 /**
- * Tests for useDistanceCalculation hook
+ * Tests for useDistanceCalculation hook (with auto-calculation and debounce)
  */
 
 import { renderHook, act, waitFor } from '@testing-library/react-native';
@@ -8,7 +8,7 @@ import { renderHook, act, waitFor } from '@testing-library/react-native';
 const mockGetDirections = jest.fn();
 jest.mock('@/lib/google', () => ({
   googleMapsService: {
-    getDirections: (...args: any[]) => mockGetDirections(...args),
+    getDirections: (...args: unknown[]) => mockGetDirections(...args),
   },
 }));
 
@@ -21,40 +21,45 @@ jest.mock('@/lib/logger', () => ({
   },
 }));
 
-// Mock distanceInMeters helper
-jest.mock('../../useNovaEntrega.helpers', () => ({
-  distanceInMeters: (point1: any, point2: any) => {
-    // Simple mock implementation
-    if (!point1.latitude || !point1.longitude || !point2.latitude || !point2.longitude) {
-      return Number.POSITIVE_INFINITY;
-    }
-    const lat1 = point1.latitude;
-    const lon1 = point1.longitude;
-    const lat2 = point2.latitude;
-    const lon2 = point2.longitude;
-    // Simplified distance calculation
-    const latDiff = Math.abs(lat1 - lat2);
-    const lonDiff = Math.abs(lon1 - lon2);
-    return (latDiff + lonDiff) * 111000; // ~111km per degree
-  },
-}));
-
 import { useDistanceCalculation } from '../useDistanceCalculation';
 
+// Use fake timers for debounce testing
+jest.useFakeTimers();
+
 describe('useDistanceCalculation', () => {
-  const mockShowToast = jest.fn();
+  const mockEnderecoUnidade = {
+    latitude: -23.54,
+    longitude: -46.63,
+    endereco: 'Unidade Base',
+  };
+
+  const mockRotaOtimizada = {
+    distancia_total_metros: 10000,
+    duracao_total_segundos: 600,
+    legs: [],
+    polyline: 'encoded_polyline',
+  };
+
+  const mockParadas = [
+    { id: '1', ordem: 1, endereco: 'Parada A', tipo: 'entrega' as const, destinatario: 'Cliente A', telefone: '11999999999', latitude: -23.55, longitude: -46.64 },
+    { id: '2', ordem: 2, endereco: 'Parada B', tipo: 'entrega' as const, destinatario: 'Cliente B', telefone: '11888888888', latitude: -23.56, longitude: -46.65 },
+  ];
 
   const defaultOptions = {
     paradas: [],
     enderecoUnidade: null,
     rotaOtimizada: null,
     ordemManual: false,
-    showToast: mockShowToast,
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.clearAllTimers();
     mockGetDirections.mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
   });
 
   describe('initialization', () => {
@@ -66,28 +71,12 @@ describe('useDistanceCalculation', () => {
       expect(result.current.distanciaManualReal).toBeNull();
     });
 
-    it('should initialize with null distanciaManualAproximada when ordemManual is false', () => {
-      const { result } = renderHook(() =>
-        useDistanceCalculation(defaultOptions)
-      );
-
-      expect(result.current.distanciaManualAproximada).toBeNull();
-    });
-
     it('should initialize isCalculandoReal as false', () => {
       const { result } = renderHook(() =>
         useDistanceCalculation(defaultOptions)
       );
 
       expect(result.current.isCalculandoReal).toBe(false);
-    });
-
-    it('should provide calcularDistanciaReal function', () => {
-      const { result } = renderHook(() =>
-        useDistanceCalculation(defaultOptions)
-      );
-
-      expect(typeof result.current.calcularDistanciaReal).toBe('function');
     });
 
     it('should provide resetDistanciaReal function', () => {
@@ -99,269 +88,194 @@ describe('useDistanceCalculation', () => {
     });
   });
 
-  describe('distanciaManualAproximada', () => {
-    it('should return null when ordemManual is false', () => {
-      const { result } = renderHook(() =>
+  describe('auto-calculation with debounce', () => {
+    it('should not auto-calculate when ordemManual is false', async () => {
+      renderHook(() =>
         useDistanceCalculation({
           ...defaultOptions,
+          paradas: mockParadas,
+          enderecoUnidade: mockEnderecoUnidade,
+          rotaOtimizada: mockRotaOtimizada,
           ordemManual: false,
-          rotaOtimizada: {
-            distancia_total_metros: 10000,
-            duracao_total_segundos: 600,
-            ordem_otimizada: [0, 1],
-            polyline: '',
-          },
         })
       );
 
-      expect(result.current.distanciaManualAproximada).toBeNull();
+      // Advance timers past debounce delay
+      act(() => {
+        jest.advanceTimersByTime(1500);
+      });
+
+      expect(mockGetDirections).not.toHaveBeenCalled();
     });
 
-    it('should return null when rotaOtimizada is null', () => {
-      const { result } = renderHook(() =>
+    it('should not auto-calculate when rotaOtimizada is null', async () => {
+      renderHook(() =>
         useDistanceCalculation({
           ...defaultOptions,
-          ordemManual: true,
+          paradas: mockParadas,
+          enderecoUnidade: mockEnderecoUnidade,
           rotaOtimizada: null,
-        })
-      );
-
-      expect(result.current.distanciaManualAproximada).toBeNull();
-    });
-
-    it('should calculate aproximada distance with urban correction factor', () => {
-      const paradas = [
-        { id: '1', ordem: 1, endereco: 'A', latitude: -23.55, longitude: -46.64 },
-        { id: '2', ordem: 2, endereco: 'B', latitude: -23.56, longitude: -46.65 },
-      ];
-
-      const { result } = renderHook(() =>
-        useDistanceCalculation({
-          ...defaultOptions,
-          paradas,
-          enderecoUnidade: {
-            latitude: -23.54,
-            longitude: -46.63,
-            endereco_formatado: 'Unidade',
-          },
-          rotaOtimizada: {
-            distancia_total_metros: 5000,
-            duracao_total_segundos: 300,
-            ordem_otimizada: [0, 1],
-            polyline: '',
-          },
           ordemManual: true,
         })
       );
 
-      expect(result.current.distanciaManualAproximada).not.toBeNull();
-      expect(result.current.distanciaManualAproximada!.metros).toBeGreaterThan(0);
+      act(() => {
+        jest.advanceTimersByTime(1500);
+      });
+
+      expect(mockGetDirections).not.toHaveBeenCalled();
     });
 
-    it('should handle zero base distance', () => {
-      const paradas = [
-        { id: '1', ordem: 1, endereco: 'A', latitude: -23.55, longitude: -46.64 },
-      ];
-
-      const { result } = renderHook(() =>
+    it('should not auto-calculate when enderecoUnidade is null', async () => {
+      renderHook(() =>
         useDistanceCalculation({
           ...defaultOptions,
-          paradas,
-          enderecoUnidade: {
-            latitude: -23.54,
-            longitude: -46.63,
-            endereco_formatado: 'Unidade',
-          },
-          rotaOtimizada: {
-            distancia_total_metros: 0,
-            duracao_total_segundos: 0,
-            ordem_otimizada: [0],
-            polyline: '',
-          },
-          ordemManual: true,
-        })
-      );
-
-      expect(result.current.distanciaManualAproximada).not.toBeNull();
-      expect(result.current.distanciaManualAproximada!.percentual).toBe(0);
-    });
-  });
-
-  describe('calcularDistanciaReal', () => {
-    it('should not calculate when enderecoUnidade is null', async () => {
-      const { result } = renderHook(() =>
-        useDistanceCalculation({
-          ...defaultOptions,
+          paradas: mockParadas,
           enderecoUnidade: null,
-          paradas: [{ id: '1', ordem: 1, endereco: 'A', latitude: -23.55, longitude: -46.64 }],
+          rotaOtimizada: mockRotaOtimizada,
+          ordemManual: true,
         })
       );
 
-      await act(async () => {
-        await result.current.calcularDistanciaReal();
+      act(() => {
+        jest.advanceTimersByTime(1500);
       });
 
       expect(mockGetDirections).not.toHaveBeenCalled();
     });
 
-    it('should not calculate when paradas is empty', async () => {
-      const { result } = renderHook(() =>
+    it('should not auto-calculate when paradas is empty', async () => {
+      renderHook(() =>
         useDistanceCalculation({
           ...defaultOptions,
-          enderecoUnidade: { latitude: -23.54, longitude: -46.63, endereco_formatado: 'Unidade' },
           paradas: [],
+          enderecoUnidade: mockEnderecoUnidade,
+          rotaOtimizada: mockRotaOtimizada,
+          ordemManual: true,
         })
       );
 
-      await act(async () => {
-        await result.current.calcularDistanciaReal();
+      act(() => {
+        jest.advanceTimersByTime(1500);
       });
 
       expect(mockGetDirections).not.toHaveBeenCalled();
     });
 
-    it('should call getDirections with correct parameters', async () => {
+    it('should auto-calculate after debounce delay when ordemManual is true', async () => {
       mockGetDirections.mockResolvedValue({
         distancia_total_metros: 15000,
         duracao_total_segundos: 900,
       });
 
-      const paradas = [
-        { id: '1', ordem: 1, endereco: 'A', latitude: -23.55, longitude: -46.64 },
-        { id: '2', ordem: 2, endereco: 'B', latitude: -23.56, longitude: -46.65 },
-      ];
-
-      const enderecoUnidade = {
-        latitude: -23.54,
-        longitude: -46.63,
-        endereco_formatado: 'Unidade',
-      };
-
       const { result } = renderHook(() =>
         useDistanceCalculation({
           ...defaultOptions,
-          enderecoUnidade,
-          paradas,
+          paradas: mockParadas,
+          enderecoUnidade: mockEnderecoUnidade,
+          rotaOtimizada: mockRotaOtimizada,
+          ordemManual: true,
         })
       );
 
+      // Should not call immediately
+      expect(mockGetDirections).not.toHaveBeenCalled();
+
+      // Advance timers past debounce delay (1000ms)
       await act(async () => {
-        await result.current.calcularDistanciaReal();
+        jest.advanceTimersByTime(1100);
+        await Promise.resolve();
       });
 
       expect(mockGetDirections).toHaveBeenCalledWith(
-        { latitude: -23.54, longitude: -46.63 },
-        { latitude: -23.54, longitude: -46.63 },
+        { latitude: mockEnderecoUnidade.latitude, longitude: mockEnderecoUnidade.longitude },
+        { latitude: mockEnderecoUnidade.latitude, longitude: mockEnderecoUnidade.longitude },
         expect.arrayContaining([
           { latitude: -23.55, longitude: -46.64 },
           { latitude: -23.56, longitude: -46.65 },
         ]),
-        false
+        false // optimize = false for manual order
       );
+
+      await waitFor(() => {
+        expect(result.current.distanciaManualReal).toEqual({
+          metros: 15000,
+          segundos: 900,
+        });
+      });
     });
 
-    it('should update distanciaManualReal on success', async () => {
+    it('should debounce multiple rapid changes', async () => {
       mockGetDirections.mockResolvedValue({
         distancia_total_metros: 15000,
         duracao_total_segundos: 900,
       });
 
-      const paradas = [
-        { id: '1', ordem: 1, endereco: 'A', latitude: -23.55, longitude: -46.64 },
-      ];
-
-      const { result } = renderHook(() =>
-        useDistanceCalculation({
-          ...defaultOptions,
-          enderecoUnidade: { latitude: -23.54, longitude: -46.63, endereco_formatado: 'Unidade' },
-          paradas,
-        })
+      const { rerender } = renderHook(
+        (props) => useDistanceCalculation(props),
+        {
+          initialProps: {
+            paradas: mockParadas,
+            enderecoUnidade: mockEnderecoUnidade,
+            rotaOtimizada: mockRotaOtimizada,
+            ordemManual: true,
+          },
+        }
       );
 
+      // First change
+      act(() => {
+        jest.advanceTimersByTime(500);
+      });
+
+      // Second change (before debounce completes)
+      rerender({
+        paradas: [...mockParadas, { id: '3', ordem: 3, endereco: 'Parada C', tipo: 'entrega' as const, destinatario: 'Cliente C', telefone: '11777777777', latitude: -23.57, longitude: -46.66 }],
+        enderecoUnidade: mockEnderecoUnidade,
+        rotaOtimizada: mockRotaOtimizada,
+        ordemManual: true,
+      });
+
+      // Should still not have called (debounce restarted)
+      expect(mockGetDirections).not.toHaveBeenCalled();
+
+      // Advance past debounce
       await act(async () => {
-        await result.current.calcularDistanciaReal();
+        jest.advanceTimersByTime(1100);
+        await Promise.resolve();
       });
 
-      expect(result.current.distanciaManualReal).toEqual({
-        metros: 15000,
-        segundos: 900,
-      });
-      expect(mockShowToast).toHaveBeenCalledWith('Distância real calculada!', 'success');
-    });
-
-    it('should show error toast when getDirections returns null', async () => {
-      mockGetDirections.mockResolvedValue(null);
-
-      const paradas = [
-        { id: '1', ordem: 1, endereco: 'A', latitude: -23.55, longitude: -46.64 },
-      ];
-
-      const { result } = renderHook(() =>
-        useDistanceCalculation({
-          ...defaultOptions,
-          enderecoUnidade: { latitude: -23.54, longitude: -46.63, endereco_formatado: 'Unidade' },
-          paradas,
-        })
-      );
-
-      await act(async () => {
-        await result.current.calcularDistanciaReal();
-      });
-
-      expect(mockShowToast).toHaveBeenCalledWith('Não foi possível calcular a distância real', 'error');
-    });
-
-    it('should show error toast on exception', async () => {
-      mockGetDirections.mockRejectedValue(new Error('API error'));
-
-      const paradas = [
-        { id: '1', ordem: 1, endereco: 'A', latitude: -23.55, longitude: -46.64 },
-      ];
-
-      const { result } = renderHook(() =>
-        useDistanceCalculation({
-          ...defaultOptions,
-          enderecoUnidade: { latitude: -23.54, longitude: -46.63, endereco_formatado: 'Unidade' },
-          paradas,
-        })
-      );
-
-      await act(async () => {
-        await result.current.calcularDistanciaReal();
-      });
-
-      expect(mockShowToast).toHaveBeenCalledWith('Erro ao calcular distância', 'error');
+      // Should only have been called once (debounced)
+      expect(mockGetDirections).toHaveBeenCalledTimes(1);
     });
 
     it('should set isCalculandoReal during calculation', async () => {
-      let resolvePromise: (value: any) => void;
+      let resolvePromise: (value: unknown) => void;
       const controlledPromise = new Promise((resolve) => {
         resolvePromise = resolve;
       });
       mockGetDirections.mockReturnValue(controlledPromise);
 
-      const paradas = [
-        { id: '1', ordem: 1, endereco: 'A', latitude: -23.55, longitude: -46.64 },
-      ];
-
       const { result } = renderHook(() =>
         useDistanceCalculation({
           ...defaultOptions,
-          enderecoUnidade: { latitude: -23.54, longitude: -46.63, endereco_formatado: 'Unidade' },
-          paradas,
+          paradas: mockParadas,
+          enderecoUnidade: mockEnderecoUnidade,
+          rotaOtimizada: mockRotaOtimizada,
+          ordemManual: true,
         })
       );
 
-      // Start calculation
-      act(() => {
-        result.current.calcularDistanciaReal();
+      // Trigger auto-calculation
+      await act(async () => {
+        jest.advanceTimersByTime(1100);
       });
 
       expect(result.current.isCalculandoReal).toBe(true);
 
-      // Resolve
+      // Resolve the promise
       await act(async () => {
-        resolvePromise!({ distancia_total_metros: 1000, duracao_total_segundos: 60 });
+        resolvePromise({ distancia_total_metros: 1000, duracao_total_segundos: 60 });
         await Promise.resolve();
       });
 
@@ -376,32 +290,35 @@ describe('useDistanceCalculation', () => {
         duracao_total_segundos: 60,
       });
 
-      const paradas = [
-        { id: '1', ordem: 1, endereco: 'A', latitude: -23.55, longitude: -46.64 },
-        { id: '2', ordem: 2, endereco: 'B', latitude: null, longitude: null },
-        { id: '3', ordem: 3, endereco: 'C', latitude: -23.56, longitude: -46.65 },
+      const paradasWithMissingCoords = [
+        { id: '1', ordem: 1, endereco: 'A', tipo: 'entrega' as const, destinatario: 'A', telefone: '1', latitude: -23.55, longitude: -46.64 },
+        { id: '2', ordem: 2, endereco: 'B', tipo: 'entrega' as const, destinatario: 'B', telefone: '2', latitude: null, longitude: null },
+        { id: '3', ordem: 3, endereco: 'C', tipo: 'entrega' as const, destinatario: 'C', telefone: '3', latitude: -23.56, longitude: -46.65 },
       ];
 
-      const { result } = renderHook(() =>
+      renderHook(() =>
         useDistanceCalculation({
           ...defaultOptions,
-          enderecoUnidade: { latitude: -23.54, longitude: -46.63, endereco_formatado: 'Unidade' },
-          paradas,
+          paradas: paradasWithMissingCoords,
+          enderecoUnidade: mockEnderecoUnidade,
+          rotaOtimizada: mockRotaOtimizada,
+          ordemManual: true,
         })
       );
 
       await act(async () => {
-        await result.current.calcularDistanciaReal();
+        jest.advanceTimersByTime(1100);
+        await Promise.resolve();
       });
 
       // Should only pass 2 waypoints (without null coordinates)
       expect(mockGetDirections).toHaveBeenCalledWith(
         expect.any(Object),
         expect.any(Object),
-        expect.arrayContaining([
+        [
           { latitude: -23.55, longitude: -46.64 },
           { latitude: -23.56, longitude: -46.65 },
-        ]),
+        ],
         false
       );
     });
@@ -414,28 +331,124 @@ describe('useDistanceCalculation', () => {
         duracao_total_segundos: 60,
       });
 
-      const paradas = [
-        { id: '1', ordem: 1, endereco: 'A', latitude: -23.55, longitude: -46.64 },
-      ];
+      const { result } = renderHook(() =>
+        useDistanceCalculation({
+          ...defaultOptions,
+          paradas: mockParadas,
+          enderecoUnidade: mockEnderecoUnidade,
+          rotaOtimizada: mockRotaOtimizada,
+          ordemManual: true,
+        })
+      );
+
+      // Wait for auto-calculation
+      await act(async () => {
+        jest.advanceTimersByTime(1100);
+        await Promise.resolve();
+      });
+
+      await waitFor(() => {
+        expect(result.current.distanciaManualReal).not.toBeNull();
+      });
+
+      // Reset
+      act(() => {
+        result.current.resetDistanciaReal();
+      });
+
+      expect(result.current.distanciaManualReal).toBeNull();
+      expect(result.current.isCalculandoReal).toBe(false);
+    });
+
+    it('should cancel pending requests on reset', async () => {
+      let resolvePromise: (value: unknown) => void;
+      mockGetDirections.mockReturnValue(new Promise((resolve) => {
+        resolvePromise = resolve;
+      }));
 
       const { result } = renderHook(() =>
         useDistanceCalculation({
           ...defaultOptions,
-          enderecoUnidade: { latitude: -23.54, longitude: -46.63, endereco_formatado: 'Unidade' },
-          paradas,
+          paradas: mockParadas,
+          enderecoUnidade: mockEnderecoUnidade,
+          rotaOtimizada: mockRotaOtimizada,
+          ordemManual: true,
         })
       );
 
-      // First calculate
+      // Trigger auto-calculation
       await act(async () => {
-        await result.current.calcularDistanciaReal();
+        jest.advanceTimersByTime(1100);
       });
 
-      expect(result.current.distanciaManualReal).not.toBeNull();
+      expect(result.current.isCalculandoReal).toBe(true);
 
-      // Then reset
+      // Reset while calculating
       act(() => {
         result.current.resetDistanciaReal();
+      });
+
+      expect(result.current.isCalculandoReal).toBe(false);
+      expect(result.current.distanciaManualReal).toBeNull();
+
+      // Resolve the old promise - should be ignored
+      await act(async () => {
+        resolvePromise!({ distancia_total_metros: 9999, duracao_total_segundos: 999 });
+        await Promise.resolve();
+      });
+
+      // Should still be null (request was cancelled)
+      expect(result.current.distanciaManualReal).toBeNull();
+    });
+  });
+
+  describe('error handling', () => {
+    it('should handle API errors gracefully', async () => {
+      mockGetDirections.mockRejectedValue(new Error('API error'));
+
+      const { result } = renderHook(() =>
+        useDistanceCalculation({
+          ...defaultOptions,
+          paradas: mockParadas,
+          enderecoUnidade: mockEnderecoUnidade,
+          rotaOtimizada: mockRotaOtimizada,
+          ordemManual: true,
+        })
+      );
+
+      await act(async () => {
+        jest.advanceTimersByTime(1100);
+        await Promise.resolve();
+      });
+
+      await waitFor(() => {
+        expect(result.current.isCalculandoReal).toBe(false);
+      });
+
+      // Should not crash, just leave distanciaManualReal as null
+      expect(result.current.distanciaManualReal).toBeNull();
+    });
+
+    it('should handle null response from API', async () => {
+      mockGetDirections.mockResolvedValue(null);
+
+      const { result } = renderHook(() =>
+        useDistanceCalculation({
+          ...defaultOptions,
+          paradas: mockParadas,
+          enderecoUnidade: mockEnderecoUnidade,
+          rotaOtimizada: mockRotaOtimizada,
+          ordemManual: true,
+        })
+      );
+
+      await act(async () => {
+        jest.advanceTimersByTime(1100);
+        await Promise.resolve();
+      });
+
+      await waitFor(() => {
+        expect(result.current.isCalculandoReal).toBe(false);
       });
 
       expect(result.current.distanciaManualReal).toBeNull();
