@@ -44,7 +44,7 @@ export interface PasswordStrength {
  * @example
  * ```ts
  * const result = validatePasswordStrength('Senha123!');
- * // { score: 5, label: 'Forte', color: '#FF8C42', feedback: [] }
+ * // { score: 5, label: 'Forte', color: '(theme color)', feedback: [] }
  * ```
  */
 export function validatePasswordStrength(password: string): PasswordStrength {
