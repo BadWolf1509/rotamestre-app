@@ -293,8 +293,14 @@ export default function MapaRota() {
                             onPress={handleParadaPress}
                             onLayoutCapture={handleParadaLayout}
                             rotaStatus={rota?.status}
-                            onRemove={handleRemoveStopRequest}
-                            onEdit={handleEditStop}
+                            onRemove={(parada) => {
+                              handleRemoveStopRequest(parada);
+                              modals.openRemoveStopModal();
+                            }}
+                            onEdit={(parada) => {
+                              handleEditStop(parada);
+                              modals.openEditStopModal();
+                            }}
                           />
                         ))
                       )}
