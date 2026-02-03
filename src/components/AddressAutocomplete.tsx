@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
-import { photonService, PhotonPlaceSuggestion } from '@/lib/photon';
+import { geocodingService, UnifiedPlaceSuggestion } from '@/lib/geocoding';
 import type { Coordenadas } from '@/types/endereco';
 import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -41,21 +41,23 @@ interface AddressAutocompleteProps {
 }
 
 /**
- * Componente de autocomplete de endereços usando Photon API (OpenStreetMap)
+ * Componente de autocomplete de endereços com abordagem híbrida
  *
  * Features:
+ * - Busca híbrida: Photon (gratuito) → Google (fallback) → ViaCEP (para CEPs)
  * - Busca a partir de 3 caracteres
  * - Debounce de 1000ms (1 segundo) para não interromper digitação rápida
- * - 100% gratuito (vs Google Places API ~$50/mês)
+ * - Detecção automática de CEP (busca via ViaCEP - gratuito)
+ * - Fallback para Google Places quando Photon não encontra (melhor cobertura)
  * - Lista de sugestões com separação de texto principal e secundário
- * - Coordenadas retornadas diretamente (não precisa de getPlaceDetails!)
+ * - Indicador visual da fonte (Photon, Google, CEP)
  * - TextInput otimizado com useCallback e React.memo para evitar perda de foco
  */
 const AddressAutocompleteComponent = function AddressAutocomplete({
   value,
   onChangeText,
   onSelectAddress,
-  placeholder = 'Digite o endereço completo',
+  placeholder = 'Endereço ou CEP',
   error,
   multiline = false,
   compact,
@@ -65,7 +67,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   const { isDesktop } = useResponsive();
   // Use explicit compact prop if provided, otherwise auto-detect from viewport
   const useCompact = compact ?? isDesktop;
-  const [suggestions, setSuggestions] = useState<PhotonPlaceSuggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<UnifiedPlaceSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -73,6 +75,8 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   const wasSelectedRef = useRef(false);
   // Track if user has interacted with the input (to skip initial search)
   const hasUserInteracted = useRef(false);
+  // Track if we're fetching coordinates for a selected suggestion
+  const [isFetchingCoords, setIsFetchingCoords] = useState(false);
 
   // Limpar suggestions quando value é limpo externamente
   useEffect(() => {
@@ -114,9 +118,9 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
       setShowSuggestions(true);
 
       try {
-        // Usa Photon API (gratuito!) em vez de Google Places (~$50/mês)
+        // Busca híbrida: Photon (gratuito) → Google (fallback) → ViaCEP (para CEPs)
         // Passa locationBias para priorizar resultados próximos da região do usuário
-        const results = await photonService.autocompleteAddress(value, locationBias);
+        const results = await geocodingService.autocomplete(value, locationBias);
         setSuggestions(results);
       } catch (error) {
         console.error('Erro no autocomplete:', error);
@@ -182,7 +186,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   }, [value]);
 
   // Memoizar handlers para evitar re-renders
-  const handleSelectSuggestion = useCallback((suggestion: PhotonPlaceSuggestion) => {
+  const handleSelectSuggestion = useCallback(async (suggestion: UnifiedPlaceSuggestion) => {
     // Mark that next value change is from selection, not typing
     wasSelectedRef.current = true;
 
@@ -211,8 +215,37 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
       }
     }
 
-    // Photon já retorna coordenadas! Não precisa de getPlaceDetails
-    onSelectAddress(finalAddress, suggestion.place_id, suggestion.coordinates);
+    // Se já tem coordenadas, usar diretamente
+    if (suggestion.coordinates) {
+      onSelectAddress(finalAddress, suggestion.place_id, suggestion.coordinates);
+      setSuggestions([]);
+      setShowSuggestions(false);
+      Keyboard?.dismiss?.();
+      return;
+    }
+
+    // Se precisa buscar coordenadas (Google ou ViaCEP)
+    if (suggestion.needsCoordinates) {
+      setIsFetchingCoords(true);
+      setSuggestions([]);
+      setShowSuggestions(false);
+
+      try {
+        const coords = await geocodingService.getCoordinates(suggestion);
+        onSelectAddress(finalAddress, suggestion.place_id, coords || undefined);
+      } catch (error) {
+        console.error('Erro ao obter coordenadas:', error);
+        // Mesmo sem coordenadas, retorna o endereço
+        onSelectAddress(finalAddress, suggestion.place_id, undefined);
+      } finally {
+        setIsFetchingCoords(false);
+        Keyboard?.dismiss?.();
+      }
+      return;
+    }
+
+    // Fallback: retorna sem coordenadas
+    onSelectAddress(finalAddress, suggestion.place_id, undefined);
     setSuggestions([]);
     setShowSuggestions(false);
     Keyboard?.dismiss?.();
@@ -275,9 +308,20 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
     }
   }, [showSuggestions, suggestions, selectedIndex, handleSelectSuggestion]);
 
+  // Ícone baseado na fonte
+  const getSourceIcon = useCallback((source: UnifiedPlaceSuggestion['source']) => {
+    switch (source) {
+      case 'viacep':
+        return '📮'; // CEP/Correios
+      case 'google':
+      default:
+        return '🔍'; // Google
+    }
+  }, []);
+
   // Memoizar renderItem para estabilizar callbacks em testes
   const renderSuggestionItem = useCallback(
-    ({ item, index }: { item: PhotonPlaceSuggestion; index: number }) => {
+    ({ item, index }: { item: UnifiedPlaceSuggestion; index: number }) => {
       const suggestionHasNumber = /,\s*\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?(\s|,|$)/.test(item.structured_formatting.main_text);
 
       // Extrair número do valor atual (usar ref para valor mais recente)
@@ -306,7 +350,9 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
           accessibilityHint="Toque para selecionar este endereço"
         >
           <View style={[styles.suggestionIcon, useCompact && styles.suggestionIconCompact]}>
-            <Text style={[styles.suggestionIconText, useCompact && styles.suggestionIconTextCompact]}>📍</Text>
+            <Text style={[styles.suggestionIconText, useCompact && styles.suggestionIconTextCompact]}>
+              {getSourceIcon(item.source)}
+            </Text>
           </View>
           <View style={styles.suggestionTextContainer}>
             <Text style={[styles.suggestionMainText, useCompact && styles.suggestionMainTextCompact]}>
@@ -314,12 +360,13 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
             </Text>
             <Text style={[styles.suggestionSecondaryText, useCompact && styles.suggestionSecondaryTextCompact]}>
               {item.structured_formatting.secondary_text}
+              {item.cep ? ` • CEP: ${item.cep}` : ''}
             </Text>
           </View>
         </TouchableOpacity>
       );
     },
-    [handleSelectSuggestion, useCompact, extractNumberFromInput, selectedIndex]
+    [handleSelectSuggestion, useCompact, extractNumberFromInput, selectedIndex, getSourceIcon]
   );
 
   // ItemSeparator extraído para evitar recriação a cada render
@@ -327,6 +374,16 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
 
   // Conteúdo do dropdown (loading, sugestões, no results, hint)
   const renderDropdownContent = () => {
+    // Loading para busca de coordenadas
+    if (isFetchingCoords) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>Obtendo localização...</Text>
+        </View>
+      );
+    }
+
     if (isLoading) {
       return (
         <View style={styles.loadingContainer}>
@@ -366,6 +423,17 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
       return (
         <View style={styles.hintContainer}>
           <Text style={styles.hintText}>Digite pelo menos 3 caracteres para buscar</Text>
+        </View>
+      );
+    }
+
+    // Mostrar dica quando campo vazio ou com pouco texto
+    if (!value || value.length === 0) {
+      return (
+        <View style={styles.hintContainer}>
+          <Text style={styles.hintText}>
+            Dica: Use CEP + número para resultado rápido (ex: 58068-504, 100)
+          </Text>
         </View>
       );
     }

@@ -259,7 +259,7 @@ export function AddStopModal({
 
         {/* Observações - full width */}
         <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-          <Text style={[styles.label, isDesktop && styles.labelCompact]}>Observações</Text>
+          <Text style={[styles.label, isDesktop && styles.labelCompact]}>Observações (opcional)</Text>
           <TextInput
             style={[styles.input, isDesktop && styles.inputCompact, styles.textArea, isDesktop && styles.textAreaCompact]}
             value={observacoes}
@@ -269,6 +269,7 @@ export function AddStopModal({
             multiline
             numberOfLines={isDesktop ? 2 : 3}
             textAlignVertical="top"
+            maxLength={300}
           />
         </View>
 

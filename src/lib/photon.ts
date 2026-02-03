@@ -32,13 +32,56 @@ const PHOTON_API_URL = 'https://photon.komoot.io';
 const REQUEST_TIMEOUT = 8000; // 8 segundos
 const DEFAULT_LIMIT = 5;
 
-// Bounding box do Brasil para filtrar resultados
+// Bounding box do Brasil para filtrar resultados (fallback)
 const BRAZIL_BBOX = {
   minLon: -73.9872,
   minLat: -33.7683,
   maxLon: -34.7299,
   maxLat: 5.2718,
 };
+
+// Raio padrão para busca local (em km)
+const LOCAL_SEARCH_RADIUS_KM = 150;
+
+// ============================================================================
+// BBOX HELPERS
+// ============================================================================
+
+interface BoundingBox {
+  minLon: number;
+  minLat: number;
+  maxLon: number;
+  maxLat: number;
+}
+
+/**
+ * Calcula bounding box a partir de um ponto central e raio em km.
+ * Usa aproximação: 1 grau ≈ 111km (varia com latitude, mas suficiente para 150km)
+ *
+ * @param center - Coordenadas do centro
+ * @param radiusKm - Raio em quilômetros
+ * @returns Bounding box
+ */
+function calculateBboxFromCenter(center: Coordenadas, radiusKm: number): BoundingBox {
+  // 1 grau de latitude ≈ 111km (constante)
+  // 1 grau de longitude ≈ 111km * cos(latitude) (varia com latitude)
+  const latDelta = radiusKm / 111;
+  const lonDelta = radiusKm / (111 * Math.cos((center.latitude * Math.PI) / 180));
+
+  return {
+    minLat: center.latitude - latDelta,
+    maxLat: center.latitude + latDelta,
+    minLon: center.longitude - lonDelta,
+    maxLon: center.longitude + lonDelta,
+  };
+}
+
+/**
+ * Formata bounding box para string do Photon API
+ */
+function formatBbox(bbox: BoundingBox): string {
+  return `${bbox.minLon},${bbox.minLat},${bbox.maxLon},${bbox.maxLat}`;
+}
 
 // ============================================================================
 // TYPES
@@ -316,22 +359,35 @@ export const photonService = {
         limit: String(DEFAULT_LIMIT),
       });
 
-      // Adicionar location bias se fornecido (melhora relevância)
-      // Ref: https://github.com/komoot/photon#search
+      // Definir bounding box baseado em locationBias
+      // Se locationBias fornecido: usar raio de 150km (busca local)
+      // Se não: usar Brasil inteiro (fallback)
+      let bbox: BoundingBox;
+
       if (locationBias) {
+        // Calcular bbox de 150km ao redor da localização do usuário
+        bbox = calculateBboxFromCenter(locationBias, LOCAL_SEARCH_RADIUS_KM);
+
+        // Adicionar location bias para melhorar relevância dentro do bbox
         params.append('lat', String(locationBias.latitude));
         params.append('lon', String(locationBias.longitude));
-        // zoom: controla o raio de influência do bias
-        // Fórmula: 0.25km * 2^(18-zoom)
-        // zoom=8 → ~256km de raio (bom para bias regional no Brasil)
-        params.append('zoom', '8');
+        // zoom=10 → ~64km de raio de influência (prioriza mais próximos)
+        params.append('zoom', '10');
         // location_bias_scale: 0.0 = ignora prominência completamente
-        // Usamos 0.0 para priorizar APENAS proximidade (ignora popularidade)
         params.append('location_bias_scale', '0.0');
+
+        logger.info('[Photon] Busca local', {
+          center: `${locationBias.latitude.toFixed(4)}, ${locationBias.longitude.toFixed(4)}`,
+          radiusKm: LOCAL_SEARCH_RADIUS_KM,
+        });
+      } else {
+        // Sem locationBias: buscar em todo o Brasil
+        bbox = BRAZIL_BBOX;
+        logger.info('[Photon] Busca nacional (sem locationBias)');
       }
 
-      // Filtrar apenas Brasil usando bounding box
-      params.append('bbox', `${BRAZIL_BBOX.minLon},${BRAZIL_BBOX.minLat},${BRAZIL_BBOX.maxLon},${BRAZIL_BBOX.maxLat}`);
+      // Aplicar bounding box (local ou nacional)
+      params.append('bbox', formatBbox(bbox));
 
       const url = `${PHOTON_API_URL}/api/?${params.toString()}`;
 

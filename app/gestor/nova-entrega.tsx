@@ -80,6 +80,9 @@ const FormularioParadaMemoized = memo(function FormularioParada({
   const { theme } = useUnistyles();
   const { isDesktop, isTablet, isMobile } = useResponsive();
   const tipoAtual = watch('tipo');
+  const latitude = watch('latitude');
+  const longitude = watch('longitude');
+  const hasValidCoordinates = latitude !== undefined && longitude !== undefined && latitude !== 0 && longitude !== 0;
 
   return (
     <View style={[
@@ -109,6 +112,12 @@ const FormularioParadaMemoized = memo(function FormularioParada({
               accessibilityRole="radio"
               accessibilityState={{ checked: value === 'entrega' }}
             >
+              <Ionicons
+                name="arrow-down-circle"
+                size={isDesktop ? 16 : 18}
+                color={value === 'entrega' ? theme.colors.white : theme.colors.primary}
+                style={styles.radioIcon}
+              />
               <Text
                 style={[
                   styles.radioText,
@@ -122,8 +131,9 @@ const FormularioParadaMemoized = memo(function FormularioParada({
             <TouchableOpacity
               style={[
                 styles.radioButton,
+                styles.radioButtonRetirada,
                 isDesktop && styles.radioButtonDesktop,
-                value === 'retirada' && styles.radioButtonActive,
+                value === 'retirada' && styles.radioButtonRetiradaActive,
               ]}
               onPress={() => {
                 onChange('retirada');
@@ -133,9 +143,16 @@ const FormularioParadaMemoized = memo(function FormularioParada({
               accessibilityRole="radio"
               accessibilityState={{ checked: value === 'retirada' }}
             >
+              <Ionicons
+                name="arrow-up-circle"
+                size={isDesktop ? 16 : 18}
+                color={value === 'retirada' ? theme.colors.white : theme.colors.warning}
+                style={styles.radioIcon}
+              />
               <Text
                 style={[
                   styles.radioText,
+                  styles.radioTextRetirada,
                   isDesktop && styles.radioTextDesktop,
                   value === 'retirada' && styles.radioTextActive,
                 ]}
@@ -211,28 +228,39 @@ const FormularioParadaMemoized = memo(function FormularioParada({
         </View>
       )}
 
-      <Controller
-        control={control}
-        name="endereco"
-        render={({ field: { onChange, value } }) => (
-          <AddressAutocomplete
-            value={value || ''}
-            onChangeText={onChange}
-            onSelectAddress={(address, _placeId, coordinates?: Coordenadas) => {
-              onChange(address);
-              // Photon já retorna coordenadas diretamente - não precisa de getPlaceDetails!
-              if (coordinates) {
-                setValue('latitude', coordinates.latitude);
-                setValue('longitude', coordinates.longitude);
-              }
-            }}
-            placeholder="Digite o endereço completo"
-            error={errors.endereco?.message}
-            multiline
-            locationBias={locationBias}
-          />
-        )}
-      />
+      {/* Endereço com badge de validação */}
+      <View style={styles.fieldWithLabel}>
+        <View style={styles.labelRow}>
+          <Text style={[styles.fieldLabel, isDesktop && styles.fieldLabelDesktop]}>Endereço *</Text>
+          {hasValidCoordinates && (
+            <View style={[styles.validatedBadge, isDesktop && styles.validatedBadgeDesktop]}>
+              <Ionicons name="checkmark-circle" size={isDesktop ? 14 : 16} color={theme.colors.success} />
+              <Text style={[styles.validatedText, isDesktop && styles.validatedTextDesktop]}>Validado</Text>
+            </View>
+          )}
+        </View>
+        <Controller
+          control={control}
+          name="endereco"
+          render={({ field: { onChange, value } }) => (
+            <AddressAutocomplete
+              value={value || ''}
+              onChangeText={onChange}
+              onSelectAddress={(address, _placeId, coordinates?: Coordenadas) => {
+                onChange(address);
+                // Photon já retorna coordenadas diretamente - não precisa de getPlaceDetails!
+                if (coordinates) {
+                  setValue('latitude', coordinates.latitude);
+                  setValue('longitude', coordinates.longitude);
+                }
+              }}
+              error={errors.endereco?.message}
+              multiline
+              locationBias={locationBias}
+            />
+          )}
+        />
+      </View>
 
       <Controller
         control={control}
@@ -271,7 +299,8 @@ const FormularioParadaMemoized = memo(function FormularioParada({
                 isDesktop && styles.inputDesktop,
                 errors.telefone && styles.inputError,
               ]}
-              placeholder="Telefone de contato"
+              placeholder="(00) 00000-0000"
+              placeholderTextColor={theme.colors.gray400}
               value={value}
               onChangeText={(text) => onChange(maskPhone(text))}
               keyboardType="phone-pad"
@@ -299,13 +328,15 @@ const FormularioParadaMemoized = memo(function FormularioParada({
               styles.textArea,
               isDesktop && styles.textAreaDesktop,
             ]}
-            placeholder="Observações"
+            placeholder="Observações (opcional)"
+            placeholderTextColor={theme.colors.gray400}
             value={value}
             onChangeText={onChange}
             multiline
             numberOfLines={3}
+            maxLength={300}
             accessibilityLabel="Campo de observações"
-            accessibilityHint="Digite observações adicionais sobre a entrega"
+            accessibilityHint="Digite observações adicionais sobre a entrega (máximo 300 caracteres)"
           />
         )}
       />
@@ -717,6 +748,19 @@ const styles = StyleSheet.create((theme: Theme) => ({
   radioTextActive: {
     color: theme.colors.white,
   },
+  radioIcon: {
+    marginRight: theme.spacing.xs,
+  },
+  radioButtonRetirada: {
+    borderColor: theme.colors.warning,
+  },
+  radioButtonRetiradaActive: {
+    backgroundColor: theme.colors.warning,
+    borderColor: theme.colors.warning,
+  },
+  radioTextRetirada: {
+    color: theme.colors.warning,
+  },
   // Vínculo section
   vinculoSection: {
     marginBottom: theme.spacing.lg,
@@ -791,6 +835,45 @@ const styles = StyleSheet.create((theme: Theme) => ({
   vinculoOptionTextActive: {
     color: theme.colors.info,
     fontFamily: theme.typography.fontSansSemiBold,
+  },
+  // Field with label
+  fieldWithLabel: {
+    marginBottom: theme.spacing.md,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.xs,
+  },
+  fieldLabel: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray700,
+  },
+  fieldLabelDesktop: {
+    fontSize: theme.desktop.input.fontSize,
+  },
+  validatedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing['1'],
+    backgroundColor: theme.colors.success + '15',
+    paddingHorizontal: theme.spacing['2'],
+    paddingVertical: theme.spacing['0.5'],
+    borderRadius: theme.borderRadius.sm,
+  },
+  validatedBadgeDesktop: {
+    paddingHorizontal: theme.spacing.xs,
+    paddingVertical: 2,
+  },
+  validatedText: {
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.success,
+  },
+  validatedTextDesktop: {
+    fontSize: theme.typography.fontSize.xs,
   },
   // Input - Mobile
   input: {
