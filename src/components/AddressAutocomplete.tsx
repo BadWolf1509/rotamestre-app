@@ -12,6 +12,7 @@ import {
 
 import { useResponsive } from '@/hooks/useResponsive';
 import { geocodingService, UnifiedPlaceSuggestion } from '@/lib/geocoding';
+import { logger } from '@/lib/logger';
 import type { Coordenadas } from '@/types/endereco';
 import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -123,7 +124,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
         const results = await geocodingService.autocomplete(value, locationBias);
         setSuggestions(results);
       } catch (error) {
-        console.error('Erro no autocomplete:', error);
+        logger.error('[AddressAutocomplete] Erro no autocomplete:', error);
         setSuggestions([]);
       } finally {
         setIsLoading(false);
@@ -234,7 +235,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
         const coords = await geocodingService.getCoordinates(suggestion);
         onSelectAddress(finalAddress, suggestion.place_id, coords || undefined);
       } catch (error) {
-        console.error('Erro ao obter coordenadas:', error);
+        logger.error('[AddressAutocomplete] Erro ao obter coordenadas:', error);
         // Mesmo sem coordenadas, retorna o endereço
         onSelectAddress(finalAddress, suggestion.place_id, undefined);
       } finally {

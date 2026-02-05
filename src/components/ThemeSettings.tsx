@@ -14,6 +14,7 @@ import { Switch, TouchableOpacity, View } from 'react-native';
 
 import { Text } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
+import { logger } from '@/lib/logger';
 import {
   getThemePreferences,
   setContrastPreference,
@@ -81,7 +82,7 @@ export function ThemeSettings({
           setHighContrastEnabled(stored.contrast === 'high');
         }
       } catch (error) {
-        console.warn('Failed to load theme preferences:', error);
+        logger.warn('Failed to load theme preferences:', error);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -111,7 +112,7 @@ export function ThemeSettings({
         highContrastEnabled ? 'high' : 'normal'
       );
     } catch (error) {
-      console.warn('Failed to update theme preference:', error);
+      logger.warn('Failed to update theme preference:', error);
       showError({ title: 'Erro', message: 'Falha ao salvar preferência de tema.' });
       setDarkModeEnabled(!value); // Revert on error
     }
@@ -127,7 +128,7 @@ export function ThemeSettings({
         highContrastEnabled ? 'high' : 'normal'
       );
     } catch (error) {
-      console.warn('Failed to update density preference:', error);
+      logger.warn('Failed to update density preference:', error);
       showError({ title: 'Erro', message: 'Falha ao salvar preferência de densidade.' });
       setCompactDensityEnabled(!value); // Revert on error
     }
@@ -143,7 +144,7 @@ export function ThemeSettings({
         value ? 'high' : 'normal'
       );
     } catch (error) {
-      console.warn('Failed to update contrast preference:', error);
+      logger.warn('Failed to update contrast preference:', error);
       showError({ title: 'Erro', message: 'Falha ao salvar preferência de contraste.' });
       setHighContrastEnabled(!value); // Revert on error
     }
@@ -164,7 +165,7 @@ export function ThemeSettings({
 
       notifyChange('light', 'regular', 'normal');
     } catch (error) {
-      console.warn('Failed to reset preferences:', error);
+      logger.warn('Failed to reset preferences:', error);
       showError({ title: 'Erro', message: 'Falha ao restaurar configurações padrão.' });
     }
   };

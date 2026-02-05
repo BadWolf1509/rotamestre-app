@@ -14,6 +14,7 @@ import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { Alert } from 'react-native';
 
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { defaultTheme } from '@/utils/styles';
 
@@ -62,7 +63,7 @@ export interface LocationPermissions {
 // e será executada quando o módulo for importado
 TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
   if (error) {
-    console.error('[BackgroundLocation] Task error:', error);
+    logger.error('[BackgroundLocation] Task error', error);
     return;
   }
 
@@ -107,10 +108,10 @@ async function saveLocationToDatabase(
     });
 
     if (error) {
-      console.error('[LocationTracking] Erro ao salvar:', error);
+      logger.error('[LocationTracking] Erro ao salvar', error);
     }
   } catch (err) {
-    console.error('[LocationTracking] Erro:', err);
+    logger.error('[LocationTracking] Erro', err);
   }
 }
 
@@ -160,7 +161,7 @@ export async function startBackgroundTracking(context: TrackingContext): Promise
     // Verificar permissões
     const permissions = await checkLocationPermissions();
     if (!permissions.foreground) {
-      console.warn('[LocationTracking] Sem permissão de foreground');
+      logger.warn('[LocationTracking] Sem permissão de foreground');
       return false;
     }
 
@@ -203,7 +204,7 @@ export async function startBackgroundTracking(context: TrackingContext): Promise
 
     return true;
   } catch (err) {
-    console.error('[LocationTracking] Erro ao iniciar:', err);
+    logger.error('[LocationTracking] Erro ao iniciar', err);
     return false;
   }
 }
@@ -220,7 +221,7 @@ export async function stopBackgroundTracking(): Promise<void> {
     }
     await AsyncStorage.removeItem(TRACKING_CONTEXT_KEY);
   } catch (err) {
-    console.error('[LocationTracking] Erro ao parar:', err);
+    logger.error('[LocationTracking] Erro ao parar', err);
   }
 }
 
@@ -263,7 +264,7 @@ export async function updateTrackingContext(
       );
     }
   } catch (err) {
-    console.error('[LocationTracking] Erro ao atualizar contexto:', err);
+    logger.error('[LocationTracking] Erro ao atualizar contexto', err);
   }
 }
 

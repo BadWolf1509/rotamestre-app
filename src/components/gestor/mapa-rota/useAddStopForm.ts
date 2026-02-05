@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { logger } from '@/lib/logger';
 import { maskPhone } from '@/lib/phone';
 import { photonService } from '@/lib/photon';
 import { recalcularRota, notificarMotoristaRotaEditada } from '@/lib/routeUtils';
@@ -211,7 +212,7 @@ export function useAddStopForm({
 
         const recalcResult = await recalcularRota(rotaId, updatedParadas, enderecoUnidade);
         if (!recalcResult.success) {
-          console.warn('Recálculo de rota falhou:', recalcResult.error);
+          logger.warn('Recálculo de rota falhou:', recalcResult.error);
           recalcFailed = true;
         }
       }
@@ -251,7 +252,7 @@ export function useAddStopForm({
 
       onSave();
     } catch (err) {
-      console.error('Erro ao adicionar parada:', err);
+      logger.error('Erro ao adicionar parada:', err);
       setError('Erro ao adicionar parada. Tente novamente.');
     } finally {
       setIsSaving(false);

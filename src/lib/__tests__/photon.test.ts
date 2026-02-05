@@ -145,7 +145,7 @@ describe('Photon Geocoding Service', () => {
         expect.any(Object)
       );
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('zoom=8'),
+        expect.stringContaining('zoom=10'),
         expect.any(Object)
       );
     });

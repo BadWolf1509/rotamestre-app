@@ -162,7 +162,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderWidth: 1,
     borderColor: theme.colors.gray300,
     borderRadius: theme.components.input.radius,
-    // Web: transição suave para estados de foco/erro
+    // Web: transição suave para estados de foco/erro (as any needed due to Unistyles type limitations)
     ...(Platform.OS === 'web' && {
       transitionProperty: 'border-color, box-shadow',
       transitionDuration: '150ms',
@@ -197,7 +197,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray900,
     backgroundColor: 'transparent',
     borderWidth: 0,
-    // Web: remover estilos de foco nativos do navegador
+    // Web: remover estilos de foco nativos do navegador (as any needed due to Unistyles type limitations)
     ...(Platform.OS === 'web' && {
       outlineWidth: 0,
       outlineStyle: 'none',

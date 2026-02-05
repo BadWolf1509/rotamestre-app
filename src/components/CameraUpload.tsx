@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 
 import { useAlert } from '@/hooks/useAlert';
+import { logger } from '@/lib/logger';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import { isOnline, queuePhotoUpload, hasOfflinePhoto, getOfflinePhotoPath } from '../lib/offline';
@@ -99,7 +100,7 @@ export default function CameraUpload({
 
       return resized.uri;
     } catch (error) {
-      console.error('❌ Erro ao comprimir:', error);
+      logger.error('[CameraUpload] Erro ao comprimir:', error);
       return uri; // Retorna original se falhar
     }
   };
@@ -212,7 +213,7 @@ export default function CameraUpload({
         setSelectedImage(null);
       }
     } catch (error) {
-      console.error('Erro no upload:', error);
+      logger.error('[CameraUpload] Erro no upload:', error);
 
       // Se falhou online, tentar salvar offline (apenas native)
       if (Platform.OS !== 'web') {

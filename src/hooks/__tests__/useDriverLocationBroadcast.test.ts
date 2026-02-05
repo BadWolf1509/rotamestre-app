@@ -2,6 +2,8 @@ import { renderHook, waitFor, act } from '@testing-library/react-native';
 import * as Location from 'expo-location';
 import { Platform } from 'react-native';
 
+import { logger } from '@/lib/logger';
+
 import { useDriverLocationBroadcast } from '../useDriverLocationBroadcast';
 
 // Mock do getTrackingContext
@@ -368,7 +370,7 @@ describe('useDriverLocationBroadcast', () => {
         }
       );
 
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const loggerSpy = jest.spyOn(logger, 'error');
 
       const { unmount } = renderHook(() =>
         useDriverLocationBroadcast({
@@ -393,13 +395,13 @@ describe('useDriverLocationBroadcast', () => {
       });
 
       await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith(
+        expect(loggerSpy).toHaveBeenCalledWith(
           '[LocationBroadcast] Web geolocation error:',
           expect.any(Object)
         );
       });
 
-      consoleSpy.mockRestore();
+      loggerSpy.mockRestore();
       unmount();
     });
   });
@@ -897,7 +899,7 @@ describe('useDriverLocationBroadcast', () => {
 
       mockInsert.mockResolvedValue({ error: { message: 'Database error' } });
 
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const loggerSpy = jest.spyOn(logger, 'error');
 
       renderHook(() =>
         useDriverLocationBroadcast({
@@ -926,19 +928,19 @@ describe('useDriverLocationBroadcast', () => {
       });
 
       await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith(
+        expect(loggerSpy).toHaveBeenCalledWith(
           '[LocationBroadcast] Erro ao enviar localização:',
           expect.objectContaining({ message: 'Database error' })
         );
       });
 
-      consoleSpy.mockRestore();
+      loggerSpy.mockRestore();
     });
 
     it('deve tratar erro ao iniciar tracking', async () => {
       mockWatchPositionAsync.mockRejectedValue(new Error('Location error'));
 
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const loggerSpy = jest.spyOn(logger, 'error');
 
       renderHook(() =>
         useDriverLocationBroadcast({
@@ -948,13 +950,13 @@ describe('useDriverLocationBroadcast', () => {
       );
 
       await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith(
+        expect(loggerSpy).toHaveBeenCalledWith(
           '[LocationBroadcast] Erro ao iniciar tracking:',
           expect.any(Error)
         );
       });
 
-      consoleSpy.mockRestore();
+      loggerSpy.mockRestore();
     });
 
     it('deve tratar erro de getTrackingContext graciosamente', async () => {
@@ -969,7 +971,7 @@ describe('useDriverLocationBroadcast', () => {
 
       mockGetTrackingContext.mockRejectedValue(new Error('Context error'));
 
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const loggerSpy = jest.spyOn(logger, 'error');
 
       renderHook(() =>
         useDriverLocationBroadcast({
@@ -998,13 +1000,13 @@ describe('useDriverLocationBroadcast', () => {
       });
 
       await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith(
+        expect(loggerSpy).toHaveBeenCalledWith(
           '[LocationBroadcast] Erro:',
           expect.any(Error)
         );
       });
 
-      consoleSpy.mockRestore();
+      loggerSpy.mockRestore();
     });
   });
 

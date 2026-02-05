@@ -35,6 +35,7 @@ export function useMotoristas(): UseMotoristaResult {
 
   const fetchingRef = useRef(false);
   const mountedRef = useRef(true);
+  const loadMotoristasRef = useRef<(forceRefresh?: boolean) => Promise<void>>(async () => {});
 
   const fetchMotoristas = useCallback(async (): Promise<Motorista[]> => {
     if (!unidadeAtiva) return [];
@@ -110,15 +111,19 @@ export function useMotoristas(): UseMotoristaResult {
     }
   }, [unidadeAtiva, fetchMotoristas, motoristas.length]);
 
-  // Carregar quando unidade mudar
+  // Sync ref with latest loadMotoristas function
+  useEffect(() => {
+    loadMotoristasRef.current = loadMotoristas;
+  }, [loadMotoristas]);
+
+  // Carregar quando unidade mudar - uses ref to avoid re-execution when loadMotoristas changes
   useEffect(() => {
     mountedRef.current = true;
-    loadMotoristas();
+    loadMotoristasRef.current();
 
     return () => {
       mountedRef.current = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unidadeAtiva]);
 
   // Refresh forçando busca na API

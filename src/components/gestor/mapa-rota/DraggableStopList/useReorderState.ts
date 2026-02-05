@@ -10,6 +10,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { logger } from '@/lib/logger';
+
 import type { Parada } from '../types';
 
 export interface UseReorderStateOptions {
@@ -144,7 +146,7 @@ export function useReorderState({
     } catch (error) {
       // Error is handled by onReorder (handleReorderParadas)
       // Don't clear state so user can retry
-      console.error('[useReorderState] Error saving:', error);
+      logger.error('[useReorderState] Error saving:', error);
     }
   }, [webReorderList, hasChanges, fixedParadas, onReorder]);
 

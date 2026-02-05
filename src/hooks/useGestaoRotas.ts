@@ -121,7 +121,7 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
 
       // MOCK DATA FOR E2E/CI
       if (!isSupabaseConfigured) {
-        console.warn('[GestaoRotas] Mocking data for E2E/CI');
+        logger.warn('[GestaoRotas] Mocking data for E2E/CI');
         await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
 
         const mockRotas: RotaHistorico[] = [

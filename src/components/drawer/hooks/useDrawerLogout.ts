@@ -5,6 +5,7 @@
 import { useRouter } from 'expo-router';
 import { useState, useCallback } from 'react';
 
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
 interface UseDrawerLogoutOptions {
@@ -28,7 +29,7 @@ export function useDrawerLogout({ onClose }: UseDrawerLogoutOptions) {
       onClose();
       router.replace('/auth/login');
     } catch (error) {
-      console.error('Erro ao fazer logout:', error);
+      logger.error('Erro ao fazer logout:', error);
       setShowErrorDialog(true);
     }
   }, [onClose, router]);

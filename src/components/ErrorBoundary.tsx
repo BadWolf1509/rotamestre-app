@@ -82,9 +82,6 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
     // Call external error handler
     this.props.onError?.(error, errorInfo);
-
-    // Legacy console.error for backwards compatibility
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
   }
 
   componentDidUpdate(prevProps: ErrorBoundaryProps): void {

@@ -16,7 +16,6 @@ import { CACHE_TTL, getCache, setCache } from '@/lib/cache';
 import { logger } from '@/lib/logger';
 
 import type { PlaceSuggestion } from './google-shared';
-import type { Coordenadas } from '../types/endereco';
 
 // ============================================================================
 // CONFIGURATION

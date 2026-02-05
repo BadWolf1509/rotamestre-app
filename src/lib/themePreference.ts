@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { UnistylesRuntime } from 'react-native-unistyles';
 
+import { logger } from '@/lib/logger';
+
 export type ThemePreference = 'light' | 'dark';
 export type ThemeDensityPreference = 'regular' | 'compact';
 export type ThemeContrastPreference = 'normal' | 'high';
@@ -102,7 +104,7 @@ export async function getThemePreferences(): Promise<ThemePreferences | null> {
 
     return { mode, density, contrast };
   } catch (error) {
-    console.warn('Failed to load theme preferences:', error);
+    logger.warn('Failed to load theme preferences:', error);
   }
 
   return null;
@@ -115,7 +117,7 @@ export async function getThemePreference(): Promise<ThemePreference | null> {
       return stored;
     }
   } catch (error) {
-    console.warn('Failed to load theme preference:', error);
+    logger.warn('Failed to load theme preference:', error);
   }
 
   return null;
@@ -128,7 +130,7 @@ export async function setThemePreference(preference: ThemePreference): Promise<v
     const next = stored ?? { mode: preference, density: 'regular', contrast: 'normal' };
     applyThemePreferences({ ...next, mode: preference });
   } catch (error) {
-    console.warn('Failed to save theme preference:', error);
+    logger.warn('Failed to save theme preference:', error);
   }
 }
 
@@ -139,7 +141,7 @@ export async function setDensityPreference(preference: ThemeDensityPreference): 
     const next = stored ?? { mode: getRuntimeMode(), density: preference, contrast: 'normal' };
     applyThemePreferences({ ...next, density: preference });
   } catch (error) {
-    console.warn('Failed to save density preference:', error);
+    logger.warn('Failed to save density preference:', error);
   }
 }
 
@@ -150,6 +152,6 @@ export async function setContrastPreference(preference: ThemeContrastPreference)
     const next = stored ?? { mode: getRuntimeMode(), density: 'regular', contrast: preference };
     applyThemePreferences({ ...next, contrast: preference });
   } catch (error) {
-    console.warn('Failed to save contrast preference:', error);
+    logger.warn('Failed to save contrast preference:', error);
   }
 }

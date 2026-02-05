@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { logger } from '@/lib/logger';
 import { maskPhone } from '@/lib/phone';
 import { photonService } from '@/lib/photon';
 import { recalcularRota, notificarMotoristaRotaEditada } from '@/lib/routeUtils';
@@ -219,7 +220,7 @@ export function useEditStopForm({
 
       onSave();
     } catch (err) {
-      console.error('Erro ao salvar parada:', err);
+      logger.error('Erro ao salvar parada:', err);
       setError('Erro ao salvar parada. Tente novamente.');
     } finally {
       setIsSaving(false);

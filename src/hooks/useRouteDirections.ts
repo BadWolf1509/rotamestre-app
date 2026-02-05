@@ -11,6 +11,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useEffect, useCallback } from 'react';
 
+import { logger } from '@/lib/logger';
 import { getRoute, decodePolyline, type Coordinate } from '@/lib/osrm';
 
 const CACHE_PREFIX = 'route_cache_';
@@ -73,7 +74,7 @@ async function loadFromCache(key: string): Promise<CachedRoute | null> {
 
     return data;
   } catch (error) {
-    console.warn('[useRouteDirections] Erro ao carregar cache:', error);
+    logger.warn('[useRouteDirections] Erro ao carregar cache:', error);
     return null;
   }
 }
@@ -90,7 +91,7 @@ async function saveToCache(key: string, coordinates: Coordinate[], routeInfo: Ro
     };
     await AsyncStorage.setItem(key, JSON.stringify(data));
   } catch (error) {
-    console.warn('[useRouteDirections] Erro ao salvar cache:', error);
+    logger.warn('[useRouteDirections] Erro ao salvar cache:', error);
   }
 }
 
@@ -150,7 +151,7 @@ export function useRouteDirections(paradas: Parada[]): UseRouteDirectionsResult 
       // Sem cache, buscar do OSRM
       await fetchFromOSRM(validParadas, cacheKey, true);
     } catch (err) {
-      console.error('[useRouteDirections] Erro:', err);
+      logger.error('[useRouteDirections] Erro:', err);
       setError(err instanceof Error ? err.message : 'Erro ao buscar rota');
 
       // Tentar carregar cache expirado como fallback
@@ -231,7 +232,7 @@ export function useRouteDirections(paradas: Parada[]): UseRouteDirectionsResult 
 
       // Fallback se OSRM não retornou rotas válidas
       if (updateState) {
-        console.warn('[useRouteDirections] OSRM não retornou rotas válidas, usando linhas retas');
+        logger.warn('[useRouteDirections] OSRM não retornou rotas válidas, usando linhas retas');
         setRouteCoordinates(
           validParadas.map((p) => ({
             latitude: p.latitude!,
@@ -243,7 +244,7 @@ export function useRouteDirections(paradas: Parada[]): UseRouteDirectionsResult 
       }
     } catch (err) {
       if (updateState) {
-        console.error('[useRouteDirections] Erro no OSRM:', err);
+        logger.error('[useRouteDirections] Erro no OSRM:', err);
         setRouteCoordinates(
           validParadas.map((p) => ({
             latitude: p.latitude!,

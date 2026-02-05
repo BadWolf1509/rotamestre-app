@@ -49,6 +49,8 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { logger } from './logger';
+
 // Prefixo para identificar cache vs outros dados do AsyncStorage
 const CACHE_PREFIX = '@cache_';
 
@@ -135,7 +137,7 @@ export async function getCache<T>(key: string): Promise<T | null> {
     memoryCache.set(cacheKey, entry);
     return entry.data;
   } catch (error) {
-    console.warn('[Cache] Erro ao ler cache:', error);
+    logger.warn('[Cache] Erro ao ler cache:', error);
     return null;
   }
 }
@@ -176,7 +178,7 @@ export async function setCache<T>(
   try {
     await AsyncStorage.setItem(cacheKey, JSON.stringify(entry));
   } catch (error) {
-    console.warn('[Cache] Erro ao salvar cache:', error);
+    logger.warn('[Cache] Erro ao salvar cache:', error);
   }
 }
 
@@ -190,7 +192,7 @@ export async function clearCache(key: string): Promise<void> {
   try {
     await AsyncStorage.removeItem(cacheKey);
   } catch (error) {
-    console.warn('[Cache] Erro ao limpar cache:', error);
+    logger.warn('[Cache] Erro ao limpar cache:', error);
   }
 }
 
@@ -207,7 +209,7 @@ export async function clearAllCache(): Promise<void> {
       await AsyncStorage.multiRemove(cacheKeys);
     }
   } catch (error) {
-    console.warn('[Cache] Erro ao limpar todo cache:', error);
+    logger.warn('[Cache] Erro ao limpar todo cache:', error);
   }
 }
 
@@ -236,7 +238,7 @@ export async function cleanExpiredCache(): Promise<void> {
       await AsyncStorage.multiRemove(toRemove);
     }
   } catch (error) {
-    console.warn('[Cache] Erro ao limpar cache expirado:', error);
+    logger.warn('[Cache] Erro ao limpar cache expirado:', error);
   }
 }
 

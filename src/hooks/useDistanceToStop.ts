@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 
+import { logger } from '@/lib/logger';
 import { getDistance, estimateRouteDistance } from '@/lib/osrm';
 
 interface DistanceInfo {
@@ -75,7 +76,7 @@ export function useDistanceToStop(
 
       setDistanceInfo(newInfo);
     } catch (error) {
-      console.error('Erro ao calcular distância com OSRM:', error);
+      logger.error('Erro ao calcular distância com OSRM:', error);
 
       // Fallback: cálculo Haversine (gratuito, menos preciso)
       const estimate = estimateRouteDistance(userLocation, destination);

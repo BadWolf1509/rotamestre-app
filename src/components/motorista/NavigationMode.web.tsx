@@ -22,6 +22,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { useNavigationModeLogic, type NavigationModeProps } from '@/hooks/navigation';
 import { useAlert } from '@/hooks/useAlert';
+import { logger } from '@/lib/logger';
 import { abrirNavegacao } from '@/lib/navigation';
 import { getOpenFreeMapStyle, installOpenFreeMapMissingImageHandler } from '@/lib/openFreeMapStyle';
 import { calculateHaversineDistance } from '@/services/turnByTurnNavigation';
@@ -142,7 +143,7 @@ export function NavigationMode({
         mapRef.current = mapInstance;
       } catch (error) {
         if (cancelled) return;
-        console.error('[NavigationMode.web] Failed to initialize map:', error);
+        logger.error('[NavigationMode.web] Failed to initialize map:', error);
       }
     };
 
@@ -165,6 +166,8 @@ export function NavigationMode({
       }
       mapRef.current = null;
     };
+    // Map initialization runs only once on mount - mapCenter is captured at init time
+    // and updated separately via the setCenter effect below
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -440,7 +443,7 @@ export function NavigationMode({
         location.coords.speed
       );
     } catch (error) {
-      console.warn('[NavigationMode.web] Error getting initial location:', error);
+      logger.warn('[NavigationMode.web] Error getting initial location:', error);
     }
 
     const subscription = await Location.watchPositionAsync(
@@ -466,7 +469,7 @@ export function NavigationMode({
       try {
         subscription.remove();
       } catch (error) {
-        console.warn('[NavigationMode.web] Error removing subscription:', error);
+        logger.warn('[NavigationMode.web] Error removing subscription:', error);
       }
     };
   }, [setIsTracking, updateLocationFromCoords, showWarning]);

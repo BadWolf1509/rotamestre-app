@@ -3,6 +3,8 @@
  * Provides native browser notifications when app is in background
  */
 
+import { logger } from '@/lib/logger';
+
 /**
  * Check if browser notifications are supported
  */
@@ -31,7 +33,7 @@ export async function requestBrowserNotificationPermission(): Promise<boolean> {
     const permission = await Notification.requestPermission();
     return permission === 'granted';
   } catch (error) {
-    console.error('[BrowserNotification] Error requesting permission:', error);
+    logger.error('[BrowserNotification] Error requesting permission:', error);
     return false;
   }
 }
@@ -95,7 +97,7 @@ export function sendBrowserNotification(
 
     return notification;
   } catch (error) {
-    console.error('[BrowserNotification] Error sending notification:', error);
+    logger.error('[BrowserNotification] Error sending notification:', error);
     return null;
   }
 }

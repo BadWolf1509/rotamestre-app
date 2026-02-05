@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ParadaData } from '@/context/RouteStatusContext';
+import { logger } from '@/lib/logger';
 import { getRoute, decodePolyline, type Coordinate } from '@/lib/osrm';
 import LocationTrackingService from '@/services/locationTracking';
 import { calculateHaversineDistance } from '@/services/turnByTurnNavigation';
@@ -275,7 +276,7 @@ export function useNavigationModeLogic({
           };
         }
       } catch (error) {
-        console.warn('[useNavigationModeLogic] Error fetching OSRM route:', error);
+        logger.warn('[useNavigationModeLogic] Error fetching OSRM route:', error);
       }
     };
 

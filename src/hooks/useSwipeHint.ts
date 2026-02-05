@@ -6,6 +6,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
 
+import { logger } from '@/lib/logger';
+
 const STORAGE_KEY = '@rotamestre:swipe_count';
 const MAX_HINTS = 5; // Número máximo de vezes para mostrar o hint completo
 
@@ -31,7 +33,7 @@ export function useSwipeHint(): UseSwipeHintResult {
           setSwipeCount(parseInt(stored, 10));
         }
       } catch (error) {
-        console.error('Error loading swipe count:', error);
+        logger.error('Error loading swipe count:', error);
       } finally {
         setIsLoading(false);
       }
@@ -47,7 +49,7 @@ export function useSwipeHint(): UseSwipeHintResult {
       setSwipeCount(newCount);
       await AsyncStorage.setItem(STORAGE_KEY, newCount.toString());
     } catch (error) {
-      console.error('Error saving swipe count:', error);
+      logger.error('Error saving swipe count:', error);
     }
   }, [swipeCount]);
 
@@ -73,6 +75,6 @@ export async function resetSwipeHint(): Promise<void> {
   try {
     await AsyncStorage.removeItem(STORAGE_KEY);
   } catch (error) {
-    console.error('Error resetting swipe hint:', error);
+    logger.error('Error resetting swipe hint:', error);
   }
 }

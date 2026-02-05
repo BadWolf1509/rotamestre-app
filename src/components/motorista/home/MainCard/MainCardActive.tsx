@@ -31,14 +31,14 @@ import { styles } from '../MainCard.styles';
 import { NextStopPreview } from '../NextStopPreview';
 import { filterRealStops } from './MainCard.utils';
 
-import type { Location } from './MainCard.types';
+import type { Location, Parada, Rota } from './MainCard.types';
 
 interface MainCardActiveProps {
   state: RouteStatus;
-  route: any; // Rota | null - kept as any for compatibility
-  paradas: any[]; // Parada[] - kept as any for compatibility
-  currentStop: any; // Parada - kept as any for compatibility
-  nextStop?: any | null; // Parada | null
+  route: Rota | null;
+  paradas: Parada[];
+  currentStop: Parada;
+  nextStop?: Parada | null;
   location?: Location | null;
   distanceInfo: {
     isLoading: boolean;

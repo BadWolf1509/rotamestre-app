@@ -42,7 +42,7 @@ interface Parada {
   destinatario?: string | null;
   telefone?: string | null;
   observacoes?: string | null;
-  tipo: 'entrega' | 'retirada';
+  tipo?: 'entrega' | 'retirada' | string; // Optional to match MainCard.types.ts
   latitude: number;
   longitude: number;
 }
@@ -148,16 +148,18 @@ export function NextStopPreview({
               <Text style={styles.observationText}>{nextStop.observacoes}</Text>
             </View>
           )}
-          <View style={styles.detailRow}>
-            <Ionicons
-              name={nextStop.tipo === 'entrega' ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'}
-              size={14}
-              color={theme.colors.gray500}
-            />
-            <Text style={styles.detailText}>
-              {nextStop.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
-            </Text>
-          </View>
+          {nextStop.tipo && (
+            <View style={styles.detailRow}>
+              <Ionicons
+                name={nextStop.tipo === 'entrega' ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'}
+                size={14}
+                color={theme.colors.gray500}
+              />
+              <Text style={styles.detailText}>
+                {nextStop.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
+              </Text>
+            </View>
+          )}
         </View>
       )}
     </TouchableOpacity>

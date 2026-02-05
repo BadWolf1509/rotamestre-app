@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRealtimeRoutes } from '@/hooks/useRealtimeRoutes';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
+import { logger } from '@/lib/logger';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 export interface Stats {
@@ -225,7 +226,7 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
 
         // MOCK DATA FOR E2E/CI
         if (!isSupabaseConfigured) {
-          console.warn('[Dashboard] Mocking data for E2E/CI');
+          logger.warn('[Dashboard] Mocking data for E2E/CI');
           await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
 
           if (!mountedRef.current) return;
@@ -441,7 +442,7 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
           motoristaDestaque: encontrarMotoristaDestaque(rotasMesData),
         });
       } catch (error) {
-        console.error('Erro ao carregar dashboard:', error);
+        logger.error('Erro ao carregar dashboard:', error);
       } finally {
         if (mountedRef.current) {
           setLoading(false);

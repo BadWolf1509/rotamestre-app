@@ -9,6 +9,7 @@ import { View, Text, TouchableOpacity, LayoutAnimation, Platform, UIManager } fr
 
 import { RouteTimeline } from '@/components/RouteTimeline';
 import { useTimelineLastSeen } from '@/hooks/useTimelineLastSeen';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import {
   formatRelativeTime,
@@ -143,7 +144,7 @@ export function TimelineCollapsible({ rotaId, rotaCreatedAt, initialExpanded = f
 
         setPreview({ loading: false, eventCount: totalCount, lastEvent });
       } catch (error) {
-        console.error('[TimelineCollapsible] Erro ao buscar preview:', error);
+        logger.error('[TimelineCollapsible] Erro ao buscar preview:', error);
         if (!cancelled) {
           setPreview({ loading: false, eventCount: 0, lastEvent: null });
         }

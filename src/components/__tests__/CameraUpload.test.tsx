@@ -2,7 +2,19 @@ import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import React from 'react';
 import { Alert, Platform } from 'react-native';
 
+import { logger } from '@/lib/logger';
+
 import CameraUpload from '../CameraUpload';
+
+// Mock the logger module
+jest.mock('@/lib/logger', () => ({
+  logger: {
+    error: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+  },
+}));
 
 // TypeScript declaration for global mock
 declare global {
@@ -596,8 +608,6 @@ describe('CameraUpload Component', () => {
       });
       mockManipulateAsync.mockRejectedValue(new Error('Compress failed'));
 
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
-
       const originalPlatform = Platform.OS;
       Object.defineProperty(Platform, 'OS', {
         get: () => 'web',
@@ -610,15 +620,13 @@ describe('CameraUpload Component', () => {
 
       await waitFor(() => {
         expect(mockManipulateAsync).toHaveBeenCalled();
-        expect(consoleErrorSpy).toHaveBeenCalledWith('❌ Erro ao comprimir:', expect.any(Error));
+        expect(logger.error).toHaveBeenCalledWith('[CameraUpload] Erro ao comprimir:', expect.any(Error));
       });
 
       // Deve ainda assim exibir preview com URI original
       await waitFor(() => {
         expect(getByText('📤 Enviar Foto')).toBeTruthy();
       });
-
-      consoleErrorSpy.mockRestore();
 
       Object.defineProperty(Platform, 'OS', {
         get: () => originalPlatform,

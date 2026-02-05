@@ -14,6 +14,7 @@ import * as Location from 'expo-location';
 import { useEffect, useRef, useCallback } from 'react';
 import { Platform } from 'react-native';
 
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { getTrackingContext } from '@/services/unifiedLocationTracking';
 
@@ -85,12 +86,12 @@ export function useDriverLocationBroadcast({
         });
 
         if (error) {
-          console.error('[LocationBroadcast] Erro ao enviar localização:', error);
+          logger.error('[LocationBroadcast] Erro ao enviar localização:', error);
         } else {
           lastUpdateRef.current = now;
         }
       } catch (err) {
-        console.error('[LocationBroadcast] Erro:', err);
+        logger.error('[LocationBroadcast] Erro:', err);
       }
     },
     [rotaId, updateInterval]
@@ -138,7 +139,7 @@ export function useDriverLocationBroadcast({
               }
             },
             (error) => {
-              console.error('[LocationBroadcast] Web geolocation error:', error);
+              logger.error('[LocationBroadcast] Web geolocation error:', error);
             },
             {
               enableHighAccuracy: true,
@@ -161,7 +162,7 @@ export function useDriverLocationBroadcast({
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          console.warn('[LocationBroadcast] Permissão de localização negada');
+          logger.warn('[LocationBroadcast] Permissão de localização negada');
           return;
         }
 
@@ -181,7 +182,7 @@ export function useDriverLocationBroadcast({
         );
 
       } catch (err) {
-        console.error('[LocationBroadcast] Erro ao iniciar tracking:', err);
+        logger.error('[LocationBroadcast] Erro ao iniciar tracking:', err);
       }
     };
 

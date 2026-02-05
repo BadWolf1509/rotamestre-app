@@ -1,5 +1,6 @@
 import * as Speech from 'expo-speech';
 
+import { logger } from '@/lib/logger';
 import {
   getRoute,
   decodePolyline as osrmDecodePolyline,
@@ -103,7 +104,7 @@ class TurnByTurnNavigationService {
       this.currentInstructionIndex = 0;
       return this.currentRoute;
     } catch (error) {
-      console.error('Error getting directions from OSRM:', error);
+      logger.error('[TurnByTurn] Error getting directions from OSRM:', error);
       return null;
     }
   }
@@ -290,7 +291,7 @@ class TurnByTurnNavigationService {
       // Mark as spoken
       this.lastSpokenInstruction = this.currentInstructionIndex;
     } catch (error) {
-      console.error('Error speaking instruction:', error);
+      logger.error('[TurnByTurn] Error speaking instruction:', error);
     }
   }
 

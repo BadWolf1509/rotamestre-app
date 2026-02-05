@@ -1,6 +1,9 @@
 import 'react-native-url-polyfill/auto';
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+
+import { logger } from './logger';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -46,7 +49,7 @@ if (isSupabaseConfigured) {
 } else {
   // Dummy placeholder URL for E2E/CI environments
   // This prevents the "supabaseUrl is required" error from crashing the app
-  console.warn('[Supabase] Credentials not configured - using placeholder for E2E/CI');
+  logger.warn('[Supabase] Credentials not configured - using placeholder for E2E/CI');
   supabase = createClient('https://placeholder.supabase.co', 'placeholder-key', {
     auth: {
       storage: AsyncStorage,

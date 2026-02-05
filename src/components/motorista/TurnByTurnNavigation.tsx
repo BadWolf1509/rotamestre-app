@@ -15,6 +15,7 @@ import {
 
 import { useAlert } from '@/hooks/useAlert';
 import { useOffRouteDetection } from '@/hooks/useOffRouteDetection';
+import { logger } from '@/lib/logger';
 import { MAPLIBRE_RASTER_STYLE, toLineString, toLngLat } from '@/lib/maplibre';
 import LocationTrackingService from '@/services/locationTracking';
 import TurnByTurnNavigationService, {
@@ -96,7 +97,7 @@ export function TurnByTurnNavigation({
           setVibrationAlerts(prefs.vibrationAlerts);
         }
       } catch (error) {
-        console.warn('[TurnByTurn] Error loading preferences:', error);
+        logger.warn('[TurnByTurn] Error loading preferences:', error);
       }
     };
     loadPreferences();
@@ -277,8 +278,7 @@ export function TurnByTurnNavigation({
         });
       }, 1000);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destination, onExit, origin, voiceEnabledRef, waypoints]);
+  }, [destination, onExit, origin, voiceEnabledRef, waypoints, showError]);
 
   // Initialize navigation
   useEffect(() => {
@@ -365,11 +365,10 @@ export function TurnByTurnNavigation({
         subscription?.remove();
       } catch (error) {
         // expo-location remove() não funciona corretamente na web
-        console.warn('[TurnByTurn] Error removing subscription:', error);
+        logger.warn('[TurnByTurn] Error removing subscription:', error);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destination, handleArrival, isRouteReady, proximityRadius, updateNavigation]);
+  }, [destination, handleArrival, isRouteReady, proximityRadius, updateNavigation, showError]);
 
   // Format distance
   const formatDistance = (meters: number): string => {

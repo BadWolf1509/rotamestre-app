@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UnistylesRuntime } from 'react-native-unistyles';
 
+import { logger } from '../logger';
 import {
   applyThemePreference,
   applyThemePreferences,
@@ -69,19 +70,19 @@ describe('themePreference', () => {
     });
 
     it('deve retornar null e logar aviso quando AsyncStorage falha', async () => {
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const loggerWarnSpy = jest.spyOn(logger, 'warn');
       const mockError = new Error('AsyncStorage error');
       mockAsyncStorage.getItem.mockRejectedValueOnce(mockError);
 
       const result = await getThemePreference();
 
       expect(result).toBeNull();
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
         'Failed to load theme preference:',
         mockError
       );
 
-      consoleWarnSpy.mockRestore();
+      loggerWarnSpy.mockRestore();
     });
   });
 
@@ -157,19 +158,19 @@ describe('themePreference', () => {
     });
 
     it('deve retornar null e logar aviso quando AsyncStorage falha', async () => {
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const loggerWarnSpy = jest.spyOn(logger, 'warn');
       const mockError = new Error('AsyncStorage error');
       mockAsyncStorage.getItem.mockRejectedValueOnce(mockError);
 
       const result = await getThemePreferences();
 
       expect(result).toBeNull();
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
         'Failed to load theme preferences:',
         mockError
       );
 
-      consoleWarnSpy.mockRestore();
+      loggerWarnSpy.mockRestore();
     });
 
     it('deve detectar tema dark do runtime quando themeName comeca com dark', async () => {
@@ -269,18 +270,18 @@ describe('themePreference', () => {
     });
 
     it('deve logar aviso quando AsyncStorage falha ao salvar', async () => {
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const loggerWarnSpy = jest.spyOn(logger, 'warn');
       const mockError = new Error('AsyncStorage setItem error');
       mockAsyncStorage.setItem.mockRejectedValueOnce(mockError);
 
       await setThemePreference('dark');
 
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
         'Failed to save theme preference:',
         mockError
       );
 
-      consoleWarnSpy.mockRestore();
+      loggerWarnSpy.mockRestore();
     });
   });
 
@@ -341,18 +342,18 @@ describe('themePreference', () => {
     });
 
     it('deve logar aviso quando AsyncStorage falha ao salvar', async () => {
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const loggerWarnSpy = jest.spyOn(logger, 'warn');
       const mockError = new Error('AsyncStorage setItem error');
       mockAsyncStorage.setItem.mockRejectedValueOnce(mockError);
 
       await setDensityPreference('compact');
 
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
         'Failed to save density preference:',
         mockError
       );
 
-      consoleWarnSpy.mockRestore();
+      loggerWarnSpy.mockRestore();
     });
   });
 
@@ -424,18 +425,18 @@ describe('themePreference', () => {
     });
 
     it('deve logar aviso quando AsyncStorage falha ao salvar', async () => {
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const loggerWarnSpy = jest.spyOn(logger, 'warn');
       const mockError = new Error('AsyncStorage setItem error');
       mockAsyncStorage.setItem.mockRejectedValueOnce(mockError);
 
       await setContrastPreference('high');
 
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
         'Failed to save contrast preference:',
         mockError
       );
 
-      consoleWarnSpy.mockRestore();
+      loggerWarnSpy.mockRestore();
     });
   });
 

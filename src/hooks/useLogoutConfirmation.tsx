@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 
 import { Dialog } from '@/design-system';
 import { authService } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 
 export function useLogoutConfirmation() {
   const router = useRouter();
@@ -15,7 +16,7 @@ export function useLogoutConfirmation() {
       await authService.signOut();
     } catch (error) {
       // Ignora erros - o objetivo é redirecionar para login de qualquer forma
-      console.warn('[Logout] Erro ao encerrar sessão:', error);
+      logger.warn('[Logout] Erro ao encerrar sessão:', error);
     } finally {
       setLoading(false);
       // Sempre redireciona para login, independente de erros

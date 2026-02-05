@@ -2,6 +2,7 @@ import * as Speech from 'expo-speech';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
+import { logger } from '@/lib/logger';
 import {
   getOffRouteStatus,
   type Coordinate,
@@ -83,7 +84,7 @@ export function useOffRouteDetection(
       setStatus('on-route');
       setDistanceFromRoute(0);
     } catch (error) {
-      console.error('[useOffRouteDetection] Reroute failed:', error);
+      logger.error('[useOffRouteDetection] Reroute failed:', error);
     } finally {
       setIsRecalculating(false);
       // Reset trigger flag after some delay to allow for re-detection

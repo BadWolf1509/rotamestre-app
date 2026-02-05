@@ -14,10 +14,11 @@ import { styles } from '../MainCard.styles';
 import { PreRouteChecklist } from '../PreRouteChecklist';
 import { formatEstimatedTime, filterRealStops } from './MainCard.utils';
 
+import type { Parada, Rota } from './MainCard.types';
 
 interface MainCardPendingProps {
-  route: any; // Rota | null - kept as any for compatibility
-  paradas: any[]; // Parada[] - kept as any for compatibility
+  route: Rota | null;
+  paradas: Parada[];
   pendingRoutesCount: number;
   firstStopDistance: {
     isLoading: boolean;

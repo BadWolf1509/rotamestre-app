@@ -1,12 +1,14 @@
 import 'react-native-url-polyfill/auto';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupportedStorage } from '@supabase/supabase-js';
+
+import { logger } from '@/lib/logger';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
 // Adapter para usar localStorage no navegador
-
-const webStorage = {
+// Implements SupportedStorage interface from Supabase
+const webStorage: SupportedStorage = {
 
   getItem: (key: string) => {
 
@@ -58,7 +60,7 @@ if (isSupabaseConfigured) {
 
     auth: {
 
-      storage: webStorage as any,
+      storage: webStorage,
 
       autoRefreshToken: true,
 
@@ -80,13 +82,13 @@ if (isSupabaseConfigured) {
 
 } else {
 
-  console.warn('[Supabase Web] Credentials not configured - using placeholder for E2E/CI');
+  logger.warn('[Supabase Web] Credentials not configured - using placeholder for E2E/CI');
 
   supabaseClient = createClient('https://placeholder.supabase.co', 'placeholder-key', {
 
     auth: {
 
-      storage: webStorage as any,
+      storage: webStorage,
 
       autoRefreshToken: false,
 

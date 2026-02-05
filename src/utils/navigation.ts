@@ -4,6 +4,8 @@
 
 import { Alert, Linking, Platform } from 'react-native';
 
+import { logger } from '@/lib/logger';
+
 export interface NavigationDestination {
   latitude: number;
   longitude: number;
@@ -58,7 +60,7 @@ async function tryOpenApp(app: NavigationApp, destination: NavigationDestination
     }
     return false;
   } catch (error) {
-    console.warn(`[Navigation] Erro ao abrir ${app}:`, error);
+    logger.warn(`[Navigation] Erro ao abrir ${app}:`, error);
     return false;
   }
 }
@@ -90,7 +92,7 @@ export async function openNavigation(destination: NavigationDestination): Promis
       'Não foi possível abrir nenhum app de navegação. Verifique se você tem o Waze ou Google Maps instalado.',
       [{ text: 'OK' }]
     );
-    console.warn('[Navigation] Erro ao abrir fallback:', error);
+    logger.warn('[Navigation] Erro ao abrir fallback:', error);
   }
 }
 

@@ -10,6 +10,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio } from 'expo-av';
 import { Platform } from 'react-native';
 
+import { logger } from '@/lib/logger';
+
 // Storage key for sound preference
 const SOUND_ENABLED_KEY = '@rotamestre:notification_sound_enabled';
 
@@ -93,7 +95,7 @@ export async function initializeNotificationAudio(): Promise<void> {
       playThroughEarpieceAndroid: false,
     });
   } catch (error) {
-    console.error('[NotificationSound] Error initializing audio:', error);
+    logger.error('[NotificationSound] Error initializing audio:', error);
   }
 }
 
@@ -110,7 +112,7 @@ async function loadSoundPreference(): Promise<void> {
     }
     soundPreferenceLoaded = true;
   } catch (error) {
-    console.error('[NotificationSound] Error loading sound preference:', error);
+    logger.error('[NotificationSound] Error loading sound preference:', error);
   }
 }
 
@@ -138,7 +140,7 @@ export async function playNotificationSound(): Promise<void> {
     // Try Web Audio approach first (works on newer React Native)
     playMobileNotificationSound();
   } catch (error) {
-    console.error('[NotificationSound] Error playing notification sound:', error);
+    logger.error('[NotificationSound] Error playing notification sound:', error);
   }
 }
 
@@ -160,7 +162,7 @@ export async function playSuccessSound(): Promise<void> {
   try {
     playMobileSuccessSound();
   } catch (error) {
-    console.error('[NotificationSound] Error playing success sound:', error);
+    logger.error('[NotificationSound] Error playing success sound:', error);
   }
 }
 
@@ -215,7 +217,7 @@ async function playMobileNotificationSound(): Promise<void> {
       }
     });
   } catch (error) {
-    console.error('[NotificationSound] Mobile sound error:', error);
+    logger.error('[NotificationSound] Mobile sound error:', error);
   }
 }
 
@@ -254,7 +256,7 @@ async function playMobileSuccessSound(): Promise<void> {
       }, i * 100);
     }
   } catch (error) {
-    console.error('[NotificationSound] Mobile success sound error:', error);
+    logger.error('[NotificationSound] Mobile success sound error:', error);
   }
 }
 
@@ -371,7 +373,7 @@ function playWebNotificationSound(): void {
       osc2.stop(audioContext.currentTime + 0.3);
     }, 150);
   } catch (error) {
-    console.error('[NotificationSound] Web audio error:', error);
+    logger.error('[NotificationSound] Web audio error:', error);
   }
 }
 
@@ -404,7 +406,7 @@ function playWebSuccessSound(): void {
       oscillator.stop(startTime + 0.4);
     });
   } catch (error) {
-    console.error('[NotificationSound] Web audio error:', error);
+    logger.error('[NotificationSound] Web audio error:', error);
   }
 }
 
@@ -417,7 +419,7 @@ export async function setNotificationSoundEnabled(enabled: boolean): Promise<voi
   try {
     await AsyncStorage.setItem(SOUND_ENABLED_KEY, String(enabled));
   } catch (error) {
-    console.error('[NotificationSound] Error saving sound preference:', error);
+    logger.error('[NotificationSound] Error saving sound preference:', error);
   }
 }
 

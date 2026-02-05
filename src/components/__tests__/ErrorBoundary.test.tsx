@@ -198,20 +198,23 @@ describe('ErrorBoundary Component', () => {
       expect(errorInfo).toHaveProperty('componentStack');
     });
 
-    it('deve logar erro no console.error', () => {
+    it('deve logar erro no logger.error', () => {
+      const { logger } = require('@/lib/logger');
+      const loggerErrorSpy = jest.spyOn(logger, 'error').mockImplementation();
+
       render(
         <ErrorBoundary>
           <ThrowError shouldThrow={true} errorMessage="Erro para console" />
         </ErrorBoundary>
       );
 
-      expect(console.error).toHaveBeenCalled();
-      // Verificar que a mensagem de erro foi logada
-      const consoleCalls = (console.error as jest.Mock).mock.calls;
-      const foundErrorLog = consoleCalls.some(
-        (call) => call[0] === 'ErrorBoundary caught an error:'
+      // Verificar que logger.error foi chamado com a mensagem correta
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
+        'ErrorBoundary caught an error',
+        expect.any(Error)
       );
-      expect(foundErrorLog).toBe(true);
+
+      loggerErrorSpy.mockRestore();
     });
 
     it('deve funcionar sem onError callback', () => {

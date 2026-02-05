@@ -15,10 +15,11 @@ import { useUnistyles } from '@/utils/styles';
 import { styles } from '../MainCard.styles';
 import { formatElapsedTime, filterRealStops, calculateSuccessRate } from './MainCard.utils';
 
+import type { Parada, Rota } from './MainCard.types';
 
 interface MainCardCompletedProps {
-  route: any; // Rota | null - kept as any for compatibility
-  paradas: any[]; // Parada[] - kept as any for compatibility
+  route: Rota | null;
+  paradas: Parada[];
   streak: number;
   milestoneData: MilestoneData;
   celebrationScale: Animated.Value;

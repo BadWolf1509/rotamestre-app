@@ -7,6 +7,7 @@ import { Alert, Linking, Platform, ActionSheetIOS } from 'react-native';
 
 import { useRouteStatus } from '@/context/RouteStatusContext';
 import { useUser } from '@/hooks/useUser';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
 import { CONTACT_REASONS, type ContactReason } from '../constants';
@@ -165,7 +166,7 @@ export function useDrawerContact({ onClose }: UseDrawerContactOptions) {
         .single<GestorData>();
 
       if (error) {
-        console.error('Erro ao buscar gestor:', error);
+        logger.error('Erro ao buscar gestor:', error);
         Alert.alert('Erro', 'Não foi possível obter os dados do gestor');
         return;
       }
@@ -178,7 +179,7 @@ export function useDrawerContact({ onClose }: UseDrawerContactOptions) {
       // Mostrar menu de motivos
       showReasonMenu(gestorData);
     } catch (error) {
-      console.error('Erro ao contatar gestor:', error);
+      logger.error('Erro ao contatar gestor:', error);
       Alert.alert('Erro', 'Não foi possível contatar o gestor');
     }
   }, [showReasonMenu]);

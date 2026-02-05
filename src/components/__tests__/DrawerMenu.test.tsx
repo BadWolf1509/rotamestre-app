@@ -326,7 +326,8 @@ describe('DrawerMenu Component', () => {
 
     it('deve exibir dialog de erro quando logout falhar', async () => {
       const { supabase } = require('@/lib/supabase');
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      const { logger } = require('@/lib/logger');
+      const loggerErrorSpy = jest.spyOn(logger, 'error').mockImplementation();
 
       // Simular erro no signOut
       supabase.auth.signOut.mockRejectedValueOnce(new Error('Erro de rede'));
@@ -347,7 +348,7 @@ describe('DrawerMenu Component', () => {
 
       // Aguardar erro ser processado
       await waitFor(() => {
-        expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect(loggerErrorSpy).toHaveBeenCalledWith(
           'Erro ao fazer logout:',
           expect.any(Error)
         );
@@ -364,12 +365,13 @@ describe('DrawerMenu Component', () => {
         fireEvent.press(getByText('Entendi'));
       });
 
-      consoleErrorSpy.mockRestore();
+      loggerErrorSpy.mockRestore();
     });
 
     it('deve fechar dialog de erro ao clicar em Fechar', async () => {
       const { supabase } = require('@/lib/supabase');
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      const { logger } = require('@/lib/logger');
+      const loggerErrorSpy = jest.spyOn(logger, 'error').mockImplementation();
 
       supabase.auth.signOut.mockRejectedValueOnce(new Error('Erro de rede'));
 
@@ -395,7 +397,7 @@ describe('DrawerMenu Component', () => {
         fireEvent.press(getByText('Entendi'));
       });
 
-      consoleErrorSpy.mockRestore();
+      loggerErrorSpy.mockRestore();
     });
 
     it('deve cancelar dialog de logout', async () => {

@@ -3,6 +3,7 @@ import MapLibreGL from '@maplibre/maplibre-react-native';
 import React, { useEffect, useState, useMemo, useCallback, memo } from 'react';
 import { View, Text } from 'react-native';
 
+import { logger } from '@/lib/logger';
 import { toLngLat } from '@/lib/maplibre';
 import { supabase } from '@/lib/supabase';
 import type { MotoristaLocation } from '@/types/notifications';
@@ -37,7 +38,7 @@ function MotoristaMarkerComponent({
       if (error) {
         if (error.code !== 'PGRST116') {
           // PGRST116 = no rows returned
-          console.error('[MotoristaMarker] Erro ao carregar localização:', error);
+          logger.error('[MotoristaMarker] Erro ao carregar localização:', error);
         }
         return;
       }
@@ -46,7 +47,7 @@ function MotoristaMarkerComponent({
         setLocation(data as MotoristaLocation);
       }
     } catch (err) {
-      console.error('[MotoristaMarker] Erro:', err);
+      logger.error('[MotoristaMarker] Erro:', err);
     }
   }, [rotaId]);
 

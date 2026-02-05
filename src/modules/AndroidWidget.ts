@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { NativeModules, Platform } from 'react-native';
 
 import { useRouteStatus } from '@/context/RouteStatusContext';
+import { logger } from '@/lib/logger';
 
 interface WidgetData {
   status: 'no_route' | 'pending' | 'active' | 'completed';
@@ -59,7 +60,7 @@ class AndroidWidgetModule {
       // Send to native module
       await this.nativeModule.updateWidgetData(JSON.stringify(widgetData));
     } catch (error) {
-      console.error('Error updating Android widget:', error);
+      logger.error('Error updating Android widget:', error);
     }
   }
 
@@ -72,7 +73,7 @@ class AndroidWidgetModule {
     try {
       await this.nativeModule.refreshWidget();
     } catch (error) {
-      console.error('Error refreshing widget:', error);
+      logger.error('Error refreshing widget:', error);
     }
   }
 
@@ -85,7 +86,7 @@ class AndroidWidgetModule {
     try {
       return await this.nativeModule.isWidgetInstalled();
     } catch (error) {
-      console.error('Error checking widget status:', error);
+      logger.error('Error checking widget status:', error);
       return false;
     }
   }
@@ -99,7 +100,7 @@ class AndroidWidgetModule {
     try {
       await this.nativeModule.requestAddWidget();
     } catch (error) {
-      console.error('Error requesting widget addition:', error);
+      logger.error('Error requesting widget addition:', error);
     }
   }
 

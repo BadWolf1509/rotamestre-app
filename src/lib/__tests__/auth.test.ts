@@ -1,5 +1,16 @@
 import { authService } from '../auth';
+import { logger } from '../logger';
 import { supabase } from '../supabase';
+
+// Mock the logger module
+jest.mock('../logger', () => ({
+  logger: {
+    error: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+  },
+}));
 
 // O mock do supabase já está configurado globalmente no jest.setup.js
 // (inclui isSupabaseConfigured: true para que os testes usem o path do Supabase mockado)
@@ -498,9 +509,7 @@ describe('AuthService - Unit Tests', () => {
       expect(mockSelect).toHaveBeenCalledWith('*, unidades(nome)');
     });
 
-    it('deve logar erro no console quando busca falha', async () => {
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
-
+    it('deve logar erro quando busca falha', async () => {
       const mockError = new Error('Database error');
       mockSupabase.from.mockReturnValue({
         select: jest.fn().mockReturnThis(),
@@ -513,10 +522,8 @@ describe('AuthService - Unit Tests', () => {
 
       const result = await authService.getUsuario('user-123');
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Erro ao buscar usuário:', mockError);
+      expect(logger.error).toHaveBeenCalledWith('[Auth] Erro ao buscar usuário:', mockError);
       expect(result).toBeNull();
-
-      consoleErrorSpy.mockRestore();
     });
   });
 

@@ -1,14 +1,15 @@
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import React, { useState } from 'react';
 
-import { photonService } from '@/lib/photon';
+import { geocodingService } from '@/lib/geocoding';
 
 import { AddressAutocomplete } from '../AddressAutocomplete';
 
-// Mock do photonService (migrado de Google para Photon)
-jest.mock('@/lib/photon', () => ({
-  photonService: {
-    autocompleteAddress: jest.fn(),
+// Mock do geocodingService (serviço híbrido ViaCEP + Google)
+jest.mock('@/lib/geocoding', () => ({
+  geocodingService: {
+    autocomplete: jest.fn(),
+    getCoordinates: jest.fn(),
   },
 }));
 
@@ -99,11 +100,11 @@ describe('AddressAutocomplete', () => {
 
   it('deve renderizar corretamente', () => {
     const { getByPlaceholderText } = render(<TestWrapper />);
-    expect(getByPlaceholderText('Digite o endereço completo')).toBeTruthy();
+    expect(getByPlaceholderText('Endereço ou CEP')).toBeTruthy();
   });
 
   it('deve buscar endereços após debounce', async () => {
-    // Mock Photon retorna coordenadas diretamente (diferente do Google)
+    // Mock geocodingService retorna UnifiedPlaceSuggestion
     const mockSuggestions = [
       {
         place_id: 'osm_N123456',
@@ -116,14 +117,15 @@ describe('AddressAutocomplete', () => {
           latitude: -23.5505,
           longitude: -46.6333,
         },
+        source: 'google',
       },
     ];
 
-    (photonService.autocompleteAddress as jest.Mock).mockResolvedValue(mockSuggestions);
+    (geocodingService.autocomplete as jest.Mock).mockResolvedValue(mockSuggestions);
 
     const { getByPlaceholderText, getByText, queryByText } = render(<TestWrapper />);
 
-    const input = getByPlaceholderText('Digite o endereço completo');
+    const input = getByPlaceholderText('Endereço ou CEP');
 
     // Focar no input para habilitar busca (necessário após fix de busca inicial)
     fireEvent(input, 'focus');
@@ -139,9 +141,9 @@ describe('AddressAutocomplete', () => {
       jest.advanceTimersByTime(1000);
     });
 
-    // Verificar chamada API (Photon não usa sessionToken, mas aceita locationBias opcional)
+    // Verificar chamada API (geocodingService aceita locationBias opcional)
     await waitFor(() => {
-      expect(photonService.autocompleteAddress).toHaveBeenCalledWith('Rua Teste', undefined);
+      expect(geocodingService.autocomplete).toHaveBeenCalledWith('Rua Teste', undefined);
     });
 
     // Verificar se sugestões apareceram
@@ -152,7 +154,7 @@ describe('AddressAutocomplete', () => {
   });
 
   it('deve selecionar um endereço e esconder sugestões', async () => {
-    // Mock Photon retorna coordenadas diretamente
+    // Mock geocodingService retorna UnifiedPlaceSuggestion
     const mockSuggestions = [
       {
         place_id: 'osm_N123456',
@@ -165,10 +167,11 @@ describe('AddressAutocomplete', () => {
           latitude: -23.5505,
           longitude: -46.6333,
         },
+        source: 'google',
       },
     ];
 
-    (photonService.autocompleteAddress as jest.Mock).mockResolvedValue(mockSuggestions);
+    (geocodingService.autocomplete as jest.Mock).mockResolvedValue(mockSuggestions);
     const onSelectAddress = jest.fn();
 
     // Criar wrapper com callback
@@ -188,7 +191,7 @@ describe('AddressAutocomplete', () => {
 
     const { getByPlaceholderText, getByText, getAllByTestId, queryByTestId, UNSAFE_getAllByType } = render(<TestWrapperWithCallback />);
 
-    const input = getByPlaceholderText('Digite o endereço completo');
+    const input = getByPlaceholderText('Endereço ou CEP');
     fireEvent(input, 'focus');
     fireEvent.changeText(input, 'Rua Teste');
 
@@ -216,7 +219,7 @@ describe('AddressAutocomplete', () => {
       expect(queryByTestId('suggestion-item')).toBeNull();
     }, { timeout: 2000 });
 
-    // Photon retorna coordenadas diretamente no callback
+    // geocodingService retorna coordenadas diretamente no callback
     expect(onSelectAddress).toHaveBeenCalledWith(
       'Rua Teste, 123',
       'osm_N123456',
@@ -225,11 +228,11 @@ describe('AddressAutocomplete', () => {
   });
 
   it('deve mostrar mensagem quando não encontrar resultados', async () => {
-    (photonService.autocompleteAddress as jest.Mock).mockResolvedValue([]);
+    (geocodingService.autocomplete as jest.Mock).mockResolvedValue([]);
 
     const { getByPlaceholderText, getByText } = render(<TestWrapper />);
 
-    const input = getByPlaceholderText('Digite o endereço completo');
+    const input = getByPlaceholderText('Endereço ou CEP');
 
     // Focar no input para habilitar busca (necessário após fix de busca inicial)
     fireEvent(input, 'focus');
@@ -256,10 +259,11 @@ describe('AddressAutocomplete', () => {
             secondary_text: 'Centro, Cidade',
           },
           coordinates: { latitude: -23.5505, longitude: -46.6333 },
+          source: 'google',
         },
       ];
 
-      (photonService.autocompleteAddress as jest.Mock).mockResolvedValue(mockSuggestions);
+      (geocodingService.autocomplete as jest.Mock).mockResolvedValue(mockSuggestions);
       const onSelectAddress = jest.fn();
 
       const TestWrapperWithNumber = () => {
@@ -278,7 +282,7 @@ describe('AddressAutocomplete', () => {
 
       const { getByPlaceholderText, getAllByTestId, UNSAFE_getAllByType } = render(<TestWrapperWithNumber />);
 
-      const input = getByPlaceholderText('Digite o endereço completo');
+      const input = getByPlaceholderText('Endereço ou CEP');
       fireEvent(input, 'focus');
       fireEvent.changeText(input, 'Rua Teste, 430');
 
@@ -317,10 +321,11 @@ describe('AddressAutocomplete', () => {
             secondary_text: 'Centro',
           },
           coordinates: { latitude: -23.5505, longitude: -46.6333 },
+          source: 'google',
         },
       ];
 
-      (photonService.autocompleteAddress as jest.Mock).mockResolvedValue(mockSuggestions);
+      (geocodingService.autocomplete as jest.Mock).mockResolvedValue(mockSuggestions);
       const onSelectAddress = jest.fn();
 
       const TestWrapperWithNumber = () => {
@@ -339,7 +344,7 @@ describe('AddressAutocomplete', () => {
 
       const { getByPlaceholderText, getAllByTestId, UNSAFE_getAllByType } = render(<TestWrapperWithNumber />);
 
-      const input = getByPlaceholderText('Digite o endereço completo');
+      const input = getByPlaceholderText('Endereço ou CEP');
       fireEvent(input, 'focus');
       fireEvent.changeText(input, 'Rua Maria 430A');
 
@@ -378,10 +383,11 @@ describe('AddressAutocomplete', () => {
             secondary_text: 'Bairro',
           },
           coordinates: { latitude: -23.5505, longitude: -46.6333 },
+          source: 'google',
         },
       ];
 
-      (photonService.autocompleteAddress as jest.Mock).mockResolvedValue(mockSuggestions);
+      (geocodingService.autocomplete as jest.Mock).mockResolvedValue(mockSuggestions);
       const onSelectAddress = jest.fn();
 
       const TestWrapperWithNumber = () => {
@@ -400,7 +406,7 @@ describe('AddressAutocomplete', () => {
 
       const { getByPlaceholderText, getAllByTestId, UNSAFE_getAllByType } = render(<TestWrapperWithNumber />);
 
-      const input = getByPlaceholderText('Digite o endereço completo');
+      const input = getByPlaceholderText('Endereço ou CEP');
       fireEvent(input, 'focus');
       fireEvent.changeText(input, 'Rua José 430-B');
 
@@ -441,10 +447,11 @@ describe('AddressAutocomplete', () => {
             secondary_text: 'Morada Nova, Cabedelo, Paraíba',
           },
           coordinates: { latitude: -7.0453, longitude: -34.8347 },
+          source: 'google',
         },
       ];
 
-      (photonService.autocompleteAddress as jest.Mock).mockResolvedValue(mockSuggestions);
+      (geocodingService.autocomplete as jest.Mock).mockResolvedValue(mockSuggestions);
       const onSelectAddress = jest.fn();
 
       const TestWrapperWithNumber = () => {
@@ -463,7 +470,7 @@ describe('AddressAutocomplete', () => {
 
       const { getByPlaceholderText, getAllByTestId, UNSAFE_getAllByType } = render(<TestWrapperWithNumber />);
 
-      const input = getByPlaceholderText('Digite o endereço completo');
+      const input = getByPlaceholderText('Endereço ou CEP');
       fireEvent(input, 'focus');
       // Usuário digita endereço completo com número entre vírgulas
       fireEvent.changeText(input, 'Rua Antônio Francisco de Araújo, 29, Morada Nova, Cabedelo');
@@ -505,10 +512,11 @@ describe('AddressAutocomplete', () => {
             secondary_text: 'Centro',
           },
           coordinates: { latitude: -23.5505, longitude: -46.6333 },
+          source: 'google',
         },
       ];
 
-      (photonService.autocompleteAddress as jest.Mock).mockResolvedValue(mockSuggestions);
+      (geocodingService.autocomplete as jest.Mock).mockResolvedValue(mockSuggestions);
       const onSelectAddress = jest.fn();
 
       const TestWrapperWithNumber = () => {
@@ -527,7 +535,7 @@ describe('AddressAutocomplete', () => {
 
       const { getByPlaceholderText, getAllByTestId, UNSAFE_getAllByType } = render(<TestWrapperWithNumber />);
 
-      const input = getByPlaceholderText('Digite o endereço completo');
+      const input = getByPlaceholderText('Endereço ou CEP');
       fireEvent(input, 'focus');
       fireEvent.changeText(input, 'Rua Teste 430');
 
@@ -574,7 +582,7 @@ describe('AddressAutocomplete', () => {
       const { UNSAFE_getAllByType, getByPlaceholderText } = render(<TestWrapperWithClear />);
 
       // Verificar que o input tem valor inicial
-      const input = getByPlaceholderText('Digite o endereço completo');
+      const input = getByPlaceholderText('Endereço ou CEP');
       expect(input.props.value).toBe('Rua Teste 123');
 
       // Encontrar e pressionar o botão limpar
@@ -592,7 +600,7 @@ describe('AddressAutocomplete', () => {
 
       // O estado no TestWrapper será atualizado
       await waitFor(() => {
-        const updatedInput = getByPlaceholderText('Digite o endereço completo');
+        const updatedInput = getByPlaceholderText('Endereço ou CEP');
         expect(updatedInput.props.value).toBe('');
       });
     });
@@ -601,7 +609,7 @@ describe('AddressAutocomplete', () => {
   describe('Acessibilidade', () => {
     it('deve ter labels de acessibilidade no input', () => {
       const { getByPlaceholderText } = render(<TestWrapper />);
-      const input = getByPlaceholderText('Digite o endereço completo');
+      const input = getByPlaceholderText('Endereço ou CEP');
 
       expect(input.props.accessibilityLabel).toBe('Campo de endereço');
       expect(input.props.accessibilityHint).toBe('Digite o endereço para buscar sugestões');
@@ -641,14 +649,15 @@ describe('AddressAutocomplete', () => {
             secondary_text: 'Centro',
           },
           coordinates: { latitude: -23.5505, longitude: -46.6333 },
+          source: 'google',
         },
       ];
 
-      (photonService.autocompleteAddress as jest.Mock).mockResolvedValue(mockSuggestions);
+      (geocodingService.autocomplete as jest.Mock).mockResolvedValue(mockSuggestions);
 
       const { getByPlaceholderText, UNSAFE_getAllByType } = render(<TestWrapper />);
 
-      const input = getByPlaceholderText('Digite o endereço completo');
+      const input = getByPlaceholderText('Endereço ou CEP');
       fireEvent(input, 'focus');
       fireEvent.changeText(input, 'Rua Teste');
 

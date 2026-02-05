@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef } from 'react';
+import React, { memo, useEffect, useRef } from 'react';
 import { View, Text, Animated } from 'react-native';
 
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -12,7 +12,7 @@ interface ProgressBarProps {
   currentStopIndex?: number;
 }
 
-export function ProgressBar({
+export const ProgressBar = memo(function ProgressBar({
   completed,
   total,
   timeElapsed,
@@ -175,7 +175,7 @@ export function ProgressBar({
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {

@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useNavigationModeLogic, type NavigationModeProps } from '@/hooks/navigation';
 import { useAlert } from '@/hooks/useAlert';
+import { logger } from '@/lib/logger';
 import { MAPLIBRE_RASTER_STYLE, toLineString, toLngLat, zoomFromLongitudeDelta } from '@/lib/maplibre';
 import { abrirNavegacao } from '@/lib/navigation';
 import { calculateHaversineDistance } from '@/services/turnByTurnNavigation';
@@ -181,7 +182,7 @@ export function NavigationMode({
         subscription?.remove();
       } catch (error) {
         // expo-location remove() não funciona corretamente na web
-        console.warn('[NavigationMode] Error removing subscription:', error);
+        logger.warn('[NavigationMode] Error removing subscription:', error);
       }
     };
   }, [updateLocationFromCoords]);

@@ -14,6 +14,8 @@
 
 import { decode } from '@mapbox/polyline';
 
+import { logger } from '@/lib/logger';
+
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
@@ -338,7 +340,7 @@ export async function getRoute(
     const data: OSRMRouteResponse = await response.json();
 
     if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
-      console.warn('OSRM: No route found, using Haversine fallback');
+      logger.warn('OSRM: No route found, using Haversine fallback');
       return createFallbackRoute(origin, destination, waypoints);
     }
 
@@ -381,7 +383,7 @@ export async function getRoute(
     setCache(cacheKey, result);
     return result;
   } catch (error) {
-    console.error('OSRM getRoute error:', error);
+    logger.error('OSRM getRoute error:', error);
     // Fallback to Haversine
     return createFallbackRoute(origin, destination, waypoints);
   }
@@ -488,7 +490,7 @@ export async function getDistance(
     setCache(cacheKey, result);
     return result;
   } catch (error) {
-    console.error('OSRM getDistance error:', error);
+    logger.error('OSRM getDistance error:', error);
     return estimateRouteDistance(origin, destination);
   }
 }
@@ -556,7 +558,7 @@ export async function optimizeWaypoints(
     setCache(cacheKey, result);
     return result;
   } catch (error) {
-    console.error('OSRM optimizeWaypoints error:', error);
+    logger.error('OSRM optimizeWaypoints error:', error);
     return null;
   }
 }
@@ -574,7 +576,7 @@ export function decodePolyline(encoded: string): Coordinate[] {
       longitude: lng,
     }));
   } catch (error) {
-    console.error('Error decoding polyline:', error);
+    logger.error('Error decoding polyline', error);
     return [];
   }
 }
@@ -698,7 +700,7 @@ export async function getOptimizedDirections(
     // Caso contrário, usar Route API simples
     return await getSimpleRoute(origin, destination, waypoints, cacheKey);
   } catch (error) {
-    console.error('OSRM getOptimizedDirections error:', error);
+    logger.error('OSRM getOptimizedDirections error:', error);
     // Fallback com Haversine
     return createFallbackDirections(origin, destination, waypoints);
   }
@@ -743,7 +745,7 @@ async function getOptimizedCircularRoute(
     const data: OSRMTripResponse = await response.json();
 
     if (data.code !== 'Ok' || !data.trips || data.trips.length === 0) {
-      console.warn('OSRM Trip: No route found, falling back');
+      logger.warn('OSRM Trip: No route found, falling back');
       return createFallbackDirections(origin, origin, waypoints);
     }
 

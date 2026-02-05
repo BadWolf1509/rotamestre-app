@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useUser } from './useUser';
+import { logger } from '../lib/logger';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { UsuarioUnidade, UnidadeComSede } from '../types/usuario';
 
@@ -123,7 +124,7 @@ export function useUnidadeAtiva(): UseUnidadeAtivaReturn {
         .returns<VinculacaoComUnidade[]>();
 
       if (error) {
-        console.error('Erro ao carregar vinculações:', error);
+        logger.error('[UnidadeAtiva] Erro ao carregar vinculações:', error);
         // Fallback: usar unidade_id do usuário se existir
         if (userData.unidade_id) {
           setUnidadeAtiva(userData.unidade_id);
@@ -165,7 +166,7 @@ export function useUnidadeAtiva(): UseUnidadeAtivaReturn {
         }
       }
     } catch (error) {
-      console.error('Erro ao carregar vinculações:', error);
+      logger.error('[UnidadeAtiva] Erro ao carregar vinculações:', error);
       // Fallback
       if (userData?.unidade_id) {
         setUnidadeAtiva(userData.unidade_id);
@@ -182,7 +183,7 @@ export function useUnidadeAtiva(): UseUnidadeAtivaReturn {
     // Verificar se o usuário tem acesso a essa unidade
     const temAcesso = vinculacoes.some(v => v.unidade_id === unidadeId);
     if (!temAcesso) {
-      console.error('Usuário não tem acesso a essa unidade');
+      logger.error('[UnidadeAtiva] Usuário não tem acesso a essa unidade');
       return;
     }
 
@@ -197,7 +198,7 @@ export function useUnidadeAtiva(): UseUnidadeAtivaReturn {
         .eq('id', userData.id);
 
       if (error) {
-        console.error('Erro ao atualizar unidade ativa no banco:', error);
+        logger.error('[UnidadeAtiva] Erro ao atualizar unidade ativa no banco:', error);
       }
 
       // Atualizar estado local
@@ -206,7 +207,7 @@ export function useUnidadeAtiva(): UseUnidadeAtivaReturn {
       // Recarregar dados do usuário para refletir a mudança
       await refreshUser();
     } catch (error) {
-      console.error('Erro ao trocar unidade:', error);
+      logger.error('[UnidadeAtiva] Erro ao trocar unidade:', error);
     }
   }, [userData?.id, vinculacoes, refreshUser]);
 

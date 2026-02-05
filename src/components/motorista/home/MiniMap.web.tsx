@@ -6,6 +6,7 @@ import { Text, TouchableOpacity, View, ActivityIndicator, Pressable } from 'reac
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { useRouteDirections } from '@/hooks/useRouteDirections';
+import { logger } from '@/lib/logger';
 import { getOpenFreeMapStyle, installOpenFreeMapMissingImageHandler } from '@/lib/openFreeMapStyle';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -296,12 +297,12 @@ export function MiniMap({
         });
 
         mapInstance.on('error', (e) => {
-          console.error('[MiniMap.web] Map error:', e);
+          logger.error('[MiniMap.web] Map error:', e);
           setMapError('Erro ao carregar mapa');
         });
       } catch (error) {
         if (cancelled) return;
-        console.error('[MiniMap.web] Failed to initialize map:', error);
+        logger.error('[MiniMap.web] Failed to initialize map:', error);
         setMapError('Erro ao inicializar mapa');
       }
     };

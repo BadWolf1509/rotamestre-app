@@ -11,6 +11,7 @@ import {
 
 import 'maplibre-gl/dist/maplibre-gl.css';
 
+import { logger } from '@/lib/logger';
 import { getOpenFreeMapStyle, installOpenFreeMapMissingImageHandler } from '@/lib/openFreeMapStyle';
 import LocationTrackingService from '@/services/locationTracking';
 import TurnByTurnNavigationService, {
@@ -81,7 +82,7 @@ export function TurnByTurnNavigation({
           setVoiceEnabled(prefs.voiceNavigation);
         }
       } catch (error) {
-        console.warn('[TurnByTurn.web] Error loading preferences:', error);
+        logger.warn('[TurnByTurn.web] Error loading preferences:', error);
       }
     };
     loadPreferences();
@@ -139,7 +140,7 @@ export function TurnByTurnNavigation({
   // Watch user position with browser Geolocation API
   useEffect(() => {
     if (!navigator.geolocation) {
-      console.warn('[TurnByTurn.web] Geolocation not supported');
+      logger.warn('[TurnByTurn.web] Geolocation not supported');
       return;
     }
 
@@ -179,7 +180,7 @@ export function TurnByTurnNavigation({
     };
 
     const handleError = (error: GeolocationPositionError) => {
-      console.warn('[TurnByTurn.web] Geolocation error:', error.message);
+      logger.warn('[TurnByTurn.web] Geolocation error:', error.message);
     };
 
     watchIdRef.current = navigator.geolocation.watchPosition(
@@ -227,12 +228,12 @@ export function TurnByTurnNavigation({
         });
 
         mapInstance.on('error', (e) => {
-          console.error('[TurnByTurn.web] Map error:', e);
+          logger.error('[TurnByTurn.web] Map error:', e);
           setMapError('Erro ao carregar mapa');
         });
       } catch (error) {
         if (cancelled) return;
-        console.error('[TurnByTurn.web] Failed to initialize map:', error);
+        logger.error('[TurnByTurn.web] Failed to initialize map:', error);
         setMapError('Erro ao inicializar mapa');
       }
     };

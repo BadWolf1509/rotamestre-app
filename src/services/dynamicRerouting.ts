@@ -18,6 +18,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { logger } from '@/lib/logger';
 import {
   getOptimizedDirections,
   getDistance,
@@ -168,7 +169,7 @@ class DynamicReroutingService {
 
       return result;
     } catch (error) {
-      console.error('Error checking for optimization:', error);
+      logger.error('Errorchecking for optimization:', error);
       return null;
     }
   }
@@ -231,7 +232,7 @@ class DynamicReroutingService {
         trafficLevel: 'low',
       };
     } catch (error) {
-      console.error('Error getting distance data:', error);
+      logger.error('Errorgetting distance data:', error);
       // Fallback com Haversine
       const distance = calculateHaversineDistance(
         origin.latitude,
@@ -369,7 +370,7 @@ class DynamicReroutingService {
         };
       }
     } catch (error) {
-      console.error('Error getting OSRM optimized route:', error);
+      logger.error('Errorgetting OSRM optimized route:', error);
     }
 
     return null;
@@ -430,7 +431,7 @@ class DynamicReroutingService {
         created_at: new Date().toISOString(),
       });
     } catch (error) {
-      console.error('Error logging optimization:', error);
+      logger.error('Errorlogging optimization:', error);
     }
   }
 
@@ -442,7 +443,7 @@ class DynamicReroutingService {
         this.settings = { ...this.settings, ...JSON.parse(stored) };
       }
     } catch (error) {
-      console.error('Error loading settings:', error);
+      logger.error('Errorloading settings:', error);
     }
   }
 
@@ -452,7 +453,7 @@ class DynamicReroutingService {
     try {
       await AsyncStorage.setItem('dynamicReroutingSettings', JSON.stringify(this.settings));
     } catch (error) {
-      console.error('Error saving settings:', error);
+      logger.error('Errorsaving settings:', error);
     }
   }
 
@@ -488,7 +489,7 @@ class DynamicReroutingService {
 
       return true;
     } catch (error) {
-      console.error('Error applying optimization:', error);
+      logger.error('Errorapplying optimization:', error);
       return false;
     }
   }

@@ -8,6 +8,7 @@ import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
 import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
 import { Dialog } from '@/design-system';
 import { authService } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface SidebarProps {
@@ -93,7 +94,7 @@ export function Sidebar({ onNavigate, userData }: SidebarProps) {
       await authService.signOut();
       router.replace('/auth/login');
     } catch (error) {
-      console.error('Erro ao fazer logout:', error);
+      logger.error('Erro ao fazer logout:', error);
       setShowErrorDialog(true);
     }
   }

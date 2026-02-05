@@ -3,6 +3,8 @@
  * Usado para notificar useUser quando o perfil é atualizado em useProfile
  */
 
+import { logger } from '@/lib/logger';
+
 type ProfileEventListener = () => void;
 
 const listeners: Set<ProfileEventListener> = new Set();
@@ -25,7 +27,7 @@ export function emitProfileUpdate(): void {
     try {
       listener();
     } catch (error) {
-      console.warn('[ProfileEvents] Erro ao chamar listener:', error);
+      logger.warn('[ProfileEvents] Erro ao chamar listener:', error);
     }
   });
 }

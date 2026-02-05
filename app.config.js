@@ -32,6 +32,7 @@ module.exports = ({ config }) => {
     extra: {
       baseUrl: "https://app.rotamestre.tec.br",
       apiUrl: "https://api.rotamestre.tec.br",
+      EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "",
       router: {},
       eas: {
         projectId: "1ea74080-a787-46db-abbf-d303d1b7a9d4"

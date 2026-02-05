@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
 // Milestones disponíveis
@@ -225,7 +226,7 @@ export function useMilestones(options: UseMilestonesOptions = {}): MilestoneData
         totalRotas,
       });
     } catch (error) {
-      console.error('Error loading milestone data:', error);
+      logger.error('Error loading milestone data:', error);
       setData(prev => ({
         ...prev,
         isLoading: false,

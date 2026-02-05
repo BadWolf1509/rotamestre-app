@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 
+import { logger } from '@/lib/logger';
 import type { IconName } from '@/types/icons';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -61,7 +62,7 @@ export function PreRouteChecklist({ onStatusChange, compact = false }: PreRouteC
       const enabled = await Location.hasServicesEnabledAsync();
       return enabled ? 'ok' : 'error';
     } catch (error) {
-      console.warn('[PreRouteChecklist] GPS check error:', error);
+      logger.warn('[PreRouteChecklist] GPS check error:', error);
       return 'error';
     }
   }, []);
@@ -81,7 +82,7 @@ export function PreRouteChecklist({ onStatusChange, compact = false }: PreRouteC
 
       return { status: 'ok' };
     } catch (error) {
-      console.warn('[PreRouteChecklist] Internet check error:', error);
+      logger.warn('[PreRouteChecklist] Internet check error:', error);
       return { status: 'warning' };
     }
   }, []);
@@ -118,7 +119,7 @@ export function PreRouteChecklist({ onStatusChange, compact = false }: PreRouteC
       if (percentage < 20) return { status: 'warning', level: percentage };
       return { status: 'ok', level: percentage };
     } catch (error) {
-      console.warn('[PreRouteChecklist] Battery check error:', error);
+      logger.warn('[PreRouteChecklist] Battery check error:', error);
       return { status: 'ok', level: 100 };
     }
   }, []);
@@ -152,7 +153,7 @@ export function PreRouteChecklist({ onStatusChange, compact = false }: PreRouteC
 
       onStatusChange?.(canStart, allOk);
     } catch (error) {
-      console.error('[PreRouteChecklist] Error checking status:', error);
+      logger.error('[PreRouteChecklist] Error checking status:', error);
     } finally {
       setIsChecking(false);
     }
@@ -186,7 +187,7 @@ export function PreRouteChecklist({ onStatusChange, compact = false }: PreRouteC
         openSettings();
       }
     } catch (error) {
-      console.error('[PreRouteChecklist] Error requesting GPS permission:', error);
+      logger.error('[PreRouteChecklist] Error requesting GPS permission:', error);
       openSettings();
     }
   }, [checkAllStatus, openSettings]);

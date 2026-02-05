@@ -6,6 +6,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+import { logger } from '@/lib/logger';
 import { decodePolyline, getRoute, type Coordinate } from '@/lib/osrm';
 
 import { AVERAGE_URBAN_SPEED_KMH, NEAR_DESTINATION_THRESHOLD_KM } from './constants';
@@ -129,7 +130,7 @@ export function usePiPRouteInfo({
           ]);
         }
       } catch (error) {
-        console.warn('PiP: Error fetching OSRM route:', error);
+        logger.warn('PiP: Error fetching OSRM route:', error);
         if (!cancelled) {
           // Fallback to straight line
           setRoutePath([

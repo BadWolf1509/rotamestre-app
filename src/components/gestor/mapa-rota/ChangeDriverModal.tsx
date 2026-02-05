@@ -25,6 +25,7 @@ import {
 
 import { DesktopModal } from '@/design-system';
 import { useResponsive } from '@/hooks/useResponsive';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -92,7 +93,7 @@ export function ChangeDriverModal({
 
       setMotoristas(motoristasData || []);
     } catch (error) {
-      console.error('Erro ao carregar motoristas:', error);
+      logger.error('Erro ao carregar motoristas:', error);
     } finally {
       setIsLoadingMotoristas(false);
     }

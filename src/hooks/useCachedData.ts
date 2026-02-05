@@ -14,7 +14,7 @@
  * );
  */
 
-import { useCallback, useEffect, useRef, useState, DependencyList } from 'react';
+import { useCallback, useEffect, useRef, useState, type DependencyList } from 'react';
 
 import { getCache, setCache, clearCache, CACHE_TTL } from '@/lib/cache';
 
@@ -73,6 +73,7 @@ export function useCachedData<T>(
   const mountedRef = useRef(true);
   const fetchingRef = useRef(false);
   const keyRef = useRef(key);
+  const loadDataRef = useRef<(ignoreCache?: boolean) => Promise<void>>(async () => {});
 
   // Atualizar ref da key
   useEffect(() => {
@@ -140,6 +141,11 @@ export function useCachedData<T>(
     [enabled, key, ttl, staleWhileRevalidate, fetcher, onUpdate]
   );
 
+  // Sync ref with latest loadData function
+  useEffect(() => {
+    loadDataRef.current = loadData;
+  }, [loadData]);
+
   const refresh = useCallback(async () => {
     await loadData(true);
   }, [loadData]);
@@ -174,11 +180,12 @@ export function useCachedData<T>(
     };
   }, []);
 
-  // Execução inicial e quando deps mudam
+  // Execução inicial e quando deps mudam - uses ref to avoid re-execution when loadData changes
   useEffect(() => {
     if (enabled) {
-      loadData();
+      loadDataRef.current();
     }
+    // Spread deps from caller is intentional - allows hook users to provide custom dependencies
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, key, ...deps]);
 

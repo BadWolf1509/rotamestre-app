@@ -426,7 +426,9 @@ export default function MapaWebMapLibre({
       features: markerFeatures,
     };
 
-    const circleColorExpression = [
+    // MapLibre data-driven style expressions (case/match syntax)
+    // Type as ExpressionSpecification for proper MapLibre API compatibility
+    const circleColorExpression: maplibregl.ExpressionSpecification = [
       'case',
       ['==', ['get', 'is_checkpoint'], true],
       ['case', ['==', ['get', 'is_partida'], true], theme.colors.success, theme.colors.error],
@@ -441,7 +443,7 @@ export default function MapaWebMapLibre({
       theme.colors.gray500,
     ];
 
-    const circleRadiusExpression = [
+    const circleRadiusExpression: maplibregl.ExpressionSpecification = [
       'case',
       ['==', ['get', 'is_checkpoint'], true],
       16,
@@ -463,15 +465,15 @@ export default function MapaWebMapLibre({
         type: 'circle',
         source: sourceId,
         paint: {
-          'circle-color': circleColorExpression as any,
-          'circle-radius': circleRadiusExpression as any,
+          'circle-color': circleColorExpression,
+          'circle-radius': circleRadiusExpression,
           'circle-stroke-color': '#ffffff',
           'circle-stroke-width': 2,
         },
       });
     } else {
-      map.setPaintProperty(circleLayerId, 'circle-color', circleColorExpression as any);
-      map.setPaintProperty(circleLayerId, 'circle-radius', circleRadiusExpression as any);
+      map.setPaintProperty(circleLayerId, 'circle-color', circleColorExpression);
+      map.setPaintProperty(circleLayerId, 'circle-radius', circleRadiusExpression);
     }
 
     if (!map.getLayer(labelLayerId)) {

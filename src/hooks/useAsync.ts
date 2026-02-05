@@ -23,7 +23,7 @@
  * // Chamar execute() quando necessário
  */
 
-import { useCallback, useEffect, useRef, useState, DependencyList } from 'react';
+import { useCallback, useEffect, useRef, useState, type DependencyList } from 'react';
 
 export interface UseAsyncOptions {
   /** Executar automaticamente ao montar (default: true) */
@@ -68,6 +68,7 @@ export function useAsync<T>(
   // Refs para evitar memory leaks e race conditions
   const mountedRef = useRef(true);
   const executingRef = useRef(false);
+  const executeRef = useRef<() => Promise<T | null>>(() => Promise.resolve(null));
 
   const execute = useCallback(async (): Promise<T | null> => {
     // Evitar execuções simultâneas
@@ -108,6 +109,11 @@ export function useAsync<T>(
     }
   }, [asyncFn, onSuccess, onError]);
 
+  // Sync ref with latest execute function
+  useEffect(() => {
+    executeRef.current = execute;
+  }, [execute]);
+
   const reset = useCallback(() => {
     setData(null);
     setLoading(false);
@@ -123,11 +129,12 @@ export function useAsync<T>(
     };
   }, []);
 
-  // Execução automática
+  // Execução automática - uses ref to avoid re-execution when execute changes
   useEffect(() => {
     if (immediate) {
-      execute();
+      executeRef.current();
     }
+    // Spread deps from caller is intentional - allows hook users to provide custom dependencies
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [immediate, ...deps]);
 

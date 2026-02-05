@@ -10,6 +10,7 @@ import { getStatusLabel } from '@/components/map/infoWindowBuilders';
 import { MotoristaMarker } from '@/components/MotoristaMarker';
 import { useAlert } from '@/hooks/useAlert';
 import { useRouteDirections } from '@/hooks/useRouteDirections';
+import { logger } from '@/lib/logger';
 import { MAPLIBRE_RASTER_STYLE, getBounds, toLineString, toLngLat, zoomFromLongitudeDelta } from '@/lib/maplibre';
 import { withOpacity } from '@/utils/color';
 import { showNavigationOptions } from '@/utils/navigation';
@@ -249,13 +250,12 @@ export function MapaMobile({
         animationDuration: 500,
       });
     } catch (error) {
-      console.error('[MapaMobile] Erro ao obter localização:', error);
+      logger.error('[MapaMobile] Erro ao obter localização:', error);
       showError({ title: 'Erro', message: 'Não foi possível obter sua localização.' });
     } finally {
       setIsLocating(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [showWarning, showError]);
 
   // Navegar para próxima parada usando app externo
   const handleNavigate = useCallback(() => {
@@ -269,8 +269,7 @@ export function MapaMobile({
       longitude: proximaParadaPendente.longitude!,
       label: `Parada ${proximaParadaPendente.ordem} - ${proximaParadaPendente.endereco}`,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [proximaParadaPendente]);
+  }, [proximaParadaPendente, showWarning]);
 
   // Ajustar mapa para mostrar todas as paradas
   const handleFitAll = useCallback(() => {

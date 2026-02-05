@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { platformOverrides } from '@/design-system/tokens';
+import type { PressableStateWithHover } from '@/types';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
@@ -60,9 +61,7 @@ export function Button({
   return (
     <Pressable
       style={(state) => {
-        const { pressed } = state;
-        // hovered is only available on React Native Web
-        const hovered = (state as any).hovered as boolean | undefined;
+        const { pressed, hovered } = state as PressableStateWithHover;
         return [
           styles.button,
           styles[variant],
@@ -118,7 +117,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: theme.components.button.radius,
-    // Web-specific styles
+    // Web-specific styles (as any needed due to Unistyles type limitations)
     ...(Platform.OS === 'web' && {
       cursor: 'pointer',
       transitionProperty: 'background-color, transform',
@@ -210,6 +209,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
 
   disabled: {
     opacity: 0.5,
+    // Web-specific (as any needed due to Unistyles type limitations)
     ...(Platform.OS === 'web' && {
       cursor: 'not-allowed',
     } as any),

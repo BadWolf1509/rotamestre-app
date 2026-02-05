@@ -36,13 +36,13 @@ export interface Location {
   longitude: number;
 }
 
-// Main card props - uses any for backwards compatibility with existing code
+// Main card props - properly typed
 export interface MainCardProps {
   state: RouteStatus;
-  route: any; // Rota | null - kept as any for compatibility
-  paradas: any[]; // Parada[] - kept as any for compatibility
-  currentStop?: any | null; // Parada | null
-  nextStop?: any | null; // Parada | null
+  route: Rota | null;
+  paradas: Parada[];
+  currentStop?: Parada | null;
+  nextStop?: Parada | null;
   location?: Location | null;
   pendingRoutesCount?: number;
   onSwipeLeft?: () => void | Promise<void>;

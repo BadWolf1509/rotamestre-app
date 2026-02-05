@@ -43,6 +43,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
 
+import { logger } from '@/lib/logger';
+
 /** Storage key for PiP position */
 const STORAGE_KEY = '@rotamestre:pip_position';
 
@@ -92,7 +94,7 @@ export function usePiPPosition(): UsePiPPositionReturn {
           }
         }
       } catch (error) {
-        console.warn('usePiPPosition: Erro ao carregar posição:', error);
+        logger.warn('usePiPPosition: Erro ao carregar posição:', error);
       } finally {
         setIsLoading(false);
       }
@@ -107,7 +109,7 @@ export function usePiPPosition(): UsePiPPositionReturn {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(position));
       setSavedPosition(position);
     } catch (error) {
-      console.warn('usePiPPosition: Erro ao salvar posição:', error);
+      logger.warn('usePiPPosition: Erro ao salvar posição:', error);
     }
   }, []);
 
@@ -117,7 +119,7 @@ export function usePiPPosition(): UsePiPPositionReturn {
       await AsyncStorage.removeItem(STORAGE_KEY);
       setSavedPosition(undefined);
     } catch (error) {
-      console.warn('usePiPPosition: Erro ao limpar posição:', error);
+      logger.warn('usePiPPosition: Erro ao limpar posição:', error);
     }
   }, []);
 

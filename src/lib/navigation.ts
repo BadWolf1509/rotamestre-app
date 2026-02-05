@@ -1,5 +1,6 @@
 import { Linking, Platform, Alert, ActionSheetIOS } from 'react-native';
 
+import { logger } from '@/lib/logger';
 import LocationTrackingService from '@/services/locationTracking';
 
 /**
@@ -106,7 +107,7 @@ async function tentarAbrirApp(opcao: OpcaoNavegacao): Promise<boolean> {
       return false;
     }
   } catch (error) {
-    console.error('Erro ao abrir navegação:', error);
+    logger.error('[Navigation] Erro ao abrir navegação:', error);
     Alert.alert(
       'Erro',
       `Não foi possível abrir ${opcao.nome}. Tente novamente.`
@@ -223,7 +224,7 @@ export async function abrirNavegacao(coords: Coordenadas): Promise<void> {
     }
   } catch (error) {
     // Se falhar ao ler preferências, continua com comportamento padrão (menu)
-    console.warn('[Navigation] Erro ao ler preferências:', error);
+    logger.warn('[Navigation] Erro ao ler preferências:', error);
   }
 
   // Comportamento padrão: mostrar menu de escolha

@@ -17,6 +17,7 @@ export function useUser() {
   const [fromCache, setFromCache] = useState(false);
   const fetchingRef = useRef(false);
   const mountedRef = useRef(true);
+  const userDataRef = useRef<Usuario | null>(null);
 
   const fetchUserData = useCallback(async (): Promise<Usuario | null> => {
     if (!userId) return null;
@@ -138,7 +139,7 @@ export function useUser() {
       }
     } catch (error) {
       logger.error('Error loading user data:', error);
-      if (mountedRef.current && !userData) {
+      if (mountedRef.current && !userDataRef.current) {
         setUserData(null);
       }
     } finally {
@@ -147,9 +148,12 @@ export function useUser() {
       }
       fetchingRef.current = false;
     }
-  // userData omitido intencionalmente para evitar loop infinito
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, userId, fetchUserData]);
+
+  // Sincronizar ref com state para evitar stale closure
+  useEffect(() => {
+    userDataRef.current = userData;
+  }, [userData]);
 
   // Carregar dados quando userId ou authLoading mudar
   useEffect(() => {
@@ -159,8 +163,7 @@ export function useUser() {
     return () => {
       mountedRef.current = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, userId]);
+  }, [loadUserData]);
 
   // Invalidar cache quando logout
   useEffect(() => {

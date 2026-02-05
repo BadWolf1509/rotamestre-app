@@ -68,6 +68,7 @@ import {
 } from '@/hooks/navigation';
 import type { PictureInPictureMapProps } from '@/hooks/navigation';
 import { usePiPPosition } from '@/hooks/usePiPPosition';
+import { logger } from '@/lib/logger';
 import { getOpenFreeMapStyle, installOpenFreeMapMissingImageHandler } from '@/lib/openFreeMapStyle';
 import { boxShadow, withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -498,12 +499,12 @@ export function PictureInPictureMap({
         });
 
         mapInstance.on('error', (e) => {
-          console.error('[PiP.web] Map error:', e);
+          logger.error('[PiP.web] Map error:', e);
           setMapError('Erro ao carregar mapa');
         });
       } catch (error) {
         if (cancelled) return;
-        console.error('[PiP.web] Failed to initialize map:', error);
+        logger.error('[PiP.web] Failed to initialize map:', error);
         setMapError('Erro ao inicializar mapa');
       }
     };

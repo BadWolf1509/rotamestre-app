@@ -73,7 +73,8 @@ describe('usePiPPosition', () => {
     });
 
     it('should handle AsyncStorage error gracefully', async () => {
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const { logger } = require('@/lib/logger');
+      const loggerWarnSpy = jest.spyOn(logger, 'warn').mockImplementation();
       mockAsyncStorage.getItem.mockRejectedValue(new Error('Storage error'));
 
       const { result } = renderHook(() => usePiPPosition());
@@ -83,12 +84,12 @@ describe('usePiPPosition', () => {
       });
 
       expect(result.current.savedPosition).toBeUndefined();
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
         'usePiPPosition: Erro ao carregar posição:',
         expect.any(Error)
       );
 
-      consoleWarnSpy.mockRestore();
+      loggerWarnSpy.mockRestore();
     });
 
     it('should reject invalid position data (missing x)', async () => {
@@ -116,7 +117,8 @@ describe('usePiPPosition', () => {
     });
 
     it('should reject invalid JSON', async () => {
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const { logger } = require('@/lib/logger');
+      const loggerWarnSpy = jest.spyOn(logger, 'warn').mockImplementation();
       mockAsyncStorage.getItem.mockResolvedValue('not valid json');
 
       const { result } = renderHook(() => usePiPPosition());
@@ -126,9 +128,9 @@ describe('usePiPPosition', () => {
       });
 
       expect(result.current.savedPosition).toBeUndefined();
-      expect(consoleWarnSpy).toHaveBeenCalled();
+      expect(loggerWarnSpy).toHaveBeenCalled();
 
-      consoleWarnSpy.mockRestore();
+      loggerWarnSpy.mockRestore();
     });
   });
 
@@ -154,7 +156,8 @@ describe('usePiPPosition', () => {
     });
 
     it('should handle save error gracefully', async () => {
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const { logger } = require('@/lib/logger');
+      const loggerWarnSpy = jest.spyOn(logger, 'warn').mockImplementation();
       mockAsyncStorage.setItem.mockRejectedValue(new Error('Save error'));
 
       const { result } = renderHook(() => usePiPPosition());
@@ -167,12 +170,12 @@ describe('usePiPPosition', () => {
         await result.current.savePosition({ x: 50, y: 150 });
       });
 
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
         'usePiPPosition: Erro ao salvar posição:',
         expect.any(Error)
       );
 
-      consoleWarnSpy.mockRestore();
+      loggerWarnSpy.mockRestore();
     });
 
     it('should update savedPosition state after successful save', async () => {
@@ -219,7 +222,8 @@ describe('usePiPPosition', () => {
     });
 
     it('should handle clear error gracefully', async () => {
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const { logger } = require('@/lib/logger');
+      const loggerWarnSpy = jest.spyOn(logger, 'warn').mockImplementation();
       mockAsyncStorage.removeItem.mockRejectedValue(new Error('Remove error'));
 
       const { result } = renderHook(() => usePiPPosition());
@@ -232,12 +236,12 @@ describe('usePiPPosition', () => {
         await result.current.clearPosition();
       });
 
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
         'usePiPPosition: Erro ao limpar posição:',
         expect.any(Error)
       );
 
-      consoleWarnSpy.mockRestore();
+      loggerWarnSpy.mockRestore();
     });
   });
 

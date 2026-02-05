@@ -1,13 +1,15 @@
+import { logger } from './logger';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { setMockSession } from '../hooks/useAuth';
 import { Usuario, TipoUsuario } from '../types/usuario';
+
 
 export const authService = {
   // Login
   async signIn(email: string, password: string) {
     // Mock for E2E/CI when credentials are missing
     if (!isSupabaseConfigured) {
-      console.warn('[Auth] Mocking sign in for E2E/CI');
+      logger.warn('[Auth] Mocking sign in for E2E/CI');
       await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
 
       const isGestor = email.includes('gestor');
@@ -144,7 +146,7 @@ export const authService = {
       .single();
 
     if (error) {
-      console.error('Erro ao buscar usuário:', error);
+      logger.error('[Auth] Erro ao buscar usuário:', error);
       return null;
     }
 

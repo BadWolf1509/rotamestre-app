@@ -22,9 +22,9 @@
  * ```
  */
 
+import { googlePlacesService, GooglePlaceSuggestion } from '@/lib/googlePlaces';
 import { logger } from '@/lib/logger';
 import { photonService } from '@/lib/photon';
-import { googlePlacesService, GooglePlaceSuggestion } from '@/lib/googlePlaces';
 import { viacepService, ViaCEPPlaceSuggestion } from '@/lib/viacep';
 
 import type { PlaceSuggestion } from './google-shared';

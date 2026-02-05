@@ -30,6 +30,7 @@
 import * as Location from 'expo-location';
 import { useState, useCallback } from 'react';
 
+import { logger } from '@/lib/logger';
 import { photonService } from '@/lib/photon';
 import { createIncidente, logIncidenteAction } from '@/lib/queries';
 import type { IncidenteCategoria } from '@/lib/queries';
@@ -110,7 +111,7 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
           return uploadedUrl;
         } catch (err) {
           lastError = err instanceof Error ? err : new Error(String(err));
-          console.warn(`Upload attempt ${attempt}/${UPLOAD_MAX_RETRIES} failed:`, lastError.message);
+          logger.warn(`Upload attempt ${attempt}/${UPLOAD_MAX_RETRIES} failed:`, lastError.message);
 
           if (attempt < UPLOAD_MAX_RETRIES) {
             // Aguarda antes de tentar novamente (exponential backoff)
@@ -147,7 +148,7 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
 
       return address || null;
     } catch (err) {
-      console.warn('Erro ao obter localização:', err);
+      logger.warn('Erro ao obter localização:', err);
       return null;
     }
   }, []);
@@ -190,7 +191,7 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
             setError(`Falha no upload da foto: ${errorMessage}`);
 
             // Continuar sem foto ou abortar? Vamos continuar sem foto
-            console.warn('Continuando sem foto devido a erro no upload');
+            logger.warn('Continuando sem foto devido a erro no upload');
             uploadedPhotoUrl = '';
           }
         }
@@ -241,7 +242,7 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
           err instanceof Error ? err.message : 'Erro desconhecido ao enviar reporte';
 
         setError(errorMessage);
-        console.error('Erro ao reportar incidente:', err);
+        logger.error('Erro ao reportar incidente:', err);
 
         return {
           success: false,

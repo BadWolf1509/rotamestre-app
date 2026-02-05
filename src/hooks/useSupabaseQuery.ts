@@ -88,6 +88,7 @@ export function useSupabaseQuery<T>(
   const mountedRef = useRef(true);
   const fetchingRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const executeQueryRef = useRef<(ignoreCache?: boolean) => Promise<void>>(async () => {});
 
   const executeQuery = useCallback(
     async (ignoreCache = false) => {
@@ -170,6 +171,11 @@ export function useSupabaseQuery<T>(
     ]
   );
 
+  // Sync ref with latest executeQuery function
+  useEffect(() => {
+    executeQueryRef.current = executeQuery;
+  }, [executeQuery]);
+
   const refetch = useCallback(async () => {
     await executeQuery(true); // ignoreCache = true
   }, [executeQuery]);
@@ -212,12 +218,11 @@ export function useSupabaseQuery<T>(
     };
   }, []);
 
-  // Execução inicial
+  // Execução inicial - uses ref to avoid re-execution when executeQuery changes
   useEffect(() => {
     if (enabled) {
-      executeQuery();
+      executeQueryRef.current();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]);
 
   return {
