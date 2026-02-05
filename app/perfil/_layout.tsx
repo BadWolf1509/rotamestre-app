@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, Slot } from 'expo-router';
+import { Stack, Slot, useRouter } from 'expo-router';
 import { Pressable } from 'react-native';
 
 import { AuthLoadingScreen } from '@/components/AuthLoadingScreen';
@@ -38,10 +38,11 @@ export default function PerfilGestorLayout() {
 function PerfilStack() {
   const { theme } = useUnistyles();
   const { openDrawer } = useDrawerMenu();
+  const router = useRouter();
 
-  const BackButton = ({ navigation }: { navigation: any }) => (
+  const renderBackButton = () => (
     <Pressable
-      onPress={() => navigation.goBack()}
+      onPress={() => router.back()}
       style={{ paddingHorizontal: 12, paddingVertical: 4 }}
       hitSlop={8}
     >
@@ -79,17 +80,17 @@ function PerfilStack() {
       />
       <Stack.Screen
         name="editar"
-        options={({ navigation }) => ({
+        options={{
           title: 'Editar Perfil',
-          headerLeft: () => <BackButton navigation={navigation} />,
-        })}
+          headerLeft: () => renderBackButton(),
+        }}
       />
       <Stack.Screen
         name="trocar-senha"
-        options={({ navigation }) => ({
+        options={{
           title: 'Alterar Senha',
-          headerLeft: () => <BackButton navigation={navigation} />,
-        })}
+          headerLeft: () => renderBackButton(),
+        }}
       />
     </Stack>
   );

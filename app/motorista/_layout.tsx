@@ -58,18 +58,18 @@ function MobileNavigation() {
   const router = useRouter();
 
   // Helper para voltar com fallback para home do motorista
-  const handleGoBack = (navigation: any) => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
     } else {
       // Fallback: navegar para home do motorista
       router.replace('/motorista/(tabs)');
     }
   };
 
-  const renderBackButton = (navigation: any) => (
+  const renderBackButton = () => (
     <Pressable
-      onPress={() => handleGoBack(navigation)}
+      onPress={handleGoBack}
       style={{ paddingHorizontal: 12, paddingVertical: 4 }}
       hitSlop={8}
     >
@@ -101,10 +101,10 @@ function MobileNavigation() {
       {/* Telas de Stack (fora das tabs) */}
       <Stack.Screen
         name="resumo"
-        options={({ navigation }) => ({
+        options={{
           title: 'Resumo da Rota',
-          headerLeft: () => renderBackButton(navigation),
-        })}
+          headerLeft: () => renderBackButton(),
+        }}
       />
 
       <Stack.Screen
@@ -116,26 +116,26 @@ function MobileNavigation() {
 
       <Stack.Screen
         name="sos"
-        options={({ navigation }) => ({
+        options={{
           title: 'SOS / Emergência',
-          headerLeft: () => renderBackButton(navigation),
-        })}
+          headerLeft: () => renderBackButton(),
+        }}
       />
 
       <Stack.Screen
         name="desempenho"
-        options={({ navigation }) => ({
+        options={{
           title: 'Meu Desempenho',
-          headerLeft: () => renderBackButton(navigation),
-        })}
+          headerLeft: () => renderBackButton(),
+        }}
       />
 
       <Stack.Screen
         name="ajuda"
-        options={({ navigation }) => ({
+        options={{
           title: 'Ajuda',
-          headerLeft: () => renderBackButton(navigation),
-        })}
+          headerLeft: () => renderBackButton(),
+        }}
       />
 
       {/*

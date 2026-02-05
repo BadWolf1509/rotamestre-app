@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, Slot } from 'expo-router';
+import { Stack, Slot, useRouter } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
 import { AuthLoadingScreen } from '@/components/AuthLoadingScreen';
@@ -47,6 +47,7 @@ export default function GestorLayout() {
 function GestorStack() {
   const { theme } = useUnistyles();
   const { openDrawer } = useDrawerMenu();
+  const router = useRouter();
 
   const renderMenuButton = (tintColor?: string) => (
     <Pressable
@@ -58,9 +59,9 @@ function GestorStack() {
     </Pressable>
   );
 
-  const renderBackButton = (navigation: any) => (
+  const renderBackButton = () => (
     <Pressable
-      onPress={() => navigation.goBack()}
+      onPress={() => router.back()}
       style={{ paddingHorizontal: 12, paddingVertical: 4 }}
       hitSlop={8}
     >
@@ -109,17 +110,17 @@ function GestorStack() {
       />
       <Stack.Screen
         name="motorista-perfil"
-        options={({ navigation }) => ({
+        options={{
           title: 'Perfil do Motorista',
-          headerLeft: () => renderBackButton(navigation),
-        })}
+          headerLeft: () => renderBackButton(),
+        }}
       />
       <Stack.Screen
         name="mapa-rota"
-        options={({ navigation }) => ({
+        options={{
           title: 'Mapa da Rota',
-          headerLeft: () => renderBackButton(navigation),
-        })}
+          headerLeft: () => renderBackButton(),
+        }}
       />
       <Stack.Screen
         name="incidentes"

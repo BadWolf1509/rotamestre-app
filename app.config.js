@@ -106,7 +106,8 @@ module.exports = ({ config }) => {
           isAndroidBackgroundLocationEnabled: true,
           isAndroidForegroundServiceEnabled: true
         }
-      ]
+      ],
+      "expo-sharing"
       // MapLibre usa plugin oficial para ajustes nativos (gradle/podfile)
     ]
   };
