@@ -3,6 +3,8 @@
  * Serviço Unificado de Rastreamento de Localização
  */
 
+import { Alert } from 'react-native';
+
 import {
   requestLocationPermissions,
   checkLocationPermissions,
@@ -11,6 +13,7 @@ import {
   isBackgroundTrackingActive,
   getTrackingContext,
   updateTrackingContext,
+  requestAndStartTracking,
 } from '../unifiedLocationTracking';
 
 import type { TrackingContext } from '../unifiedLocationTracking';
@@ -273,6 +276,72 @@ describe('unifiedLocationTracking', () => {
       await updateTrackingContext({ motoristaNome: 'Novo Nome' });
 
       expect(mockSetItem).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('requestAndStartTracking', () => {
+    it('deve mostrar alerta e retornar started=false quando foreground negado', async () => {
+      mockRequestForegroundPermissions.mockResolvedValueOnce({ status: 'denied' });
+
+      const result = await requestAndStartTracking(mockContext);
+
+      expect(result).toEqual({ started: false, hasBackgroundPermission: false });
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Permissão Necessária',
+        expect.stringContaining('localização'),
+        [{ text: 'OK' }]
+      );
+    });
+
+    it('deve iniciar tracking com ambas permissões concedidas', async () => {
+      // requestLocationPermissions mocks
+      mockRequestForegroundPermissions.mockResolvedValueOnce({ status: 'granted' });
+      mockRequestBackgroundPermissions.mockResolvedValueOnce({ status: 'granted' });
+      // startBackgroundTracking internally calls checkLocationPermissions
+      mockGetForegroundPermissions.mockResolvedValueOnce({ status: 'granted' });
+      mockGetBackgroundPermissions.mockResolvedValueOnce({ status: 'granted' });
+      mockHasStartedLocationUpdates.mockResolvedValueOnce(false);
+      mockStartLocationUpdates.mockResolvedValueOnce(undefined);
+
+      const result = await requestAndStartTracking(mockContext);
+
+      expect(result).toEqual({ started: true, hasBackgroundPermission: true });
+      // No "limited tracking" alert when background is granted
+      expect(Alert.alert).not.toHaveBeenCalled();
+    });
+
+    it('deve mostrar alerta de rastreamento limitado quando background negado', async () => {
+      // requestLocationPermissions mocks
+      mockRequestForegroundPermissions.mockResolvedValueOnce({ status: 'granted' });
+      mockRequestBackgroundPermissions.mockResolvedValueOnce({ status: 'denied' });
+      // startBackgroundTracking internally calls checkLocationPermissions
+      mockGetForegroundPermissions.mockResolvedValueOnce({ status: 'granted' });
+      mockGetBackgroundPermissions.mockResolvedValueOnce({ status: 'denied' });
+      mockHasStartedLocationUpdates.mockResolvedValueOnce(false);
+
+      const result = await requestAndStartTracking(mockContext);
+
+      expect(result).toEqual({ started: true, hasBackgroundPermission: false });
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Rastreamento Limitado',
+        expect.stringContaining('segundo plano'),
+        [{ text: 'Entendi' }]
+      );
+    });
+
+    it('deve retornar started=false quando startBackgroundTracking falha', async () => {
+      // requestLocationPermissions mocks
+      mockRequestForegroundPermissions.mockResolvedValueOnce({ status: 'granted' });
+      mockRequestBackgroundPermissions.mockResolvedValueOnce({ status: 'granted' });
+      // startBackgroundTracking fails (foreground denied internally)
+      mockGetForegroundPermissions.mockResolvedValueOnce({ status: 'denied' });
+      mockGetBackgroundPermissions.mockResolvedValueOnce({ status: 'denied' });
+
+      const result = await requestAndStartTracking(mockContext);
+
+      expect(result).toEqual({ started: false, hasBackgroundPermission: true });
+      // No alert for limited tracking since started=false
+      expect(Alert.alert).not.toHaveBeenCalled();
     });
   });
 });
