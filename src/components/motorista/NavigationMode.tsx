@@ -1,7 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import MapLibreGL, { type CameraRef } from '@maplibre/maplibre-react-native';
-import { Audio } from 'expo-av';
-import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
@@ -15,15 +13,20 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useNavigationModeLogic, type NavigationModeProps } from '@/hooks/navigation';
+import {
+  useNavigationModeLogic,
+  useNavigationFeedback,
+  useNavigationActions,
+  type NavigationModeProps,
+} from '@/hooks/navigation';
 import { useAlert } from '@/hooks/useAlert';
 import { logger } from '@/lib/logger';
 import { MAPLIBRE_RASTER_STYLE, toLineString, toLngLat, zoomFromLongitudeDelta } from '@/lib/maplibre';
-import { abrirNavegacao } from '@/lib/navigation';
 import { calculateHaversineDistance } from '@/services/turnByTurnNavigation';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
+import { NavigationInfoPanel } from './NavigationInfoPanel';
 import { NavigationSettings } from './NavigationSettings';
 import { TurnByTurnNavigation } from './TurnByTurnNavigation';
 
@@ -83,7 +86,12 @@ export function NavigationMode({
   );
 
   const cameraRef = useRef<CameraRef>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
+
+  // Feedback hooks (haptics + sound)
+  const { triggerHaptic, playNotificationSound, cleanupSound } = useNavigationFeedback({
+    vibrationAlerts: preferences.vibrationAlerts,
+    soundAlerts: preferences.soundAlerts,
+  });
 
   // Animation refs for UI improvements
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -93,46 +101,6 @@ export function NavigationMode({
     complete: new Animated.Value(1),
   }).current;
   const isPulsingRef = useRef(false);
-
-  const triggerHaptic = useCallback(async (type: 'impact' | 'success' | 'warning') => {
-    if (Platform.OS === 'web' || !preferences.vibrationAlerts) return;
-
-    try {
-      if (type === 'impact') {
-        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      } else if (type === 'success') {
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } else if (type === 'warning') {
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      }
-    } catch {
-      // Haptics not available
-    }
-  }, [preferences.vibrationAlerts]);
-
-  const playNotificationSound = useCallback(async () => {
-    if (Platform.OS === 'web' || !preferences.soundAlerts) return;
-
-    try {
-      // Configure audio mode for notifications
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: false,
-        staysActiveInBackground: false,
-      });
-
-      // Unload previous sound if exists
-      if (soundRef.current) {
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
-      }
-
-      // Play a simple notification beep using Audio
-      // Note: Custom sounds can be added to assets/sounds/ folder
-      // For now, we use haptics as the primary feedback
-    } catch {
-      // Audio not available
-    }
-  }, [preferences.soundAlerts]);
 
 
   useEffect(() => {
@@ -144,12 +112,9 @@ export function NavigationMode({
     initialize();
     return () => {
       stopNavigation();
-      // Cleanup sound
-      if (soundRef.current) {
-        soundRef.current.unloadAsync();
-      }
+      cleanupSound();
     };
-  }, [loadPreferences, setIsInitializing, startNavigation, stopNavigation]);
+  }, [loadPreferences, setIsInitializing, startNavigation, stopNavigation, cleanupSound]);
 
   useEffect(() => {
     let subscription: Location.LocationSubscription | null = null;
@@ -189,65 +154,20 @@ export function NavigationMode({
 
   // OSRM route fetching is now handled by useNavigationModeLogic hook
 
-  const handleOpenInMaps = () => {
-    if (!currentStop) return;
-
-    // If internal nav is enabled, switch to turn-by-turn mode
-    if (preferences.internalNavigation) {
-      setNavigationMode('turn-by-turn');
-    } else {
-      // Open in external app
-      abrirNavegacao({
-        latitude: currentStop.latitude,
-        longitude: currentStop.longitude,
-        endereco: currentStop.endereco,
-      });
-    }
-  };
-
-  const handleCompleteStop = async () => {
-    await triggerHaptic('impact');
-    const confirmed = await showConfirm({
-      title: 'Confirmar Entrega',
-      message: `Confirma a entrega em:\n${currentStop.endereco}?`,
-      confirmText: 'Confirmar',
-      cancelText: 'Cancelar',
+  // Action handlers (complete, skip, exit, open in maps)
+  const { handleOpenInMaps, handleCompleteStop, handleSkipStop, handleExitNavigation } =
+    useNavigationActions({
+      currentStop,
+      preferences,
+      triggerHaptic,
+      playNotificationSound,
+      showConfirm,
+      setNavigationMode,
+      stopNavigation,
+      onComplete,
+      onSkip,
+      onExit,
     });
-    if (confirmed) {
-      await playNotificationSound();
-      await triggerHaptic('success');
-      onComplete();
-    }
-  };
-
-  const handleSkipStop = async () => {
-    await triggerHaptic('impact');
-    const confirmed = await showConfirm({
-      title: 'Pular Parada',
-      message: `Deseja pular esta parada?\n${currentStop.endereco}`,
-      confirmText: 'Pular',
-      cancelText: 'Cancelar',
-      type: 'danger',
-    });
-    if (confirmed) {
-      await triggerHaptic('warning');
-      onSkip();
-    }
-  };
-
-  const handleExitNavigation = async () => {
-    const confirmed = await showConfirm({
-      title: 'Sair da Navegação',
-      message: 'Deseja sair do modo de navegação?',
-      confirmText: 'Sair',
-      cancelText: 'Cancelar',
-      type: 'danger',
-    });
-    if (confirmed) {
-      await stopNavigation();
-      onExit();
-    }
-  };
 
   // formatDistance is now provided by useNavigationModeLogic hook
 
@@ -555,182 +475,25 @@ export function NavigationMode({
       {/* Navigation Info Panel */}
       {/* Usa Math.max para garantir mínimo de 34px (Android 15 pode retornar insets.bottom = 0) */}
       <View style={[styles.infoPanel, { paddingBottom: theme.spacing.xl + Math.max(insets.bottom, 34) }]}>
-        {/* Progress Indicator (only real stops, not checkpoints) */}
-        <View style={styles.progressContainer}>
-          {realParadas.map((parada, index) => {
-            const isCompleted = parada.status === 'concluida';
-            const isCurrent = parada.id === currentStop.id;
-            const isPending = parada.status === 'pendente' && !isCurrent;
-            return (
-              <React.Fragment key={parada.id}>
-                <View
-                  style={[
-                    styles.progressDot,
-                    isCompleted && styles.progressDotCompleted,
-                    isCurrent && styles.progressDotCurrent,
-                    isPending && styles.progressDotPending,
-                  ]}
-                >
-                  {isCurrent && (
-                    <Ionicons name="navigate" size={10} color={theme.colors.white} />
-                  )}
-                  {isCompleted && (
-                    <Ionicons name="checkmark" size={10} color={theme.colors.white} />
-                  )}
-                  {isPending && (
-                    <Text style={styles.progressDotText}>{index + 1}</Text>
-                  )}
-                </View>
-                {index < realParadas.length - 1 && (
-                  <View
-                    style={[
-                      styles.progressLine,
-                      isCompleted && styles.progressLineCompleted,
-                    ]}
-                  />
-                )}
-              </React.Fragment>
-            );
-          })}
-        </View>
-
-        {/* Distance and ETA */}
-        <View style={styles.mainInfo}>
-          <Animated.View
-            style={[
-              styles.distanceContainer,
-              distance !== null && distance < 100 && {
-                transform: [{ scale: pulseAnim }],
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.distanceValue,
-                distance !== null && distance < 100 && styles.distanceValueNear,
-              ]}
-            >
-              {distance ? formatDistance(distance) : '--'}
-            </Text>
-            <Text style={styles.distanceLabel}>
-              {distance !== null && distance < 100 ? '🎯 Chegando!' : 'distância'}
-            </Text>
-          </Animated.View>
-
-          <View style={styles.separator} />
-
-          <View style={styles.etaContainer}>
-            <Text style={styles.etaValue}>{eta || '--'}</Text>
-            <Text style={styles.etaLabel}>chegada</Text>
-          </View>
-
-          {preferences.showSpeedometer && (
-            <>
-              <View style={styles.separator} />
-
-              <View style={styles.speedContainer}>
-                <Text style={[styles.speedValue, { color: getSpeedColor(speed) }]}>
-                  {speed}
-                </Text>
-                <Text style={styles.speedUnit}>km/h</Text>
-              </View>
-            </>
-          )}
-        </View>
-
-        {/* Current Destination */}
-        <View style={styles.destinationInfo}>
-          <View style={styles.destinationHeader}>
-            <View style={styles.destinationHeaderLeft}>
-              <View
-                style={[
-                  styles.typeBadge,
-                  isEntrega ? styles.typeBadgeEntrega : styles.typeBadgeRetirada,
-                ]}
-              >
-                <Ionicons
-                  name={isEntrega ? 'cube' : 'arrow-up-circle'}
-                  size={12}
-                  color={isEntrega ? theme.colors.success : theme.colors.warning}
-                />
-                <Text
-                  style={[
-                    styles.typeBadgeText,
-                    isEntrega ? styles.typeBadgeTextEntrega : styles.typeBadgeTextRetirada,
-                  ]}
-                >
-                  {isEntrega ? 'Entrega' : 'Retirada'}
-                </Text>
-              </View>
-              <Text style={styles.destinationLabel}>
-                • Parada {currentStopIndex}/{realParadas.length}
-              </Text>
-            </View>
-            {nextStop && (
-              <Text style={styles.nextStopHint}>
-                Próxima: {nextStop.endereco.split(',')[0]}
-              </Text>
-            )}
-          </View>
-          <Text style={styles.destinationAddress}>{currentStop.endereco}</Text>
-
-          {currentStop.destinatario && (
-            <View style={styles.recipientInfo}>
-              <Ionicons name="person-outline" size={14} color={theme.colors.gray500} />
-              <Text style={styles.recipientText}>{currentStop.destinatario}</Text>
-            </View>
-          )}
-
-          {currentStop.observacoes && (
-            <View style={styles.observationBox}>
-              <Text style={styles.observationText}>{currentStop.observacoes}</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Action Buttons */}
-        <View style={styles.actions}>
-          <Animated.View style={{ flex: 1, transform: [{ scale: buttonScaleAnims.skip }] }}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.skipButton]}
-              onPress={handleSkipStop}
-              onPressIn={() => animateButtonPress('skip', true)}
-              onPressOut={() => animateButtonPress('skip', false)}
-              activeOpacity={1}
-            >
-              <Ionicons name="arrow-forward-circle-outline" size={20} color={theme.colors.warning} />
-              <Text style={styles.skipButtonText}>Pular</Text>
-            </TouchableOpacity>
-          </Animated.View>
-
-          <Animated.View style={{ flex: 1, transform: [{ scale: buttonScaleAnims.maps }] }}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.mapsButton]}
-              onPress={handleOpenInMaps}
-              onPressIn={() => animateButtonPress('maps', true)}
-              onPressOut={() => animateButtonPress('maps', false)}
-              activeOpacity={1}
-            >
-              <Ionicons name="navigate" size={20} color={theme.colors.white} />
-              <Text style={styles.mapsButtonText}>
-                {preferences.internalNavigation ? 'Navegar' : 'Abrir no Maps'}
-              </Text>
-            </TouchableOpacity>
-          </Animated.View>
-
-          <Animated.View style={{ flex: 1, transform: [{ scale: buttonScaleAnims.complete }] }}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.completeButton]}
-              onPress={handleCompleteStop}
-              onPressIn={() => animateButtonPress('complete', true)}
-              onPressOut={() => animateButtonPress('complete', false)}
-              activeOpacity={1}
-            >
-              <Ionicons name="checkmark-circle" size={20} color={theme.colors.white} />
-              <Text style={styles.completeButtonText}>Concluir</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
+        <NavigationInfoPanel
+          currentStop={currentStop}
+          nextStop={nextStop}
+          realParadas={realParadas}
+          currentStopIndex={currentStopIndex}
+          distance={distance}
+          eta={eta}
+          speed={speed}
+          isEntrega={isEntrega}
+          preferences={preferences}
+          pulseAnim={pulseAnim}
+          buttonScaleAnims={buttonScaleAnims}
+          formatDistance={formatDistance}
+          getSpeedColor={getSpeedColor}
+          onAnimateButtonPress={animateButtonPress}
+          onComplete={handleCompleteStop}
+          onSkip={handleSkipStop}
+          onOpenInMaps={handleOpenInMaps}
+        />
       </View>
 
       {/* Settings Modal */}
@@ -848,224 +611,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 10,
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: theme.spacing.sm,
-    marginBottom: theme.spacing.sm,
-  },
-  progressDot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.colors.gray300,
-  },
-  progressDotCompleted: {
-    backgroundColor: theme.colors.success,
-  },
-  progressDotCurrent: {
-    backgroundColor: theme.colors.primary,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-  },
-  progressDotPending: {
-    backgroundColor: theme.colors.gray300,
-  },
-  progressDotText: {
-    fontSize: 9,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray600,
-  },
-  progressLine: {
-    width: 20,
-    height: 2,
-    backgroundColor: theme.colors.gray300,
-    marginHorizontal: 2,
-  },
-  progressLineCompleted: {
-    backgroundColor: theme.colors.success,
-  },
-  mainInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingBottom: theme.spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray200,
-  },
-  distanceContainer: {
-    alignItems: 'center',
-  },
-  distanceValue: {
-    fontSize: theme.typography.fontSize['3xl'],
-    fontFamily: theme.typography.fontSansBold,
-    color: theme.colors.gray900,
-  },
-  distanceLabel: {
-    fontSize: theme.typography.fontSize.xs - 1,
-    color: theme.colors.gray500,
-    marginTop: 2,
-  },
-  distanceValueNear: {
-    color: theme.colors.success,
-  },
-  separator: {
-    width: 1,
-    height: 40,
-    backgroundColor: theme.colors.gray200,
-  },
-  etaContainer: {
-    alignItems: 'center',
-  },
-  etaValue: {
-    fontSize: theme.typography.fontSize.xl + 4,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray900,
-  },
-  etaLabel: {
-    fontSize: theme.typography.fontSize.xs - 1,
-    color: theme.colors.gray500,
-    marginTop: 2,
-  },
-  speedContainer: {
-    alignItems: 'center',
-  },
-  speedValue: {
-    fontSize: theme.typography.fontSize['2xl'] + 4,
-    fontFamily: theme.typography.fontSansBold,
-    color: theme.colors.gray900,
-  },
-  speedUnit: {
-    fontSize: theme.typography.fontSize.xs - 1,
-    color: theme.colors.gray500,
-    marginTop: 2,
-  },
-  destinationInfo: {
-    paddingVertical: theme.spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray200,
-  },
-  destinationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  destinationHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-  },
-  typeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 3,
-    borderRadius: theme.borderRadius.full,
-  },
-  typeBadgeEntrega: {
-    backgroundColor: withOpacity(theme.colors.success, 0.15),
-  },
-  typeBadgeRetirada: {
-    backgroundColor: withOpacity(theme.colors.warning, 0.15),
-  },
-  typeBadgeText: {
-    fontSize: theme.typography.fontSize.xs - 2,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
-  typeBadgeTextEntrega: {
-    color: theme.colors.success,
-  },
-  typeBadgeTextRetirada: {
-    color: theme.colors.warning,
-  },
-  destinationLabel: {
-    fontSize: theme.typography.fontSize.xs - 2,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray500,
-    letterSpacing: 0.5,
-  },
-  nextStopHint: {
-    fontSize: theme.typography.fontSize.xs - 2,
-    color: theme.colors.gray400,
-  },
-  destinationAddress: {
-    fontSize: theme.typography.fontSize.base,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray900,
-    marginBottom: theme.spacing.sm,
-  },
-  recipientInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs + 2,
-    marginBottom: theme.spacing.sm,
-  },
-  recipientText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.gray500,
-  },
-  observationBox: {
-    backgroundColor: theme.colors.warningBg,
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.sm,
-    marginTop: theme.spacing.sm,
-  },
-  observationText: {
-    fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.secondaryDark,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-    paddingTop: theme.spacing.lg,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.xs + 2,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.sm,
-  },
-  skipButton: {
-    backgroundColor: theme.colors.warningBg,
-  },
-  skipButtonText: {
-    color: theme.colors.warning,
-    fontFamily: theme.typography.fontSansSemiBold,
-    fontSize: theme.typography.fontSize.sm,
-  },
-  mapsButton: {
-    backgroundColor: theme.colors.primary,
-  },
-  mapsButtonText: {
-    color: theme.colors.white,
-    fontFamily: theme.typography.fontSansSemiBold,
-    fontSize: theme.typography.fontSize.sm,
-    // Brand guideline: text shadow for white text on colored background
-    textShadowColor: withOpacity(theme.colors.black, 0.25),
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  completeButton: {
-    backgroundColor: theme.colors.success,
-  },
-  completeButtonText: {
-    color: theme.colors.white,
-    fontFamily: theme.typography.fontSansSemiBold,
-    fontSize: theme.typography.fontSize.sm,
-    // Brand guideline: text shadow for white text on colored background
-    textShadowColor: withOpacity(theme.colors.black, 0.25),
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
   // Current destination (parada atual em navegação) marker
   currentDestinationMarker: {

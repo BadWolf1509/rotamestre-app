@@ -7,6 +7,8 @@
 
 // NavigationMode hooks
 export { useNavigationModeLogic } from './useNavigationModeLogic';
+export { useNavigationFeedback } from './useNavigationFeedback';
+export { useNavigationActions } from './useNavigationActions';
 
 export type {
   NavigationModeProps,
