@@ -8,6 +8,7 @@ import { Button, Card, Input, Text } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
 import { useProfile } from '@/hooks/useProfile';
 import { useResponsive } from '@/hooks/useResponsive';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { isPasswordValid } from '@/utils/passwordValidation';
 import { StyleSheet, type Theme } from '@/utils/styles';
@@ -78,7 +79,7 @@ export default function FirstPasswordScreen() {
 
       // Segurança: verificar se realmente está marcado como primeira_senha
       if (profile.primeira_senha !== true) {
-        console.warn('Usuário tentou acessar first-password sem estar marcado como primeira_senha');
+        logger.warn('Usuário tentou acessar first-password sem estar marcado como primeira_senha');
         const targetRoute = profile.papel === 'gestor' ? '/gestor/inicio' : '/motorista';
         router.replace(targetRoute);
         return;
@@ -100,7 +101,7 @@ export default function FirstPasswordScreen() {
           return;
         }
 
-        console.error('Erro ao atualizar senha:', updateError);
+        logger.error('Erro ao atualizar senha', updateError);
         throw new Error(updateError.message || 'Erro ao atualizar senha');
       }
 
@@ -111,7 +112,7 @@ export default function FirstPasswordScreen() {
         .eq('id', user!.id);
 
       if (dbError) {
-        console.error('Erro ao atualizar primeira_senha:', dbError);
+        logger.error('Erro ao atualizar primeira_senha', dbError);
       }
 
       const targetRoute = profile.papel === 'gestor'
@@ -126,7 +127,7 @@ export default function FirstPasswordScreen() {
 
       showSuccess('Senha Definida com Sucesso!', successMessage, () => router.replace(targetRoute));
     } catch (error: unknown) {
-      console.error('Erro completo:', error);
+      logger.error('Erro ao definir senha', error);
       const message = error instanceof Error ? error.message : 'Erro ao definir senha. Tente novamente.';
       showError({ title: 'Erro', message });
     } finally {

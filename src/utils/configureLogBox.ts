@@ -28,6 +28,7 @@ export function configureLogBox() {
       try {
         return JSON.stringify(arg);
       } catch {
+        // JSON.stringify pode falhar com referências circulares
         return String(arg);
       }
     }).join(' ');

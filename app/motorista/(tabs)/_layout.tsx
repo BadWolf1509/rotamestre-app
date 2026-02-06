@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NotificationBell } from '@/components/NotificationBell';
 import { useDrawerMenu } from '@/context/DrawerMenuContext';
 import { useRouteStatus } from '@/context/RouteStatusContext';
+import { logger } from '@/lib/logger';
 import { useUnistyles } from '@/utils/styles';
 
 // Altura base da tab bar
@@ -27,7 +28,7 @@ export default function TabLayout() {
   // Debug: Log insets para verificar se estão corretos
   useEffect(() => {
     if (__DEV__ && Platform.OS === 'android') {
-      console.log('[TabLayout] Safe area insets:', insets);
+      logger.debug('Safe area insets', insets);
     }
   }, [insets]);
 

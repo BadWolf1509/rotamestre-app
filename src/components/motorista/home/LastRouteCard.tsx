@@ -39,6 +39,7 @@ function formatTime(isoString: string): string {
       minute: '2-digit',
     });
   } catch {
+    // Fallback seguro para formatação de data inválida
     return '--:--';
   }
 }

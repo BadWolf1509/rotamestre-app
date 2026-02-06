@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
 import { MainCard } from '@/components/motorista/home/MainCard';
 import { MiniMap } from '@/components/motorista/home/MiniMap';
@@ -613,7 +614,11 @@ function MotoristaInicioContent() {
 
 // Main component - RouteStatusProvider já está no _layout.tsx
 export default function MotoristaInicio() {
-  return <MotoristaInicioContent />;
+  return (
+    <ErrorBoundary>
+      <MotoristaInicioContent />
+    </ErrorBoundary>
+  );
 }
 
 const styles = StyleSheet.create((theme: Theme) => ({

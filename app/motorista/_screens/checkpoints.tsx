@@ -360,6 +360,9 @@ export default function CheckpointsMotorista() {
         renderItem={renderParada}
         style={styles.flatList as ViewStyle}
         contentContainerStyle={styles.listContainer as ViewStyle}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={3}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

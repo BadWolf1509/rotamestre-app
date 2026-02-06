@@ -410,6 +410,7 @@ class LocationTrackingService {
       const prefs = await AsyncStorage.getItem('navigationPreferences');
       return prefs ? JSON.parse(prefs) : {};
     } catch {
+      // Preferências de navegação são opcionais - usar defaults
       return {};
     }
   }

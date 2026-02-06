@@ -231,7 +231,8 @@ export async function stopBackgroundTracking(): Promise<void> {
 export async function isBackgroundTrackingActive(): Promise<boolean> {
   try {
     return await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
-  } catch {
+  } catch (error) {
+    logger.warn('[LocationTracking] Falha ao verificar task de localização', error);
     return false;
   }
 }
@@ -243,7 +244,8 @@ export async function getTrackingContext(): Promise<TrackingContext | null> {
   try {
     const contextStr = await AsyncStorage.getItem(TRACKING_CONTEXT_KEY);
     return contextStr ? JSON.parse(contextStr) : null;
-  } catch {
+  } catch (error) {
+    logger.warn('[LocationTracking] Falha ao ler contexto de localização', error);
     return null;
   }
 }

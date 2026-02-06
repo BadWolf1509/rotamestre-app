@@ -316,6 +316,7 @@ export async function verificarAppInstalado(
   try {
     return await Linking.canOpenURL(url);
   } catch {
+    // Linking.canOpenURL pode falhar em algumas plataformas
     return false;
   }
 }

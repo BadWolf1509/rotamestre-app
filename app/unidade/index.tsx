@@ -23,6 +23,7 @@ import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
+import { logger } from '@/lib/logger';
 import { cleanPhone, formatPhone } from '@/lib/phone';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -102,7 +103,7 @@ export default function UnidadeScreen() {
       setEstado(data.uf || '');
       setCep(data.cep || '');
     } catch (error) {
-      console.error('Erro ao carregar unidade:', error);
+      logger.error('Erro ao carregar unidade', error);
       showToast('Erro ao carregar dados da unidade', 'error', 4000);
     } finally {
       setLoading(false);
@@ -125,7 +126,7 @@ export default function UnidadeScreen() {
       if (error) throw error;
       setMembrosCount(count || 0);
     } catch (error) {
-      console.error('Erro ao contar membros:', error);
+      logger.error('Erro ao contar membros', error);
     }
   }, [userData?.unidade_id]);
 
@@ -161,7 +162,7 @@ export default function UnidadeScreen() {
       setEditMode(false);
       await loadUnidade();
     } catch (error) {
-      console.error('Erro ao atualizar unidade:', error);
+      logger.error('Erro ao atualizar unidade', error);
       showToast('Erro ao atualizar dados', 'error', 4000);
     } finally {
       setSaving(false);

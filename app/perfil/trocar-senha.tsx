@@ -4,15 +4,25 @@ import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { FormDesktopLayout } from '@/components/perfil/FormDesktopLayout';
 import { Button, Input, Text } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export default function AlterarSenha() {
+  return (
+    <ErrorBoundary>
+      <AlterarSenhaContent />
+    </ErrorBoundary>
+  );
+}
+
+function AlterarSenhaContent() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { isDesktop } = useResponsive();
@@ -81,7 +91,7 @@ export default function AlterarSenha() {
 
       showSuccess('Sucesso!', 'Senha alterada com sucesso!', () => router.back());
     } catch (error: unknown) {
-      console.error('Erro ao alterar senha:', error);
+      logger.error('Erro ao alterar senha', error);
       showError(error);
     } finally {
       setSaving(false);

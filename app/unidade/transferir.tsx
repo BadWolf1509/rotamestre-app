@@ -23,6 +23,7 @@ import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
@@ -79,7 +80,7 @@ export default function TransferirGestaoScreen() {
 
       setGestores(data || []);
     } catch (error) {
-      console.error('Erro ao carregar gestores:', error);
+      logger.error('Erro ao carregar gestores', error);
       showToast('Erro ao carregar gestores', 'error', 4000);
     } finally {
       setLoading(false);
@@ -153,7 +154,7 @@ export default function TransferirGestaoScreen() {
         () => router.replace('/gestor/inicio')
       );
     } catch (error) {
-      console.error('Erro ao transferir gestão:', error);
+      logger.error('Erro ao transferir gestão', error);
       showError({
         title: 'Erro',
         message: 'Não foi possível transferir a gestão. Tente novamente ou entre em contato com o suporte.',

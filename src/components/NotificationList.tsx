@@ -283,6 +283,9 @@ export function NotificationList({ onClose }: NotificationListProps) {
           }
           onEndReached={loadMore}
           onEndReachedThreshold={0.3}
+          initialNumToRender={10}
+          maxToRenderPerBatch={15}
+          windowSize={5}
           ListFooterComponent={renderFooter}
         />
       )}

@@ -20,6 +20,7 @@ import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
@@ -74,7 +75,7 @@ export default function EquipeScreen() {
 
       setMembros(data || []);
     } catch (error) {
-      console.error('Erro ao carregar membros:', error);
+      logger.error('Erro ao carregar membros', error);
       showToast('Erro ao carregar equipe', 'error', 4000);
     } finally {
       setLoading(false);
@@ -142,7 +143,7 @@ export default function EquipeScreen() {
       );
       await loadMembros();
     } catch (error) {
-      console.error('Erro ao atualizar usuário:', error);
+      logger.error('Erro ao atualizar usuário', error);
       showToast('Erro ao atualizar usuário', 'error', 4000);
     }
   }

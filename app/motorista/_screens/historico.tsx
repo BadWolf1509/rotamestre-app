@@ -7,11 +7,13 @@ import {
   RefreshControl,
 } from 'react-native';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { RotaCardSkeleton } from '@/components/motorista/RotaCardSkeleton';
 import { Text } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
 import { useUser } from '@/hooks/useUser';
 import { parseLocalDate } from '@/lib/dateUtils';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -200,7 +202,7 @@ export default function HistoricoMotorista() {
         .in('rota_id', rotaIds);
 
       if (paradasError) {
-        console.error('Erro ao buscar paradas:', paradasError);
+        logger.error('Erro ao buscar paradas', paradasError);
       }
 
       // 3. Agrupar paradas por rota_id no JavaScript
@@ -230,7 +232,7 @@ export default function HistoricoMotorista() {
 
       setRotas(rotasComParadas as unknown as RotaHistorico[]);
     } catch (error) {
-      console.error('Erro ao carregar histórico:', error);
+      logger.error('Erro ao carregar histórico', error);
       showError({ title: 'Erro', message: 'Não foi possível carregar o histórico' });
     } finally {
       setLoading(false);
@@ -247,9 +249,9 @@ export default function HistoricoMotorista() {
     loadHistorico();
   }, [loadHistorico]);
 
-  function toggleExpand(rotaId: string) {
-    setExpandedRotaId(expandedRotaId === rotaId ? null : rotaId);
-  }
+  const toggleExpand = useCallback((rotaId: string) => {
+    setExpandedRotaId(prev => prev === rotaId ? null : rotaId);
+  }, []);
 
   function calcularTempoTotal(rota: RotaHistorico) {
     if (!rota.iniciada_em || !rota.concluida_em) return null;
@@ -261,7 +263,7 @@ export default function HistoricoMotorista() {
     return `${diffHoras}h ${diffMinutos}min`;
   }
 
-  const renderRota = ({ item }: { item: RotaHistorico }) => {
+  const renderRota = useCallback(({ item }: { item: RotaHistorico }) => {
     const isExpanded = expandedRotaId === item.id;
     const isPendente = item.status === 'pendente';
     const isEmAndamento = item.status === 'em_andamento';
@@ -449,7 +451,7 @@ export default function HistoricoMotorista() {
         </View>
       </TouchableOpacity>
     );
-  };
+  }, [expandedRotaId, theme, toggleExpand]);
 
   if (loading) {
     return (
@@ -497,6 +499,7 @@ export default function HistoricoMotorista() {
   );
 
   return (
+    <ErrorBoundary>
     <View style={styles.container}>
       {/* Header Compacto - sem repetir título (já está no header azul) */}
       <View style={styles.headerCompact}>
@@ -579,6 +582,9 @@ export default function HistoricoMotorista() {
         keyExtractor={(item) => item.id}
         renderItem={renderRota}
         contentContainerStyle={styles.listContainer}
+        initialNumToRender={5}
+        maxToRenderPerBatch={10}
+        windowSize={5}
         ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
         refreshControl={
           <RefreshControl
@@ -599,6 +605,7 @@ export default function HistoricoMotorista() {
       />
       {AlertDialog}
     </View>
+    </ErrorBoundary>
   );
 }
 

@@ -277,8 +277,8 @@ export function NotificationDataProvider({ children }: NotificationDataProviderP
             await loadNotifications(false);
           }
         }
-      } catch {
-        // Silent - don't interrupt the user
+      } catch (error) {
+        logger.warn('[Polling:Notificacoes] Falha ao carregar notificações em background', error);
       }
     };
 

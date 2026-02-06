@@ -1,6 +1,7 @@
 import { useCallback, useState, useMemo } from 'react';
 import { View, ActivityIndicator, TouchableOpacity } from 'react-native';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MapaAdapter } from '@/components/MapaAdapter';
 import { MobileEmptyState } from '@/components/mobile/MobileEmptyState';
 import { ParadaBottomSheet } from '@/components/motorista/ParadaBottomSheet';
@@ -8,9 +9,10 @@ import { useRouteStatus } from '@/context/RouteStatusContext';
 import { Text } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
+import { logger } from '@/lib/logger';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-export default function MapaMotorista() {
+function MapaMotoristaContent() {
   const { theme } = useUnistyles();
   const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
 
@@ -75,7 +77,7 @@ export default function MapaMotorista() {
       await completeStop(parada.id);
       showSuccess('Sucesso', `Parada ${parada.ordem} marcada como concluída!`);
     } catch (error) {
-      console.error('Erro ao marcar parada como concluída:', error);
+      logger.error('Erro ao marcar parada como concluída', error);
       showError({ title: 'Erro', message: 'Não foi possível atualizar a parada.' });
     }
   }, [route?.status, completeStop, showWarning, showSuccess, showError]);
@@ -172,6 +174,14 @@ export default function MapaMotorista() {
       />
       {AlertDialog}
     </View>
+  );
+}
+
+export default function MapaMotorista() {
+  return (
+    <ErrorBoundary>
+      <MapaMotoristaContent />
+    </ErrorBoundary>
   );
 }
 

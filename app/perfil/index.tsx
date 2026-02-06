@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AvatarEditable } from '@/components/AvatarEditable';
 import { Dialog } from '@/components/Dialog';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { PerfilDesktopLayout } from '@/components/perfil/PerfilDesktopLayout';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import { DesktopPageLayout, Text } from '@/design-system';
@@ -18,6 +19,7 @@ import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useProfile } from '@/hooks/useProfile';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { Usuario } from '@/types/usuario';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -122,7 +124,7 @@ export default function PerfilGestor() {
         });
       }
     } catch (error) {
-      console.error('Erro ao carregar usuário:', error);
+      logger.error('Erro ao carregar usuário', error);
     } finally {
       setLoading(false);
     }
@@ -202,6 +204,7 @@ export default function PerfilGestor() {
   }
 
   return (
+    <ErrorBoundary>
     <>
       <ScrollView
         style={styles(theme).container}
@@ -283,6 +286,7 @@ export default function PerfilGestor() {
         onConfirm={closeAlertDialog}
       />
     </>
+    </ErrorBoundary>
   );
 }
 

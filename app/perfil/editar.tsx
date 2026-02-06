@@ -3,10 +3,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { FormDesktopLayout } from '@/components/perfil/FormDesktopLayout';
 import { Button, Dialog, Input, Text } from '@/design-system';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { Usuario } from '@/types/usuario';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -70,7 +72,7 @@ export default function EditarPerfilGestor() {
         setTelefone(userData?.telefone || '');
       }
     } catch (error) {
-      console.error('Erro ao carregar usuário:', error);
+      logger.error('Erro ao carregar usuário', error);
       showAlert({
         title: 'Erro ao carregar dados',
         message: 'Não foi possível carregar o seu perfil. Tente novamente.',
@@ -130,7 +132,7 @@ export default function EditarPerfilGestor() {
         onConfirm: () => router.replace('/perfil'),
       });
     } catch (error: unknown) {
-      console.error('Erro ao salvar:', error);
+      logger.error('Erro ao salvar perfil', error);
       const message = error instanceof Error ? error.message : 'Não foi possível salvar as alterações.';
       showAlert({
         title: 'Erro ao salvar',
@@ -222,6 +224,7 @@ export default function EditarPerfilGestor() {
   }
 
   return (
+    <ErrorBoundary>
     <View style={styles(theme).container}>
       <ScrollView
         style={styles(theme).scrollView}
@@ -298,6 +301,7 @@ export default function EditarPerfilGestor() {
         }}
       />
     </View>
+    </ErrorBoundary>
   );
 }
 

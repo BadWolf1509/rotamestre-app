@@ -59,6 +59,7 @@ export function formatDateTimeBR(
       ...(showSeconds && { second: '2-digit' }),
     });
   } catch {
+    // Fallback seguro para data inválida
     return '-';
   }
 }

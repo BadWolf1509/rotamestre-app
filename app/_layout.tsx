@@ -20,6 +20,7 @@ import { NotificationDataProvider } from '@/context/NotificationDataContext';
 import { NotificationModalProvider } from '@/context/NotificationModalContext';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUser } from '@/hooks/useUser';
+import { logger } from '@/lib/logger';
 import { setupNotificationResponseHandler } from '@/lib/notificationHandlers';
 import { initializeNotifications } from '@/lib/notifications';
 import { setupOfflineSync } from '@/lib/offline';
@@ -153,7 +154,7 @@ export default function RootLayout() {
     if (Platform.OS === 'web' && !fontsLoaded && !fontError) {
       // 10 second timeout for normal users
       fontTimeoutRef.current = setTimeout(() => {
-        console.warn('[RootLayout] Font loading timeout (10000ms) - proceeding without custom fonts');
+        logger.warn('Font loading timeout (10000ms) - proceeding without custom fonts');
         setFontTimeout(true);
       }, 10000);
 
@@ -218,9 +219,9 @@ export default function RootLayout() {
           metaDescription.setAttribute('content', 'Sistema completo de gestão de rotas de entrega com rastreamento em tempo real.');
           // Nota: CSS fix para z-index e toast-root estão em +html.tsx
         }
-      } catch (error) {
+      } catch {
         // Ignorar erros de manipulação do DOM
-        console.warn('Erro ao configurar meta tags:', error);
+        logger.warn('Erro ao configurar meta tags');
       }
     }
   }, []);
@@ -277,7 +278,7 @@ export default function RootLayout() {
 
   // Log font error but continue rendering (fonts will use fallback)
   if (fontError) {
-    console.error('Erro ao carregar fontes:', fontError);
+    logger.error('Erro ao carregar fontes', fontError);
   }
 
   return (

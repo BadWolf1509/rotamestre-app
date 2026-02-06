@@ -292,6 +292,7 @@ export function MapaMobile({
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       toast.success('Endereço copiado para a área de transferência.', 'Copiado!');
     } catch {
+      // Clipboard pode não estar disponível em todas as plataformas
       toast.error('Não foi possível copiar o endereço.');
     }
   }, []);

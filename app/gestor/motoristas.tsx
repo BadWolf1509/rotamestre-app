@@ -11,6 +11,7 @@ import {
   Image,
 } from 'react-native';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
   DataTable,
@@ -477,6 +478,7 @@ export default function MotoristasGestor() {
   }
 
   return (
+    <ErrorBoundary>
     <>
       <ScrollView style={styles.scrollView}>
         <View style={styles.content}>
@@ -576,5 +578,6 @@ export default function MotoristasGestor() {
       <Toast {...toastState} onDismiss={hideToast} />
       {logoutModal}
     </>
+    </ErrorBoundary>
   );
 }

@@ -3,6 +3,7 @@ import NetInfo from '@react-native-community/netinfo';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
+import { logger } from './logger';
 import { notifySyncComplete, notifyOfflineMode } from './notifications';
 import { uploadELinkFotoParada } from './storage';
 import { supabase } from './supabase';
@@ -118,7 +119,8 @@ export async function getOfflinePhotosIndex(): Promise<OfflinePhotoData[]> {
   try {
     const indexStr = await AsyncStorage.getItem(OFFLINE_PHOTOS_INDEX_KEY);
     return indexStr ? JSON.parse(indexStr) : [];
-  } catch {
+  } catch (error) {
+    logger.warn('Falha ao ler índice de fotos offline', error);
     return [];
   }
 }
@@ -219,7 +221,8 @@ export async function processOfflinePhotos(): Promise<{ success: number; failed:
       } else {
         failed++;
       }
-    } catch {
+    } catch (error) {
+      logger.warn('Falha ao processar foto offline', error);
       failed++;
     }
   }
@@ -285,7 +288,8 @@ export async function getOfflineQueue(): Promise<OfflineAction[]> {
   try {
     const queueStr = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);
     return queueStr ? JSON.parse(queueStr) : [];
-  } catch {
+  } catch (error) {
+    logger.warn('Falha ao ler fila offline', error);
     return [];
   }
 }
@@ -425,7 +429,8 @@ export async function getOfflineData(): Promise<OfflineData> {
   try {
     const dataStr = await AsyncStorage.getItem(OFFLINE_DATA_KEY);
     return dataStr ? JSON.parse(dataStr) : {};
-  } catch {
+  } catch (error) {
+    logger.warn('Falha ao ler dados offline', error);
     return {};
   }
 }
@@ -448,7 +453,8 @@ export async function hasOfflineData(): Promise<boolean> {
   try {
     const data = await getOfflineData();
     return Boolean(data.rota || (data.paradas && data.paradas.length > 0));
-  } catch {
+  } catch (error) {
+    logger.warn('Falha ao verificar dados offline', error);
     return false;
   }
 }
@@ -460,7 +466,8 @@ export async function getOfflineQueueSize(): Promise<number> {
   try {
     const queue = await getOfflineQueue();
     return queue.length;
-  } catch {
+  } catch (error) {
+    logger.warn('Falha ao obter tamanho da fila offline', error);
     return 0;
   }
 }

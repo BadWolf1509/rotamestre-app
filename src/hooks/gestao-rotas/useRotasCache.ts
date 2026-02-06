@@ -5,6 +5,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback } from 'react';
 
+import { logger } from '@/lib/logger';
+
 import type { RotaHistorico, CachedRotas } from './types';
 
 const CACHE_KEY_PREFIX = 'gestao_rotas_cache_';
@@ -41,7 +43,8 @@ export function useRotasCache({
       // Stale-while-revalidate: return data even if stale
       // Revalidation happens in background in the main hook
       return data;
-    } catch {
+    } catch (error) {
+      logger.warn('Falha ao carregar cache de rotas', error);
       return null;
     }
   }, [getCacheKey]);
