@@ -53,7 +53,7 @@ function SkeletonParadaCard() {
     <View style={styles.skeletonCard}>
       <View style={styles.skeletonCardHeader}>
         <SkeletonPulse style={styles.skeletonCircle} />
-        <View style={{ flex: 1, gap: theme.spacing['2'] }}>
+        <View style={[styles.skeletonFlexCol, { gap: theme.spacing['2'] }]}>
           <SkeletonPulse style={[styles.skeletonLine, styles.skeletonLineMedium]} />
           <View style={styles.skeletonRow}>
             <SkeletonPulse style={styles.skeletonTag} />
@@ -74,19 +74,19 @@ function SkeletonParadaCardCompact() {
   const { theme } = useUnistyles();
   return (
     <View style={styles.skeletonCardCompact}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing['3'] }}>
+      <View style={[styles.skeletonRowCenter, { gap: theme.spacing['3'] }]}>
         {/* Número da parada */}
-        <SkeletonPulse style={{ width: 28, height: 28, borderRadius: 14 }} />
+        <SkeletonPulse style={styles.skeletonCircle28} />
         {/* Endereço e info */}
-        <View style={{ flex: 1, gap: theme.spacing['1'] }}>
+        <View style={[styles.skeletonFlexCol, { gap: theme.spacing['1'] }]}>
           <SkeletonPulse style={[styles.skeletonLine, { width: '80%', height: 14 }]} />
           <View style={{ flexDirection: 'row', gap: theme.spacing['2'] }}>
-            <SkeletonPulse style={{ width: 50, height: 18, borderRadius: 4 }} />
-            <SkeletonPulse style={{ width: 60, height: 18, borderRadius: 4 }} />
+            <SkeletonPulse style={[styles.skeletonRect4, { width: 50, height: 18 }]} />
+            <SkeletonPulse style={[styles.skeletonRect4, { width: 60, height: 18 }]} />
           </View>
         </View>
         {/* Status icon */}
-        <SkeletonPulse style={{ width: 20, height: 20, borderRadius: 10 }} />
+        <SkeletonPulse style={styles.skeletonCircle20} />
       </View>
     </View>
   );
@@ -98,9 +98,9 @@ function SkeletonHeaderCompact() {
   return (
       <View style={styles.skeletonHeaderCompact}>
         {/* Motorista */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing['2'] }}>
-          <SkeletonPulse style={{ width: 24, height: 24, borderRadius: 12 }} />
-          <SkeletonPulse style={{ width: 120, height: 16, borderRadius: 4 }} />
+        <View style={[styles.skeletonRowCenter, { gap: theme.spacing['2'] }]}>
+          <SkeletonPulse style={styles.skeletonCircle24} />
+          <SkeletonPulse style={[styles.skeletonRect4, { width: 120, height: 16 }]} />
         </View>
         {/* Separator */}
       <View style={[styles.skeletonDivider, { height: 20 }]} />
@@ -108,11 +108,11 @@ function SkeletonHeaderCompact() {
       <SkeletonPulse style={{ width: 80, height: 26, borderRadius: 13 }} />
       {/* Metrics */}
       <View style={{ flexDirection: 'row', gap: theme.spacing['4'] }}>
-        <SkeletonPulse style={{ width: 70, height: 16, borderRadius: 4 }} />
-        <SkeletonPulse style={{ width: 80, height: 16, borderRadius: 4 }} />
+        <SkeletonPulse style={[styles.skeletonRect4, { width: 70, height: 16 }]} />
+        <SkeletonPulse style={[styles.skeletonRect4, { width: 80, height: 16 }]} />
       </View>
       {/* Spacer */}
-      <View style={{ flex: 1 }} />
+      <View style={styles.skeletonFlexCol} />
       {/* Cancel button */}
       <SkeletonPulse style={{ width: 90, height: 32, borderRadius: 16 }} />
     </View>
@@ -127,10 +127,10 @@ function SkeletonResumoInline() {
       {[1, 2, 3].map((i, index) => (
         <React.Fragment key={i}>
           {index > 0 && <View style={[styles.skeletonDivider, { height: 16 }]} />}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing['1.5'] }}>
-            <SkeletonPulse style={{ width: 20, height: 20, borderRadius: 10 }} />
-            <SkeletonPulse style={{ width: 24, height: 18, borderRadius: 4 }} />
-            <SkeletonPulse style={{ width: 30, height: 12, borderRadius: 4 }} />
+          <View style={[styles.skeletonRowCenter, { gap: theme.spacing['1.5'] }]}>
+            <SkeletonPulse style={styles.skeletonCircle20} />
+            <SkeletonPulse style={[styles.skeletonRect4, { width: 24, height: 18 }]} />
+            <SkeletonPulse style={[styles.skeletonRect4, { width: 30, height: 12 }]} />
           </View>
         </React.Fragment>
       ))}
@@ -143,12 +143,12 @@ function SkeletonTimelineCollapsible() {
   const { theme } = useUnistyles();
   return (
     <View style={styles.skeletonTimelineCollapsible}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing['2'] }}>
+      <View style={styles.skeletonRowBetween}>
+        <View style={[styles.skeletonRowCenter, { gap: theme.spacing['2'] }]}>
           <SkeletonPulse style={{ width: 32, height: 32, borderRadius: 8 }} />
-          <SkeletonPulse style={{ width: 80, height: 18, borderRadius: 4 }} />
+          <SkeletonPulse style={[styles.skeletonRect4, { width: 80, height: 18 }]} />
         </View>
-        <SkeletonPulse style={{ width: 20, height: 20, borderRadius: 4 }} />
+        <SkeletonPulse style={[styles.skeletonRect4, { width: 20, height: 20 }]} />
       </View>
     </View>
   );

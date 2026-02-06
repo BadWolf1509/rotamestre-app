@@ -449,6 +449,39 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.gray200,
   },
 
+  // Skeleton - Reusable layout patterns
+  skeletonRowCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  skeletonRowBetween: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  skeletonFlexCol: {
+    flex: 1,
+  },
+  // Skeleton - Common shapes (reused across multiple components)
+  skeletonCircle20: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+  skeletonCircle24: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  skeletonCircle28: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  skeletonRect4: {
+    borderRadius: 4,
+  },
+
   // Skeleton - Novo layout otimizado
   skeletonCardCompact: {
     backgroundColor: theme.colors.white,
