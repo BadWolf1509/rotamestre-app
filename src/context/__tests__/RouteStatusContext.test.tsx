@@ -222,7 +222,7 @@ function TestComponentWithActions({ onError }: { onError?: (e: Error) => void })
 
     const handleSkipStop = async () => {
         try {
-            await skipStop('parada-1');
+            await skipStop('parada-1', 'cliente_ausente');
         } catch (e) {
             onError?.(e as Error);
         }
@@ -1241,6 +1241,7 @@ describe('RouteStatusContext actions', () => {
             );
             expect(paradaUpdate).toBeDefined();
             expect(paradaUpdate?.filter.value).toBe('parada-1');
+            expect(paradaUpdate?.data.motivo_skip).toBe('cliente_ausente');
         });
 
         it('deve marcar proxima parada como em_andamento apos pular', async () => {

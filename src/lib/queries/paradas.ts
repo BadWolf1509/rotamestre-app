@@ -3,6 +3,7 @@
  * Centralized query layer for paradas table operations
  */
 
+import type { MotivoSkip } from '@/constants/skipReasons';
 import { logger } from '@/lib/logger';
 import type { StatusCheckpoint } from '@/types/rota';
 
@@ -29,6 +30,7 @@ export interface ParadaDB {
   latitude: number;
   longitude: number;
   observacoes: string | null;
+  motivo_skip: MotivoSkip | null;
   foto_url: string | null;
   is_checkpoint: boolean;
   concluida_em: string | null;
@@ -62,6 +64,7 @@ export interface ParadaUpdate {
   destinatario?: string | null;
   telefone?: string | null;
   observacoes?: string | null;
+  motivo_skip?: MotivoSkip | null;
   foto_url?: string | null;
   concluida_em?: string | null;
 }
@@ -253,14 +256,16 @@ export async function completeParada(
 }
 
 /**
- * Mark parada as skipped
+ * Mark parada as skipped with structured reason
  */
 export async function skipParada(
   paradaId: string,
-  motivo?: string
+  motivo: MotivoSkip,
+  observacoes?: string
 ): Promise<QueryResult<ParadaDB>> {
   return updateParadaStatus(paradaId, 'pulada', {
-    observacoes: motivo,
+    motivo_skip: motivo,
+    observacoes: observacoes || null,
   });
 }
 

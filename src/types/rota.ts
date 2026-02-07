@@ -1,3 +1,5 @@
+import type { MotivoSkip } from '@/constants/skipReasons';
+
 import { Endereco, Coordenadas } from './endereco';
 
 export type TipoCheckpoint = 'entrega' | 'retirada' | 'origem';
@@ -12,6 +14,7 @@ export interface Checkpoint {
   ordem: number;
   status: StatusCheckpoint;
   observacoes?: string;
+  motivo_skip?: MotivoSkip;
   timestamp_conclusao?: string;
   concluida_em?: string;
   is_checkpoint?: boolean;

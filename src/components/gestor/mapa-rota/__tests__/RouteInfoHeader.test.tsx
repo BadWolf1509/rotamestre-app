@@ -92,6 +92,7 @@ describe('RouteInfoHeader', () => {
     concluidas: 5,
     pendentes: 4,
     emAndamento: 1,
+    puladas: 0,
     ...overrides,
   });
 

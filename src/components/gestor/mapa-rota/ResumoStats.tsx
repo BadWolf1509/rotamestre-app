@@ -22,29 +22,43 @@ export function ResumoStats({ resumoParadas, variant = 'mobile' }: ResumoStatsPr
   const { theme } = useUnistyles();
 
   const resumoItems = useMemo(
-    () => [
-      {
-        label: 'Paradas Totais',
-        value: resumoParadas.total,
-        color: theme.colors.gray900,
-        icon: 'flag-outline' as keyof typeof Ionicons.glyphMap,
-        bg: theme.colors.primaryBg,
-      },
-      {
-        label: 'Concluidas',
-        value: resumoParadas.concluidas,
-        color: theme.colors.success,
-        icon: 'checkmark-done-outline' as keyof typeof Ionicons.glyphMap,
-        bg: theme.colors.successBg,
-      },
-      {
-        label: 'Pendentes',
-        value: resumoParadas.pendentes,
-        color: theme.colors.warning,
-        icon: 'time-outline' as keyof typeof Ionicons.glyphMap,
-        bg: theme.colors.warningBg,
-      },
-    ],
+    () => {
+      const items = [
+        {
+          label: 'Paradas Totais',
+          value: resumoParadas.total,
+          color: theme.colors.gray900,
+          icon: 'flag-outline' as keyof typeof Ionicons.glyphMap,
+          bg: theme.colors.primaryBg,
+        },
+        {
+          label: 'Concluidas',
+          value: resumoParadas.concluidas,
+          color: theme.colors.success,
+          icon: 'checkmark-done-outline' as keyof typeof Ionicons.glyphMap,
+          bg: theme.colors.successBg,
+        },
+        {
+          label: 'Pendentes',
+          value: resumoParadas.pendentes,
+          color: theme.colors.warning,
+          icon: 'time-outline' as keyof typeof Ionicons.glyphMap,
+          bg: theme.colors.warningBg,
+        },
+      ];
+
+      if (resumoParadas.puladas > 0) {
+        items.push({
+          label: 'Puladas',
+          value: resumoParadas.puladas,
+          color: theme.colors.error,
+          icon: 'close-circle-outline' as keyof typeof Ionicons.glyphMap,
+          bg: theme.colors.errorBg,
+        });
+      }
+
+      return items;
+    },
     [resumoParadas, theme]
   );
 

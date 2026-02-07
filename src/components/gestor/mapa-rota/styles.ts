@@ -90,6 +90,9 @@ export const styles = StyleSheet.create((theme: Theme) => ({
   statusTagEmAndamento: {
     backgroundColor: theme.colors.infoBg,
   },
+  statusTagPulada: {
+    backgroundColor: theme.colors.warningBg,
+  },
   statusTagText: {
     fontSize: theme.typography.fontSize.xs,
     fontWeight: '600',
@@ -133,6 +136,22 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.fontSize.sm - 1,
     color: theme.colors.primary,
     fontFamily: theme.typography.fontSansSemiBold,
+  },
+  // Motivo de skip
+  skipReasonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+    backgroundColor: theme.colors.warningBg,
+    borderRadius: theme.borderRadius.sm,
+    marginHorizontal: theme.spacing.sm,
+  },
+  skipReasonText: {
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.gray700,
   },
   // Foto com overlay melhorado
   paradaFotoContainer: {

@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { Platform } from 'react-native';
 
+import type { MotivoSkip } from '@/constants/skipReasons';
 import { useAuth } from '@/hooks/useAuth';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
@@ -47,6 +48,7 @@ export interface ParadaData {
   destinatario?: string;
   telefone?: string;
   observacoes?: string;
+  motivo_skip?: MotivoSkip;
   foto_url?: string | null;
   /** false = checkpoint de partida/chegada, true/undefined = entrega real */
   is_checkpoint?: boolean;
@@ -94,7 +96,7 @@ interface RouteStatusContextData {
   refreshRoute: () => Promise<void>;
   startRoute: () => Promise<void>;
   completeStop: (paradaId: string, fotoUrl?: string) => Promise<void>;
-  skipStop: (paradaId: string) => Promise<void>;
+  skipStop: (paradaId: string, motivo: MotivoSkip, observacoes?: string) => Promise<void>;
   completeRoute: () => Promise<void>;
 }
 
@@ -479,8 +481,8 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Pula parada
-  const skipStop = async (paradaId: string) => {
+  // Pula parada com motivo estruturado
+  const skipStop = async (paradaId: string, motivo: MotivoSkip, observacoes?: string) => {
     // Validar se a rota está em andamento
     if (!route || route.status !== 'em_andamento') {
       logger.warn(`[RouteStatus] skipStop Tentativa de pular parada com rota em status '${route?.status}' - ignorado`);
@@ -492,6 +494,8 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
         .from('paradas')
         .update({
           status: 'pulada',
+          motivo_skip: motivo,
+          ...(observacoes && { observacoes }),
         })
         .eq('id', paradaId);
 

@@ -127,7 +127,7 @@ describe('useNavigationActions', () => {
   });
 
   describe('handleSkipStop', () => {
-    it('deve chamar haptic → confirm → haptic warning → onSkip', async () => {
+    it('deve chamar haptic → onSkip (abre modal no pai)', async () => {
       const options = createMockOptions();
       const { result } = renderHook(() => useNavigationActions(options));
 
@@ -136,27 +136,9 @@ describe('useNavigationActions', () => {
       });
 
       expect(options.triggerHaptic).toHaveBeenCalledWith('impact');
-      expect(options.showConfirm).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: 'Pular Parada',
-          type: 'danger',
-        })
-      );
-      expect(options.triggerHaptic).toHaveBeenCalledWith('warning');
       expect(options.onSkip).toHaveBeenCalled();
-    });
-
-    it('deve NÃO chamar onSkip quando usuário cancela', async () => {
-      const options = createMockOptions({
-        showConfirm: jest.fn().mockResolvedValue(false),
-      });
-      const { result } = renderHook(() => useNavigationActions(options));
-
-      await act(async () => {
-        await result.current.handleSkipStop();
-      });
-
-      expect(options.onSkip).not.toHaveBeenCalled();
+      // No longer shows confirm dialog (SkipReasonModal is in parent)
+      expect(options.showConfirm).not.toHaveBeenCalled();
     });
   });
 

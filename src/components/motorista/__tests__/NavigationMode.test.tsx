@@ -258,7 +258,7 @@ describe('NavigationMode', () => {
     });
 
     describe('Skip stop', () => {
-        it('deve mostrar confirmação ao pular', async () => {
+        it('deve chamar onSkip ao pular (abre SkipReasonModal no pai)', async () => {
             const { getByText } = render(<NavigationMode {...defaultProps} />);
 
             await waitFor(() => {
@@ -268,34 +268,12 @@ describe('NavigationMode', () => {
             const skipButton = getByText('Pular');
             fireEvent.press(skipButton);
 
-            // Wait for async handler to complete
-            await waitFor(() => {
-                expect(global.mockUseAlert.showConfirm).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        title: 'Pular Parada',
-                        message: expect.stringContaining('Rua Destino, 456'),
-                    })
-                );
-            });
-        });
-
-        it('deve chamar onSkip quando confirmado', async () => {
-            // Mock showConfirm to return true (user confirms)
-            global.mockUseAlert.showConfirm.mockResolvedValue(true);
-
-            const { getByText } = render(<NavigationMode {...defaultProps} />);
-
-            await waitFor(() => {
-                expect(getByText('Pular')).toBeTruthy();
-            });
-
-            const skipButton = getByText('Pular');
-            fireEvent.press(skipButton);
-
-            // Wait for onSkip to be called after confirmation
+            // Skip now directly calls onSkip (no confirm dialog)
             await waitFor(() => {
                 expect(defaultProps.onSkip).toHaveBeenCalled();
             });
+            // Confirm dialog is no longer shown (SkipReasonModal is in parent)
+            expect(global.mockUseAlert.showConfirm).not.toHaveBeenCalled();
         });
     });
 

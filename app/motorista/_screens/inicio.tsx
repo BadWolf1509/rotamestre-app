@@ -17,7 +17,9 @@ import { StatusSection } from '@/components/motorista/home/StatusSection';
 import { NavigationMode } from '@/components/motorista/NavigationMode';
 import { OptimizationAlert } from '@/components/motorista/OptimizationAlert';
 import { PictureInPictureMap } from '@/components/motorista/PictureInPictureMap';
+import { SkipReasonModal } from '@/components/motorista/SkipReasonModal';
 import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
+import { SKIP_REASON_LABELS, type MotivoSkip } from '@/constants/skipReasons';
 import { useRouteStatus, type ParadaData } from '@/context/RouteStatusContext';
 import { Dialog, SupportModal } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
@@ -34,7 +36,7 @@ function MotoristaInicioContent() {
   const router = useRouter();
   const { theme } = useUnistyles();
   const { userData } = useUser();
-  const { showWarning, showSuccess, showError, showConfirm, AlertDialog } = useAlert();
+  const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
   const insets = useSafeAreaInsets();
 
   // Route context
@@ -75,6 +77,7 @@ function MotoristaInicioContent() {
   const [isCompletingRoute, setIsCompletingRoute] = useState(false);
   const [canStartRoute, setCanStartRoute] = useState(true);
   const [isStartingRoute, setIsStartingRoute] = useState(false);
+  const [showSkipModal, setShowSkipModal] = useState(false);
 
   // Load user location
   useEffect(() => {
@@ -253,25 +256,21 @@ function MotoristaInicioContent() {
     setShowCompletionFlow(true);
   };
 
-  // Skip current stop
-  const handleSkipStop = async () => {
+  // Skip current stop - opens SkipReasonModal
+  const handleSkipStop = () => {
     if (!currentStop) return;
+    setShowSkipModal(true);
+  };
 
-    const confirmed = await showConfirm({
-      title: 'Pular Parada',
-      message: `Deseja pular esta parada?\n${currentStop.endereco}`,
-      confirmText: 'Pular',
-      cancelText: 'Cancelar',
-      type: 'warning',
-    });
-
-    if (confirmed) {
-      try {
-        await skipStop(currentStop.id);
-        showSuccess('Parada Pulada', 'Você pode voltar a ela mais tarde');
-      } catch (error) {
-        showError(error);
-      }
+  // Confirm skip with structured reason
+  const handleConfirmSkip = async (motivo: MotivoSkip, observacoes?: string) => {
+    if (!currentStop) return;
+    setShowSkipModal(false);
+    try {
+      await skipStop(currentStop.id, motivo, observacoes);
+      showSuccess('Parada Pulada', SKIP_REASON_LABELS[motivo]);
+    } catch (error) {
+      showError(error);
     }
   };
 
@@ -367,9 +366,8 @@ function MotoristaInicioContent() {
     // Continue to next stop automatically
   };
 
-  const handleNavigationSkip = async () => {
-    await handleSkipStop();
-    // Continue to next stop
+  const handleNavigationSkip = () => {
+    handleSkipStop();
   };
 
   const handleNavigationExit = () => {
@@ -605,6 +603,16 @@ function MotoristaInicioContent() {
         onConfirm={confirmCompleteRoute}
         onCancel={() => setShowCompleteRouteModal(false)}
       />
+
+      {/* Skip Reason Modal */}
+      {showSkipModal && currentStop && (
+        <SkipReasonModal
+          visible={showSkipModal}
+          parada={currentStop}
+          onConfirm={handleConfirmSkip}
+          onCancel={() => setShowSkipModal(false)}
+        />
+      )}
 
       {/* AlertDialog for useAlert hook */}
       {AlertDialog}

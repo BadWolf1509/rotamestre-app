@@ -2,6 +2,8 @@
  * Types para componentes do Mapa da Rota
  */
 
+import type { MotivoSkip } from '@/constants/skipReasons';
+
 export interface Parada {
   id: string;
   ordem: number;
@@ -13,6 +15,7 @@ export interface Parada {
   destinatario?: string;
   telefone?: string;
   observacoes?: string;
+  motivo_skip?: MotivoSkip;
   foto_url?: string | null;
   is_checkpoint?: boolean;
   concluida_em?: string;
@@ -41,6 +44,7 @@ export interface ResumoParadas {
   concluidas: number;
   pendentes: number;
   emAndamento: number;
+  puladas: number;
 }
 
 export interface BaseInfo {

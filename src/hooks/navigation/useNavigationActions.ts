@@ -76,18 +76,9 @@ export function useNavigationActions({
 
   const handleSkipStop = useCallback(async () => {
     await triggerHaptic('impact');
-    const confirmed = await showConfirm({
-      title: 'Pular Parada',
-      message: `Deseja pular esta parada?\n${currentStop.endereco}`,
-      confirmText: 'Pular',
-      cancelText: 'Cancelar',
-      type: 'danger',
-    });
-    if (confirmed) {
-      await triggerHaptic('warning');
-      onSkip();
-    }
-  }, [currentStop, triggerHaptic, showConfirm, onSkip]);
+    // Opens SkipReasonModal in the parent component
+    onSkip();
+  }, [triggerHaptic, onSkip]);
 
   const handleExitNavigation = useCallback(async () => {
     const confirmed = await showConfirm({

@@ -13,7 +13,9 @@ import { IncidentReportWizard } from '@/components/IncidentReportWizard';
 import { MobileEmptyState } from '@/components/mobile/MobileEmptyState';
 import { ParadaCard, Parada } from '@/components/motorista/ParadaCard';
 import { ParadaCardSkeletonList } from '@/components/motorista/ParadaCardSkeleton';
+import { SkipReasonModal } from '@/components/motorista/SkipReasonModal';
 import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
+import { SKIP_REASON_LABELS, type MotivoSkip } from '@/constants/skipReasons';
 import { useRouteStatus, ParadaData } from '@/context/RouteStatusContext';
 import { Text } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
@@ -48,6 +50,8 @@ export default function CheckpointsMotorista() {
   // Estado para o modal de conclusão de parada (com foto)
   const [showCompletionFlow, setShowCompletionFlow] = useState(false);
   const [selectedParadaForCompletion, setSelectedParadaForCompletion] = useState<ParadaData | null>(null);
+  // Estado para o modal de motivo de skip
+  const [skipModalParada, setSkipModalParada] = useState<Parada | null>(null);
 
   // Filtrar apenas paradas reais (excluindo checkpoints de partida/chegada)
   // e fazer cast para tipo Parada do ParadaCard
@@ -84,29 +88,36 @@ export default function CheckpointsMotorista() {
     refreshRoute();
   }
 
+  // Abre o modal de motivo de skip
   const pularParada = useCallback(
-    async (parada: Parada) => {
-      const confirmed = await showConfirm({
-        title: 'Pular Parada',
-        message: `Deseja pular esta ${parada.tipo}?\n\n${parada.endereco}\n\nEsta parada ficará marcada como "pulada" e poderá ser retomada depois.`,
-        confirmText: 'Pular',
-        cancelText: 'Cancelar',
-        type: 'warning',
-      });
+    (parada: Parada) => {
+      setSkipModalParada(parada);
+    },
+    []
+  );
 
-      if (!confirmed) return;
+  // Confirma o skip com motivo estruturado
+  const confirmarSkip = useCallback(
+    async (motivo: MotivoSkip, observacoes?: string) => {
+      const parada = skipModalParada;
+      if (!parada) return;
+      setSkipModalParada(null);
 
       setPulandoParada(parada.id);
       try {
-        // Atualizar status da parada
+        // Usar query layer com motivo_skip
         const { error: updateError } = await supabase
           .from('paradas')
-          .update({ status: 'pulada' })
+          .update({
+            status: 'pulada',
+            motivo_skip: motivo,
+            ...(observacoes && { observacoes }),
+          })
           .eq('id', parada.id);
 
         if (updateError) throw updateError;
 
-        // Criar log
+        // Criar log com motivo
         await supabase.from('logs').insert({
           usuario_id: userData!.id,
           rota_id: route!.id,
@@ -116,11 +127,13 @@ export default function CheckpointsMotorista() {
             endereco: parada.endereco,
             tipo: parada.tipo,
             ordem: parada.ordem,
+            motivo,
+            ...(observacoes && { observacoes }),
           },
         });
 
-        showSuccess('Parada Pulada', 'Parada marcada como pulada');
-        refreshRoute(); // Contexto atualiza automaticamente
+        showSuccess('Parada Pulada', SKIP_REASON_LABELS[motivo]);
+        refreshRoute();
       } catch (error) {
         logger.error('Erro ao pular parada:', error);
         showError(error);
@@ -128,7 +141,7 @@ export default function CheckpointsMotorista() {
         setPulandoParada(null);
       }
     },
-    [userData, route, refreshRoute, showConfirm, showSuccess, showError]
+    [skipModalParada, userData, route, refreshRoute, showSuccess, showError]
   );
 
   const retomarParada = useCallback(
@@ -418,6 +431,16 @@ export default function CheckpointsMotorista() {
         onSuccess={handleCompletionSuccess}
         allowSkipPhoto={true}
       />
+
+      {/* Modal de Motivo de Skip */}
+      {skipModalParada && (
+        <SkipReasonModal
+          visible={!!skipModalParada}
+          parada={skipModalParada as unknown as ParadaData}
+          onConfirm={confirmarSkip}
+          onCancel={() => setSkipModalParada(null)}
+        />
+      )}
 
       {AlertDialog}
     </Container>

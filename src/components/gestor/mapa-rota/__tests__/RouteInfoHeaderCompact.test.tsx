@@ -63,6 +63,7 @@ describe('RouteInfoHeaderCompact', () => {
     concluidas: 2,
     pendentes: 3,
     emAndamento: 0,
+    puladas: 0,
   };
 
   const defaultProps = {

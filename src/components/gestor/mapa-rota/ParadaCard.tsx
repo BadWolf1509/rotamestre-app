@@ -8,6 +8,7 @@ import * as Linking from 'expo-linking';
 import React, { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, Platform } from 'react-native';
 
+import { SKIP_REASON_LABELS } from '@/constants/skipReasons';
 import { useUnistyles } from '@/utils/styles';
 
 import { styles } from './styles';
@@ -83,12 +84,14 @@ export const ParadaCard = React.memo<ParadaCardProps>(
                     parada.status === 'concluida' && styles.statusTagConcluida,
                     parada.status === 'pendente' && styles.statusTagPendente,
                     parada.status === 'em_andamento' && styles.statusTagEmAndamento,
+                    parada.status === 'pulada' && styles.statusTagPulada,
                   ]}
                 >
                   <Text style={styles.statusTagText}>
                     {parada.status === 'concluida' && 'Concluida'}
                     {parada.status === 'pendente' && 'Pendente'}
                     {parada.status === 'em_andamento' && 'Em andamento'}
+                    {parada.status === 'pulada' && 'Pulada'}
                   </Text>
                 </View>
               </View>
@@ -131,6 +134,18 @@ export const ParadaCard = React.memo<ParadaCardProps>(
                 <Text style={styles.paradaMetaValue}>{parada.observacoes}</Text>
               </View>
             )}
+          </View>
+        )}
+
+        {/* Motivo do skip (quando parada pulada) */}
+        {parada.status === 'pulada' && (
+          <View style={styles.skipReasonContainer}>
+            <Ionicons name="information-circle-outline" size={14} color={theme.colors.warning} />
+            <Text style={styles.skipReasonText}>
+              {parada.motivo_skip
+                ? SKIP_REASON_LABELS[parada.motivo_skip]
+                : 'Sem motivo informado'}
+            </Text>
           </View>
         )}
 

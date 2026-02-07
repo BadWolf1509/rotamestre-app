@@ -56,7 +56,8 @@ export function useMapaRotaData({
     const concluidas = paradasReais.filter((p) => p.status === 'concluida').length;
     const pendentes = paradasReais.filter((p) => p.status === 'pendente').length;
     const emAndamento = paradasReais.filter((p) => p.status === 'em_andamento').length;
-    return { total, concluidas, pendentes, emAndamento };
+    const puladas = paradasReais.filter((p) => p.status === 'pulada').length;
+    return { total, concluidas, pendentes, emAndamento, puladas };
   }, [paradasReais]);
 
   const enderecoUnidade = useMemo(() => {
