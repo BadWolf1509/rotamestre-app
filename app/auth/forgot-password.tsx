@@ -3,6 +3,9 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
@@ -129,6 +132,9 @@ export default function ForgotPassword() {
                 style={styles.buttonDesktop}
                 onPress={handleResetPassword}
                 disabled={loading}
+                accessibilityLabel="Enviar link de recuperação"
+                accessibilityRole="button"
+                accessibilityState={{ disabled: loading }}
               >
                 {loading ? (
                   <ActivityIndicator color={theme.colors.white} />
@@ -140,6 +146,8 @@ export default function ForgotPassword() {
               <TouchableOpacity
                 style={styles.backButton}
                 onPress={() => router.push('/auth/login')}
+                accessibilityLabel="Voltar para login"
+                accessibilityRole="link"
               >
                 <Text style={styles.backButtonText}>Voltar para login</Text>
               </TouchableOpacity>
@@ -154,50 +162,64 @@ export default function ForgotPassword() {
   // RENDER: Mobile/Tablet
   // ============================================
   return (
-    <View style={styles.container}>
-      {AlertDialog}
-      <View style={styles.header}>
-        <View style={styles.logoHorizontal}>
-          <Image
-            source={LogoHorizontal}
-            style={styles.logoImage}
-            resizeMode="contain"
-          />
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        bounces={false}
+      >
+        {AlertDialog}
+        <View style={styles.header}>
+          <View style={styles.logoHorizontal}>
+            <Image
+              source={LogoHorizontal}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
+          </View>
+          <Text style={styles.subtitle}>Recuperar senha</Text>
         </View>
-        <Text style={styles.subtitle}>Recuperar senha</Text>
-      </View>
 
-      <View style={styles.form}>
-        <TextInput
-          style={styles.input}
-          placeholder="E-mail"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoComplete="email"
-        />
+        <View style={styles.form}>
+          <TextInput
+            style={styles.input}
+            placeholder="E-mail"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+          />
 
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleResetPassword}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color={theme.colors.white} />
-          ) : (
-            <Text style={styles.buttonText}>Enviar Link</Text>
-          )}
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleResetPassword}
+            disabled={loading}
+            accessibilityLabel="Enviar link de recuperação"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: loading }}
+          >
+            {loading ? (
+              <ActivityIndicator color={theme.colors.white} />
+            ) : (
+              <Text style={styles.buttonText}>Enviar Link</Text>
+            )}
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.push('/auth/login')}
-        >
-          <Text style={styles.backButtonText}>Voltar para login</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.push('/auth/login')}
+            accessibilityLabel="Voltar para login"
+            accessibilityRole="link"
+          >
+            <Text style={styles.backButtonText}>Voltar para login</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -264,7 +286,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     ...theme.shadows.md,
   },
   container: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: theme.colors.white,
     justifyContent: 'center',
     padding: theme.spacing.xxl,

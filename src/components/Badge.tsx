@@ -7,6 +7,7 @@
  * Usa design tokens para cores e espaçamento.
  */
 
+import React from 'react';
 import { View, Text, ViewStyle, TextStyle } from 'react-native';
 
 import { StyleSheet, Theme, useUnistyles } from '@/utils/styles';
@@ -53,7 +54,7 @@ const getBadgeColor = (theme: Theme, status: BadgeStatus) => {
   }
 };
 
-export function Badge({
+function BadgeComponent({
   status,
   label,
   size = 'medium',
@@ -102,6 +103,9 @@ export function Badge({
     </View>
   );
 }
+
+export const Badge = React.memo(BadgeComponent);
+Badge.displayName = 'Badge';
 
 const styles = StyleSheet.create((theme: Theme) => ({
   badge: {

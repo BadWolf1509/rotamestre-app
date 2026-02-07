@@ -19,7 +19,7 @@ interface FilterChipProps extends TouchableOpacityProps {
   labelStyle?: TextStyle;
 }
 
-export function FilterChip({
+function FilterChipComponent({
   label,
   selected = false,
   size = 'regular',
@@ -57,6 +57,9 @@ export function FilterChip({
     </TouchableOpacity>
   );
 }
+
+export const FilterChip = React.memo(FilterChipComponent);
+FilterChip.displayName = 'FilterChip';
 
 const styles = StyleSheet.create((theme: Theme) => ({
   base: {

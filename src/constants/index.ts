@@ -42,5 +42,9 @@ export type {
   StatusConfig,
 } from './statusConfig';
 
+// Skip reasons
+export { SKIP_REASONS, SKIP_REASON_LABELS } from './skipReasons';
+export type { MotivoSkip, SkipReason } from './skipReasons';
+
 // Page metadata
 export { getGestorPageMeta, gestorPageMeta } from './gestorPageMeta';

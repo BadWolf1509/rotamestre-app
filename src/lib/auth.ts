@@ -1,7 +1,9 @@
+import type { Session } from '@supabase/supabase-js';
+
 import { logger } from './logger';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { setMockSession } from '../hooks/useAuth';
-import { Usuario, TipoUsuario } from '../types/usuario';
+import { Usuario, TipoUsuario, UnidadeDB } from '../types/usuario';
 
 
 export const authService = {
@@ -29,8 +31,10 @@ export const authService = {
           id: mockUnidadeId,
           nome: 'Unidade Teste',
           cidade: 'São Paulo',
-          ativa: true
-        } as any
+          ativa: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } satisfies UnidadeDB
       };
 
       const mockSession = {
@@ -39,7 +43,7 @@ export const authService = {
         expires_in: 3600,
         token_type: 'bearer',
         user: { id: mockUserId, email: mockUser.email }
-      } as any;
+      } as unknown as Session;
 
       // Store mock session for useAuth hook to pick up
       setMockSession(mockSession, mockSession.user);

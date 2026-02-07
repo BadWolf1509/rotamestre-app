@@ -22,7 +22,7 @@ interface StatusBadgeProps {
   testID?: string;
 }
 
-export function StatusBadge({
+function StatusBadgeComponent({
   label,
   color,
   variant = 'soft',
@@ -59,6 +59,9 @@ export function StatusBadge({
     </View>
   );
 }
+
+export const StatusBadge = React.memo(StatusBadgeComponent);
+StatusBadge.displayName = 'StatusBadge';
 
 const styles = StyleSheet.create((theme: Theme) => ({
   base: {

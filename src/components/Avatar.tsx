@@ -30,7 +30,7 @@ interface AvatarProps {
  * Mostra foto do usuário ou iniciais se não houver foto
  * Usa tokens do tema para tamanhos (density-aware)
  */
-export function Avatar({
+function AvatarComponent({
   name,
   imageUrl,
   size = 'md',
@@ -103,6 +103,9 @@ export function Avatar({
     </View>
   );
 }
+
+export const Avatar = React.memo(AvatarComponent);
+Avatar.displayName = 'Avatar';
 
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {

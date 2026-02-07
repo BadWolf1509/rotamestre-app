@@ -13,7 +13,7 @@ interface CardProps {
   testID?: string;
 }
 
-export function Card({
+function CardComponent({
   children,
   variant = 'elevated',
   padding = 'medium',
@@ -53,6 +53,9 @@ export function Card({
     </Container>
   );
 }
+
+export const Card = React.memo(CardComponent);
+Card.displayName = 'Card';
 
 const styles = StyleSheet.create((theme: Theme) => ({
   card: {

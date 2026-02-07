@@ -17,7 +17,7 @@ interface MobileCardProps {
  * Componente padronizado para cards em telas mobile
  * Segue o padrão de design estabelecido para o RotaMestre
  */
-export function MobileCard({
+function MobileCardComponent({
   children,
   title,
   subtitle,
@@ -73,6 +73,9 @@ export function MobileCard({
     </View>
   );
 }
+
+export const MobileCard = React.memo(MobileCardComponent);
+MobileCard.displayName = 'MobileCard';
 
 const styles = StyleSheet.create((theme: Theme) => ({
   card: {

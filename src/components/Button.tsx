@@ -30,7 +30,7 @@ interface ButtonProps {
   textStyle?: TextStyle;
 }
 
-export function Button({
+function ButtonComponent({
   title,
   onPress,
   variant = 'primary',
@@ -110,6 +110,9 @@ export function Button({
     </Pressable>
   );
 }
+
+export const Button = React.memo(ButtonComponent);
+Button.displayName = 'Button';
 
 const styles = StyleSheet.create((theme: Theme) => ({
   button: {

@@ -23,7 +23,7 @@ import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
 import { abrirNavegacao } from '@/lib/navigation';
-import { supabase } from '@/lib/supabase';
+import { skipParada, updateParadaStatus, logParadaAction } from '@/lib/queries/paradas';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export default function CheckpointsMotorista() {
@@ -105,31 +105,16 @@ export default function CheckpointsMotorista() {
 
       setPulandoParada(parada.id);
       try {
-        // Usar query layer com motivo_skip
-        const { error: updateError } = await supabase
-          .from('paradas')
-          .update({
-            status: 'pulada',
-            motivo_skip: motivo,
-            ...(observacoes && { observacoes }),
-          })
-          .eq('id', parada.id);
+        const result = await skipParada(parada.id, motivo, observacoes);
+        if (!result.success) throw result.error;
 
-        if (updateError) throw updateError;
-
-        // Criar log com motivo
-        await supabase.from('logs').insert({
-          usuario_id: userData!.id,
-          rota_id: route!.id,
-          parada_id: parada.id,
-          evento: 'parada_pulada',
-          detalhes: {
-            endereco: parada.endereco,
-            tipo: parada.tipo,
-            ordem: parada.ordem,
-            motivo,
-            ...(observacoes && { observacoes }),
-          },
+        // Log é fire-and-forget (não bloqueia a operação)
+        logParadaAction(userData!.id, parada.id, route!.id, 'parada_pulada', {
+          endereco: parada.endereco,
+          tipo: parada.tipo,
+          ordem: parada.ordem,
+          motivo,
+          ...(observacoes && { observacoes }),
         });
 
         showSuccess('Parada Pulada', SKIP_REASON_LABELS[motivo]);
@@ -157,29 +142,18 @@ export default function CheckpointsMotorista() {
 
       setRetomandoParada(parada.id);
       try {
-        // Atualizar status da parada para pendente
-        const { error: updateError } = await supabase
-          .from('paradas')
-          .update({ status: 'pendente' })
-          .eq('id', parada.id);
+        const result = await updateParadaStatus(parada.id, 'pendente');
+        if (!result.success) throw result.error;
 
-        if (updateError) throw updateError;
-
-        // Criar log
-        await supabase.from('logs').insert({
-          usuario_id: userData!.id,
-          rota_id: route!.id,
-          parada_id: parada.id,
-          evento: 'parada_retomada',
-          detalhes: {
-            endereco: parada.endereco,
-            tipo: parada.tipo,
-            ordem: parada.ordem,
-          },
+        // Log é fire-and-forget (não bloqueia a operação)
+        logParadaAction(userData!.id, parada.id, route!.id, 'parada_retomada', {
+          endereco: parada.endereco,
+          tipo: parada.tipo,
+          ordem: parada.ordem,
         });
 
         showSuccess('Parada Retomada', 'Parada voltou para pendente');
-        refreshRoute(); // Contexto atualiza automaticamente
+        refreshRoute();
       } catch (error) {
         logger.error('Erro ao retomar parada:', error);
         showError(error);
@@ -376,6 +350,7 @@ export default function CheckpointsMotorista() {
         initialNumToRender={8}
         maxToRenderPerBatch={8}
         windowSize={3}
+        removeClippedSubviews={Platform.OS === 'android'}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

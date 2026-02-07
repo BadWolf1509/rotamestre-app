@@ -24,6 +24,8 @@ import TurnByTurnNavigationService, {
 } from '@/services/turnByTurnNavigation';
 import type { IconName } from '@/types/icons';
 import { withOpacity } from '@/utils/color';
+
+import { MANEUVER_ICONS } from './maneuverIcons';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // Default values (used when preferences not loaded)
@@ -420,54 +422,16 @@ export function TurnByTurnNavigation({
     [origin]
   );
 
-  // Get maneuver icon - expanded mapping for all OSRM maneuver types
+  // Get maneuver icon - uses extracted MANEUVER_ICONS mapping
   const getManeuverIcon = useCallback((maneuver: string): IconName => {
-    const iconMap: Record<string, IconName> = {
-      // Turns
-      'turn-left': 'arrow-back',
-      'turn-right': 'arrow-forward',
-      'turn-sharp-left': 'return-up-back',
-      'turn-sharp-right': 'return-up-forward',
-      'turn-slight-left': 'chevron-back',
-      'turn-slight-right': 'chevron-forward',
-
-      // Straight
-      'straight': 'arrow-up',
-      'continue': 'arrow-up',
-      'depart': 'navigate',
-      'arrive': 'flag',
-
-      // Merges and exits
-      'merge': 'git-merge',
-      'on-ramp': 'trending-up',
-      'off-ramp': 'exit-outline',
-      'fork-left': 'git-branch',
-      'fork-right': 'git-branch',
-
-      // Roundabouts
-      'roundabout': 'sync',
-      'rotary': 'sync',
-      'roundabout-turn': 'sync',
-
-      // U-turns
-      'uturn': 'refresh',
-      'uturn-left': 'refresh',
-      'uturn-right': 'refresh',
-
-      // Special
-      'ferry': 'boat',
-      'notification': 'information-circle',
-      'end-of-road': 'stop-circle',
-      'new-name': 'arrow-up',
-    };
-
     // Exact match first
-    if (iconMap[maneuver]) {
-      return iconMap[maneuver];
+    const exactMatch = MANEUVER_ICONS[maneuver as keyof typeof MANEUVER_ICONS];
+    if (exactMatch) {
+      return exactMatch;
     }
 
     // Partial match
-    for (const [key, icon] of Object.entries(iconMap)) {
+    for (const [key, icon] of Object.entries(MANEUVER_ICONS)) {
       if (maneuver?.includes(key)) {
         return icon;
       }

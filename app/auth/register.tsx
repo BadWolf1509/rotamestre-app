@@ -180,6 +180,8 @@ export default function Register() {
               <TouchableOpacity
                 style={styles.backLink}
                 onPress={() => router.back()}
+                accessibilityLabel="Já tem uma conta? Fazer login"
+                accessibilityRole="link"
               >
                 <Text tone="primary" style={styles.backLinkText}>
                   Ja tem uma conta? Faca login

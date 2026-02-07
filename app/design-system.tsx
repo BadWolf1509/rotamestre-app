@@ -80,6 +80,7 @@ import {
   motion,
 } from '@/design-system';
 import { useResponsive } from '@/hooks/useResponsive';
+import { logger } from '@/lib/logger';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // ============================================
@@ -3189,7 +3190,7 @@ import { SwipeableRow } from '@/components/SwipeableRow';
             onChangeText={setAddressValue}
             onSelectAddress={(address, placeId) => {
               showToast('info');
-              console.log('Endereço selecionado:', address, 'PlaceID:', placeId);
+              logger.info('Endereço selecionado:', { address, placeId });
             }}
             placeholder="Digite um endereço..."
           />

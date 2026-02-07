@@ -4,7 +4,9 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
   Platform,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
@@ -161,6 +163,8 @@ export default function Login() {
                   <TouchableOpacity
                     style={styles.eyeButton}
                     onPress={() => setShowPassword(!showPassword)}
+                    accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                    accessibilityRole="button"
                   >
                     <Ionicons
                       name={showPassword ? 'eye-off-outline' : 'eye-outline'}
@@ -175,6 +179,8 @@ export default function Login() {
                 style={styles.forgotButton}
                 onPress={() => router.push('/auth/forgot-password')}
                 testID="auth-login-forgot"
+                accessibilityLabel="Esqueceu a senha?"
+                accessibilityRole="link"
               >
                 <Text style={styles.forgotButtonText}>Esqueceu a senha?</Text>
               </TouchableOpacity>
@@ -184,6 +190,9 @@ export default function Login() {
                 onPress={handleLogin}
                 disabled={loading}
                 testID="auth-login-submit"
+                accessibilityLabel="Entrar"
+                accessibilityRole="button"
+                accessibilityState={{ disabled: loading }}
               >
                 {loading ? (
                   <ActivityIndicator color={theme.colors.white} />
@@ -212,84 +221,101 @@ export default function Login() {
   // RENDER: Mobile/Tablet (Vertical Centered)
   // ============================================
   return (
-    <View style={[styles.container, { paddingBottom: Math.max(20, insets.bottom + 20) }]} testID="auth-login-view">
-      <View style={styles.header}>
-        <View style={styles.logoHorizontal}>
-          <Image
-            source={LogoHorizontal}
-            style={styles.logoImage}
-            resizeMode="contain"
-          />
-        </View>
-        <Text style={styles.subtitle}>Entre com sua conta</Text>
-      </View>
-
-      <View style={styles.form}>
-        <TextInput
-          style={styles.input}
-          placeholder="E-mail"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoComplete="email"
-          testID="auth-login-email"
-        />
-
-        <View style={styles.passwordContainer}>
-          <TextInput
-            style={styles.inputPassword}
-            placeholder="Senha"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-            autoComplete="password"
-            testID="auth-login-password"
-          />
-          <TouchableOpacity
-            style={styles.eyeButton}
-            onPress={() => setShowPassword(!showPassword)}
-          >
-            <Ionicons
-              name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-              size={22}
-              color={theme.colors.gray500}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingBottom: Math.max(20, insets.bottom + 20) }]}
+        keyboardShouldPersistTaps="handled"
+        bounces={false}
+        testID="auth-login-view"
+      >
+        <View style={styles.header}>
+          <View style={styles.logoHorizontal}>
+            <Image
+              source={LogoHorizontal}
+              style={styles.logoImage}
+              resizeMode="contain"
             />
+          </View>
+          <Text style={styles.subtitle}>Entre com sua conta</Text>
+        </View>
+
+        <View style={styles.form}>
+          <TextInput
+            style={styles.input}
+            placeholder="E-mail"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            testID="auth-login-email"
+          />
+
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={styles.inputPassword}
+              placeholder="Senha"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              autoComplete="password"
+              testID="auth-login-password"
+            />
+            <TouchableOpacity
+              style={styles.eyeButton}
+              onPress={() => setShowPassword(!showPassword)}
+              accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+              accessibilityRole="button"
+            >
+              <Ionicons
+                name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                size={22}
+                color={theme.colors.gray500}
+              />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={styles.forgotButton}
+            onPress={() => router.push('/auth/forgot-password')}
+            testID="auth-login-forgot"
+            accessibilityLabel="Esqueceu a senha?"
+            accessibilityRole="link"
+          >
+            <Text style={styles.forgotButtonText}>Esqueceu a senha?</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleLogin}
+            disabled={loading}
+            testID="auth-login-submit"
+            accessibilityLabel="Entrar"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: loading }}
+          >
+            {loading ? (
+              <ActivityIndicator color={theme.colors.white} />
+            ) : (
+              <Text style={styles.buttonText}>Entrar</Text>
+            )}
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          style={styles.forgotButton}
-          onPress={() => router.push('/auth/forgot-password')}
-          testID="auth-login-forgot"
-        >
-          <Text style={styles.forgotButtonText}>Esqueceu a senha?</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleLogin}
-          disabled={loading}
-          testID="auth-login-submit"
-        >
-          {loading ? (
-            <ActivityIndicator color={theme.colors.white} />
-          ) : (
-            <Text style={styles.buttonText}>Entrar</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Alert Dialog */}
-      <Dialog
-        visible={alertConfig.visible}
-        variant="alert"
-        title={alertConfig.title}
-        message={alertConfig.message}
-        type={alertConfig.type}
-        onConfirm={hideAlert}
-      />
-    </View>
+        {/* Alert Dialog */}
+        <Dialog
+          visible={alertConfig.visible}
+          variant="alert"
+          title={alertConfig.title}
+          message={alertConfig.message}
+          type={alertConfig.type}
+          onConfirm={hideAlert}
+        />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -378,7 +404,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     ...theme.shadows.md,
   },
   container: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: theme.colors.white,
     padding: theme.spacing.xl,
     justifyContent: 'center',

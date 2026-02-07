@@ -5,6 +5,7 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
+  Platform,
 } from 'react-native';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -585,6 +586,7 @@ export default function HistoricoMotorista() {
         initialNumToRender={5}
         maxToRenderPerBatch={10}
         windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
         ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
         refreshControl={
           <RefreshControl
