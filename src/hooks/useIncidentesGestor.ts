@@ -83,7 +83,8 @@ export interface UseIncidentesGestorReturn {
   showHistoricoMotoristaModal: boolean;
   motoristaSelecionado: { id: string; nome: string } | null;
   incidentesMotorista: Incidente[];
-  handleVerHistoricoMotorista: (id: string, nome: string) => void;
+  historicoLoading: boolean;
+  handleVerHistoricoMotorista: (id: string, nome: string) => Promise<void>;
   setShowHistoricoMotoristaModal: (value: boolean) => void;
 
   // Actions
@@ -265,6 +266,7 @@ export function useIncidentesGestor(theme: Theme): UseIncidentesGestorReturn {
     showHistoricoMotoristaModal: modals.showHistoricoMotoristaModal,
     motoristaSelecionado: modals.motoristaSelecionado,
     incidentesMotorista: modals.incidentesMotorista,
+    historicoLoading: modals.historicoLoading,
     handleVerHistoricoMotorista: modals.handleVerHistoricoMotorista,
     setShowHistoricoMotoristaModal: modals.setShowHistoricoMotoristaModal,
 

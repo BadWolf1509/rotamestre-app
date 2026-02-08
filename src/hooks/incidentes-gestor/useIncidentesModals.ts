@@ -6,6 +6,7 @@ import { useState, useCallback } from 'react';
 
 import { useToast } from '@/hooks/useToast';
 import { logger } from '@/lib/logger';
+import { fetchIncidentesForGestor } from '@/lib/queries/incidentes';
 import { supabase } from '@/lib/supabase';
 
 import type { Incidente } from './types';
@@ -43,7 +44,8 @@ interface UseIncidentesModalsResult {
   showHistoricoMotoristaModal: boolean;
   motoristaSelecionado: { id: string; nome: string } | null;
   incidentesMotorista: Incidente[];
-  handleVerHistoricoMotorista: (id: string, nome: string) => void;
+  historicoLoading: boolean;
+  handleVerHistoricoMotorista: (id: string, nome: string) => Promise<void>;
   setShowHistoricoMotoristaModal: (value: boolean) => void;
 
   // Toast
@@ -82,6 +84,7 @@ export function useIncidentesModals({
     nome: string;
   } | null>(null);
   const [incidentesMotorista, setIncidentesMotorista] = useState<Incidente[]>([]);
+  const [historicoLoading, setHistoricoLoading] = useState(false);
 
   // Detalhes modal handlers
   const handleVerDetalhes = useCallback((incidente: Incidente) => {
@@ -147,17 +150,24 @@ export function useIncidentesModals({
     }
   }, [incidenteSelecionado, novoStatus, observacoes, onStatusUpdate, showToast]);
 
-  // Histórico motorista handlers
+  // Histórico motorista handlers — busca direto do Supabase (ignora filtros ativos)
   const handleVerHistoricoMotorista = useCallback(
-    (motoristaId: string, motoristaNome: string) => {
+    async (motoristaId: string, motoristaNome: string) => {
       setMotoristaSelecionado({ id: motoristaId, nome: motoristaNome });
-      const incidentesDoMotorista = incidentes.filter(
-        (inc) => inc.motorista_id === motoristaId
-      );
-      setIncidentesMotorista(incidentesDoMotorista);
+      setIncidentesMotorista([]);
       setShowHistoricoMotoristaModal(true);
+      setHistoricoLoading(true);
+
+      const result = await fetchIncidentesForGestor({ motoristasIds: [motoristaId] });
+      if (result.success) {
+        setIncidentesMotorista(result.data);
+      } else {
+        logger.warn('[useIncidentesModals] Erro ao buscar histórico:', result.error);
+        showToast('Erro ao carregar histórico', 'error');
+      }
+      setHistoricoLoading(false);
     },
-    [incidentes]
+    [showToast]
   );
 
   return {
@@ -188,6 +198,7 @@ export function useIncidentesModals({
     showHistoricoMotoristaModal,
     motoristaSelecionado,
     incidentesMotorista,
+    historicoLoading,
     handleVerHistoricoMotorista,
     setShowHistoricoMotoristaModal,
 

@@ -393,4 +393,65 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray600,
     fontStyle: 'italic',
   },
+
+  // Histórico modal — loading
+  historicoLoadingContainer: {
+    padding: theme.spacing['3xl'],
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.md,
+  },
+  historicoLoadingText: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
+  },
+
+  // Histórico modal — resumo inline
+  historicoResumo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: theme.colors.gray50,
+    borderRadius: theme.borderRadius.md,
+  },
+  historicoResumoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
+  historicoResumoCount: {
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansBold,
+  },
+  historicoResumoLabel: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
+  },
+  historicoResumoDivider: {
+    fontSize: theme.typography.base,
+    color: theme.colors.gray300,
+  },
+
+  // Histórico modal — item row (clicável)
+  historicoItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  historicoItemContent: {
+    flex: 1,
+  },
+  historicoMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  historicoFotoIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
 }));

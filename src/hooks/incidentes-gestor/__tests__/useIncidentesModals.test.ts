@@ -9,9 +9,10 @@ import { useIncidentesModals } from '../useIncidentesModals';
 import type { Incidente } from '../types';
 
 // Mock dependencies
+const mockShowToast = jest.fn();
 jest.mock('@/hooks/useToast', () => ({
   useToast: () => ({
-    showToast: jest.fn(),
+    showToast: mockShowToast,
   }),
 }));
 
@@ -32,6 +33,11 @@ jest.mock('@/lib/supabase', () => ({
       })),
     })),
   },
+}));
+
+const mockFetchIncidentes = jest.fn();
+jest.mock('@/lib/queries/incidentes', () => ({
+  fetchIncidentesForGestor: (...args: unknown[]) => mockFetchIncidentes(...args),
 }));
 
 const mockIncidente: Incidente = {
@@ -100,6 +106,7 @@ describe('useIncidentesModals', () => {
       expect(result.current.showHistoricoMotoristaModal).toBe(false);
       expect(result.current.motoristaSelecionado).toBeNull();
       expect(result.current.incidentesMotorista).toEqual([]);
+      expect(result.current.historicoLoading).toBe(false);
     });
   });
 
@@ -267,7 +274,17 @@ describe('useIncidentesModals', () => {
   });
 
   describe('histórico motorista modal', () => {
-    it('handleVerHistoricoMotorista opens modal with motorista incidents', () => {
+    const driver1Incidents: Incidente[] = [
+      mockIncidente,
+      { ...mockIncidente, id: 'inc-3', descricao: 'Another incident' },
+    ];
+
+    it('fetches from Supabase with correct motorista ID', async () => {
+      mockFetchIncidentes.mockResolvedValue({
+        success: true,
+        data: driver1Incidents,
+      });
+
       const { result } = renderHook(() =>
         useIncidentesModals({
           incidentes: mockIncidentes,
@@ -275,8 +292,30 @@ describe('useIncidentesModals', () => {
         })
       );
 
-      act(() => {
-        result.current.handleVerHistoricoMotorista('driver-1', 'João Silva');
+      await act(async () => {
+        await result.current.handleVerHistoricoMotorista('driver-1', 'João Silva');
+      });
+
+      expect(mockFetchIncidentes).toHaveBeenCalledWith({
+        motoristasIds: ['driver-1'],
+      });
+    });
+
+    it('opens modal and sets motorista data', async () => {
+      mockFetchIncidentes.mockResolvedValue({
+        success: true,
+        data: driver1Incidents,
+      });
+
+      const { result } = renderHook(() =>
+        useIncidentesModals({
+          incidentes: mockIncidentes,
+          onStatusUpdate: mockOnStatusUpdate,
+        })
+      );
+
+      await act(async () => {
+        await result.current.handleVerHistoricoMotorista('driver-1', 'João Silva');
       });
 
       expect(result.current.motoristaSelecionado).toEqual({
@@ -284,11 +323,88 @@ describe('useIncidentesModals', () => {
         nome: 'João Silva',
       });
       expect(result.current.showHistoricoMotoristaModal).toBe(true);
-      // Should only include incidents for driver-1 (2 out of 3)
+      expect(result.current.incidentesMotorista).toEqual(driver1Incidents);
+    });
+
+    it('historicoLoading is true during fetch', async () => {
+      let resolvePromise: (v: unknown) => void;
+      mockFetchIncidentes.mockReturnValue(
+        new Promise((resolve) => { resolvePromise = resolve; })
+      );
+
+      const { result } = renderHook(() =>
+        useIncidentesModals({
+          incidentes: mockIncidentes,
+          onStatusUpdate: mockOnStatusUpdate,
+        })
+      );
+
+      // Start the fetch (don't await)
+      let fetchPromise: Promise<void>;
+      act(() => {
+        fetchPromise = result.current.handleVerHistoricoMotorista('driver-1', 'João');
+      });
+
+      // Loading should be true while waiting
+      expect(result.current.historicoLoading).toBe(true);
+
+      // Resolve and complete
+      await act(async () => {
+        resolvePromise!({ success: true, data: [] });
+        await fetchPromise!;
+      });
+
+      expect(result.current.historicoLoading).toBe(false);
+    });
+
+    it('shows toast on fetch error', async () => {
+      mockFetchIncidentes.mockResolvedValue({
+        success: false,
+        error: new Error('Network error'),
+      });
+
+      const { result } = renderHook(() =>
+        useIncidentesModals({
+          incidentes: mockIncidentes,
+          onStatusUpdate: mockOnStatusUpdate,
+        })
+      );
+
+      await act(async () => {
+        await result.current.handleVerHistoricoMotorista('driver-1', 'João Silva');
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith('Erro ao carregar histórico', 'error');
+      expect(result.current.incidentesMotorista).toEqual([]);
+      expect(result.current.historicoLoading).toBe(false);
+    });
+
+    it('clears previous data before fetching', async () => {
+      mockFetchIncidentes.mockResolvedValue({
+        success: true,
+        data: driver1Incidents,
+      });
+
+      const { result } = renderHook(() =>
+        useIncidentesModals({
+          incidentes: mockIncidentes,
+          onStatusUpdate: mockOnStatusUpdate,
+        })
+      );
+
+      // First fetch
+      await act(async () => {
+        await result.current.handleVerHistoricoMotorista('driver-1', 'João Silva');
+      });
       expect(result.current.incidentesMotorista).toHaveLength(2);
-      expect(result.current.incidentesMotorista.every(
-        (inc) => inc.motorista_id === 'driver-1'
-      )).toBe(true);
+
+      // Second fetch - data should be cleared before loading
+      mockFetchIncidentes.mockResolvedValue({ success: true, data: [] });
+      await act(async () => {
+        await result.current.handleVerHistoricoMotorista('driver-2', 'Maria');
+      });
+
+      expect(result.current.incidentesMotorista).toEqual([]);
     });
 
     it('setShowHistoricoMotoristaModal works', () => {
