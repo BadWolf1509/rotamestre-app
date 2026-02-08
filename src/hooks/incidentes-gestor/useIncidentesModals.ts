@@ -56,7 +56,7 @@ interface UseIncidentesModalsResult {
  * Manages modal state and handlers for incident management
  */
 export function useIncidentesModals({
-  incidentes,
+  incidentes: _incidentes,
   onStatusUpdate,
 }: UseIncidentesModalsOptions): UseIncidentesModalsResult {
   const { showToast } = useToast();
