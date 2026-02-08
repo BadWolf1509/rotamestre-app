@@ -35,6 +35,10 @@ export {
   TAB_BAR_BASE_HEIGHT,
   usePiPCollisionDetection,
   usePiPRouteInfo,
+  usePipDrag,
+  getMapCenter,
+  getMapZoom,
+  buildGoogleMapsUrl,
 } from './pip';
 
 export type {

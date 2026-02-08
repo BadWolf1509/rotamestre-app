@@ -14,17 +14,17 @@ import { useState, useEffect, useCallback } from 'react';
 import { logger } from '@/lib/logger';
 import { getRoute, decodePolyline, type Coordinate } from '@/lib/osrm';
 
-const CACHE_PREFIX = 'route_cache_';
-const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 horas em ms
+export const CACHE_PREFIX = 'route_cache_';
+export const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 horas em ms
 
-interface Parada {
+export interface Parada {
   id: string;
   latitude: number | null;
   longitude: number | null;
   ordem: number;
 }
 
-interface RouteInfo {
+export interface RouteInfo {
   distanceMeters: number;
   durationSeconds: number;
 }
@@ -38,7 +38,7 @@ interface UseRouteDirectionsResult {
   isFromCache: boolean;
 }
 
-interface CachedRoute {
+export interface CachedRoute {
   coordinates: Coordinate[];
   routeInfo: RouteInfo;
   timestamp: number;
@@ -47,7 +47,7 @@ interface CachedRoute {
 /**
  * Gera uma chave de cache baseada nas coordenadas das paradas
  */
-function generateCacheKey(paradas: Parada[]): string {
+export function generateCacheKey(paradas: Parada[]): string {
   const sortedParadas = [...paradas].sort((a, b) => a.ordem - b.ordem);
   const coordStr = sortedParadas
     .filter((p) => p.latitude !== null && p.longitude !== null)
@@ -59,7 +59,7 @@ function generateCacheKey(paradas: Parada[]): string {
 /**
  * Carrega rota do cache
  */
-async function loadFromCache(key: string): Promise<CachedRoute | null> {
+export async function loadFromCache(key: string): Promise<CachedRoute | null> {
   try {
     const cached = await AsyncStorage.getItem(key);
     if (!cached) return null;
@@ -82,7 +82,7 @@ async function loadFromCache(key: string): Promise<CachedRoute | null> {
 /**
  * Salva rota no cache
  */
-async function saveToCache(key: string, coordinates: Coordinate[], routeInfo: RouteInfo): Promise<void> {
+export async function saveToCache(key: string, coordinates: Coordinate[], routeInfo: RouteInfo): Promise<void> {
   try {
     const data: CachedRoute = {
       coordinates,

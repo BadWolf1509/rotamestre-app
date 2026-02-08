@@ -7,6 +7,10 @@
 // Hooks
 export { usePiPCollisionDetection } from './usePiPCollisionDetection';
 export { calculateDistanceKm, usePiPRouteInfo } from './usePiPRouteInfo';
+export { usePipDrag } from './usePipDrag';
+
+// Utils
+export { getMapCenter, getMapZoom, buildGoogleMapsUrl } from './pip-utils';
 
 // Constants
 export {

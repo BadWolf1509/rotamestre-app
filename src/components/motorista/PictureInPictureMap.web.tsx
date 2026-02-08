@@ -62,9 +62,12 @@ import {
   EDGE_PADDING,
   PIP_HEIGHT,
   PIP_WIDTH,
-  SWIPE_DOWN_THRESHOLD,
   usePiPCollisionDetection,
   usePiPRouteInfo,
+  usePipDrag,
+  getMapCenter,
+  getMapZoom,
+  buildGoogleMapsUrl,
 } from '@/hooks/navigation';
 import type { PictureInPictureMapProps } from '@/hooks/navigation';
 import { usePiPPosition } from '@/hooks/usePiPPosition';
@@ -89,12 +92,12 @@ export function PictureInPictureMap({
   const { theme } = useUnistyles();
   const { savedPosition, savePosition } = usePiPPosition();
 
-  // Estado de expansão e arrasto
+  // Estado de expansão
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
+  const positionRef = useRef({ x: 0, y: 0 });
 
   // Use shared hooks for route info and collision detection
   const { routeInfo, isNearDestination, routePath } = usePiPRouteInfo({
@@ -104,20 +107,25 @@ export function PictureInPictureMap({
   });
   const { checkCollision, findSafePosition } = usePiPCollisionDetection();
 
-  // Refs para arrasto
+  // Drag interaction hook
+  const [viewport, setViewport] = useState({ width: 0, height: 0 });
+  const { isDragging, handleMouseDown, handleTouchStart, snapToEdge } = usePipDrag({
+    isExpanded,
+    viewport,
+    positionRef,
+    setPosition,
+    onClose,
+    savePosition,
+  });
+
+  // Refs
   const containerRef = useRef<HTMLDivElement>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
-  const dragStartRef = useRef({ x: 0, y: 0 });
-  const positionRef = useRef({ x: 0, y: 0 });
-  const dragStartPosRef = useRef({ x: 0, y: 0 }); // Posição inicial do PiP quando começou o drag
 
   // Marker refs
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
   const destMarkerRef = useRef<maplibregl.Marker | null>(null);
-
-  // Dimensões da viewport
-  const [viewport, setViewport] = useState({ width: 0, height: 0 });
 
   // Dimensões calculadas
   const expandedWidth = Math.min(viewport.width * 0.9, 600);
@@ -210,114 +218,6 @@ export function PictureInPictureMap({
     }
   }, [avoidAreas, visible, isExpanded, viewport, savePosition, checkCollision, findSafePosition]);
 
-  // Snap to edges helper
-  const snapToEdge = useCallback(() => {
-    const { x, y } = positionRef.current;
-    const centerX = x + PIP_WIDTH / 2;
-    const snapX = centerX < viewport.width / 2
-      ? EDGE_PADDING
-      : viewport.width - PIP_WIDTH - EDGE_PADDING;
-
-    // Clamp Y dentro dos bounds
-    const minY = EDGE_PADDING;
-    const maxY = viewport.height - PIP_HEIGHT - EDGE_PADDING - 60;
-    const snapY = Math.max(minY, Math.min(maxY, y));
-
-    positionRef.current = { x: snapX, y: snapY };
-    setPosition({ x: snapX, y: snapY });
-    // Persistir posição após snap
-    savePosition({ x: snapX, y: snapY });
-  }, [viewport, savePosition]);
-
-  // Handlers de arrasto com mouse
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (isExpanded) return;
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-    dragStartRef.current = {
-      x: e.clientX - positionRef.current.x,
-      y: e.clientY - positionRef.current.y,
-    };
-    dragStartPosRef.current = { ...positionRef.current };
-  }, [isExpanded]);
-
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging || isExpanded) return;
-    const newX = e.clientX - dragStartRef.current.x;
-    const newY = e.clientY - dragStartRef.current.y;
-    positionRef.current = { x: newX, y: newY };
-    setPosition({ x: newX, y: newY });
-  }, [isDragging, isExpanded]);
-
-  const handleMouseUp = useCallback(() => {
-    if (!isDragging) return;
-    setIsDragging(false);
-
-    // Detectar swipe para baixo (distância > 100px)
-    const deltaY = positionRef.current.y - dragStartPosRef.current.y;
-    if (deltaY > SWIPE_DOWN_THRESHOLD) {
-      // Swipe down - fechar
-      onClose();
-      return;
-    }
-
-    snapToEdge();
-  }, [isDragging, snapToEdge, onClose]);
-
-  // Handlers de arrasto com touch (mobile/tablet)
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (isExpanded) return;
-    // Não usar preventDefault aqui - causa o warning "cancelable=false"
-    e.stopPropagation();
-    setIsDragging(true);
-    const touch = e.touches[0];
-    dragStartRef.current = {
-      x: touch.clientX - positionRef.current.x,
-      y: touch.clientY - positionRef.current.y,
-    };
-    dragStartPosRef.current = { ...positionRef.current };
-  }, [isExpanded]);
-
-  const handleTouchMove = useCallback((e: TouchEvent) => {
-    if (!isDragging || isExpanded) return;
-    const touch = e.touches[0];
-    const newX = touch.clientX - dragStartRef.current.x;
-    const newY = touch.clientY - dragStartRef.current.y;
-    positionRef.current = { x: newX, y: newY };
-    setPosition({ x: newX, y: newY });
-  }, [isDragging, isExpanded]);
-
-  const handleTouchEnd = useCallback(() => {
-    if (!isDragging) return;
-    setIsDragging(false);
-
-    // Detectar swipe para baixo (distância > 100px)
-    const deltaY = positionRef.current.y - dragStartPosRef.current.y;
-    if (deltaY > SWIPE_DOWN_THRESHOLD) {
-      // Swipe down - fechar
-      onClose();
-      return;
-    }
-    snapToEdge();
-  }, [isDragging, snapToEdge, onClose]);
-
-  // Event listeners globais para arrasto (mouse)
-  useEffect(() => {
-    if (isDragging) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-      window.addEventListener('touchmove', handleTouchMove, { passive: true });
-      window.addEventListener('touchend', handleTouchEnd);
-      return () => {
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
-        window.removeEventListener('touchmove', handleTouchMove);
-        window.removeEventListener('touchend', handleTouchEnd);
-      };
-    }
-  }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd]);
-
   // Toggle expansão
   const toggleExpand = useCallback(() => {
     const newExpanded = !isExpanded;
@@ -338,63 +238,14 @@ export function PictureInPictureMap({
     }
   }, [isExpanded, viewport, expandedWidth, expandedHeight]);
 
-  // Calcular região do mapa
-  const getRegion = useCallback(() => {
-    if (userLocation && destination) {
-      const minLat = Math.min(userLocation.latitude, destination.latitude);
-      const maxLat = Math.max(userLocation.latitude, destination.latitude);
-      const minLon = Math.min(userLocation.longitude, destination.longitude);
-      const maxLon = Math.max(userLocation.longitude, destination.longitude);
+  // Map calculations (pure functions from pip-utils)
+  const getRegion = useCallback(() => getMapCenter(userLocation, destination), [userLocation, destination]);
+  const getZoom = useCallback(() => getMapZoom(userLocation, destination), [userLocation, destination]);
 
-      return {
-        lng: (minLon + maxLon) / 2,
-        lat: (minLat + maxLat) / 2,
-      };
-    }
-
-    if (userLocation) {
-      return {
-        lng: userLocation.longitude,
-        lat: userLocation.latitude,
-      };
-    }
-
-    if (destination) {
-      return {
-        lng: destination.longitude,
-        lat: destination.latitude,
-      };
-    }
-
-    return { lng: -46.6333, lat: -23.5505 }; // São Paulo default
-  }, [userLocation, destination]);
-
-  // Calcular zoom
-  const getZoom = useCallback(() => {
-    if (userLocation && destination) {
-      const latDiff = Math.abs(userLocation.latitude - destination.latitude);
-      const lngDiff = Math.abs(userLocation.longitude - destination.longitude);
-      const maxDiff = Math.max(latDiff, lngDiff);
-
-      if (maxDiff > 0.1) return 12;
-      if (maxDiff > 0.05) return 13;
-      if (maxDiff > 0.02) return 14;
-      return 15;
-    }
-    return 15;
-  }, [userLocation, destination]);
-
-  // Abrir Google Maps externo
+  // Open external Google Maps
   const openGoogleMaps = useCallback(() => {
     if (!destination) return;
-
-    const origin = userLocation
-      ? `${userLocation.latitude},${userLocation.longitude}`
-      : '';
-
-    const dest = `${destination.latitude},${destination.longitude}`;
-    const url = `https://www.google.com/maps/dir/?api=1${origin ? `&origin=${origin}` : ''}&destination=${dest}&travelmode=driving`;
-
+    const url = buildGoogleMapsUrl(destination, userLocation);
     if (typeof window !== 'undefined') {
       window.open(url, '_blank');
     }
