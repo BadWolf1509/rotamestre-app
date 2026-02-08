@@ -212,6 +212,14 @@ export function DesktopModal({
   // Determine effective maxWidth
   const effectiveMaxWidth = width || maxWidth;
 
+  // Convert percentage maxHeight to viewport units for the inner container.
+  // The dialog uses position:fixed so its own maxHeight % works (relative to viewport).
+  // But the inner div's % is relative to the dialog (content-sized) — circular reference.
+  // Using vh units makes the constraint absolute.
+  const containerMaxHeight = typeof maxHeight === 'string' && maxHeight.endsWith('%')
+    ? maxHeight.replace('%', 'vh')
+    : maxHeight;
+
   // ============================================
   // BUTTON RENDERING (Declarative API)
   // ============================================
@@ -402,7 +410,7 @@ export function DesktopModal({
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
-            maxHeight: isDesktop ? maxHeight : '90vh',
+            maxHeight: isDesktop ? containerMaxHeight : '90vh',
             pointerEvents: 'auto',
             ...(contentStyle as React.CSSProperties),
           }}
@@ -469,6 +477,7 @@ export function DesktopModal({
             style={{
               padding: isDesktop ? theme.desktop.section.padding : theme.spacing.lg,
               flex: 1,
+              minHeight: 0,
               pointerEvents: 'auto',
               overflowY: 'auto',
             }}
