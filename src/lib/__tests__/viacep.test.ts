@@ -11,6 +11,7 @@ import {
   formatCEP,
   viacepService,
 } from '../viacep';
+
 import type { ViaCEPResponse } from '../viacep';
 
 // Mock fetch

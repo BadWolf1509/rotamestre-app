@@ -24,9 +24,9 @@ import TurnByTurnNavigationService, {
 } from '@/services/turnByTurnNavigation';
 import type { IconName } from '@/types/icons';
 import { withOpacity } from '@/utils/color';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import { MANEUVER_ICONS } from './maneuverIcons';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // Default values (used when preferences not loaded)
 const DEFAULT_PROXIMITY_RADIUS = 30; // meters

@@ -109,7 +109,7 @@ export function PictureInPictureMap({
 
   // Drag interaction hook
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
-  const { isDragging, handleMouseDown, handleTouchStart, snapToEdge } = usePipDrag({
+  const { isDragging, handleMouseDown, handleTouchStart } = usePipDrag({
     isExpanded,
     viewport,
     positionRef,

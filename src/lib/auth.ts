@@ -1,9 +1,9 @@
-import type { Session } from '@supabase/supabase-js';
-
 import { logger } from './logger';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { setMockSession } from '../hooks/useAuth';
 import { Usuario, TipoUsuario, UnidadeDB } from '../types/usuario';
+
+import type { Session } from '@supabase/supabase-js';
 
 
 export const authService = {

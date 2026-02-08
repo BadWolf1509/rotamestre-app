@@ -4,7 +4,9 @@
  */
 
 require('dotenv').config({ path: '.env' });
+
 const fs = require('fs');
+
 const { createClient } = require('@supabase/supabase-js');
 
 // Get service role key from painel
@@ -13,7 +15,7 @@ try {
   const envLocal = fs.readFileSync('../rotamestre-painel/.env.local', 'utf8');
   const match = envLocal.match(/SUPABASE_SERVICE_ROLE_KEY=(.+)/);
   if (match) serviceKey = match[1].trim();
-} catch (e) { /* ignore */ }
+} catch { /* ignore - file may not exist */ }
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 if (!url || !serviceKey) {

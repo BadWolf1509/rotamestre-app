@@ -748,12 +748,10 @@ describe('timeline', () => {
   // ============================================================================
 
   describe('formatRelativeTime', () => {
-    let dateNowSpy: jest.SpyInstance;
-
     beforeEach(() => {
       // Fix "now" to 2025-10-15 14:30:00 UTC
       const fixedNow = new Date('2025-10-15T14:30:00Z');
-      dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(fixedNow.getTime());
+      jest.spyOn(Date, 'now').mockReturnValue(fixedNow.getTime());
       // Override the Date constructor for new Date() calls (parameterless)
       const OriginalDate = Date;
       jest.spyOn(globalThis, 'Date').mockImplementation((...args: any[]) => {
@@ -816,11 +814,9 @@ describe('timeline', () => {
   // ============================================================================
 
   describe('getDateGroup', () => {
-    let dateNowSpy: jest.SpyInstance;
-
     beforeEach(() => {
       const fixedNow = new Date('2025-10-15T14:30:00Z');
-      dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(fixedNow.getTime());
+      jest.spyOn(Date, 'now').mockReturnValue(fixedNow.getTime());
       const OriginalDate = Date;
       jest.spyOn(globalThis, 'Date').mockImplementation((...args: any[]) => {
         if (args.length === 0) {
