@@ -40,7 +40,7 @@ export function useNetworkStatus(): NetworkStatus {
   });
 
   const parseNetInfoState = useCallback((state: NetInfoState): NetworkStatus => {
-    let connectionType: ConnectionType = 'unknown';
+    let connectionType: ConnectionType;
 
     switch (state.type) {
       case NetInfoStateType.wifi:

@@ -140,7 +140,7 @@ export function useProfile(user: User | null): UseProfileReturn {
 
       await loadProfile();
     } catch (err: any) {
-      throw new Error(err.message || 'Erro ao atualizar perfil');
+      throw new Error(err.message || 'Erro ao atualizar perfil', { cause: err });
     }
   }
 
@@ -172,7 +172,7 @@ export function useProfile(user: User | null): UseProfileReturn {
 
       await loadProfile();
     } catch (err: any) {
-      throw new Error(err.message || 'Erro ao trocar senha');
+      throw new Error(err.message || 'Erro ao trocar senha', { cause: err });
     }
   }
 

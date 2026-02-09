@@ -69,7 +69,7 @@ export function useRotasFiltering({
 
     // Sort results
     resultado.sort((a, b) => {
-      let comparison = 0;
+      let comparison: number;
 
       switch (sortColumn) {
         case 'data':

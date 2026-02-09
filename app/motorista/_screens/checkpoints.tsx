@@ -260,7 +260,7 @@ export default function CheckpointsMotorista() {
     );
   }
 
-  let content: ReactNode = null;
+  let content: ReactNode;
 
   if (loading) {
     content = (
