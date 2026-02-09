@@ -11,7 +11,7 @@
  * - hooks/useDrawerContact: Contact gestor logic
  */
 
-import { useRouter, usePathname } from 'expo-router';
+import { useRouter, usePathname, type Href } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
 import { TouchableOpacity, Modal, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -54,7 +54,7 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
 
   // Navigation helper
   const navigate = useCallback(
-    (path: string) => {
+    (path: Href) => {
       onClose();
       router.push(path);
     },
@@ -108,7 +108,7 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
+      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose} accessibilityLabel="Fechar menu" accessibilityRole="button">
         <TouchableOpacity
           activeOpacity={1}
           style={styles.drawer}

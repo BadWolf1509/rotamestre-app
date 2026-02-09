@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
 import { MobileEmptyState } from '@/components/mobile/MobileEmptyState';
 import { ParadaCard, Parada } from '@/components/motorista/ParadaCard';
@@ -56,6 +57,7 @@ export default function CheckpointsMotorista() {
   // Filtrar apenas paradas reais (excluindo checkpoints de partida/chegada)
   // e fazer cast para tipo Parada do ParadaCard
   const paradas = useMemo(
+    // Safe cast: ParadaData structurally compatible with Parada
     () => paradasContext.filter(p => p.is_checkpoint !== false) as unknown as Parada[],
     [paradasContext]
   );
@@ -75,7 +77,7 @@ export default function CheckpointsMotorista() {
         return;
       }
 
-      // Converter para ParadaData e abrir modal de conclusão
+      // Safe cast: Parada structurally compatible with ParadaData
       setSelectedParadaForCompletion(parada as unknown as ParadaData);
       setShowCompletionFlow(true);
     },
@@ -393,6 +395,7 @@ export default function CheckpointsMotorista() {
 
   return (
     <Container style={styles.container as ViewStyle}>
+      <ErrorBoundary>
       {content}
 
       {/* Modal de Conclusão de Parada (com foto) */}
@@ -411,6 +414,7 @@ export default function CheckpointsMotorista() {
       {skipModalParada && (
         <SkipReasonModal
           visible={!!skipModalParada}
+          // Safe cast: Parada structurally compatible with ParadaData
           parada={skipModalParada as unknown as ParadaData}
           onConfirm={confirmarSkip}
           onCancel={() => setSkipModalParada(null)}
@@ -418,6 +422,7 @@ export default function CheckpointsMotorista() {
       )}
 
       {AlertDialog}
+      </ErrorBoundary>
     </Container>
   );
 }

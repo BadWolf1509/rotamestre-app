@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAlert } from '@/hooks/useAlert';
 import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
 
@@ -144,6 +145,7 @@ export default function AjudaGestorScreen() {
   }
 
   return (
+    <ErrorBoundary>
     <ScrollView
       style={styles.container}
       contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
@@ -246,6 +248,7 @@ export default function AjudaGestorScreen() {
       <View style={styles.footer} />
       {AlertDialog}
     </ScrollView>
+    </ErrorBoundary>
   );
 }
 

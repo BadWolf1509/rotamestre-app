@@ -3,6 +3,7 @@ import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useCallback, useLayoutEffect, useMemo } from 'react';
 import { FlatList, RefreshControl, Text, View } from 'react-native';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ParadaCard, type Parada } from '@/components/motorista/ParadaCard';
 import {
   MobileCard,
@@ -200,6 +201,7 @@ export default function ResumoMotorista() {
     : null;
 
   return (
+    <ErrorBoundary>
     <>
       {renderDesktopHeader(resumoSubtitle)}
 
@@ -309,6 +311,7 @@ export default function ResumoMotorista() {
         }
       />
     </>
+    </ErrorBoundary>
   );
 }
 

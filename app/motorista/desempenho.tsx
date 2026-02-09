@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MobileCard, MobileLoading } from '@/design-system';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
@@ -141,6 +142,7 @@ export default function DesempenhoScreen() {
   }
 
   return (
+    <ErrorBoundary>
       <ScrollView
         style={styles.container}
         refreshControl={
@@ -294,6 +296,7 @@ export default function DesempenhoScreen() {
 
         <View style={styles.footer} />
       </ScrollView>
+    </ErrorBoundary>
   );
 }
 

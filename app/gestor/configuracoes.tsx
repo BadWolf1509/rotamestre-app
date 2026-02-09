@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ThemeSettings } from '@/components/ThemeSettings';
 import { MobileCard, Text } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
@@ -163,6 +164,7 @@ export default function ConfiguracoesGestorScreen() {
   }
 
   return (
+    <ErrorBoundary>
     <ScrollView
       style={styles.container}
       contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
@@ -323,6 +325,7 @@ export default function ConfiguracoesGestorScreen() {
       <View style={styles.footer} />
       {AlertDialog}
     </ScrollView>
+    </ErrorBoundary>
   );
 }
 

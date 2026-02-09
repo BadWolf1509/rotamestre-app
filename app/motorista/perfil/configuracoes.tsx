@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { NavigationSettings } from '@/components/motorista/NavigationSettings';
 import { ThemeSettings } from '@/components/ThemeSettings';
 import { MobileCard, Text } from '@/design-system';
@@ -97,6 +98,7 @@ export default function ConfiguracoesScreen() {
   }
 
   return (
+    <ErrorBoundary>
     <ScrollView
       style={styles.container}
       contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
@@ -183,6 +185,7 @@ export default function ConfiguracoesScreen() {
       <View style={styles.footer} />
       {AlertDialog}
     </ScrollView>
+    </ErrorBoundary>
   );
 }
 

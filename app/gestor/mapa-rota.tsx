@@ -12,6 +12,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useRef } from 'react';
 import { View, ScrollView, TouchableOpacity, Platform } from 'react-native';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import {
   ParadaCard,
   ParadaCardCompact,
@@ -217,6 +218,7 @@ export default function MapaRota() {
   // ===== Desktop Layout =====
   if (isDesktop) {
     return (
+      <ErrorBoundary>
       <>
         <DesktopPageLayout
           title={pageMeta.title}
@@ -521,11 +523,13 @@ export default function MapaRota() {
         <Toast {...toast} onDismiss={hideToast} />
         {logoutModal}
       </>
+      </ErrorBoundary>
     );
   }
 
   // ===== Mobile Layout =====
   return (
+    <ErrorBoundary>
     <>
       <View style={styles.rotaInfo}>
         <Text style={styles.motoristaData}>
@@ -607,5 +611,6 @@ export default function MapaRota() {
       <Toast {...toast} onDismiss={hideToast} />
       {logoutModal}
     </>
+    </ErrorBoundary>
   );
 }

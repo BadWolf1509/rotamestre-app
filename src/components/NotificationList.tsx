@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import React, { useState, useCallback } from 'react';
 import {
   ActivityIndicator,
@@ -75,7 +75,7 @@ export function NotificationList({ onClose }: NotificationListProps) {
     if (notificacao.rota_id) {
       onClose();
       const path = getNavigationPath(notificacao.tipo, notificacao.rota_id);
-      router.push(path as any);
+      router.push(path as Href);
     }
   };
 
@@ -235,14 +235,14 @@ export function NotificationList({ onClose }: NotificationListProps) {
           </View>
 
           {naoLidas > 0 && (
-            <Pressable onPress={handleMarcarTodasLidas} style={styles.headerButton}>
+            <Pressable onPress={handleMarcarTodasLidas} style={styles.headerButton} accessibilityLabel="Marcar todas como lidas" accessibilityRole="button">
               <Text style={styles.headerButtonText}>Marcar lidas</Text>
             </Pressable>
           )}
         </View>
 
         {/* Botão de fechar - posição fixa no canto */}
-        <Pressable onPress={onClose} style={styles.closeButton} testID="close-button">
+        <Pressable onPress={onClose} style={styles.closeButton} testID="close-button" accessibilityLabel="Fechar notificações" accessibilityRole="button">
           <Ionicons name="close" size={24} color={theme.colors.gray500} />
         </Pressable>
       </View>

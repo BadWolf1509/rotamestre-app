@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Button, Input, Text } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
 import { authService } from '@/lib/auth';
@@ -104,6 +105,7 @@ export default function AlterarSenha() {
   const passwordsMatch = novaSenha && confirmarSenha && novaSenha === confirmarSenha;
 
   return (
+    <ErrorBoundary>
     <View style={styles(theme).container}>
       <ScrollView
         style={styles(theme).scrollView}
@@ -215,6 +217,7 @@ export default function AlterarSenha() {
       </ScrollView>
       {AlertDialog}
     </View>
+    </ErrorBoundary>
   );
 }
 

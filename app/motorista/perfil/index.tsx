@@ -10,6 +10,7 @@ import {
 
 import { AvatarEditable } from '@/components/AvatarEditable';
 import { Dialog } from '@/components/Dialog';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useProfile } from '@/hooks/useProfile';
 import { authService } from '@/lib/auth';
 import { logger } from '@/lib/logger';
@@ -112,6 +113,7 @@ export default function PerfilMotorista() {
   }
 
   return (
+    <ErrorBoundary>
     <ScrollView style={styles(theme).container}>
       {/* Header com Avatar */}
       <View style={styles(theme).header}>
@@ -191,6 +193,7 @@ export default function PerfilMotorista() {
         onConfirm={closeAlertDialog}
       />
     </ScrollView>
+    </ErrorBoundary>
   );
 }
 

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useRouteStatus } from '@/context/RouteStatusContext';
 import { useAlert } from '@/hooks/useAlert';
 import { useUser } from '@/hooks/useUser';
@@ -195,6 +196,7 @@ export default function SOSScreen() {
   }
 
   return (
+    <ErrorBoundary>
     <ScrollView
       style={styles.container}
       contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
@@ -303,6 +305,7 @@ export default function SOSScreen() {
         <View style={styles.footer} />
       {AlertDialog}
     </ScrollView>
+    </ErrorBoundary>
   );
 }
 

@@ -14,6 +14,7 @@ import {
   TextInput,
 } from 'react-native';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import {
   PerfilHeader,
   PerformanceKPIs,
@@ -351,6 +352,7 @@ export default function MotoristaPerfil() {
   // ===== Desktop Layout =====
   if (isDesktop) {
     return (
+      <ErrorBoundary>
       <DesktopPageLayout
         title={pageMeta.title}
         subtitle={pageMeta.subtitle}
@@ -428,11 +430,13 @@ export default function MotoristaPerfil() {
         {/* Toast */}
         <Toast {...toast} onDismiss={hideToast} />
       </DesktopPageLayout>
+      </ErrorBoundary>
     );
   }
 
   // ===== Mobile Layout =====
   return (
+    <ErrorBoundary>
     <View style={styles.container}>
       <ScrollView
         style={styles.scrollView}
@@ -495,6 +499,7 @@ export default function MotoristaPerfil() {
       {/* Toast */}
       <Toast {...toast} onDismiss={hideToast} />
     </View>
+    </ErrorBoundary>
   );
 }
 

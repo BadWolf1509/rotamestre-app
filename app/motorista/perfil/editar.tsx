@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Button, Dialog, Input, Text } from '@/design-system';
 import { authService } from '@/lib/auth';
 import { logger } from '@/lib/logger';
@@ -166,6 +167,7 @@ export default function EditarPerfil() {
   }
 
   return (
+    <ErrorBoundary>
     <View style={styles(theme).container}>
       <ScrollView
         style={styles(theme).scrollView}
@@ -242,6 +244,7 @@ export default function EditarPerfil() {
         }}
       />
     </View>
+    </ErrorBoundary>
   );
 }
 
