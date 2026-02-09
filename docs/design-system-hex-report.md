@@ -11,7 +11,7 @@
 
 ## Findings
 - `app/design-system.tsx`: L186 #16a34a, L189 #2563eb, L192 #ca8a04, L194 #dc2626, L383 #FFFFFF, L384 #000000, L387 #FFFFFF, L387 #000000, L1456 #FF0000
-- `src/components/MapaWebMapLibre.tsx`: L118 #666, L137 #666, L138 #666, L470 #ffffff, L494 #ffffff
+- `src/components/MapaWebMapLibre.tsx`: L104 #666, L123 #666, L124 #666, L456 #ffffff, L480 #ffffff
 - `src/components/motorista/NavigationMode.web.tsx`: L224 #4285F4
 - `src/components/motorista/PictureInPictureMap.web.tsx`: L539 #000000
 - `src/components/motorista/TurnByTurnNavigation.web.tsx`: L790 #000, L801 #000, L811 #000
