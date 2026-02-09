@@ -107,7 +107,7 @@
   "devDependencies": {
     "@cspell/dict-pt-br": "^2.4.2",
     "@eslint/eslintrc": "^3.3.3",
-    "@eslint/js": "^9.39.2",
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.58.1",
     "@react-native/eslint-plugin": "^0.83.1",
     "@size-limit/preset-app": "^12.0.0",
