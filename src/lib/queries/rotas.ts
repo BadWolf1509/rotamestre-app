@@ -296,11 +296,12 @@ export async function fetchRotasAtivasMotorista(
       `)
       .eq('motorista_id', motoristaId)
       .in('status', ['pendente', 'em_andamento'])
-      .order('data', { ascending: true });
+      .order('data', { ascending: true })
+      .returns<RotaWithRelations[]>();
 
     if (error) throw error;
 
-    return (data || []) as unknown as RotaWithRelations[];
+    return data || [];
   });
 }
 

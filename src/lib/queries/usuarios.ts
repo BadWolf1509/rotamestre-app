@@ -104,6 +104,7 @@ export async function fetchCurrentUser(
       .single();
 
     if (error) throw error;
+    // Safe cast: select shape matches UsuarioWithUnidades (single() can't use .returns<T>())
     return data as unknown as UsuarioWithUnidades;
   });
 }
@@ -239,10 +240,11 @@ export async function fetchUsuariosByPapel(
       .eq('usuario_unidades.unidade_id', unidadeId)
       .eq('usuario_unidades.papel', papel)
       .eq('usuario_unidades.ativo', true)
-      .order('nome');
+      .order('nome')
+      .returns<UsuarioDB[]>();
 
     if (error) throw error;
-    return (data || []) as unknown as UsuarioDB[];
+    return data || [];
   });
 }
 

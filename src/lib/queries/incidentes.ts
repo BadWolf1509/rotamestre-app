@@ -169,6 +169,7 @@ export async function fetchIncidentesForGestor(
 
     if (error) throw error;
 
+    // Safe cast: select shape matches IncidenteQueryRow (conditional chains prevent .returns<T>())
     return (data || []).map((inc) => {
       const row = inc as unknown as IncidenteQueryRow;
       return {
