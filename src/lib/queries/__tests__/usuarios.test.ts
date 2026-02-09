@@ -22,6 +22,7 @@ const createChainableMock = (tableName: string) => {
     lte: jest.fn(() => chain),
     order: jest.fn(() => chain),
     limit: jest.fn(() => chain),
+    returns: jest.fn(() => chain),
     single: jest.fn(() => Promise.resolve({
       data: mockSupabaseData[tableName] ?? null,
       error: mockSupabaseError[tableName] ?? null,

@@ -69,38 +69,38 @@ describe('notificationHandlers', () => {
       setupNotificationResponseHandler();
     });
 
-    it('should navigate to /motorista/ for nova_rota_atribuida', () => {
+    it('should navigate to /motorista for nova_rota_atribuida', () => {
       notificationCallback!(createNotificationResponse('nova_rota_atribuida'));
 
-      expect(router.push).toHaveBeenCalledWith('/motorista/');
+      expect(router.push).toHaveBeenCalledWith('/motorista');
       expect(logger.info).toHaveBeenCalledWith(
         '[NotificationHandler] Notification tapped',
         { tipo: 'nova_rota_atribuida', rotaId: undefined }
       );
     });
 
-    it('should navigate to /motorista/ for lembrete_rota_pendente', () => {
+    it('should navigate to /motorista for lembrete_rota_pendente', () => {
       notificationCallback!(createNotificationResponse('lembrete_rota_pendente'));
 
-      expect(router.push).toHaveBeenCalledWith('/motorista/');
+      expect(router.push).toHaveBeenCalledWith('/motorista');
     });
 
-    it('should navigate to /motorista/ for lembrete_rota_urgente', () => {
+    it('should navigate to /motorista for lembrete_rota_urgente', () => {
       notificationCallback!(createNotificationResponse('lembrete_rota_urgente'));
 
-      expect(router.push).toHaveBeenCalledWith('/motorista/');
+      expect(router.push).toHaveBeenCalledWith('/motorista');
     });
 
-    it('should navigate to /motorista/checkpoints for parada_pulada', () => {
+    it('should navigate to /motorista/_screens/checkpoints for parada_pulada', () => {
       notificationCallback!(createNotificationResponse('parada_pulada'));
 
-      expect(router.push).toHaveBeenCalledWith('/motorista/checkpoints');
+      expect(router.push).toHaveBeenCalledWith('/motorista/_screens/checkpoints');
     });
 
-    it('should navigate to /motorista/checkpoints for parada_reaberta', () => {
+    it('should navigate to /motorista/_screens/checkpoints for parada_reaberta', () => {
       notificationCallback!(createNotificationResponse('parada_reaberta'));
 
-      expect(router.push).toHaveBeenCalledWith('/motorista/checkpoints');
+      expect(router.push).toHaveBeenCalledWith('/motorista/_screens/checkpoints');
     });
   });
 

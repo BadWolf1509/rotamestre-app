@@ -37,6 +37,7 @@ const setupChain = (finalResult: any) => {
     order: jest.fn(() => chain),
     limit: jest.fn(() => chain),
     abortSignal: jest.fn(() => chain),
+    returns: jest.fn(() => chain),
     single: jest.fn(() => Promise.resolve(finalResult)),
     then: (resolve: any) => Promise.resolve(finalResult).then(resolve),
   };
