@@ -7,23 +7,12 @@
 
 import React from 'react';
 
+import type { ParadaMapItem, StatusFilter } from '@/types/parada-map';
+
 import MapaWebMapLibre from './MapaWebMapLibre';
 
-interface Parada {
-  id: string;
-  ordem: number;
-  endereco: string;
-  latitude: number | null;
-  longitude: number | null;
-  status: string;
-  tipo?: string | null;
-  is_checkpoint?: boolean;
-}
-
-type StatusFilter = 'all' | 'pendente' | 'em_andamento' | 'concluida';
-
 interface MapaAdapterProps {
-  paradas: Parada[];
+  paradas: ParadaMapItem[];
   selectedParadaId?: string | null;
   onMarkerPress?: (paradaId: string) => void;
   onMapPress?: () => void;
@@ -51,7 +40,7 @@ export function MapaAdapter({
 }: MapaAdapterProps) {
   return (
     <MapaWebMapLibre
-      paradas={paradas as any}
+      paradas={paradas}
       selectedParadaId={selectedParadaId}
       onMarkerPress={onMarkerPress}
       onMapPress={onMapPress}

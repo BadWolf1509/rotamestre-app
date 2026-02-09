@@ -1,18 +1,11 @@
 import React from 'react';
 
+import type { ParadaWithCoords } from '@/types/parada-map';
+
 import MapaWebMapLibre from './MapaWebMapLibre';
 
-interface Parada {
-  id: string;
-  endereco: string;
-  latitude: number;
-  longitude: number;
-  ordem: number;
-  status: string;
-}
-
 interface MapaRotasProps {
-  paradas: Parada[];
+  paradas: ParadaWithCoords[];
   rotaAtiva?: boolean;
 }
 
@@ -23,5 +16,5 @@ interface MapaRotasProps {
  * Migrado de Google Maps para alternativas gratuitas em Dez/2024.
  */
 export function MapaRotas(props: MapaRotasProps) {
-  return <MapaWebMapLibre paradas={props.paradas as any} />;
+  return <MapaWebMapLibre paradas={props.paradas} />;
 }

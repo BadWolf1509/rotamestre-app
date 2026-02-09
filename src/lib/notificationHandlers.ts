@@ -28,13 +28,13 @@ export function setupNotificationResponseHandler() {
       case 'nova_rota_atribuida':
       case 'lembrete_rota_pendente':
       case 'lembrete_rota_urgente':
-        router.push('/motorista/');
+        router.push('/motorista');
         break;
 
       // Parada pulada ou reaberta - ir para checkpoints
       case 'parada_pulada':
       case 'parada_reaberta':
-        router.push('/motorista/checkpoints');
+        router.push('/motorista/_screens/checkpoints');
         break;
 
       // ========== GESTOR - Rotas ==========

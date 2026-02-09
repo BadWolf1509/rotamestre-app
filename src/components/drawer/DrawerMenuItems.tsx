@@ -9,11 +9,12 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
 import type { MenuItem } from './types';
+import type { Href } from 'expo-router';
 
 interface DrawerMenuItemsProps {
   items: MenuItem[];
   currentPath: string;
-  onNavigate: (path: string) => void;
+  onNavigate: (path: Href) => void;
   onAction: (action: string) => void;
 }
 

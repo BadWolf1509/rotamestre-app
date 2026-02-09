@@ -441,7 +441,7 @@ TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
   }
 
   if (data) {
-    const { locations } = data as any;
+    const { locations } = data as { locations: Location.LocationObject[] };
     const location = locations[0];
 
     if (location) {
@@ -449,10 +449,10 @@ TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
       await service.processLocationUpdate({
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
-        accuracy: location.coords.accuracy,
+        accuracy: location.coords.accuracy ?? 0,
         timestamp: location.timestamp,
-        speed: location.coords.speed,
-        heading: location.coords.heading,
+        speed: location.coords.speed ?? undefined,
+        heading: location.coords.heading ?? undefined,
       });
     }
   }

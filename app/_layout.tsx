@@ -85,7 +85,7 @@ function detectE2EEnvironment(): boolean {
   if (typeof window === 'undefined') return false;
 
   // Method 1: Check for Playwright-injected window flag
-  if ((window as any).__PLAYWRIGHT_E2E__ === true) return true;
+  if (window.__PLAYWRIGHT_E2E__ === true) return true;
 
   // Method 2: Check for localStorage flag (set by global-setup)
   try {
@@ -95,7 +95,7 @@ function detectE2EEnvironment(): boolean {
   }
 
   // Method 3: Check navigator.webdriver (Playwright/Selenium sets this)
-  if ((navigator as any).webdriver === true) return true;
+  if (navigator.webdriver === true) return true;
 
   // Method 4: Check for headless browser patterns in userAgent (case-insensitive)
   // Note: navigator.userAgent may be undefined in React Native on Android

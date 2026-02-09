@@ -93,7 +93,7 @@ export const gestorPageMeta: Record<GestorPageKey, PageMeta> = {
   incidentes: {
     title: 'Incidentes Reportados',
     subtitle: 'Gerenciar problemas e ocorrências das rotas',
-    icon: 'warning-outline' as any,
+    icon: 'warning-outline',
     breadcrumbs: [
       { label: 'Início', route: '/gestor/inicio' },
       { label: 'Incidentes' },

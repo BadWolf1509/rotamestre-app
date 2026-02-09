@@ -1,21 +1,13 @@
 import React from 'react';
 import { Platform } from 'react-native';
 
+import type { ParadaWithCoords } from '@/types/parada-map';
+
 import { MapaRN } from './MapaRN';
 import MapaWebMapLibre from './MapaWebMapLibre';
 
-interface Parada {
-  id: string;
-  endereco: string;
-  latitude: number;
-  longitude: number;
-  ordem: number;
-  status: string;
-  is_checkpoint?: boolean;
-}
-
 interface MapaRotasProps {
-  paradas: Parada[];
+  paradas: ParadaWithCoords[];
   rotaAtiva?: boolean;
 }
 
@@ -28,7 +20,7 @@ interface MapaRotasProps {
  */
 export function MapaRotas(props: MapaRotasProps) {
   if (Platform.OS === 'web') {
-    return <MapaWebMapLibre paradas={props.paradas as any} />;
+    return <MapaWebMapLibre paradas={props.paradas} />;
   }
 
   return <MapaRN {...props} />;

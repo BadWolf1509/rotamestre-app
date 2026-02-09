@@ -12,25 +12,11 @@ import { useAlert } from '@/hooks/useAlert';
 import { useRouteDirections } from '@/hooks/useRouteDirections';
 import { logger } from '@/lib/logger';
 import { MAPLIBRE_RASTER_STYLE, getBounds, toLineString, toLngLat, zoomFromLongitudeDelta } from '@/lib/maplibre';
+import type { ParadaMapItem as Parada, StatusFilter } from '@/types/parada-map';
 import { withOpacity } from '@/utils/color';
 import { showNavigationOptions } from '@/utils/navigation';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 import { toast } from '@/utils/toast';
-
-interface Parada {
-  id: string;
-  ordem: number;
-  endereco: string;
-  latitude: number | null;
-  longitude: number | null;
-  status: string;
-  is_checkpoint?: boolean;
-  destinatario?: string;
-  telefone?: string;
-  tipo?: string;
-}
-
-type StatusFilter = 'all' | 'pendente' | 'em_andamento' | 'concluida';
 
 type MapRegion = {
   latitude: number;

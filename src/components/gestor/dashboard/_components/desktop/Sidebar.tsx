@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, usePathname } from 'expo-router';
+import { useRouter, usePathname, type Href } from 'expo-router';
 import { useState } from 'react';
 import { Image, ScrollView, Text, TouchableOpacity, View, ImageStyle } from 'react-native';
 import { UnistylesRuntime } from 'react-native-unistyles';
@@ -84,7 +84,7 @@ export function Sidebar({ onNavigate, userData }: SidebarProps) {
   ];
 
   const handleNavigation = (path: string) => {
-    router.push(path as any);
+    router.push(path as Href);
     onNavigate?.();
   };
 

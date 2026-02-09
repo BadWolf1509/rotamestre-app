@@ -6,17 +6,8 @@ import { useDirectionsMobile } from '@/components/map/hooks';
 import { getStatusColor } from '@/components/map/infoWindowBuilders';
 import { useAlert } from '@/hooks/useAlert';
 import { MAPLIBRE_RASTER_STYLE, toLineString, toLngLat, zoomFromLongitudeDelta } from '@/lib/maplibre';
+import type { ParadaWithCoords as Parada } from '@/types/parada-map';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
-interface Parada {
-  id: string;
-  endereco: string;
-  latitude: number;
-  longitude: number;
-  ordem: number;
-  status: string;
-  is_checkpoint?: boolean;
-}
 
 interface MapaRNProps {
   paradas: Parada[];

@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useMemo } from 'react';
 
 import { UserMenuTrigger } from '@/components/UserMenuTrigger';
@@ -32,7 +32,7 @@ export function useDesktopHeaderMenu({
       {
         label: 'Meu Perfil',
         icon: 'person-outline',
-        onPress: () => router.push(profileRoute as never),
+        onPress: () => router.push(profileRoute as Href),
       },
       {
         label: 'Sair',

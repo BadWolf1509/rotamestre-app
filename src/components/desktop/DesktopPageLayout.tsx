@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import React from 'react';
 import {
   View,
@@ -154,7 +154,7 @@ export function DesktopPageLayout({
                 <React.Fragment key={index}>
                   {item.route ? (
                     <TouchableOpacity
-                      onPress={() => router.push(item.route as any)}
+                      onPress={() => router.push(item.route as Href)}
                       style={styles.breadcrumbButton}
                     >
                       <Text style={styles.breadcrumbLink}>{item.label}</Text>

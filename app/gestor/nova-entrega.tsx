@@ -10,25 +10,20 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { memo, useCallback } from 'react';
-import { Controller, Control, FieldErrors, UseFormWatch, UseFormHandleSubmit } from 'react-hook-form';
+import { useCallback } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
-  ActivityIndicator,
-  TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import {
+  FormularioParada,
   ParadasListAndActions,
-  Parada,
-  ParadaFormData,
-  ParadaFormDataWithCoords,
+  novaEntregaStyles as styles,
 } from '@/components/gestor/nova-entrega';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
@@ -41,332 +36,7 @@ import {
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useNovaEntrega } from '@/hooks/useNovaEntrega';
 import { useResponsive } from '@/hooks/useResponsive';
-import { maskPhone } from '@/lib/phone';
-import type { Coordenadas } from '@/types/endereco';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
-// ============================================
-// Formulário de Parada Memoizado
-// ============================================
-
-interface FormularioParadaProps {
-  control: Control<ParadaFormDataWithCoords>;
-  errors: FieldErrors<ParadaFormDataWithCoords>;
-  setValue: (name: 'latitude' | 'longitude', value: number) => void;
-  handleSubmit: UseFormHandleSubmit<ParadaFormDataWithCoords>;
-  watch: UseFormWatch<ParadaFormDataWithCoords>;
-  onAddParada: (data: ParadaFormData, vinculoId?: string) => void;
-  isLoading: boolean;
-  retiradasDisponiveis: Parada[];
-  vinculoSelecionado: string;
-  setVinculoSelecionado: (id: string) => void;
-  /** Coordenadas da unidade para priorizar resultados próximos */
-  locationBias?: Coordenadas;
-}
-
-const FormularioParadaMemoized = memo(function FormularioParada({
-  control,
-  errors,
-  setValue,
-  handleSubmit,
-  watch,
-  onAddParada,
-  isLoading,
-  retiradasDisponiveis,
-  vinculoSelecionado,
-  setVinculoSelecionado,
-  locationBias,
-}: FormularioParadaProps) {
-  const { theme } = useUnistyles();
-  const { isDesktop, isTablet, isMobile } = useResponsive();
-  const tipoAtual = watch('tipo');
-  const latitude = watch('latitude');
-  const longitude = watch('longitude');
-  const hasValidCoordinates = latitude !== undefined && longitude !== undefined && latitude !== 0 && longitude !== 0;
-
-  return (
-    <View style={[
-      styles.form,
-      isDesktop && styles.formDesktop,
-      isTablet && styles.formTablet,
-      isMobile && styles.formMobileInner,
-    ]}>
-      {/* Título só aparece em tablet - desktop usa header do DesktopCard, mobile usa MobileCard */}
-      {isTablet && (
-        <Text style={styles.sectionTitle}>Adicionar Parada</Text>
-      )}
-
-      <Controller
-        control={control}
-        name="tipo"
-        render={({ field: { onChange, value } }) => (
-          <View style={[styles.radioGroup, isDesktop && styles.radioGroupDesktop]}>
-            <TouchableOpacity
-              style={[
-                styles.radioButton,
-                isDesktop && styles.radioButtonDesktop,
-                value === 'entrega' && styles.radioButtonActive,
-              ]}
-              onPress={() => onChange('entrega')}
-              accessibilityLabel="Selecionar tipo entrega"
-              accessibilityRole="radio"
-              accessibilityState={{ checked: value === 'entrega' }}
-            >
-              <Ionicons
-                name="arrow-down-circle"
-                size={isDesktop ? 16 : 18}
-                color={value === 'entrega' ? theme.colors.white : theme.colors.primary}
-                style={styles.radioIcon}
-              />
-              <Text
-                style={[
-                  styles.radioText,
-                  isDesktop && styles.radioTextDesktop,
-                  value === 'entrega' && styles.radioTextActive,
-                ]}
-              >
-                Entrega
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.radioButton,
-                styles.radioButtonRetirada,
-                isDesktop && styles.radioButtonDesktop,
-                value === 'retirada' && styles.radioButtonRetiradaActive,
-              ]}
-              onPress={() => {
-                onChange('retirada');
-                setVinculoSelecionado('');
-              }}
-              accessibilityLabel="Selecionar tipo retirada"
-              accessibilityRole="radio"
-              accessibilityState={{ checked: value === 'retirada' }}
-            >
-              <Ionicons
-                name="arrow-up-circle"
-                size={isDesktop ? 16 : 18}
-                color={value === 'retirada' ? theme.colors.white : theme.colors.warning}
-                style={styles.radioIcon}
-              />
-              <Text
-                style={[
-                  styles.radioText,
-                  styles.radioTextRetirada,
-                  isDesktop && styles.radioTextDesktop,
-                  value === 'retirada' && styles.radioTextActive,
-                ]}
-              >
-                Retirada
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      />
-
-      {/* Seletor de Vínculo */}
-      {tipoAtual === 'entrega' && retiradasDisponiveis.length > 0 && (
-        <View style={[styles.vinculoSection, isDesktop && styles.vinculoSectionDesktop]}>
-          <Text style={[styles.vinculoLabel, isDesktop && styles.vinculoLabelDesktop]}>
-            Vincular a uma retirada? (equipamento locado)
-          </Text>
-          <Text style={[styles.vinculoHint, isDesktop && styles.vinculoHintDesktop]}>
-            Se esta entrega usa equipamento que será retirado de outro cliente, selecione a retirada correspondente
-          </Text>
-          <View style={[styles.vinculoOptions, isDesktop && styles.vinculoOptionsDesktop]}>
-            <TouchableOpacity
-              style={[
-                styles.vinculoOption,
-                isDesktop && styles.vinculoOptionDesktop,
-                !vinculoSelecionado && styles.vinculoOptionActive,
-              ]}
-              onPress={() => setVinculoSelecionado('')}
-              accessibilityLabel="Sem vínculo a retirada"
-              accessibilityRole="radio"
-              accessibilityState={{ checked: !vinculoSelecionado }}
-            >
-              <Text
-                style={[
-                  styles.vinculoOptionText,
-                  isDesktop && styles.vinculoOptionTextDesktop,
-                  !vinculoSelecionado && styles.vinculoOptionTextActive,
-                ]}
-              >
-                Sem vínculo
-              </Text>
-            </TouchableOpacity>
-            {retiradasDisponiveis.map((retirada) => {
-              const isSelected = vinculoSelecionado === retirada.id;
-              const retiradaNome = retirada.destinatario || retirada.endereco.substring(0, 30);
-              return (
-                <TouchableOpacity
-                  key={retirada.id}
-                  style={[
-                    styles.vinculoOption,
-                    isDesktop && styles.vinculoOptionDesktop,
-                    isSelected && styles.vinculoOptionActive,
-                  ]}
-                  onPress={() => setVinculoSelecionado(retirada.id)}
-                  accessibilityLabel={`Vincular a retirada: ${retiradaNome}`}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: isSelected }}
-                >
-                  <Text
-                    style={[
-                      styles.vinculoOptionText,
-                      isDesktop && styles.vinculoOptionTextDesktop,
-                      isSelected && styles.vinculoOptionTextActive,
-                    ]}
-                    numberOfLines={2}
-                  >
-                    {retiradaNome}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-      )}
-
-      {/* Endereço com badge de validação */}
-      <View style={styles.fieldWithLabel}>
-        <View style={styles.labelRow}>
-          <Text style={[styles.fieldLabel, isDesktop && styles.fieldLabelDesktop]}>Endereço *</Text>
-          {hasValidCoordinates && (
-            <View style={[styles.validatedBadge, isDesktop && styles.validatedBadgeDesktop]}>
-              <Ionicons name="checkmark-circle" size={isDesktop ? 14 : 16} color={theme.colors.success} />
-              <Text style={[styles.validatedText, isDesktop && styles.validatedTextDesktop]}>Validado</Text>
-            </View>
-          )}
-        </View>
-        <Controller
-          control={control}
-          name="endereco"
-          render={({ field: { onChange, value } }) => (
-            <AddressAutocomplete
-              value={value || ''}
-              onChangeText={onChange}
-              onSelectAddress={(address, _placeId, coordinates?: Coordenadas) => {
-                onChange(address);
-                // Photon já retorna coordenadas diretamente - não precisa de getPlaceDetails!
-                if (coordinates) {
-                  setValue('latitude', coordinates.latitude);
-                  setValue('longitude', coordinates.longitude);
-                }
-              }}
-              error={errors.endereco?.message}
-              multiline
-              locationBias={locationBias}
-            />
-          )}
-        />
-      </View>
-
-      <Controller
-        control={control}
-        name="destinatario"
-        render={({ field: { onChange, value } }) => (
-          <>
-            <TextInput
-              style={[
-                styles.input,
-                isDesktop && styles.inputDesktop,
-                errors.destinatario && styles.inputError,
-              ]}
-              placeholder="Nome do destinatário"
-              value={value}
-              onChangeText={onChange}
-              accessibilityLabel="Campo de nome do destinatário"
-              accessibilityHint="Digite o nome completo do destinatário"
-            />
-            {errors.destinatario && (
-              <Text style={[styles.errorText, isDesktop && styles.errorTextDesktop]}>
-                {errors.destinatario.message}
-              </Text>
-            )}
-          </>
-        )}
-      />
-
-      <Controller
-        control={control}
-        name="telefone"
-        render={({ field: { onChange, value } }) => (
-          <>
-            <TextInput
-              style={[
-                styles.input,
-                isDesktop && styles.inputDesktop,
-                errors.telefone && styles.inputError,
-              ]}
-              placeholder="(00) 00000-0000"
-              placeholderTextColor={theme.colors.gray400}
-              value={value}
-              onChangeText={(text) => onChange(maskPhone(text))}
-              keyboardType="phone-pad"
-              maxLength={15}
-              accessibilityLabel="Campo de telefone do destinatário"
-              accessibilityHint="Digite o telefone do destinatário com DDD"
-            />
-            {errors.telefone && (
-              <Text style={[styles.errorText, isDesktop && styles.errorTextDesktop]}>
-                {errors.telefone.message}
-              </Text>
-            )}
-          </>
-        )}
-      />
-
-      <Controller
-        control={control}
-        name="observacoes"
-        render={({ field: { onChange, value } }) => (
-          <TextInput
-            style={[
-              styles.input,
-              isDesktop && styles.inputDesktop,
-              styles.textArea,
-              isDesktop && styles.textAreaDesktop,
-            ]}
-            placeholder="Observações (opcional)"
-            placeholderTextColor={theme.colors.gray400}
-            value={value}
-            onChangeText={onChange}
-            multiline
-            numberOfLines={3}
-            maxLength={300}
-            accessibilityLabel="Campo de observações"
-            accessibilityHint="Digite observações adicionais sobre a entrega (máximo 300 caracteres)"
-          />
-        )}
-      />
-
-      <TouchableOpacity
-        style={[styles.addButton, isDesktop && styles.addButtonDesktop]}
-        onPress={handleSubmit((data: ParadaFormData) => {
-          onAddParada(data, vinculoSelecionado || undefined);
-          setVinculoSelecionado('');
-        })}
-        disabled={isLoading}
-        accessibilityLabel="Adicionar parada à lista"
-        accessibilityRole="button"
-        accessibilityState={{ disabled: isLoading }}
-      >
-        {isLoading ? (
-          <ActivityIndicator color={theme.colors.white} />
-        ) : (
-          <Text style={[styles.addButtonText, isDesktop && styles.addButtonTextDesktop]}>
-            + Adicionar Parada
-          </Text>
-        )}
-      </TouchableOpacity>
-    </View>
-  );
-});
-
-// ============================================
-// Componente Principal
-// ============================================
+import { useUnistyles } from '@/utils/styles';
 
 export default function NovaEntrega() {
   const { theme } = useUnistyles();
@@ -413,7 +83,6 @@ export default function NovaEntrega() {
 
   const pageSubtitle = unidadeNome || pageMeta.subtitle || 'Carregando...';
 
-  // Função para setar coordenadas no form (memoizada para evitar recriação)
   const setFormCoordinate = useCallback((name: 'latitude' | 'longitude', value: number) => {
     form.setValue(name, value);
   }, [form]);
@@ -427,7 +96,6 @@ export default function NovaEntrega() {
     );
   }
 
-  // Props para o componente de lista de paradas
   const paradasListProps = {
     paradas,
     paradasStatus,
@@ -449,6 +117,20 @@ export default function NovaEntrega() {
     onGenerateRoute: gerarRota,
   };
 
+  const formularioProps = {
+    control: form.control,
+    errors: form.formState.errors,
+    setValue: setFormCoordinate,
+    handleSubmit: form.handleSubmit,
+    watch: form.watch,
+    onAddParada,
+    isLoading,
+    retiradasDisponiveis,
+    vinculoSelecionado,
+    setVinculoSelecionado,
+    locationBias: enderecoUnidade ?? undefined,
+  };
+
   // Desktop Layout
   if (isDesktop) {
     return (
@@ -463,7 +145,6 @@ export default function NovaEntrega() {
           loadingText="Carregando dados..."
         >
           <View style={styles.twoColumnLayout}>
-            {/* Formulário */}
             <View style={styles.formColumn}>
               <DesktopCard
                 title="Adicionar Parada"
@@ -471,23 +152,10 @@ export default function NovaEntrega() {
                 iconColor={theme.colors.primary}
                 variant="outlined"
               >
-                <FormularioParadaMemoized
-                  control={form.control}
-                  errors={form.formState.errors}
-                  setValue={setFormCoordinate}
-                  handleSubmit={form.handleSubmit}
-                  watch={form.watch}
-                  onAddParada={onAddParada}
-                  isLoading={isLoading}
-                  retiradasDisponiveis={retiradasDisponiveis}
-                  vinculoSelecionado={vinculoSelecionado}
-                  setVinculoSelecionado={setVinculoSelecionado}
-                  locationBias={enderecoUnidade ?? undefined}
-                />
+                <FormularioParada {...formularioProps} />
               </DesktopCard>
             </View>
 
-            {/* Lista de Paradas e Ações */}
             <View style={styles.previewColumn}>
               <DesktopCard
                 title="Paradas Adicionadas"
@@ -547,24 +215,10 @@ export default function NovaEntrega() {
         >
           <View style={styles.tabletContainer}>
             <View style={styles.twoColumnLayout}>
-              {/* Formulário - 40% */}
               <View style={styles.formColumn}>
-                <FormularioParadaMemoized
-                  control={form.control}
-                  errors={form.formState.errors}
-                  setValue={setFormCoordinate}
-                  handleSubmit={form.handleSubmit}
-                  watch={form.watch}
-                  onAddParada={onAddParada}
-                  isLoading={isLoading}
-                  retiradasDisponiveis={retiradasDisponiveis}
-                  vinculoSelecionado={vinculoSelecionado}
-                  setVinculoSelecionado={setVinculoSelecionado}
-                  locationBias={enderecoUnidade ?? undefined}
-                />
+                <FormularioParada {...formularioProps} />
               </View>
 
-              {/* Lista de Paradas - 60% */}
               <View style={styles.previewColumn}>
                 <ParadasListAndActions {...paradasListProps} />
               </View>
@@ -586,19 +240,7 @@ export default function NovaEntrega() {
       >
         <View style={styles.content}>
           <MobileCard title="Adicionar Parada" variant="bordered">
-            <FormularioParadaMemoized
-                control={form.control}
-                errors={form.formState.errors}
-                setValue={setFormCoordinate}
-                handleSubmit={form.handleSubmit}
-                watch={form.watch}
-                onAddParada={onAddParada}
-                isLoading={isLoading}
-                retiradasDisponiveis={retiradasDisponiveis}
-                vinculoSelecionado={vinculoSelecionado}
-                setVinculoSelecionado={setVinculoSelecionado}
-                locationBias={enderecoUnidade ?? undefined}
-              />
+            <FormularioParada {...formularioProps} />
           </MobileCard>
           <MobileCard
             title="Paradas Adicionadas"
@@ -614,365 +256,3 @@ export default function NovaEntrega() {
     </ErrorBoundary>
   );
 }
-
-// ============================================
-// STYLES (estático - baseado em best practices 2025)
-// @see Material Design 3, Apple HIG, WCAG 2.2
-// ============================================
-
-const styles = StyleSheet.create((theme: Theme) => ({
-  // Loading
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.colors.gray50,
-  },
-  // Scroll
-  scrollView: {
-    flex: 1,
-    backgroundColor: theme.colors.gray50,
-  },
-  // Content - Mobile (16px padding)
-  content: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.lg,
-    maxWidth: '100%',
-    marginHorizontal: 'auto',
-    width: '100%',
-  },
-  contentTablet: {
-    paddingHorizontal: theme.spacing.lg,
-    maxWidth: 960,
-  },
-  // Tablet container
-  tabletContainer: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.lg,
-    maxWidth: 960,
-    marginHorizontal: 'auto',
-    width: '100%',
-  },
-  // Two column layout
-  twoColumnLayout: {
-    flexDirection: 'row',
-    gap: theme.spacing.lg,
-    alignItems: 'flex-start',
-    width: '100%',
-  },
-  formColumn: {
-    width: '38%',
-    maxWidth: 500,
-  },
-  previewColumn: {
-    flex: 1,
-    minWidth: 0,
-  },
-  // Form - Mobile/Tablet (usado dentro de MobileCard)
-  form: {
-    backgroundColor: theme.colors.white,
-    padding: theme.spacing.lg,
-    borderRadius: theme.borderRadius.xl,
-    marginBottom: theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.gray200,
-  },
-  formDesktop: {
-    backgroundColor: 'transparent',
-    padding: 0,
-    borderRadius: 0,
-    marginBottom: 0,
-    borderWidth: 0,
-    borderColor: 'transparent',
-  },
-  formTablet: {
-    marginBottom: 0,
-  },
-  // formMobile: padding interno quando dentro de MobileCard com noPadding
-  formMobile: {
-    padding: theme.spacing.md,
-  },
-  // formMobileInner: remove estilos de card quando dentro de MobileCard
-  formMobileInner: {
-    backgroundColor: 'transparent',
-    padding: 0,
-    borderRadius: 0,
-    marginBottom: 0,
-    borderWidth: 0,
-    borderColor: 'transparent',
-  },
-  sectionTitle: {
-    fontSize: theme.typography.lg,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray900,
-    marginBottom: theme.spacing.lg,
-  },
-  // Radio buttons - Mobile
-  radioGroup: {
-    flexDirection: 'row',
-    gap: theme.spacing.md,
-    marginBottom: theme.spacing.lg,
-  },
-  radioGroupDesktop: {
-    gap: theme.desktop.section.gap,
-    marginBottom: theme.desktop.field.marginBottom,
-  },
-  radioButton: {
-    flex: 1,
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.gray300,
-    alignItems: 'center',
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  radioButtonDesktop: {
-    paddingVertical: 6,
-    paddingHorizontal: theme.desktop.button.paddingHorizontal,
-    minHeight: theme.desktop.button.height,
-  },
-  radioButtonActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  radioText: {
-    fontSize: theme.typography.base,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray700,
-  },
-  radioTextDesktop: {
-    fontSize: theme.desktop.input.fontSize,
-  },
-  radioTextActive: {
-    color: theme.colors.white,
-  },
-  radioIcon: {
-    marginRight: theme.spacing.xs,
-  },
-  radioButtonRetirada: {
-    borderColor: theme.colors.warning,
-  },
-  radioButtonRetiradaActive: {
-    backgroundColor: theme.colors.warning,
-    borderColor: theme.colors.warning,
-  },
-  radioTextRetirada: {
-    color: theme.colors.warning,
-  },
-  // Vínculo section
-  vinculoSection: {
-    marginBottom: theme.spacing.lg,
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.info + '08',
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.info + '30',
-  },
-  vinculoSectionDesktop: {
-    marginBottom: theme.desktop.field.marginBottom,
-    padding: theme.desktop.section.padding,
-  },
-  vinculoLabel: {
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray900,
-    marginBottom: theme.spacing.sm,
-  },
-  vinculoLabelDesktop: {
-    fontSize: theme.desktop.input.fontSize,
-    marginBottom: theme.spacing.xs,
-  },
-  vinculoHint: {
-    fontSize: theme.typography.xs,
-    color: theme.colors.gray500,
-    marginBottom: theme.spacing.md,
-    lineHeight: theme.spacing.lg,
-  },
-  vinculoHintDesktop: {
-    fontSize: theme.typography.fontSize.xs,
-    marginBottom: theme.desktop.section.gap,
-    lineHeight: theme.typography.fontSize.sm,
-  },
-  vinculoOptions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.sm,
-  },
-  vinculoOptionsDesktop: {
-    gap: theme.spacing['1.5'],
-  },
-  vinculoOption: {
-    paddingVertical: theme.spacing['2.5'],
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.gray300,
-    backgroundColor: theme.colors.white,
-    minWidth: 100,
-    minHeight: 40,
-    justifyContent: 'center',
-  },
-  vinculoOptionDesktop: {
-    paddingVertical: theme.spacing.xs,
-    paddingHorizontal: theme.desktop.section.padding,
-    minWidth: 80,
-    minHeight: 28,
-  },
-  vinculoOptionActive: {
-    borderColor: theme.colors.info,
-    backgroundColor: theme.colors.info + '15',
-  },
-  vinculoOptionText: {
-    fontSize: theme.typography.xs,
-    color: theme.colors.gray700,
-    textAlign: 'center',
-  },
-  vinculoOptionTextDesktop: {
-    fontSize: theme.typography.fontSize.xs,
-  },
-  vinculoOptionTextActive: {
-    color: theme.colors.info,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
-  // Field with label
-  fieldWithLabel: {
-    marginBottom: theme.spacing.md,
-  },
-  labelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: theme.spacing.xs,
-  },
-  fieldLabel: {
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray700,
-  },
-  fieldLabelDesktop: {
-    fontSize: theme.desktop.input.fontSize,
-  },
-  validatedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing['1'],
-    backgroundColor: theme.colors.success + '15',
-    paddingHorizontal: theme.spacing['2'],
-    paddingVertical: theme.spacing['0.5'],
-    borderRadius: theme.borderRadius.sm,
-  },
-  validatedBadgeDesktop: {
-    paddingHorizontal: theme.spacing.xs,
-    paddingVertical: 2,
-  },
-  validatedText: {
-    fontSize: theme.typography.xs,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.success,
-  },
-  validatedTextDesktop: {
-    fontSize: theme.typography.fontSize.xs,
-  },
-  // Input - Mobile
-  input: {
-    borderWidth: 1,
-    borderColor: theme.colors.gray300,
-    borderRadius: theme.borderRadius.lg,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.md,
-    fontSize: theme.typography.base,
-    marginBottom: theme.spacing.md,
-    backgroundColor: theme.colors.white,
-    minHeight: 48,
-    color: theme.colors.gray900,
-  },
-  inputDesktop: {
-    paddingHorizontal: theme.desktop.input.paddingHorizontal,
-    paddingVertical: 0,
-    fontSize: theme.desktop.input.fontSize,
-    marginBottom: theme.desktop.field.marginBottom,
-    minHeight: theme.desktop.input.height,
-  },
-  inputError: {
-    borderColor: theme.colors.error,
-  },
-  textArea: {
-    height: 80,
-    textAlignVertical: 'top',
-    paddingVertical: theme.spacing.sm,
-  },
-  textAreaDesktop: {
-    height: 60,
-    paddingVertical: theme.spacing.xs,
-  },
-  errorText: {
-    color: theme.colors.error,
-    fontSize: theme.typography.xs,
-    marginTop: -theme.spacing.sm,
-    marginBottom: theme.spacing.sm,
-  },
-  errorTextDesktop: {
-    fontSize: theme.typography.fontSize.xs,
-    marginTop: -theme.spacing.sm,
-    marginBottom: theme.spacing.sm,
-  },
-  // Add button - Mobile (full width)
-  addButton: {
-    backgroundColor: theme.colors.primary,
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.lg,
-    alignItems: 'center',
-    alignSelf: 'stretch',
-    marginTop: theme.spacing.sm,
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  addButtonDesktop: {
-    paddingVertical: theme.spacing['1.5'],
-    paddingHorizontal: theme.spacing.xl,
-    alignSelf: 'flex-start',
-    marginTop: theme.spacing.xs,
-    minHeight: theme.desktop.button.height,
-  },
-  addButtonText: {
-    color: theme.colors.white,
-    fontSize: theme.typography.base,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
-  addButtonTextDesktop: {
-    fontSize: theme.desktop.button.fontSize,
-  },
-  // Clear button
-  clearCardButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.gray200,
-    backgroundColor: theme.colors.white,
-    minHeight: 36,
-  },
-  clearCardButtonDesktop: {
-    gap: theme.spacing.xs,
-    paddingHorizontal: theme.desktop.button.paddingHorizontal,
-    paddingVertical: theme.spacing.xs,
-    minHeight: 28,
-  },
-  clearCardButtonDisabled: {
-    opacity: 0.5,
-  },
-  clearCardButtonText: {
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.primary,
-  },
-  clearCardButtonTextDesktop: {
-    fontSize: theme.desktop.button.fontSize,
-  },
-}));

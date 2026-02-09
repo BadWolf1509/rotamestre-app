@@ -23,22 +23,8 @@ import { View, ActivityIndicator, Text } from 'react-native';
 import { useRouteDirections } from '@/hooks/useRouteDirections';
 import { logger } from '@/lib/logger';
 import { getOpenFreeMapStyle, installOpenFreeMapMissingImageHandler } from '@/lib/openFreeMapStyle';
+import type { ParadaMapItem as Parada, StatusFilter } from '@/types/parada-map';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
-interface Parada {
-  id: string;
-  ordem: number;
-  endereco: string;
-  latitude: number | null;
-  longitude: number | null;
-  status: string;
-  destinatario?: string;
-  telefone?: string;
-  tipo?: string;
-  is_checkpoint?: boolean;
-}
-
-type StatusFilter = 'all' | 'pendente' | 'em_andamento' | 'concluida';
 
 interface MapaWebMapLibreProps {
   paradas: Parada[];

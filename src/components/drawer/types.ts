@@ -1,6 +1,7 @@
 /**
  * Types for DrawerMenu component
  */
+import type { Href } from 'expo-router';
 
 export interface DrawerMenuProps {
   visible: boolean;
@@ -16,7 +17,7 @@ export interface GestorData {
 export interface MenuItem {
   icon: string;
   label: string;
-  path: string | null;
+  path: Href | null;
   show: boolean;
   action?: string;
   danger?: boolean;

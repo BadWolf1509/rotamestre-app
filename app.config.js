@@ -93,6 +93,9 @@ module.exports = ({ config }) => {
       startUrl: "/",
       lang: "pt-BR"
     },
+    experiments: {
+      typedRoutes: true,
+    },
     plugins: [
       "expo-router",
       "expo-asset",

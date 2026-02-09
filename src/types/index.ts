@@ -40,6 +40,9 @@ export type {
 // Unidade types
 export type { Unidade } from './unidade';
 
+// Map parada types (shared across map components)
+export type { ParadaMapItem, ParadaWithCoords, StatusFilter } from './parada-map';
+
 // Web-specific style types (for React Native Web)
 export type {
   WebViewStyle,

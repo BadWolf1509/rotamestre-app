@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -82,7 +82,7 @@ export function FormDesktopLayout({
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => backPath ? router.push(backPath as any) : router.back()}
+            onPress={() => backPath ? router.push(backPath as Href) : router.back()}
           >
             <Ionicons name="arrow-back" size={24} color={theme.colors.gray600} />
             <Text style={styles.backButtonText}>Voltar</Text>

@@ -1,4 +1,4 @@
-import { useRouter, useSegments } from 'expo-router';
+import { useRouter, useSegments, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
 
 import { useAuth } from './useAuth';
@@ -11,7 +11,7 @@ interface UseRequireAuthOptions {
   /** Papel obrigatório para acessar a rota. 'any' permite qualquer papel autenticado. */
   role?: RequiredRole;
   /** Redirecionar para esta rota se não autenticado (default: /auth/login) */
-  redirectTo?: string;
+  redirectTo?: Href;
 }
 
 /**
