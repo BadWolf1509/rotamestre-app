@@ -56,7 +56,7 @@
     "@react-native-community/netinfo": "11.4.1",
     "@react-native-community/slider": "5.1.1",
     "@react-navigation/drawer": "^7.5.0",
-    "@shopify/flash-list": "2.0.2",
+    "@shopify/flash-list": "2.2.2",
     "@supabase/supabase-js": "^2.93.3",
     "expo": "55.0.0-preview.10",
     "expo-asset": "~55.0.3",
