@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 import { logger } from './logger';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { setMockSession } from '../hooks/useAuth';
@@ -121,8 +123,12 @@ export const authService = {
 
   // Recuperar senha
   async resetPassword(email: string) {
+    const redirectTo = Platform.OS === 'web'
+      ? `${window.location.origin}/auth/reset-password`
+      : 'rotamestre://reset-password';
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'rotamestre://reset-password',
+      redirectTo,
     });
     if (error) throw error;
   },

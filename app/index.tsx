@@ -4,6 +4,7 @@ import { View, Text, ActivityIndicator } from 'react-native';
 
 import { authService } from '@/lib/auth';
 import { logger } from '@/lib/logger';
+import { isRecoveryRedirect } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 /**
@@ -33,6 +34,15 @@ export default function Index() {
   async function checkSessionAndRedirect() {
     // Evitar redirecionamentos duplicados
     if (hasRedirected.current) {
+      setLoading(false);
+      return;
+    }
+
+    // Password recovery redirect: token is in URL hash, redirect to reset form
+    if (isRecoveryRedirect) {
+      logger.debug('🔐 Recovery token detected in URL → /auth/reset-password');
+      hasRedirected.current = true;
+      router.replace('/auth/reset-password');
       setLoading(false);
       return;
     }

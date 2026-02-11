@@ -498,6 +498,7 @@ export default function MotoristaPerfil() {
 
       {/* Toast */}
       <Toast {...toast} onDismiss={hideToast} />
+      {logoutModal}
     </View>
     </ErrorBoundary>
   );

@@ -340,6 +340,7 @@ export default function GestaoRotas() {
 
         {/* Toast de Feedback */}
         <Toast {...toastState} onDismiss={hideToast} />
+        {logoutModal}
       </ErrorBoundary>
     );
   }

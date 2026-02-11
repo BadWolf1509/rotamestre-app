@@ -2,8 +2,19 @@ import 'react-native-url-polyfill/auto';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 
 import { logger } from './logger';
+
+// Capture URL hash BEFORE Supabase client processes it (createClient cleans the hash)
+// This allows index.tsx to detect recovery redirects reliably
+const initialUrlHash =
+  Platform.OS === 'web' && typeof window !== 'undefined'
+    ? window.location.hash
+    : '';
+
+/** True when the app was opened via a password recovery link */
+export const isRecoveryRedirect = initialUrlHash.includes('type=recovery');
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -23,7 +34,9 @@ if (isSupabaseConfigured) {
       storage: AsyncStorage,
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: false,
+      // Web: true to auto-detect recovery/magic-link tokens from URL hash
+      // Mobile: false because RN doesn't have real window.location
+      detectSessionInUrl: Platform.OS === 'web',
     },
     realtime: {
       params: {

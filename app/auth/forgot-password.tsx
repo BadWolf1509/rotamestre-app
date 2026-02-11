@@ -60,28 +60,30 @@ export default function ForgotPassword() {
       showSuccess(
         'Email enviado!',
         'Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.',
-        () => router.back()
+        () => router.push('/auth/login')
       );
     } catch (error: unknown) {
-      // Registrar tentativa falha
-      await passwordResetRateLimiter.recordAttempt(trimmedEmail, false);
-
-      // Tratar erros específicos do Supabase
       const errorMessage = error instanceof Error ? error.message : '';
 
       if (errorMessage.includes('rate limit') || errorMessage.includes('429')) {
-        showWarning(
-          'Limite de envios atingido',
-          'Por segurança, aguarde alguns minutos antes de solicitar outro email de recuperação.'
+        // 429 do Supabase = email já foi enviado recentemente
+        // NÃO registrar como falha no rate limiter local (não é erro do usuário)
+        showSuccess(
+          'Email já enviado!',
+          'Um email de recuperação já foi enviado recentemente. Verifique sua caixa de entrada e pasta de spam.',
+          () => router.push('/auth/login')
         );
       } else if (errorMessage.includes('not found') || errorMessage.includes('invalid')) {
         // Não revelar se email existe ou não (segurança)
         showSuccess(
           'Email enviado!',
           'Se o email estiver cadastrado, você receberá as instruções para redefinir sua senha.',
-          () => router.back()
+          () => router.push('/auth/login')
         );
       } else {
+        // Registrar apenas erros reais como falha
+        await passwordResetRateLimiter.recordAttempt(trimmedEmail, false);
+
         showError({
           title: 'Erro',
           message: 'Não foi possível enviar o email. Tente novamente mais tarde.'

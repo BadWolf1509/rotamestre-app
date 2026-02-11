@@ -26,6 +26,12 @@ export default function AuthLayout() {
           title: 'Recuperar Senha',
         }}
       />
+      <Stack.Screen
+        name="reset-password"
+        options={{
+          title: 'Nova Senha',
+        }}
+      />
     </Stack>
   );
 }
