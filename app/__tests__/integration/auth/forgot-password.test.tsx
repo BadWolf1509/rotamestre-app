@@ -159,7 +159,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
       const submitButton = getByText('Enviar Link');
       fireEvent.press(submitButton);
 
-      // showSuccess receives a callback as third parameter that calls router.back
+      // showSuccess receives a callback as third parameter that navigates to login
       await waitFor(() => {
         expect(global.mockUseAlert.showSuccess).toHaveBeenCalled();
         // Get the callback and call it to simulate user pressing OK
@@ -167,7 +167,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
         if (callback) callback();
       });
 
-      expect(mockRouter.back).toHaveBeenCalled();
+      expect(mockRouter.push).toHaveBeenCalledWith('/auth/login');
     });
 
     it('deve aceitar diferentes formatos de email', async () => {
@@ -252,9 +252,10 @@ describe('Forgot Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
-          'Limite de envios atingido',
-          'Por segurança, aguarde alguns minutos antes de solicitar outro email de recuperação.'
+        expect(global.mockUseAlert.showSuccess).toHaveBeenCalledWith(
+          'Email já enviado!',
+          'Um email de recuperação já foi enviado recentemente. Verifique sua caixa de entrada e pasta de spam.',
+          expect.any(Function)
         );
       });
     });
