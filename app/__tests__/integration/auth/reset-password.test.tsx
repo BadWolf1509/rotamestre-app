@@ -31,6 +31,14 @@ jest.mock('@/lib/auth', () => ({
   },
 }));
 
+// Extend the global supabase mock (from jest.setup.js) with isRecoveryRedirect
+// Don't re-mock — reuse the global mockSupabaseClient which has proper getSession etc.
+const mockSupabaseModule = require('@/lib/supabase') as {
+  isRecoveryRedirect: boolean;
+  supabase: { auth: { getSession: jest.Mock } };
+};
+mockSupabaseModule.isRecoveryRedirect = false;
+
 // Valid test password (meets all requirements: 8+ chars, uppercase, number, special)
 const VALID_PASSWORD = 'NovaSenha@123';
 const VALID_PASSWORD_ALT = 'OutraSenha@456';
@@ -38,6 +46,7 @@ const VALID_PASSWORD_ALT = 'OutraSenha@456';
 describe('Reset Password Screen - Integration Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSupabaseModule.isRecoveryRedirect = false;
   });
 
   // ============================================
@@ -627,6 +636,75 @@ describe('Reset Password Screen - Integration Tests', () => {
 
       await waitFor(() => {
         expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'As senhas não coincidem');
+      });
+    });
+  });
+
+  // ============================================
+  // GRUPO 9: Verificação Proativa de Sessão
+  // ============================================
+  describe('Verificação Proativa de Sessão', () => {
+    const originalPlatformOS = jest.requireActual('react-native').Platform.OS;
+    const originalLocation = window.location;
+
+    beforeEach(() => {
+      // Enable recovery redirect for these tests
+      mockSupabaseModule.isRecoveryRedirect = true;
+
+      // Ensure Platform.OS is 'web' and window.location.hash is available
+      jest.replaceProperty(require('react-native').Platform, 'OS', 'web');
+      Object.defineProperty(window, 'location', {
+        value: { ...originalLocation, hash: '' },
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    afterEach(() => {
+      mockSupabaseModule.isRecoveryRedirect = false;
+      jest.replaceProperty(require('react-native').Platform, 'OS', originalPlatformOS);
+      Object.defineProperty(window, 'location', {
+        value: originalLocation,
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    it('deve mostrar loading enquanto verifica sessão', () => {
+      // getSession never resolves during this test
+      mockSupabaseModule.supabase.auth.getSession.mockReturnValue(new Promise(() => {}));
+
+      const { getByText } = render(<ResetPassword />);
+
+      expect(getByText('Verificando link de recuperação...')).toBeTruthy();
+    });
+
+    it('deve mostrar formulário quando sessão existe após verificação', async () => {
+      mockSupabaseModule.supabase.auth.getSession.mockResolvedValue({
+        data: { session: { access_token: 'valid-token', user: { id: '123' } } },
+        error: null,
+      });
+
+      const { getByText, queryByText } = render(<ResetPassword />);
+
+      await waitFor(() => {
+        expect(getByText('Redefinir Senha')).toBeTruthy();
+        expect(queryByText('Link expirado')).toBeNull();
+        expect(queryByText('Verificando link de recuperação...')).toBeNull();
+      });
+    });
+
+    it('deve mostrar "Link expirado" quando sessão não existe após verificação', async () => {
+      mockSupabaseModule.supabase.auth.getSession.mockResolvedValue({
+        data: { session: null },
+        error: null,
+      });
+
+      const { getByText, queryByText } = render(<ResetPassword />);
+
+      await waitFor(() => {
+        expect(getByText('Link expirado')).toBeTruthy();
+        expect(queryByText('Redefinir Senha')).toBeNull();
       });
     });
   });

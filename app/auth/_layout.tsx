@@ -32,6 +32,12 @@ export default function AuthLayout() {
           title: 'Nova Senha',
         }}
       />
+      <Stack.Screen
+        name="confirm-reset"
+        options={{
+          title: 'Confirmar Recuperação',
+        }}
+      />
     </Stack>
   );
 }

@@ -22,6 +22,7 @@ import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { validatePassword } from '@/lib/schemas/basic';
+import { isRecoveryRedirect, supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 /** Parse error params from URL hash (Supabase redirects with #error=...&error_code=...) */
@@ -47,8 +48,10 @@ export default function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [linkExpired, setLinkExpired] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(false);
 
   // Check for error params from Supabase redirect (e.g. expired OTP, access denied)
+  // Also proactively verify session when arriving from a recovery redirect
   useEffect(() => {
     const { error, errorCode } = getHashErrorParams();
     if (errorCode === 'otp_expired' || error === 'access_denied') {
@@ -57,6 +60,20 @@ export default function ResetPassword() {
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         window.history.replaceState(null, '', window.location.pathname);
       }
+      return;
+    }
+
+    // Recovery redirect without error: wait for Supabase to process the hash token
+    // getSession() internally awaits initializePromise (which includes _getSessionFromURL)
+    if (isRecoveryRedirect && Platform.OS === 'web') {
+      setCheckingSession(true);
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session) {
+          // Token was consumed (e.g. by email scanner) but no session established
+          setLinkExpired(true);
+        }
+        setCheckingSession(false);
+      });
     }
   }, []);
 
@@ -143,6 +160,37 @@ export default function ResetPassword() {
       </TouchableOpacity>
     </View>
   );
+
+  // ============================================
+  // RENDER: Checking Session (loading state)
+  // ============================================
+  if (checkingSession) {
+    if (isDesktop) {
+      return (
+        <View style={styles.containerDesktop}>
+          <View style={styles.leftPanel}>
+            <AuthBrandPanel />
+          </View>
+          <View style={styles.rightPanel}>
+            <View style={styles.formContainerDesktop}>
+              <View style={styles.checkingContainer}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <Text style={styles.subtitleDesktop}>Verificando link de recuperação...</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.container}>
+        <View style={styles.checkingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.checkingText}>Verificando link de recuperação...</Text>
+        </View>
+      </View>
+    );
+  }
 
   // ============================================
   // RENDER: Desktop (Split Screen)
@@ -432,6 +480,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.primary,
     fontSize: theme.typography.fontSize.sm,
     fontFamily: theme.typography.fontSansMedium,
+  },
+  checkingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.lg,
+  },
+  checkingText: {
+    fontFamily: theme.typography.fontSans,
+    fontSize: theme.typography.fontSize.base,
+    color: theme.colors.gray500,
   },
   expiredContainer: {
     alignItems: 'center',
