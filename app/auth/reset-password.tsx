@@ -22,6 +22,7 @@ import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { validatePassword } from '@/lib/schemas/basic';
+import { logger } from '@/lib/logger';
 import { isRecoveryRedirect, supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -38,6 +39,22 @@ function getHashErrorParams(): { error?: string; errorCode?: string; errorDescri
   };
 }
 
+/** Try to manually establish session from URL hash tokens (fallback for SDK race condition) */
+async function tryManualSessionRecovery(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+  const hash = window.location.hash.substring(1);
+  if (!hash) return false;
+
+  const params = new URLSearchParams(hash);
+  const access_token = params.get('access_token');
+  const refresh_token = params.get('refresh_token');
+
+  if (!access_token || !refresh_token) return false;
+
+  const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+  return !error;
+}
+
 export default function ResetPassword() {
   const { theme } = useUnistyles();
   const router = useRouter();
@@ -52,29 +69,71 @@ export default function ResetPassword() {
 
   // Check for error params from Supabase redirect (e.g. expired OTP, access denied)
   // Also proactively verify session when arriving from a recovery redirect
+  //
+  // IMPORTANT: Use onAuthStateChange (not getSession) to detect the session.
+  // getSession() can return null due to a race condition in auth-js where the
+  // SDK hasn't finished processing the URL hash tokens yet.
+  // Ref: https://github.com/orgs/supabase/discussions/19608
   useEffect(() => {
     const { error, errorCode } = getHashErrorParams();
     if (errorCode === 'otp_expired' || error === 'access_denied') {
       setLinkExpired(true);
-      // Clean error params from URL bar
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         window.history.replaceState(null, '', window.location.pathname);
       }
       return;
     }
 
-    // Recovery redirect without error: wait for Supabase to process the hash token
-    // getSession() internally awaits initializePromise (which includes _getSessionFromURL)
-    if (isRecoveryRedirect && Platform.OS === 'web') {
-      setCheckingSession(true);
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (!session) {
-          // Token was consumed (e.g. by email scanner) but no session established
-          setLinkExpired(true);
+    if (!isRecoveryRedirect || Platform.OS !== 'web') return;
+
+    setCheckingSession(true);
+    let resolved = false;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (resolved) return;
+
+        if (event === 'PASSWORD_RECOVERY') {
+          // SDK processed recovery link and established session
+          resolved = true;
+          setCheckingSession(false);
+          return;
         }
+
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
+          // Session available (SDK already processed the URL hash)
+          resolved = true;
+          setCheckingSession(false);
+          return;
+        }
+
+        if (event === 'INITIAL_SESSION' && !session) {
+          // SDK initialized but no session — try manual recovery from URL hash
+          // This handles the race condition where _getSessionFromURL didn't complete
+          logger.debug('[ResetPassword] INITIAL_SESSION without session, trying manual recovery');
+          const recovered = await tryManualSessionRecovery();
+          resolved = true;
+          if (!recovered) {
+            setLinkExpired(true);
+          }
+          setCheckingSession(false);
+        }
+      }
+    );
+
+    // Safety timeout: if no auth event establishes a session within 10s, give up
+    const timeout = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        setLinkExpired(true);
         setCheckingSession(false);
-      });
-    }
+      }
+    }, 10000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   // Detectar tema escuro para usar logo apropriada

@@ -623,6 +623,7 @@ const mockSupabaseClient = {
     updateUser: jest.fn().mockResolvedValue({ data: {}, error: null }),
     getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
     getUser: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
+    setSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
     onAuthStateChange: jest.fn(() => ({
       data: { subscription: { unsubscribe: jest.fn() } },
     })),

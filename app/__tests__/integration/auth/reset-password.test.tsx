@@ -35,7 +35,13 @@ jest.mock('@/lib/auth', () => ({
 // Don't re-mock — reuse the global mockSupabaseClient which has proper getSession etc.
 const mockSupabaseModule = require('@/lib/supabase') as {
   isRecoveryRedirect: boolean;
-  supabase: { auth: { getSession: jest.Mock } };
+  supabase: {
+    auth: {
+      getSession: jest.Mock;
+      setSession: jest.Mock;
+      onAuthStateChange: jest.Mock;
+    };
+  };
 };
 mockSupabaseModule.isRecoveryRedirect = false;
 
@@ -641,7 +647,7 @@ describe('Reset Password Screen - Integration Tests', () => {
   });
 
   // ============================================
-  // GRUPO 9: Verificação Proativa de Sessão
+  // GRUPO 9: Verificação Proativa de Sessão (onAuthStateChange)
   // ============================================
   describe('Verificação Proativa de Sessão', () => {
     const originalPlatformOS = jest.requireActual('react-native').Platform.OS;
@@ -650,6 +656,11 @@ describe('Reset Password Screen - Integration Tests', () => {
     beforeEach(() => {
       // Enable recovery redirect for these tests
       mockSupabaseModule.isRecoveryRedirect = true;
+
+      // Ensure setSession is available (clearAllMocks may clear it)
+      if (!mockSupabaseModule.supabase.auth.setSession) {
+        (mockSupabaseModule.supabase.auth as Record<string, unknown>).setSession = jest.fn();
+      }
 
       // Ensure Platform.OS is 'web' and window.location.hash is available
       jest.replaceProperty(require('react-native').Platform, 'OS', 'web');
@@ -671,19 +682,24 @@ describe('Reset Password Screen - Integration Tests', () => {
     });
 
     it('deve mostrar loading enquanto verifica sessão', () => {
-      // getSession never resolves during this test
-      mockSupabaseModule.supabase.auth.getSession.mockReturnValue(new Promise(() => {}));
+      // onAuthStateChange never calls the callback during this test
+      mockSupabaseModule.supabase.auth.onAuthStateChange.mockReturnValue({
+        data: { subscription: { unsubscribe: jest.fn() } },
+      });
 
       const { getByText } = render(<ResetPassword />);
 
       expect(getByText('Verificando link de recuperação...')).toBeTruthy();
     });
 
-    it('deve mostrar formulário quando sessão existe após verificação', async () => {
-      mockSupabaseModule.supabase.auth.getSession.mockResolvedValue({
-        data: { session: { access_token: 'valid-token', user: { id: '123' } } },
-        error: null,
-      });
+    it('deve mostrar formulário quando PASSWORD_RECOVERY é emitido', async () => {
+      mockSupabaseModule.supabase.auth.onAuthStateChange.mockImplementation(
+        (callback: (event: string, session: unknown) => void) => {
+          // Simulate SDK firing PASSWORD_RECOVERY after processing URL hash
+          setTimeout(() => callback('PASSWORD_RECOVERY', { access_token: 'valid-token' }), 0);
+          return { data: { subscription: { unsubscribe: jest.fn() } } };
+        }
+      );
 
       const { getByText, queryByText } = render(<ResetPassword />);
 
@@ -694,17 +710,72 @@ describe('Reset Password Screen - Integration Tests', () => {
       });
     });
 
-    it('deve mostrar "Link expirado" quando sessão não existe após verificação', async () => {
-      mockSupabaseModule.supabase.auth.getSession.mockResolvedValue({
-        data: { session: null },
-        error: null,
+    it('deve mostrar formulário quando INITIAL_SESSION tem sessão', async () => {
+      mockSupabaseModule.supabase.auth.onAuthStateChange.mockImplementation(
+        (callback: (event: string, session: unknown) => void) => {
+          setTimeout(() => callback('INITIAL_SESSION', { access_token: 'valid-token' }), 0);
+          return { data: { subscription: { unsubscribe: jest.fn() } } };
+        }
+      );
+
+      const { getByText, queryByText } = render(<ResetPassword />);
+
+      await waitFor(() => {
+        expect(getByText('Redefinir Senha')).toBeTruthy();
+        expect(queryByText('Link expirado')).toBeNull();
       });
+    });
+
+    it('deve mostrar "Link expirado" quando INITIAL_SESSION sem sessão e hash vazio', async () => {
+      // Hash is empty (no tokens to recover manually)
+      mockSupabaseModule.supabase.auth.onAuthStateChange.mockImplementation(
+        (callback: (event: string, session: unknown) => void) => {
+          setTimeout(() => callback('INITIAL_SESSION', null), 0);
+          return { data: { subscription: { unsubscribe: jest.fn() } } };
+        }
+      );
 
       const { getByText, queryByText } = render(<ResetPassword />);
 
       await waitFor(() => {
         expect(getByText('Link expirado')).toBeTruthy();
         expect(queryByText('Redefinir Senha')).toBeNull();
+      });
+    });
+
+    it('deve recuperar sessão manualmente quando SDK falha mas hash tem tokens', async () => {
+      // Simulate: hash has tokens but SDK returned null session
+      Object.defineProperty(window, 'location', {
+        value: {
+          ...originalLocation,
+          hash: '#access_token=valid-jwt&refresh_token=valid-refresh&type=recovery',
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      mockSupabaseModule.supabase.auth.onAuthStateChange.mockImplementation(
+        (callback: (event: string, session: unknown) => void) => {
+          setTimeout(() => callback('INITIAL_SESSION', null), 0);
+          return { data: { subscription: { unsubscribe: jest.fn() } } };
+        }
+      );
+
+      // Manual setSession succeeds
+      mockSupabaseModule.supabase.auth.setSession.mockResolvedValue({
+        data: { session: { access_token: 'valid-jwt' } },
+        error: null,
+      });
+
+      const { getByText, queryByText } = render(<ResetPassword />);
+
+      await waitFor(() => {
+        expect(mockSupabaseModule.supabase.auth.setSession).toHaveBeenCalledWith({
+          access_token: 'valid-jwt',
+          refresh_token: 'valid-refresh',
+        });
+        expect(getByText('Redefinir Senha')).toBeTruthy();
+        expect(queryByText('Link expirado')).toBeNull();
       });
     });
   });
