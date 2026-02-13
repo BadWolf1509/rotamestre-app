@@ -7,7 +7,7 @@ import ResetPassword from '../../../auth/reset-password';
 
 // TypeScript declaration for global mock
 declare global {
-   
+
   var mockUseAlert: {
     showAlert: jest.Mock;
     showSuccess: jest.Mock;
@@ -30,6 +30,10 @@ jest.mock('@/lib/auth', () => ({
     updatePassword: jest.fn(),
   },
 }));
+
+// Valid test password (meets all requirements: 8+ chars, uppercase, number, special)
+const VALID_PASSWORD = 'NovaSenha@123';
+const VALID_PASSWORD_ALT = 'OutraSenha@456';
 
 describe('Reset Password Screen - Integration Tests', () => {
   beforeEach(() => {
@@ -86,18 +90,18 @@ describe('Reset Password Screen - Integration Tests', () => {
       const { getByPlaceholderText } = render(<ResetPassword />);
 
       const passwordInput = getByPlaceholderText('Nova senha');
-      fireEvent.changeText(passwordInput, 'novaSenha123');
+      fireEvent.changeText(passwordInput, VALID_PASSWORD);
 
-      expect(passwordInput.props.value).toBe('novaSenha123');
+      expect(passwordInput.props.value).toBe(VALID_PASSWORD);
     });
 
     it('deve atualizar o campo de confirmar senha ao digitar', () => {
       const { getByPlaceholderText } = render(<ResetPassword />);
 
       const confirmPasswordInput = getByPlaceholderText('Confirmar senha');
-      fireEvent.changeText(confirmPasswordInput, 'novaSenha123');
+      fireEvent.changeText(confirmPasswordInput, VALID_PASSWORD);
 
-      expect(confirmPasswordInput.props.value).toBe('novaSenha123');
+      expect(confirmPasswordInput.props.value).toBe(VALID_PASSWORD);
     });
 
     it('deve exibir erro quando senha está vazia', async () => {
@@ -129,18 +133,60 @@ describe('Reset Password Screen - Integration Tests', () => {
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
       const passwordInput = getByPlaceholderText('Nova senha');
-      const confirmPasswordInput = getByPlaceholderText('Confirmar senha');
-
-      fireEvent.changeText(passwordInput, 'abc123');
-      fireEvent.changeText(confirmPasswordInput, 'abc123');
+      fireEvent.changeText(passwordInput, 'Ab@1');
 
       const submitButton = getByText('Redefinir Senha');
       fireEvent.press(submitButton);
 
       await waitFor(() => {
         expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
-          'Erro',
-          'A senha deve ter no mínimo 8 caracteres'
+          'Senha fraca',
+          expect.stringContaining('Mínimo 8 caracteres')
+        );
+      });
+    });
+
+    it('deve exibir erro quando senha não tem letra maiúscula', async () => {
+      const { getByPlaceholderText, getByText } = render(<ResetPassword />);
+
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), 'novasenha@123');
+
+      fireEvent.press(getByText('Redefinir Senha'));
+
+      await waitFor(() => {
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
+          'Senha fraca',
+          expect.stringContaining('Precisa de letra maiúscula')
+        );
+      });
+    });
+
+    it('deve exibir erro quando senha não tem número', async () => {
+      const { getByPlaceholderText, getByText } = render(<ResetPassword />);
+
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), 'NovaSenha@abc');
+
+      fireEvent.press(getByText('Redefinir Senha'));
+
+      await waitFor(() => {
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
+          'Senha fraca',
+          expect.stringContaining('Precisa de número')
+        );
+      });
+    });
+
+    it('deve exibir erro quando senha não tem caractere especial', async () => {
+      const { getByPlaceholderText, getByText } = render(<ResetPassword />);
+
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), 'NovaSenha123');
+
+      fireEvent.press(getByText('Redefinir Senha'));
+
+      await waitFor(() => {
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
+          'Senha fraca',
+          expect.stringContaining('Precisa de caractere especial')
         );
       });
     });
@@ -148,14 +194,10 @@ describe('Reset Password Screen - Integration Tests', () => {
     it('deve exibir erro quando senhas não coincidem', async () => {
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
-      const passwordInput = getByPlaceholderText('Nova senha');
-      const confirmPasswordInput = getByPlaceholderText('Confirmar senha');
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD_ALT);
 
-      fireEvent.changeText(passwordInput, 'novaSenha123');
-      fireEvent.changeText(confirmPasswordInput, 'outraSenha123');
-
-      const submitButton = getByText('Redefinir Senha');
-      fireEvent.press(submitButton);
+      fireEvent.press(getByText('Redefinir Senha'));
 
       await waitFor(() => {
         expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'As senhas não coincidem');
@@ -167,17 +209,15 @@ describe('Reset Password Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
-      const passwordInput = getByPlaceholderText('Nova senha');
-      const confirmPasswordInput = getByPlaceholderText('Confirmar senha');
+      const shortValid = 'Teste@1A';
 
-      fireEvent.changeText(passwordInput, '12345678');
-      fireEvent.changeText(confirmPasswordInput, '12345678');
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), shortValid);
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), shortValid);
 
-      const submitButton = getByText('Redefinir Senha');
-      fireEvent.press(submitButton);
+      fireEvent.press(getByText('Redefinir Senha'));
 
       await waitFor(() => {
-        expect(authService.updatePassword).toHaveBeenCalledWith('12345678');
+        expect(authService.updatePassword).toHaveBeenCalledWith(shortValid);
       });
     });
   });
@@ -191,38 +231,30 @@ describe('Reset Password Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
-      const passwordInput = getByPlaceholderText('Nova senha');
-      const confirmPasswordInput = getByPlaceholderText('Confirmar senha');
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
 
-      fireEvent.changeText(passwordInput, 'novaSenha123');
-      fireEvent.changeText(confirmPasswordInput, 'novaSenha123');
-
-      const submitButton = getByText('Redefinir Senha');
-      fireEvent.press(submitButton);
+      fireEvent.press(getByText('Redefinir Senha'));
 
       await waitFor(() => {
-        expect(authService.updatePassword).toHaveBeenCalledWith('novaSenha123');
+        expect(authService.updatePassword).toHaveBeenCalledWith(VALID_PASSWORD);
         expect(global.mockUseAlert.showSuccess).toHaveBeenCalledWith(
           'Senha atualizada!',
-          'Sua senha foi redefinida com sucesso. Faça login com sua nova senha.',
+          'Sua senha foi redefinida com sucesso.',
           expect.any(Function)
         );
       });
     });
 
-    it('deve redirecionar para login após confirmar sucesso', async () => {
+    it('deve redirecionar para / (index) após confirmar sucesso', async () => {
       (authService.updatePassword as jest.Mock).mockResolvedValue(undefined);
 
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
-      const passwordInput = getByPlaceholderText('Nova senha');
-      const confirmPasswordInput = getByPlaceholderText('Confirmar senha');
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
 
-      fireEvent.changeText(passwordInput, 'novaSenha123');
-      fireEvent.changeText(confirmPasswordInput, 'novaSenha123');
-
-      const submitButton = getByText('Redefinir Senha');
-      fireEvent.press(submitButton);
+      fireEvent.press(getByText('Redefinir Senha'));
 
       await waitFor(() => {
         expect(global.mockUseAlert.showSuccess).toHaveBeenCalled();
@@ -233,7 +265,7 @@ describe('Reset Password Screen - Integration Tests', () => {
       const onDismissCallback = successCall[2];
       onDismissCallback();
 
-      expect(mockRouter.replace).toHaveBeenCalledWith('/auth/login');
+      expect(mockRouter.replace).toHaveBeenCalledWith('/');
     });
 
     it('deve aceitar senhas longas (mais de 8 caracteres)', async () => {
@@ -241,16 +273,12 @@ describe('Reset Password Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
-      const passwordInput = getByPlaceholderText('Nova senha');
-      const confirmPasswordInput = getByPlaceholderText('Confirmar senha');
+      const longPassword = 'EstaeumaSenhaMuitoSegura123!@#';
 
-      const longPassword = 'estaeumaSenhaMuitoSegura123!@#';
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), longPassword);
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), longPassword);
 
-      fireEvent.changeText(passwordInput, longPassword);
-      fireEvent.changeText(confirmPasswordInput, longPassword);
-
-      const submitButton = getByText('Redefinir Senha');
-      fireEvent.press(submitButton);
+      fireEvent.press(getByText('Redefinir Senha'));
 
       await waitFor(() => {
         expect(authService.updatePassword).toHaveBeenCalledWith(longPassword);
@@ -262,16 +290,12 @@ describe('Reset Password Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
-      const passwordInput = getByPlaceholderText('Nova senha');
-      const confirmPasswordInput = getByPlaceholderText('Confirmar senha');
-
       const specialPassword = 'Senha!@#123';
 
-      fireEvent.changeText(passwordInput, specialPassword);
-      fireEvent.changeText(confirmPasswordInput, specialPassword);
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), specialPassword);
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), specialPassword);
 
-      const submitButton = getByText('Redefinir Senha');
-      fireEvent.press(submitButton);
+      fireEvent.press(getByText('Redefinir Senha'));
 
       await waitFor(() => {
         expect(authService.updatePassword).toHaveBeenCalledWith(specialPassword);
@@ -289,14 +313,10 @@ describe('Reset Password Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
-      const passwordInput = getByPlaceholderText('Nova senha');
-      const confirmPasswordInput = getByPlaceholderText('Confirmar senha');
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
 
-      fireEvent.changeText(passwordInput, 'novaSenha123');
-      fireEvent.changeText(confirmPasswordInput, 'novaSenha123');
-
-      const submitButton = getByText('Redefinir Senha');
-      fireEvent.press(submitButton);
+      fireEvent.press(getByText('Redefinir Senha'));
 
       await waitFor(() => {
         expect(global.mockUseAlert.showError).toHaveBeenCalledWith(testError);
@@ -309,14 +329,10 @@ describe('Reset Password Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
-      const passwordInput = getByPlaceholderText('Nova senha');
-      const confirmPasswordInput = getByPlaceholderText('Confirmar senha');
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
 
-      fireEvent.changeText(passwordInput, 'novaSenha123');
-      fireEvent.changeText(confirmPasswordInput, 'novaSenha123');
-
-      const submitButton = getByText('Redefinir Senha');
-      fireEvent.press(submitButton);
+      fireEvent.press(getByText('Redefinir Senha'));
 
       await waitFor(() => {
         expect(global.mockUseAlert.showError).toHaveBeenCalledWith(testError);
@@ -326,15 +342,11 @@ describe('Reset Password Screen - Integration Tests', () => {
     it('não deve chamar authService quando validação falha', async () => {
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
-      const passwordInput = getByPlaceholderText('Nova senha');
-      const confirmPasswordInput = getByPlaceholderText('Confirmar senha');
+      // Senhas válidas mas não coincidem
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD_ALT);
 
-      // Senhas não coincidem
-      fireEvent.changeText(passwordInput, 'senha123456');
-      fireEvent.changeText(confirmPasswordInput, 'outra123456');
-
-      const submitButton = getByText('Redefinir Senha');
-      fireEvent.press(submitButton);
+      fireEvent.press(getByText('Redefinir Senha'));
 
       await waitFor(() => {
         expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'As senhas não coincidem');
@@ -355,18 +367,13 @@ describe('Reset Password Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
-      const passwordInput = getByPlaceholderText('Nova senha');
-      const confirmPasswordInput = getByPlaceholderText('Confirmar senha');
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
 
-      fireEvent.changeText(passwordInput, 'novaSenha123');
-      fireEvent.changeText(confirmPasswordInput, 'novaSenha123');
+      fireEvent.press(getByText('Redefinir Senha'));
 
-      const submitButton = getByText('Redefinir Senha');
-      fireEvent.press(submitButton);
-
-      // Esperar o serviço ser chamado para confirmar que loading começou
       await waitFor(() => {
-        expect(authService.updatePassword).toHaveBeenCalledWith('novaSenha123');
+        expect(authService.updatePassword).toHaveBeenCalledWith(VALID_PASSWORD);
       });
     });
 
@@ -375,17 +382,13 @@ describe('Reset Password Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
-      const passwordInput = getByPlaceholderText('Nova senha');
-      const confirmPasswordInput = getByPlaceholderText('Confirmar senha');
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
 
-      fireEvent.changeText(passwordInput, 'novaSenha123');
-      fireEvent.changeText(confirmPasswordInput, 'novaSenha123');
-
-      const submitButton = getByText('Redefinir Senha');
-      fireEvent.press(submitButton);
+      fireEvent.press(getByText('Redefinir Senha'));
 
       await waitFor(() => {
-        expect(authService.updatePassword).toHaveBeenCalledWith('novaSenha123');
+        expect(authService.updatePassword).toHaveBeenCalledWith(VALID_PASSWORD);
         expect(global.mockUseAlert.showSuccess).toHaveBeenCalled();
       });
     });
@@ -396,14 +399,10 @@ describe('Reset Password Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
-      const passwordInput = getByPlaceholderText('Nova senha');
-      const confirmPasswordInput = getByPlaceholderText('Confirmar senha');
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
 
-      fireEvent.changeText(passwordInput, 'novaSenha123');
-      fireEvent.changeText(confirmPasswordInput, 'novaSenha123');
-
-      const submitButton = getByText('Redefinir Senha');
-      fireEvent.press(submitButton);
+      fireEvent.press(getByText('Redefinir Senha'));
 
       await waitFor(() => {
         expect(authService.updatePassword).toHaveBeenCalled();
@@ -425,24 +424,20 @@ describe('Reset Password Screen - Integration Tests', () => {
       expect(mockRouter.replace).toHaveBeenCalledWith('/auth/login');
     });
 
-    it('deve exibir Alert de sucesso com callback de confirmação', async () => {
+    it('deve redirecionar para / após sucesso', async () => {
       (authService.updatePassword as jest.Mock).mockResolvedValue(undefined);
 
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
-      const passwordInput = getByPlaceholderText('Nova senha');
-      const confirmPasswordInput = getByPlaceholderText('Confirmar senha');
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
 
-      fireEvent.changeText(passwordInput, 'novaSenha123');
-      fireEvent.changeText(confirmPasswordInput, 'novaSenha123');
-
-      const submitButton = getByText('Redefinir Senha');
-      fireEvent.press(submitButton);
+      fireEvent.press(getByText('Redefinir Senha'));
 
       await waitFor(() => {
         expect(global.mockUseAlert.showSuccess).toHaveBeenCalledWith(
           'Senha atualizada!',
-          'Sua senha foi redefinida com sucesso. Faça login com sua nova senha.',
+          'Sua senha foi redefinida com sucesso.',
           expect.any(Function)
         );
       });
@@ -454,31 +449,100 @@ describe('Reset Password Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
-      const passwordInput = getByPlaceholderText('Nova senha');
-      const confirmPasswordInput = getByPlaceholderText('Confirmar senha');
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
 
-      fireEvent.changeText(passwordInput, 'novaSenha123');
-      fireEvent.changeText(confirmPasswordInput, 'novaSenha123');
-
-      const submitButton = getByText('Redefinir Senha');
-      fireEvent.press(submitButton);
+      fireEvent.press(getByText('Redefinir Senha'));
 
       await waitFor(() => {
         expect(global.mockUseAlert.showError).toHaveBeenCalledWith(testError);
       });
 
-      // Não deve ter chamado replace (exceto pelo mock inicial)
+      // Não deve ter chamado replace
       const replaceCalls = (mockRouter.replace as jest.Mock).mock.calls;
       expect(replaceCalls.length).toBe(0);
     });
   });
 
   // ============================================
-  // GRUPO 7: Casos de Borda
+  // GRUPO 7: Link Expirado / Sessão Ausente
+  // ============================================
+  describe('Link Expirado', () => {
+    it('deve mostrar tela de link expirado quando AuthSessionMissingError ocorre', async () => {
+      const sessionError = new Error('Auth session missing');
+      (authService.updatePassword as jest.Mock).mockRejectedValue(sessionError);
+
+      const { getByPlaceholderText, getByText, queryByText } = render(<ResetPassword />);
+
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+
+      fireEvent.press(getByText('Redefinir Senha'));
+
+      await waitFor(() => {
+        expect(getByText('Link expirado')).toBeTruthy();
+        expect(getByText('Solicitar Novo Link')).toBeTruthy();
+        expect(queryByText('Redefinir Senha')).toBeNull();
+      });
+    });
+
+    it('deve mostrar tela de link expirado com AuthSessionMissingError (name-based)', async () => {
+      const sessionError = new Error('Something went wrong');
+      sessionError.name = 'AuthSessionMissingError';
+      (authService.updatePassword as jest.Mock).mockRejectedValue(sessionError);
+
+      const { getByPlaceholderText, getByText } = render(<ResetPassword />);
+
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+      fireEvent.press(getByText('Redefinir Senha'));
+
+      await waitFor(() => {
+        expect(getByText('Link expirado')).toBeTruthy();
+      });
+    });
+
+    it('deve navegar para forgot-password ao clicar em "Solicitar Novo Link"', async () => {
+      const sessionError = new Error('Auth session missing');
+      (authService.updatePassword as jest.Mock).mockRejectedValue(sessionError);
+
+      const { getByPlaceholderText, getByText } = render(<ResetPassword />);
+
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+      fireEvent.press(getByText('Redefinir Senha'));
+
+      await waitFor(() => {
+        expect(getByText('Solicitar Novo Link')).toBeTruthy();
+      });
+
+      fireEvent.press(getByText('Solicitar Novo Link'));
+      expect(mockRouter.replace).toHaveBeenCalledWith('/auth/forgot-password');
+    });
+
+    it('não deve chamar showError para AuthSessionMissingError', async () => {
+      const sessionError = new Error('Auth session missing');
+      (authService.updatePassword as jest.Mock).mockRejectedValue(sessionError);
+
+      const { getByPlaceholderText, getByText } = render(<ResetPassword />);
+
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+      fireEvent.press(getByText('Redefinir Senha'));
+
+      await waitFor(() => {
+        expect(getByText('Link expirado')).toBeTruthy();
+      });
+
+      expect(global.mockUseAlert.showError).not.toHaveBeenCalled();
+    });
+  });
+
+  // ============================================
+  // GRUPO 8: Casos de Borda
   // ============================================
   describe('Casos de Borda', () => {
     it('deve permitir múltiplas tentativas de atualização após erro', async () => {
-      // Configurar mock para duas chamadas: primeira falha, segunda sucesso
       const firstError = new Error('Erro temporário');
       (authService.updatePassword as jest.Mock)
         .mockRejectedValueOnce(firstError)
@@ -486,13 +550,11 @@ describe('Reset Password Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
-      const passwordInput = getByPlaceholderText('Nova senha');
-      const confirmPasswordInput = getByPlaceholderText('Confirmar senha');
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
       let submitButton = getByText('Redefinir Senha');
 
       // Primeira tentativa - erro
-      fireEvent.changeText(passwordInput, 'novaSenha123');
-      fireEvent.changeText(confirmPasswordInput, 'novaSenha123');
       fireEvent.press(submitButton);
 
       await waitFor(() => {
@@ -510,12 +572,11 @@ describe('Reset Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        // Verificar que o authService foi chamado duas vezes
         expect(authService.updatePassword).toHaveBeenCalledTimes(2);
       });
     });
 
-    it('deve validar em ordem: vazio -> tamanho -> confirmação', async () => {
+    it('deve validar em ordem: vazio -> complexidade -> confirmação', async () => {
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
       const passwordInput = getByPlaceholderText('Nova senha');
@@ -531,23 +592,23 @@ describe('Reset Password Screen - Integration Tests', () => {
 
       jest.clearAllMocks();
 
-      // Teste 2: Senha muito curta
-      fireEvent.changeText(passwordInput, '123');
-      fireEvent.changeText(confirmPasswordInput, '123');
+      // Teste 2: Senha sem requisitos de complexidade
+      fireEvent.changeText(passwordInput, 'senhafraca');
+      fireEvent.changeText(confirmPasswordInput, 'senhafraca');
       fireEvent.press(submitButton);
 
       await waitFor(() => {
         expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
-          'Erro',
-          'A senha deve ter no mínimo 8 caracteres'
+          'Senha fraca',
+          expect.stringContaining('A senha precisa:')
         );
       });
 
       jest.clearAllMocks();
 
-      // Teste 3: Senhas não coincidem
-      fireEvent.changeText(passwordInput, '12345678');
-      fireEvent.changeText(confirmPasswordInput, '87654321');
+      // Teste 3: Senhas válidas mas não coincidem
+      fireEvent.changeText(passwordInput, VALID_PASSWORD);
+      fireEvent.changeText(confirmPasswordInput, VALID_PASSWORD_ALT);
       fireEvent.press(submitButton);
 
       await waitFor(() => {
@@ -558,15 +619,11 @@ describe('Reset Password Screen - Integration Tests', () => {
     it('deve considerar case-sensitive na confirmação de senha', async () => {
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
-      const passwordInput = getByPlaceholderText('Nova senha');
-      const confirmPasswordInput = getByPlaceholderText('Confirmar senha');
+      // Senhas diferem apenas no case (ambas passam validatePassword individualmente)
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), 'NovaSenha@123');
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), 'Novasenha@123');
 
-      // Senhas diferem apenas no case
-      fireEvent.changeText(passwordInput, 'NovaSenha123');
-      fireEvent.changeText(confirmPasswordInput, 'novasenha123');
-
-      const submitButton = getByText('Redefinir Senha');
-      fireEvent.press(submitButton);
+      fireEvent.press(getByText('Redefinir Senha'));
 
       await waitFor(() => {
         expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'As senhas não coincidem');

@@ -1,8 +1,12 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
@@ -17,7 +21,21 @@ import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
 import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
+import { validatePassword } from '@/lib/schemas/basic';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+
+/** Parse error params from URL hash (Supabase redirects with #error=...&error_code=...) */
+function getHashErrorParams(): { error?: string; errorCode?: string; errorDescription?: string } {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return {};
+  const hash = window.location.hash.substring(1);
+  if (!hash) return {};
+  const params = new URLSearchParams(hash);
+  return {
+    error: params.get('error') || undefined,
+    errorCode: params.get('error_code') || undefined,
+    errorDescription: params.get('error_description') || undefined,
+  };
+}
 
 export default function ResetPassword() {
   const { theme } = useUnistyles();
@@ -28,19 +46,33 @@ export default function ResetPassword() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [linkExpired, setLinkExpired] = useState(false);
+
+  // Check for error params from Supabase redirect (e.g. expired OTP, access denied)
+  useEffect(() => {
+    const { error, errorCode } = getHashErrorParams();
+    if (errorCode === 'otp_expired' || error === 'access_denied') {
+      setLinkExpired(true);
+      // Clean error params from URL bar
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    }
+  }, []);
 
   // Detectar tema escuro para usar logo apropriada
   const isDarkMode = UnistylesRuntime.themeName?.startsWith('dark');
   const LogoHorizontal = isDarkMode ? LogoHorizontalDark : LogoHorizontalLight;
 
-  function validatePassword() {
+  function validateForm() {
     if (!password.trim()) {
       showWarning('Erro', 'Digite sua nova senha');
       return false;
     }
 
-    if (password.length < 8) {
-      showWarning('Erro', 'A senha deve ter no mínimo 8 caracteres');
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      showWarning('Senha fraca', `A senha precisa:\n• ${passwordValidation.errors.join('\n• ')}`);
       return false;
     }
 
@@ -53,7 +85,7 @@ export default function ResetPassword() {
   }
 
   async function handleUpdatePassword() {
-    if (!validatePassword()) {
+    if (!validateForm()) {
       return;
     }
 
@@ -63,15 +95,54 @@ export default function ResetPassword() {
       await authService.updatePassword(password);
       showSuccess(
         'Senha atualizada!',
-        'Sua senha foi redefinida com sucesso. Faça login com sua nova senha.',
-        () => router.replace('/auth/login')
+        'Sua senha foi redefinida com sucesso.',
+        () => router.replace('/')
       );
     } catch (error: unknown) {
-      showError(error);
+      const message = error instanceof Error ? error.message : '';
+      const name = error instanceof Error ? error.name : '';
+      if (message.includes('Auth session missing') || name.includes('AuthSessionMissing')) {
+        // No valid session — link was likely expired or already used
+        setLinkExpired(true);
+      } else {
+        showError(error);
+      }
     } finally {
       setLoading(false);
     }
   }
+
+  // ============================================
+  // RENDER: Expired Link (shared content)
+  // ============================================
+  const expiredContent = (
+    <View style={styles.expiredContainer}>
+      <Ionicons name="alert-circle-outline" size={48} color={theme.colors.gray400} />
+      <Text style={isDesktop ? styles.titleDesktop : styles.expiredTitle}>
+        Link expirado
+      </Text>
+      <Text style={isDesktop ? styles.subtitleDesktop : styles.expiredMessage}>
+        O link de recuperação de senha expirou ou já foi utilizado. Solicite um novo link para
+        redefinir sua senha.
+      </Text>
+      <TouchableOpacity
+        style={isDesktop ? styles.buttonDesktop : styles.button}
+        onPress={() => router.replace('/auth/forgot-password')}
+        accessibilityLabel="Solicitar novo link de recuperação"
+        accessibilityRole="button"
+      >
+        <Text style={styles.buttonText}>Solicitar Novo Link</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => router.replace('/auth/login')}
+        accessibilityLabel="Voltar para login"
+        accessibilityRole="link"
+      >
+        <Text style={styles.backButtonText}>Voltar para login</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   // ============================================
   // RENDER: Desktop (Split Screen)
@@ -84,60 +155,74 @@ export default function ResetPassword() {
           <AuthBrandPanel />
         </View>
 
-        {/* Right Side - Form */}
+        {/* Right Side */}
         <View style={styles.rightPanel}>
           <View style={styles.formContainerDesktop}>
-            <View style={styles.headerDesktop}>
-              <Text style={styles.titleDesktop}>Nova Senha</Text>
-              <Text style={styles.subtitleDesktop}>
-                Digite sua nova senha. Ela deve ter no mínimo 8 caracteres.
-              </Text>
-            </View>
+            {linkExpired ? expiredContent : (
+              <>
+                <View style={styles.headerDesktop}>
+                  <Text style={styles.titleDesktop}>Nova Senha</Text>
+                  <Text style={styles.subtitleDesktop}>
+                    Digite sua nova senha. Ela deve conter letras maiúsculas, números e caracteres
+                    especiais.
+                  </Text>
+                </View>
 
-            <View style={styles.form}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Nova Senha</Text>
-                <TextInput
-                  style={styles.inputDesktop}
-                  placeholder="Digite sua nova senha"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                />
-              </View>
+                <View style={styles.form}>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Nova Senha</Text>
+                    <TextInput
+                      style={styles.inputDesktop}
+                      placeholder="Digite sua nova senha"
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry
+                      autoCapitalize="none"
+                      autoComplete="new-password"
+                      accessibilityLabel="Nova senha"
+                    />
+                  </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Confirmar Senha</Text>
-                <TextInput
-                  style={styles.inputDesktop}
-                  placeholder="Digite novamente sua senha"
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                />
-              </View>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Confirmar Senha</Text>
+                    <TextInput
+                      style={styles.inputDesktop}
+                      placeholder="Digite novamente sua senha"
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      secureTextEntry
+                      autoCapitalize="none"
+                      autoComplete="new-password"
+                      accessibilityLabel="Confirmar senha"
+                    />
+                  </View>
 
-              <TouchableOpacity
-                style={styles.buttonDesktop}
-                onPress={handleUpdatePassword}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color={theme.colors.white} />
-                ) : (
-                  <Text style={styles.buttonText}>Redefinir Senha</Text>
-                )}
-              </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.buttonDesktop}
+                    onPress={handleUpdatePassword}
+                    disabled={loading}
+                    accessibilityLabel="Redefinir senha"
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: loading }}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color={theme.colors.white} />
+                    ) : (
+                      <Text style={styles.buttonText}>Redefinir Senha</Text>
+                    )}
+                  </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => router.replace('/auth/login')}
-              >
-                <Text style={styles.backButtonText}>Voltar para login</Text>
-              </TouchableOpacity>
-            </View>
+                  <TouchableOpacity
+                    style={styles.backButton}
+                    onPress={() => router.replace('/auth/login')}
+                    accessibilityLabel="Voltar para login"
+                    accessibilityRole="link"
+                  >
+                    <Text style={styles.backButtonText}>Voltar para login</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </View>
         {AlertDialog}
@@ -149,58 +234,80 @@ export default function ResetPassword() {
   // RENDER: Mobile/Tablet
   // ============================================
   return (
-    <View style={[styles.container, { paddingBottom: Math.max(20, insets.bottom + 20) }]}>
-      <View style={styles.header}>
-        <View style={styles.logoHorizontal}>
-          <Image
-            source={LogoHorizontal}
-            style={styles.logoImage}
-            resizeMode="contain"
-          />
-        </View>
-        <Text style={styles.subtitle}>Nova senha</Text>
-      </View>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingBottom: Math.max(20, insets.bottom + 20) }]}
+        keyboardShouldPersistTaps="handled"
+        bounces={false}
+      >
+        {!linkExpired && (
+          <View style={styles.header}>
+            <View style={styles.logoHorizontal}>
+              <Image
+                source={LogoHorizontal}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.subtitle}>Nova senha</Text>
+          </View>
+        )}
 
-      <View style={styles.form}>
-        <TextInput
-          style={styles.input}
-          placeholder="Nova senha"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoCapitalize="none"
-        />
+        {linkExpired ? expiredContent : (
+          <View style={styles.form}>
+            <TextInput
+              style={styles.input}
+              placeholder="Nova senha"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoCapitalize="none"
+              autoComplete="new-password"
+              accessibilityLabel="Nova senha"
+            />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Confirmar senha"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-          autoCapitalize="none"
-        />
+            <TextInput
+              style={styles.input}
+              placeholder="Confirmar senha"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+              autoCapitalize="none"
+              autoComplete="new-password"
+              accessibilityLabel="Confirmar senha"
+            />
 
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleUpdatePassword}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color={theme.colors.white} />
-          ) : (
-            <Text style={styles.buttonText}>Redefinir Senha</Text>
-          )}
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={handleUpdatePassword}
+              disabled={loading}
+              accessibilityLabel="Redefinir senha"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: loading }}
+            >
+              {loading ? (
+                <ActivityIndicator color={theme.colors.white} />
+              ) : (
+                <Text style={styles.buttonText}>Redefinir Senha</Text>
+              )}
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.replace('/auth/login')}
-        >
-        <Text style={styles.backButtonText}>Voltar para login</Text>
-        </TouchableOpacity>
-      </View>
-      {AlertDialog}
-    </View>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.replace('/auth/login')}
+              accessibilityLabel="Voltar para login"
+              accessibilityRole="link"
+            >
+              <Text style={styles.backButtonText}>Voltar para login</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        {AlertDialog}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -267,7 +374,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     ...theme.shadows.md,
   },
   container: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: theme.colors.white,
     justifyContent: 'center',
     padding: theme.spacing.xxl,
@@ -326,5 +433,23 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.fontSize.sm,
     fontFamily: theme.typography.fontSansMedium,
   },
+  expiredContainer: {
+    alignItems: 'center',
+  },
+  expiredTitle: {
+    fontFamily: theme.typography.fontDisplay,
+    fontSize: theme.typography.fontSize['2xl'],
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.md,
+    marginTop: theme.spacing.lg,
+    textAlign: 'center',
+  },
+  expiredMessage: {
+    fontFamily: theme.typography.fontSans,
+    fontSize: theme.typography.fontSize.base,
+    color: theme.colors.gray500,
+    textAlign: 'center',
+    lineHeight: theme.spacing.xxl,
+    marginBottom: theme.spacing.xl,
+  },
 }));
-
