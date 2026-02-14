@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -18,11 +18,12 @@ import { UnistylesRuntime } from 'react-native-unistyles';
 import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
 import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
+import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
 import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
-import { validatePassword } from '@/lib/schemas/basic';
 import { logger } from '@/lib/logger';
+import { validatePassword } from '@/lib/schemas/basic';
 import { isRecoveryRedirect, supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -66,6 +67,9 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [linkExpired, setLinkExpired] = useState(false);
   const [checkingSession, setCheckingSession] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const confirmPasswordRef = useRef<TextInput>(null);
 
   // Check for error params from Supabase redirect (e.g. expired OTP, access denied)
   // Also proactively verify session when arriving from a recovery redirect
@@ -188,6 +192,22 @@ export default function ResetPassword() {
     }
   }
 
+  // Shared: password requirements box
+  const requirementsContent = (
+    <View style={styles.requirementsBox}>
+      <Text style={styles.requirementsTitle}>Requisitos de segurança:</Text>
+      <Text style={styles.requirementText}>• Mínimo de 8 caracteres</Text>
+      <Text style={styles.requirementText}>• Pelo menos 1 letra maiúscula</Text>
+      <Text style={styles.requirementText}>• Pelo menos 1 número</Text>
+      <Text style={styles.requirementText}>• Pelo menos 1 caractere especial (!@#$%&*)</Text>
+    </View>
+  );
+
+  // Shared: password mismatch inline feedback
+  const mismatchContent = confirmPassword && password !== confirmPassword ? (
+    <Text style={styles.mismatchText}>As senhas não coincidem</Text>
+  ) : null;
+
   // ============================================
   // RENDER: Expired Link (shared content)
   // ============================================
@@ -214,6 +234,7 @@ export default function ResetPassword() {
         onPress={() => router.replace('/auth/login')}
         accessibilityLabel="Voltar para login"
         accessibilityRole="link"
+        testID="auth-reset-password-back"
       >
         <Text style={styles.backButtonText}>Voltar para login</Text>
       </TouchableOpacity>
@@ -226,7 +247,7 @@ export default function ResetPassword() {
   if (checkingSession) {
     if (isDesktop) {
       return (
-        <View style={styles.containerDesktop}>
+        <View style={styles.containerDesktop} testID="auth-reset-password-view">
           <View style={styles.leftPanel}>
             <AuthBrandPanel />
           </View>
@@ -242,7 +263,7 @@ export default function ResetPassword() {
       );
     }
     return (
-      <View style={styles.container}>
+      <View style={styles.container} testID="auth-reset-password-view">
         <View style={styles.checkingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={styles.checkingText}>Verificando link de recuperação...</Text>
@@ -256,7 +277,7 @@ export default function ResetPassword() {
   // ============================================
   if (isDesktop) {
     return (
-      <View style={styles.containerDesktop}>
+      <View style={styles.containerDesktop} testID="auth-reset-password-view">
         {/* Left Side - Branding */}
         <View style={styles.leftPanel}>
           <AuthBrandPanel />
@@ -270,39 +291,77 @@ export default function ResetPassword() {
                 <View style={styles.headerDesktop}>
                   <Text style={styles.titleDesktop}>Nova Senha</Text>
                   <Text style={styles.subtitleDesktop}>
-                    Digite sua nova senha. Ela deve conter letras maiúsculas, números e caracteres
-                    especiais.
+                    Digite sua nova senha abaixo. Confira os requisitos de segurança.
                   </Text>
                 </View>
 
                 <View style={styles.form}>
                   <View style={styles.inputGroup}>
                     <Text style={styles.inputLabel}>Nova Senha</Text>
-                    <TextInput
-                      style={styles.inputDesktop}
-                      placeholder="Digite sua nova senha"
-                      value={password}
-                      onChangeText={setPassword}
-                      secureTextEntry
-                      autoCapitalize="none"
-                      autoComplete="new-password"
-                      accessibilityLabel="Nova senha"
-                    />
+                    <View style={styles.passwordContainer}>
+                      <TextInput
+                        style={styles.inputDesktopPassword}
+                        placeholder="Digite sua nova senha"
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry={!showPassword}
+                        autoCapitalize="none"
+                        autoComplete="new-password"
+                        accessibilityLabel="Nova senha"
+                        returnKeyType="next"
+                        onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+                        testID="auth-reset-password-new"
+                      />
+                      <TouchableOpacity
+                        style={styles.eyeButton}
+                        onPress={() => setShowPassword(!showPassword)}
+                        accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                        accessibilityRole="button"
+                      >
+                        <Ionicons
+                          name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                          size={22}
+                          color={theme.colors.gray500}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                    <PasswordStrengthIndicator password={password} />
                   </View>
 
                   <View style={styles.inputGroup}>
                     <Text style={styles.inputLabel}>Confirmar Senha</Text>
-                    <TextInput
-                      style={styles.inputDesktop}
-                      placeholder="Digite novamente sua senha"
-                      value={confirmPassword}
-                      onChangeText={setConfirmPassword}
-                      secureTextEntry
-                      autoCapitalize="none"
-                      autoComplete="new-password"
-                      accessibilityLabel="Confirmar senha"
-                    />
+                    <View style={styles.passwordContainer}>
+                      <TextInput
+                        ref={confirmPasswordRef}
+                        style={styles.inputDesktopPassword}
+                        placeholder="Digite novamente sua senha"
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        secureTextEntry={!showConfirmPassword}
+                        autoCapitalize="none"
+                        autoComplete="new-password"
+                        accessibilityLabel="Confirmar senha"
+                        returnKeyType="done"
+                        onSubmitEditing={handleUpdatePassword}
+                        testID="auth-reset-password-confirm"
+                      />
+                      <TouchableOpacity
+                        style={styles.eyeButton}
+                        onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                        accessibilityLabel={showConfirmPassword ? 'Ocultar confirmação de senha' : 'Mostrar confirmação de senha'}
+                        accessibilityRole="button"
+                      >
+                        <Ionicons
+                          name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                          size={22}
+                          color={theme.colors.gray500}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                    {mismatchContent}
                   </View>
+
+                  {requirementsContent}
 
                   <TouchableOpacity
                     style={styles.buttonDesktop}
@@ -311,6 +370,7 @@ export default function ResetPassword() {
                     accessibilityLabel="Redefinir senha"
                     accessibilityRole="button"
                     accessibilityState={{ disabled: loading }}
+                    testID="auth-reset-password-submit"
                   >
                     {loading ? (
                       <ActivityIndicator color={theme.colors.white} />
@@ -324,6 +384,7 @@ export default function ResetPassword() {
                     onPress={() => router.replace('/auth/login')}
                     accessibilityLabel="Voltar para login"
                     accessibilityRole="link"
+                    testID="auth-reset-password-back"
                   >
                     <Text style={styles.backButtonText}>Voltar para login</Text>
                   </TouchableOpacity>
@@ -349,6 +410,7 @@ export default function ResetPassword() {
         contentContainerStyle={[styles.container, { paddingBottom: Math.max(20, insets.bottom + 20) }]}
         keyboardShouldPersistTaps="handled"
         bounces={false}
+        testID="auth-reset-password-view"
       >
         {!linkExpired && (
           <View style={styles.header}>
@@ -365,27 +427,66 @@ export default function ResetPassword() {
 
         {linkExpired ? expiredContent : (
           <View style={styles.form}>
-            <TextInput
-              style={styles.input}
-              placeholder="Nova senha"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-              autoComplete="new-password"
-              accessibilityLabel="Nova senha"
-            />
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.inputPassword}
+                placeholder="Nova senha"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoComplete="new-password"
+                accessibilityLabel="Nova senha"
+                returnKeyType="next"
+                onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+                testID="auth-reset-password-new"
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowPassword(!showPassword)}
+                accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                accessibilityRole="button"
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={22}
+                  color={theme.colors.gray500}
+                />
+              </TouchableOpacity>
+            </View>
+            <PasswordStrengthIndicator password={password} />
 
-            <TextInput
-              style={styles.input}
-              placeholder="Confirmar senha"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-              autoCapitalize="none"
-              autoComplete="new-password"
-              accessibilityLabel="Confirmar senha"
-            />
+            <View style={styles.passwordContainer}>
+              <TextInput
+                ref={confirmPasswordRef}
+                style={styles.inputPassword}
+                placeholder="Confirmar senha"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!showConfirmPassword}
+                autoCapitalize="none"
+                autoComplete="new-password"
+                accessibilityLabel="Confirmar senha"
+                returnKeyType="done"
+                onSubmitEditing={handleUpdatePassword}
+                testID="auth-reset-password-confirm"
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                accessibilityLabel={showConfirmPassword ? 'Ocultar confirmação de senha' : 'Mostrar confirmação de senha'}
+                accessibilityRole="button"
+              >
+                <Ionicons
+                  name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={22}
+                  color={theme.colors.gray500}
+                />
+              </TouchableOpacity>
+            </View>
+            {mismatchContent}
+
+            {requirementsContent}
 
             <TouchableOpacity
               style={styles.button}
@@ -394,6 +495,7 @@ export default function ResetPassword() {
               accessibilityLabel="Redefinir senha"
               accessibilityRole="button"
               accessibilityState={{ disabled: loading }}
+              testID="auth-reset-password-submit"
             >
               {loading ? (
                 <ActivityIndicator color={theme.colors.white} />
@@ -407,6 +509,7 @@ export default function ResetPassword() {
               onPress={() => router.replace('/auth/login')}
               accessibilityLabel="Voltar para login"
               accessibilityRole="link"
+              testID="auth-reset-password-back"
             >
               <Text style={styles.backButtonText}>Voltar para login</Text>
             </TouchableOpacity>
@@ -462,15 +565,27 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray700,
     marginBottom: theme.spacing['2'],
   },
-  inputDesktop: {
+  passwordContainer: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  inputDesktopPassword: {
+    flex: 1,
     borderWidth: 1,
     borderColor: theme.colors.gray300,
     borderRadius: theme.borderRadius.sm,
     padding: theme.spacing['3.5'],
+    paddingRight: 45,
     fontSize: theme.typography.fontSize.base,
     fontFamily: theme.typography.fontSans,
     backgroundColor: theme.colors.white,
     color: theme.colors.gray900,
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: theme.spacing.md,
+    padding: theme.spacing.sm,
   },
   buttonDesktop: {
     backgroundColor: theme.colors.primary,
@@ -505,15 +620,17 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   form: {
     width: '100%',
+    gap: theme.spacing.lg,
   },
-  input: {
+  inputPassword: {
+    flex: 1,
     borderWidth: 1,
     borderColor: theme.colors.gray300,
     borderRadius: theme.borderRadius.sm,
     padding: theme.spacing.lg,
+    paddingRight: 45,
     fontSize: theme.typography.fontSize.base,
     fontFamily: theme.typography.fontSans,
-    marginBottom: theme.spacing.lg,
     backgroundColor: theme.colors.white,
     color: theme.colors.gray900,
   },
@@ -522,7 +639,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     padding: theme.spacing.lg,
     borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
-    marginBottom: theme.spacing.lg,
     ...theme.shadows.sm,
   },
   buttonText: {
@@ -568,5 +684,30 @@ const styles = StyleSheet.create((theme: Theme) => ({
     textAlign: 'center',
     lineHeight: theme.spacing.xxl,
     marginBottom: theme.spacing.xl,
+  },
+  mismatchText: {
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.error,
+    marginTop: theme.spacing.xs,
+  },
+  requirementsBox: {
+    backgroundColor: theme.colors.primaryBg,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.primaryLight,
+  },
+  requirementsTitle: {
+    fontFamily: theme.typography.fontSansSemiBold,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.primaryDark,
+    marginBottom: theme.spacing.sm,
+  },
+  requirementText: {
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.primaryDark,
+    marginTop: theme.spacing.xs,
   },
 }));

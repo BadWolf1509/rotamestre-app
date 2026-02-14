@@ -37,6 +37,9 @@ if (isSupabaseConfigured) {
       // Web: true to auto-detect recovery/magic-link tokens from URL hash
       // Mobile: false because RN doesn't have real window.location
       detectSessionInUrl: Platform.OS === 'web',
+      // auth-js v2.94.1 defaults to 'pkce', but Supabase sends implicit flow tokens
+      // (#access_token=... in URL hash). Without this, the SDK ignores recovery tokens entirely.
+      flowType: 'implicit',
     },
     realtime: {
       params: {

@@ -647,7 +647,58 @@ describe('Reset Password Screen - Integration Tests', () => {
   });
 
   // ============================================
-  // GRUPO 9: Verificação Proativa de Sessão (onAuthStateChange)
+  // GRUPO 9: Novos Elementos de UI (Strength, Mismatch, Requirements)
+  // ============================================
+  describe('Novos Elementos de UI', () => {
+    it('deve mostrar PasswordStrengthIndicator ao digitar senha', () => {
+      const { getByPlaceholderText, getByText, queryByText } = render(<ResetPassword />);
+
+      // Initially no indicator (empty password → returns null)
+      expect(queryByText(/Força:/)).toBeNull();
+
+      // Type a password → indicator appears
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), 'abc');
+      expect(getByText(/Força:/)).toBeTruthy();
+    });
+
+    it('deve mostrar "As senhas não coincidem" quando confirmação diverge', () => {
+      const { getByPlaceholderText, getByText } = render(<ResetPassword />);
+
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), 'outra');
+
+      expect(getByText('As senhas não coincidem')).toBeTruthy();
+    });
+
+    it('deve esconder mismatch quando senhas coincidem', () => {
+      const { getByPlaceholderText, queryByText } = render(<ResetPassword />);
+
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), 'outra');
+
+      // Mismatch visible
+      expect(queryByText('As senhas não coincidem')).toBeTruthy();
+
+      // Fix the confirm password
+      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+
+      // Mismatch gone
+      expect(queryByText('As senhas não coincidem')).toBeNull();
+    });
+
+    it('deve mostrar box de requisitos de segurança', () => {
+      const { getByText } = render(<ResetPassword />);
+
+      expect(getByText('Requisitos de segurança:')).toBeTruthy();
+      expect(getByText(/Mínimo de 8 caracteres/)).toBeTruthy();
+      expect(getByText(/letra maiúscula/)).toBeTruthy();
+      expect(getByText(/1 número/)).toBeTruthy();
+      expect(getByText(/caractere especial/)).toBeTruthy();
+    });
+  });
+
+  // ============================================
+  // GRUPO 10: Verificação Proativa de Sessão (onAuthStateChange)
   // ============================================
   describe('Verificação Proativa de Sessão', () => {
     const originalPlatformOS = jest.requireActual('react-native').Platform.OS;
