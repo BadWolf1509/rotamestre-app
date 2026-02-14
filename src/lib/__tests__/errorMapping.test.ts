@@ -59,6 +59,42 @@ describe('errorMapping', () => {
 
         expect(result.code).toBe('AUTH_EMAIL_EXISTS');
       });
+
+      it('should handle same password validation', () => {
+        const error = { message: 'New password should be different from the old password' };
+        const result = getErrorMessage(error);
+
+        expect(result.title).toBe('Senha inválida');
+        expect(result.code).toBe('AUTH_PASSWORD_SAME');
+        expect(result.type).toBe('warning');
+      });
+
+      it('should handle weak password validation', () => {
+        const error = { message: 'Password should be at least 8 characters' };
+        const result = getErrorMessage(error);
+
+        expect(result.title).toBe('Senha fraca');
+        expect(result.code).toBe('AUTH_PASSWORD_WEAK');
+        expect(result.type).toBe('warning');
+      });
+
+      it('should handle compromised password validation', () => {
+        const error = { message: 'Password is known to be compromised and cannot be used' };
+        const result = getErrorMessage(error);
+
+        expect(result.title).toBe('Senha comprometida');
+        expect(result.code).toBe('AUTH_PASSWORD_COMPROMISED');
+        expect(result.type).toBe('warning');
+      });
+
+      it('should handle recent login required validation', () => {
+        const error = { message: 'Password update requires recent login. Please reauthenticate.' };
+        const result = getErrorMessage(error);
+
+        expect(result.title).toBe('Sessão expirada');
+        expect(result.code).toBe('AUTH_RECENT_LOGIN_REQUIRED');
+        expect(result.type).toBe('warning');
+      });
     });
 
     describe('rate limiting errors', () => {

@@ -65,6 +65,42 @@ const ERROR_PATTERNS: Array<{
       code: 'RATE_LIMIT',
     },
   },
+  {
+    pattern: /same_password|should.*be.*different|new.*password.*different|password.*same/i,
+    result: {
+      title: 'Senha inválida',
+      message: 'A nova senha deve ser diferente da senha atual/anterior.',
+      type: 'warning',
+      code: 'AUTH_PASSWORD_SAME',
+    },
+  },
+  {
+    pattern: /weak_password|password.*(at least|minim|minimum)|password.*(uppercase|lowercase|number|special)|password.*requirements/i,
+    result: {
+      title: 'Senha fraca',
+      message: 'A senha não atende aos requisitos de segurança. Tente uma senha mais forte.',
+      type: 'warning',
+      code: 'AUTH_PASSWORD_WEAK',
+    },
+  },
+  {
+    pattern: /leaked|compromised|pwned/i,
+    result: {
+      title: 'Senha comprometida',
+      message: 'Essa senha já apareceu em vazamentos. Use uma senha diferente e mais segura.',
+      type: 'warning',
+      code: 'AUTH_PASSWORD_COMPROMISED',
+    },
+  },
+  {
+    pattern: /recent.*login|reauth|reauthentication/i,
+    result: {
+      title: 'Sessão expirada',
+      message: 'Para atualizar a senha, solicite um novo link de recuperação e tente novamente.',
+      type: 'warning',
+      code: 'AUTH_RECENT_LOGIN_REQUIRED',
+    },
+  },
 
   // Erros de RLS/Permissão
   {
