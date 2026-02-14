@@ -40,6 +40,8 @@ const mockSupabaseModule = require('@/lib/supabase') as {
       getSession: jest.Mock;
       setSession: jest.Mock;
       onAuthStateChange: jest.Mock;
+      exchangeCodeForSession?: jest.Mock;
+      verifyOtp?: jest.Mock;
     };
   };
 };
@@ -53,6 +55,30 @@ describe('Reset Password Screen - Integration Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSupabaseModule.isRecoveryRedirect = false;
+
+    // Ensure optional auth recovery mocks exist for tests that exercise retry logic.
+    if (!mockSupabaseModule.supabase.auth.setSession) {
+      (mockSupabaseModule.supabase.auth as Record<string, unknown>).setSession = jest.fn();
+    }
+    if (!mockSupabaseModule.supabase.auth.exchangeCodeForSession) {
+      (mockSupabaseModule.supabase.auth as Record<string, unknown>).exchangeCodeForSession = jest.fn();
+    }
+    if (!mockSupabaseModule.supabase.auth.verifyOtp) {
+      (mockSupabaseModule.supabase.auth as Record<string, unknown>).verifyOtp = jest.fn();
+    }
+
+    mockSupabaseModule.supabase.auth.setSession.mockResolvedValue({
+      data: { session: null },
+      error: null,
+    });
+    mockSupabaseModule.supabase.auth.exchangeCodeForSession.mockResolvedValue({
+      data: { session: null, user: null },
+      error: null,
+    });
+    mockSupabaseModule.supabase.auth.verifyOtp.mockResolvedValue({
+      data: { session: null, user: null },
+      error: null,
+    });
   });
 
   // ============================================
@@ -550,6 +576,93 @@ describe('Reset Password Screen - Integration Tests', () => {
       });
 
       expect(global.mockUseAlert.showError).not.toHaveBeenCalled();
+    });
+
+    it('deve tentar recuperar sessão do hash e repetir atualização antes de expirar', async () => {
+      const originalLocation = window.location;
+      Object.defineProperty(window, 'location', {
+        value: {
+          ...originalLocation,
+          hash: '#access_token=valid-jwt&refresh_token=valid-refresh&type=recovery',
+          search: '',
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      try {
+        const sessionError = new Error('Auth session missing');
+        (authService.updatePassword as jest.Mock)
+          .mockRejectedValueOnce(sessionError)
+          .mockResolvedValueOnce(undefined);
+
+        mockSupabaseModule.supabase.auth.setSession.mockResolvedValue({
+          data: { session: { access_token: 'valid-jwt' } },
+          error: null,
+        });
+
+        const { getByPlaceholderText, getByText } = render(<ResetPassword />);
+        fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+        fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+        fireEvent.press(getByText('Redefinir Senha'));
+
+        await waitFor(() => {
+          expect(mockSupabaseModule.supabase.auth.setSession).toHaveBeenCalledWith({
+            access_token: 'valid-jwt',
+            refresh_token: 'valid-refresh',
+          });
+          expect(authService.updatePassword).toHaveBeenCalledTimes(2);
+          expect(global.mockUseAlert.showSuccess).toHaveBeenCalled();
+        });
+      } finally {
+        Object.defineProperty(window, 'location', {
+          value: originalLocation,
+          writable: true,
+          configurable: true,
+        });
+      }
+    });
+
+    it('deve tentar recuperar sessão por PKCE code e repetir atualização', async () => {
+      const originalLocation = window.location;
+      Object.defineProperty(window, 'location', {
+        value: {
+          ...originalLocation,
+          hash: '',
+          search: '?code=pkce-code&type=recovery',
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      try {
+        const sessionError = new Error('Auth session missing');
+        (authService.updatePassword as jest.Mock)
+          .mockRejectedValueOnce(sessionError)
+          .mockResolvedValueOnce(undefined);
+
+        mockSupabaseModule.supabase.auth.exchangeCodeForSession.mockResolvedValue({
+          data: { session: { access_token: 'from-pkce' }, user: { id: 'user-1' } },
+          error: null,
+        });
+
+        const { getByPlaceholderText, getByText } = render(<ResetPassword />);
+        fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+        fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+        fireEvent.press(getByText('Redefinir Senha'));
+
+        await waitFor(() => {
+          expect(mockSupabaseModule.supabase.auth.exchangeCodeForSession).toHaveBeenCalledWith('pkce-code');
+          expect(authService.updatePassword).toHaveBeenCalledTimes(2);
+          expect(global.mockUseAlert.showSuccess).toHaveBeenCalled();
+        });
+      } finally {
+        Object.defineProperty(window, 'location', {
+          value: originalLocation,
+          writable: true,
+          configurable: true,
+        });
+      }
     });
   });
 

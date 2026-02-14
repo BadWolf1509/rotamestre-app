@@ -42,7 +42,7 @@ function getHashErrorParams(): { error?: string; errorCode?: string; errorDescri
 
 /** Try to manually establish session from URL hash tokens (fallback for SDK race condition) */
 async function tryManualSessionRecovery(): Promise<boolean> {
-  if (typeof window === 'undefined') return false;
+  if (typeof window === 'undefined' || !window.location) return false;
   const hash = window.location.hash.substring(1);
   if (!hash) return false;
 
@@ -53,7 +53,93 @@ async function tryManualSessionRecovery(): Promise<boolean> {
   if (!access_token || !refresh_token) return false;
 
   const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-  return !error;
+  if (error) {
+    logger.warn('[ResetPassword] Manual session recovery failed', error);
+    return false;
+  }
+  return true;
+}
+
+/** Try PKCE recovery from ?code=... (if URL uses PKCE callback format) */
+async function tryPKCESessionRecovery(): Promise<boolean> {
+  if (typeof window === 'undefined' || !window.location) return false;
+
+  const code = new URLSearchParams(window.location.search).get('code');
+  if (!code) return false;
+
+  // `exchangeCodeForSession` exists in auth-js but may be absent in tests/mocks.
+  const exchangeCodeForSession =
+    (supabase.auth as typeof supabase.auth & {
+      exchangeCodeForSession?: (authCode: string) => Promise<{ error: unknown }>;
+    }).exchangeCodeForSession;
+
+  if (!exchangeCodeForSession) return false;
+
+  const { error } = await exchangeCodeForSession(code);
+  if (error) {
+    logger.warn('[ResetPassword] PKCE session recovery failed', error);
+    return false;
+  }
+  return true;
+}
+
+/** Try OTP hash recovery from ?token_hash=...&type=recovery */
+async function tryTokenHashSessionRecovery(): Promise<boolean> {
+  if (typeof window === 'undefined' || !window.location) return false;
+
+  const params = new URLSearchParams(window.location.search);
+  const tokenHash = params.get('token_hash');
+  const type = params.get('type');
+
+  if (!tokenHash || type !== 'recovery') return false;
+
+  // `verifyOtp` exists in auth-js but may be absent in tests/mocks.
+  const verifyOtp =
+    (supabase.auth as typeof supabase.auth & {
+      verifyOtp?: (params: { type: 'recovery'; token_hash: string }) => Promise<{ error: unknown }>;
+    }).verifyOtp;
+
+  if (!verifyOtp) return false;
+
+  const { error } = await verifyOtp({ type: 'recovery', token_hash: tokenHash });
+  if (error) {
+    logger.warn('[ResetPassword] token_hash session recovery failed', error);
+    return false;
+  }
+  return true;
+}
+
+/** Best-effort session recovery from URL callback parameters */
+async function trySessionRecoveryFromUrl(): Promise<boolean> {
+  if (await tryManualSessionRecovery()) return true;
+  if (await tryPKCESessionRecovery()) return true;
+  if (await tryTokenHashSessionRecovery()) return true;
+  return false;
+}
+
+/** Detect if current URL likely belongs to a password recovery callback */
+function hasRecoveryParamsInCurrentUrl(): boolean {
+  if (Platform.OS !== 'web' || typeof window === 'undefined' || !window.location) return false;
+
+  const hash = window.location.hash.substring(1);
+  const hashParams = new URLSearchParams(hash);
+  const searchParams = new URLSearchParams(window.location.search);
+
+  return (
+    hashParams.get('type') === 'recovery' ||
+    searchParams.get('type') === 'recovery' ||
+    (hashParams.has('access_token') && hashParams.has('refresh_token')) ||
+    searchParams.has('code') ||
+    searchParams.has('token_hash')
+  );
+}
+
+function isAuthSessionMissingError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+
+  const message = error.message.toLowerCase();
+  const name = error.name.toLowerCase();
+  return message.includes('auth session missing') || name.includes('authsessionmissing');
 }
 
 export default function ResetPassword() {
@@ -88,13 +174,28 @@ export default function ResetPassword() {
       return;
     }
 
-    if (!isRecoveryRedirect || Platform.OS !== 'web') return;
+    const shouldCheckRecoverySession =
+      Platform.OS === 'web' && (isRecoveryRedirect || hasRecoveryParamsInCurrentUrl());
+
+    if (!shouldCheckRecoverySession) return;
 
     setCheckingSession(true);
     let resolved = false;
 
+    const resolveWithRecoveryAttempt = async () => {
+      if (resolved) return;
+      const recovered = await trySessionRecoveryFromUrl();
+
+      if (resolved) return;
+      resolved = true;
+      if (!recovered) {
+        setLinkExpired(true);
+      }
+      setCheckingSession(false);
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (resolved) return;
 
         if (event === 'PASSWORD_RECOVERY') {
@@ -115,12 +216,10 @@ export default function ResetPassword() {
           // SDK initialized but no session — try manual recovery from URL hash
           // This handles the race condition where _getSessionFromURL didn't complete
           logger.debug('[ResetPassword] INITIAL_SESSION without session, trying manual recovery');
-          const recovered = await tryManualSessionRecovery();
-          resolved = true;
-          if (!recovered) {
-            setLinkExpired(true);
-          }
-          setCheckingSession(false);
+          // Run outside auth-js callback lock to avoid deadlock with setSession/exchange calls.
+          setTimeout(() => {
+            void resolveWithRecoveryAttempt();
+          }, 0);
         }
       }
     );
@@ -128,9 +227,7 @@ export default function ResetPassword() {
     // Safety timeout: if no auth event establishes a session within 10s, give up
     const timeout = setTimeout(() => {
       if (!resolved) {
-        resolved = true;
-        setLinkExpired(true);
-        setCheckingSession(false);
+        void resolveWithRecoveryAttempt();
       }
     }, 10000);
 
@@ -179,13 +276,32 @@ export default function ResetPassword() {
         () => router.replace('/')
       );
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '';
-      const name = error instanceof Error ? error.name : '';
-      if (message.includes('Auth session missing') || name.includes('AuthSessionMissing')) {
-        // No valid session — link was likely expired or already used
-        setLinkExpired(true);
-      } else {
+      if (!isAuthSessionMissingError(error)) {
         showError(error);
+        return;
+      }
+
+      // Session may not be ready yet (URL callback race). Try one recovery + retry.
+      const recovered = await trySessionRecoveryFromUrl();
+      if (!recovered) {
+        setLinkExpired(true);
+        return;
+      }
+
+      try {
+        await authService.updatePassword(password);
+        showSuccess(
+          'Senha atualizada!',
+          'Sua senha foi redefinida com sucesso.',
+          () => router.replace('/')
+        );
+      } catch (retryError: unknown) {
+        if (isAuthSessionMissingError(retryError)) {
+          // No valid session even after recovery — link likely expired/already used.
+          setLinkExpired(true);
+        } else {
+          showError(retryError);
+        }
       }
     } finally {
       setLoading(false);
