@@ -15,7 +15,6 @@ import { FloatingActionButton } from '@/components/motorista/home/QuickActions';
 import { StartRouteButton } from '@/components/motorista/home/StartRouteButton';
 import { StatusSection } from '@/components/motorista/home/StatusSection';
 import { NavigationMode } from '@/components/motorista/NavigationMode';
-import { OptimizationAlert } from '@/components/motorista/OptimizationAlert';
 import { PictureInPictureMap } from '@/components/motorista/PictureInPictureMap';
 import { SkipReasonModal } from '@/components/motorista/SkipReasonModal';
 import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
@@ -27,7 +26,6 @@ import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
 import { abrirNavegacao } from '@/lib/navigation';
-import DynamicReroutingService from '@/services/dynamicRerouting';
 import LocationTrackingService from '@/services/locationTracking';
 import type { IconName } from '@/types/icons';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -68,8 +66,6 @@ function MotoristaInicioContent() {
   const [showIncidentWizard, setShowIncidentWizard] = useState(false);
   const [navigationMode, setNavigationMode] = useState(false);
   const [showPiPMap, setShowPiPMap] = useState(false);
-  const [optimization, setOptimization] = useState<any>(null);
-  const [showOptimization, setShowOptimization] = useState(false);
   const [showCompletionFlow, setShowCompletionFlow] = useState(false);
   const [selectedParadaForCompletion, setSelectedParadaForCompletion] = useState<ParadaData | null>(null);
   const [showSupportModal, setShowSupportModal] = useState(false);
@@ -135,29 +131,6 @@ function MotoristaInicioContent() {
       }
     };
   }, []);
-
-  // SUSPENDED: Dynamic route optimization (Google Distance Matrix API has high cost)
-  // TODO: Re-enable when budget allows or implement alternative optimization
-  // useEffect(() => {
-  //   if (routeStatus === 'active' && route && paradas.length > 1) {
-  //     // Start monitoring for optimizations
-  //     DynamicReroutingService.startMonitoring(route.id, paradas);
-
-  //     // Check for optimizations every 5 minutes
-  //     const checkOptimization = setInterval(async () => {
-  //       const opt = await DynamicReroutingService.checkForOptimization(paradas);
-  //       if (opt && opt.timeSaved >= 5) {
-  //         setOptimization(opt);
-  //         setShowOptimization(true);
-  //       }
-  //     }, 5 * 60 * 1000); // 5 minutes
-
-  //     return () => {
-  //       clearInterval(checkOptimization);
-  //       DynamicReroutingService.stopMonitoring();
-  //     };
-  //   }
-  // }, [routeStatus, route, paradas]);
 
   // Main action handler
   const handleMainAction = async () => {
@@ -374,31 +347,6 @@ function MotoristaInicioContent() {
     setNavigationMode(false);
   };
 
-  // Handle optimization acceptance
-  const handleAcceptOptimization = async () => {
-    if (!optimization || !route) return;
-
-    try {
-      // Apply the optimization
-      await DynamicReroutingService.applyOptimization(route.id, optimization.newOrder);
-
-      // Refresh route data
-      await refreshRoute();
-
-      showSuccess('Sucesso', `Rota otimizada! Você economizará ${optimization.timeSaved} minutos.`);
-      setShowOptimization(false);
-      setOptimization(null);
-    } catch (error) {
-      showError(error);
-    }
-  };
-
-  // Handle optimization rejection
-  const handleRejectOptimization = () => {
-    setShowOptimization(false);
-    // Keep optimization in memory for potential later use
-  };
-
   // If in navigation mode, show full-screen navigation
   if (navigationMode && currentStop) {
     return (
@@ -561,15 +509,6 @@ function MotoristaInicioContent() {
           }}
         />
       )}
-
-      <OptimizationAlert
-        visible={showOptimization}
-        optimization={optimization}
-        currentOrder={paradas.filter(p => p.status === 'pendente')}
-        onAccept={handleAcceptOptimization}
-        onReject={handleRejectOptimization}
-        onClose={() => setShowOptimization(false)}
-      />
 
       {/* Modal de Conclusão de Parada (com foto) */}
       {/* Usa selectedParadaForCompletion (capturado no momento do swipe) para evitar loop */}

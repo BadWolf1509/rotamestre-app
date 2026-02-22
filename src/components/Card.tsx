@@ -11,6 +11,8 @@ interface CardProps {
   onPress?: () => void;
   style?: ViewStyle;
   testID?: string;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 function CardComponent({
@@ -20,6 +22,8 @@ function CardComponent({
   onPress,
   style,
   testID,
+  accessibilityLabel,
+  accessibilityHint,
 }: CardProps) {
   const Container = onPress ? TouchableOpacity : View;
   const elevatedStyle =
@@ -48,6 +52,10 @@ function CardComponent({
       onPress={onPress}
       activeOpacity={onPress ? 0.7 : 1}
       testID={testID}
+      accessible
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
     >
       {children}
     </Container>

@@ -333,6 +333,7 @@ export function Modal({
       transparent={transparent}
       animationType={animationType === 'none' ? 'none' : undefined}
       onRequestClose={onClose}
+      accessibilityViewIsModal={true}
     >
       {/* Overlay */}
       <Animated.View
@@ -371,7 +372,7 @@ export function Modal({
           {/* Header */}
           {(title || showCloseButton) && (
             <View style={styles.header}>
-              {title ? <Text style={styles.title}>{title}</Text> : <View style={{ flex: 1 }} />}
+              {title ? <Text style={styles.title} accessibilityRole="header">{title}</Text> : <View style={{ flex: 1 }} />}
               {showCloseButton && (
                 <TouchableOpacity
                   style={styles.closeButton}
