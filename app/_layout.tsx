@@ -23,6 +23,8 @@ import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
 import { setupNotificationResponseHandler } from '@/lib/notificationHandlers';
 import { initializeNotifications } from '@/lib/notifications';
+import { initSentry } from '@/lib/sentry';
+import { reportWebVitals } from '@/lib/web-vitals';
 import { setupOfflineSync } from '@/lib/offline';
 import {
   applyThemePreferences,
@@ -152,11 +154,11 @@ export default function RootLayout() {
     }
 
     if (Platform.OS === 'web' && !fontsLoaded && !fontError) {
-      // 10 second timeout for normal users
+      // 3 second timeout - fonts are preloaded in HTML, so should load fast
       fontTimeoutRef.current = setTimeout(() => {
-        logger.warn('Font loading timeout (10000ms) - proceeding without custom fonts');
+        logger.warn('Font loading timeout (3000ms) - proceeding without custom fonts');
         setFontTimeout(true);
-      }, 10000);
+      }, 3000);
 
       return () => {
         if (fontTimeoutRef.current) {
@@ -202,29 +204,16 @@ export default function RootLayout() {
     migrateNavigationPreferences();
   }, []);
 
-  // Configurar título da página para web apenas
+  // Inicializar Sentry e Web Vitals (web, produção apenas)
   useEffect(() => {
     if (Platform.OS === 'web') {
-      try {
-        if (typeof document !== 'undefined') {
-          document.title = 'Rota Mestre - Sistema de Otimização e Gestão de Rotas';
-
-          // Adicionar meta description se não existir
-          let metaDescription = document.querySelector('meta[name="description"]');
-          if (!metaDescription) {
-            metaDescription = document.createElement('meta');
-            metaDescription.setAttribute('name', 'description');
-            document.head.appendChild(metaDescription);
-          }
-          metaDescription.setAttribute('content', 'Sistema completo de gestão de rotas de entrega com rastreamento em tempo real.');
-          // Nota: CSS fix para z-index e toast-root estão em +html.tsx
-        }
-      } catch {
-        // Ignorar erros de manipulação do DOM
-        logger.warn('Erro ao configurar meta tags');
-      }
+      initSentry();
+      reportWebVitals();
     }
   }, []);
+
+  // Meta tags são injetadas pelo build script (tools/scripts/inject-meta-tags.js)
+  // NÃO manipular meta tags via JS runtime - causa duplicação e inconsistência
 
   // Mostrar null enquanto fontes não carregam (splash screen continua visível)
   // Apply stored theme preferences or query param overrides
