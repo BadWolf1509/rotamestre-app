@@ -68,7 +68,7 @@ export function Radio({
   size = 'medium',
   testID,
 }: RadioProps) {
-  const { theme } = useUnistyles();
+  const { theme: _theme } = useUnistyles();
   const sizeTokens = SIZE_MAP[size];
 
   return (

@@ -44,7 +44,7 @@ export function Tooltip({
   maxWidth = 240,
   testID,
 }: TooltipProps) {
-  const { theme } = useUnistyles();
+  const { theme: _theme } = useUnistyles();
   const [visible, setVisible] = useState(false);
   const [childWidth, setChildWidth] = useState(0);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);

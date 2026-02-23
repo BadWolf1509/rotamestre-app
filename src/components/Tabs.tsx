@@ -85,7 +85,7 @@ export function Tabs<T extends string = string>({
   style,
   testID,
 }: TabsProps<T>) {
-  const { theme } = useUnistyles();
+  const { theme: _theme } = useUnistyles();
   const sizeTokens = SIZE_MAP[size];
 
   const renderTabs = () => (
