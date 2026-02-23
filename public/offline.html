@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Rota Mestre - Sem Conexão</title>
+  <meta name="theme-color" content="#284093" />
+  <link rel="icon" href="/favicon.ico" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #1a2a5e 0%, #284093 50%, #3a5bc7 100%);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+    }
+    .container {
+      max-width: 420px;
+    }
+    .icon {
+      font-size: 64px;
+      margin-bottom: 24px;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    p {
+      font-size: 16px;
+      line-height: 1.5;
+      opacity: 0.85;
+      margin-bottom: 32px;
+    }
+    .btn {
+      display: inline-block;
+      padding: 14px 32px;
+      background: #FF8C42;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn:active { opacity: 0.8; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon" aria-hidden="true">&#x1F4E1;</div>
+    <h1>Sem conexão com a internet</h1>
+    <p>
+      Verifique sua conexão Wi-Fi ou dados móveis e tente novamente.
+      Suas rotas salvas estarão disponíveis quando a conexão for restabelecida.
+    </p>
+    <button class="btn" onclick="window.location.reload()">
+      Tentar novamente
+    </button>
+  </div>
+</body>
+</html>

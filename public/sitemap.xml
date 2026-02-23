@@ -7,7 +7,7 @@
   <!-- Homepage -->
   <url>
     <loc>https://app.rotamestre.tec.br/</loc>
-    <lastmod>2025-10-20</lastmod>
+    <lastmod>2026-02-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
@@ -15,7 +15,7 @@
   <!-- Login -->
   <url>
     <loc>https://app.rotamestre.tec.br/auth/login</loc>
-    <lastmod>2025-10-20</lastmod>
+    <lastmod>2026-02-22</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -23,25 +23,9 @@
   <!-- Register -->
   <url>
     <loc>https://app.rotamestre.tec.br/auth/register</loc>
-    <lastmod>2025-10-20</lastmod>
+    <lastmod>2026-02-22</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
-  </url>
-
-  <!-- Institucional (quando implementado) -->
-  <url>
-    <loc>https://rotamestre.tec.br/</loc>
-    <lastmod>2025-10-20</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
-
-  <!-- Documentação (quando implementado) -->
-  <url>
-    <loc>https://docs.rotamestre.tec.br/</loc>
-    <lastmod>2025-10-20</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
   </url>
 
 </urlset>
