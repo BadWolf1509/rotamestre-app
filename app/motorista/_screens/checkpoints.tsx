@@ -26,6 +26,7 @@ import { logger } from '@/lib/logger';
 import { abrirNavegacao } from '@/lib/navigation';
 import { skipParada, updateParadaStatus, logParadaAction } from '@/lib/queries/paradas';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { toParada, toParadaData } from '@/utils/typeMappers';
 
 export default function CheckpointsMotorista() {
   const { theme } = useUnistyles();
@@ -55,10 +56,9 @@ export default function CheckpointsMotorista() {
   const [skipModalParada, setSkipModalParada] = useState<Parada | null>(null);
 
   // Filtrar apenas paradas reais (excluindo checkpoints de partida/chegada)
-  // e fazer cast para tipo Parada do ParadaCard
+  // e converter para tipo Parada do ParadaCard
   const paradas = useMemo(
-    // Safe cast: ParadaData structurally compatible with Parada
-    () => paradasContext.filter(p => p.is_checkpoint !== false) as unknown as Parada[],
+    () => paradasContext.filter(p => p.is_checkpoint !== false).map(toParada),
     [paradasContext]
   );
 
@@ -77,8 +77,7 @@ export default function CheckpointsMotorista() {
         return;
       }
 
-      // Safe cast: Parada structurally compatible with ParadaData
-      setSelectedParadaForCompletion(parada as unknown as ParadaData);
+      setSelectedParadaForCompletion(toParadaData(parada));
       setShowCompletionFlow(true);
     },
     [route?.status, showWarning]
@@ -121,7 +120,7 @@ export default function CheckpointsMotorista() {
 
         showSuccess('Parada Pulada', SKIP_REASON_LABELS[motivo]);
         refreshRoute();
-      } catch (error) {
+      } catch (error: unknown) {
         logger.error('Erro ao pular parada:', error);
         showError(error);
       } finally {
@@ -156,7 +155,7 @@ export default function CheckpointsMotorista() {
 
         showSuccess('Parada Retomada', 'Parada voltou para pendente');
         refreshRoute();
-      } catch (error) {
+      } catch (error: unknown) {
         logger.error('Erro ao retomar parada:', error);
         showError(error);
       } finally {
@@ -414,8 +413,7 @@ export default function CheckpointsMotorista() {
       {skipModalParada && (
         <SkipReasonModal
           visible={!!skipModalParada}
-          // Safe cast: Parada structurally compatible with ParadaData
-          parada={skipModalParada as unknown as ParadaData}
+          parada={toParadaData(skipModalParada)}
           onConfirm={confirmarSkip}
           onCancel={() => setSkipModalParada(null)}
         />

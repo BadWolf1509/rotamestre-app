@@ -2,6 +2,7 @@
 
 exports[`Card deve aplicar estilos de padding 1`] = `
 <View
+  accessible={true}
   activeOpacity={1}
   style={
     [
@@ -33,6 +34,7 @@ exports[`Card deve aplicar estilos de padding 1`] = `
 
 exports[`Card deve aplicar estilos de variante 1`] = `
 <View
+  accessible={true}
   activeOpacity={1}
   style={
     [

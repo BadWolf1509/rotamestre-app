@@ -148,8 +148,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         message: report.join('\n'),
         title: 'RotaMestre - Bug Report',
       });
-    } catch {
-      // Share failed, ignore
+    } catch (error: unknown) {
+      logger.warn('[ErrorBoundary] Share failed:', error);
     }
   };
 

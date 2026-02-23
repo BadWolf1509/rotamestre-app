@@ -1,6 +1,6 @@
 import { fireEvent, render } from '@testing-library/react-native';
-import { Platform } from 'react-native';
 import React from 'react';
+import { Platform } from 'react-native';
 
 import ConfirmReset from '../../../auth/confirm-reset';
 

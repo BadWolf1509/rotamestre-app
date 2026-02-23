@@ -96,7 +96,7 @@ function MotoristaInicioContent() {
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
           });
-        } catch (positionError) {
+        } catch (positionError: unknown) {
           logger.warn('[Location] Could not get current position:', positionError);
           // Continue anyway - will try to get location from watcher
         }
@@ -115,7 +115,7 @@ function MotoristaInicioContent() {
             });
           }
         );
-      } catch (error) {
+      } catch (error: unknown) {
         logger.error('[Location] Error setting up location tracking:', error);
       }
     })();
@@ -124,7 +124,7 @@ function MotoristaInicioContent() {
       if (subscription) {
         try {
           subscription.remove();
-        } catch (error) {
+        } catch (error: unknown) {
           // expo-location remove() não funciona corretamente na web
           logger.warn('[Location] Error removing subscription:', error);
         }
@@ -193,7 +193,7 @@ function MotoristaInicioContent() {
       setIsStartingRoute(true);
       await startRoute();
       showSuccess('Rota Iniciada', 'Boa viagem! Dirija com segurança.');
-    } catch (error) {
+    } catch (error: unknown) {
       showError(error);
     } finally {
       setIsStartingRoute(false);
@@ -242,7 +242,7 @@ function MotoristaInicioContent() {
     try {
       await skipStop(currentStop.id, motivo, observacoes);
       showSuccess('Parada Pulada', SKIP_REASON_LABELS[motivo]);
-    } catch (error) {
+    } catch (error: unknown) {
       showError(error);
     }
   };
@@ -259,7 +259,7 @@ function MotoristaInicioContent() {
       await completeRoute();
       setShowCompleteRouteModal(false);
       showSuccess('Parabéns!', 'Rota concluída com sucesso!');
-    } catch (error) {
+    } catch (error: unknown) {
       showError(error);
     } finally {
       setIsCompletingRoute(false);

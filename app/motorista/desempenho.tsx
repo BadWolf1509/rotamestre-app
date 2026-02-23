@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,24 +9,10 @@ import {
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MobileCard, MobileLoading } from '@/design-system';
+import { useDesempenhoStats, type Periodo } from '@/hooks/motorista/useDesempenhoStats';
+import { useAlert } from '@/hooks/useAlert';
 import { useUser } from '@/hooks/useUser';
-import { logger } from '@/lib/logger';
-import { supabase } from '@/lib/supabase';
 import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
-
-interface PerformanceStats {
-  totalRotas: number;
-  rotasConcluidas: number;
-  rotasCanceladas: number;
-  taxaSucesso: number;
-  totalKm: number;
-  mediaParadasPorRota: number;
-  totalParadas: number;
-  paradasConcluidas: number;
-  paradasPuladas: number;
-}
-
-type Periodo = '7d' | '30d' | 'all';
 
 const PERIODOS: { value: Periodo; label: string }[] = [
   { value: '7d', label: '7 dias' },
@@ -37,105 +23,24 @@ const PERIODOS: { value: Periodo; label: string }[] = [
 export default function DesempenhoScreen() {
   const { theme } = useUnistyles();
   const { userData } = useUser();
+  const { showError, AlertDialog } = useAlert();
 
-  const [stats, setStats] = useState<PerformanceStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [periodo, setPeriodo] = useState<Periodo>('30d');
+  const {
+    stats,
+    loading,
+    refreshing,
+    periodo,
+    setPeriodo,
+    refresh,
+    error,
+  } = useDesempenhoStats(userData?.id);
 
-  const loadStats = useCallback(async () => {
-    if (!userData?.id) {
-      setStats(null);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      // Calcular data de início baseado no período
-      let dataInicio: string | null = null;
-      const now = new Date();
-
-      if (periodo === '7d') {
-        const date = new Date(now);
-        date.setDate(date.getDate() - 7);
-        dataInicio = date.toISOString();
-      } else if (periodo === '30d') {
-        const date = new Date(now);
-        date.setDate(date.getDate() - 30);
-        dataInicio = date.toISOString();
-      }
-
-      // Buscar rotas do motorista
-      let rotasQuery = supabase
-        .from('rotas')
-        .select('id, status, distancia_total')
-        .eq('motorista_id', userData.id);
-
-      if (dataInicio) {
-        rotasQuery = rotasQuery.gte('created_at', dataInicio);
-      }
-
-      const { data: rotas, error: rotasError } = await rotasQuery;
-
-      if (rotasError) throw rotasError;
-
-      // Calcular estatísticas de rotas
-      const rotasData = rotas || [];
-      const totalRotas = rotasData.length;
-      const rotasConcluidas = rotasData.filter((r) => r.status === 'concluida').length;
-      const rotasCanceladas = rotasData.filter((r) => r.status === 'cancelada').length;
-      const taxaSucesso = totalRotas > 0 ? Math.round((rotasConcluidas / totalRotas) * 100) : 0;
-      const totalKm = rotasData.reduce((acc, r) => acc + (r.distancia_total || 0), 0);
-
-      // Buscar paradas das rotas
-      const rotaIds = rotasData.map((r) => r.id);
-      let paradasData: any[] = [];
-
-      if (rotaIds.length > 0) {
-        const { data: paradas, error: paradasError } = await supabase
-          .from('paradas')
-          .select('id, status, rota_id')
-          .in('rota_id', rotaIds)
-          .or('is_checkpoint.is.null,is_checkpoint.eq.true');
-
-        if (paradasError) throw paradasError;
-        paradasData = paradas || [];
-      }
-
-      const totalParadas = paradasData.length;
-      const paradasConcluidas = paradasData.filter((p) => p.status === 'concluida').length;
-      const paradasPuladas = paradasData.filter((p) => p.status === 'pulada').length;
-      const mediaParadasPorRota = totalRotas > 0 ? Math.round(totalParadas / totalRotas) : 0;
-
-      setStats({
-        totalRotas,
-        rotasConcluidas,
-        rotasCanceladas,
-        taxaSucesso,
-        totalKm,
-        mediaParadasPorRota,
-        totalParadas,
-        paradasConcluidas,
-        paradasPuladas,
-      });
-    } catch (error) {
-      logger.error('Erro ao carregar estatísticas:', error);
-      setStats(null);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [userData?.id, periodo]);
-
+  // Show error feedback when hook reports an error
   useEffect(() => {
-    setLoading(true);
-    loadStats();
-  }, [loadStats]);
-
-  function handleRefresh() {
-    setRefreshing(true);
-    loadStats();
-  }
+    if (error) {
+      showError({ title: 'Erro', message: error });
+    }
+  }, [error, showError]);
 
   if (loading) {
     return <MobileLoading message="Carregando estatísticas..." />;
@@ -146,7 +51,7 @@ export default function DesempenhoScreen() {
       <ScrollView
         style={styles.container}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} />
         }
       >
         {/* Seletor de Período */}
@@ -296,6 +201,7 @@ export default function DesempenhoScreen() {
 
         <View style={styles.footer} />
       </ScrollView>
+      {AlertDialog}
     </ErrorBoundary>
   );
 }

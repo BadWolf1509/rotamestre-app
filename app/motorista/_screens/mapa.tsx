@@ -76,7 +76,7 @@ function MapaMotoristaContent() {
       // Usar completeStop do contexto (já faz update + log + refresh)
       await completeStop(parada.id);
       showSuccess('Sucesso', `Parada ${parada.ordem} marcada como concluída!`);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Erro ao marcar parada como concluída', error);
       showError({ title: 'Erro', message: 'Não foi possível atualizar a parada.' });
     }

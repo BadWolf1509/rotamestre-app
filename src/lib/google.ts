@@ -1,3 +1,9 @@
+/**
+ * Route directions service (historical name from Google Maps API migration).
+ * Internally uses OSRM (free) for route optimization and directions.
+ * See also: google-shared.ts for types, osrm/ for backend implementation.
+ */
+
 import { logger } from '@/lib/logger';
 import { getOptimizedDirections as osrmGetDirections } from '@/lib/osrm';
 
