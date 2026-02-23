@@ -1,38 +1,38 @@
-import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import {
-  RefreshControl,
-  ScrollView,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Location from "expo-location";
+import { useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import { RefreshControl, ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { IncidentReportWizard } from '@/components/IncidentReportWizard';
-import { MainCard } from '@/components/motorista/home/MainCard';
-import { MiniMap } from '@/components/motorista/home/MiniMap';
-import { FloatingActionButton } from '@/components/motorista/home/QuickActions';
-import { StartRouteButton } from '@/components/motorista/home/StartRouteButton';
-import { StatusSection } from '@/components/motorista/home/StatusSection';
-import { NavigationMode } from '@/components/motorista/NavigationMode';
-import { PictureInPictureMap } from '@/components/motorista/PictureInPictureMap';
-import { SkipReasonModal } from '@/components/motorista/SkipReasonModal';
-import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
-import { OptimizationAlert } from '@/components/motorista/OptimizationAlert';
-import { SwipeOnboarding, hasSeenSwipeOnboarding } from '@/components/SwipeOnboarding';
-import { SKIP_REASON_LABELS, type MotivoSkip } from '@/constants/skipReasons';
-import { useRouteStatus } from '@/context/RouteStatusContext';
-import { Dialog, SupportModal } from '@/design-system';
-import { useAlert } from '@/hooks/useAlert';
-import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
-import { useInicioModals } from '@/hooks/motorista/useInicioModals';
-import { useUser } from '@/hooks/useUser';
-import { logger } from '@/lib/logger';
-import { abrirNavegacao } from '@/lib/navigation';
-import DynamicReroutingService from '@/services/dynamicRerouting';
-import LocationTrackingService from '@/services/locationTracking';
-import type { IconName } from '@/types/icons';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { IncidentReportWizard } from "@/components/IncidentReportWizard";
+import { MainCard } from "@/components/motorista/home/MainCard";
+import { MiniMap } from "@/components/motorista/home/MiniMap";
+import { FloatingActionButton } from "@/components/motorista/home/QuickActions";
+import { StartRouteButton } from "@/components/motorista/home/StartRouteButton";
+import { StatusSection } from "@/components/motorista/home/StatusSection";
+import { NavigationMode } from "@/components/motorista/NavigationMode";
+import { OptimizationAlert } from "@/components/motorista/OptimizationAlert";
+import { PictureInPictureMap } from "@/components/motorista/PictureInPictureMap";
+import { SkipReasonModal } from "@/components/motorista/SkipReasonModal";
+import { StopCompletionFlow } from "@/components/motorista/StopCompletionFlow";
+import {
+  SwipeOnboarding,
+  hasSeenSwipeOnboarding,
+} from "@/components/SwipeOnboarding";
+import { SKIP_REASON_LABELS, type MotivoSkip } from "@/constants/skipReasons";
+import { useRouteStatus } from "@/context/RouteStatusContext";
+import { Dialog, SupportModal } from "@/design-system";
+import { useInicioModals } from "@/hooks/motorista/useInicioModals";
+import { useAlert } from "@/hooks/useAlert";
+import { useDriverLocationBroadcast } from "@/hooks/useDriverLocationBroadcast";
+import { useUser } from "@/hooks/useUser";
+import { logger } from "@/lib/logger";
+import { abrirNavegacao } from "@/lib/navigation";
+import DynamicReroutingService from "@/services/dynamicRerouting";
+import LocationTrackingService from "@/services/locationTracking";
+import type { IconName } from "@/types/icons";
+import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
 
 function MotoristaInicioContent() {
   const router = useRouter();
@@ -68,7 +68,10 @@ function MotoristaInicioContent() {
 
   // Local state (loading/async - not suitable for reducer)
   const [refreshing, setRefreshing] = useState(false);
-  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [location, setLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   const [isCompletingRoute, setIsCompletingRoute] = useState(false);
   const [canStartRoute, setCanStartRoute] = useState(true);
   const [isStartingRoute, setIsStartingRoute] = useState(false);
@@ -88,8 +91,8 @@ function MotoristaInicioContent() {
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          logger.debug('[Location] Permission to access location was denied');
+        if (status !== "granted") {
+          logger.debug("[Location] Permission to access location was denied");
           return;
         }
 
@@ -103,7 +106,10 @@ function MotoristaInicioContent() {
             longitude: location.coords.longitude,
           });
         } catch (positionError: unknown) {
-          logger.warn('[Location] Could not get current position:', positionError);
+          logger.warn(
+            "[Location] Could not get current position:",
+            positionError,
+          );
           // Continue anyway - will try to get location from watcher
         }
 
@@ -119,10 +125,10 @@ function MotoristaInicioContent() {
               latitude: newLocation.coords.latitude,
               longitude: newLocation.coords.longitude,
             });
-          }
+          },
         );
       } catch (error: unknown) {
-        logger.error('[Location] Error setting up location tracking:', error);
+        logger.error("[Location] Error setting up location tracking:", error);
       }
     })();
 
@@ -132,7 +138,7 @@ function MotoristaInicioContent() {
           subscription.remove();
         } catch (error: unknown) {
           // expo-location remove() não funciona corretamente na web
-          logger.warn('[Location] Error removing subscription:', error);
+          logger.warn("[Location] Error removing subscription:", error);
         }
       }
     };
@@ -141,26 +147,26 @@ function MotoristaInicioContent() {
   // Main action handler
   const handleMainAction = async () => {
     switch (routeStatus) {
-      case 'pending':
+      case "pending":
         await handleStartRoute();
         break;
 
-      case 'active':
-      case 'last-stop':
+      case "active":
+      case "last-stop":
         handleNavigateToStop();
         break;
 
-      case 'ready-to-complete':
+      case "ready-to-complete":
         await handleCompleteRoute();
         break;
 
-      case 'completed':
-        router.push('/motorista/resumo');
+      case "completed":
+        router.push("/motorista/resumo");
         break;
 
-      case 'no-route':
+      case "no-route":
       default:
-        router.push('/motorista/historico');
+        router.push("/motorista/historico");
         break;
     }
   };
@@ -175,22 +181,22 @@ function MotoristaInicioContent() {
     // Verificar checklist
     if (!canStartRoute) {
       showWarning(
-        'GPS Necessário',
-        'Ative o GPS do seu dispositivo para iniciar a rota.'
+        "GPS Necessário",
+        "Ative o GPS do seu dispositivo para iniciar a rota.",
       );
       return;
     }
 
     // Verificar se a rota pode ser iniciada
-    if (route?.status !== 'pendente') {
+    if (route?.status !== "pendente") {
       const statusMessages: Record<string, string> = {
-        em_andamento: 'Esta rota já está em andamento.',
-        concluida: 'Esta rota já foi concluída.',
-        cancelada: 'Esta rota foi cancelada.',
+        em_andamento: "Esta rota já está em andamento.",
+        concluida: "Esta rota já foi concluída.",
+        cancelada: "Esta rota foi cancelada.",
       };
       showWarning(
-        'Rota não pode ser iniciada',
-        statusMessages[route?.status || ''] || 'Status da rota inválido.'
+        "Rota não pode ser iniciada",
+        statusMessages[route?.status || ""] || "Status da rota inválido.",
       );
       return;
     }
@@ -198,7 +204,7 @@ function MotoristaInicioContent() {
     try {
       setIsStartingRoute(true);
       await startRoute();
-      showSuccess('Rota Iniciada', 'Boa viagem! Dirija com segurança.');
+      showSuccess("Rota Iniciada", "Boa viagem! Dirija com segurança.");
     } catch (error: unknown) {
       showError(error);
     } finally {
@@ -241,12 +247,15 @@ function MotoristaInicioContent() {
   };
 
   // Confirm skip with structured reason
-  const handleConfirmSkip = async (motivo: MotivoSkip, observacoes?: string) => {
+  const handleConfirmSkip = async (
+    motivo: MotivoSkip,
+    observacoes?: string,
+  ) => {
     if (!currentStop) return;
     modals.closeSkipModal();
     try {
       await skipStop(currentStop.id, motivo, observacoes);
-      showSuccess('Parada Pulada', SKIP_REASON_LABELS[motivo]);
+      showSuccess("Parada Pulada", SKIP_REASON_LABELS[motivo]);
     } catch (error: unknown) {
       showError(error);
     }
@@ -263,7 +272,7 @@ function MotoristaInicioContent() {
     try {
       await completeRoute();
       modals.closeCompleteRoute();
-      showSuccess('Parabéns!', 'Rota concluída com sucesso!');
+      showSuccess("Parabéns!", "Rota concluída com sucesso!");
     } catch (error: unknown) {
       showError(error);
     } finally {
@@ -297,41 +306,41 @@ function MotoristaInicioContent() {
   // Get FAB properties
   const getFABProps = (): { icon: IconName; color: string; label: string } => {
     switch (routeStatus) {
-      case 'pending':
+      case "pending":
         return {
-          icon: 'play-circle',
+          icon: "play-circle",
           color: theme.colors.success,
-          label: 'Iniciar',
+          label: "Iniciar",
         };
 
-      case 'active':
-      case 'last-stop':
+      case "active":
+      case "last-stop":
         return {
-          icon: 'navigate',
+          icon: "navigate",
           color: theme.colors.secondary,
-          label: 'Navegar',
+          label: "Navegar",
         };
 
-      case 'ready-to-complete':
+      case "ready-to-complete":
         return {
-          icon: 'checkmark-circle',
+          icon: "checkmark-circle",
           color: theme.colors.success,
-          label: 'Finalizar',
+          label: "Finalizar",
         };
 
-      case 'completed':
+      case "completed":
         return {
-          icon: 'document-text',
+          icon: "document-text",
           color: theme.colors.primary,
-          label: 'Detalhes',
+          label: "Detalhes",
         };
 
-      case 'no-route':
+      case "no-route":
       default:
         return {
-          icon: 'time',
+          icon: "time",
           color: theme.colors.primary,
-          label: 'Histórico',
+          label: "Histórico",
         };
     }
   };
@@ -358,12 +367,18 @@ function MotoristaInicioContent() {
 
     try {
       // Apply the optimization
-      await DynamicReroutingService.applyOptimization(route.id, modals.optimization.newOrder);
+      await DynamicReroutingService.applyOptimization(
+        route.id,
+        modals.optimization.newOrder,
+      );
 
       // Refresh route data
       await refreshRoute();
 
-      showSuccess('Sucesso', `Rota otimizada! Você economizará ${modals.optimization.timeSaved} minutos.`);
+      showSuccess(
+        "Sucesso",
+        `Rota otimizada! Você economizará ${modals.optimization.timeSaved} minutos.`,
+      );
       modals.clearOptimization();
     } catch (error) {
       showError(error);
@@ -402,9 +417,10 @@ function MotoristaInicioContent() {
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingBottom: (routeStatus === 'no-route' || routeStatus === 'pending')
-              ? Math.max(16, insets.bottom + 16)
-              : Math.max(72, insets.bottom + 72)
+            paddingBottom:
+              routeStatus === "no-route" || routeStatus === "pending"
+                ? Math.max(16, insets.bottom + 16)
+                : Math.max(72, insets.bottom + 72),
           },
         ]}
         refreshControl={
@@ -445,35 +461,37 @@ function MotoristaInicioContent() {
         />
 
         {/* Mini Map - Nos estados pending, active e last-stop para visualização da rota */}
-        {route && (routeStatus === 'pending' || routeStatus === 'active' || routeStatus === 'last-stop') && (
-          <MiniMap
-            paradas={paradas}
-            userLocation={location ?? undefined}
-            expanded={modals.miniMapExpanded}
-            onToggleExpand={modals.toggleMiniMap}
-            onOpenFullMap={() => router.push('/motorista/mapa')}
-            onOpenPiP={modals.openPiPMap}
-            route={route}
-            testID="motorista-mini-map"
-          />
-        )}
+        {route &&
+          (routeStatus === "pending" ||
+            routeStatus === "active" ||
+            routeStatus === "last-stop") && (
+            <MiniMap
+              paradas={paradas}
+              userLocation={location ?? undefined}
+              expanded={modals.miniMapExpanded}
+              onToggleExpand={modals.toggleMiniMap}
+              onOpenFullMap={() => router.push("/motorista/mapa")}
+              onOpenPiP={modals.openPiPMap}
+              route={route}
+              testID="motorista-mini-map"
+            />
+          )}
 
         {/* Botão Iniciar Rota - full-width no estado pending */}
-        {routeStatus === 'pending' && (
+        {routeStatus === "pending" && (
           <StartRouteButton
             onPress={handleStartRoute}
             disabled={!canStartRoute}
             loading={isStartingRoute}
             label="Iniciar Rota"
-            errorMessage={!canStartRoute ? 'GPS necessário' : undefined}
+            errorMessage={!canStartRoute ? "GPS necessário" : undefined}
             variant="start"
           />
         )}
-
       </ScrollView>
 
       {/* Floating Action Button - apenas quando NÃO é pending (pending usa StartRouteButton) */}
-      {routeStatus !== 'pending' && (
+      {routeStatus !== "pending" && (
         <FloatingActionButton
           icon={fabProps.icon}
           color={fabProps.color}
@@ -489,17 +507,19 @@ function MotoristaInicioContent() {
           visible={modals.showIncidentWizard}
           onClose={modals.closeIncidentWizard}
           onSubmit={(report) => {
-            logger.debug('Incidente reportado:', report);
+            logger.debug("Incidente reportado:", report);
             modals.closeIncidentWizard();
           }}
           paradaId={currentStop?.id}
           rotaId={route?.id}
-          motoristaId={userData?.id || ''}
+          motoristaId={userData?.id || ""}
           endereco={currentStop?.endereco}
         />
       )}
 
-      {(routeStatus === 'pending' || routeStatus === 'active' || routeStatus === 'last-stop') && (
+      {(routeStatus === "pending" ||
+        routeStatus === "active" ||
+        routeStatus === "last-stop") && (
         <PictureInPictureMap
           visible={modals.showPiPMap}
           userLocation={location}
@@ -514,7 +534,9 @@ function MotoristaInicioContent() {
             }
             // Fallback: encontrar primeira parada real (não checkpoint)
             // is_checkpoint === false significa que É checkpoint (partida/chegada da unidade)
-            const primeiraParadaReal = paradas.find(p => p.is_checkpoint !== false);
+            const primeiraParadaReal = paradas.find(
+              (p) => p.is_checkpoint !== false,
+            );
             if (primeiraParadaReal) {
               return {
                 latitude: primeiraParadaReal.latitude,
@@ -527,10 +549,10 @@ function MotoristaInicioContent() {
           onClose={modals.closePiPMap}
           onExpand={() => {
             modals.closePiPMap();
-            if (routeStatus !== 'pending') {
+            if (routeStatus !== "pending") {
               modals.setNavigationMode(true);
             } else {
-              router.push('/motorista/mapa');
+              router.push("/motorista/mapa");
             }
           }}
         />
@@ -539,7 +561,7 @@ function MotoristaInicioContent() {
       <OptimizationAlert
         visible={modals.showOptimization}
         optimization={modals.optimization}
-        currentOrder={paradas.filter(p => p.status === 'pendente')}
+        currentOrder={paradas.filter((p) => p.status === "pendente")}
         onAccept={handleAcceptOptimization}
         onReject={handleRejectOptimization}
         onClose={modals.dismissOptimization}
@@ -614,7 +636,3 @@ const styles = StyleSheet.create((theme: Theme) => ({
     // Padding is set inline to account for Tab Bar + FAB
   },
 }));
-
-
-
-
