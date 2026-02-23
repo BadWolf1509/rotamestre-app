@@ -23,9 +23,8 @@ import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
 import { setupNotificationResponseHandler } from '@/lib/notificationHandlers';
 import { initializeNotifications } from '@/lib/notifications';
-import { initSentry } from '@/lib/sentry';
-import { reportWebVitals } from '@/lib/web-vitals';
 import { setupOfflineSync } from '@/lib/offline';
+import { initSentry } from '@/lib/sentry';
 import {
   applyThemePreferences,
   getThemePreferences,
@@ -33,6 +32,7 @@ import {
   type ThemeDensityPreference,
   type ThemePreference,
 } from '@/lib/themePreference';
+import { reportWebVitals } from '@/lib/web-vitals';
 import { configureLogBox } from '@/utils/configureLogBox';
 import { migrateNavigationPreferences } from '@/utils/navigationPreferencesMigration';
 // NOTA: Unistyles é configurado automaticamente em @/utils/styles (linha 312)

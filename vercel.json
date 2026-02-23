@@ -102,7 +102,7 @@
       ]
     },
     {
-      "source": "/(.*)\\.woff2?$",
+      "source": "/:path*.:ext(woff|woff2)",
       "headers": [
         {
           "key": "Cache-Control",

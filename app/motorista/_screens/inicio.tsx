@@ -18,6 +18,7 @@ import { NavigationMode } from '@/components/motorista/NavigationMode';
 import { PictureInPictureMap } from '@/components/motorista/PictureInPictureMap';
 import { SkipReasonModal } from '@/components/motorista/SkipReasonModal';
 import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
+import { OptimizationAlert } from '@/components/motorista/OptimizationAlert';
 import { SwipeOnboarding, hasSeenSwipeOnboarding } from '@/components/SwipeOnboarding';
 import { SKIP_REASON_LABELS, type MotivoSkip } from '@/constants/skipReasons';
 import { useRouteStatus } from '@/context/RouteStatusContext';
@@ -28,6 +29,7 @@ import { useInicioModals } from '@/hooks/motorista/useInicioModals';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
 import { abrirNavegacao } from '@/lib/navigation';
+import DynamicReroutingService from '@/services/dynamicRerouting';
 import LocationTrackingService from '@/services/locationTracking';
 import type { IconName } from '@/types/icons';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -67,16 +69,6 @@ function MotoristaInicioContent() {
   // Local state (loading/async - not suitable for reducer)
   const [refreshing, setRefreshing] = useState(false);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-<<<<<<< HEAD
-  const [showIncidentWizard, setShowIncidentWizard] = useState(false);
-  const [navigationMode, setNavigationMode] = useState(false);
-  const [showPiPMap, setShowPiPMap] = useState(false);
-  const [showCompletionFlow, setShowCompletionFlow] = useState(false);
-  const [selectedParadaForCompletion, setSelectedParadaForCompletion] = useState<ParadaData | null>(null);
-  const [showSupportModal, setShowSupportModal] = useState(false);
-  const [showCompleteRouteModal, setShowCompleteRouteModal] = useState(false);
-=======
->>>>>>> 3fc8497 (refactor(components): extract useInicioModals, add barrel exports, deprecate Toast.onHide)
   const [isCompletingRoute, setIsCompletingRoute] = useState(false);
   const [canStartRoute, setCanStartRoute] = useState(true);
   const [isStartingRoute, setIsStartingRoute] = useState(false);
@@ -360,8 +352,6 @@ function MotoristaInicioContent() {
     modals.setNavigationMode(false);
   };
 
-<<<<<<< HEAD
-=======
   // Handle optimization acceptance
   const handleAcceptOptimization = async () => {
     if (!modals.optimization || !route) return;
@@ -386,7 +376,6 @@ function MotoristaInicioContent() {
     // Keep optimization in memory for potential later use
   };
 
->>>>>>> 3fc8497 (refactor(components): extract useInicioModals, add barrel exports, deprecate Toast.onHide)
   // If in navigation mode, show full-screen navigation
   if (modals.navigationMode && currentStop) {
     return (
@@ -547,8 +536,6 @@ function MotoristaInicioContent() {
         />
       )}
 
-<<<<<<< HEAD
-=======
       <OptimizationAlert
         visible={modals.showOptimization}
         optimization={modals.optimization}
@@ -558,7 +545,6 @@ function MotoristaInicioContent() {
         onClose={modals.dismissOptimization}
       />
 
->>>>>>> 3fc8497 (refactor(components): extract useInicioModals, add barrel exports, deprecate Toast.onHide)
       {/* Modal de Conclusão de Parada (com foto) */}
       {/* Usa selectedParadaForCompletion (capturado no momento do swipe) para evitar loop */}
       {/* quando currentStop muda após a conclusão da parada */}
