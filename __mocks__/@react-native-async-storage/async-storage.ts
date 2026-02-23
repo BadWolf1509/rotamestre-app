@@ -31,21 +31,24 @@ export default {
       resolve(Object.keys(mockStorage));
     });
   }),
-  multiGet: jest.fn((keys: string[]) => {
+  getMany: jest.fn((keys: string[]) => {
     return new Promise((resolve) => {
-      const pairs = keys.map((key) => [key, mockStorage[key] || null]);
-      resolve(pairs);
+      const result: Record<string, string | null> = {};
+      keys.forEach((key) => {
+        result[key] = mockStorage[key] || null;
+      });
+      resolve(result);
     });
   }),
-  multiSet: jest.fn((pairs: [string, string][]) => {
+  setMany: jest.fn((entries: Record<string, string>) => {
     return new Promise((resolve) => {
-      pairs.forEach(([key, value]) => {
+      Object.entries(entries).forEach(([key, value]) => {
         mockStorage[key] = value;
       });
       resolve(null);
     });
   }),
-  multiRemove: jest.fn((keys: string[]) => {
+  removeMany: jest.fn((keys: string[]) => {
     return new Promise((resolve) => {
       keys.forEach((key) => delete mockStorage[key]);
       resolve(null);

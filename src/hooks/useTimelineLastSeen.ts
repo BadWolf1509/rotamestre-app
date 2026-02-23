@@ -5,12 +5,12 @@
  * Permite identificar quais eventos são "novos" para o usuário.
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useState, useEffect, useCallback } from 'react';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useState, useEffect, useCallback } from "react";
 
-import { logger } from '@/lib/logger';
+import { logger } from "@/lib/logger";
 
-const STORAGE_KEY_PREFIX = '@timeline_last_seen_';
+const STORAGE_KEY_PREFIX = "@timeline_last_seen_";
 
 interface UseTimelineLastSeenResult {
   /** Timestamp do último evento visto (ISO string) */
@@ -36,9 +36,11 @@ interface UseTimelineLastSeenResult {
  */
 export function useTimelineLastSeen(
   rotaId: string,
-  fallbackTimestamp?: string | null
+  fallbackTimestamp?: string | null,
 ): UseTimelineLastSeenResult {
-  const [lastSeenTimestamp, setLastSeenTimestamp] = useState<string | null>(null);
+  const [lastSeenTimestamp, setLastSeenTimestamp] = useState<string | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
 
   const storageKey = `${STORAGE_KEY_PREFIX}${rotaId}`;
@@ -55,7 +57,7 @@ export function useTimelineLastSeen(
           setLastSeenTimestamp(stored);
         }
       } catch (error) {
-        logger.error('[useTimelineLastSeen] Erro ao carregar:', error);
+        logger.error("[useTimelineLastSeen] Erro ao carregar:", error);
       } finally {
         setLoading(false);
       }
@@ -87,7 +89,7 @@ export function useTimelineLastSeen(
 
       return eventDate > referenceDate;
     },
-    [effectiveTimestamp]
+    [effectiveTimestamp],
   );
 
   /**
@@ -97,15 +99,18 @@ export function useTimelineLastSeen(
     async (timestamp: string): Promise<void> => {
       try {
         // Só atualiza se for mais recente que o atual
-        if (!lastSeenTimestamp || new Date(timestamp) > new Date(lastSeenTimestamp)) {
+        if (
+          !lastSeenTimestamp ||
+          new Date(timestamp) > new Date(lastSeenTimestamp)
+        ) {
           await AsyncStorage.setItem(storageKey, timestamp);
           setLastSeenTimestamp(timestamp);
         }
       } catch (error) {
-        logger.error('[useTimelineLastSeen] Erro ao salvar:', error);
+        logger.error("[useTimelineLastSeen] Erro ao salvar:", error);
       }
     },
-    [storageKey, lastSeenTimestamp]
+    [storageKey, lastSeenTimestamp],
   );
 
   /**
@@ -124,7 +129,7 @@ export function useTimelineLastSeen(
 
       await markAsSeen(mostRecent.timestamp);
     },
-    [markAsSeen]
+    [markAsSeen],
   );
 
   /**
@@ -140,7 +145,7 @@ export function useTimelineLastSeen(
 
       return events.filter((event) => isNewEvent(event.timestamp)).length;
     },
-    [effectiveTimestamp, isNewEvent]
+    [effectiveTimestamp, isNewEvent],
   );
 
   return {
@@ -161,7 +166,7 @@ export async function clearTimelineLastSeen(rotaId: string): Promise<void> {
   try {
     await AsyncStorage.removeItem(`${STORAGE_KEY_PREFIX}${rotaId}`);
   } catch (error) {
-    logger.error('[clearTimelineLastSeen] Erro:', error);
+    logger.error("[clearTimelineLastSeen] Erro:", error);
   }
 }
 
@@ -172,11 +177,13 @@ export async function clearTimelineLastSeen(rotaId: string): Promise<void> {
 export async function clearAllTimelineLastSeen(): Promise<void> {
   try {
     const allKeys = await AsyncStorage.getAllKeys();
-    const timelineKeys = allKeys.filter((key) => key.startsWith(STORAGE_KEY_PREFIX));
+    const timelineKeys = allKeys.filter((key) =>
+      key.startsWith(STORAGE_KEY_PREFIX),
+    );
     if (timelineKeys.length > 0) {
-      await AsyncStorage.multiRemove(timelineKeys);
+      await AsyncStorage.removeMany(timelineKeys);
     }
   } catch (error) {
-    logger.error('[clearAllTimelineLastSeen] Erro:', error);
+    logger.error("[clearAllTimelineLastSeen] Erro:", error);
   }
 }

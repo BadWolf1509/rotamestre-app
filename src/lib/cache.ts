@@ -47,12 +47,12 @@
  * ```
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { logger } from './logger';
+import { logger } from "./logger";
 
 // Prefixo para identificar cache vs outros dados do AsyncStorage
-const CACHE_PREFIX = '@cache_';
+const CACHE_PREFIX = "@cache_";
 
 interface CacheEntry<T> {
   data: T;
@@ -67,14 +67,14 @@ interface CacheOptions {
 
 // TTLs padrão para diferentes tipos de dados
 export const CACHE_TTL = {
-  USER_DATA: 5 * 60 * 1000,      // 5 minutos
-  DASHBOARD: 2 * 60 * 1000,      // 2 minutos
-  ROUTES_LIST: 3 * 60 * 1000,    // 3 minutos
-  MOTORISTAS: 10 * 60 * 1000,    // 10 minutos
-  STATIC_DATA: 30 * 60 * 1000,   // 30 minutos
-  SHORT: 1 * 60 * 1000,          // 1 minuto
-  AUTOCOMPLETE: 5 * 60 * 1000,   // 5 minutos - autocomplete de endereços
-  GEOCODING: 30 * 60 * 1000,     // 30 minutos - geocoding (endereços não mudam)
+  USER_DATA: 5 * 60 * 1000, // 5 minutos
+  DASHBOARD: 2 * 60 * 1000, // 2 minutos
+  ROUTES_LIST: 3 * 60 * 1000, // 3 minutos
+  MOTORISTAS: 10 * 60 * 1000, // 10 minutos
+  STATIC_DATA: 30 * 60 * 1000, // 30 minutos
+  SHORT: 1 * 60 * 1000, // 1 minuto
+  AUTOCOMPLETE: 5 * 60 * 1000, // 5 minutos - autocomplete de endereços
+  GEOCODING: 30 * 60 * 1000, // 30 minutos - geocoding (endereços não mudam)
   ROUTE_OPTIMIZATION: 2 * 60 * 1000, // 2 minutos - otimização de rotas OSRM
 } as const;
 
@@ -137,7 +137,7 @@ export async function getCache<T>(key: string): Promise<T | null> {
     memoryCache.set(cacheKey, entry);
     return entry.data;
   } catch (error) {
-    logger.warn('[Cache] Erro ao ler cache:', error);
+    logger.warn("[Cache] Erro ao ler cache:", error);
     return null;
   }
 }
@@ -162,7 +162,7 @@ export async function getCache<T>(key: string): Promise<T | null> {
 export async function setCache<T>(
   key: string,
   data: T,
-  ttl: number = CACHE_TTL.USER_DATA
+  ttl: number = CACHE_TTL.USER_DATA,
 ): Promise<void> {
   const cacheKey = CACHE_PREFIX + key;
   const entry: CacheEntry<T> = {
@@ -178,7 +178,7 @@ export async function setCache<T>(
   try {
     await AsyncStorage.setItem(cacheKey, JSON.stringify(entry));
   } catch (error) {
-    logger.warn('[Cache] Erro ao salvar cache:', error);
+    logger.warn("[Cache] Erro ao salvar cache:", error);
   }
 }
 
@@ -192,7 +192,7 @@ export async function clearCache(key: string): Promise<void> {
   try {
     await AsyncStorage.removeItem(cacheKey);
   } catch (error) {
-    logger.warn('[Cache] Erro ao limpar cache:', error);
+    logger.warn("[Cache] Erro ao limpar cache:", error);
   }
 }
 
@@ -204,12 +204,12 @@ export async function clearAllCache(): Promise<void> {
 
   try {
     const keys = await AsyncStorage.getAllKeys();
-    const cacheKeys = keys.filter(k => k.startsWith(CACHE_PREFIX));
+    const cacheKeys = keys.filter((k) => k.startsWith(CACHE_PREFIX));
     if (cacheKeys.length > 0) {
-      await AsyncStorage.multiRemove(cacheKeys);
+      await AsyncStorage.removeMany(cacheKeys);
     }
   } catch (error) {
-    logger.warn('[Cache] Erro ao limpar todo cache:', error);
+    logger.warn("[Cache] Erro ao limpar todo cache:", error);
   }
 }
 
@@ -219,7 +219,7 @@ export async function clearAllCache(): Promise<void> {
 export async function cleanExpiredCache(): Promise<void> {
   try {
     const keys = await AsyncStorage.getAllKeys();
-    const cacheKeys = keys.filter(k => k.startsWith(CACHE_PREFIX));
+    const cacheKeys = keys.filter((k) => k.startsWith(CACHE_PREFIX));
 
     const toRemove: string[] = [];
 
@@ -235,10 +235,10 @@ export async function cleanExpiredCache(): Promise<void> {
     }
 
     if (toRemove.length > 0) {
-      await AsyncStorage.multiRemove(toRemove);
+      await AsyncStorage.removeMany(toRemove);
     }
   } catch (error) {
-    logger.warn('[Cache] Erro ao limpar cache expirado:', error);
+    logger.warn("[Cache] Erro ao limpar cache expirado:", error);
   }
 }
 
@@ -277,7 +277,7 @@ export async function cleanExpiredCache(): Promise<void> {
 export async function getCacheWithFetch<T>(
   key: string,
   fetcher: () => Promise<T>,
-  options: CacheOptions = {}
+  options: CacheOptions = {},
 ): Promise<{ data: T; fromCache: boolean }> {
   const { ttl = CACHE_TTL.USER_DATA, forceRefresh = false } = options;
 
@@ -325,12 +325,14 @@ export async function getCacheWithFetch<T>(
  * await invalidateRelatedCaches('paradas');
  * ```
  */
-export async function invalidateRelatedCaches(entity: 'rotas' | 'paradas' | 'usuarios' | 'incidentes'): Promise<void> {
+export async function invalidateRelatedCaches(
+  entity: "rotas" | "paradas" | "usuarios" | "incidentes",
+): Promise<void> {
   const relatedKeys: Record<string, string[]> = {
-    rotas: ['dashboard', 'rotas_list', 'kpis'],
-    paradas: ['dashboard', 'rotas_list'],
-    usuarios: ['user_data', 'motoristas'],
-    incidentes: ['dashboard', 'incidentes_list'],
+    rotas: ["dashboard", "rotas_list", "kpis"],
+    paradas: ["dashboard", "rotas_list"],
+    usuarios: ["user_data", "motoristas"],
+    incidentes: ["dashboard", "incidentes_list"],
   };
 
   const keysToInvalidate = relatedKeys[entity] || [];
