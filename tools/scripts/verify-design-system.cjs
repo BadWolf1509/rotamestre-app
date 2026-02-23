@@ -5,6 +5,7 @@ const ROOT = path.resolve(__dirname, '..', '..');
 const REPORT_PATH = path.join(ROOT, 'docs', 'design-system-hex-report.md');
 const ALLOWLIST = new Set([
   'src/utils/styles.base.ts',
+  'app/+html.tsx', // Static HTML template - theme-color meta tag must be hardcoded
   'app/design-system.tsx', // Showcase page - hex colors for demonstration
   // Web-specific files with justified hex usage:
   'src/components/MapaWebMapLibre.tsx', // MapLibre marker colors
