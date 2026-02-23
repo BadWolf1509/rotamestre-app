@@ -31,6 +31,7 @@ import React, { Component, ReactNode } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Share, Platform } from 'react-native';
 
 import { logger } from '@/lib/logger';
+import { captureError } from '@/lib/sentry';
 import { defaultTheme } from '@/utils/styles';
 
 // Component tokens for ErrorBoundary
@@ -75,6 +76,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     logger.action('error_boundary', 'Error caught', {
       errorName: error.name,
       errorMessage: error.message,
+    });
+
+    // Report to Sentry in production
+    captureError(error, {
+      componentStack: errorInfo.componentStack,
     });
 
     // Store errorInfo for potential bug report
