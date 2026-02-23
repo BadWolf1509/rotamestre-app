@@ -15,7 +15,10 @@ import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 import { Button } from './Button';
 
 interface EmptyStateProps {
+  /** Ionicons icon name (default: 'file-tray-outline') */
   icon?: keyof typeof Ionicons.glyphMap;
+  /** Emoji to display instead of Ionicons icon (e.g. "📦", "🚗"). Takes priority over `icon`. */
+  emoji?: string;
   title: string;
   description?: string;
   actionLabel?: string;
@@ -25,6 +28,7 @@ interface EmptyStateProps {
 
 export function EmptyState({
   icon = 'file-tray-outline',
+  emoji,
   title,
   description,
   actionLabel,
@@ -35,12 +39,16 @@ export function EmptyState({
 
   return (
     <View style={[styles.container, style]}>
-      <Ionicons
-        name={icon}
-        size={64}
-        color={theme.colors.gray400}
-        style={styles.icon}
-      />
+      {emoji ? (
+        <Text style={styles.emoji}>{emoji}</Text>
+      ) : (
+        <Ionicons
+          name={icon}
+          size={64}
+          color={theme.colors.gray400}
+          style={styles.icon}
+        />
+      )}
 
       {/* Title */}
       <Text style={styles.title}>{title}</Text>
@@ -73,6 +81,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
 
   icon: {
     marginBottom: theme.spacing.lg,
+  },
+
+  emoji: {
+    fontSize: 64,
+    marginBottom: theme.spacing.lg,
+    textAlign: 'center' as const,
   },
 
   title: {

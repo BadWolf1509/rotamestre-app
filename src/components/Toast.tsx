@@ -39,7 +39,9 @@ export interface ToastProps {
   type?: ToastType;
   duration?: number;
   onDismiss?: () => void;
-  /** Alias for onDismiss */
+  /**
+   * @deprecated Use `onDismiss` instead. Will be removed in v2.0.
+   */
   onHide?: () => void;
   visible: boolean;
   /** Desabilitar portal (usar quando Toast está dentro de Modal) */

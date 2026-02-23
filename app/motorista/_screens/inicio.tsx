@@ -18,11 +18,13 @@ import { NavigationMode } from '@/components/motorista/NavigationMode';
 import { PictureInPictureMap } from '@/components/motorista/PictureInPictureMap';
 import { SkipReasonModal } from '@/components/motorista/SkipReasonModal';
 import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
+import { SwipeOnboarding, hasSeenSwipeOnboarding } from '@/components/SwipeOnboarding';
 import { SKIP_REASON_LABELS, type MotivoSkip } from '@/constants/skipReasons';
-import { useRouteStatus, type ParadaData } from '@/context/RouteStatusContext';
+import { useRouteStatus } from '@/context/RouteStatusContext';
 import { Dialog, SupportModal } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
+import { useInicioModals } from '@/hooks/motorista/useInicioModals';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
 import { abrirNavegacao } from '@/lib/navigation';
@@ -59,10 +61,13 @@ function MotoristaInicioContent() {
     rotaStatus: route?.status,
   });
 
-  // Local state
+  // Modal/UI state (consolidated via useReducer)
+  const modals = useInicioModals();
+
+  // Local state (loading/async - not suitable for reducer)
   const [refreshing, setRefreshing] = useState(false);
-  const [miniMapExpanded, setMiniMapExpanded] = useState(false);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+<<<<<<< HEAD
   const [showIncidentWizard, setShowIncidentWizard] = useState(false);
   const [navigationMode, setNavigationMode] = useState(false);
   const [showPiPMap, setShowPiPMap] = useState(false);
@@ -70,10 +75,19 @@ function MotoristaInicioContent() {
   const [selectedParadaForCompletion, setSelectedParadaForCompletion] = useState<ParadaData | null>(null);
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [showCompleteRouteModal, setShowCompleteRouteModal] = useState(false);
+=======
+>>>>>>> 3fc8497 (refactor(components): extract useInicioModals, add barrel exports, deprecate Toast.onHide)
   const [isCompletingRoute, setIsCompletingRoute] = useState(false);
   const [canStartRoute, setCanStartRoute] = useState(true);
   const [isStartingRoute, setIsStartingRoute] = useState(false);
-  const [showSkipModal, setShowSkipModal] = useState(false);
+  const [showSwipeOnboarding, setShowSwipeOnboarding] = useState(false);
+
+  // Check if swipe onboarding should be shown
+  useEffect(() => {
+    hasSeenSwipeOnboarding().then((seen) => {
+      if (!seen) setShowSwipeOnboarding(true);
+    });
+  }, []);
 
   // Load user location
   useEffect(() => {
@@ -209,7 +223,7 @@ function MotoristaInicioContent() {
 
     if (prefs.autoAdvance) {
       // Open navigation mode with auto-advance
-      setNavigationMode(true);
+      modals.setNavigationMode(true);
     } else {
       // Open regular navigation
       abrirNavegacao({
@@ -225,20 +239,19 @@ function MotoristaInicioContent() {
   // quando currentStop muda após a conclusão
   const handleCompleteStop = async () => {
     if (!currentStop) return;
-    setSelectedParadaForCompletion(currentStop);
-    setShowCompletionFlow(true);
+    modals.openCompletionFlow(currentStop);
   };
 
   // Skip current stop - opens SkipReasonModal
   const handleSkipStop = () => {
     if (!currentStop) return;
-    setShowSkipModal(true);
+    modals.openSkipModal();
   };
 
   // Confirm skip with structured reason
   const handleConfirmSkip = async (motivo: MotivoSkip, observacoes?: string) => {
     if (!currentStop) return;
-    setShowSkipModal(false);
+    modals.closeSkipModal();
     try {
       await skipStop(currentStop.id, motivo, observacoes);
       showSuccess('Parada Pulada', SKIP_REASON_LABELS[motivo]);
@@ -249,7 +262,7 @@ function MotoristaInicioContent() {
 
   // Complete route - abre modal de confirmação (funciona em web e mobile)
   const handleCompleteRoute = () => {
-    setShowCompleteRouteModal(true);
+    modals.openCompleteRoute();
   };
 
   // Confirma finalização da rota
@@ -257,7 +270,7 @@ function MotoristaInicioContent() {
     setIsCompletingRoute(true);
     try {
       await completeRoute();
-      setShowCompleteRouteModal(false);
+      modals.closeCompleteRoute();
       showSuccess('Parabéns!', 'Rota concluída com sucesso!');
     } catch (error: unknown) {
       showError(error);
@@ -344,11 +357,38 @@ function MotoristaInicioContent() {
   };
 
   const handleNavigationExit = () => {
-    setNavigationMode(false);
+    modals.setNavigationMode(false);
   };
 
+<<<<<<< HEAD
+=======
+  // Handle optimization acceptance
+  const handleAcceptOptimization = async () => {
+    if (!modals.optimization || !route) return;
+
+    try {
+      // Apply the optimization
+      await DynamicReroutingService.applyOptimization(route.id, modals.optimization.newOrder);
+
+      // Refresh route data
+      await refreshRoute();
+
+      showSuccess('Sucesso', `Rota otimizada! Você economizará ${modals.optimization.timeSaved} minutos.`);
+      modals.clearOptimization();
+    } catch (error) {
+      showError(error);
+    }
+  };
+
+  // Handle optimization rejection
+  const handleRejectOptimization = () => {
+    modals.dismissOptimization();
+    // Keep optimization in memory for potential later use
+  };
+
+>>>>>>> 3fc8497 (refactor(components): extract useInicioModals, add barrel exports, deprecate Toast.onHide)
   // If in navigation mode, show full-screen navigation
-  if (navigationMode && currentStop) {
+  if (modals.navigationMode && currentStop) {
     return (
       <NavigationMode
         currentStop={currentStop}
@@ -420,13 +460,10 @@ function MotoristaInicioContent() {
           <MiniMap
             paradas={paradas}
             userLocation={location ?? undefined}
-            expanded={miniMapExpanded}
-            onToggleExpand={() => setMiniMapExpanded(!miniMapExpanded)}
+            expanded={modals.miniMapExpanded}
+            onToggleExpand={modals.toggleMiniMap}
             onOpenFullMap={() => router.push('/motorista/mapa')}
-            onOpenPiP={() => {
-              setMiniMapExpanded(false); // Auto-colapsar MiniMap quando PiP abre
-              setShowPiPMap(true);
-            }}
+            onOpenPiP={modals.openPiPMap}
             route={route}
             testID="motorista-mini-map"
           />
@@ -458,13 +495,13 @@ function MotoristaInicioContent() {
       )}
 
       {/* Modals - rendered outside ScrollView */}
-      {showIncidentWizard && (
+      {modals.showIncidentWizard && (
         <IncidentReportWizard
-          visible={showIncidentWizard}
-          onClose={() => setShowIncidentWizard(false)}
+          visible={modals.showIncidentWizard}
+          onClose={modals.closeIncidentWizard}
           onSubmit={(report) => {
             logger.debug('Incidente reportado:', report);
-            setShowIncidentWizard(false);
+            modals.closeIncidentWizard();
           }}
           paradaId={currentStop?.id}
           rotaId={route?.id}
@@ -475,7 +512,7 @@ function MotoristaInicioContent() {
 
       {(routeStatus === 'pending' || routeStatus === 'active' || routeStatus === 'last-stop') && (
         <PictureInPictureMap
-          visible={showPiPMap}
+          visible={modals.showPiPMap}
           userLocation={location}
           destination={(() => {
             // Usar currentStop se disponível
@@ -498,11 +535,11 @@ function MotoristaInicioContent() {
             }
             return null;
           })()}
-          onClose={() => setShowPiPMap(false)}
+          onClose={modals.closePiPMap}
           onExpand={() => {
-            setShowPiPMap(false);
+            modals.closePiPMap();
             if (routeStatus !== 'pending') {
-              setNavigationMode(true);
+              modals.setNavigationMode(true);
             } else {
               router.push('/motorista/mapa');
             }
@@ -510,28 +547,37 @@ function MotoristaInicioContent() {
         />
       )}
 
+<<<<<<< HEAD
+=======
+      <OptimizationAlert
+        visible={modals.showOptimization}
+        optimization={modals.optimization}
+        currentOrder={paradas.filter(p => p.status === 'pendente')}
+        onAccept={handleAcceptOptimization}
+        onReject={handleRejectOptimization}
+        onClose={modals.dismissOptimization}
+      />
+
+>>>>>>> 3fc8497 (refactor(components): extract useInicioModals, add barrel exports, deprecate Toast.onHide)
       {/* Modal de Conclusão de Parada (com foto) */}
       {/* Usa selectedParadaForCompletion (capturado no momento do swipe) para evitar loop */}
       {/* quando currentStop muda após a conclusão da parada */}
       <StopCompletionFlow
-        parada={selectedParadaForCompletion}
-        visible={showCompletionFlow}
-        onClose={() => {
-          setShowCompletionFlow(false);
-          setSelectedParadaForCompletion(null);
-        }}
+        parada={modals.selectedParadaForCompletion}
+        visible={modals.showCompletionFlow}
+        onClose={modals.closeCompletionFlow}
         onSuccess={() => refreshRoute()}
         allowSkipPhoto={true}
       />
 
       <SupportModal
-        visible={showSupportModal}
-        onClose={() => setShowSupportModal(false)}
+        visible={modals.showSupportModal}
+        onClose={modals.closeSupport}
       />
 
       {/* Modal de Confirmação para Finalizar Rota */}
       <Dialog
-        visible={showCompleteRouteModal}
+        visible={modals.showCompleteRouteModal}
         variant="confirm"
         title="Finalizar Rota"
         message="Todas as paradas foram concluídas. Deseja finalizar a rota?"
@@ -540,17 +586,22 @@ function MotoristaInicioContent() {
         cancelText="Cancelar"
         loading={isCompletingRoute}
         onConfirm={confirmCompleteRoute}
-        onCancel={() => setShowCompleteRouteModal(false)}
+        onCancel={modals.closeCompleteRoute}
       />
 
       {/* Skip Reason Modal */}
-      {showSkipModal && currentStop && (
+      {modals.showSkipModal && currentStop && (
         <SkipReasonModal
-          visible={showSkipModal}
+          visible={modals.showSkipModal}
           parada={currentStop}
           onConfirm={handleConfirmSkip}
-          onCancel={() => setShowSkipModal(false)}
+          onCancel={modals.closeSkipModal}
         />
+      )}
+
+      {/* Swipe gesture onboarding (first visit only) */}
+      {showSwipeOnboarding && (
+        <SwipeOnboarding onDismiss={() => setShowSwipeOnboarding(false)} />
       )}
 
       {/* AlertDialog for useAlert hook */}
