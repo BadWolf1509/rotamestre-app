@@ -1,6 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -11,136 +11,25 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { UnistylesRuntime } from 'react-native-unistyles';
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { UnistylesRuntime } from "react-native-unistyles";
 
-import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
-import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
-import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
-import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
-import { useAlert } from '@/hooks/useAlert';
-import { useResponsive } from '@/hooks/useResponsive';
-import { authService } from '@/lib/auth';
-import { logger } from '@/lib/logger';
-import { validatePassword } from '@/lib/schemas/basic';
-import { isRecoveryRedirect, supabase } from '@/lib/supabase';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
-/** Parse error params from URL hash (Supabase redirects with #error=...&error_code=...) */
-function getHashErrorParams(): { error?: string; errorCode?: string; errorDescription?: string } {
-  if (Platform.OS !== 'web' || typeof window === 'undefined') return {};
-  const hash = window.location.hash.substring(1);
-  if (!hash) return {};
-  const params = new URLSearchParams(hash);
-  return {
-    error: params.get('error') || undefined,
-    errorCode: params.get('error_code') || undefined,
-    errorDescription: params.get('error_description') || undefined,
-  };
-}
-
-/** Try to manually establish session from URL hash tokens (fallback for SDK race condition) */
-async function tryManualSessionRecovery(): Promise<boolean> {
-  if (typeof window === 'undefined' || !window.location) return false;
-  const hash = window.location.hash.substring(1);
-  if (!hash) return false;
-
-  const params = new URLSearchParams(hash);
-  const access_token = params.get('access_token');
-  const refresh_token = params.get('refresh_token');
-
-  if (!access_token || !refresh_token) return false;
-
-  const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-  if (error) {
-    logger.warn('[ResetPassword] Manual session recovery failed', error);
-    return false;
-  }
-  return true;
-}
-
-/** Try PKCE recovery from ?code=... (if URL uses PKCE callback format) */
-async function tryPKCESessionRecovery(): Promise<boolean> {
-  if (typeof window === 'undefined' || !window.location) return false;
-
-  const code = new URLSearchParams(window.location.search).get('code');
-  if (!code) return false;
-
-  // `exchangeCodeForSession` exists in auth-js but may be absent in tests/mocks.
-  const exchangeCodeForSession =
-    (supabase.auth as typeof supabase.auth & {
-      exchangeCodeForSession?: (authCode: string) => Promise<{ error: unknown }>;
-    }).exchangeCodeForSession;
-
-  if (!exchangeCodeForSession) return false;
-
-  const { error } = await exchangeCodeForSession(code);
-  if (error) {
-    logger.warn('[ResetPassword] PKCE session recovery failed', error);
-    return false;
-  }
-  return true;
-}
-
-/** Try OTP hash recovery from ?token_hash=...&type=recovery */
-async function tryTokenHashSessionRecovery(): Promise<boolean> {
-  if (typeof window === 'undefined' || !window.location) return false;
-
-  const params = new URLSearchParams(window.location.search);
-  const tokenHash = params.get('token_hash');
-  const type = params.get('type');
-
-  if (!tokenHash || type !== 'recovery') return false;
-
-  // `verifyOtp` exists in auth-js but may be absent in tests/mocks.
-  const verifyOtp =
-    (supabase.auth as typeof supabase.auth & {
-      verifyOtp?: (params: { type: 'recovery'; token_hash: string }) => Promise<{ error: unknown }>;
-    }).verifyOtp;
-
-  if (!verifyOtp) return false;
-
-  const { error } = await verifyOtp({ type: 'recovery', token_hash: tokenHash });
-  if (error) {
-    logger.warn('[ResetPassword] token_hash session recovery failed', error);
-    return false;
-  }
-  return true;
-}
-
-/** Best-effort session recovery from URL callback parameters */
-async function trySessionRecoveryFromUrl(): Promise<boolean> {
-  if (await tryManualSessionRecovery()) return true;
-  if (await tryPKCESessionRecovery()) return true;
-  if (await tryTokenHashSessionRecovery()) return true;
-  return false;
-}
-
-/** Detect if current URL likely belongs to a password recovery callback */
-function hasRecoveryParamsInCurrentUrl(): boolean {
-  if (Platform.OS !== 'web' || typeof window === 'undefined' || !window.location) return false;
-
-  const hash = window.location.hash.substring(1);
-  const hashParams = new URLSearchParams(hash);
-  const searchParams = new URLSearchParams(window.location.search);
-
-  return (
-    hashParams.get('type') === 'recovery' ||
-    searchParams.get('type') === 'recovery' ||
-    (hashParams.has('access_token') && hashParams.has('refresh_token')) ||
-    searchParams.has('code') ||
-    searchParams.has('token_hash')
-  );
-}
-
-function isAuthSessionMissingError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-
-  const message = error.message.toLowerCase();
-  const name = error.name.toLowerCase();
-  return message.includes('auth session missing') || name.includes('authsessionmissing');
-}
+import LogoHorizontalDark from "@/../assets/logo-horizontal.png";
+import LogoHorizontalLight from "@/../assets/logo-horizontal1.png";
+import { AuthBrandPanel } from "@/components/auth/AuthBrandPanel";
+import { PasswordStrengthIndicator } from "@/components/PasswordStrengthIndicator";
+import { useSessionRecovery } from "@/hooks/auth/useSessionRecovery";
+import { useAlert } from "@/hooks/useAlert";
+import { useResponsive } from "@/hooks/useResponsive";
+import { authService } from "@/lib/auth";
+import {
+  isAuthSessionMissingError,
+  trySessionRecoveryFromUrl,
+} from "@/lib/auth/sessionRecovery";
+import { validatePassword } from "@/lib/schemas/basic";
+import { styles } from "@/styles/auth/reset-password.styles";
+import { useUnistyles } from "@/utils/styles";
 
 export default function ResetPassword() {
   const { theme } = useUnistyles();
@@ -148,113 +37,35 @@ export default function ResetPassword() {
   const { isDesktop } = useResponsive();
   const insets = useSafeAreaInsets();
   const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const { checkingSession, linkExpired, setLinkExpired } = useSessionRecovery();
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [linkExpired, setLinkExpired] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const confirmPasswordRef = useRef<TextInput>(null);
 
-  // Check for error params from Supabase redirect (e.g. expired OTP, access denied)
-  // Also proactively verify session when arriving from a recovery redirect
-  //
-  // IMPORTANT: Use onAuthStateChange (not getSession) to detect the session.
-  // getSession() can return null due to a race condition in auth-js where the
-  // SDK hasn't finished processing the URL hash tokens yet.
-  // Ref: https://github.com/orgs/supabase/discussions/19608
-  useEffect(() => {
-    const { error, errorCode } = getHashErrorParams();
-    if (errorCode === 'otp_expired' || error === 'access_denied') {
-      setLinkExpired(true);
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.history.replaceState(null, '', window.location.pathname);
-      }
-      return;
-    }
-
-    const shouldCheckRecoverySession =
-      Platform.OS === 'web' && (isRecoveryRedirect || hasRecoveryParamsInCurrentUrl());
-
-    if (!shouldCheckRecoverySession) return;
-
-    setCheckingSession(true);
-    let resolved = false;
-
-    const resolveWithRecoveryAttempt = async () => {
-      if (resolved) return;
-      const recovered = await trySessionRecoveryFromUrl();
-
-      if (resolved) return;
-      resolved = true;
-      if (!recovered) {
-        setLinkExpired(true);
-      }
-      setCheckingSession(false);
-    };
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (resolved) return;
-
-        if (event === 'PASSWORD_RECOVERY') {
-          // SDK processed recovery link and established session
-          resolved = true;
-          setCheckingSession(false);
-          return;
-        }
-
-        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
-          // Session available (SDK already processed the URL hash)
-          resolved = true;
-          setCheckingSession(false);
-          return;
-        }
-
-        if (event === 'INITIAL_SESSION' && !session) {
-          // SDK initialized but no session — try manual recovery from URL hash
-          // This handles the race condition where _getSessionFromURL didn't complete
-          logger.debug('[ResetPassword] INITIAL_SESSION without session, trying manual recovery');
-          // Run outside auth-js callback lock to avoid deadlock with setSession/exchange calls.
-          setTimeout(() => {
-            void resolveWithRecoveryAttempt();
-          }, 0);
-        }
-      }
-    );
-
-    // Safety timeout: if no auth event establishes a session within 10s, give up
-    const timeout = setTimeout(() => {
-      if (!resolved) {
-        void resolveWithRecoveryAttempt();
-      }
-    }, 10000);
-
-    return () => {
-      subscription.unsubscribe();
-      clearTimeout(timeout);
-    };
-  }, []);
-
   // Detectar tema escuro para usar logo apropriada
-  const isDarkMode = UnistylesRuntime.themeName?.startsWith('dark');
+  const isDarkMode = UnistylesRuntime.themeName?.startsWith("dark");
   const LogoHorizontal = isDarkMode ? LogoHorizontalDark : LogoHorizontalLight;
 
   function validateForm() {
     if (!password.trim()) {
-      showWarning('Erro', 'Digite sua nova senha');
+      showWarning("Erro", "Digite sua nova senha");
       return false;
     }
 
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.valid) {
-      showWarning('Senha fraca', `A senha precisa:\n• ${passwordValidation.errors.join('\n• ')}`);
+      showWarning(
+        "Senha fraca",
+        `A senha precisa:\n• ${passwordValidation.errors.join("\n• ")}`,
+      );
       return false;
     }
 
     if (password !== confirmPassword) {
-      showWarning('Erro', 'As senhas não coincidem');
+      showWarning("Erro", "As senhas não coincidem");
       return false;
     }
 
@@ -271,9 +82,9 @@ export default function ResetPassword() {
     try {
       await authService.updatePassword(password);
       showSuccess(
-        'Senha atualizada!',
-        'Sua senha foi redefinida com sucesso.',
-        () => router.replace('/')
+        "Senha atualizada!",
+        "Sua senha foi redefinida com sucesso.",
+        () => router.replace("/"),
       );
     } catch (error: unknown) {
       if (!isAuthSessionMissingError(error)) {
@@ -291,9 +102,9 @@ export default function ResetPassword() {
       try {
         await authService.updatePassword(password);
         showSuccess(
-          'Senha atualizada!',
-          'Sua senha foi redefinida com sucesso.',
-          () => router.replace('/')
+          "Senha atualizada!",
+          "Sua senha foi redefinida com sucesso.",
+          () => router.replace("/"),
         );
       } catch (retryError: unknown) {
         if (isAuthSessionMissingError(retryError)) {
@@ -315,31 +126,38 @@ export default function ResetPassword() {
       <Text style={styles.requirementText}>• Mínimo de 8 caracteres</Text>
       <Text style={styles.requirementText}>• Pelo menos 1 letra maiúscula</Text>
       <Text style={styles.requirementText}>• Pelo menos 1 número</Text>
-      <Text style={styles.requirementText}>• Pelo menos 1 caractere especial (!@#$%&*)</Text>
+      <Text style={styles.requirementText}>
+        • Pelo menos 1 caractere especial (!@#$%&*)
+      </Text>
     </View>
   );
 
   // Shared: password mismatch inline feedback
-  const mismatchContent = confirmPassword && password !== confirmPassword ? (
-    <Text style={styles.mismatchText}>As senhas não coincidem</Text>
-  ) : null;
+  const mismatchContent =
+    confirmPassword && password !== confirmPassword ? (
+      <Text style={styles.mismatchText}>As senhas não coincidem</Text>
+    ) : null;
 
   // ============================================
   // RENDER: Expired Link (shared content)
   // ============================================
   const expiredContent = (
     <View style={styles.expiredContainer}>
-      <Ionicons name="alert-circle-outline" size={48} color={theme.colors.gray400} />
+      <Ionicons
+        name="alert-circle-outline"
+        size={48}
+        color={theme.colors.gray400}
+      />
       <Text style={isDesktop ? styles.titleDesktop : styles.expiredTitle}>
         Link expirado
       </Text>
       <Text style={isDesktop ? styles.subtitleDesktop : styles.expiredMessage}>
-        O link de recuperação de senha expirou ou já foi utilizado. Solicite um novo link para
-        redefinir sua senha.
+        O link de recuperação de senha expirou ou já foi utilizado. Solicite um
+        novo link para redefinir sua senha.
       </Text>
       <TouchableOpacity
         style={isDesktop ? styles.buttonDesktop : styles.button}
-        onPress={() => router.replace('/auth/forgot-password')}
+        onPress={() => router.replace("/auth/forgot-password")}
         accessibilityLabel="Solicitar novo link de recuperação"
         accessibilityRole="button"
       >
@@ -347,7 +165,7 @@ export default function ResetPassword() {
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.backButton}
-        onPress={() => router.replace('/auth/login')}
+        onPress={() => router.replace("/auth/login")}
         accessibilityLabel="Voltar para login"
         accessibilityRole="link"
         testID="auth-reset-password-back"
@@ -371,7 +189,9 @@ export default function ResetPassword() {
             <View style={styles.formContainerDesktop}>
               <View style={styles.checkingContainer}>
                 <ActivityIndicator size="large" color={theme.colors.primary} />
-                <Text style={styles.subtitleDesktop}>Verificando link de recuperação...</Text>
+                <Text style={styles.subtitleDesktop}>
+                  Verificando link de recuperação...
+                </Text>
               </View>
             </View>
           </View>
@@ -382,7 +202,9 @@ export default function ResetPassword() {
       <View style={styles.container} testID="auth-reset-password-view">
         <View style={styles.checkingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={styles.checkingText}>Verificando link de recuperação...</Text>
+          <Text style={styles.checkingText}>
+            Verificando link de recuperação...
+          </Text>
         </View>
       </View>
     );
@@ -402,12 +224,15 @@ export default function ResetPassword() {
         {/* Right Side */}
         <View style={styles.rightPanel}>
           <View style={styles.formContainerDesktop}>
-            {linkExpired ? expiredContent : (
+            {linkExpired ? (
+              expiredContent
+            ) : (
               <>
                 <View style={styles.headerDesktop}>
                   <Text style={styles.titleDesktop}>Nova Senha</Text>
                   <Text style={styles.subtitleDesktop}>
-                    Digite sua nova senha abaixo. Confira os requisitos de segurança.
+                    Digite sua nova senha abaixo. Confira os requisitos de
+                    segurança.
                   </Text>
                 </View>
 
@@ -425,17 +250,23 @@ export default function ResetPassword() {
                         autoComplete="new-password"
                         accessibilityLabel="Nova senha"
                         returnKeyType="next"
-                        onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+                        onSubmitEditing={() =>
+                          confirmPasswordRef.current?.focus()
+                        }
                         testID="auth-reset-password-new"
                       />
                       <TouchableOpacity
                         style={styles.eyeButton}
                         onPress={() => setShowPassword(!showPassword)}
-                        accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                        accessibilityLabel={
+                          showPassword ? "Ocultar senha" : "Mostrar senha"
+                        }
                         accessibilityRole="button"
                       >
                         <Ionicons
-                          name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                          name={
+                            showPassword ? "eye-off-outline" : "eye-outline"
+                          }
                           size={22}
                           color={theme.colors.gray500}
                         />
@@ -463,12 +294,22 @@ export default function ResetPassword() {
                       />
                       <TouchableOpacity
                         style={styles.eyeButton}
-                        onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                        accessibilityLabel={showConfirmPassword ? 'Ocultar confirmação de senha' : 'Mostrar confirmação de senha'}
+                        onPress={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
+                        accessibilityLabel={
+                          showConfirmPassword
+                            ? "Ocultar confirmação de senha"
+                            : "Mostrar confirmação de senha"
+                        }
                         accessibilityRole="button"
                       >
                         <Ionicons
-                          name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                          name={
+                            showConfirmPassword
+                              ? "eye-off-outline"
+                              : "eye-outline"
+                          }
                           size={22}
                           color={theme.colors.gray500}
                         />
@@ -497,7 +338,7 @@ export default function ResetPassword() {
 
                   <TouchableOpacity
                     style={styles.backButton}
-                    onPress={() => router.replace('/auth/login')}
+                    onPress={() => router.replace("/auth/login")}
                     accessibilityLabel="Voltar para login"
                     accessibilityRole="link"
                     testID="auth-reset-password-back"
@@ -520,10 +361,13 @@ export default function ResetPassword() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView
-        contentContainerStyle={[styles.container, { paddingBottom: Math.max(20, insets.bottom + 20) }]}
+        contentContainerStyle={[
+          styles.container,
+          { paddingBottom: Math.max(20, insets.bottom + 20) },
+        ]}
         keyboardShouldPersistTaps="handled"
         bounces={false}
         testID="auth-reset-password-view"
@@ -541,7 +385,9 @@ export default function ResetPassword() {
           </View>
         )}
 
-        {linkExpired ? expiredContent : (
+        {linkExpired ? (
+          expiredContent
+        ) : (
           <View style={styles.form}>
             <View style={styles.passwordContainer}>
               <TextInput
@@ -560,11 +406,13 @@ export default function ResetPassword() {
               <TouchableOpacity
                 style={styles.eyeButton}
                 onPress={() => setShowPassword(!showPassword)}
-                accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                accessibilityLabel={
+                  showPassword ? "Ocultar senha" : "Mostrar senha"
+                }
                 accessibilityRole="button"
               >
                 <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
                   size={22}
                   color={theme.colors.gray500}
                 />
@@ -590,11 +438,15 @@ export default function ResetPassword() {
               <TouchableOpacity
                 style={styles.eyeButton}
                 onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                accessibilityLabel={showConfirmPassword ? 'Ocultar confirmação de senha' : 'Mostrar confirmação de senha'}
+                accessibilityLabel={
+                  showConfirmPassword
+                    ? "Ocultar confirmação de senha"
+                    : "Mostrar confirmação de senha"
+                }
                 accessibilityRole="button"
               >
                 <Ionicons
-                  name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                  name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
                   size={22}
                   color={theme.colors.gray500}
                 />
@@ -622,7 +474,7 @@ export default function ResetPassword() {
 
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => router.replace('/auth/login')}
+              onPress={() => router.replace("/auth/login")}
               accessibilityLabel="Voltar para login"
               accessibilityRole="link"
               testID="auth-reset-password-back"
@@ -636,194 +488,3 @@ export default function ResetPassword() {
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create((theme: Theme) => ({
-  containerDesktop: {
-    flex: 1,
-    flexDirection: 'row',
-  },
-  leftPanel: {
-    flex: 1,
-    backgroundColor: theme.colors.primary,
-  },
-  rightPanel: {
-    flex: 1,
-    backgroundColor: theme.colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing['16'],
-  },
-  formContainerDesktop: {
-    width: '100%',
-    maxWidth: 480,
-  },
-  headerDesktop: {
-    marginBottom: theme.spacing['10'],
-  },
-  titleDesktop: {
-    fontFamily: theme.typography.fontDisplay,
-    fontSize: theme.typography.fontSize['3xl'],
-    color: theme.colors.gray900,
-    marginBottom: theme.spacing['2.5'],
-  },
-  subtitleDesktop: {
-    fontFamily: theme.typography.fontSans,
-    fontSize: theme.typography.fontSize.base,
-    color: theme.colors.gray500,
-    lineHeight: theme.spacing.xxl,
-  },
-  inputGroup: {
-    marginBottom: theme.spacing.xxl,
-  },
-  inputLabel: {
-    fontFamily: theme.typography.fontSansSemiBold,
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.gray700,
-    marginBottom: theme.spacing['2'],
-  },
-  passwordContainer: {
-    position: 'relative',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  inputDesktopPassword: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: theme.colors.gray300,
-    borderRadius: theme.borderRadius.sm,
-    padding: theme.spacing['3.5'],
-    paddingRight: 45,
-    fontSize: theme.typography.fontSize.base,
-    fontFamily: theme.typography.fontSans,
-    backgroundColor: theme.colors.white,
-    color: theme.colors.gray900,
-  },
-  eyeButton: {
-    position: 'absolute',
-    right: theme.spacing.md,
-    padding: theme.spacing.sm,
-  },
-  buttonDesktop: {
-    backgroundColor: theme.colors.primary,
-    padding: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
-    alignItems: 'center',
-    marginTop: theme.spacing['2'],
-    ...theme.shadows.md,
-  },
-  container: {
-    flexGrow: 1,
-    backgroundColor: theme.colors.white,
-    justifyContent: 'center',
-    padding: theme.spacing.xxl,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: theme.spacing['10'],
-  },
-  logoHorizontal: {
-    marginBottom: theme.spacing.xl,
-  },
-  logoImage: {
-    width: 280,
-    height: 115,
-  },
-  subtitle: {
-    fontFamily: theme.typography.fontSans,
-    fontSize: theme.typography.fontSize.lg,
-    color: theme.colors.gray600,
-    textAlign: 'center',
-  },
-  form: {
-    width: '100%',
-    gap: theme.spacing.lg,
-  },
-  inputPassword: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: theme.colors.gray300,
-    borderRadius: theme.borderRadius.sm,
-    padding: theme.spacing.lg,
-    paddingRight: 45,
-    fontSize: theme.typography.fontSize.base,
-    fontFamily: theme.typography.fontSans,
-    backgroundColor: theme.colors.white,
-    color: theme.colors.gray900,
-  },
-  button: {
-    backgroundColor: theme.colors.primary,
-    padding: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
-    alignItems: 'center',
-    ...theme.shadows.sm,
-  },
-  buttonText: {
-    color: theme.colors.white,
-    fontSize: theme.typography.fontSize.base,
-    letterSpacing: 0.5,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
-  backButton: {
-    alignItems: 'center',
-    padding: theme.spacing.md,
-  },
-  backButtonText: {
-    color: theme.colors.primary,
-    fontSize: theme.typography.fontSize.sm,
-    fontFamily: theme.typography.fontSansMedium,
-  },
-  checkingContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.lg,
-  },
-  checkingText: {
-    fontFamily: theme.typography.fontSans,
-    fontSize: theme.typography.fontSize.base,
-    color: theme.colors.gray500,
-  },
-  expiredContainer: {
-    alignItems: 'center',
-  },
-  expiredTitle: {
-    fontFamily: theme.typography.fontDisplay,
-    fontSize: theme.typography.fontSize['2xl'],
-    color: theme.colors.gray900,
-    marginBottom: theme.spacing.md,
-    marginTop: theme.spacing.lg,
-    textAlign: 'center',
-  },
-  expiredMessage: {
-    fontFamily: theme.typography.fontSans,
-    fontSize: theme.typography.fontSize.base,
-    color: theme.colors.gray500,
-    textAlign: 'center',
-    lineHeight: theme.spacing.xxl,
-    marginBottom: theme.spacing.xl,
-  },
-  mismatchText: {
-    fontSize: theme.typography.fontSize.xs,
-    fontFamily: theme.typography.fontSans,
-    color: theme.colors.error,
-    marginTop: theme.spacing.xs,
-  },
-  requirementsBox: {
-    backgroundColor: theme.colors.primaryBg,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.primaryLight,
-  },
-  requirementsTitle: {
-    fontFamily: theme.typography.fontSansSemiBold,
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.primaryDark,
-    marginBottom: theme.spacing.sm,
-  },
-  requirementText: {
-    fontSize: theme.typography.fontSize.xs,
-    fontFamily: theme.typography.fontSans,
-    color: theme.colors.primaryDark,
-    marginTop: theme.spacing.xs,
-  },
-}));

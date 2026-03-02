@@ -12,19 +12,19 @@
  * @layout Mobile: ScrollView com MobileCards
  */
 
-import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useRouter } from "expo-router";
+import { useMemo } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { getGestorPageMeta } from "@/constants/gestorPageMeta";
 import {
   DataTable,
   type DataTableAction,
@@ -38,16 +38,17 @@ import {
   MobileLoading,
   StatusBadge,
   Toast,
-} from '@/design-system';
-import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
+} from "@/design-system";
+import { useDesktopHeaderMenu } from "@/hooks/useDesktopHeaderMenu";
 import {
   useGestaoRotas,
   FILTRO_STATUS_OPTIONS,
   type RotaHistorico,
-} from '@/hooks/useGestaoRotas';
-import { useResponsive } from '@/hooks/useResponsive';
-import { formatDateBR, formatDateTimeBR } from '@/lib/dateUtils';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+} from "@/hooks/useGestaoRotas";
+import { useResponsive } from "@/hooks/useResponsive";
+import { formatDateBR, formatDateTimeBR } from "@/lib/dateUtils";
+import { styles } from "@/styles/gestor/gestao-rotas.styles";
+import { useUnistyles } from "@/utils/styles";
 
 // ============================================
 // COMPONENT
@@ -58,16 +59,19 @@ export default function GestaoRotas() {
   const { isDesktop } = useResponsive();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const pageMeta = getGestorPageMeta('gestao-rotas');
+  const pageMeta = getGestorPageMeta("gestao-rotas");
 
   // Status color map (precisa do theme)
-  const statusColorMap = useMemo(() => ({
-    pendente: theme.colors.warning,
-    em_andamento: theme.colors.info,
-    concluida: theme.colors.success,
-    cancelada: theme.colors.error,
-    nao_executada: theme.colors.warning,
-  }), [theme.colors]);
+  const statusColorMap = useMemo(
+    () => ({
+      pendente: theme.colors.warning,
+      em_andamento: theme.colors.info,
+      concluida: theme.colors.success,
+      cancelada: theme.colors.error,
+      nao_executada: theme.colors.warning,
+    }),
+    [theme.colors],
+  );
 
   // Hook de gestão de rotas
   const {
@@ -107,52 +111,74 @@ export default function GestaoRotas() {
 
   const columns: DataTableColumn<RotaHistorico>[] = [
     {
-      key: 'data',
-      label: 'Data',
+      key: "data",
+      label: "Data",
       width: 100,
       sortable: true,
-      render: (rota) => <Text style={styles.tableCellText}>{formatDateBR(rota.data)}</Text>,
+      render: (rota) => (
+        <Text style={styles.tableCellText}>{formatDateBR(rota.data)}</Text>
+      ),
     },
     {
-      key: 'motorista',
-      label: 'Motorista',
+      key: "motorista",
+      label: "Motorista",
       width: 180,
       noWrap: true,
       sortable: true,
-      render: (rota) => <Text style={styles.tableCellText}>{rota.motorista_nome || 'Sem motorista'}</Text>,
+      render: (rota) => (
+        <Text style={styles.tableCellText}>
+          {rota.motorista_nome || "Sem motorista"}
+        </Text>
+      ),
     },
     {
-      key: 'paradas',
-      label: 'Paradas',
+      key: "paradas",
+      label: "Paradas",
       width: 80,
-      align: 'center',
-      render: (rota) => <Text style={styles.tableCellText}>{`${rota.paradas_concluidas}/${rota.paradas_count}`}</Text>,
+      align: "center",
+      render: (rota) => (
+        <Text
+          style={styles.tableCellText}
+        >{`${rota.paradas_concluidas}/${rota.paradas_count}`}</Text>
+      ),
     },
     {
-      key: 'distancia',
-      label: 'Distância',
+      key: "distancia",
+      label: "Distância",
       width: 90,
-      align: 'right',
+      align: "right",
       desktopOnly: true,
-      render: (rota) => <Text style={styles.tableCellText}>{rota.distancia_total ? `${rota.distancia_total.toFixed(1)} km` : '-'}</Text>,
+      render: (rota) => (
+        <Text style={styles.tableCellText}>
+          {rota.distancia_total ? `${rota.distancia_total.toFixed(1)} km` : "-"}
+        </Text>
+      ),
     },
     {
-      key: 'iniciada_em',
-      label: 'Iniciada',
+      key: "iniciada_em",
+      label: "Iniciada",
       width: 120,
       desktopOnly: true,
-      render: (rota) => <Text style={styles.tableCellText}>{formatDateTimeBR(rota.iniciada_em)}</Text>,
+      render: (rota) => (
+        <Text style={styles.tableCellText}>
+          {formatDateTimeBR(rota.iniciada_em)}
+        </Text>
+      ),
     },
     {
-      key: 'concluida_em',
-      label: 'Concluída',
+      key: "concluida_em",
+      label: "Concluída",
       width: 120,
       desktopOnly: true,
-      render: (rota) => <Text style={styles.tableCellText}>{formatDateTimeBR(rota.concluida_em)}</Text>,
+      render: (rota) => (
+        <Text style={styles.tableCellText}>
+          {formatDateTimeBR(rota.concluida_em)}
+        </Text>
+      ),
     },
     {
-      key: 'status',
-      label: 'Status',
+      key: "status",
+      label: "Status",
       width: 110,
       sortable: true,
       render: (rota) => {
@@ -173,15 +199,15 @@ export default function GestaoRotas() {
 
   const actions: DataTableAction<RotaHistorico>[] = [
     {
-      label: 'Ver Detalhes',
-      icon: 'eye-outline',
-      type: 'secondary',
+      label: "Ver Detalhes",
+      icon: "eye-outline",
+      type: "secondary",
       onPress: verDetalhes,
     },
     {
-      label: 'Excluir',
-      icon: 'trash-outline',
-      type: 'danger',
+      label: "Excluir",
+      icon: "trash-outline",
+      type: "danger",
       onPress: excluirRota,
     },
   ];
@@ -191,8 +217,12 @@ export default function GestaoRotas() {
   // ============================================
 
   const totalRotas = rotasFiltradas.length;
-  const concluidasCount = rotasFiltradas.filter((rota) => rota.status === 'concluida').length;
-  const pendentesCount = rotasFiltradas.filter((rota) => rota.status === 'pendente').length;
+  const concluidasCount = rotasFiltradas.filter(
+    (rota) => rota.status === "concluida",
+  ).length;
+  const pendentesCount = rotasFiltradas.filter(
+    (rota) => rota.status === "pendente",
+  ).length;
 
   const desktopStats = (
     <View style={styles.headerStats}>
@@ -201,11 +231,15 @@ export default function GestaoRotas() {
         <Text style={styles.headerStatLabel}>Rotas registradas</Text>
       </View>
       <View style={styles.headerStat}>
-        <Text style={[styles.headerStatValue, styles.headerStatValueSuccess]}>{concluidasCount}</Text>
+        <Text style={[styles.headerStatValue, styles.headerStatValueSuccess]}>
+          {concluidasCount}
+        </Text>
         <Text style={styles.headerStatLabel}>Concluídas</Text>
       </View>
       <View style={styles.headerStat}>
-        <Text style={[styles.headerStatValue, styles.headerStatValueWarning]}>{pendentesCount}</Text>
+        <Text style={[styles.headerStatValue, styles.headerStatValueWarning]}>
+          {pendentesCount}
+        </Text>
         <Text style={styles.headerStatLabel}>Pendentes</Text>
       </View>
     </View>
@@ -225,7 +259,7 @@ export default function GestaoRotas() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.cardHeaderButtonPrimary}
-          onPress={() => router.push('/gestor/nova-entrega')}
+          onPress={() => router.push("/gestor/nova-entrega")}
           accessibilityRole="button"
           accessibilityLabel="Criar nova rota"
         >
@@ -258,7 +292,10 @@ export default function GestaoRotas() {
             {/* Search Input */}
             <View style={styles.searchContainer}>
               <TextInput
-                style={[styles.searchInput, isDesktop && styles.searchInputDesktop]}
+                style={[
+                  styles.searchInput,
+                  isDesktop && styles.searchInputDesktop,
+                ]}
                 placeholder="Buscar por motorista ou data..."
                 placeholderTextColor={theme.colors.gray400}
                 value={searchQuery}
@@ -269,10 +306,13 @@ export default function GestaoRotas() {
             </View>
 
             {/* Status Filters */}
-            <Text style={styles.filtrosLabel} accessibilityRole="header">Filtrar por Status:</Text>
+            <Text style={styles.filtrosLabel} accessibilityRole="header">
+              Filtrar por Status:
+            </Text>
             <View style={styles.filtrosButtons} accessibilityRole="radiogroup">
               {FILTRO_STATUS_OPTIONS.map((status) => {
-                const label = status === 'todas' ? 'Todas' : getStatusLabel(status);
+                const label =
+                  status === "todas" ? "Todas" : getStatusLabel(status);
                 const isSelected = filtroStatus === status;
                 return (
                   <FilterChip
@@ -312,11 +352,13 @@ export default function GestaoRotas() {
                 emptyState={
                   <View style={styles.emptyState}>
                     <Text style={styles.emptyStateText}>📋</Text>
-                    <Text style={styles.emptyStateTitle}>Nenhuma rota encontrada</Text>
+                    <Text style={styles.emptyStateTitle}>
+                      Nenhuma rota encontrada
+                    </Text>
                     <Text style={styles.emptyStateSubtitle}>
-                      {filtroStatus !== 'todas'
-                        ? 'Tente alterar os filtros'
-                        : 'Crie sua primeira rota de entrega'}
+                      {filtroStatus !== "todas"
+                        ? "Tente alterar os filtros"
+                        : "Crie sua primeira rota de entrega"}
                     </Text>
                   </View>
                 }
@@ -330,7 +372,7 @@ export default function GestaoRotas() {
           visible={showConfirmModal}
           variant="confirm"
           title="Excluir Rota"
-          message={`Tem certeza que deseja excluir esta rota?\n\nMotorista: ${rotaToDelete?.motorista_nome || 'Sem motorista'}\nParadas: ${rotaToDelete?.paradas_count || 0}\nStatus: ${rotaToDelete?.status ? getStatusLabel(rotaToDelete.status) : '-'}\n\nEsta ação não pode ser desfeita.`}
+          message={`Tem certeza que deseja excluir esta rota?\n\nMotorista: ${rotaToDelete?.motorista_nome || "Sem motorista"}\nParadas: ${rotaToDelete?.paradas_count || 0}\nStatus: ${rotaToDelete?.status ? getStatusLabel(rotaToDelete.status) : "-"}\n\nEsta ação não pode ser desfeita.`}
           confirmText="Excluir"
           cancelText="Cancelar"
           type="danger"
@@ -360,7 +402,9 @@ export default function GestaoRotas() {
       {/* Content */}
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+        contentContainerStyle={{
+          paddingBottom: Math.max(20, insets.bottom + 20),
+        }}
       >
         <View style={styles.content}>
           {/* Info e Filtros */}
@@ -372,7 +416,10 @@ export default function GestaoRotas() {
             {/* Search Input */}
             <View style={styles.searchContainer}>
               <TextInput
-                style={[styles.searchInput, isDesktop && styles.searchInputDesktop]}
+                style={[
+                  styles.searchInput,
+                  isDesktop && styles.searchInputDesktop,
+                ]}
                 placeholder="Buscar por motorista ou data..."
                 placeholderTextColor={theme.colors.gray400}
                 value={searchQuery}
@@ -382,10 +429,13 @@ export default function GestaoRotas() {
               />
             </View>
 
-            <Text style={styles.filtrosLabel} accessibilityRole="header">Filtrar por Status:</Text>
+            <Text style={styles.filtrosLabel} accessibilityRole="header">
+              Filtrar por Status:
+            </Text>
             <View style={styles.filtrosButtons} accessibilityRole="radiogroup">
               {FILTRO_STATUS_OPTIONS.map((status) => {
-                const label = status === 'todas' ? 'Todas' : getStatusLabel(status);
+                const label =
+                  status === "todas" ? "Todas" : getStatusLabel(status);
                 const isSelected = filtroStatus === status;
                 return (
                   <FilterChip
@@ -410,15 +460,19 @@ export default function GestaoRotas() {
                 accessibilityRole="button"
                 accessibilityLabel="Exportar rotas para CSV"
               >
-                <Text style={styles.mobileActionButtonSecondaryText}>Exportar CSV</Text>
+                <Text style={styles.mobileActionButtonSecondaryText}>
+                  Exportar CSV
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.mobileActionButtonPrimary}
-                onPress={() => router.push('/gestor/nova-entrega')}
+                onPress={() => router.push("/gestor/nova-entrega")}
                 accessibilityRole="button"
                 accessibilityLabel="Criar nova rota"
               >
-                <Text style={styles.mobileActionButtonPrimaryText}>Nova Rota</Text>
+                <Text style={styles.mobileActionButtonPrimaryText}>
+                  Nova Rota
+                </Text>
               </TouchableOpacity>
             </View>
           </MobileCard>
@@ -440,12 +494,18 @@ export default function GestaoRotas() {
                 icon="📋"
                 title="Nenhuma rota encontrada"
                 subtitle={
-                  filtroStatus !== 'todas'
-                    ? 'Tente alterar os filtros'
-                    : 'Crie sua primeira rota de entrega'
+                  filtroStatus !== "todas"
+                    ? "Tente alterar os filtros"
+                    : "Crie sua primeira rota de entrega"
                 }
-                actionLabel={filtroStatus === 'todas' ? 'Criar Nova Rota' : undefined}
-                onAction={filtroStatus === 'todas' ? () => router.push('/gestor/nova-entrega') : undefined}
+                actionLabel={
+                  filtroStatus === "todas" ? "Criar Nova Rota" : undefined
+                }
+                onAction={
+                  filtroStatus === "todas"
+                    ? () => router.push("/gestor/nova-entrega")
+                    : undefined
+                }
               />
             }
           />
@@ -457,7 +517,7 @@ export default function GestaoRotas() {
         visible={showConfirmModal}
         variant="confirm"
         title="Confirmar Exclusão"
-        message={`Tem certeza que deseja excluir esta rota?\n\nMotorista: ${rotaToDelete?.motorista_nome || 'Sem motorista'}\nParadas: ${rotaToDelete?.paradas_count || 0}\nStatus: ${rotaToDelete?.status ? getStatusLabel(rotaToDelete.status) : '-'}\n\nEsta ação não pode ser desfeita.`}
+        message={`Tem certeza que deseja excluir esta rota?\n\nMotorista: ${rotaToDelete?.motorista_nome || "Sem motorista"}\nParadas: ${rotaToDelete?.paradas_count || 0}\nStatus: ${rotaToDelete?.status ? getStatusLabel(rotaToDelete.status) : "-"}\n\nEsta ação não pode ser desfeita.`}
         confirmText="Excluir"
         cancelText="Cancelar"
         type="danger"
@@ -471,166 +531,3 @@ export default function GestaoRotas() {
     </ErrorBoundary>
   );
 }
-
-// ============================================
-// STYLES
-// ============================================
-
-const styles = StyleSheet.create((theme: Theme) => ({
-  tableSection: {
-    marginTop: theme.spacing['2xl'],
-  },
-  scrollView: {
-    flex: 1,
-    backgroundColor: theme.colors.gray50,
-  },
-  content: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.lg,
-    maxWidth: theme.layout.containerMaxWidth,
-    marginHorizontal: 'auto',
-    width: '100%',
-  },
-  searchContainer: {
-    marginBottom: theme.spacing.lg,
-  },
-  searchInput: {
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: theme.colors.white,
-    borderWidth: 1,
-    borderColor: theme.colors.gray300,
-    fontSize: theme.typography.base,
-    color: theme.colors.gray900,
-    minHeight: 48,
-  },
-  searchInputDesktop: {
-    paddingVertical: 0,
-    paddingHorizontal: theme.desktop.input.paddingHorizontal,
-    fontSize: theme.desktop.input.fontSize,
-    minHeight: theme.desktop.input.height,
-  },
-  filtrosLabel: {
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray700,
-    marginBottom: theme.spacing.lg,
-  },
-  filtrosButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.md,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: theme.spacing['3xl'],
-  },
-  emptyStateText: {
-    fontSize: 48,
-    marginBottom: theme.spacing['2xl'],
-  },
-  emptyStateTitle: {
-    fontSize: theme.typography.lg,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray900,
-    marginBottom: theme.spacing.md,
-  },
-  emptyStateSubtitle: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
-  },
-  headerStats: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: theme.spacing.xl,
-  },
-  headerStat: {
-    alignItems: 'flex-end',
-  },
-  headerStatValue: {
-    fontSize: theme.typography['2xl'],
-    fontFamily: theme.typography.fontSansBold,
-    color: theme.colors.gray900,
-  },
-  headerStatValueSuccess: {
-    color: theme.colors.success,
-  },
-  headerStatValueWarning: {
-    color: theme.colors.warning,
-  },
-  headerStatLabel: {
-    fontSize: theme.typography.xs,
-    color: theme.colors.gray500,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: theme.spacing.lg,
-  },
-  cardHeaderButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.md,
-  },
-  cardHeaderButtonPrimary: {
-    backgroundColor: theme.colors.primary,
-    paddingHorizontal: theme.spacing.xl,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.full,
-  },
-  cardHeaderButtonPrimaryText: {
-    color: theme.colors.white,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
-  cardHeaderButtonSecondary: {
-    paddingHorizontal: theme.spacing.xl,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.full,
-    borderWidth: 1,
-    borderColor: theme.colors.gray200,
-    backgroundColor: theme.colors.white,
-  },
-  cardHeaderButtonSecondaryText: {
-    color: theme.colors.gray700,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
-  tableCellText: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray900,
-  },
-  mobileActionsRow: {
-    flexDirection: 'row',
-    gap: theme.spacing.md,
-    marginTop: theme.spacing.lg,
-  },
-  mobileActionButtonPrimary: {
-    flex: 1,
-    backgroundColor: theme.colors.primary,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.lg,
-    alignItems: 'center',
-  },
-  mobileActionButtonPrimaryText: {
-    color: theme.colors.white,
-    fontFamily: theme.typography.fontSansSemiBold,
-    fontSize: theme.typography.sm,
-  },
-  mobileActionButtonSecondary: {
-    flex: 1,
-    backgroundColor: theme.colors.white,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.gray300,
-    alignItems: 'center',
-  },
-  mobileActionButtonSecondaryText: {
-    color: theme.colors.gray700,
-    fontFamily: theme.typography.fontSansSemiBold,
-    fontSize: theme.typography.sm,
-  },
-
-}));

@@ -1,22 +1,19 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import {
-  View,
-  TouchableOpacity,
-  ScrollView,
-  Image,
-  ActivityIndicator,
-  TextInput,
-} from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { View, TouchableOpacity, ScrollView } from "react-native";
 
-import { Text } from '@/components/Text';
-import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import {
+  AlterarStatusModal,
+  HistoricoMotoristaModal,
+  IncidenteDetalhesModal,
+} from "@/components/gestor/incidentes";
+import { Text } from "@/components/Text";
+import { getGestorPageMeta } from "@/constants/gestorPageMeta";
 import {
   DataTable,
   type DataTableAction,
   type DataTableColumn,
   DesktopCard,
-  DesktopModal,
   DesktopPageLayout,
   ErrorBoundary,
   FilterChip,
@@ -25,19 +22,19 @@ import {
   MobileLoading,
   StatusBadge,
   Toast,
-} from '@/design-system';
-import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
+} from "@/design-system";
+import { useDesktopHeaderMenu } from "@/hooks/useDesktopHeaderMenu";
 import {
   useIncidentesGestor,
   type Incidente,
   type FiltroStatus,
   type FiltroCategoria,
-} from '@/hooks/useIncidentesGestor';
-import { useResponsive } from '@/hooks/useResponsive';
-import { useUser } from '@/hooks/useUser';
-import { styles } from '@/styles/gestor/incidentes.styles';
-import { withOpacity } from '@/utils/color';
-import { useUnistyles } from '@/utils/styles';
+} from "@/hooks/useIncidentesGestor";
+import { useResponsive } from "@/hooks/useResponsive";
+import { useUser } from "@/hooks/useUser";
+import { styles } from "@/styles/gestor/incidentes.styles";
+import { withOpacity } from "@/utils/color";
+import { useUnistyles } from "@/utils/styles";
 
 export default function IncidentesScreen() {
   const router = useRouter();
@@ -112,38 +109,42 @@ export default function IncidentesScreen() {
   const renderDesktop = () => {
     const columns: DataTableColumn<Incidente>[] = [
       {
-        key: 'created_at',
-        label: 'Data/Hora',
+        key: "created_at",
+        label: "Data/Hora",
         width: 140,
         render: (item) => (
-          <Text style={styles.tableCellText}>{formatDate(item.created_at)}</Text>
+          <Text style={styles.tableCellText}>
+            {formatDate(item.created_at)}
+          </Text>
         ),
       },
       {
-        key: 'motorista_nome',
-        label: 'Motorista',
+        key: "motorista_nome",
+        label: "Motorista",
         width: 220,
         render: (item) => (
           <Text style={styles.tableCellText}>{item.motorista_nome}</Text>
         ),
       },
       {
-        key: 'categoria',
-        label: 'Categoria',
+        key: "categoria",
+        label: "Categoria",
         width: 180,
         render: (item) => {
           const cat = categoriaLabels[item.categoria];
           return (
             <View style={styles.categoriaContainer}>
               <Ionicons name={cat.icon} size={16} color={cat.color} />
-              <Text style={[styles.tableCellText, { marginLeft: 6 }]}>{cat.label}</Text>
+              <Text style={[styles.tableCellText, { marginLeft: 6 }]}>
+                {cat.label}
+              </Text>
             </View>
           );
         },
       },
       {
-        key: 'endereco',
-        label: 'Local',
+        key: "endereco",
+        label: "Local",
         width: 280,
         render: (item) => (
           <Text style={styles.tableCellText} numberOfLines={2}>
@@ -152,37 +153,44 @@ export default function IncidentesScreen() {
         ),
       },
       {
-        key: 'status',
-        label: 'Status',
+        key: "status",
+        label: "Status",
         width: 120,
         render: (item) => {
           const st = statusLabels[item.status];
-          return <StatusBadge color={st.color} label={st.label} variant="soft" size="sm" />;
+          return (
+            <StatusBadge
+              color={st.color}
+              label={st.label}
+              variant="soft"
+              size="sm"
+            />
+          );
         },
       },
     ];
 
     const actions: DataTableAction<Incidente>[] = [
       {
-        icon: 'eye-outline',
-        label: 'Ver Detalhes',
-        type: 'secondary',
+        icon: "eye-outline",
+        label: "Ver Detalhes",
+        type: "secondary",
         onPress: handleVerDetalhes,
       },
       {
-        icon: 'create-outline',
-        label: 'Alterar Status',
-        type: 'primary',
+        icon: "create-outline",
+        label: "Alterar Status",
+        type: "primary",
         onPress: handleAlterarStatus,
       },
     ];
 
     return (
       <DesktopPageLayout
-        title={getGestorPageMeta('incidentes').title}
-        subtitle={getGestorPageMeta('incidentes').subtitle}
-        icon={getGestorPageMeta('incidentes').icon}
-        breadcrumbs={getGestorPageMeta('incidentes').breadcrumbs}
+        title={getGestorPageMeta("incidentes").title}
+        subtitle={getGestorPageMeta("incidentes").subtitle}
+        icon={getGestorPageMeta("incidentes").icon}
+        breadcrumbs={getGestorPageMeta("incidentes").breadcrumbs}
         userMenuTrigger={userMenuTrigger}
         userMenuItems={userMenuItems}
         loading={loading}
@@ -190,25 +198,45 @@ export default function IncidentesScreen() {
       >
         {/* Cards de Resumo */}
         <View style={styles.resumoRow}>
-          <View style={[styles.resumoCard, { backgroundColor: withOpacity(theme.colors.error, 0.15) }]}>
+          <View
+            style={[
+              styles.resumoCard,
+              { backgroundColor: withOpacity(theme.colors.error, 0.15) },
+            ]}
+          >
             <Text style={[styles.resumoValue, { color: theme.colors.error }]}>
               {resumoGeral.abertos}
             </Text>
             <Text style={styles.resumoLabel}>Abertos</Text>
           </View>
-          <View style={[styles.resumoCard, { backgroundColor: withOpacity(theme.colors.warning, 0.15) }]}>
+          <View
+            style={[
+              styles.resumoCard,
+              { backgroundColor: withOpacity(theme.colors.warning, 0.15) },
+            ]}
+          >
             <Text style={[styles.resumoValue, { color: theme.colors.warning }]}>
               {resumoGeral.emAnalise}
             </Text>
             <Text style={styles.resumoLabel}>Em Análise</Text>
           </View>
-          <View style={[styles.resumoCard, { backgroundColor: withOpacity(theme.colors.success, 0.15) }]}>
+          <View
+            style={[
+              styles.resumoCard,
+              { backgroundColor: withOpacity(theme.colors.success, 0.15) },
+            ]}
+          >
             <Text style={[styles.resumoValue, { color: theme.colors.success }]}>
               {resumoGeral.resolvidos}
             </Text>
             <Text style={styles.resumoLabel}>Resolvidos</Text>
           </View>
-          <View style={[styles.resumoCard, { backgroundColor: withOpacity(theme.colors.gray400, 0.15) }]}>
+          <View
+            style={[
+              styles.resumoCard,
+              { backgroundColor: withOpacity(theme.colors.gray400, 0.15) },
+            ]}
+          >
             <Text style={[styles.resumoValue, { color: theme.colors.gray600 }]}>
               {resumoGeral.total}
             </Text>
@@ -227,7 +255,9 @@ export default function IncidentesScreen() {
                 <TouchableOpacity
                   key={stat.id}
                   style={styles.motoristaStat}
-                  onPress={() => handleVerHistoricoMotorista(stat.id, stat.nome)}
+                  onPress={() =>
+                    handleVerHistoricoMotorista(stat.id, stat.nome)
+                  }
                 >
                   <View style={styles.motoristaRank}>
                     <Text style={styles.motoristaRankText}>{index + 1}</Text>
@@ -235,11 +265,15 @@ export default function IncidentesScreen() {
                   <View style={styles.motoristaInfo}>
                     <Text style={styles.motoristaNome}>{stat.nome}</Text>
                     <Text style={styles.motoristaStats}>
-                      {stat.total} incidentes ({stat.abertos} abertos, {stat.resolvidos}{' '}
-                      resolvidos)
+                      {stat.total} incidentes ({stat.abertos} abertos,{" "}
+                      {stat.resolvidos} resolvidos)
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color={theme.colors.gray400} />
+                  <Ionicons
+                    name="chevron-forward"
+                    size={20}
+                    color={theme.colors.gray400}
+                  />
                 </TouchableOpacity>
               ))}
             </View>
@@ -253,11 +287,19 @@ export default function IncidentesScreen() {
               <Text style={styles.filtroLabel}>Status:</Text>
               <View style={styles.filtroChips}>
                 {(
-                  ['todos', 'aberto', 'em_analise', 'resolvido', 'fechado'] as FiltroStatus[]
+                  [
+                    "todos",
+                    "aberto",
+                    "em_analise",
+                    "resolvido",
+                    "fechado",
+                  ] as FiltroStatus[]
                 ).map((status) => (
                   <FilterChip
                     key={status}
-                    label={status === 'todos' ? 'Todos' : statusLabels[status].label}
+                    label={
+                      status === "todos" ? "Todos" : statusLabels[status].label
+                    }
                     selected={filtroStatus === status}
                     onPress={() => setFiltroStatus(status)}
                     size="compact"
@@ -271,18 +313,20 @@ export default function IncidentesScreen() {
               <View style={styles.filtroChips}>
                 {(
                   [
-                    'todos',
-                    'accident',
-                    'absent',
-                    'wrong_address',
-                    'blocked',
-                    'vehicle',
-                    'other',
+                    "todos",
+                    "accident",
+                    "absent",
+                    "wrong_address",
+                    "blocked",
+                    "vehicle",
+                    "other",
                   ] as FiltroCategoria[]
                 ).map((cat) => (
                   <FilterChip
                     key={cat}
-                    label={cat === 'todos' ? 'Todos' : categoriaLabels[cat].label}
+                    label={
+                      cat === "todos" ? "Todos" : categoriaLabels[cat].label
+                    }
                     selected={filtroCategoria === cat}
                     onPress={() => setFiltroCategoria(cat)}
                     size="compact"
@@ -336,29 +380,49 @@ export default function IncidentesScreen() {
           const st = statusLabels[incidente.status];
 
           return (
-            <MobileCard key={incidente.id} onPress={() => handleVerDetalhes(incidente)}>
+            <MobileCard
+              key={incidente.id}
+              onPress={() => handleVerDetalhes(incidente)}
+            >
               <View style={styles.mobileHeader}>
                 <View style={styles.mobileCategoriaRow}>
                   <Ionicons name={cat.icon} size={20} color={cat.color} />
                   <Text style={styles.mobileCategoriaText}>{cat.label}</Text>
                 </View>
-                <StatusBadge color={st.color} label={st.label} variant="soft" size="sm" />
+                <StatusBadge
+                  color={st.color}
+                  label={st.label}
+                  variant="soft"
+                  size="sm"
+                />
               </View>
 
-              <Text style={styles.mobileMotorista}>{incidente.motorista_nome}</Text>
+              <Text style={styles.mobileMotorista}>
+                {incidente.motorista_nome}
+              </Text>
               <View style={styles.mobileEnderecoRow}>
-                <Ionicons name="location-outline" size={14} color={theme.colors.gray500} />
+                <Ionicons
+                  name="location-outline"
+                  size={14}
+                  color={theme.colors.gray500}
+                />
                 <Text style={styles.mobileEndereco} numberOfLines={2}>
                   {incidente.endereco}
                 </Text>
               </View>
-              <Text style={styles.mobileData}>{formatDate(incidente.created_at)}</Text>
+              <Text style={styles.mobileData}>
+                {formatDate(incidente.created_at)}
+              </Text>
 
               <TouchableOpacity
                 style={styles.mobileActionButton}
                 onPress={() => handleAlterarStatus(incidente)}
               >
-                <Ionicons name="create-outline" size={16} color={theme.colors.primary} />
+                <Ionicons
+                  name="create-outline"
+                  size={16}
+                  color={theme.colors.primary}
+                />
                 <Text style={styles.mobileActionText}>Alterar Status</Text>
               </TouchableOpacity>
             </MobileCard>
@@ -369,387 +433,56 @@ export default function IncidentesScreen() {
   };
 
   // ============================================
-  // Modal: Detalhes
-  // ============================================
-
-  const renderDetalhesModal = () => {
-    if (!incidenteSelecionado) return null;
-
-    const cat = categoriaLabels[incidenteSelecionado.categoria];
-    const st = statusLabels[incidenteSelecionado.status];
-
-    const fotoUri = incidenteSelecionado.foto_url
-      ? fotoRetryCount > 0
-        ? `${incidenteSelecionado.foto_url}?retry=${fotoRetryCount}`
-        : incidenteSelecionado.foto_url
-      : null;
-
-    return (
-      <DesktopModal
-        visible={showDetalhesModal}
-        onClose={() => setShowDetalhesModal(false)}
-        title="Detalhes do Incidente"
-        maxWidth={600}
-        primaryButton={{
-          text: 'Alterar Status',
-          onPress: () => {
-            setShowDetalhesModal(false);
-            setTimeout(() => handleAlterarStatus(incidenteSelecionado), 300);
-          },
-        }}
-        secondaryButton={{
-          text: 'Remarcar Entrega',
-          onPress: () => handleRemarcarEntrega(incidenteSelecionado),
-        }}
-      >
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <View style={[styles.detalhesHeader, isDesktop && styles.detalhesHeaderCompact]}>
-            <View style={styles.detalhesCategoria}>
-              <Ionicons name={cat.icon} size={isDesktop ? 20 : 24} color={cat.color} />
-              <Text
-                style={[
-                  styles.detalhesCategoriaText,
-                  isDesktop && styles.detalhesCategoriaTextCompact,
-                ]}
-              >
-                {cat.label}
-              </Text>
-            </View>
-            <StatusBadge color={st.color} label={st.label} variant="soft" size="sm" />
-          </View>
-
-          <View style={[styles.detalhesSection, isDesktop && styles.detalhesSectionCompact]}>
-            <Text style={[styles.detalhesLabel, isDesktop && styles.detalhesLabelCompact]}>
-              Data/Hora:
-            </Text>
-            <Text style={[styles.detalhesValue, isDesktop && styles.detalhesValueCompact]}>
-              {formatDate(incidenteSelecionado.created_at)}
-            </Text>
-          </View>
-
-          <View style={[styles.detalhesSection, isDesktop && styles.detalhesSectionCompact]}>
-            <Text style={[styles.detalhesLabel, isDesktop && styles.detalhesLabelCompact]}>
-              Motorista:
-            </Text>
-            <Text style={[styles.detalhesValue, isDesktop && styles.detalhesValueCompact]}>
-              {incidenteSelecionado.motorista_nome}
-            </Text>
-          </View>
-
-          <View style={[styles.detalhesSection, isDesktop && styles.detalhesSectionCompact]}>
-            <Text style={[styles.detalhesLabel, isDesktop && styles.detalhesLabelCompact]}>
-              Local:
-            </Text>
-            <Text style={[styles.detalhesValue, isDesktop && styles.detalhesValueCompact]}>
-              {incidenteSelecionado.endereco}
-            </Text>
-          </View>
-
-          {incidenteSelecionado.rota_id && (
-            <View style={[styles.detalhesSection, isDesktop && styles.detalhesSectionCompact]}>
-              <Text style={[styles.detalhesLabel, isDesktop && styles.detalhesLabelCompact]}>
-                Rota:
-              </Text>
-              <Text style={[styles.detalhesValue, isDesktop && styles.detalhesValueCompact]}>
-                {incidenteSelecionado.rota_data
-                  ? `Rota de ${new Date(incidenteSelecionado.rota_data).toLocaleDateString('pt-BR')}`
-                  : 'N/A'}
-              </Text>
-            </View>
-          )}
-
-          <View style={[styles.detalhesSection, isDesktop && styles.detalhesSectionCompact]}>
-            <Text style={[styles.detalhesLabel, isDesktop && styles.detalhesLabelCompact]}>
-              Descrição:
-            </Text>
-            <Text
-              style={[styles.detalhesDescricao, isDesktop && styles.detalhesDescricaoCompact]}
-            >
-              {incidenteSelecionado.descricao}
-            </Text>
-          </View>
-
-          {/* Foto */}
-          {fotoUri && (
-            <View style={[styles.detalhesSection, isDesktop && styles.detalhesSectionCompact]}>
-              <Text style={[styles.detalhesLabel, isDesktop && styles.detalhesLabelCompact]}>
-                Foto:
-              </Text>
-              <View style={[styles.fotoContainer, isDesktop && styles.fotoContainerCompact]}>
-                {fotoLoading && !fotoError && (
-                  <View style={styles.fotoLoadingContainer}>
-                    <ActivityIndicator size="large" color={theme.colors.primary} />
-                    <Text style={styles.fotoLoadingText}>Carregando foto...</Text>
-                  </View>
-                )}
-
-                {fotoError && (
-                  <View style={styles.fotoErrorContainer}>
-                    <Ionicons name="image-outline" size={48} color={theme.colors.gray400} />
-                    <Text style={styles.fotoErrorText}>
-                      Não foi possível carregar a foto
-                    </Text>
-                    <TouchableOpacity style={styles.fotoRetryButton} onPress={handleFotoRetry}>
-                      <Ionicons name="refresh" size={16} color={theme.colors.primary} />
-                      <Text style={styles.fotoRetryText}>Tentar novamente</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-                {!fotoError && (
-                  <Image
-                    source={{ uri: fotoUri }}
-                    style={[
-                      styles.incidenteFoto,
-                      isDesktop && styles.incidenteFotoCompact,
-                      { opacity: fotoLoading ? 0 : 1 },
-                    ]}
-                    resizeMode="cover"
-                    onLoad={handleFotoLoad}
-                    onError={handleFotoError}
-                    accessibilityLabel={`Foto do incidente: ${cat.label}`}
-                  />
-                )}
-              </View>
-            </View>
-          )}
-
-          {incidenteSelecionado.observacoes_gestao && (
-            <View style={[styles.detalhesSection, isDesktop && styles.detalhesSectionCompact]}>
-              <Text style={[styles.detalhesLabel, isDesktop && styles.detalhesLabelCompact]}>
-                Observações da Gestão:
-              </Text>
-              <Text
-                style={[styles.detalhesDescricao, isDesktop && styles.detalhesDescricaoCompact]}
-              >
-                {incidenteSelecionado.observacoes_gestao}
-              </Text>
-            </View>
-          )}
-
-          <TouchableOpacity
-            style={[styles.verHistoricoLink, isDesktop && styles.verHistoricoLinkCompact]}
-            onPress={() => {
-              setShowDetalhesModal(false);
-              setTimeout(
-                () =>
-                  handleVerHistoricoMotorista(
-                    incidenteSelecionado.motorista_id,
-                    incidenteSelecionado.motorista_nome
-                  ),
-                300
-              );
-            }}
-            accessibilityRole="link"
-          >
-            <Ionicons
-              name="time-outline"
-              size={isDesktop ? 14 : 16}
-              color={theme.colors.primary}
-            />
-            <Text
-              style={[
-                styles.verHistoricoLinkText,
-                isDesktop && styles.verHistoricoLinkTextCompact,
-              ]}
-            >
-              Ver histórico de incidentes deste motorista
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </DesktopModal>
-    );
-  };
-
-  // ============================================
-  // Modal: Alterar Status
-  // ============================================
-
-  const renderAlterarStatusModal = () => {
-    if (!incidenteSelecionado) return null;
-
-    return (
-      <DesktopModal
-        visible={showAlterarStatusModal}
-        onClose={() => setShowAlterarStatusModal(false)}
-        title="Alterar Status do Incidente"
-        maxWidth={500}
-        primaryButton={{
-          text: 'Salvar',
-          onPress: confirmarAlterarStatus,
-          loading: atualizando,
-        }}
-        secondaryButton={{
-          text: 'Cancelar',
-          onPress: () => setShowAlterarStatusModal(false),
-          disabled: atualizando,
-        }}
-      >
-        <View>
-          <Text style={styles.modalLabel}>Novo Status:</Text>
-          <View style={styles.statusOptions}>
-            {Object.entries(statusLabels).map(([key, { label, color }]) => (
-              <TouchableOpacity
-                key={key}
-                style={[
-                  styles.statusOption,
-                  novoStatus === key && styles.statusOptionActive,
-                  { borderColor: color },
-                ]}
-                onPress={() => setNovoStatus(key)}
-              >
-                <Text style={[styles.statusOptionText, novoStatus === key && { color }]}>
-                  {label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <Text style={[styles.modalLabel, { marginTop: 20 }]}>Observações (opcional):</Text>
-          <TextInput
-            style={styles.observacoesInput}
-            placeholder="Adicione observações sobre a resolução..."
-            value={observacoes}
-            onChangeText={setObservacoes}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-          />
-        </View>
-      </DesktopModal>
-    );
-  };
-
-  // ============================================
-  // Modal: Histórico Motorista
-  // ============================================
-
-  const renderHistoricoMotoristaModal = () => {
-    if (!motoristaSelecionado) return null;
-
-    // Resumo inline (Fase 2)
-    const resumoAbertos = incidentesMotorista.filter(
-      (i) => i.status === 'aberto' || i.status === 'em_analise'
-    ).length;
-    const resumoResolvidos = incidentesMotorista.filter(
-      (i) => i.status === 'resolvido' || i.status === 'fechado'
-    ).length;
-
-    return (
-      <DesktopModal
-        visible={showHistoricoMotoristaModal}
-        onClose={() => setShowHistoricoMotoristaModal(false)}
-        title={`Histórico de Incidentes - ${motoristaSelecionado.nome}`}
-        maxWidth={700}
-      >
-        {historicoLoading ? (
-          <View style={styles.historicoLoadingContainer}>
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-            <Text style={styles.historicoLoadingText}>Carregando histórico...</Text>
-          </View>
-        ) : (
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {incidentesMotorista.length === 0 ? (
-              <View style={styles.emptyHistorico}>
-                <Text style={styles.emptyHistoricoText}>
-                  Nenhum incidente encontrado para este motorista
-                </Text>
-              </View>
-            ) : (
-              <>
-                {/* Resumo de contagens */}
-                <View style={styles.historicoResumo}>
-                  <View style={styles.historicoResumoItem}>
-                    <Text style={[styles.historicoResumoCount, { color: theme.colors.error }]}>
-                      {resumoAbertos}
-                    </Text>
-                    <Text style={styles.historicoResumoLabel}>
-                      {resumoAbertos === 1 ? 'aberto' : 'abertos'}
-                    </Text>
-                  </View>
-                  <Text style={styles.historicoResumoDivider}>·</Text>
-                  <View style={styles.historicoResumoItem}>
-                    <Text style={[styles.historicoResumoCount, { color: theme.colors.success }]}>
-                      {resumoResolvidos}
-                    </Text>
-                    <Text style={styles.historicoResumoLabel}>
-                      {resumoResolvidos === 1 ? 'resolvido' : 'resolvidos'}
-                    </Text>
-                  </View>
-                  <Text style={styles.historicoResumoDivider}>·</Text>
-                  <View style={styles.historicoResumoItem}>
-                    <Text style={[styles.historicoResumoCount, { color: theme.colors.gray600 }]}>
-                      {incidentesMotorista.length}
-                    </Text>
-                    <Text style={styles.historicoResumoLabel}>total</Text>
-                  </View>
-                </View>
-
-                {/* Lista de incidentes */}
-                {incidentesMotorista.map((inc) => {
-                  const cat = categoriaLabels[inc.categoria];
-                  const st = statusLabels[inc.status];
-
-                  return (
-                    <TouchableOpacity
-                      key={inc.id}
-                      style={styles.historicoItem}
-                      activeOpacity={0.7}
-                      onPress={() => {
-                        setShowHistoricoMotoristaModal(false);
-                        setTimeout(() => handleVerDetalhes(inc), 300);
-                      }}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${cat.label} - ${st.label} - ${formatDate(inc.created_at)}`}
-                      accessibilityHint="Toque para ver detalhes do incidente"
-                    >
-                      <View style={styles.historicoItemRow}>
-                        <View style={styles.historicoItemContent}>
-                          <View style={styles.historicoHeader}>
-                            <View style={styles.historicoCategoria}>
-                              <Ionicons name={cat.icon} size={16} color={cat.color} />
-                              <Text style={styles.historicoCategoriaText}>{cat.label}</Text>
-                            </View>
-                            <StatusBadge color={st.color} label={st.label} variant="soft" size="sm" />
-                          </View>
-                          <Text style={styles.historicoEndereco}>{inc.endereco}</Text>
-                          <View style={styles.historicoMetaRow}>
-                            <Text style={styles.historicoData}>{formatDate(inc.created_at)}</Text>
-                            {inc.foto_url && (
-                              <View style={styles.historicoFotoIndicator}>
-                                <Ionicons name="camera-outline" size={12} color={theme.colors.gray400} />
-                              </View>
-                            )}
-                          </View>
-                          {inc.descricao && (
-                            <Text style={styles.historicoDescricao} numberOfLines={2}>
-                              {inc.descricao}
-                            </Text>
-                          )}
-                        </View>
-                        <Ionicons name="chevron-forward" size={18} color={theme.colors.gray400} />
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </>
-            )}
-          </ScrollView>
-        )}
-      </DesktopModal>
-    );
-  };
-
-  // ============================================
   // Main Render
   // ============================================
 
   return (
     <ErrorBoundary>
       {isDesktop ? renderDesktop() : renderMobile()}
-      {renderDetalhesModal()}
-      {renderAlterarStatusModal()}
-      {renderHistoricoMotoristaModal()}
+
+      <IncidenteDetalhesModal
+        incidente={incidenteSelecionado}
+        visible={showDetalhesModal}
+        onClose={() => setShowDetalhesModal(false)}
+        isDesktop={isDesktop}
+        categoriaLabels={categoriaLabels}
+        statusLabels={statusLabels}
+        fotoLoading={fotoLoading}
+        fotoError={fotoError}
+        fotoRetryCount={fotoRetryCount}
+        onFotoLoad={handleFotoLoad}
+        onFotoError={handleFotoError}
+        onFotoRetry={handleFotoRetry}
+        onAlterarStatus={handleAlterarStatus}
+        onRemarcarEntrega={handleRemarcarEntrega}
+        onVerHistoricoMotorista={handleVerHistoricoMotorista}
+        formatDate={formatDate}
+      />
+
+      <AlterarStatusModal
+        incidente={incidenteSelecionado}
+        visible={showAlterarStatusModal}
+        onClose={() => setShowAlterarStatusModal(false)}
+        statusLabels={statusLabels}
+        novoStatus={novoStatus}
+        observacoes={observacoes}
+        atualizando={atualizando}
+        onConfirmar={confirmarAlterarStatus}
+        setNovoStatus={setNovoStatus}
+        setObservacoes={setObservacoes}
+      />
+
+      <HistoricoMotoristaModal
+        visible={showHistoricoMotoristaModal}
+        onClose={() => setShowHistoricoMotoristaModal(false)}
+        motoristaSelecionado={motoristaSelecionado}
+        incidentesMotorista={incidentesMotorista}
+        historicoLoading={historicoLoading}
+        categoriaLabels={categoriaLabels}
+        statusLabels={statusLabels}
+        formatDate={formatDate}
+        onVerDetalhes={handleVerDetalhes}
+      />
       <Toast
         visible={toastState.visible}
         message={toastState.message}
