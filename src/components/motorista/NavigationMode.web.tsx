@@ -6,31 +6,37 @@
  * - Não requer API key
  */
 
-import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
-import maplibregl from 'maplibre-gl';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import * as Location from "expo-location";
+import maplibregl from "maplibre-gl";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
+
+import "maplibre-gl/dist/maplibre-gl.css";
+
 import {
-  ActivityIndicator,
-  Alert,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+  useNavigationModeLogic,
+  type NavigationModeProps,
+} from "@/hooks/navigation";
+import { useAlert } from "@/hooks/useAlert";
+import { logger } from "@/lib/logger";
+import { abrirNavegacao } from "@/lib/navigation";
+import {
+  getOpenFreeMapStyle,
+  installOpenFreeMapMissingImageHandler,
+} from "@/lib/openFreeMapStyle";
+import { calculateHaversineDistance } from "@/services/turnByTurnNavigation";
+import { withOpacity } from "@/utils/color";
+import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
 
-import 'maplibre-gl/dist/maplibre-gl.css';
-
-import { useNavigationModeLogic, type NavigationModeProps } from '@/hooks/navigation';
-import { useAlert } from '@/hooks/useAlert';
-import { logger } from '@/lib/logger';
-import { abrirNavegacao } from '@/lib/navigation';
-import { getOpenFreeMapStyle, installOpenFreeMapMissingImageHandler } from '@/lib/openFreeMapStyle';
-import { calculateHaversineDistance } from '@/services/turnByTurnNavigation';
-import { withOpacity } from '@/utils/color';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
-import { NavigationInfoPanelWeb } from './NavigationInfoPanelWeb';
-import { NavigationSettings } from './NavigationSettings';
+import { NavigationInfoPanelWeb } from "./NavigationInfoPanelWeb";
+import { NavigationSettings } from "./NavigationSettings";
 
 export function NavigationMode({
   currentStop,
@@ -42,7 +48,7 @@ export function NavigationMode({
   onExit,
 }: NavigationModeProps) {
   const { theme } = useUnistyles();
-  const { showWarning, AlertDialog } = useAlert();
+  const { showWarning, showConfirm, AlertDialog } = useAlert();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
@@ -90,15 +96,15 @@ export function NavigationMode({
   const mapCenter = useMemo(() => {
     if (!userLocation || !currentStop) {
       return currentStop
-        ? [currentStop.longitude, currentStop.latitude] as [number, number]
-        : [-46.6333, -23.5505] as [number, number]; // São Paulo default
+        ? ([currentStop.longitude, currentStop.latitude] as [number, number])
+        : ([-46.6333, -23.5505] as [number, number]); // São Paulo default
     }
 
     const distance = calculateHaversineDistance(
       userLocation.latitude,
       userLocation.longitude,
       currentStop.latitude,
-      currentStop.longitude
+      currentStop.longitude,
     );
 
     // If close, center between both points
@@ -134,16 +140,17 @@ export function NavigationMode({
           center: initialCenter,
           zoom: 15,
         });
-        removeMissingImageHandler = installOpenFreeMapMissingImageHandler(mapInstance);
+        removeMissingImageHandler =
+          installOpenFreeMapMissingImageHandler(mapInstance);
 
-        mapInstance.on('load', () => {
+        mapInstance.on("load", () => {
           setMapLoaded(true);
         });
 
         mapRef.current = mapInstance;
       } catch (error) {
         if (cancelled) return;
-        logger.error('[NavigationMode.web] Failed to initialize map:', error);
+        logger.error("[NavigationMode.web] Failed to initialize map:", error);
       }
     };
 
@@ -158,7 +165,7 @@ export function NavigationMode({
       if (removeMissingImageHandler) {
         removeMissingImageHandler();
       }
-      markers.forEach(marker => marker.remove());
+      markers.forEach((marker) => marker.remove());
       markers.clear();
       userMarker?.remove();
       if (mapInstance) {
@@ -185,7 +192,7 @@ export function NavigationMode({
     userMarkerRef.current?.remove();
 
     // Create user marker element
-    const el = document.createElement('div');
+    const el = document.createElement("div");
     const hasHeading = userLocation.heading !== undefined;
 
     if (hasHeading) {
@@ -238,11 +245,11 @@ export function NavigationMode({
     if (!mapRef.current || !mapLoaded) return;
 
     // Clear existing markers
-    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current.forEach((marker) => marker.remove());
     markersRef.current.clear();
 
     // Current destination marker
-    const destEl = document.createElement('div');
+    const destEl = document.createElement("div");
     const destColor = isEntrega ? theme.colors.error : theme.colors.warning;
     destEl.innerHTML = `
       <div style="
@@ -257,9 +264,10 @@ export function NavigationMode({
         box-shadow: 0 2px 4px rgba(0,0,0,0.3);
       ">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-          ${isEntrega
-            ? '<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2l4-4-4-4v3H8v2h4v3z"/>'
-            : '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>'
+          ${
+            isEntrega
+              ? '<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2l4-4-4-4v3H8v2h4v3z"/>'
+              : '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>'
           }
         </svg>
       </div>
@@ -267,26 +275,26 @@ export function NavigationMode({
     const destMarker = new maplibregl.Marker({ element: destEl })
       .setLngLat([currentStop.longitude, currentStop.latitude])
       .addTo(mapRef.current);
-    markersRef.current.set('current', destMarker);
+    markersRef.current.set("current", destMarker);
 
     // Other pending stops
     pendingStops.forEach((parada) => {
       const isNext = nextStopAfterCurrent?.id === parada.id;
-      const el = document.createElement('div');
+      const el = document.createElement("div");
       el.innerHTML = `
         <div style="
-          width: ${isNext ? '28px' : '24px'};
-          height: ${isNext ? '28px' : '24px'};
-          border-radius: ${isNext ? '14px' : '12px'};
+          width: ${isNext ? "28px" : "24px"};
+          height: ${isNext ? "28px" : "24px"};
+          border-radius: ${isNext ? "14px" : "12px"};
           background: ${isNext ? theme.colors.warning : theme.colors.gray400};
           border: 2px solid white;
           display: flex;
           align-items: center;
           justify-content: center;
           color: white;
-          font-size: ${isNext ? '11px' : '10px'};
+          font-size: ${isNext ? "11px" : "10px"};
           font-weight: 600;
-          ${isNext ? `box-shadow: 0 1px 3px ${theme.colors.warning}80;` : ''}
+          ${isNext ? `box-shadow: 0 1px 3px ${theme.colors.warning}80;` : ""}
         ">
           ${parada.ordem}
         </div>
@@ -299,7 +307,7 @@ export function NavigationMode({
 
     // Start checkpoint
     if (startCheckpoint && startCheckpoint.id !== currentStop.id) {
-      const el = document.createElement('div');
+      const el = document.createElement("div");
       el.innerHTML = `
         <div style="
           width: 28px;
@@ -320,12 +328,12 @@ export function NavigationMode({
       const marker = new maplibregl.Marker({ element: el })
         .setLngLat([startCheckpoint.longitude, startCheckpoint.latitude])
         .addTo(mapRef.current!);
-      markersRef.current.set('start', marker);
+      markersRef.current.set("start", marker);
     }
 
     // End checkpoint
     if (endCheckpoint && endCheckpoint.id !== currentStop.id) {
-      const el = document.createElement('div');
+      const el = document.createElement("div");
       el.innerHTML = `
         <div style="
           width: 28px;
@@ -346,17 +354,26 @@ export function NavigationMode({
       const marker = new maplibregl.Marker({ element: el })
         .setLngLat([endCheckpoint.longitude, endCheckpoint.latitude])
         .addTo(mapRef.current!);
-      markersRef.current.set('end', marker);
+      markersRef.current.set("end", marker);
     }
-  }, [currentStop, pendingStops, nextStopAfterCurrent, startCheckpoint, endCheckpoint, isEntrega, mapLoaded, theme]);
+  }, [
+    currentStop,
+    pendingStops,
+    nextStopAfterCurrent,
+    startCheckpoint,
+    endCheckpoint,
+    isEntrega,
+    mapLoaded,
+    theme,
+  ]);
 
   // Add/update route polyline
   useEffect(() => {
     if (!mapRef.current || !mapLoaded || routePath.length < 2) return;
 
     const map = mapRef.current;
-    const sourceId = 'route-source';
-    const layerId = 'route-layer';
+    const sourceId = "route-source";
+    const layerId = "route-layer";
 
     // Remove existing route
     if (map.getLayer(layerId)) map.removeLayer(layerId);
@@ -364,26 +381,26 @@ export function NavigationMode({
 
     // Add route
     map.addSource(sourceId, {
-      type: 'geojson',
+      type: "geojson",
       data: {
-        type: 'Feature',
+        type: "Feature",
         properties: {},
         geometry: {
-          type: 'LineString',
-          coordinates: routePath.map(c => [c.longitude, c.latitude]),
+          type: "LineString",
+          coordinates: routePath.map((c) => [c.longitude, c.latitude]),
         },
       },
     });
 
     map.addLayer({
       id: layerId,
-      type: 'line',
+      type: "line",
       source: sourceId,
-      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      layout: { "line-join": "round", "line-cap": "round" },
       paint: {
-        'line-color': theme.colors.primary,
-        'line-width': 4,
-        'line-opacity': 1,
+        "line-color": theme.colors.primary,
+        "line-width": 4,
+        "line-opacity": 1,
       },
     });
 
@@ -403,16 +420,19 @@ export function NavigationMode({
     }
   }, [userLocation]);
 
-  const handleArrival = useCallback(() => {
-    Alert.alert(
-      'Chegou ao Destino!',
-      `Você chegou em: ${currentStop.endereco}`,
-      [
-        { text: 'Pular', style: 'destructive', onPress: onSkip },
-        { text: 'Concluir', onPress: onComplete },
-      ]
-    );
-  }, [currentStop, onComplete, onSkip]);
+  const handleArrival = useCallback(async () => {
+    const confirmed = await showConfirm({
+      title: "Chegou ao Destino!",
+      message: `Você chegou em: ${currentStop.endereco}`,
+      confirmText: "Concluir",
+      cancelText: "Pular",
+      onCancel: onSkip,
+    });
+
+    if (confirmed) {
+      onComplete();
+    }
+  }, [currentStop, onComplete, onSkip, showConfirm]);
 
   const checkProximityAndAutoAdvance = useCallback(
     (distance: number) => {
@@ -420,13 +440,13 @@ export function NavigationMode({
         handleArrival();
       }
     },
-    [autoAdvance, handleArrival, proximityRadius]
+    [autoAdvance, handleArrival, proximityRadius],
   );
 
   const startLocationTracking = useCallback(async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      showWarning('Erro', 'Permissão de localização negada');
+    if (status !== "granted") {
+      showWarning("Erro", "Permissão de localização negada");
       return;
     }
 
@@ -440,10 +460,13 @@ export function NavigationMode({
           longitude: location.coords.longitude,
           heading: location.coords.heading,
         },
-        location.coords.speed
+        location.coords.speed,
       );
     } catch (error) {
-      logger.warn('[NavigationMode.web] Error getting initial location:', error);
+      logger.warn(
+        "[NavigationMode.web] Error getting initial location:",
+        error,
+      );
     }
 
     const subscription = await Location.watchPositionAsync(
@@ -459,9 +482,9 @@ export function NavigationMode({
             longitude: location.coords.longitude,
             heading: location.coords.heading,
           },
-          location.coords.speed
+          location.coords.speed,
         );
-      }
+      },
     );
 
     return () => {
@@ -469,7 +492,7 @@ export function NavigationMode({
       try {
         subscription.remove();
       } catch (error) {
-        logger.warn('[NavigationMode.web] Error removing subscription:', error);
+        logger.warn("[NavigationMode.web] Error removing subscription:", error);
       }
     };
   }, [setIsTracking, updateLocationFromCoords, showWarning]);
@@ -486,12 +509,12 @@ export function NavigationMode({
 
   // Inject CSS keyframes for pulse animation
   useEffect(() => {
-    if (typeof document === 'undefined') return;
+    if (typeof document === "undefined") return;
 
-    const styleId = 'nav-mode-pulse-keyframes';
+    const styleId = "nav-mode-pulse-keyframes";
     if (document.getElementById(styleId)) return;
 
-    const style = document.createElement('style');
+    const style = document.createElement("style");
     style.id = styleId;
     style.textContent = `
       @keyframes pip-pulse {
@@ -543,10 +566,7 @@ export function NavigationMode({
     <View style={styles.container}>
       {/* MapLibre Map */}
       <View style={styles.mapContainer}>
-        <div
-          ref={mapContainerRef}
-          style={{ width: '100%', height: '100%' }}
-        />
+        <div ref={mapContainerRef} style={{ width: "100%", height: "100%" }} />
 
         {/* Top Bar */}
         <View style={styles.topBar}>
@@ -565,7 +585,11 @@ export function NavigationMode({
             style={styles.topButton}
             onPress={() => setShowSettings(true)}
           >
-            <Ionicons name="settings-outline" size={24} color={theme.colors.white} />
+            <Ionicons
+              name="settings-outline"
+              size={24}
+              color={theme.colors.white}
+            />
           </TouchableOpacity>
         </View>
 
@@ -621,43 +645,43 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: theme.colors.gray50,
   },
   loadingText: {
-    marginTop: theme.spacing['4'],
+    marginTop: theme.spacing["4"],
     fontSize: theme.typography.fontSize.base,
     color: theme.colors.gray600,
   },
   mapContainer: {
     flex: 1,
     backgroundColor: theme.colors.gray100,
-    position: 'relative',
+    position: "relative",
   },
   topBar: {
-    position: 'absolute',
+    position: "absolute",
     top: 16,
     left: 16,
     right: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   topButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   trackingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
     backgroundColor: withOpacity(theme.colors.success, 0.9),
-    paddingHorizontal: theme.spacing['4'],
+    paddingHorizontal: theme.spacing["4"],
     paddingVertical: 6,
     borderRadius: theme.borderRadius.xl,
   },
@@ -670,18 +694,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
   trackingText: {
     color: theme.colors.white,
     fontSize: theme.typography.fontSize.xs,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   recenterButton: {
-    position: 'absolute',
+    position: "absolute",
     right: 16,
     bottom: 280,
     width: 44,
     height: 44,
     borderRadius: 22,
     backgroundColor: theme.colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -689,7 +713,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     elevation: 4,
   },
   settingsOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,

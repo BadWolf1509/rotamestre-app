@@ -1,26 +1,37 @@
-import { Ionicons } from '@expo/vector-icons';
-import maplibregl from 'maplibre-gl';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import maplibregl from "maplibre-gl";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Linking,
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
-import 'maplibre-gl/dist/maplibre-gl.css';
+import "maplibre-gl/dist/maplibre-gl.css";
 
-import { logger } from '@/lib/logger';
-import { getOpenFreeMapStyle, installOpenFreeMapMissingImageHandler } from '@/lib/openFreeMapStyle';
-import LocationTrackingService from '@/services/locationTracking';
+import { logger } from "@/lib/logger";
+import {
+  getOpenFreeMapStyle,
+  installOpenFreeMapMissingImageHandler,
+} from "@/lib/openFreeMapStyle";
+import LocationTrackingService from "@/services/locationTracking";
 import TurnByTurnNavigationService, {
   calculateHaversineDistance,
   type NavigationInstruction,
-} from '@/services/turnByTurnNavigation';
-import type { IconName } from '@/types/icons';
-import { boxShadow, withOpacity } from '@/utils/color';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+} from "@/services/turnByTurnNavigation";
+import type { IconName } from "@/types/icons";
+import { boxShadow } from "@/utils/color";
+import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
+
+import { BottomPanel, InstructionBar } from "./turn-by-turn";
 
 // Default values
 const DEFAULT_PROXIMITY_RADIUS = 30;
@@ -47,14 +58,20 @@ export function TurnByTurnNavigation({
   const markersRef = useRef<maplibregl.Marker[]>([]);
 
   // User preferences
-  const [proximityRadius, setProximityRadius] = useState(DEFAULT_PROXIMITY_RADIUS);
+  const [proximityRadius, setProximityRadius] = useState(
+    DEFAULT_PROXIMITY_RADIUS,
+  );
 
   // Navigation state
   const [userLocation, setUserLocation] = useState(origin);
-  const [currentInstruction, setCurrentInstruction] = useState<NavigationInstruction | null>(null);
-  const [nextInstruction, setNextInstruction] = useState<NavigationInstruction | null>(null);
+  const [currentInstruction, setCurrentInstruction] =
+    useState<NavigationInstruction | null>(null);
+  const [nextInstruction, setNextInstruction] =
+    useState<NavigationInstruction | null>(null);
   const [distanceToTurn, setDistanceToTurn] = useState(0);
-  const [routeCoordinates, setRouteCoordinates] = useState<Array<{ latitude: number; longitude: number }>>([]);
+  const [routeCoordinates, setRouteCoordinates] = useState<
+    Array<{ latitude: number; longitude: number }>
+  >([]);
   const [remainingDistance, setRemainingDistance] = useState(0);
   const [remainingTime, setRemainingTime] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -82,7 +99,7 @@ export function TurnByTurnNavigation({
           setVoiceEnabled(prefs.voiceNavigation);
         }
       } catch (error) {
-        logger.warn('[TurnByTurn.web] Error loading preferences:', error);
+        logger.warn("[TurnByTurn.web] Error loading preferences:", error);
       }
     };
     loadPreferences();
@@ -95,7 +112,7 @@ export function TurnByTurnNavigation({
     const route = await TurnByTurnNavigationService.getDirections(
       origin,
       destination,
-      waypoints
+      waypoints,
     );
 
     if (!route) {
@@ -113,7 +130,8 @@ export function TurnByTurnNavigation({
     setRemainingTime(route.duration);
 
     // Get first instruction
-    const firstInstruction = TurnByTurnNavigationService.getCurrentInstruction();
+    const firstInstruction =
+      TurnByTurnNavigationService.getCurrentInstruction();
     setCurrentInstruction(firstInstruction);
 
     const secondInstruction = TurnByTurnNavigationService.getNextInstruction();
@@ -140,7 +158,7 @@ export function TurnByTurnNavigation({
   // Watch user position with browser Geolocation API
   useEffect(() => {
     if (!navigator.geolocation) {
-      logger.warn('[TurnByTurn.web] Geolocation not supported');
+      logger.warn("[TurnByTurn.web] Geolocation not supported");
       return;
     }
 
@@ -156,7 +174,7 @@ export function TurnByTurnNavigation({
       // Update navigation
       const update = await TurnByTurnNavigationService.updateNavigation(
         coords,
-        (position.coords.speed || 0) * 3.6
+        (position.coords.speed || 0) * 3.6,
       );
 
       setCurrentInstruction(update.currentInstruction);
@@ -171,7 +189,7 @@ export function TurnByTurnNavigation({
         coords.latitude,
         coords.longitude,
         destination.latitude,
-        destination.longitude
+        destination.longitude,
       );
 
       if (distToDestination < proximityRadius) {
@@ -180,7 +198,7 @@ export function TurnByTurnNavigation({
     };
 
     const handleError = (error: GeolocationPositionError) => {
-      logger.warn('[TurnByTurn.web] Geolocation error:', error.message);
+      logger.warn("[TurnByTurn.web] Geolocation error:", error.message);
     };
 
     watchIdRef.current = navigator.geolocation.watchPosition(
@@ -190,7 +208,7 @@ export function TurnByTurnNavigation({
         enableHighAccuracy: true,
         timeout: 10000,
         maximumAge: 1000,
-      }
+      },
     );
 
     return () => {
@@ -220,21 +238,22 @@ export function TurnByTurnNavigation({
           zoom: 17,
           attributionControl: false,
         });
-        removeMissingImageHandler = installOpenFreeMapMissingImageHandler(mapInstance);
+        removeMissingImageHandler =
+          installOpenFreeMapMissingImageHandler(mapInstance);
 
-        mapInstance.on('load', () => {
+        mapInstance.on("load", () => {
           setMapLoaded(true);
           mapRef.current = mapInstance;
         });
 
-        mapInstance.on('error', (e) => {
-          logger.error('[TurnByTurn.web] Map error:', e);
-          setMapError('Erro ao carregar mapa');
+        mapInstance.on("error", (e) => {
+          logger.error("[TurnByTurn.web] Map error:", e);
+          setMapError("Erro ao carregar mapa");
         });
       } catch (error) {
         if (cancelled) return;
-        logger.error('[TurnByTurn.web] Failed to initialize map:', error);
-        setMapError('Erro ao inicializar mapa');
+        logger.error("[TurnByTurn.web] Failed to initialize map:", error);
+        setMapError("Erro ao inicializar mapa");
       }
     };
 
@@ -246,7 +265,7 @@ export function TurnByTurnNavigation({
         removeMissingImageHandler();
       }
       // Cleanup markers
-      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
       if (userMarkerRef.current) {
         userMarkerRef.current.remove();
@@ -262,7 +281,7 @@ export function TurnByTurnNavigation({
 
   // Create user marker element
   const createUserMarkerElement = useCallback(() => {
-    const el = document.createElement('div');
+    const el = document.createElement("div");
     el.style.cssText = `
       width: 24px;
       height: 24px;
@@ -275,7 +294,7 @@ export function TurnByTurnNavigation({
       justify-content: center;
     `;
 
-    const inner = document.createElement('div');
+    const inner = document.createElement("div");
     inner.style.cssText = `
       width: 8px;
       height: 8px;
@@ -289,7 +308,7 @@ export function TurnByTurnNavigation({
 
   // Create destination marker element
   const createDestinationMarkerElement = useCallback(() => {
-    const el = document.createElement('div');
+    const el = document.createElement("div");
     el.style.cssText = `
       background-color: ${theme.colors.white};
       border-radius: 16px;
@@ -300,7 +319,7 @@ export function TurnByTurnNavigation({
       justify-content: center;
     `;
 
-    const icon = document.createElement('div');
+    const icon = document.createElement("div");
     icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 512 512"><path fill="${theme.colors.error}" d="M80 464V68.14a8 8 0 0 1 4-6.9C91.81 56.66 112.92 48 160 48c64 0 145 48 192 48a199.53 199.53 0 0 0 77.23-15.77a2 2 0 0 1 2.77 1.85v219.36a4 4 0 0 1-2.39 3.65C421.37 308.7 392.33 320 352 320c-48 0-128-32-192-32s-80 16-80 16"/><path fill="${theme.colors.error}" d="M80 464a16 16 0 0 1-16-16V68.14a24 24 0 0 1 12-20.9C91.55 38 112.91 32 160 32c61.31 0 140.63 40 184 40c48.47 0 80.27-16.3 90.14-21.42a16 16 0 0 1 17.71 2.63A15.94 15.94 0 0 1 456 67.57v237.31a23.93 23.93 0 0 1-14.36 21.93C423.45 334.9 384.05 352 352 352c-50.44 0-129.44-32-192-32c-31.81 0-54.07 6.84-64 12.64V448a16 16 0 0 1-16 16"/></svg>`;
     el.appendChild(icon);
 
@@ -308,9 +327,10 @@ export function TurnByTurnNavigation({
   }, [theme.colors.white, theme.colors.error]);
 
   // Create waypoint marker element
-  const createWaypointMarkerElement = useCallback((index: number) => {
-    const el = document.createElement('div');
-    el.style.cssText = `
+  const createWaypointMarkerElement = useCallback(
+    (index: number) => {
+      const el = document.createElement("div");
+      el.style.cssText = `
       width: 28px;
       height: 28px;
       border-radius: 50%;
@@ -324,28 +344,34 @@ export function TurnByTurnNavigation({
       font-size: 12px;
       font-weight: 700;
     `;
-    el.textContent = String(index + 1);
+      el.textContent = String(index + 1);
 
-    return el;
-  }, [theme.colors.gray500]);
+      return el;
+    },
+    [theme.colors.gray500],
+  );
 
   // Add markers to map
   useEffect(() => {
     if (!mapRef.current || !mapLoaded) return;
 
     // Clear existing markers (except user marker)
-    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
 
     // Add destination marker
-    const destMarker = new maplibregl.Marker({ element: createDestinationMarkerElement() })
+    const destMarker = new maplibregl.Marker({
+      element: createDestinationMarkerElement(),
+    })
       .setLngLat([destination.longitude, destination.latitude])
       .addTo(mapRef.current);
     markersRef.current.push(destMarker);
 
     // Add waypoint markers
     waypoints?.forEach((wp, index) => {
-      const wpMarker = new maplibregl.Marker({ element: createWaypointMarkerElement(index) })
+      const wpMarker = new maplibregl.Marker({
+        element: createWaypointMarkerElement(index),
+      })
         .setLngLat([wp.longitude, wp.latitude])
         .addTo(mapRef.current!);
       markersRef.current.push(wpMarker);
@@ -353,21 +379,36 @@ export function TurnByTurnNavigation({
 
     // Add or update user marker
     if (!userMarkerRef.current) {
-      userMarkerRef.current = new maplibregl.Marker({ element: createUserMarkerElement() })
+      userMarkerRef.current = new maplibregl.Marker({
+        element: createUserMarkerElement(),
+      })
         .setLngLat([userLocation.longitude, userLocation.latitude])
         .addTo(mapRef.current);
     }
-  }, [mapLoaded, destination, waypoints, createDestinationMarkerElement, createWaypointMarkerElement, createUserMarkerElement, userLocation]);
+  }, [
+    mapLoaded,
+    destination,
+    waypoints,
+    createDestinationMarkerElement,
+    createWaypointMarkerElement,
+    createUserMarkerElement,
+    userLocation,
+  ]);
 
   // Update user marker position
   useEffect(() => {
     if (userMarkerRef.current) {
-      userMarkerRef.current.setLngLat([userLocation.longitude, userLocation.latitude]);
+      userMarkerRef.current.setLngLat([
+        userLocation.longitude,
+        userLocation.latitude,
+      ]);
     }
 
     // Center map on user (smooth pan)
     if (mapRef.current && mapLoaded) {
-      mapRef.current.panTo([userLocation.longitude, userLocation.latitude], { duration: 300 });
+      mapRef.current.panTo([userLocation.longitude, userLocation.latitude], {
+        duration: 300,
+      });
     }
   }, [userLocation, mapLoaded]);
 
@@ -375,8 +416,8 @@ export function TurnByTurnNavigation({
   useEffect(() => {
     if (!mapRef.current || !mapLoaded || routeCoordinates.length === 0) return;
 
-    const sourceId = 'route-source';
-    const layerId = 'route-layer';
+    const sourceId = "route-source";
+    const layerId = "route-layer";
 
     // Remove existing layer and source if they exist
     if (mapRef.current.getLayer(layerId)) {
@@ -388,13 +429,13 @@ export function TurnByTurnNavigation({
 
     // Add route source
     mapRef.current.addSource(sourceId, {
-      type: 'geojson',
+      type: "geojson",
       data: {
-        type: 'Feature',
+        type: "Feature",
         properties: {},
         geometry: {
-          type: 'LineString',
-          coordinates: routeCoordinates.map(c => [c.longitude, c.latitude]),
+          type: "LineString",
+          coordinates: routeCoordinates.map((c) => [c.longitude, c.latitude]),
         },
       },
     });
@@ -402,23 +443,23 @@ export function TurnByTurnNavigation({
     // Add route layer
     mapRef.current.addLayer({
       id: layerId,
-      type: 'line',
+      type: "line",
       source: sourceId,
       layout: {
-        'line-join': 'round',
-        'line-cap': 'round',
+        "line-join": "round",
+        "line-cap": "round",
       },
       paint: {
-        'line-color': theme.colors.primary,
-        'line-width': 5,
-        'line-opacity': 0.8,
+        "line-color": theme.colors.primary,
+        "line-width": 5,
+        "line-opacity": 0.8,
       },
     });
 
     // Fit bounds to show entire route
     if (routeCoordinates.length > 0) {
       const bounds = new maplibregl.LngLatBounds();
-      routeCoordinates.forEach(coord => {
+      routeCoordinates.forEach((coord) => {
         bounds.extend([coord.longitude, coord.latitude]);
       });
       bounds.extend([userLocation.longitude, userLocation.latitude]);
@@ -449,17 +490,33 @@ export function TurnByTurnNavigation({
     return `${minutes} min`;
   };
 
+  // Memoized formatted values
+  const formattedRemainingDistance = useMemo(
+    () => formatDistance(remainingDistance),
+    [remainingDistance],
+  );
+
+  const formattedRemainingTime = useMemo(
+    () => formatDuration(remainingTime),
+    [remainingTime],
+  );
+
+  const formattedDistanceToTurn = useMemo(
+    () => formatDistance(distanceToTurn),
+    [distanceToTurn],
+  );
+
   // Get maneuver icon
-  const getManeuverIcon = (maneuver: string): IconName => {
+  const getManeuverIcon = useCallback((maneuver: string): IconName => {
     const iconMap: Record<string, IconName> = {
-      'turn-left': 'arrow-back',
-      'turn-right': 'arrow-forward',
-      'turn-sharp-left': 'return-up-back',
-      'turn-sharp-right': 'return-up-forward',
-      'straight': 'arrow-up',
-      'merge': 'git-merge',
-      'roundabout': 'sync',
-      'uturn': 'refresh',
+      "turn-left": "arrow-back",
+      "turn-right": "arrow-forward",
+      "turn-sharp-left": "return-up-back",
+      "turn-sharp-right": "return-up-forward",
+      straight: "arrow-up",
+      merge: "git-merge",
+      roundabout: "sync",
+      uturn: "refresh",
     };
 
     for (const [key, icon] of Object.entries(iconMap)) {
@@ -468,8 +525,8 @@ export function TurnByTurnNavigation({
       }
     }
 
-    return 'arrow-up';
-  };
+    return "arrow-up";
+  }, []);
 
   // Toggle voice (visual only on web, no actual speech)
   const toggleVoice = () => {
@@ -500,7 +557,10 @@ export function TurnByTurnNavigation({
       <View style={styles.loadingContainer}>
         <Ionicons name="alert-circle" size={48} color={theme.colors.error} />
         <Text style={styles.loadingText}>{mapError}</Text>
-        <TouchableOpacity style={styles.fallbackButton} onPress={openInGoogleMaps}>
+        <TouchableOpacity
+          style={styles.fallbackButton}
+          onPress={openInGoogleMaps}
+        >
           <Text style={styles.fallbackButtonText}>Abrir no Google Maps</Text>
         </TouchableOpacity>
       </View>
@@ -514,9 +574,9 @@ export function TurnByTurnNavigation({
         ref={mapContainerRef}
         style={{
           flex: 1,
-          width: '100%',
-          height: '100%',
-          position: 'absolute',
+          width: "100%",
+          height: "100%",
+          position: "absolute",
           top: 0,
           left: 0,
           right: 0,
@@ -524,97 +584,23 @@ export function TurnByTurnNavigation({
         }}
       />
 
-      {/* Top instruction bar */}
-      <View style={[styles.instructionBar, { backgroundColor: theme.colors.primary }]}>
-        <View style={styles.instructionContent}>
-          <View style={[styles.maneuverIcon, { backgroundColor: withOpacity(theme.colors.white, 0.2) }]}>
-            <Ionicons
-              name={getManeuverIcon(currentInstruction?.maneuver || '')}
-              size={40}
-              color={theme.colors.white}
-            />
-          </View>
+      <InstructionBar
+        currentInstruction={currentInstruction}
+        nextInstruction={nextInstruction}
+        formattedDistanceToTurn={formattedDistanceToTurn}
+        getManeuverIcon={getManeuverIcon}
+      />
 
-          <View style={styles.instructionText}>
-            <Text style={[styles.distanceText, { color: theme.colors.white }]}>
-              {formatDistance(distanceToTurn)}
-            </Text>
-            <Text style={[styles.instructionMainText, { color: theme.colors.white }]} numberOfLines={2}>
-              {currentInstruction?.instruction || 'Calculando...'}
-            </Text>
-          </View>
-        </View>
-
-        {nextInstruction && (
-          <View style={[styles.nextInstructionBar, { borderTopColor: withOpacity(theme.colors.white, 0.1) }]}>
-            <Ionicons
-              name={getManeuverIcon(nextInstruction.maneuver)}
-              size={16}
-              color={theme.colors.gray400}
-            />
-            <Text style={[styles.nextInstructionText, { color: theme.colors.gray200 }]}>
-              Depois: {nextInstruction.instruction}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Bottom info panel */}
-      <View style={[styles.bottomPanel, { backgroundColor: theme.colors.white }]}>
-        {/* Progress bar */}
-        <View style={[styles.progressBar, { backgroundColor: theme.colors.gray200 }]}>
-          <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: theme.colors.success }]} />
-        </View>
-
-        {/* Stats */}
-        <View style={styles.statsRow}>
-          <View style={styles.stat}>
-            <Text style={[styles.statValue, { color: theme.colors.gray900 }]}>{formatDistance(remainingDistance)}</Text>
-            <Text style={[styles.statLabel, { color: theme.colors.gray500 }]}>restante</Text>
-          </View>
-
-          <View style={[styles.statSeparator, { backgroundColor: theme.colors.gray200 }]} />
-
-          <View style={styles.stat}>
-            <Text style={[styles.statValue, { color: theme.colors.gray900 }]}>{formatDuration(remainingTime)}</Text>
-            <Text style={[styles.statLabel, { color: theme.colors.gray500 }]}>chegada</Text>
-          </View>
-
-          <View style={[styles.statSeparator, { backgroundColor: theme.colors.gray200 }]} />
-
-          <View style={styles.stat}>
-            <Text style={[styles.statValue, { color: theme.colors.gray900 }]}>{speed}</Text>
-            <Text style={[styles.statLabel, { color: theme.colors.gray500 }]}>km/h</Text>
-          </View>
-        </View>
-
-        {/* Controls */}
-        <View style={[styles.controls, { borderTopColor: theme.colors.gray200 }]}>
-          <TouchableOpacity
-            style={[styles.controlButton, { backgroundColor: theme.colors.gray100 }, !voiceEnabled && styles.controlButtonDisabled]}
-            onPress={toggleVoice}
-          >
-            <Ionicons
-              name={voiceEnabled ? 'volume-high' : 'volume-mute'}
-              size={24}
-              color={voiceEnabled ? theme.colors.primary : theme.colors.gray400}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.openMapsButton, { backgroundColor: theme.colors.info }]}
-            onPress={openInGoogleMaps}
-          >
-            <Ionicons name="navigate" size={20} color={theme.colors.white} />
-            <Text style={[styles.openMapsButtonText, { color: theme.colors.white }]}>Google Maps</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.exitButton, { backgroundColor: theme.colors.error }]} onPress={onExit}>
-            <Ionicons name="close" size={24} color={theme.colors.white} />
-            <Text style={[styles.exitButtonText, { color: theme.colors.white }]}>Sair</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <BottomPanel
+        progress={progress}
+        formattedRemainingDistance={formattedRemainingDistance}
+        formattedRemainingTime={formattedRemainingTime}
+        speed={speed}
+        voiceEnabled={voiceEnabled}
+        onToggleVoice={toggleVoice}
+        onOpenInMaps={openInGoogleMaps}
+        onExit={onExit}
+      />
     </View>
   );
 }
@@ -625,10 +611,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: theme.colors.white,
-    gap: theme.spacing['4'],
+    gap: theme.spacing["4"],
   },
   loadingText: {
     fontSize: theme.typography.fontSize.base,
@@ -636,183 +622,50 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   fallbackButton: {
     backgroundColor: theme.colors.primary,
-    paddingHorizontal: theme.spacing['6'],
-    paddingVertical: theme.spacing['3'],
+    paddingHorizontal: theme.spacing["6"],
+    paddingVertical: theme.spacing["3"],
     borderRadius: theme.borderRadius.lg,
-    marginTop: theme.spacing['4'],
+    marginTop: theme.spacing["4"],
   },
   fallbackButtonText: {
     color: theme.colors.white,
     fontSize: theme.typography.fontSize.base,
-    fontWeight: '600',
-  },
-  instructionBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    paddingTop: 20,
-    boxShadow: boxShadow(0, 2, 8, 0, theme.colors.black, 0.2),
-    zIndex: 10,
-  },
-  instructionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing['4'],
-    paddingVertical: theme.spacing['4'],
-  },
-  maneuverIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: theme.spacing['4'],
-  },
-  instructionText: {
-    flex: 1,
-  },
-  distanceText: {
-    fontSize: theme.typography.fontSize['2xl'],
-    fontWeight: '700',
-    marginBottom: theme.spacing['1'],
-  },
-  instructionMainText: {
-    fontSize: theme.typography.fontSize.base,
-    opacity: 0.95,
-  },
-  nextInstructionBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing['4'],
-    paddingVertical: theme.spacing['2'],
-    backgroundColor: withOpacity(theme.colors.black, 0.1),
-    borderTopWidth: 1,
-  },
-  nextInstructionText: {
-    fontSize: theme.typography.fontSize.xs,
-    marginLeft: theme.spacing['2'],
-  },
-  bottomPanel: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
-    paddingBottom: 20,
-    boxShadow: boxShadow(0, -2, 10, 0, theme.colors.black, 0.1),
-    zIndex: 10,
-  },
-  progressBar: {
-    height: 4,
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingVertical: theme.spacing['4'],
-    paddingHorizontal: theme.spacing['4'],
-  },
-  stat: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: theme.typography.fontSize.xl,
-    fontWeight: '700',
-  },
-  statLabel: {
-    fontSize: theme.typography.fontSize.xs,
-    marginTop: theme.spacing['0.5'],
-  },
-  statSeparator: {
-    width: 1,
-    height: 30,
-  },
-  controls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing['4'],
-    paddingTop: theme.spacing['2'],
-    borderTopWidth: 1,
-    gap: theme.spacing['3'],
-  },
-  controlButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  controlButtonDisabled: {
-    opacity: 0.5,
-  },
-  openMapsButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: theme.spacing['3'],
-    borderRadius: theme.borderRadius['3xl'],
-    gap: theme.spacing['2'],
-  },
-  openMapsButtonText: {
-    fontSize: theme.typography.fontSize.base,
-    fontWeight: '600',
-  },
-  exitButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing['4'],
-    paddingVertical: theme.spacing['3'],
-    borderRadius: theme.borderRadius['3xl'],
-    gap: theme.spacing['2'],
-  },
-  exitButtonText: {
-    fontSize: theme.typography.fontSize.base,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   userMarker: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 3,
-    borderColor: 'white',
-    boxShadow: boxShadow(0, 2, 4, 0, '#000', 0.3),
+    borderColor: "white",
+    boxShadow: boxShadow(0, 2, 4, 0, "#000", 0.3),
   },
   userMarkerInner: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'white',
+    backgroundColor: "white",
   },
   destinationMarker: {
     borderRadius: 16,
     padding: 8,
-    boxShadow: boxShadow(0, 2, 4, 0, '#000', 0.2),
+    boxShadow: boxShadow(0, 2, 4, 0, "#000", 0.2),
   },
   waypointMarker: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 2,
-    borderColor: 'white',
-    boxShadow: boxShadow(0, 1, 3, 0, '#000', 0.2),
+    borderColor: "white",
+    boxShadow: boxShadow(0, 1, 3, 0, "#000", 0.2),
   },
   waypointText: {
-    color: 'white',
+    color: "white",
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 }));

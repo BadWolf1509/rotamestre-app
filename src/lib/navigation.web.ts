@@ -1,4 +1,4 @@
-import { Alert } from 'react-native';
+import { showError } from "@/utils/errorHandling";
 
 /**
  * Interface para representar coordenadas de uma parada
@@ -16,9 +16,9 @@ export interface Coordenadas {
 export function abrirNavegacao(coords: Coordenadas) {
   // Validar coordenadas
   if (!coords.latitude || !coords.longitude) {
-    Alert.alert(
-      'Coordenadas Inválidas',
-      'Não foi possível obter a localização desta parada.'
+    showError(
+      "Coordenadas Inválidas",
+      "Não foi possível obter a localização desta parada.",
     );
     return;
   }
@@ -26,7 +26,7 @@ export function abrirNavegacao(coords: Coordenadas) {
   // Abrir Google Maps na web
   const url = `https://www.google.com/maps/dir/?api=1&destination=${coords.latitude},${coords.longitude}`;
 
-  window.open(url, '_blank');
+  window.open(url, "_blank");
 }
 
 /**
@@ -34,7 +34,7 @@ export function abrirNavegacao(coords: Coordenadas) {
  */
 export async function abrirNavegacaoDireta(
   coords: Coordenadas,
-  _appPreferido: 'waze' | 'google' | 'apple'
+  _appPreferido: "waze" | "google" | "apple",
 ): Promise<boolean> {
   abrirNavegacao(coords);
   return true;
@@ -44,7 +44,7 @@ export async function abrirNavegacaoDireta(
  * Versão web - sempre retorna true (sempre pode abrir Google Maps)
  */
 export async function verificarAppInstalado(
-  _app: 'waze' | 'google' | 'apple'
+  _app: "waze" | "google" | "apple",
 ): Promise<boolean> {
   return true;
 }
@@ -54,9 +54,9 @@ export async function verificarAppInstalado(
  */
 export function abrirNavegacaoRotaCompleta(paradas: Coordenadas[]) {
   if (paradas.length < 2) {
-    Alert.alert(
-      'Rota Incompleta',
-      'É necessário pelo menos 2 paradas para iniciar navegação.'
+    showError(
+      "Rota Incompleta",
+      "É necessário pelo menos 2 paradas para iniciar navegação.",
     );
     return;
   }
@@ -66,5 +66,5 @@ export function abrirNavegacaoRotaCompleta(paradas: Coordenadas[]) {
 
   const url = `https://www.google.com/maps/dir/?api=1&origin=${origem.latitude},${origem.longitude}&destination=${destino.latitude},${destino.longitude}`;
 
-  window.open(url, '_blank');
+  window.open(url, "_blank");
 }
