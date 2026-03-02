@@ -86,7 +86,7 @@ export default function ConfiguracoesScreen() {
       const keysToRemove = keys.filter(
         (k) => !k.includes("supabase") && !k.includes("auth"),
       );
-      await AsyncStorage.removeMany(keysToRemove);
+      await AsyncStorage.multiRemove(keysToRemove);
       setCacheSize("0 itens");
       showSuccess("Sucesso", "Cache limpo com sucesso!");
     } catch (error) {

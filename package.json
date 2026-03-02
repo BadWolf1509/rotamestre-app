@@ -1,7 +1,7 @@
 {
   "name": "rotamestre-app",
-  "version": "1.10.0",
-  "androidVersionCode": 3017,
+  "version": "1.11.0",
+  "androidVersionCode": 3018,
   "main": "index.ts",
   "scripts": {
     "prepare": "husky",
@@ -54,7 +54,7 @@
     "@hookform/resolvers": "^5.2.2",
     "@mapbox/polyline": "^1.2.1",
     "@maplibre/maplibre-react-native": "^10.4.2",
-    "@react-native-async-storage/async-storage": "^3.0.1",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "8.6.0",
     "@react-native-community/netinfo": "12.0.1",
     "@react-native-community/slider": "5.1.2",

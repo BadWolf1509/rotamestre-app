@@ -85,7 +85,7 @@ export async function migrateNavigationPreferences(): Promise<boolean> {
     }
 
     // Remover chaves antigas
-    await AsyncStorage.removeMany([
+    await AsyncStorage.multiRemove([
       LEGACY_KEYS.NAV_APP_PREFERENCE,
       LEGACY_KEYS.SOUND_ENABLED,
     ]);
