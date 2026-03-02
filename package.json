@@ -59,7 +59,7 @@
     "@react-native-community/datetimepicker": "8.6.0",
     "@react-native-community/netinfo": "12.0.1",
     "@react-native-community/slider": "5.1.2",
-    "@react-navigation/drawer": "^7.8.1",
+    "@react-navigation/drawer": "^7.9.2",
     "@sentry/browser": "^10.39.0",
     "@sentry/react": "^10.41.0",
     "@shopify/flash-list": "2.2.2",
