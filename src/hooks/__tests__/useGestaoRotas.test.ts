@@ -8,42 +8,49 @@
  * - Exportação para CSV
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { renderHook, act, waitFor } from '@testing-library/react-native';
-import { Alert, Platform } from 'react-native';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { renderHook, act, waitFor } from "@testing-library/react-native";
+import { Alert, Platform } from "react-native";
 
-import { supabase } from '@/lib/supabase';
+import { supabase } from "@/lib/supabase";
 
-import { useGestaoRotas, RotaHistorico, RotaStatus } from '../useGestaoRotas';
+import { useGestaoRotas, RotaHistorico, RotaStatus } from "../useGestaoRotas";
 
 // ============================================
 // MOCKS
 // ============================================
 
-jest.mock('@/lib/supabase');
-jest.mock('@react-native-async-storage/async-storage');
-jest.mock('../useUnidadeAtiva');
-jest.mock('../useUser');
-jest.mock('../useToast');
-jest.mock('../useDebounce');
-jest.mock('../useRealtimeRoutes');
-jest.mock('expo-router', () => ({
+jest.mock("@/lib/supabase");
+jest.mock("@react-native-async-storage/async-storage");
+jest.mock("../useUnidadeAtiva");
+jest.mock("../useUser");
+jest.mock("../useToast");
+jest.mock("../useDebounce");
+jest.mock("../useRealtimeRoutes");
+jest.mock("expo-router", () => ({
   useRouter: () => ({
     push: jest.fn(),
   }),
 }));
-jest.mock('expo-file-system/legacy', () => ({
-  documentDirectory: '/test/',
+jest.mock("expo-file-system/legacy", () => ({
+  documentDirectory: "/test/",
   writeAsStringAsync: jest.fn().mockResolvedValue(undefined),
-  EncodingType: { UTF8: 'utf8' },
+  EncodingType: { UTF8: "utf8" },
 }));
-jest.mock('expo-sharing', () => ({
+jest.mock("expo-sharing", () => ({
   isAvailableAsync: jest.fn().mockResolvedValue(true),
   shareAsync: jest.fn().mockResolvedValue(undefined),
 }));
+jest.mock("@/utils/errorHandling", () => ({
+  showError: jest.fn(),
+  showWarning: jest.fn(),
+  showInfo: jest.fn(),
+  showSuccess: jest.fn(),
+  showConfirmation: jest.fn(),
+}));
 
 // Spy no Alert
-jest.spyOn(Alert, 'alert');
+jest.spyOn(Alert, "alert");
 
 // ============================================
 // TEST DATA
@@ -51,59 +58,84 @@ jest.spyOn(Alert, 'alert');
 
 const mockRotas: RotaHistorico[] = [
   {
-    id: 'rota-1',
-    data: '2026-01-02',
-    status: 'pendente',
+    id: "rota-1",
+    data: "2026-01-02",
+    status: "pendente",
     distancia_total: 15.5,
-    motorista_id: 'motorista-1',
-    motorista_nome: 'Carlos Silva',
+    motorista_id: "motorista-1",
+    motorista_nome: "Carlos Silva",
     paradas_count: 5,
     paradas_concluidas: 0,
   },
   {
-    id: 'rota-2',
-    data: '2026-01-01',
-    status: 'em_andamento',
+    id: "rota-2",
+    data: "2026-01-01",
+    status: "em_andamento",
     distancia_total: 22.3,
-    iniciada_em: '2026-01-01T08:00:00Z',
-    motorista_id: 'motorista-2',
-    motorista_nome: 'Maria Santos',
+    iniciada_em: "2026-01-01T08:00:00Z",
+    motorista_id: "motorista-2",
+    motorista_nome: "Maria Santos",
     paradas_count: 8,
     paradas_concluidas: 4,
   },
   {
-    id: 'rota-3',
-    data: '2025-12-31',
-    status: 'concluida',
+    id: "rota-3",
+    data: "2025-12-31",
+    status: "concluida",
     distancia_total: 18.0,
-    iniciada_em: '2025-12-31T07:30:00Z',
-    concluida_em: '2025-12-31T14:00:00Z',
-    motorista_id: 'motorista-1',
-    motorista_nome: 'Carlos Silva',
+    iniciada_em: "2025-12-31T07:30:00Z",
+    concluida_em: "2025-12-31T14:00:00Z",
+    motorista_id: "motorista-1",
+    motorista_nome: "Carlos Silva",
     paradas_count: 6,
     paradas_concluidas: 6,
   },
 ];
 
 const mockParadas = [
-  { rota_id: 'rota-1', status: 'pendente', is_checkpoint: true, rotas: { unidade_id: 'unidade-1' } },
-  { rota_id: 'rota-1', status: 'pendente', is_checkpoint: true, rotas: { unidade_id: 'unidade-1' } },
-  { rota_id: 'rota-2', status: 'concluida', is_checkpoint: true, rotas: { unidade_id: 'unidade-1' } },
-  { rota_id: 'rota-2', status: 'pendente', is_checkpoint: true, rotas: { unidade_id: 'unidade-1' } },
-  { rota_id: 'rota-3', status: 'concluida', is_checkpoint: true, rotas: { unidade_id: 'unidade-1' } },
+  {
+    rota_id: "rota-1",
+    status: "pendente",
+    is_checkpoint: true,
+    rotas: { unidade_id: "unidade-1" },
+  },
+  {
+    rota_id: "rota-1",
+    status: "pendente",
+    is_checkpoint: true,
+    rotas: { unidade_id: "unidade-1" },
+  },
+  {
+    rota_id: "rota-2",
+    status: "concluida",
+    is_checkpoint: true,
+    rotas: { unidade_id: "unidade-1" },
+  },
+  {
+    rota_id: "rota-2",
+    status: "pendente",
+    is_checkpoint: true,
+    rotas: { unidade_id: "unidade-1" },
+  },
+  {
+    rota_id: "rota-3",
+    status: "concluida",
+    is_checkpoint: true,
+    rotas: { unidade_id: "unidade-1" },
+  },
 ];
 
 const mockStatusColorMap: Record<RotaStatus, string> = {
-  pendente: '#FFA500',
-  em_andamento: '#0066FF',
-  concluida: '#00CC66',
-  cancelada: '#FF3333',
-  nao_executada: '#999999',
+  pendente: "#FFA500",
+  em_andamento: "#0066FF",
+  concluida: "#00CC66",
+  cancelada: "#FF3333",
+  nao_executada: "#999999",
 };
 
 const defaultOptions = {
   statusColorMap: mockStatusColorMap,
-  defaultStatusColor: '#666666',
+  defaultStatusColor: "#666666",
 };
 
 // ============================================
@@ -112,13 +144,15 @@ const defaultOptions = {
 
 const mockSupabase = supabase as jest.Mocked<typeof supabase>;
 
-function setupMocks(options: {
-  rotasData?: RotaHistorico[] | null;
-  rotasError?: Error | null;
-  paradasData?: typeof mockParadas | null;
-  paradasError?: Error | null;
-  cachedData?: RotaHistorico[] | null;
-} = {}) {
+function setupMocks(
+  options: {
+    rotasData?: RotaHistorico[] | null;
+    rotasError?: Error | null;
+    paradasData?: typeof mockParadas | null;
+    paradasError?: Error | null;
+    cachedData?: RotaHistorico[] | null;
+  } = {},
+) {
   const {
     rotasData = mockRotas,
     rotasError = null,
@@ -128,21 +162,21 @@ function setupMocks(options: {
   } = options;
 
   // Mock useUnidadeAtiva
-  const useUnidadeAtiva = require('../useUnidadeAtiva').useUnidadeAtiva;
+  const useUnidadeAtiva = require("../useUnidadeAtiva").useUnidadeAtiva;
   useUnidadeAtiva.mockReturnValue({
-    unidadeAtiva: 'unidade-1',
+    unidadeAtiva: "unidade-1",
   });
 
   // Mock useUser
-  const useUser = require('../useUser').useUser;
+  const useUser = require("../useUser").useUser;
   useUser.mockReturnValue({
-    userData: { id: 'user-1', nome: 'Gestor Teste', papel: 'gestor' },
+    userData: { id: "user-1", nome: "Gestor Teste", papel: "gestor" },
   });
 
   // Mock useToast
-  const useToast = require('../useToast').useToast;
+  const useToast = require("../useToast").useToast;
   useToast.mockReturnValue({
-    toast: { visible: false, message: '', type: 'success', duration: 3000 },
+    toast: { visible: false, message: "", type: "success", duration: 3000 },
     showToast: jest.fn(),
     hideToast: jest.fn(),
     withToast: jest.fn().mockImplementation(async (fn, _opts) => {
@@ -151,17 +185,17 @@ function setupMocks(options: {
   });
 
   // Mock useDebounce - retorna o valor imediatamente para testes
-  const useDebounce = require('../useDebounce').useDebounce;
+  const useDebounce = require("../useDebounce").useDebounce;
   useDebounce.mockImplementation((value: string) => value);
 
   // Mock useRealtimeRoutes
-  const useRealtimeRoutes = require('../useRealtimeRoutes').useRealtimeRoutes;
+  const useRealtimeRoutes = require("../useRealtimeRoutes").useRealtimeRoutes;
   useRealtimeRoutes.mockReturnValue(undefined);
 
   // Mock AsyncStorage
   if (cachedData) {
     (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-      JSON.stringify({ data: cachedData, timestamp: Date.now() })
+      JSON.stringify({ data: cachedData, timestamp: Date.now() }),
     );
   } else {
     (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
@@ -175,9 +209,11 @@ function setupMocks(options: {
     order: jest.fn().mockReturnThis(),
     limit: jest.fn().mockReturnThis(),
     abortSignal: jest.fn().mockResolvedValue({
-      data: rotasData?.map(r => ({
+      data: rotasData?.map((r) => ({
         ...r,
-        usuarios: r.motorista_id ? { id: r.motorista_id, nome: r.motorista_nome } : null,
+        usuarios: r.motorista_id
+          ? { id: r.motorista_id, nome: r.motorista_nome }
+          : null,
       })),
       error: rotasError,
     }),
@@ -202,13 +238,13 @@ function setupMocks(options: {
   };
 
   (mockSupabase.from as jest.Mock).mockImplementation((table: string) => {
-    if (table === 'rotas') {
+    if (table === "rotas") {
       return { ...mockRotasQuery, delete: mockDeleteQuery.delete };
     }
-    if (table === 'paradas') {
+    if (table === "paradas") {
       return mockParadasQuery;
     }
-    if (table === 'logs') {
+    if (table === "logs") {
       return mockInsertQuery;
     }
     return mockRotasQuery;
@@ -226,7 +262,7 @@ function setupMocks(options: {
 // TESTS
 // ============================================
 
-describe('useGestaoRotas', () => {
+describe("useGestaoRotas", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (Alert.alert as jest.Mock).mockClear();
@@ -236,8 +272,8 @@ describe('useGestaoRotas', () => {
   // DATA LOADING TESTS
   // ============================================
 
-  describe('Data Loading', () => {
-    it('deve carregar rotas sem cache', async () => {
+  describe("Data Loading", () => {
+    it("deve carregar rotas sem cache", async () => {
       setupMocks({ cachedData: null });
 
       const { result } = renderHook(() => useGestaoRotas(defaultOptions));
@@ -247,10 +283,10 @@ describe('useGestaoRotas', () => {
       });
 
       expect(result.current.rotas).toHaveLength(3);
-      expect(result.current.rotas[0].id).toBe('rota-1');
+      expect(result.current.rotas[0].id).toBe("rota-1");
     });
 
-    it('deve carregar rotas do cache primeiro (stale-while-revalidate)', async () => {
+    it("deve carregar rotas do cache primeiro (stale-while-revalidate)", async () => {
       const cachedRotas = [mockRotas[0]]; // Apenas 1 rota no cache
       setupMocks({ cachedData: cachedRotas });
 
@@ -265,34 +301,37 @@ describe('useGestaoRotas', () => {
       expect(result.current.rotas.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('deve executar queries paralelas para rotas e paradas', async () => {
+    it("deve executar queries paralelas para rotas e paradas", async () => {
       setupMocks();
 
       renderHook(() => useGestaoRotas(defaultOptions));
 
       await waitFor(() => {
         // Verifica que ambas as queries foram chamadas
-        expect(mockSupabase.from).toHaveBeenCalledWith('rotas');
-        expect(mockSupabase.from).toHaveBeenCalledWith('paradas');
+        expect(mockSupabase.from).toHaveBeenCalledWith("rotas");
+        expect(mockSupabase.from).toHaveBeenCalledWith("paradas");
       });
     });
 
-    it('deve tratar erro de carregamento sem cache', async () => {
+    it("deve tratar erro de carregamento sem cache", async () => {
       setupMocks({
-        rotasError: new Error('Erro de conexão'),
+        rotasError: new Error("Erro de conexão"),
         cachedData: null,
       });
 
       renderHook(() => useGestaoRotas(defaultOptions));
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Não foi possível carregar as rotas');
+        expect(Alert.alert).toHaveBeenCalledWith(
+          "Erro",
+          "Não foi possível carregar as rotas",
+        );
       });
     });
 
-    it('não deve mostrar erro se tiver dados em cache', async () => {
+    it("não deve mostrar erro se tiver dados em cache", async () => {
       setupMocks({
-        rotasError: new Error('Erro de conexão'),
+        rotasError: new Error("Erro de conexão"),
         cachedData: mockRotas,
       });
 
@@ -303,7 +342,7 @@ describe('useGestaoRotas', () => {
       });
 
       // Não deve mostrar alerta porque tem cache
-      expect(Alert.alert).not.toHaveBeenCalledWith('Erro', expect.anything());
+      expect(Alert.alert).not.toHaveBeenCalledWith("Erro", expect.anything());
     });
   });
 
@@ -311,8 +350,8 @@ describe('useGestaoRotas', () => {
   // FILTERING TESTS
   // ============================================
 
-  describe('Filtragem', () => {
-    it('deve filtrar por status pendente', async () => {
+  describe("Filtragem", () => {
+    it("deve filtrar por status pendente", async () => {
       setupMocks();
 
       const { result } = renderHook(() => useGestaoRotas(defaultOptions));
@@ -322,15 +361,17 @@ describe('useGestaoRotas', () => {
       });
 
       act(() => {
-        result.current.setFiltroStatus('pendente');
+        result.current.setFiltroStatus("pendente");
       });
 
       await waitFor(() => {
-        expect(result.current.rotasFiltradas.every(r => r.status === 'pendente')).toBe(true);
+        expect(
+          result.current.rotasFiltradas.every((r) => r.status === "pendente"),
+        ).toBe(true);
       });
     });
 
-    it('deve filtrar por status em_andamento', async () => {
+    it("deve filtrar por status em_andamento", async () => {
       setupMocks();
 
       const { result } = renderHook(() => useGestaoRotas(defaultOptions));
@@ -340,11 +381,15 @@ describe('useGestaoRotas', () => {
       });
 
       act(() => {
-        result.current.setFiltroStatus('em_andamento');
+        result.current.setFiltroStatus("em_andamento");
       });
 
       await waitFor(() => {
-        expect(result.current.rotasFiltradas.every(r => r.status === 'em_andamento')).toBe(true);
+        expect(
+          result.current.rotasFiltradas.every(
+            (r) => r.status === "em_andamento",
+          ),
+        ).toBe(true);
       });
     });
 
@@ -358,15 +403,17 @@ describe('useGestaoRotas', () => {
       });
 
       act(() => {
-        result.current.setFiltroStatus('todas');
+        result.current.setFiltroStatus("todas");
       });
 
       await waitFor(() => {
-        expect(result.current.rotasFiltradas.length).toBe(result.current.rotas.length);
+        expect(result.current.rotasFiltradas.length).toBe(
+          result.current.rotas.length,
+        );
       });
     });
 
-    it('deve filtrar por busca de nome do motorista', async () => {
+    it("deve filtrar por busca de nome do motorista", async () => {
       setupMocks();
 
       const { result } = renderHook(() => useGestaoRotas(defaultOptions));
@@ -376,17 +423,19 @@ describe('useGestaoRotas', () => {
       });
 
       act(() => {
-        result.current.setSearchQuery('Carlos');
+        result.current.setSearchQuery("Carlos");
       });
 
       await waitFor(() => {
-        expect(result.current.rotasFiltradas.every(r =>
-          r.motorista_nome?.toLowerCase().includes('carlos')
-        )).toBe(true);
+        expect(
+          result.current.rotasFiltradas.every((r) =>
+            r.motorista_nome?.toLowerCase().includes("carlos"),
+          ),
+        ).toBe(true);
       });
     });
 
-    it('deve filtrar por busca de data', async () => {
+    it("deve filtrar por busca de data", async () => {
       setupMocks();
 
       const { result } = renderHook(() => useGestaoRotas(defaultOptions));
@@ -396,7 +445,7 @@ describe('useGestaoRotas', () => {
       });
 
       act(() => {
-        result.current.setSearchQuery('02/01');
+        result.current.setSearchQuery("02/01");
       });
 
       await waitFor(() => {
@@ -405,7 +454,7 @@ describe('useGestaoRotas', () => {
       });
     });
 
-    it('deve combinar filtro de status e busca textual', async () => {
+    it("deve combinar filtro de status e busca textual", async () => {
       setupMocks();
 
       const { result } = renderHook(() => useGestaoRotas(defaultOptions));
@@ -415,16 +464,19 @@ describe('useGestaoRotas', () => {
       });
 
       act(() => {
-        result.current.setFiltroStatus('pendente');
-        result.current.setSearchQuery('Carlos');
+        result.current.setFiltroStatus("pendente");
+        result.current.setSearchQuery("Carlos");
       });
 
       await waitFor(() => {
         const filtradas = result.current.rotasFiltradas;
-        expect(filtradas.every(r =>
-          r.status === 'pendente' &&
-          r.motorista_nome?.toLowerCase().includes('carlos')
-        )).toBe(true);
+        expect(
+          filtradas.every(
+            (r) =>
+              r.status === "pendente" &&
+              r.motorista_nome?.toLowerCase().includes("carlos"),
+          ),
+        ).toBe(true);
       });
     });
   });
@@ -433,9 +485,9 @@ describe('useGestaoRotas', () => {
   // DELETE ROUTE TESTS
   // ============================================
 
-  describe('Exclusão de Rota', () => {
-    it('deve rejeitar exclusão de rota em andamento (mobile)', async () => {
-      Platform.OS = 'android';
+  describe("Exclusão de Rota", () => {
+    it("deve rejeitar exclusão de rota em andamento (mobile)", async () => {
+      Platform.OS = "android";
       setupMocks();
 
       const { result } = renderHook(() => useGestaoRotas(defaultOptions));
@@ -444,44 +496,47 @@ describe('useGestaoRotas', () => {
         expect(result.current.loading).toBe(false);
       });
 
-      const rotaEmAndamento = result.current.rotas.find(r => r.status === 'em_andamento')!;
+      const rotaEmAndamento = result.current.rotas.find(
+        (r) => r.status === "em_andamento",
+      )!;
 
       act(() => {
         result.current.excluirRota(rotaEmAndamento);
       });
 
       expect(Alert.alert).toHaveBeenCalledWith(
-        'Ação não permitida',
-        'Não é possível excluir uma rota em andamento. Aguarde a conclusão ou cancele a rota primeiro.'
+        "Ação não permitida",
+        "Não é possível excluir uma rota em andamento. Aguarde a conclusão ou cancele a rota primeiro.",
       );
     });
 
-    it('deve rejeitar exclusão de rota em andamento (web)', async () => {
-      Platform.OS = 'web';
+    it("deve rejeitar exclusão de rota em andamento (web)", async () => {
+      Platform.OS = "web";
 
       // Configurar mock antes de setupMocks
       const mockShowToast = jest.fn();
-      const useToastModule = require('../useToast');
+      const useToastModule = require("../useToast");
       useToastModule.useToast.mockReturnValue({
-        toast: { visible: false, message: '', type: 'success', duration: 3000 },
+        toast: { visible: false, message: "", type: "success", duration: 3000 },
         showToast: mockShowToast,
         hideToast: jest.fn(),
         withToast: jest.fn().mockImplementation(async (fn) => await fn()),
       });
 
       // Setup outros mocks sem sobrescrever useToast
-      const useUnidadeAtiva = require('../useUnidadeAtiva').useUnidadeAtiva;
-      useUnidadeAtiva.mockReturnValue({ unidadeAtiva: 'unidade-1' });
+      const useUnidadeAtiva = require("../useUnidadeAtiva").useUnidadeAtiva;
+      useUnidadeAtiva.mockReturnValue({ unidadeAtiva: "unidade-1" });
 
-      const useUser = require('../useUser').useUser;
+      const useUser = require("../useUser").useUser;
       useUser.mockReturnValue({
-        userData: { id: 'user-1', nome: 'Gestor Teste', papel: 'gestor' },
+        userData: { id: "user-1", nome: "Gestor Teste", papel: "gestor" },
       });
 
-      const useDebounce = require('../useDebounce').useDebounce;
+      const useDebounce = require("../useDebounce").useDebounce;
       useDebounce.mockImplementation((value: string) => value);
 
-      const useRealtimeRoutes = require('../useRealtimeRoutes').useRealtimeRoutes;
+      const useRealtimeRoutes =
+        require("../useRealtimeRoutes").useRealtimeRoutes;
       useRealtimeRoutes.mockReturnValue(undefined);
 
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
@@ -489,26 +544,30 @@ describe('useGestaoRotas', () => {
 
       // Mock Supabase
       (mockSupabase.from as jest.Mock).mockImplementation((table: string) => {
-        if (table === 'rotas') {
+        if (table === "rotas") {
           return {
             select: jest.fn().mockReturnThis(),
             eq: jest.fn().mockReturnThis(),
             order: jest.fn().mockReturnThis(),
             limit: jest.fn().mockReturnThis(),
             abortSignal: jest.fn().mockResolvedValue({
-              data: mockRotas.map(r => ({
+              data: mockRotas.map((r) => ({
                 ...r,
-                usuarios: r.motorista_id ? { id: r.motorista_id, nome: r.motorista_nome } : null,
+                usuarios: r.motorista_id
+                  ? { id: r.motorista_id, nome: r.motorista_nome }
+                  : null,
               })),
               error: null,
             }),
           };
         }
-        if (table === 'paradas') {
+        if (table === "paradas") {
           return {
             select: jest.fn().mockReturnThis(),
             eq: jest.fn().mockReturnThis(),
-            abortSignal: jest.fn().mockResolvedValue({ data: mockParadas, error: null }),
+            abortSignal: jest
+              .fn()
+              .mockResolvedValue({ data: mockParadas, error: null }),
           };
         }
         return { insert: jest.fn().mockResolvedValue({ error: null }) };
@@ -520,24 +579,26 @@ describe('useGestaoRotas', () => {
         expect(result.current.loading).toBe(false);
       });
 
-      const rotaEmAndamento = result.current.rotas.find(r => r.status === 'em_andamento')!;
+      const rotaEmAndamento = result.current.rotas.find(
+        (r) => r.status === "em_andamento",
+      )!;
 
       act(() => {
         result.current.excluirRota(rotaEmAndamento);
       });
 
       expect(mockShowToast).toHaveBeenCalledWith(
-        'Não é possível excluir uma rota em andamento. Aguarde a conclusão ou cancele a rota primeiro.',
-        'error',
-        5000
+        "Não é possível excluir uma rota em andamento. Aguarde a conclusão ou cancele a rota primeiro.",
+        "error",
+        5000,
       );
 
       // Restaurar Platform.OS
-      Platform.OS = 'android';
+      Platform.OS = "android";
     });
 
-    it('deve mostrar confirmação no mobile (Alert.alert)', async () => {
-      Platform.OS = 'android';
+    it("deve mostrar confirmação no mobile (Alert.alert)", async () => {
+      Platform.OS = "android";
       setupMocks();
 
       const { result } = renderHook(() => useGestaoRotas(defaultOptions));
@@ -546,24 +607,26 @@ describe('useGestaoRotas', () => {
         expect(result.current.loading).toBe(false);
       });
 
-      const rotaPendente = result.current.rotas.find(r => r.status === 'pendente')!;
+      const rotaPendente = result.current.rotas.find(
+        (r) => r.status === "pendente",
+      )!;
 
       act(() => {
         result.current.excluirRota(rotaPendente);
       });
 
       expect(Alert.alert).toHaveBeenCalledWith(
-        'Confirmar Exclusão',
-        expect.stringContaining('Tem certeza que deseja excluir esta rota?'),
+        "Confirmar Exclusão",
+        expect.stringContaining("Tem certeza que deseja excluir esta rota?"),
         expect.arrayContaining([
-          expect.objectContaining({ text: 'Cancelar' }),
-          expect.objectContaining({ text: 'Excluir', style: 'destructive' }),
-        ])
+          expect.objectContaining({ text: "Cancelar" }),
+          expect.objectContaining({ text: "Excluir", style: "destructive" }),
+        ]),
       );
     });
 
-    it('deve mostrar modal de confirmação no web', async () => {
-      Platform.OS = 'web';
+    it("deve mostrar modal de confirmação no web", async () => {
+      Platform.OS = "web";
       setupMocks();
 
       const { result } = renderHook(() => useGestaoRotas(defaultOptions));
@@ -572,7 +635,9 @@ describe('useGestaoRotas', () => {
         expect(result.current.loading).toBe(false);
       });
 
-      const rotaPendente = result.current.rotas.find(r => r.status === 'pendente')!;
+      const rotaPendente = result.current.rotas.find(
+        (r) => r.status === "pendente",
+      )!;
 
       act(() => {
         result.current.excluirRota(rotaPendente);
@@ -582,10 +647,10 @@ describe('useGestaoRotas', () => {
       expect(result.current.rotaToDelete).toEqual(rotaPendente);
 
       // Restaurar Platform.OS
-      Platform.OS = 'android';
+      Platform.OS = "android";
     });
 
-    it('deve registrar log de auditoria ao excluir rota', async () => {
+    it("deve registrar log de auditoria ao excluir rota", async () => {
       setupMocks();
 
       const { result } = renderHook(() => useGestaoRotas(defaultOptions));
@@ -594,13 +659,14 @@ describe('useGestaoRotas', () => {
         expect(result.current.loading).toBe(false);
       });
 
-      const rotaPendente = result.current.rotas.find(r => r.status === 'pendente')!;
+      const rotaPendente = result.current.rotas.find(
+        (r) => r.status === "pendente",
+      )!;
 
       // Simular confirmação de exclusão direta
       await act(async () => {
-
         // A função executarExclusao é interna, vamos verificar via handleConfirmDelete
-        Platform.OS = 'web';
+        Platform.OS = "web";
         result.current.excluirRota(rotaPendente);
       });
 
@@ -608,7 +674,7 @@ describe('useGestaoRotas', () => {
       expect(result.current.showConfirmModal).toBe(true);
 
       // Restaurar Platform.OS
-      Platform.OS = 'android';
+      Platform.OS = "android";
     });
   });
 
@@ -616,8 +682,8 @@ describe('useGestaoRotas', () => {
   // CSV EXPORT TESTS
   // ============================================
 
-  describe('Exportação CSV', () => {
-    it('deve alertar quando não há rotas para exportar', async () => {
+  describe("Exportação CSV", () => {
+    it("deve alertar quando não há rotas para exportar", async () => {
       setupMocks({ rotasData: [] });
 
       const { result } = renderHook(() => useGestaoRotas(defaultOptions));
@@ -630,11 +696,15 @@ describe('useGestaoRotas', () => {
         await result.current.exportarParaCSV();
       });
 
-      expect(Alert.alert).toHaveBeenCalledWith('Atenção', 'Não há rotas para exportar');
+      const { showWarning } = require("@/utils/errorHandling");
+      expect(showWarning).toHaveBeenCalledWith(
+        "Atenção",
+        "Não há rotas para exportar",
+      );
     });
 
-    it('deve exportar CSV corretamente no web', async () => {
-      Platform.OS = 'web';
+    it("deve exportar CSV corretamente no web", async () => {
+      Platform.OS = "web";
 
       // Mock document e URL para web
       const mockCreateElement = jest.fn().mockReturnValue({
@@ -644,7 +714,7 @@ describe('useGestaoRotas', () => {
       });
       const mockAppendChild = jest.fn();
       const mockRemoveChild = jest.fn();
-      const mockCreateObjectURL = jest.fn().mockReturnValue('blob:test');
+      const mockCreateObjectURL = jest.fn().mockReturnValue("blob:test");
       const mockRevokeObjectURL = jest.fn();
 
       global.document = {
@@ -679,17 +749,17 @@ describe('useGestaoRotas', () => {
 
       // Verifica que o blob foi criado
       expect(global.Blob).toHaveBeenCalled();
-      expect(mockCreateElement).toHaveBeenCalledWith('a');
+      expect(mockCreateElement).toHaveBeenCalledWith("a");
 
       // Restaurar Platform.OS
-      Platform.OS = 'android';
+      Platform.OS = "android";
     });
 
-    it('deve usar Sharing no mobile', async () => {
-      Platform.OS = 'android';
+    it("deve usar Sharing no mobile", async () => {
+      Platform.OS = "android";
 
-      const FileSystem = require('expo-file-system/legacy');
-      const Sharing = require('expo-sharing');
+      const FileSystem = require("expo-file-system/legacy");
+      const Sharing = require("expo-sharing");
 
       setupMocks();
 
@@ -707,8 +777,8 @@ describe('useGestaoRotas', () => {
       expect(Sharing.shareAsync).toHaveBeenCalled();
     });
 
-    it('deve registrar log de exportação', async () => {
-      Platform.OS = 'web';
+    it("deve registrar log de exportação", async () => {
+      Platform.OS = "web";
 
       // Mocks mínimos para web
       global.document = {
@@ -723,7 +793,7 @@ describe('useGestaoRotas', () => {
         },
       } as unknown as Document;
       global.URL = {
-        createObjectURL: jest.fn().mockReturnValue('blob:test'),
+        createObjectURL: jest.fn().mockReturnValue("blob:test"),
         revokeObjectURL: jest.fn(),
       } as unknown as typeof URL;
       global.Blob = jest.fn() as unknown as typeof Blob;
@@ -742,15 +812,15 @@ describe('useGestaoRotas', () => {
 
       // Verifica que supabase.from('logs').insert foi chamado
       await waitFor(() => {
-        expect(mockSupabase.from).toHaveBeenCalledWith('logs');
+        expect(mockSupabase.from).toHaveBeenCalledWith("logs");
       });
 
       // Restaurar Platform.OS
-      Platform.OS = 'android';
+      Platform.OS = "android";
     });
 
-    it('deve incluir dados filtrados no CSV', async () => {
-      Platform.OS = 'web';
+    it("deve incluir dados filtrados no CSV", async () => {
+      Platform.OS = "web";
 
       let blobContent: string[] = [];
       global.Blob = jest.fn().mockImplementation((content) => {
@@ -769,7 +839,7 @@ describe('useGestaoRotas', () => {
         },
       } as unknown as Document;
       global.URL = {
-        createObjectURL: jest.fn().mockReturnValue('blob:test'),
+        createObjectURL: jest.fn().mockReturnValue("blob:test"),
         revokeObjectURL: jest.fn(),
       } as unknown as typeof URL;
 
@@ -783,7 +853,7 @@ describe('useGestaoRotas', () => {
 
       // Filtrar apenas rotas pendentes
       act(() => {
-        result.current.setFiltroStatus('pendente');
+        result.current.setFiltroStatus("pendente");
       });
 
       await waitFor(() => {
@@ -796,11 +866,11 @@ describe('useGestaoRotas', () => {
 
       // Verificar que o CSV contém apenas rotas pendentes
       const csvContent = blobContent[0] as string;
-      expect(csvContent).toContain('Pendente');
-      expect(csvContent).not.toContain('Em Andamento');
+      expect(csvContent).toContain("Pendente");
+      expect(csvContent).not.toContain("Em Andamento");
 
       // Restaurar Platform.OS
-      Platform.OS = 'android';
+      Platform.OS = "android";
     });
   });
 
@@ -808,8 +878,8 @@ describe('useGestaoRotas', () => {
   // HELPER TESTS
   // ============================================
 
-  describe('Helpers', () => {
-    it('deve retornar label correto para status', async () => {
+  describe("Helpers", () => {
+    it("deve retornar label correto para status", async () => {
       setupMocks();
 
       const { result } = renderHook(() => useGestaoRotas(defaultOptions));
@@ -818,14 +888,18 @@ describe('useGestaoRotas', () => {
         expect(result.current.loading).toBe(false);
       });
 
-      expect(result.current.getStatusLabel('pendente')).toBe('Pendente');
-      expect(result.current.getStatusLabel('em_andamento')).toBe('Em Andamento');
-      expect(result.current.getStatusLabel('concluida')).toBe('Concluída');
-      expect(result.current.getStatusLabel('cancelada')).toBe('Cancelada');
-      expect(result.current.getStatusLabel('nao_executada')).toBe('Não Executada');
+      expect(result.current.getStatusLabel("pendente")).toBe("Pendente");
+      expect(result.current.getStatusLabel("em_andamento")).toBe(
+        "Em Andamento",
+      );
+      expect(result.current.getStatusLabel("concluida")).toBe("Concluída");
+      expect(result.current.getStatusLabel("cancelada")).toBe("Cancelada");
+      expect(result.current.getStatusLabel("nao_executada")).toBe(
+        "Não Executada",
+      );
     });
 
-    it('deve retornar cor correta para status', async () => {
+    it("deve retornar cor correta para status", async () => {
       setupMocks();
 
       const { result } = renderHook(() => useGestaoRotas(defaultOptions));
@@ -834,12 +908,12 @@ describe('useGestaoRotas', () => {
         expect(result.current.loading).toBe(false);
       });
 
-      expect(result.current.getStatusColor('pendente')).toBe('#FFA500');
-      expect(result.current.getStatusColor('em_andamento')).toBe('#0066FF');
-      expect(result.current.getStatusColor('concluida')).toBe('#00CC66');
+      expect(result.current.getStatusColor("pendente")).toBe("#FFA500");
+      expect(result.current.getStatusColor("em_andamento")).toBe("#0066FF");
+      expect(result.current.getStatusColor("concluida")).toBe("#00CC66");
     });
 
-    it('deve retornar cor padrão para status desconhecido', async () => {
+    it("deve retornar cor padrão para status desconhecido", async () => {
       setupMocks();
 
       const { result } = renderHook(() => useGestaoRotas(defaultOptions));
@@ -848,7 +922,7 @@ describe('useGestaoRotas', () => {
         expect(result.current.loading).toBe(false);
       });
 
-      expect(result.current.getStatusColor('unknown_status')).toBe('#666666');
+      expect(result.current.getStatusColor("unknown_status")).toBe("#666666");
     });
   });
 
@@ -856,9 +930,9 @@ describe('useGestaoRotas', () => {
   // MODAL TESTS
   // ============================================
 
-  describe('Modal de Confirmação', () => {
-    it('deve fechar modal ao cancelar', async () => {
-      Platform.OS = 'web';
+  describe("Modal de Confirmação", () => {
+    it("deve fechar modal ao cancelar", async () => {
+      Platform.OS = "web";
       setupMocks();
 
       const { result } = renderHook(() => useGestaoRotas(defaultOptions));
@@ -867,7 +941,9 @@ describe('useGestaoRotas', () => {
         expect(result.current.loading).toBe(false);
       });
 
-      const rotaPendente = result.current.rotas.find(r => r.status === 'pendente')!;
+      const rotaPendente = result.current.rotas.find(
+        (r) => r.status === "pendente",
+      )!;
 
       // Abrir modal
       act(() => {
@@ -884,7 +960,7 @@ describe('useGestaoRotas', () => {
       expect(result.current.showConfirmModal).toBe(false);
       expect(result.current.rotaToDelete).toBeNull();
 
-      Platform.OS = 'android';
+      Platform.OS = "android";
     });
   });
 });
