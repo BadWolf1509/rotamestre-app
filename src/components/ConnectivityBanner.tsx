@@ -106,6 +106,8 @@ export function ConnectivityBanner({
 
   return (
     <Animated.View
+      accessibilityLiveRegion="assertive"
+      accessibilityRole="alert"
       style={[
         styles.container,
         position === 'top' ? styles.positionTop : styles.positionBottom,

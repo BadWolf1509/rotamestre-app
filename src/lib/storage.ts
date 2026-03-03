@@ -2,6 +2,7 @@
  * Supabase Storage - Upload de Fotos de Comprovante de Entrega
  * Sprint 1.3 - Upload de Fotos
  * Updated: Using expo-file-system legacy API for Expo SDK 54
+ * Updated: Added upload progress tracking (Phase 3.2)
  */
 
 // Use legacy API for expo-file-system (new API deprecated readAsStringAsync)
@@ -10,6 +11,9 @@ import { Platform } from 'react-native';
 
 import { logger } from './logger';
 import { supabase } from './supabase';
+
+/** Optional progress callback: receives percent 0-100 */
+export type UploadProgressCallback = (percent: number) => void;
 
 /**
  * Helper to read file and convert to ArrayBuffer for Supabase upload
@@ -106,6 +110,137 @@ export async function uploadFotoEntrega(
 }
 
 /**
+ * Upload de foto de comprovante de entrega com progresso
+ *
+ * On web: Uses XMLHttpRequest for real upload progress events.
+ * On native: Uses Supabase .upload() with simulated progress steps
+ * (Supabase JS client does not expose onUploadProgress).
+ *
+ * @param unidadeId - UUID da unidade
+ * @param rotaId - UUID da rota
+ * @param paradaId - UUID da parada
+ * @param fotoUri - URI local da foto (file:// ou blob:)
+ * @param onProgress - Optional callback receiving percent 0-100
+ * @returns URL pública da foto ou null se houver erro
+ */
+export async function uploadFotoEntregaWithProgress(
+  unidadeId: string,
+  rotaId: string,
+  paradaId: string,
+  fotoUri: string,
+  onProgress?: UploadProgressCallback
+): Promise<string | null> {
+  try {
+    // Gerar nome único com timestamp
+    const timestamp = Date.now();
+    const fileName = `${paradaId}_${timestamp}.jpg`;
+    const filePath = `${unidadeId}/${rotaId}/${fileName}`;
+
+    // Ler arquivo usando expo-file-system (nativo) ou fetch (web)
+    const { data: fileData, size } = await getFileData(fotoUri);
+    onProgress?.(10);
+
+    // Validar tamanho (máx 5MB)
+    if (size > 5 * 1024 * 1024) {
+      logger.error('[Storage] Foto muito grande! Máximo: 5MB');
+      throw new Error('Foto muito grande. Máximo: 5MB');
+    }
+
+    if (Platform.OS === 'web') {
+      // Web: XMLHttpRequest for real progress tracking
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error('Sessão não encontrada. Faça login novamente.');
+      }
+
+      const uploadUrl = `${supabaseUrl}/storage/v1/object/${BUCKET_FOTOS_ENTREGA}/${filePath}`;
+
+      onProgress?.(20);
+
+      const publicUrl = await new Promise<string>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            // Map upload progress to 20-85% range (10-20 was file read, 85-100 is URL fetch)
+            const uploadPercent = Math.round((event.loaded / event.total) * 100);
+            const mappedPercent = 20 + Math.round(uploadPercent * 0.65);
+            onProgress?.(mappedPercent);
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            onProgress?.(90);
+            // Get public URL
+            const { data: { publicUrl: url } } = supabase.storage
+              .from(BUCKET_FOTOS_ENTREGA)
+              .getPublicUrl(filePath);
+            onProgress?.(100);
+            resolve(url);
+          } else {
+            let errorMessage = `Upload failed with status ${xhr.status}`;
+            try {
+              const body = JSON.parse(xhr.responseText);
+              if (body.message) errorMessage = body.message;
+              if (body.error) errorMessage = body.error;
+            } catch {
+              // Response is not JSON, use status-based message
+            }
+            reject(new Error(errorMessage));
+          }
+        };
+
+        xhr.onerror = () => {
+          reject(new Error('Erro de rede durante upload'));
+        };
+
+        xhr.open('POST', uploadUrl);
+        xhr.setRequestHeader('Authorization', `Bearer ${session.access_token}`);
+        xhr.setRequestHeader('Content-Type', 'image/jpeg');
+        xhr.setRequestHeader('x-upsert', 'false');
+        xhr.send(fileData);
+      });
+
+      return publicUrl;
+    } else {
+      // Native: Supabase .upload() with simulated progress steps
+      onProgress?.(30);
+
+      const { data: _data, error } = await supabase.storage
+        .from(BUCKET_FOTOS_ENTREGA)
+        .upload(filePath, fileData, {
+          contentType: 'image/jpeg',
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (error) {
+        logger.error('[Storage] Erro no upload', error);
+        throw error;
+      }
+
+      onProgress?.(70);
+
+      // Obter URL pública
+      const { data: { publicUrl } } = supabase.storage
+        .from(BUCKET_FOTOS_ENTREGA)
+        .getPublicUrl(filePath);
+
+      onProgress?.(90);
+      onProgress?.(100);
+
+      return publicUrl;
+    }
+  } catch (error) {
+    logger.error('[Storage] Erro ao fazer upload de foto com progresso', error);
+    return null;
+  }
+}
+
+/**
  * Salvar URL da foto na tabela paradas
  *
  * @param paradaId - UUID da parada
@@ -141,17 +276,21 @@ export async function salvarFotoParada(
  * @param rotaId - UUID da rota
  * @param paradaId - UUID da parada
  * @param fotoUri - URI local da foto
+ * @param onProgress - Optional callback receiving percent 0-100
  * @returns true se tudo deu certo, false caso contrário
  */
 export async function uploadELinkFotoParada(
   unidadeId: string,
   rotaId: string,
   paradaId: string,
-  fotoUri: string
+  fotoUri: string,
+  onProgress?: UploadProgressCallback
 ): Promise<boolean> {
   try {
-    // 1. Upload da foto
-    const fotoUrl = await uploadFotoEntrega(unidadeId, rotaId, paradaId, fotoUri);
+    // 1. Upload da foto (with progress if callback provided)
+    const fotoUrl = onProgress
+      ? await uploadFotoEntregaWithProgress(unidadeId, rotaId, paradaId, fotoUri, onProgress)
+      : await uploadFotoEntrega(unidadeId, rotaId, paradaId, fotoUri);
 
     if (!fotoUrl) {
       return false;
@@ -379,6 +518,7 @@ export async function uploadIncidentPhoto(
 // Export como objeto para manter compatibilidade
 export const storageService = {
   uploadFotoEntrega,
+  uploadFotoEntregaWithProgress,
   salvarFotoParada,
   uploadELinkFotoParada,
   deletarFoto,

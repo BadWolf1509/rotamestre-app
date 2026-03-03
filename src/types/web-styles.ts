@@ -89,4 +89,5 @@ export type WebCompatibleTextStyle = TextStyle & WebTextStyle;
 export interface PressableStateWithHover {
   pressed: boolean;
   hovered?: boolean;
+  focused?: boolean;
 }

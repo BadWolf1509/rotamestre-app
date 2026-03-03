@@ -244,10 +244,11 @@ export default function MapaWebMapLibre({
             label,
             is_checkpoint: isCheckpoint,
             is_partida: isPartida,
+            is_selected: parada.id === selectedParadaId,
           },
         };
       });
-  }, [paradasParaExibir, checkpoints]);
+  }, [paradasParaExibir, checkpoints, selectedParadaId]);
 
   // Open popup for a parada
   const openPopup = useCallback(
@@ -429,11 +430,32 @@ export default function MapaWebMapLibre({
       theme.colors.gray500,
     ];
 
+    // Radius: checkpoints 18, regular 16, selected +4
     const circleRadiusExpression: maplibregl.ExpressionSpecification = [
       'case',
+      ['all', ['==', ['get', 'is_selected'], true], ['==', ['get', 'is_checkpoint'], true]],
+      22,
+      ['==', ['get', 'is_selected'], true],
+      20,
       ['==', ['get', 'is_checkpoint'], true],
+      18,
       16,
-      14,
+    ];
+
+    // Stroke width: selected 4px, default 3px for depth
+    const circleStrokeWidthExpression: maplibregl.ExpressionSpecification = [
+      'case',
+      ['==', ['get', 'is_selected'], true],
+      4,
+      3,
+    ];
+
+    // Subtle blur for selected markers (shadow effect)
+    const circleBlurExpression: maplibregl.ExpressionSpecification = [
+      'case',
+      ['==', ['get', 'is_selected'], true],
+      0.4,
+      0,
     ];
 
     if (map.getSource(sourceId)) {
@@ -454,12 +476,15 @@ export default function MapaWebMapLibre({
           'circle-color': circleColorExpression,
           'circle-radius': circleRadiusExpression,
           'circle-stroke-color': '#ffffff',
-          'circle-stroke-width': 2,
+          'circle-stroke-width': circleStrokeWidthExpression,
+          'circle-blur': circleBlurExpression,
         },
       });
     } else {
       map.setPaintProperty(circleLayerId, 'circle-color', circleColorExpression);
       map.setPaintProperty(circleLayerId, 'circle-radius', circleRadiusExpression);
+      map.setPaintProperty(circleLayerId, 'circle-stroke-width', circleStrokeWidthExpression);
+      map.setPaintProperty(circleLayerId, 'circle-blur', circleBlurExpression);
     }
 
     if (!map.getLayer(labelLayerId)) {
@@ -469,7 +494,7 @@ export default function MapaWebMapLibre({
         source: sourceId,
         layout: {
           'text-field': ['get', 'label'],
-          'text-size': ['case', ['==', ['get', 'is_checkpoint'], true], 14, 12],
+          'text-size': ['case', ['==', ['get', 'is_checkpoint'], true], 15, 13],
           // Use a single font stack available in the OpenFreeMap sprites
           // to avoid 404s for combined font stacks.
           'text-font': ['Noto Sans Bold'],
@@ -478,8 +503,8 @@ export default function MapaWebMapLibre({
         },
         paint: {
           'text-color': '#ffffff',
-          'text-halo-color': 'rgba(0,0,0,0.25)',
-          'text-halo-width': 0.5,
+          'text-halo-color': 'rgba(0,0,0,0.3)',
+          'text-halo-width': 0.8,
         },
       });
     }

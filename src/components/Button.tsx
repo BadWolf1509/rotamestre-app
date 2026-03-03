@@ -11,6 +11,7 @@ import {
 
 import { platformOverrides } from '@/design-system/tokens';
 import type { PressableStateWithHover } from '@/types';
+import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
@@ -61,7 +62,7 @@ function ButtonComponent({
   return (
     <Pressable
       style={(state) => {
-        const { pressed, hovered } = state as PressableStateWithHover;
+        const { pressed, hovered, focused } = state as PressableStateWithHover;
         return [
           styles.button,
           styles[variant],
@@ -72,6 +73,8 @@ function ButtonComponent({
           pressed && !isDisabled && styles.pressed,
           // Web hover state
           hovered && !isDisabled && styles[`${variant}Hovered` as keyof typeof styles],
+          // Web focus ring for keyboard navigation
+          focused && !pressed && !isDisabled && styles.focusRing,
           style,
         ];
       }}
@@ -123,7 +126,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     // Web-specific styles (as any needed due to Unistyles type limitations)
     ...(Platform.OS === 'web' && {
       cursor: 'pointer',
-      transitionProperty: 'background-color, transform',
+      transitionProperty: 'background-color, transform, box-shadow',
       transitionDuration: '150ms',
     } as any),
   },
@@ -220,6 +223,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
   pressed: {
     opacity: 0.9,
     transform: [{ translateY: 1 }], // Oposto do hover (-1) - simula botão sendo pressionado
+  },
+  focusRing: {
+    // Web-specific (as any needed due to Unistyles type limitations)
+    ...(Platform.OS === 'web' && {
+      boxShadow: boxShadow(0, 0, 0, 3, theme.colors.primary, 0.25),
+      outlineWidth: 0,
+    } as any),
   },
   fullWidth: {
     width: '100%',

@@ -104,6 +104,9 @@ export { MapaAdapter } from './MapaAdapter';
 // --- Errors ---
 export { ErrorBoundary } from './ErrorBoundary';
 
+// --- Animation ---
+export { AnimatedListItem } from './AnimatedListItem';
+
 // --- Gesture ---
 export { SwipeableRow } from './SwipeableRow';
 

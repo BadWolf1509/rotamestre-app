@@ -64,6 +64,28 @@ export default function Root({ children }: PropsWithChildren) {
               pointer-events: none;
               z-index: 2147483647;
             }
+            /* Skip-to-content link for keyboard accessibility */
+            .skip-nav {
+              position: absolute;
+              top: -100px;
+              left: 50%;
+              transform: translateX(-50%);
+              background-color: #284093;
+              color: #ffffff;
+              padding: 12px 24px;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              font-size: 14px;
+              font-weight: 600;
+              text-decoration: none;
+              border-radius: 0 0 8px 8px;
+              z-index: 2147483647;
+              transition: top 0.2s ease;
+            }
+            .skip-nav:focus {
+              top: 0;
+              outline: none;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            }
           `
         }} />
       </head>
@@ -85,7 +107,11 @@ export default function Root({ children }: PropsWithChildren) {
             </div>
           </div>
         </noscript>
-        {children}
+        {/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
+        <a href="#main-content" className="skip-nav">
+          Pular para o conteúdo principal
+        </a>
+        <div id="main-content">{children}</div>
         <div id="toast-root" />
       </body>
     </html>

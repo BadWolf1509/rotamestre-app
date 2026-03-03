@@ -57,6 +57,7 @@ exports[`Button deve renderizar ícone se fornecido 1`] = `
       false,
       undefined,
       undefined,
+      undefined,
     ]
   }
 >

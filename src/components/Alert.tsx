@@ -94,6 +94,7 @@ export function Alert({
         style,
       ]}
       accessibilityRole="alert"
+      accessibilityLiveRegion="polite"
     >
       <Ionicons
         name={ICON_MAP[type]}

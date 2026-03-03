@@ -3,48 +3,11 @@
  * Melhora UX mostrando estrutura do card enquanto carrega
  */
 
-import React, { useEffect, useRef } from 'react';
-import { View, Animated, Easing } from 'react-native';
+import React from 'react';
+import { View } from 'react-native';
 
+import { ShimmerBox } from '@/components/ShimmerBox';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
-// Animated pulse component
-function SkeletonPulse({ style }: { style?: any }) {
-  const opacity = useRef(new Animated.Value(0.3)).current;
-
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 0.7,
-          duration: 800,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0.3,
-          duration: 800,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [opacity]);
-
-  const { theme } = useUnistyles();
-
-  return (
-    <Animated.View
-      style={[
-        { backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm },
-        style,
-        { opacity },
-      ]}
-    />
-  );
-}
 
 export function RotaCardSkeleton() {
   const { theme } = useUnistyles();
@@ -55,31 +18,31 @@ export function RotaCardSkeleton() {
       {/* Header: Data e Status Badge */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <SkeletonPulse style={styles.dataLine} />
-          <SkeletonPulse style={styles.unidadeLine} />
+          <ShimmerBox style={styles.dataLine} />
+          <ShimmerBox style={styles.unidadeLine} />
         </View>
-        <SkeletonPulse style={styles.statusBadge} />
+        <ShimmerBox style={styles.statusBadge} />
       </View>
 
       {/* Stats: Paradas, Concluídas, Taxa */}
       <View style={styles.statsContainer}>
         <View style={styles.statItem}>
-          <SkeletonPulse style={styles.statValue} />
-          <SkeletonPulse style={styles.statLabel} />
+          <ShimmerBox style={styles.statValue} />
+          <ShimmerBox style={styles.statLabel} />
         </View>
         <View style={styles.statItem}>
-          <SkeletonPulse style={styles.statValue} />
-          <SkeletonPulse style={styles.statLabel} />
+          <ShimmerBox style={styles.statValue} />
+          <ShimmerBox style={styles.statLabel} />
         </View>
         <View style={styles.statItem}>
-          <SkeletonPulse style={styles.statValue} />
-          <SkeletonPulse style={styles.statLabel} />
+          <ShimmerBox style={styles.statValue} />
+          <ShimmerBox style={styles.statLabel} />
         </View>
       </View>
 
       {/* Expand indicator */}
       <View style={styles.expandIndicator}>
-        <SkeletonPulse style={styles.expandText} />
+        <ShimmerBox style={styles.expandText} />
       </View>
     </View>
   );

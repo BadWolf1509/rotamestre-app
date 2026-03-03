@@ -12,11 +12,11 @@ import {
   Text,
   TouchableOpacity,
   Image,
-  ActivityIndicator,
   Alert,
   Platform
 } from 'react-native';
 
+import { Progress } from '@/components/Progress';
 import { useAlert } from '@/hooks/useAlert';
 import { logger } from '@/lib/logger';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -43,6 +43,7 @@ export default function CameraUpload({
   const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [pendingSync, setPendingSync] = useState(false);
   const [offlinePhotoPath, setOfflinePhotoPath] = useState<string | null>(null);
 
@@ -163,18 +164,20 @@ export default function CameraUpload({
     }
 
     setUploading(true);
+    setUploadProgress(0);
 
     try {
       // Verificar se está online
       const online = await isOnline();
 
       if (online) {
-        // Upload direto
+        // Upload direto with progress tracking
         const success = await uploadELinkFotoParada(
           unidadeId,
           rotaId,
           paradaId,
-          selectedImage
+          selectedImage,
+          (percent) => setUploadProgress(percent)
         );
 
         if (success) {
@@ -312,12 +315,23 @@ export default function CameraUpload({
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.button, styles.buttonPrimary]}
+              style={[
+                styles.button,
+                styles.buttonPrimary,
+                uploading && styles.buttonUploading,
+              ]}
               onPress={handleUpload}
               disabled={uploading}
             >
               {uploading ? (
-                <ActivityIndicator color={theme.colors.white} />
+                <View style={styles.uploadingContainer}>
+                  <Progress
+                    progress={uploadProgress / 100}
+                    label="Enviando foto..."
+                    size="small"
+                    color="primary"
+                  />
+                </View>
               ) : (
                 <Text style={styles.buttonText}>📤 Enviar Foto</Text>
               )}
@@ -365,6 +379,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   buttonPrimary: {
     backgroundColor: theme.colors.secondary,
+  },
+  buttonUploading: {
+    minHeight: 56,
+    paddingVertical: theme.spacing.sm,
+  },
+  uploadingContainer: {
+    width: '100%',
+    paddingHorizontal: theme.spacing.md,
   },
   buttonSecondary: {
     backgroundColor: theme.colors.surface,

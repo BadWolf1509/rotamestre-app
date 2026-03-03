@@ -7,6 +7,7 @@
  * Usa design tokens para cores, tipografia e espaçamento.
  */
 
+import React from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { View, Text, ViewStyle } from 'react-native';
 
@@ -19,6 +20,8 @@ interface EmptyStateProps {
   icon?: keyof typeof Ionicons.glyphMap;
   /** Emoji to display instead of Ionicons icon (e.g. "📦", "🚗"). Takes priority over `icon`. */
   emoji?: string;
+  /** Custom illustration component. Takes priority over icon and emoji. */
+  illustration?: React.ComponentType<{ width?: number; height?: number }>;
   title: string;
   description?: string;
   actionLabel?: string;
@@ -29,6 +32,7 @@ interface EmptyStateProps {
 export function EmptyState({
   icon = 'file-tray-outline',
   emoji,
+  illustration: Illustration,
   title,
   description,
   actionLabel,
@@ -39,7 +43,11 @@ export function EmptyState({
 
   return (
     <View style={[styles.container, style]}>
-      {emoji ? (
+      {Illustration ? (
+        <View style={styles.illustrationContainer}>
+          <Illustration width={160} height={140} />
+        </View>
+      ) : emoji ? (
         <Text style={styles.emoji}>{emoji}</Text>
       ) : (
         <Ionicons
@@ -81,6 +89,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
 
   icon: {
     marginBottom: theme.spacing.lg,
+  },
+
+  illustrationContainer: {
+    marginBottom: theme.spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   emoji: {

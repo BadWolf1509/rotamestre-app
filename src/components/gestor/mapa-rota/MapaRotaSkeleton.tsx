@@ -3,9 +3,10 @@
  * Melhora UX mostrando estrutura da página enquanto carrega
  */
 
-import React, { useEffect, useRef } from 'react';
-import { View, Animated, Easing } from 'react-native';
+import React from 'react';
+import { View } from 'react-native';
 
+import { ShimmerBox } from '@/components/ShimmerBox';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import { DesktopCard, DesktopPageLayout, SplitView } from '@/design-system';
 import { useUnistyles } from '@/utils/styles';
@@ -18,50 +19,22 @@ interface MapaRotaSkeletonProps {
   userMenuItems?: Array<{ label: string; onPress: () => void }>;
 }
 
-// Animated pulse component
-function SkeletonPulse({ style }: { style?: any }) {
-  const opacity = useRef(new Animated.Value(0.3)).current;
-
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 0.7,
-          duration: 800,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0.3,
-          duration: 800,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [opacity]);
-
-  return <Animated.View style={[styles.skeletonPulse, style, { opacity }]} />;
-}
-
 // Skeleton card for paradas list
 function SkeletonParadaCard() {
   const { theme } = useUnistyles();
   return (
     <View style={styles.skeletonCard}>
       <View style={styles.skeletonCardHeader}>
-        <SkeletonPulse style={styles.skeletonCircle} />
+        <ShimmerBox style={styles.skeletonCircle} />
         <View style={[styles.skeletonFlexCol, { gap: theme.spacing['2'] }]}>
-          <SkeletonPulse style={[styles.skeletonLine, styles.skeletonLineMedium]} />
+          <ShimmerBox style={[styles.skeletonLine, styles.skeletonLineMedium]} />
           <View style={styles.skeletonRow}>
-            <SkeletonPulse style={styles.skeletonTag} />
-            <SkeletonPulse style={styles.skeletonTag} />
+            <ShimmerBox style={styles.skeletonTag} />
+            <ShimmerBox style={styles.skeletonTag} />
           </View>
         </View>
       </View>
-      <SkeletonPulse style={[styles.skeletonLine, styles.skeletonLineShort, { marginTop: theme.spacing['2'] }]} />
+      <ShimmerBox style={[styles.skeletonLine, styles.skeletonLineShort, { marginTop: theme.spacing['2'] }]} />
     </View>
   );
 }
@@ -76,17 +49,17 @@ function SkeletonParadaCardCompact() {
     <View style={styles.skeletonCardCompact}>
       <View style={[styles.skeletonRowCenter, { gap: theme.spacing['3'] }]}>
         {/* Número da parada */}
-        <SkeletonPulse style={styles.skeletonCircle28} />
+        <ShimmerBox style={styles.skeletonCircle28} />
         {/* Endereço e info */}
         <View style={[styles.skeletonFlexCol, { gap: theme.spacing['1'] }]}>
-          <SkeletonPulse style={[styles.skeletonLine, { width: '80%', height: 14 }]} />
+          <ShimmerBox style={[styles.skeletonLine, { width: '80%', height: 14 }]} />
           <View style={{ flexDirection: 'row', gap: theme.spacing['2'] }}>
-            <SkeletonPulse style={[styles.skeletonRect4, { width: 50, height: 18 }]} />
-            <SkeletonPulse style={[styles.skeletonRect4, { width: 60, height: 18 }]} />
+            <ShimmerBox style={[styles.skeletonRect4, { width: 50, height: 18 }]} />
+            <ShimmerBox style={[styles.skeletonRect4, { width: 60, height: 18 }]} />
           </View>
         </View>
         {/* Status icon */}
-        <SkeletonPulse style={styles.skeletonCircle20} />
+        <ShimmerBox style={styles.skeletonCircle20} />
       </View>
     </View>
   );
@@ -99,22 +72,22 @@ function SkeletonHeaderCompact() {
       <View style={styles.skeletonHeaderCompact}>
         {/* Motorista */}
         <View style={[styles.skeletonRowCenter, { gap: theme.spacing['2'] }]}>
-          <SkeletonPulse style={styles.skeletonCircle24} />
-          <SkeletonPulse style={[styles.skeletonRect4, { width: 120, height: 16 }]} />
+          <ShimmerBox style={styles.skeletonCircle24} />
+          <ShimmerBox style={[styles.skeletonRect4, { width: 120, height: 16 }]} />
         </View>
         {/* Separator */}
       <View style={[styles.skeletonDivider, { height: 20 }]} />
       {/* Status badge */}
-      <SkeletonPulse style={{ width: 80, height: 26, borderRadius: 13 }} />
+      <ShimmerBox style={{ width: 80, height: 26, borderRadius: 13 }} />
       {/* Metrics */}
       <View style={{ flexDirection: 'row', gap: theme.spacing['4'] }}>
-        <SkeletonPulse style={[styles.skeletonRect4, { width: 70, height: 16 }]} />
-        <SkeletonPulse style={[styles.skeletonRect4, { width: 80, height: 16 }]} />
+        <ShimmerBox style={[styles.skeletonRect4, { width: 70, height: 16 }]} />
+        <ShimmerBox style={[styles.skeletonRect4, { width: 80, height: 16 }]} />
       </View>
       {/* Spacer */}
       <View style={styles.skeletonFlexCol} />
       {/* Cancel button */}
-      <SkeletonPulse style={{ width: 90, height: 32, borderRadius: 16 }} />
+      <ShimmerBox style={{ width: 90, height: 32, borderRadius: 16 }} />
     </View>
   );
 }
@@ -128,9 +101,9 @@ function SkeletonResumoInline() {
         <React.Fragment key={i}>
           {index > 0 && <View style={[styles.skeletonDivider, { height: 16 }]} />}
           <View style={[styles.skeletonRowCenter, { gap: theme.spacing['1.5'] }]}>
-            <SkeletonPulse style={styles.skeletonCircle20} />
-            <SkeletonPulse style={[styles.skeletonRect4, { width: 24, height: 18 }]} />
-            <SkeletonPulse style={[styles.skeletonRect4, { width: 30, height: 12 }]} />
+            <ShimmerBox style={styles.skeletonCircle20} />
+            <ShimmerBox style={[styles.skeletonRect4, { width: 24, height: 18 }]} />
+            <ShimmerBox style={[styles.skeletonRect4, { width: 30, height: 12 }]} />
           </View>
         </React.Fragment>
       ))}
@@ -145,10 +118,10 @@ function SkeletonTimelineCollapsible() {
     <View style={styles.skeletonTimelineCollapsible}>
       <View style={styles.skeletonRowBetween}>
         <View style={[styles.skeletonRowCenter, { gap: theme.spacing['2'] }]}>
-          <SkeletonPulse style={{ width: 32, height: 32, borderRadius: 8 }} />
-          <SkeletonPulse style={[styles.skeletonRect4, { width: 80, height: 18 }]} />
+          <ShimmerBox style={{ width: 32, height: 32, borderRadius: 8 }} />
+          <ShimmerBox style={[styles.skeletonRect4, { width: 80, height: 18 }]} />
         </View>
-        <SkeletonPulse style={[styles.skeletonRect4, { width: 20, height: 20 }]} />
+        <ShimmerBox style={[styles.skeletonRect4, { width: 20, height: 20 }]} />
       </View>
     </View>
   );
@@ -168,16 +141,16 @@ export function MapaRotaSkeleton({
       <View style={styles.skeletonContainer}>
         {/* Header skeleton */}
         <View style={[styles.rotaInfo, { gap: theme.spacing['3'] }]}>
-          <SkeletonPulse style={[styles.skeletonLine, { width: 200, height: 20 }]} />
+          <ShimmerBox style={[styles.skeletonLine, { width: 200, height: 20 }]} />
           <View style={{ flexDirection: 'row', gap: theme.spacing['3'] }}>
-            <SkeletonPulse style={styles.skeletonTag} />
-            <SkeletonPulse style={[styles.skeletonLine, { width: 100 }]} />
+            <ShimmerBox style={styles.skeletonTag} />
+            <ShimmerBox style={[styles.skeletonLine, { width: 100 }]} />
           </View>
         </View>
 
         {/* Map skeleton */}
         <View style={{ padding: theme.spacing['4'] }}>
-          <SkeletonPulse style={[styles.skeletonMap, { height: 300 }]} />
+          <ShimmerBox style={[styles.skeletonMap, { height: 300 }]} />
         </View>
 
         {/* Cards skeleton */}
@@ -214,7 +187,7 @@ export function MapaRotaSkeleton({
             variant="elevated"
             noPadding
           >
-            <SkeletonPulse style={{ height: OPTIMIZED_MAP_HEIGHT, borderRadius: 0 }} />
+            <ShimmerBox style={{ height: OPTIMIZED_MAP_HEIGHT, borderRadius: 0 }} />
           </DesktopCard>
         }
         right={

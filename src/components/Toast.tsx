@@ -27,6 +27,8 @@ function getToastRoot(): HTMLElement {
       pointer-events: none;
       z-index: 2147483647;
     `;
+    root.setAttribute('aria-live', 'polite');
+    root.setAttribute('role', 'status');
     document.body.appendChild(root);
   }
   return root;
@@ -159,6 +161,8 @@ export function Toast({
   const toastContent = (
     <Animated.View
       testID={testID}
+      accessibilityLiveRegion="polite"
+      accessibilityRole="alert"
       style={[
         styles.container,
         {

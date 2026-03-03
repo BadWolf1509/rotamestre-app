@@ -508,7 +508,8 @@ describe('CameraUpload Component', () => {
           'unit-123',
           'route-456',
           'stop-789',
-          'compressed-image-uri'
+          'compressed-image-uri',
+          expect.any(Function)
         );
       });
 
@@ -655,7 +656,7 @@ describe('CameraUpload Component', () => {
         configurable: true,
       });
 
-      const { getByText, UNSAFE_getByType } = render(<CameraUpload {...defaultProps} />);
+      const { getByText } = render(<CameraUpload {...defaultProps} />);
 
       fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
 
@@ -665,10 +666,9 @@ describe('CameraUpload Component', () => {
 
       fireEvent.press(getByText('📤 Enviar Foto'));
 
-      // Verificar que botões estão disabled durante upload
+      // Verificar que progress bar é exibida durante upload
       await waitFor(() => {
-        const { ActivityIndicator } = require('react-native');
-        expect(UNSAFE_getByType(ActivityIndicator)).toBeTruthy();
+        expect(getByText(/Enviando foto/)).toBeTruthy();
       });
 
       await act(async () => {

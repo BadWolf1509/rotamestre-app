@@ -1,8 +1,10 @@
-import React from 'react';
-import { View, ViewStyle, TouchableOpacity, Platform } from 'react-native';
+import React, { useRef } from 'react';
+import { View, ViewStyle, Pressable, Animated, Platform } from 'react-native';
 
 import { platformOverrides } from '@/design-system/tokens';
-import { StyleSheet, type Theme } from '@/utils/styles';
+import type { PressableStateWithHover } from '@/types';
+import { boxShadow } from '@/utils/color';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface CardProps {
   children: React.ReactNode;
@@ -25,7 +27,9 @@ function CardComponent({
   accessibilityLabel,
   accessibilityHint,
 }: CardProps) {
-  const Container = onPress ? TouchableOpacity : View;
+  const { theme } = useUnistyles();
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
   const elevatedStyle =
     variant === 'elevated'
       ? Platform.select({
@@ -40,25 +44,72 @@ function CardComponent({
         })
       : undefined;
 
+  const paddingKey = `padding${padding.charAt(0).toUpperCase() + padding.slice(1)}` as keyof typeof styles;
+
+  const handlePressIn = () => {
+    Animated.timing(scaleAnim, {
+      toValue: 0.97,
+      duration: 150,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      tension: 200,
+      friction: 10,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const cardStyles = [
+    styles.card,
+    styles[variant],
+    elevatedStyle,
+    styles[paddingKey],
+    style,
+  ];
+
+  // Non-interactive cards render as plain View
+  if (!onPress) {
+    return (
+      <View
+        style={cardStyles}
+        testID={testID}
+        accessible
+        accessibilityLabel={accessibilityLabel}
+        accessibilityHint={accessibilityHint}
+      >
+        {children}
+      </View>
+    );
+  }
+
+  // Interactive cards use Pressable + Animated scale
   return (
-    <Container
-      style={[
-        styles.card,
-        styles[variant],
-        elevatedStyle,
-        styles[`padding${padding.charAt(0).toUpperCase() + padding.slice(1)}` as keyof typeof styles],
-        style,
-      ]}
+    <Pressable
       onPress={onPress}
-      activeOpacity={onPress ? 0.7 : 1}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
       testID={testID}
       accessible
-      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
+      style={(state) => {
+        const { focused, pressed } = state as PressableStateWithHover;
+        return [
+          styles.interactive,
+          // Web focus ring for keyboard navigation
+          focused && !pressed && styles.focusRing,
+        ];
+      }}
     >
-      {children}
-    </Container>
+      <Animated.View style={[cardStyles, { transform: [{ scale: scaleAnim }] }]}>
+        {children}
+      </Animated.View>
+    </Pressable>
   );
 }
 
@@ -69,6 +120,23 @@ const styles = StyleSheet.create((theme: Theme) => ({
   card: {
     borderRadius: theme.borderRadius.lg,
     backgroundColor: theme.colors.white,
+  },
+
+  interactive: {
+    // Web-specific styles (as any needed due to Unistyles type limitations)
+    ...(Platform.OS === 'web' && {
+      cursor: 'pointer',
+      transitionProperty: 'box-shadow',
+      transitionDuration: '150ms',
+      outlineWidth: 0,
+    } as any),
+  },
+
+  focusRing: {
+    ...(Platform.OS === 'web' && {
+      boxShadow: boxShadow(0, 0, 0, 3, theme.colors.primary, 0.25),
+      outlineWidth: 0,
+    } as any),
   },
 
   elevated: {

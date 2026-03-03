@@ -2,44 +2,21 @@
  * Skeleton loading animation component for DataTable
  */
 
-import { memo, useRef, useEffect } from 'react';
-import { Animated, View, Text, DimensionValue } from 'react-native';
+import { memo } from 'react';
+import { View, Text, DimensionValue } from 'react-native';
+
+import { ShimmerBox } from '@/components/ShimmerBox';
 
 import { dataTableStyles as styles } from './styles';
 
 import type { DataTableColumn, DataTableAction } from './types';
 
 /**
- * Animated skeleton box with shimmer effect
+ * Animated skeleton box with shimmer effect.
+ * Delegates to ShimmerBox for premium gradient shimmer on web / opacity pulse on native.
  */
 export const SkeletonBox = memo(function SkeletonBox() {
-  const shimmerValue = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const shimmerAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmerValue, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(shimmerValue, {
-          toValue: 0,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    shimmerAnimation.start();
-    return () => shimmerAnimation.stop();
-  }, [shimmerValue]);
-
-  const opacity = shimmerValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.3, 0.7],
-  });
-
-  return <Animated.View style={[styles.skeletonBox, { opacity }]} />;
+  return <ShimmerBox style={styles.skeletonBox} />;
 });
 
 interface SkeletonMobileProps {

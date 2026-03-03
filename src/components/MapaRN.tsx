@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import MapLibreGL from '@maplibre/maplibre-react-native';
 import React, { useMemo, useCallback } from 'react';
 import { View, TouchableOpacity, Text, Linking, Platform } from 'react-native';
@@ -12,10 +13,11 @@ import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 interface MapaRNProps {
   paradas: Parada[];
   rotaAtiva?: boolean;
+  selectedParadaId?: string | null;
   onMarkerPress?: (paradaId: string) => void;
 }
 
-export function MapaRN({ paradas, rotaAtiva = false, onMarkerPress }: MapaRNProps) {
+export function MapaRN({ paradas, rotaAtiva = false, selectedParadaId, onMarkerPress }: MapaRNProps) {
   const { theme } = useUnistyles();
   const { showError, AlertDialog } = useAlert();
 
@@ -57,20 +59,29 @@ export function MapaRN({ paradas, rotaAtiva = false, onMarkerPress }: MapaRNProp
     }
   }, [showError, validParadas]);
 
+  // Determine first/last checkpoint for partida/chegada distinction
+  const checkpointIds = useMemo(() => {
+    const cps = validParadas.filter((p) => p.is_checkpoint === false);
+    return { partidaId: cps[0]?.id, chegadaId: cps[cps.length - 1]?.id };
+  }, [validParadas]);
+
   // Get marker color based on status
   const getMarkerStyle = useCallback((parada: Parada) => {
     const isCheckpoint = parada.is_checkpoint === false;
     if (isCheckpoint) {
+      const isPartida = parada.id === checkpointIds.partidaId;
       return {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: isPartida ? theme.colors.success : theme.colors.error,
         isCheckpoint: true,
+        isPartida,
       };
     }
     return {
       backgroundColor: getStatusColor(parada.status),
       isCheckpoint: false,
+      isPartida: false,
     };
-  }, [theme.colors.primary]);
+  }, [theme.colors.success, theme.colors.error, checkpointIds]);
 
   // Calculate initial camera settings (must be before any conditional returns)
   const initialCamera = useMemo(() => {
@@ -111,6 +122,14 @@ export function MapaRN({ paradas, rotaAtiva = false, onMarkerPress }: MapaRNProp
         {/* Stop Markers */}
         {validParadas.map((parada) => {
           const markerStyle = getMarkerStyle(parada);
+          const isSelected = parada.id === selectedParadaId;
+          const isCheckpoint = markerStyle.isCheckpoint;
+          const markerSize = isCheckpoint ? 44 : 40;
+          const borderWidth = isSelected ? 4 : 3;
+          const accessLabel = isCheckpoint
+            ? (markerStyle.isPartida ? 'Ponto de Partida' : 'Ponto de Chegada')
+            : `Parada ${parada.ordem}`;
+
           return (
             <MapLibreGL.MarkerView
               key={parada.id}
@@ -124,17 +143,34 @@ export function MapaRN({ paradas, rotaAtiva = false, onMarkerPress }: MapaRNProp
                 onPress={() => onMarkerPress?.(parada.id)}
                 activeOpacity={0.8}
                 accessibilityRole="button"
-                accessibilityLabel={markerStyle.isCheckpoint ? 'Ponto de Partida/Chegada' : `Parada ${parada.ordem}`}
+                accessibilityLabel={accessLabel}
               >
                 <View style={styles.markerContainer}>
                   <View style={[
                     styles.marker,
-                    { backgroundColor: markerStyle.backgroundColor },
+                    {
+                      width: markerSize,
+                      height: markerSize,
+                      borderRadius: markerSize / 2,
+                      borderWidth,
+                      borderColor: markerStyle.backgroundColor,
+                      backgroundColor: theme.colors.surface,
+                    },
+                    isSelected && styles.markerSelected,
                   ]}>
-                    {markerStyle.isCheckpoint ? (
-                      <Text style={styles.markerIcon}>📍</Text>
+                    {isCheckpoint ? (
+                      <Ionicons
+                        name={markerStyle.isPartida ? 'flag' : 'flag-outline'}
+                        size={isCheckpoint ? 20 : 18}
+                        color={markerStyle.backgroundColor}
+                      />
                     ) : (
-                      <Text style={styles.markerText}>{parada.ordem}</Text>
+                      <Text style={[
+                        styles.markerText,
+                        { color: markerStyle.backgroundColor },
+                      ]}>
+                        {parada.ordem}
+                      </Text>
                     )}
                   </View>
                 </View>
@@ -199,21 +235,30 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'center',
   },
   marker: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: theme.colors.surface,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.surface,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  markerSelected: {
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 6,
+    transform: [{ scale: 1.1 }],
   },
   markerText: {
-    color: theme.colors.surface,
+    color: theme.colors.primary,
     fontWeight: 'bold',
-    fontSize: theme.typography.fontSize.sm,
-  },
-  markerIcon: {
-    fontSize: 16,
+    fontSize: theme.typography.fontSize.base,
   },
   infoBox: {
     position: 'absolute',

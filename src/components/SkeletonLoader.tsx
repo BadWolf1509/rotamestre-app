@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Animated, type ViewStyle, type DimensionValue } from 'react-native';
+import { View, type ViewStyle, type DimensionValue } from 'react-native';
 
+import { ShimmerBox } from '@/components/ShimmerBox';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface SkeletonProps {
@@ -11,40 +11,18 @@ interface SkeletonProps {
 }
 
 /**
- * Componente base de skeleton com efeito shimmer animado
+ * Componente base de skeleton com efeito shimmer animado.
+ * Delegates to ShimmerBox for premium gradient shimmer on web / opacity pulse on native.
  */
 export function Skeleton({ width = '100%', height = 20, borderRadius = 4, style }: SkeletonProps) {
-  const opacity = useRef(new Animated.Value(0.3)).current;
-
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0.3,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    animation.start();
-
-    return () => animation.stop();
-  }, [opacity]);
-
   return (
-    <Animated.View
+    <ShimmerBox
       style={[
         styles.skeleton,
         {
           width: width as DimensionValue,
           height,
           borderRadius,
-          opacity,
         },
         style,
       ]}

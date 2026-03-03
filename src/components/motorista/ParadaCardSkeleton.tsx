@@ -3,48 +3,11 @@
  * Melhora UX mostrando estrutura do card enquanto carrega
  */
 
-import React, { useEffect, useRef } from 'react';
-import { View, Animated, Easing } from 'react-native';
+import React from 'react';
+import { View } from 'react-native';
 
+import { ShimmerBox } from '@/components/ShimmerBox';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
-// Animated pulse component
-function SkeletonPulse({ style }: { style?: any }) {
-  const opacity = useRef(new Animated.Value(0.3)).current;
-
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 0.7,
-          duration: 800,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0.3,
-          duration: 800,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [opacity]);
-
-  const { theme } = useUnistyles();
-
-  return (
-    <Animated.View
-      style={[
-        { backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm },
-        style,
-        { opacity },
-      ]}
-    />
-  );
-}
 
 export function ParadaCardSkeleton() {
   const { theme } = useUnistyles();
@@ -54,32 +17,32 @@ export function ParadaCardSkeleton() {
     <View style={styles.card}>
       {/* Header com badges */}
       <View style={styles.header}>
-        <SkeletonPulse style={styles.ordemBadge} />
-        <SkeletonPulse style={styles.statusBadge} />
-        <SkeletonPulse style={styles.tipoBadge} />
+        <ShimmerBox style={styles.ordemBadge} />
+        <ShimmerBox style={styles.statusBadge} />
+        <ShimmerBox style={styles.tipoBadge} />
       </View>
 
       {/* Endereço */}
       <View style={styles.enderecoContainer}>
-        <SkeletonPulse style={styles.enderecoLine1} />
-        <SkeletonPulse style={styles.enderecoLine2} />
+        <ShimmerBox style={styles.enderecoLine1} />
+        <ShimmerBox style={styles.enderecoLine2} />
       </View>
 
       {/* Detalhes */}
       <View style={styles.detalhesContainer}>
-        <SkeletonPulse style={styles.detalhe} />
-        <SkeletonPulse style={styles.detalhe} />
+        <ShimmerBox style={styles.detalhe} />
+        <ShimmerBox style={styles.detalhe} />
       </View>
 
       {/* Ações */}
       <View style={styles.acoesContainer}>
-        <SkeletonPulse style={styles.botao} />
-        <SkeletonPulse style={styles.botao} />
+        <ShimmerBox style={styles.botao} />
+        <ShimmerBox style={styles.botao} />
       </View>
 
       {/* Swipe hint */}
       <View style={styles.swipeHintContainer}>
-        <SkeletonPulse style={styles.swipeHint} />
+        <ShimmerBox style={styles.swipeHint} />
       </View>
     </View>
   );
