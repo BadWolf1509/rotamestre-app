@@ -25,6 +25,33 @@ import { getErrorMessage } from '@/lib/errorMapping';
 import { loginRateLimiter } from '@/lib/rateLimiter';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
+// Inject focus ring styles for login inputs (web only)
+// Colors must match defaultTheme.colors.primary (#284093)
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  const styleId = 'login-focus-styles';
+  if (!document.getElementById(styleId)) {
+    const styleEl = document.createElement('style');
+    styleEl.id = styleId;
+    styleEl.textContent = `
+      [data-testid="auth-login-email"]:focus,
+      [data-testid="auth-login-password"]:focus {
+        border-color: #284093 !important;
+        box-shadow: 0 0 0 3px rgba(40, 64, 147, 0.15) !important;
+        outline: none !important;
+      }
+      [data-testid="auth-login-submit"]:hover {
+        opacity: 0.9 !important;
+        transform: translateY(-1px);
+        transition: opacity 0.15s ease, transform 0.15s ease !important;
+      }
+      [data-testid="auth-login-submit"]:active {
+        transform: translateY(0);
+      }
+    `;
+    document.head.appendChild(styleEl);
+  }
+}
+
 export default function Login() {
   const { theme } = useUnistyles();
   const router = useRouter();
@@ -55,7 +82,7 @@ export default function Login() {
   }
 
   function hideAlert() {
-    setAlertConfig({ ...alertConfig, visible: false });
+    setAlertConfig(prev => ({ ...prev, visible: false }));
   }
 
   async function handleLogin() {
@@ -200,6 +227,18 @@ export default function Login() {
                   <Text style={styles.buttonText}>Entrar</Text>
                 )}
               </TouchableOpacity>
+
+              <View style={styles.footer}>
+                <Text style={styles.footerText}>Ainda não tem conta?</Text>
+                <TouchableOpacity
+                  onPress={() => router.push('/auth/register')}
+                  accessibilityLabel="Solicitar acesso"
+                  accessibilityRole="link"
+                  style={styles.footerLink}
+                >
+                  <Text style={styles.footerLinkText}>Solicitar acesso</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
@@ -237,45 +276,54 @@ export default function Login() {
               source={LogoHorizontal}
               style={styles.logoImage}
               resizeMode="contain"
+              accessibilityLabel="RotaMestre logo"
+              accessible={true}
             />
           </View>
+          <Text style={styles.titleMobile}>Bem-vindo de volta!</Text>
           <Text style={styles.subtitle}>Entre com sua conta</Text>
         </View>
 
         <View style={styles.form}>
-          <TextInput
-            style={styles.input}
-            placeholder="E-mail"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoComplete="email"
-            testID="auth-login-email"
-          />
-
-          <View style={styles.passwordContainer}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>E-mail</Text>
             <TextInput
-              style={styles.inputPassword}
-              placeholder="Senha"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              autoComplete="password"
-              testID="auth-login-password"
+              style={styles.input}
+              placeholder="seu@email.com"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              testID="auth-login-email"
             />
-            <TouchableOpacity
-              style={styles.eyeButton}
-              onPress={() => setShowPassword(!showPassword)}
-              accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-              accessibilityRole="button"
-            >
-              <Ionicons
-                name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                size={22}
-                color={theme.colors.gray500}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Senha</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.inputPassword}
+                placeholder="••••••••"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoComplete="password"
+                testID="auth-login-password"
               />
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowPassword(!showPassword)}
+                accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                accessibilityRole="button"
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={22}
+                  color={theme.colors.gray500}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <TouchableOpacity
@@ -303,6 +351,18 @@ export default function Login() {
               <Text style={styles.buttonText}>Entrar</Text>
             )}
           </TouchableOpacity>
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Ainda não tem conta?</Text>
+            <TouchableOpacity
+              onPress={() => router.push('/auth/register')}
+              accessibilityLabel="Solicitar acesso"
+              accessibilityRole="link"
+              style={styles.footerLink}
+            >
+              <Text style={styles.footerLinkText}>Solicitar acesso</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Alert Dialog */}
@@ -328,15 +388,17 @@ const styles = StyleSheet.create((theme: Theme) => ({
     }),
   },
   leftPanel: {
-    flex: 1,
+    width: '50%',
     backgroundColor: theme.colors.primary,
+    overflow: 'hidden',
   },
   rightPanel: {
-    flex: 1,
+    width: '50%',
     backgroundColor: theme.colors.white,
     justifyContent: 'center',
     alignItems: 'center',
     padding: theme.spacing['16'],
+    overflow: 'hidden',
   },
   formContainerDesktop: {
     width: '100%',
@@ -354,7 +416,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   subtitleDesktop: {
     fontFamily: theme.typography.fontSans,
     fontSize: theme.typography.fontSize.base,
-    color: theme.colors.gray500,
+    color: theme.colors.gray600,
   },
   inputGroup: {
     marginBottom: theme.spacing.lg,
@@ -385,15 +447,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.gray300,
     borderRadius: theme.borderRadius.sm,
     padding: theme.spacing.md,
-    paddingRight: 45,
+    paddingRight: 50,
     fontSize: theme.typography.fontSize.base,
     fontFamily: theme.typography.fontSans,
     backgroundColor: theme.colors.white,
   },
   eyeButton: {
     position: 'absolute',
-    right: theme.spacing.md,
-    padding: theme.spacing.sm,
+    right: theme.spacing.sm,
+    padding: theme.spacing.md,
   },
   buttonDesktop: {
     backgroundColor: theme.colors.primary,
@@ -425,7 +487,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   subtitle: {
     fontFamily: theme.typography.fontSans,
     fontSize: theme.typography.fontSize.base,
-    color: theme.colors.gray500,
+    color: theme.colors.gray600,
   },
   form: {
     gap: theme.spacing.lg,
@@ -445,7 +507,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.gray300,
     borderRadius: theme.borderRadius.sm,
     padding: theme.spacing.lg,
-    paddingRight: 45,
+    paddingRight: 50,
     fontSize: theme.typography.fontSize.base,
     fontFamily: theme.typography.fontSans,
     backgroundColor: theme.colors.white,
@@ -456,7 +518,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
     marginTop: theme.spacing['2.5'],
-    ...theme.shadows.sm,
+    ...theme.shadows.md,
   },
   buttonText: {
     color: theme.colors.white,
@@ -466,10 +528,38 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   forgotButton: {
     alignSelf: 'flex-end',
+    paddingVertical: theme.spacing.md,
   },
   forgotButtonText: {
     color: theme.colors.primaryDark,
     fontSize: theme.typography.fontSize.sm,
     fontFamily: theme.typography.fontSansMedium,
+  },
+  titleMobile: {
+    fontFamily: theme.typography.fontDisplay,
+    fontSize: theme.typography.fontSize['2xl'],
+    color: theme.colors.gray900,
+    marginBottom: theme.spacing.xs,
+    textAlign: 'center',
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    marginTop: theme.spacing.xl,
+  },
+  footerText: {
+    fontFamily: theme.typography.fontSans,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray600,
+  },
+  footerLink: {
+    paddingVertical: theme.spacing.sm,
+  },
+  footerLinkText: {
+    fontFamily: theme.typography.fontSansSemiBold,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.primary,
   },
 }));

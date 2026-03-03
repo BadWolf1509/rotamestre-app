@@ -31,20 +31,24 @@ describe('Login Screen - Integration Tests', () => {
   // ============================================
   describe('Renderização e UI', () => {
     it('deve renderizar corretamente no mobile', () => {
-      const { getByPlaceholderText, getByText } = render(<Login />);
+      const { getByPlaceholderText, getByText, getAllByText } = render(<Login />);
 
-      expect(getByPlaceholderText('E-mail')).toBeTruthy();
-      expect(getByPlaceholderText('Senha')).toBeTruthy();
+      expect(getByPlaceholderText('seu@email.com')).toBeTruthy();
+      expect(getByPlaceholderText('••••••••')).toBeTruthy();
       expect(getByText('Entrar')).toBeTruthy();
       expect(getByText('Esqueceu a senha?')).toBeTruthy();
+      expect(getByText('Bem-vindo de volta!')).toBeTruthy();
       expect(getByText('Entre com sua conta')).toBeTruthy();
+      // WCAG 1.3.1: Labels are now visible Text elements above inputs
+      expect(getAllByText('E-mail').length).toBeGreaterThanOrEqual(1);
+      expect(getAllByText('Senha').length).toBeGreaterThanOrEqual(1);
     });
 
     it('deve exibir campos de entrada vazios inicialmente', () => {
       const { getByPlaceholderText } = render(<Login />);
 
-      const emailInput = getByPlaceholderText('E-mail');
-      const passwordInput = getByPlaceholderText('Senha');
+      const emailInput = getByPlaceholderText('seu@email.com');
+      const passwordInput = getByPlaceholderText('••••••••');
 
       expect(emailInput.props.value).toBe('');
       expect(passwordInput.props.value).toBe('');
@@ -65,7 +69,7 @@ describe('Login Screen - Integration Tests', () => {
     it('deve atualizar o campo de email ao digitar', () => {
       const { getByPlaceholderText } = render(<Login />);
 
-      const emailInput = getByPlaceholderText('E-mail');
+      const emailInput = getByPlaceholderText('seu@email.com');
       fireEvent.changeText(emailInput, 'teste@rotamestre.com');
 
       expect(emailInput.props.value).toBe('teste@rotamestre.com');
@@ -74,7 +78,7 @@ describe('Login Screen - Integration Tests', () => {
     it('deve atualizar o campo de senha ao digitar', () => {
       const { getByPlaceholderText } = render(<Login />);
 
-      const passwordInput = getByPlaceholderText('Senha');
+      const passwordInput = getByPlaceholderText('••••••••');
       fireEvent.changeText(passwordInput, 'senha123');
 
       expect(passwordInput.props.value).toBe('senha123');
@@ -95,7 +99,7 @@ describe('Login Screen - Integration Tests', () => {
     it('deve exibir erro quando email está vazio', async () => {
       const { getByPlaceholderText, getByText } = render(<Login />);
 
-      const passwordInput = getByPlaceholderText('Senha');
+      const passwordInput = getByPlaceholderText('••••••••');
       fireEvent.changeText(passwordInput, 'senha123');
 
       const loginButton = getByText('Entrar');
@@ -110,7 +114,7 @@ describe('Login Screen - Integration Tests', () => {
     it('deve exibir erro quando senha está vazia', async () => {
       const { getByPlaceholderText, getByText } = render(<Login />);
 
-      const emailInput = getByPlaceholderText('E-mail');
+      const emailInput = getByPlaceholderText('seu@email.com');
       fireEvent.changeText(emailInput, 'teste@rotamestre.com');
 
       const loginButton = getByText('Entrar');
@@ -142,8 +146,8 @@ describe('Login Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<Login />);
 
-      const emailInput = getByPlaceholderText('E-mail');
-      const passwordInput = getByPlaceholderText('Senha');
+      const emailInput = getByPlaceholderText('seu@email.com');
+      const passwordInput = getByPlaceholderText('••••••••');
 
       fireEvent.changeText(emailInput, 'gestor@rotamestre.com');
       fireEvent.changeText(passwordInput, 'senha123');
@@ -175,8 +179,8 @@ describe('Login Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<Login />);
 
-      const emailInput = getByPlaceholderText('E-mail');
-      const passwordInput = getByPlaceholderText('Senha');
+      const emailInput = getByPlaceholderText('seu@email.com');
+      const passwordInput = getByPlaceholderText('••••••••');
 
       fireEvent.changeText(emailInput, 'motorista@rotamestre.com');
       fireEvent.changeText(passwordInput, 'senha123');
@@ -208,8 +212,8 @@ describe('Login Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<Login />);
 
-      const emailInput = getByPlaceholderText('E-mail');
-      const passwordInput = getByPlaceholderText('Senha');
+      const emailInput = getByPlaceholderText('seu@email.com');
+      const passwordInput = getByPlaceholderText('••••••••');
 
       fireEvent.changeText(emailInput, 'novo@rotamestre.com');
       fireEvent.changeText(passwordInput, 'senhaTemporaria');
@@ -236,8 +240,8 @@ describe('Login Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<Login />);
 
-      const emailInput = getByPlaceholderText('E-mail');
-      const passwordInput = getByPlaceholderText('Senha');
+      const emailInput = getByPlaceholderText('seu@email.com');
+      const passwordInput = getByPlaceholderText('••••••••');
 
       fireEvent.changeText(emailInput, 'erro@rotamestre.com');
       fireEvent.changeText(passwordInput, 'senhaerrada');
@@ -256,8 +260,8 @@ describe('Login Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<Login />);
 
-      const emailInput = getByPlaceholderText('E-mail');
-      const passwordInput = getByPlaceholderText('Senha');
+      const emailInput = getByPlaceholderText('seu@email.com');
+      const passwordInput = getByPlaceholderText('••••••••');
 
       fireEvent.changeText(emailInput, 'teste@rotamestre.com');
       fireEvent.changeText(passwordInput, 'senha123');
@@ -278,8 +282,8 @@ describe('Login Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<Login />);
 
-      const emailInput = getByPlaceholderText('E-mail');
-      const passwordInput = getByPlaceholderText('Senha');
+      const emailInput = getByPlaceholderText('seu@email.com');
+      const passwordInput = getByPlaceholderText('••••••••');
 
       fireEvent.changeText(emailInput, 'naoexiste@rotamestre.com');
       fireEvent.changeText(passwordInput, 'senha123');
@@ -318,8 +322,8 @@ describe('Login Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<Login />);
 
-      const emailInput = getByPlaceholderText('E-mail');
-      const passwordInput = getByPlaceholderText('Senha');
+      const emailInput = getByPlaceholderText('seu@email.com');
+      const passwordInput = getByPlaceholderText('••••••••');
 
       fireEvent.changeText(emailInput, 'gestor@rotamestre.com');
       fireEvent.changeText(passwordInput, 'senha123');
@@ -347,8 +351,8 @@ describe('Login Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<Login />);
 
-      const emailInput = getByPlaceholderText('E-mail');
-      const passwordInput = getByPlaceholderText('Senha');
+      const emailInput = getByPlaceholderText('seu@email.com');
+      const passwordInput = getByPlaceholderText('••••••••');
 
       fireEvent.changeText(emailInput, 'gestor@rotamestre.com');
       fireEvent.changeText(passwordInput, 'senha123');
@@ -372,8 +376,8 @@ describe('Login Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<Login />);
 
-      const emailInput = getByPlaceholderText('E-mail');
-      const passwordInput = getByPlaceholderText('Senha');
+      const emailInput = getByPlaceholderText('seu@email.com');
+      const passwordInput = getByPlaceholderText('••••••••');
 
       fireEvent.changeText(emailInput, 'teste@rotamestre.com');
       fireEvent.changeText(passwordInput, 'senha123');
@@ -401,6 +405,15 @@ describe('Login Screen - Integration Tests', () => {
       expect(mockRouter.push).toHaveBeenCalledWith('/auth/forgot-password');
     });
 
+    it('deve navegar para tela de registro ao clicar em "Solicitar acesso"', () => {
+      const { getByText } = render(<Login />);
+
+      const registerLink = getByText('Solicitar acesso');
+      fireEvent.press(registerLink);
+
+      expect(mockRouter.push).toHaveBeenCalledWith('/auth/register');
+    });
+
     it('não deve navegar quando login falha', async () => {
       (authService.signIn as jest.Mock).mockRejectedValue(
         new Error('Invalid login credentials')
@@ -408,8 +421,8 @@ describe('Login Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<Login />);
 
-      const emailInput = getByPlaceholderText('E-mail');
-      const passwordInput = getByPlaceholderText('Senha');
+      const emailInput = getByPlaceholderText('seu@email.com');
+      const passwordInput = getByPlaceholderText('••••••••');
 
       fireEvent.changeText(emailInput, 'erro@rotamestre.com');
       fireEvent.changeText(passwordInput, 'senhaerrada');
@@ -442,8 +455,8 @@ describe('Login Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<Login />);
 
-      const emailInput = getByPlaceholderText('E-mail');
-      const passwordInput = getByPlaceholderText('Senha');
+      const emailInput = getByPlaceholderText('seu@email.com');
+      const passwordInput = getByPlaceholderText('••••••••');
 
       // Email com espaços no início e fim
       fireEvent.changeText(emailInput, '  gestor@rotamestre.com  ');
@@ -473,8 +486,8 @@ describe('Login Screen - Integration Tests', () => {
 
       const { getByPlaceholderText, getByText } = render(<Login />);
 
-      const emailInput = getByPlaceholderText('E-mail');
-      const passwordInput = getByPlaceholderText('Senha');
+      const emailInput = getByPlaceholderText('seu@email.com');
+      const passwordInput = getByPlaceholderText('••••••••');
       let loginButton = getByText('Entrar');
 
       // Primeira tentativa - erro
