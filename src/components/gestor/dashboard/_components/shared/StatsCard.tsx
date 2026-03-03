@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { memo } from 'react';
-import { View, Text } from 'react-native';
+import { Platform, View, Text } from 'react-native';
 
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -39,6 +39,11 @@ export const StatsCard = memo(function StatsCard({
   if (variant === 'simple' && backgroundColor) {
     return (
       <View style={[styles.containerSimple, { backgroundColor }]}>
+        {icon && (
+          <View style={styles.simpleIconContainer}>
+            <Ionicons name={icon} size={16} color="rgba(255,255,255,0.85)" />
+          </View>
+        )}
         <Text style={styles.valueSimple}>{value}</Text>
         <Text style={styles.labelSimple}>{label}</Text>
       </View>
@@ -132,10 +137,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     justifyContent: 'center',
   },
   value: {
-    fontSize: theme.components.statsCard.valueFontSize,
-    fontWeight: '700',
+    fontSize: theme.typography.fontSize['2xl'],
+    fontFamily: theme.typography.fontDisplay,
     color: theme.colors.gray900,
+    letterSpacing: -0.5,
     marginTop: theme.spacing.xs,
+    ...(Platform.OS === 'web' && { fontVariantNumeric: 'tabular-nums' as any }),
   },
   changeContainer: {
     flexDirection: 'row',
@@ -160,10 +167,17 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'center',
     ...theme.shadows.md,
   },
+  simpleIconContainer: {
+    position: 'absolute',
+    top: theme.spacing.sm,
+    right: theme.spacing.sm,
+  },
   valueSimple: {
     fontSize: theme.components.statsCard.valueFontSize + 4,
-    fontFamily: theme.typography.fontSansBold,
+    fontFamily: theme.typography.fontDisplay,
     color: theme.colors.white,
+    letterSpacing: -0.5,
+    ...(Platform.OS === 'web' && { fontVariantNumeric: 'tabular-nums' as any }),
   },
   labelSimple: {
     fontSize: theme.typography.xs,

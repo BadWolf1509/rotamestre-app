@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View, TouchableOpacity, RefreshControl } from 'react-native';
 
+import { AnimatedListItem } from '@/components/AnimatedListItem';
 import { RouteFilters } from '@/components/RouteFilters';
 import type { RouteFiltersState as RouteFiltersType } from '@/components/RouteFilters';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
@@ -141,45 +142,46 @@ export function DashboardDesktop({
       >
         <View style={styles.content}>
         <View style={styles.statsRow} testID="gestor-dashboard-stats">
-            <View style={styles.statCard}>
+            <AnimatedListItem index={0} style={styles.statCard}>
               <StatsCard
                 value={todayStats.totalHoje}
                 label="Total Hoje"
                 backgroundColor={theme.colors.primaryDark}
               />
-            </View>
-            <View style={styles.statCard}>
+            </AnimatedListItem>
+            <AnimatedListItem index={1} style={styles.statCard}>
               <StatsCard
                 value={stats.emAndamento}
                 label="Em Andamento"
                 backgroundColor={theme.colors.secondary}
               />
-            </View>
-            <View style={styles.statCard}>
+            </AnimatedListItem>
+            <AnimatedListItem index={2} style={styles.statCard}>
               <StatsCard
                 value={stats.concluidas}
                 label="Concluídas"
                 backgroundColor={theme.colors.kpiConcluidas}
               />
-            </View>
-            <View style={styles.statCard}>
+            </AnimatedListItem>
+            <AnimatedListItem index={3} style={styles.statCard}>
               <StatsCard
                 value={stats.distanciaTotal.toFixed(1)}
                 label="km Total"
                 backgroundColor={theme.colors.kpiDistancia}
               />
-            </View>
-            <TouchableOpacity
-              style={styles.statCard}
-              onPress={() => router.push('/gestor/incidentes')}
-              activeOpacity={0.8}
-            >
-              <StatsCard
-                value={stats.incidentesAbertos || 0}
-                label="Incidentes Abertos"
-                backgroundColor={theme.colors.kpiIncidentes}
-              />
-            </TouchableOpacity>
+            </AnimatedListItem>
+            <AnimatedListItem index={4} style={styles.statCard}>
+              <TouchableOpacity
+                onPress={() => router.push('/gestor/incidentes')}
+                activeOpacity={0.8}
+              >
+                <StatsCard
+                  value={stats.incidentesAbertos || 0}
+                  label="Incidentes Abertos"
+                  backgroundColor={theme.colors.kpiIncidentes}
+                />
+              </TouchableOpacity>
+            </AnimatedListItem>
           </View>
 
           <View style={styles.section}>

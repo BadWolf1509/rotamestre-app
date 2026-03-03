@@ -1,13 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
-import { View, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, FlatList, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Image } from 'react-native';
 
+import { AnimatedListItem } from '@/components/AnimatedListItem';
+import { EmptyState } from '@/components/EmptyState';
 import { RouteFilters } from '@/components/RouteFilters';
 import type { RouteFiltersState as RouteFiltersType } from '@/components/RouteFilters';
-import { Button, Text, Toast } from '@/design-system';
+import { Text, Toast } from '@/design-system';
 import { useMotoristas } from '@/hooks/useMotoristas';
 import { useToast } from '@/hooks/useToast';
+import { withOpacity } from '@/utils/color';
+import { getGreeting } from '@/utils/motivationalMessages';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import { RotaCard } from '../shared/RotaCard';
@@ -18,6 +22,15 @@ import type { DashboardData, RotaResumo } from '../../_hooks/useDashboardData';
 interface DashboardMobileProps extends DashboardData {
   filters: RouteFiltersType;
   onFiltersChange: (filters: RouteFiltersType) => void;
+}
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+function formatTempo(minutos: number): string {
+  if (!minutos || minutos <= 0 || isNaN(minutos)) return '--';
+  return `${Math.floor(minutos / 60)}h ${minutos % 60}m`;
 }
 
 /**
@@ -41,6 +54,41 @@ export function DashboardMobile({
   const { toast: toastState, hideToast } = useToast();
 
   const { motoristas } = useMotoristas();
+
+  // ============================================================================
+  // DERIVED DATA
+  // ============================================================================
+
+  const firstName = userData?.nome?.split(' ')[0] || '';
+  const avatarInitial = firstName.charAt(0).toUpperCase();
+
+  // KPI config for data-driven rendering
+  const kpiConfig = useMemo(() => [
+    {
+      value: String(kpis.rotasMes),
+      label: 'Rotas no Mês',
+      icon: 'calendar-outline' as keyof typeof Ionicons.glyphMap,
+      color: theme.colors.primary,
+    },
+    {
+      value: `${kpis.taxaSucesso}%`,
+      label: 'Taxa Sucesso',
+      icon: 'checkmark-circle-outline' as keyof typeof Ionicons.glyphMap,
+      color: theme.colors.success,
+    },
+    {
+      value: formatTempo(kpis.tempoMedioMinutos),
+      label: 'Tempo Médio',
+      icon: 'timer-outline' as keyof typeof Ionicons.glyphMap,
+      color: theme.colors.kpiDistancia,
+    },
+    {
+      value: String(kpis.rotasSemana ?? 0),
+      label: 'Esta Semana',
+      icon: 'trending-up-outline' as keyof typeof Ionicons.glyphMap,
+      color: theme.colors.secondary,
+    },
+  ], [kpis, theme.colors]);
 
   // ============================================================================
   // MEMOIZED CALLBACKS
@@ -76,10 +124,12 @@ export function DashboardMobile({
   const keyExtractor = useCallback((item: RotaResumo) => item.id, []);
 
   const renderRotaItem = useCallback(
-    ({ item }: { item: RotaResumo }) => (
-      <View style={styles.rotaItemContainer}>
-        <RotaCard rota={item} onPress={() => handleRotaPress(item.id)} />
-      </View>
+    ({ item, index }: { item: RotaResumo; index: number }) => (
+      <AnimatedListItem index={index}>
+        <View style={styles.rotaItemContainer}>
+          <RotaCard rota={item} onPress={() => handleRotaPress(item.id)} />
+        </View>
+      </AnimatedListItem>
     ),
     [handleRotaPress]
   );
@@ -88,145 +138,193 @@ export function DashboardMobile({
   const ListHeaderComponent = useMemo(
     () => (
       <>
-        {/* Header */}
+        {/* Phase 3: Header with Avatar & Time-Based Greeting */}
         <View style={styles.header}>
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.headerTitle}>Olá, {userData?.nome}!</Text>
-            <Text style={styles.headerSubtitle}>{userData?.unidades?.nome}</Text>
+          <View style={styles.headerRow}>
+            {userData?.foto_url ? (
+              <Image source={{ uri: userData.foto_url }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{avatarInitial}</Text>
+              </View>
+            )}
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.headerTitle}>{getGreeting()}, {firstName}!</Text>
+              <View style={styles.headerSubtitleRow}>
+                <Ionicons name="business-outline" size={12} color={theme.colors.gray600} />
+                <Text style={styles.headerSubtitle}>{userData?.unidades?.nome}</Text>
+              </View>
+            </View>
           </View>
         </View>
 
-        {/* Cards de Estatísticas - Grid 2x2 */}
-        <View style={styles.statsGrid} testID="gestor-dashboard-stats">
-          <View style={styles.statsCardWrapper}>
-            <StatsCard
-              value={todayStats.totalHoje}
-              label="Total Hoje"
-              backgroundColor={theme.colors.primaryDark}
-            />
-          </View>
-          <View style={styles.statsCardWrapper}>
-            <StatsCard
-              value={stats.emAndamento}
-              label="Em Andamento"
-              backgroundColor={theme.colors.secondary}
-            />
-          </View>
-          <View style={styles.statsCardWrapper}>
-            <StatsCard
-              value={stats.concluidas}
-              label="Concluídas"
-              backgroundColor={theme.colors.kpiConcluidas}
-            />
-          </View>
-          <View style={styles.statsCardWrapper}>
-            <StatsCard
-              value={stats.distanciaTotal.toFixed(1)}
-              label="km Total"
-              backgroundColor={theme.colors.kpiDistancia}
-            />
-          </View>
-          <TouchableOpacity
-            style={styles.statsCardWrapper}
-            onPress={handleIncidentesPress}
-            activeOpacity={0.8}
-          >
-            <StatsCard
-              value={stats.incidentesAbertos || 0}
-              label="Incidentes Abertos"
-              backgroundColor={theme.colors.kpiIncidentes}
-            />
-          </TouchableOpacity>
-        </View>
+        {/* Phase 1: Horizontal Scroll Stats Strip */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.statsStrip}
+          testID="gestor-dashboard-stats"
+          accessibilityLabel="Estatísticas do dia"
+          accessibilityHint="Deslize para ver mais estatísticas"
+        >
+          <AnimatedListItem index={0}>
+            <View style={styles.statsStripCard}>
+              <StatsCard
+                value={todayStats.totalHoje}
+                label="Total Hoje"
+                backgroundColor={theme.colors.primaryDark}
+                icon="car-outline"
+              />
+            </View>
+          </AnimatedListItem>
+          <AnimatedListItem index={1}>
+            <View style={styles.statsStripCard}>
+              <StatsCard
+                value={stats.emAndamento}
+                label="Em Andamento"
+                backgroundColor={theme.colors.secondary}
+                icon="navigate-circle-outline"
+              />
+            </View>
+          </AnimatedListItem>
+          <AnimatedListItem index={2}>
+            <View style={styles.statsStripCard}>
+              <StatsCard
+                value={stats.concluidas}
+                label="Concluídas"
+                backgroundColor={theme.colors.kpiConcluidas}
+                icon="checkmark-circle-outline"
+              />
+            </View>
+          </AnimatedListItem>
+          <AnimatedListItem index={3}>
+            <View style={styles.statsStripCard}>
+              <StatsCard
+                value={stats.distanciaTotal.toFixed(1)}
+                label="km Total"
+                backgroundColor="#0f766e"
+                icon="speedometer-outline"
+              />
+            </View>
+          </AnimatedListItem>
+          <AnimatedListItem index={4}>
+            <TouchableOpacity
+              style={styles.statsStripCard}
+              onPress={handleIncidentesPress}
+              activeOpacity={0.8}
+            >
+              <StatsCard
+                value={stats.incidentesAbertos || 0}
+                label="Incidentes Abertos"
+                backgroundColor={theme.colors.kpiIncidentes}
+                icon="warning-outline"
+              />
+            </TouchableOpacity>
+          </AnimatedListItem>
+        </ScrollView>
 
-        {/* KPIs Avançados */}
+        {/* Phase 5: Section Divider */}
+        <View style={styles.sectionDivider} />
+
+        {/* Phase 2 + 5: KPIs with Icons & Section Title Accent */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Performance do Mês</Text>
+          <View style={styles.sectionTitleRow}>
+            <View style={styles.sectionTitleAccent} />
+            <Text style={styles.sectionTitle}>Performance do Mês</Text>
+          </View>
 
           <View style={styles.kpisGrid}>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiValue}>{kpis.rotasMes}</Text>
-              <Text style={styles.kpiLabel}>Rotas no Mês</Text>
-            </View>
-            <View style={styles.kpiCard}>
-              <Text style={[styles.kpiValue, { color: theme.colors.success }]}>
-                {kpis.taxaSucesso}%
-              </Text>
-              <Text style={styles.kpiLabel}>Taxa Sucesso</Text>
-            </View>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiValue}>
-                {kpis.tempoMedioMinutos > 0
-                  ? `${Math.floor(kpis.tempoMedioMinutos / 60)}h ${kpis.tempoMedioMinutos % 60}m`
-                  : '-'}
-              </Text>
-              <Text style={styles.kpiLabel}>Tempo Médio</Text>
-            </View>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiValue}>{kpis.rotasSemana}</Text>
-              <Text style={styles.kpiLabel}>Esta Semana</Text>
-            </View>
+            {kpiConfig.map((kpi, index) => (
+              <View
+                key={kpi.label}
+                style={[styles.kpiCard, { borderLeftColor: kpi.color }]}
+              >
+                <View style={[styles.kpiIconCircle, { backgroundColor: withOpacity(kpi.color, 0.15) }]}>
+                  <Ionicons name={kpi.icon} size={18} color={kpi.color} />
+                </View>
+                <Text style={styles.kpiValue}>{kpi.value}</Text>
+                <Text style={styles.kpiLabel}>{kpi.label}</Text>
+              </View>
+            ))}
           </View>
 
-          {/* Motorista Destaque */}
+          {/* Phase 4: Motorista Destaque Card Redesign */}
           {kpis.motoristaDestaque && (
             <View style={styles.destaqueCard}>
-              <Ionicons name="trophy" size={20} color={theme.colors.secondary} />
-              <View style={styles.destaqueContent}>
-                <Text style={styles.destaqueLabel}>Motorista Destaque</Text>
-                <Text style={styles.destaqueNome}>{kpis.motoristaDestaque.nome}</Text>
-                <Text style={styles.destaqueStats}>
-                  {kpis.motoristaDestaque.rotasConcluidas} rotas concluídas
-                </Text>
+              <View style={styles.destaqueAccentBar} />
+              <View style={styles.destaqueBody}>
+                <View style={styles.destaqueTrophyCircle}>
+                  <Ionicons name="trophy" size={22} color={theme.colors.secondary} />
+                </View>
+                <View style={styles.destaqueContent}>
+                  <Text style={styles.destaqueLabel}>Motorista Destaque</Text>
+                  <Text style={styles.destaqueNome}>{kpis.motoristaDestaque.nome}</Text>
+                  <View style={styles.destaqueBadge}>
+                    <Ionicons name="checkmark-circle" size={12} color={theme.colors.successDark} />
+                    <Text style={styles.destaqueBadgeText}>
+                      {kpis.motoristaDestaque.rotasConcluidas} rotas concluídas
+                    </Text>
+                  </View>
+                </View>
               </View>
             </View>
           )}
         </View>
 
+        {/* Phase 5: Section Divider */}
+        <View style={styles.sectionDivider} />
+
         {/* Ações Rápidas */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ações Rápidas</Text>
+          <View style={styles.sectionTitleRow}>
+            <View style={styles.sectionTitleAccent} />
+            <Text style={styles.sectionTitle}>Ações Rápidas</Text>
+          </View>
 
-          <View style={styles.actionsContainer}>
-            <Button
-              title="Nova Rota de Entrega"
-              icon="add-circle"
-              variant="primary"
-              onPress={handleNovaEntregaPress}
-              fullWidth
-            />
+          <View style={styles.quickActionsGrid}>
+            <TouchableOpacity style={styles.quickActionCard} onPress={handleNovaEntregaPress} accessibilityRole="button" accessibilityLabel="Nova Rota de Entrega">
+              <View style={[styles.quickActionIcon, { backgroundColor: withOpacity(theme.colors.primary, 0.1) }]}>
+                <Ionicons name="add-circle" size={22} color={theme.colors.primary} />
+              </View>
+              <Text style={styles.quickActionLabel}>Nova Rota</Text>
+            </TouchableOpacity>
 
-            <Button
-              title="Gerenciar Motoristas"
-              icon="people"
-              variant="outline"
-              onPress={handleMotoristasPress}
-              fullWidth
-              style={styles.secondaryButton}
-            />
+            <TouchableOpacity style={styles.quickActionCard} onPress={handleMotoristasPress} accessibilityRole="button" accessibilityLabel="Gerenciar Motoristas">
+              <View style={[styles.quickActionIcon, { backgroundColor: withOpacity(theme.colors.success, 0.1) }]}>
+                <Ionicons name="people" size={22} color={theme.colors.success} />
+              </View>
+              <Text style={styles.quickActionLabel}>Motoristas</Text>
+            </TouchableOpacity>
 
-            <Button
-              title="Gestão de Rotas"
-              icon="clipboard"
-              variant="outline"
-              onPress={handleGestaoRotasPress}
-              fullWidth
-              style={styles.secondaryButton}
-            />
+            <TouchableOpacity style={styles.quickActionCard} onPress={handleGestaoRotasPress} accessibilityRole="button" accessibilityLabel="Gestão de Rotas">
+              <View style={[styles.quickActionIcon, { backgroundColor: withOpacity(theme.colors.secondary, 0.1) }]}>
+                <Ionicons name="clipboard" size={22} color={theme.colors.secondary} />
+              </View>
+              <Text style={styles.quickActionLabel}>Gestão</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
+        {/* Phase 5: Section Divider */}
+        <View style={styles.sectionDivider} />
+
         {/* Título da seção de rotas */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Rotas de Hoje</Text>
+          <View style={styles.sectionTitleRow}>
+            <View style={styles.sectionTitleAccent} />
+            <Text style={styles.sectionTitle}>Rotas de Hoje</Text>
+          </View>
         </View>
       </>
     ),
     [
       userData,
+      avatarInitial,
+      firstName,
       todayStats,
       stats,
       kpis,
+      kpiConfig,
       theme.colors,
       handleIncidentesPress,
       handleNovaEntregaPress,
@@ -239,13 +337,16 @@ export function DashboardMobile({
   const ListEmptyComponent = useMemo(
     () => (
       <View style={styles.emptyStateContainer}>
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyStateTitle}>Nenhuma rota cadastrada hoje</Text>
-          <Text style={styles.emptyStateSubtitle}>Crie sua primeira rota de entrega</Text>
-        </View>
+        <EmptyState
+          icon="map-outline"
+          title="Nenhuma rota cadastrada hoje"
+          description="Crie sua primeira rota de entrega para começar"
+          actionLabel="Nova Rota de Entrega"
+          onActionPress={handleNovaEntregaPress}
+        />
       </View>
     ),
-    []
+    [handleNovaEntregaPress]
   );
 
   // Footer com espaço extra para o FAB não cobrir conteúdo
@@ -326,56 +427,120 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.sm,
     color: theme.colors.gray500,
   },
+
+  // Phase 3: Header with avatar
   header: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
     paddingHorizontal: theme.spacing.xl,
     paddingVertical: theme.spacing.xl,
     backgroundColor: theme.colors.white,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray200,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: theme.colors.primaryBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarText: {
+    fontSize: theme.typography.lg,
+    fontFamily: theme.typography.fontDisplay,
+    color: theme.colors.primary,
+  },
   headerTextContainer: {
-    width: '100%',
+    flex: 1,
   },
   headerTitle: {
-    fontSize: theme.typography['3xl'],
+    fontSize: theme.typography['2xl'],
     fontFamily: theme.typography.fontDisplay,
     color: theme.colors.gray900,
   },
-  headerSubtitle: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
+  headerSubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     marginTop: 4,
   },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: theme.spacing.lg,
-    gap: theme.spacing.sm,
+  headerSubtitle: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray600,
   },
-  statsCardWrapper: {
-    width: '48%',
+
+  // Phase 1: Horizontal scroll stats strip
+  statsStrip: {
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: theme.spacing.xl,
+    gap: theme.spacing.md,
+  },
+  statsStripCard: {
+    width: 130,
+  },
+
+  // Phase 5: Section dividers and spacing
+  sectionDivider: {
+    height: 1,
+    backgroundColor: theme.colors.gray200,
+    marginHorizontal: theme.spacing.xl,
   },
   section: {
     paddingHorizontal: theme.spacing.xl,
-    paddingVertical: theme.spacing.md,
+    paddingVertical: theme.spacing.xl,
   },
   sectionHeader: {
     paddingHorizontal: theme.spacing.xl,
-    paddingTop: theme.spacing.md,
+    paddingTop: theme.spacing.xl,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.lg,
+  },
+  sectionTitleAccent: {
+    width: 3,
+    height: 18,
+    borderRadius: 2,
+    backgroundColor: theme.colors.primary,
   },
   sectionTitle: {
     fontSize: theme.typography.lg,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
-    marginBottom: theme.spacing.lg,
   },
-  actionsContainer: {
+  quickActionsGrid: {
+    flexDirection: 'row',
     gap: theme.spacing.sm,
   },
-  secondaryButton: {
+  quickActionCard: {
+    flex: 1,
     backgroundColor: theme.colors.white,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  quickActionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickActionLabel: {
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray700,
+    textAlign: 'center',
   },
   rotaItemContainer: {
     paddingHorizontal: theme.spacing.xl,
@@ -384,29 +549,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
   emptyStateContainer: {
     paddingHorizontal: theme.spacing.xl,
   },
-  emptyState: {
-    backgroundColor: theme.colors.white,
-    padding: theme.spacing['3xl'],
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.gray200,
-    alignItems: 'center',
-  },
-  emptyStateTitle: {
-    fontSize: theme.typography.base,
-    color: theme.colors.gray700,
-    textAlign: 'center',
-  },
-  emptyStateSubtitle: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
-    textAlign: 'center',
-    marginTop: theme.spacing.sm,
-  },
+  // Empty state uses EmptyState component (no custom styles needed)
+
+  // Phase 2: KPI cards with icons and accents
   kpisGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: theme.spacing.sm,
+    gap: theme.spacing.md,
     marginBottom: theme.spacing.md,
   },
   kpiCard: {
@@ -416,26 +565,52 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
     borderColor: theme.colors.gray200,
+    borderLeftWidth: 3,
+    alignItems: 'flex-start',
+    gap: theme.spacing.xs,
+  },
+  kpiIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   kpiValue: {
     fontSize: theme.typography['2xl'],
-    fontFamily: theme.typography.fontSansBold,
+    fontFamily: theme.typography.fontDisplay,
     color: theme.colors.gray900,
-    marginBottom: 4,
+    letterSpacing: -0.5,
   },
   kpiLabel: {
     fontSize: theme.typography.xs,
     color: theme.colors.gray500,
-    textAlign: 'center',
   },
+
+  // Phase 4: Motorista destaque redesign
   destaqueCard: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+    ...theme.shadows.sm,
+  },
+  destaqueAccentBar: {
+    height: 4,
+    backgroundColor: theme.colors.secondary,
+  },
+  destaqueBody: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.secondaryBg,
     padding: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
     gap: theme.spacing.md,
+  },
+  destaqueTrophyCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: theme.colors.secondaryBg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   destaqueContent: {
     flex: 1,
@@ -450,10 +625,21 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
   },
-  destaqueStats: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.secondary,
-    marginTop: 2,
+  destaqueBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: theme.colors.successBg,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 2,
+    borderRadius: theme.borderRadius.sm,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  destaqueBadgeText: {
+    fontSize: theme.typography.xs,
+    color: theme.colors.successDark,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   listFooter: {
     height: 100, // Espaço para o FAB não cobrir o último item

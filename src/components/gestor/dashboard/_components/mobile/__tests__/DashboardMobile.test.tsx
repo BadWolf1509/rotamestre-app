@@ -68,6 +68,38 @@ jest.mock('@/hooks/useMotoristas', () => ({
     }),
 }));
 
+// Mock motivationalMessages
+jest.mock('@/utils/motivationalMessages', () => ({
+    getGreeting: () => 'Bom dia',
+    getMotivationalMessage: () => 'Mensagem motivacional',
+}));
+
+// Mock color utils
+jest.mock('@/utils/color', () => ({
+    withOpacity: (color: string, _opacity: number) => color,
+    boxShadow: () => '0px 0px 0px #000',
+    dropShadow: () => 'drop-shadow(0px 0px 0px #000)',
+    textShadow: () => '0px 0px 0px #000',
+}));
+
+// Mock EmptyState
+jest.mock('@/components/EmptyState', () => ({
+    EmptyState: ({ title, description, actionLabel, onActionPress }: any) => {
+        const { Text, TouchableOpacity, View } = require('react-native');
+        return (
+            <View testID="empty-state">
+                <Text>{title}</Text>
+                <Text>{description}</Text>
+                {actionLabel && onActionPress && (
+                    <TouchableOpacity testID="empty-state-action" onPress={onActionPress}>
+                        <Text>{actionLabel}</Text>
+                    </TouchableOpacity>
+                )}
+            </View>
+        );
+    },
+}));
+
 // Mock RotaCard
 jest.mock('../../shared/RotaCard', () => ({
     RotaCard: ({ rota, onPress }: any) => {
@@ -109,8 +141,9 @@ describe('DashboardMobile', () => {
         kpis: {
             rotasMes: 45,
             kmMes: 1250.5,
-            tempoMedio: '2h 15min',
+            tempoMedioMinutos: 135,
             taxaSucesso: 98.5,
+            rotasSemana: 12,
         },
         rotas: [
             { id: 'rota-1', motorista_nome: 'João Silva', status: 'em_andamento' },
@@ -145,7 +178,9 @@ describe('DashboardMobile', () => {
         it('deve renderizar header com nome do usuário', () => {
             const { getByText } = render(<DashboardMobile {...defaultProps} />);
 
-            expect(getByText('Olá, Admin User!')).toBeTruthy();
+            // Phase 3: Time-based greeting with first name only + avatar
+            expect(getByText(/Bom dia/)).toBeTruthy();
+            expect(getByText(/Admin/)).toBeTruthy();
         });
 
         it('deve renderizar nome da unidade', () => {
@@ -173,12 +208,23 @@ describe('DashboardMobile', () => {
 
     describe('Empty state', () => {
         it('deve mostrar empty state quando não há rotas', () => {
-            const { getByText } = render(
+            const { getByText, getByTestId } = render(
                 <DashboardMobile {...defaultProps} rotas={[]} />
             );
 
+            expect(getByTestId('empty-state')).toBeTruthy();
             expect(getByText('Nenhuma rota cadastrada hoje')).toBeTruthy();
-            expect(getByText('Crie sua primeira rota de entrega')).toBeTruthy();
+            expect(getByText('Crie sua primeira rota de entrega para começar')).toBeTruthy();
+        });
+
+        it('deve ter botão de ação no empty state', () => {
+            const { getByTestId, getByText } = render(
+                <DashboardMobile {...defaultProps} rotas={[]} />
+            );
+
+            expect(getByText('Nova Rota de Entrega')).toBeTruthy();
+            fireEvent.press(getByTestId('empty-state-action'));
+            expect(mockPush).toHaveBeenCalledWith('/gestor/nova-entrega');
         });
     });
 
@@ -186,7 +232,7 @@ describe('DashboardMobile', () => {
         it('deve navegar para nova entrega ao clicar no botão', () => {
             const { getByText } = render(<DashboardMobile {...defaultProps} />);
 
-            fireEvent.press(getByText('Nova Rota de Entrega'));
+            fireEvent.press(getByText('Nova Rota'));
 
             expect(mockPush).toHaveBeenCalledWith('/gestor/nova-entrega');
         });
@@ -194,7 +240,7 @@ describe('DashboardMobile', () => {
         it('deve navegar para motoristas ao clicar no botão', () => {
             const { getByText } = render(<DashboardMobile {...defaultProps} />);
 
-            fireEvent.press(getByText('Gerenciar Motoristas'));
+            fireEvent.press(getByText('Motoristas'));
 
             expect(mockPush).toHaveBeenCalledWith('/gestor/motoristas');
         });
@@ -202,7 +248,7 @@ describe('DashboardMobile', () => {
         it('deve navegar para gestão de rotas ao clicar no botão', () => {
             const { getByText } = render(<DashboardMobile {...defaultProps} />);
 
-            fireEvent.press(getByText('Gestão de Rotas'));
+            fireEvent.press(getByText('Gestão'));
 
             expect(mockPush).toHaveBeenCalledWith('/gestor/gestao-rotas');
         });
