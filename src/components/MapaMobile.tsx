@@ -514,7 +514,10 @@ export function MapaMobile({
                         style={[
                           styles.calloutStatus,
                           {
-                            backgroundColor: `${getMarkerColor(parada.status)}20`,
+                            backgroundColor: withOpacity(
+                              getMarkerColor(parada.status),
+                              0.12,
+                            ),
                           },
                         ]}
                       >
@@ -524,11 +527,7 @@ export function MapaMobile({
                             { color: getMarkerColor(parada.status) },
                           ]}
                         >
-                          {parada.status === "concluida"
-                            ? "Concluída"
-                            : parada.status === "em_andamento"
-                              ? "Em andamento"
-                              : "Pendente"}
+                          {getStatusLabel(parada.status)}
                         </Text>
                       </View>
                       {parada.tipo && (
