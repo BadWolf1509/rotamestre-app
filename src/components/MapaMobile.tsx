@@ -437,7 +437,7 @@ export function MapaMobile({
                 >
                   <Ionicons
                     name={iconName}
-                    size={14}
+                    size={16}
                     color={theme.colors.white}
                   />
                 </Pressable>
@@ -697,9 +697,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     textAlign: "center",
   },
   markerContainer: {
-    width: theme.spacing["8"],
-    height: theme.spacing["8"],
-    borderRadius: theme.spacing["4"],
+    width: theme.components.minTouchTarget,
+    height: theme.components.minTouchTarget,
+    borderRadius: theme.components.minTouchTarget / 2,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 3,
@@ -718,9 +718,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   // Checkpoint compacto azul marca - ícones distintos para PARTIDA/CHEGADA
   checkpointMarkerCompact: {
-    width: theme.spacing["7"],
-    height: theme.spacing["7"],
-    borderRadius: theme.borderRadius.xs + 2,
+    width: 36,
+    height: 36,
+    borderRadius: theme.borderRadius.sm,
     borderBottomLeftRadius: theme.spacing["0.5"],
     backgroundColor: theme.colors.primary,
     justifyContent: "center",
@@ -796,13 +796,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   markerText: {
     color: theme.colors.surface,
-    fontSize: theme.typography.fontSize.sm,
+    fontSize: theme.typography.fontSize.base,
     fontWeight: "bold",
   },
   markerSelected: {
     borderWidth: theme.spacing["1"],
     borderColor: theme.colors.primary,
-    transform: [{ scale: 1.2 }],
+    transform: [{ scale: 1.1 }],
   },
   markerPressed: {
     transform: [{ scale: 0.9 }],
