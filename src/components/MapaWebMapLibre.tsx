@@ -304,7 +304,13 @@ export default function MapaWebMapLibre({
       })
         .setLngLat([parada.longitude, parada.latitude])
         .setHTML(
-          createPopupContent(parada, isCheckpoint, isPartida, unidadeNome, theme),
+          createPopupContent(
+            parada,
+            isCheckpoint,
+            isPartida,
+            unidadeNome,
+            theme,
+          ),
         )
         .addTo(mapRef.current);
     },
