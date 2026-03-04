@@ -16,7 +16,7 @@ const OFFLINE_PHOTOS_INDEX_KEY = '@rotamestre:offline_photos_index';
 
 interface OfflineAction {
   id: string;
-  type: 'update_parada' | 'insert_log' | 'finalizar_rota' | 'upload_foto';
+  type: 'update_parada' | 'insert_log' | 'finalizar_rota';
   data: any;
   timestamp: string;
 }
@@ -169,15 +169,12 @@ export async function queuePhotoUpload(
   paradaId: string,
   photoUri: string
 ): Promise<string> {
-  // Salvar foto localmente
+  // Save photo locally (adds to photos index via savePhotoOffline -> addToPhotosIndex)
   const photoData = await savePhotoOffline(photoUri, unidadeId, rotaId, paradaId);
 
-  // Adicionar à fila offline
-  await addToOfflineQueue({
-    type: 'upload_foto',
-    data: photoData,
-  });
-
+  // Photos are tracked exclusively via photos index, processed by processOfflinePhotos()
+  // No addToOfflineQueue call - that caused duplicate uploads when setupOfflineSync
+  // processed both processOfflineQueue() and processOfflinePhotos()
   return photoData.localPath;
 }
 
@@ -370,37 +367,6 @@ async function executeOfflineAction(action: OfflineAction): Promise<void> {
         .update(rotaData)
         .eq('id', rotaId);
       if (rotaError) throw rotaError;
-      break;
-    }
-
-    case 'upload_foto': {
-      const photoData = action.data as OfflinePhotoData;
-
-      // Verificar se arquivo ainda existe
-      if (Platform.OS !== 'web') {
-        const fileInfo = await FileSystem.getInfoAsync(photoData.localPath);
-        if (!fileInfo.exists) {
-          // Remover do índice mesmo assim
-          await removeFromPhotosIndex(photoData.paradaId);
-          return; // Não é um erro, apenas foto não existe mais
-        }
-      }
-
-      // Fazer upload
-      const uploaded = await uploadELinkFotoParada(
-        photoData.unidadeId,
-        photoData.rotaId,
-        photoData.paradaId,
-        photoData.localPath
-      );
-
-      if (!uploaded) {
-        throw new Error('Falha no upload da foto');
-      }
-
-      // Limpar arquivo local e índice
-      await deleteLocalPhoto(photoData.localPath);
-      await removeFromPhotosIndex(photoData.paradaId);
       break;
     }
 

@@ -605,12 +605,12 @@ describe('offline', () => {
         beforeEach(() => {
             // FileSystem.getInfoAsync for ensureOfflinePhotosDir
             FileSystem.getInfoAsync.mockResolvedValue({ exists: true });
-            // AsyncStorage for addToPhotosIndex and addToOfflineQueue
+            // AsyncStorage for addToPhotosIndex (photos index only, no general queue)
             mockAsyncStorage.getItem.mockResolvedValue(null);
             mockAsyncStorage.setItem.mockResolvedValue(undefined as any);
         });
 
-        it('deve salvar foto localmente e adicionar à fila offline', async () => {
+        it('deve salvar foto localmente e adicionar ao photos index', async () => {
             const result = await queuePhotoUpload(
                 'unidade-1',
                 'rota-1',
@@ -629,25 +629,54 @@ describe('offline', () => {
                 })
             );
 
-            // Should have saved to AsyncStorage (photos index + offline queue)
-            expect(mockAsyncStorage.setItem).toHaveBeenCalled();
+            // Should have saved to photos index only (one setItem call)
+            expect(mockAsyncStorage.setItem).toHaveBeenCalledTimes(1);
+            expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
+                '@rotamestre:offline_photos_index',
+                expect.any(String)
+            );
         });
 
-        it('deve funcionar com fila existente (append)', async () => {
-            // Pre-existing queue
-            const existingQueue = JSON.stringify([{ id: 'existing', type: 'update_parada', data: {}, timestamp: 1 }]);
-            mockAsyncStorage.getItem
-                .mockResolvedValueOnce(null) // getOfflinePhotosIndex (for addToPhotosIndex)
-                .mockResolvedValueOnce(existingQueue); // getOfflineQueue (for addToOfflineQueue)
-
-            const result = await queuePhotoUpload(
+        it('NÃO deve adicionar à fila offline geral (evita upload duplicado)', async () => {
+            await queuePhotoUpload(
                 'unidade-1',
                 'rota-1',
                 'parada-1',
                 'file:///tmp/photo.jpg'
             );
 
-            expect(result).toBeTruthy();
+            // Verify setItem was only called for photos index, NOT for offline queue
+            const setItemCalls = mockAsyncStorage.setItem.mock.calls;
+            const queueCalls = setItemCalls.filter(
+                (call: string[]) => call[0] === '@rotamestre:offline_queue'
+            );
+            expect(queueCalls).toHaveLength(0);
+
+            // Only photos index should be updated
+            const photosIndexCalls = setItemCalls.filter(
+                (call: string[]) => call[0] === '@rotamestre:offline_photos_index'
+            );
+            expect(photosIndexCalls).toHaveLength(1);
+        });
+
+        it('deve adicionar foto ao photos index com dados corretos', async () => {
+            await queuePhotoUpload(
+                'unidade-1',
+                'rota-1',
+                'parada-1',
+                'file:///tmp/photo.jpg'
+            );
+
+            const savedData = JSON.parse(mockAsyncStorage.setItem.mock.calls[0][1]);
+            expect(savedData).toHaveLength(1);
+            expect(savedData[0]).toMatchObject({
+                unidadeId: 'unidade-1',
+                rotaId: 'rota-1',
+                paradaId: 'parada-1',
+                originalUri: 'file:///tmp/photo.jpg',
+            });
+            expect(savedData[0].localPath).toContain('/mock/documents/offline_photos/');
+            expect(savedData[0].savedAt).toBeDefined();
         });
 
         it('deve gerar nomes de arquivo únicos por parada', async () => {
@@ -657,6 +686,29 @@ describe('offline', () => {
             expect(result1).toContain('parada-A');
             expect(result2).toContain('parada-B');
             expect(result1).not.toEqual(result2);
+        });
+
+        it('deve funcionar com photos index existente (append)', async () => {
+            // Pre-existing photos in the index
+            const existingPhotos = [
+                { localPath: '/mock/path/existing.jpg', paradaId: 'p-existing', unidadeId: 'u1', rotaId: 'r1', originalUri: 'file:///existing.jpg', savedAt: '2026-01-01T00:00:00.000Z' },
+            ];
+            mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(existingPhotos));
+
+            const result = await queuePhotoUpload(
+                'unidade-1',
+                'rota-1',
+                'parada-1',
+                'file:///tmp/photo.jpg'
+            );
+
+            expect(result).toBeTruthy();
+
+            // Should have appended to the existing photos index
+            const savedData = JSON.parse(mockAsyncStorage.setItem.mock.calls[0][1]);
+            expect(savedData).toHaveLength(2);
+            expect(savedData[0].paradaId).toBe('p-existing');
+            expect(savedData[1].paradaId).toBe('parada-1');
         });
     });
 
