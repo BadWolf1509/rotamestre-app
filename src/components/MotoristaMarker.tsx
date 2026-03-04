@@ -7,6 +7,7 @@ import { logger } from "@/lib/logger";
 import { toLngLat } from "@/lib/maplibre";
 import { supabase } from "@/lib/supabase";
 import type { MotoristaLocation } from "@/types/notifications";
+import { withOpacity } from "@/utils/color";
 import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
 
 interface MotoristaMarkerProps {
@@ -130,7 +131,7 @@ function MotoristaMarkerComponent({
             {
               width: accuracySize,
               height: accuracySize,
-              backgroundColor: `${markerColor}20`,
+              backgroundColor: withOpacity(markerColor, 0.12),
               borderColor: markerColor,
             },
           ]}
@@ -190,9 +191,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     opacity: 0.3,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: theme.spacing["10"],
+    height: theme.spacing["10"],
+    borderRadius: theme.spacing["5"],
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 3,
@@ -205,14 +206,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   directionArrow: {
     position: "absolute",
-    top: -8,
+    top: -theme.spacing["2"],
   },
   callout: {
-    marginTop: 8,
+    marginTop: theme.spacing["2"],
     backgroundColor: theme.colors.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: theme.spacing["3"],
+    paddingVertical: theme.spacing["1.5"],
+    borderRadius: theme.borderRadius.sm,
     minWidth: 100,
     alignItems: "center",
     shadowColor: theme.colors.black,
@@ -222,18 +223,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
     elevation: 3,
   },
   calloutName: {
-    fontSize: 12,
+    fontSize: theme.typography.fontSize.xs,
     fontWeight: "600",
     color: theme.colors.text,
   },
   calloutSpeed: {
-    fontSize: 14,
+    fontSize: theme.typography.fontSize.sm,
     fontWeight: "700",
-    marginTop: 2,
+    marginTop: theme.spacing["0.5"],
   },
   calloutTime: {
-    fontSize: theme.typography.fontSize.xs, // Min readable (WCAG AA)
+    fontSize: theme.typography.fontSize.xs,
     color: theme.colors.textSecondary,
-    marginTop: 2,
+    marginTop: theme.spacing["0.5"],
   },
 }));
