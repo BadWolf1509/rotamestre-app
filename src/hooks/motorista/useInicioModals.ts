@@ -29,6 +29,7 @@ export interface InicioModalsState {
 
   // Data associated with modals
   selectedParadaForCompletion: ParadaData | null;
+  selectedParadaForSkip: ParadaData | null;
   optimization: any;
 }
 
@@ -43,6 +44,7 @@ const initialState: InicioModalsState = {
   navigationMode: false,
   miniMapExpanded: false,
   selectedParadaForCompletion: null,
+  selectedParadaForSkip: null,
   optimization: null,
 };
 
@@ -59,7 +61,7 @@ type ModalAction =
   | { type: 'CLOSE_SUPPORT' }
   | { type: 'OPEN_COMPLETE_ROUTE' }
   | { type: 'CLOSE_COMPLETE_ROUTE' }
-  | { type: 'OPEN_SKIP_MODAL' }
+  | { type: 'OPEN_SKIP_MODAL'; parada: ParadaData }
   | { type: 'CLOSE_SKIP_MODAL' }
   | { type: 'SET_NAVIGATION_MODE'; enabled: boolean }
   | { type: 'TOGGLE_MINI_MAP' }
@@ -107,9 +109,9 @@ function modalReducer(state: InicioModalsState, action: ModalAction): InicioModa
       return { ...state, showCompleteRouteModal: false };
 
     case 'OPEN_SKIP_MODAL':
-      return { ...state, showSkipModal: true };
+      return { ...state, showSkipModal: true, selectedParadaForSkip: action.parada };
     case 'CLOSE_SKIP_MODAL':
-      return { ...state, showSkipModal: false };
+      return { ...state, showSkipModal: false, selectedParadaForSkip: null };
 
     case 'SET_NAVIGATION_MODE':
       return { ...state, navigationMode: action.enabled };
@@ -158,7 +160,10 @@ export function useInicioModals() {
   const openCompleteRoute = useCallback(() => dispatch({ type: 'OPEN_COMPLETE_ROUTE' }), []);
   const closeCompleteRoute = useCallback(() => dispatch({ type: 'CLOSE_COMPLETE_ROUTE' }), []);
 
-  const openSkipModal = useCallback(() => dispatch({ type: 'OPEN_SKIP_MODAL' }), []);
+  const openSkipModal = useCallback(
+    (parada: ParadaData) => dispatch({ type: 'OPEN_SKIP_MODAL', parada }),
+    [],
+  );
   const closeSkipModal = useCallback(() => dispatch({ type: 'CLOSE_SKIP_MODAL' }), []);
 
   const setNavigationMode = useCallback(

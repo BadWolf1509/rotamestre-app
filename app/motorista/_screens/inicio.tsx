@@ -241,20 +241,23 @@ function MotoristaInicioContent() {
   };
 
   // Skip current stop - opens SkipReasonModal
+  // Captures currentStop at open time to prevent stale closure
   const handleSkipStop = () => {
     if (!currentStop) return;
-    modals.openSkipModal();
+    modals.openSkipModal(currentStop);
   };
 
   // Confirm skip with structured reason
+  // Uses captured parada from modal state (not currentStop) to prevent stale closure
   const handleConfirmSkip = async (
     motivo: MotivoSkip,
     observacoes?: string,
   ) => {
-    if (!currentStop) return;
+    const parada = modals.selectedParadaForSkip;
+    if (!parada) return;
     modals.closeSkipModal();
     try {
-      await skipStop(currentStop.id, motivo, observacoes);
+      await skipStop(parada.id, motivo, observacoes);
       showSuccess("Parada Pulada", SKIP_REASON_LABELS[motivo]);
     } catch (error: unknown) {
       showError(error);
@@ -598,10 +601,10 @@ function MotoristaInicioContent() {
       />
 
       {/* Skip Reason Modal */}
-      {modals.showSkipModal && currentStop && (
+      {modals.showSkipModal && modals.selectedParadaForSkip && (
         <SkipReasonModal
           visible={modals.showSkipModal}
-          parada={currentStop}
+          parada={modals.selectedParadaForSkip}
           onConfirm={handleConfirmSkip}
           onCancel={modals.closeSkipModal}
         />
