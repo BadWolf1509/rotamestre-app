@@ -110,7 +110,8 @@ function createPopupContent(
   parada: Parada,
   isCheckpoint: boolean,
   isPartida: boolean,
-  unidadeNome?: string,
+  unidadeNome: string | undefined,
+  theme: Theme,
 ): string {
   if (isCheckpoint) {
     const title = isPartida ? "🚀 Ponto de Partida" : "🏁 Ponto de Chegada";
@@ -118,7 +119,7 @@ function createPopupContent(
     return `
       <div style="padding: 8px; max-width: 250px; font-family: system-ui, -apple-system, sans-serif;">
         <strong style="font-size: 14px;">${title}</strong>
-        <p style="margin: 4px 0; font-size: 12px; color: #4b5563;">${subtitle}</p>
+        <p style="margin: 4px 0; font-size: 12px; color: ${theme.colors.textSecondary};">${subtitle}</p>
         ${unidadeNome ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Unidade:</strong> ${escapeHtml(unidadeNome)}</p>` : ""}
         <p style="margin: 4px 0; font-size: 12px;">${escapeHtml(parada.endereco)}</p>
       </div>
@@ -137,8 +138,8 @@ function createPopupContent(
   return `
     <div style="padding: 8px; max-width: 280px; font-family: system-ui, -apple-system, sans-serif;">
       <strong style="font-size: 14px;">Parada ${escapeHtml(String(parada.ordem))}</strong>
-      <span style="margin-left: 8px; font-size: 12px; color: #4b5563;">${tipoLabel}</span>
-      <p style="margin: 4px 0; font-size: 12px; color: #4b5563;">${statusLabel[parada.status] || escapeHtml(parada.status)}</p>
+      <span style="margin-left: 8px; font-size: 12px; color: ${theme.colors.textSecondary};">${tipoLabel}</span>
+      <p style="margin: 4px 0; font-size: 12px; color: ${theme.colors.textSecondary};">${statusLabel[parada.status] || escapeHtml(parada.status)}</p>
       <p style="margin: 4px 0; font-size: 12px;">${escapeHtml(parada.endereco)}</p>
       ${parada.destinatario ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Destinatário:</strong> ${escapeHtml(parada.destinatario)}</p>` : ""}
       ${parada.telefone ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Telefone:</strong> ${escapeHtml(parada.telefone)}</p>` : ""}
@@ -303,11 +304,11 @@ export default function MapaWebMapLibre({
       })
         .setLngLat([parada.longitude, parada.latitude])
         .setHTML(
-          createPopupContent(parada, isCheckpoint, isPartida, unidadeNome),
+          createPopupContent(parada, isCheckpoint, isPartida, unidadeNome, theme),
         )
         .addTo(mapRef.current);
     },
-    [unidadeNome],
+    [unidadeNome, theme],
   );
 
   // Initialize map
