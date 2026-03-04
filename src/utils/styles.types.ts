@@ -77,6 +77,7 @@ export interface Theme {
     kpiEmAndamento: string;
     kpiConcluidas: string;
     kpiDistancia: string;
+    kpiDistanciaDark: string;
     kpiIncidentes: string;
     // Incident Categories (semantic colors)
     incident: {
@@ -91,37 +92,37 @@ export interface Theme {
   };
   spacing: {
     // Numeric tokens (primary scale - 4px grid)
-    '0': number;
-    '0.5': number;  // 2px - borders, dividers
-    '1': number;    // 4px - icon gaps
-    '1.5': number;  // 6px - compact sm
-    '2': number;    // 8px - small padding
-    '2.5': number;  // 10px - compact md
-    '3': number;    // 12px - default padding
-    '3.5': number;  // 14px - intermediate
-    '4': number;    // 16px - card padding
-    '5': number;    // 20px - component margins
-    '6': number;    // 24px - container padding
-    '7': number;    // 28px - intermediate
-    '8': number;    // 32px - sections
-    '10': number;   // 40px - content areas
-    '12': number;   // 48px - page padding
-    '14': number;   // 56px - intermediate
-    '16': number;   // 64px - hero sections
-    '20': number;   // 80px - max spacing
-    '24': number;   // 96px - exceptional
+    "0": number;
+    "0.5": number; // 2px - borders, dividers
+    "1": number; // 4px - icon gaps
+    "1.5": number; // 6px - compact sm
+    "2": number; // 8px - small padding
+    "2.5": number; // 10px - compact md
+    "3": number; // 12px - default padding
+    "3.5": number; // 14px - intermediate
+    "4": number; // 16px - card padding
+    "5": number; // 20px - component margins
+    "6": number; // 24px - container padding
+    "7": number; // 28px - intermediate
+    "8": number; // 32px - sections
+    "10": number; // 40px - content areas
+    "12": number; // 48px - page padding
+    "14": number; // 56px - intermediate
+    "16": number; // 64px - hero sections
+    "20": number; // 80px - max spacing
+    "24": number; // 96px - exceptional
     // Semantic aliases (for backwards compatibility)
-    xs: number;     // → '1' (4px)
-    sm: number;     // → '2' (8px)
-    md: number;     // → '3' (12px)
-    lg: number;     // → '4' (16px)
-    xl: number;     // → '5' (20px)
-    xxl: number;    // → '6' (24px)
-    '2xl': number;  // → '6' (24px) - deprecated, use xxl
-    '3xl': number;  // → '8' (32px)
-    '4xl': number;  // → '10' (40px)
-    '5xl': number;  // → '12' (48px)
-    '6xl': number;  // → '16' (64px)
+    xs: number; // → '1' (4px)
+    sm: number; // → '2' (8px)
+    md: number; // → '3' (12px)
+    lg: number; // → '4' (16px)
+    xl: number; // → '5' (20px)
+    xxl: number; // → '6' (24px)
+    "2xl": number; // → '6' (24px) - deprecated, use xxl
+    "3xl": number; // → '8' (32px)
+    "4xl": number; // → '10' (40px)
+    "5xl": number; // → '12' (48px)
+    "6xl": number; // → '16' (64px)
   };
   typography: {
     fontDisplay: string;
@@ -138,9 +139,9 @@ export interface Theme {
       lg: number;
       xl: number;
       xxl: number;
-      '2xl': number;
-      '3xl': number;
-      '4xl': number;
+      "2xl": number;
+      "3xl": number;
+      "4xl": number;
     };
     xs: number;
     sm: number;
@@ -149,20 +150,20 @@ export interface Theme {
     lg: number;
     xl: number;
     xxl: number;
-    '2xl': number;
-    '3xl': number;
-    '4xl': number;
+    "2xl": number;
+    "3xl": number;
+    "4xl": number;
   };
   borderRadius: {
-    xs: number;   // 4px - small elements (chips, small buttons)
-    sm: number;   // 8px - inputs, buttons, cards
-    md: number;   // 10px - cards, modals
-    lg: number;   // 12px - large cards, dialogs
-    xl: number;   // 16px - hero sections
-    xxl: number;  // 20px - large modals, sheets
-    '2xl': number; // 20px - alias for xxl
-    '3xl': number; // 24px - bottom sheets, large dialogs
-    '4xl': number; // 32px - full-screen modals
+    xs: number; // 4px - small elements (chips, small buttons)
+    sm: number; // 8px - inputs, buttons, cards
+    md: number; // 10px - cards, modals
+    lg: number; // 12px - large cards, dialogs
+    xl: number; // 16px - hero sections
+    xxl: number; // 20px - large modals, sheets
+    "2xl": number; // 20px - alias for xxl
+    "3xl": number; // 24px - bottom sheets, large dialogs
+    "4xl": number; // 32px - full-screen modals
     full: number; // 9999 - circular elements
   };
   shadows: {

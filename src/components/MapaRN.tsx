@@ -1,14 +1,19 @@
-import { Ionicons } from '@expo/vector-icons';
-import MapLibreGL from '@maplibre/maplibre-react-native';
-import React, { useMemo, useCallback } from 'react';
-import { View, TouchableOpacity, Text, Linking, Platform } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import MapLibreGL from "@maplibre/maplibre-react-native";
+import React, { useMemo, useCallback } from "react";
+import { View, TouchableOpacity, Text, Linking, Platform } from "react-native";
 
-import { useDirectionsMobile } from '@/components/map/hooks';
-import { getStatusColor } from '@/components/map/infoWindowBuilders';
-import { useAlert } from '@/hooks/useAlert';
-import { MAPLIBRE_RASTER_STYLE, toLineString, toLngLat, zoomFromLongitudeDelta } from '@/lib/maplibre';
-import type { ParadaWithCoords as Parada } from '@/types/parada-map';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { useDirectionsMobile } from "@/components/map/hooks";
+import { getStatusColor } from "@/components/map/infoWindowBuilders";
+import { useAlert } from "@/hooks/useAlert";
+import {
+  MAPLIBRE_RASTER_STYLE,
+  toLineString,
+  toLngLat,
+  zoomFromLongitudeDelta,
+} from "@/lib/maplibre";
+import type { ParadaWithCoords as Parada } from "@/types/parada-map";
+import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
 
 interface MapaRNProps {
   paradas: Parada[];
@@ -17,14 +22,19 @@ interface MapaRNProps {
   onMarkerPress?: (paradaId: string) => void;
 }
 
-export function MapaRN({ paradas, rotaAtiva = false, selectedParadaId, onMarkerPress }: MapaRNProps) {
+export function MapaRN({
+  paradas,
+  rotaAtiva = false,
+  selectedParadaId,
+  onMarkerPress,
+}: MapaRNProps) {
   const { theme } = useUnistyles();
   const { showError, AlertDialog } = useAlert();
 
   // Filter paradas with valid coordinates
   const validParadas = useMemo(
     () => paradas.filter((p) => p.latitude != null && p.longitude != null),
-    [paradas]
+    [paradas],
   );
 
   // Use directions hook
@@ -33,8 +43,11 @@ export function MapaRN({ paradas, rotaAtiva = false, selectedParadaId, onMarkerP
   });
 
   const routeShape = useMemo(
-    () => (directions?.coordinates?.length ? toLineString(directions.coordinates) : null),
-    [directions]
+    () =>
+      directions?.coordinates?.length
+        ? toLineString(directions.coordinates)
+        : null,
+    [directions],
   );
 
   // Start navigation handler
@@ -55,7 +68,10 @@ export function MapaRN({ paradas, rotaAtiva = false, selectedParadaId, onMarkerP
     if (supported) {
       await Linking.openURL(url);
     } else {
-      showError({ title: 'Erro', message: 'Google Maps não está instalado no dispositivo.' });
+      showError({
+        title: "Erro",
+        message: "Google Maps não está instalado no dispositivo.",
+      });
     }
   }, [showError, validParadas]);
 
@@ -66,22 +82,27 @@ export function MapaRN({ paradas, rotaAtiva = false, selectedParadaId, onMarkerP
   }, [validParadas]);
 
   // Get marker color based on status
-  const getMarkerStyle = useCallback((parada: Parada) => {
-    const isCheckpoint = parada.is_checkpoint === false;
-    if (isCheckpoint) {
-      const isPartida = parada.id === checkpointIds.partidaId;
+  const getMarkerStyle = useCallback(
+    (parada: Parada) => {
+      const isCheckpoint = parada.is_checkpoint === false;
+      if (isCheckpoint) {
+        const isPartida = parada.id === checkpointIds.partidaId;
+        return {
+          backgroundColor: isPartida
+            ? theme.colors.success
+            : theme.colors.error,
+          isCheckpoint: true,
+          isPartida,
+        };
+      }
       return {
-        backgroundColor: isPartida ? theme.colors.success : theme.colors.error,
-        isCheckpoint: true,
-        isPartida,
+        backgroundColor: getStatusColor(parada.status),
+        isCheckpoint: false,
+        isPartida: false,
       };
-    }
-    return {
-      backgroundColor: getStatusColor(parada.status),
-      isCheckpoint: false,
-      isPartida: false,
-    };
-  }, [theme.colors.success, theme.colors.error, checkpointIds]);
+    },
+    [theme.colors.success, theme.colors.error, checkpointIds],
+  );
 
   // Calculate initial camera settings (must be before any conditional returns)
   const initialCamera = useMemo(() => {
@@ -127,7 +148,9 @@ export function MapaRN({ paradas, rotaAtiva = false, selectedParadaId, onMarkerP
           const markerSize = isCheckpoint ? 44 : 40;
           const borderWidth = isSelected ? 4 : 3;
           const accessLabel = isCheckpoint
-            ? (markerStyle.isPartida ? 'Ponto de Partida' : 'Ponto de Chegada')
+            ? markerStyle.isPartida
+              ? "Ponto de Partida"
+              : "Ponto de Chegada"
             : `Parada ${parada.ordem}`;
 
           return (
@@ -146,29 +169,33 @@ export function MapaRN({ paradas, rotaAtiva = false, selectedParadaId, onMarkerP
                 accessibilityLabel={accessLabel}
               >
                 <View style={styles.markerContainer}>
-                  <View style={[
-                    styles.marker,
-                    {
-                      width: markerSize,
-                      height: markerSize,
-                      borderRadius: markerSize / 2,
-                      borderWidth,
-                      borderColor: markerStyle.backgroundColor,
-                      backgroundColor: theme.colors.surface,
-                    },
-                    isSelected && styles.markerSelected,
-                  ]}>
+                  <View
+                    style={[
+                      styles.marker,
+                      {
+                        width: markerSize,
+                        height: markerSize,
+                        borderRadius: markerSize / 2,
+                        borderWidth,
+                        borderColor: markerStyle.backgroundColor,
+                        backgroundColor: theme.colors.surface,
+                      },
+                      isSelected && styles.markerSelected,
+                    ]}
+                  >
                     {isCheckpoint ? (
                       <Ionicons
-                        name={markerStyle.isPartida ? 'flag' : 'flag-outline'}
+                        name={markerStyle.isPartida ? "flag" : "flag-outline"}
                         size={isCheckpoint ? 20 : 18}
                         color={markerStyle.backgroundColor}
                       />
                     ) : (
-                      <Text style={[
-                        styles.markerText,
-                        { color: markerStyle.backgroundColor },
-                      ]}>
+                      <Text
+                        style={[
+                          styles.markerText,
+                          { color: markerStyle.backgroundColor },
+                        ]}
+                      >
                         {parada.ordem}
                       </Text>
                     )}
@@ -223,8 +250,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: theme.colors.background,
   },
   emptyText: {
@@ -232,18 +259,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.textSecondary,
   },
   markerContainer: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   marker: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 3,
     borderColor: theme.colors.primary,
     backgroundColor: theme.colors.surface,
-    shadowColor: '#000',
+    shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
@@ -257,11 +284,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   markerText: {
     color: theme.colors.primary,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     fontSize: theme.typography.fontSize.base,
   },
   infoBox: {
-    position: 'absolute',
+    position: "absolute",
     top: theme.spacing.lg,
     left: theme.spacing.lg,
     right: theme.spacing.lg,
@@ -278,10 +305,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
   infoText: {
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.text,
-    textAlign: 'center',
+    textAlign: "center",
   },
   botaoNavegar: {
-    position: 'absolute',
+    position: "absolute",
     bottom: theme.spacing.xl,
     left: theme.spacing.lg,
     right: theme.spacing.lg,
@@ -297,7 +324,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   botaoTexto: {
     color: theme.colors.surface,
     fontSize: theme.typography.fontSize.lg,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
   },
 }));

@@ -224,7 +224,7 @@ export function DashboardMobile({
               <StatsCard
                 value={stats.distanciaTotal.toFixed(1)}
                 label="km Total"
-                backgroundColor="#0f766e"
+                backgroundColor={theme.colors.kpiDistanciaDark}
                 icon="speedometer-outline"
               />
             </View>
