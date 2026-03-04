@@ -34,6 +34,7 @@ import {
 } from "@/lib/openFreeMapStyle";
 import { escapeHtml } from "@/lib/utils";
 import type { ParadaMapItem as Parada, StatusFilter } from "@/types/parada-map";
+import { withOpacity } from "@/utils/color";
 import { getMarkerColorExpression } from "@/utils/mapMarkerColors";
 import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
 
@@ -505,7 +506,7 @@ export default function MapaWebMapLibre({
         paint: {
           "circle-color": circleColorExpression,
           "circle-radius": circleRadiusExpression,
-          "circle-stroke-color": "#ffffff",
+          "circle-stroke-color": theme.colors.white,
           "circle-stroke-width": circleStrokeWidthExpression,
           "circle-blur": circleBlurExpression,
         },
@@ -544,8 +545,8 @@ export default function MapaWebMapLibre({
           "text-ignore-placement": true,
         },
         paint: {
-          "text-color": "#ffffff",
-          "text-halo-color": "rgba(0,0,0,0.3)",
+          "text-color": theme.colors.white,
+          "text-halo-color": withOpacity(theme.colors.black, 0.3),
           "text-halo-width": 0.8,
         },
       });
