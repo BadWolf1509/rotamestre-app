@@ -103,13 +103,9 @@ export async function savePhotoOffline(
  * Adiciona foto ao índice de fotos offline
  */
 async function addToPhotosIndex(photoData: OfflinePhotoData): Promise<void> {
-  try {
-    const index = await getOfflinePhotosIndex();
-    index.push(photoData);
-    await AsyncStorage.setItem(OFFLINE_PHOTOS_INDEX_KEY, JSON.stringify(index));
-  } catch {
-    // Silently fail - não crítico
-  }
+  const index = await getOfflinePhotosIndex();
+  index.push(photoData);
+  await AsyncStorage.setItem(OFFLINE_PHOTOS_INDEX_KEY, JSON.stringify(index));
 }
 
 /**

@@ -688,6 +688,24 @@ describe('offline', () => {
             expect(result1).not.toEqual(result2);
         });
 
+        it('deve propagar erro quando addToPhotosIndex falha (foto salva mas não rastreada)', async () => {
+            // getInfoAsync for ensureOfflinePhotosDir
+            FileSystem.getInfoAsync.mockResolvedValueOnce({ exists: true });
+            // copyAsync succeeds - photo IS saved to disk
+            FileSystem.copyAsync.mockResolvedValueOnce(undefined);
+            // getOfflinePhotosIndex returns empty array
+            mockAsyncStorage.getItem.mockResolvedValueOnce(null);
+            // setItem for photos index FAILS
+            mockAsyncStorage.setItem.mockRejectedValueOnce(new Error('Storage full'));
+
+            await expect(
+                queuePhotoUpload('u1', 'r1', 'parada-1', 'file:///tmp/photo.jpg')
+            ).rejects.toThrow('Storage full');
+
+            // Photo was copied to disk before the index write failed
+            expect(FileSystem.copyAsync).toHaveBeenCalled();
+        });
+
         it('deve funcionar com photos index existente (append)', async () => {
             // Pre-existing photos in the index
             const existingPhotos = [
