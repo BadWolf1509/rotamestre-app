@@ -14,11 +14,30 @@ jest.mock('@/lib/supabase');
 jest.mock('@/services/unifiedLocationTracking');
 jest.mock('@/lib/logger');
 
-// Supabase chain mock helper
-const mockEq = jest.fn();
-const mockUpdate = jest.fn(() => ({ eq: mockEq }));
-const mockFrom = jest.fn(() => ({ update: mockUpdate }));
+// ---------------------------------------------------------------------------
+// Supabase chain mock helpers
+// ---------------------------------------------------------------------------
+
+// Update chain: from(table).update(data).eq(col, val) -> { error }
+const mockUpdateEq = jest.fn();
+const mockUpdate = jest.fn(() => ({ eq: mockUpdateEq }));
+
+// Select chain: from(table).select(cols).eq(col, val).order(col) -> { data }
+const mockSelectOrder = jest.fn();
+const mockSelectEq = jest.fn(() => ({ order: mockSelectOrder }));
+const mockSelect = jest.fn(() => ({ eq: mockSelectEq }));
+
+const mockFrom = jest.fn(() => ({
+  update: mockUpdate,
+  select: mockSelect,
+}));
 (supabase.from as jest.Mock) = mockFrom;
+
+/** Default fresh paradas returned by select queries */
+let freshParadasResponse: { data: Partial<ParadaData>[] | null; error: null } = {
+  data: [],
+  error: null,
+};
 
 function makeRoute(overrides: Partial<RouteData> = {}): RouteData {
   return {
@@ -52,7 +71,7 @@ function setup(overrides: {
   const actions = useRouteActions({
     route: 'route' in overrides ? overrides.route! : makeRoute(),
     paradas: overrides.paradas ?? [],
-    userData: 'userData' in overrides ? overrides.userData! : { id: 'user-1', nome: 'João' },
+    userData: 'userData' in overrides ? overrides.userData! : { id: 'user-1', nome: 'Joao' },
     loadActiveRoute,
   });
   return { ...actions, loadActiveRoute };
@@ -60,10 +79,23 @@ function setup(overrides: {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockEq.mockResolvedValue({ error: null });
+  // Default: update chain succeeds
+  mockUpdateEq.mockResolvedValue({ error: null });
+  // Default: select chain returns empty fresh paradas
+  freshParadasResponse = { data: [], error: null };
+  mockSelectOrder.mockImplementation(() => freshParadasResponse);
   // Default to web platform to avoid location tracking calls
   (Platform as any).OS = 'web';
 });
+
+/**
+ * Helper to set what the fresh paradas DB query returns.
+ * Used by completeStop and skipStop tests.
+ */
+function setFreshParadas(paradas: Partial<ParadaData>[]) {
+  freshParadasResponse = { data: paradas, error: null };
+  mockSelectOrder.mockImplementation(() => freshParadasResponse);
+}
 
 // ============================================================================
 // startRoute
@@ -104,7 +136,7 @@ describe('startRoute', () => {
         iniciada_em: expect.any(String),
       }),
     );
-    expect(mockEq).toHaveBeenCalledWith('id', 'route-1');
+    expect(mockUpdateEq).toHaveBeenCalledWith('id', 'route-1');
   });
 
   it('marks checkpoint partida (ordem=0, is_checkpoint=false) as concluida', async () => {
@@ -132,7 +164,7 @@ describe('startRoute', () => {
     await startRoute();
 
     // Should update the first pendente parada to em_andamento
-    const eqCalls = mockEq.mock.calls;
+    const eqCalls = mockUpdateEq.mock.calls;
     expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'p1')).toBe(true);
   });
 
@@ -145,7 +177,7 @@ describe('startRoute', () => {
   });
 
   it('throws and logs error on supabase failure', async () => {
-    mockEq.mockResolvedValueOnce({ error: { message: 'DB error' } });
+    mockUpdateEq.mockResolvedValueOnce({ error: { message: 'DB error' } });
     const { startRoute } = setup({ paradas: [makeParada()] });
 
     await expect(startRoute()).rejects.toEqual({ message: 'DB error' });
@@ -214,7 +246,7 @@ describe('completeStop', () => {
         concluida_em: expect.any(String),
       }),
     );
-    expect(mockEq).toHaveBeenCalledWith('id', 'p1');
+    expect(mockUpdateEq).toHaveBeenCalledWith('id', 'p1');
   });
 
   it('includes foto_url when provided', async () => {
@@ -244,21 +276,104 @@ describe('completeStop', () => {
     expect(firstUpdateCall).not.toHaveProperty('foto_url');
   });
 
-  it('advances to next pending parada', async () => {
-    const paradas = [
-      makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
-      makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
-    ];
+  it('fetches fresh paradas from DB instead of using closure', async () => {
+    // Set fresh paradas that the DB query will return
+    setFreshParadas([
+      { id: 'p1', ordem: 1, status: 'concluida', is_checkpoint: true },
+      { id: 'p2', ordem: 2, status: 'pendente', is_checkpoint: true },
+    ]);
+
     const { completeStop } = setup({
       route: makeRoute({ status: 'em_andamento' }),
-      paradas,
+      paradas: [
+        makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
+        makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
+      ],
     });
 
     await completeStop('p1');
 
-    // Should update p2 to em_andamento
-    const eqCalls = mockEq.mock.calls;
+    // Verify select chain was called with correct params
+    expect(mockSelect).toHaveBeenCalledWith('id, status, ordem, is_checkpoint');
+    expect(mockSelectEq).toHaveBeenCalledWith('rota_id', 'route-1');
+    expect(mockSelectOrder).toHaveBeenCalledWith('ordem');
+  });
+
+  it('advances to next pending parada from fresh DB data', async () => {
+    // DB returns p1 already completed, p2 still pending
+    setFreshParadas([
+      { id: 'p1', ordem: 1, status: 'concluida', is_checkpoint: true },
+      { id: 'p2', ordem: 2, status: 'pendente', is_checkpoint: true },
+    ]);
+
+    const { completeStop } = setup({
+      route: makeRoute({ status: 'em_andamento' }),
+      paradas: [
+        makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
+        makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
+      ],
+    });
+
+    await completeStop('p1');
+
+    // Should update p2 to em_andamento via marcarProximaParadaEmAndamento
+    const eqCalls = mockUpdateEq.mock.calls;
     expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'p2')).toBe(true);
+  });
+
+  it('does not call marcarProximaParadaEmAndamento when fresh query returns null', async () => {
+    mockSelectOrder.mockImplementation(() => ({ data: null, error: { message: 'query failed' } }));
+
+    const { completeStop } = setup({
+      route: makeRoute({ status: 'em_andamento' }),
+      paradas: [
+        makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
+        makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
+      ],
+    });
+
+    await completeStop('p1');
+
+    // The update for the stop itself should have happened
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'concluida' }),
+    );
+    // But no second update for promoting the next stop should occur
+    // (only 1 update call for the parada completion, no promotion)
+    const updateEqCalls = mockUpdateEq.mock.calls.filter(
+      (c: any[]) => c[0] === 'id' && c[1] === 'p2',
+    );
+    expect(updateEqCalls).toHaveLength(0);
+  });
+
+  it('uses fresh DB state even when closure paradas are stale (race condition fix)', async () => {
+    // Simulate race condition: closure has both paradas as pendente,
+    // but DB shows p1 is already concluida (completed by another rapid call)
+    // and p2 is also concluida. The fresh query reveals p3 is the real next.
+    setFreshParadas([
+      { id: 'p1', ordem: 1, status: 'concluida', is_checkpoint: true },
+      { id: 'p2', ordem: 2, status: 'concluida', is_checkpoint: true },
+      { id: 'p3', ordem: 3, status: 'pendente', is_checkpoint: true },
+    ]);
+
+    // Closure has stale data where p2 and p3 are both pendente
+    const { completeStop } = setup({
+      route: makeRoute({ status: 'em_andamento' }),
+      paradas: [
+        makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
+        makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
+        makeParada({ id: 'p3', ordem: 3, status: 'pendente' }),
+      ],
+    });
+
+    await completeStop('p1');
+
+    // With the old stale closure logic, p2 would be promoted.
+    // With the fresh DB query, p3 is promoted because p2 is already concluida.
+    const eqCalls = mockUpdateEq.mock.calls;
+    expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'p3')).toBe(true);
+    // p2 should NOT be promoted
+    expect(eqCalls.filter((c: any[]) => c[0] === 'id' && c[1] === 'p2')).toHaveLength(0);
   });
 
   it('calls loadActiveRoute', async () => {
@@ -327,21 +442,97 @@ describe('skipStop', () => {
     expect(firstUpdateCall).not.toHaveProperty('observacoes');
   });
 
-  it('advances to next pending parada and calls loadActiveRoute', async () => {
-    const paradas = [
-      makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
-      makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
-    ];
-    const { skipStop, loadActiveRoute } = setup({
+  it('fetches fresh paradas from DB instead of using closure', async () => {
+    setFreshParadas([
+      { id: 'p1', ordem: 1, status: 'pulada', is_checkpoint: true },
+      { id: 'p2', ordem: 2, status: 'pendente', is_checkpoint: true },
+    ]);
+
+    const { skipStop } = setup({
       route: makeRoute({ status: 'em_andamento' }),
-      paradas,
+      paradas: [
+        makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
+        makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
+      ],
     });
 
     await skipStop('p1', 'endereco_incorreto');
 
-    const eqCalls = mockEq.mock.calls;
+    // Verify select chain was called with correct params
+    expect(mockSelect).toHaveBeenCalledWith('id, status, ordem, is_checkpoint');
+    expect(mockSelectEq).toHaveBeenCalledWith('rota_id', 'route-1');
+    expect(mockSelectOrder).toHaveBeenCalledWith('ordem');
+  });
+
+  it('advances to next pending parada from fresh DB data and calls loadActiveRoute', async () => {
+    setFreshParadas([
+      { id: 'p1', ordem: 1, status: 'pulada', is_checkpoint: true },
+      { id: 'p2', ordem: 2, status: 'pendente', is_checkpoint: true },
+    ]);
+
+    const { skipStop, loadActiveRoute } = setup({
+      route: makeRoute({ status: 'em_andamento' }),
+      paradas: [
+        makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
+        makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
+      ],
+    });
+
+    await skipStop('p1', 'endereco_incorreto');
+
+    const eqCalls = mockUpdateEq.mock.calls;
     expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'p2')).toBe(true);
     expect(loadActiveRoute).toHaveBeenCalled();
+  });
+
+  it('does not call marcarProximaParadaEmAndamento when fresh query returns null', async () => {
+    mockSelectOrder.mockImplementation(() => ({ data: null, error: { message: 'query failed' } }));
+
+    const { skipStop } = setup({
+      route: makeRoute({ status: 'em_andamento' }),
+      paradas: [
+        makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
+        makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
+      ],
+    });
+
+    await skipStop('p1', 'cliente_ausente');
+
+    // The update for the skip itself should have happened
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'pulada' }),
+    );
+    // But no promotion of p2 should occur
+    const updateEqCalls = mockUpdateEq.mock.calls.filter(
+      (c: any[]) => c[0] === 'id' && c[1] === 'p2',
+    );
+    expect(updateEqCalls).toHaveLength(0);
+  });
+
+  it('uses fresh DB state even when closure paradas are stale (race condition fix)', async () => {
+    // Simulate: closure says p2 is pendente, but DB says p2 is already pulada.
+    // The fresh query reveals p3 is the actual next pendente stop.
+    setFreshParadas([
+      { id: 'p1', ordem: 1, status: 'pulada', is_checkpoint: true },
+      { id: 'p2', ordem: 2, status: 'pulada', is_checkpoint: true },
+      { id: 'p3', ordem: 3, status: 'pendente', is_checkpoint: true },
+    ]);
+
+    const { skipStop } = setup({
+      route: makeRoute({ status: 'em_andamento' }),
+      paradas: [
+        makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
+        makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
+        makeParada({ id: 'p3', ordem: 3, status: 'pendente' }),
+      ],
+    });
+
+    await skipStop('p1', 'endereco_incorreto');
+
+    // With fresh DB query, p3 should be promoted (not p2)
+    const eqCalls = mockUpdateEq.mock.calls;
+    expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'p3')).toBe(true);
+    expect(eqCalls.filter((c: any[]) => c[0] === 'id' && c[1] === 'p2')).toHaveLength(0);
   });
 });
 
@@ -385,7 +576,7 @@ describe('completeRoute', () => {
 
     await completeRoute();
 
-    const eqCalls = mockEq.mock.calls;
+    const eqCalls = mockUpdateEq.mock.calls;
     expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'cp-end')).toBe(true);
   });
 
@@ -421,7 +612,7 @@ describe('completeRoute', () => {
   });
 
   it('throws and logs error on supabase failure', async () => {
-    mockEq.mockResolvedValueOnce({ error: { message: 'DB fail' } });
+    mockUpdateEq.mockResolvedValueOnce({ error: { message: 'DB fail' } });
     const { completeRoute } = setup({
       route: makeRoute({ status: 'em_andamento' }),
     });

@@ -124,11 +124,16 @@ export function useRouteActions({
 
       if (error) throw error;
 
-      // Marcar próxima parada pendente como "em_andamento"
-      const paradasRestantes = paradas.map(p =>
-        p.id === paradaId ? { ...p, status: 'concluida' } : p
-      );
-      await marcarProximaParadaEmAndamento(paradasRestantes);
+      // Fetch fresh paradas from DB to avoid stale closure race condition
+      const { data: freshParadas } = await supabase
+        .from('paradas')
+        .select('id, status, ordem, is_checkpoint')
+        .eq('rota_id', route.id)
+        .order('ordem');
+
+      if (freshParadas) {
+        await marcarProximaParadaEmAndamento(freshParadas as ParadaData[]);
+      }
 
       await loadActiveRoute();
     } catch (error) {
@@ -156,10 +161,16 @@ export function useRouteActions({
 
       if (error) throw error;
 
-      const paradasRestantes = paradas.map(p =>
-        p.id === paradaId ? { ...p, status: 'pulada' } : p
-      );
-      await marcarProximaParadaEmAndamento(paradasRestantes);
+      // Fetch fresh paradas from DB to avoid stale closure race condition
+      const { data: freshParadas } = await supabase
+        .from('paradas')
+        .select('id, status, ordem, is_checkpoint')
+        .eq('rota_id', route.id)
+        .order('ordem');
+
+      if (freshParadas) {
+        await marcarProximaParadaEmAndamento(freshParadas as ParadaData[]);
+      }
 
       await loadActiveRoute();
     } catch (error) {
