@@ -9,7 +9,11 @@ import type { ParadaData, RouteData, RouteStatus, RotaQueryRow } from './types';
  * Priority logic (active > completed) is handled by loadActiveRoute query order.
  * This function only maps DB status → UI state.
  */
-export function getRouteStatus(route: RouteData | null, paradas: ParadaData[]): RouteStatus {
+export function getRouteStatus(
+  route: RouteData | null,
+  paradas: ParadaData[],
+  now?: number
+): RouteStatus {
   if (!route) return 'no-route';
 
   // Rotas pendentes SEMPRE aparecem (backend controla expiração via job 22:00)
@@ -33,10 +37,10 @@ export function getRouteStatus(route: RouteData | null, paradas: ParadaData[]): 
   if (route.status === 'concluida') {
     if (route.concluida_em) {
       const concluidaEm = new Date(route.concluida_em).getTime();
-      const agora = Date.now();
+      const currentTime = now ?? Date.now();
       const umaHoraMs = 60 * 60 * 1000;
 
-      if (agora - concluidaEm > umaHoraMs) {
+      if (currentTime - concluidaEm > umaHoraMs) {
         return 'no-route';
       }
     }

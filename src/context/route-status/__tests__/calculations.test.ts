@@ -127,6 +127,32 @@ describe('getRouteStatus', () => {
     const route = makeRoute({ status: 'nao_executada' });
     expect(getRouteStatus(route, [])).toBe('no-route');
   });
+
+  describe('custom now parameter (clock skew fix)', () => {
+    const concluidaEm = '2026-03-01T10:00:00Z';
+    const concluidaMs = new Date(concluidaEm).getTime();
+
+    it('should use custom now param for celebration window', () => {
+      const thirtyMinLater = concluidaMs + 30 * 60 * 1000;
+      const route = makeRoute({ status: 'concluida', concluida_em: concluidaEm });
+      expect(getRouteStatus(route, [], thirtyMinLater)).toBe('completed');
+    });
+
+    it('should expire celebration with custom now param after 1 hour', () => {
+      const twoHoursLater = concluidaMs + 2 * 60 * 60 * 1000;
+      const route = makeRoute({ status: 'concluida', concluida_em: concluidaEm });
+      expect(getRouteStatus(route, [], twoHoursLater)).toBe('no-route');
+    });
+
+    it('should default to Date.now when no now param provided', () => {
+      // Route completed just now — should still be in celebration window
+      const route = makeRoute({
+        status: 'concluida',
+        concluida_em: new Date().toISOString(),
+      });
+      expect(getRouteStatus(route, [])).toBe('completed');
+    });
+  });
 });
 
 describe('getProgress', () => {
