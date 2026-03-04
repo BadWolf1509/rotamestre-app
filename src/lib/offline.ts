@@ -175,52 +175,67 @@ export async function queuePhotoUpload(
 }
 
 /**
+ * Concurrency guard for processOfflinePhotos.
+ * Prevents double uploads when setupOfflineSync fires twice (e.g., rapid connectivity toggles).
+ */
+let isProcessingPhotos = false;
+
+/**
  * Processa uploads de fotos pendentes
  */
 export async function processOfflinePhotos(): Promise<{ success: number; failed: number }> {
-  const online = await isOnline();
-  if (!online) {
+  if (isProcessingPhotos) {
     return { success: 0, failed: 0 };
   }
 
-  const index = await getOfflinePhotosIndex();
-  let success = 0;
-  let failed = 0;
+  isProcessingPhotos = true;
+  try {
+    const online = await isOnline();
+    if (!online) {
+      return { success: 0, failed: 0 };
+    }
 
-  for (const photo of index) {
-    try {
-      // Verificar se arquivo ainda existe
-      if (Platform.OS !== 'web') {
-        const fileInfo = await FileSystem.getInfoAsync(photo.localPath);
-        if (!fileInfo.exists) {
-          await removeFromPhotosIndex(photo.paradaId, photo.localPath);
-          continue;
+    const index = await getOfflinePhotosIndex();
+    let success = 0;
+    let failed = 0;
+
+    for (const photo of index) {
+      try {
+        // Verificar se arquivo ainda existe
+        if (Platform.OS !== 'web') {
+          const fileInfo = await FileSystem.getInfoAsync(photo.localPath);
+          if (!fileInfo.exists) {
+            await removeFromPhotosIndex(photo.paradaId, photo.localPath);
+            continue;
+          }
         }
-      }
 
-      // Fazer upload
-      const uploaded = await uploadELinkFotoParada(
-        photo.unidadeId,
-        photo.rotaId,
-        photo.paradaId,
-        photo.localPath
-      );
+        // Fazer upload
+        const uploaded = await uploadELinkFotoParada(
+          photo.unidadeId,
+          photo.rotaId,
+          photo.paradaId,
+          photo.localPath
+        );
 
-      if (uploaded) {
-        // Limpar arquivo local e índice
-        await deleteLocalPhoto(photo.localPath);
-        await removeFromPhotosIndex(photo.paradaId, photo.localPath);
-        success++;
-      } else {
+        if (uploaded) {
+          // Limpar arquivo local e índice
+          await deleteLocalPhoto(photo.localPath);
+          await removeFromPhotosIndex(photo.paradaId, photo.localPath);
+          success++;
+        } else {
+          failed++;
+        }
+      } catch (error) {
+        logger.warn('Falha ao processar foto offline', error);
         failed++;
       }
-    } catch (error) {
-      logger.warn('Falha ao processar foto offline', error);
-      failed++;
     }
-  }
 
-  return { success, failed };
+    return { success, failed };
+  } finally {
+    isProcessingPhotos = false;
+  }
 }
 
 /**
@@ -299,38 +314,53 @@ export async function clearOfflineQueue(): Promise<void> {
 }
 
 /**
+ * Concurrency guard for processOfflineQueue.
+ * Prevents duplicate action execution when setupOfflineSync fires twice.
+ */
+let isProcessingQueue = false;
+
+/**
  * Processa a fila offline quando a conexão é restaurada
  */
 export async function processOfflineQueue(): Promise<{ success: number; failed: number; errors: any[] }> {
-  const online = await isOnline();
-  if (!online) {
+  if (isProcessingQueue) {
     return { success: 0, failed: 0, errors: [] };
   }
 
-  const queue = await getOfflineQueue();
-  let successCount = 0;
-  let failedCount = 0;
-  const errors: any[] = [];
-  const successfulIds: Set<string> = new Set();
-
-  for (const action of queue) {
-    try {
-      await executeOfflineAction(action);
-      successCount++;
-      successfulIds.add(action.id);
-    } catch (error) {
-      failedCount++;
-      errors.push({ action, error });
+  isProcessingQueue = true;
+  try {
+    const online = await isOnline();
+    if (!online) {
+      return { success: 0, failed: 0, errors: [] };
     }
-  }
 
-  // Remove apenas ações bem-sucedidas, mantém as que falharam para retry
-  if (successCount > 0) {
-    const remainingQueue = queue.filter(action => !successfulIds.has(action.id));
-    await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(remainingQueue));
-  }
+    const queue = await getOfflineQueue();
+    let successCount = 0;
+    let failedCount = 0;
+    const errors: any[] = [];
+    const successfulIds: Set<string> = new Set();
 
-  return { success: successCount, failed: failedCount, errors };
+    for (const action of queue) {
+      try {
+        await executeOfflineAction(action);
+        successCount++;
+        successfulIds.add(action.id);
+      } catch (error) {
+        failedCount++;
+        errors.push({ action, error });
+      }
+    }
+
+    // Remove apenas ações bem-sucedidas, mantém as que falharam para retry
+    if (successCount > 0) {
+      const remainingQueue = queue.filter(action => !successfulIds.has(action.id));
+      await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(remainingQueue));
+    }
+
+    return { success: successCount, failed: failedCount, errors };
+  } finally {
+    isProcessingQueue = false;
+  }
 }
 
 /**
@@ -432,6 +462,15 @@ export async function getOfflineQueueSize(): Promise<number> {
     logger.warn('Falha ao obter tamanho da fila offline', error);
     return 0;
   }
+}
+
+/**
+ * Resets concurrency locks for testing purposes only.
+ * @internal Exported for tests — do not use in production code.
+ */
+export function _resetProcessingLocks(): void {
+  isProcessingPhotos = false;
+  isProcessingQueue = false;
 }
 
 // Variável para controlar se já notificou offline nesta sessão

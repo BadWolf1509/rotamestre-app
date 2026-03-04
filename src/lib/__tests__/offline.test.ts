@@ -19,6 +19,7 @@ import {
     getOfflinePhotoPath,
     queuePhotoUpload,
     processOfflinePhotos,
+    _resetProcessingLocks,
 } from '../offline';
 
 // Mock NetInfo
@@ -267,6 +268,66 @@ describe('offline', () => {
 
             expect(result.success).toBe(1);
             expect(result.failed).toBe(0);
+        });
+
+        it('should not process queue concurrently', async () => {
+            _resetProcessingLocks();
+
+            let processCount = 0;
+
+            // Make isOnline slow enough that two calls overlap
+            mockNetInfo.fetch.mockImplementation(() => {
+                processCount++;
+                return new Promise(resolve =>
+                    setTimeout(() => resolve({
+                        isConnected: true,
+                        isInternetReachable: true,
+                    } as any), 50)
+                );
+            });
+
+            // Empty queue
+            mockAsyncStorage.getItem.mockResolvedValue('[]');
+
+            const [result1, result2] = await Promise.all([
+                processOfflineQueue(),
+                processOfflineQueue(),
+            ]);
+
+            // Only one should have actually processed
+            expect(processCount).toBe(1);
+
+            // The blocked one returns early with zeros
+            const totalSuccess = result1.success + result2.success;
+            expect(totalSuccess).toBe(0);
+
+            _resetProcessingLocks();
+        });
+
+        it('should reset queue lock after processing completes', async () => {
+            _resetProcessingLocks();
+
+            // First call
+            mockNetInfo.fetch.mockResolvedValueOnce({
+                isConnected: true,
+                isInternetReachable: true,
+            } as any);
+            mockAsyncStorage.getItem.mockResolvedValueOnce('[]');
+
+            await processOfflineQueue();
+
+            // Second call should work (lock released)
+            mockNetInfo.fetch.mockResolvedValueOnce({
+                isConnected: true,
+                isInternetReachable: true,
+            } as any);
+            mockAsyncStorage.getItem.mockResolvedValueOnce('[]');
+
+            await processOfflineQueue();
+
+            expect(mockNetInfo.fetch).toHaveBeenCalledTimes(2);
+
+            _resetProcessingLocks();
         });
 
         it('deve retornar success 0 quando fila está vazia', async () => {
@@ -964,6 +1025,74 @@ describe('offline', () => {
             // Not counted as success or failure — just skipped
             expect(result).toEqual({ success: 0, failed: 0 });
             expect(uploadELinkFotoParada).not.toHaveBeenCalled();
+        });
+
+        it('should not process photos concurrently', async () => {
+            // Reset locks to ensure clean state
+            _resetProcessingLocks();
+
+            // Track how many times the actual processing logic runs
+            let processCount = 0;
+
+            // Make isOnline slow enough that two calls overlap
+            mockNetInfo.fetch.mockImplementation(() => {
+                processCount++;
+                return new Promise(resolve =>
+                    setTimeout(() => resolve({
+                        isConnected: true,
+                        isInternetReachable: true,
+                    } as any), 50)
+                );
+            });
+
+            // Empty photos index (so processing finishes quickly after isOnline)
+            mockAsyncStorage.getItem.mockResolvedValue('[]');
+
+            // Start two calls simultaneously
+            const [result1, result2] = await Promise.all([
+                processOfflinePhotos(),
+                processOfflinePhotos(),
+            ]);
+
+            // Only one should have actually processed (called isOnline)
+            expect(processCount).toBe(1);
+
+            // The other should return early with zeros
+            const totalSuccess = result1.success + result2.success;
+            const totalFailed = result1.failed + result2.failed;
+            expect(totalSuccess).toBe(0);
+            expect(totalFailed).toBe(0);
+
+            _resetProcessingLocks();
+        });
+
+        it('should reset photo lock after processing completes', async () => {
+            _resetProcessingLocks();
+
+            // First call: online, empty index
+            mockNetInfo.fetch.mockResolvedValueOnce({
+                isConnected: true,
+                isInternetReachable: true,
+            } as any);
+            mockAsyncStorage.getItem.mockResolvedValueOnce('[]');
+
+            const result1 = await processOfflinePhotos();
+            expect(result1).toEqual({ success: 0, failed: 0 });
+
+            // Second call should work normally (lock was released)
+            mockNetInfo.fetch.mockResolvedValueOnce({
+                isConnected: true,
+                isInternetReachable: true,
+            } as any);
+            mockAsyncStorage.getItem.mockResolvedValueOnce('[]');
+
+            const result2 = await processOfflinePhotos();
+            expect(result2).toEqual({ success: 0, failed: 0 });
+
+            // isOnline should have been called twice (once per invocation)
+            expect(mockNetInfo.fetch).toHaveBeenCalledTimes(2);
+
+            _resetProcessingLocks();
         });
 
         it('deve continuar processando outras fotos após falha individual', async () => {
