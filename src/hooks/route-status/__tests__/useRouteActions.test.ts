@@ -566,7 +566,7 @@ describe('completeRoute', () => {
   it('marks checkpoint chegada (highest ordem, is_checkpoint=false) as concluida', async () => {
     const paradas = [
       makeParada({ id: 'cp-start', ordem: 0, is_checkpoint: false }),
-      makeParada({ id: 'p1', ordem: 1 }),
+      makeParada({ id: 'p1', ordem: 1, status: 'concluida' }),
       makeParada({ id: 'cp-end', ordem: 99, is_checkpoint: false }),
     ];
     const { completeRoute } = setup({
@@ -622,6 +622,47 @@ describe('completeRoute', () => {
       expect.stringContaining('concluir rota'),
       expect.anything(),
     );
+  });
+
+  it('throws when there are pending real stops', async () => {
+    const paradas = [
+      makeParada({ id: 'cp-start', ordem: 0, is_checkpoint: false, status: 'concluida' }),
+      makeParada({ id: 'p1', ordem: 1, status: 'concluida' }),
+      makeParada({ id: 'p2', ordem: 2, status: 'pendente' }), // real stop still pending
+      makeParada({ id: 'p3', ordem: 3, status: 'em_andamento' }), // real stop still in progress
+      makeParada({ id: 'cp-end', ordem: 99, is_checkpoint: false, status: 'pendente' }),
+    ];
+    const { completeRoute } = setup({
+      route: makeRoute({ status: 'em_andamento' }),
+      paradas,
+    });
+
+    await expect(completeRoute()).rejects.toThrow('2 parada(s) pendentes');
+    // Should not have made any DB calls
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('succeeds when all real stops are concluida or pulada', async () => {
+    const paradas = [
+      makeParada({ id: 'cp-start', ordem: 0, is_checkpoint: false, status: 'concluida' }),
+      makeParada({ id: 'p1', ordem: 1, status: 'concluida' }),
+      makeParada({ id: 'p2', ordem: 2, status: 'pulada' }),
+      makeParada({ id: 'p3', ordem: 3, status: 'concluida' }),
+      makeParada({ id: 'cp-end', ordem: 99, is_checkpoint: false, status: 'pendente' }), // checkpoint can be pending
+    ];
+    const { completeRoute, loadActiveRoute } = setup({
+      route: makeRoute({ status: 'em_andamento' }),
+      paradas,
+    });
+
+    await completeRoute();
+
+    // Should have proceeded to update the route
+    expect(mockFrom).toHaveBeenCalledWith('rotas');
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'concluida' }),
+    );
+    expect(loadActiveRoute).toHaveBeenCalled();
   });
 });
 

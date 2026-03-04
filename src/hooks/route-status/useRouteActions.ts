@@ -186,6 +186,14 @@ export function useRouteActions({
   const completeRoute = async () => {
     if (!route) return;
 
+    // Validate all real stops are completed or skipped
+    const pendingStops = paradas.filter(
+      p => p.is_checkpoint !== false && (p.status === 'pendente' || p.status === 'em_andamento')
+    );
+    if (pendingStops.length > 0) {
+      throw new Error(`Não é possível concluir a rota com ${pendingStops.length} parada(s) pendentes`);
+    }
+
     try {
       const now = new Date().toISOString();
 
