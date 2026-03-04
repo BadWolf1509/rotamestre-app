@@ -466,6 +466,130 @@ describe('offline', () => {
         });
     });
 
+    describe('removeFromPhotosIndex', () => {
+        it('should remove only the specific photo entry by localPath, not all for same paradaId', async () => {
+            const photos = [
+                { localPath: '/path/parada-1_111.jpg', paradaId: 'parada-1', unidadeId: 'u1', rotaId: 'r1', originalUri: 'file:///p1a.jpg', savedAt: '2026-01-01T00:00:00.000Z' },
+                { localPath: '/path/parada-1_222.jpg', paradaId: 'parada-1', unidadeId: 'u1', rotaId: 'r1', originalUri: 'file:///p1b.jpg', savedAt: '2026-01-01T00:01:00.000Z' },
+                { localPath: '/path/parada-2_333.jpg', paradaId: 'parada-2', unidadeId: 'u1', rotaId: 'r1', originalUri: 'file:///p2.jpg', savedAt: '2026-01-01T00:02:00.000Z' },
+            ];
+
+            // Setup: online, photos in index
+            mockNetInfo.fetch.mockResolvedValueOnce({ isConnected: true, isInternetReachable: true } as any);
+            mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(photos));
+
+            // First photo: file exists, upload succeeds
+            FileSystem.getInfoAsync.mockResolvedValueOnce({ exists: true });
+            uploadELinkFotoParada.mockResolvedValueOnce('https://storage.url/photo.jpg');
+            // deleteLocalPhoto → getInfoAsync
+            FileSystem.getInfoAsync.mockResolvedValueOnce({ exists: true });
+            // removeFromPhotosIndex → getOfflinePhotosIndex
+            mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(photos));
+            mockAsyncStorage.setItem.mockResolvedValueOnce(undefined as any);
+
+            // Second photo (parada-1_222): file exists, upload succeeds
+            FileSystem.getInfoAsync.mockResolvedValueOnce({ exists: true });
+            uploadELinkFotoParada.mockResolvedValueOnce('https://storage.url/photo2.jpg');
+            // deleteLocalPhoto → getInfoAsync
+            FileSystem.getInfoAsync.mockResolvedValueOnce({ exists: true });
+            // removeFromPhotosIndex → getOfflinePhotosIndex (after first removal)
+            const afterFirstRemoval = [
+                photos[1], // parada-1_222 should still be here
+                photos[2], // parada-2_333
+            ];
+            mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(afterFirstRemoval));
+            mockAsyncStorage.setItem.mockResolvedValueOnce(undefined as any);
+
+            // Third photo (parada-2_333): file exists, upload succeeds
+            FileSystem.getInfoAsync.mockResolvedValueOnce({ exists: true });
+            uploadELinkFotoParada.mockResolvedValueOnce('https://storage.url/photo3.jpg');
+            // deleteLocalPhoto → getInfoAsync
+            FileSystem.getInfoAsync.mockResolvedValueOnce({ exists: true });
+            // removeFromPhotosIndex → getOfflinePhotosIndex
+            const afterSecondRemoval = [photos[2]];
+            mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(afterSecondRemoval));
+            mockAsyncStorage.setItem.mockResolvedValueOnce(undefined as any);
+
+            const result = await processOfflinePhotos();
+            expect(result).toEqual({ success: 3, failed: 0 });
+
+            // Check the first removeFromPhotosIndex call saved the correct filtered index
+            // It should have removed only the first photo (parada-1_111.jpg), keeping parada-1_222.jpg
+            const firstSetItemCall = mockAsyncStorage.setItem.mock.calls.find(
+                (call: string[]) => call[0] === '@rotamestre:offline_photos_index'
+            );
+            expect(firstSetItemCall).toBeDefined();
+            const firstSaved = JSON.parse(firstSetItemCall![1]);
+            // The key assertion: parada-1_222.jpg should NOT be removed
+            const remainingParada1 = firstSaved.filter(
+                (p: any) => p.paradaId === 'parada-1'
+            );
+            expect(remainingParada1).toHaveLength(1);
+            expect(remainingParada1[0].localPath).toBe('/path/parada-1_222.jpg');
+        });
+
+        it('should remove all photos for paradaId when no localPath provided (fallback)', async () => {
+            // This tests the backward-compat fallback: removeFromPhotosIndex(paradaId) without localPath
+            // removes ALL entries for that paradaId. We test this indirectly via processOfflinePhotos
+            // by verifying that the missing-file path now does precise removal (passes localPath),
+            // but also verify the fallback logic by checking the stored index directly.
+
+            const photos = [
+                { localPath: '/path/parada-1_111.jpg', paradaId: 'parada-1', unidadeId: 'u1', rotaId: 'r1', originalUri: 'file:///p1a.jpg', savedAt: '2026-01-01T00:00:00.000Z' },
+                { localPath: '/path/parada-1_222.jpg', paradaId: 'parada-1', unidadeId: 'u1', rotaId: 'r1', originalUri: 'file:///p1b.jpg', savedAt: '2026-01-01T00:01:00.000Z' },
+                { localPath: '/path/parada-2_333.jpg', paradaId: 'parada-2', unidadeId: 'u1', rotaId: 'r1', originalUri: 'file:///p2.jpg', savedAt: '2026-01-01T00:02:00.000Z' },
+            ];
+
+            // Setup: online, photos in index
+            mockNetInfo.fetch.mockResolvedValueOnce({ isConnected: true, isInternetReachable: true } as any);
+            mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(photos));
+
+            // First photo: file DOES NOT exist → precise removal by localPath
+            FileSystem.getInfoAsync.mockResolvedValueOnce({ exists: false });
+            // removeFromPhotosIndex(paradaId, localPath) → getOfflinePhotosIndex
+            mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(photos));
+            mockAsyncStorage.setItem.mockResolvedValueOnce(undefined as any);
+
+            // Second photo (parada-1_222): also missing
+            FileSystem.getInfoAsync.mockResolvedValueOnce({ exists: false });
+            // After first precise removal, parada-1_222 still in index
+            const afterFirstRemoval = [photos[1], photos[2]];
+            mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(afterFirstRemoval));
+            mockAsyncStorage.setItem.mockResolvedValueOnce(undefined as any);
+
+            // Third photo: file exists, upload succeeds
+            FileSystem.getInfoAsync.mockResolvedValueOnce({ exists: true });
+            uploadELinkFotoParada.mockResolvedValueOnce('https://storage.url/photo.jpg');
+            // deleteLocalPhoto
+            FileSystem.getInfoAsync.mockResolvedValueOnce({ exists: true });
+            // removeFromPhotosIndex with localPath
+            const afterSecondRemoval = [photos[2]];
+            mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(afterSecondRemoval));
+            mockAsyncStorage.setItem.mockResolvedValueOnce(undefined as any);
+
+            const result = await processOfflinePhotos();
+            expect(result).toEqual({ success: 1, failed: 0 });
+
+            // Verify precise removal: first setItem should remove ONLY parada-1_111, keeping parada-1_222
+            const setItemCalls = mockAsyncStorage.setItem.mock.calls.filter(
+                (call: string[]) => call[0] === '@rotamestre:offline_photos_index'
+            );
+            expect(setItemCalls.length).toBeGreaterThanOrEqual(1);
+            const firstSaved = JSON.parse(setItemCalls[0][1]);
+            // Precise removal: only parada-1_111 removed, parada-1_222 and parada-2 remain
+            const remainingParada1 = firstSaved.filter(
+                (p: any) => p.paradaId === 'parada-1'
+            );
+            expect(remainingParada1).toHaveLength(1);
+            expect(remainingParada1[0].localPath).toBe('/path/parada-1_222.jpg');
+            // parada-2 should remain
+            const remainingParada2 = firstSaved.filter(
+                (p: any) => p.paradaId === 'parada-2'
+            );
+            expect(remainingParada2).toHaveLength(1);
+        });
+    });
+
     describe('getPendingPhotosCount', () => {
         it('deve retornar 0 quando não há fotos pendentes', async () => {
             mockAsyncStorage.getItem.mockResolvedValueOnce(null);

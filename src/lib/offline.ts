@@ -122,16 +122,16 @@ export async function getOfflinePhotosIndex(): Promise<OfflinePhotoData[]> {
 }
 
 /**
- * Remove foto do índice após upload bem-sucedido
+ * Remove foto do índice após upload bem-sucedido.
+ * When localPath is provided, removes only the specific entry (precise removal).
+ * When localPath is omitted, removes ALL entries for that paradaId (fallback/backward compat).
  */
-async function removeFromPhotosIndex(paradaId: string): Promise<void> {
-  try {
-    const index = await getOfflinePhotosIndex();
-    const filtered = index.filter(p => p.paradaId !== paradaId);
-    await AsyncStorage.setItem(OFFLINE_PHOTOS_INDEX_KEY, JSON.stringify(filtered));
-  } catch {
-    // Silently fail - não crítico
-  }
+async function removeFromPhotosIndex(paradaId: string, localPath?: string): Promise<void> {
+  const index = await getOfflinePhotosIndex();
+  const filtered = localPath
+    ? index.filter(p => !(p.paradaId === paradaId && p.localPath === localPath))
+    : index.filter(p => p.paradaId !== paradaId);
+  await AsyncStorage.setItem(OFFLINE_PHOTOS_INDEX_KEY, JSON.stringify(filtered));
 }
 
 /**
@@ -193,7 +193,7 @@ export async function processOfflinePhotos(): Promise<{ success: number; failed:
       if (Platform.OS !== 'web') {
         const fileInfo = await FileSystem.getInfoAsync(photo.localPath);
         if (!fileInfo.exists) {
-          await removeFromPhotosIndex(photo.paradaId);
+          await removeFromPhotosIndex(photo.paradaId, photo.localPath);
           continue;
         }
       }
@@ -209,7 +209,7 @@ export async function processOfflinePhotos(): Promise<{ success: number; failed:
       if (uploaded) {
         // Limpar arquivo local e índice
         await deleteLocalPhoto(photo.localPath);
-        await removeFromPhotosIndex(photo.paradaId);
+        await removeFromPhotosIndex(photo.paradaId, photo.localPath);
         success++;
       } else {
         failed++;
