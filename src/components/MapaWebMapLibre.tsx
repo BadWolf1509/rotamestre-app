@@ -251,11 +251,12 @@ export default function MapaWebMapLibre({
       .map((parada) => {
         const isCheckpoint = parada.is_checkpoint === false;
         const isPartida = isCheckpoint && parada.id === partidaId;
-        // Use simple letters to avoid missing glyph ranges in OpenFreeMap fonts.
+        // Use emoji to match mobile checkpoint icons (🚩 start, 🏠 end).
+        // If GL font server lacks emoji glyphs, revert to 'I'/'F'.
         const label = isCheckpoint
           ? isPartida
-            ? "I"
-            : "F"
+            ? "\u{1F6A9}"
+            : "\u{1F3E0}"
           : String(parada.ordem);
 
         return {
@@ -537,7 +538,7 @@ export default function MapaWebMapLibre({
         source: sourceId,
         layout: {
           "text-field": ["get", "label"],
-          "text-size": ["case", ["==", ["get", "is_checkpoint"], true], 15, 13],
+          "text-size": ["case", ["==", ["get", "is_checkpoint"], true], 16, 13],
           // Use a single font stack available in the OpenFreeMap sprites
           // to avoid 404s for combined font stacks.
           "text-font": ["Noto Sans Bold"],
