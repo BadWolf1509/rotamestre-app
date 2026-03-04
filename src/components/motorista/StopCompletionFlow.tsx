@@ -54,14 +54,14 @@ export function StopCompletionFlow({
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [isCompleting, setIsCompleting] = useState(false);
 
-  // Reset state when modal closes or parada changes
+  // Reset state when modal closes
   React.useEffect(() => {
     if (!visible) {
       setStep('photo');
       setPhotoUrl(null);
       setIsCompleting(false);
     }
-  }, [visible, parada?.id]);
+  }, [visible]);
 
   if (!parada || !route || !userData) return null;
 
@@ -147,6 +147,7 @@ export function StopCompletionFlow({
     text: 'Concluir',
     onPress: handleConfirmComplete,
     loading: isCompleting,
+    disabled: isCompleting,
     color: theme.colors.success,
   } : undefined;
 
