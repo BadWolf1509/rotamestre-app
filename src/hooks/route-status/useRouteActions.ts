@@ -37,6 +37,7 @@ async function marcarProximaParadaEmAndamento(paradasAtuais: ParadaData[]) {
 
     if (error) {
       logger.error('[RouteStatus] marcarProximaParadaEmAndamento Erro', error);
+      throw error;
     }
   }
 }
@@ -74,13 +75,15 @@ export function useRouteActions({
       // 2. Marcar ponto de partida (ordem 0) como concluído
       const checkpointPartida = paradas.find(p => p.is_checkpoint === false && p.ordem === 0);
       if (checkpointPartida) {
-        await supabase
+        const { error: checkpointError } = await supabase
           .from('paradas')
           .update({
             status: 'concluida',
             concluida_em: now,
           })
           .eq('id', checkpointPartida.id);
+
+        if (checkpointError) throw checkpointError;
       }
 
       // 3. Marcar primeira parada real como "em_andamento"

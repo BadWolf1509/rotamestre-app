@@ -624,3 +624,124 @@ describe('completeRoute', () => {
     );
   });
 });
+
+// ============================================================================
+// Error propagation: marcarProximaParadaEmAndamento
+// ============================================================================
+
+describe('marcarProximaParadaEmAndamento error propagation', () => {
+  it('propagates error to completeStop caller', async () => {
+    // Fresh paradas from DB with a pending stop to promote
+    setFreshParadas([
+      { id: 'p1', ordem: 1, status: 'concluida', is_checkpoint: true },
+      { id: 'p2', ordem: 2, status: 'pendente', is_checkpoint: true },
+    ]);
+
+    const { completeStop } = setup({
+      route: makeRoute({ status: 'em_andamento' }),
+      paradas: [
+        makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
+        makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
+      ],
+    });
+
+    // First update call (complete p1) succeeds, second (promote p2) fails
+    mockUpdateEq
+      .mockResolvedValueOnce({ error: null }) // completeStop: update p1
+      .mockResolvedValueOnce({ error: { message: 'promotion failed' } }); // marcarProximaParadaEmAndamento: update p2
+
+    await expect(completeStop('p1')).rejects.toEqual({ message: 'promotion failed' });
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('marcarProximaParadaEmAndamento'),
+      expect.objectContaining({ message: 'promotion failed' }),
+    );
+  });
+
+  it('propagates error to skipStop caller', async () => {
+    setFreshParadas([
+      { id: 'p1', ordem: 1, status: 'pulada', is_checkpoint: true },
+      { id: 'p2', ordem: 2, status: 'pendente', is_checkpoint: true },
+    ]);
+
+    const { skipStop } = setup({
+      route: makeRoute({ status: 'em_andamento' }),
+      paradas: [
+        makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
+        makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
+      ],
+    });
+
+    // First update (skip p1) succeeds, second (promote p2) fails
+    mockUpdateEq
+      .mockResolvedValueOnce({ error: null })
+      .mockResolvedValueOnce({ error: { message: 'skip promotion failed' } });
+
+    await expect(skipStop('p1', 'cliente_ausente')).rejects.toEqual({ message: 'skip promotion failed' });
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('marcarProximaParadaEmAndamento'),
+      expect.objectContaining({ message: 'skip promotion failed' }),
+    );
+  });
+
+  it('propagates error to startRoute caller when promoting first parada fails', async () => {
+    const paradas = [
+      makeParada({ id: 'p1', ordem: 1, status: 'pendente' }),
+    ];
+
+    const { startRoute } = setup({ paradas });
+
+    // First update (rota status) succeeds, second (promote p1) fails
+    mockUpdateEq
+      .mockResolvedValueOnce({ error: null }) // startRoute: update rota
+      .mockResolvedValueOnce({ error: { message: 'start promotion failed' } }); // marcarProximaParadaEmAndamento
+
+    await expect(startRoute()).rejects.toEqual({ message: 'start promotion failed' });
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('iniciar rota'),
+      expect.anything(),
+    );
+  });
+});
+
+// ============================================================================
+// Error propagation: startRoute checkpoint update
+// ============================================================================
+
+describe('startRoute checkpoint update error', () => {
+  it('throws when checkpoint partida update fails', async () => {
+    const checkpoint = makeParada({ id: 'cp-start', ordem: 0, is_checkpoint: false });
+    const parada = makeParada({ id: 'p1', ordem: 1 });
+
+    const { startRoute } = setup({ paradas: [checkpoint, parada] });
+
+    // First update (rota status) succeeds, second (checkpoint) fails
+    mockUpdateEq
+      .mockResolvedValueOnce({ error: null }) // update rota
+      .mockResolvedValueOnce({ error: { message: 'checkpoint update failed' } }); // update checkpoint
+
+    await expect(startRoute()).rejects.toEqual({ message: 'checkpoint update failed' });
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('iniciar rota'),
+      expect.objectContaining({ message: 'checkpoint update failed' }),
+    );
+  });
+
+  it('does not proceed to marcarProximaParadaEmAndamento when checkpoint fails', async () => {
+    const checkpoint = makeParada({ id: 'cp-start', ordem: 0, is_checkpoint: false });
+    const parada = makeParada({ id: 'p1', ordem: 1, status: 'pendente' });
+
+    const { startRoute, loadActiveRoute } = setup({ paradas: [checkpoint, parada] });
+
+    // First update (rota) succeeds, second (checkpoint) fails
+    mockUpdateEq
+      .mockResolvedValueOnce({ error: null })
+      .mockResolvedValueOnce({ error: { message: 'checkpoint failed' } });
+
+    await expect(startRoute()).rejects.toEqual({ message: 'checkpoint failed' });
+
+    // Should only have 2 update calls (rota + checkpoint), NOT 3 (no promotion)
+    expect(mockUpdateEq).toHaveBeenCalledTimes(2);
+    // loadActiveRoute should not be called since we threw
+    expect(loadActiveRoute).not.toHaveBeenCalled();
+  });
+});
