@@ -68,6 +68,7 @@
     "kpi-em-andamento": "#f7a02a",
     "kpi-concluidas": "#34699f",
     "kpi-distancia": "#ffbf14",
+    "kpi-distancia-dark": "#0f766e",
     "kpi-incidentes": "#1b2c63",
     "incident-accident": "#ef4444",
     "incident-absent": "#f59e0b",

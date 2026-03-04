@@ -67,6 +67,7 @@
   <color name="color_kpi_em_andamento">#f7a02a</color>
   <color name="color_kpi_concluidas">#34699f</color>
   <color name="color_kpi_distancia">#ffbf14</color>
+  <color name="color_kpi_distancia_dark">#0f766e</color>
   <color name="color_kpi_incidentes">#1b2c63</color>
   <color name="color_incident_accident">#ef4444</color>
   <color name="color_incident_absent">#f59e0b</color>
