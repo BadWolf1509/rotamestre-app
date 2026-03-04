@@ -1,0 +1,3 @@
+# Generated design tokens (must match CI output exactly)
+tokens/
+public/css/tokens.css

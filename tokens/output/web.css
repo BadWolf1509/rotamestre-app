@@ -1,4 +1,5 @@
-:root {
+:root
+{
   --color-primary: #284093;
   --color-primary-dark: #1b2c63;
   --color-primary-light: #34699f;
@@ -64,7 +65,7 @@
   --color-warning-dark: #d97706;
   --color-error-light: #fee2e2;
   --color-success-light: #d1fae5;
-  --color-whatsapp: #25d366;
+  --color-whatsapp: #25D366;
   --color-kpi-total-hoje: #284093;
   --color-kpi-em-andamento: #f7a02a;
   --color-kpi-concluidas: #34699f;
