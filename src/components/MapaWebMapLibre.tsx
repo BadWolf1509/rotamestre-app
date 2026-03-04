@@ -34,6 +34,7 @@ import {
 } from "@/lib/openFreeMapStyle";
 import { escapeHtml } from "@/lib/utils";
 import type { ParadaMapItem as Parada, StatusFilter } from "@/types/parada-map";
+import { getMarkerColorExpression } from "@/utils/mapMarkerColors";
 import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
 
 interface MapaWebMapLibreProps {
@@ -450,27 +451,10 @@ export default function MapaWebMapLibre({
       features: markerFeatures,
     };
 
-    // MapLibre data-driven style expressions (case/match syntax)
-    // Type as ExpressionSpecification for proper MapLibre API compatibility
-    const circleColorExpression: maplibregl.ExpressionSpecification = [
-      "case",
-      ["==", ["get", "is_checkpoint"], true],
-      [
-        "case",
-        ["==", ["get", "is_partida"], true],
-        theme.colors.success,
-        theme.colors.error,
-      ],
-      ["==", ["get", "status"], "concluida"],
-      theme.colors.success,
-      ["==", ["get", "status"], "em_andamento"],
-      theme.colors.primary,
-      ["==", ["get", "status"], "pendente"],
-      theme.colors.warning,
-      ["==", ["get", "status"], "pulada"],
-      theme.colors.gray400,
-      theme.colors.gray500,
-    ];
+    // Centralized marker colors from statusConfig (WCAG-compliant dark variants)
+    const circleColorExpression = getMarkerColorExpression(
+      theme.colors,
+    ) as maplibregl.ExpressionSpecification;
 
     // Radius: checkpoints 18, regular 16, selected +4
     const circleRadiusExpression: maplibregl.ExpressionSpecification = [

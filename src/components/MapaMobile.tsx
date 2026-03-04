@@ -1,22 +1,43 @@
-import { Ionicons } from '@expo/vector-icons';
-import MapLibreGL, { type CameraRef } from '@maplibre/maplibre-react-native';
-import * as Clipboard from 'expo-clipboard';
-import * as Haptics from 'expo-haptics';
-import * as Location from 'expo-location';
-import React, { useRef, useEffect, useMemo, useCallback, useState } from 'react';
-import { View, Text, ActivityIndicator, TouchableOpacity, Platform, Pressable, Linking } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import MapLibreGL, { type CameraRef } from "@maplibre/maplibre-react-native";
+import * as Clipboard from "expo-clipboard";
+import * as Haptics from "expo-haptics";
+import * as Location from "expo-location";
+import React, {
+  useRef,
+  useEffect,
+  useMemo,
+  useCallback,
+  useState,
+} from "react";
+import {
+  View,
+  Text,
+  ActivityIndicator,
+  TouchableOpacity,
+  Platform,
+  Pressable,
+  Linking,
+} from "react-native";
 
-import { getStatusLabel } from '@/components/map/infoWindowBuilders';
-import { MotoristaMarker } from '@/components/MotoristaMarker';
-import { useAlert } from '@/hooks/useAlert';
-import { useRouteDirections } from '@/hooks/useRouteDirections';
-import { logger } from '@/lib/logger';
-import { MAPLIBRE_RASTER_STYLE, getBounds, toLineString, toLngLat, zoomFromLongitudeDelta } from '@/lib/maplibre';
-import type { ParadaMapItem as Parada, StatusFilter } from '@/types/parada-map';
-import { withOpacity } from '@/utils/color';
-import { showNavigationOptions } from '@/utils/navigation';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-import { toast } from '@/utils/toast';
+import { getStatusLabel } from "@/components/map/infoWindowBuilders";
+import { MotoristaMarker } from "@/components/MotoristaMarker";
+import { useAlert } from "@/hooks/useAlert";
+import { useRouteDirections } from "@/hooks/useRouteDirections";
+import { logger } from "@/lib/logger";
+import {
+  MAPLIBRE_RASTER_STYLE,
+  getBounds,
+  toLineString,
+  toLngLat,
+  zoomFromLongitudeDelta,
+} from "@/lib/maplibre";
+import type { ParadaMapItem as Parada, StatusFilter } from "@/types/parada-map";
+import { withOpacity } from "@/utils/color";
+import { getMarkerFillColor } from "@/utils/mapMarkerColors";
+import { showNavigationOptions } from "@/utils/navigation";
+import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
+import { toast } from "@/utils/toast";
 
 type MapRegion = {
   latitude: number;
@@ -50,7 +71,7 @@ export function MapaMobile({
   onMarkerPress,
   onMapPress,
   onMarkerLongPress,
-  statusFilter = 'all',
+  statusFilter = "all",
   rotaId,
   motoristaNome,
   showMotorista = false,
@@ -60,49 +81,58 @@ export function MapaMobile({
   const { showWarning, showError, AlertDialog } = useAlert();
   const cameraRef = useRef<CameraRef>(null);
   const [isLocating, setIsLocating] = useState(false);
-  const [selectedCheckpointId, setSelectedCheckpointId] = useState<string | null>(null);
+  const [selectedCheckpointId, setSelectedCheckpointId] = useState<
+    string | null
+  >(null);
 
   // Filtrar paradas com coordenadas válidas
   const paradasComCoord = useMemo(
     () => paradas.filter((p) => p.latitude !== null && p.longitude !== null),
-    [paradas]
+    [paradas],
   );
   const hasParadasComCoordenadas = paradasComCoord.length > 0;
 
   // Separar paradas reais de checkpoints (pontos da unidade)
   const paradasReais = useMemo(
     () => paradasComCoord.filter((p) => p.is_checkpoint !== false),
-    [paradasComCoord]
+    [paradasComCoord],
   );
 
   // Paradas filtradas por status
   const paradasFiltradas = useMemo(() => {
-    if (statusFilter === 'all') return paradasReais;
+    if (statusFilter === "all") return paradasReais;
     return paradasReais.filter((p) => p.status === statusFilter);
   }, [paradasReais, statusFilter]);
 
   const checkpoints = useMemo(
     () => paradasComCoord.filter((p) => p.is_checkpoint === false),
-    [paradasComCoord]
+    [paradasComCoord],
   );
 
   // Buscar rota real usando Google Directions API
-  const { routeCoordinates, routeInfo, isLoading: isLoadingRoute } = useRouteDirections(
-    paradasComCoord as Parada[]
-  );
+  const {
+    routeCoordinates,
+    routeInfo,
+    isLoading: isLoadingRoute,
+  } = useRouteDirections(paradasComCoord as Parada[]);
 
-    // Ajustar mapa para mostrar todas as paradas após carregar
+  // Ajustar mapa para mostrar todas as paradas após carregar
   useEffect(() => {
     if (paradasComCoord.length > 1 && cameraRef.current) {
       const bounds = getBounds(
         paradasComCoord.map((parada) => ({
           latitude: parada.latitude!,
           longitude: parada.longitude!,
-        }))
+        })),
       );
       if (!bounds) return undefined;
       const timer = setTimeout(() => {
-        cameraRef.current?.fitBounds(bounds.ne, bounds.sw, [50, 50, 50, 50], 500);
+        cameraRef.current?.fitBounds(
+          bounds.ne,
+          bounds.sw,
+          [50, 50, 50, 50],
+          500,
+        );
       }, 500);
 
       return () => clearTimeout(timer);
@@ -164,39 +194,39 @@ export function MapaMobile({
       }),
       zoomLevel: zoomFromLongitudeDelta(initialRegion.longitudeDelta),
     }),
-    [initialRegion]
+    [initialRegion],
   );
 
-// Função para determinar cor do marcador baseado no status - usa design tokens
-  const getMarkerColor = useCallback((status: string): string => {
-    switch (status) {
-      case 'concluida':
-        return theme.colors.success;
-      case 'em_andamento':
-        return theme.colors.secondary;
-      case 'pendente':
-        return theme.colors.warning;
-      default:
-        return theme.colors.gray500;
-    }
-  }, [theme.colors]);
+  // Marker color from centralized statusConfig (WCAG-compliant dark variants)
+  const getMarkerColor = useCallback(
+    (status: string): string => {
+      return getMarkerFillColor(status, theme.colors);
+    },
+    [theme.colors],
+  );
 
   // Handler para tap no marcador com haptic feedback
-  const handleMarkerPress = useCallback((paradaId: string) => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    setSelectedCheckpointId(null);
-    onMarkerPress?.(paradaId);
-  }, [onMarkerPress]);
+  const handleMarkerPress = useCallback(
+    (paradaId: string) => {
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+      setSelectedCheckpointId(null);
+      onMarkerPress?.(paradaId);
+    },
+    [onMarkerPress],
+  );
 
   // Handler para long-press no marcador
-  const handleMarkerLongPress = useCallback((paradaId: string) => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-    onMarkerLongPress?.(paradaId);
-  }, [onMarkerLongPress]);
+  const handleMarkerLongPress = useCallback(
+    (paradaId: string) => {
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+      onMarkerLongPress?.(paradaId);
+    },
+    [onMarkerLongPress],
+  );
 
   // Handler para tap no mapa (deselecionar)
   const handleMapPress = useCallback(() => {
@@ -207,7 +237,7 @@ export function MapaMobile({
   // Próxima parada pendente (para navegação)
   const proximaParadaPendente = useMemo(() => {
     return paradasReais
-      .filter((p) => p.status === 'pendente' || p.status === 'em_andamento')
+      .filter((p) => p.status === "pendente" || p.status === "em_andamento")
       .sort((a, b) => a.ordem - b.ordem)[0];
   }, [paradasReais]);
 
@@ -216,8 +246,11 @@ export function MapaMobile({
     setIsLocating(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        showWarning('Permissão negada', 'Permita o acesso à localização para usar esta função.');
+      if (status !== "granted") {
+        showWarning(
+          "Permissão negada",
+          "Permita o acesso à localização para usar esta função.",
+        );
         return;
       }
 
@@ -236,8 +269,11 @@ export function MapaMobile({
         animationDuration: 500,
       });
     } catch (error) {
-      logger.error('[MapaMobile] Erro ao obter localização:', error);
-      showError({ title: 'Erro', message: 'Não foi possível obter sua localização.' });
+      logger.error("[MapaMobile] Erro ao obter localização:", error);
+      showError({
+        title: "Erro",
+        message: "Não foi possível obter sua localização.",
+      });
     } finally {
       setIsLocating(false);
     }
@@ -246,7 +282,7 @@ export function MapaMobile({
   // Navegar para próxima parada usando app externo
   const handleNavigate = useCallback(() => {
     if (!proximaParadaPendente) {
-      showWarning('Nenhuma parada', 'Não há paradas pendentes para navegar.');
+      showWarning("Nenhuma parada", "Não há paradas pendentes para navegar.");
       return;
     }
 
@@ -264,7 +300,7 @@ export function MapaMobile({
         paradasComCoord.map((parada) => ({
           latitude: parada.latitude!,
           longitude: parada.longitude!,
-        }))
+        })),
       );
       if (!bounds) return;
       cameraRef.current.fitBounds(bounds.ne, bounds.sw, [80, 50, 120, 50], 500);
@@ -276,16 +312,19 @@ export function MapaMobile({
     try {
       await Clipboard.setStringAsync(endereco);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      toast.success('Endereço copiado para a área de transferência.', 'Copiado!');
+      toast.success(
+        "Endereço copiado para a área de transferência.",
+        "Copiado!",
+      );
     } catch {
       // Clipboard pode não estar disponível em todas as plataformas
-      toast.error('Não foi possível copiar o endereço.');
+      toast.error("Não foi possível copiar o endereço.");
     }
   }, []);
 
   const routeShape = useMemo(
     () => (routeCoordinates.length > 1 ? toLineString(routeCoordinates) : null),
-    [routeCoordinates]
+    [routeCoordinates],
   );
 
   if (!hasParadasComCoordenadas) {
@@ -323,8 +362,8 @@ export function MapaMobile({
         {/* Marcadores dos checkpoints (PARTIDA/CHEGADA) */}
         {checkpoints.map((parada, index) => {
           const isPartida = index === 0;
-          const checkpointLabel = isPartida ? 'PARTIDA' : 'CHEGADA';
-          const iconName = isPartida ? 'flag' : 'home';
+          const checkpointLabel = isPartida ? "PARTIDA" : "CHEGADA";
+          const iconName = isPartida ? "flag" : "home";
           const isSelected = selectedCheckpointId === parada.id;
 
           return (
@@ -345,14 +384,25 @@ export function MapaMobile({
                     <View style={styles.checkpointCalloutContainer}>
                       <View style={styles.checkpointCalloutHeader}>
                         <View style={styles.checkpointIconBadge}>
-                          <Ionicons name={iconName} size={12} color={theme.colors.white} />
+                          <Ionicons
+                            name={iconName}
+                            size={12}
+                            color={theme.colors.white}
+                          />
                         </View>
-                        <Text style={styles.checkpointCalloutTitle}>{checkpointLabel}</Text>
+                        <Text style={styles.checkpointCalloutTitle}>
+                          {checkpointLabel}
+                        </Text>
                       </View>
                       {unidadeNome && (
-                        <Text style={styles.checkpointCalloutUnidade}>{unidadeNome}</Text>
+                        <Text style={styles.checkpointCalloutUnidade}>
+                          {unidadeNome}
+                        </Text>
                       )}
-                      <Text style={styles.checkpointCalloutAddress} numberOfLines={2}>
+                      <Text
+                        style={styles.checkpointCalloutAddress}
+                        numberOfLines={2}
+                      >
                         {parada.endereco}
                       </Text>
                       {/* Botão copiar endereço */}
@@ -362,20 +412,34 @@ export function MapaMobile({
                         accessibilityLabel="Copiar endereço"
                         accessibilityRole="button"
                       >
-                        <Ionicons name="copy-outline" size={14} color={theme.colors.textSecondary} />
-                        <Text style={styles.copyButtonText}>Copiar endereço</Text>
+                        <Ionicons
+                          name="copy-outline"
+                          size={14}
+                          color={theme.colors.textSecondary}
+                        />
+                        <Text style={styles.copyButtonText}>
+                          Copiar endereço
+                        </Text>
                       </TouchableOpacity>
                     </View>
                   </View>
                 )}
 
                 <Pressable
-                  onPress={() => setSelectedCheckpointId((prev) => (prev === parada.id ? null : parada.id))}
+                  onPress={() =>
+                    setSelectedCheckpointId((prev) =>
+                      prev === parada.id ? null : parada.id,
+                    )
+                  }
                   style={styles.checkpointMarkerCompact}
                   accessibilityLabel={`${checkpointLabel}, ${parada.endereco}`}
                   accessibilityRole="button"
                 >
-                  <Ionicons name={iconName} size={14} color={theme.colors.white} />
+                  <Ionicons
+                    name={iconName}
+                    size={14}
+                    color={theme.colors.white}
+                  />
                 </Pressable>
               </View>
             </MapLibreGL.MarkerView>
@@ -399,14 +463,25 @@ export function MapaMobile({
               {selectedParadaId === parada.id && (
                 <View style={styles.calloutWrapper}>
                   <View style={styles.calloutContainer}>
-                    <Text style={styles.calloutTitle}>Parada {parada.ordem}</Text>
-                    <Text style={styles.calloutAddress} numberOfLines={2}>{parada.endereco}</Text>
+                    <Text style={styles.calloutTitle}>
+                      Parada {parada.ordem}
+                    </Text>
+                    <Text style={styles.calloutAddress} numberOfLines={2}>
+                      {parada.endereco}
+                    </Text>
 
                     {/* Destinatário */}
                     {parada.destinatario && (
                       <View style={styles.calloutDetailRow}>
-                        <Ionicons name="person-outline" size={14} color={theme.colors.textSecondary} />
-                        <Text style={styles.calloutDetailText} numberOfLines={1}>
+                        <Ionicons
+                          name="person-outline"
+                          size={14}
+                          color={theme.colors.textSecondary}
+                        />
+                        <Text
+                          style={styles.calloutDetailText}
+                          numberOfLines={1}
+                        >
                           {parada.destinatario}
                         </Text>
                       </View>
@@ -416,31 +491,59 @@ export function MapaMobile({
                     {parada.telefone && (
                       <TouchableOpacity
                         style={styles.calloutDetailRow}
-                        onPress={() => Linking.openURL(`tel:${parada.telefone}`)}
+                        onPress={() =>
+                          Linking.openURL(`tel:${parada.telefone}`)
+                        }
                         accessibilityLabel={`Ligar para ${parada.telefone}`}
                         accessibilityRole="button"
                       >
-                        <Ionicons name="call-outline" size={14} color={theme.colors.primary} />
-                        <Text style={styles.calloutPhoneText}>{parada.telefone}</Text>
+                        <Ionicons
+                          name="call-outline"
+                          size={14}
+                          color={theme.colors.primary}
+                        />
+                        <Text style={styles.calloutPhoneText}>
+                          {parada.telefone}
+                        </Text>
                       </TouchableOpacity>
                     )}
 
                     {/* Badges: Status e Tipo */}
                     <View style={styles.calloutBadges}>
-                      <View style={[styles.calloutStatus, { backgroundColor: `${getMarkerColor(parada.status)}20` }]}>
-                        <Text style={[styles.calloutStatusText, { color: getMarkerColor(parada.status) }]}>
-                          {parada.status === 'concluida' ? 'Concluída' : parada.status === 'em_andamento' ? 'Em andamento' : 'Pendente'}
+                      <View
+                        style={[
+                          styles.calloutStatus,
+                          {
+                            backgroundColor: `${getMarkerColor(parada.status)}20`,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.calloutStatusText,
+                            { color: getMarkerColor(parada.status) },
+                          ]}
+                        >
+                          {parada.status === "concluida"
+                            ? "Concluída"
+                            : parada.status === "em_andamento"
+                              ? "Em andamento"
+                              : "Pendente"}
                         </Text>
                       </View>
                       {parada.tipo && (
                         <View style={styles.calloutTypeBadge}>
                           <Ionicons
-                            name={parada.tipo === 'entrega' ? 'cube-outline' : 'arrow-up-circle-outline'}
+                            name={
+                              parada.tipo === "entrega"
+                                ? "cube-outline"
+                                : "arrow-up-circle-outline"
+                            }
                             size={12}
                             color={theme.colors.textSecondary}
                           />
                           <Text style={styles.calloutTypeText}>
-                            {parada.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
+                            {parada.tipo === "entrega" ? "Entrega" : "Retirada"}
                           </Text>
                         </View>
                       )}
@@ -483,8 +586,8 @@ export function MapaMobile({
         accessibilityRole="summary"
         accessibilityLabel={
           isLoadingRoute
-            ? 'Calculando rota'
-            : `${paradasFiltradas.length} parada${paradasFiltradas.length !== 1 ? 's' : ''}${routeInfo ? `, ${(routeInfo.distanceMeters / 1000).toFixed(1)} quilômetros, ${Math.round(routeInfo.durationSeconds / 60)} minutos` : ''}`
+            ? "Calculando rota"
+            : `${paradasFiltradas.length} parada${paradasFiltradas.length !== 1 ? "s" : ""}${routeInfo ? `, ${(routeInfo.distanceMeters / 1000).toFixed(1)} quilômetros, ${Math.round(routeInfo.durationSeconds / 60)} minutos` : ""}`
         }
         accessibilityLiveRegion="polite"
       >
@@ -495,14 +598,21 @@ export function MapaMobile({
           </View>
         ) : (
           <Text style={styles.infoBadgeText}>
-            📍 {paradasFiltradas.length}{statusFilter !== 'all' ? `/${paradasReais.length}` : ''} parada{paradasFiltradas.length !== 1 ? 's' : ''}
-            {routeInfo && ` • ${(routeInfo.distanceMeters / 1000).toFixed(1)} km • ${Math.round(routeInfo.durationSeconds / 60)} min`}
+            📍 {paradasFiltradas.length}
+            {statusFilter !== "all" ? `/${paradasReais.length}` : ""} parada
+            {paradasFiltradas.length !== 1 ? "s" : ""}
+            {routeInfo &&
+              ` • ${(routeInfo.distanceMeters / 1000).toFixed(1)} km • ${Math.round(routeInfo.durationSeconds / 60)} min`}
           </Text>
         )}
       </View>
 
       {/* Botões flutuantes (FABs) */}
-      <View style={styles.fabContainer} accessibilityRole="toolbar" accessibilityLabel="Controles do mapa">
+      <View
+        style={styles.fabContainer}
+        accessibilityRole="toolbar"
+        accessibilityLabel="Controles do mapa"
+      >
         {/* Botão de ajustar para mostrar todas as paradas */}
         <TouchableOpacity
           style={styles.fabSecondary}
@@ -512,7 +622,11 @@ export function MapaMobile({
           accessibilityLabel="Ajustar mapa para mostrar todas as paradas"
           accessibilityRole="button"
         >
-          <Ionicons name="scan-outline" size={22} color={theme.colors.primary} />
+          <Ionicons
+            name="scan-outline"
+            size={22}
+            color={theme.colors.primary}
+          />
         </TouchableOpacity>
 
         {/* Botão de centralizar no usuário */}
@@ -522,7 +636,11 @@ export function MapaMobile({
           activeOpacity={0.8}
           disabled={isLocating}
           accessible={true}
-          accessibilityLabel={isLocating ? 'Obtendo localização' : 'Centralizar mapa na minha localização'}
+          accessibilityLabel={
+            isLocating
+              ? "Obtendo localização"
+              : "Centralizar mapa na minha localização"
+          }
           accessibilityRole="button"
           accessibilityState={{ busy: isLocating }}
         >
@@ -558,7 +676,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
     minHeight: 300,
     borderRadius: theme.borderRadius.lg,
-    overflow: 'hidden',
+    overflow: "hidden",
     backgroundColor: theme.colors.disabled,
   },
   map: {
@@ -567,23 +685,23 @@ const styles = StyleSheet.create((theme: Theme) => ({
   emptyContainer: {
     flex: 1,
     minHeight: 300,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: theme.colors.disabled,
     borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing['5'],
+    padding: theme.spacing["5"],
   },
   emptyText: {
     fontSize: theme.typography.fontSize.base,
     color: theme.colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
   },
   markerContainer: {
-    width: theme.spacing['8'],
-    height: theme.spacing['8'],
-    borderRadius: theme.spacing['4'],
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: theme.spacing["8"],
+    height: theme.spacing["8"],
+    borderRadius: theme.spacing["4"],
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 3,
     borderColor: theme.colors.surface,
     shadowColor: theme.colors.black,
@@ -593,21 +711,21 @@ const styles = StyleSheet.create((theme: Theme) => ({
     elevation: 5,
   },
   markerWrapper: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   calloutWrapper: {
-    marginBottom: theme.spacing['2'],
+    marginBottom: theme.spacing["2"],
   },
   // Checkpoint compacto azul marca - ícones distintos para PARTIDA/CHEGADA
   checkpointMarkerCompact: {
-    width: theme.spacing['7'],
-    height: theme.spacing['7'],
+    width: theme.spacing["7"],
+    height: theme.spacing["7"],
     borderRadius: theme.borderRadius.xs + 2,
-    borderBottomLeftRadius: theme.spacing['0.5'],
+    borderBottomLeftRadius: theme.spacing["0.5"],
     backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: theme.spacing['0.5'],
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: theme.spacing["0.5"],
     borderColor: theme.colors.white,
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
@@ -619,7 +737,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   checkpointCalloutContainer: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.md,
-    padding: theme.spacing['3'],
+    padding: theme.spacing["3"],
     minWidth: 180,
     maxWidth: 240,
     shadowColor: theme.colors.black,
@@ -629,30 +747,30 @@ const styles = StyleSheet.create((theme: Theme) => ({
     elevation: 4,
   },
   checkpointCalloutHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing['2'],
-    marginBottom: theme.spacing['2'],
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing["2"],
+    marginBottom: theme.spacing["2"],
   },
   checkpointIconBadge: {
-    width: theme.spacing['6'],
-    height: theme.spacing['6'],
+    width: theme.spacing["6"],
+    height: theme.spacing["6"],
     borderRadius: theme.borderRadius.xs + 2,
     backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   checkpointCalloutTitle: {
     fontSize: theme.typography.fontSize.sm,
-    fontWeight: '700',
+    fontWeight: "700",
     color: theme.colors.primary,
     letterSpacing: 0.5,
   },
   checkpointCalloutUnidade: {
     fontSize: theme.typography.sm, // 14px
-    fontWeight: '600',
+    fontWeight: "600",
     color: theme.colors.text,
-    marginBottom: theme.spacing['1'],
+    marginBottom: theme.spacing["1"],
   },
   checkpointCalloutAddress: {
     fontSize: theme.typography.sm, // 14px
@@ -660,29 +778,29 @@ const styles = StyleSheet.create((theme: Theme) => ({
     lineHeight: 18,
   },
   copyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing['1.5'],
-    paddingVertical: theme.spacing['2'],
-    paddingHorizontal: theme.spacing['3'],
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing["1.5"],
+    paddingVertical: theme.spacing["2"],
+    paddingHorizontal: theme.spacing["3"],
     backgroundColor: theme.colors.gray50,
     borderRadius: theme.borderRadius.sm,
     borderWidth: 1,
     borderColor: theme.colors.gray200,
-    marginTop: theme.spacing['2.5'],
+    marginTop: theme.spacing["2.5"],
   },
   copyButtonText: {
     fontSize: theme.typography.fontSize.xs,
-    fontWeight: '500',
+    fontWeight: "500",
     color: theme.colors.textSecondary,
   },
   markerText: {
     color: theme.colors.surface,
     fontSize: theme.typography.fontSize.sm,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   markerSelected: {
-    borderWidth: theme.spacing['1'],
+    borderWidth: theme.spacing["1"],
     borderColor: theme.colors.primary,
     transform: [{ scale: 1.2 }],
   },
@@ -693,7 +811,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   calloutContainer: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing['3'],
+    padding: theme.spacing["3"],
     minWidth: 200,
     maxWidth: 280,
     shadowColor: theme.colors.black,
@@ -704,21 +822,21 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   calloutTitle: {
     fontSize: theme.typography.fontSize.base,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: theme.colors.text,
-    marginBottom: theme.spacing['1'],
+    marginBottom: theme.spacing["1"],
   },
   calloutAddress: {
     fontSize: theme.typography.sm, // 14px
     color: theme.colors.textSecondary,
-    marginBottom: theme.spacing['2'],
+    marginBottom: theme.spacing["2"],
     lineHeight: 18,
   },
   calloutDetailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing['1.5'],
-    marginBottom: theme.spacing['1.5'],
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing["1.5"],
+    marginBottom: theme.spacing["1.5"],
   },
   calloutDetailText: {
     fontSize: theme.typography.sm, // 14px
@@ -728,46 +846,46 @@ const styles = StyleSheet.create((theme: Theme) => ({
   calloutPhoneText: {
     fontSize: theme.typography.sm, // 14px
     color: theme.colors.primary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   calloutBadges: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing['2'],
-    marginTop: theme.spacing['1'],
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing["2"],
+    marginTop: theme.spacing["1"],
+    flexWrap: "wrap",
   },
   calloutStatus: {
-    paddingHorizontal: theme.spacing['2.5'],
-    paddingVertical: theme.spacing['1'],
+    paddingHorizontal: theme.spacing["2.5"],
+    paddingVertical: theme.spacing["1"],
     borderRadius: theme.borderRadius.lg,
   },
   calloutStatusText: {
     fontSize: theme.typography.fontSize.xs,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   calloutTypeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing['1'],
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing["1"],
     backgroundColor: theme.colors.gray100,
-    paddingHorizontal: theme.spacing['2'],
-    paddingVertical: theme.spacing['1'],
+    paddingHorizontal: theme.spacing["2"],
+    paddingVertical: theme.spacing["1"],
     borderRadius: theme.borderRadius.lg,
   },
   calloutTypeText: {
     fontSize: theme.typography.fontSize.xs,
-    fontWeight: '500',
+    fontWeight: "500",
     color: theme.colors.textSecondary,
   },
   infoBadge: {
-    position: 'absolute',
-    top: theme.spacing['2.5'],
-    right: theme.spacing['2.5'],
+    position: "absolute",
+    top: theme.spacing["2.5"],
+    right: theme.spacing["2.5"],
     backgroundColor: withOpacity(theme.colors.white, 0.95),
-    paddingHorizontal: theme.spacing['3'],
-    paddingVertical: theme.spacing['1.5'],
-    borderRadius: theme.spacing['5'],
+    paddingHorizontal: theme.spacing["3"],
+    paddingVertical: theme.spacing["1.5"],
+    borderRadius: theme.spacing["5"],
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -775,28 +893,28 @@ const styles = StyleSheet.create((theme: Theme) => ({
     elevation: 3,
   },
   infoBadgeLoading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing['1.5'],
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing["1.5"],
   },
   infoBadgeText: {
     fontSize: theme.typography.fontSize.xs,
-    fontWeight: '600',
+    fontWeight: "600",
     color: theme.colors.text,
   },
   fabContainer: {
-    position: 'absolute',
-    bottom: theme.spacing['5'],
-    right: theme.spacing['4'],
-    gap: theme.spacing['3'],
+    position: "absolute",
+    bottom: theme.spacing["5"],
+    right: theme.spacing["4"],
+    gap: theme.spacing["3"],
   },
   fabPrimary: {
-    width: theme.spacing['14'],
-    height: theme.spacing['14'],
-    borderRadius: theme.spacing['7'],
+    width: theme.spacing["14"],
+    height: theme.spacing["14"],
+    borderRadius: theme.spacing["7"],
     backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -808,8 +926,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     height: theme.components.minTouchTarget,
     borderRadius: theme.components.minTouchTarget / 2,
     backgroundColor: theme.colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
