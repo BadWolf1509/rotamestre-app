@@ -5,7 +5,7 @@
  * Business logic lives in extracted hooks and pure calculation functions.
  */
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 
 import {
   useLoadActiveRoute,
@@ -60,24 +60,24 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     loadActiveRoute();
   }, [loadActiveRoute]);
 
+  const contextValue = useMemo<RouteStatusContextData>(() => ({
+    routeStatus: getRouteStatus(route, paradas),
+    route,
+    paradas,
+    currentStop: getCurrentStop(paradas),
+    nextStop: getNextStop(paradas),
+    progress: getProgress(paradas),
+    pendingRoutesCount,
+    loading,
+    refreshRoute: loadActiveRoute,
+    startRoute,
+    completeStop,
+    skipStop,
+    completeRoute,
+  }), [route, paradas, pendingRoutesCount, loading, loadActiveRoute, startRoute, completeStop, skipStop, completeRoute]);
+
   return (
-    <RouteStatusContext.Provider
-      value={{
-        routeStatus: getRouteStatus(route, paradas),
-        route,
-        paradas,
-        currentStop: getCurrentStop(paradas),
-        nextStop: getNextStop(paradas),
-        progress: getProgress(paradas),
-        pendingRoutesCount,
-        loading,
-        refreshRoute: loadActiveRoute,
-        startRoute,
-        completeStop,
-        skipStop,
-        completeRoute,
-      }}
-    >
+    <RouteStatusContext.Provider value={contextValue}>
       {children}
     </RouteStatusContext.Provider>
   );
