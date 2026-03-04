@@ -28,6 +28,7 @@ export function useRouteRealtimeSubscription({
   loadActiveRoute,
 }: UseRouteRealtimeOptions) {
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isSubscribed = useRef(false);
   const reconnectAttempts = useRef(0);
 
@@ -122,6 +123,7 @@ export function useRouteRealtimeSubscription({
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
+          isSubscribed.current = true;
           reconnectAttempts.current = 0;
           logger.info('[RouteStatus] Realtime conectado com sucesso');
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -130,10 +132,10 @@ export function useRouteRealtimeSubscription({
             attempt: reconnectAttempts.current + 1,
             maxAttempts: MAX_RECONNECT_ATTEMPTS,
           });
-          isSubscribed.current = false;
 
           // Tentar reconectar com backoff exponencial
           if (reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
+            // Keep isSubscribed true — we're still trying to reconnect
             reconnectAttempts.current += 1;
             const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
 
@@ -144,13 +146,13 @@ export function useRouteRealtimeSubscription({
               channel.subscribe();
             }, delay);
           } else {
+            // Gave up on realtime — mark as not subscribed
+            isSubscribed.current = false;
             logger.error('[RouteStatus] Realtime máximo de tentativas atingido - usando polling');
             // Fallback: recarregar dados manualmente a cada 30s
-            const pollInterval = setInterval(() => {
+            pollIntervalRef.current = setInterval(() => {
               if (motoristaId) loadActiveRoute();
             }, 30000);
-
-            return () => clearInterval(pollInterval);
           }
         }
       });
@@ -159,6 +161,10 @@ export function useRouteRealtimeSubscription({
       isSubscribed.current = false;
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);
+      }
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
       }
       supabase.removeChannel(channel);
     };
