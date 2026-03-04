@@ -374,9 +374,6 @@ export function MapaMobile({
                 longitude: parada.longitude!,
               })}
               anchor={{ x: 0.5, y: 1 }}
-              accessible={true}
-              accessibilityLabel={`${checkpointLabel}, ${parada.endereco}`}
-              accessibilityHint="Toque para ver informações"
             >
               <View style={styles.markerWrapper}>
                 {isSelected && (
@@ -433,6 +430,7 @@ export function MapaMobile({
                   }
                   style={styles.checkpointMarkerCompact}
                   accessibilityLabel={`${checkpointLabel}, ${parada.endereco}`}
+                  accessibilityHint="Toque para ver informações"
                   accessibilityRole="button"
                 >
                   <Ionicons
@@ -455,9 +453,6 @@ export function MapaMobile({
               longitude: parada.longitude!,
             })}
             anchor={{ x: 0.5, y: 1 }}
-            accessible={true}
-            accessibilityLabel={`Parada ${parada.ordem}, ${parada.endereco}, ${getStatusLabel(parada.status)}`}
-            accessibilityHint="Toque para ver detalhes. Mantenha pressionado para ações rápidas"
           >
             <View style={styles.markerWrapper}>
               {selectedParadaId === parada.id && (
@@ -561,6 +556,9 @@ export function MapaMobile({
                   selectedParadaId === parada.id && styles.markerSelected,
                   pressed && styles.markerPressed,
                 ]}
+                accessibilityLabel={`Parada ${parada.ordem}, ${parada.endereco}, ${getStatusLabel(parada.status)}`}
+                accessibilityHint="Toque para ver detalhes. Mantenha pressionado para ações rápidas"
+                accessibilityRole="button"
               >
                 <Text style={styles.markerText}>{parada.ordem}</Text>
               </Pressable>

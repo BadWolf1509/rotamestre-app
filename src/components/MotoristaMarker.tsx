@@ -1,13 +1,13 @@
-import { Ionicons } from '@expo/vector-icons';
-import MapLibreGL from '@maplibre/maplibre-react-native';
-import React, { useEffect, useState, useMemo, useCallback, memo } from 'react';
-import { View, Text } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import MapLibreGL from "@maplibre/maplibre-react-native";
+import React, { useEffect, useState, useMemo, useCallback, memo } from "react";
+import { View, Text } from "react-native";
 
-import { logger } from '@/lib/logger';
-import { toLngLat } from '@/lib/maplibre';
-import { supabase } from '@/lib/supabase';
-import type { MotoristaLocation } from '@/types/notifications';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { logger } from "@/lib/logger";
+import { toLngLat } from "@/lib/maplibre";
+import { supabase } from "@/lib/supabase";
+import type { MotoristaLocation } from "@/types/notifications";
+import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
 
 interface MotoristaMarkerProps {
   rotaId: string;
@@ -28,17 +28,20 @@ function MotoristaMarkerComponent({
   const loadLastLocation = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from('motorista_locations')
-        .select('*')
-        .eq('rota_id', rotaId)
-        .order('timestamp', { ascending: false })
+        .from("motorista_locations")
+        .select("*")
+        .eq("rota_id", rotaId)
+        .order("timestamp", { ascending: false })
         .limit(1)
         .single();
 
       if (error) {
-        if (error.code !== 'PGRST116') {
+        if (error.code !== "PGRST116") {
           // PGRST116 = no rows returned
-          logger.error('[MotoristaMarker] Erro ao carregar localização:', error);
+          logger.error(
+            "[MotoristaMarker] Erro ao carregar localização:",
+            error,
+          );
         }
         return;
       }
@@ -47,7 +50,7 @@ function MotoristaMarkerComponent({
         setLocation(data as MotoristaLocation);
       }
     } catch (err) {
-      logger.error('[MotoristaMarker] Erro:', err);
+      logger.error("[MotoristaMarker] Erro:", err);
     }
   }, [rotaId]);
 
@@ -62,16 +65,16 @@ function MotoristaMarkerComponent({
     const channel = supabase
       .channel(`motorista-location-${rotaId}`)
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'motorista_locations',
+          event: "INSERT",
+          schema: "public",
+          table: "motorista_locations",
           filter: `rota_id=eq.${rotaId}`,
         },
         (payload) => {
           setLocation(payload.new as MotoristaLocation);
-        }
+        },
       )
       .subscribe();
 
@@ -91,13 +94,13 @@ function MotoristaMarkerComponent({
 
   // Calcular tempo desde última atualização (memoizado)
   const timeSinceUpdate = useMemo(() => {
-    if (!location) return '';
+    if (!location) return "";
     const now = new Date();
     const locationTime = new Date(location.timestamp);
     const diffMs = now.getTime() - locationTime.getTime();
     const diffMins = Math.floor(diffMs / 60000);
 
-    if (diffMins < 1) return 'agora';
+    if (diffMins < 1) return "agora";
     if (diffMins < 60) return `${diffMins}m atrás`;
     const diffHours = Math.floor(diffMins / 60);
     return `${diffHours}h atrás`;
@@ -118,9 +121,6 @@ function MotoristaMarkerComponent({
         longitude: Number(location.longitude),
       })}
       anchor={{ x: 0.5, y: 0.5 }}
-      accessible={true}
-      accessibilityLabel={`Localização do motorista ${motoristaNome || ''}, ${location.velocidade ? `${Math.round(location.velocidade)} quilômetros por hora` : 'velocidade desconhecida'}, atualizado ${timeSinceUpdate}`}
-      accessibilityHint="Mostra a posição atual do motorista em tempo real"
     >
       <View style={styles.markerContainer}>
         {/* Círculo de precisão */}
@@ -160,9 +160,9 @@ function MotoristaMarkerComponent({
           style={styles.callout}
           accessible={true}
           accessibilityRole="summary"
-          accessibilityLabel={`${motoristaNome || 'Motorista'}${location.velocidade !== null ? `, ${Math.round(location.velocidade)} quilômetros por hora` : ''}, ${timeSinceUpdate}`}
+          accessibilityLabel={`${motoristaNome || "Motorista"}${location.velocidade !== null ? `, ${Math.round(location.velocidade)} quilômetros por hora` : ""}, ${timeSinceUpdate}`}
         >
-          <Text style={styles.calloutName}>{motoristaNome || 'Motorista'}</Text>
+          <Text style={styles.calloutName}>{motoristaNome || "Motorista"}</Text>
           {location.velocidade !== null && (
             <Text style={[styles.calloutSpeed, { color: markerColor }]}>
               {Math.round(location.velocidade)} km/h
@@ -180,11 +180,11 @@ export const MotoristaMarker = memo(MotoristaMarkerComponent);
 
 const styles = StyleSheet.create((theme: Theme) => ({
   markerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   accuracyCircle: {
-    position: 'absolute',
+    position: "absolute",
     borderRadius: 100,
     borderWidth: 2,
     opacity: 0.3,
@@ -193,8 +193,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     width: 40,
     height: 40,
     borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 3,
     borderColor: theme.colors.surface,
     shadowColor: theme.colors.black,
@@ -204,7 +204,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     elevation: 5,
   },
   directionArrow: {
-    position: 'absolute',
+    position: "absolute",
     top: -8,
   },
   callout: {
@@ -214,7 +214,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     paddingVertical: 6,
     borderRadius: 8,
     minWidth: 100,
-    alignItems: 'center',
+    alignItems: "center",
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -223,12 +223,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   calloutName: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: theme.colors.text,
   },
   calloutSpeed: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
     marginTop: 2,
   },
   calloutTime: {
