@@ -1,15 +1,15 @@
-import React, { useRef } from 'react';
-import { View, ViewStyle, Pressable, Animated, Platform } from 'react-native';
+import React, { useRef } from "react";
+import { View, ViewStyle, Pressable, Animated, Platform } from "react-native";
 
-import { platformOverrides } from '@/design-system/tokens';
-import type { PressableStateWithHover } from '@/types';
-import { boxShadow } from '@/utils/color';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { platformOverrides } from "@/design-system/tokens";
+import type { PressableStateWithHover } from "@/types";
+import { boxShadow } from "@/utils/color";
+import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
 
 interface CardProps {
   children: React.ReactNode;
-  variant?: 'elevated' | 'outlined' | 'filled';
-  padding?: 'none' | 'small' | 'medium' | 'large';
+  variant?: "elevated" | "outlined" | "filled";
+  padding?: "none" | "small" | "medium" | "large";
   onPress?: () => void;
   style?: ViewStyle;
   testID?: string;
@@ -19,24 +19,27 @@ interface CardProps {
 
 function CardComponent({
   children,
-  variant = 'elevated',
-  padding = 'medium',
+  variant = "elevated",
+  padding = "medium",
   onPress,
   style,
   testID,
   accessibilityLabel,
   accessibilityHint,
 }: CardProps) {
-  const { theme } = useUnistyles();
+  const { theme: _theme } = useUnistyles();
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const elevatedStyle =
-    variant === 'elevated'
+    variant === "elevated"
       ? Platform.select({
           ios: {
             shadowOpacity: platformOverrides.ios.shadow.opacity,
             shadowRadius: platformOverrides.ios.shadow.radius,
-            shadowOffset: { width: 0, height: platformOverrides.ios.shadow.offsetY },
+            shadowOffset: {
+              width: 0,
+              height: platformOverrides.ios.shadow.offsetY,
+            },
           },
           android: {
             elevation: platformOverrides.android.shadow.elevation,
@@ -44,7 +47,8 @@ function CardComponent({
         })
       : undefined;
 
-  const paddingKey = `padding${padding.charAt(0).toUpperCase() + padding.slice(1)}` as keyof typeof styles;
+  const paddingKey =
+    `padding${padding.charAt(0).toUpperCase() + padding.slice(1)}` as keyof typeof styles;
 
   const handlePressIn = () => {
     Animated.timing(scaleAnim, {
@@ -106,7 +110,9 @@ function CardComponent({
         ];
       }}
     >
-      <Animated.View style={[cardStyles, { transform: [{ scale: scaleAnim }] }]}>
+      <Animated.View
+        style={[cardStyles, { transform: [{ scale: scaleAnim }] }]}
+      >
         {children}
       </Animated.View>
     </Pressable>
@@ -114,7 +120,7 @@ function CardComponent({
 }
 
 export const Card = React.memo(CardComponent);
-Card.displayName = 'Card';
+Card.displayName = "Card";
 
 const styles = StyleSheet.create((theme: Theme) => ({
   card: {
@@ -124,19 +130,21 @@ const styles = StyleSheet.create((theme: Theme) => ({
 
   interactive: {
     // Web-specific styles (as any needed due to Unistyles type limitations)
-    ...(Platform.OS === 'web' && {
-      cursor: 'pointer',
-      transitionProperty: 'box-shadow',
-      transitionDuration: '150ms',
-      outlineWidth: 0,
-    } as any),
+    ...(Platform.OS === "web" &&
+      ({
+        cursor: "pointer",
+        transitionProperty: "box-shadow",
+        transitionDuration: "150ms",
+        outlineWidth: 0,
+      } as any)),
   },
 
   focusRing: {
-    ...(Platform.OS === 'web' && {
-      boxShadow: boxShadow(0, 0, 0, 3, theme.colors.primary, 0.25),
-      outlineWidth: 0,
-    } as any),
+    ...(Platform.OS === "web" &&
+      ({
+        boxShadow: boxShadow(0, 0, 0, 3, theme.colors.primary, 0.25),
+        outlineWidth: 0,
+      } as any)),
   },
 
   elevated: {

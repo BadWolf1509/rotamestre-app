@@ -1,23 +1,31 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useCallback, useMemo } from 'react';
-import { View, FlatList, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Image } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useCallback, useMemo } from "react";
+import {
+  View,
+  FlatList,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+  Image,
+} from "react-native";
 
-import { AnimatedListItem } from '@/components/AnimatedListItem';
-import { EmptyState } from '@/components/EmptyState';
-import { RouteFilters } from '@/components/RouteFilters';
-import type { RouteFiltersState as RouteFiltersType } from '@/components/RouteFilters';
-import { Text, Toast } from '@/design-system';
-import { useMotoristas } from '@/hooks/useMotoristas';
-import { useToast } from '@/hooks/useToast';
-import { withOpacity } from '@/utils/color';
-import { getGreeting } from '@/utils/motivationalMessages';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { AnimatedListItem } from "@/components/AnimatedListItem";
+import { EmptyState } from "@/components/EmptyState";
+import { RouteFilters } from "@/components/RouteFilters";
+import type { RouteFiltersState as RouteFiltersType } from "@/components/RouteFilters";
+import { Text, Toast } from "@/design-system";
+import { useMotoristas } from "@/hooks/useMotoristas";
+import { useToast } from "@/hooks/useToast";
+import { withOpacity } from "@/utils/color";
+import { getGreeting } from "@/utils/motivationalMessages";
+import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
 
-import { RotaCard } from '../shared/RotaCard';
-import { StatsCard } from '../shared/StatsCard';
+import { RotaCard } from "../shared/RotaCard";
+import { StatsCard } from "../shared/StatsCard";
 
-import type { DashboardData, RotaResumo } from '../../_hooks/useDashboardData';
+import type { DashboardData, RotaResumo } from "../../_hooks/useDashboardData";
 
 interface DashboardMobileProps extends DashboardData {
   filters: RouteFiltersType;
@@ -29,7 +37,7 @@ interface DashboardMobileProps extends DashboardData {
 // ============================================================================
 
 function formatTempo(minutos: number): string {
-  if (!minutos || minutos <= 0 || isNaN(minutos)) return '--';
+  if (!minutos || minutos <= 0 || isNaN(minutos)) return "--";
   return `${Math.floor(minutos / 60)}h ${minutos % 60}m`;
 }
 
@@ -59,36 +67,39 @@ export function DashboardMobile({
   // DERIVED DATA
   // ============================================================================
 
-  const firstName = userData?.nome?.split(' ')[0] || '';
+  const firstName = userData?.nome?.split(" ")[0] || "";
   const avatarInitial = firstName.charAt(0).toUpperCase();
 
   // KPI config for data-driven rendering
-  const kpiConfig = useMemo(() => [
-    {
-      value: String(kpis.rotasMes),
-      label: 'Rotas no Mês',
-      icon: 'calendar-outline' as keyof typeof Ionicons.glyphMap,
-      color: theme.colors.primary,
-    },
-    {
-      value: `${kpis.taxaSucesso}%`,
-      label: 'Taxa Sucesso',
-      icon: 'checkmark-circle-outline' as keyof typeof Ionicons.glyphMap,
-      color: theme.colors.success,
-    },
-    {
-      value: formatTempo(kpis.tempoMedioMinutos),
-      label: 'Tempo Médio',
-      icon: 'timer-outline' as keyof typeof Ionicons.glyphMap,
-      color: theme.colors.kpiDistancia,
-    },
-    {
-      value: String(kpis.rotasSemana ?? 0),
-      label: 'Esta Semana',
-      icon: 'trending-up-outline' as keyof typeof Ionicons.glyphMap,
-      color: theme.colors.secondary,
-    },
-  ], [kpis, theme.colors]);
+  const kpiConfig = useMemo(
+    () => [
+      {
+        value: String(kpis.rotasMes),
+        label: "Rotas no Mês",
+        icon: "calendar-outline" as keyof typeof Ionicons.glyphMap,
+        color: theme.colors.primary,
+      },
+      {
+        value: `${kpis.taxaSucesso}%`,
+        label: "Taxa Sucesso",
+        icon: "checkmark-circle-outline" as keyof typeof Ionicons.glyphMap,
+        color: theme.colors.success,
+      },
+      {
+        value: formatTempo(kpis.tempoMedioMinutos),
+        label: "Tempo Médio",
+        icon: "timer-outline" as keyof typeof Ionicons.glyphMap,
+        color: theme.colors.kpiDistancia,
+      },
+      {
+        value: String(kpis.rotasSemana ?? 0),
+        label: "Esta Semana",
+        icon: "trending-up-outline" as keyof typeof Ionicons.glyphMap,
+        color: theme.colors.secondary,
+      },
+    ],
+    [kpis, theme.colors],
+  );
 
   // ============================================================================
   // MEMOIZED CALLBACKS
@@ -98,23 +109,23 @@ export function DashboardMobile({
     (rotaId: string) => {
       router.push(`/gestor/mapa-rota?id=${rotaId}`);
     },
-    [router]
+    [router],
   );
 
   const handleIncidentesPress = useCallback(() => {
-    router.push('/gestor/incidentes');
+    router.push("/gestor/incidentes");
   }, [router]);
 
   const handleNovaEntregaPress = useCallback(() => {
-    router.push('/gestor/nova-entrega');
+    router.push("/gestor/nova-entrega");
   }, [router]);
 
   const handleMotoristasPress = useCallback(() => {
-    router.push('/gestor/motoristas');
+    router.push("/gestor/motoristas");
   }, [router]);
 
   const handleGestaoRotasPress = useCallback(() => {
-    router.push('/gestor/gestao-rotas');
+    router.push("/gestor/gestao-rotas");
   }, [router]);
 
   // ============================================================================
@@ -131,7 +142,7 @@ export function DashboardMobile({
         </View>
       </AnimatedListItem>
     ),
-    [handleRotaPress]
+    [handleRotaPress],
   );
 
   // Header component com stats, KPIs e ações
@@ -142,17 +153,28 @@ export function DashboardMobile({
         <View style={styles.header}>
           <View style={styles.headerRow}>
             {userData?.foto_url ? (
-              <Image source={{ uri: userData.foto_url }} style={styles.avatar} />
+              <Image
+                source={{ uri: userData.foto_url }}
+                style={styles.avatar}
+              />
             ) : (
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{avatarInitial}</Text>
               </View>
             )}
             <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>{getGreeting()}, {firstName}!</Text>
+              <Text style={styles.headerTitle}>
+                {getGreeting()}, {firstName}!
+              </Text>
               <View style={styles.headerSubtitleRow}>
-                <Ionicons name="business-outline" size={12} color={theme.colors.gray600} />
-                <Text style={styles.headerSubtitle}>{userData?.unidades?.nome}</Text>
+                <Ionicons
+                  name="business-outline"
+                  size={12}
+                  color={theme.colors.gray600}
+                />
+                <Text style={styles.headerSubtitle}>
+                  {userData?.unidades?.nome}
+                </Text>
               </View>
             </View>
           </View>
@@ -234,12 +256,17 @@ export function DashboardMobile({
           </View>
 
           <View style={styles.kpisGrid}>
-            {kpiConfig.map((kpi, index) => (
+            {kpiConfig.map((kpi) => (
               <View
                 key={kpi.label}
                 style={[styles.kpiCard, { borderLeftColor: kpi.color }]}
               >
-                <View style={[styles.kpiIconCircle, { backgroundColor: withOpacity(kpi.color, 0.15) }]}>
+                <View
+                  style={[
+                    styles.kpiIconCircle,
+                    { backgroundColor: withOpacity(kpi.color, 0.15) },
+                  ]}
+                >
                   <Ionicons name={kpi.icon} size={18} color={kpi.color} />
                 </View>
                 <Text style={styles.kpiValue}>{kpi.value}</Text>
@@ -254,13 +281,23 @@ export function DashboardMobile({
               <View style={styles.destaqueAccentBar} />
               <View style={styles.destaqueBody}>
                 <View style={styles.destaqueTrophyCircle}>
-                  <Ionicons name="trophy" size={22} color={theme.colors.secondary} />
+                  <Ionicons
+                    name="trophy"
+                    size={22}
+                    color={theme.colors.secondary}
+                  />
                 </View>
                 <View style={styles.destaqueContent}>
                   <Text style={styles.destaqueLabel}>Motorista Destaque</Text>
-                  <Text style={styles.destaqueNome}>{kpis.motoristaDestaque.nome}</Text>
+                  <Text style={styles.destaqueNome}>
+                    {kpis.motoristaDestaque.nome}
+                  </Text>
                   <View style={styles.destaqueBadge}>
-                    <Ionicons name="checkmark-circle" size={12} color={theme.colors.successDark} />
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={12}
+                      color={theme.colors.successDark}
+                    />
                     <Text style={styles.destaqueBadgeText}>
                       {kpis.motoristaDestaque.rotasConcluidas} rotas concluídas
                     </Text>
@@ -282,23 +319,65 @@ export function DashboardMobile({
           </View>
 
           <View style={styles.quickActionsGrid}>
-            <TouchableOpacity style={styles.quickActionCard} onPress={handleNovaEntregaPress} accessibilityRole="button" accessibilityLabel="Nova Rota de Entrega">
-              <View style={[styles.quickActionIcon, { backgroundColor: withOpacity(theme.colors.primary, 0.1) }]}>
-                <Ionicons name="add-circle" size={22} color={theme.colors.primary} />
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={handleNovaEntregaPress}
+              accessibilityRole="button"
+              accessibilityLabel="Nova Rota de Entrega"
+            >
+              <View
+                style={[
+                  styles.quickActionIcon,
+                  { backgroundColor: withOpacity(theme.colors.primary, 0.1) },
+                ]}
+              >
+                <Ionicons
+                  name="add-circle"
+                  size={22}
+                  color={theme.colors.primary}
+                />
               </View>
               <Text style={styles.quickActionLabel}>Nova Rota</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.quickActionCard} onPress={handleMotoristasPress} accessibilityRole="button" accessibilityLabel="Gerenciar Motoristas">
-              <View style={[styles.quickActionIcon, { backgroundColor: withOpacity(theme.colors.success, 0.1) }]}>
-                <Ionicons name="people" size={22} color={theme.colors.success} />
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={handleMotoristasPress}
+              accessibilityRole="button"
+              accessibilityLabel="Gerenciar Motoristas"
+            >
+              <View
+                style={[
+                  styles.quickActionIcon,
+                  { backgroundColor: withOpacity(theme.colors.success, 0.1) },
+                ]}
+              >
+                <Ionicons
+                  name="people"
+                  size={22}
+                  color={theme.colors.success}
+                />
               </View>
               <Text style={styles.quickActionLabel}>Motoristas</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.quickActionCard} onPress={handleGestaoRotasPress} accessibilityRole="button" accessibilityLabel="Gestão de Rotas">
-              <View style={[styles.quickActionIcon, { backgroundColor: withOpacity(theme.colors.secondary, 0.1) }]}>
-                <Ionicons name="clipboard" size={22} color={theme.colors.secondary} />
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={handleGestaoRotasPress}
+              accessibilityRole="button"
+              accessibilityLabel="Gestão de Rotas"
+            >
+              <View
+                style={[
+                  styles.quickActionIcon,
+                  { backgroundColor: withOpacity(theme.colors.secondary, 0.1) },
+                ]}
+              >
+                <Ionicons
+                  name="clipboard"
+                  size={22}
+                  color={theme.colors.secondary}
+                />
               </View>
               <Text style={styles.quickActionLabel}>Gestão</Text>
             </TouchableOpacity>
@@ -330,7 +409,7 @@ export function DashboardMobile({
       handleNovaEntregaPress,
       handleMotoristasPress,
       handleGestaoRotasPress,
-    ]
+    ],
   );
 
   // Empty state quando não há rotas
@@ -346,13 +425,13 @@ export function DashboardMobile({
         />
       </View>
     ),
-    [handleNovaEntregaPress]
+    [handleNovaEntregaPress],
   );
 
   // Footer com espaço extra para o FAB não cobrir conteúdo
   const ListFooterComponent = useMemo(
     () => <View style={styles.listFooter} />,
-    []
+    [],
   );
 
   // ============================================================================
@@ -418,8 +497,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: theme.colors.gray50,
   },
   loadingText: {
@@ -437,8 +516,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderBottomColor: theme.colors.gray200,
   },
   headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: theme.spacing.md,
   },
   avatar: {
@@ -446,9 +525,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     height: 48,
     borderRadius: 24,
     backgroundColor: theme.colors.primaryBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
   },
   avatarText: {
     fontSize: theme.typography.lg,
@@ -459,13 +538,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
   },
   headerTitle: {
-    fontSize: theme.typography['2xl'],
+    fontSize: theme.typography["2xl"],
     fontFamily: theme.typography.fontDisplay,
     color: theme.colors.gray900,
   },
   headerSubtitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     marginTop: 4,
   },
@@ -499,8 +578,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     paddingTop: theme.spacing.xl,
   },
   sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: theme.spacing.sm,
     marginBottom: theme.spacing.lg,
   },
@@ -516,7 +595,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray900,
   },
   quickActionsGrid: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: theme.spacing.sm,
   },
   quickActionCard: {
@@ -526,21 +605,21 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
     borderColor: theme.colors.gray200,
-    alignItems: 'center',
+    alignItems: "center",
     gap: theme.spacing.sm,
   },
   quickActionIcon: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   quickActionLabel: {
     fontSize: theme.typography.xs,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray700,
-    textAlign: 'center',
+    textAlign: "center",
   },
   rotaItemContainer: {
     paddingHorizontal: theme.spacing.xl,
@@ -553,31 +632,31 @@ const styles = StyleSheet.create((theme: Theme) => ({
 
   // Phase 2: KPI cards with icons and accents
   kpisGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: theme.spacing.md,
     marginBottom: theme.spacing.md,
   },
   kpiCard: {
-    width: '48%',
+    width: "48%",
     backgroundColor: theme.colors.white,
     padding: theme.spacing.lg,
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
     borderColor: theme.colors.gray200,
     borderLeftWidth: 3,
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
     gap: theme.spacing.xs,
   },
   kpiIconCircle: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   kpiValue: {
-    fontSize: theme.typography['2xl'],
+    fontSize: theme.typography["2xl"],
     fontFamily: theme.typography.fontDisplay,
     color: theme.colors.gray900,
     letterSpacing: -0.5,
@@ -591,7 +670,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   destaqueCard: {
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.lg,
-    overflow: 'hidden',
+    overflow: "hidden",
     ...theme.shadows.sm,
   },
   destaqueAccentBar: {
@@ -599,8 +678,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.secondary,
   },
   destaqueBody: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: theme.spacing.lg,
     gap: theme.spacing.md,
   },
@@ -609,8 +688,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     height: 44,
     borderRadius: 22,
     backgroundColor: theme.colors.secondaryBg,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   destaqueContent: {
     flex: 1,
@@ -626,14 +705,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray900,
   },
   destaqueBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     backgroundColor: theme.colors.successBg,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 2,
     borderRadius: theme.borderRadius.sm,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     marginTop: 4,
   },
   destaqueBadgeText: {

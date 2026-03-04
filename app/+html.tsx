@@ -1,6 +1,6 @@
-import { ScrollViewStyleReset } from 'expo-router/html';
+import { ScrollViewStyleReset } from "expo-router/html";
 
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren } from "react";
 
 /**
  * Template HTML para o Expo Router (DEV SERVER ONLY).
@@ -19,7 +19,10 @@ export default function Root({ children }: PropsWithChildren) {
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, shrink-to-fit=no"
+        />
 
         <title>Rota Mestre - Gestão Inteligente de Entregas</title>
         <meta name="theme-color" content="#284093" />
@@ -31,8 +34,9 @@ export default function Root({ children }: PropsWithChildren) {
         <ScrollViewStyleReset />
 
         {/* Custom styles - dev server only */}
-        <style dangerouslySetInnerHTML={{
-          __html: `
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
             html, body {
               height: 100%;
               margin: 0;
@@ -86,20 +90,23 @@ export default function Root({ children }: PropsWithChildren) {
               outline: none;
               box-shadow: 0 2px 8px rgba(0,0,0,0.3);
             }
-          `
-        }} />
+          `,
+          }}
+        />
       </head>
       <body>
         <noscript>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100vh',
-            fontFamily: 'sans-serif',
-            textAlign: 'center',
-            padding: '20px'
-          }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100vh",
+              fontFamily: "sans-serif",
+              textAlign: "center",
+              padding: "20px",
+            }}
+          >
             <div>
               <h1>JavaScript Necessário</h1>
               <p>O Rota Mestre requer JavaScript para funcionar.</p>
@@ -107,7 +114,6 @@ export default function Root({ children }: PropsWithChildren) {
             </div>
           </div>
         </noscript>
-        {/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
         <a href="#main-content" className="skip-nav">
           Pular para o conteúdo principal
         </a>

@@ -9,7 +9,7 @@ jest.mock("@react-native-async-storage/async-storage", () => ({
   getItem: jest.fn(),
   setItem: jest.fn(),
   removeItem: jest.fn(),
-  removeMany: jest.fn(),
+  multiRemove: jest.fn(),
 }));
 
 // Mock logger
@@ -44,7 +44,7 @@ describe("navigationPreferencesMigration", () => {
     (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
     (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
     (AsyncStorage.removeItem as jest.Mock).mockResolvedValue(undefined);
-    (AsyncStorage.removeMany as jest.Mock).mockResolvedValue(undefined);
+    (AsyncStorage.multiRemove as jest.Mock).mockResolvedValue(undefined);
     mockUpdateNavigationPreferences.mockResolvedValue(undefined);
   });
 
@@ -168,7 +168,7 @@ describe("navigationPreferencesMigration", () => {
 
       await migrateNavigationPreferences();
 
-      expect(AsyncStorage.removeMany).toHaveBeenCalledWith([
+      expect(AsyncStorage.multiRemove).toHaveBeenCalledWith([
         "@rotamestre:nav_app_preference",
         "@rotamestre:sound_enabled",
       ]);

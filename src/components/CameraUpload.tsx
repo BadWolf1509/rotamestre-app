@@ -4,25 +4,30 @@
  * Atualizado: Suporte offline para fotos
  */
 
-import * as ImageManipulator from 'expo-image-manipulator';
-import * as ImagePicker from 'expo-image-picker';
-import React, { useState, useEffect } from 'react';
+import * as ImageManipulator from "expo-image-manipulator";
+import * as ImagePicker from "expo-image-picker";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   Image,
   Alert,
-  Platform
-} from 'react-native';
+  Platform,
+} from "react-native";
 
-import { Progress } from '@/components/Progress';
-import { useAlert } from '@/hooks/useAlert';
-import { logger } from '@/lib/logger';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { Progress } from "@/components/Progress";
+import { useAlert } from "@/hooks/useAlert";
+import { logger } from "@/lib/logger";
+import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
 
-import { isOnline, queuePhotoUpload, hasOfflinePhoto, getOfflinePhotoPath } from '../lib/offline';
-import { uploadELinkFotoParada } from '../lib/storage';
+import {
+  isOnline,
+  queuePhotoUpload,
+  hasOfflinePhoto,
+  getOfflinePhotoPath,
+} from "../lib/offline";
+import { uploadELinkFotoParada } from "../lib/storage";
 
 interface CameraUploadProps {
   unidadeId: string;
@@ -37,9 +42,9 @@ export default function CameraUpload({
   rotaId,
   paradaId,
   onUploadSuccess,
-  onUploadError
+  onUploadError,
 }: CameraUploadProps) {
-  const { theme } = useUnistyles();
+  const { theme: _theme } = useUnistyles();
   const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -50,7 +55,7 @@ export default function CameraUpload({
   // Verificar se já existe foto offline para esta parada
   useEffect(() => {
     const checkOfflinePhoto = async () => {
-      if (Platform.OS === 'web') return;
+      if (Platform.OS === "web") return;
 
       const hasPending = await hasOfflinePhoto(paradaId);
       if (hasPending) {
@@ -67,7 +72,7 @@ export default function CameraUpload({
    */
   const requestCameraPermission = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    return status === 'granted';
+    return status === "granted";
   };
 
   /**
@@ -75,7 +80,7 @@ export default function CameraUpload({
    */
   const requestGalleryPermission = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    return status === 'granted';
+    return status === "granted";
   };
 
   /**
@@ -96,12 +101,12 @@ export default function CameraUpload({
         {
           compress: 0.7, // 70% de qualidade
           format: ImageManipulator.SaveFormat.JPEG,
-        }
+        },
       );
 
       return resized.uri;
     } catch (error) {
-      logger.error('[CameraUpload] Erro ao comprimir:', error);
+      logger.error("[CameraUpload] Erro ao comprimir:", error);
       return uri; // Retorna original se falhar
     }
   };
@@ -113,12 +118,15 @@ export default function CameraUpload({
     const hasPermission = await requestCameraPermission();
 
     if (!hasPermission) {
-      showWarning('Permissão negada', 'Precisamos de acesso à câmera para tirar fotos do comprovante de entrega.');
+      showWarning(
+        "Permissão negada",
+        "Precisamos de acesso à câmera para tirar fotos do comprovante de entrega.",
+      );
       return;
     }
 
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ["images"],
       allowsEditing: false,
       quality: 0.8,
     });
@@ -136,12 +144,15 @@ export default function CameraUpload({
     const hasPermission = await requestGalleryPermission();
 
     if (!hasPermission) {
-      showWarning('Permissão negada', 'Precisamos de acesso à galeria para selecionar fotos.');
+      showWarning(
+        "Permissão negada",
+        "Precisamos de acesso à galeria para selecionar fotos.",
+      );
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ["images"],
       allowsEditing: false,
       quality: 0.8,
     });
@@ -157,7 +168,7 @@ export default function CameraUpload({
    */
   const handleUpload = async () => {
     if (!selectedImage) {
-      showWarning('Atenção', 'Tire uma foto ou selecione da galeria primeiro.');
+      showWarning("Atenção", "Tire uma foto ou selecione da galeria primeiro.");
       return;
     }
 
@@ -175,59 +186,68 @@ export default function CameraUpload({
           rotaId,
           paradaId,
           selectedImage,
-          (percent) => setUploadProgress(percent)
+          (percent) => setUploadProgress(percent),
         );
 
         if (success) {
           // No web, não usar alert para evitar conflitos com o modal do StopCompletionFlow
           // O step 'confirm' já dá feedback visual suficiente
-          if (Platform.OS !== 'web') {
-            showSuccess('Sucesso!', 'Foto enviada com sucesso!');
+          if (Platform.OS !== "web") {
+            showSuccess("Sucesso!", "Foto enviada com sucesso!");
           }
 
           if (onUploadSuccess) {
-            onUploadSuccess('success');
+            onUploadSuccess("success");
           }
 
           setSelectedImage(null);
         } else {
-          throw new Error('Falha no upload');
+          throw new Error("Falha no upload");
         }
       } else {
         // Modo offline - salvar localmente para sync posterior
-        if (Platform.OS === 'web') {
-          showWarning('Sem conexão', 'Você está offline. Conecte-se à internet para enviar a foto.');
+        if (Platform.OS === "web") {
+          showWarning(
+            "Sem conexão",
+            "Você está offline. Conecte-se à internet para enviar a foto.",
+          );
           return;
         }
 
         await queuePhotoUpload(unidadeId, rotaId, paradaId, selectedImage);
 
-        showSuccess('Foto salva', 'Você está offline. A foto será enviada automaticamente quando a conexão for restaurada.');
+        showSuccess(
+          "Foto salva",
+          "Você está offline. A foto será enviada automaticamente quando a conexão for restaurada.",
+        );
 
         setPendingSync(true);
         setOfflinePhotoPath(selectedImage);
 
         if (onUploadSuccess) {
-          onUploadSuccess('pending_sync');
+          onUploadSuccess("pending_sync");
         }
 
         setSelectedImage(null);
       }
     } catch (error) {
-      logger.error('[CameraUpload] Erro no upload:', error);
+      logger.error("[CameraUpload] Erro no upload:", error);
 
       // Se falhou online, tentar salvar offline (apenas native)
-      if (Platform.OS !== 'web') {
+      if (Platform.OS !== "web") {
         try {
           await queuePhotoUpload(unidadeId, rotaId, paradaId, selectedImage);
 
-          showWarning('Erro de conexão', 'Não foi possível enviar a foto agora. Ela será enviada automaticamente quando a conexão for restaurada.');
+          showWarning(
+            "Erro de conexão",
+            "Não foi possível enviar a foto agora. Ela será enviada automaticamente quando a conexão for restaurada.",
+          );
 
           setPendingSync(true);
           setOfflinePhotoPath(selectedImage);
 
           if (onUploadSuccess) {
-            onUploadSuccess('pending_sync');
+            onUploadSuccess("pending_sync");
           }
 
           setSelectedImage(null);
@@ -237,10 +257,15 @@ export default function CameraUpload({
         }
       }
 
-      showError({ title: 'Erro', message: 'Não foi possível enviar a foto. Tente novamente.' });
+      showError({
+        title: "Erro",
+        message: "Não foi possível enviar a foto. Tente novamente.",
+      });
 
       if (onUploadError) {
-        onUploadError(error instanceof Error ? error.message : 'Erro desconhecido');
+        onUploadError(
+          error instanceof Error ? error.message : "Erro desconhecido",
+        );
       }
     } finally {
       setUploading(false);
@@ -251,28 +276,24 @@ export default function CameraUpload({
    * Mostrar opções (câmera ou galeria)
    */
   const showOptions = () => {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
       // No web, apenas galeria funciona
       openGallery();
     } else {
-      Alert.alert(
-        'Adicionar Foto',
-        'Escolha uma opção:',
-        [
-          {
-            text: '📷 Tirar Foto',
-            onPress: openCamera,
-          },
-          {
-            text: '🖼️ Escolher da Galeria',
-            onPress: openGallery,
-          },
-          {
-            text: 'Cancelar',
-            style: 'cancel',
-          },
-        ]
-      );
+      Alert.alert("Adicionar Foto", "Escolha uma opção:", [
+        {
+          text: "📷 Tirar Foto",
+          onPress: openCamera,
+        },
+        {
+          text: "🖼️ Escolher da Galeria",
+          onPress: openGallery,
+        },
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+      ]);
     }
   };
 
@@ -281,7 +302,10 @@ export default function CameraUpload({
     return (
       <View style={styles.container}>
         <View style={styles.pendingSyncContainer}>
-          <Image source={{ uri: offlinePhotoPath }} style={styles.previewImage} />
+          <Image
+            source={{ uri: offlinePhotoPath }}
+            style={styles.previewImage}
+          />
           <View style={styles.pendingSyncBadge}>
             <Text style={styles.pendingSyncText}>
               📷 Foto aguardando sincronização
@@ -343,7 +367,9 @@ export default function CameraUpload({
           onPress={showOptions}
           disabled={uploading}
         >
-          <Text style={styles.addButtonText}>📸 Adicionar Foto do Comprovante</Text>
+          <Text style={styles.addButtonText}>
+            📸 Adicionar Foto do Comprovante
+          </Text>
         </TouchableOpacity>
       )}
       {AlertDialog}
@@ -359,21 +385,21 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: theme.spacing.md,
   },
   previewImage: {
-    width: '100%',
+    width: "100%",
     height: 200,
     borderRadius: theme.borderRadius.sm,
     backgroundColor: theme.colors.disabled,
   },
   buttonsRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: theme.spacing.md,
   },
   button: {
     flex: 1,
     height: 48,
     borderRadius: theme.borderRadius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   buttonPrimary: {
     backgroundColor: theme.colors.secondary,
@@ -383,7 +409,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     paddingVertical: theme.spacing.sm,
   },
   uploadingContainer: {
-    width: '100%',
+    width: "100%",
     paddingHorizontal: theme.spacing.md,
   },
   buttonSecondary: {
@@ -407,9 +433,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.sm,
     borderWidth: 2,
     borderColor: theme.colors.secondary,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
   },
   addButtonText: {
     color: theme.colors.secondary,
@@ -420,7 +446,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: theme.spacing.sm,
   },
   pendingSyncBadge: {
-    backgroundColor: theme.colors.warning + '20',
+    backgroundColor: theme.colors.warning + "20",
     borderRadius: theme.borderRadius.sm,
     padding: theme.spacing.md,
     borderWidth: 1,
@@ -430,13 +456,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.warning,
     fontSize: theme.typography.fontSize.sm,
     fontFamily: theme.typography.fontSansSemiBold,
-    textAlign: 'center',
+    textAlign: "center",
   },
   pendingSyncSubtext: {
     color: theme.colors.textSecondary,
     fontSize: theme.typography.fontSize.xs,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: theme.spacing.xs,
   },
 }));
-

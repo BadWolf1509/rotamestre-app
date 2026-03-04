@@ -1,25 +1,25 @@
-import { renderHook } from '@testing-library/react-native';
+import { renderHook } from "@testing-library/react-native";
 
-import { supabase } from '@/lib/supabase';
+import { supabase } from "@/lib/supabase";
 
-import { useRouteRealtimeSubscription } from '../useRouteRealtimeSubscription';
+import { useRouteRealtimeSubscription } from "../useRouteRealtimeSubscription";
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
 
-jest.mock('@/lib/supabase');
-jest.mock('@/lib/logger');
-jest.mock('@/lib/notifications', () => ({
+jest.mock("@/lib/supabase");
+jest.mock("@/lib/logger");
+jest.mock("@/lib/notifications", () => ({
   notifyRoutePending: jest.fn(),
 }));
-jest.mock('@/utils/browserNotification', () => ({
+jest.mock("@/utils/browserNotification", () => ({
   notifyNewRouteWeb: jest.fn(),
 }));
-jest.mock('@/utils/haptics', () => ({
+jest.mock("@/utils/haptics", () => ({
   warningHaptic: jest.fn(),
 }));
-jest.mock('@/utils/notificationSound', () => ({
+jest.mock("@/utils/notificationSound", () => ({
   playNotificationSound: jest.fn(),
 }));
 
@@ -37,7 +37,7 @@ function createMockChannel() {
     subscribe: jest.fn((cb?: SubscribeCallback) => {
       if (cb) subscribeCallback = cb;
       // Simulate successful subscription by default
-      if (subscribeCallback) subscribeCallback('SUBSCRIBED');
+      if (subscribeCallback) subscribeCallback("SUBSCRIBED");
       return channel;
     }),
     unsubscribe: jest.fn(),
@@ -76,26 +76,26 @@ afterEach(() => {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('useRouteRealtimeSubscription', () => {
+describe("useRouteRealtimeSubscription", () => {
   const defaultProps = {
-    motoristaId: 'driver-1',
-    accessToken: 'token-abc',
+    motoristaId: "driver-1",
+    accessToken: "token-abc",
     loadActiveRoute: jest.fn().mockResolvedValue(undefined),
   };
 
-  it('subscribes to channel on mount and cleans up on unmount', () => {
+  it("subscribes to channel on mount and cleans up on unmount", () => {
     const { unmount } = renderHook(() =>
       useRouteRealtimeSubscription(defaultProps),
     );
 
-    expect(supabase.channel).toHaveBeenCalledWith('motorista-routes-driver-1');
+    expect(supabase.channel).toHaveBeenCalledWith("motorista-routes-driver-1");
     expect(mockChannel.subscribe).toHaveBeenCalled();
 
     unmount();
     expect(supabase.removeChannel).toHaveBeenCalledWith(mockChannel);
   });
 
-  it('does not subscribe when motoristaId is undefined', () => {
+  it("does not subscribe when motoristaId is undefined", () => {
     renderHook(() =>
       useRouteRealtimeSubscription({
         ...defaultProps,
@@ -106,7 +106,7 @@ describe('useRouteRealtimeSubscription', () => {
     expect(supabase.channel).not.toHaveBeenCalled();
   });
 
-  it('does not subscribe when accessToken is undefined', () => {
+  it("does not subscribe when accessToken is undefined", () => {
     renderHook(() =>
       useRouteRealtimeSubscription({
         ...defaultProps,
@@ -117,9 +117,9 @@ describe('useRouteRealtimeSubscription', () => {
     expect(supabase.channel).not.toHaveBeenCalled();
   });
 
-  describe('polling fallback cleanup (Bug Fix)', () => {
-    it('cleans up poll interval on unmount after max reconnect attempts', () => {
-      const clearIntervalSpy = jest.spyOn(global, 'clearInterval');
+  describe("polling fallback cleanup (Bug Fix)", () => {
+    it("cleans up poll interval on unmount after max reconnect attempts", () => {
+      const clearIntervalSpy = jest.spyOn(global, "clearInterval");
 
       // Prevent auto-subscribe success — we'll trigger statuses manually
       mockChannel.subscribe = jest.fn((cb?: SubscribeCallback) => {
@@ -136,16 +136,16 @@ describe('useRouteRealtimeSubscription', () => {
 
       // Simulate MAX_RECONNECT_ATTEMPTS (3) failures
       // Attempt 1
-      cb('CHANNEL_ERROR');
+      cb("CHANNEL_ERROR");
       jest.advanceTimersByTime(2000);
       // Attempt 2
-      cb('CHANNEL_ERROR');
+      cb("CHANNEL_ERROR");
       jest.advanceTimersByTime(4000);
       // Attempt 3
-      cb('CHANNEL_ERROR');
+      cb("CHANNEL_ERROR");
       jest.advanceTimersByTime(8000);
       // Attempt 4 — exceeds max, triggers polling fallback
-      cb('CHANNEL_ERROR');
+      cb("CHANNEL_ERROR");
 
       // Now unmount should clear the poll interval
       unmount();
@@ -154,7 +154,7 @@ describe('useRouteRealtimeSubscription', () => {
       clearIntervalSpy.mockRestore();
     });
 
-    it('polling fallback calls loadActiveRoute every 30s', () => {
+    it("polling fallback calls loadActiveRoute every 30s", () => {
       const loadActiveRoute = jest.fn().mockResolvedValue(undefined);
 
       // Prevent auto-subscribe success
@@ -173,13 +173,13 @@ describe('useRouteRealtimeSubscription', () => {
       const cb = (mockChannel as any)._subscribeCallback as SubscribeCallback;
 
       // Trigger 4 failures to reach polling fallback
-      cb('CHANNEL_ERROR');
+      cb("CHANNEL_ERROR");
       jest.advanceTimersByTime(2000);
-      cb('CHANNEL_ERROR');
+      cb("CHANNEL_ERROR");
       jest.advanceTimersByTime(4000);
-      cb('CHANNEL_ERROR');
+      cb("CHANNEL_ERROR");
       jest.advanceTimersByTime(8000);
-      cb('CHANNEL_ERROR'); // 4th = past max (3), starts polling
+      cb("CHANNEL_ERROR"); // 4th = past max (3), starts polling
 
       loadActiveRoute.mockClear();
 
@@ -193,22 +193,22 @@ describe('useRouteRealtimeSubscription', () => {
     });
   });
 
-  describe('isSubscribed management (Bug Fix)', () => {
-    it('does not block reconnection by keeping isSubscribed true during retries', () => {
+  describe("isSubscribed management (Bug Fix)", () => {
+    it("does not block reconnection by keeping isSubscribed true during retries", () => {
       // Prevent auto-subscribe success
       mockChannel.subscribe = jest.fn((cb?: SubscribeCallback) => {
         if (cb) (mockChannel as any)._subscribeCallback = cb;
         return mockChannel;
       });
 
-      const { unmount, rerender } = renderHook(() =>
+      const { unmount } = renderHook(() =>
         useRouteRealtimeSubscription(defaultProps),
       );
 
       const cb = (mockChannel as any)._subscribeCallback as SubscribeCallback;
 
       // First error — should NOT set isSubscribed false (we're reconnecting)
-      cb('CHANNEL_ERROR');
+      cb("CHANNEL_ERROR");
 
       // Advance past reconnect delay
       jest.advanceTimersByTime(2000);
@@ -220,7 +220,7 @@ describe('useRouteRealtimeSubscription', () => {
       unmount();
     });
 
-    it('sets isSubscribed true on SUBSCRIBED status (reconnection success)', () => {
+    it("sets isSubscribed true on SUBSCRIBED status (reconnection success)", () => {
       // Prevent auto-subscribe success
       mockChannel.subscribe = jest.fn((cb?: SubscribeCallback) => {
         if (cb) (mockChannel as any)._subscribeCallback = cb;
@@ -234,11 +234,11 @@ describe('useRouteRealtimeSubscription', () => {
       const cb = (mockChannel as any)._subscribeCallback as SubscribeCallback;
 
       // Simulate error followed by successful reconnection
-      cb('CHANNEL_ERROR');
+      cb("CHANNEL_ERROR");
       jest.advanceTimersByTime(2000);
 
       // Simulate successful reconnect
-      cb('SUBSCRIBED');
+      cb("SUBSCRIBED");
 
       // After unmount and re-render, if isSubscribed is properly true,
       // a new effect run would bail early (no double subscription)
@@ -249,8 +249,8 @@ describe('useRouteRealtimeSubscription', () => {
     });
   });
 
-  describe('exponential backoff', () => {
-    it('retries with increasing delays', () => {
+  describe("exponential backoff", () => {
+    it("retries with increasing delays", () => {
       // Prevent auto-subscribe success
       mockChannel.subscribe = jest.fn((cb?: SubscribeCallback) => {
         if (cb) (mockChannel as any)._subscribeCallback = cb;
@@ -268,29 +268,29 @@ describe('useRouteRealtimeSubscription', () => {
       expect(mockChannel.subscribe).toHaveBeenCalledTimes(1);
 
       // Error 1 — should retry after 2s (2^1 * 1000)
-      cb('CHANNEL_ERROR');
+      cb("CHANNEL_ERROR");
       jest.advanceTimersByTime(1999);
       expect(mockChannel.subscribe).toHaveBeenCalledTimes(1);
       jest.advanceTimersByTime(1);
       expect(mockChannel.subscribe).toHaveBeenCalledTimes(2);
-      expect(setAuthMock).toHaveBeenCalledWith('token-abc');
+      expect(setAuthMock).toHaveBeenCalledWith("token-abc");
 
       // Error 2 — should retry after 4s (2^2 * 1000)
-      cb('TIMED_OUT');
+      cb("TIMED_OUT");
       jest.advanceTimersByTime(3999);
       expect(mockChannel.subscribe).toHaveBeenCalledTimes(2);
       jest.advanceTimersByTime(1);
       expect(mockChannel.subscribe).toHaveBeenCalledTimes(3);
 
       // Error 3 — should retry after 8s (2^3 * 1000)
-      cb('CHANNEL_ERROR');
+      cb("CHANNEL_ERROR");
       jest.advanceTimersByTime(7999);
       expect(mockChannel.subscribe).toHaveBeenCalledTimes(3);
       jest.advanceTimersByTime(1);
       expect(mockChannel.subscribe).toHaveBeenCalledTimes(4);
 
       // Error 4 — max attempts exceeded, no more retries (polling instead)
-      cb('CHANNEL_ERROR');
+      cb("CHANNEL_ERROR");
       jest.advanceTimersByTime(20000);
       // Still 4 — no more subscribe calls
       expect(mockChannel.subscribe).toHaveBeenCalledTimes(4);

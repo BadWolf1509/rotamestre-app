@@ -23,7 +23,7 @@ jest.mock("@react-native-async-storage/async-storage", () => ({
   setItem: jest.fn(),
   removeItem: jest.fn(),
   getAllKeys: jest.fn(),
-  removeMany: jest.fn(),
+  multiRemove: jest.fn(),
 }));
 
 describe("cache", () => {
@@ -33,7 +33,7 @@ describe("cache", () => {
     (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
     (AsyncStorage.removeItem as jest.Mock).mockResolvedValue(undefined);
     (AsyncStorage.getAllKeys as jest.Mock).mockResolvedValue([]);
-    (AsyncStorage.removeMany as jest.Mock).mockResolvedValue(undefined);
+    (AsyncStorage.multiRemove as jest.Mock).mockResolvedValue(undefined);
   });
 
   describe("CACHE_TTL constants", () => {
@@ -193,18 +193,18 @@ describe("cache", () => {
 
       await clearAllCache();
 
-      expect(AsyncStorage.removeMany).toHaveBeenCalledWith([
+      expect(AsyncStorage.multiRemove).toHaveBeenCalledWith([
         "@cache_key1",
         "@cache_key2",
       ]);
     });
 
-    it("should not call removeMany when no cache keys", async () => {
+    it("should not call multiRemove when no cache keys", async () => {
       (AsyncStorage.getAllKeys as jest.Mock).mockResolvedValue(["@other_key"]);
 
       await clearAllCache();
 
-      expect(AsyncStorage.removeMany).not.toHaveBeenCalled();
+      expect(AsyncStorage.multiRemove).not.toHaveBeenCalled();
     });
   });
 
@@ -237,7 +237,7 @@ describe("cache", () => {
 
       await cleanExpiredCache();
 
-      expect(AsyncStorage.removeMany).toHaveBeenCalledWith(["@cache_expired"]);
+      expect(AsyncStorage.multiRemove).toHaveBeenCalledWith(["@cache_expired"]);
     });
   });
 

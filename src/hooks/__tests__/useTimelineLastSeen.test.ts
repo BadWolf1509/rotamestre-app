@@ -12,7 +12,7 @@ jest.mock("@react-native-async-storage/async-storage", () => ({
   setItem: jest.fn(),
   removeItem: jest.fn(),
   getAllKeys: jest.fn(),
-  removeMany: jest.fn(),
+  multiRemove: jest.fn(),
 }));
 
 describe("useTimelineLastSeen", () => {
@@ -22,7 +22,7 @@ describe("useTimelineLastSeen", () => {
     (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
     (AsyncStorage.removeItem as jest.Mock).mockResolvedValue(undefined);
     (AsyncStorage.getAllKeys as jest.Mock).mockResolvedValue([]);
-    (AsyncStorage.removeMany as jest.Mock).mockResolvedValue(undefined);
+    (AsyncStorage.multiRemove as jest.Mock).mockResolvedValue(undefined);
   });
 
   it("carrega lastSeen do storage", async () => {
@@ -202,13 +202,13 @@ describe("clearAllTimelineLastSeen", () => {
       "@timeline_last_seen_rota-2",
       "@other_key",
     ]);
-    (AsyncStorage.removeMany as jest.Mock).mockResolvedValue(undefined);
+    (AsyncStorage.multiRemove as jest.Mock).mockResolvedValue(undefined);
   });
 
   it("remove todas as chaves com prefixo", async () => {
     await clearAllTimelineLastSeen();
 
-    expect(AsyncStorage.removeMany).toHaveBeenCalledWith([
+    expect(AsyncStorage.multiRemove).toHaveBeenCalledWith([
       "@timeline_last_seen_rota-1",
       "@timeline_last_seen_rota-2",
     ]);
