@@ -24,7 +24,7 @@ import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
 import { abrirNavegacao } from '@/lib/navigation';
-import { skipParada, updateParadaStatus, logParadaAction } from '@/lib/queries/paradas';
+import { updateParadaStatus, logParadaAction } from '@/lib/queries/paradas';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 import { toParada, toParadaData } from '@/utils/typeMappers';
 
@@ -40,6 +40,7 @@ export default function CheckpointsMotorista() {
     loading,
     routeStatus,
     refreshRoute,
+    skipStop,
   } = useRouteStatus();
 
   // Estados locais de UI apenas
@@ -97,7 +98,7 @@ export default function CheckpointsMotorista() {
     []
   );
 
-  // Confirma o skip com motivo estruturado
+  // Confirma o skip com motivo estruturado (usa contexto para promover próxima parada)
   const confirmarSkip = useCallback(
     async (motivo: MotivoSkip, observacoes?: string) => {
       const parada = skipModalParada;
@@ -106,20 +107,8 @@ export default function CheckpointsMotorista() {
 
       setPulandoParada(parada.id);
       try {
-        const result = await skipParada(parada.id, motivo, observacoes);
-        if (!result.success) throw result.error;
-
-        // Log é fire-and-forget (não bloqueia a operação)
-        logParadaAction(userData!.id, parada.id, route!.id, 'parada_pulada', {
-          endereco: parada.endereco,
-          tipo: parada.tipo,
-          ordem: parada.ordem,
-          motivo,
-          ...(observacoes && { observacoes }),
-        });
-
+        await skipStop(parada.id, motivo, observacoes);
         showSuccess('Parada Pulada', SKIP_REASON_LABELS[motivo]);
-        refreshRoute();
       } catch (error: unknown) {
         logger.error('Erro ao pular parada:', error);
         showError(error);
@@ -127,7 +116,7 @@ export default function CheckpointsMotorista() {
         setPulandoParada(null);
       }
     },
-    [skipModalParada, userData, route, refreshRoute, showSuccess, showError]
+    [skipModalParada, skipStop, showSuccess, showError]
   );
 
   const retomarParada = useCallback(
