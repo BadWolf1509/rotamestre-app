@@ -193,18 +193,16 @@ describe("cache", () => {
 
       await clearAllCache();
 
-      expect(AsyncStorage.multiRemove).toHaveBeenCalledWith([
-        "@cache_key1",
-        "@cache_key2",
-      ]);
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith("@cache_key1");
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith("@cache_key2");
     });
 
-    it("should not call multiRemove when no cache keys", async () => {
+    it("should not call removeItem when no cache keys", async () => {
       (AsyncStorage.getAllKeys as jest.Mock).mockResolvedValue(["@other_key"]);
 
       await clearAllCache();
 
-      expect(AsyncStorage.multiRemove).not.toHaveBeenCalled();
+      expect(AsyncStorage.removeItem).not.toHaveBeenCalled();
     });
   });
 
@@ -237,7 +235,7 @@ describe("cache", () => {
 
       await cleanExpiredCache();
 
-      expect(AsyncStorage.multiRemove).toHaveBeenCalledWith(["@cache_expired"]);
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith("@cache_expired");
     });
   });
 

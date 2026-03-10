@@ -202,16 +202,18 @@ describe("clearAllTimelineLastSeen", () => {
       "@timeline_last_seen_rota-2",
       "@other_key",
     ]);
-    (AsyncStorage.multiRemove as jest.Mock).mockResolvedValue(undefined);
+    (AsyncStorage.removeItem as jest.Mock).mockResolvedValue(undefined);
   });
 
   it("remove todas as chaves com prefixo", async () => {
     await clearAllTimelineLastSeen();
 
-    expect(AsyncStorage.multiRemove).toHaveBeenCalledWith([
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith(
       "@timeline_last_seen_rota-1",
+    );
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith(
       "@timeline_last_seen_rota-2",
-    ]);
+    );
   });
 
   it("trata erro ao limpar", async () => {

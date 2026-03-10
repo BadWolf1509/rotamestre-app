@@ -168,10 +168,12 @@ describe("navigationPreferencesMigration", () => {
 
       await migrateNavigationPreferences();
 
-      expect(AsyncStorage.multiRemove).toHaveBeenCalledWith([
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith(
         "@rotamestre:nav_app_preference",
+      );
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith(
         "@rotamestre:sound_enabled",
-      ]);
+      );
     });
 
     it("should mark migration as completed", async () => {
