@@ -39,7 +39,7 @@ test.describe("Critical Flows - Public @visual @public", () => {
     await page.goto(e2eUrl("/auth/register"));
     await page.waitForLoadState("networkidle");
     // Use card body text, not "Criar Conta" which also appears in the nav header title
-    // timeout: 30000 — routes with headerShown:true render ~17s in CI (actionTimeout default is 15s)
+    // timeout: 30000 — safety margin for CI (default actionTimeout is 15s)
     await page
       .getByText(/Preencha os dados abaixo/i)
       .waitFor({ timeout: 30000 });
@@ -73,7 +73,7 @@ test.describe("Critical Flows - Public @visual @public", () => {
   test("renders onboarding first password", async ({ page }) => {
     await page.goto(e2eUrl("/onboarding/first-password"));
     await page.waitForLoadState("networkidle");
-    // timeout: 30000 — routes with headerShown:true render ~17s in CI (actionTimeout default is 15s)
+    // timeout: 30000 — safety margin for CI (default actionTimeout is 15s)
     await page
       .getByText("Defina sua Senha", { exact: true })
       .first()
