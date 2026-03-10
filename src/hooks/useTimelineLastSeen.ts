@@ -181,7 +181,7 @@ export async function clearAllTimelineLastSeen(): Promise<void> {
       key.startsWith(STORAGE_KEY_PREFIX),
     );
     if (timelineKeys.length > 0) {
-      await AsyncStorage.multiRemove(timelineKeys);
+      await Promise.all(timelineKeys.map((k) => AsyncStorage.removeItem(k)));
     }
   } catch (error) {
     logger.error("[clearAllTimelineLastSeen] Erro:", error);

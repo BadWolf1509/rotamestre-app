@@ -206,7 +206,7 @@ export async function clearAllCache(): Promise<void> {
     const keys = await AsyncStorage.getAllKeys();
     const cacheKeys = keys.filter((k) => k.startsWith(CACHE_PREFIX));
     if (cacheKeys.length > 0) {
-      await AsyncStorage.multiRemove(cacheKeys);
+      await Promise.all(cacheKeys.map((k) => AsyncStorage.removeItem(k)));
     }
   } catch (error) {
     logger.warn("[Cache] Erro ao limpar todo cache:", error);
@@ -235,7 +235,7 @@ export async function cleanExpiredCache(): Promise<void> {
     }
 
     if (toRemove.length > 0) {
-      await AsyncStorage.multiRemove(toRemove);
+      await Promise.all(toRemove.map((k) => AsyncStorage.removeItem(k)));
     }
   } catch (error) {
     logger.warn("[Cache] Erro ao limpar cache expirado:", error);
