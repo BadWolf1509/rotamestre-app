@@ -60,7 +60,7 @@
     "@react-native-community/slider": "5.1.2",
     "@react-navigation/drawer": "^7.9.2",
     "@sentry/browser": "^10.39.0",
-    "@sentry/react": "^10.41.0",
+    "@sentry/react": "^10.43.0",
     "@shopify/flash-list": "2.3.0",
     "@supabase/supabase-js": "^2.98.0",
     "expo": "55.0.4",
