@@ -11,6 +11,20 @@ test.describe("Critical Flows - Public @visual @public", () => {
     "Set VISUAL_REGRESSION=1 to enable visual snapshots.",
   );
 
+  // Inject E2E flags before each page load so detectE2EEnvironment() returns true
+  // even if expo-router strips the ?e2e=true URL param during internal initialization.
+  // This ensures the splash screen is dismissed immediately on all routes.
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.assign(window, { __PLAYWRIGHT_E2E__: true });
+      try {
+        localStorage.setItem("e2e_mode", "true");
+      } catch {
+        // localStorage may not be available in all environments
+      }
+    });
+  });
+
   test("renders auth login", async ({ page }) => {
     await page.goto(e2eUrl("/auth/login"));
     await page.waitForLoadState("networkidle");
@@ -24,7 +38,8 @@ test.describe("Critical Flows - Public @visual @public", () => {
   test("renders auth register", async ({ page }) => {
     await page.goto(e2eUrl("/auth/register"));
     await page.waitForLoadState("networkidle");
-    await page.getByText("Criar Conta", { exact: true }).first().waitFor();
+    // Use card body text, not "Criar Conta" which also appears in the nav header title
+    await page.getByText(/Preencha os dados abaixo/i).waitFor();
     await expect(page).toHaveScreenshot("visual-auth-register.png", {
       fullPage: true,
       animations: "disabled",
@@ -71,6 +86,18 @@ test.describe("Critical Flows - Authenticated @visual @auth", () => {
     !process.env.VISUAL_REGRESSION,
     "Set VISUAL_REGRESSION=1 to enable visual snapshots.",
   );
+
+  // Inject E2E flags before each page load so the splash screen dismisses immediately
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.assign(window, { __PLAYWRIGHT_E2E__: true });
+      try {
+        localStorage.setItem("e2e_mode", "true");
+      } catch {
+        // localStorage may not be available in all environments
+      }
+    });
+  });
 
   test("renders gestor dashboard", async ({ page, loginAsGestor }) => {
     const gestorPage = new GestorPage(page);
