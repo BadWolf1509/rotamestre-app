@@ -39,7 +39,10 @@ test.describe("Critical Flows - Public @visual @public", () => {
     await page.goto(e2eUrl("/auth/register"));
     await page.waitForLoadState("networkidle");
     // Use card body text, not "Criar Conta" which also appears in the nav header title
-    await page.getByText(/Preencha os dados abaixo/i).waitFor();
+    // timeout: 30000 — routes with headerShown:true render ~17s in CI (actionTimeout default is 15s)
+    await page
+      .getByText(/Preencha os dados abaixo/i)
+      .waitFor({ timeout: 30000 });
     await expect(page).toHaveScreenshot("visual-auth-register.png", {
       fullPage: true,
       animations: "disabled",
@@ -49,10 +52,11 @@ test.describe("Critical Flows - Public @visual @public", () => {
   test("renders auth forgot password", async ({ page }) => {
     await page.goto(e2eUrl("/auth/forgot-password"));
     await page.waitForLoadState("networkidle");
+    // timeout: 30000 — safety margin; this route takes ~12s in CI (close to default 15s actionTimeout)
     await page
       .getByText(/recuperar|reset/i)
       .first()
-      .waitFor();
+      .waitFor({ timeout: 30000 });
     // Wait for logo to load (mobile has horizontal logo above title)
     await page
       .locator('img[src*="logo"]')
@@ -69,7 +73,11 @@ test.describe("Critical Flows - Public @visual @public", () => {
   test("renders onboarding first password", async ({ page }) => {
     await page.goto(e2eUrl("/onboarding/first-password"));
     await page.waitForLoadState("networkidle");
-    await page.getByText("Defina sua Senha", { exact: true }).first().waitFor();
+    // timeout: 30000 — routes with headerShown:true render ~17s in CI (actionTimeout default is 15s)
+    await page
+      .getByText("Defina sua Senha", { exact: true })
+      .first()
+      .waitFor({ timeout: 30000 });
     await expect(page).toHaveScreenshot(
       "visual-onboarding-first-password.png",
       {
