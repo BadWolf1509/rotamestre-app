@@ -138,6 +138,16 @@ const ERROR_PATTERNS: Array<{
     },
   },
   {
+    pattern:
+      /duplicate key value violates unique constraint "usuarios_email_key"/i,
+    result: {
+      title: "E-mail já cadastrado",
+      message: "Já existe um usuário com este e-mail.",
+      type: "warning",
+      code: "UNIQUE_EMAIL_VIOLATION",
+    },
+  },
+  {
     pattern: /unique.*constraint|duplicate.*key/i,
     result: {
       title: "Registro duplicado",
