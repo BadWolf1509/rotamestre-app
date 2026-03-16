@@ -15,9 +15,9 @@
  * Mobile: Usa React Native Modal
  */
 
-import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { Ionicons } from "@expo/vector-icons";
+import React, { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   Modal as RNModal,
   View,
@@ -27,14 +27,13 @@ import {
   Animated,
   Dimensions,
   Platform,
-} from 'react-native';
+} from "react-native";
 
-import { useResponsive } from '@/hooks/useResponsive';
-import { boxShadow } from '@/utils/color';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { useResponsive } from "@/hooks/useResponsive";
+import { boxShadow } from "@/utils/color";
+import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
 
-
-type ModalSize = 'small' | 'medium' | 'large' | 'full';
+type ModalSize = "small" | "medium" | "large" | "full";
 
 interface ModalProps {
   visible: boolean;
@@ -43,18 +42,18 @@ interface ModalProps {
   children: React.ReactNode;
   size?: ModalSize;
   showCloseButton?: boolean;
-  animationType?: 'none' | 'slide' | 'fade';
+  animationType?: "none" | "slide" | "fade";
   transparent?: boolean;
   style?: ViewStyle;
 }
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 // Inject global styles for dialog backdrop (once)
-if (Platform.OS === 'web' && typeof document !== 'undefined') {
-  const styleId = 'modal-backdrop-styles';
+if (Platform.OS === "web" && typeof document !== "undefined") {
+  const styleId = "modal-backdrop-styles";
   if (!document.getElementById(styleId)) {
-    const style = document.createElement('style');
+    const style = document.createElement("style");
     style.id = styleId;
     style.textContent = `
       dialog.modal-dialog::backdrop {
@@ -83,9 +82,9 @@ export function Modal({
   onClose,
   title,
   children,
-  size = 'medium',
+  size = "medium",
   showCloseButton = true,
-  animationType = 'fade',
+  animationType = "fade",
   transparent = true,
   style,
 }: ModalProps) {
@@ -95,19 +94,23 @@ export function Modal({
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const dialogRef = useRef<HTMLDialogElement>(null);
   const scrollPositionRef = useRef(0);
-  const headerPadding = isDesktop ? theme.desktop.modal.headerPadding : theme.components.modal.headerPadding;
-  const bodyPadding = isDesktop ? theme.desktop.modal.bodyPadding : theme.components.modal.bodyPadding;
+  const headerPadding = isDesktop
+    ? theme.desktop.modal.headerPadding
+    : theme.components.modal.headerPadding;
+  const bodyPadding = isDesktop
+    ? theme.desktop.modal.bodyPadding
+    : theme.components.modal.bodyPadding;
 
-  const getModalWidth = (): string | number => {
+  const getModalWidth = (): number | string => {
     switch (size) {
-      case 'small':
+      case "small":
         return 400;
-      case 'medium':
+      case "medium":
         return 600;
-      case 'large':
+      case "large":
         return 900;
-      case 'full':
-        return '100%';
+      case "full":
+        return "100%";
       default:
         return 600;
     }
@@ -115,17 +118,17 @@ export function Modal({
 
   // Web: Control dialog open/close state
   useEffect(() => {
-    if (Platform.OS !== 'web' || !dialogRef.current) return;
+    if (Platform.OS !== "web" || !dialogRef.current) return;
 
     const dialog = dialogRef.current;
 
     if (visible) {
       // Save scroll position and lock body
       scrollPositionRef.current = window.scrollY;
-      document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
+      document.body.style.overflow = "hidden";
+      document.body.style.position = "fixed";
       document.body.style.top = `-${scrollPositionRef.current}px`;
-      document.body.style.width = '100%';
+      document.body.style.width = "100%";
 
       if (!dialog.open) {
         dialog.showModal();
@@ -134,24 +137,24 @@ export function Modal({
       if (dialog.open) {
         dialog.close();
       }
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
+      document.body.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
       window.scrollTo(0, scrollPositionRef.current);
     }
 
     return () => {
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
+      document.body.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
     };
   }, [visible]);
 
   // Web: Handle ESC key and click outside
   useEffect(() => {
-    if (Platform.OS !== 'web' || !dialogRef.current) return;
+    if (Platform.OS !== "web" || !dialogRef.current) return;
 
     const dialog = dialogRef.current;
 
@@ -166,18 +169,18 @@ export function Modal({
       }
     };
 
-    dialog.addEventListener('cancel', handleCancel);
-    dialog.addEventListener('click', handleBackdropClick);
+    dialog.addEventListener("cancel", handleCancel);
+    dialog.addEventListener("click", handleBackdropClick);
 
     return () => {
-      dialog.removeEventListener('cancel', handleCancel);
-      dialog.removeEventListener('click', handleBackdropClick);
+      dialog.removeEventListener("cancel", handleCancel);
+      dialog.removeEventListener("click", handleBackdropClick);
     };
   }, [onClose]);
 
   // Mobile animations
   useEffect(() => {
-    if (Platform.OS === 'web') return;
+    if (Platform.OS === "web") return;
 
     if (visible) {
       Animated.parallel([
@@ -212,26 +215,26 @@ export function Modal({
   // ============================================
   // WEB: HTML5 <dialog> with Portal
   // ============================================
-  if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  if (Platform.OS === "web" && typeof document !== "undefined") {
     const modalWidth = getModalWidth();
-    const isFull = size === 'full';
+    const isFull = size === "full";
 
     const dialogContent = (
       <dialog
         ref={dialogRef}
         className="modal-dialog"
-        aria-labelledby={title ? 'modal-title' : undefined}
+        aria-labelledby={title ? "modal-title" : undefined}
         aria-modal="true"
         style={{
-          position: 'fixed',
-          border: 'none',
+          position: "fixed",
+          border: "none",
           padding: 0,
-          margin: 'auto',
-          maxWidth: isFull ? '100%' : modalWidth,
-          width: isFull ? '100%' : '90%',
-          maxHeight: isFull ? '100%' : '80%',
-          backgroundColor: 'transparent',
-          overflow: 'visible',
+          margin: "auto",
+          maxWidth: isFull ? "100%" : modalWidth,
+          width: isFull ? "100%" : "90%",
+          maxHeight: isFull ? "100%" : "80%",
+          backgroundColor: "transparent",
+          overflow: "visible",
           ...(isFull ? { top: 0, left: 0, right: 0, bottom: 0 } : {}),
         }}
       >
@@ -239,12 +242,14 @@ export function Modal({
           style={{
             backgroundColor: theme.colors.white,
             borderRadius: isFull ? 0 : theme.borderRadius.xl,
-            boxShadow: isFull ? undefined : boxShadow(0, 25, 50, -12, theme.colors.black, 0.25),
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-            maxHeight: isFull ? '100vh' : '80vh',
-            height: isFull ? '100vh' : 'auto',
+            boxShadow: isFull
+              ? undefined
+              : boxShadow(0, 25, 50, -12, theme.colors.black, 0.25),
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+            maxHeight: isFull ? "100vh" : "80vh",
+            height: isFull ? "100vh" : "auto",
             ...(style as React.CSSProperties),
           }}
           onClick={(e) => e.stopPropagation()}
@@ -253,10 +258,10 @@ export function Modal({
           {(title || showCloseButton) && (
             <div
               style={{
-                display: 'flex',
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
+                display: "flex",
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
                 padding: headerPadding,
                 borderBottom: `1px solid ${theme.colors.gray200}`,
               }}
@@ -267,7 +272,9 @@ export function Modal({
                   style={{
                     margin: 0,
                     fontFamily: theme.typography.fontSansBold,
-                    fontSize: isDesktop ? theme.desktop.modal.titleFontSize : theme.typography.fontSize.base,
+                    fontSize: isDesktop
+                      ? theme.desktop.modal.titleFontSize
+                      : theme.typography.fontSize.base,
                     lineHeight: `${(isDesktop ? theme.desktop.modal.titleFontSize : theme.typography.fontSize.base) * 1.5}px`,
                     color: theme.colors.gray900,
                     flex: 1,
@@ -285,23 +292,28 @@ export function Modal({
                   style={{
                     padding: theme.spacing.xs,
                     marginLeft: theme.spacing.sm,
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                     borderRadius: theme.borderRadius.sm,
-                    transition: 'background-color 0.2s',
+                    transition: "background-color 0.2s",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = theme.colors.gray100;
+                    e.currentTarget.style.backgroundColor =
+                      theme.colors.gray100;
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.backgroundColor = "transparent";
                   }}
                 >
-                  <Ionicons name="close" size={isDesktop ? theme.desktop.modal.closeButtonSize : 24} color={theme.colors.gray500} />
+                  <Ionicons
+                    name="close"
+                    size={isDesktop ? theme.desktop.modal.closeButtonSize : 24}
+                    color={theme.colors.gray500}
+                  />
                 </button>
               )}
             </div>
@@ -311,7 +323,7 @@ export function Modal({
           <div
             style={{
               padding: bodyPadding,
-              overflow: 'auto',
+              overflow: "auto",
               flex: 1,
             }}
           >
@@ -331,7 +343,7 @@ export function Modal({
     <RNModal
       visible={visible}
       transparent={transparent}
-      animationType={animationType === 'none' ? 'none' : undefined}
+      animationType={animationType === "none" ? "none" : undefined}
       onRequestClose={onClose}
       accessibilityViewIsModal={true}
     >
@@ -361,18 +373,26 @@ export function Modal({
           style={[
             styles.modal,
             {
-              width: getModalWidth() as any,
-              transform: [{ translateY: animationType === 'slide' ? slideAnim : 0 }],
-              opacity: animationType === 'fade' ? fadeAnim : 1,
+              width: getModalWidth(),
+              transform: [
+                { translateY: animationType === "slide" ? slideAnim : 0 },
+              ],
+              opacity: animationType === "fade" ? fadeAnim : 1,
             },
-            size === 'full' && styles.fullModal,
+            size === "full" && styles.fullModal,
             style,
           ]}
         >
           {/* Header */}
           {(title || showCloseButton) && (
             <View style={styles.header}>
-              {title ? <Text style={styles.title} accessibilityRole="header">{title}</Text> : <View style={{ flex: 1 }} />}
+              {title ? (
+                <Text style={styles.title} accessibilityRole="header">
+                  {title}
+                </Text>
+              ) : (
+                <View style={{ flex: 1 }} />
+              )}
               {showCloseButton && (
                 <TouchableOpacity
                   style={styles.closeButton}
@@ -382,7 +402,11 @@ export function Modal({
                   accessibilityRole="button"
                   accessibilityLabel="Fechar modal"
                 >
-                  <Ionicons name="close" size={24} color={theme.colors.gray500} />
+                  <Ionicons
+                    name="close"
+                    size={24}
+                    color={theme.colors.gray500}
+                  />
                 </TouchableOpacity>
               )}
             </View>
@@ -399,7 +423,7 @@ export function Modal({
 const styles = StyleSheet.create((theme: Theme) => ({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
     zIndex: 30,
   },
   overlayTouchable: {
@@ -408,28 +432,28 @@ const styles = StyleSheet.create((theme: Theme) => ({
 
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     zIndex: 31,
   },
 
   modal: {
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.xl,
-    maxHeight: '80%',
+    maxHeight: "80%",
     ...theme.shadows.lg,
   },
   fullModal: {
-    width: '100%',
-    height: '100%',
-    maxHeight: '100%',
+    width: "100%",
+    height: "100%",
+    maxHeight: "100%",
     borderRadius: 0,
   },
 
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: theme.components.modal.headerPadding,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray200,

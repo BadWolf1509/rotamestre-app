@@ -2,23 +2,23 @@
  * Desktop view (table) for DataTable
  */
 
-import { Ionicons } from '@expo/vector-icons';
-import { memo } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { memo } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   DimensionValue,
-} from 'react-native';
+} from "react-native";
 
-import { useUnistyles } from '@/utils/styles';
+import { useUnistyles } from "@/utils/styles";
 
-import { PaginationDesktop } from './DataTablePagination';
-import { dataTableStyles as styles } from './styles';
-import { getColumnDisplayValue } from './types';
+import { PaginationDesktop } from "./DataTablePagination";
+import { dataTableStyles as styles } from "./styles";
+import { getColumnDisplayValue } from "./types";
 
-import type { DataTableColumn, DataTableAction, DataTableItem } from './types';
+import type { DataTableColumn, DataTableAction, DataTableItem } from "./types";
 
 interface DataTableDesktopViewProps<T> {
   data: T[];
@@ -33,7 +33,7 @@ interface DataTableDesktopViewProps<T> {
   totalItems: number;
   pagination: boolean;
   sortColumn: string | null;
-  sortDirection: 'asc' | 'desc';
+  sortDirection: "asc" | "desc";
   onSort: (columnKey: string) => void;
   onPrevious: () => void;
   onNext: () => void;
@@ -69,30 +69,44 @@ function DataTableDesktopViewInner<T>({
         <ScrollView horizontal showsHorizontalScrollIndicator={true}>
           <View>
             {/* Table Header */}
-            <View style={styles.tableHeader}>
-              {columns.map((column) => (
-                <TouchableOpacity
-                  key={column.key}
-                  style={[
-                    styles.tableHeaderCell,
-                    {
-                      width: (column.width || 'auto') as DimensionValue,
-                      minWidth: 100,
-                    },
-                    column.align === 'center' && { alignItems: 'center' },
-                    column.align === 'right' && { alignItems: 'flex-end' },
-                  ]}
-                  onPress={() => column.sortable && onSort(column.key)}
-                  disabled={!column.sortable}
-                >
-                  <Text style={styles.tableHeaderText}>{column.label}</Text>
-                  {column.sortable && sortColumn === column.key && (
-                    <Text style={styles.sortIndicator}>
-                      {sortDirection === 'asc' ? ' ↑' : ' ↓'}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              ))}
+            <View style={styles.tableHeader} accessibilityRole="header">
+              {columns.map((column) => {
+                const isSorted = column.sortable && sortColumn === column.key;
+                const sortLabel = isSorted
+                  ? sortDirection === "asc"
+                    ? ", ordenado crescente"
+                    : ", ordenado decrescente"
+                  : "";
+
+                return (
+                  <TouchableOpacity
+                    key={column.key}
+                    style={[
+                      styles.tableHeaderCell,
+                      {
+                        width: (column.width || "auto") as DimensionValue,
+                        minWidth: 100,
+                      },
+                      column.align === "center" && { alignItems: "center" },
+                      column.align === "right" && { alignItems: "flex-end" },
+                    ]}
+                    onPress={() => column.sortable && onSort(column.key)}
+                    disabled={!column.sortable}
+                    accessibilityRole={column.sortable ? "button" : undefined}
+                    accessibilityLabel={`${column.label}${sortLabel}`}
+                    accessibilityHint={
+                      column.sortable ? "Toque para ordenar" : undefined
+                    }
+                  >
+                    <Text style={styles.tableHeaderText}>{column.label}</Text>
+                    {isSorted && (
+                      <Text style={styles.sortIndicator}>
+                        {sortDirection === "asc" ? " ↑" : " ↓"}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
               {actions && actions.length > 0 && (
                 <View
                   style={[
@@ -106,10 +120,27 @@ function DataTableDesktopViewInner<T>({
             </View>
 
             {/* Table Body */}
+            {data.length === 0 && (
+              <View style={styles.tableRow} accessible accessibilityRole="text">
+                <Text style={styles.tableCellText}>
+                  Nenhum resultado encontrado
+                </Text>
+              </View>
+            )}
             {data.map((item, index) => (
               <View
                 key={keyExtractor(item)}
-                style={[styles.tableRow, index % 2 === 0 && styles.tableRowEven]}
+                style={[
+                  styles.tableRow,
+                  index % 2 === 0 && styles.tableRowEven,
+                ]}
+                accessible
+                accessibilityLabel={columns
+                  .map(
+                    (col) =>
+                      `${col.label}: ${getColumnDisplayValue(item as DataTableItem, col.key)}`,
+                  )
+                  .join(", ")}
               >
                 {columns.map((column) => (
                   <View
@@ -117,11 +148,11 @@ function DataTableDesktopViewInner<T>({
                     style={[
                       styles.tableCell,
                       {
-                        width: (column.width || 'auto') as DimensionValue,
+                        width: (column.width || "auto") as DimensionValue,
                         minWidth: 100,
                       },
-                      column.align === 'center' && { alignItems: 'center' },
-                      column.align === 'right' && { alignItems: 'flex-end' },
+                      column.align === "center" && { alignItems: "center" },
+                      column.align === "right" && { alignItems: "flex-end" },
                     ]}
                   >
                     {column.render ? (
@@ -133,9 +164,12 @@ function DataTableDesktopViewInner<T>({
                           column.noWrap && styles.tableCellTextNoWrap,
                         ]}
                         numberOfLines={column.noWrap ? 1 : undefined}
-                        ellipsizeMode={column.noWrap ? 'tail' : undefined}
+                        ellipsizeMode={column.noWrap ? "tail" : undefined}
                       >
-                        {getColumnDisplayValue(item as DataTableItem, column.key)}
+                        {getColumnDisplayValue(
+                          item as DataTableItem,
+                          column.key,
+                        )}
                       </Text>
                     )}
                   </View>
@@ -146,11 +180,11 @@ function DataTableDesktopViewInner<T>({
                   <View style={[styles.tableCell, styles.tableCellActions]}>
                     {actions.map((action, idx) => {
                       const label =
-                        typeof action.label === 'function'
+                        typeof action.label === "function"
                           ? action.label(item)
                           : action.label;
                       const icon = action.icon
-                        ? typeof action.icon === 'function'
+                        ? typeof action.icon === "function"
                           ? action.icon(item)
                           : action.icon
                         : undefined;
@@ -160,9 +194,9 @@ function DataTableDesktopViewInner<T>({
                           key={idx}
                           style={[
                             styles.tableActionButton,
-                            action.type === 'danger' &&
+                            action.type === "danger" &&
                               styles.tableActionButtonDanger,
-                            action.type === 'secondary' &&
+                            action.type === "secondary" &&
                               styles.tableActionButtonSecondary,
                           ]}
                           onPress={() => action.onPress(item)}
@@ -172,9 +206,9 @@ function DataTableDesktopViewInner<T>({
                               name={icon}
                               size={16}
                               color={
-                                action.type === 'danger'
+                                action.type === "danger"
                                   ? theme.colors.error
-                                  : action.type === 'secondary'
+                                  : action.type === "secondary"
                                     ? theme.colors.gray600
                                     : theme.colors.primary
                               }
@@ -183,9 +217,9 @@ function DataTableDesktopViewInner<T>({
                           <Text
                             style={[
                               styles.tableActionText,
-                              action.type === 'danger' &&
+                              action.type === "danger" &&
                                 styles.tableActionTextDanger,
-                              action.type === 'secondary' &&
+                              action.type === "secondary" &&
                                 styles.tableActionTextSecondary,
                             ]}
                           >
@@ -219,5 +253,5 @@ function DataTableDesktopViewInner<T>({
 }
 
 export const DataTableDesktopView = memo(
-  DataTableDesktopViewInner
+  DataTableDesktopViewInner,
 ) as typeof DataTableDesktopViewInner;
