@@ -88,7 +88,7 @@
     "expo-status-bar": "~55.0.4",
     "expo-task-manager": "~55.0.10",
     "expo-updates": "~55.0.15",
-    "maplibre-gl": "^5.20.1",
+    "maplibre-gl": "^5.21.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-hook-form": "^7.72.0",
