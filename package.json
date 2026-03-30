@@ -59,7 +59,7 @@
     "@react-native-community/netinfo": "12.0.1",
     "@react-native-community/slider": "5.1.2",
     "@react-navigation/drawer": "^7.9.8",
-    "@react-navigation/native": "^7.1.34",
+    "@react-navigation/native": "^7.2.2",
     "@sentry/browser": "^10.45.0",
     "@sentry/react": "^10.46.0",
     "@shopify/flash-list": "2.3.1",
