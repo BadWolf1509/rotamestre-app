@@ -1,12 +1,12 @@
-import { Platform } from 'react-native';
+import { Platform } from "react-native";
 
 import {
   googleMapsService,
   decodePolyline,
   encodePolyline,
   mergePolylines,
-} from '../google';
-import { clearCache } from '../osrm';
+} from "../google";
+import { clearCache } from "../osrm";
 
 // Mock de fetch global para OSRM
 const mockFetch = jest.fn();
@@ -19,30 +19,34 @@ global.fetch = mockFetch as any;
  * Helper para criar mock de resposta OSRM
  */
 function createOSRMRouteResponse(options: {
-    distance: number;
-    duration: number;
-    geometry?: string;
+  distance: number;
+  duration: number;
+  geometry?: string;
 }) {
-    return {
-        code: 'Ok',
-        routes: [{
+  return {
+    code: "Ok",
+    routes: [
+      {
+        distance: options.distance,
+        duration: options.duration,
+        geometry: options.geometry || "encoded_polyline",
+        legs: [
+          {
             distance: options.distance,
             duration: options.duration,
-            geometry: options.geometry || 'encoded_polyline',
-            legs: [{
-                distance: options.distance,
-                duration: options.duration,
-                steps: [],
-            }],
-        }],
-        waypoints: [
-            { location: [0, 0], waypoint_index: 0 },
-            { location: [1, 1], waypoint_index: 1 },
+            steps: [],
+          },
         ],
-    };
+      },
+    ],
+    waypoints: [
+      { location: [0, 0], waypoint_index: 0 },
+      { location: [1, 1], waypoint_index: 1 },
+    ],
+  };
 }
 
-describe('google maps helpers', () => {
+describe("google maps helpers", () => {
   const originalPlatform = Platform.OS;
 
   beforeEach(() => {
@@ -51,13 +55,13 @@ describe('google maps helpers', () => {
   });
 
   afterEach(() => {
-    Object.defineProperty(Platform, 'OS', {
+    Object.defineProperty(Platform, "OS", {
       get: () => originalPlatform,
       configurable: true,
     });
   });
 
-  it('encode e decode preservam coordenadas', () => {
+  it("encode e decode preservam coordenadas", () => {
     const points = [
       { latitude: 38.5, longitude: -120.2 },
       { latitude: 40.7, longitude: -120.95 },
@@ -73,7 +77,7 @@ describe('google maps helpers', () => {
     expect(decoded[2].latitude).toBeCloseTo(points[2].latitude, 5);
   });
 
-  it('mergePolylines remove ponto duplicado e ignora vazios', () => {
+  it("mergePolylines remove ponto duplicado e ignora vazios", () => {
     const polylineA = encodePolyline([
       { latitude: 0, longitude: 0 },
       { latitude: 1, longitude: 1 },
@@ -83,31 +87,33 @@ describe('google maps helpers', () => {
       { latitude: 2, longitude: 2 },
     ]);
 
-    const merged = mergePolylines([polylineA, '', polylineB]);
+    const merged = mergePolylines([polylineA, "", polylineB]);
     const mergedPoints = decodePolyline(merged);
 
     expect(mergedPoints).toHaveLength(3);
   });
 
-  it('getDirectionsWithError usa OSRM (gratuito!) no web', async () => {
-    Object.defineProperty(Platform, 'OS', {
-      get: () => 'web',
+  it("getDirectionsWithError usa OSRM (gratuito!) no web", async () => {
+    Object.defineProperty(Platform, "OS", {
+      get: () => "web",
       configurable: true,
     });
 
     // OSRM usa fetch diretamente, não edge function
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: jest.fn().mockResolvedValue(createOSRMRouteResponse({
-        distance: 1000,
-        duration: 60,
-        geometry: 'encoded_polyline',
-      })),
+      json: jest.fn().mockResolvedValue(
+        createOSRMRouteResponse({
+          distance: 1000,
+          duration: 60,
+          geometry: "encoded_polyline",
+        }),
+      ),
     });
 
     const result = await googleMapsService.getDirectionsWithError(
       { latitude: 0, longitude: 0 },
-      { latitude: 1, longitude: 1 }
+      { latitude: 1, longitude: 1 },
     );
 
     expect(result.success).toBe(true);
@@ -115,26 +121,26 @@ describe('google maps helpers', () => {
 
     // Verificar que usou OSRM
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('router.project-osrm.org'),
-      expect.any(Object)
+      expect.stringContaining("osrm.rotamestre.tec.br"),
+      expect.any(Object),
     );
   });
 
-  it('getDirectionsWithError usa Haversine fallback quando OSRM falha (graceful degradation)', async () => {
-    Object.defineProperty(Platform, 'OS', {
-      get: () => 'web',
+  it("getDirectionsWithError usa Haversine fallback quando OSRM falha (graceful degradation)", async () => {
+    Object.defineProperty(Platform, "OS", {
+      get: () => "web",
       configurable: true,
     });
 
     // OSRM falha
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: jest.fn().mockResolvedValue({ code: 'NoRoute', routes: [] }),
+      json: jest.fn().mockResolvedValue({ code: "NoRoute", routes: [] }),
     });
 
     const result = await googleMapsService.getDirectionsWithError(
       { latitude: 0, longitude: 0 },
-      { latitude: 1, longitude: 1 }
+      { latitude: 1, longitude: 1 },
     );
 
     // OSRM usa Haversine fallback - nunca retorna falha completa
@@ -142,41 +148,43 @@ describe('google maps helpers', () => {
     expect(result.data?.distancia_total_metros).toBeGreaterThan(0); // Haversine estimate
   });
 
-  it('getDirectionsSequentialWithError agrega segmentos no web usando OSRM', async () => {
-    Object.defineProperty(Platform, 'OS', {
-      get: () => 'web',
+  it("getDirectionsSequentialWithError agrega segmentos no web usando OSRM", async () => {
+    Object.defineProperty(Platform, "OS", {
+      get: () => "web",
       configurable: true,
     });
 
     // OSRM Route API para rota sequencial
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: jest.fn().mockResolvedValue(createOSRMRouteResponse({
-        distance: 1000,
-        duration: 60,
-      })),
+      json: jest.fn().mockResolvedValue(
+        createOSRMRouteResponse({
+          distance: 1000,
+          duration: 60,
+        }),
+      ),
     });
 
     const result = await googleMapsService.getDirectionsSequentialWithError(
       { latitude: 0, longitude: 0 },
       { latitude: 2, longitude: 2 },
-      [{ latitude: 1, longitude: 1 }]
+      [{ latitude: 1, longitude: 1 }],
     );
 
     expect(result.success).toBe(true);
   });
 
-  it('getDirectionsWithError usa Haversine fallback em AbortError (graceful degradation)', async () => {
-    Object.defineProperty(Platform, 'OS', {
-      get: () => 'ios',
+  it("getDirectionsWithError usa Haversine fallback em AbortError (graceful degradation)", async () => {
+    Object.defineProperty(Platform, "OS", {
+      get: () => "ios",
       configurable: true,
     });
 
-    mockFetch.mockRejectedValueOnce({ name: 'AbortError' });
+    mockFetch.mockRejectedValueOnce({ name: "AbortError" });
 
     const result = await googleMapsService.getDirectionsWithError(
       { latitude: 0, longitude: 0 },
-      { latitude: 1, longitude: 1 }
+      { latitude: 1, longitude: 1 },
     );
 
     // OSRM usa Haversine fallback - sempre retorna sucesso com dados estimados
@@ -184,17 +192,17 @@ describe('google maps helpers', () => {
     expect(result.data?.distancia_total_metros).toBeGreaterThan(0);
   });
 
-  it('getDirectionsWithError usa Haversine fallback em TypeError (graceful degradation)', async () => {
-    Object.defineProperty(Platform, 'OS', {
-      get: () => 'ios',
+  it("getDirectionsWithError usa Haversine fallback em TypeError (graceful degradation)", async () => {
+    Object.defineProperty(Platform, "OS", {
+      get: () => "ios",
       configurable: true,
     });
 
-    mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'));
+    mockFetch.mockRejectedValueOnce(new TypeError("fetch failed"));
 
     const result = await googleMapsService.getDirectionsWithError(
       { latitude: 0, longitude: 0 },
-      { latitude: 1, longitude: 1 }
+      { latitude: 1, longitude: 1 },
     );
 
     // OSRM usa Haversine fallback - sempre retorna sucesso com dados estimados
@@ -202,9 +210,9 @@ describe('google maps helpers', () => {
     expect(result.data?.distancia_total_metros).toBeGreaterThan(0);
   });
 
-  it('getDirectionsSequential usa OSRM no mobile (gratuito!)', async () => {
-    Object.defineProperty(Platform, 'OS', {
-      get: () => 'ios',
+  it("getDirectionsSequential usa OSRM no mobile (gratuito!)", async () => {
+    Object.defineProperty(Platform, "OS", {
+      get: () => "ios",
       configurable: true,
     });
 
@@ -212,16 +220,18 @@ describe('google maps helpers', () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: jest.fn().mockResolvedValue({
-        code: 'Ok',
-        routes: [{
-          distance: 2000,
-          duration: 120,
-          geometry: 'encoded_polyline',
-          legs: [
-            { distance: 1000, duration: 60, steps: [] },
-            { distance: 1000, duration: 60, steps: [] },
-          ],
-        }],
+        code: "Ok",
+        routes: [
+          {
+            distance: 2000,
+            duration: 120,
+            geometry: "encoded_polyline",
+            legs: [
+              { distance: 1000, duration: 60, steps: [] },
+              { distance: 1000, duration: 60, steps: [] },
+            ],
+          },
+        ],
         waypoints: [
           { location: [0, 0], waypoint_index: 0 },
           { location: [1, 1], waypoint_index: 1 },
@@ -233,7 +243,7 @@ describe('google maps helpers', () => {
     const result = await googleMapsService.getDirectionsSequential(
       { latitude: 0, longitude: 0 },
       { latitude: 2, longitude: 2 },
-      [{ latitude: 1, longitude: 1 }]
+      [{ latitude: 1, longitude: 1 }],
     );
 
     expect(result).not.toBeNull();
@@ -241,23 +251,23 @@ describe('google maps helpers', () => {
 
     // Verificar que usou OSRM
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('router.project-osrm.org'),
-      expect.any(Object)
+      expect.stringContaining("osrm.rotamestre.tec.br"),
+      expect.any(Object),
     );
   });
 
-  it('getDirectionsSequentialWithError usa Haversine fallback em erro de fetch', async () => {
-    Object.defineProperty(Platform, 'OS', {
-      get: () => 'ios',
+  it("getDirectionsSequentialWithError usa Haversine fallback em erro de fetch", async () => {
+    Object.defineProperty(Platform, "OS", {
+      get: () => "ios",
       configurable: true,
     });
 
-    mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'));
+    mockFetch.mockRejectedValueOnce(new TypeError("fetch failed"));
 
     const result = await googleMapsService.getDirectionsSequentialWithError(
       { latitude: 0, longitude: 0 },
       { latitude: 1, longitude: 1 },
-      []
+      [],
     );
 
     // OSRM usa Haversine fallback - sempre retorna sucesso com dados estimados

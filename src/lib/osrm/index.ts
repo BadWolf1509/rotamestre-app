@@ -2,10 +2,11 @@
  * OSRM (Open Source Routing Machine) Service
  *
  * Substitui Google Routes API para reduzir custos.
- * Usa o demo server publico: router.project-osrm.org
+ * Usa servidor self-hosted: osrm.rotamestre.tec.br (Nordeste/BR)
+ * Fallback: Haversine TSP quando OSRM indisponível
  *
  * Rate limits:
- * - Demo server: 1 request/segundo
+ * - Self-hosted: 10 req/s
  * - Cache: 5 minutos para reduzir chamadas
  *
  * @see https://project-osrm.org/docs/v5.5.1/api/
