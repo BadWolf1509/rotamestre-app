@@ -4,14 +4,14 @@
  * In-memory cache with TTL and rate limiting for OSRM demo server.
  */
 
-import type { Coordinate } from './types';
+import type { Coordinate } from "./types";
 
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 
 export const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
-export const MIN_REQUEST_INTERVAL = 1100; // 1.1 segundos entre requests (rate limit: 1/s)
+export const MIN_REQUEST_INTERVAL = 100; // 100ms — self-hosted server supports 10 req/s
 
 // ============================================================================
 // STATE
@@ -26,8 +26,8 @@ let lastRequestTime = 0;
 
 export function getCacheKey(type: string, coords: Coordinate[]): string {
   const coordStr = coords
-    .map(c => `${c.latitude.toFixed(4)},${c.longitude.toFixed(4)}`)
-    .join('|');
+    .map((c) => `${c.latitude.toFixed(4)},${c.longitude.toFixed(4)}`)
+    .join("|");
   return `${type}:${coordStr}`;
 }
 
@@ -55,8 +55,8 @@ export async function waitForRateLimit(): Promise<void> {
   const timeSinceLastRequest = now - lastRequestTime;
 
   if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
-    await new Promise(resolve =>
-      setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastRequest)
+    await new Promise((resolve) =>
+      setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastRequest),
     );
   }
 

@@ -11,8 +11,8 @@ import { getCacheKey, getFromCache, setCache, waitForRateLimit } from "./cache";
 
 import type { Coordinate, OSRMTableResponse } from "./types";
 
-const OSRM_BASE_URL = "https://router.project-osrm.org";
-const REQUEST_TIMEOUT = 15000; // 15s — table requests can be slower
+const OSRM_BASE_URL = "https://osrm.rotamestre.tec.br";
+const REQUEST_TIMEOUT = 10000; // 10s — self-hosted server is fast
 
 export interface DistanceMatrix {
   distances: number[][];

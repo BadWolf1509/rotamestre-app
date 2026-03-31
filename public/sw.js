@@ -10,7 +10,7 @@
  * - Fallback offline para requests que falham
  */
 
-const CACHE_NAME = 'rotamestre-v2';
+const CACHE_NAME = 'rotamestre-v3';
 const OFFLINE_URL = '/offline.html';
 
 // Assets para pré-cache (app shell mínimo)
@@ -103,6 +103,7 @@ function isMapTile(url) {
 function isApiRequest(url) {
   return (
     url.hostname.includes('supabase.co') ||
+    url.hostname.includes('osrm.rotamestre.tec.br') ||
     url.hostname.includes('router.project-osrm.org') ||
     url.hostname.includes('photon.komoot.io') ||
     url.hostname.includes('viacep.com.br')

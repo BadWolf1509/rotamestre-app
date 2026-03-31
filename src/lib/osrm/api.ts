@@ -40,7 +40,7 @@ import type {
 // CONFIGURATION
 // ============================================================================
 
-const OSRM_BASE_URL = "https://router.project-osrm.org";
+const OSRM_BASE_URL = "https://osrm.rotamestre.tec.br";
 const REQUEST_TIMEOUT = 10000; // 10 segundos
 
 // ============================================================================
@@ -360,7 +360,13 @@ export async function getOptimizedDirections(
     }
 
     // Caso contrario, usar Route API simples
-    return await getSimpleRoute(origin, destination, waypoints, cacheKey);
+    const result = await getSimpleRoute(
+      origin,
+      destination,
+      waypoints,
+      cacheKey,
+    );
+    return result ?? createFallbackDirections(origin, destination, waypoints);
   } catch (error) {
     logger.error("OSRM getOptimizedDirections error:", error);
     // Fallback com Haversine
@@ -394,11 +400,8 @@ async function getOptimizedCircularRoute(
     distances = matrix.distances;
     logger.debug("[OSRM] Using Table API distance matrix for TSP");
   } else {
-    // Fallback: build Haversine distance matrix (straight-line * 1.3 road factor)
-    logger.warn(
-      "[OSRM] Table API unavailable, using Haversine distances for TSP",
-    );
     distances = buildHaversineMatrix(allPoints);
+    logger.warn("[OSRM] Table API unavailable, using Haversine TSP fallback");
   }
 
   // Step 2: Solve TSP on distance matrix (optimizes by distance)
@@ -419,7 +422,10 @@ async function getOptimizedCircularRoute(
   );
 
   if (!routeResult) {
-    return createFallbackDirections(origin, origin, waypoints);
+    // Use TSP-optimized order even in Haversine fallback
+    const fallback = createFallbackDirections(origin, origin, orderedWaypoints);
+    fallback.ordem_otimizada = waypointOrder;
+    return fallback;
   }
 
   // Override ordem_otimizada with TSP result (Route API returns sequential order)
@@ -527,6 +533,7 @@ async function getSimpleRoute(
     return result;
   } catch (error) {
     clearTimeout(timeoutId);
-    throw error;
+    logger.error("[OSRM] getSimpleRoute error:", error);
+    return null;
   }
 }
