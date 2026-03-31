@@ -109,3 +109,11 @@ export interface OSRMTripResponse {
     trips_index: number;
   }>;
 }
+
+export interface OSRMTableResponse {
+  code: string;
+  distances: number[][];
+  durations: number[][];
+  sources: Array<{ location: [number, number] }>;
+  destinations: Array<{ location: [number, number] }>;
+}
