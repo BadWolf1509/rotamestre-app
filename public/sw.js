@@ -10,7 +10,7 @@
  * - Fallback offline para requests que falham
  */
 
-const CACHE_NAME = 'rotamestre-v1';
+const CACHE_NAME = 'rotamestre-v2';
 const OFFLINE_URL = '/offline.html';
 
 // Assets para pré-cache (app shell mínimo)
