@@ -358,6 +358,115 @@ describe("OSRM module", () => {
       // Order should be preserved: [0, 1] (first waypoint, then second)
       expect(result?.ordem_otimizada).toEqual([0, 1]);
     });
+
+    it("should fall back to Haversine when Table API fails for circular route", async () => {
+      // Table API fails
+      mockFetch.mockRejectedValueOnce(new Error("Network error"));
+
+      const result = await getOptimizedDirections(
+        { latitude: -7.1, longitude: -34.8 },
+        { latitude: -7.1, longitude: -34.8 }, // circular
+        [
+          { latitude: -7.2, longitude: -34.9 },
+          { latitude: -7.15, longitude: -34.85 },
+        ],
+        true,
+      );
+
+      // Should return Haversine fallback, not null
+      expect(result).not.toBeNull();
+      expect(result!.distancia_total_metros).toBeGreaterThan(0);
+      expect(result!.ordem_otimizada).toEqual([0, 1]); // default order
+    });
+
+    it("should fall back when Route API fails after successful Table", async () => {
+      // Table API succeeds
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          code: "Ok",
+          distances: [
+            [0, 1000],
+            [1000, 0],
+          ],
+          durations: [
+            [0, 120],
+            [120, 0],
+          ],
+          sources: [{ location: [0, 0] }, { location: [1, 1] }],
+          destinations: [{ location: [0, 0] }, { location: [1, 1] }],
+        }),
+      });
+
+      // Route API fails
+      mockFetch.mockRejectedValueOnce(new Error("Route API down"));
+
+      const result = await getOptimizedDirections(
+        { latitude: 0, longitude: 0 },
+        { latitude: 0, longitude: 0 },
+        [{ latitude: 1, longitude: 1 }],
+        true,
+      );
+
+      // Should return Haversine fallback
+      expect(result).not.toBeNull();
+      expect(result!.distancia_total_metros).toBeGreaterThan(0);
+    });
+
+    it("should optimize single waypoint via Table+Route", async () => {
+      // Table API
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          code: "Ok",
+          distances: [
+            [0, 5000],
+            [5000, 0],
+          ],
+          durations: [
+            [0, 600],
+            [600, 0],
+          ],
+          sources: [{ location: [0, 0] }, { location: [1, 1] }],
+          destinations: [{ location: [0, 0] }, { location: [1, 1] }],
+        }),
+      });
+
+      // Route API
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          code: "Ok",
+          routes: [
+            {
+              geometry: "polyline",
+              distance: 10000,
+              duration: 1200,
+              legs: [
+                { distance: 5000, duration: 600 },
+                { distance: 5000, duration: 600 },
+              ],
+            },
+          ],
+          waypoints: [
+            { location: [0, 0], waypoint_index: 0 },
+            { location: [1, 1], waypoint_index: 1 },
+            { location: [0, 0], waypoint_index: 2 },
+          ],
+        }),
+      });
+
+      const result = await getOptimizedDirections(
+        { latitude: 0, longitude: 0 },
+        { latitude: 0, longitude: 0 },
+        [{ latitude: 1, longitude: 1 }],
+        true,
+      );
+
+      expect(result).not.toBeNull();
+      expect(result!.ordem_otimizada).toEqual([0]);
+      expect(result!.distancia_total_metros).toBe(10000);
+    });
   });
 
   describe("Edge cases", () => {
