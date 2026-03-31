@@ -238,6 +238,60 @@ describe("OSRM module", () => {
       expect(mockFetch.mock.calls[1][0]).toContain("/route/v1/driving/");
     });
 
+    it("should use Haversine TSP when Table API fails for circular route", async () => {
+      // Mock 1: Table API fails
+      mockFetch.mockRejectedValueOnce(new Error("AbortError"));
+
+      // Mock 2: Route API returns actual route for the Haversine-optimized order
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          code: "Ok",
+          routes: [
+            {
+              geometry: "haversine_optimized_polyline",
+              distance: 35000,
+              duration: 4200,
+              legs: [
+                { distance: 8000, duration: 960 },
+                { distance: 7000, duration: 840 },
+                { distance: 10000, duration: 1200 },
+                { distance: 10000, duration: 1200 },
+              ],
+            },
+          ],
+          waypoints: [
+            { location: [-34.87, -7.12], waypoint_index: 0 },
+            { location: [-34.85, -7.14], waypoint_index: 1 },
+            { location: [-34.84, -7.13], waypoint_index: 2 },
+            { location: [-34.86, -7.15], waypoint_index: 3 },
+            { location: [-34.87, -7.12], waypoint_index: 4 },
+          ],
+        }),
+      });
+
+      const result = await getOptimizedDirections(
+        { latitude: -7.12, longitude: -34.87 }, // Origin (same as destination = circular)
+        { latitude: -7.12, longitude: -34.87 },
+        [
+          { latitude: -7.15, longitude: -34.86 }, // A (far)
+          { latitude: -7.14, longitude: -34.85 }, // B (close)
+          { latitude: -7.13, longitude: -34.84 }, // C (medium)
+        ],
+        true,
+      );
+
+      expect(result).not.toBeNull();
+      // Even though Table API failed, TSP ran on Haversine distances
+      // Route API should have been called with optimized order
+      expect(result?.distancia_total_metros).toBe(35000);
+      expect(result?.ordem_otimizada).toBeDefined();
+      // Verify Table API was attempted, then Route API was called
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch.mock.calls[0][0]).toContain("/table/v1/driving/");
+      expect(mockFetch.mock.calls[1][0]).toContain("/route/v1/driving/");
+    });
+
     it("should use Haversine fallback when OSRM fails", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,

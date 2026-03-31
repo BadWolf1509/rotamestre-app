@@ -13,6 +13,7 @@ import { logger } from "@/lib/logger";
 
 import { getCacheKey, getFromCache, setCache, waitForRateLimit } from "./cache";
 import {
+  calculateHaversineDistance,
   createFallbackRoute,
   createFallbackDirections,
   estimateRouteDistance,
@@ -344,7 +345,6 @@ export async function getOptimizedDirections(
   // Check cache
   const cached = getFromCache<DirectionsResult>(cacheKey);
   if (cached) {
-    logger.warn("[TSP-DEBUG] Returning CACHED result (in-memory)");
     return cached;
   }
 
@@ -354,11 +354,7 @@ export async function getOptimizedDirections(
       Math.abs(origin.latitude - destination.latitude) < 0.0001 &&
       Math.abs(origin.longitude - destination.longitude) < 0.0001;
 
-    logger.warn(
-      `[TSP-DEBUG] getOptimizedDirections: waypoints=${waypoints?.length}, optimize=${optimize}, isCircular=${isCircular}`,
-    );
-
-    // Se tem waypoints e quer otimizar, usar Table+TSP pipeline
+    // Se tem waypoints e quer otimizar, usar TSP pipeline
     if (waypoints && waypoints.length > 0 && optimize && isCircular) {
       return await getOptimizedCircularRoute(origin, waypoints, cacheKey);
     }
@@ -387,37 +383,29 @@ async function getOptimizedCircularRoute(
   waypoints: Coordinate[],
   cacheKey: string,
 ): Promise<DirectionsResult | null> {
-  // Step 1: Get distance matrix via Table API
   const allPoints = [origin, ...waypoints];
 
-  logger.warn(
-    `[TSP-DEBUG] Starting Table+TSP pipeline for ${waypoints.length} waypoints`,
-  );
+  // Step 1: Get distance matrix (Table API preferred, Haversine fallback)
+  let distances: number[][];
 
   const matrix = await getDistanceMatrix(allPoints);
 
-  if (!matrix) {
-    logger.warn("[TSP-DEBUG] Table API FAILED, falling back to Haversine");
-    return createFallbackDirections(origin, origin, waypoints);
+  if (matrix) {
+    distances = matrix.distances;
+    logger.debug("[OSRM] Using Table API distance matrix for TSP");
+  } else {
+    // Fallback: build Haversine distance matrix (straight-line * 1.3 road factor)
+    logger.warn(
+      "[OSRM] Table API unavailable, using Haversine distances for TSP",
+    );
+    distances = buildHaversineMatrix(allPoints);
   }
 
-  logger.warn(
-    `[TSP-DEBUG] Table API OK, distance matrix: ${JSON.stringify(matrix.distances.map((row) => row.map((d) => Math.round(d))))}`,
-  );
-
-  // Step 2: Solve TSP on distance matrix (optimizes by distance, not duration)
-  const tspResult = solveTSP(matrix.distances, 0);
-
-  logger.warn(
-    `[TSP-DEBUG] TSP result: order=${JSON.stringify(tspResult.order)}, totalDist=${Math.round(tspResult.totalDistance)}m`,
-  );
+  // Step 2: Solve TSP on distance matrix (optimizes by distance)
+  const tspResult = solveTSP(distances, 0);
 
   // Convert TSP indices (1-based matrix indices) to waypoint indices (0-based)
   const waypointOrder = tspResult.order.map((idx) => idx - 1);
-
-  logger.warn(
-    `[TSP-DEBUG] Waypoint order (0-based): ${JSON.stringify(waypointOrder)}`,
-  );
 
   // Step 3: Build ordered waypoints for Route API
   const orderedWaypoints = waypointOrder.map((i) => waypoints[i]);
@@ -431,18 +419,38 @@ async function getOptimizedCircularRoute(
   );
 
   if (!routeResult) {
-    logger.warn("[TSP-DEBUG] Route API failed after TSP, falling back");
     return createFallbackDirections(origin, origin, waypoints);
   }
-
-  logger.warn(
-    `[TSP-DEBUG] Final route: ${Math.round(routeResult.distancia_total_metros)}m, ${Math.round(routeResult.duracao_total_segundos)}s`,
-  );
 
   // Override ordem_otimizada with TSP result (Route API returns sequential order)
   routeResult.ordem_otimizada = waypointOrder;
 
   return routeResult;
+}
+
+/**
+ * Build NxN distance matrix using Haversine (straight-line * 1.3 road factor).
+ * Used as fallback when OSRM Table API is unavailable.
+ */
+function buildHaversineMatrix(points: Coordinate[]): number[][] {
+  const n = points.length;
+  const matrix: number[][] = Array.from({ length: n }, () => Array(n).fill(0));
+
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      if (i !== j) {
+        matrix[i][j] =
+          calculateHaversineDistance(
+            points[i].latitude,
+            points[i].longitude,
+            points[j].latitude,
+            points[j].longitude,
+          ) * 1.3; // Road distance correction factor
+      }
+    }
+  }
+
+  return matrix;
 }
 
 /**
