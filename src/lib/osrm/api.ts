@@ -7,13 +7,23 @@
  * @see https://github.com/Project-OSRM/osrm-backend/wiki/Api-usage-policy
  */
 
-import { decode } from '@mapbox/polyline';
+import { decode } from "@mapbox/polyline";
 
-import { logger } from '@/lib/logger';
+import { logger } from "@/lib/logger";
 
-import { getCacheKey, getFromCache, setCache, waitForRateLimit } from './cache';
-import { createFallbackRoute, createFallbackDirections, estimateRouteDistance } from './fallback';
-import { formatDistance, formatDuration, translateManeuver } from './formatting';
+import { getCacheKey, getFromCache, setCache, waitForRateLimit } from "./cache";
+import {
+  createFallbackRoute,
+  createFallbackDirections,
+  estimateRouteDistance,
+} from "./fallback";
+import {
+  formatDistance,
+  formatDuration,
+  translateManeuver,
+} from "./formatting";
+import { getDistanceMatrix } from "./table";
+import { solveTSP } from "./tsp";
 
 import type {
   Coordinate,
@@ -23,14 +33,13 @@ import type {
   DirectionsResult,
   DirectionsResultLeg,
   OSRMRouteResponse,
-  OSRMTripResponse,
-} from './types';
+} from "./types";
 
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 
-const OSRM_BASE_URL = 'https://router.project-osrm.org';
+const OSRM_BASE_URL = "https://router.project-osrm.org";
 const REQUEST_TIMEOUT = 10000; // 10 segundos
 
 // ============================================================================
@@ -47,10 +56,10 @@ export async function getRoute(
   options?: {
     optimize?: boolean;
     steps?: boolean;
-  }
+  },
 ): Promise<RouteResult | null> {
   const allCoords = [origin, ...(waypoints || []), destination];
-  const cacheKey = getCacheKey('route', allCoords);
+  const cacheKey = getCacheKey("route", allCoords);
 
   // Check cache
   const cached = getFromCache<RouteResult>(cacheKey);
@@ -63,13 +72,13 @@ export async function getRoute(
 
     // Build coordinates string: lon,lat;lon,lat;...
     const coordsStr = allCoords
-      .map(c => `${c.longitude},${c.latitude}`)
-      .join(';');
+      .map((c) => `${c.longitude},${c.latitude}`)
+      .join(";");
 
     const params = new URLSearchParams({
-      overview: 'full',
-      geometries: 'polyline',
-      steps: options?.steps !== false ? 'true' : 'false',
+      overview: "full",
+      geometries: "polyline",
+      steps: options?.steps !== false ? "true" : "false",
     });
 
     const url = `${OSRM_BASE_URL}/route/v1/driving/${coordsStr}?${params}`;
@@ -78,9 +87,9 @@ export async function getRoute(
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
     const response = await fetch(url, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'User-Agent': 'RotaMestre/1.0 (https://app.rotamestre.tec.br)',
+        "User-Agent": "RotaMestre/1.0 (https://app.rotamestre.tec.br)",
       },
       signal: controller.signal,
     });
@@ -93,8 +102,8 @@ export async function getRoute(
 
     const data: OSRMRouteResponse = await response.json();
 
-    if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
-      logger.warn('OSRM: No route found, using Haversine fallback');
+    if (data.code !== "Ok" || !data.routes || data.routes.length === 0) {
+      logger.warn("OSRM: No route found, using Haversine fallback");
       return createFallbackRoute(origin, destination, waypoints);
     }
 
@@ -110,9 +119,9 @@ export async function getRoute(
           instruction: translateManeuver(
             step.maneuver.type,
             step.maneuver.modifier,
-            step.name
+            step.name,
           ),
-          maneuver: `${step.maneuver.type}-${step.maneuver.modifier || ''}`,
+          maneuver: `${step.maneuver.type}-${step.maneuver.modifier || ""}`,
           location: {
             latitude: step.maneuver.location[1],
             longitude: step.maneuver.location[0],
@@ -127,17 +136,17 @@ export async function getRoute(
       duration: route.duration,
       polyline: route.geometry,
       steps,
-      waypoints: data.waypoints.map(wp => ({
+      waypoints: data.waypoints.map((wp) => ({
         latitude: wp.location[1],
         longitude: wp.location[0],
       })),
-      waypointOrder: data.waypoints.map(wp => wp.waypoint_index),
+      waypointOrder: data.waypoints.map((wp) => wp.waypoint_index),
     };
 
     setCache(cacheKey, result);
     return result;
   } catch (error) {
-    logger.error('OSRM getRoute error:', error);
+    logger.error("OSRM getRoute error:", error);
     // Fallback to Haversine
     return createFallbackRoute(origin, destination, waypoints);
   }
@@ -152,9 +161,9 @@ export async function getRoute(
  */
 export async function getDistance(
   origin: Coordinate,
-  destination: Coordinate
+  destination: Coordinate,
 ): Promise<DistanceResult> {
-  const cacheKey = getCacheKey('distance', [origin, destination]);
+  const cacheKey = getCacheKey("distance", [origin, destination]);
 
   // Check cache
   const cached = getFromCache<DistanceResult>(cacheKey);
@@ -172,9 +181,9 @@ export async function getDistance(
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
     const response = await fetch(url, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'User-Agent': 'RotaMestre/1.0 (https://app.rotamestre.tec.br)',
+        "User-Agent": "RotaMestre/1.0 (https://app.rotamestre.tec.br)",
       },
       signal: controller.signal,
     });
@@ -187,7 +196,7 @@ export async function getDistance(
 
     const data: OSRMRouteResponse = await response.json();
 
-    if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+    if (data.code !== "Ok" || !data.routes || data.routes.length === 0) {
       return estimateRouteDistance(origin, destination);
     }
 
@@ -202,7 +211,7 @@ export async function getDistance(
     setCache(cacheKey, result);
     return result;
   } catch (error) {
-    logger.error('OSRM getDistance error:', error);
+    logger.error("OSRM getDistance error:", error);
     return estimateRouteDistance(origin, destination);
   }
 }
@@ -215,16 +224,20 @@ export async function getDistance(
  * Otimiza ordem de waypoints (Trip API - TSP)
  */
 export async function optimizeWaypoints(
-  waypoints: Coordinate[]
+  waypoints: Coordinate[],
 ): Promise<{ order: number[]; distance: number; duration: number } | null> {
   if (waypoints.length < 2) {
     return { order: waypoints.map((_, i) => i), distance: 0, duration: 0 };
   }
 
-  const cacheKey = getCacheKey('optimize', waypoints);
+  const cacheKey = getCacheKey("optimize", waypoints);
 
   // Check cache
-  const cached = getFromCache<{ order: number[]; distance: number; duration: number }>(cacheKey);
+  const cached = getFromCache<{
+    order: number[];
+    distance: number;
+    duration: number;
+  }>(cacheKey);
   if (cached) {
     return cached;
   }
@@ -233,8 +246,8 @@ export async function optimizeWaypoints(
     await waitForRateLimit();
 
     const coordsStr = waypoints
-      .map(c => `${c.longitude},${c.latitude}`)
-      .join(';');
+      .map((c) => `${c.longitude},${c.latitude}`)
+      .join(";");
 
     // Trip API resolve o TSP
     const url = `${OSRM_BASE_URL}/trip/v1/driving/${coordsStr}?roundtrip=false&source=first&destination=last`;
@@ -243,9 +256,9 @@ export async function optimizeWaypoints(
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
     const response = await fetch(url, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'User-Agent': 'RotaMestre/1.0 (https://app.rotamestre.tec.br)',
+        "User-Agent": "RotaMestre/1.0 (https://app.rotamestre.tec.br)",
       },
       signal: controller.signal,
     });
@@ -258,11 +271,13 @@ export async function optimizeWaypoints(
 
     const data = await response.json();
 
-    if (data.code !== 'Ok' || !data.waypoints) {
+    if (data.code !== "Ok" || !data.waypoints) {
       return null;
     }
 
-    const order = data.waypoints.map((wp: { waypoint_index: number }) => wp.waypoint_index);
+    const order = data.waypoints.map(
+      (wp: { waypoint_index: number }) => wp.waypoint_index,
+    );
     const trip = data.trips?.[0];
 
     const result = {
@@ -274,7 +289,7 @@ export async function optimizeWaypoints(
     setCache(cacheKey, result);
     return result;
   } catch (error) {
-    logger.error('OSRM optimizeWaypoints error:', error);
+    logger.error("OSRM optimizeWaypoints error:", error);
     return null;
   }
 }
@@ -296,7 +311,7 @@ export function decodePolyline(encoded: string): Coordinate[] {
       longitude: lng,
     }));
   } catch (error) {
-    logger.error('Error decoding polyline', error);
+    logger.error("Error decoding polyline", error);
     return [];
   }
 }
@@ -321,7 +336,7 @@ export async function getOptimizedDirections(
   origin: Coordinate,
   destination: Coordinate,
   waypoints?: Coordinate[],
-  optimize: boolean = true
+  optimize: boolean = true,
 ): Promise<DirectionsResult | null> {
   const allCoords = [origin, ...(waypoints || []), destination];
   const cacheKey = getCacheKey(`directions-${optimize}`, allCoords);
@@ -346,113 +361,61 @@ export async function getOptimizedDirections(
     // Caso contrario, usar Route API simples
     return await getSimpleRoute(origin, destination, waypoints, cacheKey);
   } catch (error) {
-    logger.error('OSRM getOptimizedDirections error:', error);
+    logger.error("OSRM getOptimizedDirections error:", error);
     // Fallback com Haversine
     return createFallbackDirections(origin, destination, waypoints);
   }
 }
 
 /**
- * Rota circular otimizada usando Trip API (TSP)
+ * Rota circular otimizada usando Table API + TSP solver + Route API.
+ *
+ * Pipeline:
+ * 1. Table API → distance matrix (1 request)
+ * 2. TSP solver → optimal waypoint order by distance (local computation)
+ * 3. Route API → polyline, legs, accurate distance (1 request)
+ *
+ * Optimizes by DISTANCE (fuel cost), not duration.
  */
 async function getOptimizedCircularRoute(
   origin: Coordinate,
   waypoints: Coordinate[],
-  cacheKey: string
+  cacheKey: string,
 ): Promise<DirectionsResult | null> {
-  await waitForRateLimit();
-
-  // Trip API: origem + waypoints, roundtrip=true para voltar a origem
+  // Step 1: Get distance matrix via Table API
   const allPoints = [origin, ...waypoints];
-  const coordsStr = allPoints
-    .map(c => `${c.longitude},${c.latitude}`)
-    .join(';');
+  const matrix = await getDistanceMatrix(allPoints);
 
-  const url = `${OSRM_BASE_URL}/trip/v1/driving/${coordsStr}?roundtrip=true&source=first&geometries=polyline&overview=full&steps=false`;
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
-
-  try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'RotaMestre/1.0 (https://app.rotamestre.tec.br)',
-      },
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error(`OSRM Trip error: ${response.status}`);
-    }
-
-    const data: OSRMTripResponse = await response.json();
-
-    if (data.code !== 'Ok' || !data.trips || data.trips.length === 0) {
-      logger.warn('OSRM Trip: No route found, falling back');
-      return createFallbackDirections(origin, origin, waypoints);
-    }
-
-    const trip = data.trips[0];
-
-    // Extrair ordem otimizada dos waypoints
-    // IMPORTANTE: data.waypoints mantem a ORDEM DE ENTRADA
-    // waypoint_index indica a POSICAO NA TRIP OTIMIZADA
-    //
-    // Exemplo: entrada [origem, A, B, C], trip otimizada visita na ordem [origem, B, A, C]
-    // data.waypoints[0] (origem): waypoint_index = 0
-    // data.waypoints[1] (A): waypoint_index = 2 (visitado em 3o lugar)
-    // data.waypoints[2] (B): waypoint_index = 1 (visitado em 2o lugar)
-    // data.waypoints[3] (C): waypoint_index = 3 (visitado em 4o lugar)
-    //
-    // Para obter a ordem otimizada, ordenamos pelo waypoint_index e pegamos os indices originais
-    const waypointsComIndice = data.waypoints
-      .map((wp, indiceOriginal) => ({ indiceOriginal, posicaoNaTrip: wp.waypoint_index }))
-      .filter(wp => wp.indiceOriginal > 0); // Excluir origem (indice 0)
-
-    // Ordenar pela posicao na trip otimizada
-    waypointsComIndice.sort((a, b) => a.posicaoNaTrip - b.posicaoNaTrip);
-
-    // Extrair indices originais (ajustados: -1 porque origem nao conta nas paradas)
-    const waypointOrder = waypointsComIndice.map(wp => wp.indiceOriginal - 1);
-
-    // Construir legs
-    const legs: DirectionsResultLeg[] = trip.legs.map((leg, index) => {
-      const startWp = data.waypoints[index];
-      const endWp = data.waypoints[index + 1] || data.waypoints[0]; // Volta a origem
-
-      return {
-        distancia_metros: leg.distance,
-        duracao_segundos: leg.duration,
-        endereco_inicio: '',
-        endereco_fim: '',
-        coordenadas_inicio: {
-          latitude: startWp.location[1],
-          longitude: startWp.location[0],
-        },
-        coordenadas_fim: {
-          latitude: endWp.location[1],
-          longitude: endWp.location[0],
-        },
-      };
-    });
-
-    const result: DirectionsResult = {
-      polyline: trip.geometry,
-      distancia_total_metros: trip.distance,
-      duracao_total_segundos: trip.duration,
-      ordem_otimizada: waypointOrder,
-      legs,
-    };
-
-    setCache(cacheKey, result);
-    return result;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    throw error;
+  if (!matrix) {
+    logger.warn("[OSRM] Table API failed, falling back to Haversine");
+    return createFallbackDirections(origin, origin, waypoints);
   }
+
+  // Step 2: Solve TSP on distance matrix (optimizes by distance, not duration)
+  const tspResult = solveTSP(matrix.distances, 0);
+
+  // Convert TSP indices (1-based matrix indices) to waypoint indices (0-based)
+  const waypointOrder = tspResult.order.map((idx) => idx - 1);
+
+  // Step 3: Build ordered waypoints for Route API
+  const orderedWaypoints = waypointOrder.map((i) => waypoints[i]);
+
+  // Step 4: Get actual route with polyline via Route API (origin → ordered stops → origin)
+  const routeResult = await getSimpleRoute(
+    origin,
+    origin,
+    orderedWaypoints,
+    cacheKey,
+  );
+
+  if (!routeResult) {
+    return createFallbackDirections(origin, origin, waypoints);
+  }
+
+  // Override ordem_otimizada with TSP result (Route API returns sequential order)
+  routeResult.ordem_otimizada = waypointOrder;
+
+  return routeResult;
 }
 
 /**
@@ -462,14 +425,14 @@ async function getSimpleRoute(
   origin: Coordinate,
   destination: Coordinate,
   waypoints: Coordinate[] | undefined,
-  cacheKey: string
+  cacheKey: string,
 ): Promise<DirectionsResult | null> {
   await waitForRateLimit();
 
   const allCoords = [origin, ...(waypoints || []), destination];
   const coordsStr = allCoords
-    .map(c => `${c.longitude},${c.latitude}`)
-    .join(';');
+    .map((c) => `${c.longitude},${c.latitude}`)
+    .join(";");
 
   const url = `${OSRM_BASE_URL}/route/v1/driving/${coordsStr}?overview=full&geometries=polyline&steps=false`;
 
@@ -478,9 +441,9 @@ async function getSimpleRoute(
 
   try {
     const response = await fetch(url, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'User-Agent': 'RotaMestre/1.0 (https://app.rotamestre.tec.br)',
+        "User-Agent": "RotaMestre/1.0 (https://app.rotamestre.tec.br)",
       },
       signal: controller.signal,
     });
@@ -493,7 +456,7 @@ async function getSimpleRoute(
 
     const data: OSRMRouteResponse = await response.json();
 
-    if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+    if (data.code !== "Ok" || !data.routes || data.routes.length === 0) {
       return createFallbackDirections(origin, destination, waypoints);
     }
 
@@ -510,8 +473,8 @@ async function getSimpleRoute(
       return {
         distancia_metros: leg.distance,
         duracao_segundos: leg.duration,
-        endereco_inicio: '',
-        endereco_fim: '',
+        endereco_inicio: "",
+        endereco_fim: "",
         coordenadas_inicio: startCoord,
         coordenadas_fim: endCoord,
       };

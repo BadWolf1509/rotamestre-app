@@ -20,7 +20,7 @@ export type {
   DistanceResult,
   DirectionsResultLeg,
   DirectionsResult,
-} from './types';
+} from "./types";
 
 // API
 export {
@@ -29,13 +29,21 @@ export {
   optimizeWaypoints,
   decodePolyline,
   getOptimizedDirections,
-} from './api';
+} from "./api";
 
 // Formatting
-export { formatDistance, formatDuration } from './formatting';
+export { formatDistance, formatDuration } from "./formatting";
 
 // Fallback
-export { calculateHaversineDistance, estimateRouteDistance } from './fallback';
+export { calculateHaversineDistance, estimateRouteDistance } from "./fallback";
+
+// TSP Solver
+export { solveTSP } from "./tsp";
+export type { TSPResult } from "./tsp";
+
+// Table API
+export { getDistanceMatrix } from "./table";
+export type { DistanceMatrix } from "./table";
 
 // Cache
-export { clearCache, getCacheStats } from './cache';
+export { clearCache, getCacheStats } from "./cache";
