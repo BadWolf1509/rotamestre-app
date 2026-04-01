@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useId } from "react";
 import {
   View,
   TextInput,
@@ -8,15 +8,14 @@ import {
   FlatList,
   Platform,
   Keyboard,
-} from 'react-native';
+} from "react-native";
 
-import { useResponsive } from '@/hooks/useResponsive';
-import { geocodingService, UnifiedPlaceSuggestion } from '@/lib/geocoding';
-import { logger } from '@/lib/logger';
-import type { Coordenadas } from '@/types/endereco';
-import { boxShadow } from '@/utils/color';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
+import { useResponsive } from "@/hooks/useResponsive";
+import { geocodingService, UnifiedPlaceSuggestion } from "@/lib/geocoding";
+import { logger } from "@/lib/logger";
+import type { Coordenadas } from "@/types/endereco";
+import { boxShadow } from "@/utils/color";
+import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
 
 interface AddressAutocompleteProps {
   value: string;
@@ -28,7 +27,11 @@ interface AddressAutocompleteProps {
    * @param placeId - ID único (formato: osm_N12345 ou osm_W12345)
    * @param coordinates - Coordenadas do local (Photon retorna automaticamente)
    */
-  onSelectAddress: (address: string, placeId: string, coordinates?: Coordenadas) => void;
+  onSelectAddress: (
+    address: string,
+    placeId: string,
+    coordinates?: Coordenadas,
+  ) => void;
   placeholder?: string;
   error?: string;
   multiline?: boolean;
@@ -39,6 +42,8 @@ interface AddressAutocompleteProps {
    * Útil para priorizar endereços na região da unidade do usuário.
    */
   locationBias?: Coordenadas;
+  /** Whether the field is required (adds aria-required for screen readers) */
+  required?: boolean;
 }
 
 /**
@@ -58,16 +63,26 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   value,
   onChangeText,
   onSelectAddress,
-  placeholder = 'Endereço ou CEP',
+  placeholder = "Endereço ou CEP",
   error,
   multiline = false,
   compact,
   locationBias,
+  required = false,
 }: AddressAutocompleteProps) {
   const { theme } = useUnistyles();
   const { isDesktop } = useResponsive();
   // Use explicit compact prop if provided, otherwise auto-detect from viewport
   const useCompact = compact ?? isDesktop;
+
+  // Stable IDs for ARIA combobox pattern
+  const comboboxId = useId();
+  const listboxId = `${comboboxId}-listbox`;
+  const getOptionId = useCallback(
+    (index: number) => `${comboboxId}-option-${index}`,
+    [comboboxId],
+  );
+  const inputRef = useRef<TextInput>(null);
   const [suggestions, setSuggestions] = useState<UnifiedPlaceSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -81,7 +96,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
 
   // Limpar suggestions quando value é limpo externamente
   useEffect(() => {
-    if (value === '') {
+    if (value === "") {
       setSuggestions([]);
       setShowSuggestions(false);
       // Reset interaction tracking for next use (e.g., modal reopen)
@@ -121,10 +136,13 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
       try {
         // Busca híbrida: Photon (gratuito) → Google (fallback) → ViaCEP (para CEPs)
         // Passa locationBias para priorizar resultados próximos da região do usuário
-        const results = await geocodingService.autocomplete(value, locationBias);
+        const results = await geocodingService.autocomplete(
+          value,
+          locationBias,
+        );
         setSuggestions(results);
       } catch (error) {
-        logger.error('[AddressAutocomplete] Erro no autocomplete:', error);
+        logger.error("[AddressAutocomplete] Erro no autocomplete:", error);
         setSuggestions([]);
       } finally {
         setIsLoading(false);
@@ -187,73 +205,91 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   }, [value]);
 
   // Memoizar handlers para evitar re-renders
-  const handleSelectSuggestion = useCallback(async (suggestion: UnifiedPlaceSuggestion) => {
-    // Mark that next value change is from selection, not typing
-    wasSelectedRef.current = true;
+  const handleSelectSuggestion = useCallback(
+    async (suggestion: UnifiedPlaceSuggestion) => {
+      // Mark that next value change is from selection, not typing
+      wasSelectedRef.current = true;
 
-    // Usar o valor do ref para garantir que temos o valor correto
-    const currentTypedValue = lastTypedValueRef.current;
+      // Usar o valor do ref para garantir que temos o valor correto
+      const currentTypedValue = lastTypedValueRef.current;
 
-    // Extrair número do valor digitado AGORA (não do closure)
-    const numberFromInput = extractNumberFromInput(currentTypedValue);
+      // Extrair número do valor digitado AGORA (não do closure)
+      const numberFromInput = extractNumberFromInput(currentTypedValue);
 
-    // Verificar se a sugestão já tem número
-    const suggestionHasNumber = /,\s*\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?(\s|,|$)/.test(suggestion.description);
+      // Verificar se a sugestão já tem número
+      const suggestionHasNumber =
+        /,\s*\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?(\s|,|$)/.test(
+          suggestion.description,
+        );
 
-    // Se o usuário digitou um número e a sugestão não tem, adicionar
-    let finalAddress = suggestion.description;
-    if (numberFromInput && !suggestionHasNumber) {
-      // Inserir número após o nome da rua (antes da primeira vírgula)
-      const firstCommaIndex = suggestion.description.indexOf(',');
-      if (firstCommaIndex > 0) {
-        finalAddress =
-          suggestion.description.slice(0, firstCommaIndex) +
-          ', ' + numberFromInput +
-          suggestion.description.slice(firstCommaIndex);
-      } else {
-        // Sem vírgula, adiciona no final
-        finalAddress = suggestion.description + ', ' + numberFromInput;
+      // Se o usuário digitou um número e a sugestão não tem, adicionar
+      let finalAddress = suggestion.description;
+      if (numberFromInput && !suggestionHasNumber) {
+        // Inserir número após o nome da rua (antes da primeira vírgula)
+        const firstCommaIndex = suggestion.description.indexOf(",");
+        if (firstCommaIndex > 0) {
+          finalAddress =
+            suggestion.description.slice(0, firstCommaIndex) +
+            ", " +
+            numberFromInput +
+            suggestion.description.slice(firstCommaIndex);
+        } else {
+          // Sem vírgula, adiciona no final
+          finalAddress = suggestion.description + ", " + numberFromInput;
+        }
       }
-    }
 
-    // Se já tem coordenadas, usar diretamente
-    if (suggestion.coordinates) {
-      onSelectAddress(finalAddress, suggestion.place_id, suggestion.coordinates);
+      // Se já tem coordenadas, usar diretamente
+      if (suggestion.coordinates) {
+        onSelectAddress(
+          finalAddress,
+          suggestion.place_id,
+          suggestion.coordinates,
+        );
+        setSuggestions([]);
+        setShowSuggestions(false);
+        Keyboard?.dismiss?.();
+        return;
+      }
+
+      // Se precisa buscar coordenadas (Google ou ViaCEP)
+      if (suggestion.needsCoordinates) {
+        setIsFetchingCoords(true);
+        setSuggestions([]);
+        setShowSuggestions(false);
+
+        try {
+          const coords = await geocodingService.getCoordinates(suggestion);
+          onSelectAddress(
+            finalAddress,
+            suggestion.place_id,
+            coords || undefined,
+          );
+        } catch (error) {
+          logger.error(
+            "[AddressAutocomplete] Erro ao obter coordenadas:",
+            error,
+          );
+          // Mesmo sem coordenadas, retorna o endereço
+          onSelectAddress(finalAddress, suggestion.place_id, undefined);
+        } finally {
+          setIsFetchingCoords(false);
+          Keyboard?.dismiss?.();
+        }
+        return;
+      }
+
+      // Fallback: retorna sem coordenadas
+      onSelectAddress(finalAddress, suggestion.place_id, undefined);
       setSuggestions([]);
       setShowSuggestions(false);
       Keyboard?.dismiss?.();
-      return;
-    }
-
-    // Se precisa buscar coordenadas (Google ou ViaCEP)
-    if (suggestion.needsCoordinates) {
-      setIsFetchingCoords(true);
-      setSuggestions([]);
-      setShowSuggestions(false);
-
-      try {
-        const coords = await geocodingService.getCoordinates(suggestion);
-        onSelectAddress(finalAddress, suggestion.place_id, coords || undefined);
-      } catch (error) {
-        logger.error('[AddressAutocomplete] Erro ao obter coordenadas:', error);
-        // Mesmo sem coordenadas, retorna o endereço
-        onSelectAddress(finalAddress, suggestion.place_id, undefined);
-      } finally {
-        setIsFetchingCoords(false);
-        Keyboard?.dismiss?.();
-      }
-      return;
-    }
-
-    // Fallback: retorna sem coordenadas
-    onSelectAddress(finalAddress, suggestion.place_id, undefined);
-    setSuggestions([]);
-    setShowSuggestions(false);
-    Keyboard?.dismiss?.();
-  }, [onSelectAddress, extractNumberFromInput]);
+    },
+    [onSelectAddress, extractNumberFromInput],
+  );
 
   const handleClearInput = useCallback(() => {
-    onChangeText('');
+    onChangeText("");
     setSuggestions([]);
     setShowSuggestions(false);
   }, [onChangeText]);
@@ -281,49 +317,84 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
     setSelectedIndex(-1);
   }, [suggestions]);
 
-  // Navegação por teclado (apenas web)
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (!showSuggestions || suggestions.length === 0) return;
+  // Refs for keyboard handler to avoid stale closures
+  const showSuggestionsRef = useRef(showSuggestions);
+  const suggestionsRef = useRef(suggestions);
+  const selectedIndexRef = useRef(selectedIndex);
+  showSuggestionsRef.current = showSuggestions;
+  suggestionsRef.current = suggestions;
+  selectedIndexRef.current = selectedIndex;
+  const handleSelectSuggestionRef = useRef(handleSelectSuggestion);
+  handleSelectSuggestionRef.current = handleSelectSuggestion;
 
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setSelectedIndex(prev =>
-          prev < suggestions.length - 1 ? prev + 1 : prev
-        );
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setSelectedIndex(prev => prev > 0 ? prev - 1 : -1);
-        break;
-      case 'Enter':
-        if (selectedIndex >= 0) {
-          e.preventDefault();
-          handleSelectSuggestion(suggestions[selectedIndex]);
-        }
-        break;
-      case 'Escape':
-        setShowSuggestions(false);
-        setSelectedIndex(-1);
-        break;
-    }
-  }, [showSuggestions, suggestions, selectedIndex, handleSelectSuggestion]);
+  // Keyboard navigation via DOM addEventListener (RNW overrides onKeyDown on TextInput)
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const node =
+      (inputRef.current as unknown as { _node?: HTMLElement })?._node ??
+      (inputRef.current as unknown as HTMLElement);
+    if (!node?.addEventListener) return;
+
+    const handler = (e: Event) => {
+      const ke = e as KeyboardEvent;
+      if (!showSuggestionsRef.current || suggestionsRef.current.length === 0)
+        return;
+
+      switch (ke.key) {
+        case "ArrowDown":
+          ke.preventDefault();
+          setSelectedIndex((prev) =>
+            prev < suggestionsRef.current.length - 1 ? prev + 1 : prev,
+          );
+          break;
+        case "ArrowUp":
+          ke.preventDefault();
+          setSelectedIndex((prev) => (prev > 0 ? prev - 1 : -1));
+          break;
+        case "Enter":
+          if (selectedIndexRef.current >= 0) {
+            ke.preventDefault();
+            handleSelectSuggestionRef.current(
+              suggestionsRef.current[selectedIndexRef.current],
+            );
+          }
+          break;
+        case "Escape":
+          setShowSuggestions(false);
+          setSelectedIndex(-1);
+          break;
+        case "Tab":
+          setShowSuggestions(false);
+          setSelectedIndex(-1);
+          break;
+      }
+    };
+
+    node.addEventListener("keydown", handler);
+    return () => node.removeEventListener("keydown", handler);
+  }, []);
 
   // Ícone baseado na fonte
-  const getSourceIcon = useCallback((source: UnifiedPlaceSuggestion['source']) => {
-    switch (source) {
-      case 'viacep':
-        return '📮'; // CEP/Correios
-      case 'google':
-      default:
-        return '🔍'; // Google
-    }
-  }, []);
+  const getSourceIcon = useCallback(
+    (source: UnifiedPlaceSuggestion["source"]) => {
+      switch (source) {
+        case "viacep":
+          return "📮"; // CEP/Correios
+        case "google":
+        default:
+          return "🔍"; // Google
+      }
+    },
+    [],
+  );
 
   // Memoizar renderItem para estabilizar callbacks em testes
   const renderSuggestionItem = useCallback(
     ({ item, index }: { item: UnifiedPlaceSuggestion; index: number }) => {
-      const suggestionHasNumber = /,\s*\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?(\s|,|$)/.test(item.structured_formatting.main_text);
+      const suggestionHasNumber =
+        /,\s*\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?(\s|,|$)/.test(
+          item.structured_formatting.main_text,
+        );
 
       // Extrair número do valor atual (usar ref para valor mais recente)
       const currentNumber = extractNumberFromInput(lastTypedValueRef.current);
@@ -336,9 +407,14 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
 
       const isSelected = index === selectedIndex;
 
+      const sourceLabel =
+        item.source === "viacep" ? "Resultado via CEP" : "Resultado de busca";
+      const fullLabel = `${sourceLabel}: ${displayMainText}, ${item.structured_formatting.secondary_text}${item.cep ? ", CEP: " + item.cep : ""}`;
+
       return (
         <TouchableOpacity
           testID="suggestion-item"
+          nativeID={getOptionId(index)}
           style={[
             styles.suggestionItem,
             useCompact && styles.suggestionItemCompact,
@@ -346,39 +422,78 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
           ]}
           onPress={() => handleSelectSuggestion(item)}
           activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={`Selecionar endereço: ${displayMainText}`}
+          accessibilityLabel={fullLabel}
           accessibilityHint="Toque para selecionar este endereço"
+          accessibilityRole={Platform.OS !== "web" ? "button" : undefined}
+          {...(Platform.OS === "web"
+            ? ({
+                role: "option" as any,
+                "aria-selected": isSelected,
+              } as any)
+            : {})}
         >
-          <View style={[styles.suggestionIcon, useCompact && styles.suggestionIconCompact]}>
-            <Text style={[styles.suggestionIconText, useCompact && styles.suggestionIconTextCompact]}>
+          <View
+            style={[
+              styles.suggestionIcon,
+              useCompact && styles.suggestionIconCompact,
+            ]}
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            {...(Platform.OS === "web" ? { "aria-hidden": true } : {})}
+          >
+            <Text
+              style={[
+                styles.suggestionIconText,
+                useCompact && styles.suggestionIconTextCompact,
+              ]}
+            >
               {getSourceIcon(item.source)}
             </Text>
           </View>
           <View style={styles.suggestionTextContainer}>
-            <Text style={[styles.suggestionMainText, useCompact && styles.suggestionMainTextCompact]}>
+            <Text
+              style={[
+                styles.suggestionMainText,
+                useCompact && styles.suggestionMainTextCompact,
+              ]}
+            >
               {displayMainText}
             </Text>
-            <Text style={[styles.suggestionSecondaryText, useCompact && styles.suggestionSecondaryTextCompact]}>
+            <Text
+              style={[
+                styles.suggestionSecondaryText,
+                useCompact && styles.suggestionSecondaryTextCompact,
+              ]}
+            >
               {item.structured_formatting.secondary_text}
-              {item.cep ? ` • CEP: ${item.cep}` : ''}
+              {item.cep ? ` • CEP: ${item.cep}` : ""}
             </Text>
           </View>
         </TouchableOpacity>
       );
     },
-    [handleSelectSuggestion, useCompact, extractNumberFromInput, selectedIndex, getSourceIcon]
+    [
+      handleSelectSuggestion,
+      useCompact,
+      extractNumberFromInput,
+      selectedIndex,
+      getSourceIcon,
+      getOptionId,
+    ],
   );
 
   // ItemSeparator extraído para evitar recriação a cada render
-  const ItemSeparator = useCallback(() => <View style={styles.separator} />, []);
+  const ItemSeparator = useCallback(
+    () => <View style={styles.separator} />,
+    [],
+  );
 
   // Conteúdo do dropdown (loading, sugestões, no results, hint)
   const renderDropdownContent = () => {
     // Loading para busca de coordenadas
     if (isFetchingCoords) {
       return (
-        <View style={styles.loadingContainer}>
+        <View style={styles.loadingContainer} accessibilityLiveRegion="polite">
           <ActivityIndicator size="small" color={theme.colors.primary} />
           <Text style={styles.loadingText}>Obtendo localização...</Text>
         </View>
@@ -387,7 +502,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
 
     if (isLoading) {
       return (
-        <View style={styles.loadingContainer}>
+        <View style={styles.loadingContainer} accessibilityLiveRegion="polite">
           <ActivityIndicator size="small" color={theme.colors.primary} />
           <Text style={styles.loadingText}>Buscando endereços...</Text>
         </View>
@@ -396,7 +511,14 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
 
     if (showSuggestions && suggestions.length > 0) {
       return (
-        <View style={styles.suggestionsContainer}>
+        <View
+          style={styles.suggestionsContainer}
+          nativeID={listboxId}
+          accessibilityRole="list"
+          accessibilityLabel={`Sugestões de endereço, ${suggestions.length} resultado${suggestions.length > 1 ? "s" : ""}`}
+          accessibilityLiveRegion="polite"
+          {...(Platform.OS === "web" ? { role: "listbox" as any } : {})}
+        >
           <FlatList
             data={suggestions}
             keyExtractor={(item) => item.place_id}
@@ -410,9 +532,18 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
       );
     }
 
-    if (showSuggestions && suggestions.length === 0 && value && value.length >= 3) {
+    if (
+      showSuggestions &&
+      suggestions.length === 0 &&
+      value &&
+      value.length >= 3
+    ) {
       return (
-        <View style={styles.noResultsContainer}>
+        <View
+          style={styles.noResultsContainer}
+          accessibilityLiveRegion="assertive"
+          accessibilityRole="alert"
+        >
           <Text style={styles.noResultsText}>
             Nenhum endereço encontrado. Tente ser mais específico.
           </Text>
@@ -423,7 +554,9 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
     if (!showSuggestions && value && value.length > 0 && value.length < 3) {
       return (
         <View style={styles.hintContainer}>
-          <Text style={styles.hintText}>Digite pelo menos 3 caracteres para buscar</Text>
+          <Text style={styles.hintText}>
+            Digite pelo menos 3 caracteres para buscar
+          </Text>
         </View>
       );
     }
@@ -451,36 +584,60 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
             useCompact && styles.inputCompact,
             error && styles.inputError,
             multiline && styles.inputMultiline,
-            { pointerEvents: 'auto' },
+            { pointerEvents: "auto" },
           ]}
           placeholder={placeholder}
           placeholderTextColor={theme.colors.gray400}
-          value={value || ''}
+          value={value || ""}
           onChangeText={onChangeText}
           onFocus={handleFocus}
           onBlur={handleBlur}
           multiline={multiline}
           numberOfLines={multiline ? 2 : 1}
-          textAlignVertical={multiline ? 'top' : 'center'}
+          textAlignVertical={multiline ? "top" : "center"}
           autoCorrect={false}
           autoCapitalize="words"
           blurOnSubmit={false}
           returnKeyType="done"
           editable={true}
           selectTextOnFocus={false}
+          nativeID={comboboxId}
           accessibilityLabel="Campo de endereço"
           accessibilityHint="Digite o endereço para buscar sugestões"
-          {...(Platform.OS === 'web' ? { onKeyDown: handleKeyDown as unknown as undefined } : {})}
+          aria-invalid={!!error}
+          aria-required={required}
+          ref={inputRef}
+          {...(Platform.OS === "web"
+            ? {
+                role: "combobox",
+                "aria-expanded": showSuggestions && suggestions.length > 0,
+                "aria-autocomplete": "list",
+                "aria-controls": listboxId,
+                "aria-activedescendant":
+                  selectedIndex >= 0 ? getOptionId(selectedIndex) : undefined,
+              }
+            : {})}
         />
         {value && value.length > 0 && (
           <TouchableOpacity
-            style={[styles.clearButton, useCompact && styles.clearButtonCompact]}
+            style={[
+              styles.clearButton,
+              useCompact && styles.clearButtonCompact,
+            ]}
             onPress={handleClearInput}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             accessibilityRole="button"
             accessibilityLabel="Limpar endereço"
           >
-            <Text style={[styles.clearButtonText, useCompact && styles.clearButtonTextCompact]}>×</Text>
+            <Text
+              style={[
+                styles.clearButtonText,
+                useCompact && styles.clearButtonTextCompact,
+              ]}
+              {...(Platform.OS === "web" ? { "aria-hidden": true } : {})}
+            >
+              ×
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -506,10 +663,11 @@ export const AddressAutocomplete = React.memo(
       prevProps.error === nextProps.error &&
       prevProps.multiline === nextProps.multiline &&
       prevProps.compact === nextProps.compact &&
+      prevProps.required === nextProps.required &&
       prevProps.locationBias?.latitude === nextProps.locationBias?.latitude &&
       prevProps.locationBias?.longitude === nextProps.locationBias?.longitude
     );
-  }
+  },
 );
 
 const styles = StyleSheet.create((theme: Theme) => ({
@@ -517,7 +675,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.sm,
   },
   inputContainer: {
-    position: 'relative',
+    position: "relative",
   },
   input: {
     borderWidth: 1,
@@ -538,21 +696,21 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   inputMultiline: {
     minHeight: 60,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   inputError: {
     borderColor: theme.colors.error,
   },
   clearButton: {
-    position: 'absolute',
+    position: "absolute",
     right: theme.spacing.sm,
     top: theme.spacing.sm,
     width: theme.spacing.lg,
     height: theme.spacing.lg,
     borderRadius: theme.borderRadius.full,
     backgroundColor: theme.colors.textSecondary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   clearButtonCompact: {
     right: theme.spacing.xs,
@@ -564,7 +722,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   clearButtonText: {
     color: theme.colors.surface,
     fontSize: theme.typography.sm,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   clearButtonTextCompact: {
     fontSize: theme.typography.xs,
@@ -576,8 +734,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginTop: theme.spacing.xs,
   },
   loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: theme.spacing.sm,
     backgroundColor: theme.colors.disabled,
     borderRadius: theme.borderRadius.md,
@@ -615,8 +773,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     maxHeight: 200,
   },
   suggestionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: theme.spacing.sm,
     backgroundColor: theme.colors.surface,
   },
@@ -629,8 +787,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   suggestionIcon: {
     width: theme.spacing.lg,
     height: theme.spacing.lg,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: theme.spacing.sm,
   },
   suggestionIconCompact: {
@@ -651,7 +809,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.base - 1,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.text,
-    marginBottom: theme.spacing['0.5'],
+    marginBottom: theme.spacing["0.5"],
   },
   suggestionMainTextCompact: {
     fontSize: theme.components.input.size.medium.fontSize,
@@ -681,7 +839,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.sm,
     fontFamily: theme.typography.fontSans,
     color: theme.colors.error,
-    textAlign: 'center',
+    textAlign: "center",
   },
   hintContainer: {
     marginTop: theme.spacing.xs,
@@ -690,8 +848,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.xs,
     fontFamily: theme.typography.fontSans,
     color: theme.colors.textSecondary,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
 }));
-
-

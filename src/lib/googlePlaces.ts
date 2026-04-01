@@ -8,18 +8,18 @@
  * @see https://developers.google.com/maps/documentation/places/web-service/usage-and-billing
  */
 
-import { CACHE_TTL, getCache, setCache } from '@/lib/cache';
-import { logger } from '@/lib/logger';
+import { CACHE_TTL, getCache, setCache } from "@/lib/cache";
+import { logger } from "@/lib/logger";
 
-import type { PlaceSuggestion } from './google-shared';
-import type { Coordenadas, EnderecoGeocodificado } from '../types/endereco';
+import type { PlaceSuggestion } from "./google-shared";
+import type { Coordenadas, EnderecoGeocodificado } from "../types/endereco";
 
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || "";
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "";
 const REQUEST_TIMEOUT = 10000; // 10 segundos (Edge Functions podem ser mais lentas)
 
 // URLs das Edge Functions
@@ -64,7 +64,7 @@ interface EdgeFunctionPlaceDetailsResponse {
  */
 export interface GooglePlaceSuggestion extends PlaceSuggestion {
   coordinates?: Coordenadas;
-  source: 'google';
+  source: "google";
 }
 
 // ============================================================================
@@ -77,18 +77,18 @@ export interface GooglePlaceSuggestion extends PlaceSuggestion {
 async function fetchEdgeFunction<T>(
   url: string,
   body: Record<string, unknown>,
-  timeout: number = REQUEST_TIMEOUT
+  timeout: number = REQUEST_TIMEOUT,
 ): Promise<T | null> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
     const response = await fetch(url, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'apikey': SUPABASE_ANON_KEY,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        apikey: SUPABASE_ANON_KEY,
       },
       body: JSON.stringify(body),
       signal: controller.signal,
@@ -97,17 +97,19 @@ async function fetchEdgeFunction<T>(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      logger.warn('[GooglePlaces] Edge Function error', { status: response.status });
+      logger.warn("[GooglePlaces] Edge Function error", {
+        status: response.status,
+      });
       return null;
     }
 
-    return await response.json() as T;
+    return (await response.json()) as T;
   } catch (error) {
     clearTimeout(timeoutId);
-    if ((error as Error).name === 'AbortError') {
-      logger.warn('[GooglePlaces] Request timeout');
+    if ((error as Error).name === "AbortError") {
+      logger.warn("[GooglePlaces] Request timeout");
     } else {
-      logger.error('[GooglePlaces] Fetch error', error);
+      logger.error("[GooglePlaces] Fetch error", error);
     }
     return null;
   }
@@ -138,10 +140,11 @@ export const googlePlacesService = {
    */
   async autocompleteAddress(
     input: string,
-    sessionToken?: string
+    sessionToken?: string,
+    locationBias?: Coordenadas,
   ): Promise<GooglePlaceSuggestion[]> {
     if (!this.isAvailable()) {
-      logger.warn('[GooglePlaces] Supabase não configurado');
+      logger.warn("[GooglePlaces] Supabase não configurado");
       return [];
     }
 
@@ -149,21 +152,24 @@ export const googlePlacesService = {
       return [];
     }
 
-    // Cache key
+    // Cache key (includes location bias for different regions)
     const normalizedInput = input.toLowerCase().trim();
-    const cacheKey = `google_autocomplete_${normalizedInput}`;
+    const biasKey = locationBias
+      ? `_${locationBias.latitude.toFixed(2)}_${locationBias.longitude.toFixed(2)}`
+      : "";
+    const cacheKey = `google_autocomplete_${normalizedInput}${biasKey}`;
 
     // Verificar cache
     const cached = await getCache<GooglePlaceSuggestion[]>(cacheKey);
     if (cached) {
-      logger.info('[GooglePlaces] Cache hit', { input: normalizedInput });
+      logger.info("[GooglePlaces] Cache hit", { input: normalizedInput });
       return cached;
     }
 
     try {
       const data = await fetchEdgeFunction<EdgeFunctionAutocompleteResponse>(
         AUTOCOMPLETE_FUNCTION_URL,
-        { input, sessionToken }
+        { input, sessionToken, locationBias },
       );
 
       if (!data) {
@@ -171,29 +177,36 @@ export const googlePlacesService = {
       }
 
       if (data.error) {
-        logger.warn('[GooglePlaces] API error', { error: data.error, status: data.status });
+        logger.warn("[GooglePlaces] API error", {
+          error: data.error,
+          status: data.status,
+        });
         return [];
       }
 
-      const suggestions: GooglePlaceSuggestion[] = (data.predictions || []).map((p) => ({
-        place_id: p.place_id,
-        description: p.description,
-        structured_formatting: {
-          main_text: p.structured_formatting.main_text,
-          secondary_text: p.structured_formatting.secondary_text || '',
-        },
-        source: 'google' as const,
-      }));
+      const suggestions: GooglePlaceSuggestion[] = (data.predictions || []).map(
+        (p) => ({
+          place_id: p.place_id,
+          description: p.description,
+          structured_formatting: {
+            main_text: p.structured_formatting.main_text,
+            secondary_text: p.structured_formatting.secondary_text || "",
+          },
+          source: "google" as const,
+        }),
+      );
 
       // Salvar no cache (5 minutos)
       if (suggestions.length > 0) {
         await setCache(cacheKey, suggestions, CACHE_TTL.AUTOCOMPLETE);
       }
 
-      logger.info('[GooglePlaces] Autocomplete success', { count: suggestions.length });
+      logger.info("[GooglePlaces] Autocomplete success", {
+        count: suggestions.length,
+      });
       return suggestions;
     } catch (error) {
-      logger.error('[GooglePlaces] Erro no autocomplete', error);
+      logger.error("[GooglePlaces] Erro no autocomplete", error);
       return [];
     }
   },
@@ -207,10 +220,10 @@ export const googlePlacesService = {
    */
   async getPlaceDetails(
     placeId: string,
-    sessionToken?: string
+    sessionToken?: string,
   ): Promise<EnderecoGeocodificado | null> {
     if (!this.isAvailable()) {
-      logger.warn('[GooglePlaces] Supabase não configurado');
+      logger.warn("[GooglePlaces] Supabase não configurado");
       return null;
     }
 
@@ -220,14 +233,14 @@ export const googlePlacesService = {
     // Verificar cache
     const cached = await getCache<EnderecoGeocodificado>(cacheKey);
     if (cached) {
-      logger.info('[GooglePlaces] Cache hit for place details', { placeId });
+      logger.info("[GooglePlaces] Cache hit for place details", { placeId });
       return cached;
     }
 
     try {
       const data = await fetchEdgeFunction<EdgeFunctionPlaceDetailsResponse>(
         PLACE_DETAILS_FUNCTION_URL,
-        { placeId, sessionToken }
+        { placeId, sessionToken },
       );
 
       if (!data) {
@@ -235,7 +248,10 @@ export const googlePlacesService = {
       }
 
       if (data.error) {
-        logger.warn('[GooglePlaces] Place details error', { error: data.error, status: data.status });
+        logger.warn("[GooglePlaces] Place details error", {
+          error: data.error,
+          status: data.status,
+        });
         return null;
       }
 
@@ -253,10 +269,10 @@ export const googlePlacesService = {
       // Salvar no cache (30 minutos)
       await setCache(cacheKey, endereco, CACHE_TTL.GEOCODING);
 
-      logger.info('[GooglePlaces] Place details success', { placeId });
+      logger.info("[GooglePlaces] Place details success", { placeId });
       return endereco;
     } catch (error) {
-      logger.error('[GooglePlaces] Erro ao obter detalhes', error);
+      logger.error("[GooglePlaces] Erro ao obter detalhes", error);
       return null;
     }
   },
@@ -268,7 +284,7 @@ export const googlePlacesService = {
    * @returns Primeira sugestão com coordenadas ou null
    */
   async autocompleteWithCoordinates(
-    input: string
+    input: string,
   ): Promise<(GooglePlaceSuggestion & { coordinates: Coordenadas }) | null> {
     const suggestions = await this.autocompleteAddress(input);
 
@@ -289,4 +305,7 @@ export const googlePlacesService = {
   },
 };
 
-export type { EdgeFunctionAutocompleteResponse, EdgeFunctionPlaceDetailsResponse };
+export type {
+  EdgeFunctionAutocompleteResponse,
+  EdgeFunctionPlaceDetailsResponse,
+};

@@ -285,17 +285,14 @@ export const FormularioParada = memo(function FormularioParada({
               ) => {
                 onChange(address);
                 if (coordinates) {
-                  setValue("latitude", coordinates.latitude, {
-                    shouldDirty: true,
-                  });
-                  setValue("longitude", coordinates.longitude, {
-                    shouldDirty: true,
-                  });
+                  setValue("latitude", coordinates.latitude);
+                  setValue("longitude", coordinates.longitude);
                 }
               }}
               error={errors.endereco?.message}
               multiline
               locationBias={locationBias}
+              required
             />
           )}
         />
