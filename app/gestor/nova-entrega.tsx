@@ -9,40 +9,35 @@
  * - Criação de rota circular (unidade → paradas → unidade)
  */
 
-import { Ionicons } from '@expo/vector-icons';
-import { useCallback } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from "@expo/vector-icons";
+import { useCallback, useState } from "react";
+import { View, Text, TouchableOpacity, ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import {
   FormularioParada,
   ParadasListAndActions,
   novaEntregaStyles as styles,
-} from '@/components/gestor/nova-entrega';
-import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+} from "@/components/gestor/nova-entrega";
+import { getGestorPageMeta } from "@/constants/gestorPageMeta";
 import {
   DesktopCard,
   DesktopPageLayout,
   MobileCard,
   MobileLoading,
   Toast,
-} from '@/design-system';
-import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
-import { useNovaEntrega } from '@/hooks/useNovaEntrega';
-import { useResponsive } from '@/hooks/useResponsive';
-import { useUnistyles } from '@/utils/styles';
+} from "@/design-system";
+import { useDesktopHeaderMenu } from "@/hooks/useDesktopHeaderMenu";
+import { useNovaEntrega } from "@/hooks/useNovaEntrega";
+import { useResponsive } from "@/hooks/useResponsive";
+import { useUnistyles } from "@/utils/styles";
 
 export default function NovaEntrega() {
   const { theme } = useUnistyles();
   const { isDesktop, isTablet } = useResponsive();
   const insets = useSafeAreaInsets();
-  const pageMeta = getGestorPageMeta('novaRota');
+  const pageMeta = getGestorPageMeta("novaRota");
 
   const {
     form,
@@ -81,11 +76,27 @@ export default function NovaEntrega() {
     userImageUrl: userData?.foto_url,
   });
 
-  const pageSubtitle = unidadeNome || pageMeta.subtitle || 'Carregando...';
+  const pageSubtitle = unidadeNome || pageMeta.subtitle || "Carregando...";
 
-  const setFormCoordinate = useCallback((name: 'latitude' | 'longitude', value: number) => {
-    form.setValue(name, value);
-  }, [form]);
+  const [hasValidCoordinates, setHasValidCoordinates] = useState(false);
+
+  const setFormCoordinate = useCallback(
+    (name: "latitude" | "longitude", value: number) => {
+      form.setValue(name, value);
+      if (name === "longitude" && value !== 0) {
+        setHasValidCoordinates(true);
+      }
+    },
+    [form],
+  );
+
+  const handleAddParada = useCallback(
+    (data: Parameters<typeof onAddParada>[0], vinculoId?: string) => {
+      onAddParada(data, vinculoId);
+      setHasValidCoordinates(false);
+    },
+    [onAddParada],
+  );
 
   if (isLoadingMotoristas) {
     return (
@@ -123,12 +134,13 @@ export default function NovaEntrega() {
     setValue: setFormCoordinate,
     handleSubmit: form.handleSubmit,
     watch: form.watch,
-    onAddParada,
+    onAddParada: handleAddParada,
     isLoading,
     retiradasDisponiveis,
     vinculoSelecionado,
     setVinculoSelecionado,
     locationBias: enderecoUnidade ?? undefined,
+    hasValidCoordinates,
   };
 
   // Desktop Layout
@@ -162,9 +174,9 @@ export default function NovaEntrega() {
                 subtitle={paradasStatus.texto}
                 icon="list-outline"
                 iconColor={
-                  paradasStatus.cor === 'error'
+                  paradasStatus.cor === "error"
                     ? theme.colors.error
-                    : paradasStatus.cor === 'warning'
+                    : paradasStatus.cor === "warning"
                       ? theme.colors.warning
                       : theme.colors.secondary
                 }
@@ -187,7 +199,12 @@ export default function NovaEntrega() {
                       size={16}
                       color={theme.colors.primary}
                     />
-                    <Text style={[styles.clearCardButtonText, styles.clearCardButtonTextDesktop]}>
+                    <Text
+                      style={[
+                        styles.clearCardButtonText,
+                        styles.clearCardButtonTextDesktop,
+                      ]}
+                    >
                       Limpar formulário
                     </Text>
                   </TouchableOpacity>
@@ -211,7 +228,9 @@ export default function NovaEntrega() {
       <ErrorBoundary>
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+          contentContainerStyle={{
+            paddingBottom: Math.max(20, insets.bottom + 20),
+          }}
         >
           <View style={styles.tabletContainer}>
             <View style={styles.twoColumnLayout}>
@@ -236,7 +255,9 @@ export default function NovaEntrega() {
     <ErrorBoundary>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+        contentContainerStyle={{
+          paddingBottom: Math.max(20, insets.bottom + 20),
+        }}
       >
         <View style={styles.content}>
           <MobileCard title="Adicionar Parada" variant="bordered">

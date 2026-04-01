@@ -5,31 +5,37 @@
  * Handles: tipo selection, vinculo, address autocomplete, destinatario, telefone, observacoes
  */
 
-import { Ionicons } from '@expo/vector-icons';
-import { memo } from 'react';
-import { Controller, Control, FieldErrors, UseFormWatch, UseFormHandleSubmit } from 'react-hook-form';
+import { Ionicons } from "@expo/vector-icons";
+import { memo } from "react";
+import {
+  Controller,
+  Control,
+  FieldErrors,
+  UseFormWatch,
+  UseFormHandleSubmit,
+} from "react-hook-form";
 import {
   View,
   Text,
   TouchableOpacity,
   ActivityIndicator,
   TextInput,
-} from 'react-native';
+} from "react-native";
 
-import { AddressAutocomplete } from '@/components/AddressAutocomplete';
-import { useResponsive } from '@/hooks/useResponsive';
-import { maskPhone } from '@/lib/phone';
-import type { Coordenadas } from '@/types/endereco';
-import { useUnistyles } from '@/utils/styles';
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { useResponsive } from "@/hooks/useResponsive";
+import { maskPhone } from "@/lib/phone";
+import type { Coordenadas } from "@/types/endereco";
+import { useUnistyles } from "@/utils/styles";
 
-import { novaEntregaStyles as styles } from './styles';
+import { novaEntregaStyles as styles } from "./styles";
 
-import type { Parada, ParadaFormData, ParadaFormDataWithCoords } from './types';
+import type { Parada, ParadaFormData, ParadaFormDataWithCoords } from "./types";
 
 export interface FormularioParadaProps {
   control: Control<ParadaFormDataWithCoords>;
   errors: FieldErrors<ParadaFormDataWithCoords>;
-  setValue: (name: 'latitude' | 'longitude', value: number) => void;
+  setValue: (name: "latitude" | "longitude", value: number) => void;
   handleSubmit: UseFormHandleSubmit<ParadaFormDataWithCoords>;
   watch: UseFormWatch<ParadaFormDataWithCoords>;
   onAddParada: (data: ParadaFormData, vinculoId?: string) => void;
@@ -39,6 +45,8 @@ export interface FormularioParadaProps {
   setVinculoSelecionado: (id: string) => void;
   /** Coordenadas da unidade para priorizar resultados próximos */
   locationBias?: Coordenadas;
+  /** Whether the current address has valid coordinates */
+  hasValidCoordinates?: boolean;
 }
 
 export const FormularioParada = memo(function FormularioParada({
@@ -53,53 +61,57 @@ export const FormularioParada = memo(function FormularioParada({
   vinculoSelecionado,
   setVinculoSelecionado,
   locationBias,
+  hasValidCoordinates = false,
 }: FormularioParadaProps) {
   const { theme } = useUnistyles();
   const { isDesktop, isTablet, isMobile } = useResponsive();
-  const tipoAtual = watch('tipo');
-  const latitude = watch('latitude');
-  const longitude = watch('longitude');
-  const hasValidCoordinates = latitude !== undefined && longitude !== undefined && latitude !== 0 && longitude !== 0;
+  const tipoAtual = watch("tipo");
 
   return (
-    <View style={[
-      styles.form,
-      isDesktop && styles.formDesktop,
-      isTablet && styles.formTablet,
-      isMobile && styles.formMobileInner,
-    ]}>
+    <View
+      style={[
+        styles.form,
+        isDesktop && styles.formDesktop,
+        isTablet && styles.formTablet,
+        isMobile && styles.formMobileInner,
+      ]}
+    >
       {/* Título só aparece em tablet - desktop usa header do DesktopCard, mobile usa MobileCard */}
-      {isTablet && (
-        <Text style={styles.sectionTitle}>Adicionar Parada</Text>
-      )}
+      {isTablet && <Text style={styles.sectionTitle}>Adicionar Parada</Text>}
 
       <Controller
         control={control}
         name="tipo"
         render={({ field: { onChange, value } }) => (
-          <View style={[styles.radioGroup, isDesktop && styles.radioGroupDesktop]}>
+          <View
+            style={[styles.radioGroup, isDesktop && styles.radioGroupDesktop]}
+          >
             <TouchableOpacity
               style={[
                 styles.radioButton,
                 isDesktop && styles.radioButtonDesktop,
-                value === 'entrega' && styles.radioButtonActive,
+                value === "entrega" && styles.radioButtonActive,
               ]}
-              onPress={() => onChange('entrega')}
+              onPress={() => onChange("entrega")}
               accessibilityLabel="Selecionar tipo entrega"
               accessibilityRole="radio"
-              accessibilityState={{ checked: value === 'entrega' }}
+              accessibilityState={{ checked: value === "entrega" }}
             >
               <Ionicons
                 name="arrow-down-circle"
                 size={isDesktop ? 16 : 18}
-                color={value === 'entrega' ? theme.colors.white : theme.colors.primary}
+                color={
+                  value === "entrega"
+                    ? theme.colors.white
+                    : theme.colors.primary
+                }
                 style={styles.radioIcon}
               />
               <Text
                 style={[
                   styles.radioText,
                   isDesktop && styles.radioTextDesktop,
-                  value === 'entrega' && styles.radioTextActive,
+                  value === "entrega" && styles.radioTextActive,
                 ]}
               >
                 Entrega
@@ -110,20 +122,24 @@ export const FormularioParada = memo(function FormularioParada({
                 styles.radioButton,
                 styles.radioButtonRetirada,
                 isDesktop && styles.radioButtonDesktop,
-                value === 'retirada' && styles.radioButtonRetiradaActive,
+                value === "retirada" && styles.radioButtonRetiradaActive,
               ]}
               onPress={() => {
-                onChange('retirada');
-                setVinculoSelecionado('');
+                onChange("retirada");
+                setVinculoSelecionado("");
               }}
               accessibilityLabel="Selecionar tipo retirada"
               accessibilityRole="radio"
-              accessibilityState={{ checked: value === 'retirada' }}
+              accessibilityState={{ checked: value === "retirada" }}
             >
               <Ionicons
                 name="arrow-up-circle"
                 size={isDesktop ? 16 : 18}
-                color={value === 'retirada' ? theme.colors.white : theme.colors.warning}
+                color={
+                  value === "retirada"
+                    ? theme.colors.white
+                    : theme.colors.warning
+                }
                 style={styles.radioIcon}
               />
               <Text
@@ -131,7 +147,7 @@ export const FormularioParada = memo(function FormularioParada({
                   styles.radioText,
                   styles.radioTextRetirada,
                   isDesktop && styles.radioTextDesktop,
-                  value === 'retirada' && styles.radioTextActive,
+                  value === "retirada" && styles.radioTextActive,
                 ]}
               >
                 Retirada
@@ -142,22 +158,40 @@ export const FormularioParada = memo(function FormularioParada({
       />
 
       {/* Seletor de Vínculo */}
-      {tipoAtual === 'entrega' && retiradasDisponiveis.length > 0 && (
-        <View style={[styles.vinculoSection, isDesktop && styles.vinculoSectionDesktop]}>
-          <Text style={[styles.vinculoLabel, isDesktop && styles.vinculoLabelDesktop]}>
+      {tipoAtual === "entrega" && retiradasDisponiveis.length > 0 && (
+        <View
+          style={[
+            styles.vinculoSection,
+            isDesktop && styles.vinculoSectionDesktop,
+          ]}
+        >
+          <Text
+            style={[
+              styles.vinculoLabel,
+              isDesktop && styles.vinculoLabelDesktop,
+            ]}
+          >
             Vincular a uma retirada? (equipamento locado)
           </Text>
-          <Text style={[styles.vinculoHint, isDesktop && styles.vinculoHintDesktop]}>
-            Se esta entrega usa equipamento que será retirado de outro cliente, selecione a retirada correspondente
+          <Text
+            style={[styles.vinculoHint, isDesktop && styles.vinculoHintDesktop]}
+          >
+            Se esta entrega usa equipamento que será retirado de outro cliente,
+            selecione a retirada correspondente
           </Text>
-          <View style={[styles.vinculoOptions, isDesktop && styles.vinculoOptionsDesktop]}>
+          <View
+            style={[
+              styles.vinculoOptions,
+              isDesktop && styles.vinculoOptionsDesktop,
+            ]}
+          >
             <TouchableOpacity
               style={[
                 styles.vinculoOption,
                 isDesktop && styles.vinculoOptionDesktop,
                 !vinculoSelecionado && styles.vinculoOptionActive,
               ]}
-              onPress={() => setVinculoSelecionado('')}
+              onPress={() => setVinculoSelecionado("")}
               accessibilityLabel="Sem vínculo a retirada"
               accessibilityRole="radio"
               accessibilityState={{ checked: !vinculoSelecionado }}
@@ -174,7 +208,8 @@ export const FormularioParada = memo(function FormularioParada({
             </TouchableOpacity>
             {retiradasDisponiveis.map((retirada) => {
               const isSelected = vinculoSelecionado === retirada.id;
-              const retiradaNome = retirada.destinatario || retirada.endereco.substring(0, 30);
+              const retiradaNome =
+                retirada.destinatario || retirada.endereco.substring(0, 30);
               return (
                 <TouchableOpacity
                   key={retirada.id}
@@ -208,11 +243,31 @@ export const FormularioParada = memo(function FormularioParada({
       {/* Endereço com badge de validação */}
       <View style={styles.fieldWithLabel}>
         <View style={styles.labelRow}>
-          <Text style={[styles.fieldLabel, isDesktop && styles.fieldLabelDesktop]}>Endereço *</Text>
+          <Text
+            style={[styles.fieldLabel, isDesktop && styles.fieldLabelDesktop]}
+          >
+            Endereço *
+          </Text>
           {hasValidCoordinates && (
-            <View style={[styles.validatedBadge, isDesktop && styles.validatedBadgeDesktop]}>
-              <Ionicons name="checkmark-circle" size={isDesktop ? 14 : 16} color={theme.colors.success} />
-              <Text style={[styles.validatedText, isDesktop && styles.validatedTextDesktop]}>Validado</Text>
+            <View
+              style={[
+                styles.validatedBadge,
+                isDesktop && styles.validatedBadgeDesktop,
+              ]}
+            >
+              <Ionicons
+                name="checkmark-circle"
+                size={isDesktop ? 14 : 16}
+                color={theme.colors.success}
+              />
+              <Text
+                style={[
+                  styles.validatedText,
+                  isDesktop && styles.validatedTextDesktop,
+                ]}
+              >
+                Validado
+              </Text>
             </View>
           )}
         </View>
@@ -221,13 +276,21 @@ export const FormularioParada = memo(function FormularioParada({
           name="endereco"
           render={({ field: { onChange, value } }) => (
             <AddressAutocomplete
-              value={value || ''}
+              value={value || ""}
               onChangeText={onChange}
-              onSelectAddress={(address, _placeId, coordinates?: Coordenadas) => {
+              onSelectAddress={(
+                address,
+                _placeId,
+                coordinates?: Coordenadas,
+              ) => {
                 onChange(address);
                 if (coordinates) {
-                  setValue('latitude', coordinates.latitude);
-                  setValue('longitude', coordinates.longitude);
+                  setValue("latitude", coordinates.latitude, {
+                    shouldDirty: true,
+                  });
+                  setValue("longitude", coordinates.longitude, {
+                    shouldDirty: true,
+                  });
                 }
               }}
               error={errors.endereco?.message}
@@ -256,7 +319,9 @@ export const FormularioParada = memo(function FormularioParada({
               accessibilityHint="Digite o nome completo do destinatário"
             />
             {errors.destinatario && (
-              <Text style={[styles.errorText, isDesktop && styles.errorTextDesktop]}>
+              <Text
+                style={[styles.errorText, isDesktop && styles.errorTextDesktop]}
+              >
                 {errors.destinatario.message}
               </Text>
             )}
@@ -285,7 +350,9 @@ export const FormularioParada = memo(function FormularioParada({
               accessibilityHint="Digite o telefone do destinatário com DDD"
             />
             {errors.telefone && (
-              <Text style={[styles.errorText, isDesktop && styles.errorTextDesktop]}>
+              <Text
+                style={[styles.errorText, isDesktop && styles.errorTextDesktop]}
+              >
                 {errors.telefone.message}
               </Text>
             )}
@@ -321,7 +388,7 @@ export const FormularioParada = memo(function FormularioParada({
         style={[styles.addButton, isDesktop && styles.addButtonDesktop]}
         onPress={handleSubmit((data: ParadaFormData) => {
           onAddParada(data, vinculoSelecionado || undefined);
-          setVinculoSelecionado('');
+          setVinculoSelecionado("");
         })}
         disabled={isLoading}
         accessibilityLabel="Adicionar parada à lista"
@@ -331,7 +398,12 @@ export const FormularioParada = memo(function FormularioParada({
         {isLoading ? (
           <ActivityIndicator color={theme.colors.white} />
         ) : (
-          <Text style={[styles.addButtonText, isDesktop && styles.addButtonTextDesktop]}>
+          <Text
+            style={[
+              styles.addButtonText,
+              isDesktop && styles.addButtonTextDesktop,
+            ]}
+          >
             + Adicionar Parada
           </Text>
         )}
