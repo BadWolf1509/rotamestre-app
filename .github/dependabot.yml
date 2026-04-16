@@ -21,6 +21,17 @@ updates:
       - "npm"
     # Agrupar atualizações menores
     groups:
+      # React e react-test-renderer devem subir juntos (jest-expo valida versão exata).
+      # Listado antes dos grupos dev/prod para ter precedência.
+      react-ecosystem:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "react-is"
+          - "react-test-renderer"
+        update-types:
+          - "minor"
+          - "patch"
       development-dependencies:
         dependency-type: "development"
         update-types:
