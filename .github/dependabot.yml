@@ -19,6 +19,13 @@ updates:
     labels:
       - "dependencies"
       - "npm"
+    # Ignorar majors que exigem migração manual coordenada
+    ignore:
+      # v11 é uma reescrita da API (74 JSX + 29 props). Bug upstream aberto em release
+      # Android com drawer+map (maplibre/maplibre-react-native#1455). Revisitar quando
+      # houver v11.1+ com fix e janela de QA em device.
+      - dependency-name: "@maplibre/maplibre-react-native"
+        update-types: ["version-update:semver-major"]
     # Agrupar atualizações menores
     groups:
       # React e react-test-renderer devem subir juntos (jest-expo valida versão exata).
