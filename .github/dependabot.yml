@@ -26,6 +26,12 @@ updates:
       # houver v11.1+ com fix e janela de QA em device.
       - dependency-name: "@maplibre/maplibre-react-native"
         update-types: ["version-update:semver-major"]
+      # TS 6.0 quebra resolução de @types ambient (node, jest, google.maps) com a config
+      # atual (expo/tsconfig.base + customConditions:[react-native] + moduleResolution:bundler).
+      # 51+ erros de tipo surgem mesmo com baseUrl + ignoreDeprecations:"6.0". Revisitar
+      # quando houver sprint dedicada para auditoria + alinhamento com expo/jest-expo.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     # Agrupar atualizações menores
     groups:
       # React e react-test-renderer devem subir juntos (jest-expo valida versão exata).
