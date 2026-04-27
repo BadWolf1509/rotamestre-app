@@ -142,7 +142,7 @@
     "husky": "^9.1.7",
     "jest": "^29.7.0",
     "jest-expo": "~55.0.16",
-    "jest-junit": "^16.0.0",
+    "jest-junit": "^17.0.0",
     "lint-staged": "^16.4.0",
     "metro-minify-terser": "^0.84.3",
     "pg": "^8.20.0",
