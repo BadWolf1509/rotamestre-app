@@ -5,7 +5,6 @@
     "incremental": true,
     "tsBuildInfoFile": ".tsbuildinfo",
     "skipLibCheck": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": [
         "./src/*"
