@@ -106,7 +106,7 @@
     "react-native-web": "^0.21.2",
     "react-native-worklets": "0.8.1",
     "web-vitals": "^5.2.0",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "overrides": {
     "tar": "^7.5.4"
