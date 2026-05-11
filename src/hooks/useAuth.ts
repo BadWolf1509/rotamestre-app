@@ -61,19 +61,26 @@ export function useAuth() {
 
       setSession(session);
       setUser(session?.user ?? null);
-      lastUserId.current = session?.user?.id ?? null;
 
       // Wire push token registration/unregistration (non-blocking, failures are
       // logged as warnings — push is optional and must not affect the auth flow)
       if (event === "SIGNED_IN" && session?.user) {
-        registerPushToken(session.user.id).catch((err) =>
-          logger.warn("[Push] Push registration failed", err),
-        );
+        const userId = session.user.id;
+        const alreadyRegistered = lastUserId.current === userId;
+        lastUserId.current = userId;
+        if (!alreadyRegistered) {
+          registerPushToken(userId).catch((err) =>
+            logger.warn("[Push] Push registration failed", err),
+          );
+        }
       }
-      if (event === "SIGNED_OUT" && previousUserId) {
-        unregisterPushToken(previousUserId).catch((err) =>
-          logger.warn("[Push] Push unregister failed", err),
-        );
+      if (event === "SIGNED_OUT") {
+        lastUserId.current = null;
+        if (previousUserId) {
+          unregisterPushToken(previousUserId).catch((err) =>
+            logger.warn("[Push] Push unregister failed", err),
+          );
+        }
       }
     });
 

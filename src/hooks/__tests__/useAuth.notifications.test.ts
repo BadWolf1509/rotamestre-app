@@ -119,6 +119,7 @@ describe("useAuth – push notification wiring", () => {
     });
 
     expect(notifications.unregisterPushToken).toHaveBeenCalledTimes(1);
+    expect(notifications.unregisterPushToken).toHaveBeenCalledWith("user-42");
   });
 
   it("does NOT crash when registerPushToken rejects", async () => {
@@ -145,6 +146,23 @@ describe("useAuth – push notification wiring", () => {
     });
 
     expect(notifications.registerPushToken).not.toHaveBeenCalled();
+  });
+
+  it("does not re-register on duplicate SIGNED_IN events with same userId (token refresh)", async () => {
+    await mountAndFlush();
+
+    await act(async () => {
+      mockAuthCallbacks[0]?.("SIGNED_IN", { user: { id: "user-1" } });
+      await Promise.resolve();
+    });
+    expect(notifications.registerPushToken).toHaveBeenCalledTimes(1);
+
+    // Simulate token refresh firing another SIGNED_IN for the same user
+    await act(async () => {
+      mockAuthCallbacks[0]?.("SIGNED_IN", { user: { id: "user-1" } });
+      await Promise.resolve();
+    });
+    expect(notifications.registerPushToken).toHaveBeenCalledTimes(1);
   });
 
   it("calls unregisterPushToken exactly once on signOut + SIGNED_OUT event", async () => {
