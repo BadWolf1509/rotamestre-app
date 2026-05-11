@@ -63,11 +63,19 @@ export function Breadcrumbs({
         return (
           <View key={index} style={styles.item}>
             {isClickable ? (
-              <TouchableOpacity onPress={item.onPress} activeOpacity={0.7}>
+              <TouchableOpacity
+                onPress={item.onPress}
+                activeOpacity={0.7}
+                accessibilityLabel={item.label}
+                accessibilityRole="link"
+              >
                 <Text style={styles.link}>{item.label}</Text>
               </TouchableOpacity>
             ) : (
-              <Text style={[styles.text, isLast && styles.activeText]} numberOfLines={1}>
+              <Text
+                style={[styles.text, isLast && styles.activeText]}
+                numberOfLines={1}
+              >
                 {item.label}
               </Text>
             )}
