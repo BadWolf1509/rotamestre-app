@@ -334,6 +334,7 @@ export default function CameraUpload({
               disabled={uploading}
               accessibilityLabel="Remover foto"
               accessibilityRole="button"
+              accessibilityState={{ disabled: uploading }}
             >
               <Text style={styles.buttonTextSecondary}>❌ Remover</Text>
             </TouchableOpacity>
@@ -348,6 +349,7 @@ export default function CameraUpload({
               disabled={uploading}
               accessibilityLabel="Enviar foto"
               accessibilityRole="button"
+              accessibilityState={{ disabled: uploading }}
             >
               {uploading ? (
                 <View style={styles.uploadingContainer}>
@@ -372,6 +374,7 @@ export default function CameraUpload({
           disabled={uploading}
           accessibilityLabel="Adicionar foto"
           accessibilityRole="button"
+          accessibilityState={{ disabled: uploading }}
         >
           <Text style={styles.addButtonText}>
             📸 Adicionar Foto do Comprovante

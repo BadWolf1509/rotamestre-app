@@ -684,22 +684,24 @@ describe('CameraUpload Component', () => {
         configurable: true,
       });
 
-      const { getByLabelText, getByText } = render(
-        <CameraUpload {...defaultProps} />,
-      );
+      try {
+        const { getByLabelText, getByText } = render(
+          <CameraUpload {...defaultProps} />,
+        );
 
-      fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
+        fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
 
-      await waitFor(() => {
-        expect(getByText('❌ Remover')).toBeTruthy();
-      });
+        await waitFor(() => {
+          expect(getByText('❌ Remover')).toBeTruthy();
+        });
 
-      expect(getByLabelText('Remover foto')).toBeTruthy();
-
-      Object.defineProperty(Platform, 'OS', {
-        get: () => originalPlatform,
-        configurable: true,
-      });
+        expect(getByLabelText('Remover foto')).toBeTruthy();
+      } finally {
+        Object.defineProperty(Platform, 'OS', {
+          get: () => originalPlatform,
+          configurable: true,
+        });
+      }
     });
 
     it('upload button has accessibilityLabel "Enviar foto"', async () => {
@@ -714,27 +716,83 @@ describe('CameraUpload Component', () => {
         configurable: true,
       });
 
-      const { getByLabelText, getByText } = render(
-        <CameraUpload {...defaultProps} />,
-      );
+      try {
+        const { getByLabelText, getByText } = render(
+          <CameraUpload {...defaultProps} />,
+        );
 
-      fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
+        fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
 
-      await waitFor(() => {
-        expect(getByText('📤 Enviar Foto')).toBeTruthy();
-      });
+        await waitFor(() => {
+          expect(getByText('📤 Enviar Foto')).toBeTruthy();
+        });
 
-      expect(getByLabelText('Enviar foto')).toBeTruthy();
-
-      Object.defineProperty(Platform, 'OS', {
-        get: () => originalPlatform,
-        configurable: true,
-      });
+        expect(getByLabelText('Enviar foto')).toBeTruthy();
+      } finally {
+        Object.defineProperty(Platform, 'OS', {
+          get: () => originalPlatform,
+          configurable: true,
+        });
+      }
     });
 
     it('add button has accessibilityLabel "Adicionar foto" when no photo selected', () => {
       const { getByLabelText } = render(<CameraUpload {...defaultProps} />);
       expect(getByLabelText('Adicionar foto')).toBeTruthy();
+    });
+
+    it('buttons report accessibilityState disabled=true while uploading', async () => {
+      jest.useFakeTimers();
+
+      mockLaunchImageLibraryAsync.mockResolvedValue({
+        canceled: false,
+        assets: [{ uri: 'test-uri' }],
+      });
+
+      mockUploadELinkFotoParada.mockImplementation(
+        () => new Promise((resolve) => setTimeout(() => resolve(true), 1000)),
+      );
+
+      const originalPlatform = Platform.OS;
+      Object.defineProperty(Platform, 'OS', {
+        get: () => 'web',
+        configurable: true,
+      });
+
+      try {
+        const { getByLabelText, getByText } = render(
+          <CameraUpload {...defaultProps} />,
+        );
+
+        fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
+
+        await waitFor(() => {
+          expect(getByText('📤 Enviar Foto')).toBeTruthy();
+        });
+
+        fireEvent.press(getByText('📤 Enviar Foto'));
+
+        await waitFor(() => {
+          expect(getByText(/Enviando foto/)).toBeTruthy();
+        });
+
+        // During upload, the remove button should be both disabled and report it to a11y
+        const removeBtn = getByLabelText('Remover foto');
+        expect(removeBtn.props.accessibilityState).toEqual(
+          expect.objectContaining({ disabled: true }),
+        );
+
+        await act(async () => {
+          jest.runAllTimers();
+        });
+      } finally {
+        jest.useRealTimers();
+
+        Object.defineProperty(Platform, 'OS', {
+          get: () => originalPlatform,
+          configurable: true,
+        });
+      }
     });
   });
 
@@ -758,31 +816,33 @@ describe('CameraUpload Component', () => {
         configurable: true,
       });
 
-      const { getByText } = render(<CameraUpload {...defaultProps} />);
+      try {
+        const { getByText } = render(<CameraUpload {...defaultProps} />);
 
-      fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
+        fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
 
-      await waitFor(() => {
-        expect(getByText('📤 Enviar Foto')).toBeTruthy();
-      });
+        await waitFor(() => {
+          expect(getByText('📤 Enviar Foto')).toBeTruthy();
+        });
 
-      fireEvent.press(getByText('📤 Enviar Foto'));
+        fireEvent.press(getByText('📤 Enviar Foto'));
 
-      // Verificar que progress bar é exibida durante upload
-      await waitFor(() => {
-        expect(getByText(/Enviando foto/)).toBeTruthy();
-      });
+        // Verificar que progress bar é exibida durante upload
+        await waitFor(() => {
+          expect(getByText(/Enviando foto/)).toBeTruthy();
+        });
 
-      await act(async () => {
-        jest.runAllTimers();
-      });
+        await act(async () => {
+          jest.runAllTimers();
+        });
+      } finally {
+        jest.useRealTimers();
 
-      jest.useRealTimers();
-
-      Object.defineProperty(Platform, 'OS', {
-        get: () => originalPlatform,
-        configurable: true,
-      });
+        Object.defineProperty(Platform, 'OS', {
+          get: () => originalPlatform,
+          configurable: true,
+        });
+      }
     });
   });
 });
