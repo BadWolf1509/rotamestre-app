@@ -1,6 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter, type Href } from "expo-router";
-import React from "react";
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter, type Href } from 'expo-router';
+import React from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,10 @@ import {
   TouchableOpacity,
   ScrollViewProps,
   Platform,
-} from "react-native";
+} from 'react-native';
 
-import { NotificationBell } from "@/components/NotificationBell";
-import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
+import { NotificationBell } from '@/components/NotificationBell';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export interface BreadcrumbItem {
   label: string;
@@ -23,7 +23,7 @@ export interface ActionButton {
   label: string;
   icon?: string;
   onPress: () => void;
-  variant?: "primary" | "secondary" | "ghost" | "danger" | string;
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | string;
   disabled?: boolean;
 }
 
@@ -60,7 +60,7 @@ export function DesktopPageLayout({
   actions,
   children,
   loading,
-  loadingText = "Carregando...",
+  loadingText = 'Carregando...',
   showBackButton,
   onBack,
   fullWidth = false,
@@ -90,11 +90,11 @@ export function DesktopPageLayout({
     };
 
     // Add event listener on mount
-    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
 
     // Cleanup on unmount
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [userMenuVisible]);
 
@@ -117,9 +117,9 @@ export function DesktopPageLayout({
 
   const getButtonStyle = (variant?: string) => {
     switch (variant) {
-      case "secondary":
+      case 'secondary':
         return styles.buttonSecondary;
-      case "ghost":
+      case 'ghost':
         return styles.buttonGhost;
       default:
         return styles.buttonPrimary;
@@ -128,8 +128,8 @@ export function DesktopPageLayout({
 
   const getButtonTextStyle = (variant?: string) => {
     switch (variant) {
-      case "secondary":
-      case "ghost":
+      case 'secondary':
+      case 'ghost':
         return styles.buttonTextSecondary;
       default:
         return styles.buttonTextPrimary;
@@ -156,6 +156,8 @@ export function DesktopPageLayout({
                     <TouchableOpacity
                       onPress={() => router.push(item.route as Href)}
                       style={styles.breadcrumbButton}
+                      accessibilityLabel={item.label}
+                      accessibilityRole="link"
                     >
                       <Text style={styles.breadcrumbLink}>{item.label}</Text>
                     </TouchableOpacity>
@@ -182,6 +184,8 @@ export function DesktopPageLayout({
                 onPress={handleBack}
                 style={styles.backButton}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityLabel="Voltar"
+                accessibilityRole="button"
               >
                 <Ionicons
                   name="arrow-back"
@@ -210,8 +214,11 @@ export function DesktopPageLayout({
                 <TouchableOpacity
                   onPress={() => setUserMenuVisible((prev) => !prev)}
                   activeOpacity={0.8}
+                  accessibilityLabel="Menu de usuário"
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: userMenuVisible }}
                 >
-                  {typeof userMenuTrigger === "function"
+                  {typeof userMenuTrigger === 'function'
                     ? userMenuTrigger(userMenuVisible)
                     : userMenuTrigger}
                 </TouchableOpacity>
@@ -225,6 +232,8 @@ export function DesktopPageLayout({
                           setUserMenuVisible(false);
                           item.onPress();
                         }}
+                        accessibilityLabel={item.label}
+                        accessibilityRole="menuitem"
                       >
                         {item.icon && (
                           <Ionicons
@@ -263,13 +272,16 @@ export function DesktopPageLayout({
                     ]}
                     onPress={action.onPress}
                     disabled={action.disabled}
+                    accessibilityLabel={action.label}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: !!action.disabled }}
                   >
                     {action.icon && (
                       <Ionicons
                         name={action.icon as keyof typeof Ionicons.glyphMap}
                         size={18}
                         color={
-                          action.variant === "primary"
+                          action.variant === 'primary'
                             ? theme.colors.white
                             : theme.colors.gray700
                         }
@@ -302,7 +314,7 @@ export function DesktopPageLayout({
           noPadding && styles.contentNoPadding,
           contentContainerStyle,
         ]}
-        showsVerticalScrollIndicator={Platform.OS === "web"}
+        showsVerticalScrollIndicator={Platform.OS === 'web'}
         {...restScrollViewProps}
       >
         <View
@@ -319,12 +331,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,
-    position: "relative",
+    position: 'relative',
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: theme.colors.gray50,
   },
   loadingText: {
@@ -338,9 +350,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     paddingHorizontal: theme.components.pageLayout.contentPadding,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray200,
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
     ...theme.shadows.sm,
     zIndex: 50,
   },
@@ -349,18 +361,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
     minWidth: 0,
   },
   breadcrumbs: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: theme.spacing.sm,
-    flexWrap: "wrap",
+    flexWrap: 'wrap',
   },
   breadcrumbButton: {
-    padding: theme.spacing["0.5"],
+    padding: theme.spacing['0.5'],
   },
   breadcrumbLink: {
     fontSize: theme.components.pageLayout.breadcrumbFontSize,
     color: theme.colors.primary,
-    fontWeight: "500",
+    fontWeight: '500',
   },
   breadcrumbText: {
     fontSize: theme.components.pageLayout.breadcrumbFontSize,
@@ -370,8 +382,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginHorizontal: theme.spacing.xs,
   },
   titleSection: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: theme.spacing.md,
   },
   backButton: {
@@ -382,7 +394,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   title: {
     fontSize: theme.components.pageLayout.headerTitleFontSize,
-    fontWeight: "700",
+    fontWeight: '700',
     color: theme.colors.gray900,
     letterSpacing: -0.5,
   },
@@ -393,20 +405,20 @@ const styles = StyleSheet.create((theme: Theme) => ({
     lineHeight: 20,
   },
   headerRight: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: theme.spacing.md,
     marginLeft: theme.components.pageLayout.contentPadding,
   },
   headerExtra: {
-    alignItems: "flex-end",
+    alignItems: 'flex-end',
     gap: theme.spacing.xs,
   },
   userMenu: {
-    position: "absolute",
-    top: "100%",
+    position: 'absolute',
+    top: '100%',
     right: 0,
-    marginTop: theme.spacing["2"],
+    marginTop: theme.spacing['2'],
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.lg,
     paddingVertical: theme.spacing.sm,
@@ -421,8 +433,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     zIndex: 60,
   },
   userMenuItem: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: theme.spacing.sm,
     paddingVertical: theme.spacing.sm,
   },
@@ -434,13 +446,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.error,
   },
   actions: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: theme.spacing.sm,
-    alignItems: "center",
+    alignItems: 'center',
   },
   button: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.xs,
     borderRadius: theme.borderRadius.md,
@@ -455,7 +467,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.gray300,
   },
   buttonGhost: {
-    backgroundColor: "transparent",
+    backgroundColor: 'transparent',
   },
   buttonDisabled: {
     opacity: 0.5,
@@ -465,7 +477,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   buttonText: {
     fontSize: theme.components.pageLayout.headerSubtitleFontSize,
-    fontWeight: "600",
+    fontWeight: '600',
   },
   buttonTextPrimary: {
     color: theme.colors.white,
@@ -487,10 +499,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   content: {
     maxWidth: 1400,
-    marginHorizontal: "auto",
-    width: "100%",
+    marginHorizontal: 'auto',
+    width: '100%',
   },
   contentInnerFullWidth: {
-    maxWidth: "100%",
+    maxWidth: '100%',
   },
 }));

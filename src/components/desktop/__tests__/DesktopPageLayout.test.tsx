@@ -112,7 +112,7 @@ describe('DesktopPageLayout', () => {
       const { getByText } = render(
         <DesktopPageLayout title="Test Title">
           <Text>Page Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       expect(getByText('Test Title')).toBeTruthy();
@@ -123,7 +123,7 @@ describe('DesktopPageLayout', () => {
       const { getByText } = render(
         <DesktopPageLayout title="Title" subtitle="Subtitle Text">
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       expect(getByText('Subtitle Text')).toBeTruthy();
@@ -133,7 +133,7 @@ describe('DesktopPageLayout', () => {
       const { queryByText } = render(
         <DesktopPageLayout title="Title">
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       // Não deve haver subtitle
@@ -146,7 +146,7 @@ describe('DesktopPageLayout', () => {
       const { getByText, UNSAFE_getByType } = render(
         <DesktopPageLayout title="Title" loading={true}>
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       expect(getByText('Carregando...')).toBeTruthy();
@@ -156,9 +156,13 @@ describe('DesktopPageLayout', () => {
 
     it('deve renderizar texto de loading customizado', () => {
       const { getByText } = render(
-        <DesktopPageLayout title="Title" loading={true} loadingText="Processando...">
+        <DesktopPageLayout
+          title="Title"
+          loading={true}
+          loadingText="Processando..."
+        >
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       expect(getByText('Processando...')).toBeTruthy();
@@ -168,7 +172,7 @@ describe('DesktopPageLayout', () => {
       const { queryByText } = render(
         <DesktopPageLayout title="Title" loading={true}>
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       expect(queryByText('Content')).toBeNull();
@@ -178,7 +182,7 @@ describe('DesktopPageLayout', () => {
       const { queryByText } = render(
         <DesktopPageLayout title="Title" loading={true}>
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       expect(queryByText('Title')).toBeNull();
@@ -196,7 +200,7 @@ describe('DesktopPageLayout', () => {
       const { getByText } = render(
         <DesktopPageLayout title="Title" breadcrumbs={breadcrumbs}>
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       expect(getByText('Home')).toBeTruthy();
@@ -210,7 +214,7 @@ describe('DesktopPageLayout', () => {
       const { getByText } = render(
         <DesktopPageLayout title="Title" breadcrumbs={breadcrumbs}>
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       const breadcrumb = getByText('Home');
@@ -223,7 +227,7 @@ describe('DesktopPageLayout', () => {
       const { queryByText } = render(
         <DesktopPageLayout title="Title" breadcrumbs={[]}>
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       // Verificar que não há elementos de breadcrumb
@@ -239,7 +243,7 @@ describe('DesktopPageLayout', () => {
       const { UNSAFE_getAllByType } = render(
         <DesktopPageLayout title="Title" breadcrumbs={breadcrumbs}>
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       const icons = UNSAFE_getAllByType(Ionicons);
@@ -253,7 +257,7 @@ describe('DesktopPageLayout', () => {
       const { UNSAFE_getAllByType } = render(
         <DesktopPageLayout title="Title" showBackButton={true}>
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       const icons = UNSAFE_getAllByType(Ionicons);
@@ -264,9 +268,13 @@ describe('DesktopPageLayout', () => {
     it('deve chamar onBack quando fornecido', () => {
       const mockOnBack = jest.fn();
       const { UNSAFE_getAllByType } = render(
-        <DesktopPageLayout title="Title" showBackButton={true} onBack={mockOnBack}>
+        <DesktopPageLayout
+          title="Title"
+          showBackButton={true}
+          onBack={mockOnBack}
+        >
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       const icons = UNSAFE_getAllByType(Ionicons);
@@ -282,7 +290,7 @@ describe('DesktopPageLayout', () => {
       const { UNSAFE_getAllByType } = render(
         <DesktopPageLayout title="Title" showBackButton={true}>
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       const icons = UNSAFE_getAllByType(Ionicons);
@@ -297,7 +305,7 @@ describe('DesktopPageLayout', () => {
       const { UNSAFE_queryAllByType } = render(
         <DesktopPageLayout title="Title" showBackButton={false}>
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       const icons = UNSAFE_queryAllByType(Ionicons);
@@ -316,7 +324,7 @@ describe('DesktopPageLayout', () => {
       const { getByText } = render(
         <DesktopPageLayout title="Title" actions={actions}>
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       expect(getByText('Save')).toBeTruthy();
@@ -330,7 +338,7 @@ describe('DesktopPageLayout', () => {
       const { getByText } = render(
         <DesktopPageLayout title="Title" actions={actions}>
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       fireEvent.press(getByText('Save'));
@@ -340,13 +348,17 @@ describe('DesktopPageLayout', () => {
 
     it('deve renderizar ícone quando action tem icon', () => {
       const actions = [
-        { label: 'Save', icon: 'save' as keyof typeof Ionicons.glyphMap, onPress: jest.fn() },
+        {
+          label: 'Save',
+          icon: 'save' as keyof typeof Ionicons.glyphMap,
+          onPress: jest.fn(),
+        },
       ];
 
       const { UNSAFE_getAllByType } = render(
         <DesktopPageLayout title="Title" actions={actions}>
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       const icons = UNSAFE_getAllByType(Ionicons);
@@ -361,7 +373,7 @@ describe('DesktopPageLayout', () => {
       const { getByText } = render(
         <DesktopPageLayout title="Title" actions={actions}>
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       // Verificar que o botão foi renderizado
@@ -374,31 +386,39 @@ describe('DesktopPageLayout', () => {
       const { getByText } = render(
         <DesktopPageLayout title="Title" actions={actions}>
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       expect(getByText('Primary')).toBeTruthy();
     });
 
     it('deve renderizar button secondary', () => {
-      const actions = [{ label: 'Secondary', onPress: jest.fn(), variant: 'secondary' as const }];
+      const actions = [
+        {
+          label: 'Secondary',
+          onPress: jest.fn(),
+          variant: 'secondary' as const,
+        },
+      ];
 
       const { getByText } = render(
         <DesktopPageLayout title="Title" actions={actions}>
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       expect(getByText('Secondary')).toBeTruthy();
     });
 
     it('deve renderizar button ghost', () => {
-      const actions = [{ label: 'Ghost', onPress: jest.fn(), variant: 'ghost' as const }];
+      const actions = [
+        { label: 'Ghost', onPress: jest.fn(), variant: 'ghost' as const },
+      ];
 
       const { getByText } = render(
         <DesktopPageLayout title="Title" actions={actions}>
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       expect(getByText('Ghost')).toBeTruthy();
@@ -439,7 +459,7 @@ describe('DesktopPageLayout', () => {
           userMenuItems={userMenuItems}
         >
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       expect(getByText('User Menu')).toBeTruthy();
@@ -453,7 +473,7 @@ describe('DesktopPageLayout', () => {
           userMenuItems={[]}
         >
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       expect(queryByText('User Menu')).toBeNull();
@@ -471,7 +491,7 @@ describe('DesktopPageLayout', () => {
           userMenuItems={userMenuItems}
         >
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       // Clicar no trigger - deve abrir o menu
@@ -493,7 +513,7 @@ describe('DesktopPageLayout', () => {
           userMenuItems={userMenuItems}
         >
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       // Abrir menu
@@ -520,7 +540,7 @@ describe('DesktopPageLayout', () => {
           userMenuItems={userMenuItems}
         >
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       // Abrir menu
@@ -544,7 +564,7 @@ describe('DesktopPageLayout', () => {
           userMenuItems={userMenuItems}
         >
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       // Abrir menu
@@ -570,7 +590,7 @@ describe('DesktopPageLayout', () => {
           userMenuItems={userMenuItems}
         >
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       // Abrir menu
@@ -583,7 +603,12 @@ describe('DesktopPageLayout', () => {
 
     it('deve renderizar menu item destructive', () => {
       const userMenuItems: UserMenuItem[] = [
-        { label: 'Logout', icon: 'log-out', onPress: jest.fn(), destructive: true },
+        {
+          label: 'Logout',
+          icon: 'log-out',
+          onPress: jest.fn(),
+          destructive: true,
+        },
       ];
 
       const { getByText } = render(
@@ -593,7 +618,7 @@ describe('DesktopPageLayout', () => {
           userMenuItems={userMenuItems}
         >
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       // Abrir menu
@@ -614,7 +639,7 @@ describe('DesktopPageLayout', () => {
           userMenuItems={userMenuItems}
         >
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       // Estado inicial (fechado)
@@ -637,7 +662,7 @@ describe('DesktopPageLayout', () => {
           userMenuItems={userMenuItems}
         >
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       // Abrir menu
@@ -646,7 +671,7 @@ describe('DesktopPageLayout', () => {
       // Verificar que event listener foi adicionado
       expect((global as any).document.addEventListener).toHaveBeenCalledWith(
         'mousedown',
-        expect.any(Function)
+        expect.any(Function),
       );
     });
 
@@ -662,7 +687,7 @@ describe('DesktopPageLayout', () => {
           userMenuItems={userMenuItems}
         >
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       // Abrir menu
@@ -674,7 +699,7 @@ describe('DesktopPageLayout', () => {
       // Verificar que event listener foi removido
       expect((global as any).document.removeEventListener).toHaveBeenCalledWith(
         'mousedown',
-        expect.any(Function)
+        expect.any(Function),
       );
     });
 
@@ -682,7 +707,12 @@ describe('DesktopPageLayout', () => {
       const userMenuItems: UserMenuItem[] = [
         { label: 'Profile', icon: 'person', onPress: jest.fn() },
         { label: 'Settings', icon: 'settings', onPress: jest.fn() },
-        { label: 'Logout', icon: 'log-out', onPress: jest.fn(), destructive: true },
+        {
+          label: 'Logout',
+          icon: 'log-out',
+          onPress: jest.fn(),
+          destructive: true,
+        },
       ];
 
       const { getByText } = render(
@@ -692,7 +722,7 @@ describe('DesktopPageLayout', () => {
           userMenuItems={userMenuItems}
         >
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       // Abrir menu
@@ -707,9 +737,12 @@ describe('DesktopPageLayout', () => {
   describe('Header Extra', () => {
     it('deve renderizar headerExtra quando fornecido', () => {
       const { getByText } = render(
-        <DesktopPageLayout title="Title" headerExtra={<Text>Extra Content</Text>}>
+        <DesktopPageLayout
+          title="Title"
+          headerExtra={<Text>Extra Content</Text>}
+        >
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       expect(getByText('Extra Content')).toBeTruthy();
@@ -721,7 +754,7 @@ describe('DesktopPageLayout', () => {
       const { getByText } = render(
         <DesktopPageLayout title="Title" fullWidth={true}>
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       expect(getByText('Content')).toBeTruthy();
@@ -731,7 +764,7 @@ describe('DesktopPageLayout', () => {
       const { getByText } = render(
         <DesktopPageLayout title="Title" noPadding={true}>
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       expect(getByText('Content')).toBeTruthy();
@@ -744,7 +777,7 @@ describe('DesktopPageLayout', () => {
           scrollViewProps={{ testID: 'custom-scroll', bounces: false }}
         >
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       const { ScrollView } = require('react-native');
@@ -763,7 +796,7 @@ describe('DesktopPageLayout', () => {
           scrollViewProps={{ contentContainerStyle: customStyle }}
         >
           <Text>Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       const { ScrollView } = require('react-native');
@@ -771,7 +804,7 @@ describe('DesktopPageLayout', () => {
 
       // Verificar que contentContainerStyle foi aplicado
       expect(scrollView.props.contentContainerStyle).toContainEqual(
-        expect.objectContaining(customStyle)
+        expect.objectContaining(customStyle),
       );
     });
   });
@@ -780,7 +813,9 @@ describe('DesktopPageLayout', () => {
     it('deve renderizar todos os elementos juntos', async () => {
       const breadcrumbs: BreadcrumbItem[] = [{ label: 'Home', route: '/' }];
       const actions = [{ label: 'Save', onPress: jest.fn() }];
-      const userMenuItems: UserMenuItem[] = [{ label: 'Profile', onPress: jest.fn() }];
+      const userMenuItems: UserMenuItem[] = [
+        { label: 'Profile', onPress: jest.fn() },
+      ];
 
       const { getByText } = render(
         <DesktopPageLayout
@@ -794,7 +829,7 @@ describe('DesktopPageLayout', () => {
           userMenuItems={userMenuItems}
         >
           <Text>Page Content</Text>
-        </DesktopPageLayout>
+        </DesktopPageLayout>,
       );
 
       expect(getByText('Home')).toBeTruthy();
@@ -804,6 +839,119 @@ describe('DesktopPageLayout', () => {
       expect(getByText('Extra')).toBeTruthy();
       expect(getByText('Menu')).toBeTruthy();
       expect(getByText('Page Content')).toBeTruthy();
+    });
+  });
+
+  describe('Accessibility', () => {
+    it('breadcrumb link has accessibilityLabel and role link', () => {
+      const breadcrumbs: BreadcrumbItem[] = [
+        { label: 'Home', route: '/' },
+        { label: 'Current' },
+      ];
+
+      const { getByLabelText } = render(
+        <DesktopPageLayout title="Title" breadcrumbs={breadcrumbs}>
+          <Text>Content</Text>
+        </DesktopPageLayout>,
+      );
+
+      const link = getByLabelText('Home');
+      expect(link).toBeTruthy();
+      expect(link.props.accessibilityRole).toBe('link');
+    });
+
+    it('back button has accessibilityLabel and role button', () => {
+      const { getByLabelText } = render(
+        <DesktopPageLayout title="Title" showBackButton={true}>
+          <Text>Content</Text>
+        </DesktopPageLayout>,
+      );
+
+      const btn = getByLabelText('Voltar');
+      expect(btn).toBeTruthy();
+      expect(btn.props.accessibilityRole).toBe('button');
+    });
+
+    it('user menu trigger has accessibilityLabel, role button, and expanded state', () => {
+      const userMenuItems: UserMenuItem[] = [
+        { label: 'Profile', onPress: jest.fn() },
+      ];
+
+      const { getByLabelText } = render(
+        <DesktopPageLayout
+          title="Title"
+          userMenuTrigger={<Text>User Menu</Text>}
+          userMenuItems={userMenuItems}
+        >
+          <Text>Content</Text>
+        </DesktopPageLayout>,
+      );
+
+      const trigger = getByLabelText('Menu de usuário');
+      expect(trigger).toBeTruthy();
+      expect(trigger.props.accessibilityRole).toBe('button');
+      expect(trigger.props.accessibilityState).toMatchObject({
+        expanded: false,
+      });
+    });
+
+    it('user menu items have accessibilityLabel and role menuitem', () => {
+      // Provide document mock kept alive for React teardown
+      (global as any).document = {
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+      };
+
+      const userMenuItems: UserMenuItem[] = [
+        { label: 'Profile', onPress: jest.fn() },
+      ];
+
+      const { getByText, getAllByRole } = render(
+        <DesktopPageLayout
+          title="Title"
+          userMenuTrigger={<Text>User Menu</Text>}
+          userMenuItems={userMenuItems}
+        >
+          <Text>Content</Text>
+        </DesktopPageLayout>,
+      );
+
+      // Open the menu
+      fireEvent.press(getByText('User Menu'));
+
+      const menuItems = getAllByRole('menuitem');
+      expect(menuItems.length).toBeGreaterThan(0);
+      expect(menuItems[0].props.accessibilityLabel).toBe('Profile');
+
+      // Keep document alive through React teardown; remove after all assertions
+      // (the existing User Menu describe block's afterAll already cleans it up)
+    });
+
+    it('action button has accessibilityLabel and role button', () => {
+      const actions = [{ label: 'Salvar', onPress: jest.fn() }];
+
+      const { getByLabelText } = render(
+        <DesktopPageLayout title="Title" actions={actions}>
+          <Text>Content</Text>
+        </DesktopPageLayout>,
+      );
+
+      const btn = getByLabelText('Salvar');
+      expect(btn).toBeTruthy();
+      expect(btn.props.accessibilityRole).toBe('button');
+    });
+
+    it('disabled action button has accessibilityState disabled=true', () => {
+      const actions = [{ label: 'Salvar', onPress: jest.fn(), disabled: true }];
+
+      const { getByLabelText } = render(
+        <DesktopPageLayout title="Title" actions={actions}>
+          <Text>Content</Text>
+        </DesktopPageLayout>,
+      );
+
+      const btn = getByLabelText('Salvar');
+      expect(btn.props.accessibilityState).toMatchObject({ disabled: true });
     });
   });
 });
