@@ -2,15 +2,43 @@
 
 Este documento descreve a arquitetura de testes, padrões e convenções utilizadas no projeto rotamestre-app.
 
+## Status Atual
+
+**Framework:** Jest + React Native Testing Library
+**Suites:** 285+, **Testes:** 5490+ passando
+**Threshold de cobertura:** 73% lines (atual ~74%)
+
+### Executando testes
+
+```bash
+npm test                  # execução completa
+npm test -- --watch       # modo watch
+npm run test:coverage     # com relatório de cobertura
+npm test -- <padrão>      # filtrar por nome/caminho
+```
+
+### Layout dos testes
+
+- Unitários/integração: `src/**/__tests__/*.test.ts(x)`
+- E2E: `e2e/` (Playwright; ver `npm run test:e2e`)
+- Regressão visual: `tools/scripts/run-visual-tests.cjs` (`npm run test:visual`)
+
+### Caveats conhecidos
+
+- `react-test-renderer` deve ter a mesma versão que `react` (restrição de paridade do jest-expo).
+- `renderHook` em hooks com async/realtime pesado (`useGestaoRotas`, `offline.ts`, `useRealtimeRoutes`) pode causar OOM acima de 4 GB — prefira testar os helpers puros extraídos desses hooks.
+
+---
+
 ## Stack de Testes
 
-| Ferramenta | Versão | Propósito |
-|------------|--------|-----------|
-| Jest | 29.x | Test runner e framework de testes |
-| jest-expo | 54.x | Preset para projetos Expo |
-| @testing-library/react-native | 12.x | Utilitários para testar componentes |
-| @testing-library/jest-native | 5.x | Matchers adicionais para React Native |
-| jest-junit | 16.x | Reporter XML para CI/CD |
+| Ferramenta                    | Versão | Propósito                             |
+| ----------------------------- | ------ | ------------------------------------- |
+| Jest                          | 29.x   | Test runner e framework de testes     |
+| jest-expo                     | 55.x   | Preset para projetos Expo             |
+| @testing-library/react-native | 12.x   | Utilitários para testar componentes   |
+| @testing-library/jest-native  | 5.x    | Matchers adicionais para React Native |
+| jest-junit                    | 16.x   | Reporter XML para CI/CD               |
 
 ## Estrutura de Arquivos
 
@@ -67,15 +95,15 @@ npm test -- src/hooks/__tests__/useAuth.test.ts
 
 ```javascript
 module.exports = {
-  preset: 'jest-expo',
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  preset: "jest-expo",
+  setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
 
   // Cobertura
   collectCoverageFrom: [
-    'src/**/*.{ts,tsx}',
-    '!src/types/**/*.ts',
-    '!**/__tests__/**',
-    '!**/__mocks__/**',
+    "src/**/*.{ts,tsx}",
+    "!src/types/**/*.ts",
+    "!**/__tests__/**",
+    "!**/__mocks__/**",
   ],
 
   // Thresholds globais
@@ -90,8 +118,8 @@ module.exports = {
 
   // Alias
   moduleNameMapper: {
-    '\\.(png|jpg|jpeg|gif|svg)$': '<rootDir>/__mocks__/fileMock.js',
-    '^@/(.*)$': '<rootDir>/src/$1',
+    "\\.(png|jpg|jpeg|gif|svg)$": "<rootDir>/__mocks__/fileMock.js",
+    "^@/(.*)$": "<rootDir>/src/$1",
   },
 };
 ```
@@ -132,18 +160,18 @@ describe('NomeDoModulo', () => {
 ### 2. Testando Hooks
 
 ```typescript
-import { renderHook, act, waitFor } from '@testing-library/react-native';
-import { useMyHook } from '../useMyHook';
+import { renderHook, act, waitFor } from "@testing-library/react-native";
+import { useMyHook } from "../useMyHook";
 
-describe('useMyHook', () => {
-  it('deve retornar estado inicial', () => {
+describe("useMyHook", () => {
+  it("deve retornar estado inicial", () => {
     const { result } = renderHook(() => useMyHook());
 
     expect(result.current.loading).toBe(false);
     expect(result.current.data).toBeNull();
   });
 
-  it('deve atualizar estado após ação', async () => {
+  it("deve atualizar estado após ação", async () => {
     const { result } = renderHook(() => useMyHook());
 
     await act(async () => {
@@ -191,29 +219,29 @@ describe('Button', () => {
 ### 4. Mockando Supabase
 
 ```typescript
-import { supabase } from '@/lib/supabase';
+import { supabase } from "@/lib/supabase";
 
-jest.mock('@/lib/supabase');
+jest.mock("@/lib/supabase");
 
 const mockSupabase = supabase as jest.Mocked<typeof supabase>;
 
-describe('ServiceComSupabase', () => {
+describe("ServiceComSupabase", () => {
   beforeEach(() => {
     // Reset do mock
     mockSupabase.from.mockReturnValue({
       select: jest.fn().mockReturnValue({
         eq: jest.fn().mockResolvedValue({
-          data: [{ id: '1', nome: 'Teste' }],
+          data: [{ id: "1", nome: "Teste" }],
           error: null,
         }),
       }),
     } as any);
   });
 
-  it('deve buscar dados', async () => {
+  it("deve buscar dados", async () => {
     const resultado = await buscarDados();
 
-    expect(mockSupabase.from).toHaveBeenCalledWith('tabela');
+    expect(mockSupabase.from).toHaveBeenCalledWith("tabela");
     expect(resultado).toHaveLength(1);
   });
 });
@@ -222,9 +250,9 @@ describe('ServiceComSupabase', () => {
 ### 5. Mockando Logger
 
 ```typescript
-import { logger } from '@/lib/logger';
+import { logger } from "@/lib/logger";
 
-jest.mock('@/lib/logger', () => ({
+jest.mock("@/lib/logger", () => ({
   logger: {
     info: jest.fn(),
     error: jest.fn(),
@@ -233,13 +261,13 @@ jest.mock('@/lib/logger', () => ({
   },
 }));
 
-describe('FuncaoComLogger', () => {
-  it('deve logar erro quando falha', async () => {
+describe("FuncaoComLogger", () => {
+  it("deve logar erro quando falha", async () => {
     await funcaoQuePodefFalhar();
 
     expect(logger.error).toHaveBeenCalledWith(
-      '[Contexto] Mensagem de erro',
-      expect.any(Error)
+      "[Contexto] Mensagem de erro",
+      expect.any(Error),
     );
   });
 });
@@ -263,7 +291,7 @@ O arquivo `jest.setup.js` configura:
 ```javascript
 // jest.mocks/supabase.js
 function setupSupabaseMocks() {
-  jest.mock('@/lib/supabase', () => ({
+  jest.mock("@/lib/supabase", () => ({
     supabase: {
       auth: {
         signInWithPassword: jest.fn(),
@@ -286,12 +314,12 @@ function setupSupabaseMocks() {
 
 ### Thresholds Atuais
 
-| Métrica | Threshold | Atual |
-|---------|-----------|-------|
-| Branches | 65% | ~68% |
-| Functions | 68% | ~71% |
-| Lines | 69% | ~72% |
-| Statements | 69% | ~72% |
+| Métrica    | Threshold | Atual |
+| ---------- | --------- | ----- |
+| Branches   | 65%       | ~66%  |
+| Functions  | 72%       | ~73%  |
+| Lines      | 73%       | ~74%  |
+| Statements | 72%       | ~73%  |
 
 ### Exclusões de Cobertura
 
@@ -363,23 +391,26 @@ reporters: [
 ### Problemas Comuns
 
 **1. "Cannot find module"**
+
 ```bash
 # Limpar cache do Jest
 npm test -- --clearCache
 ```
 
 **2. "Timeout exceeded"**
+
 ```javascript
 // Aumentar timeout do teste
 jest.setTimeout(30000);
 
 // Ou no teste específico
-it('operação lenta', async () => {
+it("operação lenta", async () => {
   // ...
 }, 30000);
 ```
 
 **3. "Act warning"**
+
 ```typescript
 // Envolver atualizações de estado em act()
 await act(async () => {
@@ -388,6 +419,7 @@ await act(async () => {
 ```
 
 **4. Snapshots desatualizados**
+
 ```bash
 npm test -- -u
 ```
