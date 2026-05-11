@@ -1,15 +1,15 @@
-import { Ionicons } from "@expo/vector-icons";
-import MapLibreGL, { type CameraRef } from "@maplibre/maplibre-react-native";
-import * as Clipboard from "expo-clipboard";
-import * as Haptics from "expo-haptics";
-import * as Location from "expo-location";
+import { Ionicons } from '@expo/vector-icons';
+import MapLibreGL, { type CameraRef } from '@maplibre/maplibre-react-native';
+import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 import React, {
   useRef,
   useEffect,
   useMemo,
   useCallback,
   useState,
-} from "react";
+} from 'react';
 import {
   View,
   Text,
@@ -18,26 +18,26 @@ import {
   Platform,
   Pressable,
   Linking,
-} from "react-native";
+} from 'react-native';
 
-import { getStatusLabel } from "@/components/map/infoWindowBuilders";
-import { MotoristaMarker } from "@/components/MotoristaMarker";
-import { useAlert } from "@/hooks/useAlert";
-import { useRouteDirections } from "@/hooks/useRouteDirections";
-import { logger } from "@/lib/logger";
+import { getStatusLabel } from '@/components/map/infoWindowBuilders';
+import { MotoristaMarker } from '@/components/MotoristaMarker';
+import { useAlert } from '@/hooks/useAlert';
+import { useRouteDirections } from '@/hooks/useRouteDirections';
+import { logger } from '@/lib/logger';
 import {
   MAPLIBRE_RASTER_STYLE,
   getBounds,
   toLineString,
   toLngLat,
   zoomFromLongitudeDelta,
-} from "@/lib/maplibre";
-import type { ParadaMapItem as Parada, StatusFilter } from "@/types/parada-map";
-import { withOpacity } from "@/utils/color";
-import { getMarkerFillColor } from "@/utils/mapMarkerColors";
-import { showNavigationOptions } from "@/utils/navigation";
-import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
-import { toast } from "@/utils/toast";
+} from '@/lib/maplibre';
+import type { ParadaMapItem as Parada, StatusFilter } from '@/types/parada-map';
+import { withOpacity } from '@/utils/color';
+import { getMarkerFillColor } from '@/utils/mapMarkerColors';
+import { showNavigationOptions } from '@/utils/navigation';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { toast } from '@/utils/toast';
 
 type MapRegion = {
   latitude: number;
@@ -71,7 +71,7 @@ export function MapaMobile({
   onMarkerPress,
   onMapPress,
   onMarkerLongPress,
-  statusFilter = "all",
+  statusFilter = 'all',
   rotaId,
   motoristaNome,
   showMotorista = false,
@@ -100,7 +100,7 @@ export function MapaMobile({
 
   // Paradas filtradas por status
   const paradasFiltradas = useMemo(() => {
-    if (statusFilter === "all") return paradasReais;
+    if (statusFilter === 'all') return paradasReais;
     return paradasReais.filter((p) => p.status === statusFilter);
   }, [paradasReais, statusFilter]);
 
@@ -208,7 +208,7 @@ export function MapaMobile({
   // Handler para tap no marcador com haptic feedback
   const handleMarkerPress = useCallback(
     (paradaId: string) => {
-      if (Platform.OS !== "web") {
+      if (Platform.OS !== 'web') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
       setSelectedCheckpointId(null);
@@ -220,7 +220,7 @@ export function MapaMobile({
   // Handler para long-press no marcador
   const handleMarkerLongPress = useCallback(
     (paradaId: string) => {
-      if (Platform.OS !== "web") {
+      if (Platform.OS !== 'web') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
       onMarkerLongPress?.(paradaId);
@@ -237,7 +237,7 @@ export function MapaMobile({
   // Próxima parada pendente (para navegação)
   const proximaParadaPendente = useMemo(() => {
     return paradasReais
-      .filter((p) => p.status === "pendente" || p.status === "em_andamento")
+      .filter((p) => p.status === 'pendente' || p.status === 'em_andamento')
       .sort((a, b) => a.ordem - b.ordem)[0];
   }, [paradasReais]);
 
@@ -246,10 +246,10 @@ export function MapaMobile({
     setIsLocating(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
+      if (status !== 'granted') {
         showWarning(
-          "Permissão negada",
-          "Permita o acesso à localização para usar esta função.",
+          'Permissão negada',
+          'Permita o acesso à localização para usar esta função.',
         );
         return;
       }
@@ -269,10 +269,10 @@ export function MapaMobile({
         animationDuration: 500,
       });
     } catch (error) {
-      logger.error("[MapaMobile] Erro ao obter localização:", error);
+      logger.error('[MapaMobile] Erro ao obter localização:', error);
       showError({
-        title: "Erro",
-        message: "Não foi possível obter sua localização.",
+        title: 'Erro',
+        message: 'Não foi possível obter sua localização.',
       });
     } finally {
       setIsLocating(false);
@@ -282,7 +282,7 @@ export function MapaMobile({
   // Navegar para próxima parada usando app externo
   const handleNavigate = useCallback(() => {
     if (!proximaParadaPendente) {
-      showWarning("Nenhuma parada", "Não há paradas pendentes para navegar.");
+      showWarning('Nenhuma parada', 'Não há paradas pendentes para navegar.');
       return;
     }
 
@@ -313,12 +313,12 @@ export function MapaMobile({
       await Clipboard.setStringAsync(endereco);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       toast.success(
-        "Endereço copiado para a área de transferência.",
-        "Copiado!",
+        'Endereço copiado para a área de transferência.',
+        'Copiado!',
       );
     } catch {
       // Clipboard pode não estar disponível em todas as plataformas
-      toast.error("Não foi possível copiar o endereço.");
+      toast.error('Não foi possível copiar o endereço.');
     }
   }, []);
 
@@ -362,8 +362,8 @@ export function MapaMobile({
         {/* Marcadores dos checkpoints (PARTIDA/CHEGADA) */}
         {checkpoints.map((parada, index) => {
           const isPartida = index === 0;
-          const checkpointLabel = isPartida ? "PARTIDA" : "CHEGADA";
-          const iconName = isPartida ? "flag" : "home";
+          const checkpointLabel = isPartida ? 'PARTIDA' : 'CHEGADA';
+          const iconName = isPartida ? 'flag' : 'home';
           const isSelected = selectedCheckpointId === parada.id;
 
           return (
@@ -529,15 +529,15 @@ export function MapaMobile({
                         <View style={styles.calloutTypeBadge}>
                           <Ionicons
                             name={
-                              parada.tipo === "entrega"
-                                ? "cube-outline"
-                                : "arrow-up-circle-outline"
+                              parada.tipo === 'entrega'
+                                ? 'cube-outline'
+                                : 'arrow-up-circle-outline'
                             }
                             size={12}
                             color={theme.colors.textSecondary}
                           />
                           <Text style={styles.calloutTypeText}>
-                            {parada.tipo === "entrega" ? "Entrega" : "Retirada"}
+                            {parada.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
                           </Text>
                         </View>
                       )}
@@ -583,8 +583,8 @@ export function MapaMobile({
         accessibilityRole="summary"
         accessibilityLabel={
           isLoadingRoute
-            ? "Calculando rota"
-            : `${paradasFiltradas.length} parada${paradasFiltradas.length !== 1 ? "s" : ""}${routeInfo ? `, ${(routeInfo.distanceMeters / 1000).toFixed(1)} quilômetros, ${Math.round(routeInfo.durationSeconds / 60)} minutos` : ""}`
+            ? 'Calculando rota'
+            : `${paradasFiltradas.length} parada${paradasFiltradas.length !== 1 ? 's' : ''}${routeInfo ? `, ${(routeInfo.distanceMeters / 1000).toFixed(1)} quilômetros, ${Math.round(routeInfo.durationSeconds / 60)} minutos` : ''}`
         }
         accessibilityLiveRegion="polite"
       >
@@ -596,8 +596,8 @@ export function MapaMobile({
         ) : (
           <Text style={styles.infoBadgeText}>
             📍 {paradasFiltradas.length}
-            {statusFilter !== "all" ? `/${paradasReais.length}` : ""} parada
-            {paradasFiltradas.length !== 1 ? "s" : ""}
+            {statusFilter !== 'all' ? `/${paradasReais.length}` : ''} parada
+            {paradasFiltradas.length !== 1 ? 's' : ''}
             {routeInfo &&
               ` • ${(routeInfo.distanceMeters / 1000).toFixed(1)} km • ${Math.round(routeInfo.durationSeconds / 60)} min`}
           </Text>
@@ -635,11 +635,11 @@ export function MapaMobile({
           accessible={true}
           accessibilityLabel={
             isLocating
-              ? "Obtendo localização"
-              : "Centralizar mapa na minha localização"
+              ? 'Obtendo localização'
+              : 'Centralizar mapa na minha localização'
           }
           accessibilityRole="button"
-          accessibilityState={{ busy: isLocating }}
+          accessibilityState={{ busy: isLocating, disabled: isLocating }}
         >
           {isLocating ? (
             <ActivityIndicator size="small" color={theme.colors.primary} />
@@ -673,7 +673,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
     minHeight: 300,
     borderRadius: theme.borderRadius.lg,
-    overflow: "hidden",
+    overflow: 'hidden',
     backgroundColor: theme.colors.disabled,
   },
   map: {
@@ -682,23 +682,23 @@ const styles = StyleSheet.create((theme: Theme) => ({
   emptyContainer: {
     flex: 1,
     minHeight: 300,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: theme.colors.disabled,
     borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing["5"],
+    padding: theme.spacing['5'],
   },
   emptyText: {
     fontSize: theme.typography.fontSize.base,
     color: theme.colors.textSecondary,
-    textAlign: "center",
+    textAlign: 'center',
   },
   markerContainer: {
     width: theme.components.minTouchTarget,
     height: theme.components.minTouchTarget,
     borderRadius: theme.components.minTouchTarget / 2,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 3,
     borderColor: theme.colors.surface,
     shadowColor: theme.colors.black,
@@ -708,21 +708,21 @@ const styles = StyleSheet.create((theme: Theme) => ({
     elevation: 5,
   },
   markerWrapper: {
-    alignItems: "center",
+    alignItems: 'center',
   },
   calloutWrapper: {
-    marginBottom: theme.spacing["2"],
+    marginBottom: theme.spacing['2'],
   },
   // Checkpoint compacto azul marca - ícones distintos para PARTIDA/CHEGADA
   checkpointMarkerCompact: {
     width: 36,
     height: 36,
     borderRadius: theme.borderRadius.sm,
-    borderBottomLeftRadius: theme.spacing["0.5"],
+    borderBottomLeftRadius: theme.spacing['0.5'],
     backgroundColor: theme.colors.primary,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: theme.spacing["0.5"],
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: theme.spacing['0.5'],
     borderColor: theme.colors.white,
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
@@ -734,7 +734,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   checkpointCalloutContainer: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.md,
-    padding: theme.spacing["3"],
+    padding: theme.spacing['3'],
     minWidth: 180,
     maxWidth: 240,
     shadowColor: theme.colors.black,
@@ -744,30 +744,30 @@ const styles = StyleSheet.create((theme: Theme) => ({
     elevation: 4,
   },
   checkpointCalloutHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing["2"],
-    marginBottom: theme.spacing["2"],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing['2'],
+    marginBottom: theme.spacing['2'],
   },
   checkpointIconBadge: {
-    width: theme.spacing["6"],
-    height: theme.spacing["6"],
+    width: theme.spacing['6'],
+    height: theme.spacing['6'],
     borderRadius: theme.borderRadius.xs + 2,
     backgroundColor: theme.colors.primary,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   checkpointCalloutTitle: {
     fontSize: theme.typography.fontSize.sm,
-    fontWeight: "700",
+    fontWeight: '700',
     color: theme.colors.primary,
     letterSpacing: 0.5,
   },
   checkpointCalloutUnidade: {
     fontSize: theme.typography.sm, // 14px
-    fontWeight: "600",
+    fontWeight: '600',
     color: theme.colors.text,
-    marginBottom: theme.spacing["1"],
+    marginBottom: theme.spacing['1'],
   },
   checkpointCalloutAddress: {
     fontSize: theme.typography.sm, // 14px
@@ -775,29 +775,29 @@ const styles = StyleSheet.create((theme: Theme) => ({
     lineHeight: 18,
   },
   copyButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing["1.5"],
-    paddingVertical: theme.spacing["2"],
-    paddingHorizontal: theme.spacing["3"],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing['1.5'],
+    paddingVertical: theme.spacing['2'],
+    paddingHorizontal: theme.spacing['3'],
     backgroundColor: theme.colors.gray50,
     borderRadius: theme.borderRadius.sm,
     borderWidth: 1,
     borderColor: theme.colors.gray200,
-    marginTop: theme.spacing["2.5"],
+    marginTop: theme.spacing['2.5'],
   },
   copyButtonText: {
     fontSize: theme.typography.fontSize.xs,
-    fontWeight: "500",
+    fontWeight: '500',
     color: theme.colors.textSecondary,
   },
   markerText: {
     color: theme.colors.surface,
     fontSize: theme.typography.fontSize.base,
-    fontWeight: "bold",
+    fontWeight: 'bold',
   },
   markerSelected: {
-    borderWidth: theme.spacing["1"],
+    borderWidth: theme.spacing['1'],
     borderColor: theme.colors.primary,
     transform: [{ scale: 1.1 }],
   },
@@ -808,7 +808,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   calloutContainer: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing["3"],
+    padding: theme.spacing['3'],
     minWidth: 200,
     maxWidth: 280,
     shadowColor: theme.colors.black,
@@ -819,21 +819,21 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   calloutTitle: {
     fontSize: theme.typography.fontSize.base,
-    fontWeight: "bold",
+    fontWeight: 'bold',
     color: theme.colors.text,
-    marginBottom: theme.spacing["1"],
+    marginBottom: theme.spacing['1'],
   },
   calloutAddress: {
     fontSize: theme.typography.sm, // 14px
     color: theme.colors.textSecondary,
-    marginBottom: theme.spacing["2"],
+    marginBottom: theme.spacing['2'],
     lineHeight: 18,
   },
   calloutDetailRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing["1.5"],
-    marginBottom: theme.spacing["1.5"],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing['1.5'],
+    marginBottom: theme.spacing['1.5'],
   },
   calloutDetailText: {
     fontSize: theme.typography.sm, // 14px
@@ -843,46 +843,46 @@ const styles = StyleSheet.create((theme: Theme) => ({
   calloutPhoneText: {
     fontSize: theme.typography.sm, // 14px
     color: theme.colors.primary,
-    fontWeight: "500",
+    fontWeight: '500',
   },
   calloutBadges: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing["2"],
-    marginTop: theme.spacing["1"],
-    flexWrap: "wrap",
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing['2'],
+    marginTop: theme.spacing['1'],
+    flexWrap: 'wrap',
   },
   calloutStatus: {
-    paddingHorizontal: theme.spacing["2.5"],
-    paddingVertical: theme.spacing["1"],
+    paddingHorizontal: theme.spacing['2.5'],
+    paddingVertical: theme.spacing['1'],
     borderRadius: theme.borderRadius.lg,
   },
   calloutStatusText: {
     fontSize: theme.typography.fontSize.xs,
-    fontWeight: "600",
+    fontWeight: '600',
   },
   calloutTypeBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing["1"],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing['1'],
     backgroundColor: theme.colors.gray100,
-    paddingHorizontal: theme.spacing["2"],
-    paddingVertical: theme.spacing["1"],
+    paddingHorizontal: theme.spacing['2'],
+    paddingVertical: theme.spacing['1'],
     borderRadius: theme.borderRadius.lg,
   },
   calloutTypeText: {
     fontSize: theme.typography.fontSize.xs,
-    fontWeight: "500",
+    fontWeight: '500',
     color: theme.colors.textSecondary,
   },
   infoBadge: {
-    position: "absolute",
-    top: theme.spacing["2.5"],
-    right: theme.spacing["2.5"],
+    position: 'absolute',
+    top: theme.spacing['2.5'],
+    right: theme.spacing['2.5'],
     backgroundColor: withOpacity(theme.colors.white, 0.95),
-    paddingHorizontal: theme.spacing["3"],
-    paddingVertical: theme.spacing["1.5"],
-    borderRadius: theme.spacing["5"],
+    paddingHorizontal: theme.spacing['3'],
+    paddingVertical: theme.spacing['1.5'],
+    borderRadius: theme.spacing['5'],
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -890,28 +890,28 @@ const styles = StyleSheet.create((theme: Theme) => ({
     elevation: 3,
   },
   infoBadgeLoading: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing["1.5"],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing['1.5'],
   },
   infoBadgeText: {
     fontSize: theme.typography.fontSize.xs,
-    fontWeight: "600",
+    fontWeight: '600',
     color: theme.colors.text,
   },
   fabContainer: {
-    position: "absolute",
-    bottom: theme.spacing["5"],
-    right: theme.spacing["4"],
-    gap: theme.spacing["3"],
+    position: 'absolute',
+    bottom: theme.spacing['5'],
+    right: theme.spacing['4'],
+    gap: theme.spacing['3'],
   },
   fabPrimary: {
-    width: theme.spacing["14"],
-    height: theme.spacing["14"],
-    borderRadius: theme.spacing["7"],
+    width: theme.spacing['14'],
+    height: theme.spacing['14'],
+    borderRadius: theme.spacing['7'],
     backgroundColor: theme.colors.primary,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -923,8 +923,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     height: theme.components.minTouchTarget,
     borderRadius: theme.components.minTouchTarget / 2,
     backgroundColor: theme.colors.surface,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
