@@ -5,14 +5,22 @@
  * - Carregamento de rotas via Supabase
  * - Filtragem por status e busca textual
  * - Exclusão de rotas com confirmação
- * - Exportação para CSV
+ * - Exportação para CSV e XLSX
  * - Atualização em tempo real
  * - Cache local para melhor UX (stale-while-revalidate)
+ *
+ * NOTE: PDF export is intentionally NOT exposed here. exportRotaToPDF() is a
+ * per-route delivery-proof function (with real stop addresses). A list-level
+ * bulk PDF would misuse that function by stuffing route summaries into the
+ * paradas field. Wire exportRotaToPDF from a route-detail screen or per-row
+ * action in a future PR — it is already exported from gestao-rotas/index.ts.
  *
  * Modular architecture:
  * - gestao-rotas/useRotasCache.ts: Cache management
  * - gestao-rotas/useRotasFiltering.ts: Filter and sort logic
  * - gestao-rotas/routeExport.ts: CSV export utility
+ * - gestao-rotas/routeExportXLSX.ts: XLSX export utility
+ * - gestao-rotas/routeExportPDF.ts: Per-route PDF export utility
  */
 
 import { useRouter } from "expo-router";
@@ -38,7 +46,6 @@ import {
   useRotasFiltering,
   exportRotasToCSV,
   exportRotasToXLSX,
-  exportRotaToPDF,
 } from "./gestao-rotas";
 
 import type { RotaHistorico } from "./gestao-rotas";
@@ -412,24 +419,6 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
     });
   }, [rotasFiltradas, filtroStatus, userData?.id]);
 
-  const exportarParaPDF = useCallback(async () => {
-    // PDF is a per-route delivery-proof document. When multiple routes are
-    // visible in the list, we build a summary report treating each route as a
-    // "stop" so the user still gets a printable document.
-    const dataAtual = new Date().toLocaleDateString("pt-BR");
-    await exportRotaToPDF({
-      id: "summary",
-      titulo: `Relatório de Rotas — ${dataAtual}`,
-      motorista: undefined,
-      data: new Date().toISOString().split("T")[0],
-      paradas: rotasFiltradas.map((rota, index) => ({
-        ordem: index + 1,
-        endereco: `${rota.motorista_nome || "Sem motorista"} — ${rota.paradas_concluidas}/${rota.paradas_count} paradas`,
-        status: rota.status,
-      })),
-    });
-  }, [rotasFiltradas]);
-
   // ============================================
   // HELPERS
   // ============================================
@@ -477,7 +466,6 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
     handleCancelDelete,
     exportarParaCSV,
     exportarParaXLSX,
-    exportarParaPDF,
 
     // Helpers
     getStatusLabel,

@@ -5,8 +5,13 @@
  * - Listagem de rotas com filtros por status e busca textual
  * - Visualização de detalhes (motorista, paradas, progresso)
  * - Exclusão de rotas com confirmação
- * - Exportação para CSV, XLSX ou PDF (desktop dropdown / mobile sheet)
+ * - Exportação para CSV ou XLSX (desktop dropdown / mobile sheet)
  * - Atualização em tempo real via Supabase Realtime
+ *
+ * NOTE: PDF export is intentionally NOT offered at the list level.
+ * exportRotaToPDF() produces a per-route delivery-proof document (with real
+ * stop addresses). A bulk list-to-PDF would misuse that function. Wire it
+ * from a route-detail screen or per-row action in a future PR.
  *
  * @layout Desktop: DesktopPageLayout com DataTable
  * @layout Mobile: ScrollView com MobileCards
@@ -91,7 +96,6 @@ export default function GestaoRotas() {
     handleCancelDelete,
     exportarParaCSV,
     exportarParaXLSX,
-    exportarParaPDF,
     getStatusLabel,
     getStatusColor,
     toastState,
@@ -317,24 +321,6 @@ export default function GestaoRotas() {
                   Exportar Excel (XLSX)
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={{ padding: theme.spacing.sm }}
-                onPress={() => {
-                  setShowExportMenu(false);
-                  exportarParaPDF();
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Exportar relatório em PDF"
-              >
-                <Text
-                  style={{
-                    color: theme.colors.gray800,
-                    fontSize: theme.typography.sm,
-                  }}
-                >
-                  Exportar PDF
-                </Text>
-              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -546,10 +532,6 @@ export default function GestaoRotas() {
                     {
                       text: "Excel (XLSX)",
                       onPress: exportarParaXLSX,
-                    },
-                    {
-                      text: "PDF",
-                      onPress: exportarParaPDF,
                     },
                     { text: "Cancelar", style: "cancel" },
                   ])

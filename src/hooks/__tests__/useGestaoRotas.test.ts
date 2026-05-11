@@ -42,7 +42,10 @@ jest.mock("expo-sharing", () => ({
   isAvailableAsync: jest.fn().mockResolvedValue(true),
   shareAsync: jest.fn().mockResolvedValue(undefined),
 }));
-// Mock xlsx (SheetJS) to avoid real bundle load in tests
+// Mock xlsx (SheetJS) to avoid real bundle load in tests.
+// useGestaoRotas lazy-loads xlsx via require() inside exportRotasToXLSX;
+// jest.mock intercepts it regardless of whether it's a top-level import or
+// an inline require().
 jest.mock("xlsx", () => ({
   utils: {
     book_new: jest.fn(() => ({})),
@@ -50,21 +53,6 @@ jest.mock("xlsx", () => ({
     book_append_sheet: jest.fn(),
   },
   write: jest.fn(() => "MOCK_BASE64"),
-}));
-// Mock pdfmake to avoid canvas/font loading errors in test environment
-jest.mock("pdfmake/build/pdfmake", () => ({
-  __esModule: true,
-  default: {
-    vfs: {},
-    createPdf: jest.fn(() => ({
-      download: jest.fn(),
-      getBase64: jest.fn().mockResolvedValue("PDF_BASE64"),
-    })),
-  },
-}));
-jest.mock("pdfmake/build/vfs_fonts", () => ({
-  __esModule: true,
-  default: { pdfMake: { vfs: {} } },
 }));
 jest.mock("@/utils/errorHandling", () => ({
   showError: jest.fn(),
@@ -967,60 +955,11 @@ describe("useGestaoRotas", () => {
     });
   });
 
-  // ============================================
-  // PDF EXPORT TESTS
-  // ============================================
-
-  describe("Exportação PDF", () => {
-    it("deve chamar createPdf ao exportar para PDF", async () => {
-      Platform.OS = "web";
-
-      setupMocks();
-
-      const { result } = renderHook(() => useGestaoRotas(defaultOptions));
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      await act(async () => {
-        await result.current.exportarParaPDF();
-      });
-
-      const pdfMakeModule = require("pdfmake/build/pdfmake").default;
-      expect(pdfMakeModule.createPdf).toHaveBeenCalled();
-
-      Platform.OS = "android";
-    });
-
-    it("deve incluir rotas filtradas no PDF", async () => {
-      Platform.OS = "web";
-      setupMocks();
-
-      const { result } = renderHook(() => useGestaoRotas(defaultOptions));
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      // Filter to only pending routes
-      act(() => {
-        result.current.setFiltroStatus("pendente");
-      });
-
-      await act(async () => {
-        await result.current.exportarParaPDF();
-      });
-
-      const pdfMakeModule = require("pdfmake/build/pdfmake").default;
-      const [docDef] = pdfMakeModule.createPdf.mock.calls.at(-1) as [any];
-      const contentStr = JSON.stringify(docDef.content);
-      // Should only contain data for the pending route
-      expect(contentStr).toContain("Carlos Silva");
-
-      Platform.OS = "android";
-    });
-  });
+  // NOTE: PDF export tests have been removed from this file because
+  // exportarParaPDF is no longer exposed by useGestaoRotas. PDF export is a
+  // per-route function (exportRotaToPDF) that lives in
+  // gestao-rotas/routeExportPDF.ts and is tested in
+  // gestao-rotas/__tests__/routeExportPDF.test.ts.
 
   describe("Helpers", () => {
     it("deve retornar label correto para status", async () => {

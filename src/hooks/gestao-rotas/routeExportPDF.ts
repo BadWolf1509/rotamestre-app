@@ -11,23 +11,27 @@
  * require fetching each foto_url as a data-URL and passing it to pdfmake as an
  * image node — straightforward but adds async complexity and file size.
  *
- * NOTE: pdfmake is imported at the top level (not lazily) for the same reason as
- * xlsx — the Jest CommonJS VM environment does not support native dynamic import().
- * Bundle-size limits in .size-limit.json have been bumped accordingly.
+ * NOTE: pdfmake + vfs_fonts are loaded lazily via require() at function entry
+ * so the ~0.5 MB gzip weight is deferred until the user actually exports a PDF.
+ * This is safe with jest.mock() because Babel/jest-expo transforms ESM imports
+ * to require() at test time, so jest.mock("pdfmake/...", ...) intercepts both
+ * top-level imports and inline require() calls.
+ *
+ * Per-route wiring: exportRotaToPDF(rota) is intentionally a per-route function.
+ * The list-level bulk PDF was removed (see useGestaoRotas.ts) because mapping
+ * routes into the "paradas" field produced a misleading delivery-proof document.
+ * Future: wire this from a route-detail screen or per-row action.
  */
 
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
-import pdfMake from "pdfmake/build/pdfmake";
-import pdfFonts from "pdfmake/build/vfs_fonts";
 import { Platform } from "react-native";
 
 import { formatDateBR } from "@/lib/dateUtils";
 import { logger } from "@/lib/logger";
 import { showError, showInfo } from "@/utils/errorHandling";
 
-// Bootstrap pdfmake with the bundled Roboto fonts
-pdfMake.vfs = (pdfFonts as any).pdfMake?.vfs ?? pdfFonts;
+import type { TDocumentDefinitions } from "pdfmake/interfaces";
 
 // -----------------------------------------------------------------------
 // MIME type constant
@@ -60,9 +64,32 @@ export interface RotaParaPDF {
 /**
  * Export a single route as a PDF delivery-proof document.
  * Handles both web (browser download) and mobile (expo-sharing).
+ *
+ * Intended to be called per-route (e.g. from a route detail screen or a
+ * per-row action in the route list). The list-level bulk PDF export has
+ * been removed because it produced a misleading document.
  */
 export async function exportRotaToPDF(rota: RotaParaPDF): Promise<void> {
   try {
+    // Lazy-load pdfmake: defers ~0.5 MB gzip from initial bundle to export-time.
+    // jest.mock("pdfmake/build/pdfmake", ...) intercepts this require() in tests.
+    //
+    // pdfmake ships as a CommonJS module, but when bundled through Babel/metro
+    // it may appear as either { default: ... } (ESM interop) or the object itself.
+    // We normalise to whichever has createPdf.
+    const pdfMakeRaw = require("pdfmake/build/pdfmake");
+    const pdfFonts = require("pdfmake/build/vfs_fonts");
+
+    // Handle both CJS (pdfMakeRaw.createPdf) and ESM-interop (pdfMakeRaw.default.createPdf)
+    const pdfMake = (pdfMakeRaw?.default ?? pdfMakeRaw) as typeof pdfMakeRaw & {
+      vfs: unknown;
+    };
+    pdfMake.vfs =
+      (pdfFonts as any).pdfMake?.vfs ??
+      (pdfFonts as any).default?.pdfMake?.vfs ??
+      (pdfFonts as any).vfs ??
+      pdfFonts;
+
     const docDefinition = buildDocDefinition(rota);
     const pdfDoc = pdfMake.createPdf(docDefinition);
 
@@ -89,7 +116,7 @@ export async function exportRotaToPDF(rota: RotaParaPDF): Promise<void> {
 /**
  * Build the pdfmake document definition for a route.
  */
-function buildDocDefinition(rota: RotaParaPDF): object {
+function buildDocDefinition(rota: RotaParaPDF): TDocumentDefinitions {
   const paradasConcluidas = rota.paradas.filter(
     (p) => p.status === "concluida",
   ).length;
@@ -173,20 +200,19 @@ function buildDocDefinition(rota: RotaParaPDF): object {
 
 /**
  * Get base64 content from pdfmake document (returns a Promise).
+ * pdfDoc typed as any because pdfmake's createPdf return type is complex and
+ * the lazy-require pattern makes ReturnType<...> inference awkward.
  */
-function getPDFBase64(
-  pdfDoc: ReturnType<typeof pdfMake.createPdf>,
-): Promise<string> {
+
+function getPDFBase64(pdfDoc: any): Promise<string> {
   return pdfDoc.getBase64();
 }
 
 /**
  * Write PDF to cache dir and share via expo-sharing.
  */
-async function sharePDFMobile(
-  pdfDoc: ReturnType<typeof pdfMake.createPdf>,
-  fileName: string,
-): Promise<void> {
+
+async function sharePDFMobile(pdfDoc: any, fileName: string): Promise<void> {
   const base64 = await getPDFBase64(pdfDoc);
   const fileUri = FileSystem.cacheDirectory + fileName;
 
