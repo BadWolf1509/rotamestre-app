@@ -383,9 +383,9 @@ resolver: {
 
 ## 🧪 Testing
 
-**Current:** Manual testing only
+**Current:** Jest + React Native Testing Library (285+ suites, 5490+ tests passing, ~74% line coverage). See [docs/TESTING.md](./docs/TESTING.md) for commands, layout, and caveats.
 
-**Test checklist:**
+**Pre-release manual smoke checklist:**
 
 - [ ] Gestor can create route with autocomplete
 - [ ] Route is optimized (stops reordered)
