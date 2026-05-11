@@ -23,14 +23,14 @@
  * ```
  */
 
-import { Ionicons } from "@expo/vector-icons";
-import React from "react";
-import { View, Text, TouchableOpacity, ViewStyle } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { View, Text, TouchableOpacity, ViewStyle } from 'react-native';
 
-import { withOpacity } from "@/utils/color";
-import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
+import { withOpacity } from '@/utils/color';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-type AlertType = "info" | "success" | "warning" | "error";
+type AlertType = 'info' | 'success' | 'warning' | 'error';
 
 export interface AlertProps {
   /** Alert type determines color and icon */
@@ -52,14 +52,14 @@ export interface AlertProps {
 }
 
 const ICON_MAP: Record<AlertType, keyof typeof Ionicons.glyphMap> = {
-  info: "information-circle",
-  success: "checkmark-circle",
-  warning: "warning",
-  error: "close-circle",
+  info: 'information-circle',
+  success: 'checkmark-circle',
+  warning: 'warning',
+  error: 'close-circle',
 };
 
 export function Alert({
-  type = "info",
+  type = 'info',
   title,
   message,
   onClose,
@@ -133,12 +133,12 @@ export function Alert({
 
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
-    flexDirection: "row",
-    alignItems: "flex-start",
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     borderLeftWidth: 4,
     borderRadius: theme.borderRadius.md,
-    padding: theme.spacing["3"],
-    gap: theme.spacing["2.5"],
+    padding: theme.spacing['3'],
+    gap: theme.spacing['2.5'],
   },
   icon: {
     marginTop: 1,
@@ -149,7 +149,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   title: {
     fontFamily: theme.typography.fontSansBold,
     fontSize: theme.typography.fontSize.sm,
-    marginBottom: theme.spacing["0.5"],
+    marginBottom: theme.spacing['0.5'],
   },
   message: {
     fontFamily: theme.typography.fontSans,
@@ -158,15 +158,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray700,
   },
   actionBtn: {
-    marginTop: theme.spacing["2"],
+    marginTop: theme.spacing['2'],
   },
   actionText: {
     fontFamily: theme.typography.fontSansSemiBold,
     fontSize: theme.typography.fontSize.sm,
   },
   closeBtn: {
-    padding: theme.spacing["1"],
-    marginLeft: theme.spacing["1"],
+    padding: theme.spacing['1'],
+    marginLeft: theme.spacing['1'],
   },
 }));
 
