@@ -26,6 +26,7 @@ import React, {
 } from "react";
 import { View, ActivityIndicator, Text } from "react-native";
 
+import { useMotoristaLocationMapLibre } from "@/components/map/hooks/useMotoristaLocationMapLibre";
 import { useRouteDirections } from "@/hooks/useRouteDirections";
 import { logger } from "@/lib/logger";
 import {
@@ -153,9 +154,9 @@ export default function MapaWebMapLibre({
   onMarkerPress,
   onMapPress,
   statusFilter = "all",
-  rotaId: _rotaId,
-  motoristaNome: _motoristaNome,
-  showMotorista: _showMotorista = false,
+  rotaId,
+  motoristaNome,
+  showMotorista = false,
   unidadeNome,
   polyline,
 }: MapaWebMapLibreProps) {
@@ -165,6 +166,12 @@ export default function MapaWebMapLibre({
   const popupRef = useRef<maplibregl.Popup | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Live driver location — hook called unconditionally (rules of hooks).
+  // Pass rotaId only when showMotorista=true to gate Supabase subscription.
+  const { location: motoristaLocation } = useMotoristaLocationMapLibre(
+    showMotorista ? rotaId : undefined,
+  );
 
   // Paradas with valid coordinates
   const paradasComCoord = useMemo(() => {
@@ -644,6 +651,32 @@ export default function MapaWebMapLibre({
       });
     }
   }, [selectedParadaId, paradasComCoord, checkpoints, mapLoaded, openPopup]);
+
+  // Render live motorista marker as a DOM Marker.
+  // Re-creates the marker whenever the location changes (v1 approach).
+  // Cleanup removes the marker on unmount or when location/map changes.
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded || !motoristaLocation) return;
+
+    const el = document.createElement("div");
+    el.className = "motorista-marker";
+    el.setAttribute(
+      "aria-label",
+      motoristaNome ? `Motorista: ${motoristaNome}` : "Motorista",
+    );
+    el.setAttribute("role", "img");
+    // Use the theme primary color from design tokens — no hardcoded colors
+    const markerColor = theme.colors.primary;
+    el.style.cssText = `width:20px;height:20px;border-radius:50%;background:${markerColor};border:3px solid #fff;box-shadow:0 0 0 2px rgba(0,0,0,0.2);cursor:pointer;`;
+
+    const marker = new maplibregl.Marker({ element: el })
+      .setLngLat([motoristaLocation.longitude, motoristaLocation.latitude])
+      .addTo(mapRef.current);
+
+    return () => {
+      marker.remove();
+    };
+  }, [mapLoaded, motoristaLocation, motoristaNome, theme.colors.primary]);
 
   if (loadError) {
     return (
