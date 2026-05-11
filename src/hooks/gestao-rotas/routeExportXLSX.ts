@@ -1,17 +1,16 @@
 /**
  * Route export utilities (XLSX / Excel)
  *
- * NOTE: xlsx is imported at the top level rather than lazily because the Jest
- * test environment (jest-expo CommonJS mode) does not support native dynamic
- * import() calls inside VMs without --experimental-vm-modules. Bundle-size
- * impact was evaluated and the size limit in .size-limit.json was intentionally
- * bumped to accommodate both xlsx and pdfmake (see that file for the new limits).
+ * xlsx is loaded lazily via require() at function entry so that the ~0.6 MB
+ * gzip weight is only paid when the user actually triggers an export.
+ * require() inside an async function is compatible with jest.mock() because
+ * Babel/jest-expo transforms ESM imports to require() calls at test time, so
+ * jest.mock("xlsx", ...) intercepts both top-level imports and inline require().
  */
 
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { Platform } from "react-native";
-import * as XLSX from "xlsx";
 
 import { formatDateBR, formatDateTimeBR } from "@/lib/dateUtils";
 import { logger } from "@/lib/logger";
@@ -53,6 +52,10 @@ export async function exportRotasToXLSX({
       return;
     }
 
+    // Lazy-load xlsx: defers ~0.6 MB gzip from initial bundle to export-time.
+    // jest.mock("xlsx", ...) intercepts this require() correctly in tests.
+    const XLSX = require("xlsx") as typeof import("xlsx");
+
     const sheetData = buildSheetData(rotas);
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(sheetData);
@@ -64,9 +67,9 @@ export async function exportRotasToXLSX({
     const nomeArquivo = `gestao-rotas-${dataAtual}.xlsx`;
 
     if (Platform.OS === "web") {
-      downloadXLSXWeb(wb, nomeArquivo);
+      downloadXLSXWeb(XLSX, wb, nomeArquivo);
     } else {
-      await shareXLSXMobile(wb, nomeArquivo);
+      await shareXLSXMobile(XLSX, wb, nomeArquivo);
     }
 
     if (userId) {
@@ -119,7 +122,11 @@ function buildSheetData(rotas: RotaHistorico[]): unknown[][] {
 /**
  * Trigger browser download of the workbook as .xlsx.
  */
-function downloadXLSXWeb(wb: XLSX.WorkBook, fileName: string): void {
+function downloadXLSXWeb(
+  XLSX: typeof import("xlsx"),
+  wb: import("xlsx").WorkBook,
+  fileName: string,
+): void {
   const buffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
   const blob = new Blob([buffer], { type: XLSX_MIME_TYPE });
   const link = document.createElement("a");
@@ -138,7 +145,8 @@ function downloadXLSXWeb(wb: XLSX.WorkBook, fileName: string): void {
  * Write the workbook to a temp file and share it via expo-sharing.
  */
 async function shareXLSXMobile(
-  wb: XLSX.WorkBook,
+  XLSX: typeof import("xlsx"),
+  wb: import("xlsx").WorkBook,
   fileName: string,
 ): Promise<void> {
   const base64 = XLSX.write(wb, { bookType: "xlsx", type: "base64" }) as string;
