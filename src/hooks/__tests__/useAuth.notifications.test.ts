@@ -146,4 +146,25 @@ describe("useAuth – push notification wiring", () => {
 
     expect(notifications.registerPushToken).not.toHaveBeenCalled();
   });
+
+  it("calls unregisterPushToken exactly once on signOut + SIGNED_OUT event", async () => {
+    await mountAndFlush();
+
+    // Simulate prior login so lastUserId.current is set
+    await act(async () => {
+      mockAuthCallbacks[0]?.("SIGNED_IN", { user: { id: "user-1" } });
+      await Promise.resolve();
+    });
+
+    (notifications.unregisterPushToken as jest.Mock).mockClear();
+
+    // Simulate sign-out auth event (the only place unregister should fire)
+    await act(async () => {
+      mockAuthCallbacks[0]?.("SIGNED_OUT", null);
+      await Promise.resolve();
+    });
+
+    expect(notifications.unregisterPushToken).toHaveBeenCalledTimes(1);
+    expect(notifications.unregisterPushToken).toHaveBeenCalledWith("user-1");
+  });
 });

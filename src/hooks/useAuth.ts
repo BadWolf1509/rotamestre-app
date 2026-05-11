@@ -1,6 +1,5 @@
 import { Session, User } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, useRef } from "react";
-import { Platform } from "react-native";
 
 import { clearAllCache, cleanExpiredCache } from "../lib/cache";
 import { logger } from "../lib/logger";
@@ -81,17 +80,9 @@ export function useAuth() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // ✅ Logout com limpeza de cache e push token
+  // ✅ Logout com limpeza de cache
+  // Push token unregistration is handled by the SIGNED_OUT event in onAuthStateChange
   const signOut = useCallback(async () => {
-    // Remover push token antes do logout (mobile only)
-    if (Platform.OS !== "web" && lastUserId.current) {
-      try {
-        await unregisterPushToken(lastUserId.current);
-      } catch (error) {
-        logger.error("[Push] Erro ao remover token:", error);
-      }
-    }
-
     await clearAllCache(); // Limpar todo o cache ao fazer logout
     return supabase.auth.signOut();
   }, []);
