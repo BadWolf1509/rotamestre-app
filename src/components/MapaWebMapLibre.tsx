@@ -164,6 +164,7 @@ export default function MapaWebMapLibre({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
+  const motoristaMarkerRef = useRef<maplibregl.Marker | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -653,30 +654,53 @@ export default function MapaWebMapLibre({
   }, [selectedParadaId, paradasComCoord, checkpoints, mapLoaded, openPopup]);
 
   // Render live motorista marker as a DOM Marker.
-  // Re-creates the marker whenever the location changes (v1 approach).
-  // Cleanup removes the marker on unmount or when location/map changes.
+  // On first render: creates the element and marker, stores it in motoristaMarkerRef.
+  // On subsequent location changes: reuses the existing marker via setLngLat (no re-create).
+  // When location becomes null: removes the marker and clears the ref.
   useEffect(() => {
-    if (!mapRef.current || !mapLoaded || !motoristaLocation) return;
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
 
+    if (!motoristaLocation) {
+      motoristaMarkerRef.current?.remove();
+      motoristaMarkerRef.current = null;
+      return;
+    }
+
+    const lngLat: [number, number] = [
+      motoristaLocation.longitude,
+      motoristaLocation.latitude,
+    ];
+
+    if (motoristaMarkerRef.current) {
+      // Existing marker — just move it, no DOM re-create
+      motoristaMarkerRef.current.setLngLat(lngLat);
+      return;
+    }
+
+    // First render — create element + marker
     const el = document.createElement("div");
     el.className = "motorista-marker";
+    el.setAttribute("role", "img");
     el.setAttribute(
       "aria-label",
       motoristaNome ? `Motorista: ${motoristaNome}` : "Motorista",
     );
-    el.setAttribute("role", "img");
     // Use the theme primary color from design tokens — no hardcoded colors
-    const markerColor = theme.colors.primary;
-    el.style.cssText = `width:20px;height:20px;border-radius:50%;background:${markerColor};border:3px solid #fff;box-shadow:0 0 0 2px rgba(0,0,0,0.2);cursor:pointer;`;
+    el.style.cssText = `width:20px;height:20px;border-radius:50%;background:${theme.colors.primary};border:3px solid #fff;box-shadow:0 0 0 2px rgba(0,0,0,0.2);cursor:pointer;`;
 
-    const marker = new maplibregl.Marker({ element: el })
-      .setLngLat([motoristaLocation.longitude, motoristaLocation.latitude])
-      .addTo(mapRef.current);
-
-    return () => {
-      marker.remove();
-    };
+    motoristaMarkerRef.current = new maplibregl.Marker({ element: el })
+      .setLngLat(lngLat)
+      .addTo(map);
   }, [mapLoaded, motoristaLocation, motoristaNome, theme.colors.primary]);
+
+  // Unmount cleanup: remove the motorista marker if it exists
+  useEffect(() => {
+    return () => {
+      motoristaMarkerRef.current?.remove();
+      motoristaMarkerRef.current = null;
+    };
+  }, []);
 
   if (loadError) {
     return (

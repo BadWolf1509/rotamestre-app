@@ -46,13 +46,11 @@ export function useMotoristaLocationMapLibre(
         if (cancelled) return;
 
         if (error) {
-          // PGRST116 = no rows returned — expected when route has no locations yet
-          if (error.code !== "PGRST116") {
-            logger.warn(
-              "[useMotoristaLocationMapLibre] Location not available:",
-              error.code,
-            );
-          }
+          // maybeSingle() returns { data: null, error: null } when zero rows found — no PGRST116 guard needed
+          logger.warn(
+            "[useMotoristaLocationMapLibre] Location not available:",
+            error.code,
+          );
           return;
         }
 
