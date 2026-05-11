@@ -169,7 +169,7 @@ export default function MapaRota() {
             onPress={() => router.back()}
             style={styles.emptyStateBackLink}
             accessibilityLabel="Voltar"
-            accessibilityRole="link"
+            accessibilityRole="button"
           >
             <Text style={styles.backLinkText}>{'<-'} Voltar</Text>
           </TouchableOpacity>
