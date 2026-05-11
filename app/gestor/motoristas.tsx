@@ -35,7 +35,6 @@ import { useUser } from '@/hooks/useUser';
 import { styles } from '@/styles/gestor/motoristas.styles';
 import { useUnistyles } from '@/utils/styles';
 
-
 export default function MotoristasGestor() {
   const { theme } = useUnistyles();
   const router = useRouter();
@@ -100,7 +99,9 @@ export default function MotoristasGestor() {
   const renderAddModalContent = () => (
     <ScrollView showsVerticalScrollIndicator={Platform.OS === 'web'}>
       <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-        <Text style={[styles.label, isDesktop && styles.labelCompact]}>Nome Completo *</Text>
+        <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+          Nome Completo *
+        </Text>
         <TextInput
           style={[styles.input, isDesktop && styles.inputCompact]}
           value={formNome}
@@ -113,9 +114,15 @@ export default function MotoristasGestor() {
       </View>
 
       <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-        <Text style={[styles.label, isDesktop && styles.labelCompact]}>Email *</Text>
+        <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+          Email *
+        </Text>
         <TextInput
-          style={[styles.input, isDesktop && styles.inputCompact, emailError && styles.inputError]}
+          style={[
+            styles.input,
+            isDesktop && styles.inputCompact,
+            emailError && styles.inputError,
+          ]}
           value={formEmail}
           onChangeText={(text) => {
             setFormEmail(text.toLowerCase());
@@ -132,9 +139,15 @@ export default function MotoristasGestor() {
       </View>
 
       <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-        <Text style={[styles.label, isDesktop && styles.labelCompact]}>Telefone (opcional)</Text>
+        <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+          Telefone (opcional)
+        </Text>
         <TextInput
-          style={[styles.input, isDesktop && styles.inputCompact, telefoneError && styles.inputError]}
+          style={[
+            styles.input,
+            isDesktop && styles.inputCompact,
+            telefoneError && styles.inputError,
+          ]}
           value={formTelefone}
           onChangeText={handleTelefoneChange}
           placeholder="(00) 00000-0000"
@@ -143,11 +156,15 @@ export default function MotoristasGestor() {
           maxLength={15}
           accessibilityLabel="Campo de telefone do motorista"
         />
-        {telefoneError ? <Text style={styles.errorText}>{telefoneError}</Text> : null}
+        {telefoneError ? (
+          <Text style={styles.errorText}>{telefoneError}</Text>
+        ) : null}
       </View>
 
       <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-        <Text style={[styles.label, isDesktop && styles.labelCompact]}>Senha Inicial *</Text>
+        <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+          Senha Inicial *
+        </Text>
         <TextInput
           style={[styles.input, isDesktop && styles.inputCompact]}
           value={formSenha}
@@ -158,7 +175,9 @@ export default function MotoristasGestor() {
           autoCapitalize="none"
           accessibilityLabel="Campo de senha do motorista"
         />
-        <Text style={[styles.helperText, isDesktop && styles.helperTextCompact]}>
+        <Text
+          style={[styles.helperText, isDesktop && styles.helperTextCompact]}
+        >
           O motorista poderá alterar a senha no primeiro acesso
         </Text>
       </View>
@@ -168,7 +187,9 @@ export default function MotoristasGestor() {
   const renderEditModalContent = () => (
     <ScrollView showsVerticalScrollIndicator={Platform.OS === 'web'}>
       <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-        <Text style={[styles.label, isDesktop && styles.labelCompact]}>Nome Completo *</Text>
+        <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+          Nome Completo *
+        </Text>
         <TextInput
           style={[styles.input, isDesktop && styles.inputCompact]}
           value={formNome}
@@ -181,22 +202,36 @@ export default function MotoristasGestor() {
       </View>
 
       <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-        <Text style={[styles.label, isDesktop && styles.labelCompact]}>Email</Text>
+        <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+          Email
+        </Text>
         <TextInput
-          style={[styles.input, isDesktop && styles.inputCompact, styles.inputDisabledStyle]}
+          style={[
+            styles.input,
+            isDesktop && styles.inputCompact,
+            styles.inputDisabledStyle,
+          ]}
           value={motoristaEditando?.email}
           editable={false}
           accessibilityLabel="Email do motorista (não editável)"
         />
-        <Text style={[styles.helperText, isDesktop && styles.helperTextCompact]}>
+        <Text
+          style={[styles.helperText, isDesktop && styles.helperTextCompact]}
+        >
           Email não pode ser alterado
         </Text>
       </View>
 
       <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-        <Text style={[styles.label, isDesktop && styles.labelCompact]}>Telefone (opcional)</Text>
+        <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+          Telefone (opcional)
+        </Text>
         <TextInput
-          style={[styles.input, isDesktop && styles.inputCompact, telefoneError && styles.inputError]}
+          style={[
+            styles.input,
+            isDesktop && styles.inputCompact,
+            telefoneError && styles.inputError,
+          ]}
           value={formTelefone}
           onChangeText={handleTelefoneChange}
           placeholder="(00) 00000-0000"
@@ -205,11 +240,12 @@ export default function MotoristasGestor() {
           maxLength={15}
           accessibilityLabel="Campo de telefone do motorista"
         />
-        {telefoneError ? <Text style={styles.errorText}>{telefoneError}</Text> : null}
+        {telefoneError ? (
+          <Text style={styles.errorText}>{telefoneError}</Text>
+        ) : null}
       </View>
     </ScrollView>
   );
-
 
   // ============================================
   // DataTable Configuration
@@ -223,7 +259,10 @@ export default function MotoristasGestor() {
       render: (motorista) => (
         <View style={styles.avatarCell}>
           {motorista.foto_url ? (
-            <Image source={{ uri: motorista.foto_url }} style={styles.avatarImage} />
+            <Image
+              source={{ uri: motorista.foto_url }}
+              style={styles.avatarImage}
+            />
           ) : (
             <View style={styles.avatarPlaceholder}>
               <Text style={styles.avatarInitial}>
@@ -240,14 +279,18 @@ export default function MotoristasGestor() {
       width: 200,
       sortable: true,
       noWrap: true,
-      render: (motorista) => <Text style={styles.tableCellText}>{motorista.nome}</Text>,
+      render: (motorista) => (
+        <Text style={styles.tableCellText}>{motorista.nome}</Text>
+      ),
     },
     {
       key: 'email',
       label: 'E-mail',
       width: 260,
       noWrap: true,
-      render: (motorista) => <Text style={styles.tableCellText}>{motorista.email}</Text>,
+      render: (motorista) => (
+        <Text style={styles.tableCellText}>{motorista.email}</Text>
+      ),
     },
     {
       key: 'telefone',
@@ -287,7 +330,8 @@ export default function MotoristasGestor() {
       label: 'Ver Perfil',
       icon: 'person-outline',
       type: 'secondary',
-      onPress: (motorista) => router.push(`/gestor/motorista-perfil?id=${motorista.id}`),
+      onPress: (motorista) =>
+        router.push(`/gestor/motorista-perfil?id=${motorista.id}`),
     },
     {
       label: 'Editar',
@@ -326,8 +370,17 @@ export default function MotoristasGestor() {
   const tableHeaderActions = isDesktop ? (
     <View style={styles.cardHeaderActions}>
       {desktopStats}
-      <TouchableOpacity style={styles.cardAddButton} onPress={abrirModalAdicionar}>
-        <Ionicons name="add-circle-outline" size={18} color={theme.colors.white} />
+      <TouchableOpacity
+        style={styles.cardAddButton}
+        onPress={abrirModalAdicionar}
+        accessibilityLabel="Adicionar motorista"
+        accessibilityRole="button"
+      >
+        <Ionicons
+          name="add-circle-outline"
+          size={18}
+          color={theme.colors.white}
+        />
         <Text style={styles.cardAddButtonText}>Adicionar Motorista</Text>
       </TouchableOpacity>
     </View>
@@ -341,7 +394,9 @@ export default function MotoristasGestor() {
     <Dialog
       visible={showConfirmModal}
       variant="confirm"
-      title={motoristaParaToggle?.ativo ? 'Desativar Motorista' : 'Ativar Motorista'}
+      title={
+        motoristaParaToggle?.ativo ? 'Desativar Motorista' : 'Ativar Motorista'
+      }
       message={`Deseja realmente ${motoristaParaToggle?.ativo ? 'desativar' : 'ativar'} ${motoristaParaToggle?.nome}?`}
       confirmText="Confirmar"
       cancelText="Cancelar"
@@ -379,8 +434,14 @@ export default function MotoristasGestor() {
           >
             {motoristas.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <Ionicons name="people-outline" size={64} color={theme.colors.gray400} />
-                <Text style={styles.emptyText}>Nenhum motorista cadastrado</Text>
+                <Ionicons
+                  name="people-outline"
+                  size={64}
+                  color={theme.colors.gray400}
+                />
+                <Text style={styles.emptyText}>
+                  Nenhum motorista cadastrado
+                </Text>
                 <Text style={styles.emptySubtext}>
                   Adicione o primeiro motorista usando o botão acima
                 </Text>
@@ -479,105 +540,106 @@ export default function MotoristasGestor() {
 
   return (
     <ErrorBoundary>
-    <>
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.content}>
-          <View style={styles.topSection}>
-            <View style={styles.infoBox}>
-              <Text style={styles.infoText}>
-                {motoristas.length} {motoristas.length === 1 ? 'motorista' : 'motoristas'}{' '}
-                cadastrados
-              </Text>
+      <>
+        <ScrollView style={styles.scrollView}>
+          <View style={styles.content}>
+            <View style={styles.topSection}>
+              <View style={styles.infoBox}>
+                <Text style={styles.infoText}>
+                  {motoristas.length}{' '}
+                  {motoristas.length === 1 ? 'motorista' : 'motoristas'}{' '}
+                  cadastrados
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.addButtonMobile}
+                onPress={abrirModalAdicionar}
+                accessibilityLabel="Adicionar novo motorista"
+                accessibilityRole="button"
+              >
+                <Text style={styles.addButtonText}>+ Novo Motorista</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={styles.addButtonMobile}
-              onPress={abrirModalAdicionar}
-              accessibilityLabel="Adicionar novo motorista"
-              accessibilityRole="button"
-            >
-              <Text style={styles.addButtonText}>+ Novo Motorista</Text>
-            </TouchableOpacity>
+
+            {motoristas.length === 0 ? (
+              <MobileEmptyState
+                icon="👤"
+                title="Nenhum motorista cadastrado"
+                subtitle="Adicione o primeiro motorista usando o botão acima"
+              />
+            ) : (
+              <DataTable
+                data={motoristas}
+                columns={columns}
+                actions={actions}
+                keyExtractor={(item) => item.id}
+                itemsPerPage={20}
+                pagination
+                isLoading={loading}
+                skeletonRows={10}
+              />
+            )}
           </View>
+        </ScrollView>
 
-          {motoristas.length === 0 ? (
-            <MobileEmptyState
-              icon="👤"
-              title="Nenhum motorista cadastrado"
-              subtitle="Adicione o primeiro motorista usando o botão acima"
-            />
-          ) : (
-            <DataTable
-              data={motoristas}
-              columns={columns}
-              actions={actions}
-              keyExtractor={(item) => item.id}
-              itemsPerPage={20}
-              pagination
-              isLoading={loading}
-              skeletonRows={10}
-            />
-          )}
-        </View>
-      </ScrollView>
-
-      <DesktopModal
-        visible={showAddModal}
-        title="Adicionar Motorista"
-        onClose={() => {
-          setShowAddModal(false);
-          resetFormulario();
-        }}
-        closeOnOverlayPress={false}
-        maxWidth={500}
-        primaryButton={{
-          text: 'Adicionar',
-          onPress: adicionarMotorista,
-          loading: salvando,
-        }}
-        secondaryButton={{
-          text: 'Cancelar',
-          onPress: () => {
+        <DesktopModal
+          visible={showAddModal}
+          title="Adicionar Motorista"
+          onClose={() => {
             setShowAddModal(false);
             resetFormulario();
-          },
-          disabled: salvando,
-        }}
-      >
-        {renderAddModalContent()}
-      </DesktopModal>
+          }}
+          closeOnOverlayPress={false}
+          maxWidth={500}
+          primaryButton={{
+            text: 'Adicionar',
+            onPress: adicionarMotorista,
+            loading: salvando,
+          }}
+          secondaryButton={{
+            text: 'Cancelar',
+            onPress: () => {
+              setShowAddModal(false);
+              resetFormulario();
+            },
+            disabled: salvando,
+          }}
+        >
+          {renderAddModalContent()}
+        </DesktopModal>
 
-      <DesktopModal
-        visible={showEditModal}
-        title="Editar Motorista"
-        onClose={() => {
-          setShowEditModal(false);
-          setMotoristaEditando(null);
-          resetFormulario();
-        }}
-        closeOnOverlayPress={false}
-        maxWidth={500}
-        primaryButton={{
-          text: 'Salvar',
-          onPress: editarMotorista,
-          loading: salvando,
-        }}
-        secondaryButton={{
-          text: 'Cancelar',
-          onPress: () => {
+        <DesktopModal
+          visible={showEditModal}
+          title="Editar Motorista"
+          onClose={() => {
             setShowEditModal(false);
             setMotoristaEditando(null);
             resetFormulario();
-          },
-          disabled: salvando,
-        }}
-      >
-        {renderEditModalContent()}
-      </DesktopModal>
+          }}
+          closeOnOverlayPress={false}
+          maxWidth={500}
+          primaryButton={{
+            text: 'Salvar',
+            onPress: editarMotorista,
+            loading: salvando,
+          }}
+          secondaryButton={{
+            text: 'Cancelar',
+            onPress: () => {
+              setShowEditModal(false);
+              setMotoristaEditando(null);
+              resetFormulario();
+            },
+            disabled: salvando,
+          }}
+        >
+          {renderEditModalContent()}
+        </DesktopModal>
 
-      {confirmModal}
-      <Toast {...toastState} onDismiss={hideToast} />
-      {logoutModal}
-    </>
+        {confirmModal}
+        <Toast {...toastState} onDismiss={hideToast} />
+        {logoutModal}
+      </>
     </ErrorBoundary>
   );
 }
