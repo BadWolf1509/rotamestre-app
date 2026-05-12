@@ -138,9 +138,12 @@ export default function MapaRota() {
   // ===== Computed Values =====
   const statusBadgeVariant = useMemo(
     () => getStatusBadgeVariant(theme, rota?.status),
-    [theme, rota?.status]
+    [theme, rota?.status],
   );
-  const statusLabel = useMemo(() => formatStatusLabel(rota?.status), [rota?.status]);
+  const statusLabel = useMemo(
+    () => formatStatusLabel(rota?.status),
+    [rota?.status],
+  );
   const hasBaseInfo = useHasBaseInfo(pontosBase);
 
   // ===== Loading State =====
@@ -162,7 +165,12 @@ export default function MapaRota() {
     return (
       <>
         <View style={styles.emptyStateContainer}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.emptyStateBackLink}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.emptyStateBackLink}
+            accessibilityLabel="Voltar"
+            accessibilityRole="button"
+          >
             <Text style={styles.backLinkText}>{'<-'} Voltar</Text>
           </TouchableOpacity>
 
@@ -219,310 +227,318 @@ export default function MapaRota() {
   if (isDesktop) {
     return (
       <ErrorBoundary>
-      <>
-        <DesktopPageLayout
-          title={pageMeta.title}
-          subtitle={pageMeta.subtitle}
-          breadcrumbs={pageMeta.breadcrumbs}
-          userMenuTrigger={userMenuTrigger}
-          userMenuItems={userMenuItems}
-          fullWidth
-          noPadding
-        >
-          {/* Compact Header */}
-          <RouteInfoHeaderCompact
-            rota={rota}
-            resumoParadas={resumoParadas}
-            onCancelPress={modals.openCancelModal}
-            onReactivatePress={modals.openReactivateModal}
-            onChangeDriverPress={modals.openChangeDriverModal}
-            onAddStopPress={modals.openAddStopModal}
-            onReorderPress={modals.openReorderModal}
+        <>
+          <DesktopPageLayout
+            title={pageMeta.title}
+            subtitle={pageMeta.subtitle}
+            breadcrumbs={pageMeta.breadcrumbs}
+            userMenuTrigger={userMenuTrigger}
+            userMenuItems={userMenuItems}
+            fullWidth
+            noPadding
+          >
+            {/* Compact Header */}
+            <RouteInfoHeaderCompact
+              rota={rota}
+              resumoParadas={resumoParadas}
+              onCancelPress={modals.openCancelModal}
+              onReactivatePress={modals.openReactivateModal}
+              onChangeDriverPress={modals.openChangeDriverModal}
+              onAddStopPress={modals.openAddStopModal}
+              onReorderPress={modals.openReorderModal}
+            />
+
+            {/* Split View: Map | Stops */}
+            {paradas.length > 0 ? (
+              <SplitView
+                left={
+                  <DesktopCard
+                    title="Mapa"
+                    icon="map-outline"
+                    iconColor={theme.colors.primary}
+                    variant="elevated"
+                    noPadding
+                  >
+                    <View
+                      style={{ height: OPTIMIZED_MAP_HEIGHT }}
+                      testID="gestor-mapa-view"
+                    >
+                      <MapaAdapter
+                        paradas={paradas}
+                        selectedParadaId={selectedParadaId}
+                        onMarkerPress={handleMarkerPress}
+                        onMapPress={handleMapPress}
+                        rotaId={rota?.id}
+                        motoristaNome={rota?.motorista?.nome}
+                        showMotorista={rota?.status === 'em_andamento'}
+                        unidadeNome={rota?.unidade?.nome}
+                      />
+                    </View>
+                  </DesktopCard>
+                }
+                right={
+                  <View style={{ gap: 12, flex: 1 }}>
+                    <DesktopCard
+                      title="Paradas"
+                      icon="list-outline"
+                      iconColor={theme.colors.secondary}
+                      variant="outlined"
+                    >
+                      <ScrollView
+                        style={{ maxHeight: OPTIMIZED_MAP_HEIGHT - 80 }}
+                        ref={listaParadasRef}
+                        showsVerticalScrollIndicator={false}
+                      >
+                        {paradasReais.length === 0 ? (
+                          <View style={styles.emptyParadas}>
+                            <Text style={styles.emptyParadasText}>
+                              Nenhuma entrega ou retirada registrada.
+                            </Text>
+                          </View>
+                        ) : (
+                          paradasReais.map((parada, index) => (
+                            <ParadaCardCompact
+                              key={parada.id}
+                              parada={parada}
+                              index={index}
+                              onImagePress={handleImagePress}
+                              selected={selectedParadaId === parada.id}
+                              onPress={handleParadaPress}
+                              onLayoutCapture={handleParadaLayout}
+                              rotaStatus={rota?.status}
+                              onRemove={(parada) => {
+                                handleRemoveStopRequest(parada);
+                                modals.openRemoveStopModal();
+                              }}
+                              onEdit={(parada) => {
+                                handleEditStop(parada);
+                                modals.openEditStopModal();
+                              }}
+                            />
+                          ))
+                        )}
+                      </ScrollView>
+
+                      {paradasReais.length > 0 && (
+                        <View style={{ marginTop: 12 }}>
+                          <ResumoInline resumoParadas={resumoParadas} />
+                        </View>
+                      )}
+                    </DesktopCard>
+                  </View>
+                }
+                leftFlex={1.2}
+                rightFlex={1}
+                gap={20}
+              />
+            ) : (
+              <DesktopCard variant="outlined">
+                <View style={styles.emptyParadas}>
+                  <Text style={styles.emptyParadasText}>
+                    Nenhuma parada nesta rota
+                  </Text>
+                </View>
+              </DesktopCard>
+            )}
+
+            {/* Collapsible Timeline */}
+            <View style={{ marginTop: 16 }}>
+              <TimelineCollapsible
+                rotaId={id as string}
+                rotaCreatedAt={rota?.created_at}
+              />
+            </View>
+
+            {/* Unit Base Points */}
+            {hasBaseInfo && (
+              <View style={{ marginTop: 16 }}>
+                <DesktopCard
+                  title="Pontos da Unidade"
+                  icon="business-outline"
+                  iconColor={theme.colors.secondary}
+                  variant="outlined"
+                >
+                  <BaseInfoContent pontosBase={pontosBase} />
+                  <Button
+                    title="Ver cadastro da unidade"
+                    icon="arrow-forward-outline"
+                    iconPosition="right"
+                    variant="ghost"
+                    onPress={() => router.push('/unidade')}
+                    style={styles.baseInfoLink}
+                  />
+                </DesktopCard>
+              </View>
+            )}
+          </DesktopPageLayout>
+
+          {/* Modals */}
+          <PhotoModal
+            visible={!!fotoSelecionada}
+            photoUrl={fotoSelecionada}
+            onClose={clearFotoSelecionada}
           />
 
-          {/* Split View: Map | Stops */}
-          {paradas.length > 0 ? (
-            <SplitView
-              left={
-                <DesktopCard
-                  title="Mapa"
-                  icon="map-outline"
-                  iconColor={theme.colors.primary}
-                  variant="elevated"
-                  noPadding
-                >
-                  <View style={{ height: OPTIMIZED_MAP_HEIGHT }} testID="gestor-mapa-view">
-                    <MapaAdapter
-                      paradas={paradas}
-                      selectedParadaId={selectedParadaId}
-                      onMarkerPress={handleMarkerPress}
-                      onMapPress={handleMapPress}
-                      rotaId={rota?.id}
-                      motoristaNome={rota?.motorista?.nome}
-                      showMotorista={rota?.status === 'em_andamento'}
-                      unidadeNome={rota?.unidade?.nome}
-                    />
-                  </View>
-                </DesktopCard>
+          <Dialog
+            visible={modals.showCancelModal}
+            variant="confirm"
+            title="Cancelar rota"
+            message="Tem certeza que deseja cancelar esta rota? Esta ação não pode ser desfeita."
+            confirmText="Sim, cancelar"
+            cancelText="Não"
+            onConfirm={async () => {
+              await handleConfirmCancel();
+              modals.closeCancelModal();
+            }}
+            onCancel={modals.closeCancelModal}
+            type="danger"
+          />
+
+          <Dialog
+            visible={modals.showReactivateModal}
+            variant="confirm"
+            title="Reativar rota"
+            message="Deseja reativar esta rota expirada? A rota será reprogramada para hoje e as paradas não concluídas voltarão ao status pendente."
+            confirmText="Sim, reativar"
+            cancelText="Cancelar"
+            onConfirm={async () => {
+              await handleConfirmReactivate();
+              modals.closeReactivateModal();
+            }}
+            onCancel={modals.closeReactivateModal}
+            type="success"
+          />
+
+          <ChangeDriverModal
+            visible={modals.showChangeDriverModal}
+            currentMotoristaId={rota.motorista_id}
+            currentMotoristaNome={rota.motorista?.nome}
+            unidadeId={rota.unidade_id || ''}
+            onConfirm={async (newId, newNome) => {
+              await handleChangeDriver(newId, newNome);
+              modals.closeChangeDriverModal();
+            }}
+            onCancel={modals.closeChangeDriverModal}
+          />
+
+          <Dialog
+            visible={modals.showRemoveStopModal && !!paradaToRemove}
+            variant="confirm"
+            title="Remover parada"
+            message={`Tem certeza que deseja remover esta parada?\n\n${paradaToRemove?.endereco || ''}\n\nA rota será recalculada automaticamente.`}
+            confirmText="Sim, remover"
+            cancelText="Cancelar"
+            onConfirm={async () => {
+              await handleConfirmRemoveStop();
+              modals.closeRemoveStopModal();
+            }}
+            onCancel={() => {
+              modals.closeRemoveStopModal();
+              clearParadaToRemove();
+            }}
+            type="danger"
+          />
+
+          <EditStopModal
+            visible={modals.showEditStopModal && !!paradaToEdit}
+            parada={paradaToEdit}
+            rotaId={Array.isArray(id) ? id[0] : id || ''}
+            enderecoUnidade={enderecoUnidade}
+            allParadas={paradasReais}
+            onSave={async () => {
+              await handleEditStopSave();
+              modals.closeEditStopModal();
+            }}
+            onCancel={() => {
+              modals.closeEditStopModal();
+              clearParadaToEdit();
+            }}
+            usuarioId={userData?.id}
+            motoristaId={rota?.motorista_id}
+          />
+
+          <AddStopModal
+            visible={modals.showAddStopModal}
+            rotaId={Array.isArray(id) ? id[0] : id || ''}
+            enderecoUnidade={enderecoUnidade}
+            currentParadasCount={paradasReais.length}
+            allParadas={paradasReais}
+            onSave={async () => {
+              await handleAddStopSave();
+              modals.closeAddStopModal();
+            }}
+            onCancel={modals.closeAddStopModal}
+            usuarioId={userData?.id}
+            motoristaId={rota?.motorista_id}
+          />
+
+          <DesktopModal
+            visible={modals.showReorderModal}
+            onClose={() => {
+              if (hasReorderChanges) {
+                modals.openReorderConfirmClose();
+              } else {
+                modals.closeReorderModal();
               }
-              right={
-                <View style={{ gap: 12, flex: 1 }}>
-                  <DesktopCard
-                    title="Paradas"
-                    icon="list-outline"
-                    iconColor={theme.colors.secondary}
-                    variant="outlined"
-                  >
-                    <ScrollView
-                      style={{ maxHeight: OPTIMIZED_MAP_HEIGHT - 80 }}
-                      ref={listaParadasRef}
-                      showsVerticalScrollIndicator={false}
-                    >
-                      {paradasReais.length === 0 ? (
-                        <View style={styles.emptyParadas}>
-                          <Text style={styles.emptyParadasText}>
-                            Nenhuma entrega ou retirada registrada.
-                          </Text>
-                        </View>
-                      ) : (
-                        paradasReais.map((parada, index) => (
-                          <ParadaCardCompact
-                            key={parada.id}
-                            parada={parada}
-                            index={index}
-                            onImagePress={handleImagePress}
-                            selected={selectedParadaId === parada.id}
-                            onPress={handleParadaPress}
-                            onLayoutCapture={handleParadaLayout}
-                            rotaStatus={rota?.status}
-                            onRemove={(parada) => {
-                              handleRemoveStopRequest(parada);
-                              modals.openRemoveStopModal();
-                            }}
-                            onEdit={(parada) => {
-                              handleEditStop(parada);
-                              modals.openEditStopModal();
-                            }}
-                          />
-                        ))
-                      )}
-                    </ScrollView>
-
-                    {paradasReais.length > 0 && (
-                      <View style={{ marginTop: 12 }}>
-                        <ResumoInline resumoParadas={resumoParadas} />
-                      </View>
-                    )}
-                  </DesktopCard>
-                </View>
-              }
-              leftFlex={1.2}
-              rightFlex={1}
-              gap={20}
-            />
-          ) : (
-            <DesktopCard variant="outlined">
-              <View style={styles.emptyParadas}>
-                <Text style={styles.emptyParadasText}>Nenhuma parada nesta rota</Text>
-              </View>
-            </DesktopCard>
-          )}
-
-          {/* Collapsible Timeline */}
-          <View style={{ marginTop: 16 }}>
-            <TimelineCollapsible rotaId={id as string} rotaCreatedAt={rota?.created_at} />
-          </View>
-
-          {/* Unit Base Points */}
-          {hasBaseInfo && (
-            <View style={{ marginTop: 16 }}>
-              <DesktopCard
-                title="Pontos da Unidade"
-                icon="business-outline"
-                iconColor={theme.colors.secondary}
-                variant="outlined"
-              >
-                <BaseInfoContent pontosBase={pontosBase} />
-                <Button
-                  title="Ver cadastro da unidade"
-                  icon="arrow-forward-outline"
-                  iconPosition="right"
-                  variant="ghost"
-                  onPress={() => router.push('/unidade')}
-                  style={styles.baseInfoLink}
-                />
-              </DesktopCard>
-            </View>
-          )}
-        </DesktopPageLayout>
-
-        {/* Modals */}
-        <PhotoModal
-          visible={!!fotoSelecionada}
-          photoUrl={fotoSelecionada}
-          onClose={clearFotoSelecionada}
-        />
-
-        <Dialog
-          visible={modals.showCancelModal}
-          variant="confirm"
-          title="Cancelar rota"
-          message="Tem certeza que deseja cancelar esta rota? Esta ação não pode ser desfeita."
-          confirmText="Sim, cancelar"
-          cancelText="Não"
-          onConfirm={async () => {
-            await handleConfirmCancel();
-            modals.closeCancelModal();
-          }}
-          onCancel={modals.closeCancelModal}
-          type="danger"
-        />
-
-        <Dialog
-          visible={modals.showReactivateModal}
-          variant="confirm"
-          title="Reativar rota"
-          message="Deseja reativar esta rota expirada? A rota será reprogramada para hoje e as paradas não concluídas voltarão ao status pendente."
-          confirmText="Sim, reativar"
-          cancelText="Cancelar"
-          onConfirm={async () => {
-            await handleConfirmReactivate();
-            modals.closeReactivateModal();
-          }}
-          onCancel={modals.closeReactivateModal}
-          type="success"
-        />
-
-        <ChangeDriverModal
-          visible={modals.showChangeDriverModal}
-          currentMotoristaId={rota.motorista_id}
-          currentMotoristaNome={rota.motorista?.nome}
-          unidadeId={rota.unidade_id || ''}
-          onConfirm={async (newId, newNome) => {
-            await handleChangeDriver(newId, newNome);
-            modals.closeChangeDriverModal();
-          }}
-          onCancel={modals.closeChangeDriverModal}
-        />
-
-        <Dialog
-          visible={modals.showRemoveStopModal && !!paradaToRemove}
-          variant="confirm"
-          title="Remover parada"
-          message={`Tem certeza que deseja remover esta parada?\n\n${paradaToRemove?.endereco || ''}\n\nA rota será recalculada automaticamente.`}
-          confirmText="Sim, remover"
-          cancelText="Cancelar"
-          onConfirm={async () => {
-            await handleConfirmRemoveStop();
-            modals.closeRemoveStopModal();
-          }}
-          onCancel={() => {
-            modals.closeRemoveStopModal();
-            clearParadaToRemove();
-          }}
-          type="danger"
-        />
-
-        <EditStopModal
-          visible={modals.showEditStopModal && !!paradaToEdit}
-          parada={paradaToEdit}
-          rotaId={Array.isArray(id) ? id[0] : id || ''}
-          enderecoUnidade={enderecoUnidade}
-          allParadas={paradasReais}
-          onSave={async () => {
-            await handleEditStopSave();
-            modals.closeEditStopModal();
-          }}
-          onCancel={() => {
-            modals.closeEditStopModal();
-            clearParadaToEdit();
-          }}
-          usuarioId={userData?.id}
-          motoristaId={rota?.motorista_id}
-        />
-
-        <AddStopModal
-          visible={modals.showAddStopModal}
-          rotaId={Array.isArray(id) ? id[0] : id || ''}
-          enderecoUnidade={enderecoUnidade}
-          currentParadasCount={paradasReais.length}
-          allParadas={paradasReais}
-          onSave={async () => {
-            await handleAddStopSave();
-            modals.closeAddStopModal();
-          }}
-          onCancel={modals.closeAddStopModal}
-          usuarioId={userData?.id}
-          motoristaId={rota?.motorista_id}
-        />
-
-        <DesktopModal
-          visible={modals.showReorderModal}
-          onClose={() => {
-            if (hasReorderChanges) {
-              modals.openReorderConfirmClose();
-            } else {
-              modals.closeReorderModal();
+            }}
+            title="Reordenar Paradas"
+            maxWidth={500}
+            primaryButton={
+              Platform.OS === 'web'
+                ? {
+                    text: 'Salvar',
+                    onPress: () => reorderControlRef.current?.saveChanges(),
+                    loading: isReordering,
+                    disabled: !hasReorderChanges,
+                  }
+                : undefined
             }
-          }}
-          title="Reordenar Paradas"
-          maxWidth={500}
-          primaryButton={
-            Platform.OS === 'web'
-              ? {
-                  text: 'Salvar',
-                  onPress: () => reorderControlRef.current?.saveChanges(),
-                  loading: isReordering,
-                  disabled: !hasReorderChanges,
-                }
-              : undefined
-          }
-          secondaryButton={
-            Platform.OS === 'web'
-              ? {
-                  text: 'Cancelar',
-                  onPress: () => {
-                    reorderControlRef.current?.cancelChanges();
-                    setHasReorderChanges(false);
-                  },
-                  disabled: isReordering || !hasReorderChanges,
-                }
-              : undefined
-          }
-        >
-          <DraggableStopList
-            paradas={paradas}
-            onReorder={async (newOrder) => {
-              await handleReorderParadas(newOrder);
+            secondaryButton={
+              Platform.OS === 'web'
+                ? {
+                    text: 'Cancelar',
+                    onPress: () => {
+                      reorderControlRef.current?.cancelChanges();
+                      setHasReorderChanges(false);
+                    },
+                    disabled: isReordering || !hasReorderChanges,
+                  }
+                : undefined
+            }
+          >
+            <DraggableStopList
+              paradas={paradas}
+              onReorder={async (newOrder) => {
+                await handleReorderParadas(newOrder);
+                modals.closeReorderModal();
+              }}
+              rotaStatus={rota?.status || ''}
+              isLoading={isReordering}
+              onWebChangesChange={setHasReorderChanges}
+              controlRef={reorderControlRef}
+            />
+          </DesktopModal>
+
+          <Dialog
+            visible={modals.showReorderConfirmClose}
+            variant="confirm"
+            title="Descartar Alterações?"
+            message="Você tem alterações não salvas na ordem das paradas. Deseja descartá-las?"
+            type="warning"
+            confirmText="Descartar"
+            cancelText="Voltar"
+            onConfirm={() => {
+              reorderControlRef.current?.cancelChanges();
+              setHasReorderChanges(false);
+              modals.closeReorderConfirmClose();
               modals.closeReorderModal();
             }}
-            rotaStatus={rota?.status || ''}
-            isLoading={isReordering}
-            onWebChangesChange={setHasReorderChanges}
-            controlRef={reorderControlRef}
+            onCancel={modals.closeReorderConfirmClose}
           />
-        </DesktopModal>
 
-        <Dialog
-          visible={modals.showReorderConfirmClose}
-          variant="confirm"
-          title="Descartar Alterações?"
-          message="Você tem alterações não salvas na ordem das paradas. Deseja descartá-las?"
-          type="warning"
-          confirmText="Descartar"
-          cancelText="Voltar"
-          onConfirm={() => {
-            reorderControlRef.current?.cancelChanges();
-            setHasReorderChanges(false);
-            modals.closeReorderConfirmClose();
-            modals.closeReorderModal();
-          }}
-          onCancel={modals.closeReorderConfirmClose}
-        />
-
-        <Toast {...toast} onDismiss={hideToast} />
-        {logoutModal}
-      </>
+          <Toast {...toast} onDismiss={hideToast} />
+          {logoutModal}
+        </>
       </ErrorBoundary>
     );
   }
@@ -530,87 +546,98 @@ export default function MapaRota() {
   // ===== Mobile Layout =====
   return (
     <ErrorBoundary>
-    <>
-      <View style={styles.rotaInfo}>
-        <Text style={styles.motoristaData}>
-          {rota?.motorista?.nome || 'Sem motorista'}  {formatDateBR(rota?.data)}
-        </Text>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Status:</Text>
-          <View style={[styles.statusBadge, statusBadgeVariant.container]}>
-            <Text style={[styles.statusBadgeText, statusBadgeVariant.text]}>{statusLabel}</Text>
-          </View>
-        </View>
-        {rota.distancia_total && (
+      <>
+        <View style={styles.rotaInfo}>
+          <Text style={styles.motoristaData}>
+            {rota?.motorista?.nome || 'Sem motorista'}{' '}
+            {formatDateBR(rota?.data)}
+          </Text>
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Distancia Total:</Text>
-            <Text style={styles.infoValue}>{rota.distancia_total.toFixed(1)} km</Text>
+            <Text style={styles.infoLabel}>Status:</Text>
+            <View style={[styles.statusBadge, statusBadgeVariant.container]}>
+              <Text style={[styles.statusBadgeText, statusBadgeVariant.text]}>
+                {statusLabel}
+              </Text>
+            </View>
           </View>
-        )}
-      </View>
-
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.content}>
-          {paradas.length > 0 ? (
-            <>
-              <View style={styles.mapContainer} testID="gestor-mapa-view">
-                <MapaAdapter
-                  paradas={paradas}
-                  selectedParadaId={selectedParadaId}
-                  onMarkerPress={handleMarkerPress}
-                  onMapPress={handleMapPress}
-                  rotaId={rota?.id}
-                  motoristaNome={rota?.motorista?.nome}
-                  showMotorista={rota?.status === 'em_andamento'}
-                  unidadeNome={rota?.unidade?.nome}
-                />
-              </View>
-
-              <View style={styles.paradasContainer}>
-                <Text style={styles.paradasTitle}>Paradas ({resumoParadas.total})</Text>
-
-                {paradasReais.map((parada, index) => (
-                  <ParadaCard
-                    key={parada.id}
-                    parada={parada}
-                    index={index}
-                    onImagePress={handleImagePress}
-                    selected={selectedParadaId === parada.id}
-                    onPress={handleParadaPress}
-                    onLayoutCapture={handleParadaLayout}
-                  />
-                ))}
-
-                {hasBaseInfo && (
-                  <View style={styles.baseInfoCard}>
-                    <Text style={styles.baseInfoTitle}>Pontos da Unidade</Text>
-                    <BaseInfoContent pontosBase={pontosBase} />
-                  </View>
-                )}
-
-                <View style={styles.resumo}>
-                  <Text style={styles.resumoTitle}>Resumo da Rota</Text>
-                  <ResumoStats resumoParadas={resumoParadas} />
-                </View>
-              </View>
-            </>
-          ) : (
-            <View style={styles.emptyParadas}>
-              <Text style={styles.emptyParadasText}>Nenhuma parada nesta rota</Text>
+          {rota.distancia_total && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Distancia Total:</Text>
+              <Text style={styles.infoValue}>
+                {rota.distancia_total.toFixed(1)} km
+              </Text>
             </View>
           )}
         </View>
-      </ScrollView>
 
-      <PhotoModal
-        visible={!!fotoSelecionada}
-        photoUrl={fotoSelecionada}
-        onClose={clearFotoSelecionada}
-      />
+        <ScrollView style={styles.scrollView}>
+          <View style={styles.content}>
+            {paradas.length > 0 ? (
+              <>
+                <View style={styles.mapContainer} testID="gestor-mapa-view">
+                  <MapaAdapter
+                    paradas={paradas}
+                    selectedParadaId={selectedParadaId}
+                    onMarkerPress={handleMarkerPress}
+                    onMapPress={handleMapPress}
+                    rotaId={rota?.id}
+                    motoristaNome={rota?.motorista?.nome}
+                    showMotorista={rota?.status === 'em_andamento'}
+                    unidadeNome={rota?.unidade?.nome}
+                  />
+                </View>
 
-      <Toast {...toast} onDismiss={hideToast} />
-      {logoutModal}
-    </>
+                <View style={styles.paradasContainer}>
+                  <Text style={styles.paradasTitle}>
+                    Paradas ({resumoParadas.total})
+                  </Text>
+
+                  {paradasReais.map((parada, index) => (
+                    <ParadaCard
+                      key={parada.id}
+                      parada={parada}
+                      index={index}
+                      onImagePress={handleImagePress}
+                      selected={selectedParadaId === parada.id}
+                      onPress={handleParadaPress}
+                      onLayoutCapture={handleParadaLayout}
+                    />
+                  ))}
+
+                  {hasBaseInfo && (
+                    <View style={styles.baseInfoCard}>
+                      <Text style={styles.baseInfoTitle}>
+                        Pontos da Unidade
+                      </Text>
+                      <BaseInfoContent pontosBase={pontosBase} />
+                    </View>
+                  )}
+
+                  <View style={styles.resumo}>
+                    <Text style={styles.resumoTitle}>Resumo da Rota</Text>
+                    <ResumoStats resumoParadas={resumoParadas} />
+                  </View>
+                </View>
+              </>
+            ) : (
+              <View style={styles.emptyParadas}>
+                <Text style={styles.emptyParadasText}>
+                  Nenhuma parada nesta rota
+                </Text>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+
+        <PhotoModal
+          visible={!!fotoSelecionada}
+          photoUrl={fotoSelecionada}
+          onClose={clearFotoSelecionada}
+        />
+
+        <Toast {...toast} onDismiss={hideToast} />
+        {logoutModal}
+      </>
     </ErrorBoundary>
   );
 }

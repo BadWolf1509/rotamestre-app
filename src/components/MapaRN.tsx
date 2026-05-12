@@ -1,19 +1,19 @@
-import { Ionicons } from "@expo/vector-icons";
-import MapLibreGL from "@maplibre/maplibre-react-native";
-import React, { useMemo, useCallback } from "react";
-import { View, TouchableOpacity, Text, Linking, Platform } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
+import MapLibreGL from '@maplibre/maplibre-react-native';
+import React, { useMemo, useCallback } from 'react';
+import { View, TouchableOpacity, Text, Linking, Platform } from 'react-native';
 
-import { useDirectionsMobile } from "@/components/map/hooks";
-import { getStatusColor } from "@/components/map/infoWindowBuilders";
-import { useAlert } from "@/hooks/useAlert";
+import { useDirectionsMobile } from '@/components/map/hooks';
+import { getStatusColor } from '@/components/map/infoWindowBuilders';
+import { useAlert } from '@/hooks/useAlert';
 import {
   MAPLIBRE_RASTER_STYLE,
   toLineString,
   toLngLat,
   zoomFromLongitudeDelta,
-} from "@/lib/maplibre";
-import type { ParadaWithCoords as Parada } from "@/types/parada-map";
-import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
+} from '@/lib/maplibre';
+import type { ParadaWithCoords as Parada } from '@/types/parada-map';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface MapaRNProps {
   paradas: Parada[];
@@ -69,8 +69,8 @@ export function MapaRN({
       await Linking.openURL(url);
     } else {
       showError({
-        title: "Erro",
-        message: "Google Maps não está instalado no dispositivo.",
+        title: 'Erro',
+        message: 'Google Maps não está instalado no dispositivo.',
       });
     }
   }, [showError, validParadas]);
@@ -149,8 +149,8 @@ export function MapaRN({
           const borderWidth = isSelected ? 4 : 3;
           const accessLabel = isCheckpoint
             ? markerStyle.isPartida
-              ? "Ponto de Partida"
-              : "Ponto de Chegada"
+              ? 'Ponto de Partida'
+              : 'Ponto de Chegada'
             : `Parada ${parada.ordem}`;
 
           return (
@@ -185,7 +185,7 @@ export function MapaRN({
                   >
                     {isCheckpoint ? (
                       <Ionicons
-                        name={markerStyle.isPartida ? "flag" : "flag-outline"}
+                        name={markerStyle.isPartida ? 'flag' : 'flag-outline'}
                         size={isCheckpoint ? 20 : 18}
                         color={markerStyle.backgroundColor}
                       />
@@ -232,6 +232,8 @@ export function MapaRN({
           style={styles.botaoNavegar}
           onPress={handleIniciarNavegacao}
           activeOpacity={0.8}
+          accessibilityLabel="Navegar para destino"
+          accessibilityRole="button"
         >
           <Text style={styles.botaoTexto}>🧭 Iniciar Navegação</Text>
         </TouchableOpacity>
@@ -250,8 +252,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: theme.colors.background,
   },
   emptyText: {
@@ -259,14 +261,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.textSecondary,
   },
   markerContainer: {
-    alignItems: "center",
+    alignItems: 'center',
   },
   marker: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 3,
     borderColor: theme.colors.primary,
     backgroundColor: theme.colors.surface,
@@ -284,11 +286,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   markerText: {
     color: theme.colors.primary,
-    fontWeight: "bold",
+    fontWeight: 'bold',
     fontSize: theme.typography.fontSize.base,
   },
   infoBox: {
-    position: "absolute",
+    position: 'absolute',
     top: theme.spacing.lg,
     left: theme.spacing.lg,
     right: theme.spacing.lg,
@@ -305,10 +307,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
   infoText: {
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.text,
-    textAlign: "center",
+    textAlign: 'center',
   },
   botaoNavegar: {
-    position: "absolute",
+    position: 'absolute',
     bottom: theme.spacing.xl,
     left: theme.spacing.lg,
     right: theme.spacing.lg,
@@ -324,7 +326,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   botaoTexto: {
     color: theme.colors.surface,
     fontSize: theme.typography.fontSize.lg,
-    fontWeight: "bold",
-    textAlign: "center",
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 }));

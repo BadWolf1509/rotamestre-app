@@ -2,15 +2,43 @@
 
 Este documento descreve a arquitetura de testes, padrões e convenções utilizadas no projeto rotamestre-app.
 
+## Status Atual
+
+**Framework:** Jest + React Native Testing Library
+**Suites:** 285+, **Testes:** 5490+ passando
+**Threshold de cobertura:** 73% lines (atual ~74%)
+
+### Executando testes
+
+```bash
+npm test                  # execução completa
+npm test -- --watch       # modo watch
+npm run test:coverage     # com relatório de cobertura
+npm test -- <padrão>      # filtrar por nome/caminho
+```
+
+### Layout dos testes
+
+- Unitários/integração: `src/**/__tests__/*.test.ts(x)`
+- E2E: `e2e/` (Playwright; ver `npm run test:e2e`)
+- Regressão visual: `tools/scripts/run-visual-tests.cjs` (`npm run test:visual`)
+
+### Caveats conhecidos
+
+- `react-test-renderer` deve ter a mesma versão que `react` (restrição de paridade do jest-expo).
+- `renderHook` em hooks com async/realtime pesado (`useGestaoRotas`, `offline.ts`, `useRealtimeRoutes`) pode causar OOM acima de 4 GB — prefira testar os helpers puros extraídos desses hooks.
+
+---
+
 ## Stack de Testes
 
-| Ferramenta | Versão | Propósito |
-|------------|--------|-----------|
-| Jest | 29.x | Test runner e framework de testes |
-| jest-expo | 54.x | Preset para projetos Expo |
-| @testing-library/react-native | 12.x | Utilitários para testar componentes |
-| @testing-library/jest-native | 5.x | Matchers adicionais para React Native |
-| jest-junit | 16.x | Reporter XML para CI/CD |
+| Ferramenta                    | Versão | Propósito                             |
+| ----------------------------- | ------ | ------------------------------------- |
+| Jest                          | 29.x   | Test runner e framework de testes     |
+| jest-expo                     | 55.x   | Preset para projetos Expo             |
+| @testing-library/react-native | 12.x   | Utilitários para testar componentes   |
+| @testing-library/jest-native  | 5.x    | Matchers adicionais para React Native |
+| jest-junit                    | 16.x   | Reporter XML para CI/CD               |
 
 ## Estrutura de Arquivos
 
@@ -239,7 +267,7 @@ describe('FuncaoComLogger', () => {
 
     expect(logger.error).toHaveBeenCalledWith(
       '[Contexto] Mensagem de erro',
-      expect.any(Error)
+      expect.any(Error),
     );
   });
 });
@@ -286,12 +314,12 @@ function setupSupabaseMocks() {
 
 ### Thresholds Atuais
 
-| Métrica | Threshold | Atual |
-|---------|-----------|-------|
-| Branches | 65% | ~68% |
-| Functions | 68% | ~71% |
-| Lines | 69% | ~72% |
-| Statements | 69% | ~72% |
+| Métrica    | Threshold | Atual |
+| ---------- | --------- | ----- |
+| Branches   | 65%       | ~66%  |
+| Functions  | 72%       | ~73%  |
+| Lines      | 73%       | ~74%  |
+| Statements | 72%       | ~73%  |
 
 ### Exclusões de Cobertura
 
@@ -363,12 +391,14 @@ reporters: [
 ### Problemas Comuns
 
 **1. "Cannot find module"**
+
 ```bash
 # Limpar cache do Jest
 npm test -- --clearCache
 ```
 
 **2. "Timeout exceeded"**
+
 ```javascript
 // Aumentar timeout do teste
 jest.setTimeout(30000);
@@ -380,6 +410,7 @@ it('operação lenta', async () => {
 ```
 
 **3. "Act warning"**
+
 ```typescript
 // Envolver atualizações de estado em act()
 await act(async () => {
@@ -388,6 +419,7 @@ await act(async () => {
 ```
 
 **4. Snapshots desatualizados**
+
 ```bash
 npm test -- -u
 ```

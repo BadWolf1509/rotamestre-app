@@ -73,7 +73,10 @@ export function AvatarEditable({
   const getInitials = (fullName: string): string => {
     if (!fullName) return '?';
 
-    const words = fullName.trim().split(' ').filter(w => w.length > 0);
+    const words = fullName
+      .trim()
+      .split(' ')
+      .filter((w) => w.length > 0);
 
     if (words.length === 1) {
       return words[0].substring(0, 2).toUpperCase();
@@ -132,6 +135,9 @@ export function AvatarEditable({
       disabled={isDisabled || !onPress}
       activeOpacity={0.8}
       style={styles.container}
+      accessibilityLabel="Editar foto de perfil"
+      accessibilityRole="button"
+      accessibilityState={{ disabled: isDisabled || !onPress }}
     >
       <View
         style={[
@@ -165,14 +171,7 @@ export function AvatarEditable({
               },
             ]}
           >
-            <Text
-              style={[
-                styles.initials,
-                { fontSize },
-              ]}
-            >
-              {initials}
-            </Text>
+            <Text style={[styles.initials, { fontSize }]}>{initials}</Text>
           </View>
         )}
 
@@ -205,11 +204,7 @@ export function AvatarEditable({
             },
           ]}
         >
-          <Ionicons
-            name="camera"
-            size={iconSize}
-            color={theme.colors.white}
-          />
+          <Ionicons name="camera" size={iconSize} color={theme.colors.white} />
         </View>
       )}
     </TouchableOpacity>

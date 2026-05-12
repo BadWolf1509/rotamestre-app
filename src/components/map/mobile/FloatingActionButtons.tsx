@@ -4,13 +4,13 @@
  * Renders the map control FABs: fit-all, center-on-user, and navigate-to-next-stop.
  */
 
-import { Ionicons } from "@expo/vector-icons";
-import React from "react";
-import { View, TouchableOpacity, ActivityIndicator } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { View, TouchableOpacity, ActivityIndicator } from 'react-native';
 
-import { mapMobileStyles as styles } from "@/components/map/mobile/styles";
-import type { ParadaMapItem as Parada } from "@/types/parada-map";
-import { useUnistyles } from "@/utils/styles";
+import { mapMobileStyles as styles } from '@/components/map/mobile/styles';
+import type { ParadaMapItem as Parada } from '@/types/parada-map';
+import { useUnistyles } from '@/utils/styles';
 
 interface FloatingActionButtonsProps {
   onFitAll: () => void;
@@ -60,11 +60,11 @@ export function FloatingActionButtons({
         accessible={true}
         accessibilityLabel={
           isLocating
-            ? "Obtendo localização"
-            : "Centralizar mapa na minha localização"
+            ? 'Obtendo localização'
+            : 'Centralizar mapa na minha localização'
         }
         accessibilityRole="button"
-        accessibilityState={{ busy: isLocating }}
+        accessibilityState={{ busy: isLocating, disabled: isLocating }}
       >
         {isLocating ? (
           <ActivityIndicator size="small" color={theme.colors.primary} />
