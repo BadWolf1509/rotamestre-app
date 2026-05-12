@@ -1,14 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import MapLibreGL from "@maplibre/maplibre-react-native";
-import React, { useCallback, useState } from "react";
-import {
-  View,
-  Text,
-  ActivityIndicator,
-  TouchableOpacity,
-  Pressable,
-  Linking,
-} from "react-native";
+import React, { useState } from "react";
+import { View, Text, ActivityIndicator, TouchableOpacity } from "react-native";
 
 import { useLocationTracking } from "@/components/map/hooks/useLocationTracking";
 import { useMarkerGestures } from "@/components/map/hooks/useMarkerGestures";
@@ -16,15 +9,13 @@ import { useMobileMapCamera } from "@/components/map/hooks/useMobileMapCamera";
 import { useNavigationActions } from "@/components/map/hooks/useNavigationActions";
 import { useParadaFiltering } from "@/components/map/hooks/useParadaFiltering";
 import { useRouteShape } from "@/components/map/hooks/useRouteShape";
-import { getStatusLabel } from "@/components/map/infoWindowBuilders";
 import { CheckpointMarker } from "@/components/map/mobile/markers/CheckpointMarker";
+import { ParadaMarker } from "@/components/map/mobile/markers/ParadaMarker";
 import { mapMobileStyles as styles } from "@/components/map/mobile/styles";
 import { MotoristaMarker } from "@/components/MotoristaMarker";
 import { useAlert } from "@/hooks/useAlert";
 import { MAPLIBRE_RASTER_STYLE, toLngLat } from "@/lib/maplibre";
 import type { ParadaMapItem as Parada, StatusFilter } from "@/types/parada-map";
-import { withOpacity } from "@/utils/color";
-import { getMarkerFillColor } from "@/utils/mapMarkerColors";
 import { useUnistyles } from "@/utils/styles";
 
 interface MapaMobileProps {
@@ -85,14 +76,6 @@ export function MapaMobile({
 
   // Location centering
   const { isLocating, handleCenterOnUser } = useLocationTracking(cameraRef);
-
-  // Marker color from centralized statusConfig (WCAG-compliant dark variants)
-  const getMarkerColor = useCallback(
-    (status: string): string => {
-      return getMarkerFillColor(status, theme.colors);
-    },
-    [theme.colors],
-  );
 
   // Marker/map gestures + clipboard
   const {
@@ -178,115 +161,12 @@ export function MapaMobile({
             })}
             anchor={{ x: 0.5, y: 1 }}
           >
-            <View style={styles.markerWrapper}>
-              {selectedParadaId === parada.id && (
-                <View style={styles.calloutWrapper}>
-                  <View style={styles.calloutContainer}>
-                    <Text style={styles.calloutTitle}>
-                      Parada {parada.ordem}
-                    </Text>
-                    <Text style={styles.calloutAddress} numberOfLines={2}>
-                      {parada.endereco}
-                    </Text>
-
-                    {/* Destinatário */}
-                    {parada.destinatario && (
-                      <View style={styles.calloutDetailRow}>
-                        <Ionicons
-                          name="person-outline"
-                          size={14}
-                          color={theme.colors.textSecondary}
-                        />
-                        <Text
-                          style={styles.calloutDetailText}
-                          numberOfLines={1}
-                        >
-                          {parada.destinatario}
-                        </Text>
-                      </View>
-                    )}
-
-                    {/* Telefone clicável */}
-                    {parada.telefone && (
-                      <TouchableOpacity
-                        style={styles.calloutDetailRow}
-                        onPress={() =>
-                          Linking.openURL(`tel:${parada.telefone}`)
-                        }
-                        accessibilityLabel={`Ligar para ${parada.telefone}`}
-                        accessibilityRole="button"
-                      >
-                        <Ionicons
-                          name="call-outline"
-                          size={14}
-                          color={theme.colors.primary}
-                        />
-                        <Text style={styles.calloutPhoneText}>
-                          {parada.telefone}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-
-                    {/* Badges: Status e Tipo */}
-                    <View style={styles.calloutBadges}>
-                      <View
-                        style={[
-                          styles.calloutStatus,
-                          {
-                            backgroundColor: withOpacity(
-                              getMarkerColor(parada.status),
-                              0.12,
-                            ),
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.calloutStatusText,
-                            { color: getMarkerColor(parada.status) },
-                          ]}
-                        >
-                          {getStatusLabel(parada.status)}
-                        </Text>
-                      </View>
-                      {parada.tipo && (
-                        <View style={styles.calloutTypeBadge}>
-                          <Ionicons
-                            name={
-                              parada.tipo === "entrega"
-                                ? "cube-outline"
-                                : "arrow-up-circle-outline"
-                            }
-                            size={12}
-                            color={theme.colors.textSecondary}
-                          />
-                          <Text style={styles.calloutTypeText}>
-                            {parada.tipo === "entrega" ? "Entrega" : "Retirada"}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                </View>
-              )}
-
-              <Pressable
-                onPress={() => handleMarkerPress(parada.id)}
-                onLongPress={() => handleMarkerLongPress(parada.id)}
-                delayLongPress={400}
-                style={({ pressed }) => [
-                  styles.markerContainer,
-                  { backgroundColor: getMarkerColor(parada.status) },
-                  selectedParadaId === parada.id && styles.markerSelected,
-                  pressed && styles.markerPressed,
-                ]}
-                accessibilityLabel={`Parada ${parada.ordem}, ${parada.endereco}, ${getStatusLabel(parada.status)}`}
-                accessibilityHint="Toque para ver detalhes. Mantenha pressionado para ações rápidas"
-                accessibilityRole="button"
-              >
-                <Text style={styles.markerText}>{parada.ordem}</Text>
-              </Pressable>
-            </View>
+            <ParadaMarker
+              parada={parada}
+              isSelected={selectedParadaId === parada.id}
+              onPress={handleMarkerPress}
+              onLongPress={handleMarkerLongPress}
+            />
           </MapLibreGL.MarkerView>
         ))}
 
