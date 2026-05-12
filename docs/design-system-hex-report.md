@@ -8,14 +8,15 @@
 
 ## Summary
 
-- Files with hex colors: 9
-- Total hex occurrences: 195
+- Files with hex colors: 10
+- Total hex occurrences: 196
 
 ## Findings
 
 - `app/+html.tsx`: L28 #284093, L77 #284093, L78 #ffffff
 - `app/auth/login.tsx`: L29 #284093, L38 #284093
 - `app/design-system.tsx`: L186 #16a34a, L189 #2563eb, L192 #ca8a04, L194 #dc2626, L383 #FFFFFF, L384 #000000, L387 #FFFFFF, L387 #000000, L1456 #FF0000
+- `src/components/MapaWebMapLibre.tsx`: L690 #fff
 - `src/components/motorista/NavigationMode.web.tsx`: L231 #4285F4
 - `src/components/motorista/PictureInPictureMap.web.tsx`: L539 #000000
 - `src/components/motorista/TurnByTurnNavigation.web.tsx`: L643 #000, L654 #000, L664 #000
