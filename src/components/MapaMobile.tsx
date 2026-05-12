@@ -17,6 +17,7 @@ import { useNavigationActions } from "@/components/map/hooks/useNavigationAction
 import { useParadaFiltering } from "@/components/map/hooks/useParadaFiltering";
 import { useRouteShape } from "@/components/map/hooks/useRouteShape";
 import { getStatusLabel } from "@/components/map/infoWindowBuilders";
+import { CheckpointMarker } from "@/components/map/mobile/markers/CheckpointMarker";
 import { mapMobileStyles as styles } from "@/components/map/mobile/styles";
 import { MotoristaMarker } from "@/components/MotoristaMarker";
 import { useAlert } from "@/hooks/useAlert";
@@ -143,89 +144,29 @@ export function MapaMobile({
         )}
 
         {/* Marcadores dos checkpoints (PARTIDA/CHEGADA) */}
-        {checkpoints.map((parada, index) => {
-          const isPartida = index === 0;
-          const checkpointLabel = isPartida ? "PARTIDA" : "CHEGADA";
-          const iconName = isPartida ? "flag" : "home";
-          const isSelected = selectedCheckpointId === parada.id;
-
-          return (
-            <MapLibreGL.MarkerView
-              key={parada.id}
-              coordinate={toLngLat({
-                latitude: parada.latitude!,
-                longitude: parada.longitude!,
-              })}
-              anchor={{ x: 0.5, y: 1 }}
-            >
-              <View style={styles.markerWrapper}>
-                {isSelected && (
-                  <View style={styles.calloutWrapper}>
-                    <View style={styles.checkpointCalloutContainer}>
-                      <View style={styles.checkpointCalloutHeader}>
-                        <View style={styles.checkpointIconBadge}>
-                          <Ionicons
-                            name={iconName}
-                            size={12}
-                            color={theme.colors.white}
-                          />
-                        </View>
-                        <Text style={styles.checkpointCalloutTitle}>
-                          {checkpointLabel}
-                        </Text>
-                      </View>
-                      {unidadeNome && (
-                        <Text style={styles.checkpointCalloutUnidade}>
-                          {unidadeNome}
-                        </Text>
-                      )}
-                      <Text
-                        style={styles.checkpointCalloutAddress}
-                        numberOfLines={2}
-                      >
-                        {parada.endereco}
-                      </Text>
-                      {/* Botão copiar endereço */}
-                      <TouchableOpacity
-                        style={styles.copyButton}
-                        onPress={() => handleCopyAddress(parada.endereco)}
-                        accessibilityLabel="Copiar endereço"
-                        accessibilityRole="button"
-                      >
-                        <Ionicons
-                          name="copy-outline"
-                          size={14}
-                          color={theme.colors.textSecondary}
-                        />
-                        <Text style={styles.copyButtonText}>
-                          Copiar endereço
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
-
-                <Pressable
-                  onPress={() =>
-                    setSelectedCheckpointId((prev) =>
-                      prev === parada.id ? null : parada.id,
-                    )
-                  }
-                  style={styles.checkpointMarkerCompact}
-                  accessibilityLabel={`${checkpointLabel}, ${parada.endereco}`}
-                  accessibilityHint="Toque para ver informações"
-                  accessibilityRole="button"
-                >
-                  <Ionicons
-                    name={iconName}
-                    size={16}
-                    color={theme.colors.white}
-                  />
-                </Pressable>
-              </View>
-            </MapLibreGL.MarkerView>
-          );
-        })}
+        {checkpoints.map((parada, index) => (
+          <MapLibreGL.MarkerView
+            key={parada.id}
+            coordinate={toLngLat({
+              latitude: parada.latitude!,
+              longitude: parada.longitude!,
+            })}
+            anchor={{ x: 0.5, y: 1 }}
+          >
+            <CheckpointMarker
+              index={index}
+              endereco={parada.endereco}
+              isSelected={selectedCheckpointId === parada.id}
+              unidadeNome={unidadeNome}
+              onPress={() =>
+                setSelectedCheckpointId((prev) =>
+                  prev === parada.id ? null : parada.id,
+                )
+              }
+              onCopyAddress={handleCopyAddress}
+            />
+          </MapLibreGL.MarkerView>
+        ))}
 
         {/* Marcadores das paradas reais (entregas/retiradas) - filtradas por status */}
         {paradasFiltradas.map((parada) => (
