@@ -95,15 +95,15 @@ npm test -- src/hooks/__tests__/useAuth.test.ts
 
 ```javascript
 module.exports = {
-  preset: "jest-expo",
-  setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
+  preset: 'jest-expo',
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
 
   // Cobertura
   collectCoverageFrom: [
-    "src/**/*.{ts,tsx}",
-    "!src/types/**/*.ts",
-    "!**/__tests__/**",
-    "!**/__mocks__/**",
+    'src/**/*.{ts,tsx}',
+    '!src/types/**/*.ts',
+    '!**/__tests__/**',
+    '!**/__mocks__/**',
   ],
 
   // Thresholds globais
@@ -118,8 +118,8 @@ module.exports = {
 
   // Alias
   moduleNameMapper: {
-    "\\.(png|jpg|jpeg|gif|svg)$": "<rootDir>/__mocks__/fileMock.js",
-    "^@/(.*)$": "<rootDir>/src/$1",
+    '\\.(png|jpg|jpeg|gif|svg)$': '<rootDir>/__mocks__/fileMock.js',
+    '^@/(.*)$': '<rootDir>/src/$1',
   },
 };
 ```
@@ -160,18 +160,18 @@ describe('NomeDoModulo', () => {
 ### 2. Testando Hooks
 
 ```typescript
-import { renderHook, act, waitFor } from "@testing-library/react-native";
-import { useMyHook } from "../useMyHook";
+import { renderHook, act, waitFor } from '@testing-library/react-native';
+import { useMyHook } from '../useMyHook';
 
-describe("useMyHook", () => {
-  it("deve retornar estado inicial", () => {
+describe('useMyHook', () => {
+  it('deve retornar estado inicial', () => {
     const { result } = renderHook(() => useMyHook());
 
     expect(result.current.loading).toBe(false);
     expect(result.current.data).toBeNull();
   });
 
-  it("deve atualizar estado após ação", async () => {
+  it('deve atualizar estado após ação', async () => {
     const { result } = renderHook(() => useMyHook());
 
     await act(async () => {
@@ -219,29 +219,29 @@ describe('Button', () => {
 ### 4. Mockando Supabase
 
 ```typescript
-import { supabase } from "@/lib/supabase";
+import { supabase } from '@/lib/supabase';
 
-jest.mock("@/lib/supabase");
+jest.mock('@/lib/supabase');
 
 const mockSupabase = supabase as jest.Mocked<typeof supabase>;
 
-describe("ServiceComSupabase", () => {
+describe('ServiceComSupabase', () => {
   beforeEach(() => {
     // Reset do mock
     mockSupabase.from.mockReturnValue({
       select: jest.fn().mockReturnValue({
         eq: jest.fn().mockResolvedValue({
-          data: [{ id: "1", nome: "Teste" }],
+          data: [{ id: '1', nome: 'Teste' }],
           error: null,
         }),
       }),
     } as any);
   });
 
-  it("deve buscar dados", async () => {
+  it('deve buscar dados', async () => {
     const resultado = await buscarDados();
 
-    expect(mockSupabase.from).toHaveBeenCalledWith("tabela");
+    expect(mockSupabase.from).toHaveBeenCalledWith('tabela');
     expect(resultado).toHaveLength(1);
   });
 });
@@ -250,9 +250,9 @@ describe("ServiceComSupabase", () => {
 ### 5. Mockando Logger
 
 ```typescript
-import { logger } from "@/lib/logger";
+import { logger } from '@/lib/logger';
 
-jest.mock("@/lib/logger", () => ({
+jest.mock('@/lib/logger', () => ({
   logger: {
     info: jest.fn(),
     error: jest.fn(),
@@ -261,12 +261,12 @@ jest.mock("@/lib/logger", () => ({
   },
 }));
 
-describe("FuncaoComLogger", () => {
-  it("deve logar erro quando falha", async () => {
+describe('FuncaoComLogger', () => {
+  it('deve logar erro quando falha', async () => {
     await funcaoQuePodefFalhar();
 
     expect(logger.error).toHaveBeenCalledWith(
-      "[Contexto] Mensagem de erro",
+      '[Contexto] Mensagem de erro',
       expect.any(Error),
     );
   });
@@ -291,7 +291,7 @@ O arquivo `jest.setup.js` configura:
 ```javascript
 // jest.mocks/supabase.js
 function setupSupabaseMocks() {
-  jest.mock("@/lib/supabase", () => ({
+  jest.mock('@/lib/supabase', () => ({
     supabase: {
       auth: {
         signInWithPassword: jest.fn(),
@@ -404,7 +404,7 @@ npm test -- --clearCache
 jest.setTimeout(30000);
 
 // Ou no teste específico
-it("operação lenta", async () => {
+it('operação lenta', async () => {
   // ...
 }, 30000);
 ```

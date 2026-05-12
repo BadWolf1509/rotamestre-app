@@ -116,7 +116,7 @@ rotamestre-app/
 ### Colors (Design Tokens)
 
 ```typescript
-import { colors, spacing, typography } from "@/lib/design-tokens";
+import { colors, spacing, typography } from '@/lib/design-tokens';
 
 // Primary: Orange (#FF8C42)
 // Secondary: Blue (#4A90E2)
@@ -127,7 +127,7 @@ import { colors, spacing, typography } from "@/lib/design-tokens";
 ### Responsive Breakpoints
 
 ```typescript
-import { useResponsive } from "@/hooks/useResponsive";
+import { useResponsive } from '@/hooks/useResponsive';
 
 const { isMobile, isTablet, isDesktop, width } = useResponsive();
 
@@ -225,7 +225,7 @@ All Google APIs replaced with free open-source alternatives:
 Opens external navigation apps from the app:
 
 ```typescript
-import { openNavigation } from "@/lib/navigation";
+import { openNavigation } from '@/lib/navigation';
 
 // Mobile: Shows menu (Waze, Google Maps, Apple Maps)
 // Web: Opens Google Maps in new tab
@@ -276,7 +276,7 @@ await openNavigation(latitude, longitude);
 ### Auth Flow
 
 ```typescript
-import { supabase } from "@/lib/supabase";
+import { supabase } from '@/lib/supabase';
 
 // Login
 const { data, error } = await supabase.auth.signInWithPassword({
@@ -302,14 +302,14 @@ await supabase.auth.signOut();
 ```typescript
 // ✅ Good: Proper error handling, typed result
 const { data: rotas, error } = await supabase
-  .from("rotas")
-  .select("*, motorista:usuarios(nome), paradas(*)")
-  .eq("unidade_id", unidadeId)
-  .order("created_at", { ascending: false });
+  .from('rotas')
+  .select('*, motorista:usuarios(nome), paradas(*)')
+  .eq('unidade_id', unidadeId)
+  .order('created_at', { ascending: false });
 
 if (error) {
-  console.error("Failed to fetch routes:", error);
-  Alert.alert("Erro", "Não foi possível carregar as rotas");
+  console.error('Failed to fetch routes:', error);
+  Alert.alert('Erro', 'Não foi possível carregar as rotas');
   return;
 }
 ```
@@ -337,13 +337,13 @@ export default function Screen() {
 ### Form Validation
 
 ```typescript
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
 
 const schema = z.object({
-  titulo: z.string().min(1, "Título obrigatório"),
-  motorista_id: z.string().uuid("Selecione um motorista"),
+  titulo: z.string().min(1, 'Título obrigatório'),
+  motorista_id: z.string().uuid('Selecione um motorista'),
 });
 
 const {

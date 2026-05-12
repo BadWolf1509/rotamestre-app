@@ -10,23 +10,23 @@
  */
 
 // Mock the entire osrm module so we can control getOptimizedDirections
-jest.mock("../osrm", () => ({
+jest.mock('../osrm', () => ({
   getOptimizedDirections: jest.fn(),
   clearCache: jest.fn(),
 }));
 
-import { googleMapsService } from "../google";
-import { getOptimizedDirections } from "../osrm";
+import { googleMapsService } from '../google';
+import { getOptimizedDirections } from '../osrm';
 
 const mockGetOptimizedDirections = getOptimizedDirections as jest.Mock;
 
-describe("googleMapsService - osrm null/throw paths", () => {
+describe('googleMapsService - osrm null/throw paths', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  describe("getDirectionsWithError", () => {
-    it("deve retornar failure quando osrm retorna null (line 239)", async () => {
+  describe('getDirectionsWithError', () => {
+    it('deve retornar failure quando osrm retorna null (line 239)', async () => {
       mockGetOptimizedDirections.mockResolvedValueOnce(null);
 
       const result = await googleMapsService.getDirectionsWithError(
@@ -38,9 +38,9 @@ describe("googleMapsService - osrm null/throw paths", () => {
       expect(result.error).toBeDefined();
     });
 
-    it("deve retornar failure quando osrm lança exceção (lines 266-268)", async () => {
+    it('deve retornar failure quando osrm lança exceção (lines 266-268)', async () => {
       mockGetOptimizedDirections.mockRejectedValueOnce(
-        new Error("OSRM service unavailable"),
+        new Error('OSRM service unavailable'),
       );
 
       const result = await googleMapsService.getDirectionsWithError(
@@ -53,8 +53,8 @@ describe("googleMapsService - osrm null/throw paths", () => {
     });
   });
 
-  describe("getDirections (wrapper)", () => {
-    it("deve retornar null quando osrm retorna null", async () => {
+  describe('getDirections (wrapper)', () => {
+    it('deve retornar null quando osrm retorna null', async () => {
       mockGetOptimizedDirections.mockResolvedValueOnce(null);
 
       const result = await googleMapsService.getDirections(
@@ -65,9 +65,9 @@ describe("googleMapsService - osrm null/throw paths", () => {
       expect(result).toBeNull();
     });
 
-    it("deve retornar null quando osrm lança exceção", async () => {
+    it('deve retornar null quando osrm lança exceção', async () => {
       mockGetOptimizedDirections.mockRejectedValueOnce(
-        new Error("Network error"),
+        new Error('Network error'),
       );
 
       const result = await googleMapsService.getDirections(
@@ -79,8 +79,8 @@ describe("googleMapsService - osrm null/throw paths", () => {
     });
   });
 
-  describe("getDirectionsSequentialWithError", () => {
-    it("deve retornar failure quando osrm retorna null (line 301)", async () => {
+  describe('getDirectionsSequentialWithError', () => {
+    it('deve retornar failure quando osrm retorna null (line 301)', async () => {
       mockGetOptimizedDirections.mockResolvedValueOnce(null);
 
       const result = await googleMapsService.getDirectionsSequentialWithError(
@@ -93,9 +93,9 @@ describe("googleMapsService - osrm null/throw paths", () => {
       expect(result.error).toBeDefined();
     });
 
-    it("deve retornar failure quando osrm lança exceção (lines 328-330)", async () => {
+    it('deve retornar failure quando osrm lança exceção (lines 328-330)', async () => {
       mockGetOptimizedDirections.mockRejectedValueOnce(
-        new Error("Sequential route failed"),
+        new Error('Sequential route failed'),
       );
 
       const result = await googleMapsService.getDirectionsSequentialWithError(
@@ -109,8 +109,8 @@ describe("googleMapsService - osrm null/throw paths", () => {
     });
   });
 
-  describe("getDirectionsSequential (wrapper)", () => {
-    it("deve retornar null quando osrm retorna null", async () => {
+  describe('getDirectionsSequential (wrapper)', () => {
+    it('deve retornar null quando osrm retorna null', async () => {
       mockGetOptimizedDirections.mockResolvedValueOnce(null);
 
       const result = await googleMapsService.getDirectionsSequential(
@@ -122,8 +122,8 @@ describe("googleMapsService - osrm null/throw paths", () => {
       expect(result).toBeNull();
     });
 
-    it("deve retornar null quando osrm lança exceção", async () => {
-      mockGetOptimizedDirections.mockRejectedValueOnce(new Error("OSRM error"));
+    it('deve retornar null quando osrm lança exceção', async () => {
+      mockGetOptimizedDirections.mockRejectedValueOnce(new Error('OSRM error'));
 
       const result = await googleMapsService.getDirectionsSequential(
         { latitude: 0, longitude: 0 },

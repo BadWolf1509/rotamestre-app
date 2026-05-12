@@ -13,14 +13,14 @@
  * than end-to-end marker rendering (which requires a real browser/JSDOM).
  */
 
-import { render } from "@testing-library/react-native";
-import React from "react";
+import { render } from '@testing-library/react-native';
+import React from 'react';
 
 // ---------------------------------------------------------------------------
 // Mock: useMotoristaLocationMapLibre
 // ---------------------------------------------------------------------------
 const mockUseMotoristaLocationMapLibre = jest.fn();
-jest.mock("@/components/map/hooks/useMotoristaLocationMapLibre", () => ({
+jest.mock('@/components/map/hooks/useMotoristaLocationMapLibre', () => ({
   useMotoristaLocationMapLibre: (...args: unknown[]) =>
     mockUseMotoristaLocationMapLibre(...args),
 }));
@@ -28,7 +28,7 @@ jest.mock("@/components/map/hooks/useMotoristaLocationMapLibre", () => ({
 // ---------------------------------------------------------------------------
 // Mock: other hooks consumed by MapaWebMapLibre
 // ---------------------------------------------------------------------------
-jest.mock("@/hooks/useRouteDirections", () => ({
+jest.mock('@/hooks/useRouteDirections', () => ({
   useRouteDirections: () => ({ routeCoordinates: [] }),
 }));
 
@@ -42,7 +42,7 @@ const mockMarker = {
 };
 const MockMarkerConstructor = jest.fn(() => mockMarker);
 
-jest.mock("maplibre-gl", () => {
+jest.mock('maplibre-gl', () => {
   const MockMap = jest.fn().mockImplementation(() => ({
     on: jest.fn(),
     off: jest.fn(),
@@ -85,15 +85,15 @@ jest.mock("maplibre-gl", () => {
 // ---------------------------------------------------------------------------
 // Mock: openFreeMapStyle – resolves immediately
 // ---------------------------------------------------------------------------
-jest.mock("@/lib/openFreeMapStyle", () => ({
-  getOpenFreeMapStyle: jest.fn().mockResolvedValue("mock-style-url"),
+jest.mock('@/lib/openFreeMapStyle', () => ({
+  getOpenFreeMapStyle: jest.fn().mockResolvedValue('mock-style-url'),
   installOpenFreeMapMissingImageHandler: jest.fn(() => jest.fn()),
 }));
 
 // ---------------------------------------------------------------------------
 // Mock: escapeHtml util
 // ---------------------------------------------------------------------------
-jest.mock("@/lib/utils", () => ({
+jest.mock('@/lib/utils', () => ({
   escapeHtml: (s: string) => s,
 }));
 
@@ -101,20 +101,20 @@ jest.mock("@/lib/utils", () => ({
 // Import component AFTER mocks are in place
 // ---------------------------------------------------------------------------
 
-import MapaWebMapLibre from "../MapaWebMapLibre";
+import MapaWebMapLibre from '../MapaWebMapLibre';
 
 // ---------------------------------------------------------------------------
 // Test data
 // ---------------------------------------------------------------------------
 const mockParadas = [
   {
-    id: "p1",
+    id: 'p1',
     ordem: 1,
-    endereco: "Rua Teste, 1",
+    endereco: 'Rua Teste, 1',
     latitude: -23.55,
     longitude: -46.63,
-    status: "pendente" as const,
-    tipo: "entrega" as const,
+    status: 'pendente' as const,
+    tipo: 'entrega' as const,
     is_checkpoint: false,
   },
 ];
@@ -122,13 +122,13 @@ const mockParadas = [
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
-describe("MapaWebMapLibre – motorista marker", () => {
+describe('MapaWebMapLibre – motorista marker', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseMotoristaLocationMapLibre.mockReturnValue({ location: null });
   });
 
-  it("calls useMotoristaLocationMapLibre with rotaId when showMotorista=true", () => {
+  it('calls useMotoristaLocationMapLibre with rotaId when showMotorista=true', () => {
     render(
       <MapaWebMapLibre
         paradas={mockParadas}
@@ -138,10 +138,10 @@ describe("MapaWebMapLibre – motorista marker", () => {
       />,
     );
 
-    expect(mockUseMotoristaLocationMapLibre).toHaveBeenCalledWith("rota-abc");
+    expect(mockUseMotoristaLocationMapLibre).toHaveBeenCalledWith('rota-abc');
   });
 
-  it("calls useMotoristaLocationMapLibre with undefined when showMotorista=false", () => {
+  it('calls useMotoristaLocationMapLibre with undefined when showMotorista=false', () => {
     render(
       <MapaWebMapLibre
         paradas={mockParadas}
@@ -153,13 +153,13 @@ describe("MapaWebMapLibre – motorista marker", () => {
     expect(mockUseMotoristaLocationMapLibre).toHaveBeenCalledWith(undefined);
   });
 
-  it("calls useMotoristaLocationMapLibre with undefined when showMotorista is omitted", () => {
+  it('calls useMotoristaLocationMapLibre with undefined when showMotorista is omitted', () => {
     render(<MapaWebMapLibre paradas={mockParadas} rotaId="rota-abc" />);
 
     expect(mockUseMotoristaLocationMapLibre).toHaveBeenCalledWith(undefined);
   });
 
-  it("does not create a Marker when location is null", () => {
+  it('does not create a Marker when location is null', () => {
     mockUseMotoristaLocationMapLibre.mockReturnValue({ location: null });
 
     render(
@@ -176,7 +176,7 @@ describe("MapaWebMapLibre – motorista marker", () => {
     expect(mockMarker.setLngLat).not.toHaveBeenCalled();
   });
 
-  it("updates existing marker via setLngLat on location change (no re-create)", () => {
+  it('updates existing marker via setLngLat on location change (no re-create)', () => {
     // NOTE: MapaWebMapLibre uses a DOM ref for the map container. In the RN
     // test renderer (jest-expo / jsdom), mapContainerRef.current stays null,
     // so the map never initializes and the marker useEffect never runs.
@@ -210,7 +210,7 @@ describe("MapaWebMapLibre – motorista marker", () => {
     // true, which requires real DOM). We only assert no extra constructor call.
   });
 
-  it("uses maplibregl.Marker constructor in its implementation", () => {
+  it('uses maplibregl.Marker constructor in its implementation', () => {
     // Verify that MapaWebMapLibre imports and references maplibregl.Marker.
     // This is enforced by the module-level mock: if the import path is wrong
     // or Marker is not used, MockMarkerConstructor would not exist in scope.
@@ -221,9 +221,9 @@ describe("MapaWebMapLibre – motorista marker", () => {
     // Render with a location to confirm the hook is invoked correctly
     mockUseMotoristaLocationMapLibre.mockReturnValue({
       location: {
-        id: "loc-1",
-        motorista_id: "mot-1",
-        rota_id: "rota-abc",
+        id: 'loc-1',
+        motorista_id: 'mot-1',
+        rota_id: 'rota-abc',
         latitude: -23.55,
         longitude: -46.63,
         timestamp: new Date().toISOString(),
@@ -243,7 +243,7 @@ describe("MapaWebMapLibre – motorista marker", () => {
     );
 
     // The hook must receive the rotaId when showMotorista=true and location is present
-    expect(mockUseMotoristaLocationMapLibre).toHaveBeenCalledWith("rota-abc");
+    expect(mockUseMotoristaLocationMapLibre).toHaveBeenCalledWith('rota-abc');
     // MockMarkerConstructor represents maplibregl.Marker in this module;
     // its use in the effect is guarded on mapLoaded (requires real DOM to trigger)
     expect(MockMarkerConstructor).toBeDefined();

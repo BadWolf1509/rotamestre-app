@@ -15,29 +15,29 @@
  * @see https://openfreemap.org/
  */
 
-import maplibregl from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import React, {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-} from "react";
-import { View, ActivityIndicator, Text } from "react-native";
+} from 'react';
+import { View, ActivityIndicator, Text } from 'react-native';
 
-import { useMotoristaLocationMapLibre } from "@/components/map/hooks/useMotoristaLocationMapLibre";
-import { useRouteDirections } from "@/hooks/useRouteDirections";
-import { logger } from "@/lib/logger";
+import { useMotoristaLocationMapLibre } from '@/components/map/hooks/useMotoristaLocationMapLibre';
+import { useRouteDirections } from '@/hooks/useRouteDirections';
+import { logger } from '@/lib/logger';
 import {
   getOpenFreeMapStyle,
   installOpenFreeMapMissingImageHandler,
-} from "@/lib/openFreeMapStyle";
-import { escapeHtml } from "@/lib/utils";
-import type { ParadaMapItem as Parada, StatusFilter } from "@/types/parada-map";
-import { withOpacity } from "@/utils/color";
-import { getMarkerColorExpression } from "@/utils/mapMarkerColors";
-import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
+} from '@/lib/openFreeMapStyle';
+import { escapeHtml } from '@/lib/utils';
+import type { ParadaMapItem as Parada, StatusFilter } from '@/types/parada-map';
+import { withOpacity } from '@/utils/color';
+import { getMarkerColorExpression } from '@/utils/mapMarkerColors';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface MapaWebMapLibreProps {
   paradas: Parada[];
@@ -100,7 +100,7 @@ function decodePolyline(encoded: string): [number, number][] {
 
 function toNumber(value: number | null): number | null {
   if (value == null) return null;
-  const parsed = typeof value === "number" ? value : Number(value);
+  const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
@@ -115,26 +115,26 @@ function createPopupContent(
   theme: Theme,
 ): string {
   if (isCheckpoint) {
-    const title = isPartida ? "🚀 Ponto de Partida" : "🏁 Ponto de Chegada";
-    const subtitle = isPartida ? "Início da rota" : "Fim da rota";
+    const title = isPartida ? '🚀 Ponto de Partida' : '🏁 Ponto de Chegada';
+    const subtitle = isPartida ? 'Início da rota' : 'Fim da rota';
     return `
       <div style="padding: 8px; max-width: 250px; font-family: system-ui, -apple-system, sans-serif;">
         <strong style="font-size: 14px;">${title}</strong>
         <p style="margin: 4px 0; font-size: 12px; color: ${theme.colors.textSecondary};">${subtitle}</p>
-        ${unidadeNome ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Unidade:</strong> ${escapeHtml(unidadeNome)}</p>` : ""}
+        ${unidadeNome ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Unidade:</strong> ${escapeHtml(unidadeNome)}</p>` : ''}
         <p style="margin: 4px 0; font-size: 12px;">${escapeHtml(parada.endereco)}</p>
       </div>
     `;
   }
 
   const statusLabel: Record<string, string> = {
-    pendente: "🟡 Pendente",
-    em_andamento: "🔵 Em andamento",
-    concluida: "✅ Concluída",
-    pulada: "⏭️ Pulada",
+    pendente: '🟡 Pendente',
+    em_andamento: '🔵 Em andamento',
+    concluida: '✅ Concluída',
+    pulada: '⏭️ Pulada',
   };
 
-  const tipoLabel = parada.tipo === "entrega" ? "📦 Entrega" : "📤 Retirada";
+  const tipoLabel = parada.tipo === 'entrega' ? '📦 Entrega' : '📤 Retirada';
 
   return `
     <div style="padding: 8px; max-width: 280px; font-family: system-ui, -apple-system, sans-serif;">
@@ -142,8 +142,8 @@ function createPopupContent(
       <span style="margin-left: 8px; font-size: 12px; color: ${theme.colors.textSecondary};">${tipoLabel}</span>
       <p style="margin: 4px 0; font-size: 12px; color: ${theme.colors.textSecondary};">${statusLabel[parada.status] || escapeHtml(parada.status)}</p>
       <p style="margin: 4px 0; font-size: 12px;">${escapeHtml(parada.endereco)}</p>
-      ${parada.destinatario ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Destinatário:</strong> ${escapeHtml(parada.destinatario)}</p>` : ""}
-      ${parada.telefone ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Telefone:</strong> ${escapeHtml(parada.telefone)}</p>` : ""}
+      ${parada.destinatario ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Destinatário:</strong> ${escapeHtml(parada.destinatario)}</p>` : ''}
+      ${parada.telefone ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Telefone:</strong> ${escapeHtml(parada.telefone)}</p>` : ''}
     </div>
   `;
 }
@@ -153,7 +153,7 @@ export default function MapaWebMapLibre({
   selectedParadaId,
   onMarkerPress,
   onMapPress,
-  statusFilter = "all",
+  statusFilter = 'all',
   rotaId,
   motoristaNome,
   showMotorista = false,
@@ -199,7 +199,7 @@ export default function MapaWebMapLibre({
 
   // Filtered paradas by status
   const paradasFiltradas = useMemo(() => {
-    if (statusFilter === "all") return paradasReais;
+    if (statusFilter === 'all') return paradasReais;
     return paradasReais.filter((p) => p.status === statusFilter);
   }, [paradasReais, statusFilter]);
 
@@ -264,14 +264,14 @@ export default function MapaWebMapLibre({
         // If GL font server lacks emoji glyphs, revert to 'I'/'F'.
         const label = isCheckpoint
           ? isPartida
-            ? "\u{1F6A9}"
-            : "\u{1F3E0}"
+            ? '\u{1F6A9}'
+            : '\u{1F3E0}'
           : String(parada.ordem);
 
         return {
-          type: "Feature" as const,
+          type: 'Feature' as const,
           geometry: {
-            type: "Point" as const,
+            type: 'Point' as const,
             coordinates: [
               parada.longitude as number,
               parada.latitude as number,
@@ -308,7 +308,7 @@ export default function MapaWebMapLibre({
       popupRef.current = new maplibregl.Popup({
         closeButton: true,
         closeOnClick: false,
-        maxWidth: "300px",
+        maxWidth: '300px',
       })
         .setLngLat([parada.longitude, parada.latitude])
         .setHTML(
@@ -350,17 +350,17 @@ export default function MapaWebMapLibre({
         removeMissingImageHandler =
           installOpenFreeMapMissingImageHandler(mapInstance);
 
-        mapInstance.on("load", () => {
+        mapInstance.on('load', () => {
           setMapLoaded(true);
-          logger.info("[MapaWebMapLibre] Map loaded successfully");
+          logger.info('[MapaWebMapLibre] Map loaded successfully');
         });
 
-        mapInstance.on("error", (e) => {
-          logger.error("[MapaWebMapLibre] Map error:", e);
-          setLoadError("Erro ao carregar o mapa");
+        mapInstance.on('error', (e) => {
+          logger.error('[MapaWebMapLibre] Map error:', e);
+          setLoadError('Erro ao carregar o mapa');
         });
 
-        mapInstance.on("click", () => {
+        mapInstance.on('click', () => {
           if (popupRef.current) {
             popupRef.current.remove();
             popupRef.current = null;
@@ -369,13 +369,13 @@ export default function MapaWebMapLibre({
         });
 
         // Add navigation controls
-        mapInstance.addControl(new maplibregl.NavigationControl(), "top-right");
+        mapInstance.addControl(new maplibregl.NavigationControl(), 'top-right');
 
         mapRef.current = mapInstance;
       } catch (error) {
         if (cancelled) return;
-        logger.error("[MapaWebMapLibre] Failed to initialize map:", error);
-        setLoadError("Erro ao inicializar o mapa");
+        logger.error('[MapaWebMapLibre] Failed to initialize map:', error);
+        setLoadError('Erro ao inicializar o mapa');
       }
     };
 
@@ -401,8 +401,8 @@ export default function MapaWebMapLibre({
 
     const map = mapRef.current;
     if (!(map as unknown as { style?: unknown }).style) return;
-    const sourceId = "route-source";
-    const layerId = "route-layer";
+    const sourceId = 'route-source';
+    const layerId = 'route-layer';
 
     // Remove existing route if any
     if (map.getLayer(layerId)) {
@@ -414,12 +414,12 @@ export default function MapaWebMapLibre({
 
     // Add route source
     map.addSource(sourceId, {
-      type: "geojson",
+      type: 'geojson',
       data: {
-        type: "Feature",
+        type: 'Feature',
         properties: {},
         geometry: {
-          type: "LineString",
+          type: 'LineString',
           coordinates: polylineCoordinates,
         },
       },
@@ -428,16 +428,16 @@ export default function MapaWebMapLibre({
     // Add route layer
     map.addLayer({
       id: layerId,
-      type: "line",
+      type: 'line',
       source: sourceId,
       layout: {
-        "line-join": "round",
-        "line-cap": "round",
+        'line-join': 'round',
+        'line-cap': 'round',
       },
       paint: {
-        "line-color": theme.colors.primary,
-        "line-width": 4,
-        "line-opacity": 0.8,
+        'line-color': theme.colors.primary,
+        'line-width': 4,
+        'line-opacity': 0.8,
       },
     });
 
@@ -459,12 +459,12 @@ export default function MapaWebMapLibre({
     const map = mapRef.current;
     if (!(map as unknown as { style?: unknown }).style) return;
 
-    const sourceId = "paradas-source";
-    const circleLayerId = "paradas-circle";
-    const labelLayerId = "paradas-label";
+    const sourceId = 'paradas-source';
+    const circleLayerId = 'paradas-circle';
+    const labelLayerId = 'paradas-label';
 
     const data = {
-      type: "FeatureCollection" as const,
+      type: 'FeatureCollection' as const,
       features: markerFeatures,
     };
 
@@ -475,32 +475,32 @@ export default function MapaWebMapLibre({
 
     // Radius: checkpoints 18, regular 16, selected +4
     const circleRadiusExpression: maplibregl.ExpressionSpecification = [
-      "case",
+      'case',
       [
-        "all",
-        ["==", ["get", "is_selected"], true],
-        ["==", ["get", "is_checkpoint"], true],
+        'all',
+        ['==', ['get', 'is_selected'], true],
+        ['==', ['get', 'is_checkpoint'], true],
       ],
       22,
-      ["==", ["get", "is_selected"], true],
+      ['==', ['get', 'is_selected'], true],
       20,
-      ["==", ["get", "is_checkpoint"], true],
+      ['==', ['get', 'is_checkpoint'], true],
       18,
       16,
     ];
 
     // Stroke width: selected 4px, default 3px for depth
     const circleStrokeWidthExpression: maplibregl.ExpressionSpecification = [
-      "case",
-      ["==", ["get", "is_selected"], true],
+      'case',
+      ['==', ['get', 'is_selected'], true],
       4,
       3,
     ];
 
     // Subtle blur for selected markers (shadow effect)
     const circleBlurExpression: maplibregl.ExpressionSpecification = [
-      "case",
-      ["==", ["get", "is_selected"], true],
+      'case',
+      ['==', ['get', 'is_selected'], true],
       0.4,
       0,
     ];
@@ -509,7 +509,7 @@ export default function MapaWebMapLibre({
       (map.getSource(sourceId) as maplibregl.GeoJSONSource).setData(data);
     } else {
       map.addSource(sourceId, {
-        type: "geojson",
+        type: 'geojson',
         data,
       });
     }
@@ -517,53 +517,53 @@ export default function MapaWebMapLibre({
     if (!map.getLayer(circleLayerId)) {
       map.addLayer({
         id: circleLayerId,
-        type: "circle",
+        type: 'circle',
         source: sourceId,
         paint: {
-          "circle-color": circleColorExpression,
-          "circle-radius": circleRadiusExpression,
-          "circle-stroke-color": theme.colors.white,
-          "circle-stroke-width": circleStrokeWidthExpression,
-          "circle-blur": circleBlurExpression,
+          'circle-color': circleColorExpression,
+          'circle-radius': circleRadiusExpression,
+          'circle-stroke-color': theme.colors.white,
+          'circle-stroke-width': circleStrokeWidthExpression,
+          'circle-blur': circleBlurExpression,
         },
       });
     } else {
       map.setPaintProperty(
         circleLayerId,
-        "circle-color",
+        'circle-color',
         circleColorExpression,
       );
       map.setPaintProperty(
         circleLayerId,
-        "circle-radius",
+        'circle-radius',
         circleRadiusExpression,
       );
       map.setPaintProperty(
         circleLayerId,
-        "circle-stroke-width",
+        'circle-stroke-width',
         circleStrokeWidthExpression,
       );
-      map.setPaintProperty(circleLayerId, "circle-blur", circleBlurExpression);
+      map.setPaintProperty(circleLayerId, 'circle-blur', circleBlurExpression);
     }
 
     if (!map.getLayer(labelLayerId)) {
       map.addLayer({
         id: labelLayerId,
-        type: "symbol",
+        type: 'symbol',
         source: sourceId,
         layout: {
-          "text-field": ["get", "label"],
-          "text-size": ["case", ["==", ["get", "is_checkpoint"], true], 16, 13],
+          'text-field': ['get', 'label'],
+          'text-size': ['case', ['==', ['get', 'is_checkpoint'], true], 16, 13],
           // Use a single font stack available in the OpenFreeMap sprites
           // to avoid 404s for combined font stacks.
-          "text-font": ["Noto Sans Bold"],
-          "text-allow-overlap": true,
-          "text-ignore-placement": true,
+          'text-font': ['Noto Sans Bold'],
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
         },
         paint: {
-          "text-color": theme.colors.white,
-          "text-halo-color": withOpacity(theme.colors.black, 0.3),
-          "text-halo-width": 0.8,
+          'text-color': theme.colors.white,
+          'text-halo-color': withOpacity(theme.colors.black, 0.3),
+          'text-halo-width': 0.8,
         },
       });
     }
@@ -578,8 +578,8 @@ export default function MapaWebMapLibre({
 
       const rawCheckpoint = feature?.properties?.is_checkpoint;
       const rawPartida = feature?.properties?.is_partida;
-      const isCheckpoint = rawCheckpoint === true || rawCheckpoint === "true";
-      const isPartida = rawPartida === true || rawPartida === "true";
+      const isCheckpoint = rawCheckpoint === true || rawCheckpoint === 'true';
+      const isPartida = rawPartida === true || rawPartida === 'true';
 
       if (!isCheckpoint) {
         onMarkerPress?.(parada.id);
@@ -588,19 +588,19 @@ export default function MapaWebMapLibre({
     };
 
     const handleMouseEnter = () => {
-      map.getCanvas().style.cursor = "pointer";
+      map.getCanvas().style.cursor = 'pointer';
     };
 
     const handleMouseLeave = () => {
-      map.getCanvas().style.cursor = "";
+      map.getCanvas().style.cursor = '';
     };
 
-    map.on("click", circleLayerId, handleMarkerClick);
-    map.on("click", labelLayerId, handleMarkerClick);
-    map.on("mouseenter", circleLayerId, handleMouseEnter);
-    map.on("mouseleave", circleLayerId, handleMouseLeave);
-    map.on("mouseenter", labelLayerId, handleMouseEnter);
-    map.on("mouseleave", labelLayerId, handleMouseLeave);
+    map.on('click', circleLayerId, handleMarkerClick);
+    map.on('click', labelLayerId, handleMarkerClick);
+    map.on('mouseenter', circleLayerId, handleMouseEnter);
+    map.on('mouseleave', circleLayerId, handleMouseLeave);
+    map.on('mouseenter', labelLayerId, handleMouseEnter);
+    map.on('mouseleave', labelLayerId, handleMouseLeave);
 
     // Fit bounds
     if (bounds && mapRef.current) {
@@ -612,12 +612,12 @@ export default function MapaWebMapLibre({
     }
 
     return () => {
-      map.off("click", circleLayerId, handleMarkerClick);
-      map.off("click", labelLayerId, handleMarkerClick);
-      map.off("mouseenter", circleLayerId, handleMouseEnter);
-      map.off("mouseleave", circleLayerId, handleMouseLeave);
-      map.off("mouseenter", labelLayerId, handleMouseEnter);
-      map.off("mouseleave", labelLayerId, handleMouseLeave);
+      map.off('click', circleLayerId, handleMarkerClick);
+      map.off('click', labelLayerId, handleMarkerClick);
+      map.off('mouseenter', circleLayerId, handleMouseEnter);
+      map.off('mouseleave', circleLayerId, handleMouseLeave);
+      map.off('mouseenter', labelLayerId, handleMouseEnter);
+      map.off('mouseleave', labelLayerId, handleMouseLeave);
     };
   }, [
     mapLoaded,
@@ -679,12 +679,12 @@ export default function MapaWebMapLibre({
     }
 
     // First render — create element + marker
-    const el = document.createElement("div");
-    el.className = "motorista-marker";
-    el.setAttribute("role", "img");
+    const el = document.createElement('div');
+    el.className = 'motorista-marker';
+    el.setAttribute('role', 'img');
     el.setAttribute(
-      "aria-label",
-      motoristaNome ? `Motorista: ${motoristaNome}` : "Motorista",
+      'aria-label',
+      motoristaNome ? `Motorista: ${motoristaNome}` : 'Motorista',
     );
     // Use the theme primary color from design tokens — no hardcoded colors
     el.style.cssText = `width:20px;height:20px;border-radius:50%;background:${theme.colors.primary};border:3px solid #fff;box-shadow:0 0 0 2px rgba(0,0,0,0.2);cursor:pointer;`;
@@ -715,8 +715,8 @@ export default function MapaWebMapLibre({
       <div
         ref={mapContainerRef}
         style={{
-          width: "100%",
-          height: "100%",
+          width: '100%',
+          height: '100%',
           minHeight: 400,
         }}
       />
@@ -733,30 +733,30 @@ export default function MapaWebMapLibre({
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
-    width: "100%",
-    height: "100%",
+    width: '100%',
+    height: '100%',
     minHeight: 400,
-    position: "relative",
+    position: 'relative',
   },
   loadingOverlay: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: theme.colors.disabled,
   },
   loadingText: {
-    marginTop: theme.spacing["2.5"],
+    marginTop: theme.spacing['2.5'],
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.textSecondary,
   },
   errorContainer: {
     height: 400,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: theme.colors.errorLight,
   },
   errorText: {

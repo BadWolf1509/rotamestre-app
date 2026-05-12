@@ -8,15 +8,15 @@
  *   - registerPushToken(userId: string): Promise<boolean>
  *   - unregisterPushToken(userId: string): Promise<void>
  */
-import { renderHook, act } from "@testing-library/react-native";
+import { renderHook, act } from '@testing-library/react-native';
 
-import * as notifications from "../../lib/notifications";
-import { useAuth } from "../useAuth";
+import * as notifications from '../../lib/notifications';
+import { useAuth } from '../useAuth';
 
 // ------------------------------------------------------------------
 // Mocks
 // ------------------------------------------------------------------
-jest.mock("../../lib/notifications", () => ({
+jest.mock('../../lib/notifications', () => ({
   registerPushToken: jest.fn().mockResolvedValue(true),
   unregisterPushToken: jest.fn().mockResolvedValue(undefined),
   requestNotificationPermissions: jest.fn().mockResolvedValue(false),
@@ -37,7 +37,7 @@ jest.mock("../../lib/notifications", () => ({
   notificationService: {},
 }));
 
-jest.mock("../../lib/cache", () => ({
+jest.mock('../../lib/cache', () => ({
   clearAllCache: jest.fn().mockResolvedValue(undefined),
   cleanExpiredCache: jest.fn(),
 }));
@@ -46,7 +46,7 @@ jest.mock("../../lib/cache", () => ({
 // it to be referenced inside the jest.mock() factory below.
 const mockAuthCallbacks: Array<(event: string, session: unknown) => void> = [];
 
-jest.mock("../../lib/supabase", () => ({
+jest.mock('../../lib/supabase', () => ({
   supabase: {
     auth: {
       getSession: jest.fn().mockResolvedValue({ data: { session: null } }),
@@ -67,9 +67,9 @@ jest.mock("../../lib/supabase", () => ({
 
 // ------------------------------------------------------------------
 const mockSession = {
-  access_token: "tok",
-  refresh_token: "ref",
-  user: { id: "user-42", email: "driver@rotamestre.com" },
+  access_token: 'tok',
+  refresh_token: 'ref',
+  user: { id: 'user-42', email: 'driver@rotamestre.com' },
 };
 
 beforeEach(() => {
@@ -91,86 +91,86 @@ async function mountAndFlush() {
 // ------------------------------------------------------------------
 // Tests
 // ------------------------------------------------------------------
-describe("useAuth – push notification wiring", () => {
-  it("calls registerPushToken with userId when SIGNED_IN event fires", async () => {
+describe('useAuth – push notification wiring', () => {
+  it('calls registerPushToken with userId when SIGNED_IN event fires', async () => {
     await mountAndFlush();
 
     await act(async () => {
-      mockAuthCallbacks[0]?.("SIGNED_IN", mockSession);
+      mockAuthCallbacks[0]?.('SIGNED_IN', mockSession);
       await Promise.resolve();
     });
 
     expect(notifications.registerPushToken).toHaveBeenCalledTimes(1);
-    expect(notifications.registerPushToken).toHaveBeenCalledWith("user-42");
+    expect(notifications.registerPushToken).toHaveBeenCalledWith('user-42');
   });
 
-  it("calls unregisterPushToken when SIGNED_OUT event fires", async () => {
+  it('calls unregisterPushToken when SIGNED_OUT event fires', async () => {
     await mountAndFlush();
 
     // Sign in first so lastUserId.current is populated
     await act(async () => {
-      mockAuthCallbacks[0]?.("SIGNED_IN", mockSession);
+      mockAuthCallbacks[0]?.('SIGNED_IN', mockSession);
       await Promise.resolve();
     });
 
     await act(async () => {
-      mockAuthCallbacks[0]?.("SIGNED_OUT", null);
+      mockAuthCallbacks[0]?.('SIGNED_OUT', null);
       await Promise.resolve();
     });
 
     expect(notifications.unregisterPushToken).toHaveBeenCalledTimes(1);
-    expect(notifications.unregisterPushToken).toHaveBeenCalledWith("user-42");
+    expect(notifications.unregisterPushToken).toHaveBeenCalledWith('user-42');
   });
 
-  it("does NOT crash when registerPushToken rejects", async () => {
+  it('does NOT crash when registerPushToken rejects', async () => {
     (notifications.registerPushToken as jest.Mock).mockRejectedValueOnce(
-      new Error("push fail"),
+      new Error('push fail'),
     );
 
     await mountAndFlush();
 
     await expect(
       act(async () => {
-        mockAuthCallbacks[0]?.("SIGNED_IN", mockSession);
+        mockAuthCallbacks[0]?.('SIGNED_IN', mockSession);
         await Promise.resolve();
       }),
     ).resolves.not.toThrow();
   });
 
-  it("does NOT call registerPushToken when session.user is null", async () => {
+  it('does NOT call registerPushToken when session.user is null', async () => {
     await mountAndFlush();
 
     await act(async () => {
-      mockAuthCallbacks[0]?.("SIGNED_IN", { user: null });
+      mockAuthCallbacks[0]?.('SIGNED_IN', { user: null });
       await Promise.resolve();
     });
 
     expect(notifications.registerPushToken).not.toHaveBeenCalled();
   });
 
-  it("does not re-register on duplicate SIGNED_IN events with same userId (token refresh)", async () => {
+  it('does not re-register on duplicate SIGNED_IN events with same userId (token refresh)', async () => {
     await mountAndFlush();
 
     await act(async () => {
-      mockAuthCallbacks[0]?.("SIGNED_IN", { user: { id: "user-1" } });
+      mockAuthCallbacks[0]?.('SIGNED_IN', { user: { id: 'user-1' } });
       await Promise.resolve();
     });
     expect(notifications.registerPushToken).toHaveBeenCalledTimes(1);
 
     // Simulate token refresh firing another SIGNED_IN for the same user
     await act(async () => {
-      mockAuthCallbacks[0]?.("SIGNED_IN", { user: { id: "user-1" } });
+      mockAuthCallbacks[0]?.('SIGNED_IN', { user: { id: 'user-1' } });
       await Promise.resolve();
     });
     expect(notifications.registerPushToken).toHaveBeenCalledTimes(1);
   });
 
-  it("calls unregisterPushToken exactly once on signOut + SIGNED_OUT event", async () => {
+  it('calls unregisterPushToken exactly once on signOut + SIGNED_OUT event', async () => {
     await mountAndFlush();
 
     // Simulate prior login so lastUserId.current is set
     await act(async () => {
-      mockAuthCallbacks[0]?.("SIGNED_IN", { user: { id: "user-1" } });
+      mockAuthCallbacks[0]?.('SIGNED_IN', { user: { id: 'user-1' } });
       await Promise.resolve();
     });
 
@@ -178,11 +178,11 @@ describe("useAuth – push notification wiring", () => {
 
     // Simulate sign-out auth event (the only place unregister should fire)
     await act(async () => {
-      mockAuthCallbacks[0]?.("SIGNED_OUT", null);
+      mockAuthCallbacks[0]?.('SIGNED_OUT', null);
       await Promise.resolve();
     });
 
     expect(notifications.unregisterPushToken).toHaveBeenCalledTimes(1);
-    expect(notifications.unregisterPushToken).toHaveBeenCalledWith("user-1");
+    expect(notifications.unregisterPushToken).toHaveBeenCalledWith('user-1');
   });
 });

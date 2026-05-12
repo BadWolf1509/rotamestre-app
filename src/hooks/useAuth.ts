@@ -1,10 +1,10 @@
-import { Session, User } from "@supabase/supabase-js";
-import { useCallback, useEffect, useState, useRef } from "react";
+import { Session, User } from '@supabase/supabase-js';
+import { useCallback, useEffect, useState, useRef } from 'react';
 
-import { clearAllCache, cleanExpiredCache } from "../lib/cache";
-import { logger } from "../lib/logger";
-import { registerPushToken, unregisterPushToken } from "../lib/notifications";
-import { supabase, isSupabaseConfigured } from "../lib/supabase";
+import { clearAllCache, cleanExpiredCache } from '../lib/cache';
+import { logger } from '../lib/logger';
+import { registerPushToken, unregisterPushToken } from '../lib/notifications';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 // Mock session storage for E2E/CI environments
 let mockSession: Session | null = null;
@@ -64,21 +64,21 @@ export function useAuth() {
 
       // Wire push token registration/unregistration (non-blocking, failures are
       // logged as warnings — push is optional and must not affect the auth flow)
-      if (event === "SIGNED_IN" && session?.user) {
+      if (event === 'SIGNED_IN' && session?.user) {
         const userId = session.user.id;
         const alreadyRegistered = lastUserId.current === userId;
         lastUserId.current = userId;
         if (!alreadyRegistered) {
           registerPushToken(userId).catch((err) =>
-            logger.warn("[Push] Push registration failed", err),
+            logger.warn('[Push] Push registration failed', err),
           );
         }
       }
-      if (event === "SIGNED_OUT") {
+      if (event === 'SIGNED_OUT') {
         lastUserId.current = null;
         if (previousUserId) {
           unregisterPushToken(previousUserId).catch((err) =>
-            logger.warn("[Push] Push unregister failed", err),
+            logger.warn('[Push] Push unregister failed', err),
           );
         }
       }

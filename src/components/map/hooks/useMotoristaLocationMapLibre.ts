@@ -9,11 +9,11 @@
  * undefined the hook is a no-op and returns `{ location: null }`.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 
-import { logger } from "@/lib/logger";
-import { supabase } from "@/lib/supabase";
-import type { MotoristaLocation } from "@/types/notifications";
+import { logger } from '@/lib/logger';
+import { supabase } from '@/lib/supabase';
+import type { MotoristaLocation } from '@/types/notifications';
 
 interface UseMotoristaLocationMapLibreResult {
   location: MotoristaLocation | null;
@@ -36,10 +36,10 @@ export function useMotoristaLocationMapLibre(
     const loadLastLocation = async () => {
       try {
         const { data, error } = await supabase
-          .from("motorista_locations")
-          .select("*")
-          .eq("rota_id", rotaId)
-          .order("timestamp", { ascending: false })
+          .from('motorista_locations')
+          .select('*')
+          .eq('rota_id', rotaId)
+          .order('timestamp', { ascending: false })
           .limit(1)
           .maybeSingle();
 
@@ -48,7 +48,7 @@ export function useMotoristaLocationMapLibre(
         if (error) {
           // maybeSingle() returns { data: null, error: null } when zero rows found — no PGRST116 guard needed
           logger.warn(
-            "[useMotoristaLocationMapLibre] Location not available:",
+            '[useMotoristaLocationMapLibre] Location not available:',
             error.code,
           );
           return;
@@ -58,7 +58,7 @@ export function useMotoristaLocationMapLibre(
           setLocation(data as MotoristaLocation);
         }
       } catch {
-        logger.warn("[useMotoristaLocationMapLibre] Location unavailable");
+        logger.warn('[useMotoristaLocationMapLibre] Location unavailable');
       }
     };
 
@@ -76,11 +76,11 @@ export function useMotoristaLocationMapLibre(
     const channel = supabase
       .channel(`motorista-maplibre-${rotaId}`)
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "INSERT",
-          schema: "public",
-          table: "motorista_locations",
+          event: 'INSERT',
+          schema: 'public',
+          table: 'motorista_locations',
           filter: `rota_id=eq.${rotaId}`,
         },
         (payload) => {

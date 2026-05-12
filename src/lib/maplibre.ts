@@ -6,10 +6,10 @@ type LatLng = {
 type LngLatTuple = [number, number];
 
 type GeoJSONLineString = {
-  type: 'Feature';
+  type: "Feature";
   properties: Record<string, unknown>;
   geometry: {
-    type: 'LineString';
+    type: "LineString";
     coordinates: LngLatTuple[];
   };
 };
@@ -23,22 +23,22 @@ const CARTO_VOYAGER_RASTER_STYLE = {
   version: 8,
   sources: {
     carto: {
-      type: 'raster',
+      type: "raster",
       tiles: [
-        'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+        "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+        "https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+        "https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+        "https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
       ],
       tileSize: 256,
-      attribution: '(c) OpenStreetMap contributors (c) CARTO',
+      attribution: "(c) OpenStreetMap contributors (c) CARTO",
     },
   },
   layers: [
     {
-      id: 'carto-voyager',
-      type: 'raster',
-      source: 'carto',
+      id: "carto-voyager",
+      type: "raster",
+      source: "carto",
       minzoom: 0,
       maxzoom: 20,
     },
@@ -46,7 +46,9 @@ const CARTO_VOYAGER_RASTER_STYLE = {
 } as const;
 
 export const MAPLIBRE_RASTER_STYLE = CARTO_VOYAGER_RASTER_STYLE;
-export const MAPLIBRE_RASTER_STYLE_JSON = JSON.stringify(CARTO_VOYAGER_RASTER_STYLE);
+export const MAPLIBRE_RASTER_STYLE_JSON = JSON.stringify(
+  CARTO_VOYAGER_RASTER_STYLE,
+);
 
 export function toLngLat({ latitude, longitude }: LatLng): LngLatTuple {
   return [longitude, latitude];
@@ -54,10 +56,10 @@ export function toLngLat({ latitude, longitude }: LatLng): LngLatTuple {
 
 export function toLineString(coords: LatLng[]): GeoJSONLineString {
   return {
-    type: 'Feature',
+    type: "Feature",
     properties: {},
     geometry: {
-      type: 'LineString',
+      type: "LineString",
       coordinates: coords.map(toLngLat),
     },
   };
@@ -90,4 +92,4 @@ export function zoomFromLongitudeDelta(delta: number): number {
   return Math.max(1, Math.min(20, zoom));
 }
 
-export type { LatLng, LngLatTuple, MapBounds };
+export type { LatLng, LngLatTuple, MapBounds, GeoJSONLineString };
