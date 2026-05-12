@@ -1,15 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import MapLibreGL, { type CameraRef } from "@maplibre/maplibre-react-native";
+import MapLibreGL from "@maplibre/maplibre-react-native";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
-import React, {
-  useRef,
-  useEffect,
-  useMemo,
-  useCallback,
-  useState,
-} from "react";
+import React, { useMemo, useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -20,6 +14,7 @@ import {
   Linking,
 } from "react-native";
 
+import { useMobileMapCamera } from "@/components/map/hooks/useMobileMapCamera";
 import { getStatusLabel } from "@/components/map/infoWindowBuilders";
 import { MotoristaMarker } from "@/components/MotoristaMarker";
 import { useAlert } from "@/hooks/useAlert";
@@ -38,13 +33,6 @@ import { getMarkerFillColor } from "@/utils/mapMarkerColors";
 import { showNavigationOptions } from "@/utils/navigation";
 import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
 import { toast } from "@/utils/toast";
-
-type MapRegion = {
-  latitude: number;
-  longitude: number;
-  latitudeDelta: number;
-  longitudeDelta: number;
-};
 
 interface MapaMobileProps {
   paradas: Parada[];
@@ -79,7 +67,6 @@ export function MapaMobile({
 }: MapaMobileProps) {
   const { theme } = useUnistyles();
   const { showWarning, showError, AlertDialog } = useAlert();
-  const cameraRef = useRef<CameraRef>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [selectedCheckpointId, setSelectedCheckpointId] = useState<
     string | null
@@ -116,85 +103,9 @@ export function MapaMobile({
     isLoading: isLoadingRoute,
   } = useRouteDirections(paradasComCoord as Parada[]);
 
-  // Ajustar mapa para mostrar todas as paradas após carregar
-  useEffect(() => {
-    if (paradasComCoord.length > 1 && cameraRef.current) {
-      const bounds = getBounds(
-        paradasComCoord.map((parada) => ({
-          latitude: parada.latitude!,
-          longitude: parada.longitude!,
-        })),
-      );
-      if (!bounds) return undefined;
-      const timer = setTimeout(() => {
-        cameraRef.current?.fitBounds(
-          bounds.ne,
-          bounds.sw,
-          [50, 50, 50, 50],
-          500,
-        );
-      }, 500);
-
-      return () => clearTimeout(timer);
-    }
-    return undefined;
-  }, [paradasComCoord]);
-
-  // Calcular região inicial (centro das paradas)
-  const initialRegion = useMemo<MapRegion>(() => {
-    if (!hasParadasComCoordenadas) {
-      return {
-        latitude: 0,
-        longitude: 0,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
-      };
-    }
-
-    if (paradasComCoord.length === 1) {
-      return {
-        latitude: paradasComCoord[0].latitude!,
-        longitude: paradasComCoord[0].longitude!,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      };
-    }
-
-    // Calcular bounds de todas as paradas
-    let minLat = paradasComCoord[0].latitude!;
-    let maxLat = paradasComCoord[0].latitude!;
-    let minLng = paradasComCoord[0].longitude!;
-    let maxLng = paradasComCoord[0].longitude!;
-
-    paradasComCoord.forEach((p) => {
-      minLat = Math.min(minLat, p.latitude!);
-      maxLat = Math.max(maxLat, p.latitude!);
-      minLng = Math.min(minLng, p.longitude!);
-      maxLng = Math.max(maxLng, p.longitude!);
-    });
-
-    const centerLat = (minLat + maxLat) / 2;
-    const centerLng = (minLng + maxLng) / 2;
-    const deltaLat = (maxLat - minLat) * 1.5; // 1.5x para margem
-    const deltaLng = (maxLng - minLng) * 1.5;
-
-    return {
-      latitude: centerLat,
-      longitude: centerLng,
-      latitudeDelta: Math.max(deltaLat, 0.01),
-      longitudeDelta: Math.max(deltaLng, 0.01),
-    };
-  }, [hasParadasComCoordenadas, paradasComCoord]);
-
-  const initialCamera = useMemo(
-    () => ({
-      centerCoordinate: toLngLat({
-        latitude: initialRegion.latitude,
-        longitude: initialRegion.longitude,
-      }),
-      zoomLevel: zoomFromLongitudeDelta(initialRegion.longitudeDelta),
-    }),
-    [initialRegion],
+  // Camera ref + initial camera position
+  const { cameraRef, initialCamera } = useMobileMapCamera(
+    paradasComCoord as Parada[],
   );
 
   // Marker color from centralized statusConfig (WCAG-compliant dark variants)
@@ -277,7 +188,7 @@ export function MapaMobile({
     } finally {
       setIsLocating(false);
     }
-  }, [showWarning, showError]);
+  }, [cameraRef, showWarning, showError]);
 
   // Navegar para próxima parada usando app externo
   const handleNavigate = useCallback(() => {
@@ -305,7 +216,7 @@ export function MapaMobile({
       if (!bounds) return;
       cameraRef.current.fitBounds(bounds.ne, bounds.sw, [80, 50, 120, 50], 500);
     }
-  }, [paradasComCoord]);
+  }, [cameraRef, paradasComCoord]);
 
   // Handler para copiar endereço - memoizado para performance
   const handleCopyAddress = useCallback(async (endereco: string) => {
