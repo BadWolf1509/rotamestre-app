@@ -15,20 +15,15 @@ import {
 
 import { useLocationTracking } from "@/components/map/hooks/useLocationTracking";
 import { useMobileMapCamera } from "@/components/map/hooks/useMobileMapCamera";
+import { useNavigationActions } from "@/components/map/hooks/useNavigationActions";
 import { getStatusLabel } from "@/components/map/infoWindowBuilders";
 import { MotoristaMarker } from "@/components/MotoristaMarker";
 import { useAlert } from "@/hooks/useAlert";
 import { useRouteDirections } from "@/hooks/useRouteDirections";
-import {
-  MAPLIBRE_RASTER_STYLE,
-  getBounds,
-  toLineString,
-  toLngLat,
-} from "@/lib/maplibre";
+import { MAPLIBRE_RASTER_STYLE, toLineString, toLngLat } from "@/lib/maplibre";
 import type { ParadaMapItem as Parada, StatusFilter } from "@/types/parada-map";
 import { withOpacity } from "@/utils/color";
 import { getMarkerFillColor } from "@/utils/mapMarkerColors";
-import { showNavigationOptions } from "@/utils/navigation";
 import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
 import { toast } from "@/utils/toast";
 
@@ -64,7 +59,7 @@ export function MapaMobile({
   unidadeNome,
 }: MapaMobileProps) {
   const { theme } = useUnistyles();
-  const { showWarning, AlertDialog } = useAlert();
+  const { AlertDialog } = useAlert();
   const [selectedCheckpointId, setSelectedCheckpointId] = useState<
     string | null
   >(null);
@@ -145,40 +140,9 @@ export function MapaMobile({
     onMapPress?.();
   }, [onMapPress]);
 
-  // Próxima parada pendente (para navegação)
-  const proximaParadaPendente = useMemo(() => {
-    return paradasReais
-      .filter((p) => p.status === "pendente" || p.status === "em_andamento")
-      .sort((a, b) => a.ordem - b.ordem)[0];
-  }, [paradasReais]);
-
-  // Navegar para próxima parada usando app externo
-  const handleNavigate = useCallback(() => {
-    if (!proximaParadaPendente) {
-      showWarning("Nenhuma parada", "Não há paradas pendentes para navegar.");
-      return;
-    }
-
-    showNavigationOptions({
-      latitude: proximaParadaPendente.latitude!,
-      longitude: proximaParadaPendente.longitude!,
-      label: `Parada ${proximaParadaPendente.ordem} - ${proximaParadaPendente.endereco}`,
-    });
-  }, [proximaParadaPendente, showWarning]);
-
-  // Ajustar mapa para mostrar todas as paradas
-  const handleFitAll = useCallback(() => {
-    if (paradasComCoord.length > 0 && cameraRef.current) {
-      const bounds = getBounds(
-        paradasComCoord.map((parada) => ({
-          latitude: parada.latitude!,
-          longitude: parada.longitude!,
-        })),
-      );
-      if (!bounds) return;
-      cameraRef.current.fitBounds(bounds.ne, bounds.sw, [80, 50, 120, 50], 500);
-    }
-  }, [cameraRef, paradasComCoord]);
+  // Navigation: next stop + fit-all + open external nav app
+  const { proximaParadaPendente, handleNavigate, handleFitAll } =
+    useNavigationActions(paradasReais, paradasComCoord as Parada[], cameraRef);
 
   // Handler para copiar endereço - memoizado para performance
   const handleCopyAddress = useCallback(async (endereco: string) => {
