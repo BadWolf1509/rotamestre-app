@@ -14,6 +14,7 @@ import { useLocationTracking } from "@/components/map/hooks/useLocationTracking"
 import { useMarkerGestures } from "@/components/map/hooks/useMarkerGestures";
 import { useMobileMapCamera } from "@/components/map/hooks/useMobileMapCamera";
 import { useNavigationActions } from "@/components/map/hooks/useNavigationActions";
+import { useParadaFiltering } from "@/components/map/hooks/useParadaFiltering";
 import { getStatusLabel } from "@/components/map/infoWindowBuilders";
 import { MotoristaMarker } from "@/components/MotoristaMarker";
 import { useAlert } from "@/hooks/useAlert";
@@ -61,29 +62,14 @@ export function MapaMobile({
     string | null
   >(null);
 
-  // Filtrar paradas com coordenadas válidas
-  const paradasComCoord = useMemo(
-    () => paradas.filter((p) => p.latitude !== null && p.longitude !== null),
-    [paradas],
-  );
-  const hasParadasComCoordenadas = paradasComCoord.length > 0;
-
-  // Separar paradas reais de checkpoints (pontos da unidade)
-  const paradasReais = useMemo(
-    () => paradasComCoord.filter((p) => p.is_checkpoint !== false),
-    [paradasComCoord],
-  );
-
-  // Paradas filtradas por status
-  const paradasFiltradas = useMemo(() => {
-    if (statusFilter === "all") return paradasReais;
-    return paradasReais.filter((p) => p.status === statusFilter);
-  }, [paradasReais, statusFilter]);
-
-  const checkpoints = useMemo(
-    () => paradasComCoord.filter((p) => p.is_checkpoint === false),
-    [paradasComCoord],
-  );
+  // Filter + categorize paradas
+  const {
+    paradasComCoord,
+    paradasReais,
+    paradasFiltradas,
+    checkpoints,
+    hasParadasComCoordenadas,
+  } = useParadaFiltering(paradas, statusFilter);
 
   // Buscar rota real usando Google Directions API
   const {

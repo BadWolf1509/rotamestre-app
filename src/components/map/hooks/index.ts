@@ -10,3 +10,4 @@ export { useMobileMapCamera } from "./useMobileMapCamera";
 export { useLocationTracking } from "./useLocationTracking";
 export { useNavigationActions } from "./useNavigationActions";
 export { useMarkerGestures } from "./useMarkerGestures";
+export { useParadaFiltering } from "./useParadaFiltering";
