@@ -8,12 +8,12 @@
  * - handleCopyAddress: copy to clipboard + haptic + toast
  */
 
-import * as Clipboard from "expo-clipboard";
-import * as Haptics from "expo-haptics";
-import { useCallback } from "react";
-import { Platform } from "react-native";
+import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
+import { useCallback } from 'react';
+import { Platform } from 'react-native';
 
-import { toast } from "@/utils/toast";
+import { toast } from '@/utils/toast';
 
 interface UseMarkerGesturesOptions {
   onMarkerPress?: (paradaId: string) => void;
@@ -40,7 +40,7 @@ export function useMarkerGestures({
 }: UseMarkerGesturesOptions): UseMarkerGesturesResult {
   const handleMarkerPress = useCallback(
     (paradaId: string) => {
-      if (Platform.OS !== "web") {
+      if (Platform.OS !== 'web') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
       setSelectedCheckpointId(null);
@@ -51,7 +51,7 @@ export function useMarkerGestures({
 
   const handleMarkerLongPress = useCallback(
     (paradaId: string) => {
-      if (Platform.OS !== "web") {
+      if (Platform.OS !== 'web') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
       onMarkerLongPress?.(paradaId);
@@ -69,12 +69,12 @@ export function useMarkerGestures({
       await Clipboard.setStringAsync(endereco);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       toast.success(
-        "Endereço copiado para a área de transferência.",
-        "Copiado!",
+        'Endereço copiado para a área de transferência.',
+        'Copiado!',
       );
     } catch {
       // Clipboard may not be available on all platforms
-      toast.error("Não foi possível copiar o endereço.");
+      toast.error('Não foi possível copiar o endereço.');
     }
   }, []);
 

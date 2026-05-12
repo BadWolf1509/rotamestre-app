@@ -1,22 +1,22 @@
-import { renderHook } from "@testing-library/react-native";
+import { renderHook } from '@testing-library/react-native';
 
-import { useRouteDirections } from "@/hooks/useRouteDirections";
+import { useRouteDirections } from '@/hooks/useRouteDirections';
 
-import { useRouteShape } from "../useRouteShape";
+import { useRouteShape } from '../useRouteShape';
 
-jest.mock("@/hooks/useRouteDirections", () => ({
+jest.mock('@/hooks/useRouteDirections', () => ({
   useRouteDirections: jest.fn(),
 }));
 
-jest.mock("@/lib/maplibre", () => ({
+jest.mock('@/lib/maplibre', () => ({
   toLineString: jest.fn((coords) => ({
-    type: "Feature",
-    geometry: { type: "LineString", coordinates: coords },
+    type: 'Feature',
+    geometry: { type: 'LineString', coordinates: coords },
   })),
 }));
 
-describe("useRouteShape", () => {
-  it("returns null routeShape when less than 2 coordinates", () => {
+describe('useRouteShape', () => {
+  it('returns null routeShape when less than 2 coordinates', () => {
     (useRouteDirections as jest.Mock).mockReturnValue({
       routeCoordinates: [{ latitude: -23.55, longitude: -46.63 }],
       routeInfo: undefined,
@@ -28,7 +28,7 @@ describe("useRouteShape", () => {
     expect(result.current.isLoadingRoute).toBe(false);
   });
 
-  it("returns routeShape when 2+ coordinates", () => {
+  it('returns routeShape when 2+ coordinates', () => {
     const coords = [
       { latitude: -23.55, longitude: -46.63 },
       { latitude: -23.56, longitude: -46.64 },
@@ -47,7 +47,7 @@ describe("useRouteShape", () => {
     });
   });
 
-  it("passes isLoading through", () => {
+  it('passes isLoading through', () => {
     (useRouteDirections as jest.Mock).mockReturnValue({
       routeCoordinates: [],
       routeInfo: undefined,

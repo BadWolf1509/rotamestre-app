@@ -1,8 +1,8 @@
-import { act, renderHook } from "@testing-library/react-native";
-import * as Location from "expo-location";
-import { createRef } from "react";
+import { act, renderHook } from '@testing-library/react-native';
+import * as Location from 'expo-location';
+import { createRef } from 'react';
 
-import { useLocationTracking } from "../useLocationTracking";
+import { useLocationTracking } from '../useLocationTracking';
 
 // expo-location is mocked globally via jest.setup.js / jest-expo
 
@@ -17,20 +17,20 @@ function makeCameraRef() {
   return ref;
 }
 
-describe("useLocationTracking", () => {
+describe('useLocationTracking', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("starts with isLocating=false", () => {
+  it('starts with isLocating=false', () => {
     const cameraRef = makeCameraRef();
     const { result } = renderHook(() => useLocationTracking(cameraRef as any));
     expect(result.current.isLocating).toBe(false);
   });
 
-  it("sets isLocating=true while requesting, then false after", async () => {
+  it('sets isLocating=true while requesting, then false after', async () => {
     (Location.requestForegroundPermissionsAsync as jest.Mock).mockResolvedValue(
-      { status: "granted" },
+      { status: 'granted' },
     );
     (Location.getCurrentPositionAsync as jest.Mock).mockResolvedValue({
       coords: { latitude: -23.55, longitude: -46.63 },
@@ -47,9 +47,9 @@ describe("useLocationTracking", () => {
     expect(mockSetCamera).toHaveBeenCalledTimes(1);
   });
 
-  it("shows warning when permission denied", async () => {
+  it('shows warning when permission denied', async () => {
     (Location.requestForegroundPermissionsAsync as jest.Mock).mockResolvedValue(
-      { status: "denied" },
+      { status: 'denied' },
     );
 
     const cameraRef = makeCameraRef();
@@ -60,18 +60,18 @@ describe("useLocationTracking", () => {
     });
 
     expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
-      "Permissão negada",
+      'Permissão negada',
       expect.any(String),
     );
     expect(mockSetCamera).not.toHaveBeenCalled();
   });
 
-  it("shows error when location throws", async () => {
+  it('shows error when location throws', async () => {
     (Location.requestForegroundPermissionsAsync as jest.Mock).mockResolvedValue(
-      { status: "granted" },
+      { status: 'granted' },
     );
     (Location.getCurrentPositionAsync as jest.Mock).mockRejectedValue(
-      new Error("Location error"),
+      new Error('Location error'),
     );
 
     const cameraRef = makeCameraRef();
@@ -82,7 +82,7 @@ describe("useLocationTracking", () => {
     });
 
     expect(global.mockUseAlert.showError).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Erro" }),
+      expect.objectContaining({ title: 'Erro' }),
     );
   });
 });

@@ -5,21 +5,27 @@
  * - Listagem de rotas com filtros por status e busca textual
  * - Visualização de detalhes (motorista, paradas, progresso)
  * - Exclusão de rotas com confirmação
- * - Exportação para CSV (desktop e mobile via compartilhamento)
+ * - Exportação para CSV ou XLSX (desktop dropdown / mobile sheet)
  * - Atualização em tempo real via Supabase Realtime
+ *
+ * NOTE: PDF export is intentionally NOT offered at the list level.
+ * exportRotaToPDF() produces a per-route delivery-proof document (with real
+ * stop addresses). A bulk list-to-PDF would misuse that function. Wire it
+ * from a route-detail screen or per-row action in a future PR.
  *
  * @layout Desktop: DesktopPageLayout com DataTable
  * @layout Mobile: ScrollView com MobileCards
  */
 
 import { useRouter } from "expo-router";
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -89,6 +95,7 @@ export default function GestaoRotas() {
     handleConfirmDelete,
     handleCancelDelete,
     exportarParaCSV,
+    exportarParaXLSX,
     getStatusLabel,
     getStatusColor,
     toastState,
@@ -98,6 +105,10 @@ export default function GestaoRotas() {
     statusColorMap,
     defaultStatusColor: theme.colors.gray500,
   });
+
+  // Export dropdown state (desktop only — mobile uses Alert)
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef<View>(null);
 
   // Desktop header menu
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
@@ -249,14 +260,70 @@ export default function GestaoRotas() {
     <View style={styles.cardHeader}>
       {desktopStats}
       <View style={styles.cardHeaderButtons}>
-        <TouchableOpacity
-          style={styles.cardHeaderButtonSecondary}
-          onPress={exportarParaCSV}
-          accessibilityRole="button"
-          accessibilityLabel="Exportar rotas para CSV"
-        >
-          <Text style={styles.cardHeaderButtonSecondaryText}>Exportar</Text>
-        </TouchableOpacity>
+        {/* Export dropdown — desktop */}
+        <View ref={exportMenuRef}>
+          <TouchableOpacity
+            style={styles.cardHeaderButtonSecondary}
+            onPress={() => setShowExportMenu((prev) => !prev)}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir menu de exportação"
+          >
+            <Text style={styles.cardHeaderButtonSecondaryText}>Exportar ▾</Text>
+          </TouchableOpacity>
+          {showExportMenu && (
+            <View
+              style={{
+                position: "absolute",
+                top: "100%",
+                right: 0,
+                backgroundColor: theme.colors.white,
+                borderRadius: theme.borderRadius.md,
+                borderWidth: 1,
+                borderColor: theme.colors.gray200,
+                ...theme.shadows.md,
+                zIndex: 100,
+                minWidth: 160,
+              }}
+            >
+              <TouchableOpacity
+                style={{ padding: theme.spacing.sm }}
+                onPress={() => {
+                  setShowExportMenu(false);
+                  exportarParaCSV();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Exportar rotas para CSV"
+              >
+                <Text
+                  style={{
+                    color: theme.colors.gray800,
+                    fontSize: theme.typography.sm,
+                  }}
+                >
+                  Exportar CSV
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ padding: theme.spacing.sm }}
+                onPress={() => {
+                  setShowExportMenu(false);
+                  exportarParaXLSX();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Exportar rotas para Excel XLSX"
+              >
+                <Text
+                  style={{
+                    color: theme.colors.gray800,
+                    fontSize: theme.typography.sm,
+                  }}
+                >
+                  Exportar Excel (XLSX)
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
         <TouchableOpacity
           style={styles.cardHeaderButtonPrimary}
           onPress={() => router.push("/gestor/nova-entrega")}
@@ -456,12 +523,24 @@ export default function GestaoRotas() {
             <View style={styles.mobileActionsRow}>
               <TouchableOpacity
                 style={styles.mobileActionButtonSecondary}
-                onPress={exportarParaCSV}
+                onPress={() =>
+                  Alert.alert("Exportar Rotas", "Escolha o formato:", [
+                    {
+                      text: "CSV",
+                      onPress: exportarParaCSV,
+                    },
+                    {
+                      text: "Excel (XLSX)",
+                      onPress: exportarParaXLSX,
+                    },
+                    { text: "Cancelar", style: "cancel" },
+                  ])
+                }
                 accessibilityRole="button"
-                accessibilityLabel="Exportar rotas para CSV"
+                accessibilityLabel="Abrir menu de exportação"
               >
                 <Text style={styles.mobileActionButtonSecondaryText}>
-                  Exportar CSV
+                  Exportar
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity

@@ -7,12 +7,12 @@
  * - fitBounds effect when paradas are loaded
  */
 
-import { useRef, useEffect, useMemo, type RefObject } from "react";
+import { useRef, useEffect, useMemo, type RefObject } from 'react';
 
-import { getBounds, toLngLat, zoomFromLongitudeDelta } from "@/lib/maplibre";
-import type { ParadaMapItem as Parada } from "@/types/parada-map";
+import { getBounds, toLngLat, zoomFromLongitudeDelta } from '@/lib/maplibre';
+import type { ParadaMapItem as Parada } from '@/types/parada-map';
 
-import type { CameraRef } from "@maplibre/maplibre-react-native";
+import type { CameraRef } from '@maplibre/maplibre-react-native';
 
 type MapRegion = {
   latitude: number;

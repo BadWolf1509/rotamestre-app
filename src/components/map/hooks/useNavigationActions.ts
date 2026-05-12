@@ -7,14 +7,14 @@
  * - Fitting all paradas into the map viewport (handleFitAll)
  */
 
-import { useCallback, useMemo, type RefObject } from "react";
+import { useCallback, useMemo, type RefObject } from 'react';
 
-import { useAlert } from "@/hooks/useAlert";
-import { getBounds } from "@/lib/maplibre";
-import type { ParadaMapItem as Parada } from "@/types/parada-map";
-import { showNavigationOptions } from "@/utils/navigation";
+import { useAlert } from '@/hooks/useAlert';
+import { getBounds } from '@/lib/maplibre';
+import type { ParadaMapItem as Parada } from '@/types/parada-map';
+import { showNavigationOptions } from '@/utils/navigation';
 
-import type { CameraRef } from "@maplibre/maplibre-react-native";
+import type { CameraRef } from '@maplibre/maplibre-react-native';
 
 interface UseNavigationActionsResult {
   proximaParadaPendente: Parada | undefined;
@@ -36,14 +36,14 @@ export function useNavigationActions(
   const proximaParadaPendente = useMemo(
     () =>
       paradasReais
-        .filter((p) => p.status === "pendente" || p.status === "em_andamento")
+        .filter((p) => p.status === 'pendente' || p.status === 'em_andamento')
         .sort((a, b) => a.ordem - b.ordem)[0],
     [paradasReais],
   );
 
   const handleNavigate = useCallback(() => {
     if (!proximaParadaPendente) {
-      showWarning("Nenhuma parada", "Não há paradas pendentes para navegar.");
+      showWarning('Nenhuma parada', 'Não há paradas pendentes para navegar.');
       return;
     }
 

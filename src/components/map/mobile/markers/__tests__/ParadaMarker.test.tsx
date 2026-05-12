@@ -1,25 +1,25 @@
-import { render, fireEvent } from "@testing-library/react-native";
-import React from "react";
+import { render, fireEvent } from '@testing-library/react-native';
+import React from 'react';
 
-import { ParadaMarker } from "../ParadaMarker";
+import { ParadaMarker } from '../ParadaMarker';
 
 const baseParada = {
-  id: "p1",
-  endereco: "Rua Teste, 100",
+  id: 'p1',
+  endereco: 'Rua Teste, 100',
   latitude: -23.55,
   longitude: -46.63,
-  status: "pendente",
+  status: 'pendente',
   ordem: 1,
   is_checkpoint: false,
 };
 
-describe("ParadaMarker", () => {
+describe('ParadaMarker', () => {
   const onPress = jest.fn();
   const onLongPress = jest.fn();
 
   beforeEach(() => jest.clearAllMocks());
 
-  it("renders the stop number", () => {
+  it('renders the stop number', () => {
     const { getByText } = render(
       <ParadaMarker
         parada={baseParada as any}
@@ -28,10 +28,10 @@ describe("ParadaMarker", () => {
         onLongPress={onLongPress}
       />,
     );
-    expect(getByText("1")).toBeTruthy();
+    expect(getByText('1')).toBeTruthy();
   });
 
-  it("does not show callout when not selected", () => {
+  it('does not show callout when not selected', () => {
     const { queryByText } = render(
       <ParadaMarker
         parada={baseParada as any}
@@ -40,10 +40,10 @@ describe("ParadaMarker", () => {
         onLongPress={onLongPress}
       />,
     );
-    expect(queryByText("Parada 1")).toBeNull();
+    expect(queryByText('Parada 1')).toBeNull();
   });
 
-  it("shows callout with address when selected", () => {
+  it('shows callout with address when selected', () => {
     const { getByText } = render(
       <ParadaMarker
         parada={baseParada as any}
@@ -52,11 +52,11 @@ describe("ParadaMarker", () => {
         onLongPress={onLongPress}
       />,
     );
-    expect(getByText("Parada 1")).toBeTruthy();
-    expect(getByText("Rua Teste, 100")).toBeTruthy();
+    expect(getByText('Parada 1')).toBeTruthy();
+    expect(getByText('Rua Teste, 100')).toBeTruthy();
   });
 
-  it("calls onPress with parada.id when pressed", () => {
+  it('calls onPress with parada.id when pressed', () => {
     const { getAllByRole } = render(
       <ParadaMarker
         parada={baseParada as any}
@@ -65,12 +65,12 @@ describe("ParadaMarker", () => {
         onLongPress={onLongPress}
       />,
     );
-    fireEvent.press(getAllByRole("button")[0]);
-    expect(onPress).toHaveBeenCalledWith("p1");
+    fireEvent.press(getAllByRole('button')[0]);
+    expect(onPress).toHaveBeenCalledWith('p1');
   });
 
-  it("shows recipient in callout when selected", () => {
-    const parada = { ...baseParada, destinatario: "João Silva" };
+  it('shows recipient in callout when selected', () => {
+    const parada = { ...baseParada, destinatario: 'João Silva' };
     const { getByText } = render(
       <ParadaMarker
         parada={parada as any}
@@ -79,6 +79,6 @@ describe("ParadaMarker", () => {
         onLongPress={onLongPress}
       />,
     );
-    expect(getByText("João Silva")).toBeTruthy();
+    expect(getByText('João Silva')).toBeTruthy();
   });
 });

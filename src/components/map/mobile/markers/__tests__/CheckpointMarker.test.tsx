@@ -1,15 +1,15 @@
-import { render, fireEvent } from "@testing-library/react-native";
-import React from "react";
+import { render, fireEvent } from '@testing-library/react-native';
+import React from 'react';
 
-import { CheckpointMarker } from "../CheckpointMarker";
+import { CheckpointMarker } from '../CheckpointMarker';
 
-describe("CheckpointMarker", () => {
+describe('CheckpointMarker', () => {
   const onPress = jest.fn();
   const onCopyAddress = jest.fn();
 
   beforeEach(() => jest.clearAllMocks());
 
-  it("does not show callout when not selected", () => {
+  it('does not show callout when not selected', () => {
     const { queryByText } = render(
       <CheckpointMarker
         index={0}
@@ -19,10 +19,10 @@ describe("CheckpointMarker", () => {
         onCopyAddress={onCopyAddress}
       />,
     );
-    expect(queryByText("PARTIDA")).toBeNull();
+    expect(queryByText('PARTIDA')).toBeNull();
   });
 
-  it("shows callout with PARTIDA label and address when selected (index 0)", () => {
+  it('shows callout with PARTIDA label and address when selected (index 0)', () => {
     const { getByText } = render(
       <CheckpointMarker
         index={0}
@@ -32,11 +32,11 @@ describe("CheckpointMarker", () => {
         onCopyAddress={onCopyAddress}
       />,
     );
-    expect(getByText("PARTIDA")).toBeTruthy();
-    expect(getByText("Rua A, 100")).toBeTruthy();
+    expect(getByText('PARTIDA')).toBeTruthy();
+    expect(getByText('Rua A, 100')).toBeTruthy();
   });
 
-  it("shows callout with CHEGADA label for index 1+", () => {
+  it('shows callout with CHEGADA label for index 1+', () => {
     const { getByText } = render(
       <CheckpointMarker
         index={1}
@@ -46,10 +46,10 @@ describe("CheckpointMarker", () => {
         onCopyAddress={onCopyAddress}
       />,
     );
-    expect(getByText("CHEGADA")).toBeTruthy();
+    expect(getByText('CHEGADA')).toBeTruthy();
   });
 
-  it("shows unidade name in callout when selected and unidadeNome provided", () => {
+  it('shows unidade name in callout when selected and unidadeNome provided', () => {
     const { getByText } = render(
       <CheckpointMarker
         index={0}
@@ -60,10 +60,10 @@ describe("CheckpointMarker", () => {
         onCopyAddress={onCopyAddress}
       />,
     );
-    expect(getByText("WJX Locações")).toBeTruthy();
+    expect(getByText('WJX Locações')).toBeTruthy();
   });
 
-  it("calls onPress when marker pressable is pressed", () => {
+  it('calls onPress when marker pressable is pressed', () => {
     const { getAllByRole } = render(
       <CheckpointMarker
         index={0}
@@ -73,7 +73,7 @@ describe("CheckpointMarker", () => {
         onCopyAddress={onCopyAddress}
       />,
     );
-    const buttons = getAllByRole("button");
+    const buttons = getAllByRole('button');
     fireEvent.press(buttons[0]);
     expect(onPress).toHaveBeenCalledTimes(1);
   });

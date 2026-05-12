@@ -5,16 +5,16 @@
  * The callout shows address, recipient, phone, status badge, and type badge.
  */
 
-import { Ionicons } from "@expo/vector-icons";
-import React from "react";
-import { View, Text, TouchableOpacity, Pressable, Linking } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { View, Text, TouchableOpacity, Pressable, Linking } from 'react-native';
 
-import { getStatusLabel } from "@/components/map/infoWindowBuilders";
-import { mapMobileStyles as styles } from "@/components/map/mobile/styles";
-import type { ParadaMapItem as Parada } from "@/types/parada-map";
-import { withOpacity } from "@/utils/color";
-import { getMarkerFillColor } from "@/utils/mapMarkerColors";
-import { useUnistyles } from "@/utils/styles";
+import { getStatusLabel } from '@/components/map/infoWindowBuilders';
+import { mapMobileStyles as styles } from '@/components/map/mobile/styles';
+import type { ParadaMapItem as Parada } from '@/types/parada-map';
+import { withOpacity } from '@/utils/color';
+import { getMarkerFillColor } from '@/utils/mapMarkerColors';
+import { useUnistyles } from '@/utils/styles';
 
 interface ParadaMarkerProps {
   parada: Parada;
@@ -97,15 +97,15 @@ export function ParadaMarker({
                 <View style={styles.calloutTypeBadge}>
                   <Ionicons
                     name={
-                      parada.tipo === "entrega"
-                        ? "cube-outline"
-                        : "arrow-up-circle-outline"
+                      parada.tipo === 'entrega'
+                        ? 'cube-outline'
+                        : 'arrow-up-circle-outline'
                     }
                     size={12}
                     color={theme.colors.textSecondary}
                   />
                   <Text style={styles.calloutTypeText}>
-                    {parada.tipo === "entrega" ? "Entrega" : "Retirada"}
+                    {parada.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
                   </Text>
                 </View>
               )}

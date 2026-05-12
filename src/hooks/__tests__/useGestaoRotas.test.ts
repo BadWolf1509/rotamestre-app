@@ -34,12 +34,25 @@ jest.mock("expo-router", () => ({
 }));
 jest.mock("expo-file-system/legacy", () => ({
   documentDirectory: "/test/",
+  cacheDirectory: "/test-cache/",
   writeAsStringAsync: jest.fn().mockResolvedValue(undefined),
-  EncodingType: { UTF8: "utf8" },
+  EncodingType: { UTF8: "utf8", Base64: "base64" },
 }));
 jest.mock("expo-sharing", () => ({
   isAvailableAsync: jest.fn().mockResolvedValue(true),
   shareAsync: jest.fn().mockResolvedValue(undefined),
+}));
+// Mock xlsx (SheetJS) to avoid real bundle load in tests.
+// useGestaoRotas lazy-loads xlsx via require() inside exportRotasToXLSX;
+// jest.mock intercepts it regardless of whether it's a top-level import or
+// an inline require().
+jest.mock("xlsx", () => ({
+  utils: {
+    book_new: jest.fn(() => ({})),
+    aoa_to_sheet: jest.fn(() => ({})),
+    book_append_sheet: jest.fn(),
+  },
+  write: jest.fn(() => "MOCK_BASE64"),
 }));
 jest.mock("@/utils/errorHandling", () => ({
   showError: jest.fn(),
@@ -877,6 +890,76 @@ describe("useGestaoRotas", () => {
   // ============================================
   // HELPER TESTS
   // ============================================
+
+  // ============================================
+  // XLSX EXPORT TESTS
+  // ============================================
+
+  describe("Exportação XLSX", () => {
+    it("deve chamar XLSX.utils.book_new ao exportar para XLSX", async () => {
+      const XLSX = require("xlsx");
+      Platform.OS = "web";
+
+      global.document = {
+        createElement: jest.fn().mockReturnValue({
+          setAttribute: jest.fn(),
+          click: jest.fn(),
+          style: {},
+        }),
+        body: { appendChild: jest.fn(), removeChild: jest.fn() },
+      } as unknown as Document;
+      global.URL = {
+        createObjectURL: jest.fn().mockReturnValue("blob:test"),
+        revokeObjectURL: jest.fn(),
+      } as unknown as typeof URL;
+      global.Blob = jest.fn().mockImplementation((content, options) => ({
+        content,
+        options,
+      })) as unknown as typeof Blob;
+
+      setupMocks();
+
+      const { result } = renderHook(() => useGestaoRotas(defaultOptions));
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      await act(async () => {
+        await result.current.exportarParaXLSX();
+      });
+
+      expect(XLSX.utils.book_new).toHaveBeenCalled();
+
+      Platform.OS = "android";
+    });
+
+    it("deve alertar quando não há rotas para exportar XLSX", async () => {
+      setupMocks({ rotasData: [] });
+
+      const { result } = renderHook(() => useGestaoRotas(defaultOptions));
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      await act(async () => {
+        await result.current.exportarParaXLSX();
+      });
+
+      const { showWarning } = require("@/utils/errorHandling");
+      expect(showWarning).toHaveBeenCalledWith(
+        "Atenção",
+        "Não há rotas para exportar",
+      );
+    });
+  });
+
+  // NOTE: PDF export tests have been removed from this file because
+  // exportarParaPDF is no longer exposed by useGestaoRotas. PDF export is a
+  // per-route function (exportRotaToPDF) that lives in
+  // gestao-rotas/routeExportPDF.ts and is tested in
+  // gestao-rotas/__tests__/routeExportPDF.test.ts.
 
   describe("Helpers", () => {
     it("deve retornar label correto para status", async () => {

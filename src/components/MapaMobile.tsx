@@ -1,22 +1,22 @@
-import MapLibreGL from "@maplibre/maplibre-react-native";
-import React, { useState } from "react";
-import { View, Text, ActivityIndicator } from "react-native";
+import MapLibreGL from '@maplibre/maplibre-react-native';
+import React, { useState } from 'react';
+import { View, Text, ActivityIndicator } from 'react-native';
 
-import { useLocationTracking } from "@/components/map/hooks/useLocationTracking";
-import { useMarkerGestures } from "@/components/map/hooks/useMarkerGestures";
-import { useMobileMapCamera } from "@/components/map/hooks/useMobileMapCamera";
-import { useNavigationActions } from "@/components/map/hooks/useNavigationActions";
-import { useParadaFiltering } from "@/components/map/hooks/useParadaFiltering";
-import { useRouteShape } from "@/components/map/hooks/useRouteShape";
-import { FloatingActionButtons } from "@/components/map/mobile/FloatingActionButtons";
-import { CheckpointMarker } from "@/components/map/mobile/markers/CheckpointMarker";
-import { ParadaMarker } from "@/components/map/mobile/markers/ParadaMarker";
-import { mapMobileStyles as styles } from "@/components/map/mobile/styles";
-import { MotoristaMarker } from "@/components/MotoristaMarker";
-import { useAlert } from "@/hooks/useAlert";
-import { MAPLIBRE_RASTER_STYLE, toLngLat } from "@/lib/maplibre";
-import type { ParadaMapItem as Parada, StatusFilter } from "@/types/parada-map";
-import { useUnistyles } from "@/utils/styles";
+import { useLocationTracking } from '@/components/map/hooks/useLocationTracking';
+import { useMarkerGestures } from '@/components/map/hooks/useMarkerGestures';
+import { useMobileMapCamera } from '@/components/map/hooks/useMobileMapCamera';
+import { useNavigationActions } from '@/components/map/hooks/useNavigationActions';
+import { useParadaFiltering } from '@/components/map/hooks/useParadaFiltering';
+import { useRouteShape } from '@/components/map/hooks/useRouteShape';
+import { FloatingActionButtons } from '@/components/map/mobile/FloatingActionButtons';
+import { CheckpointMarker } from '@/components/map/mobile/markers/CheckpointMarker';
+import { ParadaMarker } from '@/components/map/mobile/markers/ParadaMarker';
+import { mapMobileStyles as styles } from '@/components/map/mobile/styles';
+import { MotoristaMarker } from '@/components/MotoristaMarker';
+import { useAlert } from '@/hooks/useAlert';
+import { MAPLIBRE_RASTER_STYLE, toLngLat } from '@/lib/maplibre';
+import type { ParadaMapItem as Parada, StatusFilter } from '@/types/parada-map';
+import { useUnistyles } from '@/utils/styles';
 
 interface MapaMobileProps {
   paradas: Parada[];
@@ -43,7 +43,7 @@ export function MapaMobile({
   onMarkerPress,
   onMapPress,
   onMarkerLongPress,
-  statusFilter = "all",
+  statusFilter = 'all',
   rotaId,
   motoristaNome,
   showMotorista = false,
@@ -187,8 +187,8 @@ export function MapaMobile({
         accessibilityRole="summary"
         accessibilityLabel={
           isLoadingRoute
-            ? "Calculando rota"
-            : `${paradasFiltradas.length} parada${paradasFiltradas.length !== 1 ? "s" : ""}${routeInfo ? `, ${(routeInfo.distanceMeters / 1000).toFixed(1)} quilômetros, ${Math.round(routeInfo.durationSeconds / 60)} minutos` : ""}`
+            ? 'Calculando rota'
+            : `${paradasFiltradas.length} parada${paradasFiltradas.length !== 1 ? 's' : ''}${routeInfo ? `, ${(routeInfo.distanceMeters / 1000).toFixed(1)} quilômetros, ${Math.round(routeInfo.durationSeconds / 60)} minutos` : ''}`
         }
         accessibilityLiveRegion="polite"
       >
@@ -200,8 +200,8 @@ export function MapaMobile({
         ) : (
           <Text style={styles.infoBadgeText}>
             📍 {paradasFiltradas.length}
-            {statusFilter !== "all" ? `/${paradasReais.length}` : ""} parada
-            {paradasFiltradas.length !== 1 ? "s" : ""}
+            {statusFilter !== 'all' ? `/${paradasReais.length}` : ''} parada
+            {paradasFiltradas.length !== 1 ? 's' : ''}
             {routeInfo &&
               ` • ${(routeInfo.distanceMeters / 1000).toFixed(1)} km • ${Math.round(routeInfo.durationSeconds / 60)} min`}
           </Text>

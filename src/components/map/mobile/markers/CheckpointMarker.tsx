@@ -5,12 +5,12 @@
  * The callout shows address, unit name, and a copy-address button.
  */
 
-import { Ionicons } from "@expo/vector-icons";
-import React from "react";
-import { View, Text, TouchableOpacity, Pressable } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { View, Text, TouchableOpacity, Pressable } from 'react-native';
 
-import { mapMobileStyles as styles } from "@/components/map/mobile/styles";
-import { useUnistyles } from "@/utils/styles";
+import { mapMobileStyles as styles } from '@/components/map/mobile/styles';
+import { useUnistyles } from '@/utils/styles';
 
 interface CheckpointMarkerProps {
   /** 0 = PARTIDA, 1+ = CHEGADA */
@@ -36,8 +36,8 @@ export function CheckpointMarker({
 }: CheckpointMarkerProps) {
   const { theme } = useUnistyles();
   const isPartida = index === 0;
-  const checkpointLabel = isPartida ? "PARTIDA" : "CHEGADA";
-  const iconName = isPartida ? "flag" : "home";
+  const checkpointLabel = isPartida ? 'PARTIDA' : 'CHEGADA';
+  const iconName = isPartida ? 'flag' : 'home';
 
   return (
     <View style={styles.markerWrapper}>

@@ -6,10 +6,10 @@ type LatLng = {
 type LngLatTuple = [number, number];
 
 type GeoJSONLineString = {
-  type: "Feature";
+  type: 'Feature';
   properties: Record<string, unknown>;
   geometry: {
-    type: "LineString";
+    type: 'LineString';
     coordinates: LngLatTuple[];
   };
 };
@@ -23,22 +23,22 @@ const CARTO_VOYAGER_RASTER_STYLE = {
   version: 8,
   sources: {
     carto: {
-      type: "raster",
+      type: 'raster',
       tiles: [
-        "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
-        "https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
-        "https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
-        "https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+        'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+        'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+        'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+        'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
       ],
       tileSize: 256,
-      attribution: "(c) OpenStreetMap contributors (c) CARTO",
+      attribution: '(c) OpenStreetMap contributors (c) CARTO',
     },
   },
   layers: [
     {
-      id: "carto-voyager",
-      type: "raster",
-      source: "carto",
+      id: 'carto-voyager',
+      type: 'raster',
+      source: 'carto',
       minzoom: 0,
       maxzoom: 20,
     },
@@ -56,10 +56,10 @@ export function toLngLat({ latitude, longitude }: LatLng): LngLatTuple {
 
 export function toLineString(coords: LatLng[]): GeoJSONLineString {
   return {
-    type: "Feature",
+    type: 'Feature',
     properties: {},
     geometry: {
-      type: "LineString",
+      type: 'LineString',
       coordinates: coords.map(toLngLat),
     },
   };

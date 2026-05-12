@@ -11,9 +11,9 @@
  * - hasParadasComCoordenadas: boolean shorthand
  */
 
-import { useMemo } from "react";
+import { useMemo } from 'react';
 
-import type { ParadaMapItem as Parada, StatusFilter } from "@/types/parada-map";
+import type { ParadaMapItem as Parada, StatusFilter } from '@/types/parada-map';
 
 interface UseParadaFilteringResult {
   paradasComCoord: Parada[];
@@ -32,7 +32,7 @@ interface UseParadaFilteringResult {
  */
 export function useParadaFiltering(
   paradas: Parada[],
-  statusFilter: StatusFilter = "all",
+  statusFilter: StatusFilter = 'all',
 ): UseParadaFilteringResult {
   const paradasComCoord = useMemo(
     () => paradas.filter((p) => p.latitude !== null && p.longitude !== null),
@@ -47,7 +47,7 @@ export function useParadaFiltering(
   );
 
   const paradasFiltradas = useMemo(() => {
-    if (statusFilter === "all") return paradasReais;
+    if (statusFilter === 'all') return paradasReais;
     return paradasReais.filter((p) => p.status === statusFilter);
   }, [paradasReais, statusFilter]);
 

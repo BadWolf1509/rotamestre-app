@@ -8,14 +8,14 @@
  * - isLocating loading state
  */
 
-import * as Location from "expo-location";
-import { useCallback, useState, type RefObject } from "react";
+import * as Location from 'expo-location';
+import { useCallback, useState, type RefObject } from 'react';
 
-import { useAlert } from "@/hooks/useAlert";
-import { logger } from "@/lib/logger";
-import { toLngLat, zoomFromLongitudeDelta } from "@/lib/maplibre";
+import { useAlert } from '@/hooks/useAlert';
+import { logger } from '@/lib/logger';
+import { toLngLat, zoomFromLongitudeDelta } from '@/lib/maplibre';
 
-import type { CameraRef } from "@maplibre/maplibre-react-native";
+import type { CameraRef } from '@maplibre/maplibre-react-native';
 
 interface UseLocationTrackingResult {
   isLocating: boolean;
@@ -36,10 +36,10 @@ export function useLocationTracking(
     setIsLocating(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
+      if (status !== 'granted') {
         showWarning(
-          "Permissão negada",
-          "Permita o acesso à localização para usar esta função.",
+          'Permissão negada',
+          'Permita o acesso à localização para usar esta função.',
         );
         return;
       }
@@ -59,10 +59,10 @@ export function useLocationTracking(
         animationDuration: 500,
       });
     } catch (error) {
-      logger.error("[useLocationTracking] Erro ao obter localização:", error);
+      logger.error('[useLocationTracking] Erro ao obter localização:', error);
       showError({
-        title: "Erro",
-        message: "Não foi possível obter sua localização.",
+        title: 'Erro',
+        message: 'Não foi possível obter sua localização.',
       });
     } finally {
       setIsLocating(false);

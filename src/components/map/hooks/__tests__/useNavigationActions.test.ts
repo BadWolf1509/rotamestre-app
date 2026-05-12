@@ -1,11 +1,11 @@
-import { act, renderHook } from "@testing-library/react-native";
+import { act, renderHook } from '@testing-library/react-native';
 
-import { showNavigationOptions } from "@/utils/navigation";
+import { showNavigationOptions } from '@/utils/navigation';
 
-import { useNavigationActions } from "../useNavigationActions";
+import { useNavigationActions } from '../useNavigationActions';
 
 // showNavigationOptions mocked below
-jest.mock("@/utils/navigation", () => ({
+jest.mock('@/utils/navigation', () => ({
   showNavigationOptions: jest.fn(),
 }));
 
@@ -14,31 +14,31 @@ const makeCameraRef = () => ({
 });
 
 const pendente = {
-  id: "p1",
-  endereco: "Rua A, 100",
+  id: 'p1',
+  endereco: 'Rua A, 100',
   latitude: -23.55,
   longitude: -46.63,
-  status: "pendente",
+  status: 'pendente',
   ordem: 1,
   is_checkpoint: false,
 };
 
 const concluida = {
-  id: "p2",
-  endereco: "Rua B, 200",
+  id: 'p2',
+  endereco: 'Rua B, 200',
   latitude: -23.56,
   longitude: -46.64,
-  status: "concluida",
+  status: 'concluida',
   ordem: 2,
   is_checkpoint: false,
 };
 
-describe("useNavigationActions", () => {
+describe('useNavigationActions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("proximaParadaPendente is undefined when no pending paradas", () => {
+  it('proximaParadaPendente is undefined when no pending paradas', () => {
     const cameraRef = makeCameraRef();
     const { result } = renderHook(() =>
       useNavigationActions(
@@ -50,9 +50,9 @@ describe("useNavigationActions", () => {
     expect(result.current.proximaParadaPendente).toBeUndefined();
   });
 
-  it("proximaParadaPendente returns first pending parada by ordem", () => {
+  it('proximaParadaPendente returns first pending parada by ordem', () => {
     const cameraRef = makeCameraRef();
-    const parada2 = { ...pendente, id: "p3", ordem: 0 };
+    const parada2 = { ...pendente, id: 'p3', ordem: 0 };
     const { result } = renderHook(() =>
       useNavigationActions(
         [pendente, parada2] as any,
@@ -60,10 +60,10 @@ describe("useNavigationActions", () => {
         cameraRef as any,
       ),
     );
-    expect(result.current.proximaParadaPendente?.id).toBe("p3");
+    expect(result.current.proximaParadaPendente?.id).toBe('p3');
   });
 
-  it("handleNavigate shows warning when no pending paradas", () => {
+  it('handleNavigate shows warning when no pending paradas', () => {
     const cameraRef = makeCameraRef();
     const { result } = renderHook(() =>
       useNavigationActions([], [], cameraRef as any),
@@ -72,13 +72,13 @@ describe("useNavigationActions", () => {
       result.current.handleNavigate();
     });
     expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
-      "Nenhuma parada",
+      'Nenhuma parada',
       expect.any(String),
     );
     expect(showNavigationOptions).not.toHaveBeenCalled();
   });
 
-  it("handleNavigate calls showNavigationOptions when pending parada exists", () => {
+  it('handleNavigate calls showNavigationOptions when pending parada exists', () => {
     const cameraRef = makeCameraRef();
     const { result } = renderHook(() =>
       useNavigationActions(
@@ -98,7 +98,7 @@ describe("useNavigationActions", () => {
     );
   });
 
-  it("handleFitAll calls cameraRef.fitBounds when paradas exist", () => {
+  it('handleFitAll calls cameraRef.fitBounds when paradas exist', () => {
     const cameraRef = makeCameraRef();
     const { result } = renderHook(() =>
       useNavigationActions(
