@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import MapLibreGL from "@maplibre/maplibre-react-native";
-import React, { useMemo, useCallback, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -15,11 +15,11 @@ import { useMarkerGestures } from "@/components/map/hooks/useMarkerGestures";
 import { useMobileMapCamera } from "@/components/map/hooks/useMobileMapCamera";
 import { useNavigationActions } from "@/components/map/hooks/useNavigationActions";
 import { useParadaFiltering } from "@/components/map/hooks/useParadaFiltering";
+import { useRouteShape } from "@/components/map/hooks/useRouteShape";
 import { getStatusLabel } from "@/components/map/infoWindowBuilders";
 import { MotoristaMarker } from "@/components/MotoristaMarker";
 import { useAlert } from "@/hooks/useAlert";
-import { useRouteDirections } from "@/hooks/useRouteDirections";
-import { MAPLIBRE_RASTER_STYLE, toLineString, toLngLat } from "@/lib/maplibre";
+import { MAPLIBRE_RASTER_STYLE, toLngLat } from "@/lib/maplibre";
 import type { ParadaMapItem as Parada, StatusFilter } from "@/types/parada-map";
 import { withOpacity } from "@/utils/color";
 import { getMarkerFillColor } from "@/utils/mapMarkerColors";
@@ -71,12 +71,10 @@ export function MapaMobile({
     hasParadasComCoordenadas,
   } = useParadaFiltering(paradas, statusFilter);
 
-  // Buscar rota real usando Google Directions API
-  const {
-    routeCoordinates,
-    routeInfo,
-    isLoading: isLoadingRoute,
-  } = useRouteDirections(paradasComCoord as Parada[]);
+  // Route shape (GeoJSON LineString) + route info
+  const { routeShape, routeInfo, isLoadingRoute } = useRouteShape(
+    paradasComCoord as Parada[],
+  );
 
   // Camera ref + initial camera position
   const { cameraRef, initialCamera } = useMobileMapCamera(
@@ -110,11 +108,6 @@ export function MapaMobile({
   // Navigation: next stop + fit-all + open external nav app
   const { proximaParadaPendente, handleNavigate, handleFitAll } =
     useNavigationActions(paradasReais, paradasComCoord as Parada[], cameraRef);
-
-  const routeShape = useMemo(
-    () => (routeCoordinates.length > 1 ? toLineString(routeCoordinates) : null),
-    [routeCoordinates],
-  );
 
   if (!hasParadasComCoordenadas) {
     return (
