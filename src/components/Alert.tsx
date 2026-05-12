@@ -25,12 +25,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ViewStyle,
-} from 'react-native';
+import { View, Text, TouchableOpacity, ViewStyle } from 'react-native';
 
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -104,17 +99,31 @@ export function Alert({
       />
 
       <View style={styles.content}>
-        {title && <Text style={[styles.title, { color: accentColor }]}>{title}</Text>}
+        {title && (
+          <Text style={[styles.title, { color: accentColor }]}>{title}</Text>
+        )}
         <Text style={styles.message}>{message}</Text>
         {actionLabel && onAction && (
-          <TouchableOpacity onPress={onAction} style={styles.actionBtn}>
-            <Text style={[styles.actionText, { color: accentColor }]}>{actionLabel}</Text>
+          <TouchableOpacity
+            accessibilityLabel={actionLabel}
+            accessibilityRole="button"
+            onPress={onAction}
+            style={styles.actionBtn}
+          >
+            <Text style={[styles.actionText, { color: accentColor }]}>
+              {actionLabel}
+            </Text>
           </TouchableOpacity>
         )}
       </View>
 
       {onClose && (
-        <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+        <TouchableOpacity
+          accessibilityLabel="Fechar alerta"
+          accessibilityRole="button"
+          onPress={onClose}
+          style={styles.closeBtn}
+        >
           <Ionicons name="close" size={18} color={theme.colors.gray500} />
         </TouchableOpacity>
       )}
