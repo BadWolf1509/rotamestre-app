@@ -1,19 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
 import MapLibreGL from "@maplibre/maplibre-react-native";
-import * as Clipboard from "expo-clipboard";
-import * as Haptics from "expo-haptics";
 import React, { useMemo, useCallback, useState } from "react";
 import {
   View,
   Text,
   ActivityIndicator,
   TouchableOpacity,
-  Platform,
   Pressable,
   Linking,
 } from "react-native";
 
 import { useLocationTracking } from "@/components/map/hooks/useLocationTracking";
+import { useMarkerGestures } from "@/components/map/hooks/useMarkerGestures";
 import { useMobileMapCamera } from "@/components/map/hooks/useMobileMapCamera";
 import { useNavigationActions } from "@/components/map/hooks/useNavigationActions";
 import { getStatusLabel } from "@/components/map/infoWindowBuilders";
@@ -25,7 +23,6 @@ import type { ParadaMapItem as Parada, StatusFilter } from "@/types/parada-map";
 import { withOpacity } from "@/utils/color";
 import { getMarkerFillColor } from "@/utils/mapMarkerColors";
 import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
-import { toast } from "@/utils/toast";
 
 interface MapaMobileProps {
   paradas: Parada[];
@@ -111,53 +108,22 @@ export function MapaMobile({
     [theme.colors],
   );
 
-  // Handler para tap no marcador com haptic feedback
-  const handleMarkerPress = useCallback(
-    (paradaId: string) => {
-      if (Platform.OS !== "web") {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
-      setSelectedCheckpointId(null);
-      onMarkerPress?.(paradaId);
-    },
-    [onMarkerPress],
-  );
-
-  // Handler para long-press no marcador
-  const handleMarkerLongPress = useCallback(
-    (paradaId: string) => {
-      if (Platform.OS !== "web") {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      }
-      onMarkerLongPress?.(paradaId);
-    },
-    [onMarkerLongPress],
-  );
-
-  // Handler para tap no mapa (deselecionar)
-  const handleMapPress = useCallback(() => {
-    setSelectedCheckpointId(null);
-    onMapPress?.();
-  }, [onMapPress]);
+  // Marker/map gestures + clipboard
+  const {
+    handleMarkerPress,
+    handleMarkerLongPress,
+    handleMapPress,
+    handleCopyAddress,
+  } = useMarkerGestures({
+    onMarkerPress,
+    onMarkerLongPress,
+    onMapPress,
+    setSelectedCheckpointId,
+  });
 
   // Navigation: next stop + fit-all + open external nav app
   const { proximaParadaPendente, handleNavigate, handleFitAll } =
     useNavigationActions(paradasReais, paradasComCoord as Parada[], cameraRef);
-
-  // Handler para copiar endereço - memoizado para performance
-  const handleCopyAddress = useCallback(async (endereco: string) => {
-    try {
-      await Clipboard.setStringAsync(endereco);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      toast.success(
-        "Endereço copiado para a área de transferência.",
-        "Copiado!",
-      );
-    } catch {
-      // Clipboard pode não estar disponível em todas as plataformas
-      toast.error("Não foi possível copiar o endereço.");
-    }
-  }, []);
 
   const routeShape = useMemo(
     () => (routeCoordinates.length > 1 ? toLineString(routeCoordinates) : null),

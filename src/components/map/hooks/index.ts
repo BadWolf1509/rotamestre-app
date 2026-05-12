@@ -9,3 +9,4 @@ export { useMapControls } from "./useMapControls";
 export { useMobileMapCamera } from "./useMobileMapCamera";
 export { useLocationTracking } from "./useLocationTracking";
 export { useNavigationActions } from "./useNavigationActions";
+export { useMarkerGestures } from "./useMarkerGestures";
