@@ -48,6 +48,8 @@ module.exports = {
   moduleNameMapper: {
     // Mock para todos os assets de imagem (deve vir ANTES do alias @/)
     '\\.(png|PNG|jpg|jpeg|gif|svg|webp|bmp|ico)$': '<rootDir>/__mocks__/fileMock.js',
+    // Mock CSS imports (maplibre-gl/dist/maplibre-gl.css etc.)
+    '\\.css$': '<rootDir>/__mocks__/fileMock.js',
     // Mock @/utils/color - required because styles.base.ts calls boxShadow() at module level
     '^@/utils/color$': '<rootDir>/src/utils/__mocks__/color.ts',
     // Alias @/ para src/

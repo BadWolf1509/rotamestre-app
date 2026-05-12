@@ -26,6 +26,7 @@ import React, {
 } from "react";
 import { View, ActivityIndicator, Text } from "react-native";
 
+import { useMotoristaLocationMapLibre } from "@/components/map/hooks/useMotoristaLocationMapLibre";
 import { useRouteDirections } from "@/hooks/useRouteDirections";
 import { logger } from "@/lib/logger";
 import {
@@ -153,9 +154,9 @@ export default function MapaWebMapLibre({
   onMarkerPress,
   onMapPress,
   statusFilter = "all",
-  rotaId: _rotaId,
-  motoristaNome: _motoristaNome,
-  showMotorista: _showMotorista = false,
+  rotaId,
+  motoristaNome,
+  showMotorista = false,
   unidadeNome,
   polyline,
 }: MapaWebMapLibreProps) {
@@ -163,8 +164,15 @@ export default function MapaWebMapLibre({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
+  const motoristaMarkerRef = useRef<maplibregl.Marker | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Live driver location — hook called unconditionally (rules of hooks).
+  // Pass rotaId only when showMotorista=true to gate Supabase subscription.
+  const { location: motoristaLocation } = useMotoristaLocationMapLibre(
+    showMotorista ? rotaId : undefined,
+  );
 
   // Paradas with valid coordinates
   const paradasComCoord = useMemo(() => {
@@ -644,6 +652,55 @@ export default function MapaWebMapLibre({
       });
     }
   }, [selectedParadaId, paradasComCoord, checkpoints, mapLoaded, openPopup]);
+
+  // Render live motorista marker as a DOM Marker.
+  // On first render: creates the element and marker, stores it in motoristaMarkerRef.
+  // On subsequent location changes: reuses the existing marker via setLngLat (no re-create).
+  // When location becomes null: removes the marker and clears the ref.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    if (!motoristaLocation) {
+      motoristaMarkerRef.current?.remove();
+      motoristaMarkerRef.current = null;
+      return;
+    }
+
+    const lngLat: [number, number] = [
+      motoristaLocation.longitude,
+      motoristaLocation.latitude,
+    ];
+
+    if (motoristaMarkerRef.current) {
+      // Existing marker — just move it, no DOM re-create
+      motoristaMarkerRef.current.setLngLat(lngLat);
+      return;
+    }
+
+    // First render — create element + marker
+    const el = document.createElement("div");
+    el.className = "motorista-marker";
+    el.setAttribute("role", "img");
+    el.setAttribute(
+      "aria-label",
+      motoristaNome ? `Motorista: ${motoristaNome}` : "Motorista",
+    );
+    // Use the theme primary color from design tokens — no hardcoded colors
+    el.style.cssText = `width:20px;height:20px;border-radius:50%;background:${theme.colors.primary};border:3px solid #fff;box-shadow:0 0 0 2px rgba(0,0,0,0.2);cursor:pointer;`;
+
+    motoristaMarkerRef.current = new maplibregl.Marker({ element: el })
+      .setLngLat(lngLat)
+      .addTo(map);
+  }, [mapLoaded, motoristaLocation, motoristaNome, theme.colors.primary]);
+
+  // Unmount cleanup: remove the motorista marker if it exists
+  useEffect(() => {
+    return () => {
+      motoristaMarkerRef.current?.remove();
+      motoristaMarkerRef.current = null;
+    };
+  }, []);
 
   if (loadError) {
     return (
