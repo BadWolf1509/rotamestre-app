@@ -28,9 +28,15 @@ export const PaginationMobile = memo(function PaginationMobile({
   return (
     <View style={styles.pagination}>
       <TouchableOpacity
-        style={[styles.pageButton, currentPage === 1 && styles.pageButtonDisabled]}
+        style={[
+          styles.pageButton,
+          currentPage === 1 && styles.pageButtonDisabled,
+        ]}
         onPress={onPrevious}
         disabled={currentPage === 1}
+        accessibilityLabel="Página anterior"
+        accessibilityRole="button"
+        accessibilityState={{ disabled: currentPage === 1 }}
       >
         <Text style={styles.pageButtonText}>← Anterior</Text>
       </TouchableOpacity>
@@ -46,6 +52,9 @@ export const PaginationMobile = memo(function PaginationMobile({
         ]}
         onPress={onNext}
         disabled={currentPage === totalPages}
+        accessibilityLabel="Próxima página"
+        accessibilityRole="button"
+        accessibilityState={{ disabled: currentPage === totalPages }}
       >
         <Text style={styles.pageButtonText}>Próxima →</Text>
       </TouchableOpacity>
@@ -82,9 +91,15 @@ export const PaginationDesktop = memo(function PaginationDesktop({
 
       <View style={styles.paginationControls}>
         <TouchableOpacity
-          style={[styles.pageButton, currentPage === 1 && styles.pageButtonDisabled]}
+          style={[
+            styles.pageButton,
+            currentPage === 1 && styles.pageButtonDisabled,
+          ]}
           onPress={onPrevious}
           disabled={currentPage === 1}
+          accessibilityLabel="Página anterior"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: currentPage === 1 }}
         >
           <Text style={styles.pageButtonText}>← Anterior</Text>
         </TouchableOpacity>
@@ -100,6 +115,9 @@ export const PaginationDesktop = memo(function PaginationDesktop({
           ]}
           onPress={onNext}
           disabled={currentPage === totalPages}
+          accessibilityLabel="Próxima página"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: currentPage === totalPages }}
         >
           <Text style={styles.pageButtonText}>Próxima →</Text>
         </TouchableOpacity>

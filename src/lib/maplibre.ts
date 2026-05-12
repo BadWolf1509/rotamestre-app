@@ -46,7 +46,9 @@ const CARTO_VOYAGER_RASTER_STYLE = {
 } as const;
 
 export const MAPLIBRE_RASTER_STYLE = CARTO_VOYAGER_RASTER_STYLE;
-export const MAPLIBRE_RASTER_STYLE_JSON = JSON.stringify(CARTO_VOYAGER_RASTER_STYLE);
+export const MAPLIBRE_RASTER_STYLE_JSON = JSON.stringify(
+  CARTO_VOYAGER_RASTER_STYLE,
+);
 
 export function toLngLat({ latitude, longitude }: LatLng): LngLatTuple {
   return [longitude, latitude];
@@ -90,4 +92,4 @@ export function zoomFromLongitudeDelta(delta: number): number {
   return Math.max(1, Math.min(20, zoom));
 }
 
-export type { LatLng, LngLatTuple, MapBounds };
+export type { LatLng, LngLatTuple, MapBounds, GeoJSONLineString };
