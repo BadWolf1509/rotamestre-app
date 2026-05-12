@@ -1,4 +1,4 @@
-import { googleMapsService } from "../google";
+import { googleMapsService, getCoordinates } from "../google";
 import { clearCache } from "../osrm";
 
 // Mock fetch global
@@ -756,5 +756,272 @@ describe("googleMapsService", () => {
       const result = await googleMapsService.getPlaceDetails("invalid_id");
       expect(result).toBeNull();
     });
+  });
+
+  describe("geocodeAddress", () => {
+    it("deve retornar EnderecoGeocodificado quando status OK", async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: jest.fn().mockResolvedValue({
+          status: "OK",
+          results: [
+            {
+              formatted_address:
+                "Rua das Flores, 42 - Centro, Recife - PE, 50010-000",
+              geometry: { location: { lat: -8.0631, lng: -34.8713 } },
+              address_components: [
+                { types: ["route"], long_name: "Rua das Flores" },
+                { types: ["street_number"], long_name: "42" },
+                { types: ["sublocality"], long_name: "Centro" },
+                { types: ["locality"], long_name: "Recife" },
+                { types: ["administrative_area_level_1"], long_name: "PE" },
+                { types: ["postal_code"], long_name: "50010-000" },
+              ],
+            },
+          ],
+        }),
+      });
+
+      const result = await googleMapsService.geocodeAddress(
+        "Rua das Flores, 42, Recife",
+      );
+
+      expect(result).not.toBeNull();
+      expect(result?.logradouro).toBe("Rua das Flores");
+      expect(result?.numero).toBe("42");
+      expect(result?.bairro).toBe("Centro");
+      expect(result?.cidade).toBe("Recife");
+      expect(result?.estado).toBe("PE");
+      expect(result?.cep).toBe("50010-000");
+      expect(result?.coordenadas).toEqual({
+        latitude: -8.0631,
+        longitude: -34.8713,
+      });
+      expect(result?.formatted_address).toBe(
+        "Rua das Flores, 42 - Centro, Recife - PE, 50010-000",
+      );
+    });
+
+    it("deve usar neighborhood como fallback de bairro", async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: jest.fn().mockResolvedValue({
+          status: "OK",
+          results: [
+            {
+              formatted_address: "Test",
+              geometry: { location: { lat: 0, lng: 0 } },
+              address_components: [
+                {
+                  types: ["neighborhood"],
+                  long_name: "Bairro Via Neighborhood",
+                },
+              ],
+            },
+          ],
+        }),
+      });
+
+      const result = await googleMapsService.geocodeAddress("Test");
+      expect(result?.bairro).toBe("Bairro Via Neighborhood");
+    });
+
+    it("deve usar administrative_area_level_2 como fallback de cidade", async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: jest.fn().mockResolvedValue({
+          status: "OK",
+          results: [
+            {
+              formatted_address: "Test",
+              geometry: { location: { lat: 0, lng: 0 } },
+              address_components: [
+                {
+                  types: ["administrative_area_level_2"],
+                  long_name: "Região Test",
+                },
+              ],
+            },
+          ],
+        }),
+      });
+
+      const result = await googleMapsService.geocodeAddress("Test");
+      expect(result?.cidade).toBe("Região Test");
+    });
+
+    it("deve retornar null quando status não é OK", async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: jest.fn().mockResolvedValue({
+          status: "ZERO_RESULTS",
+          results: [],
+        }),
+      });
+
+      const result = await googleMapsService.geocodeAddress(
+        "Endereço Inexistente",
+      );
+      expect(result).toBeNull();
+    });
+
+    it("deve retornar null quando results está vazio", async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: jest.fn().mockResolvedValue({
+          status: "OK",
+          results: [],
+        }),
+      });
+
+      const result = await googleMapsService.geocodeAddress("Test vazio");
+      expect(result).toBeNull();
+    });
+
+    it("deve retornar null em caso de erro de rede", async () => {
+      mockFetch.mockRejectedValueOnce(new Error("Network failure"));
+
+      const result =
+        await googleMapsService.geocodeAddress("Qualquer endereço");
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("reverseGeocode", () => {
+    it("deve retornar formatted_address quando status OK", async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: jest.fn().mockResolvedValue({
+          status: "OK",
+          results: [
+            { formatted_address: "Av. Paulista, 1578 - São Paulo, SP" },
+          ],
+        }),
+      });
+
+      const result = await googleMapsService.reverseGeocode({
+        latitude: -23.5613,
+        longitude: -46.6558,
+      });
+
+      expect(result).toBe("Av. Paulista, 1578 - São Paulo, SP");
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("latlng=-23.5613,-46.6558"),
+      );
+    });
+
+    it("deve retornar null quando status não é OK", async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: jest.fn().mockResolvedValue({
+          status: "ZERO_RESULTS",
+          results: [],
+        }),
+      });
+
+      const result = await googleMapsService.reverseGeocode({
+        latitude: 999,
+        longitude: 999,
+      });
+
+      expect(result).toBeNull();
+    });
+
+    it("deve retornar null quando results está vazio", async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: jest.fn().mockResolvedValue({
+          status: "OK",
+          results: [],
+        }),
+      });
+
+      const result = await googleMapsService.reverseGeocode({
+        latitude: 0,
+        longitude: 0,
+      });
+
+      expect(result).toBeNull();
+    });
+
+    it("deve retornar null em caso de erro de rede", async () => {
+      mockFetch.mockRejectedValueOnce(new Error("Connection reset"));
+
+      const result = await googleMapsService.reverseGeocode({
+        latitude: -23.5505,
+        longitude: -46.6333,
+      });
+
+      expect(result).toBeNull();
+    });
+  });
+});
+
+describe("getCoordinates", () => {
+  const mockFetch = jest.fn();
+
+  beforeAll(() => {
+    global.fetch = mockFetch as unknown as typeof fetch;
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("deve retornar lat/lng quando geocoding retorna OK", async () => {
+    mockFetch.mockResolvedValueOnce({
+      json: jest.fn().mockResolvedValue({
+        status: "OK",
+        results: [{ geometry: { location: { lat: -23.5505, lng: -46.6333 } } }],
+      }),
+    });
+
+    const result = await getCoordinates("São Paulo, SP");
+
+    expect(result).not.toBeNull();
+    expect(result?.lat).toBe(-23.5505);
+    expect(result?.lng).toBe(-46.6333);
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining("maps.googleapis.com/maps/api/geocode/json"),
+    );
+  });
+
+  it("deve retornar null quando status não é OK", async () => {
+    mockFetch.mockResolvedValueOnce({
+      json: jest.fn().mockResolvedValue({
+        status: "ZERO_RESULTS",
+        results: [],
+      }),
+    });
+
+    const result = await getCoordinates("Endereço Inexistente XYZ");
+    expect(result).toBeNull();
+  });
+
+  it("deve retornar null quando results está vazio", async () => {
+    mockFetch.mockResolvedValueOnce({
+      json: jest.fn().mockResolvedValue({
+        status: "OK",
+        results: [],
+      }),
+    });
+
+    const result = await getCoordinates("Endereço sem resultado");
+    expect(result).toBeNull();
+  });
+
+  it("deve retornar null em caso de erro de rede", async () => {
+    mockFetch.mockRejectedValueOnce(new Error("Network timeout"));
+
+    const result = await getCoordinates("Qualquer endereço");
+    expect(result).toBeNull();
+  });
+
+  it("deve incluir o endereço encodado na URL", async () => {
+    mockFetch.mockResolvedValueOnce({
+      json: jest.fn().mockResolvedValue({
+        status: "OK",
+        results: [{ geometry: { location: { lat: -8.0, lng: -34.9 } } }],
+      }),
+    });
+
+    await getCoordinates("Rua com espaços");
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining("maps.googleapis.com/maps/api/geocode/json"),
+    );
+    expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("address="));
   });
 });
