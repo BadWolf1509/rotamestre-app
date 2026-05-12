@@ -1,7 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
 import MapLibreGL from "@maplibre/maplibre-react-native";
 import React, { useState } from "react";
-import { View, Text, ActivityIndicator, TouchableOpacity } from "react-native";
+import { View, Text, ActivityIndicator } from "react-native";
 
 import { useLocationTracking } from "@/components/map/hooks/useLocationTracking";
 import { useMarkerGestures } from "@/components/map/hooks/useMarkerGestures";
@@ -9,6 +8,7 @@ import { useMobileMapCamera } from "@/components/map/hooks/useMobileMapCamera";
 import { useNavigationActions } from "@/components/map/hooks/useNavigationActions";
 import { useParadaFiltering } from "@/components/map/hooks/useParadaFiltering";
 import { useRouteShape } from "@/components/map/hooks/useRouteShape";
+import { FloatingActionButtons } from "@/components/map/mobile/FloatingActionButtons";
 import { CheckpointMarker } from "@/components/map/mobile/markers/CheckpointMarker";
 import { ParadaMarker } from "@/components/map/mobile/markers/ParadaMarker";
 import { mapMobileStyles as styles } from "@/components/map/mobile/styles";
@@ -208,65 +208,13 @@ export function MapaMobile({
         )}
       </View>
 
-      {/* Botões flutuantes (FABs) */}
-      <View
-        style={styles.fabContainer}
-        accessibilityRole="toolbar"
-        accessibilityLabel="Controles do mapa"
-      >
-        {/* Botão de ajustar para mostrar todas as paradas */}
-        <TouchableOpacity
-          style={styles.fabSecondary}
-          onPress={handleFitAll}
-          activeOpacity={0.8}
-          accessible={true}
-          accessibilityLabel="Ajustar mapa para mostrar todas as paradas"
-          accessibilityRole="button"
-        >
-          <Ionicons
-            name="scan-outline"
-            size={22}
-            color={theme.colors.primary}
-          />
-        </TouchableOpacity>
-
-        {/* Botão de centralizar no usuário */}
-        <TouchableOpacity
-          style={styles.fabSecondary}
-          onPress={handleCenterOnUser}
-          activeOpacity={0.8}
-          disabled={isLocating}
-          accessible={true}
-          accessibilityLabel={
-            isLocating
-              ? "Obtendo localização"
-              : "Centralizar mapa na minha localização"
-          }
-          accessibilityRole="button"
-          accessibilityState={{ busy: isLocating }}
-        >
-          {isLocating ? (
-            <ActivityIndicator size="small" color={theme.colors.primary} />
-          ) : (
-            <Ionicons name="locate" size={22} color={theme.colors.primary} />
-          )}
-        </TouchableOpacity>
-
-        {/* Botão principal de navegação */}
-        {proximaParadaPendente && (
-          <TouchableOpacity
-            style={styles.fabPrimary}
-            onPress={handleNavigate}
-            activeOpacity={0.8}
-            accessible={true}
-            accessibilityLabel={`Navegar para parada ${proximaParadaPendente.ordem}`}
-            accessibilityRole="button"
-            accessibilityHint="Abre aplicativo de navegação"
-          >
-            <Ionicons name="navigate" size={24} color={theme.colors.white} />
-          </TouchableOpacity>
-        )}
-      </View>
+      <FloatingActionButtons
+        onFitAll={handleFitAll}
+        onCenterOnUser={handleCenterOnUser}
+        isLocating={isLocating}
+        proximaParadaPendente={proximaParadaPendente}
+        onNavigate={handleNavigate}
+      />
       {AlertDialog}
     </View>
   );
