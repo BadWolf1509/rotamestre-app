@@ -35,7 +35,7 @@ it("renders with multiple paradas including checkpoints", () => {
       longitude: -46.62,
       status: "pendente",
       ordem: 0,
-      is_checkpoint: true,
+      is_checkpoint: false,
     },
     {
       id: "p1",
