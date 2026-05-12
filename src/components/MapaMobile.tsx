@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import MapLibreGL from "@maplibre/maplibre-react-native";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
-import * as Location from "expo-location";
 import React, { useMemo, useCallback, useState } from "react";
 import {
   View,
@@ -14,18 +13,17 @@ import {
   Linking,
 } from "react-native";
 
+import { useLocationTracking } from "@/components/map/hooks/useLocationTracking";
 import { useMobileMapCamera } from "@/components/map/hooks/useMobileMapCamera";
 import { getStatusLabel } from "@/components/map/infoWindowBuilders";
 import { MotoristaMarker } from "@/components/MotoristaMarker";
 import { useAlert } from "@/hooks/useAlert";
 import { useRouteDirections } from "@/hooks/useRouteDirections";
-import { logger } from "@/lib/logger";
 import {
   MAPLIBRE_RASTER_STYLE,
   getBounds,
   toLineString,
   toLngLat,
-  zoomFromLongitudeDelta,
 } from "@/lib/maplibre";
 import type { ParadaMapItem as Parada, StatusFilter } from "@/types/parada-map";
 import { withOpacity } from "@/utils/color";
@@ -66,8 +64,7 @@ export function MapaMobile({
   unidadeNome,
 }: MapaMobileProps) {
   const { theme } = useUnistyles();
-  const { showWarning, showError, AlertDialog } = useAlert();
-  const [isLocating, setIsLocating] = useState(false);
+  const { showWarning, AlertDialog } = useAlert();
   const [selectedCheckpointId, setSelectedCheckpointId] = useState<
     string | null
   >(null);
@@ -107,6 +104,9 @@ export function MapaMobile({
   const { cameraRef, initialCamera } = useMobileMapCamera(
     paradasComCoord as Parada[],
   );
+
+  // Location centering
+  const { isLocating, handleCenterOnUser } = useLocationTracking(cameraRef);
 
   // Marker color from centralized statusConfig (WCAG-compliant dark variants)
   const getMarkerColor = useCallback(
@@ -151,44 +151,6 @@ export function MapaMobile({
       .filter((p) => p.status === "pendente" || p.status === "em_andamento")
       .sort((a, b) => a.ordem - b.ordem)[0];
   }, [paradasReais]);
-
-  // Centralizar no usuário
-  const handleCenterOnUser = useCallback(async () => {
-    setIsLocating(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        showWarning(
-          "Permissão negada",
-          "Permita o acesso à localização para usar esta função.",
-        );
-        return;
-      }
-
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const newUserLocation = {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      };
-
-      cameraRef.current?.setCamera({
-        centerCoordinate: toLngLat(newUserLocation),
-        zoomLevel: zoomFromLongitudeDelta(0.01),
-        animationDuration: 500,
-      });
-    } catch (error) {
-      logger.error("[MapaMobile] Erro ao obter localização:", error);
-      showError({
-        title: "Erro",
-        message: "Não foi possível obter sua localização.",
-      });
-    } finally {
-      setIsLocating(false);
-    }
-  }, [cameraRef, showWarning, showError]);
 
   // Navegar para próxima parada usando app externo
   const handleNavigate = useCallback(() => {
