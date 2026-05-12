@@ -12,10 +12,11 @@ import { useMemo } from "react";
 
 import { useRouteDirections, type RouteInfo } from "@/hooks/useRouteDirections";
 import { toLineString } from "@/lib/maplibre";
+import type { GeoJSONLineString } from "@/lib/maplibre";
 import type { ParadaMapItem as Parada } from "@/types/parada-map";
 
 interface UseRouteShapeResult {
-  routeShape: any | null;
+  routeShape: GeoJSONLineString | null;
   routeInfo: RouteInfo | null;
   isLoadingRoute: boolean;
 }
