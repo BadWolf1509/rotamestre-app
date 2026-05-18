@@ -61,6 +61,9 @@ rota-mestre/
 coverage/
 # Note: __tests__/ and __mocks__/ are now versioned for CI/CD
 
+# Generated design system audit (regenerated via `npm run report:hex`)
+docs/design-system-hex-report.md
+
 # Playwright E2E
 e2e-report/
 playwright-report/

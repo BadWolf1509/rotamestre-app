@@ -18,6 +18,7 @@
 ## 🔗 Issue Relacionada
 
 <!-- Link para a issue que essa PR resolve -->
+
 Closes #
 
 ## 🧪 Como Testar
@@ -52,8 +53,8 @@ Closes #
 - [ ] Atualizei snapshots visuais quando necessario (`npm run test:visual:update`)
 - [ ] Atualizei tokens gerados (`npm run build:tokens`) e relatorio de hex quando aplicavel
 - [ ] Atualizei versionamento do design system quando tokens ou componentes mudaram
-- [ ] Atualizei `docs/design-system-release-notes.md` quando houve mudanca no design system
-- [ ] Revisei acessibilidade (ver `docs/design-system-accessibility.md`)
+- [ ] Mudancas no design system documentadas no commit (git log e canonical; sem release notes file)
+- [ ] Revisei acessibilidade (ver `.claude/refs/design-system.md` secao Accessibility)
 
 ## 📊 Impacto no Coverage
 
