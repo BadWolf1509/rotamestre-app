@@ -92,7 +92,7 @@
     "pdfmake": "^0.3.9",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "react-hook-form": "^7.75.0",
+    "react-hook-form": "^7.76.0",
     "react-native": "0.83.1",
     "react-native-draggable-flatlist": "^4.0.3",
     "react-native-gesture-handler": "~2.31.2",
