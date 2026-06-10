@@ -28,6 +28,12 @@ interface RateLimiterConfig {
   maxLockoutMs: number;
   /** Prefixo para chave de storage */
   storagePrefix: string;
+  /**
+   * Se true (default), sucesso zera o contador (limita FALHAS consecutivas,
+   * ex.: login). Se false, sucesso também conta (limita FREQUÊNCIA da
+   * operação, ex.: envios de email de recuperação).
+   */
+  resetOnSuccess: boolean;
 }
 
 interface RateLimitResult {
@@ -47,6 +53,7 @@ const DEFAULT_CONFIG: RateLimiterConfig = {
   lockoutMs: 60 * 1000, // 1 minuto (dobra a cada bloqueio)
   maxLockoutMs: 30 * 60 * 1000, // 30 minutos máximo
   storagePrefix: '@rotamestre/ratelimit_',
+  resetOnSuccess: true,
 };
 
 // Cache em memória para performance
@@ -173,11 +180,11 @@ export function createRateLimiter(config: Partial<RateLimiterConfig> = {}) {
     const now = Date.now();
     const record = await getRecord(key);
 
-    if (success) {
+    if (success && cfg.resetOnSuccess) {
       // Sucesso: resetar contagem
       await saveRecord(key, { count: 0, lastAttempt: now, lockedUntil: null });
     } else {
-      // Falha: incrementar contagem
+      // Falha (ou sucesso com resetOnSuccess: false): incrementar contagem
       const isNewWindow = now - record.lastAttempt > cfg.windowMs;
       const newCount = isNewWindow ? 1 : record.count + 1;
 
@@ -185,8 +192,14 @@ export function createRateLimiter(config: Partial<RateLimiterConfig> = {}) {
       let lockedUntil: number | null = null;
       if (newCount >= cfg.maxAttempts) {
         // Exponential backoff: dobra a cada vez que é bloqueado
-        const lockoutMultiplier = Math.pow(2, Math.floor(newCount / cfg.maxAttempts) - 1);
-        const lockoutTime = Math.min(cfg.lockoutMs * lockoutMultiplier, cfg.maxLockoutMs);
+        const lockoutMultiplier = Math.pow(
+          2,
+          Math.floor(newCount / cfg.maxAttempts) - 1,
+        );
+        const lockoutTime = Math.min(
+          cfg.lockoutMs * lockoutMultiplier,
+          cfg.maxLockoutMs,
+        );
         lockedUntil = now + lockoutTime;
       }
 
@@ -234,7 +247,7 @@ export const loginRateLimiter = createRateLimiter({
 
 /**
  * Rate limiter para recuperação de senha
- * - 3 tentativas por hora
+ * - 3 envios por hora (envios bem-sucedidos também contam — resetOnSuccess: false)
  * - Bloqueio de 15 minutos
  */
 export const passwordResetRateLimiter = createRateLimiter({
@@ -243,6 +256,7 @@ export const passwordResetRateLimiter = createRateLimiter({
   lockoutMs: 15 * 60 * 1000,
   maxLockoutMs: 60 * 60 * 1000,
   storagePrefix: '@rotamestre/pwd_reset_limit_',
+  resetOnSuccess: false,
 });
 
 /**

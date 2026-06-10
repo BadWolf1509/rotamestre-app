@@ -43,9 +43,14 @@ export default function ForgotPassword() {
     }
 
     // Verificar rate limit local ANTES de chamar o Supabase
-    const rateLimitCheck = await passwordResetRateLimiter.checkLimit(trimmedEmail);
+    const rateLimitCheck =
+      await passwordResetRateLimiter.checkLimit(trimmedEmail);
     if (!rateLimitCheck.allowed) {
-      showWarning('Aguarde', rateLimitCheck.message || 'Muitas tentativas. Tente novamente mais tarde.');
+      showWarning(
+        'Aguarde',
+        rateLimitCheck.message ||
+          'Muitas tentativas. Tente novamente mais tarde.',
+      );
       return;
     }
 
@@ -54,13 +59,14 @@ export default function ForgotPassword() {
     try {
       await authService.resetPassword(trimmedEmail);
 
-      // Registrar tentativa bem-sucedida (reseta o contador)
+      // Registrar envio bem-sucedido — conta no limite de 3 envios/hora
+      // (passwordResetRateLimiter usa resetOnSuccess: false)
       await passwordResetRateLimiter.recordAttempt(trimmedEmail, true);
 
       showSuccess(
         'Email enviado!',
         'Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.',
-        () => router.push('/auth/login')
+        () => router.push('/auth/login'),
       );
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : '';
@@ -71,14 +77,17 @@ export default function ForgotPassword() {
         showSuccess(
           'Email já enviado!',
           'Um email de recuperação já foi enviado recentemente. Verifique sua caixa de entrada e pasta de spam.',
-          () => router.push('/auth/login')
+          () => router.push('/auth/login'),
         );
-      } else if (errorMessage.includes('not found') || errorMessage.includes('invalid')) {
+      } else if (
+        errorMessage.includes('not found') ||
+        errorMessage.includes('invalid')
+      ) {
         // Não revelar se email existe ou não (segurança)
         showSuccess(
           'Email enviado!',
           'Se o email estiver cadastrado, você receberá as instruções para redefinir sua senha.',
-          () => router.push('/auth/login')
+          () => router.push('/auth/login'),
         );
       } else {
         // Registrar apenas erros reais como falha
@@ -86,7 +95,8 @@ export default function ForgotPassword() {
 
         showError({
           title: 'Erro',
-          message: 'Não foi possível enviar o email. Tente novamente mais tarde.'
+          message:
+            'Não foi possível enviar o email. Tente novamente mais tarde.',
         });
       }
     } finally {
@@ -112,7 +122,8 @@ export default function ForgotPassword() {
             <View style={styles.headerDesktop}>
               <Text style={styles.titleDesktop}>Recuperar Senha</Text>
               <Text style={styles.subtitleDesktop}>
-                Digite seu e-mail e enviaremos instruções para redefinir sua senha
+                Digite seu e-mail e enviaremos instruções para redefinir sua
+                senha
               </Text>
             </View>
 
@@ -141,7 +152,9 @@ export default function ForgotPassword() {
                 {loading ? (
                   <ActivityIndicator color={theme.colors.white} />
                 ) : (
-                  <Text style={styles.buttonText}>Enviar Link de Recuperação</Text>
+                  <Text style={styles.buttonText}>
+                    Enviar Link de Recuperação
+                  </Text>
                 )}
               </TouchableOpacity>
 
