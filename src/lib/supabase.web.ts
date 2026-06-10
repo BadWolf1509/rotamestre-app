@@ -9,57 +9,35 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 // Adapter para usar localStorage no navegador
 // Implements SupportedStorage interface from Supabase
 const webStorage: SupportedStorage = {
-
   getItem: (key: string) => {
-
     if (typeof window !== 'undefined') {
-
       return window.localStorage.getItem(key);
-
     }
 
     return null;
-
   },
 
   setItem: (key: string, value: string) => {
-
     if (typeof window !== 'undefined') {
-
       window.localStorage.setItem(key, value);
-
     }
-
   },
 
   removeItem: (key: string) => {
-
     if (typeof window !== 'undefined') {
-
       window.localStorage.removeItem(key);
-
     }
-
   },
-
 };
 
-
-
-const isSupabaseConfigured = supabaseUrl.length > 0 && supabaseAnonKey.length > 0;
-
-
+const isSupabaseConfigured =
+  supabaseUrl.length > 0 && supabaseAnonKey.length > 0;
 
 let supabaseClient;
 
-
-
 if (isSupabaseConfigured) {
-
   supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-
     auth: {
-
       storage: webStorage,
 
       autoRefreshToken: true,
@@ -67,42 +45,34 @@ if (isSupabaseConfigured) {
       persistSession: true,
 
       detectSessionInUrl: false,
-
     },
 
     realtime: {
-
       // Disable realtime on web to avoid node-fetch import issues
-
       // Web app doesn't need realtime updates for MVP
-
     },
-
   });
-
 } else {
+  logger.warn(
+    '[Supabase Web] Credentials not configured - using placeholder for E2E/CI',
+  );
 
-  logger.warn('[Supabase Web] Credentials not configured - using placeholder for E2E/CI');
+  supabaseClient = createClient(
+    'https://placeholder.supabase.co',
+    'placeholder-key',
+    {
+      auth: {
+        storage: webStorage,
 
-  supabaseClient = createClient('https://placeholder.supabase.co', 'placeholder-key', {
+        autoRefreshToken: false,
 
-    auth: {
+        persistSession: false,
 
-      storage: webStorage,
-
-      autoRefreshToken: false,
-
-      persistSession: false,
-
-      detectSessionInUrl: false,
-
+        detectSessionInUrl: false,
+      },
     },
-
-  });
-
+  );
 }
 
-
-
 export const supabase = supabaseClient;
-export { isSupabaseConfigured };
+export { isSupabaseConfigured, supabaseUrl };

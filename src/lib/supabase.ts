@@ -21,7 +21,8 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
 // Check if Supabase credentials are configured
 // In CI/E2E environments, these may be empty
-const isSupabaseConfigured = supabaseUrl.length > 0 && supabaseAnonKey.length > 0;
+const isSupabaseConfigured =
+  supabaseUrl.length > 0 && supabaseAnonKey.length > 0;
 
 // Create client only if credentials are available
 // Otherwise create a dummy client that won't crash but won't work either
@@ -65,15 +66,21 @@ if (isSupabaseConfigured) {
 } else {
   // Dummy placeholder URL for E2E/CI environments
   // This prevents the "supabaseUrl is required" error from crashing the app
-  logger.warn('[Supabase] Credentials not configured - using placeholder for E2E/CI');
-  supabase = createClient('https://placeholder.supabase.co', 'placeholder-key', {
-    auth: {
-      storage: AsyncStorage,
-      autoRefreshToken: false,
-      persistSession: false,
-      detectSessionInUrl: false,
+  logger.warn(
+    '[Supabase] Credentials not configured - using placeholder for E2E/CI',
+  );
+  supabase = createClient(
+    'https://placeholder.supabase.co',
+    'placeholder-key',
+    {
+      auth: {
+        storage: AsyncStorage,
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
+      },
     },
-  });
+  );
 }
 
-export { supabase, isSupabaseConfigured };
+export { supabase, isSupabaseConfigured, supabaseUrl };

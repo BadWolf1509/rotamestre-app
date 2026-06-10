@@ -63,6 +63,7 @@ function setupSupabaseMocks() {
   jest.mock('@/lib/supabase', () => ({
     supabase: mockSupabaseClient,
     isSupabaseConfigured: true, // Força o uso do path do Supabase mockado ao invés do mock E2E
+    supabaseUrl: 'https://project.supabase.co', // Host usado na validação anti open-redirect
   }));
 
   return mockSupabaseClient;
