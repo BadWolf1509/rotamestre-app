@@ -451,6 +451,74 @@ describe('AuthService - Unit Tests', () => {
   });
 
   // ============================================
+  // GRUPO 5b: marcarPrimeiraSenhaConcluida
+  // ============================================
+  describe('marcarPrimeiraSenhaConcluida', () => {
+    it('deve marcar primeira_senha como false para o usuário autenticado', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: { id: 'user-123' } } as any,
+        error: null,
+      });
+
+      const mockEq = jest.fn().mockResolvedValue({ error: null });
+      const mockUpdate = jest.fn().mockReturnValue({ eq: mockEq });
+      mockSupabase.from.mockReturnValue({ update: mockUpdate } as any);
+
+      await authService.marcarPrimeiraSenhaConcluida();
+
+      expect(mockSupabase.from).toHaveBeenCalledWith('usuarios');
+      expect(mockUpdate).toHaveBeenCalledWith({ primeira_senha: false });
+      expect(mockEq).toHaveBeenCalledWith('id', 'user-123');
+    });
+
+    it('deve resolver sem efeito quando não há usuário autenticado', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: null,
+      } as any);
+
+      await expect(
+        authService.marcarPrimeiraSenhaConcluida(),
+      ).resolves.toBeUndefined();
+
+      expect(mockSupabase.from).not.toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalled();
+    });
+
+    it('deve logar warning e não lançar quando o update falha', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: { id: 'user-123' } } as any,
+        error: null,
+      });
+
+      const mockEq = jest
+        .fn()
+        .mockResolvedValue({ error: new Error('RLS negou o update') });
+      const mockUpdate = jest.fn().mockReturnValue({ eq: mockEq });
+      mockSupabase.from.mockReturnValue({ update: mockUpdate } as any);
+
+      await expect(
+        authService.marcarPrimeiraSenhaConcluida(),
+      ).resolves.toBeUndefined();
+
+      expect(logger.warn).toHaveBeenCalled();
+    });
+
+    it('não deve lançar quando getUser rejeita', async () => {
+      mockSupabase.auth.getUser.mockRejectedValue(
+        new Error('Falha de rede inesperada'),
+      );
+
+      await expect(
+        authService.marcarPrimeiraSenhaConcluida(),
+      ).resolves.toBeUndefined();
+
+      expect(mockSupabase.from).not.toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalled();
+    });
+  });
+
+  // ============================================
   // GRUPO 6: getSession - Obter Sessão Atual
   // ============================================
   describe('getSession', () => {

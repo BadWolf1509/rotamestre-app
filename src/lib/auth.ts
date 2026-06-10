@@ -157,6 +157,40 @@ export const authService = {
     if (error) throw error;
   },
 
+  /**
+   * Marca usuarios.primeira_senha = false para o usuário autenticado.
+   * Nunca lança: falha aqui é não-crítica (o usuário apenas reveria o
+   * onboarding de primeira senha no próximo acesso).
+   */
+  async marcarPrimeiraSenhaConcluida(): Promise<void> {
+    if (!isSupabaseConfigured) return; // E2E/CI sem credenciais
+
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data?.user) {
+        logger.warn(
+          '[Auth] Sem usuário autenticado para limpar primeira_senha',
+          error ?? undefined,
+        );
+        return;
+      }
+
+      const { error: updateError } = await supabase
+        .from('usuarios')
+        .update({ primeira_senha: false })
+        .eq('id', data.user.id);
+
+      if (updateError) {
+        logger.warn(
+          '[Auth] Falha ao limpar primeira_senha (não-crítico)',
+          updateError,
+        );
+      }
+    } catch (err) {
+      logger.warn('[Auth] Erro inesperado ao limpar primeira_senha', err);
+    }
+  },
+
   // Obter sessão atual
   async getSession() {
     const { data } = await supabase.auth.getSession();

@@ -1,6 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -11,25 +11,25 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { UnistylesRuntime } from "react-native-unistyles";
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { UnistylesRuntime } from 'react-native-unistyles';
 
-import LogoHorizontalDark from "@/../assets/logo-horizontal.png";
-import LogoHorizontalLight from "@/../assets/logo-horizontal1.png";
-import { AuthBrandPanel } from "@/components/auth/AuthBrandPanel";
-import { PasswordStrengthIndicator } from "@/components/PasswordStrengthIndicator";
-import { useSessionRecovery } from "@/hooks/auth/useSessionRecovery";
-import { useAlert } from "@/hooks/useAlert";
-import { useResponsive } from "@/hooks/useResponsive";
-import { authService } from "@/lib/auth";
+import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
+import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
+import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
+import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
+import { useSessionRecovery } from '@/hooks/auth/useSessionRecovery';
+import { useAlert } from '@/hooks/useAlert';
+import { useResponsive } from '@/hooks/useResponsive';
+import { authService } from '@/lib/auth';
 import {
   isAuthSessionMissingError,
   trySessionRecoveryFromUrl,
-} from "@/lib/auth/sessionRecovery";
-import { validatePassword } from "@/lib/schemas/basic";
-import { styles } from "@/styles/auth/reset-password.styles";
-import { useUnistyles } from "@/utils/styles";
+} from '@/lib/auth/sessionRecovery';
+import { validatePassword } from '@/lib/schemas/basic';
+import { styles } from '@/styles/auth/reset-password.styles';
+import { useUnistyles } from '@/utils/styles';
 
 export default function ResetPassword() {
   const { theme } = useUnistyles();
@@ -38,38 +38,49 @@ export default function ResetPassword() {
   const insets = useSafeAreaInsets();
   const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
   const { checkingSession, linkExpired, setLinkExpired } = useSessionRecovery();
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const confirmPasswordRef = useRef<TextInput>(null);
 
   // Detectar tema escuro para usar logo apropriada
-  const isDarkMode = UnistylesRuntime.themeName?.startsWith("dark");
+  const isDarkMode = UnistylesRuntime.themeName?.startsWith('dark');
   const LogoHorizontal = isDarkMode ? LogoHorizontalDark : LogoHorizontalLight;
 
   function validateForm() {
     if (!password.trim()) {
-      showWarning("Erro", "Digite sua nova senha");
+      showWarning('Erro', 'Digite sua nova senha');
       return false;
     }
 
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.valid) {
       showWarning(
-        "Senha fraca",
-        `A senha precisa:\n• ${passwordValidation.errors.join("\n• ")}`,
+        'Senha fraca',
+        `A senha precisa:\n• ${passwordValidation.errors.join('\n• ')}`,
       );
       return false;
     }
 
     if (password !== confirmPassword) {
-      showWarning("Erro", "As senhas não coincidem");
+      showWarning('Erro', 'As senhas não coincidem');
       return false;
     }
 
     return true;
+  }
+
+  async function onPasswordUpdated() {
+    // Redefinir via email também conclui a troca de senha inicial — sem isso
+    // o onboarding de primeira_senha exigiria nova troca logo após o reset.
+    await authService.marcarPrimeiraSenhaConcluida();
+    showSuccess(
+      'Senha atualizada!',
+      'Sua senha foi redefinida com sucesso.',
+      () => router.replace('/'),
+    );
   }
 
   async function handleUpdatePassword() {
@@ -81,11 +92,7 @@ export default function ResetPassword() {
 
     try {
       await authService.updatePassword(password);
-      showSuccess(
-        "Senha atualizada!",
-        "Sua senha foi redefinida com sucesso.",
-        () => router.replace("/"),
-      );
+      await onPasswordUpdated();
     } catch (error: unknown) {
       if (!isAuthSessionMissingError(error)) {
         showError(error);
@@ -101,11 +108,7 @@ export default function ResetPassword() {
 
       try {
         await authService.updatePassword(password);
-        showSuccess(
-          "Senha atualizada!",
-          "Sua senha foi redefinida com sucesso.",
-          () => router.replace("/"),
-        );
+        await onPasswordUpdated();
       } catch (retryError: unknown) {
         if (isAuthSessionMissingError(retryError)) {
           // No valid session even after recovery — link likely expired/already used.
@@ -157,7 +160,7 @@ export default function ResetPassword() {
       </Text>
       <TouchableOpacity
         style={isDesktop ? styles.buttonDesktop : styles.button}
-        onPress={() => router.replace("/auth/forgot-password")}
+        onPress={() => router.replace('/auth/forgot-password')}
         accessibilityLabel="Solicitar novo link de recuperação"
         accessibilityRole="button"
       >
@@ -165,7 +168,7 @@ export default function ResetPassword() {
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.backButton}
-        onPress={() => router.replace("/auth/login")}
+        onPress={() => router.replace('/auth/login')}
         accessibilityLabel="Voltar para login"
         accessibilityRole="link"
         testID="auth-reset-password-back"
@@ -259,13 +262,13 @@ export default function ResetPassword() {
                         style={styles.eyeButton}
                         onPress={() => setShowPassword(!showPassword)}
                         accessibilityLabel={
-                          showPassword ? "Ocultar senha" : "Mostrar senha"
+                          showPassword ? 'Ocultar senha' : 'Mostrar senha'
                         }
                         accessibilityRole="button"
                       >
                         <Ionicons
                           name={
-                            showPassword ? "eye-off-outline" : "eye-outline"
+                            showPassword ? 'eye-off-outline' : 'eye-outline'
                           }
                           size={22}
                           color={theme.colors.gray500}
@@ -299,16 +302,16 @@ export default function ResetPassword() {
                         }
                         accessibilityLabel={
                           showConfirmPassword
-                            ? "Ocultar confirmação de senha"
-                            : "Mostrar confirmação de senha"
+                            ? 'Ocultar confirmação de senha'
+                            : 'Mostrar confirmação de senha'
                         }
                         accessibilityRole="button"
                       >
                         <Ionicons
                           name={
                             showConfirmPassword
-                              ? "eye-off-outline"
-                              : "eye-outline"
+                              ? 'eye-off-outline'
+                              : 'eye-outline'
                           }
                           size={22}
                           color={theme.colors.gray500}
@@ -338,7 +341,7 @@ export default function ResetPassword() {
 
                   <TouchableOpacity
                     style={styles.backButton}
-                    onPress={() => router.replace("/auth/login")}
+                    onPress={() => router.replace('/auth/login')}
                     accessibilityLabel="Voltar para login"
                     accessibilityRole="link"
                     testID="auth-reset-password-back"
@@ -361,7 +364,7 @@ export default function ResetPassword() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
         contentContainerStyle={[
@@ -407,12 +410,12 @@ export default function ResetPassword() {
                 style={styles.eyeButton}
                 onPress={() => setShowPassword(!showPassword)}
                 accessibilityLabel={
-                  showPassword ? "Ocultar senha" : "Mostrar senha"
+                  showPassword ? 'Ocultar senha' : 'Mostrar senha'
                 }
                 accessibilityRole="button"
               >
                 <Ionicons
-                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={22}
                   color={theme.colors.gray500}
                 />
@@ -440,13 +443,13 @@ export default function ResetPassword() {
                 onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                 accessibilityLabel={
                   showConfirmPassword
-                    ? "Ocultar confirmação de senha"
-                    : "Mostrar confirmação de senha"
+                    ? 'Ocultar confirmação de senha'
+                    : 'Mostrar confirmação de senha'
                 }
                 accessibilityRole="button"
               >
                 <Ionicons
-                  name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
+                  name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={22}
                   color={theme.colors.gray500}
                 />
@@ -474,7 +477,7 @@ export default function ResetPassword() {
 
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => router.replace("/auth/login")}
+              onPress={() => router.replace('/auth/login')}
               accessibilityLabel="Voltar para login"
               accessibilityRole="link"
               testID="auth-reset-password-back"
