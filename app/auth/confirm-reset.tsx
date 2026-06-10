@@ -15,6 +15,7 @@ import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
 import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
 import { useResponsive } from '@/hooks/useResponsive';
+import { supabaseUrl } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 /**
@@ -27,8 +28,23 @@ import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
  * Fragmentos nunca são enviados ao servidor HTTP, logo scanners não veem o token.
  * O usuário clica um botão para seguir o link real do Supabase.
  *
+ * A URL extraída é validada contra o host do projeto Supabase antes do
+ * redirect — sem isso a página viraria um open redirect para phishing.
+ *
  * Ref: https://github.com/supabase/supabase/discussions/41618
  */
+
+/** Aceita apenas https com host idêntico ao do projeto Supabase (anti open-redirect) */
+function isAllowedConfirmationUrl(url: string): boolean {
+  if (!supabaseUrl) return false; // env ausente (E2E/CI): rejeita por segurança
+  try {
+    const target = new URL(url);
+    const allowed = new URL(supabaseUrl);
+    return target.protocol === 'https:' && target.host === allowed.host;
+  } catch {
+    return false;
+  }
+}
 
 /** Extract the Supabase confirmation URL from the URL fragment */
 function getConfirmationUrl(): string | null {
@@ -36,7 +52,8 @@ function getConfirmationUrl(): string | null {
   const hash = window.location.hash;
   if (!hash.startsWith('#url=')) return null;
   try {
-    return decodeURIComponent(hash.substring(5));
+    const decoded = decodeURIComponent(hash.substring(5));
+    return isAllowedConfirmationUrl(decoded) ? decoded : null;
   } catch {
     return null;
   }
@@ -65,7 +82,11 @@ export default function ConfirmReset() {
   // ============================================
   const validContent = (
     <View style={styles.contentContainer}>
-      <Ionicons name="shield-checkmark-outline" size={48} color={theme.colors.primary} />
+      <Ionicons
+        name="shield-checkmark-outline"
+        size={48}
+        color={theme.colors.primary}
+      />
       <Text style={isDesktop ? styles.titleDesktop : styles.title}>
         Recuperação de Senha
       </Text>
@@ -94,12 +115,17 @@ export default function ConfirmReset() {
   // ============================================
   const invalidContent = (
     <View style={styles.contentContainer}>
-      <Ionicons name="alert-circle-outline" size={48} color={theme.colors.gray400} />
+      <Ionicons
+        name="alert-circle-outline"
+        size={48}
+        color={theme.colors.gray400}
+      />
       <Text style={isDesktop ? styles.titleDesktop : styles.title}>
         Link inválido
       </Text>
       <Text style={isDesktop ? styles.subtitleDesktop : styles.message}>
-        O link de recuperação de senha é inválido ou está incompleto. Solicite um novo link.
+        O link de recuperação de senha é inválido ou está incompleto. Solicite
+        um novo link.
       </Text>
       <TouchableOpacity
         style={isDesktop ? styles.buttonDesktop : styles.button}
@@ -132,9 +158,7 @@ export default function ConfirmReset() {
           <AuthBrandPanel />
         </View>
         <View style={styles.rightPanel}>
-          <View style={styles.formContainerDesktop}>
-            {content}
-          </View>
+          <View style={styles.formContainerDesktop}>{content}</View>
         </View>
       </View>
     );

@@ -40,7 +40,9 @@ describe('Confirm Reset Screen - Integration Tests', () => {
   // ============================================
   describe('URL Válida', () => {
     it('deve renderizar botão "Continuar" quando URL válida no fragmento', () => {
-      setHash('#url=https://project.supabase.co/auth/v1/verify?token=abc123&type=recovery');
+      setHash(
+        '#url=https://project.supabase.co/auth/v1/verify?token=abc123&type=recovery',
+      );
 
       const { getByText } = render(<ConfirmReset />);
 
@@ -49,7 +51,8 @@ describe('Confirm Reset Screen - Integration Tests', () => {
     });
 
     it('deve redirecionar via window.location.href ao clicar no botão', () => {
-      const testUrl = 'https://project.supabase.co/auth/v1/verify?token=abc123&type=recovery&redirect_to=https://app.rotamestre.tec.br/auth/reset-password';
+      const testUrl =
+        'https://project.supabase.co/auth/v1/verify?token=abc123&type=recovery&redirect_to=https://app.rotamestre.tec.br/auth/reset-password';
       setHash(`#url=${testUrl}`);
 
       // Also mock window.location.href setter
@@ -72,7 +75,9 @@ describe('Confirm Reset Screen - Integration Tests', () => {
     });
 
     it('deve decodificar URL encodada no fragmento', () => {
-      const encodedUrl = encodeURIComponent('https://project.supabase.co/auth/v1/verify?token=abc&type=recovery');
+      const encodedUrl = encodeURIComponent(
+        'https://project.supabase.co/auth/v1/verify?token=abc&type=recovery',
+      );
       setHash(`#url=${encodedUrl}`);
 
       const locationMock = {
@@ -90,11 +95,15 @@ describe('Confirm Reset Screen - Integration Tests', () => {
 
       fireEvent.press(getByText('Continuar'));
 
-      expect(window.location.href).toBe('https://project.supabase.co/auth/v1/verify?token=abc&type=recovery');
+      expect(window.location.href).toBe(
+        'https://project.supabase.co/auth/v1/verify?token=abc&type=recovery',
+      );
     });
 
     it('deve ter accessibilityLabel no botão Continuar', () => {
-      setHash('#url=https://project.supabase.co/auth/v1/verify?token=abc123&type=recovery');
+      setHash(
+        '#url=https://project.supabase.co/auth/v1/verify?token=abc123&type=recovery',
+      );
 
       const { getByLabelText } = render(<ConfirmReset />);
 
@@ -154,7 +163,60 @@ describe('Confirm Reset Screen - Integration Tests', () => {
   });
 
   // ============================================
-  // GRUPO 3: Acessibilidade
+  // GRUPO 3: Validação de destino (anti open-redirect)
+  // ============================================
+  describe('Validação de destino (anti open-redirect)', () => {
+    it('deve rejeitar URL com host diferente do Supabase', () => {
+      setHash(
+        `#url=${encodeURIComponent('https://evil.example.com/auth/v1/verify?token=abc&type=recovery')}`,
+      );
+
+      const { getByText } = render(<ConfirmReset />);
+
+      expect(getByText('Link inválido')).toBeTruthy();
+    });
+
+    it('deve rejeitar URL http mesmo com host correto', () => {
+      setHash(
+        `#url=${encodeURIComponent('http://project.supabase.co/auth/v1/verify?token=abc&type=recovery')}`,
+      );
+
+      const { getByText } = render(<ConfirmReset />);
+
+      expect(getByText('Link inválido')).toBeTruthy();
+    });
+
+    it('deve rejeitar URL javascript:', () => {
+      setHash(`#url=${encodeURIComponent('javascript:alert(1)')}`);
+
+      const { getByText } = render(<ConfirmReset />);
+
+      expect(getByText('Link inválido')).toBeTruthy();
+    });
+
+    it('deve rejeitar URL relativa', () => {
+      setHash(
+        `#url=${encodeURIComponent('/auth/v1/verify?token=abc&type=recovery')}`,
+      );
+
+      const { getByText } = render(<ConfirmReset />);
+
+      expect(getByText('Link inválido')).toBeTruthy();
+    });
+
+    it('deve rejeitar subdomínio forjado do host do Supabase', () => {
+      setHash(
+        `#url=${encodeURIComponent('https://project.supabase.co.evil.com/auth/v1/verify?token=abc')}`,
+      );
+
+      const { getByText } = render(<ConfirmReset />);
+
+      expect(getByText('Link inválido')).toBeTruthy();
+    });
+  });
+
+  // ============================================
+  // GRUPO 4: Acessibilidade
   // ============================================
   describe('Acessibilidade', () => {
     it('deve ter accessibilityLabel no botão "Solicitar Novo Link"', () => {

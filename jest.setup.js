@@ -639,6 +639,8 @@ const mockSupabaseClient = {
 
 jest.mock('@/lib/supabase', () => ({
   supabase: mockSupabaseClient,
+  isSupabaseConfigured: true, // Alinhado com jest.mocks/supabase.js (factory que prevalece)
+  supabaseUrl: 'https://project.supabase.co', // Host usado na validação anti open-redirect
 }));
 
 // Mock useResponsive removido daqui para permitir testes unitários do hook.

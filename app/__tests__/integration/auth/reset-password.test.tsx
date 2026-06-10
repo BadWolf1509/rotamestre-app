@@ -7,7 +7,6 @@ import ResetPassword from '../../../auth/reset-password';
 
 // TypeScript declaration for global mock
 declare global {
-
   var mockUseAlert: {
     showAlert: jest.Mock;
     showSuccess: jest.Mock;
@@ -28,6 +27,7 @@ const mockRouter = require('expo-router').useRouter();
 jest.mock('@/lib/auth', () => ({
   authService: {
     updatePassword: jest.fn(),
+    marcarPrimeiraSenhaConcluida: jest.fn(),
   },
 }));
 
@@ -55,16 +55,23 @@ describe('Reset Password Screen - Integration Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSupabaseModule.isRecoveryRedirect = false;
+    (authService.marcarPrimeiraSenhaConcluida as jest.Mock).mockResolvedValue(
+      undefined,
+    );
 
     // Ensure optional auth recovery mocks exist for tests that exercise retry logic.
     if (!mockSupabaseModule.supabase.auth.setSession) {
-      (mockSupabaseModule.supabase.auth as Record<string, unknown>).setSession = jest.fn();
+      (mockSupabaseModule.supabase.auth as Record<string, unknown>).setSession =
+        jest.fn();
     }
     if (!mockSupabaseModule.supabase.auth.exchangeCodeForSession) {
-      (mockSupabaseModule.supabase.auth as Record<string, unknown>).exchangeCodeForSession = jest.fn();
+      (
+        mockSupabaseModule.supabase.auth as Record<string, unknown>
+      ).exchangeCodeForSession = jest.fn();
     }
     if (!mockSupabaseModule.supabase.auth.verifyOtp) {
-      (mockSupabaseModule.supabase.auth as Record<string, unknown>).verifyOtp = jest.fn();
+      (mockSupabaseModule.supabase.auth as Record<string, unknown>).verifyOtp =
+        jest.fn();
     }
 
     mockSupabaseModule.supabase.auth.setSession.mockResolvedValue({
@@ -152,7 +159,10 @@ describe('Reset Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'Digite sua nova senha');
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
+          'Erro',
+          'Digite sua nova senha',
+        );
       });
     });
 
@@ -166,7 +176,10 @@ describe('Reset Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'Digite sua nova senha');
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
+          'Erro',
+          'Digite sua nova senha',
+        );
       });
     });
 
@@ -182,7 +195,7 @@ describe('Reset Password Screen - Integration Tests', () => {
       await waitFor(() => {
         expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
           'Senha fraca',
-          expect.stringContaining('Mínimo 8 caracteres')
+          expect.stringContaining('Mínimo 8 caracteres'),
         );
       });
     });
@@ -197,7 +210,7 @@ describe('Reset Password Screen - Integration Tests', () => {
       await waitFor(() => {
         expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
           'Senha fraca',
-          expect.stringContaining('Precisa de letra maiúscula')
+          expect.stringContaining('Precisa de letra maiúscula'),
         );
       });
     });
@@ -212,7 +225,7 @@ describe('Reset Password Screen - Integration Tests', () => {
       await waitFor(() => {
         expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
           'Senha fraca',
-          expect.stringContaining('Precisa de número')
+          expect.stringContaining('Precisa de número'),
         );
       });
     });
@@ -227,7 +240,7 @@ describe('Reset Password Screen - Integration Tests', () => {
       await waitFor(() => {
         expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
           'Senha fraca',
-          expect.stringContaining('Precisa de caractere especial')
+          expect.stringContaining('Precisa de caractere especial'),
         );
       });
     });
@@ -236,12 +249,18 @@ describe('Reset Password Screen - Integration Tests', () => {
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
       fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
-      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD_ALT);
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        VALID_PASSWORD_ALT,
+      );
 
       fireEvent.press(getByText('Redefinir Senha'));
 
       await waitFor(() => {
-        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'As senhas não coincidem');
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
+          'Erro',
+          'As senhas não coincidem',
+        );
       });
     });
 
@@ -273,7 +292,10 @@ describe('Reset Password Screen - Integration Tests', () => {
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
       fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
-      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        VALID_PASSWORD,
+      );
 
       fireEvent.press(getByText('Redefinir Senha'));
 
@@ -282,7 +304,7 @@ describe('Reset Password Screen - Integration Tests', () => {
         expect(global.mockUseAlert.showSuccess).toHaveBeenCalledWith(
           'Senha atualizada!',
           'Sua senha foi redefinida com sucesso.',
-          expect.any(Function)
+          expect.any(Function),
         );
       });
     });
@@ -293,7 +315,10 @@ describe('Reset Password Screen - Integration Tests', () => {
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
       fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
-      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        VALID_PASSWORD,
+      );
 
       fireEvent.press(getByText('Redefinir Senha'));
 
@@ -309,6 +334,98 @@ describe('Reset Password Screen - Integration Tests', () => {
       expect(mockRouter.replace).toHaveBeenCalledWith('/');
     });
 
+    it('deve marcar primeira_senha como concluída após sucesso', async () => {
+      (authService.updatePassword as jest.Mock).mockResolvedValue(undefined);
+
+      const { getByPlaceholderText, getByText } = render(<ResetPassword />);
+
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        VALID_PASSWORD,
+      );
+
+      fireEvent.press(getByText('Redefinir Senha'));
+
+      await waitFor(() => {
+        expect(authService.marcarPrimeiraSenhaConcluida).toHaveBeenCalledTimes(
+          1,
+        );
+        expect(global.mockUseAlert.showSuccess).toHaveBeenCalled();
+      });
+    });
+
+    it('deve marcar primeira_senha como concluída no caminho de retry (sessão recuperada)', async () => {
+      const originalLocation = window.location;
+      Object.defineProperty(window, 'location', {
+        value: {
+          ...originalLocation,
+          hash: '#access_token=valid-jwt&refresh_token=valid-refresh&type=recovery',
+          search: '',
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      try {
+        const sessionError = new Error('Auth session missing');
+        (authService.updatePassword as jest.Mock)
+          .mockRejectedValueOnce(sessionError)
+          .mockResolvedValueOnce(undefined);
+
+        mockSupabaseModule.supabase.auth.setSession.mockResolvedValue({
+          data: { session: { access_token: 'valid-jwt' } },
+          error: null,
+        });
+
+        const { getByPlaceholderText, getByText } = render(<ResetPassword />);
+        fireEvent.changeText(
+          getByPlaceholderText('Nova senha'),
+          VALID_PASSWORD,
+        );
+        fireEvent.changeText(
+          getByPlaceholderText('Confirmar senha'),
+          VALID_PASSWORD,
+        );
+        fireEvent.press(getByText('Redefinir Senha'));
+
+        await waitFor(() => {
+          expect(authService.updatePassword).toHaveBeenCalledTimes(2);
+          expect(
+            authService.marcarPrimeiraSenhaConcluida,
+          ).toHaveBeenCalledTimes(1);
+          expect(global.mockUseAlert.showSuccess).toHaveBeenCalled();
+        });
+      } finally {
+        Object.defineProperty(window, 'location', {
+          value: originalLocation,
+          writable: true,
+          configurable: true,
+        });
+      }
+    });
+
+    it('não deve marcar primeira_senha quando a atualização falha', async () => {
+      (authService.updatePassword as jest.Mock).mockRejectedValue(
+        new Error('Erro inesperado'),
+      );
+
+      const { getByPlaceholderText, getByText } = render(<ResetPassword />);
+
+      fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        VALID_PASSWORD,
+      );
+
+      fireEvent.press(getByText('Redefinir Senha'));
+
+      await waitFor(() => {
+        expect(global.mockUseAlert.showError).toHaveBeenCalled();
+      });
+      expect(authService.marcarPrimeiraSenhaConcluida).not.toHaveBeenCalled();
+    });
+
     it('deve aceitar senhas longas (mais de 8 caracteres)', async () => {
       (authService.updatePassword as jest.Mock).mockResolvedValue(undefined);
 
@@ -317,7 +434,10 @@ describe('Reset Password Screen - Integration Tests', () => {
       const longPassword = 'EstaeumaSenhaMuitoSegura123!@#';
 
       fireEvent.changeText(getByPlaceholderText('Nova senha'), longPassword);
-      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), longPassword);
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        longPassword,
+      );
 
       fireEvent.press(getByText('Redefinir Senha'));
 
@@ -334,12 +454,17 @@ describe('Reset Password Screen - Integration Tests', () => {
       const specialPassword = 'Senha!@#123';
 
       fireEvent.changeText(getByPlaceholderText('Nova senha'), specialPassword);
-      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), specialPassword);
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        specialPassword,
+      );
 
       fireEvent.press(getByText('Redefinir Senha'));
 
       await waitFor(() => {
-        expect(authService.updatePassword).toHaveBeenCalledWith(specialPassword);
+        expect(authService.updatePassword).toHaveBeenCalledWith(
+          specialPassword,
+        );
       });
     });
   });
@@ -355,7 +480,10 @@ describe('Reset Password Screen - Integration Tests', () => {
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
       fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
-      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        VALID_PASSWORD,
+      );
 
       fireEvent.press(getByText('Redefinir Senha'));
 
@@ -371,7 +499,10 @@ describe('Reset Password Screen - Integration Tests', () => {
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
       fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
-      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        VALID_PASSWORD,
+      );
 
       fireEvent.press(getByText('Redefinir Senha'));
 
@@ -385,12 +516,18 @@ describe('Reset Password Screen - Integration Tests', () => {
 
       // Senhas válidas mas não coincidem
       fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
-      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD_ALT);
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        VALID_PASSWORD_ALT,
+      );
 
       fireEvent.press(getByText('Redefinir Senha'));
 
       await waitFor(() => {
-        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'As senhas não coincidem');
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
+          'Erro',
+          'As senhas não coincidem',
+        );
       });
 
       expect(authService.updatePassword).not.toHaveBeenCalled();
@@ -403,13 +540,16 @@ describe('Reset Password Screen - Integration Tests', () => {
   describe('Estado de Loading', () => {
     it('deve chamar serviço durante loading', async () => {
       (authService.updatePassword as jest.Mock).mockImplementation(
-        () => new Promise((resolve) => setTimeout(resolve, 100))
+        () => new Promise((resolve) => setTimeout(resolve, 100)),
       );
 
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
       fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
-      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        VALID_PASSWORD,
+      );
 
       fireEvent.press(getByText('Redefinir Senha'));
 
@@ -424,7 +564,10 @@ describe('Reset Password Screen - Integration Tests', () => {
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
       fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
-      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        VALID_PASSWORD,
+      );
 
       fireEvent.press(getByText('Redefinir Senha'));
 
@@ -441,7 +584,10 @@ describe('Reset Password Screen - Integration Tests', () => {
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
       fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
-      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        VALID_PASSWORD,
+      );
 
       fireEvent.press(getByText('Redefinir Senha'));
 
@@ -471,7 +617,10 @@ describe('Reset Password Screen - Integration Tests', () => {
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
       fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
-      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        VALID_PASSWORD,
+      );
 
       fireEvent.press(getByText('Redefinir Senha'));
 
@@ -479,7 +628,7 @@ describe('Reset Password Screen - Integration Tests', () => {
         expect(global.mockUseAlert.showSuccess).toHaveBeenCalledWith(
           'Senha atualizada!',
           'Sua senha foi redefinida com sucesso.',
-          expect.any(Function)
+          expect.any(Function),
         );
       });
     });
@@ -491,7 +640,10 @@ describe('Reset Password Screen - Integration Tests', () => {
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
       fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
-      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        VALID_PASSWORD,
+      );
 
       fireEvent.press(getByText('Redefinir Senha'));
 
@@ -513,10 +665,15 @@ describe('Reset Password Screen - Integration Tests', () => {
       const sessionError = new Error('Auth session missing');
       (authService.updatePassword as jest.Mock).mockRejectedValue(sessionError);
 
-      const { getByPlaceholderText, getByText, queryByText } = render(<ResetPassword />);
+      const { getByPlaceholderText, getByText, queryByText } = render(
+        <ResetPassword />,
+      );
 
       fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
-      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        VALID_PASSWORD,
+      );
 
       fireEvent.press(getByText('Redefinir Senha'));
 
@@ -535,7 +692,10 @@ describe('Reset Password Screen - Integration Tests', () => {
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
       fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
-      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        VALID_PASSWORD,
+      );
       fireEvent.press(getByText('Redefinir Senha'));
 
       await waitFor(() => {
@@ -550,7 +710,10 @@ describe('Reset Password Screen - Integration Tests', () => {
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
       fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
-      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        VALID_PASSWORD,
+      );
       fireEvent.press(getByText('Redefinir Senha'));
 
       await waitFor(() => {
@@ -568,7 +731,10 @@ describe('Reset Password Screen - Integration Tests', () => {
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
       fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
-      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        VALID_PASSWORD,
+      );
       fireEvent.press(getByText('Redefinir Senha'));
 
       await waitFor(() => {
@@ -602,12 +768,20 @@ describe('Reset Password Screen - Integration Tests', () => {
         });
 
         const { getByPlaceholderText, getByText } = render(<ResetPassword />);
-        fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
-        fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+        fireEvent.changeText(
+          getByPlaceholderText('Nova senha'),
+          VALID_PASSWORD,
+        );
+        fireEvent.changeText(
+          getByPlaceholderText('Confirmar senha'),
+          VALID_PASSWORD,
+        );
         fireEvent.press(getByText('Redefinir Senha'));
 
         await waitFor(() => {
-          expect(mockSupabaseModule.supabase.auth.setSession).toHaveBeenCalledWith({
+          expect(
+            mockSupabaseModule.supabase.auth.setSession,
+          ).toHaveBeenCalledWith({
             access_token: 'valid-jwt',
             refresh_token: 'valid-refresh',
           });
@@ -641,18 +815,31 @@ describe('Reset Password Screen - Integration Tests', () => {
           .mockRejectedValueOnce(sessionError)
           .mockResolvedValueOnce(undefined);
 
-        mockSupabaseModule.supabase.auth.exchangeCodeForSession.mockResolvedValue({
-          data: { session: { access_token: 'from-pkce' }, user: { id: 'user-1' } },
-          error: null,
-        });
+        mockSupabaseModule.supabase.auth.exchangeCodeForSession.mockResolvedValue(
+          {
+            data: {
+              session: { access_token: 'from-pkce' },
+              user: { id: 'user-1' },
+            },
+            error: null,
+          },
+        );
 
         const { getByPlaceholderText, getByText } = render(<ResetPassword />);
-        fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
-        fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+        fireEvent.changeText(
+          getByPlaceholderText('Nova senha'),
+          VALID_PASSWORD,
+        );
+        fireEvent.changeText(
+          getByPlaceholderText('Confirmar senha'),
+          VALID_PASSWORD,
+        );
         fireEvent.press(getByText('Redefinir Senha'));
 
         await waitFor(() => {
-          expect(mockSupabaseModule.supabase.auth.exchangeCodeForSession).toHaveBeenCalledWith('pkce-code');
+          expect(
+            mockSupabaseModule.supabase.auth.exchangeCodeForSession,
+          ).toHaveBeenCalledWith('pkce-code');
           expect(authService.updatePassword).toHaveBeenCalledTimes(2);
           expect(global.mockUseAlert.showSuccess).toHaveBeenCalled();
         });
@@ -679,7 +866,10 @@ describe('Reset Password Screen - Integration Tests', () => {
       const { getByPlaceholderText, getByText } = render(<ResetPassword />);
 
       fireEvent.changeText(getByPlaceholderText('Nova senha'), VALID_PASSWORD);
-      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        VALID_PASSWORD,
+      );
       let submitButton = getByText('Redefinir Senha');
 
       // Primeira tentativa - erro
@@ -715,7 +905,10 @@ describe('Reset Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'Digite sua nova senha');
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
+          'Erro',
+          'Digite sua nova senha',
+        );
       });
 
       jest.clearAllMocks();
@@ -728,7 +921,7 @@ describe('Reset Password Screen - Integration Tests', () => {
       await waitFor(() => {
         expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
           'Senha fraca',
-          expect.stringContaining('A senha precisa:')
+          expect.stringContaining('A senha precisa:'),
         );
       });
 
@@ -740,7 +933,10 @@ describe('Reset Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'As senhas não coincidem');
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
+          'Erro',
+          'As senhas não coincidem',
+        );
       });
     });
 
@@ -749,12 +945,18 @@ describe('Reset Password Screen - Integration Tests', () => {
 
       // Senhas diferem apenas no case (ambas passam validatePassword individualmente)
       fireEvent.changeText(getByPlaceholderText('Nova senha'), 'NovaSenha@123');
-      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), 'Novasenha@123');
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        'Novasenha@123',
+      );
 
       fireEvent.press(getByText('Redefinir Senha'));
 
       await waitFor(() => {
-        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'As senhas não coincidem');
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
+          'Erro',
+          'As senhas não coincidem',
+        );
       });
     });
   });
@@ -764,7 +966,9 @@ describe('Reset Password Screen - Integration Tests', () => {
   // ============================================
   describe('Novos Elementos de UI', () => {
     it('deve mostrar PasswordStrengthIndicator ao digitar senha', () => {
-      const { getByPlaceholderText, getByText, queryByText } = render(<ResetPassword />);
+      const { getByPlaceholderText, getByText, queryByText } = render(
+        <ResetPassword />,
+      );
 
       // Initially no indicator (empty password → returns null)
       expect(queryByText(/Força:/)).toBeNull();
@@ -793,7 +997,10 @@ describe('Reset Password Screen - Integration Tests', () => {
       expect(queryByText('As senhas não coincidem')).toBeTruthy();
 
       // Fix the confirm password
-      fireEvent.changeText(getByPlaceholderText('Confirmar senha'), VALID_PASSWORD);
+      fireEvent.changeText(
+        getByPlaceholderText('Confirmar senha'),
+        VALID_PASSWORD,
+      );
 
       // Mismatch gone
       expect(queryByText('As senhas não coincidem')).toBeNull();
@@ -823,7 +1030,9 @@ describe('Reset Password Screen - Integration Tests', () => {
 
       // Ensure setSession is available (clearAllMocks may clear it)
       if (!mockSupabaseModule.supabase.auth.setSession) {
-        (mockSupabaseModule.supabase.auth as Record<string, unknown>).setSession = jest.fn();
+        (
+          mockSupabaseModule.supabase.auth as Record<string, unknown>
+        ).setSession = jest.fn();
       }
 
       // Ensure Platform.OS is 'web' and window.location.hash is available
@@ -837,7 +1046,11 @@ describe('Reset Password Screen - Integration Tests', () => {
 
     afterEach(() => {
       mockSupabaseModule.isRecoveryRedirect = false;
-      jest.replaceProperty(require('react-native').Platform, 'OS', originalPlatformOS);
+      jest.replaceProperty(
+        require('react-native').Platform,
+        'OS',
+        originalPlatformOS,
+      );
       Object.defineProperty(window, 'location', {
         value: originalLocation,
         writable: true,
@@ -860,9 +1073,13 @@ describe('Reset Password Screen - Integration Tests', () => {
       mockSupabaseModule.supabase.auth.onAuthStateChange.mockImplementation(
         (callback: (event: string, session: unknown) => void) => {
           // Simulate SDK firing PASSWORD_RECOVERY after processing URL hash
-          setTimeout(() => callback('PASSWORD_RECOVERY', { access_token: 'valid-token' }), 0);
+          setTimeout(
+            () =>
+              callback('PASSWORD_RECOVERY', { access_token: 'valid-token' }),
+            0,
+          );
           return { data: { subscription: { unsubscribe: jest.fn() } } };
-        }
+        },
       );
 
       const { getByText, queryByText } = render(<ResetPassword />);
@@ -877,9 +1094,12 @@ describe('Reset Password Screen - Integration Tests', () => {
     it('deve mostrar formulário quando INITIAL_SESSION tem sessão', async () => {
       mockSupabaseModule.supabase.auth.onAuthStateChange.mockImplementation(
         (callback: (event: string, session: unknown) => void) => {
-          setTimeout(() => callback('INITIAL_SESSION', { access_token: 'valid-token' }), 0);
+          setTimeout(
+            () => callback('INITIAL_SESSION', { access_token: 'valid-token' }),
+            0,
+          );
           return { data: { subscription: { unsubscribe: jest.fn() } } };
-        }
+        },
       );
 
       const { getByText, queryByText } = render(<ResetPassword />);
@@ -896,7 +1116,7 @@ describe('Reset Password Screen - Integration Tests', () => {
         (callback: (event: string, session: unknown) => void) => {
           setTimeout(() => callback('INITIAL_SESSION', null), 0);
           return { data: { subscription: { unsubscribe: jest.fn() } } };
-        }
+        },
       );
 
       const { getByText, queryByText } = render(<ResetPassword />);
@@ -922,7 +1142,7 @@ describe('Reset Password Screen - Integration Tests', () => {
         (callback: (event: string, session: unknown) => void) => {
           setTimeout(() => callback('INITIAL_SESSION', null), 0);
           return { data: { subscription: { unsubscribe: jest.fn() } } };
-        }
+        },
       );
 
       // Manual setSession succeeds
@@ -934,7 +1154,9 @@ describe('Reset Password Screen - Integration Tests', () => {
       const { getByText, queryByText } = render(<ResetPassword />);
 
       await waitFor(() => {
-        expect(mockSupabaseModule.supabase.auth.setSession).toHaveBeenCalledWith({
+        expect(
+          mockSupabaseModule.supabase.auth.setSession,
+        ).toHaveBeenCalledWith({
           access_token: 'valid-jwt',
           refresh_token: 'valid-refresh',
         });

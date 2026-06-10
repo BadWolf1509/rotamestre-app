@@ -159,7 +159,9 @@ describe('rateLimiter', () => {
         await limiter.recordAttempt(key, false);
 
         const result = await limiter.checkLimit(key);
-        expect(result.message).toMatch(/Aguarde \d+ minutos? para tentar novamente\./);
+        expect(result.message).toMatch(
+          /Aguarde \d+ minutos? para tentar novamente\./,
+        );
       });
 
       it('deve retornar mensagem de aviso com poucas tentativas restantes', async () => {
@@ -213,6 +215,66 @@ describe('rateLimiter', () => {
         const result = await limiter.checkLimit(key);
         expect(result.allowed).toBe(true);
         expect(result.remainingAttempts).toBe(5); // Resetado para max
+      });
+
+      describe('resetOnSuccess: false', () => {
+        it('deve contar tentativas bem-sucedidas quando resetOnSuccess é false', async () => {
+          const key = uniqueKey();
+          const limiter = createRateLimiter({
+            maxAttempts: 3,
+            resetOnSuccess: false,
+            storagePrefix: '@test/',
+          });
+
+          // 3 sucessos consomem o limite (lockout dispara no 3º)
+          await limiter.recordAttempt(key, true);
+          await limiter.recordAttempt(key, true);
+          await limiter.recordAttempt(key, true);
+
+          const result = await limiter.checkLimit(key);
+          expect(result.allowed).toBe(false);
+          expect(result.remainingAttempts).toBe(0);
+          expect(result.retryAfterMs).toBeGreaterThan(0);
+        });
+
+        it('deve permitir novamente após expirar a janela com resetOnSuccess false', async () => {
+          const key = uniqueKey();
+          const limiter = createRateLimiter({
+            maxAttempts: 3,
+            windowMs: 60000,
+            resetOnSuccess: false,
+            storagePrefix: '@test/',
+          });
+
+          // 2 sucessos (abaixo do limite, sem lockout)
+          await limiter.recordAttempt(key, true);
+          await limiter.recordAttempt(key, true);
+
+          // Avançar tempo além da janela
+          currentTime += 61000;
+          dateNowSpy.mockReturnValue(currentTime);
+
+          const result = await limiter.checkLimit(key);
+          expect(result.allowed).toBe(true);
+          expect(result.remainingAttempts).toBe(3); // Resetado para max
+        });
+
+        it('deve manter reset em sucesso quando resetOnSuccess é true explícito', async () => {
+          const key = uniqueKey();
+          const limiter = createRateLimiter({
+            maxAttempts: 3,
+            resetOnSuccess: true,
+            storagePrefix: '@test/',
+          });
+
+          await limiter.recordAttempt(key, false);
+          await limiter.recordAttempt(key, false);
+          await limiter.recordAttempt(key, true);
+
+          const result = await limiter.checkLimit(key);
+          expect(result.allowed).toBe(true);
+          expect(result.remainingAttempts).toBe(3); // Resetado para max
+        });
       });
 
       it('deve aplicar lockout após exceder limite', async () => {
@@ -270,12 +332,14 @@ describe('rateLimiter', () => {
 
         expect(AsyncStorage.setItem).toHaveBeenCalledWith(
           `@test/${key}`,
-          expect.any(String)
+          expect.any(String),
         );
 
         // Verificar que o valor salvo contém count: 1
         const calls = (AsyncStorage.setItem as jest.Mock).mock.calls;
-        const relevantCall = calls.find((c: string[]) => c[0] === `@test/${key}`);
+        const relevantCall = calls.find(
+          (c: string[]) => c[0] === `@test/${key}`,
+        );
         expect(relevantCall).toBeDefined();
         const parsed = JSON.parse(relevantCall![1]);
         expect(parsed.count).toBe(1);
@@ -343,8 +407,12 @@ describe('rateLimiter', () => {
     describe('resiliência', () => {
       it('deve funcionar com AsyncStorage falhando (fallback memória)', async () => {
         const key = uniqueKey();
-        (AsyncStorage.getItem as jest.Mock).mockRejectedValue(new Error('Storage error'));
-        (AsyncStorage.setItem as jest.Mock).mockRejectedValue(new Error('Storage error'));
+        (AsyncStorage.getItem as jest.Mock).mockRejectedValue(
+          new Error('Storage error'),
+        );
+        (AsyncStorage.setItem as jest.Mock).mockRejectedValue(
+          new Error('Storage error'),
+        );
 
         const limiter = createRateLimiter({
           maxAttempts: 3,
@@ -364,7 +432,9 @@ describe('rateLimiter', () => {
 
       it('deve funcionar com dados corrompidos no AsyncStorage', async () => {
         const key = uniqueKey();
-        (AsyncStorage.getItem as jest.Mock).mockResolvedValue('invalid json{{{');
+        (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
+          'invalid json{{{',
+        );
 
         const limiter = createRateLimiter({ storagePrefix: '@test/' });
 
@@ -409,6 +479,20 @@ describe('rateLimiter', () => {
       await passwordResetRateLimiter.recordAttempt(key, false);
       const blocked = await passwordResetRateLimiter.checkLimit(key);
       expect(blocked.allowed).toBe(false);
+    });
+
+    it('passwordResetRateLimiter deve bloquear após 3 envios bem-sucedidos', async () => {
+      // Regressão: sucesso resetava o contador e o limite de 3 envios/hora
+      // nunca atuava sobre envios que funcionaram
+      const key = uniqueKey('pwd-success');
+
+      for (let i = 0; i < 3; i++) {
+        await passwordResetRateLimiter.recordAttempt(key, true);
+      }
+
+      const blocked = await passwordResetRateLimiter.checkLimit(key);
+      expect(blocked.allowed).toBe(false);
+      expect(blocked.retryAfterMs).toBeGreaterThan(0);
     });
 
     it('signupRateLimiter deve permitir 3 tentativas', async () => {
