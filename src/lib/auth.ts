@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 import { logger } from './logger';
@@ -7,6 +8,15 @@ import { Usuario, TipoUsuario, UnidadeDB } from '../types/usuario';
 
 import type { Session } from '@supabase/supabase-js';
 
+const FALLBACK_WEB_BASE_URL = 'https://app.rotamestre.tec.br';
+
+/** Base pública do app web. Fonte canônica: app.config.js → extra.baseUrl */
+function getWebBaseUrl(): string {
+  const configured: unknown = Constants.expoConfig?.extra?.baseUrl;
+  return typeof configured === 'string' && configured.length > 0
+    ? configured
+    : FALLBACK_WEB_BASE_URL;
+}
 
 export const authService = {
   // Login
@@ -14,7 +24,7 @@ export const authService = {
     // Mock for E2E/CI when credentials are missing
     if (!isSupabaseConfigured) {
       logger.warn('[Auth] Mocking sign in for E2E/CI');
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+      await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate network delay
 
       const isGestor = email.includes('gestor');
       const mockUserId = isGestor ? 'mock-gestor-id' : 'mock-motorista-id';
@@ -36,7 +46,7 @@ export const authService = {
           ativa: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        } satisfies UnidadeDB
+        } satisfies UnidadeDB,
       };
 
       const mockSession = {
@@ -44,7 +54,7 @@ export const authService = {
         refresh_token: 'mock-refresh',
         expires_in: 3600,
         token_type: 'bearer',
-        user: { id: mockUserId, email: mockUser.email }
+        user: { id: mockUserId, email: mockUser.email },
       } as unknown as Session;
 
       // Store mock session for useAuth hook to pick up
@@ -52,7 +62,7 @@ export const authService = {
 
       return {
         session: mockSession,
-        usuario: mockUser
+        usuario: mockUser,
       };
     }
 
@@ -77,7 +87,12 @@ export const authService = {
   },
 
   // Registro
-  async signUp(email: string, password: string, nome: string, papel: TipoUsuario) {
+  async signUp(
+    email: string,
+    password: string,
+    nome: string,
+    papel: TipoUsuario,
+  ) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -87,16 +102,14 @@ export const authService = {
 
     // Criar registro na tabela usuarios
     if (data.user) {
-      const { error: insertError } = await supabase
-        .from('usuarios')
-        .insert([
-          {
-            id: data.user.id,
-            email,
-            nome,
-            papel, // Alterado de 'tipo' para 'papel' (match com DB)
-          },
-        ]);
+      const { error: insertError } = await supabase.from('usuarios').insert([
+        {
+          id: data.user.id,
+          email,
+          nome,
+          papel, // Alterado de 'tipo' para 'papel' (match com DB)
+        },
+      ]);
 
       if (insertError) throw insertError;
     }
@@ -123,9 +136,12 @@ export const authService = {
 
   // Recuperar senha
   async resetPassword(email: string) {
-    const redirectTo = Platform.OS === 'web'
-      ? `${window.location.origin}/auth/reset-password`
-      : 'rotamestre://reset-password';
+    // Native não tem handler de deep link nem detectSessionInUrl, então o link
+    // do email leva sempre à web, onde o fluxo de recovery é suportado.
+    const redirectTo =
+      Platform.OS === 'web'
+        ? `${window.location.origin}/auth/reset-password`
+        : `${getWebBaseUrl()}/auth/reset-password`;
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo,

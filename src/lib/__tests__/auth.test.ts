@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 import { authService } from '../auth';
 import { logger } from '../logger';
 import { supabase } from '../supabase';
@@ -9,6 +11,13 @@ jest.mock('../logger', () => ({
     warn: jest.fn(),
     info: jest.fn(),
     debug: jest.fn(),
+  },
+}));
+
+// Mock expo-constants para baseUrl determinístico (mesmo valor de app.config.js)
+jest.mock('expo-constants', () => ({
+  expoConfig: {
+    extra: { baseUrl: 'https://app.rotamestre.tec.br' },
   },
 }));
 
@@ -55,7 +64,10 @@ describe('AuthService - Unit Tests', () => {
       };
       mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
 
-      const result = await authService.signIn('teste@rotamestre.com', 'senha123');
+      const result = await authService.signIn(
+        'teste@rotamestre.com',
+        'senha123',
+      );
 
       expect(mockSupabase.auth.signInWithPassword).toHaveBeenCalledWith({
         email: 'teste@rotamestre.com',
@@ -72,7 +84,7 @@ describe('AuthService - Unit Tests', () => {
       } as any);
 
       await expect(
-        authService.signIn('erro@rotamestre.com', 'senhaerrada')
+        authService.signIn('erro@rotamestre.com', 'senhaerrada'),
       ).rejects.toThrow('E-mail ou senha inválidos');
 
       expect(mockSupabase.auth.signInWithPassword).toHaveBeenCalledWith({
@@ -103,7 +115,10 @@ describe('AuthService - Unit Tests', () => {
       };
       mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
 
-      const result = await authService.signIn('teste@rotamestre.com', 'senha123');
+      const result = await authService.signIn(
+        'teste@rotamestre.com',
+        'senha123',
+      );
 
       expect(result.session).toEqual(mockSession);
       expect(result.usuario).toBeNull();
@@ -147,7 +162,7 @@ describe('AuthService - Unit Tests', () => {
       expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           ultimo_login: expect.any(String),
-        })
+        }),
       );
       expect(mockEq).toHaveBeenCalledWith('id', 'user-123');
     });
@@ -158,7 +173,10 @@ describe('AuthService - Unit Tests', () => {
         error: null,
       });
 
-      const result = await authService.signIn('teste@rotamestre.com', 'senha123');
+      const result = await authService.signIn(
+        'teste@rotamestre.com',
+        'senha123',
+      );
 
       expect(result.session).toBeDefined();
       expect(result.usuario).toBeNull();
@@ -193,7 +211,7 @@ describe('AuthService - Unit Tests', () => {
         'novo@rotamestre.com',
         'senha123',
         'Novo Usuário',
-        'motorista'
+        'motorista',
       );
 
       expect(mockSupabase.auth.signUp).toHaveBeenCalledWith({
@@ -225,8 +243,8 @@ describe('AuthService - Unit Tests', () => {
           'existente@rotamestre.com',
           'senha123',
           'Teste',
-          'gestor'
-        )
+          'gestor',
+        ),
       ).rejects.toThrow('Este email já está cadastrado');
     });
 
@@ -255,8 +273,8 @@ describe('AuthService - Unit Tests', () => {
           'novo@rotamestre.com',
           'senha123',
           'Novo Usuário',
-          'motorista'
-        )
+          'motorista',
+        ),
       ).rejects.toThrow('Erro ao criar registro do usuário');
     });
 
@@ -275,7 +293,7 @@ describe('AuthService - Unit Tests', () => {
         'novo@rotamestre.com',
         'senha123',
         'Novo Usuário',
-        'gestor'
+        'gestor',
       );
 
       expect(mockSupabase.from).not.toHaveBeenCalled();
@@ -303,7 +321,9 @@ describe('AuthService - Unit Tests', () => {
         error: new Error('Erro ao fazer logout'),
       });
 
-      await expect(authService.signOut()).rejects.toThrow('Erro ao fazer logout');
+      await expect(authService.signOut()).rejects.toThrow(
+        'Erro ao fazer logout',
+      );
     });
   });
 
@@ -322,8 +342,8 @@ describe('AuthService - Unit Tests', () => {
       expect(mockSupabase.auth.resetPasswordForEmail).toHaveBeenCalledWith(
         'usuario@rotamestre.com',
         {
-          redirectTo: 'rotamestre://reset-password',
-        }
+          redirectTo: 'https://app.rotamestre.tec.br/auth/reset-password',
+        },
       );
     });
 
@@ -334,11 +354,11 @@ describe('AuthService - Unit Tests', () => {
       });
 
       await expect(
-        authService.resetPassword('naoexiste@rotamestre.com')
+        authService.resetPassword('naoexiste@rotamestre.com'),
       ).rejects.toThrow('Usuário não encontrado');
     });
 
-    it('deve usar redirectTo correto para deep linking', async () => {
+    it('deve usar a URL web no redirectTo em plataformas nativas', async () => {
       mockSupabase.auth.resetPasswordForEmail.mockResolvedValue({
         data: {} as any,
         error: null,
@@ -348,8 +368,42 @@ describe('AuthService - Unit Tests', () => {
 
       const callArgs = mockSupabase.auth.resetPasswordForEmail.mock.calls[0];
       expect(callArgs[1]).toEqual({
-        redirectTo: 'rotamestre://reset-password',
+        redirectTo: 'https://app.rotamestre.tec.br/auth/reset-password',
       });
+    });
+
+    it('deve usar window.location.origin como redirectTo no web', async () => {
+      const platformSpy = jest.replaceProperty(Platform, 'OS', 'web');
+      const originalLocation = Object.getOwnPropertyDescriptor(
+        window,
+        'location',
+      );
+      Object.defineProperty(window, 'location', {
+        value: { origin: 'https://preview.vercel.app' },
+        configurable: true,
+        writable: true,
+      });
+
+      try {
+        mockSupabase.auth.resetPasswordForEmail.mockResolvedValue({
+          data: {} as any,
+          error: null,
+        });
+
+        await authService.resetPassword('test@rotamestre.com');
+
+        expect(mockSupabase.auth.resetPasswordForEmail).toHaveBeenCalledWith(
+          'test@rotamestre.com',
+          {
+            redirectTo: 'https://preview.vercel.app/auth/reset-password',
+          },
+        );
+      } finally {
+        platformSpy.restore();
+        if (originalLocation) {
+          Object.defineProperty(window, 'location', originalLocation);
+        }
+      }
     });
   });
 
@@ -377,7 +431,7 @@ describe('AuthService - Unit Tests', () => {
       });
 
       await expect(authService.updatePassword('novaSenha123')).rejects.toThrow(
-        'Token de recuperação inválido ou expirado'
+        'Token de recuperação inválido ou expirado',
       );
     });
 
@@ -522,7 +576,10 @@ describe('AuthService - Unit Tests', () => {
 
       const result = await authService.getUsuario('user-123');
 
-      expect(logger.error).toHaveBeenCalledWith('[Auth] Erro ao buscar usuário:', mockError);
+      expect(logger.error).toHaveBeenCalledWith(
+        '[Auth] Erro ao buscar usuário:',
+        mockError,
+      );
       expect(result).toBeNull();
     });
   });
