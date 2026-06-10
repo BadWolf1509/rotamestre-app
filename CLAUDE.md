@@ -72,6 +72,7 @@ Installed in `.claude/`:
 | Design system (colors, typography, tokens) | `.claude/refs/design-system.md`                                                    |
 | Test commands, coverage, layout            | `docs/TESTING.md`                                                                  |
 | Migration conventions + history            | `database/MIGRATIONS.md` (also see `/new-migration` skill)                         |
+| Fluxo de recuperação de senha              | `docs/PASSWORD_RECOVERY.md`                                                        |
 | Sentry configuration                       | `src/lib/sentry.ts`                                                                |
 | Supabase client setup                      | `src/lib/supabase.ts`                                                              |
 | Logger                                     | `src/lib/logger.ts`                                                                |
