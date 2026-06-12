@@ -2,13 +2,23 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
 import { authService } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 import { passwordResetRateLimiter } from '@/lib/rateLimiter';
 
 import ForgotPassword from '../../../auth/forgot-password';
 
+// Mock do logger (testes espiam logger, não console — convenção do projeto)
+jest.mock('@/lib/logger', () => ({
+  logger: {
+    error: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+  },
+}));
+
 // TypeScript declaration for global mock
 declare global {
-
   var mockUseAlert: {
     showAlert: jest.Mock;
     showSuccess: jest.Mock;
@@ -50,7 +60,9 @@ describe('Forgot Password Screen - Integration Tests', () => {
       retryAfterMs: null,
       message: null,
     });
-    (passwordResetRateLimiter.recordAttempt as jest.Mock).mockResolvedValue(undefined);
+    (passwordResetRateLimiter.recordAttempt as jest.Mock).mockResolvedValue(
+      undefined,
+    );
   });
 
   // ============================================
@@ -101,7 +113,10 @@ describe('Forgot Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'Digite seu e-mail');
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
+          'Erro',
+          'Digite seu e-mail',
+        );
       });
     });
 
@@ -115,7 +130,10 @@ describe('Forgot Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Erro', 'Digite seu e-mail');
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
+          'Erro',
+          'Digite seu e-mail',
+        );
       });
     });
   });
@@ -138,12 +156,12 @@ describe('Forgot Password Screen - Integration Tests', () => {
       await waitFor(() => {
         // Email é convertido para lowercase
         expect(authService.resetPassword).toHaveBeenCalledWith(
-          'usuario@rotamestre.com'
+          'usuario@rotamestre.com',
         );
         expect(global.mockUseAlert.showSuccess).toHaveBeenCalledWith(
           'Email enviado!',
           'Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.',
-          expect.any(Function)
+          expect.any(Function),
         );
       });
     });
@@ -185,7 +203,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
       await waitFor(() => {
         // Email é convertido para lowercase
         expect(authService.resetPassword).toHaveBeenCalledWith(
-          'usuario@empresa.com.br'
+          'usuario@empresa.com.br',
         );
       });
     });
@@ -197,7 +215,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
   describe('Tratamento de Erros', () => {
     it('não deve revelar se email existe - mostra sucesso por segurança', async () => {
       (authService.resetPassword as jest.Mock).mockRejectedValue(
-        new Error('User not found')
+        new Error('User not found'),
       );
 
       const { getByPlaceholderText, getByText } = render(<ForgotPassword />);
@@ -213,14 +231,16 @@ describe('Forgot Password Screen - Integration Tests', () => {
         expect(global.mockUseAlert.showSuccess).toHaveBeenCalledWith(
           'Email enviado!',
           'Se o email estiver cadastrado, você receberá as instruções para redefinir sua senha.',
-          expect.any(Function)
+          expect.any(Function),
         );
       });
     });
 
     it('deve exibir erro genérico quando ocorre erro desconhecido', async () => {
       // Pass a non-Error object to trigger the fallback message
-      (authService.resetPassword as jest.Mock).mockRejectedValue('unknown error');
+      (authService.resetPassword as jest.Mock).mockRejectedValue(
+        'unknown error',
+      );
 
       const { getByPlaceholderText, getByText } = render(<ForgotPassword />);
 
@@ -233,14 +253,45 @@ describe('Forgot Password Screen - Integration Tests', () => {
       await waitFor(() => {
         expect(global.mockUseAlert.showError).toHaveBeenCalledWith({
           title: 'Erro',
-          message: 'Não foi possível enviar o email. Tente novamente mais tarde.'
+          message:
+            'Não foi possível enviar o email. Tente novamente mais tarde.',
         });
       });
     });
 
+    it('deve exibir mensagem de falha de envio quando o servidor de email falha', async () => {
+      // Erro real do GoTrue quando o SMTP falha (ex.: certificado TLS vencido)
+      (authService.resetPassword as jest.Mock).mockRejectedValue(
+        new Error('Error sending recovery email'),
+      );
+
+      const { getByPlaceholderText, getByText } = render(<ForgotPassword />);
+
+      fireEvent.changeText(
+        getByPlaceholderText('E-mail'),
+        'teste@rotamestre.com',
+      );
+      fireEvent.press(getByText('Enviar Link'));
+
+      await waitFor(() => {
+        expect(global.mockUseAlert.showError).toHaveBeenCalledWith({
+          title: 'Falha no envio',
+          message: expect.stringContaining('servidor de email'),
+        });
+      });
+
+      // Falha do servidor não deve penalizar o usuário no rate limiter
+      expect(passwordResetRateLimiter.recordAttempt).not.toHaveBeenCalledWith(
+        'teste@rotamestre.com',
+        false,
+      );
+      // Deve logar para o time ter visibilidade (Sentry)
+      expect(logger.error).toHaveBeenCalled();
+    });
+
     it('deve exibir mensagem amigável quando rate limit do Supabase é atingido', async () => {
       (authService.resetPassword as jest.Mock).mockRejectedValue(
-        new Error('email rate limit exceeded')
+        new Error('email rate limit exceeded'),
       );
 
       const { getByPlaceholderText, getByText } = render(<ForgotPassword />);
@@ -255,7 +306,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
         expect(global.mockUseAlert.showSuccess).toHaveBeenCalledWith(
           'Email já enviado!',
           'Um email de recuperação já foi enviado recentemente. Verifique sua caixa de entrada e pasta de spam.',
-          expect.any(Function)
+          expect.any(Function),
         );
       });
     });
@@ -280,7 +331,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
       await waitFor(() => {
         expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
           'Aguarde',
-          'Aguarde 1 minuto para tentar novamente.'
+          'Aguarde 1 minuto para tentar novamente.',
         );
         // authService NÃO deve ser chamado quando rate limit local está ativo
         expect(authService.resetPassword).not.toHaveBeenCalled();
@@ -294,7 +345,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
   describe('Estado de Loading', () => {
     it('deve chamar serviço durante loading', async () => {
       (authService.resetPassword as jest.Mock).mockImplementation(
-        () => new Promise((resolve) => setTimeout(resolve, 100))
+        () => new Promise((resolve) => setTimeout(resolve, 100)),
       );
 
       const { getByPlaceholderText, getByText } = render(<ForgotPassword />);
@@ -308,7 +359,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
       // Esperar o serviço ser chamado para confirmar que loading começou
       await waitFor(() => {
         expect(authService.resetPassword).toHaveBeenCalledWith(
-          'usuario@rotamestre.com'
+          'usuario@rotamestre.com',
         );
       });
     });
@@ -326,7 +377,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
 
       await waitFor(() => {
         expect(authService.resetPassword).toHaveBeenCalledWith(
-          'usuario@rotamestre.com'
+          'usuario@rotamestre.com',
         );
         expect(global.mockUseAlert.showSuccess).toHaveBeenCalled();
       });
@@ -334,7 +385,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
 
     it('deve exibir Alert após tratamento de erro', async () => {
       (authService.resetPassword as jest.Mock).mockRejectedValue(
-        new Error('Erro de conexão')
+        new Error('Erro de conexão'),
       );
 
       const { getByPlaceholderText, getByText } = render(<ForgotPassword />);
@@ -349,7 +400,8 @@ describe('Forgot Password Screen - Integration Tests', () => {
         expect(authService.resetPassword).toHaveBeenCalled();
         expect(global.mockUseAlert.showError).toHaveBeenCalledWith({
           title: 'Erro',
-          message: 'Não foi possível enviar o email. Tente novamente mais tarde.'
+          message:
+            'Não foi possível enviar o email. Tente novamente mais tarde.',
         });
       });
     });
@@ -383,14 +435,14 @@ describe('Forgot Password Screen - Integration Tests', () => {
         expect(global.mockUseAlert.showSuccess).toHaveBeenCalledWith(
           'Email enviado!',
           'Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.',
-          expect.any(Function)
+          expect.any(Function),
         );
       });
     });
 
     it('não deve navegar quando envio falha', async () => {
       (authService.resetPassword as jest.Mock).mockRejectedValue(
-        new Error('Erro de conexão')
+        new Error('Erro de conexão'),
       );
 
       const { getByPlaceholderText, getByText } = render(<ForgotPassword />);
@@ -404,7 +456,8 @@ describe('Forgot Password Screen - Integration Tests', () => {
       await waitFor(() => {
         expect(global.mockUseAlert.showError).toHaveBeenCalledWith({
           title: 'Erro',
-          message: 'Não foi possível enviar o email. Tente novamente mais tarde.'
+          message:
+            'Não foi possível enviar o email. Tente novamente mais tarde.',
         });
       });
 
@@ -434,7 +487,8 @@ describe('Forgot Password Screen - Integration Tests', () => {
       await waitFor(() => {
         expect(global.mockUseAlert.showError).toHaveBeenCalledWith({
           title: 'Erro',
-          message: 'Não foi possível enviar o email. Tente novamente mais tarde.'
+          message:
+            'Não foi possível enviar o email. Tente novamente mais tarde.',
         });
         expect(authService.resetPassword).toHaveBeenCalledTimes(1);
       });
@@ -468,7 +522,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
 
       await waitFor(() => {
         expect(authService.resetPassword).toHaveBeenCalledWith(
-          'usuario.teste+1@rotamestre.com'
+          'usuario.teste+1@rotamestre.com',
         );
       });
     });
@@ -488,7 +542,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
       await waitFor(() => {
         // O componente faz trim() e toLowerCase()
         expect(authService.resetPassword).toHaveBeenCalledWith(
-          'usuario@rotamestre.com'
+          'usuario@rotamestre.com',
         );
       });
     });
@@ -507,14 +561,14 @@ describe('Forgot Password Screen - Integration Tests', () => {
       await waitFor(() => {
         expect(passwordResetRateLimiter.recordAttempt).toHaveBeenCalledWith(
           'usuario@rotamestre.com',
-          true
+          true,
         );
       });
     });
 
     it('deve registrar tentativa falha no rate limiter', async () => {
       (authService.resetPassword as jest.Mock).mockRejectedValue(
-        new Error('Erro de conexão')
+        new Error('Erro de conexão'),
       );
 
       const { getByPlaceholderText, getByText } = render(<ForgotPassword />);
@@ -528,7 +582,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
       await waitFor(() => {
         expect(passwordResetRateLimiter.recordAttempt).toHaveBeenCalledWith(
           'usuario@rotamestre.com',
-          false
+          false,
         );
       });
     });
