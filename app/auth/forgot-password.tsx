@@ -19,6 +19,7 @@ import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
 import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 import { passwordResetRateLimiter } from '@/lib/rateLimiter';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -89,9 +90,31 @@ export default function ForgotPassword() {
           'Se o email estiver cadastrado, você receberá as instruções para redefinir sua senha.',
           () => router.push('/auth/login'),
         );
+      } else if (
+        errorMessage.includes('sending') ||
+        errorMessage.toLowerCase().includes('smtp')
+      ) {
+        // Falha no servidor de email (ex.: SMTP fora do ar, certificado TLS
+        // vencido). Não é abuso do usuário → não conta no rate limiter.
+        // Logar para o time ver no Sentry (sem isso, a falha fica invisível).
+        logger.error(
+          '[ForgotPassword] Falha no envio do email de recuperação (servidor de email)',
+          error,
+        );
+
+        showError({
+          title: 'Falha no envio',
+          message:
+            'Estamos com uma instabilidade no nosso servidor de email e não foi possível enviar agora. Tente novamente em alguns minutos; se persistir, fale com o suporte.',
+        });
       } else {
-        // Registrar apenas erros reais como falha
+        // Erro inesperado — registrar como falha e logar para diagnóstico
         await passwordResetRateLimiter.recordAttempt(trimmedEmail, false);
+
+        logger.error(
+          '[ForgotPassword] Erro inesperado ao solicitar recuperação de senha',
+          error,
+        );
 
         showError({
           title: 'Erro',
