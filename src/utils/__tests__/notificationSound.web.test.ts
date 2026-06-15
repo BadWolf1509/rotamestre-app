@@ -7,13 +7,13 @@ import {
 
 const mockSetAudioModeAsync = jest.fn();
 
-jest.mock('expo-av', () => ({
-  Audio: {
-    setAudioModeAsync: () => mockSetAudioModeAsync(),
-    Sound: {
-      createAsync: jest.fn(),
-    },
-  },
+jest.mock('expo-audio', () => ({
+  setAudioModeAsync: () => mockSetAudioModeAsync(),
+  createAudioPlayer: jest.fn(() => ({
+    volume: 1,
+    play: jest.fn(),
+    remove: jest.fn(),
+  })),
 }));
 
 jest.mock('react-native', () => ({

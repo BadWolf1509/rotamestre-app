@@ -57,7 +57,6 @@ module.exports = ({ config }) => {
         backgroundColor: "#284093"
       },
       icon: "./assets/icon.png",
-      edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: "br.tec.rotamestre",
       versionCode: resolvedAndroidVersionCode, // From package.json

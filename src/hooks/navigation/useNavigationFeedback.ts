@@ -2,10 +2,10 @@
  * useNavigationFeedback - Haptic and sound feedback for navigation
  *
  * Extracted from NavigationMode.tsx to reduce component complexity.
- * Handles haptic feedback (expo-haptics) and notification sounds (expo-av).
+ * Handles haptic feedback (expo-haptics) and notification sounds (expo-audio).
  */
 
-import { Audio } from 'expo-av';
+import { setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useRef } from 'react';
 import { Platform } from 'react-native';
@@ -19,7 +19,7 @@ export function useNavigationFeedback({
   vibrationAlerts,
   soundAlerts,
 }: UseNavigationFeedbackOptions) {
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const soundRef = useRef<AudioPlayer | null>(null);
 
   const triggerHaptic = useCallback(
     async (type: 'impact' | 'success' | 'warning') => {
@@ -29,30 +29,37 @@ export function useNavigationFeedback({
         if (type === 'impact') {
           await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         } else if (type === 'success') {
-          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          await Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success,
+          );
         } else if (type === 'warning') {
-          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          await Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Warning,
+          );
         }
       } catch {
         // Haptics not available
       }
     },
-    [vibrationAlerts]
+    [vibrationAlerts],
   );
 
   const playNotificationSound = useCallback(async () => {
     if (Platform.OS === 'web' || !soundAlerts) return;
 
     try {
-      // Configure audio mode for notifications
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: false,
-        staysActiveInBackground: false,
+      // Configure audio mode for notifications (expo-audio)
+      await setAudioModeAsync({
+        allowsRecording: false,
+        shouldPlayInBackground: false,
+        playsInSilentMode: false,
+        interruptionMode: 'mixWithOthers',
+        shouldRouteThroughEarpiece: false,
       });
 
       // Unload previous sound if exists
       if (soundRef.current) {
-        await soundRef.current.unloadAsync();
+        soundRef.current.remove();
         soundRef.current = null;
       }
 
@@ -66,7 +73,7 @@ export function useNavigationFeedback({
 
   const cleanupSound = useCallback(async () => {
     if (soundRef.current) {
-      await soundRef.current.unloadAsync();
+      soundRef.current.remove();
       soundRef.current = null;
     }
   }, []);

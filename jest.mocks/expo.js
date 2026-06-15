@@ -27,21 +27,14 @@ function setupExpoMocks() {
     TaskManagerError: class TaskManagerError extends Error {},
   }));
 
-  // Mock expo-av (usado por notificationSound)
-  jest.mock('expo-av', () => ({
-    Audio: {
-      Sound: {
-        createAsync: jest.fn(() => Promise.resolve({
-          sound: {
-            playAsync: jest.fn(() => Promise.resolve()),
-            unloadAsync: jest.fn(() => Promise.resolve()),
-            setOnPlaybackStatusUpdate: jest.fn(),
-          },
-          status: { isLoaded: true },
-        })),
-      },
-      setAudioModeAsync: jest.fn(() => Promise.resolve()),
-    },
+  // Mock expo-audio (substitui expo-av no SDK 56; usado por notificationSound)
+  jest.mock('expo-audio', () => ({
+    createAudioPlayer: jest.fn(() => ({
+      volume: 1,
+      play: jest.fn(),
+      remove: jest.fn(),
+    })),
+    setAudioModeAsync: jest.fn(() => Promise.resolve()),
   }));
 
   // Mock expo-location (complementar para tracking)

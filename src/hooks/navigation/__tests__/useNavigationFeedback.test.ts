@@ -5,7 +5,7 @@
  */
 
 import { renderHook, act } from '@testing-library/react-native';
-import { Audio } from 'expo-av';
+import { setAudioModeAsync } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 import { Platform } from 'react-native';
 
@@ -19,11 +19,14 @@ jest.mock('expo-haptics', () => ({
   NotificationFeedbackType: { Success: 'success', Warning: 'warning' },
 }));
 
-// Mock expo-av
-jest.mock('expo-av', () => ({
-  Audio: {
-    setAudioModeAsync: jest.fn().mockResolvedValue(undefined),
-  },
+// Mock expo-audio (substitui expo-av no SDK 56)
+jest.mock('expo-audio', () => ({
+  setAudioModeAsync: jest.fn().mockResolvedValue(undefined),
+  createAudioPlayer: jest.fn(() => ({
+    volume: 1,
+    play: jest.fn(),
+    remove: jest.fn(),
+  })),
 }));
 
 describe('useNavigationFeedback', () => {
@@ -36,25 +39,30 @@ describe('useNavigationFeedback', () => {
   });
 
   afterEach(() => {
-    Object.defineProperty(Platform, 'OS', { value: originalPlatform, writable: true });
+    Object.defineProperty(Platform, 'OS', {
+      value: originalPlatform,
+      writable: true,
+    });
   });
 
   describe('triggerHaptic', () => {
     it('deve chamar impactAsync para tipo impact', async () => {
       const { result } = renderHook(() =>
-        useNavigationFeedback({ vibrationAlerts: true, soundAlerts: false })
+        useNavigationFeedback({ vibrationAlerts: true, soundAlerts: false }),
       );
 
       await act(async () => {
         await result.current.triggerHaptic('impact');
       });
 
-      expect(Haptics.impactAsync).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Medium);
+      expect(Haptics.impactAsync).toHaveBeenCalledWith(
+        Haptics.ImpactFeedbackStyle.Medium,
+      );
     });
 
     it('deve chamar notificationAsync com Success para tipo success', async () => {
       const { result } = renderHook(() =>
-        useNavigationFeedback({ vibrationAlerts: true, soundAlerts: false })
+        useNavigationFeedback({ vibrationAlerts: true, soundAlerts: false }),
       );
 
       await act(async () => {
@@ -62,13 +70,13 @@ describe('useNavigationFeedback', () => {
       });
 
       expect(Haptics.notificationAsync).toHaveBeenCalledWith(
-        Haptics.NotificationFeedbackType.Success
+        Haptics.NotificationFeedbackType.Success,
       );
     });
 
     it('deve chamar notificationAsync com Warning para tipo warning', async () => {
       const { result } = renderHook(() =>
-        useNavigationFeedback({ vibrationAlerts: true, soundAlerts: false })
+        useNavigationFeedback({ vibrationAlerts: true, soundAlerts: false }),
       );
 
       await act(async () => {
@@ -76,13 +84,13 @@ describe('useNavigationFeedback', () => {
       });
 
       expect(Haptics.notificationAsync).toHaveBeenCalledWith(
-        Haptics.NotificationFeedbackType.Warning
+        Haptics.NotificationFeedbackType.Warning,
       );
     });
 
     it('deve NÃO chamar haptics quando vibrationAlerts=false', async () => {
       const { result } = renderHook(() =>
-        useNavigationFeedback({ vibrationAlerts: false, soundAlerts: false })
+        useNavigationFeedback({ vibrationAlerts: false, soundAlerts: false }),
       );
 
       await act(async () => {
@@ -97,7 +105,7 @@ describe('useNavigationFeedback', () => {
       Object.defineProperty(Platform, 'OS', { value: 'web', writable: true });
 
       const { result } = renderHook(() =>
-        useNavigationFeedback({ vibrationAlerts: true, soundAlerts: false })
+        useNavigationFeedback({ vibrationAlerts: true, soundAlerts: false }),
       );
 
       await act(async () => {
@@ -108,10 +116,12 @@ describe('useNavigationFeedback', () => {
     });
 
     it('deve silenciar erro se haptics não disponível', async () => {
-      (Haptics.impactAsync as jest.Mock).mockRejectedValueOnce(new Error('not available'));
+      (Haptics.impactAsync as jest.Mock).mockRejectedValueOnce(
+        new Error('not available'),
+      );
 
       const { result } = renderHook(() =>
-        useNavigationFeedback({ vibrationAlerts: true, soundAlerts: false })
+        useNavigationFeedback({ vibrationAlerts: true, soundAlerts: false }),
       );
 
       // Should not throw
@@ -126,50 +136,53 @@ describe('useNavigationFeedback', () => {
   describe('playNotificationSound', () => {
     it('deve configurar audio mode quando soundAlerts=true', async () => {
       const { result } = renderHook(() =>
-        useNavigationFeedback({ vibrationAlerts: false, soundAlerts: true })
+        useNavigationFeedback({ vibrationAlerts: false, soundAlerts: true }),
       );
 
       await act(async () => {
         await result.current.playNotificationSound();
       });
 
-      expect(Audio.setAudioModeAsync).toHaveBeenCalledWith({
-        playsInSilentModeIOS: false,
-        staysActiveInBackground: false,
+      expect(setAudioModeAsync).toHaveBeenCalledWith({
+        allowsRecording: false,
+        shouldPlayInBackground: false,
+        playsInSilentMode: false,
+        interruptionMode: 'mixWithOthers',
+        shouldRouteThroughEarpiece: false,
       });
     });
 
     it('deve NÃO tocar som quando soundAlerts=false', async () => {
       const { result } = renderHook(() =>
-        useNavigationFeedback({ vibrationAlerts: false, soundAlerts: false })
+        useNavigationFeedback({ vibrationAlerts: false, soundAlerts: false }),
       );
 
       await act(async () => {
         await result.current.playNotificationSound();
       });
 
-      expect(Audio.setAudioModeAsync).not.toHaveBeenCalled();
+      expect(setAudioModeAsync).not.toHaveBeenCalled();
     });
 
     it('deve NÃO tocar som na web', async () => {
       Object.defineProperty(Platform, 'OS', { value: 'web', writable: true });
 
       const { result } = renderHook(() =>
-        useNavigationFeedback({ vibrationAlerts: false, soundAlerts: true })
+        useNavigationFeedback({ vibrationAlerts: false, soundAlerts: true }),
       );
 
       await act(async () => {
         await result.current.playNotificationSound();
       });
 
-      expect(Audio.setAudioModeAsync).not.toHaveBeenCalled();
+      expect(setAudioModeAsync).not.toHaveBeenCalled();
     });
   });
 
   describe('cleanupSound', () => {
     it('deve ser uma função callable sem erros', async () => {
       const { result } = renderHook(() =>
-        useNavigationFeedback({ vibrationAlerts: false, soundAlerts: false })
+        useNavigationFeedback({ vibrationAlerts: false, soundAlerts: false }),
       );
 
       // Should not throw even with no active sound
