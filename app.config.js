@@ -100,6 +100,8 @@ module.exports = ({ config }) => {
       "expo-router",
       "expo-asset",
       "expo-font",
+      "expo-splash-screen",
+      "expo-status-bar",
       "@react-native-community/datetimepicker",
       "@maplibre/maplibre-react-native",
       [

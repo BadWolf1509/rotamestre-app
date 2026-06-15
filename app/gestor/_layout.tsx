@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, Slot, useRouter } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { ColorValue, Pressable, View } from 'react-native';
 
 import { AuthLoadingScreen } from '@/components/AuthLoadingScreen';
 import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
@@ -10,7 +10,9 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useUnistyles } from '@/utils/styles';
 
 export default function GestorLayout() {
-  const { isReady, isAuthorized, userData } = useRequireAuth({ role: 'gestor' });
+  const { isReady, isAuthorized, userData } = useRequireAuth({
+    role: 'gestor',
+  });
   const { isDesktop } = useResponsive();
   const { theme } = useUnistyles();
 
@@ -27,7 +29,13 @@ export default function GestorLayout() {
   // Desktop Layout - Sidebar fixa + conteúdo
   if (isDesktop) {
     return (
-      <View style={{ flex: 1, flexDirection: 'row', backgroundColor: theme.colors.gray50 }}>
+      <View
+        style={{
+          flex: 1,
+          flexDirection: 'row',
+          backgroundColor: theme.colors.gray50,
+        }}
+      >
         <Sidebar userData={userData} />
         <View style={{ flex: 1 }}>
           <Slot />
@@ -49,7 +57,7 @@ function GestorStack() {
   const { openDrawer } = useDrawerMenu();
   const router = useRouter();
 
-  const renderMenuButton = (tintColor?: string) => (
+  const renderMenuButton = (tintColor?: ColorValue) => (
     <Pressable
       onPress={openDrawer}
       style={{ paddingHorizontal: 12, paddingVertical: 4 }}
@@ -131,8 +139,3 @@ function GestorStack() {
     </Stack>
   );
 }
-
-
-
-
-
