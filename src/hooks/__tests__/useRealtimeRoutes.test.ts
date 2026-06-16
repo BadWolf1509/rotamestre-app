@@ -49,7 +49,9 @@ describe('useRealtimeRoutes', () => {
 
     // Verificar que o canal foi criado (nome inclui unidade)
     const { supabase } = require('@/lib/supabase');
-    expect(supabase.channel).toHaveBeenCalledWith('rotas-unit-1');
+    expect(supabase.channel).toHaveBeenCalledWith(
+      expect.stringMatching(/^rotas-unit-1-\d+$/),
+    );
 
     // Verificar que on() foi chamado para rotas
     expect(mockOn).toHaveBeenCalledWith(
@@ -60,7 +62,7 @@ describe('useRealtimeRoutes', () => {
         table: 'rotas',
         filter: 'unidade_id=eq.unit-1',
       }),
-      expect.any(Function)
+      expect.any(Function),
     );
 
     // Verificar que on() foi chamado para paradas
@@ -71,17 +73,35 @@ describe('useRealtimeRoutes', () => {
         schema: 'public',
         table: 'paradas',
       }),
-      expect.any(Function)
+      expect.any(Function),
     );
 
     // Verificar que subscribe() foi chamado
     expect(mockSubscribe).toHaveBeenCalled();
   });
 
-  it('deve inicializar com updateTrigger zero', async () => {
-    const { result } = renderHook(() =>
-      useRealtimeRoutes({ enabled: true })
+  it('não re-subscreve quando muda só a identidade de onRouteUpdate (evita reuso de canal)', async () => {
+    const { supabase } = require('@/lib/supabase');
+    const { rerender } = renderHook(
+      ({ cb }: { cb: () => void }) =>
+        useRealtimeRoutes({ enabled: true, onRouteUpdate: cb }),
+      { initialProps: { cb: () => {} } },
     );
+
+    await waitFor(() => {
+      expect(supabase.channel).toHaveBeenCalledTimes(1);
+    });
+
+    // Nova identidade do callback NÃO pode recriar o canal — era a causa do erro
+    // "cannot add postgres_changes callbacks after subscribe()" no SDK 56.
+    rerender({ cb: () => {} });
+    rerender({ cb: () => {} });
+
+    expect(supabase.channel).toHaveBeenCalledTimes(1);
+  });
+
+  it('deve inicializar com updateTrigger zero', async () => {
+    const { result } = renderHook(() => useRealtimeRoutes({ enabled: true }));
 
     await waitFor(() => {
       expect(result.current.updateTrigger).toBe(0);
@@ -97,9 +117,11 @@ describe('useRealtimeRoutes', () => {
 
   it('não deve criar subscrição quando não há unidade_id', () => {
     // Mock sem unidadeAtiva
-    jest.spyOn(require('../useUnidadeAtiva'), 'useUnidadeAtiva').mockReturnValue({
-      unidadeAtiva: null,
-    });
+    jest
+      .spyOn(require('../useUnidadeAtiva'), 'useUnidadeAtiva')
+      .mockReturnValue({
+        unidadeAtiva: null,
+      });
 
     renderHook(() => useRealtimeRoutes({ enabled: true }));
 
