@@ -30,9 +30,9 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
-.env
+# local env files (broad: catches .env.local.txt etc. from editors that append suffixes)
+.env*
+!.env.example
 
 # Store credentials (NEVER commit!)
 play-store-credentials.json
