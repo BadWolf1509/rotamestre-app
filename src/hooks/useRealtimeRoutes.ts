@@ -5,6 +5,9 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from './useAuth';
 import { useUnidadeAtiva } from './useUnidadeAtiva';
 
+// Contador module-level p/ gerar um nome de canal único por montagem (ver uso abaixo).
+let channelInstanceCounter = 0;
+
 interface UseRealtimeRoutesOptions {
   enabled?: boolean;
   onRouteUpdate?: () => void;
@@ -51,16 +54,30 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
     }, debounceMs);
   }, [onRouteUpdate, debounceMs]);
 
+  // ✅ Ref do trigger: mudanças de identidade do callback NÃO devem re-executar
+  //    o efeito de subscription (era o que reusava um canal já inscrito → erro
+  //    "cannot add postgres_changes callbacks after subscribe()" no SDK 56).
+  const triggerUpdateRef = useRef(triggerUpdate);
+  useEffect(() => {
+    triggerUpdateRef.current = triggerUpdate;
+  }, [triggerUpdate]);
+
   // ✅ Atualizar ref do token quando mudar
   useEffect(() => {
     if (session?.access_token) {
       accessTokenRef.current = session.access_token;
+      // ✅ Mantém o realtime autenticado no refresh de token SEM recriar o canal
+      supabase.realtime.setAuth(session.access_token);
     }
   }, [session?.access_token]);
 
+  // ✅ Boolean estável: dispara o efeito quando o token passa a EXISTIR, mas não
+  //    quando o valor muda (refresh). Evita re-subscribe/churn que reusava o canal.
+  const hasToken = !!session?.access_token;
+
   useEffect(() => {
     // ✅ Só subscrever se autenticado E com unidade ativa
-    if (!enabled || !unidadeAtiva || !session?.access_token) {
+    if (!enabled || !unidadeAtiva || !hasToken) {
       return;
     }
 
@@ -71,14 +88,20 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
 
     // ✅ CRÍTICO: Definir token ANTES de criar o canal (workaround para Issue 1304)
     // https://github.com/supabase/supabase-js/issues/1304
-    supabase.realtime.setAuth(session.access_token);
+    if (accessTokenRef.current) {
+      supabase.realtime.setAuth(accessTokenRef.current);
+    }
 
     // ✅ Marcar como subscrito
     isSubscribed.current = true;
     currentUnidade.current = unidadeAtiva;
 
+    // Nome de canal único por montagem: o removeChannel do cleanup é assíncrono,
+    // então uma remontagem rápida (navegar e voltar) reusaria um canal já inscrito
+    // → "cannot add postgres_changes callbacks after subscribe()" no SDK 56.
+    channelInstanceCounter += 1;
     const channel = supabase
-      .channel(`rotas-${unidadeAtiva}`) // ✅ Canal único por unidade
+      .channel(`rotas-${unidadeAtiva}-${channelInstanceCounter}`)
       .on(
         'postgres_changes',
         {
@@ -88,8 +111,8 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
           filter: `unidade_id=eq.${unidadeAtiva}`,
         },
         () => {
-          triggerUpdate();
-        }
+          triggerUpdateRef.current();
+        },
       )
       .on(
         'postgres_changes',
@@ -99,8 +122,8 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
           table: 'paradas',
         },
         () => {
-          triggerUpdate();
-        }
+          triggerUpdateRef.current();
+        },
       )
       .subscribe((status) => {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -118,8 +141,9 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
         debounceTimer.current = null;
       }
     };
-  }, [enabled, session?.access_token, triggerUpdate, unidadeAtiva]);
+    // unidadeAtiva define o canal; hasToken dispara o subscribe inicial.
+    // O valor do token e o callback são lidos via ref (não reativos aqui).
+  }, [enabled, unidadeAtiva, hasToken]);
 
   return { updateTrigger };
 }
-
