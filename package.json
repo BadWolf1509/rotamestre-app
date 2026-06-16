@@ -120,7 +120,7 @@
     "@react-native/jest-preset": "^0.85.3",
     "@size-limit/preset-app": "^12.1.0",
     "@testing-library/jest-native": "^5.4.3",
-    "@testing-library/react-native": "^13.3.3",
+    "@testing-library/react-native": "^14.0.0",
     "@types/google.maps": "^3.65.1",
     "@types/jest": "^29.5.12",
     "@types/pdfmake": "^0.3.2",
