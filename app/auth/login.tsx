@@ -77,24 +77,38 @@ export default function Login() {
     type: 'error',
   });
 
-  function showAlert(title: string, message: string, type: 'default' | 'error' | 'success' | 'warning' = 'error') {
+  function showAlert(
+    title: string,
+    message: string,
+    type: 'default' | 'error' | 'success' | 'warning' = 'error',
+  ) {
     setAlertConfig({ visible: true, title, message, type });
   }
 
   function hideAlert() {
-    setAlertConfig(prev => ({ ...prev, visible: false }));
+    setAlertConfig((prev) => ({ ...prev, visible: false }));
   }
 
   async function handleLogin() {
     if (!email || !password) {
-      showAlert('Ops!', 'Por favor, preencha seu e-mail e senha para continuar.', 'warning');
+      showAlert(
+        'Ops!',
+        'Por favor, preencha seu e-mail e senha para continuar.',
+        'warning',
+      );
       return;
     }
 
     // Verificar rate limit (proteção contra brute force)
-    const rateLimitCheck = await loginRateLimiter.checkLimit(email.toLowerCase());
+    const rateLimitCheck = await loginRateLimiter.checkLimit(
+      email.toLowerCase(),
+    );
     if (!rateLimitCheck.allowed) {
-      showAlert('Muitas tentativas', rateLimitCheck.message || 'Aguarde antes de tentar novamente.', 'warning');
+      showAlert(
+        'Muitas tentativas',
+        rateLimitCheck.message || 'Aguarde antes de tentar novamente.',
+        'warning',
+      );
       return;
     }
 
@@ -127,7 +141,11 @@ export default function Login() {
       } else {
         // Registrar tentativa falha
         await loginRateLimiter.recordAttempt(email.toLowerCase(), false);
-        showAlert('Usuário não encontrado', 'Não encontramos sua conta. Verifique seus dados e tente novamente.', 'error');
+        showAlert(
+          'Usuário não encontrado',
+          'Não encontramos sua conta. Verifique seus dados e tente novamente.',
+          'error',
+        );
       }
     } catch (error: unknown) {
       // Registrar tentativa falha
@@ -157,7 +175,9 @@ export default function Login() {
           <View style={styles.formContainerDesktop}>
             <View style={styles.headerDesktop}>
               <Text style={styles.titleDesktop}>Bem-vindo de volta!</Text>
-              <Text style={styles.subtitleDesktop}>Entre com suas credenciais para continuar</Text>
+              <Text style={styles.subtitleDesktop}>
+                Entre com suas credenciais para continuar
+              </Text>
             </View>
 
             <View style={styles.form}>
@@ -190,7 +210,9 @@ export default function Login() {
                   <TouchableOpacity
                     style={styles.eyeButton}
                     onPress={() => setShowPassword(!showPassword)}
-                    accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                    accessibilityLabel={
+                      showPassword ? 'Ocultar senha' : 'Mostrar senha'
+                    }
                     accessibilityRole="button"
                   >
                     <Ionicons
@@ -265,7 +287,10 @@ export default function Login() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
-        contentContainerStyle={[styles.container, { paddingBottom: Math.max(20, insets.bottom + 20) }]}
+        contentContainerStyle={[
+          styles.container,
+          { paddingBottom: Math.max(20, insets.bottom + 20) },
+        ]}
         keyboardShouldPersistTaps="handled"
         bounces={false}
         testID="auth-login-view"
@@ -314,7 +339,9 @@ export default function Login() {
               <TouchableOpacity
                 style={styles.eyeButton}
                 onPress={() => setShowPassword(!showPassword)}
-                accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                accessibilityLabel={
+                  showPassword ? 'Ocultar senha' : 'Mostrar senha'
+                }
                 accessibilityRole="button"
               >
                 <Ionicons
@@ -450,6 +477,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     paddingRight: 50,
     fontSize: theme.typography.fontSize.base,
     fontFamily: theme.typography.fontSans,
+    // Android (RN 0.85/Fabric): sem color explícito o secureTextEntry renderiza
+    // os bullets (•) numa cor invisível. Ver facebook/react-native#30123.
+    color: theme.colors.gray900,
     backgroundColor: theme.colors.white,
   },
   eyeButton: {
@@ -510,6 +540,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     paddingRight: 50,
     fontSize: theme.typography.fontSize.base,
     fontFamily: theme.typography.fontSans,
+    // Android (RN 0.85/Fabric): sem color explícito o secureTextEntry renderiza
+    // os bullets (•) numa cor invisível. Ver facebook/react-native#30123.
+    color: theme.colors.gray900,
     backgroundColor: theme.colors.white,
   },
   button: {

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, Slot } from 'expo-router';
-import { Pressable } from 'react-native';
+import { ColorValue, Pressable } from 'react-native';
 
 import { AuthLoadingScreen } from '@/components/AuthLoadingScreen';
 import { DrawerMenuProvider, useDrawerMenu } from '@/context/DrawerMenuContext';
@@ -39,7 +39,7 @@ function UnidadeStack() {
   const { theme } = useUnistyles();
   const { openDrawer } = useDrawerMenu();
 
-  const renderMenuButton = (tintColor?: string) => (
+  const renderMenuButton = (tintColor?: ColorValue) => (
     <Pressable
       onPress={openDrawer}
       style={{ paddingHorizontal: 12, paddingVertical: 4 }}

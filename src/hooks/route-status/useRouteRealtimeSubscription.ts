@@ -84,7 +84,7 @@ export function useRouteRealtimeSubscription({
           }
 
           debouncedReload();
-        }
+        },
       )
       .on(
         'postgres_changes',
@@ -96,7 +96,7 @@ export function useRouteRealtimeSubscription({
         },
         () => {
           debouncedReload();
-        }
+        },
       )
       // DELETE sem filtro (Replica Identity não está FULL)
       .on(
@@ -108,7 +108,7 @@ export function useRouteRealtimeSubscription({
         },
         () => {
           debouncedReload();
-        }
+        },
       )
       .on(
         'postgres_changes',
@@ -119,7 +119,7 @@ export function useRouteRealtimeSubscription({
         },
         () => {
           debouncedReload();
-        }
+        },
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
@@ -127,28 +127,25 @@ export function useRouteRealtimeSubscription({
           reconnectAttempts.current = 0;
           logger.info('[RouteStatus] Realtime conectado com sucesso');
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          reconnectAttempts.current += 1;
           logger.warn('[RouteStatus] Realtime erro na conexão', {
             status,
-            attempt: reconnectAttempts.current + 1,
+            attempt: reconnectAttempts.current,
             maxAttempts: MAX_RECONNECT_ATTEMPTS,
           });
 
-          // Tentar reconectar com backoff exponencial
-          if (reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
-            // Keep isSubscribed true — we're still trying to reconnect
-            reconnectAttempts.current += 1;
-            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
-
-            setTimeout(() => {
-              if (accessToken) {
-                supabase.realtime.setAuth(accessToken);
-              }
-              channel.subscribe();
-            }, delay);
-          } else {
-            // Gave up on realtime — mark as not subscribed
+          // NÃO chamar channel.subscribe() de novo: o Phoenix/Supabase lança
+          // "tried to join multiple times" se o mesmo channel for re-inscrito.
+          // O realtime-js já reconecta o socket automaticamente. Após esgotar
+          // as tentativas, caímos no polling como fallback.
+          if (
+            reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS &&
+            !pollIntervalRef.current
+          ) {
             isSubscribed.current = false;
-            logger.error('[RouteStatus] Realtime máximo de tentativas atingido - usando polling');
+            logger.error(
+              '[RouteStatus] Realtime máximo de tentativas atingido - usando polling',
+            );
             // Fallback: recarregar dados manualmente a cada 30s
             pollIntervalRef.current = setInterval(() => {
               if (motoristaId) loadActiveRoute();

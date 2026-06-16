@@ -85,11 +85,16 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
 /**
  * Salva configurações de notificação
  */
-export async function saveNotificationSettings(settings: Partial<NotificationSettings>): Promise<void> {
+export async function saveNotificationSettings(
+  settings: Partial<NotificationSettings>,
+): Promise<void> {
   try {
     const current = await getNotificationSettings();
     const updated = { ...current, ...settings };
-    await AsyncStorage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(updated));
+    await AsyncStorage.setItem(
+      NOTIFICATION_SETTINGS_KEY,
+      JSON.stringify(updated),
+    );
   } catch (error) {
     logger.error('[Notifications] Erro ao salvar configurações', error);
   }
@@ -101,7 +106,7 @@ export async function saveNotificationSettings(settings: Partial<NotificationSet
 export async function sendLocalNotification(
   title: string,
   body: string,
-  data?: Record<string, unknown>
+  data?: Record<string, unknown>,
 ): Promise<string | null> {
   if (Platform.OS === 'web') {
     return null;
@@ -135,7 +140,7 @@ export async function notifyRoutePending(unidadeNome: string): Promise<void> {
   await sendLocalNotification(
     'Rota Pendente',
     `Voce tem uma rota pendente para ${unidadeNome}. Toque para iniciar.`,
-    { type: 'route_pending' }
+    { type: 'route_pending' },
   );
 }
 
@@ -144,7 +149,7 @@ export async function notifyRoutePending(unidadeNome: string): Promise<void> {
  */
 export async function notifyRouteComplete(
   totalParadas: number,
-  tempoTotal: string
+  tempoTotal: string,
 ): Promise<void> {
   const settings = await getNotificationSettings();
   if (!settings.routeComplete) return;
@@ -152,7 +157,7 @@ export async function notifyRouteComplete(
   await sendLocalNotification(
     'Rota Concluida!',
     `Parabens! Voce completou ${totalParadas} entregas em ${tempoTotal}.`,
-    { type: 'route_complete' }
+    { type: 'route_complete' },
   );
 }
 
@@ -166,7 +171,7 @@ export async function notifyOfflineMode(): Promise<void> {
   await sendLocalNotification(
     'Modo Offline',
     'Voce esta sem conexao. As acoes serao sincronizadas quando a conexao for restaurada.',
-    { type: 'offline_mode' }
+    { type: 'offline_mode' },
   );
 }
 
@@ -175,7 +180,7 @@ export async function notifyOfflineMode(): Promise<void> {
  */
 export async function notifySyncComplete(
   actionsCount: number,
-  photosCount: number
+  photosCount: number,
 ): Promise<void> {
   if (actionsCount === 0 && photosCount === 0) return;
 
@@ -191,7 +196,9 @@ export async function notifySyncComplete(
 
   message += parts.join(' e ') + ' sincronizadas.';
 
-  await sendLocalNotification('Sincronização', message, { type: 'sync_complete' });
+  await sendLocalNotification('Sincronização', message, {
+    type: 'sync_complete',
+  });
 }
 
 /**
@@ -240,7 +247,9 @@ export async function cancelRouteReminder(): Promise<void> {
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
     for (const notification of scheduled) {
       if (notification.content.data?.type === 'daily_reminder') {
-        await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+        await Notifications.cancelScheduledNotificationAsync(
+          notification.identifier,
+        );
       }
     }
   } catch (error) {
@@ -252,7 +261,7 @@ export async function cancelRouteReminder(): Promise<void> {
  * Listener para notificações recebidas (app em foreground)
  */
 export function addNotificationReceivedListener(
-  callback: (notification: Notifications.Notification) => void
+  callback: (notification: Notifications.Notification) => void,
 ): Notifications.EventSubscription {
   return Notifications.addNotificationReceivedListener(callback);
 }
@@ -261,7 +270,7 @@ export function addNotificationReceivedListener(
  * Listener para cliques em notificações
  */
 export function addNotificationResponseListener(
-  callback: (response: Notifications.NotificationResponse) => void
+  callback: (response: Notifications.NotificationResponse) => void,
 ): Notifications.EventSubscription {
   return Notifications.addNotificationResponseReceivedListener(callback);
 }
@@ -287,7 +296,8 @@ export async function getExpoPushToken(): Promise<string | null> {
 
   try {
     // Verificar permissões primeiro
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    const { status: existingStatus } =
+      await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
 
     if (existingStatus !== 'granted') {
@@ -397,7 +407,8 @@ async function setupNotificationChannels(): Promise<void> {
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 500, 250, 500],
     lightColor: colors.error,
-    sound: 'default',
+    // Omitido: usa o som padrão do sistema. No SDK 56 a string 'default' seria
+    // interpretada como nome de arquivo de som customizado (inexistente).
     bypassDnd: true, // Ignora "Não Perturbe"
   });
 }
@@ -422,7 +433,9 @@ export async function initializeNotifications(): Promise<void> {
  * Inicializar push notifications para usuário logado
  * Chame esta função após o login
  */
-export async function initializePushNotifications(userId: string): Promise<void> {
+export async function initializePushNotifications(
+  userId: string,
+): Promise<void> {
   if (Platform.OS === 'web') return;
 
   await registerPushToken(userId);

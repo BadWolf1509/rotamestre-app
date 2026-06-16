@@ -57,7 +57,6 @@ module.exports = ({ config }) => {
         backgroundColor: "#284093"
       },
       icon: "./assets/icon.png",
-      edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: "br.tec.rotamestre",
       versionCode: resolvedAndroidVersionCode, // From package.json
@@ -100,6 +99,8 @@ module.exports = ({ config }) => {
       "expo-router",
       "expo-asset",
       "expo-font",
+      "expo-splash-screen",
+      "expo-status-bar",
       "@react-native-community/datetimepicker",
       "@maplibre/maplibre-react-native",
       [

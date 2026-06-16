@@ -12,25 +12,27 @@ import {
   cleanupNotificationSounds,
 } from '../notificationSound';
 
-// Mock expo-av
+// Mock expo-audio (substitui expo-av, descontinuado no SDK 56)
 const mockSetAudioModeAsync = jest.fn();
-const mockUnloadAsync = jest.fn();
-const mockCreateAsync = jest.fn();
-const mockSetOnPlaybackStatusUpdate = jest.fn();
+const mockPlay = jest.fn();
+const mockRemove = jest.fn();
+const mockCreateAudioPlayer = jest.fn(() => ({
+  volume: 1,
+  play: mockPlay,
+  remove: mockRemove,
+}));
 
-jest.mock('expo-av', () => ({
-  Audio: {
-    setAudioModeAsync: () => mockSetAudioModeAsync(),
-    Sound: {
-      createAsync: (...args: unknown[]) => mockCreateAsync(...args),
-    },
-  },
+jest.mock('expo-audio', () => ({
+  setAudioModeAsync: () => mockSetAudioModeAsync(),
+  createAudioPlayer: (...args: unknown[]) => mockCreateAudioPlayer(...args),
 }));
 
 // Mock AsyncStorage
 const mockAsyncStorage: Record<string, string> = {};
 jest.mock('@react-native-async-storage/async-storage', () => ({
-  getItem: jest.fn((key: string) => Promise.resolve(mockAsyncStorage[key] || null)),
+  getItem: jest.fn((key: string) =>
+    Promise.resolve(mockAsyncStorage[key] || null),
+  ),
   setItem: jest.fn((key: string, value: string) => {
     mockAsyncStorage[key] = value;
     return Promise.resolve();
@@ -51,7 +53,9 @@ describe('notificationSound', () => {
     // Reset sound enabled state
     setNotificationSoundEnabled(true);
     // Clear AsyncStorage mock
-    Object.keys(mockAsyncStorage).forEach(key => delete mockAsyncStorage[key]);
+    Object.keys(mockAsyncStorage).forEach(
+      (key) => delete mockAsyncStorage[key],
+    );
   });
 
   describe('setNotificationSoundEnabled / isNotificationSoundEnabled', () => {
@@ -76,7 +80,9 @@ describe('notificationSound', () => {
     it('deve persistir preferência no AsyncStorage', async () => {
       await setNotificationSoundEnabled(false);
 
-      expect(mockAsyncStorage['@rotamestre:notification_sound_enabled']).toBe('false');
+      expect(mockAsyncStorage['@rotamestre:notification_sound_enabled']).toBe(
+        'false',
+      );
     });
   });
 
@@ -90,7 +96,9 @@ describe('notificationSound', () => {
     });
 
     it('deve tratar erro silenciosamente', async () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
       mockSetAudioModeAsync.mockRejectedValueOnce(new Error('Audio error'));
 
       await initializeNotificationAudio();
@@ -101,34 +109,41 @@ describe('notificationSound', () => {
   });
 
   describe('playNotificationSound', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.runOnlyPendingTimers();
+      jest.useRealTimers();
+    });
+
     it('não deve tocar som se desabilitado', async () => {
       await setNotificationSoundEnabled(false);
 
       await playNotificationSound();
 
-      expect(mockCreateAsync).not.toHaveBeenCalled();
+      expect(mockCreateAudioPlayer).not.toHaveBeenCalled();
     });
 
     it('deve criar e tocar som sintetizado quando habilitado', async () => {
-      const mockSound = {
-        unloadAsync: mockUnloadAsync,
-        setOnPlaybackStatusUpdate: mockSetOnPlaybackStatusUpdate,
-      };
-
-      mockCreateAsync.mockResolvedValue({ sound: mockSound });
-
       await playNotificationSound();
 
-      // Verifica que foi chamado com data URI (som sintetizado)
-      expect(mockCreateAsync).toHaveBeenCalled();
-      const callArgs = mockCreateAsync.mock.calls[0];
+      // Verifica que foi criado com data URI (som sintetizado) e tocado
+      expect(mockCreateAudioPlayer).toHaveBeenCalled();
+      const callArgs = mockCreateAudioPlayer.mock.calls[0];
       expect(callArgs[0]).toHaveProperty('uri');
       expect(callArgs[0].uri).toContain('data:audio/wav;base64,');
+      expect(mockPlay).toHaveBeenCalled();
     });
 
     it('deve tratar erro ao tocar som', async () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      mockCreateAsync.mockRejectedValueOnce(new Error('Sound error'));
+      const consoleSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+      mockCreateAudioPlayer.mockImplementationOnce(() => {
+        throw new Error('Sound error');
+      });
 
       await playNotificationSound();
 
@@ -136,26 +151,13 @@ describe('notificationSound', () => {
       consoleSpy.mockRestore();
     });
 
-    it('deve configurar callback para descarregar som após terminar', async () => {
-      const callbacks: Array<(status: { isLoaded: boolean; didJustFinish: boolean }) => void> = [];
-      mockSetOnPlaybackStatusUpdate.mockImplementation((cb: (status: { isLoaded: boolean; didJustFinish: boolean }) => void) => {
-        callbacks.push(cb);
-      });
-
-      const mockSound = {
-        unloadAsync: mockUnloadAsync,
-        setOnPlaybackStatusUpdate: mockSetOnPlaybackStatusUpdate,
-      };
-
-      mockCreateAsync.mockResolvedValue({ sound: mockSound });
-
+    it('deve remover o player após o som terminar', async () => {
       await playNotificationSound();
 
-      expect(callbacks.length).toBeGreaterThan(0);
+      // Avançar timers para disparar o setTimeout que libera o player
+      jest.advanceTimersByTime(1000);
 
-      // Simular término do som
-      callbacks[0]({ isLoaded: true, didJustFinish: true });
-      expect(mockUnloadAsync).toHaveBeenCalled();
+      expect(mockRemove).toHaveBeenCalled();
     });
   });
 
@@ -176,24 +178,18 @@ describe('notificationSound', () => {
       // Avançar todos os timers
       jest.runAllTimers();
 
-      expect(mockCreateAsync).not.toHaveBeenCalled();
+      expect(mockCreateAudioPlayer).not.toHaveBeenCalled();
     });
 
     it('deve criar e tocar som de sucesso sintetizado com setTimeout', async () => {
-      const mockSound = {
-        unloadAsync: mockUnloadAsync,
-        setOnPlaybackStatusUpdate: mockSetOnPlaybackStatusUpdate,
-      };
-
-      mockCreateAsync.mockResolvedValue({ sound: mockSound });
-
       await playSuccessSound();
 
       // Avançar os timers para disparar os 3 sons (C-E-G em sequência)
       await jest.runAllTimersAsync();
 
       // O success sound toca 3 notas em sequência (C-E-G) com delays de 100ms
-      expect(mockCreateAsync).toHaveBeenCalled();
+      expect(mockCreateAudioPlayer).toHaveBeenCalled();
+      expect(mockPlay).toHaveBeenCalled();
     });
   });
 
@@ -206,23 +202,15 @@ describe('notificationSound', () => {
     });
 
     it('cleanup não faz nada para sons sintetizados', async () => {
-      const mockSound = {
-        unloadAsync: mockUnloadAsync,
-        setOnPlaybackStatusUpdate: mockSetOnPlaybackStatusUpdate,
-      };
-
-      mockCreateAsync.mockResolvedValue({ sound: mockSound });
-
       await playNotificationSound();
 
       // Clear previous calls
-      mockUnloadAsync.mockClear();
+      mockRemove.mockClear();
 
       await cleanupNotificationSounds();
 
-      // Cleanup não deve chamar unloadAsync - cada som é gerenciado individualmente
-      // via setOnPlaybackStatusUpdate callback
-      expect(mockUnloadAsync).not.toHaveBeenCalled();
+      // Cleanup é no-op: cada beep é liberado individualmente via timer interno
+      expect(mockRemove).not.toHaveBeenCalled();
     });
   });
 });

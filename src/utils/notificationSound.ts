@@ -6,14 +6,14 @@
  * (no external dependencies, works offline)
  */
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Audio } from "expo-av";
-import { Platform } from "react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import { Platform } from 'react-native';
 
-import { logger } from "@/lib/logger";
+import { logger } from '@/lib/logger';
 
 // Storage key for sound preference
-const SOUND_ENABLED_KEY = "@rotamestre:notification_sound_enabled";
+const SOUND_ENABLED_KEY = '@rotamestre:notification_sound_enabled';
 
 // Sound enabled flag (can be controlled by user settings)
 let soundEnabled = true;
@@ -23,9 +23,9 @@ let webAudioUnlocked = false;
 let webAudioUnlockListenersAttached = false;
 
 function canStartWebAudio(): boolean {
-  if (typeof navigator !== "undefined") {
+  if (typeof navigator !== 'undefined') {
     const activation = (
-      navigator as unknown as import("@/types/web-apis").NavigatorWithUserActivation
+      navigator as unknown as import('@/types/web-apis').NavigatorWithUserActivation
     ).userActivation;
     if (activation?.hasBeenActive || activation?.isActive) {
       webAudioUnlocked = true;
@@ -38,8 +38,8 @@ function canStartWebAudio(): boolean {
 function attachWebAudioUnlockListeners(): void {
   if (webAudioUnlockListenersAttached) return;
   if (
-    typeof window === "undefined" ||
-    typeof window.addEventListener !== "function"
+    typeof window === 'undefined' ||
+    typeof window.addEventListener !== 'function'
   )
     return;
 
@@ -48,18 +48,18 @@ function attachWebAudioUnlockListeners(): void {
   const unlock = () => {
     webAudioUnlocked = true;
 
-    if (webAudioContext && webAudioContext.state === "suspended") {
+    if (webAudioContext && webAudioContext.state === 'suspended') {
       webAudioContext.resume().catch(() => {});
     }
   };
 
-  window.addEventListener("pointerdown", unlock, { once: true });
-  window.addEventListener("touchstart", unlock, { once: true });
-  window.addEventListener("keydown", unlock, { once: true });
+  window.addEventListener('pointerdown', unlock, { once: true });
+  window.addEventListener('touchstart', unlock, { once: true });
+  window.addEventListener('keydown', unlock, { once: true });
 }
 
 function getWebAudioContext(): AudioContext | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === 'undefined') return null;
 
   if (!canStartWebAudio()) {
     attachWebAudioUnlockListeners();
@@ -68,15 +68,15 @@ function getWebAudioContext(): AudioContext | null {
 
   const AudioContextConstructor =
     window.AudioContext ||
-    (window as unknown as import("@/types/web-apis").WindowWithWebkitAudio)
+    (window as unknown as import('@/types/web-apis').WindowWithWebkitAudio)
       .webkitAudioContext;
   if (!AudioContextConstructor) return null;
 
-  if (!webAudioContext || webAudioContext.state === "closed") {
+  if (!webAudioContext || webAudioContext.state === 'closed') {
     webAudioContext = new AudioContextConstructor();
   }
 
-  if (webAudioContext.state === "suspended") {
+  if (webAudioContext.state === 'suspended') {
     webAudioContext.resume().catch(() => {});
   }
 
@@ -90,21 +90,22 @@ export async function initializeNotificationAudio(): Promise<void> {
   // Load sound preference from storage
   await loadSoundPreference();
 
-  if (Platform.OS === "web") {
+  if (Platform.OS === 'web') {
     attachWebAudioUnlockListeners();
     return;
   }
 
   try {
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
-      staysActiveInBackground: false,
-      playsInSilentModeIOS: true,
-      shouldDuckAndroid: true,
-      playThroughEarpieceAndroid: false,
+    // expo-audio (substitui expo-av, descontinuado no SDK 56) — props renomeadas
+    await setAudioModeAsync({
+      allowsRecording: false,
+      shouldPlayInBackground: false,
+      playsInSilentMode: true,
+      interruptionMode: 'duckOthers',
+      shouldRouteThroughEarpiece: false,
     });
   } catch (error) {
-    logger.error("[NotificationSound] Error initializing audio:", error);
+    logger.error('[NotificationSound] Error initializing audio:', error);
   }
 }
 
@@ -117,11 +118,11 @@ async function loadSoundPreference(): Promise<void> {
   try {
     const stored = await AsyncStorage.getItem(SOUND_ENABLED_KEY);
     if (stored !== null) {
-      soundEnabled = stored === "true";
+      soundEnabled = stored === 'true';
     }
     soundPreferenceLoaded = true;
   } catch (error) {
-    logger.error("[NotificationSound] Error loading sound preference:", error);
+    logger.error('[NotificationSound] Error loading sound preference:', error);
   }
 }
 
@@ -138,7 +139,7 @@ export async function playNotificationSound(): Promise<void> {
   if (!soundEnabled) return;
 
   // Use Web Audio API for all platforms (synthesized, no external deps)
-  if (Platform.OS === "web") {
+  if (Platform.OS === 'web') {
     playWebNotificationSound();
     return;
   }
@@ -150,7 +151,7 @@ export async function playNotificationSound(): Promise<void> {
     playMobileNotificationSound();
   } catch (error) {
     logger.error(
-      "[NotificationSound] Error playing notification sound:",
+      '[NotificationSound] Error playing notification sound:',
       error,
     );
   }
@@ -166,7 +167,7 @@ export async function playSuccessSound(): Promise<void> {
 
   if (!soundEnabled) return;
 
-  if (Platform.OS === "web") {
+  if (Platform.OS === 'web') {
     playWebSuccessSound();
     return;
   }
@@ -174,101 +175,74 @@ export async function playSuccessSound(): Promise<void> {
   try {
     playMobileSuccessSound();
   } catch (error) {
-    logger.error("[NotificationSound] Error playing success sound:", error);
+    logger.error('[NotificationSound] Error playing success sound:', error);
   }
 }
 
 /**
- * Mobile notification sound using expo-av with data URI
- * Creates a simple beep tone without external dependencies
+ * Monta um data URI WAV de um beep sintetizado (sine wave).
+ */
+function buildBeepDataUri(
+  samples: number,
+  sampleRate: number,
+  frequency: number,
+): string {
+  const wavData = createWavData(samples, sampleRate, frequency);
+  const base64 = arrayBufferToBase64(wavData);
+  return `data:audio/wav;base64,${base64}`;
+}
+
+/**
+ * Toca um beep curto via expo-audio (substitui expo-av, descontinuado no SDK 56).
+ * Beeps têm <= 200ms; o player é liberado após uma margem.
+ */
+function playBeep(dataUri: string, volume: number): void {
+  const player = createAudioPlayer({ uri: dataUri });
+  player.volume = volume;
+  player.play();
+  setTimeout(() => {
+    try {
+      player.remove();
+    } catch {
+      // player já removido
+    }
+  }, 600);
+}
+
+/**
+ * Mobile notification sound (dois beeps A5 + C6) via expo-audio
  */
 async function playMobileNotificationSound(): Promise<void> {
   try {
-    // Generate a simple sine wave beep as base64 WAV
     const sampleRate = 44100;
-    const duration = 0.15; // 150ms
-    const frequency = 880; // A5 note
-    const samples = Math.floor(sampleRate * duration);
+    const samples = Math.floor(sampleRate * 0.15); // 150ms
 
-    // Create WAV header and data
-    const wavData = createWavData(samples, sampleRate, frequency);
-    const base64 = arrayBufferToBase64(wavData);
-    const dataUri = `data:audio/wav;base64,${base64}`;
+    playBeep(buildBeepDataUri(samples, sampleRate, 880), 0.7); // A5
 
-    const { sound } = await Audio.Sound.createAsync(
-      { uri: dataUri },
-      { shouldPlay: true, volume: 0.7 },
-    );
-
-    // Play second beep after a short delay
-    setTimeout(async () => {
-      try {
-        const frequency2 = 1046.5; // C6 note
-        const wavData2 = createWavData(samples, sampleRate, frequency2);
-        const base64_2 = arrayBufferToBase64(wavData2);
-        const dataUri2 = `data:audio/wav;base64,${base64_2}`;
-
-        const { sound: sound2 } = await Audio.Sound.createAsync(
-          { uri: dataUri2 },
-          { shouldPlay: true, volume: 0.7 },
-        );
-
-        sound2.setOnPlaybackStatusUpdate((status) => {
-          if (status.isLoaded && status.didJustFinish) {
-            sound2.unloadAsync();
-          }
-        });
-      } catch {
-        // Silently fail on second beep
-      }
+    setTimeout(() => {
+      playBeep(buildBeepDataUri(samples, sampleRate, 1046.5), 0.7); // C6
     }, 150);
-
-    sound.setOnPlaybackStatusUpdate((status) => {
-      if (status.isLoaded && status.didJustFinish) {
-        sound.unloadAsync();
-      }
-    });
   } catch (error) {
-    logger.error("[NotificationSound] Mobile sound error:", error);
+    logger.error('[NotificationSound] Mobile sound error:', error);
   }
 }
 
 /**
- * Mobile success sound
+ * Mobile success sound (acorde C5-E5-G5 em sequência) via expo-audio
  */
 async function playMobileSuccessSound(): Promise<void> {
   try {
     const sampleRate = 44100;
-    const duration = 0.2;
-    const samples = Math.floor(sampleRate * duration);
+    const samples = Math.floor(sampleRate * 0.2); // 200ms
+    const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
 
-    // Success chord: C5, E5, G5 played in sequence
-    const notes = [523.25, 659.25, 783.99];
-
-    for (let i = 0; i < notes.length; i++) {
-      setTimeout(async () => {
-        try {
-          const wavData = createWavData(samples, sampleRate, notes[i]);
-          const base64 = arrayBufferToBase64(wavData);
-          const dataUri = `data:audio/wav;base64,${base64}`;
-
-          const { sound } = await Audio.Sound.createAsync(
-            { uri: dataUri },
-            { shouldPlay: true, volume: 0.5 },
-          );
-
-          sound.setOnPlaybackStatusUpdate((status) => {
-            if (status.isLoaded && status.didJustFinish) {
-              sound.unloadAsync();
-            }
-          });
-        } catch {
-          // Silently fail
-        }
+    notes.forEach((note, i) => {
+      setTimeout(() => {
+        playBeep(buildBeepDataUri(samples, sampleRate, note), 0.5);
       }, i * 100);
-    }
+    });
   } catch (error) {
-    logger.error("[NotificationSound] Mobile success sound error:", error);
+    logger.error('[NotificationSound] Mobile success sound error:', error);
   }
 }
 
@@ -284,10 +258,10 @@ function createWavData(
   const view = new DataView(buffer);
 
   // WAV header
-  writeString(view, 0, "RIFF");
+  writeString(view, 0, 'RIFF');
   view.setUint32(4, 36 + samples * 2, true);
-  writeString(view, 8, "WAVE");
-  writeString(view, 12, "fmt ");
+  writeString(view, 8, 'WAVE');
+  writeString(view, 12, 'fmt ');
   view.setUint32(16, 16, true); // Subchunk1Size
   view.setUint16(20, 1, true); // AudioFormat (PCM)
   view.setUint16(22, 1, true); // NumChannels
@@ -295,7 +269,7 @@ function createWavData(
   view.setUint32(28, sampleRate * 2, true); // ByteRate
   view.setUint16(32, 2, true); // BlockAlign
   view.setUint16(34, 16, true); // BitsPerSample
-  writeString(view, 36, "data");
+  writeString(view, 36, 'data');
   view.setUint32(40, samples * 2, true);
 
   // Generate sine wave with envelope
@@ -316,19 +290,19 @@ function writeString(view: DataView, offset: number, str: string): void {
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  let binary = "";
+  let binary = '';
   const bytes = new Uint8Array(buffer);
   for (let i = 0; i < bytes.byteLength; i++) {
     binary += String.fromCharCode(bytes[i]);
   }
   // Use btoa for web, or manual encoding for React Native
-  if (typeof btoa === "function") {
+  if (typeof btoa === 'function') {
     return btoa(binary);
   }
   // React Native polyfill
   const chars =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  let result = "";
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '';
   let i = 0;
   while (i < binary.length) {
     const a = binary.charCodeAt(i++);
@@ -341,9 +315,9 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   }
   const padding = binary.length % 3;
   if (padding === 1) {
-    result = result.slice(0, -2) + "==";
+    result = result.slice(0, -2) + '==';
   } else if (padding === 2) {
-    result = result.slice(0, -1) + "=";
+    result = result.slice(0, -1) + '=';
   }
   return result;
 }
@@ -364,7 +338,7 @@ function playWebNotificationSound(): void {
     gainNode.connect(audioContext.destination);
 
     oscillator.frequency.value = 880; // A5 note
-    oscillator.type = "sine";
+    oscillator.type = 'sine';
 
     gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(
@@ -384,7 +358,7 @@ function playWebNotificationSound(): void {
       gain2.connect(audioContext.destination);
 
       osc2.frequency.value = 1046.5; // C6 note
-      osc2.type = "sine";
+      osc2.type = 'sine';
 
       gain2.gain.setValueAtTime(0.3, audioContext.currentTime);
       gain2.gain.exponentialRampToValueAtTime(
@@ -396,7 +370,7 @@ function playWebNotificationSound(): void {
       osc2.stop(audioContext.currentTime + 0.3);
     }, 150);
   } catch (error) {
-    logger.error("[NotificationSound] Web audio error:", error);
+    logger.error('[NotificationSound] Web audio error:', error);
   }
 }
 
@@ -419,7 +393,7 @@ function playWebSuccessSound(): void {
       gainNode.connect(audioContext.destination);
 
       oscillator.frequency.value = freq;
-      oscillator.type = "sine";
+      oscillator.type = 'sine';
 
       const startTime = audioContext.currentTime + index * 0.1;
       gainNode.gain.setValueAtTime(0.2, startTime);
@@ -429,7 +403,7 @@ function playWebSuccessSound(): void {
       oscillator.stop(startTime + 0.4);
     });
   } catch (error) {
-    logger.error("[NotificationSound] Web audio error:", error);
+    logger.error('[NotificationSound] Web audio error:', error);
   }
 }
 
@@ -444,7 +418,7 @@ export async function setNotificationSoundEnabled(
   try {
     await AsyncStorage.setItem(SOUND_ENABLED_KEY, String(enabled));
   } catch (error) {
-    logger.error("[NotificationSound] Error saving sound preference:", error);
+    logger.error('[NotificationSound] Error saving sound preference:', error);
   }
 }
 

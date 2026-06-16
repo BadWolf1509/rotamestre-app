@@ -5,7 +5,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useEffect } from 'react';
-import { Platform, Pressable, View } from 'react-native';
+import { ColorValue, Platform, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NotificationBell } from '@/components/NotificationBell';
@@ -33,23 +33,18 @@ export default function TabLayout() {
   }, [insets]);
 
   // Calcular paradas pendentes para badge
-  const paradasPendentes = routeStatus?.paradas?.filter(
-    (p) => p.status === 'pendente' && p.is_checkpoint !== false
-  ).length || 0;
+  const paradasPendentes =
+    routeStatus?.paradas?.filter(
+      (p) => p.status === 'pendente' && p.is_checkpoint !== false,
+    ).length || 0;
 
   // Função para renderizar ícone com suporte a outline/filled
   const renderTabIcon = (
     name: IconName,
     nameOutline: IconName,
-    color: string,
-    focused: boolean
-  ) => (
-    <Ionicons
-      name={focused ? name : nameOutline}
-      size={24}
-      color={color}
-    />
-  );
+    color: ColorValue,
+    focused: boolean,
+  ) => <Ionicons name={focused ? name : nameOutline} size={24} color={color} />;
 
   return (
     <Tabs
