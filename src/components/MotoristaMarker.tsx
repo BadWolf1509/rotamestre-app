@@ -1,14 +1,14 @@
-import { Ionicons } from "@expo/vector-icons";
-import MapLibreGL from "@maplibre/maplibre-react-native";
-import React, { useEffect, useState, useMemo, useCallback, memo } from "react";
-import { View, Text } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
+import * as MapLibreGL from '@maplibre/maplibre-react-native';
+import React, { useEffect, useState, useMemo, useCallback, memo } from 'react';
+import { View, Text } from 'react-native';
 
-import { logger } from "@/lib/logger";
-import { toLngLat } from "@/lib/maplibre";
-import { supabase } from "@/lib/supabase";
-import type { MotoristaLocation } from "@/types/notifications";
-import { withOpacity } from "@/utils/color";
-import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
+import { logger } from '@/lib/logger';
+import { toLngLat } from '@/lib/maplibre';
+import { supabase } from '@/lib/supabase';
+import type { MotoristaLocation } from '@/types/notifications';
+import { withOpacity } from '@/utils/color';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface MotoristaMarkerProps {
   rotaId: string;
@@ -29,18 +29,18 @@ function MotoristaMarkerComponent({
   const loadLastLocation = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from("motorista_locations")
-        .select("*")
-        .eq("rota_id", rotaId)
-        .order("timestamp", { ascending: false })
+        .from('motorista_locations')
+        .select('*')
+        .eq('rota_id', rotaId)
+        .order('timestamp', { ascending: false })
         .limit(1)
         .single();
 
       if (error) {
-        if (error.code !== "PGRST116") {
+        if (error.code !== 'PGRST116') {
           // PGRST116 = no rows returned
           logger.error(
-            "[MotoristaMarker] Erro ao carregar localização:",
+            '[MotoristaMarker] Erro ao carregar localização:',
             error,
           );
         }
@@ -51,7 +51,7 @@ function MotoristaMarkerComponent({
         setLocation(data as MotoristaLocation);
       }
     } catch (err) {
-      logger.error("[MotoristaMarker] Erro:", err);
+      logger.error('[MotoristaMarker] Erro:', err);
     }
   }, [rotaId]);
 
@@ -66,11 +66,11 @@ function MotoristaMarkerComponent({
     const channel = supabase
       .channel(`motorista-location-${rotaId}`)
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "INSERT",
-          schema: "public",
-          table: "motorista_locations",
+          event: 'INSERT',
+          schema: 'public',
+          table: 'motorista_locations',
           filter: `rota_id=eq.${rotaId}`,
         },
         (payload) => {
@@ -95,13 +95,13 @@ function MotoristaMarkerComponent({
 
   // Calcular tempo desde última atualização (memoizado)
   const timeSinceUpdate = useMemo(() => {
-    if (!location) return "";
+    if (!location) return '';
     const now = new Date();
     const locationTime = new Date(location.timestamp);
     const diffMs = now.getTime() - locationTime.getTime();
     const diffMins = Math.floor(diffMs / 60000);
 
-    if (diffMins < 1) return "agora";
+    if (diffMins < 1) return 'agora';
     if (diffMins < 60) return `${diffMins}m atrás`;
     const diffHours = Math.floor(diffMins / 60);
     return `${diffHours}h atrás`;
@@ -116,12 +116,12 @@ function MotoristaMarkerComponent({
   if (!location) return null;
 
   return (
-    <MapLibreGL.MarkerView
-      coordinate={toLngLat({
+    <MapLibreGL.Marker
+      lngLat={toLngLat({
         latitude: Number(location.latitude),
         longitude: Number(location.longitude),
       })}
-      anchor={{ x: 0.5, y: 0.5 }}
+      anchor="center"
     >
       <View style={styles.markerContainer}>
         {/* Círculo de precisão */}
@@ -161,9 +161,9 @@ function MotoristaMarkerComponent({
           style={styles.callout}
           accessible={true}
           accessibilityRole="summary"
-          accessibilityLabel={`${motoristaNome || "Motorista"}${location.velocidade !== null ? `, ${Math.round(location.velocidade)} quilômetros por hora` : ""}, ${timeSinceUpdate}`}
+          accessibilityLabel={`${motoristaNome || 'Motorista'}${location.velocidade !== null ? `, ${Math.round(location.velocidade)} quilômetros por hora` : ''}, ${timeSinceUpdate}`}
         >
-          <Text style={styles.calloutName}>{motoristaNome || "Motorista"}</Text>
+          <Text style={styles.calloutName}>{motoristaNome || 'Motorista'}</Text>
           {location.velocidade !== null && (
             <Text style={[styles.calloutSpeed, { color: markerColor }]}>
               {Math.round(location.velocidade)} km/h
@@ -172,7 +172,7 @@ function MotoristaMarkerComponent({
           <Text style={styles.calloutTime}>{timeSinceUpdate}</Text>
         </View>
       </View>
-    </MapLibreGL.MarkerView>
+    </MapLibreGL.Marker>
   );
 }
 
@@ -181,21 +181,21 @@ export const MotoristaMarker = memo(MotoristaMarkerComponent);
 
 const styles = StyleSheet.create((theme: Theme) => ({
   markerContainer: {
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   accuracyCircle: {
-    position: "absolute",
+    position: 'absolute',
     borderRadius: 100,
     borderWidth: 2,
     opacity: 0.3,
   },
   iconContainer: {
-    width: theme.spacing["10"],
-    height: theme.spacing["10"],
-    borderRadius: theme.spacing["5"],
-    justifyContent: "center",
-    alignItems: "center",
+    width: theme.spacing['10'],
+    height: theme.spacing['10'],
+    borderRadius: theme.spacing['5'],
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 3,
     borderColor: theme.colors.surface,
     shadowColor: theme.colors.black,
@@ -205,17 +205,17 @@ const styles = StyleSheet.create((theme: Theme) => ({
     elevation: 5,
   },
   directionArrow: {
-    position: "absolute",
-    top: -theme.spacing["2"],
+    position: 'absolute',
+    top: -theme.spacing['2'],
   },
   callout: {
-    marginTop: theme.spacing["2"],
+    marginTop: theme.spacing['2'],
     backgroundColor: theme.colors.surface,
-    paddingHorizontal: theme.spacing["3"],
-    paddingVertical: theme.spacing["1.5"],
+    paddingHorizontal: theme.spacing['3'],
+    paddingVertical: theme.spacing['1.5'],
     borderRadius: theme.borderRadius.sm,
     minWidth: 100,
-    alignItems: "center",
+    alignItems: 'center',
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -224,17 +224,17 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   calloutName: {
     fontSize: theme.typography.fontSize.xs,
-    fontWeight: "600",
+    fontWeight: '600',
     color: theme.colors.text,
   },
   calloutSpeed: {
     fontSize: theme.typography.fontSize.sm,
-    fontWeight: "700",
-    marginTop: theme.spacing["0.5"],
+    fontWeight: '700',
+    marginTop: theme.spacing['0.5'],
   },
   calloutTime: {
     fontSize: theme.typography.fontSize.xs,
     color: theme.colors.textSecondary,
-    marginTop: theme.spacing["0.5"],
+    marginTop: theme.spacing['0.5'],
   },
 }));

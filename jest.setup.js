@@ -7,6 +7,8 @@ import '@testing-library/jest-native/extend-expect';
 global.fetch = jest.fn();
 
 // Mock MapLibre Native (avoid native module errors in tests)
+// v11 API shape: named exports Map/Marker/GeoJSONSource/Layer/Camera.
+// CameraRef methods: setStop/fitBounds/flyTo/easeTo/jumpTo/zoomTo.
 jest.mock('@maplibre/maplibre-react-native', () => {
   const React = require('react');
   const { View } = require('react-native');
@@ -16,42 +18,33 @@ jest.mock('@maplibre/maplibre-react-native', () => {
 
   const Camera = React.forwardRef(({ children, testID, ...props }, ref) => {
     React.useImperativeHandle(ref, () => ({
-      setCamera: jest.fn(),
+      setStop: jest.fn(),
       fitBounds: jest.fn(),
       flyTo: jest.fn(),
-      moveTo: jest.fn(),
+      easeTo: jest.fn(),
+      jumpTo: jest.fn(),
       zoomTo: jest.fn(),
     }));
     return React.createElement(View, { testID: testID ?? 'map-camera', ...props }, children);
   });
 
-  const MapView = createView('map-view');
-  const MarkerView = createView('marker');
-  const ShapeSource = createView('shape-source');
-  const LineLayer = createView('line-layer');
+  const Map = createView('map-view');
+  const Marker = createView('marker');
+  const GeoJSONSource = createView('shape-source');
+  const Layer = createView('line-layer');
   const Callout = createView('callout');
-  const PointAnnotation = createView('point-annotation');
+  const ViewAnnotation = createView('view-annotation');
   const UserLocation = createView('user-location');
 
   return {
     __esModule: true,
-    default: {
-      MapView,
-      Camera,
-      MarkerView,
-      ShapeSource,
-      LineLayer,
-      Callout,
-      PointAnnotation,
-      UserLocation,
-    },
-    MapView,
+    Map,
     Camera,
-    MarkerView,
-    ShapeSource,
-    LineLayer,
+    Marker,
+    GeoJSONSource,
+    Layer,
     Callout,
-    PointAnnotation,
+    ViewAnnotation,
     UserLocation,
   };
 });

@@ -404,7 +404,7 @@ describe('NavigationMode', () => {
 
       await waitFor(() => {
         const camera = getByTestId('map-camera');
-        expect(camera.props.centerCoordinate).toEqual([-46.64, -23.56]);
+        expect(camera.props.center).toEqual([-46.64, -23.56]);
       });
     });
   });

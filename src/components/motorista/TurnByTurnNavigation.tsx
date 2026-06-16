@@ -1,32 +1,41 @@
-import { Ionicons } from "@expo/vector-icons";
-import MapLibreGL, { type CameraRef } from "@maplibre/maplibre-react-native";
-import * as Haptics from "expo-haptics";
-import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
-import * as Location from "expo-location";
-import * as Speech from "expo-speech";
+import { Ionicons } from '@expo/vector-icons';
+import * as MapLibreGL from '@maplibre/maplibre-react-native';
+import * as Haptics from 'expo-haptics';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+import * as Location from 'expo-location';
+import * as Speech from 'expo-speech';
 import React, {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-} from "react";
-import { Platform, Text, View } from "react-native";
+} from 'react';
+import { Platform, Text, View } from 'react-native';
 
-import { useAlert } from "@/hooks/useAlert";
-import { useOffRouteDetection } from "@/hooks/useOffRouteDetection";
-import { logger } from "@/lib/logger";
-import { MAPLIBRE_RASTER_STYLE, toLineString, toLngLat } from "@/lib/maplibre";
-import LocationTrackingService from "@/services/locationTracking";
+import { useAlert } from '@/hooks/useAlert';
+import { useOffRouteDetection } from '@/hooks/useOffRouteDetection';
+import { logger } from '@/lib/logger';
+import {
+  MAPLIBRE_RASTER_STYLE_JSON,
+  toLineString,
+  toLngLat,
+} from '@/lib/maplibre';
+import LocationTrackingService from '@/services/locationTracking';
 import TurnByTurnNavigationService, {
   calculateHaversineDistance,
   type NavigationInstruction,
-} from "@/services/turnByTurnNavigation";
-import type { IconName } from "@/types/icons";
-import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
+} from '@/services/turnByTurnNavigation';
+import type { IconName } from '@/types/icons';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-import { MANEUVER_ICONS } from "./maneuverIcons";
-import { BottomPanel, InstructionBar, OffRouteAlerts } from "./turn-by-turn";
+import { MANEUVER_ICONS } from './maneuverIcons';
+import { BottomPanel, InstructionBar, OffRouteAlerts } from './turn-by-turn';
+
+import type {
+  CameraRef,
+  InitialViewState,
+} from '@maplibre/maplibre-react-native';
 
 // Default values (used when preferences not loaded)
 const DEFAULT_PROXIMITY_RADIUS = 30; // meters
@@ -89,8 +98,8 @@ export function TurnByTurnNavigation({
   const [voiceEnabled, setVoiceEnabled] = useState(DEFAULT_VOICE_ENABLED);
   const [isLoading, setIsLoading] = useState(true);
   const [isRouteReady, setIsRouteReady] = useState(false);
-  const [mapView, setMapView] = useState<"north-up" | "heading-up">(
-    "heading-up",
+  const [mapView, setMapView] = useState<'north-up' | 'heading-up'>(
+    'heading-up',
   );
   const voiceEnabledRef = useRef(voiceEnabled);
 
@@ -113,7 +122,7 @@ export function TurnByTurnNavigation({
           setVibrationAlerts(prefs.vibrationAlerts);
         }
       } catch (error) {
-        logger.warn("[TurnByTurn] Error loading preferences:", error);
+        logger.warn('[TurnByTurn] Error loading preferences:', error);
       }
     };
     loadPreferences();
@@ -121,11 +130,11 @@ export function TurnByTurnNavigation({
 
   // Manage screen awake state based on preference
   useEffect(() => {
-    if (preventScreenSleep && Platform.OS !== "web") {
-      activateKeepAwakeAsync("turn-by-turn-navigation");
+    if (preventScreenSleep && Platform.OS !== 'web') {
+      activateKeepAwakeAsync('turn-by-turn-navigation');
     }
     return () => {
-      deactivateKeepAwake("turn-by-turn-navigation");
+      deactivateKeepAwake('turn-by-turn-navigation');
     };
   }, [preventScreenSleep]);
 
@@ -135,17 +144,17 @@ export function TurnByTurnNavigation({
 
   // Haptic feedback helper that respects preference
   const triggerHaptic = useCallback(
-    async (type: "light" | "success" | "warning") => {
-      if (Platform.OS === "web" || !vibrationAlerts) return;
+    async (type: 'light' | 'success' | 'warning') => {
+      if (Platform.OS === 'web' || !vibrationAlerts) return;
 
       try {
-        if (type === "light") {
+        if (type === 'light') {
           await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        } else if (type === "success") {
+        } else if (type === 'success') {
           await Haptics.notificationAsync(
             Haptics.NotificationFeedbackType.Success,
           );
-        } else if (type === "warning") {
+        } else if (type === 'warning') {
           await Haptics.notificationAsync(
             Haptics.NotificationFeedbackType.Warning,
           );
@@ -208,12 +217,12 @@ export function TurnByTurnNavigation({
     hasArrivedRef.current = true;
 
     // Haptic feedback for arrival
-    await triggerHaptic("success");
+    await triggerHaptic('success');
 
     // Respect voice preference
     if (voiceEnabledRef.current) {
-      Speech.speak("Você chegou ao seu destino", {
-        language: "pt-BR",
+      Speech.speak('Você chegou ao seu destino', {
+        language: 'pt-BR',
         pitch: 1.0,
         rate: 0.9,
       });
@@ -267,7 +276,7 @@ export function TurnByTurnNavigation({
     );
 
     if (!route) {
-      showError({ title: "Erro", message: "Não foi possível calcular a rota" });
+      showError({ title: 'Erro', message: 'Não foi possível calcular a rota' });
       onExit();
       return;
     }
@@ -297,7 +306,7 @@ export function TurnByTurnNavigation({
         Speech.speak(
           `Iniciando navegação. ${firstInstruction.voiceInstruction}`,
           {
-            language: "pt-BR",
+            language: 'pt-BR',
             pitch: 1.0,
             rate: 0.9,
           },
@@ -322,10 +331,10 @@ export function TurnByTurnNavigation({
 
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
+      if (status !== 'granted') {
         showError({
-          title: "Erro",
-          message: "Permissão de localização negada",
+          title: 'Erro',
+          message: 'Permissão de localização negada',
         });
         return;
       }
@@ -397,7 +406,7 @@ export function TurnByTurnNavigation({
         subscription?.remove();
       } catch (error) {
         // expo-location remove() não funciona corretamente na web
-        logger.warn("[TurnByTurn] Error removing subscription:", error);
+        logger.warn('[TurnByTurn] Error removing subscription:', error);
       }
     };
   }, [
@@ -449,12 +458,12 @@ export function TurnByTurnNavigation({
     [routeCoordinates],
   );
 
-  const initialCamera = useMemo(
+  const initialCamera = useMemo<InitialViewState>(
     () => ({
-      centerCoordinate: toLngLat(origin),
-      zoomLevel: 17,
+      center: toLngLat(origin),
+      zoom: 17,
       pitch: 60,
-      heading: 0,
+      bearing: 0,
     }),
     [origin],
   );
@@ -474,26 +483,26 @@ export function TurnByTurnNavigation({
       }
     }
 
-    return "arrow-up"; // fallback
+    return 'arrow-up'; // fallback
   }, []);
 
   // Toggle voice
   const toggleVoice = async () => {
-    await triggerHaptic("light");
+    await triggerHaptic('light');
 
     const newState = !voiceEnabled;
     setVoiceEnabled(newState);
     TurnByTurnNavigationService.setVoiceEnabled(newState);
 
     if (newState) {
-      Speech.speak("Voz ativada", { language: "pt-BR", rate: 0.9 });
+      Speech.speak('Voz ativada', { language: 'pt-BR', rate: 0.9 });
     }
   };
 
   // Toggle map view
   const toggleMapView = async () => {
-    await triggerHaptic("light");
-    setMapView((prev) => (prev === "north-up" ? "heading-up" : "north-up"));
+    await triggerHaptic('light');
+    setMapView((prev) => (prev === 'north-up' ? 'heading-up' : 'north-up'));
   };
 
   // Animate camera when user location or heading changes (throttled)
@@ -518,12 +527,12 @@ export function TurnByTurnNavigation({
       const shouldAnimate = locationDelta > 10 || headingDelta > 15;
 
       if (shouldAnimate) {
-        cameraRef.current.setCamera({
-          centerCoordinate: toLngLat(userLocation),
-          zoomLevel: 17,
-          pitch: mapView === "heading-up" ? 60 : 0,
-          heading: mapView === "heading-up" ? heading : 0,
-          animationDuration: 500,
+        cameraRef.current.setStop({
+          center: toLngLat(userLocation),
+          zoom: 17,
+          pitch: mapView === 'heading-up' ? 60 : 0,
+          bearing: mapView === 'heading-up' ? heading : 0,
+          duration: 500,
         });
 
         lastAnimatedLocation.current = {
@@ -546,32 +555,30 @@ export function TurnByTurnNavigation({
   return (
     <View style={styles.container}>
       {/* Map */}
-      <MapLibreGL.MapView
+      <MapLibreGL.Map
         testID="map-view"
         style={styles.map}
-        mapStyle={MAPLIBRE_RASTER_STYLE}
-        rotateEnabled={false}
-        compassEnabled={false}
-        logoEnabled={false}
-        attributionEnabled={false}
+        mapStyle={MAPLIBRE_RASTER_STYLE_JSON}
+        touchRotate={false}
+        compass={false}
+        logo={false}
+        attribution={false}
       >
-        <MapLibreGL.Camera ref={cameraRef} defaultSettings={initialCamera} />
+        <MapLibreGL.Camera ref={cameraRef} initialViewState={initialCamera} />
 
         {/* Route polyline */}
         {routeShape && (
-          <MapLibreGL.ShapeSource id="rota-turnbyturn" shape={routeShape}>
-            <MapLibreGL.LineLayer
+          <MapLibreGL.GeoJSONSource id="rota-turnbyturn" data={routeShape}>
+            <MapLibreGL.Layer
               id="rota-turnbyturn-line"
-              style={{ lineColor: theme.colors.primary, lineWidth: 5 }}
+              type="line"
+              paint={{ 'line-color': theme.colors.primary, 'line-width': 5 }}
             />
-          </MapLibreGL.ShapeSource>
+          </MapLibreGL.GeoJSONSource>
         )}
 
         {userLocation && (
-          <MapLibreGL.MarkerView
-            coordinate={toLngLat(userLocation)}
-            anchor={{ x: 0.5, y: 0.5 }}
-          >
+          <MapLibreGL.Marker lngLat={toLngLat(userLocation)} anchor="center">
             <View
               style={[
                 styles.userDirectionMarker,
@@ -584,32 +591,29 @@ export function TurnByTurnNavigation({
                 color={theme.colors.primary}
               />
             </View>
-          </MapLibreGL.MarkerView>
+          </MapLibreGL.Marker>
         )}
 
         {/* Waypoint markers */}
         {waypoints?.map((wp, index) => (
-          <MapLibreGL.MarkerView
+          <MapLibreGL.Marker
             key={`waypoint-${index}`}
-            coordinate={toLngLat(wp)}
-            anchor={{ x: 0.5, y: 0.5 }}
+            lngLat={toLngLat(wp)}
+            anchor="center"
           >
             <View style={styles.waypointMarker}>
               <Text style={styles.waypointText}>{index + 1}</Text>
             </View>
-          </MapLibreGL.MarkerView>
+          </MapLibreGL.Marker>
         ))}
 
         {/* Destination marker */}
-        <MapLibreGL.MarkerView
-          coordinate={toLngLat(destination)}
-          anchor={{ x: 0.5, y: 0.5 }}
-        >
+        <MapLibreGL.Marker lngLat={toLngLat(destination)} anchor="center">
           <View style={styles.destinationMarker}>
             <Ionicons name="flag" size={24} color={theme.colors.error} />
           </View>
-        </MapLibreGL.MarkerView>
-      </MapLibreGL.MapView>
+        </MapLibreGL.Marker>
+      </MapLibreGL.Map>
 
       <InstructionBar
         currentInstruction={currentInstruction}
@@ -647,8 +651,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: theme.colors.white,
   },
   loadingText: {
@@ -661,7 +665,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   destinationMarker: {
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.xl,
-    padding: theme.spacing["2"],
+    padding: theme.spacing['2'],
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -673,8 +677,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     height: 28,
     borderRadius: 14,
     backgroundColor: theme.colors.gray500,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 2,
     borderColor: theme.colors.white,
     shadowColor: theme.colors.black,
@@ -686,15 +690,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
   waypointText: {
     color: theme.colors.white,
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: '700',
   },
   userDirectionMarker: {
     width: 32,
     height: 32,
     borderRadius: 16,
     backgroundColor: theme.colors.white,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,

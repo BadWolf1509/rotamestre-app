@@ -53,10 +53,10 @@ export function useLocationTracking(
         longitude: location.coords.longitude,
       };
 
-      cameraRef.current?.setCamera({
-        centerCoordinate: toLngLat(newUserLocation),
-        zoomLevel: zoomFromLongitudeDelta(0.01),
-        animationDuration: 500,
+      cameraRef.current?.setStop({
+        center: toLngLat(newUserLocation),
+        zoom: zoomFromLongitudeDelta(0.01),
+        duration: 500,
       });
     } catch (error) {
       logger.error('[useLocationTracking] Erro ao obter localização:', error);

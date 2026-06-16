@@ -1,4 +1,4 @@
-import MapLibreGL from '@maplibre/maplibre-react-native';
+import * as MapLibreGL from '@maplibre/maplibre-react-native';
 import React, { useState } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 
@@ -14,7 +14,7 @@ import { ParadaMarker } from '@/components/map/mobile/markers/ParadaMarker';
 import { mapMobileStyles as styles } from '@/components/map/mobile/styles';
 import { MotoristaMarker } from '@/components/MotoristaMarker';
 import { useAlert } from '@/hooks/useAlert';
-import { MAPLIBRE_RASTER_STYLE, toLngLat } from '@/lib/maplibre';
+import { MAPLIBRE_RASTER_STYLE_JSON, toLngLat } from '@/lib/maplibre';
 import type { ParadaMapItem as Parada, StatusFilter } from '@/types/parada-map';
 import { useUnistyles } from '@/utils/styles';
 
@@ -106,35 +106,36 @@ export function MapaMobile({
 
   return (
     <View style={styles.container}>
-      <MapLibreGL.MapView
+      <MapLibreGL.Map
         style={styles.map}
-        mapStyle={MAPLIBRE_RASTER_STYLE}
-        logoEnabled={false}
-        attributionEnabled={false}
-        compassEnabled={true}
+        mapStyle={MAPLIBRE_RASTER_STYLE_JSON}
+        logo={false}
+        attribution={false}
+        compass={true}
         onPress={handleMapPress}
       >
-        <MapLibreGL.Camera ref={cameraRef} defaultSettings={initialCamera} />
+        <MapLibreGL.Camera ref={cameraRef} initialViewState={initialCamera} />
 
         {/* Rota real (via Google Directions API) ou fallback para linhas retas */}
         {routeShape && (
-          <MapLibreGL.ShapeSource id="rota" shape={routeShape}>
-            <MapLibreGL.LineLayer
+          <MapLibreGL.GeoJSONSource id="rota" data={routeShape}>
+            <MapLibreGL.Layer
               id="rota-line"
-              style={{ lineColor: theme.colors.primary, lineWidth: 4 }}
+              type="line"
+              paint={{ 'line-color': theme.colors.primary, 'line-width': 4 }}
             />
-          </MapLibreGL.ShapeSource>
+          </MapLibreGL.GeoJSONSource>
         )}
 
         {/* Marcadores dos checkpoints (PARTIDA/CHEGADA) */}
         {checkpoints.map((parada, index) => (
-          <MapLibreGL.MarkerView
+          <MapLibreGL.Marker
             key={parada.id}
-            coordinate={toLngLat({
+            lngLat={toLngLat({
               latitude: parada.latitude!,
               longitude: parada.longitude!,
             })}
-            anchor={{ x: 0.5, y: 1 }}
+            anchor="bottom"
           >
             <CheckpointMarker
               index={index}
@@ -148,18 +149,18 @@ export function MapaMobile({
               }
               onCopyAddress={handleCopyAddress}
             />
-          </MapLibreGL.MarkerView>
+          </MapLibreGL.Marker>
         ))}
 
         {/* Marcadores das paradas reais (entregas/retiradas) - filtradas por status */}
         {paradasFiltradas.map((parada) => (
-          <MapLibreGL.MarkerView
+          <MapLibreGL.Marker
             key={parada.id}
-            coordinate={toLngLat({
+            lngLat={toLngLat({
               latitude: parada.latitude!,
               longitude: parada.longitude!,
             })}
-            anchor={{ x: 0.5, y: 1 }}
+            anchor="bottom"
           >
             <ParadaMarker
               parada={parada}
@@ -167,7 +168,7 @@ export function MapaMobile({
               onPress={handleMarkerPress}
               onLongPress={handleMarkerLongPress}
             />
-          </MapLibreGL.MarkerView>
+          </MapLibreGL.Marker>
         ))}
 
         {/* Marcador do motorista em tempo real */}
@@ -178,7 +179,7 @@ export function MapaMobile({
             realtime={true}
           />
         )}
-      </MapLibreGL.MapView>
+      </MapLibreGL.Map>
 
       {/* Info Badge - mostra paradas e info da rota */}
       <View
