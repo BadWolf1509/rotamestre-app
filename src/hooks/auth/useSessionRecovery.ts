@@ -10,16 +10,16 @@
  * Ref: https://github.com/orgs/supabase/discussions/19608
  */
 
-import { useEffect, useState } from "react";
-import { Platform } from "react-native";
+import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 
 import {
   getHashErrorParams,
   hasRecoveryParamsInCurrentUrl,
   trySessionRecoveryFromUrl,
-} from "@/lib/auth/sessionRecovery";
-import { logger } from "@/lib/logger";
-import { isRecoveryRedirect, supabase } from "@/lib/supabase";
+} from '@/lib/auth/sessionRecovery';
+import { logger } from '@/lib/logger';
+import { isRecoveryRedirect, supabase } from '@/lib/supabase';
 
 interface UseSessionRecoveryResult {
   checkingSession: boolean;
@@ -33,16 +33,16 @@ export function useSessionRecovery(): UseSessionRecoveryResult {
 
   useEffect(() => {
     const { error, errorCode } = getHashErrorParams();
-    if (errorCode === "otp_expired" || error === "access_denied") {
+    if (errorCode === 'otp_expired' || error === 'access_denied') {
       setLinkExpired(true);
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        window.history.replaceState(null, "", window.location.pathname);
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.history.replaceState(null, '', window.location.pathname);
       }
       return;
     }
 
     const shouldCheckRecoverySession =
-      Platform.OS === "web" &&
+      Platform.OS === 'web' &&
       (isRecoveryRedirect || hasRecoveryParamsInCurrentUrl());
 
     if (!shouldCheckRecoverySession) return;
@@ -67,21 +67,34 @@ export function useSessionRecovery(): UseSessionRecoveryResult {
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (resolved) return;
 
-      if (event === "PASSWORD_RECOVERY") {
+      if (event === 'PASSWORD_RECOVERY') {
         resolved = true;
         setCheckingSession(false);
         return;
       }
 
-      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
+        // Existe uma sessão — mas se a URL ainda carrega tokens de recovery
+        // (detectSessionInUrl=false não os consome), essa sessão é uma SOBRA do
+        // localStorage, possivelmente de OUTRO usuário (ex.: um gestor logado no
+        // mesmo navegador). Aceitá-la faria o updateUser redefinir a senha da
+        // conta ERRADA. Então estabelecemos a sessão a partir da URL, que
+        // sobrescreve a sobra com o usuário correto do link.
+        if (hasRecoveryParamsInCurrentUrl()) {
+          // setTimeout: rodar fora do lock do callback do auth-js (setSession).
+          setTimeout(() => {
+            void resolveWithRecoveryAttempt();
+          }, 0);
+          return;
+        }
         resolved = true;
         setCheckingSession(false);
         return;
       }
 
-      if (event === "INITIAL_SESSION" && !session) {
+      if (event === 'INITIAL_SESSION' && !session) {
         logger.debug(
-          "[ResetPassword] INITIAL_SESSION without session, trying manual recovery",
+          '[ResetPassword] INITIAL_SESSION without session, trying manual recovery',
         );
         // Run outside auth-js callback lock to avoid deadlock with setSession/exchange calls.
         setTimeout(() => {
