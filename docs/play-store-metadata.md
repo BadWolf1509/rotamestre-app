@@ -1,9 +1,11 @@
 # Play Store Metadata - Rota Mestre
 
+> **Atualizado 2026-06-16:** o package correto é **`br.tec.rotamestre.app`** (o `br.tec.rotamestre` antigo ficou preso na conta perdida). Este doc é a **cópia da listagem** (textos / keywords / permissões); o **processo de publicação + estado do rollout** estão em [GOOGLE_PLAY_DEPLOYMENT.md](GOOGLE_PLAY_DEPLOYMENT.md) e [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md).
+
 ## Informações Básicas
 
 - **Nome do App:** Rota Mestre
-- **Package Name:** br.tec.rotamestre
+- **Package Name:** br.tec.rotamestre.app
 - **Categoria:** Empresas
 - **Categoria Secundária:** Mapas e navegação
 - **Tags:** logística, entregas, rotas, motorista, gestão, delivery
@@ -13,11 +15,13 @@
 ## Listagem da Loja
 
 ### Título (máx 30 caracteres)
+
 ```
 Rota Mestre
 ```
 
 ### Descrição Breve (máx 80 caracteres)
+
 ```
 Otimize rotas de entrega, economize combustível e acompanhe motoristas.
 ```
@@ -60,11 +64,11 @@ Dúvidas? Entre em contato: contato@rotamestre.tec.br
 
 ## URLs Obrigatórias
 
-| Campo | URL |
-|-------|-----|
-| Website | https://rotamestre.tec.br |
+| Campo                   | URL                                               |
+| ----------------------- | ------------------------------------------------- |
+| Website                 | https://rotamestre.tec.br                         |
 | Política de Privacidade | https://rotamestre.tec.br/politica-de-privacidade |
-| Email de Contato | contato@rotamestre.tec.br |
+| Email de Contato        | contato@rotamestre.tec.br                         |
 
 ---
 
@@ -72,21 +76,23 @@ Dúvidas? Entre em contato: contato@rotamestre.tec.br
 
 ### Obrigatórios
 
-| Asset | Tamanho | Status |
-|-------|---------|--------|
-| Ícone do App | 512 x 512 px | ✅ Usar icon.png |
-| Feature Graphic | 1024 x 500 px | ❌ CRIAR |
-| Screenshots (mín 2) | Variável | ❌ CRIAR |
+| Asset               | Tamanho       | Status           |
+| ------------------- | ------------- | ---------------- |
+| Ícone do App        | 512 x 512 px  | ✅ Usar icon.png |
+| Feature Graphic     | 1024 x 500 px | ❌ CRIAR         |
+| Screenshots (mín 2) | Variável      | ❌ CRIAR         |
 
 ### Feature Graphic (Banner)
+
 - **Tamanho:** 1024 x 500 px
 - **Formato:** PNG ou JPEG
 - **Dicas:**
-  - Usar cores da marca (Azul #284093, Laranja #FF8C42)
+  - Usar cores da marca (Azul #284093, Laranja #f7a02a)
   - Incluir logo e tagline
   - Evitar texto pequeno (fica ilegível no celular)
 
 **Sugestão de layout:**
+
 ```
 [Logo Rota Mestre]     [Mockup do app]
 "Otimize suas entregas"
@@ -94,13 +100,14 @@ Dúvidas? Entre em contato: contato@rotamestre.tec.br
 
 ### Screenshots
 
-| Tamanho | Dispositivo |
-|---------|-------------|
+| Tamanho        | Dispositivo             |
+| -------------- | ----------------------- |
 | 1080 x 1920 px | Celulares (obrigatório) |
-| 1200 x 1920 px | Tablets 7" (opcional) |
-| 1600 x 2560 px | Tablets 10" (opcional) |
+| 1200 x 1920 px | Tablets 7" (opcional)   |
+| 1600 x 2560 px | Tablets 10" (opcional)  |
 
 **Telas recomendadas (mínimo 4, máximo 8):**
+
 1. Tela de Login
 2. Dashboard do Gestor
 3. Criar Rota (autocomplete)
@@ -116,16 +123,16 @@ Dúvidas? Entre em contato: contato@rotamestre.tec.br
 
 ### Questionário IARC
 
-| Pergunta | Resposta |
-|----------|----------|
-| Violência | Não |
-| Referências sexuais | Não |
-| Linguagem ofensiva | Não |
-| Substâncias controladas | Não |
-| Jogos de azar | Não |
-| Compras no app | Não (por enquanto) |
-| Compartilha localização | **Sim** |
-| Conteúdo gerado por usuários | Não |
+| Pergunta                     | Resposta           |
+| ---------------------------- | ------------------ |
+| Violência                    | Não                |
+| Referências sexuais          | Não                |
+| Linguagem ofensiva           | Não                |
+| Substâncias controladas      | Não                |
+| Jogos de azar                | Não                |
+| Compras no app               | Não (por enquanto) |
+| Compartilha localização      | **Sim**            |
+| Conteúdo gerado por usuários | Não                |
 
 **Classificação esperada:** Livre para todas as idades
 
@@ -134,14 +141,17 @@ Dúvidas? Entre em contato: contato@rotamestre.tec.br
 ## Permissões (Justificativas)
 
 ### Localização (ACCESS_FINE_LOCATION, ACCESS_BACKGROUND_LOCATION)
+
 **Justificativa:**
 "O app usa localização para mostrar a posição do motorista no mapa durante entregas e permitir que gestores acompanhem o progresso em tempo real."
 
 ### Câmera (CAMERA)
+
 **Justificativa:**
 "Motoristas usam a câmera para tirar fotos de comprovação de entrega."
 
 ### Internet (INTERNET)
+
 **Justificativa:**
 "Necessário para sincronizar rotas, paradas e fotos com o servidor."
 
@@ -150,11 +160,13 @@ Dúvidas? Entre em contato: contato@rotamestre.tec.br
 ## Configuração do App
 
 ### Países
+
 - [x] Brasil (principal)
 - [ ] Portugal
 - [ ] Outros países lusófonos
 
 ### Dispositivos
+
 - [x] Celulares
 - [x] Tablets
 - [ ] Android TV
@@ -162,6 +174,7 @@ Dúvidas? Entre em contato: contato@rotamestre.tec.br
 - [ ] Chromebooks
 
 ### Preço
+
 - **Tipo:** Gratuito (com planos de assinatura futuros)
 
 ---
@@ -169,6 +182,7 @@ Dúvidas? Entre em contato: contato@rotamestre.tec.br
 ## Release Notes (O que há de novo)
 
 ### Versão 1.9.0
+
 ```
 • Novo sistema de checkpoints para motoristas
 • Upload de fotos de comprovação melhorado
@@ -181,31 +195,37 @@ Dúvidas? Entre em contato: contato@rotamestre.tec.br
 ## Processo de Publicação
 
 ### 1. Criar conta Google Play Developer
+
 - Acesse: https://play.google.com/console
 - Taxa única: $25 USD
 - Aprovação: Imediata
 
 ### 2. Criar o app no Console
+
 1. Acesse Play Console → Criar app
 2. Preencha nome, idioma, tipo (app), categoria
 3. Aceite as declarações
 
 ### 3. Preencher Ficha da Loja
+
 1. Dashboard do app → Ficha da loja principal
 2. Adicione título, descrições, ícone, screenshots
 3. Adicione Feature Graphic
 
 ### 4. Classificação de Conteúdo
+
 1. Política e programas → Classificação de conteúdo
 2. Responda o questionário IARC
 3. Receba a classificação
 
 ### 5. Configurar Preços e Distribuição
+
 1. Monetização → Preço do app
 2. Selecione "Gratuito"
 3. Selecione países
 
 ### 6. Criar Service Account Key (para EAS Submit)
+
 1. Google Cloud Console → IAM e Admin → Contas de serviço
 2. Crie conta de serviço com papel "Editor"
 3. Gere chave JSON
@@ -213,6 +233,7 @@ Dúvidas? Entre em contato: contato@rotamestre.tec.br
 5. **IMPORTANTE:** Adicione ao .gitignore!
 
 ### 7. Build e Submit
+
 ```bash
 # Gerar AAB (App Bundle)
 eas build --platform android --profile production
@@ -222,6 +243,7 @@ eas submit --platform android --profile production
 ```
 
 ### 8. Revisão
+
 - Primeira revisão: 1-3 dias úteis
 - Atualizações: Geralmente em horas
 

@@ -1,245 +1,93 @@
-# 📱 Rota Mestre - App
+# Rota Mestre
 
 [![Tests](https://github.com/BadWolf1509/rotamestre-app/actions/workflows/test.yml/badge.svg)](https://github.com/BadWolf1509/rotamestre-app/actions/workflows/test.yml)
 [![Code Quality](https://github.com/BadWolf1509/rotamestre-app/actions/workflows/quality.yml/badge.svg)](https://github.com/BadWolf1509/rotamestre-app/actions/workflows/quality.yml)
 [![codecov](https://codecov.io/gh/BadWolf1509/rotamestre-app/branch/main/graph/badge.svg)](https://codecov.io/gh/BadWolf1509/rotamestre-app)
 
-> Sistema completo de gestão de rotas para gestores e motoristas
+> SaaS de otimização e gestão de rotas de última milha. Dois perfis: **gestor** (cria e atribui rotas) e **motorista** (executa com navegação e foto de comprovação de entrega).
 
-**Stack:** React Native • Expo SDK 54 • TypeScript • Supabase • Unistyles • MapLibre
+**Stack:** React Native · Expo SDK 56 · TypeScript · Supabase · React Native Unistyles · MapLibre (sem Google Maps) · Expo Router
 
-**Produção:** https://app.rotamestre.tec.br
+**Produção:** web em **https://app.rotamestre.tec.br** · Android **`br.tec.rotamestre.app`** (em publicação na Play)
+
+> ℹ️ Contexto técnico completo (stack, padrões, phonebook): **[CLAUDE.md](CLAUDE.md)**. Estado do relançamento do app: **[docs/REBUILD_RELAUNCH_PLAN.md](docs/REBUILD_RELAUNCH_PLAN.md)**.
 
 ---
 
-## 🚀 Setup Rápido (< 5 min)
+## 🚀 Setup rápido
 
 ```bash
-# 1. Clone e instale
 git clone https://github.com/BadWolf1509/rotamestre-app.git
 cd rotamestre-app
 npm install
 
-# 2. Configure variáveis de ambiente
+# Crie o .env na raiz — o Supabase é OBRIGATÓRIO (sem ele o app cai num
+# placeholder e toda query falha com UnknownHostException):
 cp .env.example .env
-# Preencha: SUPABASE_URL, SUPABASE_ANON_KEY, GOOGLE_MAPS_API_KEY
+#   EXPO_PUBLIC_SUPABASE_URL=https://xezslsyxjivunmhhyxtd.supabase.co
+#   EXPO_PUBLIC_SUPABASE_ANON_KEY=<anon key: Supabase Dashboard → Settings → API>
 
-# 3. Rode o app
-npm start              # Dev mode (Expo)
-npm run android        # Android emulator
-npm run ios            # iOS emulator (macOS only)
-npm run web            # Web (localhost:8081)
+npm run web        # web em http://localhost:8081
+npm run android    # build nativo + instala no device/emulador conectado
 ```
 
-**URLs Locais:**
-- 📱 **App (mobile/web):** http://localhost:8081
+> **Mapas** (MapLibre + OSRM + Photon) são gratuitos e **não exigem chave do Google**.
+> Em **builds EAS**, as variáveis do Supabase vivem **por-ambiente no EAS** (`eas env:*`), não no repositório.
 
 ---
 
-## 📁 Estrutura do Projeto
+## 📁 Estrutura
 
 ```
-rotamestre-app/
-├── app/                    # Telas (Expo Router)
-│   ├── auth/              # Login, registro
-│   ├── gestor/            # Dashboard, rotas, motoristas, incidentes
-│   ├── motorista/         # Rotas ativas, checkpoints
-│   ├── perfil/            # Perfil do usuário
-│   └── unidade/           # Gestão de unidade
-│
-├── src/
-│   ├── components/        # Componentes reutilizáveis
-│   ├── hooks/             # Custom hooks
-│   ├── lib/               # Supabase, utils
-│   ├── styles/            # Design tokens (Unistyles)
-│   └── types/             # TypeScript types
-│
-├── database/              # Migrations SQL
-├── tools/                 # MCPs, scripts
-└── docs/                  # Documentação detalhada
+app/                     # Telas (Expo Router): (auth)/, gestor/, motorista/
+src/
+├── components/          # UI reutilizável + base do design system
+├── hooks/               # Hooks por domínio (auth/, gestao-rotas/, motorista/, ...)
+├── lib/                 # supabase, logger, sentry, photon, osrm, navegação
+├── context/             # React Contexts (notificações, status de rota)
+└── types/               # Tipos de domínio (Rota, Parada, Usuario, ...)
+database/migrations/     # Migrations SQL (diretório canônico)
+docs/                    # Documentação
 ```
 
 ---
 
-## 🛠️ Comandos Principais
+## 🛠️ Comandos
 
-### Desenvolvimento
-```bash
-npm start                  # Dev mode (Expo)
-npm run typecheck          # Verificar erros TypeScript
-npm test                   # Rodar testes
-npm run lint               # Lint do código
-```
-
-### Build & Deploy
-```bash
-npm run build:web          # Build para web
-git push origin main       # Deploy automático (Vercel)
-vercel --prod              # Deploy manual
-```
-
-### Database
-```bash
-cd tools/scripts
-node apply-migration.js    # Aplicar migrations
-```
+| Comando                              | O quê                                                         |
+| ------------------------------------ | ------------------------------------------------------------- |
+| `npm start`                          | Dev server (Expo)                                             |
+| `npm run web` / `android` / `ios`    | Rodar por plataforma                                          |
+| `npm test` · `npm run test:coverage` | Testes unitários (Jest)                                       |
+| `npm run test:e2e`                   | E2E (Playwright)                                              |
+| `npm run type-check`                 | TypeScript (`tsc --noEmit`)                                   |
+| `npm run lint`                       | ESLint (`--max-warnings=0`)                                   |
+| `npm run build:web`                  | Build web (deploy automático no Vercel ao dar push em `main`) |
 
 ---
 
-## 🎨 Design System
+## 👥 Perfis & multi-tenancy
 
-Utilizamos **React Native Unistyles v3** com design tokens centralizados:
-
-```typescript
-// unistyles.ts
-const theme = {
-  colors: {
-    primary: '#1e5aa8',
-    success: '#10b981',
-    gray50: '#f9fafb',
-    // ... +40 cores
-  },
-  spacing: { sm: 8, md: 12, lg: 16, ... },
-  typography: { /* fonts, sizes */ },
-  shadows: { /* elevações */ },
-  borderRadius: { /* bordas */ },
-};
-```
-
-**Uso:**
-```tsx
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
-
-const styles = StyleSheet.create(theme => ({
-  container: {
-    backgroundColor: theme.colors.gray50,
-    padding: theme.spacing.lg,
-  },
-}));
-```
+Papéis em `usuarios.papel`: **`gestor`** (CRUD da própria unidade) e **`motorista`** (rotas atribuídas + suas paradas). Ações de **admin** ficam no projeto do **painel**, nunca aqui. Os dados são isolados por `unidade_id` via **RLS** (Row Level Security) — um usuário pode pertencer a várias unidades via `usuario_unidades`.
 
 ---
 
-## 🗄️ Banco de Dados (Supabase)
+## 📚 Documentação
 
-### Principais Tabelas
-
-| Tabela | Descrição |
-|--------|-----------|
-| `usuarios` | Usuários (gestor, motorista, master) |
-| `unidades` | Unidades operacionais |
-| `rotas` | Rotas de entrega |
-| `paradas` | Paradas (checkpoints) de cada rota |
-| `incidentes` | Incidentes reportados durante rotas |
-
-### Migrations
-
-Todas as migrations SQL estão documentadas em:
-- 📄 [database/MIGRATIONS.md](database/MIGRATIONS.md)
-
-Para aplicar uma migration:
-```bash
-cd tools/scripts
-node apply-migration.js nome-da-migration.sql
-```
-
----
-
-## 🔐 Autenticação
-
-Sistema de auth com Supabase:
-
-**Roles disponíveis:**
-- `master` - Super admin (acesso total)
-- `gestor` - Gerencia rotas e motoristas
-- `motorista` - Visualiza e atualiza rotas próprias
-
-**RLS (Row Level Security):**
-- ✅ Gestores veem apenas dados da sua unidade
-- ✅ Motoristas veem apenas rotas próprias
-- ✅ Master vê tudo
-
----
-
-## 🧩 Principais Recursos
-
-### ✅ Implementado
-
-- ✅ **Auth completo** (login, logout, recuperação de senha)
-- ✅ **Dashboard gestor** (desktop e mobile responsivo)
-- ✅ **Gestão de rotas** (criar, editar, excluir, visualizar mapa)
-- ✅ **Gestão de motoristas** (CRUD completo)
-- ✅ **Gestão de incidentes** (reportar e gerenciar)
-- ✅ **App do motorista** (visualizar rotas, marcar checkpoints)
-- ✅ **Upload de fotos** (comprovantes de entrega)
-- ✅ **Mapas** (MapLibre web + MapLibre Native mobile)
-- ✅ **Filtros avançados** (período com presets, status, motorista)
-- ✅ **Responsivo** (mobile-first com melhorias desktop)
-- ✅ **Design system** (Unistyles v3)
-- ✅ **Testes automatizados** (Jest + Maestro E2E)
-
-### 🚧 Em Desenvolvimento
-
-- 🚧 Notificações push
-- 🚧 Relatórios e analytics
-- 🚧 Histórico detalhado avançado
-
----
-
-## 📚 Documentação Detalhada
-
-Para informações técnicas detalhadas, consulte:
-
-- 📄 [DEVELOPMENT.md](DEVELOPMENT.md) - Guia de desenvolvimento
-- 📄 [CLAUDE.md](CLAUDE.md) - Contexto técnico completo
-- 📄 [TESTING_SUMMARY.md](TESTING_SUMMARY.md) - Estrutura de testes
-- 📄 [database/MIGRATIONS.md](database/MIGRATIONS.md) - Migrations SQL
-- 📄 [docs/SUSPENDED_FEATURES.md](docs/SUSPENDED_FEATURES.md) - Features suspensas
-
----
-
-## 🐛 Troubleshooting
-
-### Build falha no Android
-```bash
-cd android
-./gradlew clean
-cd ..
-npx expo prebuild --clean
-```
-
-### Erro de cache no Metro
-```bash
-npx expo start --clear
-```
-
-### Erro de tipos TypeScript
-```bash
-npm run typecheck
-```
-
-### Supabase connection error
-Verifique se `.env` está configurado com as credenciais corretas:
-```env
-EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
-EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=your-google-maps-api-key-here
-```
-
----
-
-## 📞 Suporte
-
-**Issues:** https://github.com/BadWolf1509/rotamestre-app/issues
-
-**Dev:** Wellington Ribeiro (dev solo)
+| Tema                                                 | Onde                                                             |
+| ---------------------------------------------------- | ---------------------------------------------------------------- |
+| Contexto técnico (stack, padrões, phonebook)         | [CLAUDE.md](CLAUDE.md)                                           |
+| Testes (comandos, cobertura, layout)                 | [docs/TESTING.md](docs/TESTING.md)                               |
+| Migrations (convenções + histórico)                  | [database/MIGRATIONS.md](database/MIGRATIONS.md)                 |
+| Recuperação de senha (fluxo de ponta a ponta)        | [docs/PASSWORD_RECOVERY.md](docs/PASSWORD_RECOVERY.md)           |
+| Relançamento do app (contas perdidas → reconstruído) | [docs/REBUILD_RELAUNCH_PLAN.md](docs/REBUILD_RELAUNCH_PLAN.md)   |
+| Push / Firebase (FCM)                                | [docs/FIREBASE_MIGRATION.md](docs/FIREBASE_MIGRATION.md)         |
+| Publicação na Google Play                            | [docs/GOOGLE_PLAY_DEPLOYMENT.md](docs/GOOGLE_PLAY_DEPLOYMENT.md) |
+| Marca (cores, tipografia, contraste)                 | [brand-guidelines.md](brand-guidelines.md)                       |
+| Contribuição (PRs, branches, CI)                     | [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md)               |
 
 ---
 
 ## 📝 Licença
 
-Proprietário - Rota Mestre © 2025
-
----
-
-**Última atualização:** 19/11/2025
+Proprietário — Rota Mestre © 2026. Dev: Wellington Ribeiro.

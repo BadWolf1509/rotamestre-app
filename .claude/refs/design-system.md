@@ -4,13 +4,13 @@ This file is the canonical design reference for the app. Live source of truth is
 
 ## Brand colors
 
-- **Primary** — Orange `#FF8C42` — CTAs, primary actions, route status accents.
-- **Secondary** — Blue `#4A90E2` — informational UI (links, secondary actions).
-- **Success** — Green `#2ECC71` — completed deliveries, positive state.
-- **Warning** — Yellow `#F1C40F` — pending/in-progress states.
-- **Danger** — Red `#E74C3C` — destructive actions, errors.
+The brand palette + contrast/shadow rules live in **[`brand-guidelines.md`](../../brand-guidelines.md)** (single source of truth). In short:
 
-Token names in `src/lib/design-tokens.ts`: `colors.primary`, `colors.secondary`, `colors.success`, `colors.warning`, `colors.danger`. Always import — never inline hex values in components.
+- **Primary** — Blue `#284093` — navigation areas, primary buttons, dark highlights.
+- **Accent** — Blue `#34699f` — hover, gradients, secondary on blue.
+- **Secondary** — Orange `#f7a02a` (+ `#ffbf14`, `#fbad02`) — secondary CTAs, badges, attention icons.
+
+Runtime values come from the **Unistyles theme** — import via `useUnistyles()` / `StyleSheet.create((theme) => ...)` and reference `theme.colors.*`. **Never inline hex** in components (`npm run verify:design-system` enforces this).
 
 ## Typography
 
