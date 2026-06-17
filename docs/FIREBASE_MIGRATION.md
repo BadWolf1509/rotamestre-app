@@ -1,5 +1,7 @@
 # Migração para um novo projeto Firebase (push / FCM)
 
+> **✅ CONCLUÍDA (2026-06-16):** novo projeto **`rota-mestre-97084`**, app Android `br.tec.rotamestre.app` (App ID `1:576641899942:android:ce17de82eff711db98c367`). SHA-1 da upload key registrado; credencial **FCM V1** (service account) subida no EAS; `google-services.json` trocado. **Push validado ponta a ponta em device** (registro sem `FIS_AUTH_ERROR` + entrega via exp.host→FCM). ⚠️ **Correção à nota antiga deste doc:** como o RotaMestre usa só FCM (não Google Sign-In/Phone Auth/App Check), o **push NÃO depende de SHA-1** — registrar a app-signing SHA-1 do Play é opcional/futuro, não bloqueia push. O runbook abaixo fica como referência.
+
 > **Contexto:** a conta Google dona do projeto Firebase/GCP original do RotaMestre foi
 > perdida. Sem ela não dá pra registrar SHA-1, gerenciar a API key do `google-services.json`
 > nem a entrega de push. Este runbook recria o lado Firebase **sob uma conta sob seu controle**,

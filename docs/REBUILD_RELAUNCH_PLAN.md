@@ -1,5 +1,7 @@
 # Plano de reconstrução e relançamento (app novo)
 
+> **STATUS (2026-06-16):** Fases 0–2 ✅ — app reconstruído como **`br.tec.rotamestre.app`**, EAS `c6401a59-af97-484a-93b7-c75016bf331d` (`@wellington.ribeiro.mkt`), Firebase **`rota-mestre-97084`**; `.aab` v1.12.0 (versionCode **3019**) buildado; **keystore com backup**; SHA-1 da upload key + credencial FCM V1 registrados; **push validado em device**. Fase 3 🔄 — `.aab` no **Teste interno** com Play App Signing ligado; **falta**: "Conteúdo do app" (Segurança de dados/classificação/público-alvo) + promover pra produção. Fases 4–5 ⏳ pendentes. Trabalho na branch `chore/relaunch-new-app`. MapLibre v11 migrado em paralelo na branch `chore/maplibre-v11` (pendente QA em device).
+
 > **Contexto:** as 3 contas de plataforma do app original foram perdidas — **Firebase/GCP**,
 > **Expo/EAS** (`1ea74080-a787-46db-abbf-d303d1b7a9d4`) e **Google Play Console** (publica
 > `br.tec.rotamestre`). O app instalado **continua funcionando** (fala com o Supabase, que é

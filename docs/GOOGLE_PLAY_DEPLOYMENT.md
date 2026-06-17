@@ -1,6 +1,14 @@
 # 🚀 Guia de Publicação do RotaMestre na Google Play Store
 
+> **⚠️ STATUS + CORREÇÕES (2026-06-16):** app **reconstruído** (contas originais perdidas) — package `br.tec.rotamestre.app`, EAS `c6401a59…`, Firebase `rota-mestre-97084`; conta Play criada, `.aab` **3019** no **Teste interno**, Play App Signing ligado. Correções a este guia (genérico/antigo):
+>
+> 1. **Sem Google Maps** — o app usa **MapLibre**; ignore `config.googleMaps.apiKey` e `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` (não existem mais).
+> 2. **NÃO confie em "EAS gerencia o keystore"** — a perda do keystore/conta causou TODO o retrabalho do rebuild. **Baixe e guarde o keystore você mesmo** (`eas credentials` → download, ou dashboard) + as senhas, em ≥2 lugares.
+> 3. **Env Supabase fica por-ambiente no EAS** (`eas env:*`), não inline no `eas.json`.
+> 4. Estado atual do rollout: ver a **memória do Claude** + `docs/REBUILD_RELAUNCH_PLAN.md`.
+
 ## 📋 Checklist Geral
+
 - [ ] Conta de Desenvolvedor Google Play ($25 USD única vez)
 - [ ] App testado e estável
 - [ ] Assets de marketing prontos
@@ -14,6 +22,7 @@
 ### 1.1 Atualizar Configurações do App
 
 #### app.json
+
 ```json
 {
   "expo": {
@@ -45,31 +54,37 @@
 ### 1.2 Assets Obrigatórios
 
 #### Ícones
+
 - [ ] **Ícone do App**: 512x512px PNG (já existe em `assets/icon.png`)
 - [ ] **Ícone Adaptativo**: 1024x1024px PNG com área segura
 
 #### Screenshots (Obrigatório: 2-8 por tipo)
+
 - [ ] **Telefone**: 1080x1920px ou 9:16
 - [ ] **Tablet 7"**: 1200x1920px (opcional)
 - [ ] **Tablet 10"**: 1600x2560px (opcional)
 
 #### Gráficos da Loja
+
 - [ ] **Feature Graphic**: 1024x500px (banner principal)
 - [ ] **Ícone Hi-res**: 512x512px PNG 32-bit
 
 ### 1.3 Textos da Loja
 
 #### Título (máx 30 caracteres)
+
 ```
 Rota Mestre - Rotas Otimizadas
 ```
 
 #### Descrição Curta (máx 80 caracteres)
+
 ```
 Otimize suas rotas de entrega e economize até 30% de combustível
 ```
 
 #### Descrição Completa (máx 4000 caracteres)
+
 ```
 Rota Mestre é a solução definitiva para empresas que precisam otimizar suas rotas de entrega e coleta. Economize tempo, combustível e aumente a produtividade da sua equipe.
 
@@ -128,11 +143,13 @@ Dúvidas? contato@rotamestre.tec.br
 ## 🔧 Fase 2: Build de Produção
 
 ### 2.1 Instalar EAS CLI
+
 ```bash
 npm install -g eas-cli
 ```
 
 ### 2.2 Configurar EAS
+
 ```bash
 # Login no Expo
 eas login
@@ -142,6 +159,7 @@ eas build:configure
 ```
 
 ### 2.3 Arquivo eas.json
+
 ```json
 {
   "cli": {
@@ -183,6 +201,7 @@ eas build:configure
 ```
 
 ### 2.4 Gerar Build de Produção
+
 ```bash
 # Build AAB (Android App Bundle) para Play Store
 eas build --platform android --profile production
@@ -196,12 +215,14 @@ eas build --platform android --profile production
 ## 🏪 Fase 3: Google Play Console
 
 ### 3.1 Criar Conta de Desenvolvedor
+
 1. Acesse: https://play.google.com/console
 2. Pague taxa de $25 USD (única vez)
 3. Preencha informações da empresa
 4. Aguarde aprovação (até 48h)
 
 ### 3.2 Criar Novo App
+
 1. **Console** → **Criar app**
 2. Preencher:
    - Nome: Rota Mestre
@@ -213,6 +234,7 @@ eas build --platform android --profile production
 ### 3.3 Configurar Listagem da Loja
 
 #### Principais informações
+
 - Título do app
 - Descrição curta e completa
 - Ícone do app
@@ -222,10 +244,12 @@ eas build --platform android --profile production
 - Tags: rotas, entrega, logística, otimização
 
 #### Classificação de conteúdo
+
 1. Responder questionário
 2. Provável resultado: **Livre (E)**
 
 #### Preços e distribuição
+
 - Países: Brasil (inicialmente)
 - Preço: Gratuito
 - Contém anúncios: Não
@@ -234,11 +258,13 @@ eas build --platform android --profile production
 ### 3.4 Política de Privacidade
 
 Criar e hospedar política de privacidade:
+
 ```html
 https://rotamestre.tec.br/privacidade
 ```
 
 Conteúdo mínimo:
+
 - Dados coletados (localização, fotos, dados pessoais)
 - Como os dados são usados
 - Compartilhamento de dados
@@ -251,9 +277,11 @@ Conteúdo mínimo:
 ## 📤 Fase 4: Upload do App
 
 ### 4.1 Criar Release
+
 1. **Produção** → **Criar novo release**
 2. Upload do AAB gerado pelo EAS Build
 3. Adicionar notas de lançamento:
+
 ```
 Versão inicial do RotaMestre
 
@@ -266,6 +294,7 @@ Versão inicial do RotaMestre
 ```
 
 ### 4.2 Revisão e Lançamento
+
 1. Revisar todos os avisos/erros
 2. Iniciar lançamento → **Revisar lançamento**
 3. Taxa de lançamento: 100% (lançamento completo)
@@ -276,13 +305,16 @@ Versão inicial do RotaMestre
 ## ⏱️ Fase 5: Revisão do Google
 
 ### Tempo de Revisão
+
 - Primeiro app: 2-3 dias úteis
 - Atualizações: 2-24 horas
 
 ### Possíveis Problemas Comuns
 
 #### 1. Permissões de Localização
+
 **Solução**: Justificar uso em "Declarações" no Console
+
 ```
 O Rota Mestre usa localização para:
 - Mostrar posição do motorista no mapa
@@ -292,7 +324,9 @@ O Rota Mestre usa localização para:
 ```
 
 #### 2. Permissão de Câmera
+
 **Solução**: Justificar uso
+
 ```
 Câmera usada exclusivamente para:
 - Capturar fotos de comprovação de entrega
@@ -300,6 +334,7 @@ Câmera usada exclusivamente para:
 ```
 
 #### 3. Política de Privacidade
+
 **Requisito**: Link acessível e conteúdo completo
 
 ---
@@ -307,6 +342,7 @@ Câmera usada exclusivamente para:
 ## 🔄 Atualizações Futuras
 
 ### Processo Simplificado
+
 1. Incrementar `versionCode` no app.json
 2. Atualizar `version` se necessário
 3. Gerar novo build: `eas build --platform android --profile production`
@@ -315,6 +351,7 @@ Câmera usada exclusivamente para:
 6. Lançar
 
 ### Versionamento Recomendado
+
 - **Major.Minor.Patch**: 1.0.0
 - **versionCode**: Sempre incrementar (1, 2, 3...)
 - Exemplo:
@@ -327,12 +364,14 @@ Câmera usada exclusivamente para:
 ## 📊 Monitoramento Pós-Lançamento
 
 ### Métricas Importantes
+
 - Taxa de instalação/desinstalação
 - Avaliações e reviews
 - Crashes e ANRs
 - Vitals do Android
 
 ### Responder Reviews
+
 - Responder rapidamente (< 24h)
 - Ser profissional e solícito
 - Indicar correções em próximas versões
@@ -366,6 +405,7 @@ eas build:download --platform android
 ## 📱 Testando Antes de Publicar
 
 ### Teste Interno (Recomendado)
+
 1. Play Console → Teste → Teste interno
 2. Criar release de teste
 3. Adicionar testadores (até 100 emails)
@@ -374,6 +414,7 @@ eas build:download --platform android
 6. Promover para produção
 
 ### Requisitos para Teste
+
 - [ ] Todas funcionalidades principais funcionando
 - [ ] Sem crashes conhecidos
 - [ ] Performance aceitável
