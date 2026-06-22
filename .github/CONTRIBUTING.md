@@ -9,12 +9,14 @@ Obrigado por contribuir com o RotaMestre! 🚀
 Este projeto possui dois workflows principais no GitHub Actions:
 
 #### 1. **Tests** (`test.yml`)
+
 - **Triggers:** Push e Pull Request para `main` e `develop`
 - **Execução:** Roda todos os testes unitários e de integração
 - **Coverage:** Gera relatório de cobertura e envia para Codecov
 - **Duração estimada:** ~2-3 minutos
 
 #### 2. **Code Quality** (`quality.yml`)
+
 - **Triggers:** Push e Pull Request para `main` e `develop`
 - **Validações:**
   - TypeScript type checking
@@ -40,10 +42,10 @@ npm run lint
 
 O projeto mantém os seguintes limites mínimos de cobertura:
 
-- **Linhas:** 80%
-- **Funções:** 70%
-- **Branches:** 70%
-- **Statements:** 80%
+- **Linhas:** ~73%
+- **Funções:** ~72%
+- **Branches:** ~65%
+- **Statements:** ~72%
 
 ### 🚨 Se o CI Falhar
 
@@ -86,9 +88,9 @@ chore: atualiza dependências
 ### 🎯 Workflow de Desenvolvimento
 
 ```bash
-# 1. Crie uma branch a partir de develop
-git checkout develop
-git pull origin develop
+# 1. Crie uma branch a partir de main
+git checkout main
+git pull origin main
 git checkout -b feature/sua-feature
 
 # 2. Desenvolva e teste
@@ -105,6 +107,7 @@ git push origin feature/sua-feature
 ### ⚡ Otimizações de CI
 
 O CI utiliza:
+
 - **Cache de dependências:** npm packages são cacheados entre builds
 - **Matrix strategy:** Testa em Node.js 20.x
 - **Parallel jobs:** Tests e Quality rodam em paralelo

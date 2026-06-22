@@ -1,12 +1,36 @@
 import { Ionicons } from '@expo/vector-icons';
-import MapLibreGL, { type CameraRef } from '@maplibre/maplibre-react-native';
-import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
-import { Text, TouchableOpacity, View, ActivityIndicator, InteractionManager, Animated } from 'react-native';
+import * as MapLibreGL from '@maplibre/maplibre-react-native';
+import React, {
+  useMemo,
+  useRef,
+  useEffect,
+  useState,
+  useCallback,
+} from 'react';
+import {
+  Text,
+  TouchableOpacity,
+  View,
+  ActivityIndicator,
+  InteractionManager,
+  Animated,
+} from 'react-native';
 
 import { useRouteDirections } from '@/hooks/useRouteDirections';
-import { MAPLIBRE_RASTER_STYLE, getBounds, toLineString, toLngLat, zoomFromLongitudeDelta } from '@/lib/maplibre';
+import {
+  MAPLIBRE_RASTER_STYLE_JSON,
+  getBounds,
+  toLineString,
+  toLngLat,
+  zoomFromLongitudeDelta,
+} from '@/lib/maplibre';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+
+import type {
+  CameraRef,
+  InitialViewState,
+} from '@maplibre/maplibre-react-native';
 
 interface Parada {
   id: string;
@@ -27,9 +51,12 @@ interface Rota {
  * Verifica se as coordenadas estão em range válido
  */
 const isValidCoordinate = (lat: number, lng: number): boolean =>
-  !isNaN(lat) && !isNaN(lng) &&
-  lat >= -90 && lat <= 90 &&
-  lng >= -180 && lng <= 180;
+  !isNaN(lat) &&
+  !isNaN(lng) &&
+  lat >= -90 &&
+  lat <= 90 &&
+  lng >= -180 &&
+  lng <= 180;
 
 /**
  * Determina se uma parada é um ponto de entrega (não é checkpoint de unidade)
@@ -83,7 +110,7 @@ export function MiniMap({
           duration: 1000,
           useNativeDriver: true,
         }),
-      ])
+      ]),
     );
     pulse.start();
     return () => pulse.stop();
@@ -92,33 +119,39 @@ export function MiniMap({
   // Filtrar paradas por status (usando helper isDeliveryStop para clareza)
   // Paradas restantes = pendentes + em andamento (não concluídas e não puladas)
   const paradasRestantes = useMemo(
-    () => paradas.filter(p =>
-      p.status !== 'concluida' && p.status !== 'pulada' && isDeliveryStop(p)
-    ),
-    [paradas]
+    () =>
+      paradas.filter(
+        (p) =>
+          p.status !== 'concluida' &&
+          p.status !== 'pulada' &&
+          isDeliveryStop(p),
+      ),
+    [paradas],
   );
   const paradasConcluidas = useMemo(
-    () => paradas.filter(p => p.status === 'concluida' && isDeliveryStop(p)),
-    [paradas]
+    () => paradas.filter((p) => p.status === 'concluida' && isDeliveryStop(p)),
+    [paradas],
   );
 
   // Todas as paradas com coordenadas válidas (para centralização)
   const todasParadasComCoord = useMemo(
-    () => paradas.filter(p => isValidCoordinate(p.latitude, p.longitude)),
-    [paradas]
+    () => paradas.filter((p) => isValidCoordinate(p.latitude, p.longitude)),
+    [paradas],
   );
 
   // Checkpoints (pontos de partida/chegada da unidade) - NÃO são paradas de entrega
   const checkpoints = useMemo(
-    () => todasParadasComCoord.filter(p => !isDeliveryStop(p)),
-    [todasParadasComCoord]
+    () => todasParadasComCoord.filter((p) => !isDeliveryStop(p)),
+    [todasParadasComCoord],
   );
 
   // Preparar paradas para o hook de rota
   // INCLUI checkpoints (partida/chegada da unidade) para calcular a rota completa
   const paradasParaRota = useMemo(() => {
     // Usar TODAS as paradas com coordenadas (incluindo checkpoints) para a rota
-    const todasOrdenadas = [...todasParadasComCoord].sort((a, b) => a.ordem - b.ordem);
+    const todasOrdenadas = [...todasParadasComCoord].sort(
+      (a, b) => a.ordem - b.ordem,
+    );
 
     return todasOrdenadas.map((p, idx) => ({
       id: p.id,
@@ -129,21 +162,27 @@ export function MiniMap({
   }, [todasParadasComCoord]);
 
   // Usar hook para buscar rota real do Google Directions API
-  const { routeCoordinates, routeInfo, isLoading: isLoadingRoute } = useRouteDirections(paradasParaRota);
+  const {
+    routeCoordinates,
+    routeInfo,
+    isLoading: isLoadingRoute,
+  } = useRouteDirections(paradasParaRota);
 
   const routeShape = useMemo(
     () => (routeCoordinates.length > 1 ? toLineString(routeCoordinates) : null),
-    [routeCoordinates]
+    [routeCoordinates],
   );
 
   // Coordenadas das paradas restantes para calcular bounds do zoom
   // Foca o mapa nas paradas que ainda precisam ser visitadas
   const coordsParadasRestantes = useMemo(() => {
-    const restantes = paradas.filter(p =>
-      p.status !== 'concluida' && p.status !== 'pulada' &&
-      isValidCoordinate(p.latitude, p.longitude)
+    const restantes = paradas.filter(
+      (p) =>
+        p.status !== 'concluida' &&
+        p.status !== 'pulada' &&
+        isValidCoordinate(p.latitude, p.longitude),
     );
-    return restantes.map(p => ({
+    return restantes.map((p) => ({
       latitude: p.latitude,
       longitude: p.longitude,
     }));
@@ -155,7 +194,7 @@ export function MiniMap({
     if (coordsParadasRestantes.length > 0) return coordsParadasRestantes;
     // Fallback para rota completa se todas as paradas foram concluídas
     if (routeCoordinates.length > 1) return routeCoordinates;
-    return todasParadasComCoord.map(p => ({
+    return todasParadasComCoord.map((p) => ({
       latitude: p.latitude,
       longitude: p.longitude,
     }));
@@ -166,7 +205,7 @@ export function MiniMap({
     // Se não tem paradas, usar localização padrão (São Paulo)
     if (coordsForBounds.length === 0) {
       return {
-        latitude: -23.550520,
+        latitude: -23.55052,
         longitude: -46.633308,
         latitudeDelta: 0.02,
         longitudeDelta: 0.02,
@@ -175,8 +214,8 @@ export function MiniMap({
 
     // Centralizar APENAS nas paradas, não na localização do usuário
     // Isso evita que o mapa faça zoom out quando o usuário está longe das paradas
-    const lats = coordsForBounds.map(p => p.latitude);
-    const longs = coordsForBounds.map(p => p.longitude);
+    const lats = coordsForBounds.map((p) => p.latitude);
+    const longs = coordsForBounds.map((p) => p.longitude);
 
     const minLat = Math.min(...lats);
     const maxLat = Math.max(...lats);
@@ -197,15 +236,15 @@ export function MiniMap({
     };
   }, [coordsForBounds]);
 
-  const initialCamera = useMemo(
+  const initialCamera = useMemo<InitialViewState>(
     () => ({
-      centerCoordinate: toLngLat({
+      center: toLngLat({
         latitude: mapRegion.latitude,
         longitude: mapRegion.longitude,
       }),
-      zoomLevel: zoomFromLongitudeDelta(mapRegion.longitudeDelta),
+      zoom: zoomFromLongitudeDelta(mapRegion.longitudeDelta),
     }),
-    [mapRegion]
+    [mapRegion],
   );
 
   // Função para centralizar o mapa nas paradas (SEM incluir userLocation)
@@ -222,23 +261,32 @@ export function MiniMap({
     // Usando porcentagens da altura do mapa para diferença mais visível:
     // - Colapsado: ~40% vertical, ~30% horizontal (bem afastado)
     // - Expandido: ~12% vertical, ~8% horizontal (bem próximo)
-    const topPadding = expanded ? 30 : 60;    // 10% vs 40% da altura
-    const bottomPadding = expanded ? 5 : 20;  // ~2% vs ~13% da altura
+    const topPadding = expanded ? 30 : 60; // 10% vs 40% da altura
+    const bottomPadding = expanded ? 5 : 20; // ~2% vs ~13% da altura
     const horizontalPadding = expanded ? 20 : 45; // ~7% vs ~30% da largura típica
 
     cameraRef.current.fitBounds(
-      bounds.ne,
-      bounds.sw,
-      [topPadding, horizontalPadding, bottomPadding, horizontalPadding],
-      500
+      [bounds.sw[0], bounds.sw[1], bounds.ne[0], bounds.ne[1]],
+      {
+        padding: {
+          top: topPadding,
+          right: horizontalPadding,
+          bottom: bottomPadding,
+          left: horizontalPadding,
+        },
+        duration: 500,
+      },
     );
   }, [coordsForBounds, expanded]);
 
   // Callback quando o layout do mapa mudar (detecta redimensionamento real)
-  const handleMapLayout = useCallback((event: { nativeEvent: { layout: { height: number } } }) => {
-    const { height } = event.nativeEvent.layout;
-    setActualMapHeight(height);
-  }, []);
+  const handleMapLayout = useCallback(
+    (event: { nativeEvent: { layout: { height: number } } }) => {
+      const { height } = event.nativeEvent.layout;
+      setActualMapHeight(height);
+    },
+    [],
+  );
 
   // Ajustar mapa quando:
   // 1. O mapa estiver pronto
@@ -254,7 +302,13 @@ export function MiniMap({
       });
       return () => handle.cancel();
     }
-  }, [mapReady, coordsForBounds, actualMapHeight, expectedHeight, fitMapToParadas]);
+  }, [
+    mapReady,
+    coordsForBounds,
+    actualMapHeight,
+    expectedHeight,
+    fitMapToParadas,
+  ]);
 
   // Trigger adicional quando expanded muda - aguarda um frame para o layout atualizar
   useEffect(() => {
@@ -283,93 +337,120 @@ export function MiniMap({
         accessibilityRole="button"
       >
         <View style={{ flex: 1 }} onLayout={handleMapLayout}>
-          <MapLibreGL.MapView
+          <MapLibreGL.Map
             testID="map-view"
             style={[styles.map, { height: expectedHeight }]}
-            mapStyle={MAPLIBRE_RASTER_STYLE}
+            mapStyle={MAPLIBRE_RASTER_STYLE_JSON}
             onDidFinishLoadingMap={handleMapReady}
-            scrollEnabled={false}
-            zoomEnabled={false}
-            rotateEnabled={false}
-            pitchEnabled={false}
-            logoEnabled={false}
-            attributionEnabled={false}
+            dragPan={false}
+            touchZoom={false}
+            touchRotate={false}
+            touchPitch={false}
+            logo={false}
+            attribution={false}
           >
-          <MapLibreGL.Camera ref={cameraRef} defaultSettings={initialCamera} />
+            <MapLibreGL.Camera
+              ref={cameraRef}
+              initialViewState={initialCamera}
+            />
 
-          {userLocation && (
-            <MapLibreGL.MarkerView
-              coordinate={toLngLat(userLocation)}
-              anchor={{ x: 0.5, y: 0.5 }}
-            >
-              <Animated.View testID="marker" style={[styles.userMarker, { transform: [{ scale: pulseAnim }] }]}>
-                <View style={styles.userMarkerDot} />
-              </Animated.View>
-            </MapLibreGL.MarkerView>
-          )}
+            {userLocation && (
+              <MapLibreGL.Marker
+                lngLat={toLngLat(userLocation)}
+                anchor="center"
+              >
+                <Animated.View
+                  testID="marker"
+                  style={[
+                    styles.userMarker,
+                    { transform: [{ scale: pulseAnim }] },
+                  ]}
+                >
+                  <View style={styles.userMarkerDot} />
+                </Animated.View>
+              </MapLibreGL.Marker>
+            )}
 
-          {paradasConcluidas.map((parada) => (
-            <MapLibreGL.MarkerView
-              key={`concluida-${parada.id}`}
-              coordinate={toLngLat({
-                latitude: parada.latitude,
-                longitude: parada.longitude,
-              })}
-              anchor={{ x: 0.5, y: 0.5 }}
-            >
-              <View testID="marker" style={[styles.marker, styles.markerConcluida, { opacity: 0.5 }]}>
-                <Ionicons name="checkmark" size={12} color={theme.colors.white} />
-              </View>
-            </MapLibreGL.MarkerView>
-          ))}
+            {paradasConcluidas.map((parada) => (
+              <MapLibreGL.Marker
+                key={`concluida-${parada.id}`}
+                lngLat={toLngLat({
+                  latitude: parada.latitude,
+                  longitude: parada.longitude,
+                })}
+                anchor="center"
+              >
+                <View
+                  testID="marker"
+                  style={[
+                    styles.marker,
+                    styles.markerConcluida,
+                    { opacity: 0.5 },
+                  ]}
+                >
+                  <Ionicons
+                    name="checkmark"
+                    size={12}
+                    color={theme.colors.white}
+                  />
+                </View>
+              </MapLibreGL.Marker>
+            ))}
 
-          {paradasRestantes.map((parada, index) => (
-            <MapLibreGL.MarkerView
-              key={`pendente-${parada.id}`}
-              coordinate={toLngLat({
-                latitude: parada.latitude,
-                longitude: parada.longitude,
-              })}
-              anchor={{ x: 0.5, y: 0.5 }}
-            >
-              <View testID="marker" style={[
-                styles.marker,
-                index === 0 ? styles.markerNext : styles.markerPending,
-              ]}>
-                <Text style={styles.markerText}>{parada.ordem}</Text>
-              </View>
-            </MapLibreGL.MarkerView>
-          ))}
+            {paradasRestantes.map((parada, index) => (
+              <MapLibreGL.Marker
+                key={`pendente-${parada.id}`}
+                lngLat={toLngLat({
+                  latitude: parada.latitude,
+                  longitude: parada.longitude,
+                })}
+                anchor="center"
+              >
+                <View
+                  testID="marker"
+                  style={[
+                    styles.marker,
+                    index === 0 ? styles.markerNext : styles.markerPending,
+                  ]}
+                >
+                  <Text style={styles.markerText}>{parada.ordem}</Text>
+                </View>
+              </MapLibreGL.Marker>
+            ))}
 
-          {/* Checkpoints - Pontos de partida/chegada da unidade (não são paradas de entrega) */}
-          {checkpoints.map((checkpoint) => (
-            <MapLibreGL.MarkerView
-              key={`checkpoint-${checkpoint.id}`}
-              coordinate={toLngLat({
-                latitude: checkpoint.latitude,
-                longitude: checkpoint.longitude,
-              })}
-              anchor={{ x: 0.5, y: 0.5 }}
-            >
-              <View style={styles.checkpointMarker}>
-                <Ionicons
-                  name={checkpoint.ordem === 0 ? 'location' : 'flag'}
-                  size={20}
-                  color={theme.colors.primary}
+            {/* Checkpoints - Pontos de partida/chegada da unidade (não são paradas de entrega) */}
+            {checkpoints.map((checkpoint) => (
+              <MapLibreGL.Marker
+                key={`checkpoint-${checkpoint.id}`}
+                lngLat={toLngLat({
+                  latitude: checkpoint.latitude,
+                  longitude: checkpoint.longitude,
+                })}
+                anchor="center"
+              >
+                <View style={styles.checkpointMarker}>
+                  <Ionicons
+                    name={checkpoint.ordem === 0 ? 'location' : 'flag'}
+                    size={20}
+                    color={theme.colors.primary}
+                  />
+                </View>
+              </MapLibreGL.Marker>
+            ))}
+
+            {routeShape && (
+              <MapLibreGL.GeoJSONSource id="rota-mini" data={routeShape}>
+                <MapLibreGL.Layer
+                  id="rota-mini-line"
+                  type="line"
+                  paint={{
+                    'line-color': theme.colors.primary,
+                    'line-width': 3,
+                  }}
                 />
-              </View>
-            </MapLibreGL.MarkerView>
-          ))}
-
-          {routeShape && (
-            <MapLibreGL.ShapeSource id="rota-mini" shape={routeShape}>
-              <MapLibreGL.LineLayer
-                id="rota-mini-line"
-                style={{ lineColor: theme.colors.primary, lineWidth: 3 }}
-              />
-            </MapLibreGL.ShapeSource>
-          )}
-          </MapLibreGL.MapView>
+              </MapLibreGL.GeoJSONSource>
+            )}
+          </MapLibreGL.Map>
         </View>
 
         <View style={styles.overlay}>
@@ -427,7 +508,6 @@ export function MiniMap({
             </TouchableOpacity>
           </View>
         </View>
-
       </TouchableOpacity>
     </View>
   );

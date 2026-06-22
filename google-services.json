@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "436609146332",
-    "project_id": "rota-mestre-681d7",
-    "storage_bucket": "rota-mestre-681d7.firebasestorage.app"
+    "project_number": "576641899942",
+    "project_id": "rota-mestre-97084",
+    "storage_bucket": "rota-mestre-97084.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:436609146332:android:117914c81354087a1f4319",
+        "mobilesdk_app_id": "1:576641899942:android:ce17de82eff711db98c367",
         "android_client_info": {
-          "package_name": "br.tec.rotamestre"
+          "package_name": "br.tec.rotamestre.app"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyB6CUDs4Nh6OXrnVuOc7Pz77HBvp-J41mw"
+          "current_key": "AIzaSyCFe-i5hSK6rFIhif-KKIwI2WW7iiPDj6A"
         }
       ],
       "services": {

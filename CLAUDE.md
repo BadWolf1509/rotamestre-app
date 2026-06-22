@@ -85,13 +85,14 @@ Installed in `.claude/`:
 
 ## External services in use
 
-- **Supabase** project `xezslsyxjivunmhhyxtd` — Postgres + Auth + Storage + Realtime.
+- **Supabase** project `xezslsyxjivunmhhyxtd` — Postgres + Auth + Storage + Realtime. The one platform account never lost (data + backend live here).
+- **App identity** (rebuilt 2026-06 after the original Firebase/Play/Expo accounts were lost — see memory + `docs/REBUILD_RELAUNCH_PLAN.md`): Android package **`br.tec.rotamestre.app`** · EAS project **`c6401a59-af97-484a-93b7-c75016bf331d`** (owner `@wellington.ribeiro.mkt`) · Firebase **`rota-mestre-97084`** (FCM push, validated end-to-end). All wired in `app.config.js`.
 - **Sentry** — web production only; DSN via `EXPO_PUBLIC_SENTRY_DSN`.
 - **Vercel** — auto-deploy on push to `main`; CSP whitelists Supabase, OSRM, Photon, OpenStreetMap tiles, Sentry.
-- **EAS** — Android builds (production = `.aab`).
+- **EAS** — Android builds (production `.aab`; internal/preview `.apk` with install link/QR). Supabase env vars live **per-environment on EAS** (`eas env:*`), NOT in the repo — a local build without them falls back to `placeholder.supabase.co`.
 - **Asaas** — billing pending; `unidades.asaas_customer_id` is the join key when work begins.
 
 ---
 
-**Last verified:** 2026-05-18 (Expo 55, RN 0.83.1, ~5438 tests / ~74% coverage)
+**Last verified:** 2026-06-16 (Expo 56, RN 0.85.3, ~5626 tests / ~74% coverage; app rebuilt under new package/EAS/Firebase — see memory)
 **Refresh checklist:** `cd rotamestre-app && grep -E '"(expo|react-native|@supabase)"' package.json` for version snapshot. Re-read `database/MIGRATIONS.md` after migrations land. Confirm Sentry DSN still set in Vercel env vars.

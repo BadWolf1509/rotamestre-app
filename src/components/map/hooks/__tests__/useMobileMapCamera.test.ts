@@ -9,15 +9,15 @@ describe('useMobileMapCamera', () => {
     const { result } = renderHook(() => useMobileMapCamera([]));
     expect(result.current.cameraRef).toBeDefined();
     expect(result.current.initialCamera).toBeDefined();
-    expect(result.current.initialCamera.centerCoordinate).toBeDefined();
-    expect(result.current.initialCamera.zoomLevel).toBeDefined();
+    expect(result.current.initialCamera.center).toBeDefined();
+    expect(result.current.initialCamera.zoom).toBeDefined();
   });
 
   it('sets initialCamera to default coords when no paradas', () => {
     const { result } = renderHook(() => useMobileMapCamera([]));
     // Default region: lat=0, lng=0, deltas=0.05
     // toLngLat returns [lng, lat] = [0, 0]
-    const [lng, lat] = result.current.initialCamera.centerCoordinate;
+    const [lng, lat] = result.current.initialCamera.center;
     expect(lat).toBe(0);
     expect(lng).toBe(0);
   });
@@ -37,7 +37,7 @@ describe('useMobileMapCamera', () => {
     const { result } = renderHook(() =>
       useMobileMapCamera(paradas as Parameters<typeof useMobileMapCamera>[0]),
     );
-    const [lng, lat] = result.current.initialCamera.centerCoordinate;
+    const [lng, lat] = result.current.initialCamera.center;
     expect(lat).toBeCloseTo(-23.55);
     expect(lng).toBeCloseTo(-46.63);
   });
@@ -66,7 +66,7 @@ describe('useMobileMapCamera', () => {
     const { result } = renderHook(() =>
       useMobileMapCamera(paradas as Parameters<typeof useMobileMapCamera>[0]),
     );
-    const [lng, lat] = result.current.initialCamera.centerCoordinate;
+    const [lng, lat] = result.current.initialCamera.center;
     // Center between -23 and -24 → -23.5
     expect(lat).toBeCloseTo(-23.5);
     // Center between -46 and -47 → -46.5

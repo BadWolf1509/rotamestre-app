@@ -19,7 +19,7 @@ module.exports = ({ config }) => {
     description: "Sistema inteligente de gestão e rastreamento de rotas de entrega em tempo real. Otimize suas entregas, acompanhe motoristas e melhore a eficiência logística da sua empresa.",
     // EAS Update configuration for OTA updates
     updates: {
-      url: "https://u.expo.dev/1ea74080-a787-46db-abbf-d303d1b7a9d4"
+      url: "https://u.expo.dev/c6401a59-af97-484a-93b7-c75016bf331d"
     },
     runtimeVersion: {
       policy: "appVersion"
@@ -35,12 +35,12 @@ module.exports = ({ config }) => {
       EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "",
       router: {},
       eas: {
-        projectId: "1ea74080-a787-46db-abbf-d303d1b7a9d4"
+        projectId: "c6401a59-af97-484a-93b7-c75016bf331d"
       }
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "br.tec.rotamestre",
+      bundleIdentifier: "br.tec.rotamestre.app",
       infoPlist: {
         NSLocationWhenInUseUsageDescription: "O RotaMestre precisa acessar sua localização para mostrar sua posição no mapa e calcular rotas.",
         NSLocationAlwaysAndWhenInUseUsageDescription: "O RotaMestre precisa acessar sua localização em segundo plano para rastrear o progresso da entrega e permitir que o gestor acompanhe a rota em tempo real.",
@@ -58,7 +58,7 @@ module.exports = ({ config }) => {
       },
       icon: "./assets/icon.png",
       predictiveBackGestureEnabled: false,
-      package: "br.tec.rotamestre",
+      package: "br.tec.rotamestre.app",
       versionCode: resolvedAndroidVersionCode, // From package.json
       // Firebase Cloud Messaging para Push Notifications
       googleServicesFile: "./google-services.json",

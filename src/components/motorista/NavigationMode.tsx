@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import MapLibreGL, { type CameraRef } from '@maplibre/maplibre-react-native';
+import * as MapLibreGL from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
@@ -21,7 +21,12 @@ import {
 } from '@/hooks/navigation';
 import { useAlert } from '@/hooks/useAlert';
 import { logger } from '@/lib/logger';
-import { MAPLIBRE_RASTER_STYLE, toLineString, toLngLat, zoomFromLongitudeDelta } from '@/lib/maplibre';
+import {
+  MAPLIBRE_RASTER_STYLE_JSON,
+  toLineString,
+  toLngLat,
+  zoomFromLongitudeDelta,
+} from '@/lib/maplibre';
 import { calculateHaversineDistance } from '@/services/turnByTurnNavigation';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -29,6 +34,8 @@ import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 import { NavigationInfoPanel } from './NavigationInfoPanel';
 import { NavigationSettings } from './NavigationSettings';
 import { TurnByTurnNavigation } from './TurnByTurnNavigation';
+
+import type { CameraRef } from '@maplibre/maplibre-react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -82,16 +89,17 @@ export function NavigationMode({
 
   const routeShape = useMemo(
     () => (routePath.length >= 2 ? toLineString(routePath) : null),
-    [routePath]
+    [routePath],
   );
 
   const cameraRef = useRef<CameraRef>(null);
 
   // Feedback hooks (haptics + sound)
-  const { triggerHaptic, playNotificationSound, cleanupSound } = useNavigationFeedback({
-    vibrationAlerts: preferences.vibrationAlerts,
-    soundAlerts: preferences.soundAlerts,
-  });
+  const { triggerHaptic, playNotificationSound, cleanupSound } =
+    useNavigationFeedback({
+      vibrationAlerts: preferences.vibrationAlerts,
+      soundAlerts: preferences.soundAlerts,
+    });
 
   // Animation refs for UI improvements
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -101,7 +109,6 @@ export function NavigationMode({
     complete: new Animated.Value(1),
   }).current;
   const isPulsingRef = useRef(false);
-
 
   useEffect(() => {
     const initialize = async () => {
@@ -114,7 +121,13 @@ export function NavigationMode({
       stopNavigation();
       cleanupSound();
     };
-  }, [loadPreferences, setIsInitializing, startNavigation, stopNavigation, cleanupSound]);
+  }, [
+    loadPreferences,
+    setIsInitializing,
+    startNavigation,
+    stopNavigation,
+    cleanupSound,
+  ]);
 
   useEffect(() => {
     let subscription: Location.LocationSubscription | null = null;
@@ -136,9 +149,9 @@ export function NavigationMode({
               longitude: location.coords.longitude,
               heading: location.coords.heading,
             },
-            location.coords.speed
+            location.coords.speed,
           );
-        }
+        },
       );
     })();
 
@@ -155,19 +168,23 @@ export function NavigationMode({
   // OSRM route fetching is now handled by useNavigationModeLogic hook
 
   // Action handlers (complete, skip, exit, open in maps)
-  const { handleOpenInMaps, handleCompleteStop, handleSkipStop, handleExitNavigation } =
-    useNavigationActions({
-      currentStop,
-      preferences,
-      triggerHaptic,
-      playNotificationSound,
-      showConfirm,
-      setNavigationMode,
-      stopNavigation,
-      onComplete,
-      onSkip,
-      onExit,
-    });
+  const {
+    handleOpenInMaps,
+    handleCompleteStop,
+    handleSkipStop,
+    handleExitNavigation,
+  } = useNavigationActions({
+    currentStop,
+    preferences,
+    triggerHaptic,
+    playNotificationSound,
+    showConfirm,
+    setNavigationMode,
+    stopNavigation,
+    onComplete,
+    onSkip,
+    onExit,
+  });
 
   // formatDistance is now provided by useNavigationModeLogic hook
 
@@ -179,7 +196,7 @@ export function NavigationMode({
         userLocation.latitude,
         userLocation.longitude,
         currentStop.latitude,
-        currentStop.longitude
+        currentStop.longitude,
       );
 
       // Se está perto (< 1km), mostrar ambos os pontos com padding
@@ -196,16 +213,18 @@ export function NavigationMode({
         return {
           latitude: (minLat + maxLat) / 2,
           longitude: (minLon + maxLon) / 2,
-          latitudeDelta: Math.max(0.008, (maxLat - minLat) + latPadding * 2),
-          longitudeDelta: Math.max(0.008, (maxLon - minLon) + lonPadding * 2),
+          latitudeDelta: Math.max(0.008, maxLat - minLat + latPadding * 2),
+          longitudeDelta: Math.max(0.008, maxLon - minLon + lonPadding * 2),
         };
       }
 
       // Se está longe, focar no usuário com zoom mais alto para navegação
       // Calcular zoom baseado na distância (quanto mais longe, menos zoom)
       let delta = 0.01; // ~1km view - padrão para navegação
-      if (distanceToDestination > 10000) delta = 0.05; // ~5km view
-      else if (distanceToDestination > 5000) delta = 0.03; // ~3km view
+      if (distanceToDestination > 10000)
+        delta = 0.05; // ~5km view
+      else if (distanceToDestination > 5000)
+        delta = 0.03; // ~3km view
       else if (distanceToDestination > 2000) delta = 0.02; // ~2km view
 
       return {
@@ -227,15 +246,15 @@ export function NavigationMode({
   }, [userLocation, currentStop]);
 
   const region = getRegion();
-  const cameraSettings = useMemo(() => {
+  const cameraSettings = useMemo<MapLibreGL.CameraStop | null>(() => {
     if (!region) return null;
     return {
-      centerCoordinate: toLngLat({
+      center: toLngLat({
         latitude: region.latitude,
         longitude: region.longitude,
       }),
-      zoomLevel: zoomFromLongitudeDelta(region.longitudeDelta),
-      animationDuration: 500,
+      zoom: zoomFromLongitudeDelta(region.longitudeDelta),
+      duration: 500,
     };
   }, [region]);
 
@@ -256,7 +275,7 @@ export function NavigationMode({
             duration: 600,
             useNativeDriver: true,
           }),
-        ])
+        ]),
       ).start();
     } else if (distance !== null && distance >= 100 && isPulsingRef.current) {
       isPulsingRef.current = false;
@@ -266,7 +285,10 @@ export function NavigationMode({
   }, [distance, pulseAnim, triggerHaptic]);
 
   // Button press animation helpers
-  const animateButtonPress = (button: 'skip' | 'maps' | 'complete', pressed: boolean) => {
+  const animateButtonPress = (
+    button: 'skip' | 'maps' | 'complete',
+    pressed: boolean,
+  ) => {
     Animated.spring(buttonScaleAnims[button], {
       toValue: pressed ? 0.95 : 1,
       useNativeDriver: true,
@@ -280,10 +302,10 @@ export function NavigationMode({
   const recenterMap = useCallback(() => {
     if (cameraRef.current && userLocation) {
       triggerHaptic('impact');
-      cameraRef.current.setCamera({
-        centerCoordinate: toLngLat(userLocation),
-        zoomLevel: zoomFromLongitudeDelta(0.005),
-        animationDuration: 500,
+      cameraRef.current.setStop({
+        center: toLngLat(userLocation),
+        zoom: zoomFromLongitudeDelta(0.005),
+        duration: 500,
       });
     }
   }, [userLocation, triggerHaptic]);
@@ -324,50 +346,51 @@ export function NavigationMode({
   return (
     <View style={styles.container}>
       {/* Map */}
-      <MapLibreGL.MapView
+      <MapLibreGL.Map
         testID="map-view"
         style={styles.map}
-        mapStyle={MAPLIBRE_RASTER_STYLE}
-        rotateEnabled={false}
-        pitchEnabled={false}
-        compassEnabled={false}
-        logoEnabled={false}
-        attributionEnabled={false}
+        mapStyle={MAPLIBRE_RASTER_STYLE_JSON}
+        touchRotate={false}
+        touchPitch={false}
+        compass={false}
+        logo={false}
+        attribution={false}
       >
         {cameraSettings && (
           <MapLibreGL.Camera ref={cameraRef} {...cameraSettings} />
         )}
 
         {userLocation && (
-          <MapLibreGL.MarkerView
-            coordinate={toLngLat(userLocation)}
-            anchor={{ x: 0.5, y: 0.5 }}
-          >
+          <MapLibreGL.Marker lngLat={toLngLat(userLocation)} anchor="center">
             <View style={styles.userLocationMarker}>
               <View style={styles.userLocationDot} />
             </View>
-          </MapLibreGL.MarkerView>
+          </MapLibreGL.Marker>
         )}
 
         {/* Current Destination Marker (parada atual) */}
-        <MapLibreGL.MarkerView
-          coordinate={toLngLat({
+        <MapLibreGL.Marker
+          lngLat={toLngLat({
             latitude: currentStop.latitude,
             longitude: currentStop.longitude,
           })}
-          anchor={{ x: 0.5, y: 0.5 }}
+          anchor="center"
         >
-          <View style={[
-            styles.currentDestinationMarker,
-            isEntrega ? styles.currentDestinationEntrega : styles.currentDestinationRetirada,
-          ]}>
+          <View
+            style={[
+              styles.currentDestinationMarker,
+              isEntrega
+                ? styles.currentDestinationEntrega
+                : styles.currentDestinationRetirada,
+            ]}
+          >
             <Ionicons
               name={isEntrega ? 'cube' : 'arrow-up-circle'}
               size={18}
               color={theme.colors.white}
             />
           </View>
-        </MapLibreGL.MarkerView>
+        </MapLibreGL.Marker>
 
         {/* Other pending stops (excluding current and checkpoints) */}
         {realParadas
@@ -375,74 +398,82 @@ export function NavigationMode({
           .map((parada) => {
             const isNextStop = nextStopAfterCurrent?.id === parada.id;
             return (
-              <MapLibreGL.MarkerView
+              <MapLibreGL.Marker
                 key={parada.id}
-                coordinate={toLngLat({
+                lngLat={toLngLat({
                   latitude: parada.latitude,
                   longitude: parada.longitude,
                 })}
-                anchor={{ x: 0.5, y: 0.5 }}
+                anchor="center"
               >
-                <View style={[
-                  styles.otherMarker,
-                  isNextStop && styles.nextStopMarker,
-                  !isNextStop && { opacity: 0.6 },
-                ]}>
-                  <Text style={[
-                    styles.markerText,
-                    isNextStop && styles.nextStopMarkerText,
-                  ]}>
+                <View
+                  style={[
+                    styles.otherMarker,
+                    isNextStop && styles.nextStopMarker,
+                    !isNextStop && { opacity: 0.6 },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.markerText,
+                      isNextStop && styles.nextStopMarkerText,
+                    ]}
+                  >
                     {parada.ordem}
                   </Text>
                 </View>
-              </MapLibreGL.MarkerView>
+              </MapLibreGL.Marker>
             );
           })}
 
         {/* Route Polyline */}
         {routeShape && (
-          <MapLibreGL.ShapeSource id="rota-navigation" shape={routeShape}>
-            <MapLibreGL.LineLayer
+          <MapLibreGL.GeoJSONSource id="rota-navigation" data={routeShape}>
+            <MapLibreGL.Layer
               id="rota-navigation-line"
-              style={{ lineColor: theme.colors.primary, lineWidth: 4 }}
+              type="line"
+              paint={{ 'line-color': theme.colors.primary, 'line-width': 4 }}
             />
-          </MapLibreGL.ShapeSource>
+          </MapLibreGL.GeoJSONSource>
         )}
 
         {/* Start Checkpoint Marker (ponto de partida) */}
         {startCheckpoint && startCheckpoint.id !== currentStop.id && (
-          <MapLibreGL.MarkerView
-            coordinate={toLngLat({
+          <MapLibreGL.Marker
+            lngLat={toLngLat({
               latitude: startCheckpoint.latitude,
               longitude: startCheckpoint.longitude,
             })}
-            anchor={{ x: 0.5, y: 0.5 }}
+            anchor="center"
           >
             <View style={styles.checkpointMarker}>
               <Ionicons name="flag" size={14} color={theme.colors.success} />
             </View>
-          </MapLibreGL.MarkerView>
+          </MapLibreGL.Marker>
         )}
 
         {/* End Checkpoint Marker (ponto de chegada/retorno) */}
         {endCheckpoint && endCheckpoint.id !== currentStop.id && (
-          <MapLibreGL.MarkerView
-            coordinate={toLngLat({
+          <MapLibreGL.Marker
+            lngLat={toLngLat({
               latitude: endCheckpoint.latitude,
               longitude: endCheckpoint.longitude,
             })}
-            anchor={{ x: 0.5, y: 0.5 }}
+            anchor="center"
           >
             <View style={styles.checkpointMarker}>
               <Ionicons name="home" size={14} color={theme.colors.info} />
             </View>
-          </MapLibreGL.MarkerView>
+          </MapLibreGL.Marker>
         )}
-      </MapLibreGL.MapView>
+      </MapLibreGL.Map>
 
       {/* Top Bar */}
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.exitButton} onPress={handleExitNavigation}>
+        <TouchableOpacity
+          style={styles.exitButton}
+          onPress={handleExitNavigation}
+        >
           <Ionicons name="close" size={24} color={theme.colors.white} />
         </TouchableOpacity>
 
@@ -457,7 +488,11 @@ export function NavigationMode({
           style={styles.settingsButton}
           onPress={() => setShowSettings(true)}
         >
-          <Ionicons name="settings-outline" size={24} color={theme.colors.white} />
+          <Ionicons
+            name="settings-outline"
+            size={24}
+            color={theme.colors.white}
+          />
         </TouchableOpacity>
       </View>
 
@@ -474,7 +509,12 @@ export function NavigationMode({
 
       {/* Navigation Info Panel */}
       {/* Usa Math.max para garantir mínimo de 34px (Android 15 pode retornar insets.bottom = 0) */}
-      <View style={[styles.infoPanel, { paddingBottom: theme.spacing.xl + Math.max(insets.bottom, 34) }]}>
+      <View
+        style={[
+          styles.infoPanel,
+          { paddingBottom: theme.spacing.xl + Math.max(insets.bottom, 34) },
+        ]}
+      >
         <NavigationInfoPanel
           currentStop={currentStop}
           nextStop={nextStop}
@@ -707,5 +747,3 @@ const styles = StyleSheet.create((theme: Theme) => ({
     bottom: 0,
   },
 }));
-
-

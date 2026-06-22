@@ -12,7 +12,10 @@ import { useRef, useEffect, useMemo, type RefObject } from 'react';
 import { getBounds, toLngLat, zoomFromLongitudeDelta } from '@/lib/maplibre';
 import type { ParadaMapItem as Parada } from '@/types/parada-map';
 
-import type { CameraRef } from '@maplibre/maplibre-react-native';
+import type {
+  CameraRef,
+  InitialViewState,
+} from '@maplibre/maplibre-react-native';
 
 type MapRegion = {
   latitude: number;
@@ -21,10 +24,7 @@ type MapRegion = {
   longitudeDelta: number;
 };
 
-interface InitialCamera {
-  centerCoordinate: [number, number];
-  zoomLevel: number;
-}
+type InitialCamera = InitialViewState;
 
 interface UseMobileMapCameraResult {
   cameraRef: RefObject<CameraRef | null>;
@@ -96,10 +96,11 @@ export function useMobileMapCamera(
       if (!bounds) return undefined;
       const timer = setTimeout(() => {
         cameraRef.current?.fitBounds(
-          bounds.ne,
-          bounds.sw,
-          [50, 50, 50, 50],
-          500,
+          [bounds.sw[0], bounds.sw[1], bounds.ne[0], bounds.ne[1]],
+          {
+            padding: { top: 50, right: 50, bottom: 50, left: 50 },
+            duration: 500,
+          },
         );
       }, 500);
 
@@ -113,13 +114,13 @@ export function useMobileMapCamera(
     [paradasComCoord],
   );
 
-  const initialCamera = useMemo(
+  const initialCamera = useMemo<InitialCamera>(
     () => ({
-      centerCoordinate: toLngLat({
+      center: toLngLat({
         latitude: initialRegion.latitude,
         longitude: initialRegion.longitude,
       }),
-      zoomLevel: zoomFromLongitudeDelta(initialRegion.longitudeDelta),
+      zoom: zoomFromLongitudeDelta(initialRegion.longitudeDelta),
     }),
     [initialRegion],
   );

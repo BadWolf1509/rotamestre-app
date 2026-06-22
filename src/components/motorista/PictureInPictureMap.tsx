@@ -9,10 +9,10 @@
  * @see usePiPPosition for position persistence
  */
 
-import { Ionicons } from "@expo/vector-icons";
-import MapLibreGL, { type CameraRef } from "@maplibre/maplibre-react-native";
-import * as Haptics from "expo-haptics";
-import React, { useEffect, useRef, useMemo, useState } from "react";
+import { Ionicons } from '@expo/vector-icons';
+import * as MapLibreGL from '@maplibre/maplibre-react-native';
+import * as Haptics from 'expo-haptics';
+import React, { useEffect, useRef, useMemo, useState } from 'react';
 import {
   Animated,
   TouchableOpacity,
@@ -21,29 +21,31 @@ import {
   useWindowDimensions,
   ActivityIndicator,
   Platform,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   EDGE_PADDING,
   MIN_SAFE_TOP_POSITION,
   PIP_WIDTH,
   usePiPRouteInfo,
-} from "@/hooks/navigation";
-import type { PictureInPictureMapProps } from "@/hooks/navigation";
-import { usePiPAnimation } from "@/hooks/navigation/pip/usePiPAnimation";
-import { usePiPGestures } from "@/hooks/navigation/pip/usePiPGestures";
-import { usePiPPositioning } from "@/hooks/navigation/pip/usePiPPositioning";
-import { usePiPPulse } from "@/hooks/navigation/pip/usePiPPulse";
-import { usePiPPosition } from "@/hooks/usePiPPosition";
+} from '@/hooks/navigation';
+import type { PictureInPictureMapProps } from '@/hooks/navigation';
+import { usePiPAnimation } from '@/hooks/navigation/pip/usePiPAnimation';
+import { usePiPGestures } from '@/hooks/navigation/pip/usePiPGestures';
+import { usePiPPositioning } from '@/hooks/navigation/pip/usePiPPositioning';
+import { usePiPPulse } from '@/hooks/navigation/pip/usePiPPulse';
+import { usePiPPosition } from '@/hooks/usePiPPosition';
 import {
-  MAPLIBRE_RASTER_STYLE,
+  MAPLIBRE_RASTER_STYLE_JSON,
   toLineString,
   toLngLat,
   zoomFromLongitudeDelta,
-} from "@/lib/maplibre";
-import { withOpacity } from "@/utils/color";
-import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
+} from '@/lib/maplibre';
+import { withOpacity } from '@/utils/color';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+
+import type { CameraRef } from '@maplibre/maplibre-react-native';
 
 export function PictureInPictureMap({
   visible,
@@ -175,7 +177,7 @@ export function PictureInPictureMap({
 
   // Close handler with haptic
   const handleClose = () => {
-    if (Platform.OS !== "web") {
+    if (Platform.OS !== 'web') {
       Haptics.selectionAsync();
     }
     onClose();
@@ -206,15 +208,15 @@ export function PictureInPictureMap({
     return null;
   }, [userLocation, destination]);
 
-  const cameraSettings = useMemo(() => {
+  const cameraSettings = useMemo<MapLibreGL.CameraStop | null>(() => {
     if (!region) return null;
     return {
-      centerCoordinate: toLngLat({
+      center: toLngLat({
         latitude: region.latitude,
         longitude: region.longitude,
       }),
-      zoomLevel: zoomFromLongitudeDelta(region.longitudeDelta),
-      animationDuration: 500,
+      zoom: zoomFromLongitudeDelta(region.longitudeDelta),
+      duration: 500,
     };
   }, [region]);
 
@@ -235,17 +237,17 @@ export function PictureInPictureMap({
       {...panResponder.panHandlers}
     >
       {/* Map */}
-      <MapLibreGL.MapView
+      <MapLibreGL.Map
         testID="pip-map-view"
-        style={[styles.map, { pointerEvents: isExpanded ? "auto" : "none" }]}
-        mapStyle={MAPLIBRE_RASTER_STYLE}
-        rotateEnabled={false}
-        pitchEnabled={false}
-        scrollEnabled={isExpanded}
-        zoomEnabled={isExpanded}
-        compassEnabled={false}
-        logoEnabled={false}
-        attributionEnabled={false}
+        style={[styles.map, { pointerEvents: isExpanded ? 'auto' : 'none' }]}
+        mapStyle={MAPLIBRE_RASTER_STYLE_JSON}
+        touchRotate={false}
+        touchPitch={false}
+        dragPan={isExpanded}
+        touchZoom={isExpanded}
+        compass={false}
+        logo={false}
+        attribution={false}
         onDidFinishLoadingMap={() => setMapLoading(false)}
       >
         {cameraSettings && (
@@ -253,19 +255,17 @@ export function PictureInPictureMap({
         )}
 
         {routeShape && (
-          <MapLibreGL.ShapeSource id="rota-pip" shape={routeShape}>
-            <MapLibreGL.LineLayer
+          <MapLibreGL.GeoJSONSource id="rota-pip" data={routeShape}>
+            <MapLibreGL.Layer
               id="rota-pip-line"
-              style={{ lineColor: theme.colors.primary, lineWidth: 4 }}
+              type="line"
+              paint={{ 'line-color': theme.colors.primary, 'line-width': 4 }}
             />
-          </MapLibreGL.ShapeSource>
+          </MapLibreGL.GeoJSONSource>
         )}
 
         {userLocation && userHeading !== undefined && (
-          <MapLibreGL.MarkerView
-            coordinate={toLngLat(userLocation)}
-            anchor={{ x: 0.5, y: 0.5 }}
-          >
+          <MapLibreGL.Marker lngLat={toLngLat(userLocation)} anchor="center">
             <View
               style={[
                 styles.userDirectionMarker,
@@ -274,29 +274,23 @@ export function PictureInPictureMap({
             >
               <Ionicons name="navigate" size={20} color={theme.colors.info} />
             </View>
-          </MapLibreGL.MarkerView>
+          </MapLibreGL.Marker>
         )}
 
         {userLocation && userHeading === undefined && (
-          <MapLibreGL.MarkerView
-            coordinate={toLngLat(userLocation)}
-            anchor={{ x: 0.5, y: 0.5 }}
-          >
+          <MapLibreGL.Marker lngLat={toLngLat(userLocation)} anchor="center">
             <View style={styles.userLocationMarker} />
-          </MapLibreGL.MarkerView>
+          </MapLibreGL.Marker>
         )}
 
         {destination && (
-          <MapLibreGL.MarkerView
-            coordinate={toLngLat(destination)}
-            anchor={{ x: 0.5, y: 0.5 }}
-          >
+          <MapLibreGL.Marker lngLat={toLngLat(destination)} anchor="center">
             <View style={styles.destinationMarker}>
               <Ionicons name="location" size={20} color={theme.colors.error} />
             </View>
-          </MapLibreGL.MarkerView>
+          </MapLibreGL.Marker>
         )}
-      </MapLibreGL.MapView>
+      </MapLibreGL.Map>
 
       {/* Drag overlay (covers map when collapsed to allow drag) */}
       {!isExpanded && (
@@ -352,7 +346,7 @@ export function PictureInPictureMap({
           ]}
         >
           <Ionicons
-            name={stopType === "retirada" ? "cube-outline" : "gift-outline"}
+            name={stopType === 'retirada' ? 'cube-outline' : 'gift-outline'}
             size={12}
             color={theme.colors.white}
           />
@@ -363,18 +357,18 @@ export function PictureInPictureMap({
       )}
 
       {/* Controls overlay */}
-      <View style={[styles.controls, { pointerEvents: "box-none" }]}>
+      <View style={[styles.controls, { pointerEvents: 'box-none' }]}>
         <TouchableOpacity
           testID="pip-expand-button"
           style={[styles.controlButton, isExpanded && styles.collapseButton]}
           onPress={toggleExpand}
           activeOpacity={0.8}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityLabel={isExpanded ? "Minimizar mapa" : "Expandir mapa"}
+          accessibilityLabel={isExpanded ? 'Minimizar mapa' : 'Expandir mapa'}
           accessibilityRole="button"
         >
           <Ionicons
-            name={isExpanded ? "contract" : "expand"}
+            name={isExpanded ? 'contract' : 'expand'}
             size={18}
             color={theme.colors.white}
           />
@@ -419,10 +413,10 @@ export function PictureInPictureMap({
 
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
-    position: "absolute",
+    position: 'absolute',
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.lg,
-    overflow: "hidden",
+    overflow: 'hidden',
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -435,26 +429,26 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   dragOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "transparent",
+    backgroundColor: 'transparent',
     zIndex: 5,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: withOpacity(theme.colors.white, 0.8),
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   instructionBar: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     backgroundColor: withOpacity(theme.colors.gray800, 0.9),
-    paddingHorizontal: theme.spacing["2"],
-    paddingVertical: theme.spacing["1.5"],
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing["1.5"],
+    paddingHorizontal: theme.spacing['2'],
+    paddingVertical: theme.spacing['1.5'],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing['1.5'],
     zIndex: 15,
     borderTopLeftRadius: theme.borderRadius.lg,
     borderTopRightRadius: theme.borderRadius.lg,
@@ -463,53 +457,53 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
     fontSize: theme.typography.fontSize.xs,
     color: theme.colors.white,
-    fontWeight: "500",
+    fontWeight: '500',
   },
   progressBadge: {
-    position: "absolute",
-    top: theme.spacing["2"],
-    left: theme.spacing["2"],
+    position: 'absolute',
+    top: theme.spacing['2'],
+    left: theme.spacing['2'],
     backgroundColor: withOpacity(theme.colors.success, 0.9),
     borderRadius: theme.borderRadius.xs,
-    paddingHorizontal: theme.spacing["2"],
-    paddingVertical: theme.spacing["1"],
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing["1"],
+    paddingHorizontal: theme.spacing['2'],
+    paddingVertical: theme.spacing['1'],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing['1'],
     zIndex: 10,
   },
   progressBadgeWithInstruction: {
-    top: theme.spacing["8"],
+    top: theme.spacing['8'],
   },
   progressText: {
     fontSize: theme.typography.fontSize.xs,
     color: theme.colors.white,
-    fontWeight: "600",
+    fontWeight: '600',
   },
   etaBadge: {
-    position: "absolute",
-    bottom: theme.spacing["2"],
-    left: theme.spacing["2"],
+    position: 'absolute',
+    bottom: theme.spacing['2'],
+    left: theme.spacing['2'],
     backgroundColor: withOpacity(theme.colors.primary, 0.9),
     borderRadius: theme.borderRadius.xs,
-    paddingHorizontal: theme.spacing["2"],
-    paddingVertical: theme.spacing["1"],
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing["1"],
+    paddingHorizontal: theme.spacing['2'],
+    paddingVertical: theme.spacing['1'],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing['1'],
     zIndex: 10,
   },
   etaText: {
     fontSize: theme.typography.fontSize.xs,
     color: theme.colors.white,
-    fontWeight: "600",
+    fontWeight: '600',
   },
   controls: {
-    position: "absolute",
-    top: theme.spacing["2"],
-    right: theme.spacing["2"],
-    flexDirection: "row",
-    gap: theme.spacing["2"],
+    position: 'absolute',
+    top: theme.spacing['2'],
+    right: theme.spacing['2'],
+    flexDirection: 'row',
+    gap: theme.spacing['2'],
     zIndex: 20,
   },
   controlButton: {
@@ -517,8 +511,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     height: 44,
     borderRadius: theme.borderRadius.full,
     backgroundColor: withOpacity(theme.colors.black, 0.6),
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   collapseButton: {
     backgroundColor: withOpacity(theme.colors.primary, 0.9),
@@ -530,13 +524,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: withOpacity(theme.colors.error, 0.9),
   },
   dragIndicator: {
-    position: "absolute",
+    position: 'absolute',
     bottom: 4,
     left: 0,
     right: 0,
-    alignItems: "center",
+    alignItems: 'center',
     zIndex: 10,
-    pointerEvents: "none",
+    pointerEvents: 'none',
   },
   dragBar: {
     width: 30,
@@ -547,7 +541,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   destinationMarker: {
     backgroundColor: theme.colors.white,
     borderRadius: 15,
-    padding: theme.spacing["1"],
+    padding: theme.spacing['1'],
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
@@ -559,8 +553,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     height: 32,
     borderRadius: 16,
     backgroundColor: theme.colors.white,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import MapLibreGL from '@maplibre/maplibre-react-native';
+import * as MapLibreGL from '@maplibre/maplibre-react-native';
 import React, { useMemo, useCallback } from 'react';
 import { View, TouchableOpacity, Text, Linking, Platform } from 'react-native';
 
@@ -7,7 +7,7 @@ import { useDirectionsMobile } from '@/components/map/hooks';
 import { getStatusColor } from '@/components/map/infoWindowBuilders';
 import { useAlert } from '@/hooks/useAlert';
 import {
-  MAPLIBRE_RASTER_STYLE,
+  MAPLIBRE_RASTER_STYLE_JSON,
   toLineString,
   toLngLat,
   zoomFromLongitudeDelta,
@@ -105,20 +105,20 @@ export function MapaRN({
   );
 
   // Calculate initial camera settings (must be before any conditional returns)
-  const initialCamera = useMemo(() => {
+  const initialCamera = useMemo<MapLibreGL.InitialViewState>(() => {
     if (validParadas.length === 0) {
       return {
-        centerCoordinate: [-43.1729, -22.9068] as [number, number], // Default: Rio de Janeiro
-        zoomLevel: 10,
+        center: [-43.1729, -22.9068] as [number, number], // Default: Rio de Janeiro
+        zoom: 10,
       };
     }
     const firstParada = validParadas[0];
     return {
-      centerCoordinate: toLngLat({
+      center: toLngLat({
         latitude: firstParada.latitude,
         longitude: firstParada.longitude,
       }),
-      zoomLevel: zoomFromLongitudeDelta(0.05),
+      zoom: zoomFromLongitudeDelta(0.05),
     };
   }, [validParadas]);
 
@@ -132,13 +132,13 @@ export function MapaRN({
 
   return (
     <View style={styles.container}>
-      <MapLibreGL.MapView
+      <MapLibreGL.Map
         style={styles.map}
-        mapStyle={MAPLIBRE_RASTER_STYLE}
-        logoEnabled={false}
-        attributionEnabled={false}
+        mapStyle={MAPLIBRE_RASTER_STYLE_JSON}
+        logo={false}
+        attribution={false}
       >
-        <MapLibreGL.Camera defaultSettings={initialCamera} />
+        <MapLibreGL.Camera initialViewState={initialCamera} />
 
         {/* Stop Markers */}
         {validParadas.map((parada) => {
@@ -154,13 +154,13 @@ export function MapaRN({
             : `Parada ${parada.ordem}`;
 
           return (
-            <MapLibreGL.MarkerView
+            <MapLibreGL.Marker
               key={parada.id}
-              coordinate={toLngLat({
+              lngLat={toLngLat({
                 latitude: parada.latitude,
                 longitude: parada.longitude,
               })}
-              anchor={{ x: 0.5, y: 0.5 }}
+              anchor="center"
             >
               <TouchableOpacity
                 onPress={() => onMarkerPress?.(parada.id)}
@@ -202,20 +202,21 @@ export function MapaRN({
                   </View>
                 </View>
               </TouchableOpacity>
-            </MapLibreGL.MarkerView>
+            </MapLibreGL.Marker>
           );
         })}
 
         {/* Route Polyline */}
         {routeShape && (
-          <MapLibreGL.ShapeSource id="rota-gestor" shape={routeShape}>
-            <MapLibreGL.LineLayer
+          <MapLibreGL.GeoJSONSource id="rota-gestor" data={routeShape}>
+            <MapLibreGL.Layer
               id="rota-gestor-line"
-              style={{ lineColor: theme.colors.primary, lineWidth: 4 }}
+              type="line"
+              paint={{ 'line-color': theme.colors.primary, 'line-width': 4 }}
             />
-          </MapLibreGL.ShapeSource>
+          </MapLibreGL.GeoJSONSource>
         )}
-      </MapLibreGL.MapView>
+      </MapLibreGL.Map>
 
       {/* Route Info Box */}
       {directions && (

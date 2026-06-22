@@ -63,7 +63,13 @@ export function useNavigationActions(
         })),
       );
       if (!bounds) return;
-      cameraRef.current.fitBounds(bounds.ne, bounds.sw, [80, 50, 120, 50], 500);
+      cameraRef.current.fitBounds(
+        [bounds.sw[0], bounds.sw[1], bounds.ne[0], bounds.ne[1]],
+        {
+          padding: { top: 80, right: 50, bottom: 120, left: 50 },
+          duration: 500,
+        },
+      );
     }
   }, [cameraRef, paradasComCoord]);
 

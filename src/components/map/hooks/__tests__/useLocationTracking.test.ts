@@ -6,14 +6,14 @@ import { useLocationTracking } from '../useLocationTracking';
 
 // expo-location is mocked globally via jest.setup.js / jest-expo
 
-const mockSetCamera = jest.fn();
+const mockSetStop = jest.fn();
 
 function makeCameraRef() {
-  const ref = createRef<{ setCamera: jest.Mock } | null>() as ReturnType<
+  const ref = createRef<{ setStop: jest.Mock } | null>() as ReturnType<
     typeof createRef
   >;
   // @ts-expect-error - setting current on read-only ref for test
-  ref.current = { setCamera: mockSetCamera };
+  ref.current = { setStop: mockSetStop };
   return ref;
 }
 
@@ -44,7 +44,7 @@ describe('useLocationTracking', () => {
     });
 
     expect(result.current.isLocating).toBe(false);
-    expect(mockSetCamera).toHaveBeenCalledTimes(1);
+    expect(mockSetStop).toHaveBeenCalledTimes(1);
   });
 
   it('shows warning when permission denied', async () => {
@@ -63,7 +63,7 @@ describe('useLocationTracking', () => {
       'Permissão negada',
       expect.any(String),
     );
-    expect(mockSetCamera).not.toHaveBeenCalled();
+    expect(mockSetStop).not.toHaveBeenCalled();
   });
 
   it('shows error when location throws', async () => {

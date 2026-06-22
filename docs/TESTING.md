@@ -5,7 +5,7 @@ Este documento descreve a arquitetura de testes, padrões e convenções utiliza
 ## Status Atual
 
 **Framework:** Jest + React Native Testing Library
-**Suites:** 285+, **Testes:** 5490+ passando
+**Suites:** 301+, **Testes:** 5626+ passando
 **Threshold de cobertura:** 73% lines (atual ~74%)
 
 ### Executando testes
@@ -35,8 +35,8 @@ npm test -- <padrão>      # filtrar por nome/caminho
 | Ferramenta                    | Versão | Propósito                             |
 | ----------------------------- | ------ | ------------------------------------- |
 | Jest                          | 29.x   | Test runner e framework de testes     |
-| jest-expo                     | 55.x   | Preset para projetos Expo             |
-| @testing-library/react-native | 12.x   | Utilitários para testar componentes   |
+| jest-expo                     | 56.x   | Preset para projetos Expo             |
+| @testing-library/react-native | 13.x   | Utilitários para testar componentes   |
 | @testing-library/jest-native  | 5.x    | Matchers adicionais para React Native |
 | jest-junit                    | 16.x   | Reporter XML para CI/CD               |
 
