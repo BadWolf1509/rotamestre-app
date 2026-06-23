@@ -1,4 +1,9 @@
-import { loginSchema, registerSchema, forgotPasswordSchema } from '../auth';
+import {
+  loginSchema,
+  registerSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+} from '../auth';
 
 // ============================================================================
 // loginSchema
@@ -170,5 +175,54 @@ describe('forgotPasswordSchema', () => {
     expect(forgotPasswordSchema.safeParse({ email: 'nope' }).success).toBe(
       false,
     );
+  });
+});
+
+// ============================================================================
+// resetPasswordSchema
+// ============================================================================
+
+describe('resetPasswordSchema', () => {
+  it('aceita senhas fortes e coincidentes', () => {
+    const r = resetPasswordSchema.safeParse({
+      password: 'Abcdef1!',
+      confirmPassword: 'Abcdef1!',
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('rejeita senha fraca (herda passwordSchema)', () => {
+    const r = resetPasswordSchema.safeParse({
+      password: 'fraca',
+      confirmPassword: 'fraca',
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it('rejeita confirmPassword vazio', () => {
+    const r = resetPasswordSchema.safeParse({
+      password: 'Abcdef1!',
+      confirmPassword: '',
+    });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(
+        r.error.issues.some((i) => i.message === 'Confirme sua senha'),
+      ).toBe(true);
+    }
+  });
+
+  it('rejeita senhas que não coincidem (path confirmPassword)', () => {
+    const r = resetPasswordSchema.safeParse({
+      password: 'Abcdef1!',
+      confirmPassword: 'Abcdef2!',
+    });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      const issue = r.error.issues.find((i) =>
+        i.path.includes('confirmPassword'),
+      );
+      expect(issue?.message).toBe('As senhas não coincidem');
+    }
   });
 });

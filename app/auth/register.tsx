@@ -1,5 +1,7 @@
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import { useForm, Controller } from 'react-hook-form';
 import { ScrollView, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -9,8 +11,11 @@ import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { signupRateLimiter } from '@/lib/rateLimiter';
-import { validatePassword, PASSWORD_MIN_LENGTH, isValidEmail } from '@/lib/schemas';
-import { TipoUsuario } from '@/types/usuario';
+import {
+  PASSWORD_MIN_LENGTH,
+  registerSchema,
+  type RegisterInput,
+} from '@/lib/schemas';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
 export default function Register() {
@@ -18,52 +23,34 @@ export default function Register() {
   const { isDesktop } = useResponsive();
   const insets = useSafeAreaInsets();
   const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
-  const [nome, setNome] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [tipo, setTipo] = useState<TipoUsuario>('motorista');
   const [loading, setLoading] = useState(false);
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<RegisterInput>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      nome: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+      tipo: 'motorista',
+    },
+    mode: 'onSubmit',
+    reValidateMode: 'onChange',
+  });
 
-  async function handleRegister() {
-    // Validação de campos obrigatórios
-    if (!nome || !email || !password || !confirmPassword) {
-      showWarning('Campos obrigatórios', 'Por favor, preencha todos os campos.');
-      return;
-    }
-
-    // Validação de nome (mínimo 3 caracteres)
-    if (nome.trim().length < 3) {
-      showWarning('Nome inválido', 'O nome deve ter pelo menos 3 caracteres.');
-      return;
-    }
-
-    // Validação de email
-    if (!isValidEmail(email)) {
-      showWarning('E-mail inválido', 'Por favor, insira um e-mail válido.');
-      return;
-    }
-
-    // Validação de senha forte
-    const passwordValidation = validatePassword(password);
-    if (!passwordValidation.valid) {
-      showWarning(
-        'Senha fraca',
-        `A senha precisa:\n• ${passwordValidation.errors.join('\n• ')}`
-      );
-      return;
-    }
-
-    // Verificar se senhas coincidem
-    if (password !== confirmPassword) {
-      showWarning('Senhas diferentes', 'As senhas digitadas não coincidem.');
-      return;
-    }
+  async function onSubmit(data: RegisterInput) {
+    const { nome, email, password, tipo } = data;
 
     // Verificar rate limit (proteção contra spam de registros)
-    const rateLimitCheck = await signupRateLimiter.checkLimit(email.toLowerCase());
+    const rateLimitCheck = await signupRateLimiter.checkLimit(email);
     if (!rateLimitCheck.allowed) {
-      showWarning('Muitas tentativas', rateLimitCheck.message || 'Aguarde antes de tentar novamente.');
+      showWarning(
+        'Muitas tentativas',
+        rateLimitCheck.message || 'Aguarde antes de tentar novamente.',
+      );
       return;
     }
 
@@ -73,16 +60,16 @@ export default function Register() {
       await authService.signUp(email, password, nome, tipo);
 
       // Registro bem-sucedido: resetar rate limit
-      await signupRateLimiter.recordAttempt(email.toLowerCase(), true);
+      await signupRateLimiter.recordAttempt(email, true);
 
       showSuccess(
         'Conta criada!',
         'Verifique seu e-mail para confirmar o cadastro.',
-        () => router.replace('/auth/login')
+        () => router.replace('/auth/login'),
       );
     } catch (error: unknown) {
       // Registrar tentativa falha
-      await signupRateLimiter.recordAttempt(email.toLowerCase(), false);
+      await signupRateLimiter.recordAttempt(email, false);
 
       // Usar error mapping para mensagem amigável
       showError(error);
@@ -110,68 +97,106 @@ export default function Register() {
             </Text>
 
             <View style={styles.form}>
-              <Input
-                label="Nome Completo"
-                required
-                placeholder="Digite seu nome"
-                value={nome}
-                onChangeText={setNome}
-                autoCapitalize="words"
+              <Controller
+                control={control}
+                name="nome"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <Input
+                    label="Nome Completo"
+                    required
+                    placeholder="Digite seu nome"
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    autoCapitalize="words"
+                    error={errors.nome?.message}
+                  />
+                )}
               />
 
-              <Input
-                label="E-mail"
-                required
-                placeholder="Digite seu e-mail"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
+              <Controller
+                control={control}
+                name="email"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <Input
+                    label="E-mail"
+                    required
+                    placeholder="Digite seu e-mail"
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    error={errors.email?.message}
+                  />
+                )}
               />
 
-              <Input
-                label="Senha"
-                required
-                placeholder={`Mínimo ${PASSWORD_MIN_LENGTH} caracteres, maiúscula, número e especial`}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                autoComplete="password"
+              <Controller
+                control={control}
+                name="password"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <Input
+                    label="Senha"
+                    required
+                    placeholder={`Mínimo ${PASSWORD_MIN_LENGTH} caracteres, maiúscula, número e especial`}
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    secureTextEntry
+                    autoComplete="password"
+                    error={errors.password?.message}
+                  />
+                )}
               />
 
-              <Input
-                label="Confirmar Senha"
-                required
-                placeholder="Digite a senha novamente"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
+              <Controller
+                control={control}
+                name="confirmPassword"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <Input
+                    label="Confirmar Senha"
+                    required
+                    placeholder="Digite a senha novamente"
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    secureTextEntry
+                    error={errors.confirmPassword?.message}
+                  />
+                )}
               />
 
               <View style={styles.tipoSection}>
                 <Text variant="label" style={styles.tipoLabel}>
                   Tipo de Conta
                 </Text>
-                <View style={styles.tipoContainer}>
-                  <Button
-                    title="Motorista"
-                    variant={tipo === 'motorista' ? 'primary' : 'outline'}
-                    onPress={() => setTipo('motorista')}
-                    style={styles.tipoButton}
-                  />
-                  <Button
-                    title="Gestor"
-                    variant={tipo === 'gestor' ? 'primary' : 'outline'}
-                    onPress={() => setTipo('gestor')}
-                    style={styles.tipoButton}
-                  />
-                </View>
+                <Controller
+                  control={control}
+                  name="tipo"
+                  render={({ field: { onChange, value } }) => (
+                    <View style={styles.tipoContainer}>
+                      <Button
+                        title="Motorista"
+                        variant={value === 'motorista' ? 'primary' : 'outline'}
+                        onPress={() => onChange('motorista')}
+                        style={styles.tipoButton}
+                      />
+                      <Button
+                        title="Gestor"
+                        variant={value === 'gestor' ? 'primary' : 'outline'}
+                        onPress={() => onChange('gestor')}
+                        style={styles.tipoButton}
+                      />
+                    </View>
+                  )}
+                />
               </View>
 
               <Button
                 title="Criar Conta"
-                onPress={handleRegister}
+                onPress={handleSubmit(onSubmit)}
                 loading={loading}
                 disabled={loading}
                 fullWidth

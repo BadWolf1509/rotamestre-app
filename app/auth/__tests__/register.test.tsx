@@ -5,7 +5,6 @@ import { authService } from '@/lib/auth';
 
 // TypeScript declaration for global mock
 declare global {
-   
   var mockUseAlert: {
     showAlert: jest.Mock;
     showSuccess: jest.Mock;
@@ -59,13 +58,23 @@ describe('Register Screen', () => {
 
   describe('Renderização', () => {
     it('deve renderizar todos os elementos do formulário', () => {
-      const { getAllByText, getByText, getByPlaceholderText } = render(<Register />);
+      const { getAllByText, getByText, getByPlaceholderText } = render(
+        <Register />,
+      );
 
       expect(getAllByText('Criar Conta').length).toBeGreaterThan(0);
-      expect(getByText('Preencha os dados abaixo para criar sua conta no Rota Mestre')).toBeTruthy();
+      expect(
+        getByText(
+          'Preencha os dados abaixo para criar sua conta no Rota Mestre',
+        ),
+      ).toBeTruthy();
       expect(getByPlaceholderText('Digite seu nome')).toBeTruthy();
       expect(getByPlaceholderText('Digite seu e-mail')).toBeTruthy();
-      expect(getByPlaceholderText('Mínimo 8 caracteres, maiúscula, número e especial')).toBeTruthy();
+      expect(
+        getByPlaceholderText(
+          'Mínimo 8 caracteres, maiúscula, número e especial',
+        ),
+      ).toBeTruthy();
       expect(getByPlaceholderText('Digite a senha novamente')).toBeTruthy();
     });
 
@@ -118,7 +127,9 @@ describe('Register Screen', () => {
 
     it('deve atualizar campo senha', () => {
       const { getByPlaceholderText } = render(<Register />);
-      const input = getByPlaceholderText('Mínimo 8 caracteres, maiúscula, número e especial');
+      const input = getByPlaceholderText(
+        'Mínimo 8 caracteres, maiúscula, número e especial',
+      );
 
       fireEvent.changeText(input, 'Senha123!');
       expect(input.props.value).toBe('Senha123!');
@@ -135,13 +146,29 @@ describe('Register Screen', () => {
     it('deve alternar tipo de usuário para gestor', async () => {
       (authService.signUp as jest.Mock).mockResolvedValueOnce(undefined);
 
-      const { getByText, getByPlaceholderText, getAllByText } = render(<Register />);
+      const { getByText, getByPlaceholderText, getAllByText } = render(
+        <Register />,
+      );
       fireEvent.press(getByText('Gestor'));
 
-      fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
-      fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'gestor@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 8 caracteres, maiúscula, número e especial'), 'Senha123!');
-      fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), 'Senha123!');
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu nome'),
+        'João Silva',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu e-mail'),
+        'gestor@exemplo.com',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText(
+          'Mínimo 8 caracteres, maiúscula, número e especial',
+        ),
+        'Senha123!',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite a senha novamente'),
+        'Senha123!',
+      );
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
       await waitFor(() => {
@@ -149,7 +176,7 @@ describe('Register Screen', () => {
           'gestor@exemplo.com',
           'Senha123!',
           'João Silva',
-          'gestor'
+          'gestor',
         );
       });
     });
@@ -157,13 +184,29 @@ describe('Register Screen', () => {
     it('deve alternar tipo de usuário para motorista', async () => {
       (authService.signUp as jest.Mock).mockResolvedValueOnce(undefined);
 
-      const { getByText, getByPlaceholderText, getAllByText } = render(<Register />);
+      const { getByText, getByPlaceholderText, getAllByText } = render(
+        <Register />,
+      );
       fireEvent.press(getByText('Motorista'));
 
-      fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'Maria Souza');
-      fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'motorista@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 8 caracteres, maiúscula, número e especial'), 'Senha123!');
-      fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), 'Senha123!');
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu nome'),
+        'Maria Souza',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu e-mail'),
+        'motorista@exemplo.com',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText(
+          'Mínimo 8 caracteres, maiúscula, número e especial',
+        ),
+        'Senha123!',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite a senha novamente'),
+        'Senha123!',
+      );
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
       await waitFor(() => {
@@ -171,88 +214,193 @@ describe('Register Screen', () => {
           'motorista@exemplo.com',
           'Senha123!',
           'Maria Souza',
-          'motorista'
+          'motorista',
         );
       });
     });
   });
 
   describe('Validação de Formulário', () => {
-    it('deve mostrar erro ao submeter sem preencher campos', () => {
-      const { getAllByText } = render(<Register />);
-      const submitButton = getAllByText('Criar Conta')[1]; // Botão é o segundo elemento
+    it('deve exibir erros inline ao submeter sem preencher campos', async () => {
+      const { getByText, getAllByText } = render(<Register />);
 
-      fireEvent.press(submitButton);
-
-      expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Campos obrigatórios', 'Por favor, preencha todos os campos.');
-    });
-
-    it('deve mostrar erro ao submeter sem nome', () => {
-      const { getByPlaceholderText, getAllByText } = render(<Register />);
-
-      fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 8 caracteres, maiúscula, número e especial'), 'Senha123!');
-      fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), 'Senha123!');
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
-      expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Campos obrigatórios', 'Por favor, preencha todos os campos.');
+      await waitFor(() => {
+        expect(getByText('Nome deve ter no mínimo 3 caracteres')).toBeTruthy();
+        expect(getByText('E-mail é obrigatório')).toBeTruthy();
+        expect(getByText('Senha deve ter no mínimo 8 caracteres')).toBeTruthy();
+      });
+      expect(global.mockUseAlert.showWarning).not.toHaveBeenCalled();
+      expect(authService.signUp).not.toHaveBeenCalled();
     });
 
-    it('deve mostrar erro ao submeter sem email', () => {
-      const { getByPlaceholderText, getAllByText } = render(<Register />);
+    it('deve exibir erro inline ao submeter sem nome', async () => {
+      const { getByPlaceholderText, getByText, getAllByText } = render(
+        <Register />,
+      );
 
-      fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 8 caracteres, maiúscula, número e especial'), 'Senha123!');
-      fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), 'Senha123!');
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu e-mail'),
+        'joao@exemplo.com',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText(
+          'Mínimo 8 caracteres, maiúscula, número e especial',
+        ),
+        'Senha123!',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite a senha novamente'),
+        'Senha123!',
+      );
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
-      expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Campos obrigatórios', 'Por favor, preencha todos os campos.');
+      await waitFor(() => {
+        expect(getByText('Nome deve ter no mínimo 3 caracteres')).toBeTruthy();
+      });
+      expect(authService.signUp).not.toHaveBeenCalled();
     });
 
-    it('deve mostrar erro ao submeter sem senha', () => {
-      const { getByPlaceholderText, getAllByText } = render(<Register />);
+    it('deve exibir erro inline ao submeter sem email', async () => {
+      const { getByPlaceholderText, getByText, getAllByText } = render(
+        <Register />,
+      );
 
-      fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
-      fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), 'Senha123!');
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu nome'),
+        'João Silva',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText(
+          'Mínimo 8 caracteres, maiúscula, número e especial',
+        ),
+        'Senha123!',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite a senha novamente'),
+        'Senha123!',
+      );
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
-      expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Campos obrigatórios', 'Por favor, preencha todos os campos.');
+      await waitFor(() => {
+        expect(getByText('E-mail é obrigatório')).toBeTruthy();
+      });
+      expect(authService.signUp).not.toHaveBeenCalled();
     });
 
-    it('deve mostrar erro ao submeter sem confirmar senha', () => {
-      const { getByPlaceholderText, getAllByText } = render(<Register />);
+    it('deve exibir erro inline ao submeter sem senha', async () => {
+      const { getByPlaceholderText, getByText, getAllByText } = render(
+        <Register />,
+      );
 
-      fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
-      fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 8 caracteres, maiúscula, número e especial'), 'Senha123!');
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu nome'),
+        'João Silva',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu e-mail'),
+        'joao@exemplo.com',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite a senha novamente'),
+        'Senha123!',
+      );
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
-      expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Campos obrigatórios', 'Por favor, preencha todos os campos.');
+      await waitFor(() => {
+        expect(getByText('Senha deve ter no mínimo 8 caracteres')).toBeTruthy();
+      });
+      expect(authService.signUp).not.toHaveBeenCalled();
     });
 
-    it('deve mostrar erro quando senhas não coincidem', () => {
-      const { getByPlaceholderText, getAllByText } = render(<Register />);
+    it('deve exibir erro inline ao submeter sem confirmar senha', async () => {
+      const { getByPlaceholderText, getByText, getAllByText } = render(
+        <Register />,
+      );
 
-      fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
-      fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 8 caracteres, maiúscula, número e especial'), 'Senha123!');
-      fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), 'Outra456');
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu nome'),
+        'João Silva',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu e-mail'),
+        'joao@exemplo.com',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText(
+          'Mínimo 8 caracteres, maiúscula, número e especial',
+        ),
+        'Senha123!',
+      );
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
-      expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Senhas diferentes', 'As senhas digitadas não coincidem.');
+      await waitFor(() => {
+        expect(getByText('As senhas não coincidem')).toBeTruthy();
+      });
+      expect(authService.signUp).not.toHaveBeenCalled();
     });
 
-    it('deve mostrar erro quando senha é fraca', () => {
-      const { getByPlaceholderText, getAllByText } = render(<Register />);
+    it('deve exibir erro inline quando senhas não coincidem', async () => {
+      const { getByPlaceholderText, getByText, getAllByText } = render(
+        <Register />,
+      );
 
-      fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
-      fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 8 caracteres, maiúscula, número e especial'), '12345');
-      fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), '12345');
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu nome'),
+        'João Silva',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu e-mail'),
+        'joao@exemplo.com',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText(
+          'Mínimo 8 caracteres, maiúscula, número e especial',
+        ),
+        'Senha123!',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite a senha novamente'),
+        'Outra456',
+      );
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
-      expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith('Senha fraca', expect.stringContaining('Mínimo 8 caracteres'));
+      await waitFor(() => {
+        expect(getByText('As senhas não coincidem')).toBeTruthy();
+      });
+      expect(authService.signUp).not.toHaveBeenCalled();
+    });
+
+    it('deve exibir erro inline quando senha é fraca', async () => {
+      const { getByPlaceholderText, getByText, getAllByText } = render(
+        <Register />,
+      );
+
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu nome'),
+        'João Silva',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu e-mail'),
+        'joao@exemplo.com',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText(
+          'Mínimo 8 caracteres, maiúscula, número e especial',
+        ),
+        '12345',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite a senha novamente'),
+        '12345',
+      );
+      fireEvent.press(getAllByText('Criar Conta')[1]);
+
+      await waitFor(() => {
+        expect(getByText('Senha deve ter no mínimo 8 caracteres')).toBeTruthy();
+      });
+      expect(authService.signUp).not.toHaveBeenCalled();
     });
   });
 
@@ -262,10 +410,24 @@ describe('Register Screen', () => {
 
       const { getByPlaceholderText, getAllByText } = render(<Register />);
 
-      fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
-      fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 8 caracteres, maiúscula, número e especial'), 'Senha123!');
-      fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), 'Senha123!');
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu nome'),
+        'João Silva',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu e-mail'),
+        'joao@exemplo.com',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText(
+          'Mínimo 8 caracteres, maiúscula, número e especial',
+        ),
+        'Senha123!',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite a senha novamente'),
+        'Senha123!',
+      );
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
       await waitFor(() => {
@@ -273,7 +435,7 @@ describe('Register Screen', () => {
           'joao@exemplo.com',
           'Senha123!',
           'João Silva',
-          'motorista'
+          'motorista',
         );
       });
     });
@@ -281,12 +443,28 @@ describe('Register Screen', () => {
     it('deve chamar authService.signUp com tipo gestor', async () => {
       (authService.signUp as jest.Mock).mockResolvedValue(undefined);
 
-      const { getByPlaceholderText, getByText, getAllByText } = render(<Register />);
+      const { getByPlaceholderText, getByText, getAllByText } = render(
+        <Register />,
+      );
 
-      fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'Maria Gestora');
-      fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'maria@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 8 caracteres, maiúscula, número e especial'), 'Senha123!');
-      fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), 'Senha123!');
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu nome'),
+        'Maria Gestora',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu e-mail'),
+        'maria@exemplo.com',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText(
+          'Mínimo 8 caracteres, maiúscula, número e especial',
+        ),
+        'Senha123!',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite a senha novamente'),
+        'Senha123!',
+      );
       fireEvent.press(getByText('Gestor'));
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
@@ -295,7 +473,7 @@ describe('Register Screen', () => {
           'maria@exemplo.com',
           'Senha123!',
           'Maria Gestora',
-          'gestor'
+          'gestor',
         );
       });
     });
@@ -305,17 +483,31 @@ describe('Register Screen', () => {
 
       const { getByPlaceholderText, getAllByText } = render(<Register />);
 
-      fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
-      fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 8 caracteres, maiúscula, número e especial'), 'Senha123!');
-      fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), 'Senha123!');
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu nome'),
+        'João Silva',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu e-mail'),
+        'joao@exemplo.com',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText(
+          'Mínimo 8 caracteres, maiúscula, número e especial',
+        ),
+        'Senha123!',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite a senha novamente'),
+        'Senha123!',
+      );
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
       await waitFor(() => {
         expect(global.mockUseAlert.showSuccess).toHaveBeenCalledWith(
           'Conta criada!',
           'Verifique seu e-mail para confirmar o cadastro.',
-          expect.any(Function)
+          expect.any(Function),
         );
       });
     });
@@ -325,10 +517,24 @@ describe('Register Screen', () => {
 
       const { getByPlaceholderText, getAllByText } = render(<Register />);
 
-      fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
-      fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 8 caracteres, maiúscula, número e especial'), 'Senha123!');
-      fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), 'Senha123!');
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu nome'),
+        'João Silva',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu e-mail'),
+        'joao@exemplo.com',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText(
+          'Mínimo 8 caracteres, maiúscula, número e especial',
+        ),
+        'Senha123!',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite a senha novamente'),
+        'Senha123!',
+      );
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
       await waitFor(() => {
@@ -345,15 +551,29 @@ describe('Register Screen', () => {
 
     it('deve mostrar erro ao falhar registro com email duplicado', async () => {
       (authService.signUp as jest.Mock).mockRejectedValue(
-        new Error('User already registered')
+        new Error('User already registered'),
       );
 
       const { getByPlaceholderText, getAllByText } = render(<Register />);
 
-      fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
-      fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 8 caracteres, maiúscula, número e especial'), 'Senha123!');
-      fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), 'Senha123!');
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu nome'),
+        'João Silva',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu e-mail'),
+        'joao@exemplo.com',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText(
+          'Mínimo 8 caracteres, maiúscula, número e especial',
+        ),
+        'Senha123!',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite a senha novamente'),
+        'Senha123!',
+      );
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
       await waitFor(() => {
@@ -366,10 +586,24 @@ describe('Register Screen', () => {
 
       const { getByPlaceholderText, getAllByText } = render(<Register />);
 
-      fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
-      fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 8 caracteres, maiúscula, número e especial'), 'Senha123!');
-      fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), 'Senha123!');
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu nome'),
+        'João Silva',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu e-mail'),
+        'joao@exemplo.com',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText(
+          'Mínimo 8 caracteres, maiúscula, número e especial',
+        ),
+        'Senha123!',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite a senha novamente'),
+        'Senha123!',
+      );
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
       await waitFor(() => {
@@ -384,10 +618,24 @@ describe('Register Screen', () => {
 
       const { getByPlaceholderText, getAllByText } = render(<Register />);
 
-      fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
-      fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 8 caracteres, maiúscula, número e especial'), 'Senha123!');
-      fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), 'Senha123!');
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu nome'),
+        'João Silva',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu e-mail'),
+        'joao@exemplo.com',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText(
+          'Mínimo 8 caracteres, maiúscula, número e especial',
+        ),
+        'Senha123!',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite a senha novamente'),
+        'Senha123!',
+      );
 
       const submitButton = getAllByText('Criar Conta')[1];
       fireEvent.press(submitButton);
@@ -403,10 +651,24 @@ describe('Register Screen', () => {
 
       const { getByPlaceholderText, getAllByText } = render(<Register />);
 
-      fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
-      fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 8 caracteres, maiúscula, número e especial'), 'Senha123!');
-      fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), 'Senha123!');
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu nome'),
+        'João Silva',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu e-mail'),
+        'joao@exemplo.com',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText(
+          'Mínimo 8 caracteres, maiúscula, número e especial',
+        ),
+        'Senha123!',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite a senha novamente'),
+        'Senha123!',
+      );
 
       const submitButton = getAllByText('Criar Conta')[1];
       fireEvent.press(submitButton);
@@ -415,7 +677,7 @@ describe('Register Screen', () => {
         expect(global.mockUseAlert.showSuccess).toHaveBeenCalledWith(
           'Conta criada!',
           expect.any(String),
-          expect.any(Function)
+          expect.any(Function),
         );
       });
     });
@@ -451,7 +713,9 @@ describe('Register Screen', () => {
 
     it('input de senha deve ter secureTextEntry', () => {
       const { getByPlaceholderText } = render(<Register />);
-      const passwordInput = getByPlaceholderText('Mínimo 8 caracteres, maiúscula, número e especial');
+      const passwordInput = getByPlaceholderText(
+        'Mínimo 8 caracteres, maiúscula, número e especial',
+      );
 
       expect(passwordInput.props.secureTextEntry).toBe(true);
       expect(passwordInput.props.autoComplete).toBe('password');
@@ -472,10 +736,24 @@ describe('Register Screen', () => {
       const { getByPlaceholderText, getAllByText } = render(<Register />);
 
       // Preenche todos campos e submete
-      fireEvent.changeText(getByPlaceholderText('Digite seu nome'), 'João Silva');
-      fireEvent.changeText(getByPlaceholderText('Digite seu e-mail'), 'joao@exemplo.com');
-      fireEvent.changeText(getByPlaceholderText('Mínimo 8 caracteres, maiúscula, número e especial'), 'Senha123!');
-      fireEvent.changeText(getByPlaceholderText('Digite a senha novamente'), 'Senha123!');
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu nome'),
+        'João Silva',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite seu e-mail'),
+        'joao@exemplo.com',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText(
+          'Mínimo 8 caracteres, maiúscula, número e especial',
+        ),
+        'Senha123!',
+      );
+      fireEvent.changeText(
+        getByPlaceholderText('Digite a senha novamente'),
+        'Senha123!',
+      );
       fireEvent.press(getAllByText('Criar Conta')[1]);
 
       // Verifica que foi chamado com motorista (padrão)
@@ -484,7 +762,7 @@ describe('Register Screen', () => {
           expect.any(String),
           expect.any(String),
           expect.any(String),
-          'motorista'
+          'motorista',
         );
       });
     });
@@ -494,8 +772,14 @@ describe('Register Screen', () => {
 
       expect(getByPlaceholderText('Digite seu nome').props.value).toBe('');
       expect(getByPlaceholderText('Digite seu e-mail').props.value).toBe('');
-      expect(getByPlaceholderText('Mínimo 8 caracteres, maiúscula, número e especial').props.value).toBe('');
-      expect(getByPlaceholderText('Digite a senha novamente').props.value).toBe('');
+      expect(
+        getByPlaceholderText(
+          'Mínimo 8 caracteres, maiúscula, número e especial',
+        ).props.value,
+      ).toBe('');
+      expect(getByPlaceholderText('Digite a senha novamente').props.value).toBe(
+        '',
+      );
     });
 
     it('não deve estar em loading inicialmente', () => {

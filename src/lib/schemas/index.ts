@@ -35,9 +35,11 @@ export {
   loginSchema,
   registerSchema,
   forgotPasswordSchema,
+  resetPasswordSchema,
   type LoginInput,
   type RegisterInput,
   type ForgotPasswordInput,
+  type ResetPasswordInput,
 } from './auth';
 
 // Domain schemas
