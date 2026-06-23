@@ -144,7 +144,7 @@ describe('ParadaCard', () => {
     it('deve exibir tag Retirada para paradas de retirada', () => {
       const paradaRetirada = { ...mockParada, tipo: 'retirada' as const };
       const { getByText } = render(
-        <ParadaCard {...defaultProps} parada={paradaRetirada} />
+        <ParadaCard {...defaultProps} parada={paradaRetirada} />,
       );
 
       expect(getByText('Retirada')).toBeTruthy();
@@ -153,7 +153,7 @@ describe('ParadaCard', () => {
     it('deve exibir status "Concluida" para paradas concluídas', () => {
       const paradaConcluida = { ...mockParada, status: 'concluida' };
       const { getByText } = render(
-        <ParadaCard {...defaultProps} parada={paradaConcluida} />
+        <ParadaCard {...defaultProps} parada={paradaConcluida} />,
       );
 
       expect(getByText('Concluida')).toBeTruthy();
@@ -162,7 +162,7 @@ describe('ParadaCard', () => {
     it('deve exibir status "Em andamento" para paradas em andamento', () => {
       const paradaEmAndamento = { ...mockParada, status: 'em_andamento' };
       const { getByText } = render(
-        <ParadaCard {...defaultProps} parada={paradaEmAndamento} />
+        <ParadaCard {...defaultProps} parada={paradaEmAndamento} />,
       );
 
       expect(getByText('Em andamento')).toBeTruthy();
@@ -182,7 +182,7 @@ describe('ParadaCard', () => {
   describe('Card Selecionado', () => {
     it('deve aplicar estilo selecionado quando selected=true', () => {
       const { getByText } = render(
-        <ParadaCard {...defaultProps} selected={true} />
+        <ParadaCard {...defaultProps} selected={true} />,
       );
 
       expect(getByText('Rua das Flores, 123')).toBeTruthy();
@@ -193,7 +193,7 @@ describe('ParadaCard', () => {
     it('deve chamar onPress ao clicar no card', () => {
       const onPress = jest.fn();
       const { getByText } = render(
-        <ParadaCard {...defaultProps} onPress={onPress} />
+        <ParadaCard {...defaultProps} onPress={onPress} />,
       );
 
       fireEvent.press(getByText('Rua das Flores, 123'));
@@ -210,7 +210,7 @@ describe('ParadaCard', () => {
         foto_url: 'https://example.com/foto.jpg',
       };
       const { queryByTestId } = render(
-        <ParadaCard {...defaultProps} parada={paradaComFoto} />
+        <ParadaCard {...defaultProps} parada={paradaComFoto} />,
       );
 
       expect(queryByTestId('icon-expand-outline')).toBeTruthy();
@@ -223,7 +223,7 @@ describe('ParadaCard', () => {
         foto_url: null,
       };
       const { getByText, getByTestId } = render(
-        <ParadaCard {...defaultProps} parada={paradaSemFoto} />
+        <ParadaCard {...defaultProps} parada={paradaSemFoto} />,
       );
 
       expect(getByText('Sem foto registrada')).toBeTruthy();
@@ -242,7 +242,7 @@ describe('ParadaCard', () => {
           {...defaultProps}
           parada={paradaComFoto}
           onImagePress={onImagePress}
-        />
+        />,
       );
 
       const icon = getByTestId('icon-expand-outline');
@@ -272,32 +272,13 @@ describe('ParadaCard', () => {
       };
 
       const { getByText, queryByText } = render(
-        <ParadaCard {...defaultProps} parada={paradaMinima} />
+        <ParadaCard {...defaultProps} parada={paradaMinima} />,
       );
 
       expect(getByText('Rua Simples, 456')).toBeTruthy();
       expect(queryByText('Destinatario')).toBeNull();
       expect(queryByText('Telefone')).toBeNull();
       expect(queryByText('Observacoes')).toBeNull();
-    });
-  });
-
-  describe('Layout Capture', () => {
-    it('deve chamar onLayoutCapture com o id e posição Y', () => {
-      const onLayoutCapture = jest.fn();
-      const { UNSAFE_root } = render(
-        <ParadaCard {...defaultProps} onLayoutCapture={onLayoutCapture} />
-      );
-
-      // Simular evento de layout
-      const cardView = UNSAFE_root.children[0];
-      if (cardView && cardView.props?.onLayout) {
-        cardView.props.onLayout({
-          nativeEvent: { layout: { y: 100 } },
-        });
-
-        expect(onLayoutCapture).toHaveBeenCalledWith('parada-1', 100);
-      }
     });
   });
 });

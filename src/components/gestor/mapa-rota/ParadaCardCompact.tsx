@@ -19,7 +19,6 @@ interface ParadaCardCompactProps {
   onImagePress: (url: string) => void;
   selected?: boolean;
   onPress?: (id: string) => void;
-  onLayoutCapture?: (id: string, y: number) => void;
   /** Status da rota (para controlar exibição de ações de edição) */
   rotaStatus?: string;
   /** Callback para remover a parada */
@@ -29,7 +28,16 @@ interface ParadaCardCompactProps {
 }
 
 export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
-  ({ parada, index: _index, onImagePress, selected, onPress, onLayoutCapture, rotaStatus, onRemove, onEdit }) => {
+  ({
+    parada,
+    index: _index,
+    onImagePress,
+    selected,
+    onPress,
+    rotaStatus,
+    onRemove,
+    onEdit,
+  }) => {
     const { theme } = useUnistyles();
     const [imageError, setImageError] = useState(false);
     const [expanded, setExpanded] = useState(false);
@@ -44,7 +52,9 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
     const handleWhatsAppPress = useCallback(() => {
       if (parada.telefone) {
         const phoneNumber = parada.telefone.replace(/\D/g, '');
-        const formattedPhone = phoneNumber.startsWith('55') ? phoneNumber : `55${phoneNumber}`;
+        const formattedPhone = phoneNumber.startsWith('55')
+          ? phoneNumber
+          : `55${phoneNumber}`;
         Linking.openURL(`https://wa.me/${formattedPhone}`);
       }
     }, [parada.telefone]);
@@ -55,23 +65,39 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
     }, [onPress, parada.id]);
 
     const statusConfig = {
-      concluida: { name: 'checkmark-circle' as const, color: theme.colors.success, label: 'OK' },
-      pendente: { name: 'time' as const, color: theme.colors.warning, label: 'Pend' },
-      em_andamento: { name: 'navigate' as const, color: theme.colors.info, label: 'Em rota' },
-      pulada: { name: 'close-circle' as const, color: theme.colors.gray500, label: 'Pulada' },
+      concluida: {
+        name: 'checkmark-circle' as const,
+        color: theme.colors.success,
+        label: 'OK',
+      },
+      pendente: {
+        name: 'time' as const,
+        color: theme.colors.warning,
+        label: 'Pend',
+      },
+      em_andamento: {
+        name: 'navigate' as const,
+        color: theme.colors.info,
+        label: 'Em rota',
+      },
+      pulada: {
+        name: 'close-circle' as const,
+        color: theme.colors.gray500,
+        label: 'Pulada',
+      },
     };
 
-    const status = statusConfig[parada.status as keyof typeof statusConfig] || statusConfig.pendente;
+    const status =
+      statusConfig[parada.status as keyof typeof statusConfig] ||
+      statusConfig.pendente;
     const hasPhoto = parada.foto_url && !imageError;
     const showPhotoPlaceholder = parada.status === 'concluida' && !hasPhoto;
     const tipoIcon = parada.tipo === 'entrega' ? 'cube' : 'swap-horizontal';
-    const tipoColor = parada.tipo === 'entrega' ? theme.colors.info : theme.colors.warning;
+    const tipoColor =
+      parada.tipo === 'entrega' ? theme.colors.info : theme.colors.warning;
 
     return (
-      <View
-        style={[styles.card, selected && styles.cardSelected]}
-        onLayout={(e) => onLayoutCapture?.(parada.id, e.nativeEvent.layout.y)}
-      >
+      <View style={[styles.card, selected && styles.cardSelected]}>
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={handleCardPress}
@@ -90,7 +116,12 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
           </View>
 
           {/* Ícone do tipo (entrega/retirada) */}
-          <View style={[styles.typeIconContainer, { backgroundColor: `${tipoColor}15` }]}>
+          <View
+            style={[
+              styles.typeIconContainer,
+              { backgroundColor: `${tipoColor}15` },
+            ]}
+          >
             <Ionicons name={tipoIcon} size={16} color={tipoColor} />
           </View>
 
@@ -117,7 +148,11 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
             {/* Destinatário */}
             {parada.destinatario && (
               <View style={styles.detailRow}>
-                <Ionicons name="person-outline" size={14} color={theme.colors.gray500} />
+                <Ionicons
+                  name="person-outline"
+                  size={14}
+                  color={theme.colors.gray500}
+                />
                 <Text style={styles.detailText}>{parada.destinatario}</Text>
               </View>
             )}
@@ -125,7 +160,11 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
             {/* Telefone */}
             {parada.telefone && (
               <View style={styles.detailRow}>
-                <Ionicons name="call-outline" size={14} color={theme.colors.gray500} />
+                <Ionicons
+                  name="call-outline"
+                  size={14}
+                  color={theme.colors.gray500}
+                />
                 <Text style={styles.detailText}>{parada.telefone}</Text>
               </View>
             )}
@@ -133,7 +172,11 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
             {/* Observações */}
             {parada.observacoes && (
               <View style={styles.detailRow}>
-                <Ionicons name="document-text-outline" size={14} color={theme.colors.gray500} />
+                <Ionicons
+                  name="document-text-outline"
+                  size={14}
+                  color={theme.colors.gray500}
+                />
                 <Text style={styles.detailText}>{parada.observacoes}</Text>
               </View>
             )}
@@ -143,14 +186,35 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
               <View style={styles.actions}>
                 {parada.telefone && (
                   <>
-                    <TouchableOpacity style={styles.actionButton} onPress={handlePhonePress}>
-                      <Ionicons name="call" size={16} color={theme.colors.primary} />
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={handlePhonePress}
+                    >
+                      <Ionicons
+                        name="call"
+                        size={16}
+                        color={theme.colors.primary}
+                      />
                       <Text style={styles.actionText}>Ligar</Text>
                     </TouchableOpacity>
                     {Platform.OS !== 'web' && (
-                      <TouchableOpacity style={styles.actionButton} onPress={handleWhatsAppPress}>
-                        <Ionicons name="logo-whatsapp" size={16} color={theme.colors.whatsapp} />
-                        <Text style={[styles.actionText, { color: theme.colors.whatsapp }]}>WhatsApp</Text>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={handleWhatsAppPress}
+                      >
+                        <Ionicons
+                          name="logo-whatsapp"
+                          size={16}
+                          color={theme.colors.whatsapp}
+                        />
+                        <Text
+                          style={[
+                            styles.actionText,
+                            { color: theme.colors.whatsapp },
+                          ]}
+                        >
+                          WhatsApp
+                        </Text>
                       </TouchableOpacity>
                     )}
                   </>
@@ -160,8 +224,16 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
                     style={styles.actionButton}
                     onPress={() => onImagePress(parada.foto_url!)}
                   >
-                    <Ionicons name="image" size={16} color={theme.colors.info} />
-                    <Text style={[styles.actionText, { color: theme.colors.info }]}>Ver foto</Text>
+                    <Ionicons
+                      name="image"
+                      size={16}
+                      color={theme.colors.info}
+                    />
+                    <Text
+                      style={[styles.actionText, { color: theme.colors.info }]}
+                    >
+                      Ver foto
+                    </Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -184,7 +256,11 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
             {/* Indicador de foto ausente */}
             {showPhotoPlaceholder && (
               <View style={styles.noPhotoIndicator}>
-                <Ionicons name="camera-outline" size={20} color={theme.colors.gray400} />
+                <Ionicons
+                  name="camera-outline"
+                  size={20}
+                  color={theme.colors.gray400}
+                />
                 <Text style={styles.noPhotoText}>Sem foto registrada</Text>
               </View>
             )}
@@ -198,8 +274,19 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
                       style={styles.editActionButton}
                       onPress={() => onEdit(parada)}
                     >
-                      <Ionicons name="create-outline" size={16} color={theme.colors.secondary} />
-                      <Text style={[styles.actionText, { color: theme.colors.secondary }]}>Editar</Text>
+                      <Ionicons
+                        name="create-outline"
+                        size={16}
+                        color={theme.colors.secondary}
+                      />
+                      <Text
+                        style={[
+                          styles.actionText,
+                          { color: theme.colors.secondary },
+                        ]}
+                      >
+                        Editar
+                      </Text>
                     </TouchableOpacity>
                   )}
                   {onRemove && (
@@ -207,8 +294,19 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
                       style={[styles.editActionButton, styles.removeButton]}
                       onPress={() => onRemove(parada)}
                     >
-                      <Ionicons name="trash-outline" size={16} color={theme.colors.error} />
-                      <Text style={[styles.actionText, { color: theme.colors.error }]}>Remover</Text>
+                      <Ionicons
+                        name="trash-outline"
+                        size={16}
+                        color={theme.colors.error}
+                      />
+                      <Text
+                        style={[
+                          styles.actionText,
+                          { color: theme.colors.error },
+                        ]}
+                      >
+                        Remover
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -228,7 +326,7 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
       prevProps.selected === nextProps.selected &&
       prevProps.rotaStatus === nextProps.rotaStatus
     );
-  }
+  },
 );
 
 ParadaCardCompact.displayName = 'ParadaCardCompact';

@@ -21,11 +21,10 @@ interface ParadaCardProps {
   onImagePress: (url: string) => void;
   selected?: boolean;
   onPress?: (id: string) => void;
-  onLayoutCapture?: (id: string, y: number) => void;
 }
 
 export const ParadaCard = React.memo<ParadaCardProps>(
-  ({ parada, index: _index, onImagePress, selected, onPress, onLayoutCapture }) => {
+  ({ parada, index: _index, onImagePress, selected, onPress }) => {
     const { theme } = useUnistyles();
     const [imageError, setImageError] = useState(false);
 
@@ -40,7 +39,9 @@ export const ParadaCard = React.memo<ParadaCardProps>(
       if (parada.telefone) {
         const phoneNumber = parada.telefone.replace(/\D/g, '');
         // Adiciona código do país se não tiver
-        const formattedPhone = phoneNumber.startsWith('55') ? phoneNumber : `55${phoneNumber}`;
+        const formattedPhone = phoneNumber.startsWith('55')
+          ? phoneNumber
+          : `55${phoneNumber}`;
         Linking.openURL(`https://wa.me/${formattedPhone}`);
       }
     }, [parada.telefone]);
@@ -50,10 +51,7 @@ export const ParadaCard = React.memo<ParadaCardProps>(
       parada.status === 'concluida' && (!parada.foto_url || imageError);
 
     return (
-      <View
-        style={[styles.paradaCard, selected && styles.paradaCardSelected]}
-        onLayout={(e) => onLayoutCapture?.(parada.id, e.nativeEvent.layout.y)}
-      >
+      <View style={[styles.paradaCard, selected && styles.paradaCardSelected]}>
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={() => onPress?.(parada.id)}
@@ -71,7 +69,9 @@ export const ParadaCard = React.memo<ParadaCardProps>(
                 <View
                   style={[
                     styles.tipoTag,
-                    parada.tipo === 'entrega' ? styles.tipoTagEntrega : styles.tipoTagRetirada,
+                    parada.tipo === 'entrega'
+                      ? styles.tipoTagEntrega
+                      : styles.tipoTagRetirada,
                   ]}
                 >
                   <Text style={styles.tipoTagText}>
@@ -83,7 +83,8 @@ export const ParadaCard = React.memo<ParadaCardProps>(
                     styles.statusTag,
                     parada.status === 'concluida' && styles.statusTagConcluida,
                     parada.status === 'pendente' && styles.statusTagPendente,
-                    parada.status === 'em_andamento' && styles.statusTagEmAndamento,
+                    parada.status === 'em_andamento' &&
+                      styles.statusTagEmAndamento,
                     parada.status === 'pulada' && styles.statusTagPulada,
                   ]}
                 >
@@ -105,15 +106,22 @@ export const ParadaCard = React.memo<ParadaCardProps>(
               {parada.destinatario && (
                 <View style={styles.paradaMetaItem}>
                   <Text style={styles.paradaMetaLabel}>Destinatario</Text>
-                  <Text style={styles.paradaMetaValue}>{parada.destinatario}</Text>
+                  <Text style={styles.paradaMetaValue}>
+                    {parada.destinatario}
+                  </Text>
                 </View>
               )}
               {parada.telefone && (
                 <View style={styles.paradaMetaItem}>
                   <Text style={styles.paradaMetaLabel}>Telefone</Text>
                   <View style={styles.paradaTelefoneLink}>
-                    <TouchableOpacity onPress={handlePhonePress} activeOpacity={0.7}>
-                      <Text style={styles.paradaTelefoneLinkText}>{parada.telefone}</Text>
+                    <TouchableOpacity
+                      onPress={handlePhonePress}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.paradaTelefoneLinkText}>
+                        {parada.telefone}
+                      </Text>
                     </TouchableOpacity>
                     {Platform.OS !== 'web' && (
                       <TouchableOpacity
@@ -121,7 +129,11 @@ export const ParadaCard = React.memo<ParadaCardProps>(
                         activeOpacity={0.7}
                         style={{ marginLeft: 8 }}
                       >
-                        <Ionicons name="logo-whatsapp" size={18} color={theme.colors.success} />
+                        <Ionicons
+                          name="logo-whatsapp"
+                          size={18}
+                          color={theme.colors.success}
+                        />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -140,7 +152,11 @@ export const ParadaCard = React.memo<ParadaCardProps>(
         {/* Motivo do skip (quando parada pulada) */}
         {parada.status === 'pulada' && (
           <View style={styles.skipReasonContainer}>
-            <Ionicons name="information-circle-outline" size={14} color={theme.colors.warning} />
+            <Ionicons
+              name="information-circle-outline"
+              size={14}
+              color={theme.colors.warning}
+            />
             <Text style={styles.skipReasonText}>
               {parada.motivo_skip
                 ? SKIP_REASON_LABELS[parada.motivo_skip]
@@ -163,7 +179,11 @@ export const ParadaCard = React.memo<ParadaCardProps>(
             />
             <View style={styles.paradaFotoOverlay}>
               <View style={styles.paradaFotoOverlayIcon}>
-                <Ionicons name="expand-outline" size={22} color={theme.colors.gray700} />
+                <Ionicons
+                  name="expand-outline"
+                  size={22}
+                  color={theme.colors.gray700}
+                />
               </View>
             </View>
           </TouchableOpacity>
@@ -172,8 +192,14 @@ export const ParadaCard = React.memo<ParadaCardProps>(
         {/* Placeholder quando concluída mas sem foto */}
         {showPhotoPlaceholder && (
           <View style={styles.paradaFotoPlaceholder}>
-            <Ionicons name="camera-outline" size={24} color={theme.colors.gray400} />
-            <Text style={styles.paradaFotoPlaceholderText}>Sem foto registrada</Text>
+            <Ionicons
+              name="camera-outline"
+              size={24}
+              color={theme.colors.gray400}
+            />
+            <Text style={styles.paradaFotoPlaceholderText}>
+              Sem foto registrada
+            </Text>
           </View>
         )}
       </View>
@@ -187,7 +213,7 @@ export const ParadaCard = React.memo<ParadaCardProps>(
       prevProps.index === nextProps.index &&
       prevProps.selected === nextProps.selected
     );
-  }
+  },
 );
 
 ParadaCard.displayName = 'ParadaCard';

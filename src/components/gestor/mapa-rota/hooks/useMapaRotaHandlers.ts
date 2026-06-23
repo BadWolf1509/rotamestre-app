@@ -41,13 +41,11 @@ interface UseMapaRotaHandlersResult {
 
   // Refs
   listaParadasRef: React.RefObject<FlatList<Parada> | null>;
-  paradaPositions: React.MutableRefObject<Record<string, number>>;
 
   // Selection handlers
   handleMarkerPress: (paradaId: string) => void;
   handleMapPress: () => void;
   handleParadaPress: (paradaId: string) => void;
-  handleParadaLayout: (idParada: string, y: number) => void;
   handleImagePress: (url: string) => void;
   clearFotoSelecionada: () => void;
 
@@ -96,7 +94,6 @@ export function useMapaRotaHandlers({
 
   // Refs
   const listaParadasRef = useRef<FlatList<Parada> | null>(null);
-  const paradaPositions = useRef<Record<string, number>>({});
 
   // Helper to get ID string
   const getIdString = useCallback(() => {
@@ -133,10 +130,6 @@ export function useMapaRotaHandlers({
 
   const handleParadaPress = useCallback((paradaId: string) => {
     setSelectedParadaId(paradaId);
-  }, []);
-
-  const handleParadaLayout = useCallback((idParada: string, y: number) => {
-    paradaPositions.current[idParada] = y;
   }, []);
 
   const handleImagePress = useCallback((url: string) => {
@@ -457,13 +450,11 @@ export function useMapaRotaHandlers({
 
     // Refs
     listaParadasRef,
-    paradaPositions,
 
     // Selection handlers
     handleMarkerPress,
     handleMapPress,
     handleParadaPress,
-    handleParadaLayout,
     handleImagePress,
     clearFotoSelecionada,
 

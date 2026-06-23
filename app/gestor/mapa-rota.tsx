@@ -115,7 +115,6 @@ export default function MapaRota() {
     handleMarkerPress,
     handleMapPress,
     handleParadaPress,
-    handleParadaLayout,
     handleImagePress,
     clearFotoSelecionada,
     handleConfirmCancel,
@@ -625,7 +624,6 @@ export default function MapaRota() {
                       onImagePress={handleImagePress}
                       selected={selectedParadaId === parada.id}
                       onPress={handleParadaPress}
-                      onLayoutCapture={handleParadaLayout}
                     />
                   ))}
 
