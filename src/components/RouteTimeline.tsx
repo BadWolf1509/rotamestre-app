@@ -6,11 +6,21 @@
  * - TimelineDateHeader: Cabeçalho de grupo por data
  * - TimelineEventCard: Card individual de evento
  * - TimelineSkeleton: Estado de loading
+ *
+ * Dados: useTimelineData (hook é dono do acesso ao Supabase — carga inicial
+ * cacheada, paginação e realtime). Este componente só deriva a view (cor,
+ * isNew/isUnseen, agrupamento, animação) sobre os eventos crus.
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList, ListRenderItemInfo } from '@shopify/flash-list';
-import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useState,
+  useRef,
+  useMemo,
+} from 'react';
 import {
   View,
   Text,
@@ -21,15 +31,12 @@ import {
   UIManager,
 } from 'react-native';
 
+import { useTimelineData } from '@/hooks/gestao-rotas';
 import { useTimelineLastSeen } from '@/hooks/useTimelineLastSeen';
-import { logger } from '@/lib/logger';
-import { supabase } from '@/lib/supabase';
 import {
   getDateGroup,
   groupBy,
-  mapLogToTimelineEvent,
-  mapParadaToTimelineEvent,
-  mapIncidenteToTimelineEvent,
+  computeNewlyAddedIds,
   type TimelineSemanticColor,
 } from '@/lib/utils';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -41,17 +48,24 @@ import {
   TimelineSkeleton,
   type TimelineEvent,
   type FilterType,
-  PAGE_SIZE,
 } from './timeline';
 
 // Types for FlashList items
 type ListItemType =
   | { type: 'header'; date: string }
-  | { type: 'event'; event: TimelineEvent; isLastInGroup: boolean; nextEvent?: TimelineEvent }
+  | {
+      type: 'event';
+      event: TimelineEvent;
+      isLastInGroup: boolean;
+      nextEvent?: TimelineEvent;
+    }
   | { type: 'loadMore' };
 
 // Habilitar LayoutAnimation no Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+if (
+  Platform.OS === 'android' &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
@@ -95,15 +109,21 @@ export function RouteTimeline({
 }: RouteTimelineProps) {
   const { theme } = useUnistyles();
 
-  // State
-  const [events, setEvents] = useState<TimelineEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Dados (hook é dono): carga inicial + paginação + realtime.
+  const {
+    events: rawEvents,
+    loading,
+    hasMore,
+    loadingMore,
+    loadMore,
+    refresh,
+  } = useTimelineData(rotaId, { realtime });
+
+  // View state
   const [refreshing, setRefreshing] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterType>(defaultFilter);
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
-  const [hasMore, setHasMore] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [newIds, setNewIds] = useState<Set<string>>(new Set());
 
   // Hook para gerenciar "último visto"
   const {
@@ -114,127 +134,75 @@ export function RouteTimeline({
 
   // Refs
   const previousEventIds = useRef<Set<string>>(new Set());
+  const paginatingRef = useRef(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const hasMarkedAsSeen = useRef(false);
-  const loadIdRef = useRef(0);
-  const hasUpdatedUnseenRef = useRef(false);
+
+  // Resolver de cores
+  const getColor = useMemo(() => createColorResolver(theme), [theme]);
+
+  // isNew + animação: deriva quais ids são recém-adicionados a cada mudança.
+  // loadMore (paginação) e carga inicial não disparam o destaque de "novo".
+  useEffect(() => {
+    const currentIds = rawEvents.map((e) => e.id);
+    const added = computeNewlyAddedIds(
+      currentIds,
+      previousEventIds.current,
+      paginatingRef.current,
+    );
+    if (added.size > 0) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
+    setNewIds(added);
+    previousEventIds.current = new Set(currentIds);
+    paginatingRef.current = false;
+  }, [rawEvents]);
+
+  // Eventos de view: aplica cor + isNew + isUnseen sobre os eventos crus.
+  const events = useMemo<TimelineEvent[]>(() => {
+    const showUnseen = enableUnseenBadge && !lastSeenLoading;
+    return rawEvents.map((e) => ({
+      ...e,
+      icon: e.icon as keyof typeof Ionicons.glyphMap,
+      color: getColor(e.colorKey),
+      isNew: newIds.has(e.id),
+      isUnseen: showUnseen ? isUnseenEvent(e.timestamp) : false,
+    }));
+  }, [
+    rawEvents,
+    getColor,
+    newIds,
+    enableUnseenBadge,
+    lastSeenLoading,
+    isUnseenEvent,
+  ]);
 
   // Verificar se há eventos críticos
   const hasCriticalEvents = useMemo(
     () => events.some((e) => e.isCritical),
-    [events]
+    [events],
   );
-
-  // Resolver de cores
-  const getColor = useMemo(() => createColorResolver(theme), [theme]);
-  const getColorRef = useRef(getColor);
-  getColorRef.current = getColor;
 
   // Animação de pulse para eventos críticos
   useEffect(() => {
     if (!hasCriticalEvents) return;
     const pulseAnimation = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.05, duration: 800, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-      ])
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]),
     );
     pulseAnimation.start();
     return () => pulseAnimation.stop();
   }, [hasCriticalEvents, pulseAnim]);
-
-  // Load timeline data
-  const loadTimeline = useCallback(async (isRefresh = false) => {
-    const thisLoadId = ++loadIdRef.current;
-    try {
-      if (!isRefresh) setLoading(true);
-
-      const [logsRes, paradasRes, incidentesRes] = await Promise.all([
-        supabase.from('logs').select('id, evento, timestamp, detalhes').eq('rota_id', rotaId).order('timestamp', { ascending: false }).limit(PAGE_SIZE),
-        supabase.from('paradas').select('id, ordem, endereco, status, concluida_em, is_checkpoint, foto_url').eq('rota_id', rotaId).not('concluida_em', 'is', null),
-        supabase.from('incidentes').select('id, categoria, descricao, created_at, foto_url').eq('rota_id', rotaId),
-      ]);
-
-      if (thisLoadId !== loadIdRef.current) return;
-
-      if (logsRes.error) logger.error('[RouteTimeline] Erro ao buscar logs:', logsRes.error);
-      if (paradasRes.error) logger.error('[RouteTimeline] Erro ao buscar paradas:', paradasRes.error);
-      if (incidentesRes.error) logger.error('[RouteTimeline] Erro ao buscar incidentes:', incidentesRes.error);
-
-      setHasMore((logsRes.data?.length || 0) >= PAGE_SIZE);
-
-      const timelineEvents: TimelineEvent[] = [];
-
-      logsRes.data?.forEach((log: any) => {
-        const mapped = mapLogToTimelineEvent(log);
-        if (mapped) {
-          timelineEvents.push({
-            ...mapped,
-            icon: mapped.icon as keyof typeof Ionicons.glyphMap,
-            color: getColorRef.current(mapped.colorKey),
-          });
-        }
-      });
-
-      paradasRes.data?.forEach((parada: any) => {
-        const mapped = mapParadaToTimelineEvent(parada);
-        if (mapped) {
-          timelineEvents.push({
-            ...mapped,
-            icon: mapped.icon as keyof typeof Ionicons.glyphMap,
-            color: getColorRef.current(mapped.colorKey),
-          });
-        }
-      });
-
-      incidentesRes.data?.forEach((incidente: any) => {
-        const mapped = mapIncidenteToTimelineEvent(incidente);
-        timelineEvents.push({
-          ...mapped,
-          icon: mapped.icon as keyof typeof Ionicons.glyphMap,
-          color: getColorRef.current(mapped.colorKey),
-        });
-      });
-
-      timelineEvents.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-      const currentIds = new Set(timelineEvents.map((e) => e.id));
-      const isInitialLoad = previousEventIds.current.size === 0;
-      const newEvents = timelineEvents.map((event) => ({
-        ...event,
-        isNew: !isInitialLoad && !previousEventIds.current.has(event.id),
-        isUnseen: false,
-      }));
-      previousEventIds.current = currentIds;
-
-      if (!isInitialLoad && newEvents.some((e) => e.isNew)) {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      }
-
-      setEvents(newEvents);
-    } catch (error) {
-      logger.error('[RouteTimeline] Erro ao carregar timeline:', error);
-    } finally {
-      if (thisLoadId === loadIdRef.current) {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    }
-  }, [rotaId]);
-
-  useEffect(() => { loadTimeline(); }, [loadTimeline]);
-
-  // Atualizar isUnseen quando lastSeen carregar
-  useEffect(() => {
-    if (lastSeenLoading || !enableUnseenBadge || hasUpdatedUnseenRef.current) return;
-    setEvents((prev) => {
-      if (prev.length === 0) return prev;
-      hasUpdatedUnseenRef.current = true;
-      return prev.map((event) => ({ ...event, isUnseen: isUnseenEvent(event.timestamp) }));
-    });
-  }, [lastSeenLoading, enableUnseenBadge, isUnseenEvent]);
-
-  useEffect(() => { hasUpdatedUnseenRef.current = false; }, [rotaId]);
 
   // Notificar pai sobre contagem de não vistos
   useEffect(() => {
@@ -244,7 +212,14 @@ export function RouteTimeline({
 
   // Marcar como vistos após delay
   useEffect(() => {
-    if (!enableUnseenBadge || loading || lastSeenLoading || events.length === 0 || hasMarkedAsSeen.current) return;
+    if (
+      !enableUnseenBadge ||
+      loading ||
+      lastSeenLoading ||
+      events.length === 0 ||
+      hasMarkedAsSeen.current
+    )
+      return;
     const timer = setTimeout(() => {
       markAllAsSeen(events.map((e) => ({ timestamp: e.timestamp })));
       hasMarkedAsSeen.current = true;
@@ -252,35 +227,25 @@ export function RouteTimeline({
     return () => clearTimeout(timer);
   }, [enableUnseenBadge, loading, lastSeenLoading, events, markAllAsSeen]);
 
-  // Realtime subscriptions
   useEffect(() => {
-    if (!realtime) return;
-    const channel = supabase
-      .channel(`route-timeline-${rotaId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'logs', filter: `rota_id=eq.${rotaId}` }, (payload) => {
-        const newLog = payload.new as { id: string; evento: string; timestamp: string; detalhes?: Record<string, any> | null };
-        const mapped = mapLogToTimelineEvent(newLog);
-        if (mapped) {
-          setEvents((prev) => {
-            if (prev.some((e) => e.id === mapped.id)) return prev;
-            const newEvent: TimelineEvent = { ...mapped, icon: mapped.icon as keyof typeof Ionicons.glyphMap, color: getColorRef.current(mapped.colorKey), isNew: true, isUnseen: enableUnseenBadge };
-            const updated = [newEvent, ...prev].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-            previousEventIds.current.add(newEvent.id);
-            return updated;
-          });
-        }
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'paradas', filter: `rota_id=eq.${rotaId}` }, () => loadTimeline())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'incidentes', filter: `rota_id=eq.${rotaId}` }, () => loadTimeline())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [rotaId, realtime, loadTimeline, enableUnseenBadge]);
-
-  useEffect(() => { onStateChange?.({ loading, events: events.length }); }, [loading, events.length, onStateChange]);
+    onStateChange?.({ loading, events: events.length });
+  }, [loading, events.length, onStateChange]);
 
   // Handlers
-  const handleRefresh = useCallback(() => { setRefreshing(true); loadTimeline(true); }, [loadTimeline]);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refresh();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refresh]);
+
+  const handleLoadMore = useCallback(async () => {
+    paginatingRef.current = true;
+    await loadMore();
+  }, [loadMore]);
+
   const toggleExpanded = useCallback((eventId: string) => {
     setExpandedEvents((prev) => {
       const newSet = new Set(prev);
@@ -290,68 +255,53 @@ export function RouteTimeline({
     });
   }, []);
 
-  const handleLoadMore = useCallback(async () => {
-    if (loadingMore || !hasMore) return;
-    setLoadingMore(true);
-    try {
-      const nextPage = currentPage + 1;
-      const offset = currentPage * PAGE_SIZE;
-      const { data: logsRes } = await supabase.from('logs').select('id, evento, timestamp, detalhes').eq('rota_id', rotaId).order('timestamp', { ascending: false }).range(offset, offset + PAGE_SIZE - 1);
-      if (!logsRes || logsRes.length === 0) { setHasMore(false); return; }
-      setHasMore(logsRes.length >= PAGE_SIZE);
-      setCurrentPage(nextPage);
-      const newEvents: TimelineEvent[] = [];
-      logsRes.forEach((log: any) => {
-        const mapped = mapLogToTimelineEvent(log);
-        if (mapped) {
-          newEvents.push({ ...mapped, icon: mapped.icon as keyof typeof Ionicons.glyphMap, color: getColorRef.current(mapped.colorKey), isUnseen: enableUnseenBadge && !lastSeenLoading && isUnseenEvent(mapped.timestamp) });
-        }
-      });
-      setEvents((prev) => {
-        const existingIds = new Set(prev.map((e) => e.id));
-        const uniqueNewEvents = newEvents.filter((e) => !existingIds.has(e.id));
-        return [...prev, ...uniqueNewEvents].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      });
-    } catch (error) {
-      logger.error('[RouteTimeline] Erro ao carregar mais eventos:', error);
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [loadingMore, hasMore, currentPage, rotaId, enableUnseenBadge, lastSeenLoading, isUnseenEvent]);
-
   // Computed values
   const filteredEvents = useMemo(() => {
     if (activeFilter === 'todos') return events;
     return events.filter((event) => {
       switch (activeFilter) {
-        case 'status': return event.type === 'status_change';
-        case 'paradas': return event.type === 'parada_update';
-        case 'incidentes': return event.type === 'incidente';
-        default: return true;
+        case 'status':
+          return event.type === 'status_change';
+        case 'paradas':
+          return event.type === 'parada_update';
+        case 'incidentes':
+          return event.type === 'incidente';
+        default:
+          return true;
       }
     });
   }, [events, activeFilter]);
 
   const groupedEvents = useMemo(() => {
-    const grouped = groupBy(filteredEvents, (event) => getDateGroup(event.timestamp));
+    const grouped = groupBy(filteredEvents, (event) =>
+      getDateGroup(event.timestamp),
+    );
     const groups: { date: string; events: TimelineEvent[] }[] = [];
     const orderedKeys = Object.keys(grouped).sort((a, b) => {
       if (a === 'Hoje') return -1;
       if (b === 'Hoje') return 1;
       if (a === 'Ontem') return -1;
       if (b === 'Ontem') return 1;
-      return new Date(b.split('/').reverse().join('-')).getTime() - new Date(a.split('/').reverse().join('-')).getTime();
+      return (
+        new Date(b.split('/').reverse().join('-')).getTime() -
+        new Date(a.split('/').reverse().join('-')).getTime()
+      );
     });
-    orderedKeys.forEach((key) => { groups.push({ date: key, events: grouped[key] }); });
+    orderedKeys.forEach((key) => {
+      groups.push({ date: key, events: grouped[key] });
+    });
     return groups;
   }, [filteredEvents]);
 
-  const filterCounts = useMemo(() => ({
-    todos: events.length,
-    status: events.filter((e) => e.type === 'status_change').length,
-    paradas: events.filter((e) => e.type === 'parada_update').length,
-    incidentes: events.filter((e) => e.type === 'incidente').length,
-  }), [events]);
+  const filterCounts = useMemo(
+    () => ({
+      todos: events.length,
+      status: events.filter((e) => e.type === 'status_change').length,
+      paradas: events.filter((e) => e.type === 'parada_update').length,
+      incidentes: events.filter((e) => e.type === 'incidente').length,
+    }),
+    [events],
+  );
 
   // Flatten grouped events for FlashList virtualization
   const flatListData = useMemo((): ListItemType[] => {
@@ -388,48 +338,67 @@ export function RouteTimeline({
   }, []);
 
   // Render item for FlashList
-  const renderItem = useCallback(({ item }: ListRenderItemInfo<ListItemType>) => {
-    if (item.type === 'header') {
-      return <TimelineDateHeader date={item.date} />;
-    }
+  const renderItem = useCallback(
+    ({ item }: ListRenderItemInfo<ListItemType>) => {
+      if (item.type === 'header') {
+        return <TimelineDateHeader date={item.date} />;
+      }
 
-    if (item.type === 'event') {
+      if (item.type === 'event') {
+        return (
+          <TimelineEventCard
+            event={item.event}
+            isLastInGroup={item.isLastInGroup}
+            nextEvent={item.nextEvent}
+            isExpanded={expandedEvents.has(item.event.id)}
+            onToggleExpand={() => toggleExpanded(item.event.id)}
+            pulseAnim={item.event.isCritical ? pulseAnim : undefined}
+          />
+        );
+      }
+
+      // Load more button
       return (
-        <TimelineEventCard
-          event={item.event}
-          isLastInGroup={item.isLastInGroup}
-          nextEvent={item.nextEvent}
-          isExpanded={expandedEvents.has(item.event.id)}
-          onToggleExpand={() => toggleExpanded(item.event.id)}
-          pulseAnim={item.event.isCritical ? pulseAnim : undefined}
-        />
+        <TouchableOpacity
+          style={styles.loadMoreButton}
+          onPress={handleLoadMore}
+          disabled={loadingMore}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={
+            loadingMore ? 'Carregando mais eventos' : 'Carregar mais eventos'
+          }
+        >
+          {loadingMore ? (
+            <Text style={styles.loadMoreText}>Carregando...</Text>
+          ) : (
+            <>
+              <Ionicons
+                name="chevron-down"
+                size={16}
+                color={theme.colors.info}
+              />
+              <Text style={styles.loadMoreText}>Carregar mais eventos</Text>
+            </>
+          )}
+        </TouchableOpacity>
       );
-    }
-
-    // Load more button
-    return (
-      <TouchableOpacity
-        style={styles.loadMoreButton}
-        onPress={handleLoadMore}
-        disabled={loadingMore}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityLabel={loadingMore ? 'Carregando mais eventos' : 'Carregar mais eventos'}
-      >
-        {loadingMore ? (
-          <Text style={styles.loadMoreText}>Carregando...</Text>
-        ) : (
-          <>
-            <Ionicons name="chevron-down" size={16} color={theme.colors.info} />
-            <Text style={styles.loadMoreText}>Carregar mais eventos</Text>
-          </>
-        )}
-      </TouchableOpacity>
-    );
-  }, [expandedEvents, toggleExpanded, pulseAnim, handleLoadMore, loadingMore, theme.colors.info]);
+    },
+    [
+      expandedEvents,
+      toggleExpanded,
+      pulseAnim,
+      handleLoadMore,
+      loadingMore,
+      theme.colors.info,
+    ],
+  );
 
   // Get item type for FlashList optimization
-  const getItemType = useCallback((item: ListItemType): string => item.type, []);
+  const getItemType = useCallback(
+    (item: ListItemType): string => item.type,
+    [],
+  );
 
   // Render
   if (loading) return <TimelineSkeleton showFilters={showFilters} />;
@@ -470,8 +439,33 @@ export function RouteTimeline({
 const styles = StyleSheet.create((theme: Theme) => ({
   container: { flex: 1 },
   listContent: { paddingBottom: theme.spacing.md },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: theme.spacing.xl * 1.6 },
-  emptyText: { marginTop: theme.spacing.md, fontSize: theme.typography.fontSize.sm, color: theme.colors.gray500 },
-  loadMoreButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: theme.spacing.lg, marginHorizontal: theme.spacing.lg, marginVertical: theme.spacing.sm, backgroundColor: theme.colors.gray50, borderRadius: theme.borderRadius.lg, borderWidth: 1, borderColor: theme.colors.gray200, gap: theme.spacing.sm },
-  loadMoreText: { fontSize: theme.typography.fontSize.sm, fontFamily: theme.typography.fontSansMedium, color: theme.colors.info },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.xl * 1.6,
+  },
+  emptyText: {
+    marginTop: theme.spacing.md,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray500,
+  },
+  loadMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing.lg,
+    marginHorizontal: theme.spacing.lg,
+    marginVertical: theme.spacing.sm,
+    backgroundColor: theme.colors.gray50,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
+    gap: theme.spacing.sm,
+  },
+  loadMoreText: {
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSansMedium,
+    color: theme.colors.info,
+  },
 }));

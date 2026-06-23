@@ -15,6 +15,7 @@ import {
   formatRelativeTime,
   getDateGroup,
   calculateDurationBetween,
+  computeNewlyAddedIds,
 } from '../timeline';
 
 describe('timeline', () => {
@@ -99,69 +100,162 @@ describe('timeline', () => {
     const ts = '2025-10-15T14:30:00Z';
 
     it('should map route started events', () => {
-      const result = mapLogToTimelinePreview({ evento: 'motorista_iniciou_rota', timestamp: ts });
-      expect(result).toEqual({ timestamp: ts, title: 'Rota iniciada', type: 'inicio' });
+      const result = mapLogToTimelinePreview({
+        evento: 'motorista_iniciou_rota',
+        timestamp: ts,
+      });
+      expect(result).toEqual({
+        timestamp: ts,
+        title: 'Rota iniciada',
+        type: 'inicio',
+      });
     });
 
     it('should map events containing "iniciou"', () => {
-      const result = mapLogToTimelinePreview({ evento: 'alguem_iniciou_algo', timestamp: ts });
-      expect(result).toEqual({ timestamp: ts, title: 'Rota iniciada', type: 'inicio' });
+      const result = mapLogToTimelinePreview({
+        evento: 'alguem_iniciou_algo',
+        timestamp: ts,
+      });
+      expect(result).toEqual({
+        timestamp: ts,
+        title: 'Rota iniciada',
+        type: 'inicio',
+      });
     });
 
     it('should map events containing "start"', () => {
-      const result = mapLogToTimelinePreview({ evento: 'route_start', timestamp: ts });
-      expect(result).toEqual({ timestamp: ts, title: 'Rota iniciada', type: 'inicio' });
+      const result = mapLogToTimelinePreview({
+        evento: 'route_start',
+        timestamp: ts,
+      });
+      expect(result).toEqual({
+        timestamp: ts,
+        title: 'Rota iniciada',
+        type: 'inicio',
+      });
     });
 
     it('should map route completed events', () => {
-      const result = mapLogToTimelinePreview({ evento: 'motorista_concluiu_rota', timestamp: ts });
-      expect(result).toEqual({ timestamp: ts, title: 'Rota concluída', type: 'conclusao' });
+      const result = mapLogToTimelinePreview({
+        evento: 'motorista_concluiu_rota',
+        timestamp: ts,
+      });
+      expect(result).toEqual({
+        timestamp: ts,
+        title: 'Rota concluída',
+        type: 'conclusao',
+      });
     });
 
     it('should map events containing "finaliz"', () => {
-      const result = mapLogToTimelinePreview({ evento: 'rota_finalizada', timestamp: ts });
-      expect(result).toEqual({ timestamp: ts, title: 'Rota concluída', type: 'conclusao' });
+      const result = mapLogToTimelinePreview({
+        evento: 'rota_finalizada',
+        timestamp: ts,
+      });
+      expect(result).toEqual({
+        timestamp: ts,
+        title: 'Rota concluída',
+        type: 'conclusao',
+      });
     });
 
     it('should map route cancelled events', () => {
-      const result = mapLogToTimelinePreview({ evento: 'rota_cancelada', timestamp: ts });
-      expect(result).toEqual({ timestamp: ts, title: 'Rota cancelada', type: 'outro' });
+      const result = mapLogToTimelinePreview({
+        evento: 'rota_cancelada',
+        timestamp: ts,
+      });
+      expect(result).toEqual({
+        timestamp: ts,
+        title: 'Rota cancelada',
+        type: 'outro',
+      });
     });
 
     it('should map events containing "cancelou"', () => {
-      const result = mapLogToTimelinePreview({ evento: 'gestor_cancelou_rota', timestamp: ts });
-      expect(result).toEqual({ timestamp: ts, title: 'Rota cancelada', type: 'outro' });
+      const result = mapLogToTimelinePreview({
+        evento: 'gestor_cancelou_rota',
+        timestamp: ts,
+      });
+      expect(result).toEqual({
+        timestamp: ts,
+        title: 'Rota cancelada',
+        type: 'outro',
+      });
     });
 
     it('should map rota_criada event', () => {
-      const result = mapLogToTimelinePreview({ evento: 'rota_criada', timestamp: ts });
-      expect(result).toEqual({ timestamp: ts, title: 'Rota criada', type: 'outro' });
+      const result = mapLogToTimelinePreview({
+        evento: 'rota_criada',
+        timestamp: ts,
+      });
+      expect(result).toEqual({
+        timestamp: ts,
+        title: 'Rota criada',
+        type: 'outro',
+      });
     });
 
     it('should map sos_acionado event', () => {
-      const result = mapLogToTimelinePreview({ evento: 'sos_acionado', timestamp: ts });
-      expect(result).toEqual({ timestamp: ts, title: 'SOS Acionado', type: 'incidente' });
+      const result = mapLogToTimelinePreview({
+        evento: 'sos_acionado',
+        timestamp: ts,
+      });
+      expect(result).toEqual({
+        timestamp: ts,
+        title: 'SOS Acionado',
+        type: 'incidente',
+      });
     });
 
     it('should map parada_adicionada event', () => {
-      const result = mapLogToTimelinePreview({ evento: 'parada_adicionada', timestamp: ts });
-      expect(result).toEqual({ timestamp: ts, title: 'Parada atualizada', type: 'parada' });
+      const result = mapLogToTimelinePreview({
+        evento: 'parada_adicionada',
+        timestamp: ts,
+      });
+      expect(result).toEqual({
+        timestamp: ts,
+        title: 'Parada atualizada',
+        type: 'parada',
+      });
     });
 
     it('should map parada_editada event', () => {
-      const result = mapLogToTimelinePreview({ evento: 'parada_editada', timestamp: ts });
-      expect(result).toEqual({ timestamp: ts, title: 'Parada atualizada', type: 'parada' });
+      const result = mapLogToTimelinePreview({
+        evento: 'parada_editada',
+        timestamp: ts,
+      });
+      expect(result).toEqual({
+        timestamp: ts,
+        title: 'Parada atualizada',
+        type: 'parada',
+      });
     });
 
     it('should map parada_removida event', () => {
-      const result = mapLogToTimelinePreview({ evento: 'parada_removida', timestamp: ts });
-      expect(result).toEqual({ timestamp: ts, title: 'Parada atualizada', type: 'parada' });
+      const result = mapLogToTimelinePreview({
+        evento: 'parada_removida',
+        timestamp: ts,
+      });
+      expect(result).toEqual({
+        timestamp: ts,
+        title: 'Parada atualizada',
+        type: 'parada',
+      });
     });
 
     it('should return null for unknown events', () => {
-      expect(mapLogToTimelinePreview({ evento: 'unknown_event', timestamp: ts })).toBeNull();
-      expect(mapLogToTimelinePreview({ evento: 'parada_reaberta', timestamp: ts })).toBeNull();
-      expect(mapLogToTimelinePreview({ evento: 'motorista_alterado', timestamp: ts })).toBeNull();
+      expect(
+        mapLogToTimelinePreview({ evento: 'unknown_event', timestamp: ts }),
+      ).toBeNull();
+      expect(
+        mapLogToTimelinePreview({ evento: 'parada_reaberta', timestamp: ts }),
+      ).toBeNull();
+      expect(
+        mapLogToTimelinePreview({
+          evento: 'motorista_alterado',
+          timestamp: ts,
+        }),
+      ).toBeNull();
     });
   });
 
@@ -392,7 +486,9 @@ describe('timeline', () => {
         icon: 'create',
         colorKey: 'warning',
       });
-      expect(result?.description).toBe('Alterado: endereço, destinatário, observações');
+      expect(result?.description).toBe(
+        'Alterado: endereço, destinatário, observações',
+      );
     });
 
     it('should map parada_editada without campos_alterados', () => {
@@ -527,7 +623,7 @@ describe('timeline', () => {
 
     it('should return null for unknown events', () => {
       expect(
-        mapLogToTimelineEvent({ id, evento: 'unknown_event', timestamp: ts })
+        mapLogToTimelineEvent({ id, evento: 'unknown_event', timestamp: ts }),
       ).toBeNull();
     });
 
@@ -861,40 +957,67 @@ describe('timeline', () => {
   describe('calculateDurationBetween', () => {
     it('should return null for durations less than 1 minute', () => {
       expect(
-        calculateDurationBetween('2025-10-15T14:00:00Z', '2025-10-15T14:00:30Z')
+        calculateDurationBetween(
+          '2025-10-15T14:00:00Z',
+          '2025-10-15T14:00:30Z',
+        ),
       ).toBeNull();
       expect(
-        calculateDurationBetween('2025-10-15T14:00:00Z', '2025-10-15T14:00:00Z')
+        calculateDurationBetween(
+          '2025-10-15T14:00:00Z',
+          '2025-10-15T14:00:00Z',
+        ),
       ).toBeNull();
     });
 
     it('should format minutes only (< 60 min)', () => {
       expect(
-        calculateDurationBetween('2025-10-15T14:00:00Z', '2025-10-15T14:15:00Z')
+        calculateDurationBetween(
+          '2025-10-15T14:00:00Z',
+          '2025-10-15T14:15:00Z',
+        ),
       ).toBe('↓ 15 min');
       expect(
-        calculateDurationBetween('2025-10-15T14:00:00Z', '2025-10-15T14:01:00Z')
+        calculateDurationBetween(
+          '2025-10-15T14:00:00Z',
+          '2025-10-15T14:01:00Z',
+        ),
       ).toBe('↓ 1 min');
       expect(
-        calculateDurationBetween('2025-10-15T14:00:00Z', '2025-10-15T14:59:00Z')
+        calculateDurationBetween(
+          '2025-10-15T14:00:00Z',
+          '2025-10-15T14:59:00Z',
+        ),
       ).toBe('↓ 59 min');
     });
 
     it('should format exact hours', () => {
       expect(
-        calculateDurationBetween('2025-10-15T14:00:00Z', '2025-10-15T15:00:00Z')
+        calculateDurationBetween(
+          '2025-10-15T14:00:00Z',
+          '2025-10-15T15:00:00Z',
+        ),
       ).toBe('↓ 1h');
       expect(
-        calculateDurationBetween('2025-10-15T14:00:00Z', '2025-10-15T17:00:00Z')
+        calculateDurationBetween(
+          '2025-10-15T14:00:00Z',
+          '2025-10-15T17:00:00Z',
+        ),
       ).toBe('↓ 3h');
     });
 
     it('should format hours and minutes', () => {
       expect(
-        calculateDurationBetween('2025-10-15T14:00:00Z', '2025-10-15T16:30:00Z')
+        calculateDurationBetween(
+          '2025-10-15T14:00:00Z',
+          '2025-10-15T16:30:00Z',
+        ),
       ).toBe('↓ 2h 30min');
       expect(
-        calculateDurationBetween('2025-10-15T14:00:00Z', '2025-10-15T15:05:00Z')
+        calculateDurationBetween(
+          '2025-10-15T14:00:00Z',
+          '2025-10-15T15:05:00Z',
+        ),
       ).toBe('↓ 1h 5min');
     });
 
@@ -916,5 +1039,35 @@ describe('timeline', () => {
       const end = new Date('2025-10-15T16:15:00Z');
       expect(calculateDurationBetween(start, end)).toBe('↓ 2h 15min');
     });
+  });
+});
+
+describe('computeNewlyAddedIds', () => {
+  it('retorna vazio na carga inicial (previousIds vazio)', () => {
+    const result = computeNewlyAddedIds(['a', 'b', 'c'], new Set(), false);
+    expect(result.size).toBe(0);
+  });
+
+  it('retorna apenas ids novos quando já havia eventos', () => {
+    const result = computeNewlyAddedIds(
+      ['c', 'a', 'b'],
+      new Set(['a', 'b']),
+      false,
+    );
+    expect([...result]).toEqual(['c']);
+  });
+
+  it('retorna vazio quando a mudança é paginação (eventos antigos anexados)', () => {
+    const result = computeNewlyAddedIds(
+      ['a', 'b', 'old1'],
+      new Set(['a', 'b']),
+      true,
+    );
+    expect(result.size).toBe(0);
+  });
+
+  it('retorna vazio quando nada mudou', () => {
+    const result = computeNewlyAddedIds(['a', 'b'], new Set(['a', 'b']), false);
+    expect(result.size).toBe(0);
   });
 });

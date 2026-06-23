@@ -33,4 +33,5 @@ export {
   formatRelativeTime,
   getDateGroup,
   calculateDurationBetween,
+  computeNewlyAddedIds,
 } from './timeline';
