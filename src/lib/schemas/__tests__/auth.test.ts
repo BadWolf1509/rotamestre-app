@@ -156,8 +156,8 @@ describe('registerSchema', () => {
 // ============================================================================
 
 describe('forgotPasswordSchema', () => {
-  it('aceita email válido e normaliza para lowercase', () => {
-    const r = forgotPasswordSchema.safeParse({ email: 'Test@Email.com' });
+  it('aceita email válido e normaliza (trim + lowercase)', () => {
+    const r = forgotPasswordSchema.safeParse({ email: '  Test@Email.com  ' });
     expect(r.success).toBe(true);
     if (r.success) expect(r.data.email).toBe('test@email.com');
   });

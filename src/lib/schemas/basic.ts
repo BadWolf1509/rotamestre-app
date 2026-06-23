@@ -53,10 +53,10 @@ export const PASSWORD_REQUIREMENTS = {
  */
 export const emailSchema = z
   .string()
-  .min(1, 'E-mail é obrigatório')
-  .email('E-mail inválido')
+  .trim()
   .toLowerCase()
-  .trim();
+  .min(1, 'E-mail é obrigatório')
+  .email('E-mail inválido');
 
 // ============================================================================
 // PASSWORD
@@ -68,7 +68,10 @@ export const emailSchema = z
  */
 export const passwordSchema = z
   .string()
-  .min(PASSWORD_MIN_LENGTH, `Senha deve ter no mínimo ${PASSWORD_MIN_LENGTH} caracteres`)
+  .min(
+    PASSWORD_MIN_LENGTH,
+    `Senha deve ter no mínimo ${PASSWORD_MIN_LENGTH} caracteres`,
+  )
   .refine((val) => /[A-Z]/.test(val), {
     message: 'Senha deve conter pelo menos uma letra maiúscula',
   })
@@ -114,7 +117,9 @@ export function validatePassword(password: string): {
   const hasNumber = /[0-9]/.test(password);
   const isLong = password.length >= 12;
 
-  const score = [hasSpecial, hasLower, hasUpper, hasNumber, isLong].filter(Boolean).length;
+  const score = [hasSpecial, hasLower, hasUpper, hasNumber, isLong].filter(
+    Boolean,
+  ).length;
 
   if (score >= 4) {
     strength = 'strong';
