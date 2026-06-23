@@ -38,6 +38,7 @@
     "test:e2e:debug": "npx playwright test --debug",
     "test:e2e:report": "npx playwright show-report e2e-report",
     "type-check": "tsc --noEmit",
+    "validate": "npm run type-check && npm run lint && npm test",
     "verify-ci": "node scripts/verify-ci-setup.js",
     "coverage-report": "node scripts/coverage-report.js",
     "mcp:git": "node tools/mcp-git-rotamestre/src/index.js",
@@ -155,6 +156,9 @@
     "typescript": "~5.9.2"
   },
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "expo": {
     "install": {
       "exclude": [
