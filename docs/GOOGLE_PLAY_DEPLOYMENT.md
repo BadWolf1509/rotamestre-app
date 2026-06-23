@@ -2,7 +2,7 @@
 
 > **⚠️ STATUS + CORREÇÕES (2026-06-16):** app **reconstruído** (contas originais perdidas) — package `br.tec.rotamestre.app`, EAS `c6401a59…`, Firebase `rota-mestre-97084`; conta Play criada, `.aab` **3019** no **Teste interno**, Play App Signing ligado. Correções a este guia (genérico/antigo):
 >
-> 1. **Sem Google Maps** — o app usa **MapLibre**; ignore `config.googleMaps.apiKey` e `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` (não existem mais).
+> 1. **Mapas via MapLibre**, mas **geocoding/autocomplete de endereço usa a Google Places API** (via Edge Functions `google-places-autocomplete`/`google-place-details`) — `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` **é obrigatória** no build de produção (sem ela o autocomplete de endereço quebra; custo ~R$2,83/1000 sessões). O `config.googleMaps.apiKey` nativo no `app.config.js` é vestígio (os mapas são MapLibre), mas a env var da chave continua necessária para o Places.
 > 2. **NÃO confie em "EAS gerencia o keystore"** — a perda do keystore/conta causou TODO o retrabalho do rebuild. **Baixe e guarde o keystore você mesmo** (`eas credentials` → download, ou dashboard) + as senhas, em ≥2 lugares.
 > 3. **Env Supabase fica por-ambiente no EAS** (`eas env:*`), não inline no `eas.json`.
 > 4. Estado atual do rollout: ver a **memória do Claude** + `docs/REBUILD_RELAUNCH_PLAN.md`.
