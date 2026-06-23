@@ -62,27 +62,4 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
 // Add web-specific optimizations for Edge DevTools
 config.resolver.resolverMainFields = ['react-native', 'browser', 'main'];
 
-// TEMPORARIAMENTE DESABILITADO - middleware pode interferir com chunked encoding no Android
-// Better error handling and CORS for development
-// if (process.env.NODE_ENV === 'development') {
-//   config.server = {
-//     ...config.server,
-//     enhanceMiddleware: (middleware) => {
-//       return (req, res, next) => {
-//         // Add CORS headers for development
-//         res.setHeader('Access-Control-Allow-Origin', '*');
-//         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-//         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-//         // Better error messages
-//         if (req.url?.includes('symbolicate')) {
-//           res.setHeader('Cache-Control', 'no-cache');
-//         }
-
-//         return middleware(req, res, next);
-//       };
-//     },
-//   };
-// }
-
 module.exports = config;
