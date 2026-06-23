@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { renderHook, act, waitFor } from '@testing-library/react-native';
 
 import { supabase } from '@/lib/supabase';
 
@@ -114,5 +114,68 @@ describe('useTimelineData — carga inicial', () => {
       'log-1', // 10:00
     ]);
     expect(result.current.hasMore).toBe(false); // 1 log < PAGE_SIZE
+  });
+});
+
+describe('useTimelineData — loadMore', () => {
+  it('anexa logs antigos, deduplica e atualiza hasMore', async () => {
+    const fullPage = Array.from({ length: 50 }, (_, i) => ({
+      id: `${i}`,
+      evento: 'x',
+      timestamp: `2023-01-02T${String(i % 24).padStart(2, '0')}:00:00Z`,
+    }));
+    const olderPage = [
+      { id: 'old', evento: 'x', timestamp: '2022-12-01T10:00:00Z' },
+    ];
+
+    (supabase.from as jest.Mock).mockImplementation((table: string) => {
+      if (table === 'logs') {
+        const m = chain(fullPage); // page 1 via limit()
+        m.range = jest.fn(() =>
+          Promise.resolve({ data: olderPage, error: null }),
+        ); // page 2 via range()
+        return m;
+      }
+      if (table === 'paradas') {
+        const m = chain([]);
+        m.not = jest.fn(() => Promise.resolve({ data: [], error: null }));
+        return m;
+      }
+      if (table === 'incidentes') {
+        const m = chain([]);
+        m.eq = jest.fn(() => Promise.resolve({ data: [], error: null }));
+        return m;
+      }
+      return chain([]);
+    });
+
+    const { result } = renderHook(() =>
+      useTimelineData('123', { realtime: false }),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.hasMore).toBe(true); // 50 logs == PAGE_SIZE
+    const countBefore = result.current.events.length;
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+
+    expect(result.current.events.some((e) => e.id === 'log-old')).toBe(true);
+    expect(result.current.events.length).toBe(countBefore + 1);
+    expect(result.current.hasMore).toBe(false); // older page had 1 < PAGE_SIZE
+  });
+
+  it('loadMore é no-op quando hasMore é false', async () => {
+    const { result } = renderHook(() =>
+      useTimelineData('123', { realtime: false }),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.hasMore).toBe(false);
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+
+    expect(result.current.loadingMore).toBe(false);
   });
 });
