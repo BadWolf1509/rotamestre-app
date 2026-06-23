@@ -107,9 +107,14 @@ const {
 
 Mocks: `@/lib/auth` (authService), `@/lib/rateLimiter`, `@/hooks/useAlert`, `@/hooks/auth/useSessionRecovery` (reset), `expo-router`. Seguir os mocks já usados em `app/auth/__tests__/` se existirem.
 
-## Estrutura de entrega
+## Estrutura de entrega — 2 PRs (decidido)
 
-1 PR, commits granulares: (1) schemas + FieldError, (2) login, (3) forgot, (4) register, (5) reset — cada um com seus testes. Alternativa: 2 PRs (login+forgot / register+reset). Decisão no finishing.
+- **PR-A** (este): `forgotPasswordSchema` + `FieldError` + **login** + **forgot-password**. Os 2 forms mais simples (raw `TextInput`) — valida o padrão de migração e a atualização dos testes existentes numa superfície menor. (`resetPasswordSchema` fica pra PR-B, onde é usado — YAGNI.)
+- **PR-B** (follow-up): `resetPasswordSchema` + **register** (DS `Input`) + **reset-password** (session recovery + teste de 1.168 linhas).
+
+Commits granulares por etapa/form, cada um com seus testes.
+
+> **Nota — testes existentes:** há uma suíte de integração de auth grande (`app/__tests__/integration/auth/{login,forgot-password,reset-password,confirm-reset}.test.tsx` + `app/auth/__tests__/register.test.tsx`, ~2.800 linhas) que afirma a UX de validação **antiga** (ex.: login mostra `Dialog` "Ops! / Por favor, preencha seu e-mail e senha…" no submit vazio). A migração **atualiza esses casos de asserção de validação** para erros inline; os casos de happy-path e de erro de servidor permanecem. Não são testes novos — são updates dos existentes.
 
 ## Critérios de sucesso
 
