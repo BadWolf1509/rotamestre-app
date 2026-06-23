@@ -12,20 +12,24 @@ import {
   clearCache,
   getCacheStats,
   getOptimizedDirections,
-} from "../osrm";
+  getRoute,
+  getDistance,
+  optimizeWaypoints,
+} from '../osrm';
+import { createFallbackRoute } from '../osrm/fallback';
 
 // Mock fetch
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
-describe("OSRM module", () => {
+describe('OSRM module', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     clearCache();
   });
 
-  describe("Haversine distance calculations", () => {
-    it("should calculate distance between two points", () => {
+  describe('Haversine distance calculations', () => {
+    it('should calculate distance between two points', () => {
       // São Paulo to Rio de Janeiro (~360km)
       const distance = calculateHaversineDistance(
         -23.5505,
@@ -39,7 +43,7 @@ describe("OSRM module", () => {
       expect(distance).toBeLessThan(365000);
     });
 
-    it("should return 0 for same point", () => {
+    it('should return 0 for same point', () => {
       const distance = calculateHaversineDistance(
         -23.5505,
         -46.6333,
@@ -50,7 +54,7 @@ describe("OSRM module", () => {
       expect(distance).toBe(0);
     });
 
-    it("should handle negative coordinates", () => {
+    it('should handle negative coordinates', () => {
       const distance = calculateHaversineDistance(
         -7.1195,
         -34.845,
@@ -62,8 +66,8 @@ describe("OSRM module", () => {
     });
   });
 
-  describe("Route distance estimation", () => {
-    it("should estimate route distance with urban correction", () => {
+  describe('Route distance estimation', () => {
+    it('should estimate route distance with urban correction', () => {
       const result = estimateRouteDistance(
         { latitude: -23.5505, longitude: -46.6333 },
         { latitude: -23.5605, longitude: -46.6433 },
@@ -84,81 +88,81 @@ describe("OSRM module", () => {
     });
   });
 
-  describe("Distance formatting", () => {
-    it("should format meters correctly", () => {
-      expect(formatDistance(500)).toBe("500m");
-      expect(formatDistance(999)).toBe("999m");
+  describe('Distance formatting', () => {
+    it('should format meters correctly', () => {
+      expect(formatDistance(500)).toBe('500m');
+      expect(formatDistance(999)).toBe('999m');
     });
 
-    it("should format kilometers correctly", () => {
-      expect(formatDistance(1000)).toBe("1.0km");
-      expect(formatDistance(1500)).toBe("1.5km");
-      expect(formatDistance(10000)).toBe("10.0km");
-    });
-  });
-
-  describe("Duration formatting", () => {
-    it("should format short durations correctly", () => {
-      expect(formatDuration(30)).toBe("menos de 1 min");
-      expect(formatDuration(59)).toBe("menos de 1 min");
-    });
-
-    it("should format minutes correctly", () => {
-      expect(formatDuration(60)).toBe("1 min");
-      expect(formatDuration(120)).toBe("2 min");
-      expect(formatDuration(90)).toBe("2 min"); // Rounds to 2 min
-    });
-
-    it("should format hours correctly", () => {
-      expect(formatDuration(3600)).toBe("1h");
-      expect(formatDuration(3660)).toBe("1h 1min");
-      expect(formatDuration(7200)).toBe("2h");
-      expect(formatDuration(5400)).toBe("1h 30min");
+    it('should format kilometers correctly', () => {
+      expect(formatDistance(1000)).toBe('1.0km');
+      expect(formatDistance(1500)).toBe('1.5km');
+      expect(formatDistance(10000)).toBe('10.0km');
     });
   });
 
-  describe("Polyline decoding", () => {
-    it("should decode a valid polyline", () => {
+  describe('Duration formatting', () => {
+    it('should format short durations correctly', () => {
+      expect(formatDuration(30)).toBe('menos de 1 min');
+      expect(formatDuration(59)).toBe('menos de 1 min');
+    });
+
+    it('should format minutes correctly', () => {
+      expect(formatDuration(60)).toBe('1 min');
+      expect(formatDuration(120)).toBe('2 min');
+      expect(formatDuration(90)).toBe('2 min'); // Rounds to 2 min
+    });
+
+    it('should format hours correctly', () => {
+      expect(formatDuration(3600)).toBe('1h');
+      expect(formatDuration(3660)).toBe('1h 1min');
+      expect(formatDuration(7200)).toBe('2h');
+      expect(formatDuration(5400)).toBe('1h 30min');
+    });
+  });
+
+  describe('Polyline decoding', () => {
+    it('should decode a valid polyline', () => {
       // Simple test polyline
-      const encoded = "_p~iF~ps|U_ulLnnqC_mqNvxq`@";
+      const encoded = '_p~iF~ps|U_ulLnnqC_mqNvxq`@';
       const decoded = decodePolyline(encoded);
 
       expect(decoded.length).toBeGreaterThan(0);
       decoded.forEach((point) => {
-        expect(point).toHaveProperty("latitude");
-        expect(point).toHaveProperty("longitude");
-        expect(typeof point.latitude).toBe("number");
-        expect(typeof point.longitude).toBe("number");
+        expect(point).toHaveProperty('latitude');
+        expect(point).toHaveProperty('longitude');
+        expect(typeof point.latitude).toBe('number');
+        expect(typeof point.longitude).toBe('number');
       });
     });
 
-    it("should handle empty polyline", () => {
-      const decoded = decodePolyline("");
+    it('should handle empty polyline', () => {
+      const decoded = decodePolyline('');
       expect(decoded).toEqual([]);
     });
   });
 
-  describe("Cache operations", () => {
-    it("should start with empty cache", () => {
+  describe('Cache operations', () => {
+    it('should start with empty cache', () => {
       const stats = getCacheStats();
       expect(stats.size).toBe(0);
       expect(stats.oldestEntry).toBeNull();
     });
 
-    it("should clear cache", () => {
+    it('should clear cache', () => {
       clearCache();
       const stats = getCacheStats();
       expect(stats.size).toBe(0);
     });
   });
 
-  describe("Route optimization (Table + TSP + Route)", () => {
-    it("should optimize circular route using Table API + TSP + Route API", async () => {
+  describe('Route optimization (Table + TSP + Route)', () => {
+    it('should optimize circular route using Table API + TSP + Route API', async () => {
       // Mock 1: Table API returns distance matrix
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: jest.fn().mockResolvedValue({
-          code: "Ok",
+          code: 'Ok',
           distances: [
             [0, 20000, 10000, 14000],
             [20000, 0, 25000, 12000],
@@ -190,10 +194,10 @@ describe("OSRM module", () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: jest.fn().mockResolvedValue({
-          code: "Ok",
+          code: 'Ok',
           routes: [
             {
-              geometry: "optimized_polyline",
+              geometry: 'optimized_polyline',
               distance: 42000,
               duration: 5040,
               legs: [
@@ -234,22 +238,22 @@ describe("OSRM module", () => {
 
       // Verify Table API was called first, Route API second
       expect(mockFetch).toHaveBeenCalledTimes(2);
-      expect(mockFetch.mock.calls[0][0]).toContain("/table/v1/driving/");
-      expect(mockFetch.mock.calls[1][0]).toContain("/route/v1/driving/");
+      expect(mockFetch.mock.calls[0][0]).toContain('/table/v1/driving/');
+      expect(mockFetch.mock.calls[1][0]).toContain('/route/v1/driving/');
     });
 
-    it("should use Haversine TSP when Table API fails for circular route", async () => {
+    it('should use Haversine TSP when Table API fails for circular route', async () => {
       // Mock 1: Table API fails
-      mockFetch.mockRejectedValueOnce(new Error("AbortError"));
+      mockFetch.mockRejectedValueOnce(new Error('AbortError'));
 
       // Mock 2: Route API returns actual route for the Haversine-optimized order
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: jest.fn().mockResolvedValue({
-          code: "Ok",
+          code: 'Ok',
           routes: [
             {
-              geometry: "haversine_optimized_polyline",
+              geometry: 'haversine_optimized_polyline',
               distance: 35000,
               duration: 4200,
               legs: [
@@ -288,15 +292,15 @@ describe("OSRM module", () => {
       expect(result?.ordem_otimizada).toBeDefined();
       // Verify Table API was attempted, then Route API was called
       expect(mockFetch).toHaveBeenCalledTimes(2);
-      expect(mockFetch.mock.calls[0][0]).toContain("/table/v1/driving/");
-      expect(mockFetch.mock.calls[1][0]).toContain("/route/v1/driving/");
+      expect(mockFetch.mock.calls[0][0]).toContain('/table/v1/driving/');
+      expect(mockFetch.mock.calls[1][0]).toContain('/route/v1/driving/');
     });
 
-    it("should use Haversine fallback when OSRM fails", async () => {
+    it('should use Haversine fallback when OSRM fails', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: jest.fn().mockResolvedValue({
-          code: "NoRoute",
+          code: 'NoRoute',
           trips: [],
         }),
       });
@@ -313,8 +317,8 @@ describe("OSRM module", () => {
       expect(result?.distancia_total_metros).toBeGreaterThan(0);
     });
 
-    it("should handle network errors gracefully", async () => {
-      mockFetch.mockRejectedValueOnce(new Error("Network error"));
+    it('should handle network errors gracefully', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
       const result = await getOptimizedDirections(
         { latitude: 0, longitude: 0 },
@@ -327,14 +331,14 @@ describe("OSRM module", () => {
       expect(result).not.toBeNull();
     });
 
-    it("should use Route API for non-circular routes", async () => {
+    it('should use Route API for non-circular routes', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: jest.fn().mockResolvedValue({
-          code: "Ok",
+          code: 'Ok',
           routes: [
             {
-              geometry: "encoded_polyline",
+              geometry: 'encoded_polyline',
               distance: 5000,
               duration: 600,
               legs: [
@@ -367,19 +371,19 @@ describe("OSRM module", () => {
 
       // Should have used Route API
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("/route/v1/driving"),
+        expect.stringContaining('/route/v1/driving'),
         expect.any(Object),
       );
     });
 
-    it("should maintain waypoint order for non-optimized routes", async () => {
+    it('should maintain waypoint order for non-optimized routes', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: jest.fn().mockResolvedValue({
-          code: "Ok",
+          code: 'Ok',
           routes: [
             {
-              geometry: "encoded_polyline",
+              geometry: 'encoded_polyline',
               distance: 9000,
               duration: 1200,
               legs: [
@@ -413,9 +417,9 @@ describe("OSRM module", () => {
       expect(result?.ordem_otimizada).toEqual([0, 1]);
     });
 
-    it("should fall back to Haversine when Table API fails for circular route", async () => {
+    it('should fall back to Haversine when Table API fails for circular route', async () => {
       // Table API fails
-      mockFetch.mockRejectedValueOnce(new Error("Network error"));
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
       const result = await getOptimizedDirections(
         { latitude: -7.1, longitude: -34.8 },
@@ -433,12 +437,12 @@ describe("OSRM module", () => {
       expect(result!.ordem_otimizada).toEqual([0, 1]); // default order
     });
 
-    it("should fall back when Route API fails after successful Table", async () => {
+    it('should fall back when Route API fails after successful Table', async () => {
       // Table API succeeds
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: jest.fn().mockResolvedValue({
-          code: "Ok",
+          code: 'Ok',
           distances: [
             [0, 1000],
             [1000, 0],
@@ -453,7 +457,7 @@ describe("OSRM module", () => {
       });
 
       // Route API fails
-      mockFetch.mockRejectedValueOnce(new Error("Route API down"));
+      mockFetch.mockRejectedValueOnce(new Error('Route API down'));
 
       const result = await getOptimizedDirections(
         { latitude: 0, longitude: 0 },
@@ -467,12 +471,12 @@ describe("OSRM module", () => {
       expect(result!.distancia_total_metros).toBeGreaterThan(0);
     });
 
-    it("should optimize single waypoint via Table+Route", async () => {
+    it('should optimize single waypoint via Table+Route', async () => {
       // Table API
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: jest.fn().mockResolvedValue({
-          code: "Ok",
+          code: 'Ok',
           distances: [
             [0, 5000],
             [5000, 0],
@@ -490,10 +494,10 @@ describe("OSRM module", () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: jest.fn().mockResolvedValue({
-          code: "Ok",
+          code: 'Ok',
           routes: [
             {
-              geometry: "polyline",
+              geometry: 'polyline',
               distance: 10000,
               duration: 1200,
               legs: [
@@ -523,15 +527,15 @@ describe("OSRM module", () => {
     });
   });
 
-  describe("Edge cases", () => {
-    it("should handle single waypoint", async () => {
+  describe('Edge cases', () => {
+    it('should handle single waypoint', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: jest.fn().mockResolvedValue({
-          code: "Ok",
+          code: 'Ok',
           routes: [
             {
-              geometry: "encoded_polyline",
+              geometry: 'encoded_polyline',
               distance: 5000,
               duration: 600,
               legs: [
@@ -559,14 +563,14 @@ describe("OSRM module", () => {
       expect(result?.ordem_otimizada).toEqual([0]);
     });
 
-    it("should handle no waypoints", async () => {
+    it('should handle no waypoints', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: jest.fn().mockResolvedValue({
-          code: "Ok",
+          code: 'Ok',
           routes: [
             {
-              geometry: "encoded_polyline",
+              geometry: 'encoded_polyline',
               distance: 5000,
               duration: 600,
               legs: [{ distance: 5000, duration: 600 }],
@@ -590,14 +594,14 @@ describe("OSRM module", () => {
       expect(result?.ordem_otimizada).toEqual([]);
     });
 
-    it("should handle undefined waypoints", async () => {
+    it('should handle undefined waypoints', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: jest.fn().mockResolvedValue({
-          code: "Ok",
+          code: 'Ok',
           routes: [
             {
-              geometry: "encoded_polyline",
+              geometry: 'encoded_polyline',
               distance: 5000,
               duration: 600,
               legs: [{ distance: 5000, duration: 600 }],
@@ -619,6 +623,290 @@ describe("OSRM module", () => {
 
       expect(result).not.toBeNull();
       expect(result?.ordem_otimizada).toEqual([]);
+    });
+  });
+
+  describe('getRoute', () => {
+    const origin = { latitude: -23.55, longitude: -46.63 };
+    const destination = { latitude: -23.56, longitude: -46.64 };
+
+    const okRouteResponse = {
+      code: 'Ok',
+      routes: [
+        {
+          distance: 5000,
+          duration: 600,
+          geometry: 'route_polyline',
+          legs: [
+            {
+              steps: [
+                {
+                  distance: 5000,
+                  duration: 600,
+                  maneuver: { type: 'depart', location: [-46.63, -23.55] },
+                  name: 'Rua A',
+                },
+                {
+                  distance: 0,
+                  duration: 0,
+                  maneuver: { type: 'arrive', location: [-46.64, -23.56] },
+                  name: 'Rua B',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      waypoints: [
+        { location: [-46.63, -23.55], waypoint_index: 0 },
+        { location: [-46.64, -23.56], waypoint_index: 1 },
+      ],
+    };
+
+    it('retorna rota com steps e waypoints no sucesso', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue(okRouteResponse),
+      });
+
+      const result = await getRoute(origin, destination);
+
+      expect(result).not.toBeNull();
+      expect(result?.distance).toBe(5000);
+      expect(result?.duration).toBe(600);
+      expect(result?.polyline).toBe('route_polyline');
+      expect(result?.steps).toHaveLength(2);
+      expect(result?.waypoints).toHaveLength(2);
+      expect(result?.waypointOrder).toEqual([0, 1]);
+    });
+
+    it('usa cache na segunda chamada com as mesmas coordenadas', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue(okRouteResponse),
+      });
+
+      await getRoute(origin, destination);
+      const cached = await getRoute(origin, destination);
+
+      expect(cached?.distance).toBe(5000);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('cai no fallback Haversine quando OSRM nao acha rota', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ code: 'NoRoute', routes: [] }),
+      });
+
+      const result = await getRoute(origin, destination);
+
+      expect(result).not.toBeNull();
+      expect(result?.polyline).toBe(''); // fallback nao tem polyline
+      expect(result?.distance).toBeGreaterThan(0);
+    });
+
+    it('cai no fallback quando resposta nao-ok', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
+
+      const result = await getRoute(origin, destination);
+
+      expect(result).not.toBeNull();
+      expect(result?.polyline).toBe('');
+    });
+
+    it('cai no fallback em erro de rede', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('network'));
+
+      const result = await getRoute(origin, destination);
+
+      expect(result).not.toBeNull();
+      expect(result?.distance).toBeGreaterThan(0);
+    });
+  });
+
+  describe('getDistance', () => {
+    const origin = { latitude: -23.55, longitude: -46.63 };
+    const destination = { latitude: -23.56, longitude: -46.64 };
+
+    it('retorna distancia e textos formatados no sucesso', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          code: 'Ok',
+          routes: [{ distance: 1500, duration: 180 }],
+        }),
+      });
+
+      const result = await getDistance(origin, destination);
+
+      expect(result.distance).toBe(1500);
+      expect(result.duration).toBe(180);
+      expect(result.distanceText).toBe('1.5km');
+      expect(result.durationText).toBe('3 min');
+    });
+
+    it('usa cache na segunda chamada', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          code: 'Ok',
+          routes: [{ distance: 1500, duration: 180 }],
+        }),
+      });
+
+      await getDistance(origin, destination);
+      await getDistance(origin, destination);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('estima via Haversine quando OSRM nao acha rota', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ code: 'NoRoute', routes: [] }),
+      });
+
+      const result = await getDistance(origin, destination);
+
+      expect(result.distance).toBeGreaterThan(0);
+      expect(result.distanceText).toBeTruthy();
+    });
+
+    it('estima via Haversine em erro de rede', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('network'));
+
+      const result = await getDistance(origin, destination);
+
+      expect(result.distance).toBeGreaterThan(0);
+    });
+
+    it('estima via Haversine quando resposta nao-ok', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 502 });
+
+      const result = await getDistance(origin, destination);
+
+      expect(result.distance).toBeGreaterThan(0);
+      expect(result.distanceText).toBeTruthy();
+    });
+  });
+
+  describe('optimizeWaypoints', () => {
+    it('retorna ordem identidade sem chamar OSRM para < 2 waypoints', async () => {
+      const result = await optimizeWaypoints([{ latitude: 0, longitude: 0 }]);
+
+      expect(result).toEqual({ order: [0], distance: 0, duration: 0 });
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('retorna ordem otimizada da Trip API no sucesso', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          code: 'Ok',
+          waypoints: [
+            { waypoint_index: 0 },
+            { waypoint_index: 2 },
+            { waypoint_index: 1 },
+          ],
+          trips: [{ distance: 12000, duration: 1500 }],
+        }),
+      });
+
+      const result = await optimizeWaypoints([
+        { latitude: 0, longitude: 0 },
+        { latitude: 1, longitude: 1 },
+        { latitude: 2, longitude: 2 },
+      ]);
+
+      expect(result).toEqual({
+        order: [0, 2, 1],
+        distance: 12000,
+        duration: 1500,
+      });
+    });
+
+    it('retorna null quando a Trip API nao acha trip', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ code: 'NoTrips' }),
+      });
+
+      const result = await optimizeWaypoints([
+        { latitude: 0, longitude: 0 },
+        { latitude: 1, longitude: 1 },
+      ]);
+
+      expect(result).toBeNull();
+    });
+
+    it('retorna null em erro de rede', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('network'));
+
+      const result = await optimizeWaypoints([
+        { latitude: 0, longitude: 0 },
+        { latitude: 1, longitude: 1 },
+      ]);
+
+      expect(result).toBeNull();
+    });
+
+    it('retorna null quando resposta nao-ok', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
+
+      const result = await optimizeWaypoints([
+        { latitude: 0, longitude: 0 },
+        { latitude: 1, longitude: 1 },
+      ]);
+
+      expect(result).toBeNull();
+    });
+
+    it('usa cache na segunda chamada com os mesmos waypoints', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          code: 'Ok',
+          waypoints: [{ waypoint_index: 0 }, { waypoint_index: 1 }],
+          trips: [{ distance: 8000, duration: 900 }],
+        }),
+      });
+
+      const waypoints = [
+        { latitude: 0, longitude: 0 },
+        { latitude: 1, longitude: 1 },
+      ];
+      await optimizeWaypoints(waypoints);
+      const cached = await optimizeWaypoints(waypoints);
+
+      expect(cached).toEqual({ order: [0, 1], distance: 8000, duration: 900 });
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('createFallbackRoute', () => {
+    const origin = { latitude: -23.55, longitude: -46.63 };
+    const destination = { latitude: -23.65, longitude: -46.73 };
+
+    it('cria rota direta sem waypoints', () => {
+      const route = createFallbackRoute(origin, destination);
+
+      expect(route.distance).toBeGreaterThan(0);
+      expect(route.duration).toBeGreaterThan(0);
+      expect(route.polyline).toBe('');
+      expect(route.steps).toHaveLength(2);
+      expect(route.steps[0].maneuver).toBe('depart');
+      expect(route.steps[1].maneuver).toBe('arrive');
+    });
+
+    it('soma a distancia passando por waypoints (desvio e mais longo)', () => {
+      const direct = createFallbackRoute(origin, destination);
+      const viaWaypoint = createFallbackRoute(origin, destination, [
+        { latitude: -23.4, longitude: -46.5 }, // desvio para o nordeste
+      ]);
+
+      expect(viaWaypoint.distance).toBeGreaterThan(direct.distance);
+      expect(viaWaypoint.steps).toHaveLength(2);
     });
   });
 });
