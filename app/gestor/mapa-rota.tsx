@@ -10,7 +10,13 @@
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useRef } from 'react';
-import { View, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import {
+  View,
+  ScrollView,
+  TouchableOpacity,
+  Platform,
+  FlatList,
+} from 'react-native';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import {
@@ -109,7 +115,6 @@ export default function MapaRota() {
     handleMarkerPress,
     handleMapPress,
     handleParadaPress,
-    handleParadaLayout,
     handleImagePress,
     clearFotoSelecionada,
     handleConfirmCancel,
@@ -284,27 +289,46 @@ export default function MapaRota() {
                       iconColor={theme.colors.secondary}
                       variant="outlined"
                     >
-                      <ScrollView
-                        style={{ maxHeight: OPTIMIZED_MAP_HEIGHT - 80 }}
-                        ref={listaParadasRef}
-                        showsVerticalScrollIndicator={false}
-                      >
-                        {paradasReais.length === 0 ? (
-                          <View style={styles.emptyParadas}>
-                            <Text style={styles.emptyParadasText}>
-                              Nenhuma entrega ou retirada registrada.
-                            </Text>
-                          </View>
-                        ) : (
-                          paradasReais.map((parada, index) => (
+                      {paradasReais.length === 0 ? (
+                        <View style={styles.emptyParadas}>
+                          <Text style={styles.emptyParadasText}>
+                            Nenhuma entrega ou retirada registrada.
+                          </Text>
+                        </View>
+                      ) : (
+                        <FlatList
+                          ref={listaParadasRef}
+                          style={{ maxHeight: OPTIMIZED_MAP_HEIGHT - 80 }}
+                          data={paradasReais}
+                          keyExtractor={(parada) => parada.id}
+                          showsVerticalScrollIndicator={false}
+                          removeClippedSubviews
+                          initialNumToRender={10}
+                          maxToRenderPerBatch={8}
+                          windowSize={11}
+                          onScrollToIndexFailed={(info) => {
+                            // Cards têm altura variável: rola pro offset estimado e tenta de novo
+                            listaParadasRef.current?.scrollToOffset({
+                              offset: info.averageItemLength * info.index,
+                              animated: true,
+                            });
+                            setTimeout(() => {
+                              if (paradasReais.length > info.index) {
+                                listaParadasRef.current?.scrollToIndex({
+                                  index: info.index,
+                                  viewPosition: 0.3,
+                                  animated: true,
+                                });
+                              }
+                            }, 100);
+                          }}
+                          renderItem={({ item: parada, index }) => (
                             <ParadaCardCompact
-                              key={parada.id}
                               parada={parada}
                               index={index}
                               onImagePress={handleImagePress}
                               selected={selectedParadaId === parada.id}
                               onPress={handleParadaPress}
-                              onLayoutCapture={handleParadaLayout}
                               rotaStatus={rota?.status}
                               onRemove={(parada) => {
                                 handleRemoveStopRequest(parada);
@@ -315,9 +339,9 @@ export default function MapaRota() {
                                 modals.openEditStopModal();
                               }}
                             />
-                          ))
-                        )}
-                      </ScrollView>
+                          )}
+                        />
+                      )}
 
                       {paradasReais.length > 0 && (
                         <View style={{ marginTop: 12 }}>
@@ -600,7 +624,6 @@ export default function MapaRota() {
                       onImagePress={handleImagePress}
                       selected={selectedParadaId === parada.id}
                       onPress={handleParadaPress}
-                      onLayoutCapture={handleParadaLayout}
                     />
                   ))}
 

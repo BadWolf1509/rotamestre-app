@@ -3,7 +3,7 @@
  */
 
 import React, { useCallback, useRef, useState } from 'react';
-import { ScrollView } from 'react-native';
+import { FlatList } from 'react-native';
 
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
@@ -40,21 +40,22 @@ interface UseMapaRotaHandlersResult {
   setHasReorderChanges: (value: boolean) => void;
 
   // Refs
-  listaParadasRef: React.RefObject<ScrollView | null>;
-  paradaPositions: React.MutableRefObject<Record<string, number>>;
+  listaParadasRef: React.RefObject<FlatList<Parada> | null>;
 
   // Selection handlers
   handleMarkerPress: (paradaId: string) => void;
   handleMapPress: () => void;
   handleParadaPress: (paradaId: string) => void;
-  handleParadaLayout: (idParada: string, y: number) => void;
   handleImagePress: (url: string) => void;
   clearFotoSelecionada: () => void;
 
   // Route action handlers
   handleConfirmCancel: () => Promise<void>;
   handleConfirmReactivate: () => Promise<void>;
-  handleChangeDriver: (newMotoristaId: string, newMotoristaNome: string) => Promise<void>;
+  handleChangeDriver: (
+    newMotoristaId: string,
+    newMotoristaNome: string,
+  ) => Promise<void>;
 
   // Stop action handlers
   handleRemoveStopRequest: (parada: Parada) => void;
@@ -92,21 +93,27 @@ export function useMapaRotaHandlers({
   const [hasReorderChanges, setHasReorderChanges] = useState(false);
 
   // Refs
-  const listaParadasRef = useRef<ScrollView | null>(null);
-  const paradaPositions = useRef<Record<string, number>>({});
+  const listaParadasRef = useRef<FlatList<Parada> | null>(null);
 
   // Helper to get ID string
   const getIdString = useCallback(() => {
     return Array.isArray(rotaId) ? rotaId[0] : rotaId;
   }, [rotaId]);
 
-  // Scroll to parada
-  const scrollToParada = useCallback((paradaId: string) => {
-    const positionY = paradaPositions.current[paradaId];
-    if (positionY != null && listaParadasRef.current) {
-      listaParadasRef.current.scrollTo({ y: Math.max(positionY - 12, 0), animated: true });
-    }
-  }, []);
+  // Scroll to parada (FlatList: rola até o índice; onScrollToIndexFailed cobre itens não montados)
+  const scrollToParada = useCallback(
+    (paradaId: string) => {
+      const index = paradasReais.findIndex((p) => p.id === paradaId);
+      if (index >= 0 && listaParadasRef.current) {
+        listaParadasRef.current.scrollToIndex({
+          index,
+          viewPosition: 0.3,
+          animated: true,
+        });
+      }
+    },
+    [paradasReais],
+  );
 
   // Selection handlers
   const handleMarkerPress = useCallback(
@@ -114,7 +121,7 @@ export function useMapaRotaHandlers({
       setSelectedParadaId(paradaId);
       scrollToParada(paradaId);
     },
-    [scrollToParada]
+    [scrollToParada],
   );
 
   const handleMapPress = useCallback(() => {
@@ -123,10 +130,6 @@ export function useMapaRotaHandlers({
 
   const handleParadaPress = useCallback((paradaId: string) => {
     setSelectedParadaId(paradaId);
-  }, []);
-
-  const handleParadaLayout = useCallback((idParada: string, y: number) => {
-    paradaPositions.current[idParada] = y;
   }, []);
 
   const handleImagePress = useCallback((url: string) => {
@@ -226,7 +229,14 @@ export function useMapaRotaHandlers({
         showToast('Erro ao alterar motorista', 'error');
       }
     },
-    [getIdString, rota, loadRotaEParadas, showToast, userData?.id, userData?.nome]
+    [
+      getIdString,
+      rota,
+      loadRotaEParadas,
+      showToast,
+      userData?.id,
+      userData?.nome,
+    ],
   );
 
   // Stop action handlers
@@ -260,7 +270,7 @@ export function useMapaRotaHandlers({
         id,
         paradasRestantes,
         enderecoUnidade,
-        userData?.id
+        userData?.id,
       );
 
       if (result.success) {
@@ -338,7 +348,7 @@ export function useMapaRotaHandlers({
             latitude: p.latitude,
             longitude: p.longitude,
             is_checkpoint: p.is_checkpoint,
-          }))
+          })),
         );
 
         if (!reorderResult.success) {
@@ -359,7 +369,7 @@ export function useMapaRotaHandlers({
               longitude: p.longitude,
               is_checkpoint: p.is_checkpoint,
             })),
-            enderecoUnidade
+            enderecoUnidade,
           );
 
           if (!recalcResult.success) {
@@ -396,7 +406,10 @@ export function useMapaRotaHandlers({
         }
 
         if (recalcWarning) {
-          showToast('Ordem salva! Distância/tempo podem estar desatualizados.', 'info');
+          showToast(
+            'Ordem salva! Distância/tempo podem estar desatualizados.',
+            'info',
+          );
         } else {
           showToast('Paradas reordenadas com sucesso', 'success');
         }
@@ -412,7 +425,15 @@ export function useMapaRotaHandlers({
         setIsReordering(false);
       }
     },
-    [getIdString, rota, enderecoUnidade, loadRotaEParadas, showToast, userData?.id, userData?.nome]
+    [
+      getIdString,
+      rota,
+      enderecoUnidade,
+      loadRotaEParadas,
+      showToast,
+      userData?.id,
+      userData?.nome,
+    ],
   );
 
   return {
@@ -429,13 +450,11 @@ export function useMapaRotaHandlers({
 
     // Refs
     listaParadasRef,
-    paradaPositions,
 
     // Selection handlers
     handleMarkerPress,
     handleMapPress,
     handleParadaPress,
-    handleParadaLayout,
     handleImagePress,
     clearFotoSelecionada,
 
