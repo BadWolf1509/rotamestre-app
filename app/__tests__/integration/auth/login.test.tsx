@@ -31,7 +31,9 @@ describe('Login Screen - Integration Tests', () => {
   // ============================================
   describe('Renderização e UI', () => {
     it('deve renderizar corretamente no mobile', () => {
-      const { getByPlaceholderText, getByText, getAllByText } = render(<Login />);
+      const { getByPlaceholderText, getByText, getAllByText } = render(
+        <Login />,
+      );
 
       expect(getByPlaceholderText('seu@email.com')).toBeTruthy();
       expect(getByPlaceholderText('••••••••')).toBeTruthy();
@@ -84,19 +86,19 @@ describe('Login Screen - Integration Tests', () => {
       expect(passwordInput.props.value).toBe('senha123');
     });
 
-    it('deve exibir erro quando campos estão vazios', async () => {
+    it('deve exibir erro inline quando campos estão vazios', async () => {
       const { getByText } = render(<Login />);
 
       const loginButton = getByText('Entrar');
       fireEvent.press(loginButton);
 
       await waitFor(() => {
-        expect(getByText('Ops!')).toBeTruthy();
-        expect(getByText('Por favor, preencha seu e-mail e senha para continuar.')).toBeTruthy();
+        expect(getByText('E-mail é obrigatório')).toBeTruthy();
+        expect(getByText('Senha é obrigatória')).toBeTruthy();
       });
     });
 
-    it('deve exibir erro quando email está vazio', async () => {
+    it('deve exibir erro inline quando email está vazio', async () => {
       const { getByPlaceholderText, getByText } = render(<Login />);
 
       const passwordInput = getByPlaceholderText('••••••••');
@@ -106,12 +108,11 @@ describe('Login Screen - Integration Tests', () => {
       fireEvent.press(loginButton);
 
       await waitFor(() => {
-        expect(getByText('Ops!')).toBeTruthy();
-        expect(getByText('Por favor, preencha seu e-mail e senha para continuar.')).toBeTruthy();
+        expect(getByText('E-mail é obrigatório')).toBeTruthy();
       });
     });
 
-    it('deve exibir erro quando senha está vazia', async () => {
+    it('deve exibir erro inline quando senha está vazia', async () => {
       const { getByPlaceholderText, getByText } = render(<Login />);
 
       const emailInput = getByPlaceholderText('seu@email.com');
@@ -121,9 +122,25 @@ describe('Login Screen - Integration Tests', () => {
       fireEvent.press(loginButton);
 
       await waitFor(() => {
-        expect(getByText('Ops!')).toBeTruthy();
-        expect(getByText('Por favor, preencha seu e-mail e senha para continuar.')).toBeTruthy();
+        expect(getByText('Senha é obrigatória')).toBeTruthy();
       });
+    });
+
+    it('deve exibir erro inline quando email é inválido', async () => {
+      const { getByPlaceholderText, getByText } = render(<Login />);
+
+      const emailInput = getByPlaceholderText('seu@email.com');
+      const passwordInput = getByPlaceholderText('••••••••');
+      fireEvent.changeText(emailInput, 'emailinvalido');
+      fireEvent.changeText(passwordInput, 'senha123');
+
+      const loginButton = getByText('Entrar');
+      fireEvent.press(loginButton);
+
+      await waitFor(() => {
+        expect(getByText('E-mail inválido')).toBeTruthy();
+      });
+      expect(authService.signIn).not.toHaveBeenCalled();
     });
   });
 
@@ -158,7 +175,7 @@ describe('Login Screen - Integration Tests', () => {
       await waitFor(() => {
         expect(authService.signIn).toHaveBeenCalledWith(
           'gestor@rotamestre.com',
-          'senha123'
+          'senha123',
         );
         expect(mockRouter.replace).toHaveBeenCalledWith('/gestor/inicio');
       });
@@ -191,7 +208,7 @@ describe('Login Screen - Integration Tests', () => {
       await waitFor(() => {
         expect(authService.signIn).toHaveBeenCalledWith(
           'motorista@rotamestre.com',
-          'senha123'
+          'senha123',
         );
         expect(mockRouter.replace).toHaveBeenCalledWith('/motorista');
       });
@@ -223,7 +240,7 @@ describe('Login Screen - Integration Tests', () => {
 
       await waitFor(() => {
         expect(mockRouter.replace).toHaveBeenCalledWith(
-          '/onboarding/first-password'
+          '/onboarding/first-password',
         );
       });
     });
@@ -235,7 +252,7 @@ describe('Login Screen - Integration Tests', () => {
   describe('Tratamento de Erros', () => {
     it('deve exibir erro quando credenciais são inválidas', async () => {
       (authService.signIn as jest.Mock).mockRejectedValue(
-        new Error('Invalid login credentials')
+        new Error('Invalid login credentials'),
       );
 
       const { getByPlaceholderText, getByText } = render(<Login />);
@@ -251,7 +268,9 @@ describe('Login Screen - Integration Tests', () => {
 
       await waitFor(() => {
         expect(getByText('E-mail ou senha incorretos')).toBeTruthy();
-        expect(getByText('Verifique seus dados e tente novamente.')).toBeTruthy();
+        expect(
+          getByText('Verifique seus dados e tente novamente.'),
+        ).toBeTruthy();
       });
     });
 
@@ -271,7 +290,11 @@ describe('Login Screen - Integration Tests', () => {
 
       await waitFor(() => {
         expect(getByText('Algo deu errado')).toBeTruthy();
-        expect(getByText('Ocorreu um erro inesperado. Tente novamente ou contate o suporte.')).toBeTruthy();
+        expect(
+          getByText(
+            'Ocorreu um erro inesperado. Tente novamente ou contate o suporte.',
+          ),
+        ).toBeTruthy();
       });
     });
 
@@ -293,7 +316,11 @@ describe('Login Screen - Integration Tests', () => {
 
       await waitFor(() => {
         expect(getByText('Usuário não encontrado')).toBeTruthy();
-        expect(getByText('Não encontramos sua conta. Verifique seus dados e tente novamente.')).toBeTruthy();
+        expect(
+          getByText(
+            'Não encontramos sua conta. Verifique seus dados e tente novamente.',
+          ),
+        ).toBeTruthy();
       });
     });
   });
@@ -315,9 +342,9 @@ describe('Login Screen - Integration Tests', () => {
                     primeira_senha: false,
                   },
                 }),
-              100
-            )
-          )
+              100,
+            ),
+          ),
       );
 
       const { getByPlaceholderText, getByText } = render(<Login />);
@@ -335,7 +362,7 @@ describe('Login Screen - Integration Tests', () => {
       await waitFor(() => {
         expect(authService.signIn).toHaveBeenCalledWith(
           'gestor@rotamestre.com',
-          'senha123'
+          'senha123',
         );
       });
     });
@@ -363,7 +390,7 @@ describe('Login Screen - Integration Tests', () => {
       await waitFor(() => {
         expect(authService.signIn).toHaveBeenCalledWith(
           'gestor@rotamestre.com',
-          'senha123'
+          'senha123',
         );
         expect(mockRouter.replace).toHaveBeenCalled();
       });
@@ -371,7 +398,7 @@ describe('Login Screen - Integration Tests', () => {
 
     it('deve exibir Alert após tratamento de erro', async () => {
       (authService.signIn as jest.Mock).mockRejectedValue(
-        new Error('Erro de teste')
+        new Error('Erro de teste'),
       );
 
       const { getByPlaceholderText, getByText } = render(<Login />);
@@ -416,7 +443,7 @@ describe('Login Screen - Integration Tests', () => {
 
     it('não deve navegar quando login falha', async () => {
       (authService.signIn as jest.Mock).mockRejectedValue(
-        new Error('Invalid login credentials')
+        new Error('Invalid login credentials'),
       );
 
       const { getByPlaceholderText, getByText } = render(<Login />);
@@ -442,15 +469,9 @@ describe('Login Screen - Integration Tests', () => {
   // GRUPO 7: Casos de Borda
   // ============================================
   describe('Casos de Borda', () => {
-    it('deve aceitar email com espaços e trimá-los (validação básica)', async () => {
-      const mockGestor = {
-        id: 'gestor-123',
-        papel: 'gestor',
-        primeira_senha: false,
-      };
-
+    it('aceita email com espaços ao redor e normaliza antes do authService', async () => {
       (authService.signIn as jest.Mock).mockResolvedValue({
-        usuario: mockGestor,
+        usuario: { id: 'gestor-123', papel: 'gestor', primeira_senha: false },
       });
 
       const { getByPlaceholderText, getByText } = render(<Login />);
@@ -458,7 +479,8 @@ describe('Login Screen - Integration Tests', () => {
       const emailInput = getByPlaceholderText('seu@email.com');
       const passwordInput = getByPlaceholderText('••••••••');
 
-      // Email com espaços no início e fim
+      // emailSchema apara (trim) e normaliza (lowercase) antes de validar,
+      // então o authService recebe o email já limpo.
       fireEvent.changeText(emailInput, '  gestor@rotamestre.com  ');
       fireEvent.changeText(passwordInput, 'senha123');
 
@@ -466,9 +488,10 @@ describe('Login Screen - Integration Tests', () => {
       fireEvent.press(loginButton);
 
       await waitFor(() => {
-        // authService deve ser chamado com o email exatamente como foi digitado
-        // (a validação de trim seria feita no authService)
-        expect(authService.signIn).toHaveBeenCalled();
+        expect(authService.signIn).toHaveBeenCalledWith(
+          'gestor@rotamestre.com',
+          'senha123',
+        );
       });
     });
 

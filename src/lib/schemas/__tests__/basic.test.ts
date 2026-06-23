@@ -44,9 +44,8 @@ describe('emailSchema', () => {
     expect(emailSchema.parse('User@Example.COM')).toBe('user@example.com');
   });
 
-  it('rejects email with leading/trailing spaces (validation before trim)', () => {
-    const result = emailSchema.safeParse('  user@example.com  ');
-    expect(result.success).toBe(false);
+  it('trims leading/trailing spaces before validating', () => {
+    expect(emailSchema.parse('  user@example.com  ')).toBe('user@example.com');
   });
 
   it('rejects empty string', () => {
@@ -96,7 +95,9 @@ describe('passwordSchema', () => {
     const result = passwordSchema.safeParse('abc12345!');
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues.some((i) => i.message.includes('maiúscula'))).toBe(true);
+      expect(
+        result.error.issues.some((i) => i.message.includes('maiúscula')),
+      ).toBe(true);
     }
   });
 
@@ -104,7 +105,9 @@ describe('passwordSchema', () => {
     const result = passwordSchema.safeParse('Abcdefgh!');
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues.some((i) => i.message.includes('número'))).toBe(true);
+      expect(
+        result.error.issues.some((i) => i.message.includes('número')),
+      ).toBe(true);
     }
   });
 
@@ -112,7 +115,9 @@ describe('passwordSchema', () => {
     const result = passwordSchema.safeParse('Abcdefg1');
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues.some((i) => i.message.includes('especial'))).toBe(true);
+      expect(
+        result.error.issues.some((i) => i.message.includes('especial')),
+      ).toBe(true);
     }
   });
 
@@ -253,7 +258,9 @@ describe('nomeSchema', () => {
     const result = nomeSchema.safeParse('João 123');
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues.some((i) => i.message.includes('apenas letras'))).toBe(true);
+      expect(
+        result.error.issues.some((i) => i.message.includes('apenas letras')),
+      ).toBe(true);
     }
   });
 
@@ -268,7 +275,9 @@ describe('nomeSchema', () => {
 
 describe('enderecoSchema', () => {
   it('accepts valid address', () => {
-    expect(enderecoSchema.parse('Rua das Flores, 123')).toBe('Rua das Flores, 123');
+    expect(enderecoSchema.parse('Rua das Flores, 123')).toBe(
+      'Rua das Flores, 123',
+    );
   });
 
   it('trims whitespace', () => {
@@ -341,17 +350,26 @@ describe('observacoesSchema', () => {
 
 describe('coordenadasSchema', () => {
   it('accepts valid coordinates', () => {
-    const result = coordenadasSchema.safeParse({ latitude: -23.55, longitude: -46.63 });
+    const result = coordenadasSchema.safeParse({
+      latitude: -23.55,
+      longitude: -46.63,
+    });
     expect(result.success).toBe(true);
   });
 
   it('accepts boundary values (min)', () => {
-    const result = coordenadasSchema.safeParse({ latitude: -90, longitude: -180 });
+    const result = coordenadasSchema.safeParse({
+      latitude: -90,
+      longitude: -180,
+    });
     expect(result.success).toBe(true);
   });
 
   it('accepts boundary values (max)', () => {
-    const result = coordenadasSchema.safeParse({ latitude: 90, longitude: 180 });
+    const result = coordenadasSchema.safeParse({
+      latitude: 90,
+      longitude: 180,
+    });
     expect(result.success).toBe(true);
   });
 
@@ -361,19 +379,27 @@ describe('coordenadasSchema', () => {
   });
 
   it('rejects latitude out of range (< -90)', () => {
-    expect(coordenadasSchema.safeParse({ latitude: -91, longitude: 0 }).success).toBe(false);
+    expect(
+      coordenadasSchema.safeParse({ latitude: -91, longitude: 0 }).success,
+    ).toBe(false);
   });
 
   it('rejects latitude out of range (> 90)', () => {
-    expect(coordenadasSchema.safeParse({ latitude: 91, longitude: 0 }).success).toBe(false);
+    expect(
+      coordenadasSchema.safeParse({ latitude: 91, longitude: 0 }).success,
+    ).toBe(false);
   });
 
   it('rejects longitude out of range (< -180)', () => {
-    expect(coordenadasSchema.safeParse({ latitude: 0, longitude: -181 }).success).toBe(false);
+    expect(
+      coordenadasSchema.safeParse({ latitude: 0, longitude: -181 }).success,
+    ).toBe(false);
   });
 
   it('rejects longitude out of range (> 180)', () => {
-    expect(coordenadasSchema.safeParse({ latitude: 0, longitude: 181 }).success).toBe(false);
+    expect(
+      coordenadasSchema.safeParse({ latitude: 0, longitude: 181 }).success,
+    ).toBe(false);
   });
 
   it('rejects missing latitude', () => {

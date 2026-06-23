@@ -1,4 +1,4 @@
-import { loginSchema, registerSchema } from '../auth';
+import { loginSchema, registerSchema, forgotPasswordSchema } from '../auth';
 
 // ============================================================================
 // loginSchema
@@ -78,7 +78,10 @@ describe('registerSchema', () => {
   });
 
   it('accepts tipo "motorista"', () => {
-    const result = registerSchema.safeParse({ ...validData, tipo: 'motorista' });
+    const result = registerSchema.safeParse({
+      ...validData,
+      tipo: 'motorista',
+    });
     expect(result.success).toBe(true);
   });
 
@@ -89,8 +92,8 @@ describe('registerSchema', () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      const pathIssue = result.error.issues.find(
-        (i) => i.path.includes('confirmPassword'),
+      const pathIssue = result.error.issues.find((i) =>
+        i.path.includes('confirmPassword'),
       );
       expect(pathIssue?.message).toBe('As senhas não coincidem');
     }
@@ -145,5 +148,27 @@ describe('registerSchema', () => {
       confirmPassword: 'abcdef1!',
     });
     expect(result.success).toBe(false);
+  });
+});
+
+// ============================================================================
+// forgotPasswordSchema
+// ============================================================================
+
+describe('forgotPasswordSchema', () => {
+  it('aceita email válido e normaliza (trim + lowercase)', () => {
+    const r = forgotPasswordSchema.safeParse({ email: '  Test@Email.com  ' });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.email).toBe('test@email.com');
+  });
+
+  it('rejeita email vazio', () => {
+    expect(forgotPasswordSchema.safeParse({ email: '' }).success).toBe(false);
+  });
+
+  it('rejeita email malformado', () => {
+    expect(forgotPasswordSchema.safeParse({ email: 'nope' }).success).toBe(
+      false,
+    );
   });
 });

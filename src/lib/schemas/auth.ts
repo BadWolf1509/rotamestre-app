@@ -43,3 +43,16 @@ export const registerSchema = z
   });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
+
+// ============================================================================
+// FORGOT PASSWORD
+// ============================================================================
+
+/**
+ * Forgot-password form schema
+ */
+export const forgotPasswordSchema = z.object({
+  email: emailSchema,
+});
+
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
