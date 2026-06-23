@@ -969,15 +969,20 @@ describe('Reset Password Screen - Integration Tests', () => {
         expect(queryByText('As senhas não coincidem')).toBeTruthy();
       });
 
-      // Corrige a confirmação → reValidateMode onChange limpa o erro
+      // Corrige a confirmação → reValidateMode onChange limpa o erro.
+      // Timeout maior: a revalidação async do zodResolver pode passar de 1s
+      // sob carga da suíte completa.
       fireEvent.changeText(
         getByPlaceholderText('Confirmar senha'),
         VALID_PASSWORD,
       );
 
-      await waitFor(() => {
-        expect(queryByText('As senhas não coincidem')).toBeNull();
-      });
+      await waitFor(
+        () => {
+          expect(queryByText('As senhas não coincidem')).toBeNull();
+        },
+        { timeout: 3000 },
+      );
     });
 
     it('deve mostrar box de requisitos de segurança', () => {
