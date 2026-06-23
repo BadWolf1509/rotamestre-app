@@ -179,3 +179,48 @@ describe('useTimelineData — loadMore', () => {
     expect(result.current.loadingMore).toBe(false);
   });
 });
+
+describe('useTimelineData — realtime', () => {
+  it('assina o canal quando realtime=true e remove no unmount', async () => {
+    const { unmount } = renderHook(() =>
+      useTimelineData('123', { realtime: true }),
+    );
+    await waitFor(() =>
+      expect(supabase.channel).toHaveBeenCalledWith('route-timeline-123'),
+    );
+    expect((supabase.channel('') as any).subscribe).toHaveBeenCalled();
+    unmount();
+    expect(supabase.removeChannel).toHaveBeenCalled();
+  });
+
+  it('NÃO assina quando realtime=false', async () => {
+    renderHook(() => useTimelineData('123', { realtime: false }));
+    await waitFor(() => {});
+    expect(supabase.channel).not.toHaveBeenCalled();
+  });
+
+  it('insere no topo ao receber INSERT de log via realtime', async () => {
+    const handlers: Record<string, (payload: any) => void> = {};
+    (supabase.on as jest.Mock).mockImplementation(
+      (_evt: string, cfg: any, cb: (p: any) => void) => {
+        if (cfg.table === 'logs') handlers.logInsert = cb;
+        return supabase;
+      },
+    );
+
+    const { result } = renderHook(() =>
+      useTimelineData('123', { realtime: true }),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const before = result.current.events.length;
+
+    await act(async () => {
+      handlers.logInsert({
+        new: { id: '999', evento: 'x', timestamp: '2099-01-01T00:00:00Z' },
+      });
+    });
+
+    expect(result.current.events[0].id).toBe('log-999');
+    expect(result.current.events.length).toBe(before + 1);
+  });
+});

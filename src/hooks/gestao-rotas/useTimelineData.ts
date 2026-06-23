@@ -177,10 +177,57 @@ export function useTimelineData(
     }
   }, [loadingMore, hasMore, rotaId]);
 
-  // Realtime: implementado na Task 4 (placeholder mantém a assinatura estável).
+  // Realtime: hook é dono do canal.
   useEffect(() => {
     if (!realtime) return;
-  }, [realtime]);
+    const channel = supabase
+      .channel(`route-timeline-${rotaId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'logs',
+          filter: `rota_id=eq.${rotaId}`,
+        },
+        (payload: any) => {
+          const mapped = mapLogToTimelineEvent(payload.new);
+          if (!mapped) return;
+          updateRef.current((prev) => ({
+            events: dedupeById(sortDesc([mapped, ...(prev?.events ?? [])])),
+            hasMore: prev?.hasMore ?? false,
+          }));
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'paradas',
+          filter: `rota_id=eq.${rotaId}`,
+        },
+        () => {
+          void refresh();
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'incidentes',
+          filter: `rota_id=eq.${rotaId}`,
+        },
+        () => {
+          void refresh();
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [rotaId, realtime, refresh]);
 
   return {
     events,
