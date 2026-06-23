@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
+import { useForm, Controller } from 'react-hook-form';
 import {
   ActivityIndicator,
   Image,
@@ -18,6 +20,7 @@ import { UnistylesRuntime } from 'react-native-unistyles';
 import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
 import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
+import { FieldError } from '@/components/auth/FieldError';
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
 import { useSessionRecovery } from '@/hooks/auth/useSessionRecovery';
 import { useAlert } from '@/hooks/useAlert';
@@ -27,7 +30,7 @@ import {
   isAuthSessionMissingError,
   trySessionRecoveryFromUrl,
 } from '@/lib/auth/sessionRecovery';
-import { validatePassword } from '@/lib/schemas/basic';
+import { resetPasswordSchema, type ResetPasswordInput } from '@/lib/schemas';
 import { styles } from '@/styles/auth/reset-password.styles';
 import { useUnistyles } from '@/utils/styles';
 
@@ -36,41 +39,28 @@ export default function ResetPassword() {
   const router = useRouter();
   const { isDesktop } = useResponsive();
   const insets = useSafeAreaInsets();
-  const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
+  const { showSuccess, showError, AlertDialog } = useAlert();
   const { checkingSession, linkExpired, setLinkExpired } = useSessionRecovery();
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const confirmPasswordRef = useRef<TextInput>(null);
+  const {
+    control,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm<ResetPasswordInput>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: { password: '', confirmPassword: '' },
+    mode: 'onSubmit',
+    reValidateMode: 'onChange',
+  });
+  const passwordValue = watch('password');
 
   // Detectar tema escuro para usar logo apropriada
   const isDarkMode = UnistylesRuntime.themeName?.startsWith('dark');
   const LogoHorizontal = isDarkMode ? LogoHorizontalDark : LogoHorizontalLight;
-
-  function validateForm() {
-    if (!password.trim()) {
-      showWarning('Erro', 'Digite sua nova senha');
-      return false;
-    }
-
-    const passwordValidation = validatePassword(password);
-    if (!passwordValidation.valid) {
-      showWarning(
-        'Senha fraca',
-        `A senha precisa:\n• ${passwordValidation.errors.join('\n• ')}`,
-      );
-      return false;
-    }
-
-    if (password !== confirmPassword) {
-      showWarning('Erro', 'As senhas não coincidem');
-      return false;
-    }
-
-    return true;
-  }
 
   async function onPasswordUpdated() {
     // Redefinir via email também conclui a troca de senha inicial — sem isso
@@ -83,10 +73,8 @@ export default function ResetPassword() {
     );
   }
 
-  async function handleUpdatePassword() {
-    if (!validateForm()) {
-      return;
-    }
+  async function onSubmit(data: ResetPasswordInput) {
+    const { password } = data;
 
     setLoading(true);
 
@@ -134,12 +122,6 @@ export default function ResetPassword() {
       </Text>
     </View>
   );
-
-  // Shared: password mismatch inline feedback
-  const mismatchContent =
-    confirmPassword && password !== confirmPassword ? (
-      <Text style={styles.mismatchText}>As senhas não coincidem</Text>
-    ) : null;
 
   // ============================================
   // RENDER: Expired Link (shared content)
@@ -243,20 +225,27 @@ export default function ResetPassword() {
                   <View style={styles.inputGroup}>
                     <Text style={styles.inputLabel}>Nova Senha</Text>
                     <View style={styles.passwordContainer}>
-                      <TextInput
-                        style={styles.inputDesktopPassword}
-                        placeholder="Digite sua nova senha"
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry={!showPassword}
-                        autoCapitalize="none"
-                        autoComplete="new-password"
-                        accessibilityLabel="Nova senha"
-                        returnKeyType="next"
-                        onSubmitEditing={() =>
-                          confirmPasswordRef.current?.focus()
-                        }
-                        testID="auth-reset-password-new"
+                      <Controller
+                        control={control}
+                        name="password"
+                        render={({ field: { onChange, onBlur, value } }) => (
+                          <TextInput
+                            style={styles.inputDesktopPassword}
+                            placeholder="Digite sua nova senha"
+                            value={value}
+                            onChangeText={onChange}
+                            onBlur={onBlur}
+                            secureTextEntry={!showPassword}
+                            autoCapitalize="none"
+                            autoComplete="new-password"
+                            accessibilityLabel="Nova senha"
+                            returnKeyType="next"
+                            onSubmitEditing={() =>
+                              confirmPasswordRef.current?.focus()
+                            }
+                            testID="auth-reset-password-new"
+                          />
+                        )}
                       />
                       <TouchableOpacity
                         style={styles.eyeButton}
@@ -275,25 +264,33 @@ export default function ResetPassword() {
                         />
                       </TouchableOpacity>
                     </View>
-                    <PasswordStrengthIndicator password={password} />
+                    <FieldError message={errors.password?.message} />
+                    <PasswordStrengthIndicator password={passwordValue} />
                   </View>
 
                   <View style={styles.inputGroup}>
                     <Text style={styles.inputLabel}>Confirmar Senha</Text>
                     <View style={styles.passwordContainer}>
-                      <TextInput
-                        ref={confirmPasswordRef}
-                        style={styles.inputDesktopPassword}
-                        placeholder="Digite novamente sua senha"
-                        value={confirmPassword}
-                        onChangeText={setConfirmPassword}
-                        secureTextEntry={!showConfirmPassword}
-                        autoCapitalize="none"
-                        autoComplete="new-password"
-                        accessibilityLabel="Confirmar senha"
-                        returnKeyType="done"
-                        onSubmitEditing={handleUpdatePassword}
-                        testID="auth-reset-password-confirm"
+                      <Controller
+                        control={control}
+                        name="confirmPassword"
+                        render={({ field: { onChange, onBlur, value } }) => (
+                          <TextInput
+                            ref={confirmPasswordRef}
+                            style={styles.inputDesktopPassword}
+                            placeholder="Digite novamente sua senha"
+                            value={value}
+                            onChangeText={onChange}
+                            onBlur={onBlur}
+                            secureTextEntry={!showConfirmPassword}
+                            autoCapitalize="none"
+                            autoComplete="new-password"
+                            accessibilityLabel="Confirmar senha"
+                            returnKeyType="done"
+                            onSubmitEditing={handleSubmit(onSubmit)}
+                            testID="auth-reset-password-confirm"
+                          />
+                        )}
                       />
                       <TouchableOpacity
                         style={styles.eyeButton}
@@ -318,14 +315,14 @@ export default function ResetPassword() {
                         />
                       </TouchableOpacity>
                     </View>
-                    {mismatchContent}
+                    <FieldError message={errors.confirmPassword?.message} />
                   </View>
 
                   {requirementsContent}
 
                   <TouchableOpacity
                     style={styles.buttonDesktop}
-                    onPress={handleUpdatePassword}
+                    onPress={handleSubmit(onSubmit)}
                     disabled={loading}
                     accessibilityLabel="Redefinir senha"
                     accessibilityRole="button"
@@ -393,18 +390,25 @@ export default function ResetPassword() {
         ) : (
           <View style={styles.form}>
             <View style={styles.passwordContainer}>
-              <TextInput
-                style={styles.inputPassword}
-                placeholder="Nova senha"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoComplete="new-password"
-                accessibilityLabel="Nova senha"
-                returnKeyType="next"
-                onSubmitEditing={() => confirmPasswordRef.current?.focus()}
-                testID="auth-reset-password-new"
+              <Controller
+                control={control}
+                name="password"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    style={styles.inputPassword}
+                    placeholder="Nova senha"
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoComplete="new-password"
+                    accessibilityLabel="Nova senha"
+                    returnKeyType="next"
+                    onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+                    testID="auth-reset-password-new"
+                  />
+                )}
               />
               <TouchableOpacity
                 style={styles.eyeButton}
@@ -421,22 +425,30 @@ export default function ResetPassword() {
                 />
               </TouchableOpacity>
             </View>
-            <PasswordStrengthIndicator password={password} />
+            <FieldError message={errors.password?.message} />
+            <PasswordStrengthIndicator password={passwordValue} />
 
             <View style={styles.passwordContainer}>
-              <TextInput
-                ref={confirmPasswordRef}
-                style={styles.inputPassword}
-                placeholder="Confirmar senha"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry={!showConfirmPassword}
-                autoCapitalize="none"
-                autoComplete="new-password"
-                accessibilityLabel="Confirmar senha"
-                returnKeyType="done"
-                onSubmitEditing={handleUpdatePassword}
-                testID="auth-reset-password-confirm"
+              <Controller
+                control={control}
+                name="confirmPassword"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    ref={confirmPasswordRef}
+                    style={styles.inputPassword}
+                    placeholder="Confirmar senha"
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    secureTextEntry={!showConfirmPassword}
+                    autoCapitalize="none"
+                    autoComplete="new-password"
+                    accessibilityLabel="Confirmar senha"
+                    returnKeyType="done"
+                    onSubmitEditing={handleSubmit(onSubmit)}
+                    testID="auth-reset-password-confirm"
+                  />
+                )}
               />
               <TouchableOpacity
                 style={styles.eyeButton}
@@ -455,13 +467,13 @@ export default function ResetPassword() {
                 />
               </TouchableOpacity>
             </View>
-            {mismatchContent}
+            <FieldError message={errors.confirmPassword?.message} />
 
             {requirementsContent}
 
             <TouchableOpacity
               style={styles.button}
-              onPress={handleUpdatePassword}
+              onPress={handleSubmit(onSubmit)}
               disabled={loading}
               accessibilityLabel="Redefinir senha"
               accessibilityRole="button"
