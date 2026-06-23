@@ -58,7 +58,12 @@ export const CRITICAL_INCIDENT_CATEGORIES = ['accident', 'vehicle'];
 /**
  * Preview event type for collapsible timeline
  */
-export type TimelinePreviewEventType = 'inicio' | 'conclusao' | 'parada' | 'incidente' | 'outro';
+export type TimelinePreviewEventType =
+  | 'inicio'
+  | 'conclusao'
+  | 'parada'
+  | 'incidente'
+  | 'outro';
 
 /**
  * Result of mapping log event to preview
@@ -73,12 +78,23 @@ export interface TimelinePreviewEvent {
  * Semantic color for timeline events
  * Should be resolved by component using theme
  */
-export type TimelineSemanticColor = 'info' | 'success' | 'error' | 'warning' | 'purple' | 'blue' | 'gray';
+export type TimelineSemanticColor =
+  | 'info'
+  | 'success'
+  | 'error'
+  | 'warning'
+  | 'purple'
+  | 'blue'
+  | 'gray';
 
 /**
  * Full event type for RouteTimeline
  */
-export type TimelineEventType = 'status_change' | 'parada_update' | 'incidente' | 'gps_update';
+export type TimelineEventType =
+  | 'status_change'
+  | 'parada_update'
+  | 'incidente'
+  | 'gps_update';
 
 /**
  * Mapped event for RouteTimeline (without resolved color)
@@ -139,17 +155,33 @@ export function mapLogToTimelinePreview(log: {
   const evento = log.evento.toLowerCase();
 
   // Route started
-  if (evento.includes('iniciou') || evento === 'motorista_iniciou_rota' || evento.includes('start')) {
+  if (
+    evento.includes('iniciou') ||
+    evento === 'motorista_iniciou_rota' ||
+    evento.includes('start')
+  ) {
     return { timestamp: log.timestamp, title: 'Rota iniciada', type: 'inicio' };
   }
 
   // Route completed
-  if (evento.includes('concluiu') || evento === 'motorista_concluiu_rota' || evento.includes('finaliz')) {
-    return { timestamp: log.timestamp, title: 'Rota concluída', type: 'conclusao' };
+  if (
+    evento.includes('concluiu') ||
+    evento === 'motorista_concluiu_rota' ||
+    evento.includes('finaliz')
+  ) {
+    return {
+      timestamp: log.timestamp,
+      title: 'Rota concluída',
+      type: 'conclusao',
+    };
   }
 
   // Route cancelled
-  if (evento.includes('cancelou') || evento === 'rota_cancelada' || evento.includes('cancel')) {
+  if (
+    evento.includes('cancelou') ||
+    evento === 'rota_cancelada' ||
+    evento.includes('cancel')
+  ) {
     return { timestamp: log.timestamp, title: 'Rota cancelada', type: 'outro' };
   }
 
@@ -160,12 +192,24 @@ export function mapLogToTimelinePreview(log: {
 
   // SOS
   if (evento === 'sos_acionado') {
-    return { timestamp: log.timestamp, title: 'SOS Acionado', type: 'incidente' };
+    return {
+      timestamp: log.timestamp,
+      title: 'SOS Acionado',
+      type: 'incidente',
+    };
   }
 
   // Stop updates
-  if (evento === 'parada_adicionada' || evento === 'parada_editada' || evento === 'parada_removida') {
-    return { timestamp: log.timestamp, title: 'Parada atualizada', type: 'parada' };
+  if (
+    evento === 'parada_adicionada' ||
+    evento === 'parada_editada' ||
+    evento === 'parada_removida'
+  ) {
+    return {
+      timestamp: log.timestamp,
+      title: 'Parada atualizada',
+      type: 'parada',
+    };
   }
 
   return null;
@@ -209,7 +253,11 @@ export function mapLogToTimelineEvent(log: {
   }
 
   // ROUTE STARTED
-  if (evento.includes('iniciou') || evento.includes('start') || evento === 'motorista_iniciou_rota') {
+  if (
+    evento.includes('iniciou') ||
+    evento.includes('start') ||
+    evento === 'motorista_iniciou_rota'
+  ) {
     return {
       id: `log-${log.id}`,
       type: 'status_change',
@@ -224,7 +272,11 @@ export function mapLogToTimelineEvent(log: {
   }
 
   // ROUTE COMPLETED
-  if (evento.includes('concluiu') || evento.includes('finaliz') || evento === 'motorista_concluiu_rota') {
+  if (
+    evento.includes('concluiu') ||
+    evento.includes('finaliz') ||
+    evento === 'motorista_concluiu_rota'
+  ) {
     return {
       id: `log-${log.id}`,
       type: 'status_change',
@@ -239,7 +291,11 @@ export function mapLogToTimelineEvent(log: {
   }
 
   // ROUTE CANCELLED
-  if (evento.includes('cancelou') || evento.includes('cancel') || evento === 'rota_cancelada') {
+  if (
+    evento.includes('cancelou') ||
+    evento.includes('cancel') ||
+    evento === 'rota_cancelada'
+  ) {
     return {
       id: `log-${log.id}`,
       type: 'status_change',
@@ -578,9 +634,15 @@ export function getDateGroup(timestamp: string | Date): string {
 
   // Compare only date (ignore time)
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dateOnly = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+  );
 
-  const diffDays = Math.floor((today.getTime() - dateOnly.getTime()) / (1000 * 60 * 60 * 24));
+  const diffDays = Math.floor(
+    (today.getTime() - dateOnly.getTime()) / (1000 * 60 * 60 * 24),
+  );
 
   if (diffDays === 0) {
     return 'Hoje';
@@ -604,7 +666,10 @@ export function getDateGroup(timestamp: string | Date): string {
  * @param end - Newer timestamp (ISO string or Date)
  * @returns Formatted duration (ex: "↓ 15 min", "↓ 2h 30min") or null if < 1 min
  */
-export function calculateDurationBetween(start: string | Date, end: string | Date): string | null {
+export function calculateDurationBetween(
+  start: string | Date,
+  end: string | Date,
+): string | null {
   const startDate = typeof start === 'string' ? new Date(start) : start;
   const endDate = typeof end === 'string' ? new Date(end) : end;
 
@@ -630,4 +695,25 @@ export function calculateDurationBetween(start: string | Date, end: string | Dat
   }
 
   return `↓ ${hours}h ${mins}min`;
+}
+
+// ============================================================================
+// VIEW HELPERS (for RouteTimeline isNew derivation)
+// ============================================================================
+
+/**
+ * Determina quais ids são "recém-adicionados" para fins de flag isNew + animação.
+ * - Carga inicial (previousIds vazio) → vazio (nada é "novo").
+ * - Paginação (isPagination) → vazio (eventos antigos anexados não são novos).
+ * - Caso contrário → ids presentes agora e ausentes antes.
+ */
+export function computeNewlyAddedIds(
+  currentIds: string[],
+  previousIds: Set<string>,
+  isPagination: boolean,
+): Set<string> {
+  if (isPagination || previousIds.size === 0) {
+    return new Set();
+  }
+  return new Set(currentIds.filter((id) => !previousIds.has(id)));
 }
