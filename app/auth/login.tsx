@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import { useForm, Controller } from 'react-hook-form';
 import {
   ActivityIndicator,
   Image,
@@ -18,11 +20,13 @@ import { UnistylesRuntime } from 'react-native-unistyles';
 import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
 import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
+import { FieldError } from '@/components/auth/FieldError';
 import { Dialog } from '@/design-system';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { getErrorMessage } from '@/lib/errorMapping';
 import { loginRateLimiter } from '@/lib/rateLimiter';
+import { loginSchema, type LoginInput } from '@/lib/schemas';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // Inject focus ring styles for login inputs (web only)
@@ -57,10 +61,18 @@ export default function Login() {
   const router = useRouter();
   const { isDesktop } = useResponsive();
   const insets = useSafeAreaInsets();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginInput>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: '', password: '' },
+    mode: 'onSubmit',
+    reValidateMode: 'onChange',
+  });
 
   // Detectar tema escuro para usar logo apropriada
   const isDarkMode = UnistylesRuntime.themeName?.startsWith('dark');
@@ -89,20 +101,11 @@ export default function Login() {
     setAlertConfig((prev) => ({ ...prev, visible: false }));
   }
 
-  async function handleLogin() {
-    if (!email || !password) {
-      showAlert(
-        'Ops!',
-        'Por favor, preencha seu e-mail e senha para continuar.',
-        'warning',
-      );
-      return;
-    }
+  async function onSubmit(data: LoginInput) {
+    const { email, password } = data;
 
     // Verificar rate limit (proteção contra brute force)
-    const rateLimitCheck = await loginRateLimiter.checkLimit(
-      email.toLowerCase(),
-    );
+    const rateLimitCheck = await loginRateLimiter.checkLimit(email);
     if (!rateLimitCheck.allowed) {
       showAlert(
         'Muitas tentativas',
@@ -124,7 +127,7 @@ export default function Login() {
 
       if (usuario) {
         // Login bem-sucedido: resetar rate limit
-        await loginRateLimiter.recordAttempt(email.toLowerCase(), true);
+        await loginRateLimiter.recordAttempt(email, true);
 
         // Verificar se é primeiro acesso e precisa trocar senha
         if (usuario.primeira_senha === true) {
@@ -140,7 +143,7 @@ export default function Login() {
         }
       } else {
         // Registrar tentativa falha
-        await loginRateLimiter.recordAttempt(email.toLowerCase(), false);
+        await loginRateLimiter.recordAttempt(email, false);
         showAlert(
           'Usuário não encontrado',
           'Não encontramos sua conta. Verifique seus dados e tente novamente.',
@@ -183,29 +186,44 @@ export default function Login() {
             <View style={styles.form}>
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>E-mail</Text>
-                <TextInput
-                  style={styles.inputDesktop}
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  testID="auth-login-email"
+                <Controller
+                  control={control}
+                  name="email"
+                  render={({ field: { onChange, onBlur, value } }) => (
+                    <TextInput
+                      style={styles.inputDesktop}
+                      placeholder="seu@email.com"
+                      value={value}
+                      onChangeText={onChange}
+                      onBlur={onBlur}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoComplete="email"
+                      testID="auth-login-email"
+                    />
+                  )}
                 />
+                <FieldError message={errors.email?.message} />
               </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Senha</Text>
                 <View style={styles.passwordContainer}>
-                  <TextInput
-                    style={styles.inputDesktopPassword}
-                    placeholder="••••••••"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    autoComplete="password"
-                    testID="auth-login-password"
+                  <Controller
+                    control={control}
+                    name="password"
+                    render={({ field: { onChange, onBlur, value } }) => (
+                      <TextInput
+                        style={styles.inputDesktopPassword}
+                        placeholder="••••••••"
+                        value={value}
+                        onChangeText={onChange}
+                        onBlur={onBlur}
+                        secureTextEntry={!showPassword}
+                        autoComplete="password"
+                        testID="auth-login-password"
+                      />
+                    )}
                   />
                   <TouchableOpacity
                     style={styles.eyeButton}
@@ -222,6 +240,7 @@ export default function Login() {
                     />
                   </TouchableOpacity>
                 </View>
+                <FieldError message={errors.password?.message} />
               </View>
 
               <TouchableOpacity
@@ -236,7 +255,7 @@ export default function Login() {
 
               <TouchableOpacity
                 style={styles.buttonDesktop}
-                onPress={handleLogin}
+                onPress={handleSubmit(onSubmit)}
                 disabled={loading}
                 testID="auth-login-submit"
                 accessibilityLabel="Entrar"
@@ -312,29 +331,44 @@ export default function Login() {
         <View style={styles.form}>
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>E-mail</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="seu@email.com"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              testID="auth-login-email"
+            <Controller
+              control={control}
+              name="email"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={styles.input}
+                  placeholder="seu@email.com"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  testID="auth-login-email"
+                />
+              )}
             />
+            <FieldError message={errors.email?.message} />
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Senha</Text>
             <View style={styles.passwordContainer}>
-              <TextInput
-                style={styles.inputPassword}
-                placeholder="••••••••"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoComplete="password"
-                testID="auth-login-password"
+              <Controller
+                control={control}
+                name="password"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    style={styles.inputPassword}
+                    placeholder="••••••••"
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    secureTextEntry={!showPassword}
+                    autoComplete="password"
+                    testID="auth-login-password"
+                  />
+                )}
               />
               <TouchableOpacity
                 style={styles.eyeButton}
@@ -351,6 +385,7 @@ export default function Login() {
                 />
               </TouchableOpacity>
             </View>
+            <FieldError message={errors.password?.message} />
           </View>
 
           <TouchableOpacity
@@ -365,7 +400,7 @@ export default function Login() {
 
           <TouchableOpacity
             style={styles.button}
-            onPress={handleLogin}
+            onPress={handleSubmit(onSubmit)}
             disabled={loading}
             testID="auth-login-submit"
             accessibilityLabel="Entrar"
