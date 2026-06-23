@@ -6,7 +6,7 @@ Mobile + web app for last-mile route optimization. Two user roles: **gestor** (m
 
 - **Framework:** React Native + Expo + TypeScript; file-based routing via Expo Router.
 - **Backend:** Supabase (Postgres + Auth + Storage + Realtime). Client uses `ANON_KEY` and respects RLS. Service-role access lives in the panel project, never here.
-- **Maps:** MapLibre GL (web + native) on OpenFreeMap / Carto tiles; OSRM for routing; Photon for geocoding. All free — no Google Maps API key needed.
+- **Maps:** MapLibre GL (web + native) on OpenFreeMap / Carto tiles. **OSRM** for routing (free). **Address geocoding/autocomplete uses the Google Places API** via Supabase Edge Functions (`google-places-autocomplete`, `google-place-details`) — `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` is **required** (~R$2.83 / 1000 sessions); Photon + ViaCEP are fallbacks. (A Google Distance Matrix path exists but is **disabled** — OSRM table service is used for the optimizer instead.)
 - **Forms:** `react-hook-form` + Zod via `@hookform/resolvers/zod`.
 - **State:** React hooks + `AsyncStorage` (no Redux/Zustand).
 - **Error tracking:** Sentry, web production only (`src/lib/sentry.ts`).
@@ -65,23 +65,23 @@ Installed in `.claude/`:
 
 ## Phonebook
 
-| Looking for                                | Where                                                                              |
-| ------------------------------------------ | ---------------------------------------------------------------------------------- |
-| Current versions of any dep                | `package.json`                                                                     |
-| Live DB schema / data                      | `mcp__rotamestre-db__*` or `mcp__supabase__list_tables` (verify project_ref first) |
-| Design system (colors, typography, tokens) | `.claude/refs/design-system.md`                                                    |
-| Test commands, coverage, layout            | `docs/TESTING.md`                                                                  |
-| Migration conventions + history            | `database/MIGRATIONS.md` (also see `/new-migration` skill)                         |
-| Fluxo de recuperação de senha              | `docs/PASSWORD_RECOVERY.md`                                                        |
-| Sentry configuration                       | `src/lib/sentry.ts`                                                                |
-| Supabase client setup                      | `src/lib/supabase.ts`                                                              |
-| Logger                                     | `src/lib/logger.ts`                                                                |
-| Photon geocoding wrapper                   | `src/lib/photon.ts`                                                                |
-| OSRM routing wrapper                       | `src/lib/google.ts` (legacy name; wraps OSRM)                                      |
-| Maps (web vs mobile)                       | `src/components/MapaWebMapLibre.tsx` / `src/components/MapaRN.tsx`                 |
-| Camera/upload                              | `src/components/CameraUpload.tsx`                                                  |
-| External nav apps (Waze, Google Maps)      | `src/lib/navigation.ts`                                                            |
-| Play Store deploy notes                    | `docs/GOOGLE_PLAY_DEPLOYMENT.md`                                                   |
+| Looking for                                | Where                                                                                                                   |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Current versions of any dep                | `package.json`                                                                                                          |
+| Live DB schema / data                      | `mcp__rotamestre-db__*` or `mcp__supabase__list_tables` (verify project_ref first)                                      |
+| Design system (colors, typography, tokens) | `.claude/refs/design-system.md`                                                                                         |
+| Test commands, coverage, layout            | `docs/TESTING.md`                                                                                                       |
+| Migration conventions + history            | `database/MIGRATIONS.md` (also see `/new-migration` skill)                                                              |
+| Fluxo de recuperação de senha              | `docs/PASSWORD_RECOVERY.md`                                                                                             |
+| Sentry configuration                       | `src/lib/sentry.ts`                                                                                                     |
+| Supabase client setup                      | `src/lib/supabase.ts`                                                                                                   |
+| Logger                                     | `src/lib/logger.ts`                                                                                                     |
+| Address geocoding/autocomplete             | `src/lib/geocoding.ts` (router) → `src/lib/googlePlaces.ts` (Google Places via Edge Fn); `src/lib/photon.ts` = fallback |
+| Routing wrapper (OSRM)                     | `src/lib/google.ts` (legacy name; routing→OSRM, but its geocoding helpers still call Google)                            |
+| Maps (web vs mobile)                       | `src/components/MapaWebMapLibre.tsx` / `src/components/MapaRN.tsx`                                                      |
+| Camera/upload                              | `src/components/CameraUpload.tsx`                                                                                       |
+| External nav apps (Waze, Google Maps)      | `src/lib/navigation.ts`                                                                                                 |
+| Play Store deploy notes                    | `docs/GOOGLE_PLAY_DEPLOYMENT.md`                                                                                        |
 
 ## External services in use
 
