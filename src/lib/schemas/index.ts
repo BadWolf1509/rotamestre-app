@@ -31,7 +31,14 @@ export {
 export { phoneSchema, optionalPhoneSchema, telefoneSchema } from '../phone';
 
 // Auth schemas
-export { loginSchema, registerSchema, type LoginInput, type RegisterInput } from './auth';
+export {
+  loginSchema,
+  registerSchema,
+  forgotPasswordSchema,
+  type LoginInput,
+  type RegisterInput,
+  type ForgotPasswordInput,
+} from './auth';
 
 // Domain schemas
 export { paradaSchema, type ParadaInput } from './parada';
