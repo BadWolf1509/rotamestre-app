@@ -106,21 +106,20 @@ describe('Forgot Password Screen - Integration Tests', () => {
       expect(emailInput.props.value).toBe('teste@rotamestre.com');
     });
 
-    it('deve exibir erro quando email está vazio', async () => {
+    it('deve exibir erro inline quando email está vazio', async () => {
       const { getByText } = render(<ForgotPassword />);
 
       const submitButton = getByText('Enviar Link');
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
-          'Erro',
-          'Digite seu e-mail',
-        );
+        expect(getByText('E-mail é obrigatório')).toBeTruthy();
       });
+      expect(global.mockUseAlert.showWarning).not.toHaveBeenCalled();
+      expect(authService.resetPassword).not.toHaveBeenCalled();
     });
 
-    it('deve exibir erro quando email contém apenas espaços', async () => {
+    it('deve exibir erro inline quando email contém apenas espaços', async () => {
       const { getByPlaceholderText, getByText } = render(<ForgotPassword />);
 
       const emailInput = getByPlaceholderText('E-mail');
@@ -130,11 +129,25 @@ describe('Forgot Password Screen - Integration Tests', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
-          'Erro',
-          'Digite seu e-mail',
-        );
+        expect(getByText('E-mail é obrigatório')).toBeTruthy();
       });
+      expect(global.mockUseAlert.showWarning).not.toHaveBeenCalled();
+      expect(authService.resetPassword).not.toHaveBeenCalled();
+    });
+
+    it('deve exibir erro inline quando email é inválido', async () => {
+      const { getByPlaceholderText, getByText } = render(<ForgotPassword />);
+
+      const emailInput = getByPlaceholderText('E-mail');
+      fireEvent.changeText(emailInput, 'emailinvalido');
+
+      const submitButton = getByText('Enviar Link');
+      fireEvent.press(submitButton);
+
+      await waitFor(() => {
+        expect(getByText('E-mail inválido')).toBeTruthy();
+      });
+      expect(authService.resetPassword).not.toHaveBeenCalled();
     });
   });
 

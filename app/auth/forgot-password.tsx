@@ -1,5 +1,7 @@
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import { useForm, Controller } from 'react-hook-form';
 import {
   ActivityIndicator,
   Image,
@@ -16,11 +18,13 @@ import { UnistylesRuntime } from 'react-native-unistyles';
 import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
 import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
+import { FieldError } from '@/components/auth/FieldError';
 import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { passwordResetRateLimiter } from '@/lib/rateLimiter';
+import { forgotPasswordSchema, type ForgotPasswordInput } from '@/lib/schemas';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export default function ForgotPassword() {
@@ -28,24 +32,27 @@ export default function ForgotPassword() {
   const router = useRouter();
   const { isDesktop } = useResponsive();
   const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
-  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ForgotPasswordInput>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: { email: '' },
+    mode: 'onSubmit',
+    reValidateMode: 'onChange',
+  });
 
   // Detectar tema escuro para usar logo apropriada
   const isDarkMode = UnistylesRuntime.themeName?.startsWith('dark');
   const LogoHorizontal = isDarkMode ? LogoHorizontalDark : LogoHorizontalLight;
 
-  async function handleResetPassword() {
-    const trimmedEmail = email.trim().toLowerCase();
-
-    if (!trimmedEmail) {
-      showWarning('Erro', 'Digite seu e-mail');
-      return;
-    }
+  async function onSubmit(data: ForgotPasswordInput) {
+    const { email } = data;
 
     // Verificar rate limit local ANTES de chamar o Supabase
-    const rateLimitCheck =
-      await passwordResetRateLimiter.checkLimit(trimmedEmail);
+    const rateLimitCheck = await passwordResetRateLimiter.checkLimit(email);
     if (!rateLimitCheck.allowed) {
       showWarning(
         'Aguarde',
@@ -58,11 +65,11 @@ export default function ForgotPassword() {
     setLoading(true);
 
     try {
-      await authService.resetPassword(trimmedEmail);
+      await authService.resetPassword(email);
 
       // Registrar envio bem-sucedido — conta no limite de 3 envios/hora
       // (passwordResetRateLimiter usa resetOnSuccess: false)
-      await passwordResetRateLimiter.recordAttempt(trimmedEmail, true);
+      await passwordResetRateLimiter.recordAttempt(email, true);
 
       showSuccess(
         'Email enviado!',
@@ -109,7 +116,7 @@ export default function ForgotPassword() {
         });
       } else {
         // Erro inesperado — registrar como falha e logar para diagnóstico
-        await passwordResetRateLimiter.recordAttempt(trimmedEmail, false);
+        await passwordResetRateLimiter.recordAttempt(email, false);
 
         logger.error(
           '[ForgotPassword] Erro inesperado ao solicitar recuperação de senha',
@@ -153,20 +160,28 @@ export default function ForgotPassword() {
             <View style={styles.form}>
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>E-mail</Text>
-                <TextInput
-                  style={styles.inputDesktop}
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
+                <Controller
+                  control={control}
+                  name="email"
+                  render={({ field: { onChange, onBlur, value } }) => (
+                    <TextInput
+                      style={styles.inputDesktop}
+                      placeholder="seu@email.com"
+                      value={value}
+                      onChangeText={onChange}
+                      onBlur={onBlur}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoComplete="email"
+                    />
+                  )}
                 />
+                <FieldError message={errors.email?.message} />
               </View>
 
               <TouchableOpacity
                 style={styles.buttonDesktop}
-                onPress={handleResetPassword}
+                onPress={handleSubmit(onSubmit)}
                 disabled={loading}
                 accessibilityLabel="Enviar link de recuperação"
                 accessibilityRole="button"
@@ -222,19 +237,27 @@ export default function ForgotPassword() {
         </View>
 
         <View style={styles.form}>
-          <TextInput
-            style={styles.input}
-            placeholder="E-mail"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoComplete="email"
+          <Controller
+            control={control}
+            name="email"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <TextInput
+                style={styles.input}
+                placeholder="E-mail"
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+              />
+            )}
           />
+          <FieldError message={errors.email?.message} />
 
           <TouchableOpacity
             style={styles.button}
-            onPress={handleResetPassword}
+            onPress={handleSubmit(onSubmit)}
             disabled={loading}
             accessibilityLabel="Enviar link de recuperação"
             accessibilityRole="button"
