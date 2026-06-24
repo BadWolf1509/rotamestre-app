@@ -6,6 +6,7 @@
 import { render, fireEvent } from '@testing-library/react-native';
 import * as Linking from 'expo-linking';
 import React from 'react';
+import { Image } from 'react-native';
 
 import { ParadaCard } from '../ParadaCard';
 
@@ -78,6 +79,9 @@ jest.mock('../styles', () => ({
     paradaFotoOverlayIcon: {},
     paradaFotoPlaceholder: {},
     paradaFotoPlaceholderText: {},
+    statusTagPulada: {},
+    skipReasonContainer: {},
+    skipReasonText: {},
   },
 }));
 
@@ -87,6 +91,17 @@ jest.mock('@expo/vector-icons', () => ({
     const { Text } = require('react-native');
     return <Text testID={`icon-${name}`}>{name}</Text>;
   },
+}));
+
+// Mock useSignedUrl — default: url null (no photo)
+const mockUseSignedUrl = jest.fn(() => ({
+  url: null as string | null,
+  loading: false,
+  error: false,
+}));
+
+jest.mock('@/hooks/storage/useSignedUrl', () => ({
+  useSignedUrl: (...args: unknown[]) => mockUseSignedUrl(...args),
 }));
 
 describe('ParadaCard', () => {
@@ -111,6 +126,12 @@ describe('ParadaCard', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Default: hook returns null (no signed url)
+    mockUseSignedUrl.mockReturnValue({
+      url: null,
+      loading: false,
+      error: false,
+    });
   });
 
   describe('Renderização', () => {
@@ -203,11 +224,16 @@ describe('ParadaCard', () => {
   });
 
   describe('Foto da entrega', () => {
-    it('deve exibir foto quando foto_url está presente', () => {
+    it('deve exibir foto quando useSignedUrl retorna url assinada', () => {
+      mockUseSignedUrl.mockReturnValue({
+        url: 'https://signed.supabase.co/foto.jpg',
+        loading: false,
+        error: false,
+      });
       const paradaComFoto = {
         ...mockParada,
         status: 'concluida',
-        foto_url: 'https://example.com/foto.jpg',
+        foto_url: 'u/r/p.jpg',
       };
       const { queryByTestId } = render(
         <ParadaCard {...defaultProps} parada={paradaComFoto} />,
@@ -216,26 +242,38 @@ describe('ParadaCard', () => {
       expect(queryByTestId('icon-expand-outline')).toBeTruthy();
     });
 
-    it('deve exibir placeholder quando concluída sem foto', () => {
-      const paradaSemFoto = {
+    it('deve renderizar Image com a uri assinada retornada pelo hook', () => {
+      const signedUrl = 'https://signed.supabase.co/foto.jpg';
+      mockUseSignedUrl.mockReturnValue({
+        url: signedUrl,
+        loading: false,
+        error: false,
+      });
+      const paradaComFoto = {
         ...mockParada,
         status: 'concluida',
-        foto_url: null,
+        foto_url: 'u/r/p.jpg',
       };
-      const { getByText, getByTestId } = render(
-        <ParadaCard {...defaultProps} parada={paradaSemFoto} />,
+      const { UNSAFE_getByType } = render(
+        <ParadaCard {...defaultProps} parada={paradaComFoto} />,
       );
 
-      expect(getByText('Sem foto registrada')).toBeTruthy();
-      expect(getByTestId('icon-camera-outline')).toBeTruthy();
+      const img = UNSAFE_getByType(Image);
+      expect(img.props.source).toEqual({ uri: signedUrl });
     });
 
-    it('deve chamar onImagePress ao clicar na foto', () => {
+    it('deve chamar onImagePress com a url assinada ao clicar na foto', () => {
+      const signedUrl = 'https://signed.supabase.co/foto.jpg';
+      mockUseSignedUrl.mockReturnValue({
+        url: signedUrl,
+        loading: false,
+        error: false,
+      });
       const onImagePress = jest.fn();
       const paradaComFoto = {
         ...mockParada,
         status: 'concluida',
-        foto_url: 'https://example.com/foto.jpg',
+        foto_url: 'u/r/p.jpg',
       };
       const { getByTestId } = render(
         <ParadaCard
@@ -252,10 +290,100 @@ describe('ParadaCard', () => {
       }
 
       expect(target?.props?.onPress).toBeDefined();
-
       fireEvent.press(target);
 
-      expect(onImagePress).toHaveBeenCalledWith('https://example.com/foto.jpg');
+      expect(onImagePress).toHaveBeenCalledWith(signedUrl);
+    });
+
+    it('deve exibir placeholder quando concluída e hook retorna url null', () => {
+      mockUseSignedUrl.mockReturnValue({
+        url: null,
+        loading: false,
+        error: false,
+      });
+      const paradaSemFoto = {
+        ...mockParada,
+        status: 'concluida',
+        foto_url: null,
+      };
+      const { getByText, getByTestId } = render(
+        <ParadaCard {...defaultProps} parada={paradaSemFoto} />,
+      );
+
+      expect(getByText('Sem foto registrada')).toBeTruthy();
+      expect(getByTestId('icon-camera-outline')).toBeTruthy();
+    });
+
+    it('deve exibir placeholder quando concluída e hook retorna url null (path inválido)', () => {
+      mockUseSignedUrl.mockReturnValue({
+        url: null,
+        loading: false,
+        error: true,
+      });
+      const paradaComFoto = {
+        ...mockParada,
+        status: 'concluida',
+        foto_url: 'u/r/broken.jpg',
+      };
+      const { getByText, getByTestId } = render(
+        <ParadaCard {...defaultProps} parada={paradaComFoto} />,
+      );
+
+      expect(getByText('Sem foto registrada')).toBeTruthy();
+      expect(getByTestId('icon-camera-outline')).toBeTruthy();
+    });
+
+    // Legacy: passthrough URL — hook returns the URL as-is (simulated)
+    it('deve exibir foto quando foto_url é URL legada (passthrough)', () => {
+      const legacyUrl = 'https://example.com/foto.jpg';
+      mockUseSignedUrl.mockReturnValue({
+        url: legacyUrl,
+        loading: false,
+        error: false,
+      });
+      const paradaComFoto = {
+        ...mockParada,
+        status: 'concluida',
+        foto_url: legacyUrl,
+      };
+      const { queryByTestId } = render(
+        <ParadaCard {...defaultProps} parada={paradaComFoto} />,
+      );
+
+      expect(queryByTestId('icon-expand-outline')).toBeTruthy();
+    });
+
+    it('deve chamar onImagePress com url legada ao clicar na foto (passthrough)', () => {
+      const legacyUrl = 'https://example.com/foto.jpg';
+      mockUseSignedUrl.mockReturnValue({
+        url: legacyUrl,
+        loading: false,
+        error: false,
+      });
+      const onImagePress = jest.fn();
+      const paradaComFoto = {
+        ...mockParada,
+        status: 'concluida',
+        foto_url: legacyUrl,
+      };
+      const { getByTestId } = render(
+        <ParadaCard
+          {...defaultProps}
+          parada={paradaComFoto}
+          onImagePress={onImagePress}
+        />,
+      );
+
+      const icon = getByTestId('icon-expand-outline');
+      let target: any = icon;
+      while (target && !target.props?.onPress) {
+        target = target.parent;
+      }
+
+      expect(target?.props?.onPress).toBeDefined();
+      fireEvent.press(target);
+
+      expect(onImagePress).toHaveBeenCalledWith(legacyUrl);
     });
   });
 
