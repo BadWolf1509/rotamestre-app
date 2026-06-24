@@ -369,7 +369,7 @@ export async function uploadELinkFotoParada(
 /**
  * Deletar foto do storage
  *
- * @param fotoUrl - URL pública da foto
+ * @param fotoUrl - URL pública, URL assinada ou path puro da foto
  * @returns true se deletou com sucesso
  */
 export async function deletarFoto(fotoUrl: string): Promise<boolean> {

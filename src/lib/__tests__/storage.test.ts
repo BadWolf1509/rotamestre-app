@@ -344,6 +344,7 @@ describe('Storage Functions', () => {
       );
 
       expect(result).toBe(false);
+      expect(mockRemove).toHaveBeenCalled();
     });
   });
 
