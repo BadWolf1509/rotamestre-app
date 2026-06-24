@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Image } from 'react-native';
 
+import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface AvatarProps {
@@ -34,15 +35,19 @@ function AvatarComponent({
   name,
   imageUrl,
   size = 'md',
-  backgroundColor
+  backgroundColor,
 }: AvatarProps) {
+  const { url: signedImageUrl } = useSignedUrl(imageUrl);
   const { theme } = useUnistyles();
 
   // Gerar iniciais do nome
   const getInitials = (fullName: string): string => {
     if (!fullName) return '?';
 
-    const words = fullName.trim().split(' ').filter(w => w.length > 0);
+    const words = fullName
+      .trim()
+      .split(' ')
+      .filter((w) => w.length > 0);
 
     if (words.length === 1) {
       return words[0].substring(0, 2).toUpperCase();
@@ -59,10 +64,10 @@ function AvatarComponent({
 
   // Font size proportional to avatar size
   const fontSizeMap = {
-    sm: Math.round(avatarSize * 0.375),  // ~12px for 32px avatar
-    md: Math.round(avatarSize * 0.333),  // ~16px for 48px avatar
-    lg: Math.round(avatarSize * 0.313),  // ~20px for 64px avatar
-    xl: Math.round(avatarSize * 0.3),    // ~24px for 80px avatar
+    sm: Math.round(avatarSize * 0.375), // ~12px for 32px avatar
+    md: Math.round(avatarSize * 0.333), // ~16px for 48px avatar
+    lg: Math.round(avatarSize * 0.313), // ~20px for 64px avatar
+    xl: Math.round(avatarSize * 0.3), // ~24px for 80px avatar
   };
 
   const fontSize = fontSizeMap[size];
@@ -80,9 +85,9 @@ function AvatarComponent({
         },
       ]}
     >
-      {imageUrl ? (
+      {signedImageUrl ? (
         <Image
-          source={{ uri: imageUrl }}
+          source={{ uri: signedImageUrl }}
           style={{
             width: avatarSize,
             height: avatarSize,
@@ -91,14 +96,7 @@ function AvatarComponent({
           resizeMode="cover"
         />
       ) : (
-        <Text
-          style={[
-            styles.initials,
-            { fontSize },
-          ]}
-        >
-          {initials}
-        </Text>
+        <Text style={[styles.initials, { fontSize }]}>{initials}</Text>
       )}
     </View>
   );
