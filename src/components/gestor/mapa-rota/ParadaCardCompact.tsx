@@ -8,6 +8,7 @@ import * as Linking from 'expo-linking';
 import React, { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, Platform } from 'react-native';
 
+import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -41,6 +42,7 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
     const { theme } = useUnistyles();
     const [imageError, setImageError] = useState(false);
     const [expanded, setExpanded] = useState(false);
+    const { url: fotoUrl } = useSignedUrl(parada.foto_url);
 
     const handlePhonePress = useCallback(() => {
       if (parada.telefone) {
@@ -90,7 +92,7 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
     const status =
       statusConfig[parada.status as keyof typeof statusConfig] ||
       statusConfig.pendente;
-    const hasPhoto = parada.foto_url && !imageError;
+    const hasPhoto = !!fotoUrl && !imageError;
     const showPhotoPlaceholder = parada.status === 'concluida' && !hasPhoto;
     const tipoIcon = parada.tipo === 'entrega' ? 'cube' : 'swap-horizontal';
     const tipoColor =
@@ -222,7 +224,7 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
                 {hasPhoto && (
                   <TouchableOpacity
                     style={styles.actionButton}
-                    onPress={() => onImagePress(parada.foto_url!)}
+                    onPress={() => onImagePress(fotoUrl!)}
                   >
                     <Ionicons
                       name="image"
@@ -243,10 +245,10 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
             {hasPhoto && (
               <TouchableOpacity
                 style={styles.photoContainer}
-                onPress={() => onImagePress(parada.foto_url!)}
+                onPress={() => onImagePress(fotoUrl!)}
               >
                 <Image
-                  source={{ uri: parada.foto_url ?? undefined }}
+                  source={{ uri: fotoUrl ?? undefined }}
                   style={styles.photo}
                   onError={() => setImageError(true)}
                 />

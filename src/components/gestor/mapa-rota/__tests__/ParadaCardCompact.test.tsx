@@ -6,6 +6,7 @@
 import { render, fireEvent } from '@testing-library/react-native';
 import * as Linking from 'expo-linking';
 import React from 'react';
+import { Image } from 'react-native';
 
 import { ParadaCardCompact } from '../ParadaCardCompact';
 
@@ -58,6 +59,17 @@ jest.mock('@expo/vector-icons', () => ({
   },
 }));
 
+// Mock useSignedUrl — default: url null (no photo)
+const mockUseSignedUrl = jest.fn(() => ({
+  url: null as string | null,
+  loading: false,
+  error: false,
+}));
+
+jest.mock('@/hooks/storage/useSignedUrl', () => ({
+  useSignedUrl: (...args: unknown[]) => mockUseSignedUrl(...args),
+}));
+
 describe('ParadaCardCompact', () => {
   const mockParada: Parada = {
     id: 'parada-1',
@@ -80,11 +92,19 @@ describe('ParadaCardCompact', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Default: hook returns null (no signed url)
+    mockUseSignedUrl.mockReturnValue({
+      url: null,
+      loading: false,
+      error: false,
+    });
   });
 
   describe('Renderização', () => {
     it('deve renderizar o card compacto com informações básicas', () => {
-      const { getByText, getByTestId } = render(<ParadaCardCompact {...defaultProps} />);
+      const { getByText, getByTestId } = render(
+        <ParadaCardCompact {...defaultProps} />,
+      );
 
       expect(getByText('1')).toBeTruthy(); // ordem
       expect(getByTestId('icon-cube')).toBeTruthy();
@@ -115,7 +135,7 @@ describe('ParadaCardCompact', () => {
     it('deve exibir tag RETIRADA para paradas de retirada', () => {
       const paradaRetirada = { ...mockParada, tipo: 'retirada' as const };
       const { getByTestId } = render(
-        <ParadaCardCompact {...defaultProps} parada={paradaRetirada} />
+        <ParadaCardCompact {...defaultProps} parada={paradaRetirada} />,
       );
 
       expect(getByTestId('icon-swap-horizontal')).toBeTruthy();
@@ -133,7 +153,7 @@ describe('ParadaCardCompact', () => {
           rotaStatus="em_andamento"
           onEdit={onEdit}
           onRemove={onRemove}
-        />
+        />,
       );
 
       // Expandir
@@ -147,7 +167,7 @@ describe('ParadaCardCompact', () => {
     it('deve exibir status "Em rota" para paradas em andamento', () => {
       const paradaEmAndamento = { ...mockParada, status: 'em_andamento' };
       const { getByText } = render(
-        <ParadaCardCompact {...defaultProps} parada={paradaEmAndamento} />
+        <ParadaCardCompact {...defaultProps} parada={paradaEmAndamento} />,
       );
 
       expect(getByText('Em rota')).toBeTruthy();
@@ -158,7 +178,7 @@ describe('ParadaCardCompact', () => {
     it('deve expandir ao clicar no card', () => {
       const onPress = jest.fn();
       const { getByText, queryByText } = render(
-        <ParadaCardCompact {...defaultProps} onPress={onPress} />
+        <ParadaCardCompact {...defaultProps} onPress={onPress} />,
       );
 
       // Inicialmente nao deve mostrar observacoes
@@ -174,7 +194,7 @@ describe('ParadaCardCompact', () => {
 
     it('deve mostrar endereço completo quando expandido', () => {
       const { getByText, getAllByText } = render(
-        <ParadaCardCompact {...defaultProps} />
+        <ParadaCardCompact {...defaultProps} />,
       );
 
       // Expandir
@@ -207,7 +227,7 @@ describe('ParadaCardCompact', () => {
           {...defaultProps}
           rotaStatus="pendente"
           onEdit={onEdit}
-        />
+        />,
       );
 
       // Expandir
@@ -227,7 +247,7 @@ describe('ParadaCardCompact', () => {
           {...defaultProps}
           rotaStatus="pendente"
           onRemove={onRemove}
-        />
+        />,
       );
 
       // Expandir
@@ -252,7 +272,7 @@ describe('ParadaCardCompact', () => {
           rotaStatus="em_andamento"
           onEdit={onEdit}
           onRemove={onRemove}
-        />
+        />,
       );
 
       // Expandir
@@ -265,47 +285,67 @@ describe('ParadaCardCompact', () => {
   });
 
   describe('Foto da entrega', () => {
-    it('deve exibir thumbnail quando foto_url está presente', () => {
+    it('deve exibir thumbnail quando useSignedUrl retorna url assinada', () => {
+      mockUseSignedUrl.mockReturnValue({
+        url: 'https://signed.supabase.co/foto.jpg',
+        loading: false,
+        error: false,
+      });
       const paradaComFoto = {
         ...mockParada,
         status: 'concluida',
-        foto_url: 'https://example.com/foto.jpg',
+        foto_url: 'u/r/p.jpg',
       };
       const { getByText } = render(
-        <ParadaCardCompact {...defaultProps} parada={paradaComFoto} />
+        <ParadaCardCompact {...defaultProps} parada={paradaComFoto} />,
       );
 
       fireEvent.press(getByText(/Rua das Flores/));
       expect(getByText('Ver foto')).toBeTruthy();
     });
 
-    it('deve exibir indicador de foto ausente quando concluída sem foto', () => {
-      const paradaSemFoto = {
+    it('deve renderizar Image com a uri assinada retornada pelo hook', () => {
+      const signedUrl = 'https://signed.supabase.co/foto.jpg';
+      mockUseSignedUrl.mockReturnValue({
+        url: signedUrl,
+        loading: false,
+        error: false,
+      });
+      const paradaComFoto = {
         ...mockParada,
         status: 'concluida',
-        foto_url: null,
+        foto_url: 'u/r/p.jpg',
       };
-      const { getByText } = render(
-        <ParadaCardCompact {...defaultProps} parada={paradaSemFoto} />
+      const { getByText, UNSAFE_getByType } = render(
+        <ParadaCardCompact {...defaultProps} parada={paradaComFoto} />,
       );
 
+      // Expandir para mostrar foto
       fireEvent.press(getByText(/Rua das Flores/));
-      expect(getByText('Sem foto registrada')).toBeTruthy();
+
+      const img = UNSAFE_getByType(Image);
+      expect(img.props.source).toEqual({ uri: signedUrl });
     });
 
-    it('deve chamar onImagePress ao clicar em Ver foto', () => {
+    it('deve chamar onImagePress com a url assinada ao clicar em Ver foto', () => {
+      const signedUrl = 'https://signed.supabase.co/foto.jpg';
+      mockUseSignedUrl.mockReturnValue({
+        url: signedUrl,
+        loading: false,
+        error: false,
+      });
       const onImagePress = jest.fn();
       const paradaComFoto = {
         ...mockParada,
         status: 'concluida',
-        foto_url: 'https://example.com/foto.jpg',
+        foto_url: 'u/r/p.jpg',
       };
       const { getByText } = render(
         <ParadaCardCompact
           {...defaultProps}
           parada={paradaComFoto}
           onImagePress={onImagePress}
-        />
+        />,
       );
 
       // Expandir
@@ -314,14 +354,88 @@ describe('ParadaCardCompact', () => {
       // Clicar em Ver foto
       fireEvent.press(getByText('Ver foto'));
 
-      expect(onImagePress).toHaveBeenCalledWith('https://example.com/foto.jpg');
+      expect(onImagePress).toHaveBeenCalledWith(signedUrl);
+    });
+
+    it('deve chamar onImagePress com a url assinada ao clicar na thumbnail', () => {
+      const signedUrl = 'https://signed.supabase.co/foto.jpg';
+      mockUseSignedUrl.mockReturnValue({
+        url: signedUrl,
+        loading: false,
+        error: false,
+      });
+      const onImagePress = jest.fn();
+      const paradaComFoto = {
+        ...mockParada,
+        status: 'concluida',
+        foto_url: 'u/r/p.jpg',
+      };
+      const { getByText, UNSAFE_getByType } = render(
+        <ParadaCardCompact
+          {...defaultProps}
+          parada={paradaComFoto}
+          onImagePress={onImagePress}
+        />,
+      );
+
+      // Expandir
+      fireEvent.press(getByText(/Rua das Flores/));
+
+      // Clicar na imagem thumbnail
+      fireEvent.press(UNSAFE_getByType(Image));
+
+      expect(onImagePress).toHaveBeenCalledWith(signedUrl);
+    });
+
+    it('deve exibir indicador de foto ausente quando hook retorna url null', () => {
+      mockUseSignedUrl.mockReturnValue({
+        url: null,
+        loading: false,
+        error: false,
+      });
+      const paradaSemFoto = {
+        ...mockParada,
+        status: 'concluida',
+        foto_url: null,
+      };
+      const { getByText } = render(
+        <ParadaCardCompact {...defaultProps} parada={paradaSemFoto} />,
+      );
+
+      fireEvent.press(getByText(/Rua das Flores/));
+      expect(getByText('Sem foto registrada')).toBeTruthy();
+    });
+
+    it('deve exibir placeholder quando loading=true (foto ainda resolvendo)', () => {
+      // Pin intentional behavior: during signed URL resolution, show placeholder
+      mockUseSignedUrl.mockReturnValue({
+        url: null,
+        loading: true,
+        error: false,
+      });
+      const paradaComFoto = {
+        ...mockParada,
+        status: 'concluida',
+        foto_url: 'u/r/p.jpg',
+      };
+      const { getByText, UNSAFE_queryByType } = render(
+        <ParadaCardCompact {...defaultProps} parada={paradaComFoto} />,
+      );
+
+      // Expandir
+      fireEvent.press(getByText(/Rua das Flores/));
+
+      // While loading, no photo image should be shown
+      expect(UNSAFE_queryByType(Image)).toBeNull();
+      // And placeholder should appear since concluida + no url yet
+      expect(getByText('Sem foto registrada')).toBeTruthy();
     });
   });
 
   describe('Card Selecionado', () => {
     it('deve aceitar prop selected', () => {
       const { getByText } = render(
-        <ParadaCardCompact {...defaultProps} selected={true} />
+        <ParadaCardCompact {...defaultProps} selected={true} />,
       );
 
       expect(getByText('1')).toBeTruthy();
@@ -341,7 +455,7 @@ describe('ParadaCardCompact', () => {
       };
 
       const { getByText } = render(
-        <ParadaCardCompact {...defaultProps} parada={paradaMinima} />
+        <ParadaCardCompact {...defaultProps} parada={paradaMinima} />,
       );
 
       expect(getByText('Rua Simples')).toBeTruthy();
