@@ -31,7 +31,7 @@ A coluna guarda a **URL pública completa**. Escala (2026-06-23):
 ### Superfície de código (mapa)
 
 - Upload central: `src/lib/storage.ts` — 5× `getPublicUrl`, **zero** signed URL; uploads em `uploadFotoEntrega`, `uploadFotoEntregaWithProgress`, `uploadFotoUsuario`, `uploadIncidentPhoto`; persistência em `salvarFotoParada` e `uploadFotoUsuario`; deleção em `deletarFoto` (extrai path da URL via split).
-- Render (remoto) — **mais amplo que o esperado** (varredura `foto_url` em `app/` + `src/`): a maioria das telas renderiza avatar via **componentes compartilhados** — `UserMenuTrigger` (avatar do header, alimentado por `userImageUrl` via `useDesktopHeaderMenu` em ~11 telas) e `AvatarEditable` (`PerfilDesktopLayout`, `app/perfil/index.tsx`, `app/motorista/perfil/index.tsx`, `app/unidade/equipe.tsx`). Sites **standalone** com `<Image>` direto: `ParadaCard`, `ParadaCardCompact`, `IncidenteDetalhesModal`, `DrawerHeader`, `PerfilHeader`, `app/gestor/motoristas.tsx`. `CameraUpload` preview usa `file://` local (não conta). **Prop morta:** `StatusSection.userPhoto` (declarada, nunca renderizada).
+- Render (remoto) — **mais amplo que o esperado** (varredura `foto_url` em `app/` + `src/`): a maioria das telas renderiza avatar via **componentes compartilhados** — `UserMenuTrigger` (avatar do header, via `userImageUrl`/`useDesktopHeaderMenu` em ~11 telas) e `AvatarEditable` (`PerfilDesktopLayout`, `app/perfil/index.tsx`, `app/motorista/perfil/index.tsx`). Sites **standalone** com `<Image>` direto: `ParadaCard`, `ParadaCardCompact`, `IncidenteDetalhesModal`, `DrawerHeader`, `PerfilHeader`, `app/gestor/motoristas.tsx` (via `MotoristaAvatar`), **`Avatar`** (genérico — usado por `app/unidade/equipe.tsx` e `UserCell`/`DataTableRenderers`) e **`DashboardMobile`** (avatar do gestor no mobile). `CameraUpload` e os previews do wizard de incidente usam `file://` local (não contam). **Prop morta:** `StatusSection.userPhoto`. ⚠️ `Avatar` e `DashboardMobile` só foram identificados no **review final do branch** (o mapa inicial errava ao atribuir `equipe.tsx` ao `AvatarEditable`).
 - Constante do bucket: `BUCKET_FOTOS_ENTREGA = 'fotos-entrega'` em `src/lib/storage.ts`.
 
 ## 2. Objetivo e escopo
@@ -87,7 +87,7 @@ Estratégia: resolver via `useSignedUrl` **dentro dos componentes compartilhados
 - `UserMenuTrigger` — `useSignedUrl(imageUrl)`; cobre todas as ~11 telas que passam `userImageUrl` via `useDesktopHeaderMenu`.
 - `AvatarEditable` — `useSignedUrl(imageUrl)`; cobre `PerfilDesktopLayout`, `app/perfil/index.tsx`, `app/motorista/perfil/index.tsx`, `app/unidade/equipe.tsx` (sem editá-las).
 
-**Standalone (`<Image>` direto):** `ParadaCard`, `ParadaCardCompact`, `IncidenteDetalhesModal` (substitui o hack `?retry=`), `DrawerHeader`, `PerfilHeader`, `app/gestor/motoristas.tsx`.
+**Standalone (`<Image>` direto):** `ParadaCard`, `ParadaCardCompact`, `IncidenteDetalhesModal` (substitui o hack `?retry=`), `DrawerHeader`, `PerfilHeader`, `app/gestor/motoristas.tsx` (via `MotoristaAvatar`), `Avatar` (genérico — cobre `app/unidade/equipe.tsx` + `UserCell`) e `DashboardMobile` (avatar do gestor no mobile). Os dois últimos foram adicionados no review final do branch.
 
 - **Sem mudança:** `useProfilePhoto` (grava o que o upload retorna = path; exibe via os componentes acima); `CameraUpload` preview (`file://` local); PDF export (v1 não embute foto). **Prop morta:** `StatusSection.userPhoto`.
 
@@ -116,7 +116,7 @@ Estratégia: resolver via `useSignedUrl` **dentro dos componentes compartilhados
 - Uploads: assert que persistem **path** (ajustar mocks de `getPublicUrl` em `src/lib/__tests__/storage.test.ts`).
 - `deletarFoto`: funciona com URL legada e com path.
 - `useSignedUrl`: assina, cacheia, reassina ao expirar, dedupe, `null`→`url=null`.
-- Componentes: mock de `useSignedUrl` → assert `uri` e fallback quando `url=null`, nos compartilhados (`UserMenuTrigger`, `AvatarEditable`) e nos standalone (`ParadaCard`, `ParadaCardCompact`, `IncidenteDetalhesModal`, `DrawerHeader`, `PerfilHeader`, `app/gestor/motoristas.tsx`). Testes existentes desses componentes (ex.: `UserMenuTrigger.test.tsx`, a11y/`PerfilDesktopLayout.test.tsx`) devem mockar o hook.
+- Componentes: mock de `useSignedUrl` → assert `uri` e fallback quando `url=null`, nos compartilhados (`UserMenuTrigger`, `AvatarEditable`) e nos standalone (`ParadaCard`, `ParadaCardCompact`, `IncidenteDetalhesModal`, `DrawerHeader`, `PerfilHeader`, `MotoristaAvatar`, `Avatar`, `DashboardMobile`). Testes de avatar devem usar um **path puro** como input (não URL completa) — senão o pass-through mascara o bug. Testes existentes desses componentes (ex.: `UserMenuTrigger.test.tsx`, a11y/`PerfilDesktopLayout.test.tsx`) devem mockar o hook.
 
 ## 7. Critérios de aceite
 
