@@ -1,5 +1,7 @@
 # zodResolver Auth — PR-A Implementation Plan
 
+> **STATUS (2026-06-23): CONCLUÍDO E MERGEADO — PR-A #281.** (PR-B = register + reset = #282; ambos na `main`.)
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans (inline, with checkpoints) to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax.
 
 **Goal:** Migrate `login` and `forgot-password` to `useForm` + `zodResolver`, with inline field errors, preserving all submit flows.

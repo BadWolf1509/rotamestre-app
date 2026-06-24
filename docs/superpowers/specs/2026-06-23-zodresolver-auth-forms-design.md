@@ -4,6 +4,8 @@
 **Branch:** `refactor/zodresolver-auth-forms`
 **Roadmap item:** `improvements-roadmap-2026-06` — "zodResolver nos forms de auth/perfil/SOS (hoje usam helpers soltos; os schemas Zod já existem)."
 
+> **STATUS (2026-06-23): IMPLEMENTADO E MERGEADO** — PR-A #281 (login + forgot + fix do `emailSchema`) + PR-B #282 (register + reset). Mantido como histórico de design. Perfil/SOS continuam fora (próximo follow-up).
+
 ## Problema
 
 Os 4 forms de auth (`app/auth/login.tsx`, `register.tsx`, `forgot-password.tsx`, `reset-password.tsx`) validam manualmente com `useState` + checagens soltas (`!email`, `isValidEmail`, `validatePassword`, `password !== confirmPassword`) e mostram erros num `Dialog`/`useAlert` único — divergindo do padrão obrigatório do CLAUDE.md (`useForm({ resolver: zodResolver(schema) })`, exemplo vivo em `FormularioParada.tsx`). Os schemas de `login`/`register` já existem; `forgot`/`reset` não têm schema.

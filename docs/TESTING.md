@@ -5,7 +5,7 @@ Este documento descreve a arquitetura de testes, padrões e convenções utiliza
 ## Status Atual
 
 **Framework:** Jest + React Native Testing Library
-**Suites:** 301+, **Testes:** 5626+ passando
+**Suites:** 305+, **Testes:** 5696+ passando
 **Threshold de cobertura:** 73% lines (atual ~74%)
 
 ### Executando testes
