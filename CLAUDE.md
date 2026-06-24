@@ -20,7 +20,7 @@ Versions live in `package.json` — never duplicate them here.
 ```
 rotamestre-app/
 ├── app/                  # Expo Router screens (file-based)
-│   ├── (auth)/           # Login, register, forgot-password
+│   ├── auth/             # Login, register, forgot/reset/confirm password
 │   ├── gestor/           # Manager screens
 │   └── motorista/        # Driver screens
 ├── src/
@@ -46,7 +46,7 @@ Roles in `usuarios.papel`: `gestor` (CRUD their unidade), `motorista` (route ass
 ## Required patterns
 
 - **Logging:** `logger.warn(message, error)` (max 2 args). Critical catches: log + fallback. Non-critical catches: silent with an explaining comment. Tests spy on `logger.error/warn`, not `console`.
-- **Forms:** always Zod schema + `useForm({ resolver: zodResolver(schema) })`. Live example: `src/components/gestor/nova-entrega/FormularioParada.tsx`.
+- **Forms:** always Zod schema + `useForm({ resolver: zodResolver(schema) })` + `Controller`. Inline field errors via `src/components/auth/FieldError.tsx` (raw inputs) or the design-system `Input` `error` prop; server/auth errors stay in `Dialog`/`useAlert`. Live examples: `src/components/gestor/nova-entrega/FormularioParada.tsx` and the four auth forms (`app/auth/{login,register,forgot-password,reset-password}.tsx`).
 - **Queries:** prefer `useCachedData` / `useSupabaseQuery` hooks over raw `supabase.from(...).select(...)` in components. The cached layer implements SWR semantics.
 - **Responsive:** always `useResponsive()` from `@/hooks/useResponsive`. Breakpoints: mobile <768, tablet 768–1023, desktop ≥1024.
 - **ErrorBoundary:** every screen route under `app/` gets one (current coverage 27/27).
@@ -76,6 +76,7 @@ Installed in `.claude/`:
 | Sentry configuration                       | `src/lib/sentry.ts`                                                                                                     |
 | Supabase client setup                      | `src/lib/supabase.ts`                                                                                                   |
 | Logger                                     | `src/lib/logger.ts`                                                                                                     |
+| Auth form schemas + inline errors          | `src/lib/schemas/auth.ts` (login/register/forgot/reset) + `src/components/auth/FieldError.tsx`                          |
 | Address geocoding/autocomplete             | `src/lib/geocoding.ts` (router) → `src/lib/googlePlaces.ts` (Google Places via Edge Fn); `src/lib/photon.ts` = fallback |
 | Routing wrapper (OSRM)                     | `src/lib/google.ts` (legacy name; routing→OSRM, but its geocoding helpers still call Google)                            |
 | Maps (web vs mobile)                       | `src/components/MapaWebMapLibre.tsx` / `src/components/MapaRN.tsx`                                                      |
@@ -94,5 +95,5 @@ Installed in `.claude/`:
 
 ---
 
-**Last verified:** 2026-06-16 (Expo 56, RN 0.85.3, ~5626 tests / ~74% coverage; app rebuilt under new package/EAS/Firebase — see memory)
+**Last verified:** 2026-06-23 (Expo 56, RN 0.85.3, ~5696 tests / ~74% coverage; the four auth forms migrated to `useForm`+`zodResolver` with inline errors — PRs #281/#282; app rebuilt under new package/EAS/Firebase — see memory)
 **Refresh checklist:** `cd rotamestre-app && grep -E '"(expo|react-native|@supabase)"' package.json` for version snapshot. Re-read `database/MIGRATIONS.md` after migrations land. Confirm Sentry DSN still set in Vercel env vars.
