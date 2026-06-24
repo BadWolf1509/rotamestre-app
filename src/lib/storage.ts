@@ -149,12 +149,8 @@ export async function uploadFotoEntrega(
       throw error;
     }
 
-    // Obter URL pública
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from(BUCKET_FOTOS_ENTREGA).getPublicUrl(filePath);
-
-    return publicUrl;
+    // Persistir o PATH (bucket privado: signed URL é gerado on-read)
+    return filePath;
   } catch (error) {
     logger.error('[Storage] Erro ao fazer upload de foto', error);
     return null;
@@ -213,7 +209,7 @@ export async function uploadFotoEntregaWithProgress(
 
       onProgress?.(20);
 
-      const publicUrl = await new Promise<string>((resolve, reject) => {
+      const uploadedPath = await new Promise<string>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
 
         xhr.upload.onprogress = (event) => {
@@ -230,14 +226,9 @@ export async function uploadFotoEntregaWithProgress(
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             onProgress?.(90);
-            // Get public URL
-            const {
-              data: { publicUrl: url },
-            } = supabase.storage
-              .from(BUCKET_FOTOS_ENTREGA)
-              .getPublicUrl(filePath);
             onProgress?.(100);
-            resolve(url);
+            // Persistir o PATH (bucket privado: signed URL é gerado on-read)
+            resolve(filePath);
           } else {
             let errorMessage = `Upload failed with status ${xhr.status}`;
             try {
@@ -262,7 +253,7 @@ export async function uploadFotoEntregaWithProgress(
         xhr.send(fileData);
       });
 
-      return publicUrl;
+      return uploadedPath;
     } else {
       // Native: Supabase .upload() with simulated progress steps
       onProgress?.(30);
@@ -282,15 +273,11 @@ export async function uploadFotoEntregaWithProgress(
 
       onProgress?.(70);
 
-      // Obter URL pública
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from(BUCKET_FOTOS_ENTREGA).getPublicUrl(filePath);
-
       onProgress?.(90);
       onProgress?.(100);
 
-      return publicUrl;
+      // Persistir o PATH (bucket privado: signed URL é gerado on-read)
+      return filePath;
     }
   } catch (error) {
     logger.error('[Storage] Erro ao fazer upload de foto com progresso', error);
@@ -387,23 +374,18 @@ export async function uploadELinkFotoParada(
  */
 export async function deletarFoto(fotoUrl: string): Promise<boolean> {
   try {
-    // Extrair caminho da URL
-    const urlParts = fotoUrl.split('/fotos-entrega/');
-    if (urlParts.length !== 2) {
-      throw new Error('URL inválida');
+    const filePath = getStoragePath(fotoUrl);
+    if (!filePath) {
+      logger.warn('[Storage] deletarFoto: valor inválido, nada a remover');
+      return false;
     }
-
-    const filePath = urlParts[1];
-
     const { error } = await supabase.storage
       .from(BUCKET_FOTOS_ENTREGA)
       .remove([filePath]);
-
     if (error) {
       logger.error('[Storage] Erro ao deletar', error);
       throw error;
     }
-
     return true;
   } catch (error) {
     logger.error('[Storage] Erro ao deletar foto', error);
@@ -505,16 +487,11 @@ export async function uploadFotoUsuario(
       throw error;
     }
 
-    // Obter URL pública
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from(BUCKET_FOTOS_ENTREGA).getPublicUrl(filePath);
-
-    // Atualizar tabela usuarios com a nova foto_url
+    // Atualizar tabela usuarios com o PATH da nova foto
     const { error: updateError } = await supabase
       .from('usuarios')
       .update({
-        foto_url: publicUrl,
+        foto_url: filePath,
         updated_at: new Date().toISOString(),
       })
       .eq('id', usuarioId);
@@ -527,7 +504,7 @@ export async function uploadFotoUsuario(
       throw updateError;
     }
 
-    return publicUrl;
+    return filePath;
   } catch (error) {
     logger.error('[Storage] Erro ao fazer upload de foto de perfil', error);
     return null;
@@ -572,12 +549,8 @@ export async function uploadIncidentPhoto(
       throw error;
     }
 
-    // Gerar URL pública
-    const { data: urlData } = supabase.storage
-      .from(BUCKET_FOTOS_ENTREGA)
-      .getPublicUrl(filePath);
-
-    return urlData.publicUrl;
+    // Persistir o PATH (signed URL gerado on-read)
+    return filePath;
   } catch (error) {
     logger.error('[Storage] Erro ao fazer upload de foto de incidente', error);
     return '';
