@@ -20,7 +20,7 @@ export type UploadProgressCallback = (percent: number) => void;
  * Works on both native (via expo-file-system) and web (via fetch)
  */
 async function getFileData(
-  uri: string
+  uri: string,
 ): Promise<{ data: ArrayBuffer; size: number }> {
   if (Platform.OS === 'web') {
     // Web: use fetch + blob
@@ -54,6 +54,33 @@ async function getFileData(
 const BUCKET_FOTOS_ENTREGA = 'fotos-entrega';
 
 /**
+ * Normaliza um valor de foto_url para o path dentro do bucket fotos-entrega.
+ * Aceita URL pública (.../object/public/fotos-entrega/<path>), URL assinada
+ * (.../object/sign/fotos-entrega/<path>?token=...) ou um path puro.
+ * Retorna null para vazio, lixo (ex.: "success") ou URL http externa.
+ */
+export function getStoragePath(
+  value: string | null | undefined,
+): string | null {
+  if (!value) return null;
+  const marker = `/${BUCKET_FOTOS_ENTREGA}/`;
+  const idx = value.indexOf(marker);
+  if (idx >= 0) {
+    let path = value.slice(idx + marker.length);
+    const q = path.indexOf('?');
+    if (q >= 0) path = path.slice(0, q);
+    path = path.trim();
+    return path || null;
+  }
+  // Não é URL do bucket: URL http externa não é path
+  if (/^https?:\/\//i.test(value)) return null;
+  const path = value.trim();
+  // Path válido sempre tem prefixo de pasta (contém '/'); descarta lixo
+  if (!path || !path.includes('/')) return null;
+  return path;
+}
+
+/**
  * Upload de foto de comprovante de entrega
  *
  * @param unidadeId - UUID da unidade
@@ -66,7 +93,7 @@ export async function uploadFotoEntrega(
   unidadeId: string,
   rotaId: string,
   paradaId: string,
-  fotoUri: string
+  fotoUri: string,
 ): Promise<string | null> {
   try {
     // Gerar nome único com timestamp
@@ -89,7 +116,7 @@ export async function uploadFotoEntrega(
       .upload(filePath, fileData, {
         contentType: 'image/jpeg',
         cacheControl: '3600', // Cache de 1 hora
-        upsert: false // Não sobrescrever se já existir
+        upsert: false, // Não sobrescrever se já existir
       });
 
     if (error) {
@@ -98,9 +125,9 @@ export async function uploadFotoEntrega(
     }
 
     // Obter URL pública
-    const { data: { publicUrl } } = supabase.storage
-      .from(BUCKET_FOTOS_ENTREGA)
-      .getPublicUrl(filePath);
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from(BUCKET_FOTOS_ENTREGA).getPublicUrl(filePath);
 
     return publicUrl;
   } catch (error) {
@@ -128,7 +155,7 @@ export async function uploadFotoEntregaWithProgress(
   rotaId: string,
   paradaId: string,
   fotoUri: string,
-  onProgress?: UploadProgressCallback
+  onProgress?: UploadProgressCallback,
 ): Promise<string | null> {
   try {
     // Gerar nome único com timestamp
@@ -149,7 +176,9 @@ export async function uploadFotoEntregaWithProgress(
     if (Platform.OS === 'web') {
       // Web: XMLHttpRequest for real progress tracking
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
       if (!session?.access_token) {
         throw new Error('Sessão não encontrada. Faça login novamente.');
@@ -165,7 +194,9 @@ export async function uploadFotoEntregaWithProgress(
         xhr.upload.onprogress = (event) => {
           if (event.lengthComputable) {
             // Map upload progress to 20-85% range (10-20 was file read, 85-100 is URL fetch)
-            const uploadPercent = Math.round((event.loaded / event.total) * 100);
+            const uploadPercent = Math.round(
+              (event.loaded / event.total) * 100,
+            );
             const mappedPercent = 20 + Math.round(uploadPercent * 0.65);
             onProgress?.(mappedPercent);
           }
@@ -175,7 +206,9 @@ export async function uploadFotoEntregaWithProgress(
           if (xhr.status >= 200 && xhr.status < 300) {
             onProgress?.(90);
             // Get public URL
-            const { data: { publicUrl: url } } = supabase.storage
+            const {
+              data: { publicUrl: url },
+            } = supabase.storage
               .from(BUCKET_FOTOS_ENTREGA)
               .getPublicUrl(filePath);
             onProgress?.(100);
@@ -225,9 +258,9 @@ export async function uploadFotoEntregaWithProgress(
       onProgress?.(70);
 
       // Obter URL pública
-      const { data: { publicUrl } } = supabase.storage
-        .from(BUCKET_FOTOS_ENTREGA)
-        .getPublicUrl(filePath);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from(BUCKET_FOTOS_ENTREGA).getPublicUrl(filePath);
 
       onProgress?.(90);
       onProgress?.(100);
@@ -249,7 +282,7 @@ export async function uploadFotoEntregaWithProgress(
  */
 export async function salvarFotoParada(
   paradaId: string,
-  fotoUrl: string
+  fotoUrl: string,
 ): Promise<boolean> {
   try {
     const { error } = await supabase
@@ -284,12 +317,18 @@ export async function uploadELinkFotoParada(
   rotaId: string,
   paradaId: string,
   fotoUri: string,
-  onProgress?: UploadProgressCallback
+  onProgress?: UploadProgressCallback,
 ): Promise<boolean> {
   try {
     // 1. Upload da foto (with progress if callback provided)
     const fotoUrl = onProgress
-      ? await uploadFotoEntregaWithProgress(unidadeId, rotaId, paradaId, fotoUri, onProgress)
+      ? await uploadFotoEntregaWithProgress(
+          unidadeId,
+          rotaId,
+          paradaId,
+          fotoUri,
+          onProgress,
+        )
       : await uploadFotoEntrega(unidadeId, rotaId, paradaId, fotoUri);
 
     if (!fotoUrl) {
@@ -301,7 +340,9 @@ export async function uploadELinkFotoParada(
 
     if (!salvou) {
       // Rollback: deletar foto do storage se falhou ao atualizar banco
-      logger.warn('[Storage] Falha ao salvar no banco, realizando rollback da foto...');
+      logger.warn(
+        '[Storage] Falha ao salvar no banco, realizando rollback da foto...',
+      );
       await deletarFoto(fotoUrl);
       return false;
     }
@@ -371,8 +412,8 @@ export async function deletarFotoPerfil(usuarioId: string): Promise<boolean> {
 
     // Deletar todas as fotos antigas do usuário
     const filesToDelete = files
-      .filter(f => f.name.startsWith(`perfil_${usuarioId}`))
-      .map(f => `perfis/${f.name}`);
+      .filter((f) => f.name.startsWith(`perfil_${usuarioId}`))
+      .map((f) => `perfis/${f.name}`);
 
     if (filesToDelete.length > 0) {
       const { error: deleteError } = await supabase.storage
@@ -403,7 +444,7 @@ export async function deletarFotoPerfil(usuarioId: string): Promise<boolean> {
 export async function uploadFotoUsuario(
   usuarioId: string,
   fotoUri: string,
-  fotoAntigaUrl?: string | null
+  fotoAntigaUrl?: string | null,
 ): Promise<string | null> {
   try {
     // 1. Deletar foto antiga se existir
@@ -440,9 +481,9 @@ export async function uploadFotoUsuario(
     }
 
     // Obter URL pública
-    const { data: { publicUrl } } = supabase.storage
-      .from(BUCKET_FOTOS_ENTREGA)
-      .getPublicUrl(filePath);
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from(BUCKET_FOTOS_ENTREGA).getPublicUrl(filePath);
 
     // Atualizar tabela usuarios com a nova foto_url
     const { error: updateError } = await supabase
@@ -454,7 +495,10 @@ export async function uploadFotoUsuario(
       .eq('id', usuarioId);
 
     if (updateError) {
-      logger.error('[Storage] Erro ao atualizar foto_url no banco', updateError);
+      logger.error(
+        '[Storage] Erro ao atualizar foto_url no banco',
+        updateError,
+      );
       throw updateError;
     }
 
@@ -475,7 +519,7 @@ export async function uploadFotoUsuario(
  */
 export async function uploadIncidentPhoto(
   fotoUri: string,
-  fileName: string
+  fileName: string,
 ): Promise<string> {
   try {
     // Ler arquivo usando expo-file-system (nativo) ou fetch (web)

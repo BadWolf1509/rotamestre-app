@@ -6,6 +6,7 @@ import {
   deletarFoto,
   uploadFotoUsuario,
   uploadIncidentPhoto,
+  getStoragePath,
 } from '../storage';
 import { supabase } from '../supabase';
 
@@ -70,7 +71,8 @@ describe('Storage Functions', () => {
   const mockRotaId = 'rota-456';
   const mockParadaId = 'parada-789';
   const mockFotoUri = 'file:///path/to/photo.jpg';
-  const mockFotoUrl = 'https://xyz.supabase.co/storage/v1/object/public/fotos-entrega/unidade-123/rota-456/parada-789_1234567890.jpg';
+  const mockFotoUrl =
+    'https://xyz.supabase.co/storage/v1/object/public/fotos-entrega/unidade-123/rota-456/parada-789_1234567890.jpg';
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -100,7 +102,7 @@ describe('Storage Functions', () => {
         mockUnidadeId,
         mockRotaId,
         mockParadaId,
-        mockFotoUri
+        mockFotoUri,
       );
 
       expect(result).toBe(mockFotoUrl);
@@ -117,7 +119,7 @@ describe('Storage Functions', () => {
         mockUnidadeId,
         mockRotaId,
         mockParadaId,
-        mockFotoUri
+        mockFotoUri,
       );
 
       expect(result).toBeNull();
@@ -141,7 +143,7 @@ describe('Storage Functions', () => {
         mockUnidadeId,
         mockRotaId,
         mockParadaId,
-        mockFotoUri
+        mockFotoUri,
       );
 
       expect(result).toBeNull();
@@ -164,7 +166,12 @@ describe('Storage Functions', () => {
         getPublicUrl: mockGetPublicUrl,
       });
 
-      await uploadFotoEntrega(mockUnidadeId, mockRotaId, mockParadaId, mockFotoUri);
+      await uploadFotoEntrega(
+        mockUnidadeId,
+        mockRotaId,
+        mockParadaId,
+        mockFotoUri,
+      );
 
       const uploadCall = mockUpload.mock.calls[0];
       const filePath = uploadCall[0];
@@ -192,7 +199,12 @@ describe('Storage Functions', () => {
         getPublicUrl: mockGetPublicUrl,
       });
 
-      await uploadFotoEntrega(mockUnidadeId, mockRotaId, mockParadaId, mockFotoUri);
+      await uploadFotoEntrega(
+        mockUnidadeId,
+        mockRotaId,
+        mockParadaId,
+        mockFotoUri,
+      );
 
       expect(mockUpload).toHaveBeenCalledWith(
         expect.any(String),
@@ -201,7 +213,7 @@ describe('Storage Functions', () => {
           contentType: 'image/jpeg',
           cacheControl: '3600',
           upsert: false,
-        })
+        }),
       );
     });
   });
@@ -285,7 +297,7 @@ describe('Storage Functions', () => {
         mockUnidadeId,
         mockRotaId,
         mockParadaId,
-        mockFotoUri
+        mockFotoUri,
       );
 
       expect(result).toBe(true);
@@ -309,7 +321,7 @@ describe('Storage Functions', () => {
         mockUnidadeId,
         mockRotaId,
         mockParadaId,
-        mockFotoUri
+        mockFotoUri,
       );
 
       expect(result).toBe(false);
@@ -346,7 +358,7 @@ describe('Storage Functions', () => {
         mockUnidadeId,
         mockRotaId,
         mockParadaId,
-        mockFotoUri
+        mockFotoUri,
       );
 
       expect(result).toBe(false);
@@ -379,7 +391,9 @@ describe('Storage Functions', () => {
       await deletarFoto(mockFotoUrl);
 
       const removedPath = mockRemove.mock.calls[0][0][0];
-      expect(removedPath).toBe('unidade-123/rota-456/parada-789_1234567890.jpg');
+      expect(removedPath).toBe(
+        'unidade-123/rota-456/parada-789_1234567890.jpg',
+      );
       expect(removedPath).not.toContain('http');
       expect(removedPath).not.toContain('fotos-entrega');
     });
@@ -438,7 +452,7 @@ describe('Storage Functions', () => {
         mockUnidadeId,
         mockRotaId,
         mockParadaId,
-        mockFotoUri
+        mockFotoUri,
       );
 
       // Verifica que ambas funções foram chamadas
@@ -454,21 +468,22 @@ describe('Storage Functions', () => {
         mockUnidadeId,
         mockRotaId,
         mockParadaId,
-        mockFotoUri
+        mockFotoUri,
       );
 
       expect(result).toBe(false);
       // uploadFotoEntrega catch logs the error
       expect(logger.error).toHaveBeenCalledWith(
         '[Storage] Erro ao fazer upload de foto',
-        expect.any(Error)
+        expect.any(Error),
       );
     });
   });
 
   describe('uploadFotoUsuario', () => {
     const mockUsuarioId = 'usuario-123';
-    const mockFotoUsuarioUrl = 'https://xyz.supabase.co/storage/v1/object/public/fotos-entrega/perfis/perfil_usuario-123_1234567890.jpg';
+    const mockFotoUsuarioUrl =
+      'https://xyz.supabase.co/storage/v1/object/public/fotos-entrega/perfis/perfil_usuario-123_1234567890.jpg';
 
     it('deve fazer upload de foto de perfil com sucesso', async () => {
       mockFetchWithBlob(1024 * 200); // 200KB
@@ -513,7 +528,9 @@ describe('Storage Functions', () => {
       const result = await uploadFotoUsuario(mockUsuarioId, mockFotoUri);
 
       expect(result).toBeNull();
-      expect(logger.error).toHaveBeenCalledWith('[Storage] Foto muito grande! Máximo: 2MB');
+      expect(logger.error).toHaveBeenCalledWith(
+        '[Storage] Foto muito grande! Máximo: 2MB',
+      );
     });
 
     it('deve retornar null quando upload falha', async () => {
@@ -563,7 +580,7 @@ describe('Storage Functions', () => {
       expect(result).toBeNull();
       expect(logger.error).toHaveBeenCalledWith(
         '[Storage] Erro ao atualizar foto_url no banco',
-        expect.any(Error)
+        expect.any(Error),
       );
     });
 
@@ -601,14 +618,15 @@ describe('Storage Functions', () => {
           contentType: 'image/jpeg',
           cacheControl: '3600',
           upsert: false,
-        })
+        }),
       );
     });
   });
 
   describe('uploadIncidentPhoto', () => {
     const mockFileName = 'incidente_123_1234567890.jpg';
-    const mockIncidentUrl = 'https://xyz.supabase.co/storage/v1/object/public/incidentes/incidente_123_1234567890.jpg';
+    const mockIncidentUrl =
+      'https://xyz.supabase.co/storage/v1/object/public/incidentes/incidente_123_1234567890.jpg';
 
     beforeEach(() => {
       // Mock listBuckets
@@ -649,7 +667,7 @@ describe('Storage Functions', () => {
         expect.objectContaining({
           contentType: 'image/jpeg',
           upsert: true,
-        })
+        }),
       );
     });
 
@@ -659,7 +677,9 @@ describe('Storage Functions', () => {
       const result = await uploadIncidentPhoto(mockFotoUri, mockFileName);
 
       expect(result).toBe('');
-      expect(logger.error).toHaveBeenCalledWith('[Storage] Foto muito grande! Máximo: 5MB');
+      expect(logger.error).toHaveBeenCalledWith(
+        '[Storage] Foto muito grande! Máximo: 5MB',
+      );
     });
 
     it('deve retornar string vazia quando upload falha', async () => {
@@ -741,6 +761,38 @@ describe('Storage Functions', () => {
       await uploadIncidentPhoto(mockFotoUri, mockFileName);
 
       expect(mockCreateBucket).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getStoragePath', () => {
+    it('extrai path de URL pública', () => {
+      expect(
+        getStoragePath(
+          'https://x.supabase.co/storage/v1/object/public/fotos-entrega/u1/r1/p1_1.jpg',
+        ),
+      ).toBe('u1/r1/p1_1.jpg');
+    });
+    it('extrai path de URL assinada (remove query)', () => {
+      expect(
+        getStoragePath(
+          'https://x.supabase.co/storage/v1/object/sign/fotos-entrega/perfis/p_1.jpg?token=abc',
+        ),
+      ).toBe('perfis/p_1.jpg');
+    });
+    it('aceita path puro', () => {
+      expect(getStoragePath('incidentes/incident_1.jpg')).toBe(
+        'incidentes/incident_1.jpg',
+      );
+    });
+    it('retorna null para lixo sem pasta ("success")', () => {
+      expect(getStoragePath('success')).toBeNull();
+    });
+    it('retorna null para vazio/null', () => {
+      expect(getStoragePath('')).toBeNull();
+      expect(getStoragePath(null)).toBeNull();
+    });
+    it('retorna null para URL http externa (não-bucket)', () => {
+      expect(getStoragePath('https://gravatar.com/avatar/abc')).toBeNull();
     });
   });
 });
