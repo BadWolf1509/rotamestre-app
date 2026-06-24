@@ -8,10 +8,10 @@ import {
   TextInput,
   ScrollView,
   Platform,
-  Image,
 } from 'react-native';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { MotoristaAvatar } from '@/components/gestor/motoristas/MotoristaAvatar';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
   DataTable,
@@ -257,20 +257,7 @@ export default function MotoristasGestor() {
       label: '',
       width: 60,
       render: (motorista) => (
-        <View style={styles.avatarCell}>
-          {motorista.foto_url ? (
-            <Image
-              source={{ uri: motorista.foto_url }}
-              style={styles.avatarImage}
-            />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarInitial}>
-                {motorista.nome?.charAt(0).toUpperCase() || 'M'}
-              </Text>
-            </View>
-          )}
-        </View>
+        <MotoristaAvatar fotoUrl={motorista.foto_url} nome={motorista.nome} />
       ),
     },
     {

@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 
+import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 import { useUnistyles } from '@/utils/styles';
 
 interface UserMenuTriggerProps {
@@ -10,7 +11,12 @@ interface UserMenuTriggerProps {
   isOpen?: boolean;
 }
 
-export function UserMenuTrigger({ name, imageUrl, isOpen }: UserMenuTriggerProps) {
+export function UserMenuTrigger({
+  name,
+  imageUrl,
+  isOpen,
+}: UserMenuTriggerProps) {
+  const { url: signedImageUrl } = useSignedUrl(imageUrl);
   const { theme } = useUnistyles();
   const styles = useMemo(
     () =>
@@ -54,7 +60,7 @@ export function UserMenuTrigger({ name, imageUrl, isOpen }: UserMenuTriggerProps
           marginLeft: -4,
         },
       }),
-    [theme]
+    [theme],
   );
 
   const displayName = name?.trim().split(/\s+/)[0] || 'Usuário';
@@ -67,8 +73,12 @@ export function UserMenuTrigger({ name, imageUrl, isOpen }: UserMenuTriggerProps
       </Text>
       <View style={styles.avatarContainer}>
         <View style={styles.avatar}>
-          {imageUrl ? (
-            <Image source={{ uri: imageUrl }} style={styles.avatarImage} resizeMode="cover" />
+          {signedImageUrl ? (
+            <Image
+              source={{ uri: signedImageUrl }}
+              style={styles.avatarImage}
+              resizeMode="cover"
+            />
           ) : (
             <Text style={styles.avatarText}>{initial}</Text>
           )}

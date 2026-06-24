@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
 
+import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 import { useUnistyles } from '@/utils/styles';
 
 import { styles } from './styles';
@@ -18,8 +19,13 @@ interface PerfilHeaderProps {
   onToggleStatus?: () => void;
 }
 
-export function PerfilHeader({ motorista, onEdit, onToggleStatus }: PerfilHeaderProps) {
+export function PerfilHeader({
+  motorista,
+  onEdit,
+  onToggleStatus,
+}: PerfilHeaderProps) {
   const { theme } = useUnistyles();
+  const { url: avatarUrl } = useSignedUrl(motorista.foto_url);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -35,8 +41,8 @@ export function PerfilHeader({ motorista, onEdit, onToggleStatus }: PerfilHeader
       <View style={styles.perfilHeaderContent}>
         {/* Avatar */}
         <View style={styles.avatarContainer}>
-          {motorista.foto_url ? (
-            <Image source={{ uri: motorista.foto_url }} style={styles.avatarImage} />
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
           ) : (
             <View style={styles.avatarPlaceholder}>
               <Text style={styles.avatarInitial}>
@@ -58,13 +64,17 @@ export function PerfilHeader({ motorista, onEdit, onToggleStatus }: PerfilHeader
           <View
             style={[
               styles.statusBadge,
-              motorista.ativo ? styles.statusBadgeAtivo : styles.statusBadgeInativo,
+              motorista.ativo
+                ? styles.statusBadgeAtivo
+                : styles.statusBadgeInativo,
             ]}
           >
             <Text
               style={[
                 styles.statusBadgeText,
-                motorista.ativo ? styles.statusBadgeTextAtivo : styles.statusBadgeTextInativo,
+                motorista.ativo
+                  ? styles.statusBadgeTextAtivo
+                  : styles.statusBadgeTextInativo,
               ]}
             >
               {motorista.ativo ? 'Ativo' : 'Inativo'}
@@ -85,8 +95,17 @@ export function PerfilHeader({ motorista, onEdit, onToggleStatus }: PerfilHeader
                 style={[styles.actionButton, styles.actionButtonPrimary]}
                 onPress={onEdit}
               >
-                <Ionicons name="create-outline" size={18} color={theme.colors.white} />
-                <Text style={[styles.actionButtonText, styles.actionButtonTextPrimary]}>
+                <Ionicons
+                  name="create-outline"
+                  size={18}
+                  color={theme.colors.white}
+                />
+                <Text
+                  style={[
+                    styles.actionButtonText,
+                    styles.actionButtonTextPrimary,
+                  ]}
+                >
                   Editar
                 </Text>
               </TouchableOpacity>
@@ -97,11 +116,20 @@ export function PerfilHeader({ motorista, onEdit, onToggleStatus }: PerfilHeader
                 onPress={onToggleStatus}
               >
                 <Ionicons
-                  name={motorista.ativo ? 'close-circle-outline' : 'checkmark-circle-outline'}
+                  name={
+                    motorista.ativo
+                      ? 'close-circle-outline'
+                      : 'checkmark-circle-outline'
+                  }
                   size={18}
                   color={theme.colors.gray700}
                 />
-                <Text style={[styles.actionButtonText, styles.actionButtonTextSecondary]}>
+                <Text
+                  style={[
+                    styles.actionButtonText,
+                    styles.actionButtonTextSecondary,
+                  ]}
+                >
                   {motorista.ativo ? 'Desativar' : 'Ativar'}
                 </Text>
               </TouchableOpacity>

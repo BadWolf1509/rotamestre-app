@@ -6,6 +6,8 @@ import {
   deletarFoto,
   uploadFotoUsuario,
   uploadIncidentPhoto,
+  getStoragePath,
+  createSignedUrlForFoto,
 } from '../storage';
 import { supabase } from '../supabase';
 
@@ -70,14 +72,18 @@ describe('Storage Functions', () => {
   const mockRotaId = 'rota-456';
   const mockParadaId = 'parada-789';
   const mockFotoUri = 'file:///path/to/photo.jpg';
-  const mockFotoUrl = 'https://xyz.supabase.co/storage/v1/object/public/fotos-entrega/unidade-123/rota-456/parada-789_1234567890.jpg';
+  const mockFotoUrl =
+    'https://xyz.supabase.co/storage/v1/object/public/fotos-entrega/unidade-123/rota-456/parada-789_1234567890.jpg';
+
+  // Mock functions for storage.from(...) methods
+  const mockCreateSignedUrl = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   describe('uploadFotoEntrega', () => {
-    it('deve fazer upload de foto com sucesso', async () => {
+    it('deve fazer upload de foto e retornar o PATH (não a URL pública)', async () => {
       // Mock fetch para retornar blob com arrayBuffer
       mockFetchWithBlob(1024 * 500); // 500KB
 
@@ -87,26 +93,21 @@ describe('Storage Functions', () => {
         error: null,
       });
 
-      const mockGetPublicUrl = jest.fn().mockReturnValue({
-        data: { publicUrl: mockFotoUrl },
-      });
-
       (supabase.storage.from as jest.Mock).mockReturnValue({
         upload: mockUpload,
-        getPublicUrl: mockGetPublicUrl,
       });
 
       const result = await uploadFotoEntrega(
         mockUnidadeId,
         mockRotaId,
         mockParadaId,
-        mockFotoUri
+        mockFotoUri,
       );
 
-      expect(result).toBe(mockFotoUrl);
+      // Deve retornar o path (não a URL pública)
+      expect(result).toMatch(/^unidade-123\/rota-456\/parada-789_\d+\.jpg$/);
       expect(global.fetch).toHaveBeenCalledWith(mockFotoUri);
       expect(mockUpload).toHaveBeenCalled();
-      expect(mockGetPublicUrl).toHaveBeenCalled();
     });
 
     it('deve rejeitar foto maior que 5MB', async () => {
@@ -117,7 +118,7 @@ describe('Storage Functions', () => {
         mockUnidadeId,
         mockRotaId,
         mockParadaId,
-        mockFotoUri
+        mockFotoUri,
       );
 
       expect(result).toBeNull();
@@ -141,7 +142,7 @@ describe('Storage Functions', () => {
         mockUnidadeId,
         mockRotaId,
         mockParadaId,
-        mockFotoUri
+        mockFotoUri,
       );
 
       expect(result).toBeNull();
@@ -155,16 +156,16 @@ describe('Storage Functions', () => {
         error: null,
       });
 
-      const mockGetPublicUrl = jest.fn().mockReturnValue({
-        data: { publicUrl: mockFotoUrl },
-      });
-
       (supabase.storage.from as jest.Mock).mockReturnValue({
         upload: mockUpload,
-        getPublicUrl: mockGetPublicUrl,
       });
 
-      await uploadFotoEntrega(mockUnidadeId, mockRotaId, mockParadaId, mockFotoUri);
+      await uploadFotoEntrega(
+        mockUnidadeId,
+        mockRotaId,
+        mockParadaId,
+        mockFotoUri,
+      );
 
       const uploadCall = mockUpload.mock.calls[0];
       const filePath = uploadCall[0];
@@ -183,16 +184,16 @@ describe('Storage Functions', () => {
         error: null,
       });
 
-      const mockGetPublicUrl = jest.fn().mockReturnValue({
-        data: { publicUrl: mockFotoUrl },
-      });
-
       (supabase.storage.from as jest.Mock).mockReturnValue({
         upload: mockUpload,
-        getPublicUrl: mockGetPublicUrl,
       });
 
-      await uploadFotoEntrega(mockUnidadeId, mockRotaId, mockParadaId, mockFotoUri);
+      await uploadFotoEntrega(
+        mockUnidadeId,
+        mockRotaId,
+        mockParadaId,
+        mockFotoUri,
+      );
 
       expect(mockUpload).toHaveBeenCalledWith(
         expect.any(String),
@@ -201,7 +202,7 @@ describe('Storage Functions', () => {
           contentType: 'image/jpeg',
           cacheControl: '3600',
           upsert: false,
-        })
+        }),
       );
     });
   });
@@ -255,7 +256,7 @@ describe('Storage Functions', () => {
 
   describe('uploadELinkFotoParada', () => {
     it('deve fazer processo completo com sucesso', async () => {
-      // Mock upload
+      // Mock upload — agora uploadFotoEntrega retorna o PATH, não a URL pública
       mockFetchWithBlob(1024 * 500);
 
       const mockUpload = jest.fn().mockResolvedValue({
@@ -263,13 +264,8 @@ describe('Storage Functions', () => {
         error: null,
       });
 
-      const mockGetPublicUrl = jest.fn().mockReturnValue({
-        data: { publicUrl: mockFotoUrl },
-      });
-
       (supabase.storage.from as jest.Mock).mockReturnValue({
         upload: mockUpload,
-        getPublicUrl: mockGetPublicUrl,
       });
 
       // Mock salvar
@@ -285,7 +281,7 @@ describe('Storage Functions', () => {
         mockUnidadeId,
         mockRotaId,
         mockParadaId,
-        mockFotoUri
+        mockFotoUri,
       );
 
       expect(result).toBe(true);
@@ -309,14 +305,14 @@ describe('Storage Functions', () => {
         mockUnidadeId,
         mockRotaId,
         mockParadaId,
-        mockFotoUri
+        mockFotoUri,
       );
 
       expect(result).toBe(false);
     });
 
     it('deve retornar false se salvar no banco falhar', async () => {
-      // Mock upload com sucesso
+      // Mock upload com sucesso — retorna path
       mockFetchWithBlob(1024 * 500);
 
       const mockUpload = jest.fn().mockResolvedValue({
@@ -324,13 +320,11 @@ describe('Storage Functions', () => {
         error: null,
       });
 
-      const mockGetPublicUrl = jest.fn().mockReturnValue({
-        data: { publicUrl: mockFotoUrl },
-      });
+      const mockRemove = jest.fn().mockResolvedValue({ error: null });
 
       (supabase.storage.from as jest.Mock).mockReturnValue({
         upload: mockUpload,
-        getPublicUrl: mockGetPublicUrl,
+        remove: mockRemove,
       });
 
       // Mock salvar com erro
@@ -346,15 +340,16 @@ describe('Storage Functions', () => {
         mockUnidadeId,
         mockRotaId,
         mockParadaId,
-        mockFotoUri
+        mockFotoUri,
       );
 
       expect(result).toBe(false);
+      expect(mockRemove).toHaveBeenCalled();
     });
   });
 
   describe('deletarFoto', () => {
-    it('deve deletar foto com sucesso', async () => {
+    it('deve deletar foto com sucesso a partir de URL pública', async () => {
       const mockRemove = jest.fn().mockResolvedValue({ error: null });
 
       (supabase.storage.from as jest.Mock).mockReturnValue({
@@ -379,18 +374,33 @@ describe('Storage Functions', () => {
       await deletarFoto(mockFotoUrl);
 
       const removedPath = mockRemove.mock.calls[0][0][0];
-      expect(removedPath).toBe('unidade-123/rota-456/parada-789_1234567890.jpg');
+      expect(removedPath).toBe(
+        'unidade-123/rota-456/parada-789_1234567890.jpg',
+      );
       expect(removedPath).not.toContain('http');
       expect(removedPath).not.toContain('fotos-entrega');
     });
 
-    it('deve retornar false para URL inválida', async () => {
+    it('deve aceitar path puro (sem URL)', async () => {
+      const mockRemove = jest.fn().mockResolvedValue({ error: null });
+
+      (supabase.storage.from as jest.Mock).mockReturnValue({
+        remove: mockRemove,
+      });
+
+      const result = await deletarFoto('perfis/perfil_x.jpg');
+
+      expect(result).toBe(true);
+      expect(mockRemove).toHaveBeenCalledWith(['perfis/perfil_x.jpg']);
+    });
+
+    it('deve retornar false para valor inválido (URL http externa ou lixo)', async () => {
       const invalidUrl = 'https://xyz.supabase.co/invalid-url';
 
       const result = await deletarFoto(invalidUrl);
 
       expect(result).toBe(false);
-      expect(logger.error).toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalled();
     });
 
     it('deve retornar false quando delete falha', async () => {
@@ -409,16 +419,12 @@ describe('Storage Functions', () => {
   });
 
   describe('Integração entre funções', () => {
-    it('uploadELinkFotoParada deve chamar uploadFotoEntrega e salvarFotoParada', async () => {
+    it('uploadELinkFotoParada deve chamar uploadFotoEntrega e salvarFotoParada com PATH', async () => {
       mockFetchWithBlob(1024 * 500);
 
       const mockUpload = jest.fn().mockResolvedValue({
         data: { path: 'test-path' },
         error: null,
-      });
-
-      const mockGetPublicUrl = jest.fn().mockReturnValue({
-        data: { publicUrl: mockFotoUrl },
       });
 
       const mockUpdate = jest.fn().mockReturnValue({
@@ -427,7 +433,6 @@ describe('Storage Functions', () => {
 
       (supabase.storage.from as jest.Mock).mockReturnValue({
         upload: mockUpload,
-        getPublicUrl: mockGetPublicUrl,
       });
 
       (supabase.from as jest.Mock).mockReturnValue({
@@ -438,12 +443,17 @@ describe('Storage Functions', () => {
         mockUnidadeId,
         mockRotaId,
         mockParadaId,
-        mockFotoUri
+        mockFotoUri,
       );
 
       // Verifica que ambas funções foram chamadas
       expect(mockUpload).toHaveBeenCalled();
-      expect(mockUpdate).toHaveBeenCalledWith({ foto_url: mockFotoUrl });
+      // O PATH é passado para salvarFotoParada (não mais a URL pública)
+      expect(mockUpdate).toHaveBeenCalledWith({
+        foto_url: expect.stringMatching(
+          /^unidade-123\/rota-456\/parada-789_\d+\.jpg$/,
+        ),
+      });
     });
 
     it('uploadELinkFotoParada deve capturar exceções gerais', async () => {
@@ -454,32 +464,27 @@ describe('Storage Functions', () => {
         mockUnidadeId,
         mockRotaId,
         mockParadaId,
-        mockFotoUri
+        mockFotoUri,
       );
 
       expect(result).toBe(false);
       // uploadFotoEntrega catch logs the error
       expect(logger.error).toHaveBeenCalledWith(
         '[Storage] Erro ao fazer upload de foto',
-        expect.any(Error)
+        expect.any(Error),
       );
     });
   });
 
   describe('uploadFotoUsuario', () => {
     const mockUsuarioId = 'usuario-123';
-    const mockFotoUsuarioUrl = 'https://xyz.supabase.co/storage/v1/object/public/fotos-entrega/perfis/perfil_usuario-123_1234567890.jpg';
 
-    it('deve fazer upload de foto de perfil com sucesso', async () => {
+    it('deve fazer upload de foto de perfil e retornar PATH (não a URL pública)', async () => {
       mockFetchWithBlob(1024 * 200); // 200KB
 
       const mockUpload = jest.fn().mockResolvedValue({
         data: { path: 'perfis/perfil_usuario-123_1234567890.jpg' },
         error: null,
-      });
-
-      const mockGetPublicUrl = jest.fn().mockReturnValue({
-        data: { publicUrl: mockFotoUsuarioUrl },
       });
 
       const mockUpdate = jest.fn().mockReturnValue({
@@ -488,7 +493,6 @@ describe('Storage Functions', () => {
 
       (supabase.storage.from as jest.Mock).mockReturnValue({
         upload: mockUpload,
-        getPublicUrl: mockGetPublicUrl,
       });
 
       (supabase.from as jest.Mock).mockReturnValue({
@@ -497,12 +501,13 @@ describe('Storage Functions', () => {
 
       const result = await uploadFotoUsuario(mockUsuarioId, mockFotoUri);
 
-      expect(result).toBe(mockFotoUsuarioUrl);
+      // Deve retornar o path (não a URL pública)
+      expect(result).toMatch(/^perfis\/perfil_usuario-123_\d+\.jpg$/);
       expect(global.fetch).toHaveBeenCalledWith(mockFotoUri);
       expect(mockUpload).toHaveBeenCalled();
-      expect(mockGetPublicUrl).toHaveBeenCalled();
+      // O banco deve ser atualizado com o PATH
       expect(mockUpdate).toHaveBeenCalledWith({
-        foto_url: mockFotoUsuarioUrl,
+        foto_url: expect.stringMatching(/^perfis\//),
         updated_at: expect.any(String),
       });
     });
@@ -513,7 +518,9 @@ describe('Storage Functions', () => {
       const result = await uploadFotoUsuario(mockUsuarioId, mockFotoUri);
 
       expect(result).toBeNull();
-      expect(logger.error).toHaveBeenCalledWith('[Storage] Foto muito grande! Máximo: 2MB');
+      expect(logger.error).toHaveBeenCalledWith(
+        '[Storage] Foto muito grande! Máximo: 2MB',
+      );
     });
 
     it('deve retornar null quando upload falha', async () => {
@@ -541,17 +548,12 @@ describe('Storage Functions', () => {
         error: null,
       });
 
-      const mockGetPublicUrl = jest.fn().mockReturnValue({
-        data: { publicUrl: mockFotoUsuarioUrl },
-      });
-
       const mockUpdate = jest.fn().mockReturnValue({
         eq: jest.fn().mockResolvedValue({ error: new Error('Update failed') }),
       });
 
       (supabase.storage.from as jest.Mock).mockReturnValue({
         upload: mockUpload,
-        getPublicUrl: mockGetPublicUrl,
       });
 
       (supabase.from as jest.Mock).mockReturnValue({
@@ -563,7 +565,7 @@ describe('Storage Functions', () => {
       expect(result).toBeNull();
       expect(logger.error).toHaveBeenCalledWith(
         '[Storage] Erro ao atualizar foto_url no banco',
-        expect.any(Error)
+        expect.any(Error),
       );
     });
 
@@ -575,17 +577,12 @@ describe('Storage Functions', () => {
         error: null,
       });
 
-      const mockGetPublicUrl = jest.fn().mockReturnValue({
-        data: { publicUrl: mockFotoUsuarioUrl },
-      });
-
       const mockUpdate = jest.fn().mockReturnValue({
         eq: jest.fn().mockResolvedValue({ error: null }),
       });
 
       (supabase.storage.from as jest.Mock).mockReturnValue({
         upload: mockUpload,
-        getPublicUrl: mockGetPublicUrl,
       });
 
       (supabase.from as jest.Mock).mockReturnValue({
@@ -601,14 +598,13 @@ describe('Storage Functions', () => {
           contentType: 'image/jpeg',
           cacheControl: '3600',
           upsert: false,
-        })
+        }),
       );
     });
   });
 
   describe('uploadIncidentPhoto', () => {
     const mockFileName = 'incidente_123_1234567890.jpg';
-    const mockIncidentUrl = 'https://xyz.supabase.co/storage/v1/object/public/incidentes/incidente_123_1234567890.jpg';
 
     beforeEach(() => {
       // Mock listBuckets
@@ -621,7 +617,7 @@ describe('Storage Functions', () => {
       });
     });
 
-    it('deve fazer upload de foto de incidente com sucesso', async () => {
+    it('deve fazer upload de foto de incidente e retornar PATH (não a URL pública)', async () => {
       mockFetchWithBlob(1024 * 500); // 500KB
 
       const expectedPath = `incidentes/${mockFileName}`;
@@ -630,18 +626,14 @@ describe('Storage Functions', () => {
         error: null,
       });
 
-      const mockGetPublicUrl = jest.fn().mockReturnValue({
-        data: { publicUrl: mockIncidentUrl },
-      });
-
       (supabase.storage.from as jest.Mock).mockReturnValue({
         upload: mockUpload,
-        getPublicUrl: mockGetPublicUrl,
       });
 
       const result = await uploadIncidentPhoto(mockFotoUri, mockFileName);
 
-      expect(result).toBe(mockIncidentUrl);
+      // Deve retornar o path (não a URL pública)
+      expect(result).toBe(expectedPath);
       expect(global.fetch).toHaveBeenCalledWith(mockFotoUri);
       expect(mockUpload).toHaveBeenCalledWith(
         expectedPath,
@@ -649,7 +641,7 @@ describe('Storage Functions', () => {
         expect.objectContaining({
           contentType: 'image/jpeg',
           upsert: true,
-        })
+        }),
       );
     });
 
@@ -659,7 +651,9 @@ describe('Storage Functions', () => {
       const result = await uploadIncidentPhoto(mockFotoUri, mockFileName);
 
       expect(result).toBe('');
-      expect(logger.error).toHaveBeenCalledWith('[Storage] Foto muito grande! Máximo: 5MB');
+      expect(logger.error).toHaveBeenCalledWith(
+        '[Storage] Foto muito grande! Máximo: 5MB',
+      );
     });
 
     it('deve retornar string vazia quando upload falha', async () => {
@@ -699,13 +693,8 @@ describe('Storage Functions', () => {
         error: null,
       });
 
-      const mockGetPublicUrl = jest.fn().mockReturnValue({
-        data: { publicUrl: mockIncidentUrl },
-      });
-
       (supabase.storage.from as jest.Mock).mockReturnValue({
         upload: mockUpload,
-        getPublicUrl: mockGetPublicUrl,
       });
 
       await uploadIncidentPhoto(mockFotoUri, mockFileName);
@@ -729,18 +718,84 @@ describe('Storage Functions', () => {
         error: null,
       });
 
-      const mockGetPublicUrl = jest.fn().mockReturnValue({
-        data: { publicUrl: mockIncidentUrl },
-      });
-
       (supabase.storage.from as jest.Mock).mockReturnValue({
         upload: mockUpload,
-        getPublicUrl: mockGetPublicUrl,
       });
 
       await uploadIncidentPhoto(mockFotoUri, mockFileName);
 
       expect(mockCreateBucket).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getStoragePath', () => {
+    it('extrai path de URL pública', () => {
+      expect(
+        getStoragePath(
+          'https://x.supabase.co/storage/v1/object/public/fotos-entrega/u1/r1/p1_1.jpg',
+        ),
+      ).toBe('u1/r1/p1_1.jpg');
+    });
+    it('extrai path de URL assinada (remove query)', () => {
+      expect(
+        getStoragePath(
+          'https://x.supabase.co/storage/v1/object/sign/fotos-entrega/perfis/p_1.jpg?token=abc',
+        ),
+      ).toBe('perfis/p_1.jpg');
+    });
+    it('aceita path puro', () => {
+      expect(getStoragePath('incidentes/incident_1.jpg')).toBe(
+        'incidentes/incident_1.jpg',
+      );
+    });
+    it('retorna null para lixo sem pasta ("success")', () => {
+      expect(getStoragePath('success')).toBeNull();
+    });
+    it('retorna null para vazio/null', () => {
+      expect(getStoragePath('')).toBeNull();
+      expect(getStoragePath(null)).toBeNull();
+    });
+    it('retorna null para URL http externa (não-bucket)', () => {
+      expect(getStoragePath('https://gravatar.com/avatar/abc')).toBeNull();
+    });
+  });
+
+  describe('createSignedUrlForFoto', () => {
+    it('gera signed URL a partir de um path', async () => {
+      mockCreateSignedUrl.mockResolvedValue({
+        data: { signedUrl: 'https://x.supabase.co/sign/abc' },
+        error: null,
+      });
+      (supabase.storage.from as jest.Mock).mockReturnValue({
+        createSignedUrl: mockCreateSignedUrl,
+      });
+
+      const url = await createSignedUrlForFoto('perfis/p_1.jpg');
+      expect(url).toBe('https://x.supabase.co/sign/abc');
+      expect(mockCreateSignedUrl).toHaveBeenCalledWith('perfis/p_1.jpg', 3600);
+    });
+
+    it('retorna null para valor inválido sem chamar a API', async () => {
+      mockCreateSignedUrl.mockClear();
+      (supabase.storage.from as jest.Mock).mockReturnValue({
+        createSignedUrl: mockCreateSignedUrl,
+      });
+
+      const url = await createSignedUrlForFoto('success');
+      expect(url).toBeNull();
+      expect(mockCreateSignedUrl).not.toHaveBeenCalled();
+    });
+
+    it('retorna null em erro da API', async () => {
+      mockCreateSignedUrl.mockResolvedValue({
+        data: null,
+        error: { message: 'boom' },
+      });
+      (supabase.storage.from as jest.Mock).mockReturnValue({
+        createSignedUrl: mockCreateSignedUrl,
+      });
+
+      expect(await createSignedUrlForFoto('perfis/p_1.jpg')).toBeNull();
     });
   });
 });

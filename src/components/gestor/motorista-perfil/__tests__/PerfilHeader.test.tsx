@@ -1,10 +1,14 @@
 /**
  * Tests for PerfilHeader.tsx
- * Header com avatar, nome, email, telefone, status e ações
+ * Header com avatar, nome, email, telefone, status e ações.
+ * Avatar usa useSignedUrl para obter URL assinada do bucket privado.
  */
 
 import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
+import { Image } from 'react-native';
+
+import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 
 import { PerfilHeader } from '../PerfilHeader';
 
@@ -65,13 +69,20 @@ jest.mock('../styles', () => ({
   },
 }));
 
+// Mock useSignedUrl — default: null (shows initials placeholder)
+jest.mock('@/hooks/storage/useSignedUrl', () => ({
+  useSignedUrl: jest
+    .fn()
+    .mockReturnValue({ url: null, loading: false, error: false }),
+}));
+
 describe('PerfilHeader', () => {
   const mockMotorista: Motorista = {
     id: 'motorista-1',
     nome: 'João Silva',
     email: 'joao@example.com',
     telefone: '(11) 99999-9999',
-    foto_url: 'https://example.com/photo.jpg',
+    foto_url: 'perfis/joao.jpg',
     ativo: true,
     created_at: '2025-01-15T10:00:00Z',
   };
@@ -81,29 +92,28 @@ describe('PerfilHeader', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (useSignedUrl as jest.Mock).mockReturnValue({
+      url: null,
+      loading: false,
+      error: false,
+    });
   });
 
   describe('Renderização básica', () => {
     it('deve renderizar nome do motorista', () => {
-      const { getByText } = render(
-        <PerfilHeader motorista={mockMotorista} />
-      );
+      const { getByText } = render(<PerfilHeader motorista={mockMotorista} />);
 
       expect(getByText('João Silva')).toBeTruthy();
     });
 
     it('deve renderizar email do motorista', () => {
-      const { getByText } = render(
-        <PerfilHeader motorista={mockMotorista} />
-      );
+      const { getByText } = render(<PerfilHeader motorista={mockMotorista} />);
 
       expect(getByText('joao@example.com')).toBeTruthy();
     });
 
     it('deve renderizar telefone quando disponível', () => {
-      const { getByText } = render(
-        <PerfilHeader motorista={mockMotorista} />
-      );
+      const { getByText } = render(<PerfilHeader motorista={mockMotorista} />);
 
       expect(getByText('(11) 99999-9999')).toBeTruthy();
     });
@@ -111,48 +121,78 @@ describe('PerfilHeader', () => {
     it('não deve renderizar telefone quando não disponível', () => {
       const motoristaSemTelefone = { ...mockMotorista, telefone: undefined };
       const { queryByText } = render(
-        <PerfilHeader motorista={motoristaSemTelefone} />
+        <PerfilHeader motorista={motoristaSemTelefone} />,
       );
 
       expect(queryByText('(11) 99999-9999')).toBeNull();
     });
 
     it('deve mostrar data de criação formatada', () => {
-      const { getByText } = render(
-        <PerfilHeader motorista={mockMotorista} />
-      );
+      const { getByText } = render(<PerfilHeader motorista={mockMotorista} />);
 
-      // Verifica se contém o texto "Motorista desde"
       expect(getByText(/Motorista desde/)).toBeTruthy();
     });
   });
 
-  describe('Avatar', () => {
-    it('deve mostrar imagem quando foto_url está presente', () => {
-      const { UNSAFE_getByType } = render(
-        <PerfilHeader motorista={mockMotorista} />
-      );
+  describe('Avatar — useSignedUrl integration', () => {
+    it('deve passar foto_url para useSignedUrl', () => {
+      render(<PerfilHeader motorista={mockMotorista} />);
 
-      const { Image } = require('react-native');
-      const image = UNSAFE_getByType(Image);
-      expect(image.props.source.uri).toBe('https://example.com/photo.jpg');
+      expect(useSignedUrl).toHaveBeenCalledWith('perfis/joao.jpg');
     });
 
-    it('deve mostrar inicial quando não há foto', () => {
-      const motoristaSemFoto = { ...mockMotorista, foto_url: undefined };
-      const { getByText } = render(
-        <PerfilHeader motorista={motoristaSemFoto} />
+    it('deve mostrar Image com URL assinada quando useSignedUrl retorna URL', () => {
+      (useSignedUrl as jest.Mock).mockReturnValue({
+        url: 'https://signed/joao.jpg',
+        loading: false,
+        error: false,
+      });
+
+      const { UNSAFE_getByType } = render(
+        <PerfilHeader motorista={mockMotorista} />,
       );
 
-      expect(getByText('J')).toBeTruthy(); // Inicial do nome
+      const image = UNSAFE_getByType(Image);
+      expect(image.props.source).toEqual({ uri: 'https://signed/joao.jpg' });
+    });
+
+    it('deve mostrar inicial quando useSignedUrl retorna null', () => {
+      (useSignedUrl as jest.Mock).mockReturnValue({
+        url: null,
+        loading: false,
+        error: false,
+      });
+
+      const { UNSAFE_queryByType, getByText } = render(
+        <PerfilHeader motorista={mockMotorista} />,
+      );
+
+      expect(UNSAFE_queryByType(Image)).toBeNull();
+      expect(getByText('J')).toBeTruthy();
+    });
+
+    it('deve mostrar inicial mesmo quando foto_url está definido mas signed URL é null', () => {
+      (useSignedUrl as jest.Mock).mockReturnValue({
+        url: null,
+        loading: false,
+        error: true,
+      });
+
+      const motoristaComFoto = {
+        ...mockMotorista,
+        foto_url: 'perfis/joao.jpg',
+      };
+      const { UNSAFE_queryByType } = render(
+        <PerfilHeader motorista={motoristaComFoto} />,
+      );
+
+      expect(UNSAFE_queryByType(Image)).toBeNull();
     });
   });
 
   describe('Status Badge', () => {
     it('deve mostrar "Ativo" quando motorista está ativo', () => {
-      const { getByText } = render(
-        <PerfilHeader motorista={mockMotorista} />
-      );
+      const { getByText } = render(<PerfilHeader motorista={mockMotorista} />);
 
       expect(getByText('Ativo')).toBeTruthy();
     });
@@ -160,7 +200,7 @@ describe('PerfilHeader', () => {
     it('deve mostrar "Inativo" quando motorista está inativo', () => {
       const motoristaInativo = { ...mockMotorista, ativo: false };
       const { getByText } = render(
-        <PerfilHeader motorista={motoristaInativo} />
+        <PerfilHeader motorista={motoristaInativo} />,
       );
 
       expect(getByText('Inativo')).toBeTruthy();
@@ -170,7 +210,7 @@ describe('PerfilHeader', () => {
   describe('Botões de ação', () => {
     it('deve renderizar botão Editar quando onEdit fornecido', () => {
       const { getByText } = render(
-        <PerfilHeader motorista={mockMotorista} onEdit={mockOnEdit} />
+        <PerfilHeader motorista={mockMotorista} onEdit={mockOnEdit} />,
       );
 
       expect(getByText('Editar')).toBeTruthy();
@@ -178,7 +218,7 @@ describe('PerfilHeader', () => {
 
     it('deve chamar onEdit ao clicar no botão', () => {
       const { getByText } = render(
-        <PerfilHeader motorista={mockMotorista} onEdit={mockOnEdit} />
+        <PerfilHeader motorista={mockMotorista} onEdit={mockOnEdit} />,
       );
 
       fireEvent.press(getByText('Editar'));
@@ -188,7 +228,10 @@ describe('PerfilHeader', () => {
 
     it('deve renderizar botão Desativar quando motorista ativo', () => {
       const { getByText } = render(
-        <PerfilHeader motorista={mockMotorista} onToggleStatus={mockOnToggleStatus} />
+        <PerfilHeader
+          motorista={mockMotorista}
+          onToggleStatus={mockOnToggleStatus}
+        />,
       );
 
       expect(getByText('Desativar')).toBeTruthy();
@@ -197,7 +240,10 @@ describe('PerfilHeader', () => {
     it('deve renderizar botão Ativar quando motorista inativo', () => {
       const motoristaInativo = { ...mockMotorista, ativo: false };
       const { getByText } = render(
-        <PerfilHeader motorista={motoristaInativo} onToggleStatus={mockOnToggleStatus} />
+        <PerfilHeader
+          motorista={motoristaInativo}
+          onToggleStatus={mockOnToggleStatus}
+        />,
       );
 
       expect(getByText('Ativar')).toBeTruthy();
@@ -205,7 +251,10 @@ describe('PerfilHeader', () => {
 
     it('deve chamar onToggleStatus ao clicar no botão', () => {
       const { getByText } = render(
-        <PerfilHeader motorista={mockMotorista} onToggleStatus={mockOnToggleStatus} />
+        <PerfilHeader
+          motorista={mockMotorista}
+          onToggleStatus={mockOnToggleStatus}
+        />,
       );
 
       fireEvent.press(getByText('Desativar'));
@@ -215,7 +264,7 @@ describe('PerfilHeader', () => {
 
     it('não deve renderizar ações quando nenhum callback fornecido', () => {
       const { queryByText } = render(
-        <PerfilHeader motorista={mockMotorista} />
+        <PerfilHeader motorista={mockMotorista} />,
       );
 
       expect(queryByText('Editar')).toBeNull();
@@ -228,7 +277,7 @@ describe('PerfilHeader', () => {
           motorista={mockMotorista}
           onEdit={mockOnEdit}
           onToggleStatus={mockOnToggleStatus}
-        />
+        />,
       );
 
       expect(getByText('Editar')).toBeTruthy();

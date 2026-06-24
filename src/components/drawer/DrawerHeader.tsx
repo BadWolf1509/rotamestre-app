@@ -6,6 +6,7 @@
 import React from 'react';
 import { View, Text, Image } from 'react-native';
 
+import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 import type { Usuario } from '@/types/usuario';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
@@ -15,13 +16,17 @@ interface DrawerHeaderProps {
 }
 
 export function DrawerHeader({ profile, unidade }: DrawerHeaderProps) {
+  const { url: avatarUrl } = useSignedUrl(profile?.foto_url);
+
   return (
     <View style={styles.header}>
-      {profile?.foto_url ? (
-        <Image source={{ uri: profile.foto_url }} style={styles.avatarImage} />
+      {avatarUrl ? (
+        <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
       ) : (
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{profile?.nome?.charAt(0) || '?'}</Text>
+          <Text style={styles.avatarText}>
+            {profile?.nome?.charAt(0) || '?'}
+          </Text>
         </View>
       )}
       <Text style={styles.userName}>{profile?.nome}</Text>

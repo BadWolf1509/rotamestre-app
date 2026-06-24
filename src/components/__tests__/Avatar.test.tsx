@@ -1,9 +1,34 @@
 import { render } from '@testing-library/react-native';
 import React from 'react';
+import { Image } from 'react-native';
+
+// Mock useSignedUrl so Avatar uses signed URLs, not raw bucket paths
+jest.mock('@/hooks/storage/useSignedUrl', () => ({
+  useSignedUrl: jest.fn(),
+}));
+
+import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 
 import { Avatar } from '../Avatar';
 
+const mockUseSignedUrl = useSignedUrl as jest.MockedFunction<
+  typeof useSignedUrl
+>;
+
 describe('Avatar Component', () => {
+  beforeEach(() => {
+    // Default: hook returns a signed URL equal to the input (pass-through for http URLs)
+    mockUseSignedUrl.mockImplementation((value) => ({
+      url: typeof value === 'string' && value.startsWith('http') ? value : null,
+      loading: false,
+      error: false,
+    }));
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe('Iniciais', () => {
     it('deve gerar iniciais de nome simples', () => {
       const { getByText } = render(<Avatar name="João" />);
@@ -36,24 +61,67 @@ describe('Avatar Component', () => {
     });
   });
 
-  describe('Imagem', () => {
-    it('deve renderizar imagem quando imageUrl fornecido', () => {
+  describe('Imagem via signed URL', () => {
+    it('deve renderizar imagem usando signed URL quando hook retorna url', () => {
+      mockUseSignedUrl.mockReturnValue({
+        url: 'https://signed.example.com/perfis/x.jpg?token=abc',
+        loading: false,
+        error: false,
+      });
       const { UNSAFE_getByType } = render(
-        <Avatar name="João Silva" imageUrl="https://exemplo.com/foto.jpg" />
+        <Avatar name="João Silva" imageUrl="perfis/x.jpg" />,
       );
-      const image = UNSAFE_getByType(require('react-native').Image);
+      const image = UNSAFE_getByType(Image);
+      expect(image).toBeTruthy();
+      expect(image.props.source.uri).toBe(
+        'https://signed.example.com/perfis/x.jpg?token=abc',
+      );
+    });
+
+    it('deve renderizar iniciais quando hook retorna null (bare path sem signed url)', () => {
+      mockUseSignedUrl.mockReturnValue({
+        url: null,
+        loading: false,
+        error: true,
+      });
+      const { getByText } = render(
+        <Avatar name="João Silva" imageUrl="perfis/x.jpg" />,
+      );
+      expect(getByText('JS')).toBeTruthy();
+    });
+
+    it('deve renderizar imagem http passada diretamente pelo hook', () => {
+      mockUseSignedUrl.mockReturnValue({
+        url: 'https://exemplo.com/foto.jpg',
+        loading: false,
+        error: false,
+      });
+      const { UNSAFE_getByType } = render(
+        <Avatar name="João Silva" imageUrl="https://exemplo.com/foto.jpg" />,
+      );
+      const image = UNSAFE_getByType(Image);
       expect(image).toBeTruthy();
       expect(image.props.source.uri).toBe('https://exemplo.com/foto.jpg');
     });
 
     it('deve renderizar iniciais quando imageUrl é null', () => {
+      mockUseSignedUrl.mockReturnValue({
+        url: null,
+        loading: false,
+        error: false,
+      });
       const { getByText } = render(
-        <Avatar name="João Silva" imageUrl={null} />
+        <Avatar name="João Silva" imageUrl={null} />,
       );
       expect(getByText('JS')).toBeTruthy();
     });
 
     it('deve renderizar iniciais quando imageUrl não fornecido', () => {
+      mockUseSignedUrl.mockReturnValue({
+        url: null,
+        loading: false,
+        error: false,
+      });
       const { getByText } = render(<Avatar name="João Silva" />);
       expect(getByText('JS')).toBeTruthy();
     });
@@ -84,7 +152,7 @@ describe('Avatar Component', () => {
   describe('Cor de Fundo', () => {
     it('deve aceitar backgroundColor customizado', () => {
       const { getByText } = render(
-        <Avatar name="João" backgroundColor="#FF5733" />
+        <Avatar name="João" backgroundColor="#FF5733" />,
       );
       expect(getByText('JO')).toBeTruthy();
     });
@@ -98,26 +166,31 @@ describe('Avatar Component', () => {
   describe('Combinações de Props', () => {
     it('deve renderizar avatar grande com cor customizada', () => {
       const { getByText } = render(
-        <Avatar name="Maria" size="xl" backgroundColor="#00AA00" />
+        <Avatar name="Maria" size="xl" backgroundColor="#00AA00" />,
       );
       expect(getByText('MA')).toBeTruthy();
     });
 
     it('deve renderizar avatar pequeno com imagem', () => {
+      mockUseSignedUrl.mockReturnValue({
+        url: 'https://exemplo.com/pedro.jpg',
+        loading: false,
+        error: false,
+      });
       const { UNSAFE_getByType } = render(
         <Avatar
           name="Pedro"
           size="sm"
           imageUrl="https://exemplo.com/pedro.jpg"
-        />
+        />,
       );
-      const image = UNSAFE_getByType(require('react-native').Image);
+      const image = UNSAFE_getByType(Image);
       expect(image).toBeTruthy();
     });
 
     it('deve renderizar avatar médio com iniciais e cor customizada', () => {
       const { getByText } = render(
-        <Avatar name="Ana Costa" size="md" backgroundColor="#FF6B6B" />
+        <Avatar name="Ana Costa" size="md" backgroundColor="#FF6B6B" />,
       );
       expect(getByText('AC')).toBeTruthy();
     });

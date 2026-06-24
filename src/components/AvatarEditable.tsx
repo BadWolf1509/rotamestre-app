@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 
+import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -67,6 +68,7 @@ export function AvatarEditable({
   disabled = false,
   showEditBadge = true,
 }: AvatarEditableProps) {
+  const { url: signedImageUrl } = useSignedUrl(imageUrl);
   const { theme } = useUnistyles();
 
   // Gerar iniciais do nome
@@ -149,9 +151,9 @@ export function AvatarEditable({
           },
         ]}
       >
-        {imageUrl ? (
+        {signedImageUrl ? (
           <Image
-            source={{ uri: imageUrl }}
+            source={{ uri: signedImageUrl }}
             style={{
               width: avatarSize,
               height: avatarSize,

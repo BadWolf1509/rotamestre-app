@@ -3,12 +3,21 @@ import { render } from '@testing-library/react-native';
 import React from 'react';
 import { Text, View } from 'react-native';
 
+import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
+
 import { UserMenuTrigger } from '../UserMenuTrigger';
 
 // Mock useUnistyles
 jest.mock('@/utils/styles', () => ({
   useUnistyles: jest.fn(),
   StyleSheet: require('react-native').StyleSheet,
+}));
+
+// Mock useSignedUrl — default to no URL so existing tests (initial letter) keep passing
+jest.mock('@/hooks/storage/useSignedUrl', () => ({
+  useSignedUrl: jest
+    .fn()
+    .mockReturnValue({ url: null, loading: false, error: false }),
 }));
 
 const mockUseUnistyles = require('@/utils/styles').useUnistyles;
@@ -97,14 +106,18 @@ describe('UserMenuTrigger Component', () => {
     });
 
     it('deve lidar com múltiplos espaços entre nomes', () => {
-      const { getByText } = render(<UserMenuTrigger name="Pedro   Miguel   Santos" />);
+      const { getByText } = render(
+        <UserMenuTrigger name="Pedro   Miguel   Santos" />,
+      );
 
       expect(getByText('Pedro')).toBeTruthy();
       expect(getByText('P')).toBeTruthy();
     });
 
     it('deve remover espaços do início e fim do nome', () => {
-      const { getByText } = render(<UserMenuTrigger name="  Lucia Fernandes  " />);
+      const { getByText } = render(
+        <UserMenuTrigger name="  Lucia Fernandes  " />,
+      );
 
       expect(getByText('Lucia')).toBeTruthy();
       expect(getByText('L')).toBeTruthy();
@@ -141,7 +154,7 @@ describe('UserMenuTrigger Component', () => {
   describe('Prop: isOpen', () => {
     it('deve renderizar chevron-down quando isOpen=false', () => {
       const { UNSAFE_getByType } = render(
-        <UserMenuTrigger name="João" isOpen={false} />
+        <UserMenuTrigger name="João" isOpen={false} />,
       );
 
       const icon = UNSAFE_getByType(Ionicons);
@@ -150,7 +163,7 @@ describe('UserMenuTrigger Component', () => {
 
     it('deve renderizar chevron-up quando isOpen=true', () => {
       const { UNSAFE_getByType } = render(
-        <UserMenuTrigger name="João" isOpen={true} />
+        <UserMenuTrigger name="João" isOpen={true} />,
       );
 
       const icon = UNSAFE_getByType(Ionicons);
@@ -205,7 +218,9 @@ describe('UserMenuTrigger Component', () => {
     });
 
     it('deve renderizar todos os elementos de texto', () => {
-      const { UNSAFE_getAllByType } = render(<UserMenuTrigger name="João Silva" />);
+      const { UNSAFE_getAllByType } = render(
+        <UserMenuTrigger name="João Silva" />,
+      );
 
       const texts = UNSAFE_getAllByType(Text);
       // "Olá," + "João" + inicial "J"
@@ -238,7 +253,9 @@ describe('UserMenuTrigger Component', () => {
     });
 
     it('deve funcionar com caracteres especiais no nome', () => {
-      const { getByText, getAllByText } = render(<UserMenuTrigger name="André D'Ávila" />);
+      const { getByText, getAllByText } = render(
+        <UserMenuTrigger name="André D'Ávila" />,
+      );
 
       expect(getByText('André')).toBeTruthy();
 
@@ -251,7 +268,7 @@ describe('UserMenuTrigger Component', () => {
   describe('Combinações de Props', () => {
     it('deve renderizar corretamente com todas as props', () => {
       const { getByText, UNSAFE_getByType } = render(
-        <UserMenuTrigger name="Maria Clara" isOpen={true} />
+        <UserMenuTrigger name="Maria Clara" isOpen={true} />,
       );
 
       expect(getByText('Maria')).toBeTruthy();
@@ -263,7 +280,7 @@ describe('UserMenuTrigger Component', () => {
 
     it('deve alternar entre isOpen states', () => {
       const { rerender, UNSAFE_getByType } = render(
-        <UserMenuTrigger name="João" isOpen={false} />
+        <UserMenuTrigger name="João" isOpen={false} />,
       );
 
       let icon = UNSAFE_getByType(Ionicons);
@@ -277,7 +294,7 @@ describe('UserMenuTrigger Component', () => {
 
     it('deve manter nome ao alternar isOpen', () => {
       const { rerender, getByText } = render(
-        <UserMenuTrigger name="Carlos" isOpen={false} />
+        <UserMenuTrigger name="Carlos" isOpen={false} />,
       );
 
       expect(getByText('Carlos')).toBeTruthy();
@@ -285,6 +302,34 @@ describe('UserMenuTrigger Component', () => {
       rerender(<UserMenuTrigger name="Carlos" isOpen={true} />);
 
       expect(getByText('Carlos')).toBeTruthy();
+    });
+  });
+
+  describe('Signed URL (useSignedUrl)', () => {
+    it('usa o signed URL do hook na imagem', () => {
+      (useSignedUrl as jest.Mock).mockReturnValue({
+        url: 'https://signed/u',
+        loading: false,
+        error: false,
+      });
+      const { UNSAFE_getByType } = render(
+        <UserMenuTrigger name="João" imageUrl="perfis/p.jpg" />,
+      );
+      expect(
+        UNSAFE_getByType(require('react-native').Image).props.source,
+      ).toEqual({ uri: 'https://signed/u' });
+    });
+
+    it('mostra inicial quando o hook retorna null', () => {
+      (useSignedUrl as jest.Mock).mockReturnValue({
+        url: null,
+        loading: false,
+        error: false,
+      });
+      const { queryByText } = render(
+        <UserMenuTrigger name="João" imageUrl="perfis/p.jpg" />,
+      );
+      expect(queryByText('J')).toBeTruthy();
     });
   });
 });

@@ -3,24 +3,25 @@
  * Extracted from app/gestor/incidentes.tsx for maintainability.
  */
 
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from '@expo/vector-icons';
 import {
   View,
   TouchableOpacity,
   ScrollView,
   Image,
   ActivityIndicator,
-} from "react-native";
+} from 'react-native';
 
-import { Text } from "@/components/Text";
-import { DesktopModal, StatusBadge } from "@/design-system";
+import { Text } from '@/components/Text';
+import { DesktopModal, StatusBadge } from '@/design-system';
 import type {
   CategoriaLabel,
   Incidente,
   StatusLabel,
-} from "@/hooks/incidentes-gestor/types";
-import { styles } from "@/styles/gestor/incidentes.styles";
-import { useUnistyles } from "@/utils/styles";
+} from '@/hooks/incidentes-gestor/types';
+import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
+import { styles } from '@/styles/gestor/incidentes.styles';
+import { useUnistyles } from '@/utils/styles';
 
 interface IncidenteDetalhesModalProps {
   incidente: Incidente | null;
@@ -50,7 +51,7 @@ export function IncidenteDetalhesModal({
   statusLabels,
   fotoLoading,
   fotoError,
-  fotoRetryCount,
+  fotoRetryCount: _fotoRetryCount,
   onFotoLoad,
   onFotoError,
   onFotoRetry,
@@ -60,17 +61,14 @@ export function IncidenteDetalhesModal({
   formatDate,
 }: IncidenteDetalhesModalProps) {
   const { theme } = useUnistyles();
+  // useSignedUrl must be called unconditionally (before the early return below).
+  // Passing incidente?.foto_url is safe — the hook handles null/undefined.
+  const { url: fotoUri } = useSignedUrl(incidente?.foto_url);
 
   if (!incidente) return null;
 
   const cat = categoriaLabels[incidente.categoria];
   const st = statusLabels[incidente.status];
-
-  const fotoUri = incidente.foto_url
-    ? fotoRetryCount > 0
-      ? `${incidente.foto_url}?retry=${fotoRetryCount}`
-      : incidente.foto_url
-    : null;
 
   return (
     <DesktopModal
@@ -79,14 +77,14 @@ export function IncidenteDetalhesModal({
       title="Detalhes do Incidente"
       maxWidth={600}
       primaryButton={{
-        text: "Alterar Status",
+        text: 'Alterar Status',
         onPress: () => {
           onClose();
           setTimeout(() => onAlterarStatus(incidente), 300);
         },
       }}
       secondaryButton={{
-        text: "Remarcar Entrega",
+        text: 'Remarcar Entrega',
         onPress: () => onRemarcarEntrega(incidente),
       }}
     >
@@ -214,8 +212,8 @@ export function IncidenteDetalhesModal({
               ]}
             >
               {incidente.rota_data
-                ? `Rota de ${new Date(incidente.rota_data).toLocaleDateString("pt-BR")}`
-                : "N/A"}
+                ? `Rota de ${new Date(incidente.rota_data).toLocaleDateString('pt-BR')}`
+                : 'N/A'}
             </Text>
           </View>
         )}

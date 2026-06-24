@@ -9,6 +9,7 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, Platform } from 'react-native';
 
 import { SKIP_REASON_LABELS } from '@/constants/skipReasons';
+import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 import { useUnistyles } from '@/utils/styles';
 
 import { styles } from './styles';
@@ -27,6 +28,7 @@ export const ParadaCard = React.memo<ParadaCardProps>(
   ({ parada, index: _index, onImagePress, selected, onPress }) => {
     const { theme } = useUnistyles();
     const [imageError, setImageError] = useState(false);
+    const { url: fotoUrl } = useSignedUrl(parada.foto_url);
 
     const handlePhonePress = useCallback(() => {
       if (parada.telefone) {
@@ -46,9 +48,9 @@ export const ParadaCard = React.memo<ParadaCardProps>(
       }
     }, [parada.telefone]);
 
-    // Mostra placeholder se: concluída sem foto OU se a imagem falhou ao carregar
+    // Mostra placeholder se: concluída sem foto (signed url null) OU se a imagem falhou ao carregar
     const showPhotoPlaceholder =
-      parada.status === 'concluida' && (!parada.foto_url || imageError);
+      parada.status === 'concluida' && (!fotoUrl || imageError);
 
     return (
       <View style={[styles.paradaCard, selected && styles.paradaCardSelected]}>
@@ -166,14 +168,14 @@ export const ParadaCard = React.memo<ParadaCardProps>(
         )}
 
         {/* Foto da entrega com overlay melhorado */}
-        {parada.foto_url && !imageError && (
+        {fotoUrl && !imageError && (
           <TouchableOpacity
             style={styles.paradaFotoContainer}
-            onPress={() => onImagePress(parada.foto_url!)}
+            onPress={() => onImagePress(fotoUrl)}
             activeOpacity={0.8}
           >
             <Image
-              source={{ uri: parada.foto_url }}
+              source={{ uri: fotoUrl }}
               style={styles.paradaFoto}
               onError={() => setImageError(true)}
             />
