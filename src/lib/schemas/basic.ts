@@ -6,7 +6,7 @@
  *
  * Available Schemas:
  * - emailSchema: Email validation with trimming/lowercase
- * - passwordSchema: Strong password validation (8+ chars, uppercase, number, special)
+ * - passwordSchema: Strong password validation (8+ chars, uppercase, lowercase, number, special)
  * - nomeSchema: Person name (3-100 chars, letters only)
  * - enderecoSchema: Address string (5-200 chars)
  * - observacoesSchema: Optional notes (max 500 chars)
@@ -40,6 +40,7 @@ export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_REQUIREMENTS = {
   minLength: PASSWORD_MIN_LENGTH,
   requireUppercase: true,
+  requireLowercase: true,
   requireNumber: true,
   requireSpecial: true, // Segurança: agora obrigatório
 };
@@ -64,7 +65,7 @@ export const emailSchema = z
 
 /**
  * Strong password validation schema
- * Requer: 8+ caracteres, maiúscula, número e caractere especial
+ * Requer: 8+ caracteres, maiúscula, minúscula, número e caractere especial
  */
 export const passwordSchema = z
   .string()
@@ -74,6 +75,9 @@ export const passwordSchema = z
   )
   .refine((val) => /[A-Z]/.test(val), {
     message: 'Senha deve conter pelo menos uma letra maiúscula',
+  })
+  .refine((val) => /[a-z]/.test(val), {
+    message: 'Senha deve conter pelo menos uma letra minúscula',
   })
   .refine((val) => /[0-9]/.test(val), {
     message: 'Senha deve conter pelo menos um número',
@@ -98,6 +102,10 @@ export function validatePassword(password: string): {
 
   if (!/[A-Z]/.test(password)) {
     errors.push('Precisa de letra maiúscula');
+  }
+
+  if (!/[a-z]/.test(password)) {
+    errors.push('Precisa de letra minúscula');
   }
 
   if (!/[0-9]/.test(password)) {

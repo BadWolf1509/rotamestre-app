@@ -25,6 +25,7 @@ describe('constants', () => {
     expect(PASSWORD_REQUIREMENTS).toEqual({
       minLength: 8,
       requireUppercase: true,
+      requireLowercase: true,
       requireNumber: true,
       requireSpecial: true,
     });
@@ -97,6 +98,16 @@ describe('passwordSchema', () => {
     if (!result.success) {
       expect(
         result.error.issues.some((i) => i.message.includes('maiúscula')),
+      ).toBe(true);
+    }
+  });
+
+  it('rejects password without lowercase', () => {
+    const result = passwordSchema.safeParse('ABC12345!');
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((i) => i.message.includes('minúscula')),
       ).toBe(true);
     }
   });
@@ -197,6 +208,11 @@ describe('validatePassword', () => {
   it('error for missing uppercase', () => {
     const result = validatePassword('abcdef1!');
     expect(result.errors).toContain('Precisa de letra maiúscula');
+  });
+
+  it('error for missing lowercase', () => {
+    const result = validatePassword('ABCDEF1!');
+    expect(result.errors).toContain('Precisa de letra minúscula');
   });
 
   it('error for missing number', () => {
