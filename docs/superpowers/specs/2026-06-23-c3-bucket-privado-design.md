@@ -31,7 +31,7 @@ A coluna guarda a **URL pública completa**. Escala (2026-06-23):
 ### Superfície de código (mapa)
 
 - Upload central: `src/lib/storage.ts` — 5× `getPublicUrl`, **zero** signed URL; uploads em `uploadFotoEntrega`, `uploadFotoEntregaWithProgress`, `uploadFotoUsuario`, `uploadIncidentPhoto`; persistência em `salvarFotoParada` e `uploadFotoUsuario`; deleção em `deletarFoto` (extrai path da URL via split).
-- Render (remoto): `ParadaCard`, `ParadaCardCompact`, `IncidenteDetalhesModal`, `DrawerHeader`, `PerfilHeader`, `PerfilDesktopLayout`→`AvatarEditable`, e o hook `useProfilePhoto`. `CameraUpload` preview usa `file://` local (não conta).
+- Render (remoto) — **mais amplo que o esperado** (varredura `foto_url` em `app/` + `src/`): a maioria das telas renderiza avatar via **componentes compartilhados** — `UserMenuTrigger` (avatar do header, alimentado por `userImageUrl` via `useDesktopHeaderMenu` em ~11 telas) e `AvatarEditable` (`PerfilDesktopLayout`, `app/perfil/index.tsx`, `app/motorista/perfil/index.tsx`, `app/unidade/equipe.tsx`). Sites **standalone** com `<Image>` direto: `ParadaCard`, `ParadaCardCompact`, `IncidenteDetalhesModal`, `DrawerHeader`, `PerfilHeader`, `app/gestor/motoristas.tsx`. `CameraUpload` preview usa `file://` local (não conta). **Prop morta:** `StatusSection.userPhoto` (declarada, nunca renderizada).
 - Constante do bucket: `BUCKET_FOTOS_ENTREGA = 'fotos-entrega'` em `src/lib/storage.ts`.
 
 ## 2. Objetivo e escopo
@@ -75,14 +75,21 @@ A coluna guarda a **URL pública completa**. Escala (2026-06-23):
 
 - `useSignedUrl(value: string | null, options?: { expiresIn?: number }): { url: string | null; loading: boolean; error: boolean }`.
 - Extrai o path, assina, **cacheia em memória por path** com timestamp de expiração; reusa o cache se ainda válido e **reassina** dentro de uma janela antes de expirar; **dedupe de requisições in-flight** (paths iguais compartilham uma chamada). `value` inválido/`null` → `url = null`.
+- **Robustez p/ componentes genéricos:** `getStoragePath` devolve `null` para URLs http externas (não-bucket); o hook então faz **pass-through** dessas URLs (retorna o valor original). Assim `useSignedUrl` é seguro dentro de `AvatarEditable`/`UserMenuTrigger`, que são genéricos.
 - Batch (`useSignedUrls(values[])` via `createSignedUrls`) fica como **otimização futura** caso listas grandes pesem; a virtualização já limita os cards renderizados.
 
 ### 4.4 Sites de render (trocam a fonte da imagem)
 
-Trocar `uri={foto_url}` por `uri` derivado de `useSignedUrl(foto_url)` em:
-`ParadaCard`, `ParadaCardCompact`, `IncidenteDetalhesModal` (substitui o hack `?retry=` por reassinatura), `DrawerHeader`, `PerfilHeader`, `PerfilDesktopLayout`/`AvatarEditable`, e `useProfilePhoto` (grava path no upload, exibe via hook).
+Estratégia: resolver via `useSignedUrl` **dentro dos componentes compartilhados** (cobre ~13 telas sem editá-las) + nos sites standalone.
 
-- **Sem mudança:** `CameraUpload` preview (`file://` local); PDF export (v1 não embute foto).
+**Compartilhados (resolução interna):**
+
+- `UserMenuTrigger` — `useSignedUrl(imageUrl)`; cobre todas as ~11 telas que passam `userImageUrl` via `useDesktopHeaderMenu`.
+- `AvatarEditable` — `useSignedUrl(imageUrl)`; cobre `PerfilDesktopLayout`, `app/perfil/index.tsx`, `app/motorista/perfil/index.tsx`, `app/unidade/equipe.tsx` (sem editá-las).
+
+**Standalone (`<Image>` direto):** `ParadaCard`, `ParadaCardCompact`, `IncidenteDetalhesModal` (substitui o hack `?retry=`), `DrawerHeader`, `PerfilHeader`, `app/gestor/motoristas.tsx`.
+
+- **Sem mudança:** `useProfilePhoto` (grava o que o upload retorna = path; exibe via os componentes acima); `CameraUpload` preview (`file://` local); PDF export (v1 não embute foto). **Prop morta:** `StatusSection.userPhoto`.
 
 ### 4.5 Fluxo de dados
 
@@ -109,7 +116,7 @@ Trocar `uri={foto_url}` por `uri` derivado de `useSignedUrl(foto_url)` em:
 - Uploads: assert que persistem **path** (ajustar mocks de `getPublicUrl` em `src/lib/__tests__/storage.test.ts`).
 - `deletarFoto`: funciona com URL legada e com path.
 - `useSignedUrl`: assina, cacheia, reassina ao expirar, dedupe, `null`→`url=null`.
-- Componentes (7): mock do hook → assert `uri` e fallback quando `url=null`.
+- Componentes: mock de `useSignedUrl` → assert `uri` e fallback quando `url=null`, nos compartilhados (`UserMenuTrigger`, `AvatarEditable`) e nos standalone (`ParadaCard`, `ParadaCardCompact`, `IncidenteDetalhesModal`, `DrawerHeader`, `PerfilHeader`, `app/gestor/motoristas.tsx`). Testes existentes desses componentes (ex.: `UserMenuTrigger.test.tsx`, a11y/`PerfilDesktopLayout.test.tsx`) devem mockar o hook.
 
 ## 7. Critérios de aceite
 
