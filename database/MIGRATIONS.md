@@ -358,4 +358,22 @@ Logs de `motorista_iniciou_rota` agora aparecem apenas uma vez por início de ro
 
 ---
 
-**Última atualização:** 22/06/2026
+### ✅ Migration 12: Bucket `fotos-entrega` privado (C3 Fase 1, Segurança)
+
+**Data:** 24/06/2026
+**Arquivos:** `20260624033812_c3_bucket_fotos_entrega_privado.sql` (database/ + supabase/)
+**Objetivo:** Fechar exposição pública de PII — torna o bucket privado; fotos servidas via signed URLs on-read (`useSignedUrl`).
+
+```sql
+update storage.buckets set public = false where id = 'fotos-entrega';
+```
+
+- Policies de `storage.objects` **mantidas** (necessárias p/ usuário autenticado gerar signed URL).
+- Aplicada via MCP **após** o deploy web (ordem de rollout). Advisor `public_bucket_allows_listing` **resolvido**; URL pública antiga → **HTTP 400**.
+- **Fase 2 pendente:** isolamento por unidade em `storage.objects` (policy SELECT hoje é `authenticated` sem unidade).
+
+**Status:** ✅ Aplicado em produção (PR #285)
+
+---
+
+**Última atualização:** 24/06/2026

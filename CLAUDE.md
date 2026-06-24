@@ -52,6 +52,7 @@ Roles in `usuarios.papel`: `gestor` (CRUD their unidade), `motorista` (route ass
 - **ErrorBoundary:** every screen route under `app/` gets one (current coverage 27/27).
 - **Type safety:** no `as any` in production code (Unistyles web styles are the documented exception). Use `.returns<T>()` on Supabase queries when inference fails, with comments.
 - **Async UX:** wrap async operations with `useToast.withToast()` — handles loading + success + error feedback in one call.
+- **Fotos/Storage:** o bucket `fotos-entrega` é **privado** (C3 Fase 1, 2026-06). **Nunca** renderize foto por URL pública — use `useSignedUrl(foto_url)` (`src/hooks/storage/useSignedUrl.ts`; resolve on-read com cache + dedupe, pass-through de URL externa). **Uploads persistem o `path`** (não a URL). Helpers `getStoragePath` / `createSignedUrlForFoto` em `src/lib/storage.ts` aceitam URL legada **ou** path (sem backfill). Fase 2 pendente: isolamento por unidade em `storage.objects`.
 
 ## Skills, agents, hook
 
@@ -81,6 +82,7 @@ Installed in `.claude/`:
 | Routing wrapper (OSRM)                     | `src/lib/google.ts` (legacy name; routing→OSRM, but its geocoding helpers still call Google)                            |
 | Maps (web vs mobile)                       | `src/components/MapaWebMapLibre.tsx` / `src/components/MapaRN.tsx`                                                      |
 | Camera/upload                              | `src/components/CameraUpload.tsx`                                                                                       |
+| Fotos: signed URLs (bucket privado)        | `src/hooks/storage/useSignedUrl.ts` + `src/lib/storage.ts` (`getStoragePath`, `createSignedUrlForFoto`)                 |
 | External nav apps (Waze, Google Maps)      | `src/lib/navigation.ts`                                                                                                 |
 | Play Store deploy notes                    | `docs/GOOGLE_PLAY_DEPLOYMENT.md`                                                                                        |
 
@@ -95,5 +97,5 @@ Installed in `.claude/`:
 
 ---
 
-**Last verified:** 2026-06-23 (Expo 56, RN 0.85.3, ~5696 tests / ~74% coverage; the four auth forms migrated to `useForm`+`zodResolver` with inline errors — PRs #281/#282; app rebuilt under new package/EAS/Firebase — see memory)
+**Last verified:** 2026-06-24 (Expo 56, RN 0.85.3, ~5747 tests / ~74% coverage; **C3 Fase 1 em produção** — bucket `fotos-entrega` privado + signed URLs via `useSignedUrl`, PR #285; senha agora exige minúscula #284; auth forms em `useForm`+`zodResolver` #281/#282; app rebuilt under new package/EAS/Firebase — see memory)
 **Refresh checklist:** `cd rotamestre-app && grep -E '"(expo|react-native|@supabase)"' package.json` for version snapshot. Re-read `database/MIGRATIONS.md` after migrations land. Confirm Sentry DSN still set in Vercel env vars.
