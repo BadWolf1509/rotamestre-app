@@ -385,6 +385,25 @@ describe('ParadaCard', () => {
 
       expect(onImagePress).toHaveBeenCalledWith(legacyUrl);
     });
+
+    it('deve mostrar placeholder enquanto signed URL resolve (loading=true)', () => {
+      mockUseSignedUrl.mockReturnValue({
+        url: null,
+        loading: true,
+        error: false,
+      });
+      const paradaComFoto = {
+        ...mockParada,
+        status: 'concluida',
+        foto_url: 'u/r/p.jpg',
+      };
+      const { getByText, UNSAFE_queryByType } = render(
+        <ParadaCard {...defaultProps} parada={paradaComFoto} />,
+      );
+
+      expect(getByText('Sem foto registrada')).toBeTruthy();
+      expect(UNSAFE_queryByType(Image)).toBeNull();
+    });
   });
 
   describe('Parada sem detalhes extras', () => {
