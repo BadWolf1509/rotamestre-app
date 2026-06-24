@@ -81,6 +81,31 @@ export function getStoragePath(
 }
 
 /**
+ * Gera um signed URL de curta duração para uma foto do bucket.
+ * Aceita URL legada ou path. Retorna null para valor inválido ou em erro.
+ */
+export async function createSignedUrlForFoto(
+  value: string | null | undefined,
+  expiresIn = 3600,
+): Promise<string | null> {
+  const path = getStoragePath(value);
+  if (!path) return null;
+  try {
+    const { data, error } = await supabase.storage
+      .from(BUCKET_FOTOS_ENTREGA)
+      .createSignedUrl(path, expiresIn);
+    if (error || !data?.signedUrl) {
+      logger.warn('[Storage] Erro ao gerar signed URL', error ?? undefined);
+      return null;
+    }
+    return data.signedUrl;
+  } catch (error) {
+    logger.warn('[Storage] Erro ao gerar signed URL', error as Error);
+    return null;
+  }
+}
+
+/**
  * Upload de foto de comprovante de entrega
  *
  * @param unidadeId - UUID da unidade

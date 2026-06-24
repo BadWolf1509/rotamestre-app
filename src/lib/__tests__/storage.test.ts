@@ -7,6 +7,7 @@ import {
   uploadFotoUsuario,
   uploadIncidentPhoto,
   getStoragePath,
+  createSignedUrlForFoto,
 } from '../storage';
 import { supabase } from '../supabase';
 
@@ -73,6 +74,9 @@ describe('Storage Functions', () => {
   const mockFotoUri = 'file:///path/to/photo.jpg';
   const mockFotoUrl =
     'https://xyz.supabase.co/storage/v1/object/public/fotos-entrega/unidade-123/rota-456/parada-789_1234567890.jpg';
+
+  // Mock functions for storage.from(...) methods
+  const mockCreateSignedUrl = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -793,6 +797,45 @@ describe('Storage Functions', () => {
     });
     it('retorna null para URL http externa (não-bucket)', () => {
       expect(getStoragePath('https://gravatar.com/avatar/abc')).toBeNull();
+    });
+  });
+
+  describe('createSignedUrlForFoto', () => {
+    it('gera signed URL a partir de um path', async () => {
+      mockCreateSignedUrl.mockResolvedValue({
+        data: { signedUrl: 'https://x.supabase.co/sign/abc' },
+        error: null,
+      });
+      (supabase.storage.from as jest.Mock).mockReturnValue({
+        createSignedUrl: mockCreateSignedUrl,
+      });
+
+      const url = await createSignedUrlForFoto('perfis/p_1.jpg');
+      expect(url).toBe('https://x.supabase.co/sign/abc');
+      expect(mockCreateSignedUrl).toHaveBeenCalledWith('perfis/p_1.jpg', 3600);
+    });
+
+    it('retorna null para valor inválido sem chamar a API', async () => {
+      mockCreateSignedUrl.mockClear();
+      (supabase.storage.from as jest.Mock).mockReturnValue({
+        createSignedUrl: mockCreateSignedUrl,
+      });
+
+      const url = await createSignedUrlForFoto('success');
+      expect(url).toBeNull();
+      expect(mockCreateSignedUrl).not.toHaveBeenCalled();
+    });
+
+    it('retorna null em erro da API', async () => {
+      mockCreateSignedUrl.mockResolvedValue({
+        data: null,
+        error: { message: 'boom' },
+      });
+      (supabase.storage.from as jest.Mock).mockReturnValue({
+        createSignedUrl: mockCreateSignedUrl,
+      });
+
+      expect(await createSignedUrlForFoto('perfis/p_1.jpg')).toBeNull();
     });
   });
 });
