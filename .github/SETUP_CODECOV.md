@@ -30,6 +30,7 @@ Este guia mostra como configurar o Codecov para visualizar relatórios de cobert
 ### 4. Verificar Funcionamento
 
 Após o próximo push/PR, o workflow de testes irá:
+
 1. Executar todos os testes
 2. Gerar relatório de coverage
 3. Fazer upload automático para o Codecov
@@ -42,6 +43,7 @@ Após o próximo push/PR, o workflow de testes irá:
 Acesse: https://codecov.io/gh/BadWolf1509/rotamestre-app
 
 Você verá:
+
 - **Coverage %** geral do projeto
 - **Gráficos** de evolução da cobertura
 - **Sunburst chart** mostrando cobertura por arquivo
@@ -50,6 +52,7 @@ Você verá:
 ### Em Pull Requests
 
 O Codecov comenta automaticamente em cada PR com:
+
 - Mudança de coverage (+/- %)
 - Arquivos afetados
 - Comparação com a branch base
@@ -70,10 +73,10 @@ O projeto tem os seguintes limites mínimos configurados em `jest.config.js`:
 ```javascript
 coverageThreshold: {
   global: {
-    branches: 70,    // 70% das branches cobertas
-    functions: 70,   // 70% das funções testadas
-    lines: 80,       // 80% das linhas executadas
-    statements: 80,  // 80% dos statements testados
+    branches: 65,    // 65% das branches cobertas
+    functions: 72,   // 72% das funções testadas
+    lines: 73,       // 73% das linhas executadas
+    statements: 72,  // 72% dos statements testados
   },
 }
 ```
@@ -94,6 +97,7 @@ coverage/
 ```
 
 Para ver o relatório HTML local:
+
 ```bash
 npm test -- --coverage
 open coverage/html/index.html  # macOS
@@ -118,21 +122,21 @@ O projeto já possui um arquivo `.codecov.yml` configurado com:
 
 ```yaml
 coverage:
-  precision: 2              # Precisão de 2 casas decimais
-  range: "70...100"         # Range de cobertura aceitável
+  precision: 2 # Precisão de 2 casas decimais
+  range: '70...100' # Range de cobertura aceitável
 
   status:
     project:
-      target: 80%           # Meta global de cobertura
-      threshold: 2%         # Permite queda de até 2%
+      target: 80% # Meta global de cobertura
+      threshold: 2% # Permite queda de até 2%
 
     patch:
-      target: 70%           # Meta para código novo em PRs
-      threshold: 5%         # Permite queda de até 5%
+      target: 70% # Meta para código novo em PRs
+      threshold: 5% # Permite queda de até 5%
 
 comment:
-  layout: "reach,diff,flags,tree"  # Layout completo em PRs
-  behavior: default               # Comportamento padrão
+  layout: 'reach,diff,flags,tree' # Layout completo em PRs
+  behavior: default # Comportamento padrão
 ```
 
 ### Desabilitar Comentários em PRs (Opcional)
@@ -146,25 +150,31 @@ comment: false
 ## 🐛 Troubleshooting
 
 ### Token inválido
+
 **Erro:** `Error uploading to Codecov: HTTP Error 401`
 
 **Solução:**
+
 1. Verifique se o `CODECOV_TOKEN` está correto nos secrets
 2. Regenere o token no Codecov dashboard
 3. Atualize o secret no GitHub
 
 ### Upload não acontece
+
 **Sintoma:** Workflow passa mas não aparece no Codecov
 
 **Solução:**
+
 1. Verifique se o token está configurado
 2. Confirme que o coverage está sendo gerado (`coverage/lcov.info` existe)
 3. Veja os logs do workflow no GitHub Actions
 
 ### Coverage 0%
+
 **Sintoma:** Codecov mostra 0% mesmo com testes
 
 **Solução:**
+
 1. Verifique se `collectCoverageFrom` em `jest.config.js` está correto
 2. Confirme que os arquivos estão nos paths configurados
 3. Execute local: `npm test -- --coverage` e verifique o output

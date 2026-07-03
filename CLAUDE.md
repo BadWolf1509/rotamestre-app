@@ -24,8 +24,8 @@ rotamestre-app/
 │   ├── gestor/           # Manager screens
 │   └── motorista/        # Driver screens
 ├── src/
-│   ├── components/       # Reusable UI (~318 files; feature-grouped + design-system base)
-│   ├── hooks/            # Domain-organized (~184 hooks; auth/, gestao-rotas/, motorista/, etc.)
+│   ├── components/       # Reusable UI (~400 files; feature-grouped + design-system base)
+│   ├── hooks/            # Domain-organized (~190 files; auth/, gestao-rotas/, motorista/, etc.)
 │   ├── lib/              # Utilities: supabase, logger, sentry, photon, osrm wrapper, navigation
 │   ├── context/          # React Contexts (notifications, route status)
 │   ├── types/            # Hand-curated domain types (Rota, Parada, Usuario, ...)
@@ -39,7 +39,7 @@ rotamestre-app/
 
 ## Multi-tenancy
 
-Tenant-scoped tables have an `unidade_id uuid` column. Users belong to one or many `unidades` via the `usuario_unidades` join table (enabled by `database/migrations/20251204000001_update_rls_multi_unidade.sql`). Policies scope reads/writes via `get_user_unidade()` (legacy single-unidade) or `usuario_unidades` (preferred for new code).
+Tenant-scoped tables have an `unidade_id uuid` column. Users belong to one or many `unidades` via the `usuario_unidades` join table (enabled by `database/migrations/20251204000001_update_rls_multi_unidade.sql`). Policies scope reads/writes via `get_user_unidade()` (legacy single-unidade) or, preferred for new code, the multi-unidade helpers `get_my_unidade_ids()` (SETOF uuid, uses `auth.uid()`) / `usuario_unidades`. Storage (`storage.objects`) is now unidade-scoped too — see Fotos/Storage below.
 
 Roles in `usuarios.papel`: `gestor` (CRUD their unidade), `motorista` (route assignment + own paradas). Admin actions happen in the panel project, never here.
 
@@ -49,10 +49,10 @@ Roles in `usuarios.papel`: `gestor` (CRUD their unidade), `motorista` (route ass
 - **Forms:** always Zod schema + `useForm({ resolver: zodResolver(schema) })` + `Controller`. Inline field errors via `src/components/auth/FieldError.tsx` (raw inputs) or the design-system `Input` `error` prop; server/auth errors stay in `Dialog`/`useAlert`. Live examples: `src/components/gestor/nova-entrega/FormularioParada.tsx` and the four auth forms (`app/auth/{login,register,forgot-password,reset-password}.tsx`).
 - **Queries:** prefer `useCachedData` / `useSupabaseQuery` hooks over raw `supabase.from(...).select(...)` in components. The cached layer implements SWR semantics.
 - **Responsive:** always `useResponsive()` from `@/hooks/useResponsive`. Breakpoints: mobile <768, tablet 768–1023, desktop ≥1024.
-- **ErrorBoundary:** every screen route under `app/` gets one (current coverage 27/27).
+- **ErrorBoundary:** every screen route under `app/` gets one (verifique com `grep -rl ErrorBoundary app/`).
 - **Type safety:** no `as any` in production code (Unistyles web styles are the documented exception). Use `.returns<T>()` on Supabase queries when inference fails, with comments.
 - **Async UX:** wrap async operations with `useToast.withToast()` — handles loading + success + error feedback in one call.
-- **Fotos/Storage:** o bucket `fotos-entrega` é **privado** (C3 Fase 1, 2026-06). **Nunca** renderize foto por URL pública — use `useSignedUrl(foto_url)` (`src/hooks/storage/useSignedUrl.ts`; resolve on-read com cache + dedupe, pass-through de URL externa). **Uploads persistem o `path`** (não a URL). Helpers `getStoragePath` / `createSignedUrlForFoto` em `src/lib/storage.ts` aceitam URL legada **ou** path (sem backfill). Fase 2 pendente: isolamento por unidade em `storage.objects`.
+- **Fotos/Storage:** o bucket `fotos-entrega` é **privado** com **RLS por unidade** em `storage.objects` (C3 Fase 1+2, PRs #285/#294). **Nunca** renderize foto por URL pública — use `useSignedUrl(foto_url)` (`src/hooks/storage/useSignedUrl.ts`; resolve on-read com cache + dedupe, pass-through de URL externa). **Uploads persistem o `path`** (não a URL), no formato `{unidadeId}/{rotaId}/{paradaId}_{ts}.jpg` (entrega), `perfis/…`, `incidentes/…`. Helpers `getStoragePath` / `createSignedUrlForFoto` em `src/lib/storage.ts` aceitam URL legada **ou** path (sem backfill). Policy SELECT (`20260703120000_c3_fase2_…`): owner OU 1º segmento do path ∈ unidades ativas (`get_my_unidade_ids()`) OU perfil/incidente referenciado por linha visível — **invariante:** afrouxar o RLS de `usuarios`/`incidentes` afrouxa a leitura das fotos.
 
 ## Skills, agents, hook
 
@@ -92,10 +92,10 @@ Installed in `.claude/`:
 - **App identity** (rebuilt 2026-06 after the original Firebase/Play/Expo accounts were lost — see memory + `docs/REBUILD_RELAUNCH_PLAN.md`): Android package **`br.tec.rotamestre.app`** · EAS project **`c6401a59-af97-484a-93b7-c75016bf331d`** (owner `@wellington.ribeiro.mkt`) · Firebase **`rota-mestre-97084`** (FCM push, validated end-to-end). All wired in `app.config.js`.
 - **Sentry** — web production only; DSN via `EXPO_PUBLIC_SENTRY_DSN`.
 - **Vercel** — auto-deploy on push to `main`; CSP whitelists Supabase, OSRM, Photon, OpenStreetMap tiles, Sentry.
-- **EAS** — Android builds (production `.aab`; internal/preview `.apk` with install link/QR). Supabase env vars live **per-environment on EAS** (`eas env:*`), NOT in the repo — a local build without them falls back to `placeholder.supabase.co`.
+- **EAS** — Android builds (production `.aab`; internal/preview `.apk` with install link/QR). Supabase env vars live **per-environment on EAS** (`eas env:*`), NOT in the repo — a local build without them falls back to `placeholder.supabase.co`. Submit ao Play via `eas submit -p android --profile internal` usa a service account em `play-store-credentials.json` (raiz, gitignored). Bump de versão obrigatório antes de cada build: `version` + `androidVersionCode` no `package.json` (fluxo completo em `docs/GOOGLE_PLAY_DEPLOYMENT.md`).
 - **Asaas** — billing pending; `unidades.asaas_customer_id` is the join key when work begins.
 
 ---
 
-**Last verified:** 2026-06-24 (Expo 56, RN 0.85.3, ~5747 tests / ~74% coverage; **C3 Fase 1 em produção** — bucket `fotos-entrega` privado + signed URLs via `useSignedUrl`, PR #285; senha agora exige minúscula #284; auth forms em `useForm`+`zodResolver` #281/#282; app rebuilt under new package/EAS/Firebase — see memory)
-**Refresh checklist:** `cd rotamestre-app && grep -E '"(expo|react-native|@supabase)"' package.json` for version snapshot. Re-read `database/MIGRATIONS.md` after migrations land. Confirm Sentry DSN still set in Vercel env vars.
+**Last verified:** 2026-07-03 (Expo 56, RN 0.85.3, ~5747 tests / ~74% coverage; app nativo **v1.12.1 / versionCode 3020**. **C3 Fase 1+2 em produção** — bucket `fotos-entrega` privado + signed URLs + **RLS por unidade** em `storage.objects`, PRs #285/#294; build v1.12.1 submetido ao Play track internal via service account #295. Deps: `xlsx`→SheetJS CDN 0.20.3 + `supabase-js` 2.110, `npm audit` de produção sem high/critical #293; scroll-ao-marcador mobile + PhotoModal signed-URL fixes #292; senha exige minúscula #284; auth forms em `useForm`+`zodResolver` #281/#282; app rebuilt under new package/EAS/Firebase — see memory)
+**Refresh checklist:** `grep -E '"(expo|react-native|@supabase|version|androidVersionCode)":' package.json` for version snapshot. Re-read `database/MIGRATIONS.md` after migrations land. Confirm Sentry DSN still set in Vercel env vars. Para release nativo (build/submit EAS→Play), ver `docs/GOOGLE_PLAY_DEPLOYMENT.md`.
