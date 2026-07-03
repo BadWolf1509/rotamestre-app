@@ -35,10 +35,13 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Security Audit (produção, informativo)
-        # Foca em deps de produção (--omit=dev) no nível high+. Mantido informativo
-        # (continue-on-error) porque as vulns high/critical atuais são transitivas de
-        # tooling Expo/build (shell-quote, @babel/core, uuid via xcode) — não vão para
-        # o bundle do app e não têm fix sem breaking change.
+        # Foca em deps de produção (--omit=dev) no nível high+. Atualmente PASSA
+        # (0 high/critical de produção após #292+ — shell-quote/form-data/xlsx
+        # corrigidas). O único advisory transitivo restante é `uuid` (moderate,
+        # via xcode → @expo/config-plugins, tooling de build que não vai pro
+        # bundle; fix exigiria downgrade breaking do Expo). Mantido informativo
+        # (continue-on-error) como rede de segurança se um high/critical de
+        # produção reaparecer.
         run: npm audit --omit=dev --audit-level=high
         continue-on-error: true
 
