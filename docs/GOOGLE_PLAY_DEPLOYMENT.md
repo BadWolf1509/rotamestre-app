@@ -1,11 +1,12 @@
 # 🚀 Guia de Publicação do RotaMestre na Google Play Store
 
-> **⚠️ STATUS + CORREÇÕES (2026-06-16):** app **reconstruído** (contas originais perdidas) — package `br.tec.rotamestre.app`, EAS `c6401a59…`, Firebase `rota-mestre-97084`; conta Play criada, `.aab` **3019** no **Teste interno**, Play App Signing ligado. Correções a este guia (genérico/antigo):
+> **⚠️ STATUS + CORREÇÕES (atualizado 2026-07-03):** app **reconstruído** (2026-06-16, contas originais perdidas) — package `br.tec.rotamestre.app`, EAS `c6401a59…`, Firebase `rota-mestre-97084`; Play App Signing ligado. **Release atual:** `.aab` **v1.12.1 / versionCode 3020** submetido ao **Teste interno** via `eas submit -p android --profile internal` (2026-07-03, PR #295 fez o bump). Correções a este guia (genérico/antigo):
 >
 > 1. **Mapas via MapLibre**, mas **geocoding/autocomplete de endereço usa a Google Places API** (via Edge Functions `google-places-autocomplete`/`google-place-details`) — `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` **é obrigatória** no build de produção (sem ela o autocomplete de endereço quebra; custo ~R$2,83/1000 sessões). O `config.googleMaps.apiKey` nativo no `app.config.js` é vestígio (os mapas são MapLibre), mas a env var da chave continua necessária para o Places.
 > 2. **NÃO confie em "EAS gerencia o keystore"** — a perda do keystore/conta causou TODO o retrabalho do rebuild. **Baixe e guarde o keystore você mesmo** (`eas credentials` → download, ou dashboard) + as senhas, em ≥2 lugares.
 > 3. **Env Supabase fica por-ambiente no EAS** (`eas env:*`), não inline no `eas.json`.
 > 4. Estado atual do rollout: ver a **memória do Claude** + `docs/REBUILD_RELAUNCH_PLAN.md`.
+> 5. **Submit via service account (fluxo NOVO — o Google REMOVEU a página "Acesso via API" do Play Console):** crie a service account no **Google Cloud Console** (IAM → Contas de serviço → aba Chaves → **JSON**), ative a **"Google Play Android Developer API"** no projeto, e vincule-a no **Play Console → Usuários e permissões** (e-mail da SA + permissão de release). O arquivo de credencial deve se chamar **`play-store-credentials.json`** na raiz (é o nome que o `eas.json` espera; profiles de submit: `internal`/`production`/`alpha`). **versionCode é monotônico:** faça bump de `version` + `androidVersionCode` no `package.json` antes de cada build (SA/projeto atuais: `rota-mestre@rota-mestre-501322.iam.gserviceaccount.com`).
 
 ## 📋 Checklist Geral
 
@@ -190,15 +191,23 @@ eas build:configure
     }
   },
   "submit": {
+    "internal": {
+      "android": {
+        "serviceAccountKeyPath": "./play-store-credentials.json",
+        "track": "internal"
+      }
+    },
     "production": {
       "android": {
-        "serviceAccountKeyPath": "./google-service-account.json",
-        "track": "internal"
+        "serviceAccountKeyPath": "./play-store-credentials.json",
+        "track": "production"
       }
     }
   }
 }
 ```
+
+> ℹ️ O nome do arquivo **`play-store-credentials.json`** (raiz, gitignored) é o que o `eas.json` real espera — não `google-service-account.json`. Ver item 5 do STATUS no topo para o fluxo de criação da service account.
 
 ### 2.4 Gerar Build de Produção
 
