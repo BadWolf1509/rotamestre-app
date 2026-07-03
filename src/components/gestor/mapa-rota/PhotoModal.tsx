@@ -47,7 +47,6 @@ function PhotoModalComponent({
 
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
 
   // Reset estado quando modal abre ou URL muda
   useEffect(() => {
@@ -71,16 +70,14 @@ function PhotoModalComponent({
     setHasError(true);
   }, []);
 
+  // Retry recarrega por remount: o <Image> desmonta enquanto hasError=true.
+  // Não anexar query param à URI para forçar reload — a signed URL já tem ?token=... e corromperia.
   const handleRetry = useCallback(() => {
-    setRetryCount((prev) => prev + 1);
     setIsLoading(true);
     setHasError(false);
   }, []);
 
   if (!photoUrl) return null;
-
-  // Adicionar retryCount à URL para forçar reload da imagem
-  const imageUri = retryCount > 0 ? `${photoUrl}?retry=${retryCount}` : photoUrl;
 
   return (
     <DesktopModal
@@ -104,8 +101,14 @@ function PhotoModalComponent({
         {/* Empty state - falha ao carregar (informativo, não erro de validação) */}
         {hasError && (
           <View style={styles.emptyStateContainer}>
-            <Ionicons name="image-outline" size={48} color={theme.colors.gray400} />
-            <Text style={styles.emptyStateText}>Não foi possível carregar a foto</Text>
+            <Ionicons
+              name="image-outline"
+              size={48}
+              color={theme.colors.gray400}
+            />
+            <Text style={styles.emptyStateText}>
+              Não foi possível carregar a foto
+            </Text>
             <TouchableOpacity
               style={styles.retryButton}
               onPress={handleRetry}
@@ -121,7 +124,7 @@ function PhotoModalComponent({
         {/* Image */}
         {!hasError && (
           <Image
-            source={{ uri: imageUri }}
+            source={{ uri: photoUrl }}
             style={[
               styles.image,
               {

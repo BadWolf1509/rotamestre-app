@@ -7,10 +7,7 @@ import { renderHook, waitFor, act } from '@testing-library/react-native';
 
 import type { Theme } from '@/utils/styles';
 
-import {
-  useIncidentesGestor,
-  Incidente,
-} from '../useIncidentesGestor';
+import { useIncidentesGestor, Incidente } from '../useIncidentesGestor';
 
 // ============================================================================
 // Mocks
@@ -232,7 +229,11 @@ const mockTheme: Theme = {
   },
   motion: {
     duration: { fast: 150, normal: 300, slow: 500 },
-    easing: { easeOut: 'ease-out', easeIn: 'ease-in', easeInOut: 'ease-in-out' },
+    easing: {
+      easeOut: 'ease-out',
+      easeIn: 'ease-in',
+      easeInOut: 'ease-in-out',
+    },
   },
   layout: { sidebarWidth: 280, containerMaxWidth: 1200 },
   zIndex: {
@@ -278,9 +279,24 @@ const mockTheme: Theme = {
   components: {
     button: {
       size: {
-        small: { height: 32, paddingVertical: 6, paddingHorizontal: 12, fontSize: 12 },
-        medium: { height: 40, paddingVertical: 10, paddingHorizontal: 16, fontSize: 14 },
-        large: { height: 48, paddingVertical: 14, paddingHorizontal: 20, fontSize: 16 },
+        small: {
+          height: 32,
+          paddingVertical: 6,
+          paddingHorizontal: 12,
+          fontSize: 12,
+        },
+        medium: {
+          height: 40,
+          paddingVertical: 10,
+          paddingHorizontal: 16,
+          fontSize: 14,
+        },
+        large: {
+          height: 48,
+          paddingVertical: 14,
+          paddingHorizontal: 20,
+          fontSize: 16,
+        },
       },
       radius: 8,
     },
@@ -331,7 +347,12 @@ const mockTheme: Theme = {
       headerSubtitleFontSize: 14,
       breadcrumbFontSize: 12,
     },
-    map: { markerSize: 32, clusterSize: 40, controlButtonSize: 40, infoBoxPadding: 12 },
+    map: {
+      markerSize: 32,
+      clusterSize: 40,
+      controlButtonSize: 40,
+      infoBoxPadding: 12,
+    },
     badge: {
       size: {
         small: { paddingHorizontal: 6, paddingVertical: 2, fontSize: 10 },
@@ -485,10 +506,7 @@ const _mockIncidente3: Incidente = {
   observacoes_gestao: 'Resolvido com sucesso',
 };
 
-const mockVinculacoes = [
-  { usuario_id: 'mot-1' },
-  { usuario_id: 'mot-2' },
-];
+const mockVinculacoes = [{ usuario_id: 'mot-1' }, { usuario_id: 'mot-2' }];
 
 const mockIncidentesFromDB = [
   {
@@ -793,7 +811,10 @@ describe('useIncidentesGestor', () => {
         expect(result.current.loading).toBe(false);
       });
 
-      expect(mockShowToast).toHaveBeenCalledWith('Erro ao carregar incidentes', 'error');
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Erro ao carregar incidentes',
+        'error',
+      );
     });
   });
 
@@ -826,8 +847,18 @@ describe('useIncidentesGestor', () => {
             data: [
               { ...mockIncidentesFromDB[0], status: 'aberto' },
               { ...mockIncidentesFromDB[1], status: 'em_analise' },
-              { ...mockIncidentesFromDB[0], id: 'inc-3', status: 'resolvido', categoria: 'vehicle' },
-              { ...mockIncidentesFromDB[0], id: 'inc-4', status: 'fechado', categoria: 'blocked' },
+              {
+                ...mockIncidentesFromDB[0],
+                id: 'inc-3',
+                status: 'resolvido',
+                categoria: 'vehicle',
+              },
+              {
+                ...mockIncidentesFromDB[0],
+                id: 'inc-4',
+                status: 'fechado',
+                categoria: 'blocked',
+              },
             ],
             error: null,
           }),
@@ -845,7 +876,9 @@ describe('useIncidentesGestor', () => {
       expect(result.current.resumoGeral.emAnalise).toBe(1);
       expect(result.current.resumoGeral.resolvidos).toBe(1);
       expect(result.current.resumoGeral.fechados).toBe(1);
-      expect(result.current.resumoGeral.porCategoria).toHaveProperty('accident');
+      expect(result.current.resumoGeral.porCategoria).toHaveProperty(
+        'accident',
+      );
       expect(result.current.resumoGeral.porCategoria).toHaveProperty('absent');
     });
 
@@ -915,9 +948,22 @@ describe('useIncidentesGestor', () => {
           in: jest.fn().mockReturnThis(),
           order: jest.fn().mockResolvedValue({
             data: [
-              { ...mockIncidentesFromDB[0], status: 'aberto', motorista_id: 'mot-1' },
-              { ...mockIncidentesFromDB[0], id: 'inc-2', status: 'resolvido', motorista_id: 'mot-1' },
-              { ...mockIncidentesFromDB[1], status: 'em_analise', motorista_id: 'mot-2' },
+              {
+                ...mockIncidentesFromDB[0],
+                status: 'aberto',
+                motorista_id: 'mot-1',
+              },
+              {
+                ...mockIncidentesFromDB[0],
+                id: 'inc-2',
+                status: 'resolvido',
+                motorista_id: 'mot-1',
+              },
+              {
+                ...mockIncidentesFromDB[1],
+                status: 'em_analise',
+                motorista_id: 'mot-2',
+              },
             ],
             error: null,
           }),
@@ -932,13 +978,17 @@ describe('useIncidentesGestor', () => {
 
       expect(result.current.estatisticasMotorista).toHaveLength(2);
 
-      const mot1Stats = result.current.estatisticasMotorista.find((s) => s.id === 'mot-1');
+      const mot1Stats = result.current.estatisticasMotorista.find(
+        (s) => s.id === 'mot-1',
+      );
       expect(mot1Stats).toBeDefined();
       expect(mot1Stats?.total).toBe(2);
       expect(mot1Stats?.abertos).toBe(1);
       expect(mot1Stats?.resolvidos).toBe(1);
 
-      const mot2Stats = result.current.estatisticasMotorista.find((s) => s.id === 'mot-2');
+      const mot2Stats = result.current.estatisticasMotorista.find(
+        (s) => s.id === 'mot-2',
+      );
       expect(mot2Stats).toBeDefined();
       expect(mot2Stats?.total).toBe(1);
       expect(mot2Stats?.abertos).toBe(1);
@@ -993,7 +1043,9 @@ describe('useIncidentesGestor', () => {
       });
 
       // Deve ter no maximo 5 motoristas
-      expect(result.current.estatisticasMotorista.length).toBeLessThanOrEqual(5);
+      expect(result.current.estatisticasMotorista.length).toBeLessThanOrEqual(
+        5,
+      );
 
       // O primeiro deve ser mot-0 (mais incidentes)
       expect(result.current.estatisticasMotorista[0].id).toBe('mot-0');
@@ -1022,7 +1074,6 @@ describe('useIncidentesGestor', () => {
       expect(result.current.showDetalhesModal).toBe(true);
       expect(result.current.fotoLoading).toBe(true);
       expect(result.current.fotoError).toBe(false);
-      expect(result.current.fotoRetryCount).toBe(0);
     });
   });
 
@@ -1126,7 +1177,10 @@ describe('useIncidentesGestor', () => {
       });
 
       expect(mockUpdate).toHaveBeenCalled();
-      expect(mockShowToast).toHaveBeenCalledWith('Status atualizado com sucesso', 'success');
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Status atualizado com sucesso',
+        'success',
+      );
       expect(result.current.showAlterarStatusModal).toBe(false);
     });
 
@@ -1194,7 +1248,10 @@ describe('useIncidentesGestor', () => {
         await result.current.confirmarAlterarStatus();
       });
 
-      expect(mockShowToast).toHaveBeenCalledWith('Erro ao atualizar status', 'error');
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Erro ao atualizar status',
+        'error',
+      );
     });
   });
 
@@ -1356,7 +1413,7 @@ describe('useIncidentesGestor', () => {
       expect(result.current.fotoError).toBe(true);
     });
 
-    it('deve incrementar retryCount ao tentar novamente', async () => {
+    it('deve resetar estado da foto ao tentar novamente', async () => {
       mockFrom.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
@@ -1369,13 +1426,14 @@ describe('useIncidentesGestor', () => {
         result.current.handleVerDetalhes(mockIncidente);
       });
 
-      expect(result.current.fotoRetryCount).toBe(0);
+      act(() => {
+        result.current.handleFotoError();
+      });
 
       act(() => {
         result.current.handleFotoRetry();
       });
 
-      expect(result.current.fotoRetryCount).toBe(1);
       expect(result.current.fotoLoading).toBe(true);
       expect(result.current.fotoError).toBe(false);
     });
@@ -1428,7 +1486,11 @@ describe('useIncidentesGestor', () => {
       });
       expect(result.current.showHistoricoMotoristaModal).toBe(true);
       // Deve filtrar incidentes do motorista
-      expect(result.current.incidentesMotorista.every((i) => i.motorista_id === 'mot-1')).toBe(true);
+      expect(
+        result.current.incidentesMotorista.every(
+          (i) => i.motorista_id === 'mot-1',
+        ),
+      ).toBe(true);
     });
   });
 

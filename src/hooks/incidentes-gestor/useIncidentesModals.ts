@@ -22,7 +22,6 @@ interface UseIncidentesModalsResult {
   showDetalhesModal: boolean;
   fotoLoading: boolean;
   fotoError: boolean;
-  fotoRetryCount: number;
   handleVerDetalhes: (incidente: Incidente) => void;
   handleFotoLoad: () => void;
   handleFotoError: () => void;
@@ -62,13 +61,11 @@ export function useIncidentesModals({
   const { showToast } = useToast();
 
   // Detalhes modal state
-  const [incidenteSelecionado, setIncidenteSelecionado] = useState<Incidente | null>(
-    null
-  );
+  const [incidenteSelecionado, setIncidenteSelecionado] =
+    useState<Incidente | null>(null);
   const [showDetalhesModal, setShowDetalhesModal] = useState(false);
   const [fotoLoading, setFotoLoading] = useState(true);
   const [fotoError, setFotoError] = useState(false);
-  const [fotoRetryCount, setFotoRetryCount] = useState(0);
 
   // Status modal state
   const [showAlterarStatusModal, setShowAlterarStatusModal] = useState(false);
@@ -83,7 +80,9 @@ export function useIncidentesModals({
     id: string;
     nome: string;
   } | null>(null);
-  const [incidentesMotorista, setIncidentesMotorista] = useState<Incidente[]>([]);
+  const [incidentesMotorista, setIncidentesMotorista] = useState<Incidente[]>(
+    [],
+  );
   const [historicoLoading, setHistoricoLoading] = useState(false);
 
   // Detalhes modal handlers
@@ -91,7 +90,6 @@ export function useIncidentesModals({
     setIncidenteSelecionado(incidente);
     setFotoLoading(true);
     setFotoError(false);
-    setFotoRetryCount(0);
     setShowDetalhesModal(true);
   }, []);
 
@@ -105,8 +103,8 @@ export function useIncidentesModals({
     setFotoError(true);
   }, []);
 
+  // Retry por remount: fotoError=false remonta o <Image> do modal (desmontado durante o erro).
   const handleFotoRetry = useCallback(() => {
-    setFotoRetryCount((prev) => prev + 1);
     setFotoLoading(true);
     setFotoError(false);
   }, []);
@@ -148,7 +146,13 @@ export function useIncidentesModals({
     } finally {
       setAtualizando(false);
     }
-  }, [incidenteSelecionado, novoStatus, observacoes, onStatusUpdate, showToast]);
+  }, [
+    incidenteSelecionado,
+    novoStatus,
+    observacoes,
+    onStatusUpdate,
+    showToast,
+  ]);
 
   // Histórico motorista handlers — busca direto do Supabase (ignora filtros ativos)
   const handleVerHistoricoMotorista = useCallback(
@@ -158,16 +162,21 @@ export function useIncidentesModals({
       setShowHistoricoMotoristaModal(true);
       setHistoricoLoading(true);
 
-      const result = await fetchIncidentesForGestor({ motoristasIds: [motoristaId] });
+      const result = await fetchIncidentesForGestor({
+        motoristasIds: [motoristaId],
+      });
       if (result.success) {
         setIncidentesMotorista(result.data);
       } else {
-        logger.warn('[useIncidentesModals] Erro ao buscar histórico:', result.error);
+        logger.warn(
+          '[useIncidentesModals] Erro ao buscar histórico:',
+          result.error,
+        );
         showToast('Erro ao carregar histórico', 'error');
       }
       setHistoricoLoading(false);
     },
-    [showToast]
+    [showToast],
   );
 
   return {
@@ -176,7 +185,6 @@ export function useIncidentesModals({
     showDetalhesModal,
     fotoLoading,
     fotoError,
-    fotoRetryCount,
     handleVerDetalhes,
     handleFotoLoad,
     handleFotoError,

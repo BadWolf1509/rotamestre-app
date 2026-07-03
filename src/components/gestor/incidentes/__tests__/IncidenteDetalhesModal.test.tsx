@@ -121,7 +121,6 @@ const defaultProps = {
   },
   fotoLoading: false,
   fotoError: false,
-  fotoRetryCount: 0,
   onFotoLoad: jest.fn(),
   onFotoError: jest.fn(),
   onFotoRetry: jest.fn(),

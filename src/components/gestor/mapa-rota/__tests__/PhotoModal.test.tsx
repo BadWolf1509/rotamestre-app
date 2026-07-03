@@ -46,7 +46,7 @@ describe('PhotoModal', () => {
   describe('Renderização básica', () => {
     it('deve retornar null quando photoUrl é null', () => {
       const { queryByTestId } = render(
-        <PhotoModal visible={true} photoUrl={null} onClose={mockOnClose} />
+        <PhotoModal visible={true} photoUrl={null} onClose={mockOnClose} />,
       );
 
       expect(queryByTestId('desktop-modal')).toBeNull();
@@ -58,7 +58,7 @@ describe('PhotoModal', () => {
           visible={true}
           photoUrl={testPhotoUrl}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByTestId('desktop-modal')).toBeTruthy();
@@ -70,7 +70,7 @@ describe('PhotoModal', () => {
           visible={false}
           photoUrl={testPhotoUrl}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(queryByTestId('desktop-modal')).toBeNull();
@@ -84,7 +84,7 @@ describe('PhotoModal', () => {
           visible={true}
           photoUrl={testPhotoUrl}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByTestId('modal-title').props.children).toBe('Foto da Entrega');
@@ -97,10 +97,12 @@ describe('PhotoModal', () => {
           photoUrl={testPhotoUrl}
           onClose={mockOnClose}
           title="Comprovante de Entrega"
-        />
+        />,
       );
 
-      expect(getByTestId('modal-title').props.children).toBe('Comprovante de Entrega');
+      expect(getByTestId('modal-title').props.children).toBe(
+        'Comprovante de Entrega',
+      );
     });
   });
 
@@ -111,7 +113,7 @@ describe('PhotoModal', () => {
           visible={true}
           photoUrl={testPhotoUrl}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       fireEvent.press(getByTestId('close-button'));
@@ -127,7 +129,7 @@ describe('PhotoModal', () => {
           visible={true}
           photoUrl={testPhotoUrl}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByText('Carregando foto...')).toBeTruthy();
@@ -139,7 +141,7 @@ describe('PhotoModal', () => {
           visible={true}
           photoUrl={testPhotoUrl}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       const image = getByLabelText('Foto da entrega');
@@ -152,7 +154,7 @@ describe('PhotoModal', () => {
           visible={true}
           photoUrl={testPhotoUrl}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       const image = getByLabelText('Foto da entrega');
@@ -169,7 +171,7 @@ describe('PhotoModal', () => {
           visible={true}
           photoUrl={testPhotoUrl}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       const image = getByLabelText('Foto da entrega');
@@ -188,7 +190,7 @@ describe('PhotoModal', () => {
           visible={true}
           photoUrl={testPhotoUrl}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       const image = getByLabelText('Foto da entrega');
@@ -205,7 +207,7 @@ describe('PhotoModal', () => {
           visible={true}
           photoUrl={testPhotoUrl}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       // Simular erro
@@ -227,13 +229,13 @@ describe('PhotoModal', () => {
       });
     });
 
-    it('deve adicionar parâmetro retry à URL ao tentar novamente', async () => {
-      const { getByLabelText, getByText, rerender: _rerender } = render(
+    it('mantém a URI intacta ao tentar novamente (signed URL não pode ganhar query param)', async () => {
+      const { getByLabelText, getByText } = render(
         <PhotoModal
           visible={true}
           photoUrl={testPhotoUrl}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       // Simular erro
@@ -246,10 +248,10 @@ describe('PhotoModal', () => {
       });
       fireEvent.press(getByText('Tentar novamente'));
 
-      // A imagem deve ter URL com parâmetro retry
+      // A imagem remonta com a MESMA URI — anexar ?retry= corromperia o ?token= da signed URL
       await waitFor(() => {
         image = getByLabelText('Foto da entrega');
-        expect(image.props.source.uri).toBe(`${testPhotoUrl}?retry=1`);
+        expect(image.props.source.uri).toBe(testPhotoUrl);
       });
     });
   });

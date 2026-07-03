@@ -594,9 +594,34 @@ export default function MapaRota() {
           )}
         </View>
 
-        <ScrollView style={styles.scrollView}>
-          <View style={styles.content}>
-            {paradas.length > 0 ? (
+        {paradas.length > 0 ? (
+          // FlatList (não ScrollView): scrollToParada depende de ref.scrollToIndex (useMapaRotaHandlers)
+          <FlatList
+            ref={listaParadasRef}
+            style={styles.scrollView}
+            contentContainerStyle={styles.content}
+            data={paradasReais}
+            keyExtractor={(parada) => parada.id}
+            initialNumToRender={10}
+            maxToRenderPerBatch={8}
+            windowSize={11}
+            onScrollToIndexFailed={(info) => {
+              // Cards têm altura variável: rola pro offset estimado e tenta de novo
+              listaParadasRef.current?.scrollToOffset({
+                offset: info.averageItemLength * info.index,
+                animated: true,
+              });
+              setTimeout(() => {
+                if (paradasReais.length > info.index) {
+                  listaParadasRef.current?.scrollToIndex({
+                    index: info.index,
+                    viewPosition: 0.3,
+                    animated: true,
+                  });
+                }
+              }, 100);
+            }}
+            ListHeaderComponent={
               <>
                 <View style={styles.mapContainer} testID="gestor-mapa-view">
                   <MapaAdapter
@@ -610,47 +635,46 @@ export default function MapaRota() {
                     unidadeNome={rota?.unidade?.nome}
                   />
                 </View>
-
-                <View style={styles.paradasContainer}>
-                  <Text style={styles.paradasTitle}>
-                    Paradas ({resumoParadas.total})
-                  </Text>
-
-                  {paradasReais.map((parada, index) => (
-                    <ParadaCard
-                      key={parada.id}
-                      parada={parada}
-                      index={index}
-                      onImagePress={handleImagePress}
-                      selected={selectedParadaId === parada.id}
-                      onPress={handleParadaPress}
-                    />
-                  ))}
-
-                  {hasBaseInfo && (
-                    <View style={styles.baseInfoCard}>
-                      <Text style={styles.baseInfoTitle}>
-                        Pontos da Unidade
-                      </Text>
-                      <BaseInfoContent pontosBase={pontosBase} />
-                    </View>
-                  )}
-
-                  <View style={styles.resumo}>
-                    <Text style={styles.resumoTitle}>Resumo da Rota</Text>
-                    <ResumoStats resumoParadas={resumoParadas} />
+                <Text style={styles.paradasTitle}>
+                  Paradas ({resumoParadas.total})
+                </Text>
+              </>
+            }
+            renderItem={({ item: parada, index }) => (
+              <ParadaCard
+                parada={parada}
+                index={index}
+                onImagePress={handleImagePress}
+                selected={selectedParadaId === parada.id}
+                onPress={handleParadaPress}
+              />
+            )}
+            ListFooterComponent={
+              <>
+                {hasBaseInfo && (
+                  <View style={styles.baseInfoCard}>
+                    <Text style={styles.baseInfoTitle}>Pontos da Unidade</Text>
+                    <BaseInfoContent pontosBase={pontosBase} />
                   </View>
+                )}
+                <View style={styles.resumo}>
+                  <Text style={styles.resumoTitle}>Resumo da Rota</Text>
+                  <ResumoStats resumoParadas={resumoParadas} />
                 </View>
               </>
-            ) : (
+            }
+          />
+        ) : (
+          <ScrollView style={styles.scrollView}>
+            <View style={styles.content}>
               <View style={styles.emptyParadas}>
                 <Text style={styles.emptyParadasText}>
                   Nenhuma parada nesta rota
                 </Text>
               </View>
-            )}
-          </View>
-        </ScrollView>
+            </View>
+          </ScrollView>
+        )}
 
         <PhotoModal
           visible={!!fotoSelecionada}

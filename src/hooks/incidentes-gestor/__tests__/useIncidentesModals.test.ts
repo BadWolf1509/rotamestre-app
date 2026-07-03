@@ -37,7 +37,8 @@ jest.mock('@/lib/supabase', () => ({
 
 const mockFetchIncidentes = jest.fn();
 jest.mock('@/lib/queries/incidentes', () => ({
-  fetchIncidentesForGestor: (...args: unknown[]) => mockFetchIncidentes(...args),
+  fetchIncidentesForGestor: (...args: unknown[]) =>
+    mockFetchIncidentes(...args),
 }));
 
 const mockIncidente: Incidente = {
@@ -86,7 +87,7 @@ describe('useIncidentesModals', () => {
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
-        })
+        }),
       );
 
       // Detalhes modal
@@ -94,7 +95,6 @@ describe('useIncidentesModals', () => {
       expect(result.current.showDetalhesModal).toBe(false);
       expect(result.current.fotoLoading).toBe(true);
       expect(result.current.fotoError).toBe(false);
-      expect(result.current.fotoRetryCount).toBe(0);
 
       // Status modal
       expect(result.current.showAlterarStatusModal).toBe(false);
@@ -116,7 +116,7 @@ describe('useIncidentesModals', () => {
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
-        })
+        }),
       );
 
       act(() => {
@@ -127,7 +127,6 @@ describe('useIncidentesModals', () => {
       expect(result.current.showDetalhesModal).toBe(true);
       expect(result.current.fotoLoading).toBe(true);
       expect(result.current.fotoError).toBe(false);
-      expect(result.current.fotoRetryCount).toBe(0);
     });
 
     it('handleFotoLoad sets loading to false', () => {
@@ -135,7 +134,7 @@ describe('useIncidentesModals', () => {
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
-        })
+        }),
       );
 
       act(() => {
@@ -151,7 +150,7 @@ describe('useIncidentesModals', () => {
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
-        })
+        }),
       );
 
       act(() => {
@@ -162,12 +161,12 @@ describe('useIncidentesModals', () => {
       expect(result.current.fotoError).toBe(true);
     });
 
-    it('handleFotoRetry increments retry count and resets state', () => {
+    it('handleFotoRetry resets photo state for a new attempt', () => {
       const { result } = renderHook(() =>
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
-        })
+        }),
       );
 
       act(() => {
@@ -175,15 +174,8 @@ describe('useIncidentesModals', () => {
         result.current.handleFotoRetry();
       });
 
-      expect(result.current.fotoRetryCount).toBe(1);
       expect(result.current.fotoLoading).toBe(true);
       expect(result.current.fotoError).toBe(false);
-
-      act(() => {
-        result.current.handleFotoRetry();
-      });
-
-      expect(result.current.fotoRetryCount).toBe(2);
     });
 
     it('setShowDetalhesModal works', () => {
@@ -191,7 +183,7 @@ describe('useIncidentesModals', () => {
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
-        })
+        }),
       );
 
       act(() => {
@@ -214,7 +206,7 @@ describe('useIncidentesModals', () => {
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
-        })
+        }),
       );
 
       act(() => {
@@ -232,7 +224,7 @@ describe('useIncidentesModals', () => {
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
-        })
+        }),
       );
 
       act(() => {
@@ -247,7 +239,7 @@ describe('useIncidentesModals', () => {
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
-        })
+        }),
       );
 
       act(() => {
@@ -262,7 +254,7 @@ describe('useIncidentesModals', () => {
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
-        })
+        }),
       );
 
       act(() => {
@@ -289,11 +281,14 @@ describe('useIncidentesModals', () => {
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
-        })
+        }),
       );
 
       await act(async () => {
-        await result.current.handleVerHistoricoMotorista('driver-1', 'João Silva');
+        await result.current.handleVerHistoricoMotorista(
+          'driver-1',
+          'João Silva',
+        );
       });
 
       expect(mockFetchIncidentes).toHaveBeenCalledWith({
@@ -311,11 +306,14 @@ describe('useIncidentesModals', () => {
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
-        })
+        }),
       );
 
       await act(async () => {
-        await result.current.handleVerHistoricoMotorista('driver-1', 'João Silva');
+        await result.current.handleVerHistoricoMotorista(
+          'driver-1',
+          'João Silva',
+        );
       });
 
       expect(result.current.motoristaSelecionado).toEqual({
@@ -329,20 +327,25 @@ describe('useIncidentesModals', () => {
     it('historicoLoading is true during fetch', async () => {
       let resolvePromise: (v: unknown) => void;
       mockFetchIncidentes.mockReturnValue(
-        new Promise((resolve) => { resolvePromise = resolve; })
+        new Promise((resolve) => {
+          resolvePromise = resolve;
+        }),
       );
 
       const { result } = renderHook(() =>
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
-        })
+        }),
       );
 
       // Start the fetch (don't await)
       let fetchPromise: Promise<void>;
       act(() => {
-        fetchPromise = result.current.handleVerHistoricoMotorista('driver-1', 'João');
+        fetchPromise = result.current.handleVerHistoricoMotorista(
+          'driver-1',
+          'João',
+        );
       });
 
       // Loading should be true while waiting
@@ -367,14 +370,20 @@ describe('useIncidentesModals', () => {
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
-        })
+        }),
       );
 
       await act(async () => {
-        await result.current.handleVerHistoricoMotorista('driver-1', 'João Silva');
+        await result.current.handleVerHistoricoMotorista(
+          'driver-1',
+          'João Silva',
+        );
       });
 
-      expect(mockShowToast).toHaveBeenCalledWith('Erro ao carregar histórico', 'error');
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Erro ao carregar histórico',
+        'error',
+      );
       expect(result.current.incidentesMotorista).toEqual([]);
       expect(result.current.historicoLoading).toBe(false);
     });
@@ -389,12 +398,15 @@ describe('useIncidentesModals', () => {
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
-        })
+        }),
       );
 
       // First fetch
       await act(async () => {
-        await result.current.handleVerHistoricoMotorista('driver-1', 'João Silva');
+        await result.current.handleVerHistoricoMotorista(
+          'driver-1',
+          'João Silva',
+        );
       });
       expect(result.current.incidentesMotorista).toHaveLength(2);
 
@@ -412,7 +424,7 @@ describe('useIncidentesModals', () => {
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
-        })
+        }),
       );
 
       act(() => {

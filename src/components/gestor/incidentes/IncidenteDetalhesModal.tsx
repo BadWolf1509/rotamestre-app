@@ -32,7 +32,6 @@ interface IncidenteDetalhesModalProps {
   statusLabels: Record<string, StatusLabel>;
   fotoLoading: boolean;
   fotoError: boolean;
-  fotoRetryCount: number;
   onFotoLoad: () => void;
   onFotoError: () => void;
   onFotoRetry: () => void;
@@ -51,7 +50,6 @@ export function IncidenteDetalhesModal({
   statusLabels,
   fotoLoading,
   fotoError,
-  fotoRetryCount: _fotoRetryCount,
   onFotoLoad,
   onFotoError,
   onFotoRetry,

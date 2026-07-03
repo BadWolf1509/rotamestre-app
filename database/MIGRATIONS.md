@@ -376,4 +376,17 @@ update storage.buckets set public = false where id = 'fotos-entrega';
 
 ---
 
-**Última atualização:** 24/06/2026
+### ✅ Migration 13: Índice composto em `notificacoes` (retroativa, harmonização)
+
+**Data:** 26/12/2025 (aplicada) · 03/07/2026 (documentada/harmonizada)
+**Arquivos:** `20251226170000_optimize_notificacoes_index.sql` (database/ + supabase/)
+**Objetivo:** Índice `idx_notificacoes_usuario_created (usuario_id, created_at DESC)` — queries de listagem de notificações caíram de ~1300ms.
+
+- Aplicada manualmente em 26/12/2025 com `CREATE INDEX CONCURRENTLY`; documentada retroativamente.
+- **Harmonização 07/2026 (drift HIGH do auditor de migrations):** as cópias divergiam (database/ com CONCURRENTLY + ANALYZE e filename sem `hhmmss`; supabase/ sem ANALYZE). Agora são **byte-idênticas** na forma transacional (sem CONCURRENTLY — `supabase db push` roda migrations em transação) e com o mesmo filename `20251226170000_`.
+
+**Status:** ✅ Aplicado em produção (índice confirmado no banco vivo em 03/07/2026)
+
+---
+
+**Última atualização:** 03/07/2026
