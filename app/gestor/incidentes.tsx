@@ -1,14 +1,14 @@
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { View, TouchableOpacity, ScrollView } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { View, TouchableOpacity, ScrollView } from 'react-native';
 
 import {
   AlterarStatusModal,
   HistoricoMotoristaModal,
   IncidenteDetalhesModal,
-} from "@/components/gestor/incidentes";
-import { Text } from "@/components/Text";
-import { getGestorPageMeta } from "@/constants/gestorPageMeta";
+} from '@/components/gestor/incidentes';
+import { Text } from '@/components/Text';
+import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
   DataTable,
   type DataTableAction,
@@ -22,19 +22,19 @@ import {
   MobileLoading,
   StatusBadge,
   Toast,
-} from "@/design-system";
-import { useDesktopHeaderMenu } from "@/hooks/useDesktopHeaderMenu";
+} from '@/design-system';
+import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import {
   useIncidentesGestor,
   type Incidente,
   type FiltroStatus,
   type FiltroCategoria,
-} from "@/hooks/useIncidentesGestor";
-import { useResponsive } from "@/hooks/useResponsive";
-import { useUser } from "@/hooks/useUser";
-import { styles } from "@/styles/gestor/incidentes.styles";
-import { withOpacity } from "@/utils/color";
-import { useUnistyles } from "@/utils/styles";
+} from '@/hooks/useIncidentesGestor';
+import { useResponsive } from '@/hooks/useResponsive';
+import { useUser } from '@/hooks/useUser';
+import { styles } from '@/styles/gestor/incidentes.styles';
+import { withOpacity } from '@/utils/color';
+import { useUnistyles } from '@/utils/styles';
 
 export default function IncidentesScreen() {
   const router = useRouter();
@@ -65,7 +65,6 @@ export default function IncidentesScreen() {
     showDetalhesModal,
     fotoLoading,
     fotoError,
-    fotoRetryCount,
     handleVerDetalhes,
     handleFotoLoad,
     handleFotoError,
@@ -109,8 +108,8 @@ export default function IncidentesScreen() {
   const renderDesktop = () => {
     const columns: DataTableColumn<Incidente>[] = [
       {
-        key: "created_at",
-        label: "Data/Hora",
+        key: 'created_at',
+        label: 'Data/Hora',
         width: 140,
         render: (item) => (
           <Text style={styles.tableCellText}>
@@ -119,16 +118,16 @@ export default function IncidentesScreen() {
         ),
       },
       {
-        key: "motorista_nome",
-        label: "Motorista",
+        key: 'motorista_nome',
+        label: 'Motorista',
         width: 220,
         render: (item) => (
           <Text style={styles.tableCellText}>{item.motorista_nome}</Text>
         ),
       },
       {
-        key: "categoria",
-        label: "Categoria",
+        key: 'categoria',
+        label: 'Categoria',
         width: 180,
         render: (item) => {
           const cat = categoriaLabels[item.categoria];
@@ -143,8 +142,8 @@ export default function IncidentesScreen() {
         },
       },
       {
-        key: "endereco",
-        label: "Local",
+        key: 'endereco',
+        label: 'Local',
         width: 280,
         render: (item) => (
           <Text style={styles.tableCellText} numberOfLines={2}>
@@ -153,8 +152,8 @@ export default function IncidentesScreen() {
         ),
       },
       {
-        key: "status",
-        label: "Status",
+        key: 'status',
+        label: 'Status',
         width: 120,
         render: (item) => {
           const st = statusLabels[item.status];
@@ -172,25 +171,25 @@ export default function IncidentesScreen() {
 
     const actions: DataTableAction<Incidente>[] = [
       {
-        icon: "eye-outline",
-        label: "Ver Detalhes",
-        type: "secondary",
+        icon: 'eye-outline',
+        label: 'Ver Detalhes',
+        type: 'secondary',
         onPress: handleVerDetalhes,
       },
       {
-        icon: "create-outline",
-        label: "Alterar Status",
-        type: "primary",
+        icon: 'create-outline',
+        label: 'Alterar Status',
+        type: 'primary',
         onPress: handleAlterarStatus,
       },
     ];
 
     return (
       <DesktopPageLayout
-        title={getGestorPageMeta("incidentes").title}
-        subtitle={getGestorPageMeta("incidentes").subtitle}
-        icon={getGestorPageMeta("incidentes").icon}
-        breadcrumbs={getGestorPageMeta("incidentes").breadcrumbs}
+        title={getGestorPageMeta('incidentes').title}
+        subtitle={getGestorPageMeta('incidentes').subtitle}
+        icon={getGestorPageMeta('incidentes').icon}
+        breadcrumbs={getGestorPageMeta('incidentes').breadcrumbs}
         userMenuTrigger={userMenuTrigger}
         userMenuItems={userMenuItems}
         loading={loading}
@@ -265,7 +264,7 @@ export default function IncidentesScreen() {
                   <View style={styles.motoristaInfo}>
                     <Text style={styles.motoristaNome}>{stat.nome}</Text>
                     <Text style={styles.motoristaStats}>
-                      {stat.total} incidentes ({stat.abertos} abertos,{" "}
+                      {stat.total} incidentes ({stat.abertos} abertos,{' '}
                       {stat.resolvidos} resolvidos)
                     </Text>
                   </View>
@@ -288,17 +287,17 @@ export default function IncidentesScreen() {
               <View style={styles.filtroChips}>
                 {(
                   [
-                    "todos",
-                    "aberto",
-                    "em_analise",
-                    "resolvido",
-                    "fechado",
+                    'todos',
+                    'aberto',
+                    'em_analise',
+                    'resolvido',
+                    'fechado',
                   ] as FiltroStatus[]
                 ).map((status) => (
                   <FilterChip
                     key={status}
                     label={
-                      status === "todos" ? "Todos" : statusLabels[status].label
+                      status === 'todos' ? 'Todos' : statusLabels[status].label
                     }
                     selected={filtroStatus === status}
                     onPress={() => setFiltroStatus(status)}
@@ -313,19 +312,19 @@ export default function IncidentesScreen() {
               <View style={styles.filtroChips}>
                 {(
                   [
-                    "todos",
-                    "accident",
-                    "absent",
-                    "wrong_address",
-                    "blocked",
-                    "vehicle",
-                    "other",
+                    'todos',
+                    'accident',
+                    'absent',
+                    'wrong_address',
+                    'blocked',
+                    'vehicle',
+                    'other',
                   ] as FiltroCategoria[]
                 ).map((cat) => (
                   <FilterChip
                     key={cat}
                     label={
-                      cat === "todos" ? "Todos" : categoriaLabels[cat].label
+                      cat === 'todos' ? 'Todos' : categoriaLabels[cat].label
                     }
                     selected={filtroCategoria === cat}
                     onPress={() => setFiltroCategoria(cat)}
@@ -449,7 +448,6 @@ export default function IncidentesScreen() {
         statusLabels={statusLabels}
         fotoLoading={fotoLoading}
         fotoError={fotoError}
-        fotoRetryCount={fotoRetryCount}
         onFotoLoad={handleFotoLoad}
         onFotoError={handleFotoError}
         onFotoRetry={handleFotoRetry}

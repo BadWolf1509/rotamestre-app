@@ -61,7 +61,6 @@ export interface UseIncidentesGestorReturn {
   showDetalhesModal: boolean;
   fotoLoading: boolean;
   fotoError: boolean;
-  fotoRetryCount: number;
   handleVerDetalhes: (incidente: Incidente) => void;
   handleFotoLoad: () => void;
   handleFotoError: () => void;
@@ -133,8 +132,7 @@ export function useIncidentesGestor(theme: Theme): UseIncidentesGestorReturn {
         .eq('papel', 'motorista')
         .eq('ativo', true);
 
-      const motoristas =
-        vinculacoes?.map((v) => ({ id: v.usuario_id })) || [];
+      const motoristas = vinculacoes?.map((v) => ({ id: v.usuario_id })) || [];
 
       if (!motoristas || motoristas.length === 0) {
         setIncidentes([]);
@@ -159,7 +157,7 @@ export function useIncidentesGestor(theme: Theme): UseIncidentesGestorReturn {
           motorista:usuarios!motorista_id (nome),
           rota:rotas (id, data),
           parada:paradas (endereco)
-        `
+        `,
         )
         .in('motorista_id', motoristasIds)
         .order('created_at', { ascending: false });
@@ -244,7 +242,6 @@ export function useIncidentesGestor(theme: Theme): UseIncidentesGestorReturn {
     showDetalhesModal: modals.showDetalhesModal,
     fotoLoading: modals.fotoLoading,
     fotoError: modals.fotoError,
-    fotoRetryCount: modals.fotoRetryCount,
     handleVerDetalhes: modals.handleVerDetalhes,
     handleFotoLoad: modals.handleFotoLoad,
     handleFotoError: modals.handleFotoError,
