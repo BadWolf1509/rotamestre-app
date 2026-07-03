@@ -370,7 +370,7 @@ update storage.buckets set public = false where id = 'fotos-entrega';
 
 - Policies de `storage.objects` **mantidas** (necessárias p/ usuário autenticado gerar signed URL).
 - Aplicada via MCP **após** o deploy web (ordem de rollout). Advisor `public_bucket_allows_listing` **resolvido**; URL pública antiga → **HTTP 400**.
-- **Fase 2 pendente:** isolamento por unidade em `storage.objects` (policy SELECT hoje é `authenticated` sem unidade).
+- ~~**Fase 2 pendente:** isolamento por unidade em `storage.objects`~~ → **concluída na Migration 14** (03/07/2026).
 
 **Status:** ✅ Aplicado em produção (PR #285)
 
@@ -386,6 +386,21 @@ update storage.buckets set public = false where id = 'fotos-entrega';
 - **Harmonização 07/2026 (drift HIGH do auditor de migrations):** as cópias divergiam (database/ com CONCURRENTLY + ANALYZE e filename sem `hhmmss`; supabase/ sem ANALYZE). Agora são **byte-idênticas** na forma transacional (sem CONCURRENTLY — `supabase db push` roda migrations em transação) e com o mesmo filename `20251226170000_`.
 
 **Status:** ✅ Aplicado em produção (índice confirmado no banco vivo em 03/07/2026)
+
+---
+
+### ✅ Migration 14: Isolamento por unidade em `storage.objects` (C3 Fase 2, Segurança)
+
+**Data:** 03/07/2026
+**Arquivos:** `20260703120000_c3_fase2_storage_rls_por_unidade.sql` (database/ + supabase/)
+**Objetivo:** Fechar o furo cross-tenant da Fase 1 — a policy SELECT do bucket `fotos-entrega` era só `authenticated` (qualquer usuário gerava signed URL de foto de qualquer unidade).
+
+- **SELECT** por unidade com 4 ramos: (a) owner do objeto (`owner`/`owner_id`); (b) fotos de entrega — 1º segmento do path ∈ unidades ativas via `get_my_unidade_ids()` (comparação TEXT, sem cast p/ uuid); (c) `perfis/` e (d) `incidentes/` — objeto referenciado por linha de `usuarios`/`incidentes` **visível ao caller sob o RLS da própria tabela** (guards de prefixo impedem exfiltração via `foto_url` plantado).
+- **INSERT** endurecido: owner + 1º segmento ∈ minhas unidades OU ∈ (`perfis`,`incidentes`). **DELETE** owner-only (+ `owner_id`).
+- Remove 3 policies órfãs do bucket `incidentes` (nunca existiu).
+- Revisado pelo agente `rls-policy-reviewer` (**APPROVE**, 0 findings críticos). Rollback verbatim comentado no arquivo. **Invariante:** afrouxar RLS de `usuarios`/`incidentes` afrouxa a leitura das fotos correspondentes.
+
+**Status:** ✅ Aplicado em produção (via MCP `apply_migration`; teste negativo cross-tenant validado em 03/07/2026)
 
 ---
 
