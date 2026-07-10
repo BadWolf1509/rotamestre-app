@@ -6,7 +6,7 @@ Mobile + web app for last-mile route optimization. Two user roles: **gestor** (m
 
 - **Framework:** React Native + Expo + TypeScript; file-based routing via Expo Router.
 - **Backend:** Supabase (Postgres + Auth + Storage + Realtime). Client uses `ANON_KEY` and respects RLS. Service-role access lives in the panel project, never here.
-- **Maps:** MapLibre GL (web + native) on OpenFreeMap / Carto tiles. **OSRM** for routing (free). **Address geocoding/autocomplete uses the Google Places API** via Supabase Edge Functions (`google-places-autocomplete`, `google-place-details`) — `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` is **required** (~R$2.83 / 1000 sessions); Photon + ViaCEP are fallbacks. (A Google Distance Matrix path exists but is **disabled** — OSRM table service is used for the optimizer instead.)
+- **Maps:** MapLibre GL (web + native) on OpenFreeMap / Carto tiles. **OSRM** for routing (free). **Address geocoding/autocomplete uses the Google Places API** via Supabase Edge Functions (`google-places-autocomplete`, `google-place-details`) — a chave Google é **server-side only** (`GOOGLE_MAPS_API_KEY` nos secrets das Edge Functions; ~R$2.83 / 1000 sessions); **não existe chave Google no client** (`EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` foi removida). Photon + ViaCEP are fallbacks. (A Google Distance Matrix path exists but is **disabled** — OSRM table service is used for the optimizer instead.)
 - **Forms:** `react-hook-form` + Zod via `@hookform/resolvers/zod`.
 - **State:** React hooks + `AsyncStorage` (no Redux/Zustand).
 - **Error tracking:** Sentry, web production only (`src/lib/sentry.ts`).
@@ -79,7 +79,7 @@ Installed in `.claude/`:
 | Logger                                     | `src/lib/logger.ts`                                                                                                     |
 | Auth form schemas + inline errors          | `src/lib/schemas/auth.ts` (login/register/forgot/reset) + `src/components/auth/FieldError.tsx`                          |
 | Address geocoding/autocomplete             | `src/lib/geocoding.ts` (router) → `src/lib/googlePlaces.ts` (Google Places via Edge Fn); `src/lib/photon.ts` = fallback |
-| Routing wrapper (OSRM)                     | `src/lib/google.ts` (legacy name; routing→OSRM, but its geocoding helpers still call Google)                            |
+| Routing wrapper (OSRM)                     | `src/lib/google.ts` (legacy name; OSRM only — os helpers de geocoding com chave Google foram removidos)                 |
 | Maps (web vs mobile)                       | `src/components/MapaWebMapLibre.tsx` / `src/components/MapaRN.tsx`                                                      |
 | Camera/upload                              | `src/components/CameraUpload.tsx`                                                                                       |
 | Fotos: signed URLs (bucket privado)        | `src/hooks/storage/useSignedUrl.ts` + `src/lib/storage.ts` (`getStoragePath`, `createSignedUrlForFoto`)                 |

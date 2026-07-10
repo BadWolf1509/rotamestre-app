@@ -71,11 +71,6 @@ class GooglePlayPreparer {
       }
     });
 
-    // Avisos
-    if (!config.android?.config?.googleMaps?.apiKey && !process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY) {
-      this.warnings.push('Google Maps API Key não configurada');
-      log.warning('Google Maps API Key não configurada');
-    }
   }
 
   // 2. Verificar assets obrigatórios
@@ -191,8 +186,7 @@ class GooglePlayPreparer {
 
     const requiredEnvVars = [
       'EXPO_PUBLIC_SUPABASE_URL',
-      'EXPO_PUBLIC_SUPABASE_ANON_KEY',
-      'EXPO_PUBLIC_GOOGLE_MAPS_API_KEY'
+      'EXPO_PUBLIC_SUPABASE_ANON_KEY'
     ];
 
     requiredEnvVars.forEach(envVar => {
