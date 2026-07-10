@@ -2,7 +2,7 @@
 
 > **⚠️ STATUS + CORREÇÕES (atualizado 2026-07-03):** app **reconstruído** (2026-06-16, contas originais perdidas) — package `br.tec.rotamestre.app`, EAS `c6401a59…`, Firebase `rota-mestre-97084`; Play App Signing ligado. **Release atual:** `.aab` **v1.12.1 / versionCode 3020** submetido ao **Teste interno** via `eas submit -p android --profile internal` (2026-07-03, PR #295 fez o bump). Correções a este guia (genérico/antigo):
 >
-> 1. **Mapas via MapLibre**, mas **geocoding/autocomplete de endereço usa a Google Places API** (via Edge Functions `google-places-autocomplete`/`google-place-details`) — `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` **é obrigatória** no build de produção (sem ela o autocomplete de endereço quebra; custo ~R$2,83/1000 sessões). O `config.googleMaps.apiKey` nativo no `app.config.js` é vestígio (os mapas são MapLibre), mas a env var da chave continua necessária para o Places.
+> 1. **Mapas via MapLibre**, e **geocoding/autocomplete de endereço usa a Google Places API** (via Edge Functions `google-places-autocomplete`/`google-place-details`) — a chave Google é **server-side only** (`GOOGLE_MAPS_API_KEY` nos secrets das Edge Functions no Supabase; custo ~R$2,83/1000 sessões). **Não existe mais chave Google no client**: `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` e o `config.googleMaps.apiKey` nativo foram removidos do `app.config.js` (o client chama as Edge Functions autenticando com o `ANON_KEY` do Supabase).
 > 2. **NÃO confie em "EAS gerencia o keystore"** — a perda do keystore/conta causou TODO o retrabalho do rebuild. **Baixe e guarde o keystore você mesmo** (`eas credentials` → download, ou dashboard) + as senhas, em ≥2 lugares.
 > 3. **Env Supabase fica por-ambiente no EAS** (`eas env:*`), não inline no `eas.json`.
 > 4. Estado atual do rollout: ver a **memória do Claude** + `docs/REBUILD_RELAUNCH_PLAN.md`.
@@ -185,8 +185,7 @@ eas build:configure
       "env": {
         "EXPO_PUBLIC_ENV": "production",
         "EXPO_PUBLIC_SUPABASE_URL": "YOUR_PROD_URL",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "YOUR_PROD_KEY",
-        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "YOUR_PROD_KEY"
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "YOUR_PROD_KEY"
       }
     }
   },

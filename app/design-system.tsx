@@ -19,7 +19,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams } from 'expo-router';
-import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import React, {
+  useMemo,
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+} from 'react';
 import {
   ScrollView,
   Text,
@@ -148,8 +154,16 @@ const SECTIONS: Section[] = [
   { id: 'dados', label: 'Dados', icon: 'grid-outline' },
   { id: 'desktop', label: 'Desktop', icon: 'desktop-outline' },
   { id: 'mobile', label: 'Mobile', icon: 'phone-portrait-outline' },
-  { id: 'especializados', label: 'Especializados', icon: 'extension-puzzle-outline' },
-  { id: 'acessibilidade', label: 'Acessibilidade', icon: 'accessibility-outline' },
+  {
+    id: 'especializados',
+    label: 'Especializados',
+    icon: 'extension-puzzle-outline',
+  },
+  {
+    id: 'acessibilidade',
+    label: 'Acessibilidade',
+    icon: 'accessibility-outline',
+  },
 ];
 
 const WCAG_REQUIREMENTS = {
@@ -241,7 +255,13 @@ function CopyButton({ value, label }: { value: string; label?: string }) {
   );
 }
 
-function CodeBlock({ code, language = 'tsx' }: { code: string; language?: string }) {
+function CodeBlock({
+  code,
+  language = 'tsx',
+}: {
+  code: string;
+  language?: string;
+}) {
   const { theme } = useUnistyles();
 
   return (
@@ -362,7 +382,13 @@ function TokenRow({
           {label}
         </Text>
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: theme.spacing.sm,
+        }}
+      >
         {preview}
         <CopyButton value={String(value)} />
       </View>
@@ -443,7 +469,13 @@ function SpacingPreview({ size, value }: { size: string; value: number }) {
   const { theme } = useUnistyles();
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing.sm,
+      }}
+    >
       <View
         style={{
           width: value,
@@ -601,7 +633,9 @@ function PropsTable({ props }: { props: PropDefinition[] }) {
               }}
             >
               {prop.name}
-              {prop.required && <Text style={{ color: theme.colors.error }}>*</Text>}
+              {prop.required && (
+                <Text style={{ color: theme.colors.error }}>*</Text>
+              )}
             </Text>
           </View>
           <View style={{ flex: 1.5, padding: theme.spacing.sm }}>
@@ -682,7 +716,11 @@ function DosDonts({ dos, donts }: DosDontsProps) {
             marginBottom: theme.spacing.sm,
           }}
         >
-          <Icon name="checkmark-circle" size={20} color={theme.colors.success} />
+          <Icon
+            name="checkmark-circle"
+            size={20}
+            color={theme.colors.success}
+          />
           <Text
             style={{
               fontSize: 14,
@@ -772,7 +810,12 @@ interface PlaygroundProps {
   renderPreview: (props: Record<string, unknown>) => React.ReactNode;
 }
 
-function Playground({ title, defaultProps, propsConfig, renderPreview }: PlaygroundProps) {
+function Playground({
+  title,
+  defaultProps,
+  propsConfig,
+  renderPreview,
+}: PlaygroundProps) {
   const { theme } = useUnistyles();
   const [props, setProps] = useState(defaultProps);
 
@@ -893,14 +936,19 @@ function Playground({ title, defaultProps, propsConfig, renderPreview }: Playgro
                       paddingHorizontal: 8,
                       borderRadius: theme.borderRadius.sm,
                       backgroundColor:
-                        props[key] === option ? theme.colors.primary : theme.colors.gray200,
+                        props[key] === option
+                          ? theme.colors.primary
+                          : theme.colors.gray200,
                     }}
                   >
                     <Text
                       style={{
                         fontSize: 11,
                         fontFamily: theme.typography.fontSansMedium,
-                        color: props[key] === option ? theme.colors.white : theme.colors.gray700,
+                        color:
+                          props[key] === option
+                            ? theme.colors.white
+                            : theme.colors.gray700,
                       }}
                     >
                       {option}
@@ -923,7 +971,9 @@ function Playground({ title, defaultProps, propsConfig, renderPreview }: Playgro
                     width: 36,
                     height: 20,
                     borderRadius: 10,
-                    backgroundColor: props[key] ? theme.colors.primary : theme.colors.gray300,
+                    backgroundColor: props[key]
+                      ? theme.colors.primary
+                      : theme.colors.gray300,
                     justifyContent: 'center',
                     paddingHorizontal: 2,
                   }}
@@ -984,14 +1034,16 @@ export default function DesignSystemScreen() {
       const baseTheme = themeParam || 'light';
       const density = densityParam === 'compact' ? 'Compact' : '';
       const contrast = contrastParam === 'high' ? 'HighContrast' : '';
-      
+
       // Formato: light, lightCompact, lightHighContrast, lightCompactHighContrast
       // ou: dark, darkCompact, darkHighContrast, darkCompactHighContrast
-      const newThemeName = `${baseTheme}${density}${contrast}` as Parameters<typeof UnistylesRuntime.setTheme>[0];
-      
+      const newThemeName = `${baseTheme}${density}${contrast}` as Parameters<
+        typeof UnistylesRuntime.setTheme
+      >[0];
+
       // Desabilitar adaptiveThemes para permitir setTheme manual
       UnistylesRuntime.setAdaptiveThemes(false);
-      
+
       // Aplicar tema se diferente do atual
       if (UnistylesRuntime.themeName !== newThemeName) {
         UnistylesRuntime.setTheme(newThemeName);
@@ -1004,11 +1056,14 @@ export default function DesignSystemScreen() {
   const [inputValue, setInputValue] = useState('');
   const [errorValue, setErrorValue] = useState('Texto inválido');
   const [toastVisible, setToastVisible] = useState(false);
-  const [toastType, setToastType] = useState<'success' | 'error' | 'info' | 'loading'>('success');
+  const [toastType, setToastType] = useState<
+    'success' | 'error' | 'info' | 'loading'
+  >('success');
   const [modalVisible, setModalVisible] = useState(false);
   const [alertVisible, setAlertVisible] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
-  const [confirmModalDestructiveVisible, setConfirmModalDestructiveVisible] = useState(false);
+  const [confirmModalDestructiveVisible, setConfirmModalDestructiveVisible] =
+    useState(false);
   const [supportModalVisible, setSupportModalVisible] = useState(false);
   const [desktopModalVisible, setDesktopModalVisible] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
@@ -1021,8 +1076,12 @@ export default function DesignSystemScreen() {
   const themeName = UnistylesRuntime.themeName ?? 'adaptive';
   const normalizedThemeName = themeName.toLowerCase();
   const isDark = normalizedThemeName.includes('dark');
-  const densityLabel = normalizedThemeName.includes('compact') ? 'Compacto' : 'Regular';
-  const contrastLabel = normalizedThemeName.includes('highcontrast') ? 'Alto' : 'Normal';
+  const densityLabel = normalizedThemeName.includes('compact')
+    ? 'Compacto'
+    : 'Regular';
+  const contrastLabel = normalizedThemeName.includes('highcontrast')
+    ? 'Alto'
+    : 'Normal';
 
   // Dados de exemplo
   const tableData = useMemo<TableRow[]>(
@@ -1031,7 +1090,7 @@ export default function DesignSystemScreen() {
       { id: '2', motorista: 'João Santos', status: 'pendente', rotas: 4 },
       { id: '3', motorista: 'Ana Pereira', status: 'concluida', rotas: 12 },
     ],
-    []
+    [],
   );
 
   const tableColumns = useMemo(
@@ -1044,7 +1103,7 @@ export default function DesignSystemScreen() {
       },
       { key: 'rotas', label: 'Rotas' },
     ],
-    []
+    [],
   );
 
   const wizardSteps: Step[] = useMemo(
@@ -1054,7 +1113,7 @@ export default function DesignSystemScreen() {
       { id: '3', title: 'Revisão' },
       { id: '4', title: 'Concluído' },
     ],
-    []
+    [],
   );
 
   // Cores organizadas
@@ -1092,7 +1151,7 @@ export default function DesignSystemScreen() {
         { label: 'Overlay', color: theme.colors.overlay },
       ],
     }),
-    [theme]
+    [theme],
   );
 
   // Navegação para seção
@@ -1108,7 +1167,7 @@ export default function DesignSystemScreen() {
     (sectionId: string) => (event: LayoutChangeEvent) => {
       sectionOffsets.current[sectionId] = event.nativeEvent.layout.y;
     },
-    []
+    [],
   );
 
   // Derive current theme properties
@@ -1160,12 +1219,15 @@ export default function DesignSystemScreen() {
     return SECTIONS.filter(
       (s) =>
         s.label.toLowerCase().includes(query) ||
-        s.id.toLowerCase().includes(query)
+        s.id.toLowerCase().includes(query),
     );
   }, [searchQuery]);
 
   // Estilos
-  const styles = useMemo(() => createStyles(theme, isDesktop), [theme, isDesktop]);
+  const styles = useMemo(
+    () => createStyles(theme, isDesktop),
+    [theme, isDesktop],
+  );
 
   return (
     <View style={styles.wrapper}>
@@ -1198,7 +1260,8 @@ export default function DesignSystemScreen() {
                 <Text
                   style={[
                     styles.sidebarItemText,
-                    activeSection === section.id && styles.sidebarItemTextActive,
+                    activeSection === section.id &&
+                      styles.sidebarItemTextActive,
                   ]}
                 >
                   {section.label}
@@ -1206,7 +1269,9 @@ export default function DesignSystemScreen() {
               </Pressable>
             ))}
 
-            <Text style={[styles.sidebarCategory, { marginTop: theme.spacing.lg }]}>
+            <Text
+              style={[styles.sidebarCategory, { marginTop: theme.spacing.lg }]}
+            >
               Componentes
             </Text>
             {SECTIONS.slice(9).map((section) => (
@@ -1230,7 +1295,8 @@ export default function DesignSystemScreen() {
                 <Text
                   style={[
                     styles.sidebarItemText,
-                    activeSection === section.id && styles.sidebarItemTextActive,
+                    activeSection === section.id &&
+                      styles.sidebarItemTextActive,
                   ]}
                 >
                   {section.label}
@@ -1274,7 +1340,10 @@ export default function DesignSystemScreen() {
 
             <TouchableOpacity
               onPress={toggleDensity}
-              style={[styles.themeButton, isCompact && styles.themeButtonActive]}
+              style={[
+                styles.themeButton,
+                isCompact && styles.themeButtonActive,
+              ]}
               accessibilityLabel={`Alternar para densidade ${isCompact ? 'regular' : 'compacta'}`}
             >
               <Ionicons
@@ -1282,22 +1351,37 @@ export default function DesignSystemScreen() {
                 size={18}
                 color={isCompact ? theme.colors.primary : theme.colors.gray700}
               />
-              <Text style={[styles.themeButtonText, isCompact && styles.themeButtonTextActive]}>
+              <Text
+                style={[
+                  styles.themeButtonText,
+                  isCompact && styles.themeButtonTextActive,
+                ]}
+              >
                 {isCompact ? 'Compacto' : 'Regular'}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={toggleHighContrast}
-              style={[styles.themeButton, isHighContrast && styles.themeButtonActive]}
+              style={[
+                styles.themeButton,
+                isHighContrast && styles.themeButtonActive,
+              ]}
               accessibilityLabel={`Alternar para contraste ${isHighContrast ? 'normal' : 'alto'}`}
             >
               <Ionicons
                 name="contrast-outline"
                 size={18}
-                color={isHighContrast ? theme.colors.primary : theme.colors.gray700}
+                color={
+                  isHighContrast ? theme.colors.primary : theme.colors.gray700
+                }
               />
-              <Text style={[styles.themeButtonText, isHighContrast && styles.themeButtonTextActive]}>
+              <Text
+                style={[
+                  styles.themeButtonText,
+                  isHighContrast && styles.themeButtonTextActive,
+                ]}
+              >
                 {isHighContrast ? 'Alto Contraste' : 'Normal'}
               </Text>
             </TouchableOpacity>
@@ -1314,7 +1398,8 @@ export default function DesignSystemScreen() {
             />
             {searchQuery.length > 0 && (
               <Text style={styles.searchResults}>
-                {filteredSections.length} {filteredSections.length === 1 ? 'resultado' : 'resultados'}
+                {filteredSections.length}{' '}
+                {filteredSections.length === 1 ? 'resultado' : 'resultados'}
               </Text>
             )}
           </View>
@@ -1464,7 +1549,10 @@ backgroundColor: theme.colors.primary`}
         {/* ========================================
             SEÇÃO: TIPOGRAFIA
         ======================================== */}
-        <View style={styles.section} onLayout={handleSectionLayout('tipografia')}>
+        <View
+          style={styles.section}
+          onLayout={handleSectionLayout('tipografia')}
+        >
           <SectionHeader
             id="tipografia"
             title="Tipografia"
@@ -1554,7 +1642,10 @@ backgroundColor: theme.colors.primary`}
         {/* ========================================
             SEÇÃO: ESPAÇAMENTO
         ======================================== */}
-        <View style={styles.section} onLayout={handleSectionLayout('espacamento')}>
+        <View
+          style={styles.section}
+          onLayout={handleSectionLayout('espacamento')}
+        >
           <SectionHeader
             id="espacamento"
             title="Espaçamento"
@@ -1640,7 +1731,10 @@ style={[styles.card, shadows.md]}
         {/* ========================================
             SEÇÃO: OPACIDADE
         ======================================== */}
-        <View style={styles.section} onLayout={handleSectionLayout('opacidade')}>
+        <View
+          style={styles.section}
+          onLayout={handleSectionLayout('opacidade')}
+        >
           <SectionHeader
             id="opacidade"
             title="Opacidade"
@@ -1697,7 +1791,11 @@ zIndex: zIndex.toast   // 40`}
 
           <Text style={styles.groupTitle}>Durações</Text>
           {Object.entries(motion.duration).map(([key, value]) => (
-            <TokenRow key={key} label={`motion.duration.${key}`} value={`${value}ms`} />
+            <TokenRow
+              key={key}
+              label={`motion.duration.${key}`}
+              value={`${value}ms`}
+            />
           ))}
 
           <Text style={styles.groupTitle}>Curvas (Easing)</Text>
@@ -1729,12 +1827,19 @@ Animated.timing(value, {
           <TokenRow label="Modo" value={isDark ? 'Escuro' : 'Claro'} />
           <TokenRow label="Densidade" value={densityLabel} />
           <TokenRow label="Contraste" value={contrastLabel} />
-          <TokenRow label="Altura do input (desktop)" value={`${theme.desktop.input.height}px`} />
-          <TokenRow label="Altura do botão (desktop)" value={`${theme.desktop.button.height}px`} />
+          <TokenRow
+            label="Altura do input (desktop)"
+            value={`${theme.desktop.input.height}px`}
+          />
+          <TokenRow
+            label="Altura do botão (desktop)"
+            value={`${theme.desktop.button.height}px`}
+          />
 
           <Text style={styles.groupTitle}>Exportar Tokens</Text>
           <Text style={styles.description}>
-            Baixe os design tokens em diferentes formatos para usar em outros projetos.
+            Baixe os design tokens em diferentes formatos para usar em outros
+            projetos.
           </Text>
           <View style={styles.componentRow}>
             <Button
@@ -1743,10 +1848,21 @@ Animated.timing(value, {
               variant="outline"
               icon="code-download-outline"
               onPress={() => {
-                const tokens = { colors, typography, spacing, borderRadius, shadows, opacity, zIndex, motion };
+                const tokens = {
+                  colors,
+                  typography,
+                  spacing,
+                  borderRadius,
+                  shadows,
+                  opacity,
+                  zIndex,
+                  motion,
+                };
                 const content = JSON.stringify(tokens, null, 2);
                 if (Platform.OS === 'web') {
-                  const blob = new Blob([content], { type: 'application/json' });
+                  const blob = new Blob([content], {
+                    type: 'application/json',
+                  });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement('a');
                   a.href = url;
@@ -1821,7 +1937,16 @@ Animated.timing(value, {
               variant="outline"
               icon="logo-javascript"
               onPress={() => {
-                const tokens = { colors, typography, spacing, borderRadius, shadows, opacity, zIndex, motion };
+                const tokens = {
+                  colors,
+                  typography,
+                  spacing,
+                  borderRadius,
+                  shadows,
+                  opacity,
+                  zIndex,
+                  motion,
+                };
                 const tsContent = `// Design Tokens - RotaMestre
 // Gerado automaticamente
 
@@ -1830,7 +1955,9 @@ export const designTokens = ${JSON.stringify(tokens, null, 2)} as const;
 export type DesignTokens = typeof designTokens;
 `;
                 if (Platform.OS === 'web') {
-                  const blob = new Blob([tsContent], { type: 'text/typescript' });
+                  const blob = new Blob([tsContent], {
+                    type: 'text/typescript',
+                  });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement('a');
                   a.href = url;
@@ -1845,8 +1972,16 @@ export type DesignTokens = typeof designTokens;
               }}
             />
           </View>
-          <Text style={{ fontSize: 11, color: theme.colors.gray500, marginTop: theme.spacing.xs }}>
-            {Platform.OS === 'web' ? 'Clique para baixar o arquivo' : 'Clique para copiar para a área de transferência'}
+          <Text
+            style={{
+              fontSize: 11,
+              color: theme.colors.gray500,
+              marginTop: theme.spacing.xs,
+            }}
+          >
+            {Platform.OS === 'web'
+              ? 'Clique para baixar o arquivo'
+              : 'Clique para copiar para a área de transferência'}
           </Text>
 
           <CodeBlock
@@ -1872,18 +2007,42 @@ const themeName = UnistylesRuntime.themeName;`}
 
           <Text style={styles.groupTitle}>Tamanhos</Text>
           <View style={styles.componentRow}>
-            <Button title="Small" size="small" onPress={() => showToast('info')} />
+            <Button
+              title="Small"
+              size="small"
+              onPress={() => showToast('info')}
+            />
             <Button title="Medium" onPress={() => showToast('info')} />
-            <Button title="Large" size="large" onPress={() => showToast('info')} />
+            <Button
+              title="Large"
+              size="large"
+              onPress={() => showToast('info')}
+            />
           </View>
 
           <Text style={styles.groupTitle}>Variantes</Text>
           <View style={styles.componentRow}>
             <Button title="Primary" onPress={() => showToast('success')} />
-            <Button title="Secondary" variant="secondary" onPress={() => showToast('info')} />
-            <Button title="Outline" variant="outline" onPress={() => showToast('info')} />
-            <Button title="Ghost" variant="ghost" onPress={() => showToast('info')} />
-            <Button title="Danger" variant="danger" onPress={() => showToast('error')} />
+            <Button
+              title="Secondary"
+              variant="secondary"
+              onPress={() => showToast('info')}
+            />
+            <Button
+              title="Outline"
+              variant="outline"
+              onPress={() => showToast('info')}
+            />
+            <Button
+              title="Ghost"
+              variant="ghost"
+              onPress={() => showToast('info')}
+            />
+            <Button
+              title="Danger"
+              variant="danger"
+              onPress={() => showToast('error')}
+            />
           </View>
 
           <Text style={styles.groupTitle}>Estados Visuais</Text>
@@ -1895,7 +2054,8 @@ const themeName = UnistylesRuntime.themeName;`}
 
           <Text style={styles.groupTitle}>Estados Interativos</Text>
           <Text style={styles.description}>
-            Interaja com os botões abaixo para visualizar os estados hover (web), pressed e focus.
+            Interaja com os botões abaixo para visualizar os estados hover
+            (web), pressed e focus.
           </Text>
           <View style={styles.statesGrid}>
             <View style={styles.stateItem}>
@@ -1905,7 +2065,11 @@ const themeName = UnistylesRuntime.themeName;`}
             <View style={styles.stateItem}>
               <Text style={styles.stateLabel}>Hover (Web)</Text>
               <Text style={styles.stateHint}>Passe o mouse</Text>
-              <Button title="Hover" variant="outline" onPress={() => showToast('info')} />
+              <Button
+                title="Hover"
+                variant="outline"
+                onPress={() => showToast('info')}
+              />
             </View>
             <View style={styles.stateItem}>
               <Text style={styles.stateLabel}>Pressed</Text>
@@ -1915,7 +2079,11 @@ const themeName = UnistylesRuntime.themeName;`}
             <View style={styles.stateItem}>
               <Text style={styles.stateLabel}>Focus (Tab)</Text>
               <Text style={styles.stateHint}>Use Tab no teclado</Text>
-              <Button title="Foco" variant="outline" onPress={() => showToast('info')} />
+              <Button
+                title="Foco"
+                variant="outline"
+                onPress={() => showToast('info')}
+              />
             </View>
           </View>
 
@@ -1948,17 +2116,69 @@ const themeName = UnistylesRuntime.themeName;`}
           <Text style={styles.groupTitle}>Props</Text>
           <PropsTable
             props={[
-              { name: 'title', type: 'string', required: true, description: 'Texto exibido no botão' },
-              { name: 'onPress', type: '() => void', required: true, description: 'Callback ao pressionar' },
-              { name: 'variant', type: "'primary' | 'secondary' | 'outline' | 'ghost' | 'danger'", default: "'primary'", description: 'Estilo visual do botão' },
-              { name: 'size', type: "'small' | 'medium' | 'large'", default: "'medium'", description: 'Tamanho do botão' },
-              { name: 'icon', type: 'IconName', description: 'Nome do ícone Ionicons' },
-              { name: 'iconPosition', type: "'left' | 'right'", default: "'left'", description: 'Posição do ícone' },
-              { name: 'loading', type: 'boolean', default: 'false', description: 'Exibe spinner e desabilita' },
-              { name: 'disabled', type: 'boolean', default: 'false', description: 'Desabilita interação' },
-              { name: 'fullWidth', type: 'boolean', default: 'false', description: 'Ocupa largura total do container' },
-              { name: 'style', type: 'ViewStyle', description: 'Estilo customizado do container' },
-              { name: 'textStyle', type: 'TextStyle', description: 'Estilo customizado do texto' },
+              {
+                name: 'title',
+                type: 'string',
+                required: true,
+                description: 'Texto exibido no botão',
+              },
+              {
+                name: 'onPress',
+                type: '() => void',
+                required: true,
+                description: 'Callback ao pressionar',
+              },
+              {
+                name: 'variant',
+                type: "'primary' | 'secondary' | 'outline' | 'ghost' | 'danger'",
+                default: "'primary'",
+                description: 'Estilo visual do botão',
+              },
+              {
+                name: 'size',
+                type: "'small' | 'medium' | 'large'",
+                default: "'medium'",
+                description: 'Tamanho do botão',
+              },
+              {
+                name: 'icon',
+                type: 'IconName',
+                description: 'Nome do ícone Ionicons',
+              },
+              {
+                name: 'iconPosition',
+                type: "'left' | 'right'",
+                default: "'left'",
+                description: 'Posição do ícone',
+              },
+              {
+                name: 'loading',
+                type: 'boolean',
+                default: 'false',
+                description: 'Exibe spinner e desabilita',
+              },
+              {
+                name: 'disabled',
+                type: 'boolean',
+                default: 'false',
+                description: 'Desabilita interação',
+              },
+              {
+                name: 'fullWidth',
+                type: 'boolean',
+                default: 'false',
+                description: 'Ocupa largura total do container',
+              },
+              {
+                name: 'style',
+                type: 'ViewStyle',
+                description: 'Estilo customizado do container',
+              },
+              {
+                name: 'textStyle',
+                type: 'TextStyle',
+                description: 'Estilo customizado do texto',
+              },
             ]}
           />
 
@@ -1974,7 +2194,10 @@ const themeName = UnistylesRuntime.themeName;`}
             }}
             propsConfig={{
               title: { type: 'text' },
-              variant: { type: 'select', options: ['primary', 'outline', 'ghost', 'danger'] },
+              variant: {
+                type: 'select',
+                options: ['primary', 'outline', 'ghost', 'danger'],
+              },
               size: { type: 'select', options: ['small', 'medium', 'large'] },
               loading: { type: 'boolean' },
               disabled: { type: 'boolean' },
@@ -1982,7 +2205,9 @@ const themeName = UnistylesRuntime.themeName;`}
             renderPreview={(props) => (
               <Button
                 title={String(props.title)}
-                variant={props.variant as 'primary' | 'outline' | 'ghost' | 'danger'}
+                variant={
+                  props.variant as 'primary' | 'outline' | 'ghost' | 'danger'
+                }
                 size={props.size as 'small' | 'medium' | 'large'}
                 loading={Boolean(props.loading)}
                 disabled={Boolean(props.disabled)}
@@ -2032,7 +2257,11 @@ const themeName = UnistylesRuntime.themeName;`}
               value={errorValue}
               onChangeText={setErrorValue}
             />
-            <Input label="Desabilitado" value="Somente leitura" editable={false} />
+            <Input
+              label="Desabilitado"
+              value="Somente leitura"
+              editable={false}
+            />
             <Input label="Tamanho pequeno" size="small" placeholder="Small" />
             <Input label="Tamanho grande" size="large" placeholder="Large" />
             <Input
@@ -2058,19 +2287,74 @@ const themeName = UnistylesRuntime.themeName;`}
           <Text style={styles.groupTitle}>Props</Text>
           <PropsTable
             props={[
-              { name: 'label', type: 'string', description: 'Label exibida acima do input' },
-              { name: 'error', type: 'string', description: 'Mensagem de erro (exibe em vermelho)' },
-              { name: 'helperText', type: 'string', description: 'Texto de ajuda (exibe abaixo do input)' },
-              { name: 'leftIcon', type: 'IconName', description: 'Ícone à esquerda do input' },
-              { name: 'rightIcon', type: 'IconName', description: 'Ícone à direita do input' },
-              { name: 'onRightIconPress', type: '() => void', description: 'Callback ao pressionar ícone direito' },
-              { name: 'size', type: "'small' | 'medium' | 'large'", default: "'medium'", description: 'Tamanho do input' },
-              { name: 'required', type: 'boolean', default: 'false', description: 'Exibe asterisco vermelho no label' },
-              { name: 'containerStyle', type: 'ViewStyle', description: 'Estilo do container externo' },
-              { name: 'placeholder', type: 'string', description: 'Texto placeholder' },
-              { name: 'value', type: 'string', description: 'Valor controlado do input' },
-              { name: 'onChangeText', type: '(text: string) => void', description: 'Callback ao alterar texto' },
-              { name: 'editable', type: 'boolean', default: 'true', description: 'Se false, desabilita edição' },
+              {
+                name: 'label',
+                type: 'string',
+                description: 'Label exibida acima do input',
+              },
+              {
+                name: 'error',
+                type: 'string',
+                description: 'Mensagem de erro (exibe em vermelho)',
+              },
+              {
+                name: 'helperText',
+                type: 'string',
+                description: 'Texto de ajuda (exibe abaixo do input)',
+              },
+              {
+                name: 'leftIcon',
+                type: 'IconName',
+                description: 'Ícone à esquerda do input',
+              },
+              {
+                name: 'rightIcon',
+                type: 'IconName',
+                description: 'Ícone à direita do input',
+              },
+              {
+                name: 'onRightIconPress',
+                type: '() => void',
+                description: 'Callback ao pressionar ícone direito',
+              },
+              {
+                name: 'size',
+                type: "'small' | 'medium' | 'large'",
+                default: "'medium'",
+                description: 'Tamanho do input',
+              },
+              {
+                name: 'required',
+                type: 'boolean',
+                default: 'false',
+                description: 'Exibe asterisco vermelho no label',
+              },
+              {
+                name: 'containerStyle',
+                type: 'ViewStyle',
+                description: 'Estilo do container externo',
+              },
+              {
+                name: 'placeholder',
+                type: 'string',
+                description: 'Texto placeholder',
+              },
+              {
+                name: 'value',
+                type: 'string',
+                description: 'Valor controlado do input',
+              },
+              {
+                name: 'onChangeText',
+                type: '(text: string) => void',
+                description: 'Callback ao alterar texto',
+              },
+              {
+                name: 'editable',
+                type: 'boolean',
+                default: 'true',
+                description: 'Se false, desabilita edição',
+              },
             ]}
           />
         </View>
@@ -2138,11 +2422,34 @@ const themeName = UnistylesRuntime.themeName;`}
           <Text style={styles.groupTitle}>Card Props</Text>
           <PropsTable
             props={[
-              { name: 'children', type: 'React.ReactNode', required: true, description: 'Conteúdo do card' },
-              { name: 'variant', type: "'elevated' | 'outlined' | 'filled'", default: "'elevated'", description: 'Estilo visual do card' },
-              { name: 'padding', type: "'none' | 'small' | 'medium' | 'large'", default: "'medium'", description: 'Espaçamento interno' },
-              { name: 'onPress', type: '() => void', description: 'Torna o card clicável' },
-              { name: 'style', type: 'ViewStyle', description: 'Estilos customizados' },
+              {
+                name: 'children',
+                type: 'React.ReactNode',
+                required: true,
+                description: 'Conteúdo do card',
+              },
+              {
+                name: 'variant',
+                type: "'elevated' | 'outlined' | 'filled'",
+                default: "'elevated'",
+                description: 'Estilo visual do card',
+              },
+              {
+                name: 'padding',
+                type: "'none' | 'small' | 'medium' | 'large'",
+                default: "'medium'",
+                description: 'Espaçamento interno',
+              },
+              {
+                name: 'onPress',
+                type: '() => void',
+                description: 'Torna o card clicável',
+              },
+              {
+                name: 'style',
+                type: 'ViewStyle',
+                description: 'Estilos customizados',
+              },
               { name: 'testID', type: 'string', description: 'ID para testes' },
             ]}
           />
@@ -2150,22 +2457,66 @@ const themeName = UnistylesRuntime.themeName;`}
           <Text style={styles.groupTitle}>MetricCard Props</Text>
           <PropsTable
             props={[
-              { name: 'title', type: 'string', required: true, description: 'Título da métrica (ex: "Rotas Hoje")' },
-              { name: 'value', type: 'string | number', required: true, description: 'Valor da métrica' },
-              { name: 'subtitle', type: 'string', description: 'Texto secundário (ex: "Meta diária")' },
-              { name: 'icon', type: 'React.ReactNode', description: 'Ícone à esquerda' },
-              { name: 'trend', type: "'up' | 'down' | 'neutral'", description: 'Indicador de tendência' },
-              { name: 'color', type: 'string', description: 'Cor da borda esquerda' },
+              {
+                name: 'title',
+                type: 'string',
+                required: true,
+                description: 'Título da métrica (ex: "Rotas Hoje")',
+              },
+              {
+                name: 'value',
+                type: 'string | number',
+                required: true,
+                description: 'Valor da métrica',
+              },
+              {
+                name: 'subtitle',
+                type: 'string',
+                description: 'Texto secundário (ex: "Meta diária")',
+              },
+              {
+                name: 'icon',
+                type: 'React.ReactNode',
+                description: 'Ícone à esquerda',
+              },
+              {
+                name: 'trend',
+                type: "'up' | 'down' | 'neutral'",
+                description: 'Indicador de tendência',
+              },
+              {
+                name: 'color',
+                type: 'string',
+                description: 'Cor da borda esquerda',
+              },
             ]}
           />
 
           <Text style={styles.groupTitle}>Avatar Props</Text>
           <PropsTable
             props={[
-              { name: 'name', type: 'string', required: true, description: 'Nome para gerar iniciais' },
-              { name: 'imageUrl', type: 'string | null', description: 'URL da foto (opcional)' },
-              { name: 'size', type: "'sm' | 'md' | 'lg' | 'xl'", default: "'md'", description: 'Tamanho do avatar' },
-              { name: 'backgroundColor', type: 'string', description: 'Cor de fundo customizada' },
+              {
+                name: 'name',
+                type: 'string',
+                required: true,
+                description: 'Nome para gerar iniciais',
+              },
+              {
+                name: 'imageUrl',
+                type: 'string | null',
+                description: 'URL da foto (opcional)',
+              },
+              {
+                name: 'size',
+                type: "'sm' | 'md' | 'lg' | 'xl'",
+                default: "'md'",
+                description: 'Tamanho do avatar',
+              },
+              {
+                name: 'backgroundColor',
+                type: 'string',
+                description: 'Cor de fundo customizada',
+              },
             ]}
           />
 
@@ -2206,28 +2557,42 @@ const themeName = UnistylesRuntime.themeName;`}
 
           <Text style={styles.groupTitle}>StatusBadge (Customizável)</Text>
           <View style={styles.componentRow}>
-            <StatusBadge label="Ativo" color={theme.colors.success} variant="soft" />
-            <StatusBadge label="Pausado" color={theme.colors.warning} variant="soft" />
-            <StatusBadge label="Inativo" color={theme.colors.error} variant="solid" />
+            <StatusBadge
+              label="Ativo"
+              color={theme.colors.success}
+              variant="soft"
+            />
+            <StatusBadge
+              label="Pausado"
+              color={theme.colors.warning}
+              variant="soft"
+            />
+            <StatusBadge
+              label="Inativo"
+              color={theme.colors.error}
+              variant="solid"
+            />
             <StatusBadge label="Info" color={theme.colors.info} size="sm" />
           </View>
 
           <Text style={styles.groupTitle}>FilterChip</Text>
           <View style={styles.componentRow}>
-            {['Todas', 'Pendentes', 'Em andamento', 'Concluídas'].map((filter) => (
-              <FilterChip
-                key={filter}
-                label={filter}
-                selected={selectedFilters.includes(filter)}
-                onPress={() => {
-                  setSelectedFilters((prev) =>
-                    prev.includes(filter)
-                      ? prev.filter((f) => f !== filter)
-                      : [...prev, filter]
-                  );
-                }}
-              />
-            ))}
+            {['Todas', 'Pendentes', 'Em andamento', 'Concluídas'].map(
+              (filter) => (
+                <FilterChip
+                  key={filter}
+                  label={filter}
+                  selected={selectedFilters.includes(filter)}
+                  onPress={() => {
+                    setSelectedFilters((prev) =>
+                      prev.includes(filter)
+                        ? prev.filter((f) => f !== filter)
+                        : [...prev, filter],
+                    );
+                  }}
+                />
+              ),
+            )}
           </View>
 
           <Text style={styles.groupTitle}>Icon</Text>
@@ -2240,33 +2605,93 @@ const themeName = UnistylesRuntime.themeName;`}
           </View>
 
           <Text style={styles.groupTitle}>Badge vs StatusBadge</Text>
-          <Text style={{ fontSize: 13, color: theme.colors.gray600, marginBottom: theme.spacing.sm }}>
-            <Text style={{ fontWeight: 'bold' }}>Badge:</Text> Status predefinidos de rotas (pendente, em_andamento, concluida, cancelada).
-            Cores automáticas baseadas no status.{'\n\n'}
-            <Text style={{ fontWeight: 'bold' }}>StatusBadge:</Text> Badge genérico para qualquer uso.
-            Requer label e cor manuais. Use para status customizados ou não relacionados a rotas.
+          <Text
+            style={{
+              fontSize: 13,
+              color: theme.colors.gray600,
+              marginBottom: theme.spacing.sm,
+            }}
+          >
+            <Text style={{ fontWeight: 'bold' }}>Badge:</Text> Status
+            predefinidos de rotas (pendente, em_andamento, concluida,
+            cancelada). Cores automáticas baseadas no status.{'\n\n'}
+            <Text style={{ fontWeight: 'bold' }}>StatusBadge:</Text> Badge
+            genérico para qualquer uso. Requer label e cor manuais. Use para
+            status customizados ou não relacionados a rotas.
           </Text>
 
           <Text style={styles.groupTitle}>Badge Props</Text>
           <PropsTable
             props={[
-              { name: 'status', type: "'pendente' | 'em_andamento' | 'concluida' | 'cancelada'", required: true, description: 'Status da rota (define cor automaticamente)' },
-              { name: 'label', type: 'string', description: 'Texto customizado (padrão: label do status)' },
-              { name: 'size', type: "'small' | 'medium' | 'large'", default: "'medium'", description: 'Tamanho do badge' },
-              { name: 'variant', type: "'filled' | 'outlined'", default: "'filled'", description: 'Estilo visual' },
-              { name: 'style', type: 'ViewStyle', description: 'Estilos customizados' },
+              {
+                name: 'status',
+                type: "'pendente' | 'em_andamento' | 'concluida' | 'cancelada'",
+                required: true,
+                description: 'Status da rota (define cor automaticamente)',
+              },
+              {
+                name: 'label',
+                type: 'string',
+                description: 'Texto customizado (padrão: label do status)',
+              },
+              {
+                name: 'size',
+                type: "'small' | 'medium' | 'large'",
+                default: "'medium'",
+                description: 'Tamanho do badge',
+              },
+              {
+                name: 'variant',
+                type: "'filled' | 'outlined'",
+                default: "'filled'",
+                description: 'Estilo visual',
+              },
+              {
+                name: 'style',
+                type: 'ViewStyle',
+                description: 'Estilos customizados',
+              },
             ]}
           />
 
           <Text style={styles.groupTitle}>StatusBadge Props</Text>
           <PropsTable
             props={[
-              { name: 'label', type: 'string', required: true, description: 'Texto do badge' },
-              { name: 'color', type: 'string', required: true, description: 'Cor do badge (theme.colors.*)' },
-              { name: 'variant', type: "'soft' | 'solid'", default: "'soft'", description: 'Estilo: soft (fundo claro) ou solid (fundo sólido)' },
-              { name: 'size', type: "'sm' | 'md'", default: "'md'", description: 'Tamanho do badge' },
-              { name: 'containerStyle', type: 'ViewStyle', description: 'Estilos do container' },
-              { name: 'labelStyle', type: 'TextStyle', description: 'Estilos do texto' },
+              {
+                name: 'label',
+                type: 'string',
+                required: true,
+                description: 'Texto do badge',
+              },
+              {
+                name: 'color',
+                type: 'string',
+                required: true,
+                description: 'Cor do badge (theme.colors.*)',
+              },
+              {
+                name: 'variant',
+                type: "'soft' | 'solid'",
+                default: "'soft'",
+                description:
+                  'Estilo: soft (fundo claro) ou solid (fundo sólido)',
+              },
+              {
+                name: 'size',
+                type: "'sm' | 'md'",
+                default: "'md'",
+                description: 'Tamanho do badge',
+              },
+              {
+                name: 'containerStyle',
+                type: 'ViewStyle',
+                description: 'Estilos do container',
+              },
+              {
+                name: 'labelStyle',
+                type: 'TextStyle',
+                description: 'Estilos do texto',
+              },
               { name: 'testID', type: 'string', description: 'ID para testes' },
             ]}
           />
@@ -2274,22 +2699,68 @@ const themeName = UnistylesRuntime.themeName;`}
           <Text style={styles.groupTitle}>FilterChip Props</Text>
           <PropsTable
             props={[
-              { name: 'label', type: 'string', required: true, description: 'Texto do filtro' },
-              { name: 'selected', type: 'boolean', default: 'false', description: 'Estado de seleção' },
-              { name: 'size', type: "'regular' | 'compact'", default: "'regular'", description: 'Tamanho do chip' },
-              { name: 'onPress', type: '() => void', description: 'Callback ao tocar' },
-              { name: 'containerStyle', type: 'ViewStyle', description: 'Estilos do container' },
-              { name: 'labelStyle', type: 'TextStyle', description: 'Estilos do texto' },
+              {
+                name: 'label',
+                type: 'string',
+                required: true,
+                description: 'Texto do filtro',
+              },
+              {
+                name: 'selected',
+                type: 'boolean',
+                default: 'false',
+                description: 'Estado de seleção',
+              },
+              {
+                name: 'size',
+                type: "'regular' | 'compact'",
+                default: "'regular'",
+                description: 'Tamanho do chip',
+              },
+              {
+                name: 'onPress',
+                type: '() => void',
+                description: 'Callback ao tocar',
+              },
+              {
+                name: 'containerStyle',
+                type: 'ViewStyle',
+                description: 'Estilos do container',
+              },
+              {
+                name: 'labelStyle',
+                type: 'TextStyle',
+                description: 'Estilos do texto',
+              },
             ]}
           />
 
           <Text style={styles.groupTitle}>Icon Props</Text>
           <PropsTable
             props={[
-              { name: 'name', type: 'IoniconsName', required: true, description: 'Nome do ícone Ionicons' },
-              { name: 'size', type: "'sm' | 'md' | 'lg' | 'xl' | number", default: "'md'", description: 'Tamanho (sm=16, md=20, lg=24, xl=32)' },
-              { name: 'tone', type: "'default' | 'muted' | 'primary' | 'success' | 'warning' | 'error' | 'inverse'", default: "'default'", description: 'Cor semântica' },
-              { name: 'color', type: 'string', description: 'Cor customizada (sobrescreve tone)' },
+              {
+                name: 'name',
+                type: 'IoniconsName',
+                required: true,
+                description: 'Nome do ícone Ionicons',
+              },
+              {
+                name: 'size',
+                type: "'sm' | 'md' | 'lg' | 'xl' | number",
+                default: "'md'",
+                description: 'Tamanho (sm=16, md=20, lg=24, xl=32)',
+              },
+              {
+                name: 'tone',
+                type: "'default' | 'muted' | 'primary' | 'success' | 'warning' | 'error' | 'inverse'",
+                default: "'default'",
+                description: 'Cor semântica',
+              },
+              {
+                name: 'color',
+                type: 'string',
+                description: 'Cor customizada (sobrescreve tone)',
+              },
             ]}
           />
 
@@ -2333,38 +2804,124 @@ const themeName = UnistylesRuntime.themeName;`}
           <Text style={styles.groupTitle}>Modal Props</Text>
           <PropsTable
             props={[
-              { name: 'visible', type: 'boolean', required: true, description: 'Controla visibilidade' },
-              { name: 'onClose', type: '() => void', required: true, description: 'Callback ao fechar' },
+              {
+                name: 'visible',
+                type: 'boolean',
+                required: true,
+                description: 'Controla visibilidade',
+              },
+              {
+                name: 'onClose',
+                type: '() => void',
+                required: true,
+                description: 'Callback ao fechar',
+              },
               { name: 'title', type: 'string', description: 'Título do modal' },
-              { name: 'children', type: 'React.ReactNode', required: true, description: 'Conteúdo do modal' },
-              { name: 'size', type: "'small' | 'medium' | 'large' | 'full'", default: "'medium'", description: 'Tamanho do modal' },
-              { name: 'showCloseButton', type: 'boolean', default: 'true', description: 'Mostrar botão X' },
-              { name: 'animationType', type: "'none' | 'slide' | 'fade'", default: "'fade'", description: 'Animação de entrada' },
-              { name: 'style', type: 'ViewStyle', description: 'Estilos customizados' },
+              {
+                name: 'children',
+                type: 'React.ReactNode',
+                required: true,
+                description: 'Conteúdo do modal',
+              },
+              {
+                name: 'size',
+                type: "'small' | 'medium' | 'large' | 'full'",
+                default: "'medium'",
+                description: 'Tamanho do modal',
+              },
+              {
+                name: 'showCloseButton',
+                type: 'boolean',
+                default: 'true',
+                description: 'Mostrar botão X',
+              },
+              {
+                name: 'animationType',
+                type: "'none' | 'slide' | 'fade'",
+                default: "'fade'",
+                description: 'Animação de entrada',
+              },
+              {
+                name: 'style',
+                type: 'ViewStyle',
+                description: 'Estilos customizados',
+              },
             ]}
           />
 
           <Text style={styles.groupTitle}>DesktopModal Props</Text>
           <PropsTable
             props={[
-              { name: 'visible', type: 'boolean', required: true, description: 'Controla visibilidade' },
-              { name: 'onClose', type: '() => void', required: true, description: 'Callback ao fechar' },
+              {
+                name: 'visible',
+                type: 'boolean',
+                required: true,
+                description: 'Controla visibilidade',
+              },
+              {
+                name: 'onClose',
+                type: '() => void',
+                required: true,
+                description: 'Callback ao fechar',
+              },
               { name: 'title', type: 'string', description: 'Título do modal' },
-              { name: 'children', type: 'React.ReactNode', required: true, description: 'Conteúdo do modal' },
-              { name: 'primaryButton', type: 'ModalButtonConfig', description: 'Botão primário (text, onPress, loading)' },
-              { name: 'secondaryButton', type: 'ModalButtonConfig', description: 'Botão secundário' },
-              { name: 'footer', type: 'React.ReactNode', description: 'Footer customizado (substitui botões)' },
-              { name: 'maxWidth', type: 'number', default: '600', description: 'Largura máxima em desktop' },
-              { name: 'maxHeight', type: 'string', default: "'80%'", description: 'Altura máxima' },
-              { name: 'closeOnOverlayPress', type: 'boolean', default: 'true', description: 'Fechar ao clicar fora' },
-              { name: 'toast', type: 'ToastProps', description: 'Toast interno ao modal' },
+              {
+                name: 'children',
+                type: 'React.ReactNode',
+                required: true,
+                description: 'Conteúdo do modal',
+              },
+              {
+                name: 'primaryButton',
+                type: 'ModalButtonConfig',
+                description: 'Botão primário (text, onPress, loading)',
+              },
+              {
+                name: 'secondaryButton',
+                type: 'ModalButtonConfig',
+                description: 'Botão secundário',
+              },
+              {
+                name: 'footer',
+                type: 'React.ReactNode',
+                description: 'Footer customizado (substitui botões)',
+              },
+              {
+                name: 'maxWidth',
+                type: 'number',
+                default: '600',
+                description: 'Largura máxima em desktop',
+              },
+              {
+                name: 'maxHeight',
+                type: 'string',
+                default: "'80%'",
+                description: 'Altura máxima',
+              },
+              {
+                name: 'closeOnOverlayPress',
+                type: 'boolean',
+                default: 'true',
+                description: 'Fechar ao clicar fora',
+              },
+              {
+                name: 'toast',
+                type: 'ToastProps',
+                description: 'Toast interno ao modal',
+              },
             ]}
           />
 
           <Text style={styles.groupTitle}>Diálogos de Alerta</Text>
-          <Text style={{ fontSize: 13, color: theme.colors.gray600, marginBottom: theme.spacing.sm }}>
-            Diálogos simples para alertas (um botão) e confirmações (dois botões).
-            Usam HTML5 dialog no web para focus trap nativo.
+          <Text
+            style={{
+              fontSize: 13,
+              color: theme.colors.gray600,
+              marginBottom: theme.spacing.sm,
+            }}
+          >
+            Diálogos simples para alertas (um botão) e confirmações (dois
+            botões). Usam HTML5 dialog no web para focus trap nativo.
           </Text>
           <View style={styles.componentRow}>
             <Button
@@ -2382,22 +2939,78 @@ const themeName = UnistylesRuntime.themeName;`}
           <Text style={styles.groupTitle}>Dialog Props (Unificado)</Text>
           <PropsTable
             props={[
-              { name: 'visible', type: 'boolean', required: true, description: 'Controla visibilidade do diálogo' },
-              { name: 'variant', type: "'alert' | 'confirm'", default: "'alert'", description: 'Alert (só OK) ou Confirm (OK + Cancelar)' },
-              { name: 'title', type: 'string', required: true, description: 'Título do diálogo' },
-              { name: 'message', type: 'string', required: true, description: 'Mensagem do diálogo' },
-              { name: 'type', type: "'default' | 'error' | 'success' | 'warning' | 'danger' | 'info'", default: "'default'", description: 'Tipo visual (ícone e cor)' },
-              { name: 'confirmText', type: 'string', default: "'OK' ou 'Confirmar'", description: 'Texto do botão de confirmação' },
-              { name: 'cancelText', type: 'string', default: "'Cancelar'", description: 'Texto do botão cancelar (variant=confirm)' },
-              { name: 'onConfirm', type: '() => void', required: true, description: 'Callback ao confirmar' },
-              { name: 'onCancel', type: '() => void', description: 'Callback ao cancelar (variant=confirm)' },
-              { name: 'loading', type: 'boolean', default: 'false', description: 'Exibe spinner no botão confirmar' },
+              {
+                name: 'visible',
+                type: 'boolean',
+                required: true,
+                description: 'Controla visibilidade do diálogo',
+              },
+              {
+                name: 'variant',
+                type: "'alert' | 'confirm'",
+                default: "'alert'",
+                description: 'Alert (só OK) ou Confirm (OK + Cancelar)',
+              },
+              {
+                name: 'title',
+                type: 'string',
+                required: true,
+                description: 'Título do diálogo',
+              },
+              {
+                name: 'message',
+                type: 'string',
+                required: true,
+                description: 'Mensagem do diálogo',
+              },
+              {
+                name: 'type',
+                type: "'default' | 'error' | 'success' | 'warning' | 'danger' | 'info'",
+                default: "'default'",
+                description: 'Tipo visual (ícone e cor)',
+              },
+              {
+                name: 'confirmText',
+                type: 'string',
+                default: "'OK' ou 'Confirmar'",
+                description: 'Texto do botão de confirmação',
+              },
+              {
+                name: 'cancelText',
+                type: 'string',
+                default: "'Cancelar'",
+                description: 'Texto do botão cancelar (variant=confirm)',
+              },
+              {
+                name: 'onConfirm',
+                type: '() => void',
+                required: true,
+                description: 'Callback ao confirmar',
+              },
+              {
+                name: 'onCancel',
+                type: '() => void',
+                description: 'Callback ao cancelar (variant=confirm)',
+              },
+              {
+                name: 'loading',
+                type: 'boolean',
+                default: 'false',
+                description: 'Exibe spinner no botão confirmar',
+              },
             ]}
           />
 
           <Text style={styles.groupTitle}>Dialog Destructive</Text>
-          <Text style={{ fontSize: 13, color: theme.colors.gray600, marginBottom: theme.spacing.sm }}>
-            Dialog com variant="destructive" para ações perigosas que requerem confirmação por digitação.
+          <Text
+            style={{
+              fontSize: 13,
+              color: theme.colors.gray600,
+              marginBottom: theme.spacing.sm,
+            }}
+          >
+            Dialog com variant="destructive" para ações perigosas que requerem
+            confirmação por digitação.
           </Text>
           <View style={styles.componentRow}>
             <Button
@@ -2409,14 +3022,35 @@ const themeName = UnistylesRuntime.themeName;`}
 
           <PropsTable
             props={[
-              { name: 'variant', type: "'destructive'", required: true, description: 'Variante destrutiva' },
-              { name: 'destructiveConfirmText', type: 'string', required: true, description: 'Texto que o usuário deve digitar para confirmar' },
-              { name: 'type', type: "'danger' | 'warning'", default: "'danger'", description: 'Tipo visual com ícone' },
+              {
+                name: 'variant',
+                type: "'destructive'",
+                required: true,
+                description: 'Variante destrutiva',
+              },
+              {
+                name: 'destructiveConfirmText',
+                type: 'string',
+                required: true,
+                description: 'Texto que o usuário deve digitar para confirmar',
+              },
+              {
+                name: 'type',
+                type: "'danger' | 'warning'",
+                default: "'danger'",
+                description: 'Tipo visual com ícone',
+              },
             ]}
           />
 
           <Text style={styles.groupTitle}>SupportModal</Text>
-          <Text style={{ fontSize: 13, color: theme.colors.gray600, marginBottom: theme.spacing.sm }}>
+          <Text
+            style={{
+              fontSize: 13,
+              color: theme.colors.gray600,
+              marginBottom: theme.spacing.sm,
+            }}
+          >
             Modal de suporte com opções de contato (WhatsApp, Telefone, Email).
           </Text>
           <View style={styles.componentRow}>
@@ -2430,8 +3064,18 @@ const themeName = UnistylesRuntime.themeName;`}
 
           <PropsTable
             props={[
-              { name: 'visible', type: 'boolean', required: true, description: 'Controla visibilidade' },
-              { name: 'onClose', type: '() => void', required: true, description: 'Callback ao fechar' },
+              {
+                name: 'visible',
+                type: 'boolean',
+                required: true,
+                description: 'Controla visibilidade',
+              },
+              {
+                name: 'onClose',
+                type: '() => void',
+                required: true,
+                description: 'Callback ao fechar',
+              },
             ]}
           />
 
@@ -2540,47 +3184,137 @@ const themeName = UnistylesRuntime.themeName;`}
           <Text style={styles.groupTitle}>Progress Props</Text>
           <PropsTable
             props={[
-              { name: 'progress', type: 'number', required: true, description: 'Valor 0-1 (ex: 0.5 = 50%)' },
-              { name: 'label', type: 'string', description: 'Texto acima da barra' },
-              { name: 'showPercentage', type: 'boolean', default: 'true', description: 'Mostra porcentagem à direita' },
-              { name: 'size', type: "'small' | 'medium' | 'large'", default: "'medium'", description: 'Altura da barra (6/8/12px)' },
-              { name: 'color', type: "'primary' | 'success' | 'warning' | 'error'", default: "'primary'", description: 'Cor da barra' },
-              { name: 'animated', type: 'boolean', default: 'true', description: 'Animação ao mudar valor' },
-              { name: 'style', type: 'ViewStyle', description: 'Estilos customizados' },
+              {
+                name: 'progress',
+                type: 'number',
+                required: true,
+                description: 'Valor 0-1 (ex: 0.5 = 50%)',
+              },
+              {
+                name: 'label',
+                type: 'string',
+                description: 'Texto acima da barra',
+              },
+              {
+                name: 'showPercentage',
+                type: 'boolean',
+                default: 'true',
+                description: 'Mostra porcentagem à direita',
+              },
+              {
+                name: 'size',
+                type: "'small' | 'medium' | 'large'",
+                default: "'medium'",
+                description: 'Altura da barra (6/8/12px)',
+              },
+              {
+                name: 'color',
+                type: "'primary' | 'success' | 'warning' | 'error'",
+                default: "'primary'",
+                description: 'Cor da barra',
+              },
+              {
+                name: 'animated',
+                type: 'boolean',
+                default: 'true',
+                description: 'Animação ao mudar valor',
+              },
+              {
+                name: 'style',
+                type: 'ViewStyle',
+                description: 'Estilos customizados',
+              },
             ]}
           />
 
           <Text style={styles.groupTitle}>Toast Props</Text>
           <PropsTable
             props={[
-              { name: 'visible', type: 'boolean', required: true, description: 'Controla visibilidade' },
-              { name: 'type', type: "'success' | 'error' | 'loading' | 'info'", required: true, description: 'Tipo do toast (define ícone e cor)' },
-              { name: 'message', type: 'string', required: true, description: 'Mensagem exibida' },
-              { name: 'onHide', type: '() => void', required: true, description: 'Callback quando toast fecha' },
-              { name: 'duration', type: 'number', default: '3000', description: 'Duração em ms (0 = infinito)' },
+              {
+                name: 'visible',
+                type: 'boolean',
+                required: true,
+                description: 'Controla visibilidade',
+              },
+              {
+                name: 'type',
+                type: "'success' | 'error' | 'loading' | 'info'",
+                required: true,
+                description: 'Tipo do toast (define ícone e cor)',
+              },
+              {
+                name: 'message',
+                type: 'string',
+                required: true,
+                description: 'Mensagem exibida',
+              },
+              {
+                name: 'onHide',
+                type: '() => void',
+                required: true,
+                description: 'Callback quando toast fecha',
+              },
+              {
+                name: 'duration',
+                type: 'number',
+                default: '3000',
+                description: 'Duração em ms (0 = infinito)',
+              },
             ]}
           />
 
           <Text style={styles.groupTitle}>Skeleton Loader</Text>
-          <Text style={{ fontSize: 13, color: theme.colors.gray600, marginBottom: theme.spacing.sm }}>
-            Componentes de carregamento com animação shimmer para indicar conteúdo sendo carregado.
+          <Text
+            style={{
+              fontSize: 13,
+              color: theme.colors.gray600,
+              marginBottom: theme.spacing.sm,
+            }}
+          >
+            Componentes de carregamento com animação shimmer para indicar
+            conteúdo sendo carregado.
           </Text>
 
-          <Text style={{ fontSize: 12, fontFamily: theme.typography.fontSansSemiBold, color: theme.colors.gray700, marginTop: theme.spacing.md, marginBottom: theme.spacing.sm }}>
+          <Text
+            style={{
+              fontSize: 12,
+              fontFamily: theme.typography.fontSansSemiBold,
+              color: theme.colors.gray700,
+              marginTop: theme.spacing.md,
+              marginBottom: theme.spacing.sm,
+            }}
+          >
             Skeleton (Base)
           </Text>
-          <View style={{ gap: theme.spacing.sm, marginBottom: theme.spacing.md }}>
+          <View
+            style={{ gap: theme.spacing.sm, marginBottom: theme.spacing.md }}
+          >
             <Skeleton width="100%" height={16} />
             <Skeleton width="80%" height={16} />
             <Skeleton width="60%" height={16} />
           </View>
 
-          <Text style={{ fontSize: 12, fontFamily: theme.typography.fontSansSemiBold, color: theme.colors.gray700, marginBottom: theme.spacing.sm }}>
+          <Text
+            style={{
+              fontSize: 12,
+              fontFamily: theme.typography.fontSansSemiBold,
+              color: theme.colors.gray700,
+              marginBottom: theme.spacing.sm,
+            }}
+          >
             SkeletonCard
           </Text>
           <SkeletonCard />
 
-          <Text style={{ fontSize: 12, fontFamily: theme.typography.fontSansSemiBold, color: theme.colors.gray700, marginTop: theme.spacing.md, marginBottom: theme.spacing.sm }}>
+          <Text
+            style={{
+              fontSize: 12,
+              fontFamily: theme.typography.fontSansSemiBold,
+              color: theme.colors.gray700,
+              marginTop: theme.spacing.md,
+              marginBottom: theme.spacing.sm,
+            }}
+          >
             SkeletonList
           </Text>
           <SkeletonList count={3} />
@@ -2588,22 +3322,53 @@ const themeName = UnistylesRuntime.themeName;`}
           <Text style={styles.groupTitle}>Skeleton Props</Text>
           <PropsTable
             props={[
-              { name: 'width', type: 'number | string', default: "'100%'", description: 'Largura do skeleton' },
-              { name: 'height', type: 'number', default: '20', description: 'Altura do skeleton' },
-              { name: 'borderRadius', type: 'number', default: '4', description: 'Raio da borda' },
-              { name: 'style', type: 'ViewStyle', description: 'Estilos customizados' },
+              {
+                name: 'width',
+                type: 'number | string',
+                default: "'100%'",
+                description: 'Largura do skeleton',
+              },
+              {
+                name: 'height',
+                type: 'number',
+                default: '20',
+                description: 'Altura do skeleton',
+              },
+              {
+                name: 'borderRadius',
+                type: 'number',
+                default: '4',
+                description: 'Raio da borda',
+              },
+              {
+                name: 'style',
+                type: 'ViewStyle',
+                description: 'Estilos customizados',
+              },
             ]}
           />
 
           <Text style={styles.groupTitle}>SkeletonCard</Text>
-          <Text style={{ fontSize: 13, color: theme.colors.gray600, marginBottom: theme.spacing.sm }}>
-            Skeleton pré-configurado para cards com avatar e linhas de texto. Não aceita props.
+          <Text
+            style={{
+              fontSize: 13,
+              color: theme.colors.gray600,
+              marginBottom: theme.spacing.sm,
+            }}
+          >
+            Skeleton pré-configurado para cards com avatar e linhas de texto.
+            Não aceita props.
           </Text>
 
           <Text style={styles.groupTitle}>SkeletonList Props</Text>
           <PropsTable
             props={[
-              { name: 'count', type: 'number', default: '3', description: 'Quantidade de itens (máx: 7 para performance)' },
+              {
+                name: 'count',
+                type: 'number',
+                default: '3',
+                description: 'Quantidade de itens (máx: 7 para performance)',
+              },
             ]}
           />
 
@@ -2618,12 +3383,38 @@ const themeName = UnistylesRuntime.themeName;`}
           <Text style={styles.groupTitle}>EmptyState Props</Text>
           <PropsTable
             props={[
-              { name: 'title', type: 'string', required: true, description: 'Título principal' },
-              { name: 'description', type: 'string', description: 'Descrição secundária' },
-              { name: 'icon', type: 'IoniconsName', default: "'file-tray-outline'", description: 'Ícone exibido' },
-              { name: 'actionLabel', type: 'string', description: 'Texto do botão de ação' },
-              { name: 'onActionPress', type: '() => void', description: 'Callback do botão' },
-              { name: 'style', type: 'ViewStyle', description: 'Estilos customizados' },
+              {
+                name: 'title',
+                type: 'string',
+                required: true,
+                description: 'Título principal',
+              },
+              {
+                name: 'description',
+                type: 'string',
+                description: 'Descrição secundária',
+              },
+              {
+                name: 'icon',
+                type: 'IoniconsName',
+                default: "'file-tray-outline'",
+                description: 'Ícone exibido',
+              },
+              {
+                name: 'actionLabel',
+                type: 'string',
+                description: 'Texto do botão de ação',
+              },
+              {
+                name: 'onActionPress',
+                type: '() => void',
+                description: 'Callback do botão',
+              },
+              {
+                name: 'style',
+                type: 'ViewStyle',
+                description: 'Estilos customizados',
+              },
             ]}
           />
 
@@ -2661,7 +3452,10 @@ const themeName = UnistylesRuntime.themeName;`}
         {/* ========================================
             SEÇÃO: NAVEGAÇÃO
         ======================================== */}
-        <View style={styles.section} onLayout={handleSectionLayout('navegacao-comp')}>
+        <View
+          style={styles.section}
+          onLayout={handleSectionLayout('navegacao-comp')}
+        >
           <SectionHeader
             id="navegacao-comp"
             title="Navegação"
@@ -2686,19 +3480,50 @@ const themeName = UnistylesRuntime.themeName;`}
               title="Próximo"
               size="small"
               disabled={currentStep === wizardSteps.length - 1}
-              onPress={() => setCurrentStep((s) => Math.min(wizardSteps.length - 1, s + 1))}
+              onPress={() =>
+                setCurrentStep((s) => Math.min(wizardSteps.length - 1, s + 1))
+              }
             />
           </View>
 
           <Text style={styles.groupTitle}>StepIndicator Props</Text>
           <PropsTable
             props={[
-              { name: 'steps', type: 'Step[]', required: true, description: 'Array de passos ({id, title})' },
-              { name: 'currentStep', type: 'number', required: true, description: 'Índice do passo atual (0-based)' },
-              { name: 'showTitles', type: 'boolean', default: 'false', description: 'Mostrar títulos abaixo dos círculos' },
-              { name: 'circleSize', type: 'number', default: '30', description: 'Tamanho do círculo' },
-              { name: 'lineHeight', type: 'number', default: '2', description: 'Espessura da linha conectora' },
-              { name: 'accessibilityLabel', type: 'string', description: 'Label para leitores de tela' },
+              {
+                name: 'steps',
+                type: 'Step[]',
+                required: true,
+                description: 'Array de passos ({id, title})',
+              },
+              {
+                name: 'currentStep',
+                type: 'number',
+                required: true,
+                description: 'Índice do passo atual (0-based)',
+              },
+              {
+                name: 'showTitles',
+                type: 'boolean',
+                default: 'false',
+                description: 'Mostrar títulos abaixo dos círculos',
+              },
+              {
+                name: 'circleSize',
+                type: 'number',
+                default: '30',
+                description: 'Tamanho do círculo',
+              },
+              {
+                name: 'lineHeight',
+                type: 'number',
+                default: '2',
+                description: 'Espessura da linha conectora',
+              },
+              {
+                name: 'accessibilityLabel',
+                type: 'string',
+                description: 'Label para leitores de tela',
+              },
             ]}
           />
 
@@ -2754,17 +3579,68 @@ const steps: Step[] = [
           <Text style={styles.groupTitle}>DataTable Props</Text>
           <PropsTable
             props={[
-              { name: 'data', type: 'T[]', required: true, description: 'Array de dados a exibir' },
-              { name: 'columns', type: 'DataTableColumn<T>[]', required: true, description: 'Definição das colunas (key, label, render, width, sortable, align)' },
-              { name: 'actions', type: 'DataTableAction<T>[]', description: 'Ações por linha (label, icon, onPress, type)' },
-              { name: 'keyExtractor', type: '(item: T) => string', required: true, description: 'Função para obter key única' },
-              { name: 'title', type: 'string', description: 'Título da tabela' },
-              { name: 'itemsPerPage', type: 'number', default: '10', description: 'Itens por página' },
-              { name: 'pagination', type: 'boolean', default: 'true', description: 'Mostrar paginação' },
-              { name: 'emptyState', type: 'React.ReactNode', description: 'Estado vazio customizado' },
-              { name: 'onSort', type: '(column, direction) => void', description: 'Callback de ordenação' },
-              { name: 'isLoading', type: 'boolean', description: 'Estado de carregamento (skeleton)' },
-              { name: 'skeletonRows', type: 'number', default: '5', description: 'Linhas de skeleton' },
+              {
+                name: 'data',
+                type: 'T[]',
+                required: true,
+                description: 'Array de dados a exibir',
+              },
+              {
+                name: 'columns',
+                type: 'DataTableColumn<T>[]',
+                required: true,
+                description:
+                  'Definição das colunas (key, label, render, width, sortable, align)',
+              },
+              {
+                name: 'actions',
+                type: 'DataTableAction<T>[]',
+                description: 'Ações por linha (label, icon, onPress, type)',
+              },
+              {
+                name: 'keyExtractor',
+                type: '(item: T) => string',
+                required: true,
+                description: 'Função para obter key única',
+              },
+              {
+                name: 'title',
+                type: 'string',
+                description: 'Título da tabela',
+              },
+              {
+                name: 'itemsPerPage',
+                type: 'number',
+                default: '10',
+                description: 'Itens por página',
+              },
+              {
+                name: 'pagination',
+                type: 'boolean',
+                default: 'true',
+                description: 'Mostrar paginação',
+              },
+              {
+                name: 'emptyState',
+                type: 'React.ReactNode',
+                description: 'Estado vazio customizado',
+              },
+              {
+                name: 'onSort',
+                type: '(column, direction) => void',
+                description: 'Callback de ordenação',
+              },
+              {
+                name: 'isLoading',
+                type: 'boolean',
+                description: 'Estado de carregamento (skeleton)',
+              },
+              {
+                name: 'skeletonRows',
+                type: 'number',
+                default: '5',
+                description: 'Linhas de skeleton',
+              },
             ]}
           />
 
@@ -2797,7 +3673,8 @@ const columns: DataTableColumn[] = [
 
           <Text style={styles.groupTitle}>DesktopCard</Text>
           <Text style={styles.description}>
-            Cards com variantes para diferentes contextos (default, outlined, elevated).
+            Cards com variantes para diferentes contextos (default, outlined,
+            elevated).
           </Text>
           <DesktopCardGrid columns={3}>
             <DesktopCard title="Card Default" variant="default">
@@ -2819,20 +3696,52 @@ const columns: DataTableColumn[] = [
 
           <Text style={styles.groupTitle}>SplitView</Text>
           <Text style={styles.description}>
-            Layout de duas colunas para telas tipo mapa + lista ou detalhes + formulário.
+            Layout de duas colunas para telas tipo mapa + lista ou detalhes +
+            formulário.
           </Text>
-          <View style={{ height: 200, borderRadius: theme.borderRadius.md, overflow: 'hidden' }}>
+          <View
+            style={{
+              height: 200,
+              borderRadius: theme.borderRadius.md,
+              overflow: 'hidden',
+            }}
+          >
             <SplitView
               left={
-                <View style={{ flex: 1, backgroundColor: theme.colors.primaryBg, justifyContent: 'center', alignItems: 'center' }}>
+                <View
+                  style={{
+                    flex: 1,
+                    backgroundColor: theme.colors.primaryBg,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                >
                   <Icon name="map" size={32} tone="primary" />
-                  <Text style={{ color: theme.colors.primary, marginTop: 8 }}>Área do Mapa</Text>
+                  <Text style={{ color: theme.colors.primary, marginTop: 8 }}>
+                    Área do Mapa
+                  </Text>
                 </View>
               }
               right={
-                <View style={{ flex: 1, backgroundColor: theme.colors.gray50, padding: 16 }}>
-                  <Text style={{ fontWeight: '600', color: theme.colors.gray800 }}>Lista de Itens</Text>
-                  <Text style={{ color: theme.colors.gray600, marginTop: 4, fontSize: 13 }}>
+                <View
+                  style={{
+                    flex: 1,
+                    backgroundColor: theme.colors.gray50,
+                    padding: 16,
+                  }}
+                >
+                  <Text
+                    style={{ fontWeight: '600', color: theme.colors.gray800 }}
+                  >
+                    Lista de Itens
+                  </Text>
+                  <Text
+                    style={{
+                      color: theme.colors.gray600,
+                      marginTop: 4,
+                      fontSize: 13,
+                    }}
+                  >
                     Conteúdo da coluna direita
                   </Text>
                 </View>
@@ -2844,7 +3753,8 @@ const columns: DataTableColumn[] = [
 
           <Text style={styles.groupTitle}>DesktopModal</Text>
           <Text style={styles.description}>
-            Modal responsivo que adapta entre dialog (web) e bottom sheet (mobile).
+            Modal responsivo que adapta entre dialog (web) e bottom sheet
+            (mobile).
           </Text>
           <View style={styles.componentRow}>
             <Button
@@ -2856,10 +3766,20 @@ const columns: DataTableColumn[] = [
 
           <Text style={styles.groupTitle}>DesktopLayout</Text>
           <Text style={styles.description}>
-            Wrapper com padding responsivo e max-width para conteúdo centralizado.
+            Wrapper com padding responsivo e max-width para conteúdo
+            centralizado.
           </Text>
-          <View style={{ borderWidth: 1, borderColor: theme.colors.gray200, borderRadius: theme.borderRadius.md, overflow: 'hidden' }}>
-            <DesktopLayout style={{ backgroundColor: theme.colors.gray50, minHeight: 80 }}>
+          <View
+            style={{
+              borderWidth: 1,
+              borderColor: theme.colors.gray200,
+              borderRadius: theme.borderRadius.md,
+              overflow: 'hidden',
+            }}
+          >
+            <DesktopLayout
+              style={{ backgroundColor: theme.colors.gray50, minHeight: 80 }}
+            >
               <Text style={{ color: theme.colors.gray700 }}>
                 Conteúdo dentro do DesktopLayout (padding automático)
               </Text>
@@ -2869,95 +3789,297 @@ const columns: DataTableColumn[] = [
           <Text style={styles.groupTitle}>DesktopCard Props</Text>
           <PropsTable
             props={[
-              { name: 'children', type: 'React.ReactNode', required: true, description: 'Conteúdo do card' },
+              {
+                name: 'children',
+                type: 'React.ReactNode',
+                required: true,
+                description: 'Conteúdo do card',
+              },
               { name: 'title', type: 'string', description: 'Título do card' },
               { name: 'subtitle', type: 'string', description: 'Subtítulo' },
-              { name: 'icon', type: 'IoniconsName', description: 'Ícone no header' },
-              { name: 'iconColor', type: 'string', description: 'Cor do ícone' },
-              { name: 'actions', type: 'React.ReactNode', description: 'Ações no header' },
-              { name: 'variant', type: "'default' | 'outlined' | 'elevated'", default: "'default'", description: 'Estilo visual' },
-              { name: 'noPadding', type: 'boolean', default: 'false', description: 'Remover padding interno' },
-              { name: 'onPress', type: '() => void', description: 'Torna o card clicável' },
-              { name: 'style', type: 'ViewStyle', description: 'Estilos customizados' },
+              {
+                name: 'icon',
+                type: 'IoniconsName',
+                description: 'Ícone no header',
+              },
+              {
+                name: 'iconColor',
+                type: 'string',
+                description: 'Cor do ícone',
+              },
+              {
+                name: 'actions',
+                type: 'React.ReactNode',
+                description: 'Ações no header',
+              },
+              {
+                name: 'variant',
+                type: "'default' | 'outlined' | 'elevated'",
+                default: "'default'",
+                description: 'Estilo visual',
+              },
+              {
+                name: 'noPadding',
+                type: 'boolean',
+                default: 'false',
+                description: 'Remover padding interno',
+              },
+              {
+                name: 'onPress',
+                type: '() => void',
+                description: 'Torna o card clicável',
+              },
+              {
+                name: 'style',
+                type: 'ViewStyle',
+                description: 'Estilos customizados',
+              },
             ]}
           />
 
           <Text style={styles.groupTitle}>DesktopCardGrid Props</Text>
           <PropsTable
             props={[
-              { name: 'children', type: 'React.ReactNode', required: true, description: 'DesktopCards filhos' },
-              { name: 'columns', type: 'number', default: '3', description: 'Número de colunas' },
-              { name: 'gap', type: 'number', default: '16', description: 'Espaçamento entre cards' },
+              {
+                name: 'children',
+                type: 'React.ReactNode',
+                required: true,
+                description: 'DesktopCards filhos',
+              },
+              {
+                name: 'columns',
+                type: 'number',
+                default: '3',
+                description: 'Número de colunas',
+              },
+              {
+                name: 'gap',
+                type: 'number',
+                default: '16',
+                description: 'Espaçamento entre cards',
+              },
             ]}
           />
 
           <Text style={styles.groupTitle}>SplitView Props</Text>
           <PropsTable
             props={[
-              { name: 'left', type: 'React.ReactNode', required: true, description: 'Painel esquerdo/superior' },
-              { name: 'right', type: 'React.ReactNode', required: true, description: 'Painel direito/inferior' },
-              { name: 'leftFlex', type: 'number', default: '1', description: 'Proporção flex do painel esquerdo' },
-              { name: 'rightFlex', type: 'number', default: '1', description: 'Proporção flex do painel direito' },
-              { name: 'gap', type: 'number', default: '16', description: 'Espaçamento entre painéis' },
-              { name: 'leftMinWidth', type: 'number', default: '300', description: 'Largura mínima do painel esquerdo' },
-              { name: 'rightMinWidth', type: 'number', default: '300', description: 'Largura mínima do painel direito' },
-              { name: 'scrollable', type: 'boolean', default: 'false', description: 'Permitir scroll nos painéis' },
-              { name: 'reverseMobile', type: 'boolean', default: 'false', description: 'Inverter ordem no mobile' },
+              {
+                name: 'left',
+                type: 'React.ReactNode',
+                required: true,
+                description: 'Painel esquerdo/superior',
+              },
+              {
+                name: 'right',
+                type: 'React.ReactNode',
+                required: true,
+                description: 'Painel direito/inferior',
+              },
+              {
+                name: 'leftFlex',
+                type: 'number',
+                default: '1',
+                description: 'Proporção flex do painel esquerdo',
+              },
+              {
+                name: 'rightFlex',
+                type: 'number',
+                default: '1',
+                description: 'Proporção flex do painel direito',
+              },
+              {
+                name: 'gap',
+                type: 'number',
+                default: '16',
+                description: 'Espaçamento entre painéis',
+              },
+              {
+                name: 'leftMinWidth',
+                type: 'number',
+                default: '300',
+                description: 'Largura mínima do painel esquerdo',
+              },
+              {
+                name: 'rightMinWidth',
+                type: 'number',
+                default: '300',
+                description: 'Largura mínima do painel direito',
+              },
+              {
+                name: 'scrollable',
+                type: 'boolean',
+                default: 'false',
+                description: 'Permitir scroll nos painéis',
+              },
+              {
+                name: 'reverseMobile',
+                type: 'boolean',
+                default: 'false',
+                description: 'Inverter ordem no mobile',
+              },
             ]}
           />
 
           <Text style={styles.groupTitle}>DesktopLayout Props</Text>
           <PropsTable
             props={[
-              { name: 'children', type: 'React.ReactNode', required: true, description: 'Conteúdo' },
-              { name: 'scrollable', type: 'boolean', default: 'false', description: 'Permitir scroll vertical' },
-              { name: 'maxWidth', type: 'number', default: '1280', description: 'Largura máxima' },
-              { name: 'backgroundColor', type: 'string', description: 'Cor de fundo' },
-              { name: 'style', type: 'ViewStyle', description: 'Estilos do container' },
-              { name: 'contentStyle', type: 'ViewStyle', description: 'Estilos do content wrapper' },
+              {
+                name: 'children',
+                type: 'React.ReactNode',
+                required: true,
+                description: 'Conteúdo',
+              },
+              {
+                name: 'scrollable',
+                type: 'boolean',
+                default: 'false',
+                description: 'Permitir scroll vertical',
+              },
+              {
+                name: 'maxWidth',
+                type: 'number',
+                default: '1280',
+                description: 'Largura máxima',
+              },
+              {
+                name: 'backgroundColor',
+                type: 'string',
+                description: 'Cor de fundo',
+              },
+              {
+                name: 'style',
+                type: 'ViewStyle',
+                description: 'Estilos do container',
+              },
+              {
+                name: 'contentStyle',
+                type: 'ViewStyle',
+                description: 'Estilos do content wrapper',
+              },
             ]}
           />
 
           <Text style={styles.groupTitle}>DesktopPageLayout</Text>
           <Text style={styles.description}>
-            Layout completo para páginas desktop com header, breadcrumbs, ações e menu de usuário.
-            Inclui NotificationBell, dropdown de usuário e breadcrumb navigation.
+            Layout completo para páginas desktop com header, breadcrumbs, ações
+            e menu de usuário. Inclui NotificationBell, dropdown de usuário e
+            breadcrumb navigation.
           </Text>
 
           <Text style={styles.groupTitle}>DesktopPageLayout Props</Text>
           <PropsTable
             props={[
-              { name: 'title', type: 'string', required: true, description: 'Título da página' },
-              { name: 'subtitle', type: 'string', description: 'Subtítulo opcional' },
+              {
+                name: 'title',
+                type: 'string',
+                required: true,
+                description: 'Título da página',
+              },
+              {
+                name: 'subtitle',
+                type: 'string',
+                description: 'Subtítulo opcional',
+              },
               { name: 'icon', type: 'string', description: 'Ícone no título' },
-              { name: 'breadcrumbs', type: 'BreadcrumbItem[]', description: 'Navegação ({label, route})' },
-              { name: 'actions', type: 'ActionButton[]', description: 'Botões de ação ({label, icon, onPress, variant})' },
-              { name: 'children', type: 'React.ReactNode', required: true, description: 'Conteúdo da página' },
-              { name: 'loading', type: 'boolean', description: 'Estado de carregamento' },
-              { name: 'loadingText', type: 'string', default: "'Carregando...'", description: 'Texto de loading' },
-              { name: 'showBackButton', type: 'boolean', description: 'Mostrar botão voltar' },
-              { name: 'onBack', type: '() => void', description: 'Callback do botão voltar' },
-              { name: 'fullWidth', type: 'boolean', default: 'false', description: 'Remover max-width' },
-              { name: 'noPadding', type: 'boolean', default: 'false', description: 'Remover padding' },
-              { name: 'headerExtra', type: 'React.ReactNode', description: 'Conteúdo extra no header' },
-              { name: 'userMenuTrigger', type: 'ReactNode | ((isOpen) => ReactNode)', description: 'Trigger do menu de usuário' },
-              { name: 'userMenuItems', type: 'UserMenuItem[]', description: 'Itens do menu ({label, icon, onPress, destructive})' },
+              {
+                name: 'breadcrumbs',
+                type: 'BreadcrumbItem[]',
+                description: 'Navegação ({label, route})',
+              },
+              {
+                name: 'actions',
+                type: 'ActionButton[]',
+                description: 'Botões de ação ({label, icon, onPress, variant})',
+              },
+              {
+                name: 'children',
+                type: 'React.ReactNode',
+                required: true,
+                description: 'Conteúdo da página',
+              },
+              {
+                name: 'loading',
+                type: 'boolean',
+                description: 'Estado de carregamento',
+              },
+              {
+                name: 'loadingText',
+                type: 'string',
+                default: "'Carregando...'",
+                description: 'Texto de loading',
+              },
+              {
+                name: 'showBackButton',
+                type: 'boolean',
+                description: 'Mostrar botão voltar',
+              },
+              {
+                name: 'onBack',
+                type: '() => void',
+                description: 'Callback do botão voltar',
+              },
+              {
+                name: 'fullWidth',
+                type: 'boolean',
+                default: 'false',
+                description: 'Remover max-width',
+              },
+              {
+                name: 'noPadding',
+                type: 'boolean',
+                default: 'false',
+                description: 'Remover padding',
+              },
+              {
+                name: 'headerExtra',
+                type: 'React.ReactNode',
+                description: 'Conteúdo extra no header',
+              },
+              {
+                name: 'userMenuTrigger',
+                type: 'ReactNode | ((isOpen) => ReactNode)',
+                description: 'Trigger do menu de usuário',
+              },
+              {
+                name: 'userMenuItems',
+                type: 'UserMenuItem[]',
+                description:
+                  'Itens do menu ({label, icon, onPress, destructive})',
+              },
             ]}
           />
 
           <Text style={styles.groupTitle}>ErrorBoundary</Text>
           <Text style={styles.description}>
-            Componente para capturar erros em componentes filhos e exibir UI de fallback amigável.
-            Em DEV mode, exibe detalhes do erro para debug.
+            Componente para capturar erros em componentes filhos e exibir UI de
+            fallback amigável. Em DEV mode, exibe detalhes do erro para debug.
           </Text>
 
           <Text style={styles.groupTitle}>ErrorBoundary Props</Text>
           <PropsTable
             props={[
-              { name: 'children', type: 'React.ReactNode', required: true, description: 'Componentes filhos a proteger' },
-              { name: 'fallback', type: 'React.ReactNode', description: 'UI customizada para erros' },
-              { name: 'onError', type: '(error, errorInfo) => void', description: 'Callback ao capturar erro' },
-              { name: 'resetKeys', type: 'unknown[]', description: 'Keys que resetam o estado de erro' },
+              {
+                name: 'children',
+                type: 'React.ReactNode',
+                required: true,
+                description: 'Componentes filhos a proteger',
+              },
+              {
+                name: 'fallback',
+                type: 'React.ReactNode',
+                description: 'UI customizada para erros',
+              },
+              {
+                name: 'onError',
+                type: '(error, errorInfo) => void',
+                description: 'Callback ao capturar erro',
+              },
+              {
+                name: 'resetKeys',
+                type: 'unknown[]',
+                description: 'Keys que resetam o estado de erro',
+              },
             ]}
           />
 
@@ -3001,7 +4123,14 @@ const columns: DataTableColumn[] = [
           <Text style={styles.description}>
             Header padronizado com título, subtítulo e botão de voltar.
           </Text>
-          <View style={{ borderWidth: 1, borderColor: theme.colors.gray200, borderRadius: theme.borderRadius.md, overflow: 'hidden' }}>
+          <View
+            style={{
+              borderWidth: 1,
+              borderColor: theme.colors.gray200,
+              borderRadius: theme.borderRadius.md,
+              overflow: 'hidden',
+            }}
+          >
             <MobileHeader
               title="Título da Tela"
               subtitle="Subtítulo opcional"
@@ -3014,15 +4143,32 @@ const columns: DataTableColumn[] = [
             Botões com variantes semânticas otimizadas para mobile.
           </Text>
           <View style={styles.componentRow}>
-            <MobileButton title="Primary" variant="primary" onPress={() => showToast('info')} />
-            <MobileButton title="Secondary" variant="secondary" onPress={() => showToast('info')} />
-            <MobileButton title="Danger" variant="danger" onPress={() => showToast('error')} />
-            <MobileButton title="Success" variant="success" onPress={() => showToast('success')} />
+            <MobileButton
+              title="Primary"
+              variant="primary"
+              onPress={() => showToast('info')}
+            />
+            <MobileButton
+              title="Secondary"
+              variant="secondary"
+              onPress={() => showToast('info')}
+            />
+            <MobileButton
+              title="Danger"
+              variant="danger"
+              onPress={() => showToast('error')}
+            />
+            <MobileButton
+              title="Success"
+              variant="success"
+              onPress={() => showToast('success')}
+            />
           </View>
 
           <Text style={styles.groupTitle}>MobileCard</Text>
           <Text style={styles.description}>
-            Cards com variantes para diferentes estados (default, highlight, bordered).
+            Cards com variantes para diferentes estados (default, highlight,
+            bordered).
           </Text>
           <View style={{ gap: theme.spacing.sm }}>
             <MobileCard title="Card Default" variant="default">
@@ -3039,9 +4185,12 @@ const columns: DataTableColumn[] = [
 
           <Text style={styles.groupTitle}>SwipeableRow</Text>
           <Text style={styles.description}>
-            Row com ações de swipe para esquerda/direita (requer react-native-gesture-handler).
+            Row com ações de swipe para esquerda/direita (requer
+            react-native-gesture-handler).
           </Text>
-          <View style={{ borderRadius: theme.borderRadius.md, overflow: 'hidden' }}>
+          <View
+            style={{ borderRadius: theme.borderRadius.md, overflow: 'hidden' }}
+          >
             <SwipeableRow
               leftActions={[
                 {
@@ -3060,20 +4209,26 @@ const columns: DataTableColumn[] = [
                 },
               ]}
             >
-              <View style={{
-                padding: theme.spacing.md,
-                backgroundColor: theme.colors.surface,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: theme.spacing.sm,
-              }}>
+              <View
+                style={{
+                  padding: theme.spacing.md,
+                  backgroundColor: theme.colors.surface,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: theme.spacing.sm,
+                }}
+              >
                 <Icon name="swap-horizontal" tone="muted" />
-                <Text style={{ color: theme.colors.gray700 }}>← Deslize para ações →</Text>
+                <Text style={{ color: theme.colors.gray700 }}>
+                  ← Deslize para ações →
+                </Text>
               </View>
             </SwipeableRow>
           </View>
 
-          <Text style={styles.groupTitle}>MobileEmptyState e MobileLoading</Text>
+          <Text style={styles.groupTitle}>
+            MobileEmptyState e MobileLoading
+          </Text>
           <View style={{ gap: theme.spacing.md }}>
             <MobileEmptyState
               icon="folder-open-outline"
@@ -3090,61 +4245,189 @@ const columns: DataTableColumn[] = [
           <Text style={styles.groupTitle}>MobileHeader Props</Text>
           <PropsTable
             props={[
-              { name: 'title', type: 'string', required: true, description: 'Título do header' },
-              { name: 'subtitle', type: 'string', description: 'Subtítulo opcional' },
-              { name: 'showBack', type: 'boolean', default: 'false', description: 'Mostrar botão de voltar' },
-              { name: 'onBack', type: '() => void', description: 'Callback do botão voltar' },
-              { name: 'rightContent', type: 'React.ReactNode', description: 'Conteúdo à direita' },
+              {
+                name: 'title',
+                type: 'string',
+                required: true,
+                description: 'Título do header',
+              },
+              {
+                name: 'subtitle',
+                type: 'string',
+                description: 'Subtítulo opcional',
+              },
+              {
+                name: 'showBack',
+                type: 'boolean',
+                default: 'false',
+                description: 'Mostrar botão de voltar',
+              },
+              {
+                name: 'onBack',
+                type: '() => void',
+                description: 'Callback do botão voltar',
+              },
+              {
+                name: 'rightContent',
+                type: 'React.ReactNode',
+                description: 'Conteúdo à direita',
+              },
             ]}
           />
 
           <Text style={styles.groupTitle}>MobileButton Props</Text>
           <PropsTable
             props={[
-              { name: 'title', type: 'string', required: true, description: 'Texto do botão' },
-              { name: 'variant', type: "'primary' | 'secondary' | 'danger' | 'success' | 'warning'", default: "'primary'", description: 'Variante visual' },
-              { name: 'size', type: "'small' | 'medium' | 'large'", default: "'medium'", description: 'Tamanho do botão' },
-              { name: 'loading', type: 'boolean', default: 'false', description: 'Mostra spinner' },
-              { name: 'icon', type: 'React.ReactNode', description: 'Ícone à esquerda' },
-              { name: 'fullWidth', type: 'boolean', default: 'false', description: 'Ocupar largura total' },
-              { name: 'disabled', type: 'boolean', description: 'Estado desabilitado' },
+              {
+                name: 'title',
+                type: 'string',
+                required: true,
+                description: 'Texto do botão',
+              },
+              {
+                name: 'variant',
+                type: "'primary' | 'secondary' | 'danger' | 'success' | 'warning'",
+                default: "'primary'",
+                description: 'Variante visual',
+              },
+              {
+                name: 'size',
+                type: "'small' | 'medium' | 'large'",
+                default: "'medium'",
+                description: 'Tamanho do botão',
+              },
+              {
+                name: 'loading',
+                type: 'boolean',
+                default: 'false',
+                description: 'Mostra spinner',
+              },
+              {
+                name: 'icon',
+                type: 'React.ReactNode',
+                description: 'Ícone à esquerda',
+              },
+              {
+                name: 'fullWidth',
+                type: 'boolean',
+                default: 'false',
+                description: 'Ocupar largura total',
+              },
+              {
+                name: 'disabled',
+                type: 'boolean',
+                description: 'Estado desabilitado',
+              },
             ]}
           />
 
           <Text style={styles.groupTitle}>MobileCard Props</Text>
           <PropsTable
             props={[
-              { name: 'children', type: 'React.ReactNode', required: true, description: 'Conteúdo do card' },
+              {
+                name: 'children',
+                type: 'React.ReactNode',
+                required: true,
+                description: 'Conteúdo do card',
+              },
               { name: 'title', type: 'string', description: 'Título do card' },
               { name: 'subtitle', type: 'string', description: 'Subtítulo' },
-              { name: 'variant', type: "'default' | 'highlight' | 'bordered'", default: "'default'", description: 'Estilo visual' },
-              { name: 'noPadding', type: 'boolean', default: 'false', description: 'Remover padding' },
-              { name: 'onPress', type: '() => void', description: 'Torna o card clicável' },
-              { name: 'style', type: 'ViewStyle', description: 'Estilos customizados' },
+              {
+                name: 'variant',
+                type: "'default' | 'highlight' | 'bordered'",
+                default: "'default'",
+                description: 'Estilo visual',
+              },
+              {
+                name: 'noPadding',
+                type: 'boolean',
+                default: 'false',
+                description: 'Remover padding',
+              },
+              {
+                name: 'onPress',
+                type: '() => void',
+                description: 'Torna o card clicável',
+              },
+              {
+                name: 'style',
+                type: 'ViewStyle',
+                description: 'Estilos customizados',
+              },
             ]}
           />
 
           <Text style={styles.groupTitle}>MobileEmptyState Props</Text>
           <PropsTable
             props={[
-              { name: 'title', type: 'string', required: true, description: 'Título principal' },
-              { name: 'subtitle', type: 'string', description: 'Texto secundário' },
-              { name: 'icon', type: 'string', default: "'📋'", description: 'Emoji ou ícone' },
-              { name: 'actionLabel', type: 'string', description: 'Texto do botão de ação' },
-              { name: 'onAction', type: '() => void', description: 'Callback do botão' },
-              { name: 'fullScreen', type: 'boolean', default: 'false', description: 'Ocupar tela inteira' },
-              { name: 'style', type: 'ViewStyle', description: 'Estilos customizados' },
+              {
+                name: 'title',
+                type: 'string',
+                required: true,
+                description: 'Título principal',
+              },
+              {
+                name: 'subtitle',
+                type: 'string',
+                description: 'Texto secundário',
+              },
+              {
+                name: 'icon',
+                type: 'string',
+                default: "'📋'",
+                description: 'Emoji ou ícone',
+              },
+              {
+                name: 'actionLabel',
+                type: 'string',
+                description: 'Texto do botão de ação',
+              },
+              {
+                name: 'onAction',
+                type: '() => void',
+                description: 'Callback do botão',
+              },
+              {
+                name: 'fullScreen',
+                type: 'boolean',
+                default: 'false',
+                description: 'Ocupar tela inteira',
+              },
+              {
+                name: 'style',
+                type: 'ViewStyle',
+                description: 'Estilos customizados',
+              },
             ]}
           />
 
           <Text style={styles.groupTitle}>MobileLoading Props</Text>
           <PropsTable
             props={[
-              { name: 'message', type: 'string', default: "'Carregando...'", description: 'Mensagem exibida' },
-              { name: 'size', type: "'small' | 'large'", default: "'large'", description: 'Tamanho do spinner' },
-              { name: 'fullScreen', type: 'boolean', default: 'true', description: 'Ocupar tela inteira' },
+              {
+                name: 'message',
+                type: 'string',
+                default: "'Carregando...'",
+                description: 'Mensagem exibida',
+              },
+              {
+                name: 'size',
+                type: "'small' | 'large'",
+                default: "'large'",
+                description: 'Tamanho do spinner',
+              },
+              {
+                name: 'fullScreen',
+                type: 'boolean',
+                default: 'true',
+                description: 'Ocupar tela inteira',
+              },
               { name: 'color', type: 'string', description: 'Cor do spinner' },
-              { name: 'style', type: 'ViewStyle', description: 'Estilos customizados' },
+              {
+                name: 'style',
+                type: 'ViewStyle',
+                description: 'Estilos customizados',
+              },
             ]}
           />
 
@@ -3174,16 +4457,20 @@ import { SwipeableRow } from '@/components/SwipeableRow';
         {/* ========================================
             SEÇÃO: COMPONENTES ESPECIALIZADOS
         ======================================== */}
-        <View style={styles.section} onLayout={handleSectionLayout('especializados')}>
+        <View
+          style={styles.section}
+          onLayout={handleSectionLayout('especializados')}
+        >
           <SectionHeader
             id="especializados"
             title="Componentes Especializados"
-            description="Componentes com integração externa (Google Maps, Camera)"
+            description="Componentes com integração externa (Google Places, Camera)"
           />
 
           <Text style={styles.groupTitle}>AddressAutocomplete</Text>
           <Text style={styles.description}>
-            Input com autocomplete via Google Places API. Requer EXPO_PUBLIC_GOOGLE_MAPS_API_KEY configurada.
+            Input com autocomplete via Google Places API (Edge Functions do
+            Supabase — sem chave Google no client).
           </Text>
           <AddressAutocomplete
             value={addressValue}
@@ -3196,10 +4483,9 @@ import { SwipeableRow } from '@/components/SwipeableRow';
           />
           <View style={{ marginTop: theme.spacing.sm }}>
             <Text style={{ fontSize: 12, color: theme.colors.gray500 }}>
-              • Busca a partir de 3 caracteres{'\n'}
-              • Debounce de 1s para otimização{'\n'}
-              • Session tokens para redução de custos{'\n'}
-              • Coordenadas obtidas automaticamente
+              • Busca a partir de 3 caracteres{'\n'}• Debounce de 1s para
+              otimização{'\n'}• Session tokens para redução de custos{'\n'}•
+              Coordenadas obtidas automaticamente
             </Text>
           </View>
 
@@ -3212,10 +4498,9 @@ import { SwipeableRow } from '@/components/SwipeableRow';
             <Icon name="camera" size={48} tone="muted" />
             <Text style={styles.demoText}>Preview do CameraUpload</Text>
             <Text style={styles.demoSubtext}>
-              • Compressão automática (max 1200px, 70% quality){'\n'}
-              • Suporte offline (iOS/Android){'\n'}
-              • Upload para Supabase Storage{'\n'}
-              • Preview antes do envio
+              • Compressão automática (max 1200px, 70% quality){'\n'}• Suporte
+              offline (iOS/Android){'\n'}• Upload para Supabase Storage{'\n'}•
+              Preview antes do envio
             </Text>
           </View>
 
@@ -3227,7 +4512,7 @@ import CameraUpload from '@/components/CameraUpload';
   value={endereco}
   onChangeText={setEndereco}
   onSelectAddress={(address, placeId) => {
-    // Obter coordenadas via googleMapsService.getPlaceDetails(placeId)
+    // Obter coordenadas via googlePlacesService.getPlaceDetails(placeId)
   }}
   placeholder="Digite o endereço..."
 />
@@ -3244,32 +4529,95 @@ import CameraUpload from '@/components/CameraUpload';
           <Text style={styles.groupTitle}>AddressAutocomplete Props</Text>
           <PropsTable
             props={[
-              { name: 'value', type: 'string', required: true, description: 'Valor atual do input' },
-              { name: 'onChangeText', type: '(text: string) => void', required: true, description: 'Callback ao digitar' },
-              { name: 'onSelectAddress', type: '(address: string, placeId: string) => void', required: true, description: 'Callback ao selecionar endereço' },
-              { name: 'placeholder', type: 'string', description: 'Texto placeholder' },
+              {
+                name: 'value',
+                type: 'string',
+                required: true,
+                description: 'Valor atual do input',
+              },
+              {
+                name: 'onChangeText',
+                type: '(text: string) => void',
+                required: true,
+                description: 'Callback ao digitar',
+              },
+              {
+                name: 'onSelectAddress',
+                type: '(address: string, placeId: string) => void',
+                required: true,
+                description: 'Callback ao selecionar endereço',
+              },
+              {
+                name: 'placeholder',
+                type: 'string',
+                description: 'Texto placeholder',
+              },
               { name: 'label', type: 'string', description: 'Label do input' },
-              { name: 'error', type: 'string', description: 'Mensagem de erro' },
-              { name: 'disabled', type: 'boolean', default: 'false', description: 'Desabilita o componente' },
+              {
+                name: 'error',
+                type: 'string',
+                description: 'Mensagem de erro',
+              },
+              {
+                name: 'disabled',
+                type: 'boolean',
+                default: 'false',
+                description: 'Desabilita o componente',
+              },
             ]}
           />
 
           <Text style={styles.groupTitle}>CameraUpload Props</Text>
           <PropsTable
             props={[
-              { name: 'unidadeId', type: 'string', required: true, description: 'ID da unidade para upload' },
-              { name: 'rotaId', type: 'string', required: true, description: 'ID da rota para upload' },
-              { name: 'paradaId', type: 'string', required: true, description: 'ID da parada para upload' },
-              { name: 'onUploadSuccess', type: '(fotoUrl: string) => void', required: true, description: 'Callback ao completar upload' },
-              { name: 'onUploadError', type: '(error: Error) => void', description: 'Callback em caso de erro' },
-              { name: 'maxWidth', type: 'number', default: '1200', description: 'Largura máxima da imagem (px)' },
-              { name: 'quality', type: 'number', default: '0.7', description: 'Qualidade da compressão (0-1)' },
+              {
+                name: 'unidadeId',
+                type: 'string',
+                required: true,
+                description: 'ID da unidade para upload',
+              },
+              {
+                name: 'rotaId',
+                type: 'string',
+                required: true,
+                description: 'ID da rota para upload',
+              },
+              {
+                name: 'paradaId',
+                type: 'string',
+                required: true,
+                description: 'ID da parada para upload',
+              },
+              {
+                name: 'onUploadSuccess',
+                type: '(fotoUrl: string) => void',
+                required: true,
+                description: 'Callback ao completar upload',
+              },
+              {
+                name: 'onUploadError',
+                type: '(error: Error) => void',
+                description: 'Callback em caso de erro',
+              },
+              {
+                name: 'maxWidth',
+                type: 'number',
+                default: '1200',
+                description: 'Largura máxima da imagem (px)',
+              },
+              {
+                name: 'quality',
+                type: 'number',
+                default: '0.7',
+                description: 'Qualidade da compressão (0-1)',
+              },
             ]}
           />
 
           <Text style={styles.groupTitle}>SwipeableRow</Text>
           <Text style={styles.description}>
-            Linha com ações deslizáveis (swipe left/right). Usado em listas de paradas.
+            Linha com ações deslizáveis (swipe left/right). Usado em listas de
+            paradas.
           </Text>
           <View style={{ marginVertical: theme.spacing.md }}>
             <SwipeableRow
@@ -3290,11 +4638,30 @@ import CameraUpload from '@/components/CameraUpload';
                 },
               ]}
             >
-              <View style={{ backgroundColor: theme.colors.white, padding: theme.spacing.lg, borderRadius: theme.borderRadius.md, borderWidth: 1, borderColor: theme.colors.gray200 }}>
-                <Text style={{ fontFamily: theme.typography.fontSansSemiBold, color: theme.colors.gray900 }}>
+              <View
+                style={{
+                  backgroundColor: theme.colors.white,
+                  padding: theme.spacing.lg,
+                  borderRadius: theme.borderRadius.md,
+                  borderWidth: 1,
+                  borderColor: theme.colors.gray200,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: theme.typography.fontSansSemiBold,
+                    color: theme.colors.gray900,
+                  }}
+                >
                   Deslize para ver ações →
                 </Text>
-                <Text style={{ fontSize: 13, color: theme.colors.gray500, marginTop: 4 }}>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    color: theme.colors.gray500,
+                    marginTop: 4,
+                  }}
+                >
                   Swipe left or right
                 </Text>
               </View>
@@ -3304,11 +4671,33 @@ import CameraUpload from '@/components/CameraUpload';
           <Text style={styles.groupTitle}>SwipeableRow Props</Text>
           <PropsTable
             props={[
-              { name: 'children', type: 'ReactNode', required: true, description: 'Conteúdo da linha' },
-              { name: 'leftActions', type: 'SwipeAction[]', description: 'Ações ao deslizar para direita' },
-              { name: 'rightActions', type: 'SwipeAction[]', description: 'Ações ao deslizar para esquerda' },
-              { name: 'onSwipeableOpen', type: "(direction: 'left' | 'right') => void", description: 'Callback ao abrir swipe' },
-              { name: 'enabled', type: 'boolean', default: 'true', description: 'Habilita/desabilita o swipe' },
+              {
+                name: 'children',
+                type: 'ReactNode',
+                required: true,
+                description: 'Conteúdo da linha',
+              },
+              {
+                name: 'leftActions',
+                type: 'SwipeAction[]',
+                description: 'Ações ao deslizar para direita',
+              },
+              {
+                name: 'rightActions',
+                type: 'SwipeAction[]',
+                description: 'Ações ao deslizar para esquerda',
+              },
+              {
+                name: 'onSwipeableOpen',
+                type: "(direction: 'left' | 'right') => void",
+                description: 'Callback ao abrir swipe',
+              },
+              {
+                name: 'enabled',
+                type: 'boolean',
+                default: 'true',
+                description: 'Habilita/desabilita o swipe',
+              },
             ]}
           />
 
@@ -3338,7 +4727,10 @@ interface SwipeAction {
         {/* ========================================
             SEÇÃO: ACESSIBILIDADE
         ======================================== */}
-        <View style={styles.section} onLayout={handleSectionLayout('acessibilidade')}>
+        <View
+          style={styles.section}
+          onLayout={handleSectionLayout('acessibilidade')}
+        >
           <SectionHeader
             id="acessibilidade"
             title="Acessibilidade"
@@ -3351,7 +4743,8 @@ interface SwipeAction {
               <View style={{ flex: 1 }}>
                 <Text style={styles.a11yTitle}>Contraste de Cores</Text>
                 <Text style={styles.a11yDesc}>
-                  Todas as cores primárias atendem WCAG AA (mínimo 4.5:1 para texto normal)
+                  Todas as cores primárias atendem WCAG AA (mínimo 4.5:1 para
+                  texto normal)
                 </Text>
               </View>
             </View>
@@ -3361,8 +4754,8 @@ interface SwipeAction {
               <View style={{ flex: 1 }}>
                 <Text style={styles.a11yTitle}>Alvos de Toque</Text>
                 <Text style={styles.a11yDesc}>
-                  Botões e elementos interativos têm mínimo de 44x44px (iOS) / 48x48dp
-                  (Android)
+                  Botões e elementos interativos têm mínimo de 44x44px (iOS) /
+                  48x48dp (Android)
                 </Text>
               </View>
             </View>
@@ -3372,7 +4765,8 @@ interface SwipeAction {
               <View style={{ flex: 1 }}>
                 <Text style={styles.a11yTitle}>Labels e Roles</Text>
                 <Text style={styles.a11yDesc}>
-                  Componentes incluem accessibilityLabel e accessibilityRole apropriados
+                  Componentes incluem accessibilityLabel e accessibilityRole
+                  apropriados
                 </Text>
               </View>
             </View>
@@ -3434,13 +4828,11 @@ interface SwipeAction {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Design System RotaMestre v2.0.0
-          </Text>
+          <Text style={styles.footerText}>Design System RotaMestre v2.0.0</Text>
           <Text style={styles.footerSubtext}>
             Última atualização: {new Date().toLocaleDateString('pt-BR')}
           </Text>
-                  </View>
+        </View>
       </ScrollView>
 
       {/* Modais */}
@@ -3455,7 +4847,13 @@ interface SwipeAction {
             Este é um exemplo de modal com conteúdo customizado.
           </Text>
           <Input label="Nome" placeholder="Digite seu nome" />
-          <View style={{ flexDirection: 'row', gap: theme.spacing.sm, justifyContent: 'flex-end' }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              gap: theme.spacing.sm,
+              justifyContent: 'flex-end',
+            }}
+          >
             <Button
               title="Cancelar"
               variant="ghost"
@@ -3506,8 +4904,14 @@ interface SwipeAction {
         }}
       >
         <View style={{ gap: theme.spacing.md }}>
-          <Text style={{ color: theme.colors.gray700, marginBottom: theme.spacing.sm }}>
-            Modal responsivo que se adapta automaticamente entre dialog (web/desktop) e bottom sheet (mobile).
+          <Text
+            style={{
+              color: theme.colors.gray700,
+              marginBottom: theme.spacing.sm,
+            }}
+          >
+            Modal responsivo que se adapta automaticamente entre dialog
+            (web/desktop) e bottom sheet (mobile).
           </Text>
           <Input label="Campo de exemplo" placeholder="Digite algo..." />
         </View>
@@ -3627,7 +5031,9 @@ const createStyles = (theme: Theme, isDesktop: boolean) =>
       marginBottom: theme.spacing.xl,
     },
     title: {
-      fontSize: isDesktop ? theme.typography.fontSize['3xl'] : theme.typography.fontSize['2xl'],
+      fontSize: isDesktop
+        ? theme.typography.fontSize['3xl']
+        : theme.typography.fontSize['2xl'],
       fontFamily: theme.typography.fontDisplay,
       color: theme.colors.gray900,
     },

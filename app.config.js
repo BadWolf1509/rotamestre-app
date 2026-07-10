@@ -32,7 +32,6 @@ module.exports = ({ config }) => {
     extra: {
       baseUrl: "https://app.rotamestre.tec.br",
       apiUrl: "https://api.rotamestre.tec.br",
-      EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "",
       router: {},
       eas: {
         projectId: "c6401a59-af97-484a-93b7-c75016bf331d"
@@ -46,9 +45,6 @@ module.exports = ({ config }) => {
         NSLocationAlwaysAndWhenInUseUsageDescription: "O RotaMestre precisa acessar sua localização em segundo plano para rastrear o progresso da entrega e permitir que o gestor acompanhe a rota em tempo real.",
         // Habilitar background location no iOS
         UIBackgroundModes: ["location", "fetch"],
-      },
-      config: {
-        googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || ""
       }
     },
     android: {
@@ -72,12 +68,7 @@ module.exports = ({ config }) => {
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_BACKGROUND_LOCATION",
         "android.permission.FOREGROUND_SERVICE_LOCATION"
-      ],
-      config: {
-        googleMaps: {
-          apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || ""
-        }
-      }
+      ]
     },
     web: {
       favicon: "./assets/favicon.png",
