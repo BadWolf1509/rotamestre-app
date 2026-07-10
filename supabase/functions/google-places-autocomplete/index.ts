@@ -1,15 +1,18 @@
 /* global Deno */
 
-// Edge Function para Google Places Autocomplete API (Nova API)
-// Evita CORS e não depende da JavaScript API estar carregada no cliente
+// Edge Function para Google Places Autocomplete — Places API (New)
+// Evita CORS e mantém a chave server-side (secret GOOGLE_MAPS_API_KEY).
+// Migrado dos endpoints legados em 2026-07-10: a chave atual é restrita à
+// Places API (New) — projetos GCP novos não ativam mais a Places API legada.
+// A resposta preserva o contrato legado ({ status, predictions[] }) que o app consome.
 // Deploy: supabase functions deploy google-places-autocomplete --no-verify-jwt
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type',
 };
 
 interface AutocompleteRequest {
@@ -29,8 +32,8 @@ interface PlaceSuggestion {
 
 serve(async (req) => {
   // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
@@ -40,97 +43,114 @@ serve(async (req) => {
     if (!input || input.length < 3) {
       return new Response(JSON.stringify({ predictions: [] }), {
         status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const apiKey = Deno.env.get("GOOGLE_MAPS_API_KEY");
+    const apiKey = Deno.env.get('GOOGLE_MAPS_API_KEY');
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: "Google Maps API Key não configurada" }),
+        JSON.stringify({ error: 'Google Maps API Key não configurada' }),
         {
           status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         },
       );
     }
 
-    // Construir URL com parâmetros
-    const params = new URLSearchParams({
+    // Places API (New): POST com body JSON (antes: GET com query params)
+    const requestBody: Record<string, unknown> = {
       input,
-      key: apiKey,
-      language: "pt-BR",
-      components: "country:br",
-    });
+      languageCode: 'pt-BR',
+      regionCode: 'BR',
+      includedRegionCodes: ['br'], // equivale ao components=country:br do legado
+    };
 
     if (sessionToken) {
-      params.append("sessiontoken", sessionToken);
+      requestBody.sessionToken = sessionToken;
     }
 
-    // Location bias: prioritize results near the given coordinates (50km radius)
+    // Location bias: prioriza resultados próximos (raio 50km, máximo da API)
     if (locationBias?.latitude && locationBias?.longitude) {
-      params.append(
-        "location",
-        `${locationBias.latitude},${locationBias.longitude}`,
-      );
-      params.append("radius", "50000"); // 50km in meters
+      requestBody.locationBias = {
+        circle: {
+          center: {
+            latitude: locationBias.latitude,
+            longitude: locationBias.longitude,
+          },
+          radius: 50000,
+        },
+      };
     }
 
-    // Chamar Places Autocomplete API (REST)
     const response = await fetch(
-      `https://maps.googleapis.com/maps/api/place/autocomplete/json?${params.toString()}`,
+      'https://places.googleapis.com/v1/places:autocomplete',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+        },
+        body: JSON.stringify(requestBody),
+      },
     );
 
     const data = await response.json();
 
-    // Verificar erros da API
-    if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
+    // Na New API, erros vêm como HTTP != 2xx com { error: { message, status } }
+    if (!response.ok) {
       console.error(
-        "[Places Autocomplete] Error:",
-        data.status,
-        data.error_message,
+        '[Places Autocomplete] Error:',
+        response.status,
+        data.error?.message,
       );
       return new Response(
         JSON.stringify({
-          error: data.error_message || "Erro na API de autocomplete",
-          status: data.status,
+          error: data.error?.message || 'Erro na API de autocomplete',
+          status: data.error?.status || 'REQUEST_DENIED',
           predictions: [],
         }),
         {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         },
       );
     }
 
-    // Transformar predictions para formato esperado
-    const predictions: PlaceSuggestion[] = (data.predictions || []).map(
-      (prediction: any) => ({
-        place_id: prediction.place_id,
-        description: prediction.description,
+    // Adaptar suggestions (New) para o contrato legado que o app consome
+    const predictions: PlaceSuggestion[] = (data.suggestions || [])
+      .map((s: any) => s.placePrediction)
+      .filter(Boolean)
+      .map((p: any) => ({
+        place_id: p.placeId,
+        description: p.text?.text || '',
         structured_formatting: {
-          main_text: prediction.structured_formatting?.main_text || "",
-          secondary_text:
-            prediction.structured_formatting?.secondary_text || "",
+          main_text: p.structuredFormat?.mainText?.text || p.text?.text || '',
+          secondary_text: p.structuredFormat?.secondaryText?.text || '',
         },
-      }),
-    );
+      }));
 
-    return new Response(JSON.stringify({ predictions, status: data.status }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        predictions,
+        status: predictions.length > 0 ? 'OK' : 'ZERO_RESULTS',
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
+    );
   } catch (error) {
-    console.error("[Places Autocomplete] Exception:", error);
+    console.error('[Places Autocomplete] Exception:', error);
     return new Response(
       JSON.stringify({
         error: error.message,
-        status: "INTERNAL_ERROR",
+        status: 'INTERNAL_ERROR',
         predictions: [],
       }),
       {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       },
     );
   }
