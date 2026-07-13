@@ -99,7 +99,7 @@
     "react-native-reanimated": "~4.3.1",
     "react-native-safe-area-context": "^5.7.0",
     "react-native-screens": "~4.25.2",
-    "react-native-toast-message": "^2.3.3",
+    "react-native-toast-message": "^2.4.0",
     "react-native-ui-datepicker": "^3.3.0",
     "react-native-unistyles": "^3.2.5",
     "react-native-url-polyfill": "^3.0.0",
