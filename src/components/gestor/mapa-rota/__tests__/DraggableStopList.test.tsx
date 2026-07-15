@@ -84,7 +84,12 @@ jest.mock('react-native-draggable-flatlist', () => {
 
   return {
     __esModule: true,
-    default: ({ data, renderItem, keyExtractor, onDragEnd: _onDragEnd }: any) => (
+    default: ({
+      data,
+      renderItem,
+      keyExtractor,
+      onDragEnd: _onDragEnd,
+    }: any) => (
       <FlatList
         data={data}
         renderItem={(info: any) =>
@@ -228,7 +233,7 @@ describe('DraggableStopList', () => {
   describe('Paradas fixas (concluídas/puladas)', () => {
     it('deve renderizar paradas concluídas como fixas', () => {
       const { getByText } = render(
-        <DraggableStopList {...defaultProps} paradas={mockParadasMistas} />
+        <DraggableStopList {...defaultProps} paradas={mockParadasMistas} />,
       );
 
       expect(getByText('Rua Concluida, 50')).toBeTruthy();
@@ -237,7 +242,7 @@ describe('DraggableStopList', () => {
 
     it('deve renderizar paradas puladas como fixas', () => {
       const { getByText } = render(
-        <DraggableStopList {...defaultProps} paradas={mockParadasMistas} />
+        <DraggableStopList {...defaultProps} paradas={mockParadasMistas} />,
       );
 
       expect(getByText('Rua Pulada, 60')).toBeTruthy();
@@ -246,17 +251,17 @@ describe('DraggableStopList', () => {
 
     it('deve exibir label de paradas finalizadas', () => {
       const { getByText } = render(
-        <DraggableStopList {...defaultProps} paradas={mockParadasMistas} />
+        <DraggableStopList {...defaultProps} paradas={mockParadasMistas} />,
       );
 
-      expect(getByText('Paradas finalizadas (ordem fixa)')).toBeTruthy();
+      expect(getByText('Paradas com ordem fixa')).toBeTruthy();
     });
   });
 
   describe('Status da rota e permissão de reordenação', () => {
     it('deve permitir reordenação em rotas pendentes', () => {
       const { getByText } = render(
-        <DraggableStopList {...defaultProps} rotaStatus="pendente" />
+        <DraggableStopList {...defaultProps} rotaStatus="pendente" />,
       );
 
       // Verifica que as instruções de reordenação estão visíveis
@@ -265,7 +270,7 @@ describe('DraggableStopList', () => {
 
     it('deve permitir reordenação em rotas em andamento', () => {
       const { getByText } = render(
-        <DraggableStopList {...defaultProps} rotaStatus="em_andamento" />
+        <DraggableStopList {...defaultProps} rotaStatus="em_andamento" />,
       );
 
       // Verifica que as instruções de reordenação estão visíveis
@@ -274,25 +279,25 @@ describe('DraggableStopList', () => {
 
     it('deve bloquear reordenação em rotas concluídas', () => {
       const { getByText } = render(
-        <DraggableStopList {...defaultProps} rotaStatus="concluida" />
+        <DraggableStopList {...defaultProps} rotaStatus="concluida" />,
       );
 
       expect(
         getByText(
-          'A ordem das paradas só pode ser alterada em rotas pendentes ou em andamento.'
-        )
+          'A ordem das paradas só pode ser alterada em rotas pendentes ou em andamento.',
+        ),
       ).toBeTruthy();
     });
 
     it('deve bloquear reordenação em rotas canceladas', () => {
       const { getByText } = render(
-        <DraggableStopList {...defaultProps} rotaStatus="cancelada" />
+        <DraggableStopList {...defaultProps} rotaStatus="cancelada" />,
       );
 
       expect(
         getByText(
-          'A ordem das paradas só pode ser alterada em rotas pendentes ou em andamento.'
-        )
+          'A ordem das paradas só pode ser alterada em rotas pendentes ou em andamento.',
+        ),
       ).toBeTruthy();
     });
   });
@@ -300,7 +305,7 @@ describe('DraggableStopList', () => {
   describe('Estado vazio', () => {
     it('deve exibir mensagem quando não há paradas', () => {
       const { getByText } = render(
-        <DraggableStopList {...defaultProps} paradas={[]} />
+        <DraggableStopList {...defaultProps} paradas={[]} />,
       );
 
       expect(getByText('Nenhuma parada para reordenar.')).toBeTruthy();
@@ -310,7 +315,7 @@ describe('DraggableStopList', () => {
   describe('Loading state', () => {
     it('deve exibir overlay de loading quando isLoading=true', () => {
       const { getByText } = render(
-        <DraggableStopList {...defaultProps} isLoading={true} />
+        <DraggableStopList {...defaultProps} isLoading={true} />,
       );
 
       expect(getByText('Salvando nova ordem...')).toBeTruthy();
@@ -318,7 +323,7 @@ describe('DraggableStopList', () => {
 
     it('não deve exibir overlay quando isLoading=false', () => {
       const { queryByText } = render(
-        <DraggableStopList {...defaultProps} isLoading={false} />
+        <DraggableStopList {...defaultProps} isLoading={false} />,
       );
 
       expect(queryByText('Salvando nova ordem...')).toBeNull();
@@ -335,7 +340,7 @@ describe('DraggableStopList', () => {
           {...defaultProps}
           onReorder={onReorder}
           onWebChangesChange={onWebChangesChange}
-        />
+        />,
       );
 
       // Encontrar os botões de mover (chevron-up)
@@ -359,7 +364,7 @@ describe('DraggableStopList', () => {
           {...defaultProps}
           onReorder={onReorder}
           onWebChangesChange={onWebChangesChange}
-        />
+        />,
       );
 
       // Encontrar os botões de mover (chevron-down)
@@ -383,7 +388,7 @@ describe('DraggableStopList', () => {
           {...defaultProps}
           onReorder={onReorder}
           controlRef={controlRef}
-        />
+        />,
       );
 
       // Mover uma parada
@@ -409,7 +414,7 @@ describe('DraggableStopList', () => {
           onReorder={onReorder}
           onWebChangesChange={onWebChangesChange}
           controlRef={controlRef}
-        />
+        />,
       );
 
       // Mover uma parada
@@ -431,10 +436,7 @@ describe('DraggableStopList', () => {
       Platform.OS = 'web';
       const controlRef = { current: null as DraggableStopListControl | null };
       const { getAllByTestId } = render(
-        <DraggableStopList
-          {...defaultProps}
-          controlRef={controlRef}
-        />
+        <DraggableStopList {...defaultProps} controlRef={controlRef} />,
       );
 
       // Inicialmente não deve haver mudanças
@@ -448,6 +450,113 @@ describe('DraggableStopList', () => {
       await waitFor(() => {
         expect(controlRef.current?.hasChanges).toBe(true);
       });
+    });
+  });
+
+  describe('Parada em andamento (regressão: colisão de UNIQUE ordem)', () => {
+    // Rota em andamento: 1 concluída + 1 em_andamento + 2 pendentes.
+    // A parada em_andamento NÃO pode ser silenciosamente descartada do array
+    // salvo — se ficar de fora, sua `ordem` no banco colide com a renumeração
+    // das demais e o RPC reordenar_paradas falha com duplicate key.
+    const mockParadasComEmAndamento: Parada[] = [
+      {
+        id: 'p-concluida',
+        rota_id: 'rota-1',
+        tipo: 'entrega',
+        endereco: 'Rua Concluida, 1',
+        latitude: -7.0,
+        longitude: -34.6,
+        ordem: 1,
+        status: 'concluida',
+        is_checkpoint: true,
+      },
+      {
+        id: 'p-andamento',
+        rota_id: 'rota-1',
+        tipo: 'entrega',
+        endereco: 'Rua Em Andamento, 2',
+        latitude: -7.1,
+        longitude: -34.7,
+        ordem: 2,
+        status: 'em_andamento',
+        is_checkpoint: true,
+      },
+      {
+        id: 'p-pend-1',
+        rota_id: 'rota-1',
+        tipo: 'entrega',
+        endereco: 'Rua Pendente A, 3',
+        latitude: -7.2,
+        longitude: -34.8,
+        ordem: 3,
+        status: 'pendente',
+        is_checkpoint: true,
+      },
+      {
+        id: 'p-pend-2',
+        rota_id: 'rota-1',
+        tipo: 'entrega',
+        endereco: 'Rua Pendente B, 4',
+        latitude: -7.3,
+        longitude: -34.9,
+        ordem: 4,
+        status: 'pendente',
+        is_checkpoint: true,
+      },
+    ];
+
+    it('deve incluir a parada em_andamento no array salvo (sem colisão de ordem)', async () => {
+      Platform.OS = 'web';
+      const onReorder = jest.fn().mockResolvedValue(undefined);
+      const controlRef = { current: null as DraggableStopListControl | null };
+      const { getAllByTestId } = render(
+        <DraggableStopList
+          paradas={mockParadasComEmAndamento}
+          onReorder={onReorder}
+          rotaStatus="em_andamento"
+          controlRef={controlRef}
+        />,
+      );
+
+      // Reordena as pendentes (move a primeira pendente para baixo)
+      const downButtons = getAllByTestId('icon-chevron-down');
+      fireEvent.press(downButtons[0]);
+
+      // Salva
+      await act(async () => {
+        await controlRef.current?.saveChanges();
+      });
+
+      expect(onReorder).toHaveBeenCalledTimes(1);
+      const savedOrder = onReorder.mock.calls[0][0] as Parada[];
+      const savedIds = savedOrder.map((p) => p.id);
+
+      // TODAS as paradas reais devem estar no array salvo — inclusive a em_andamento
+      expect(savedIds).toContain('p-andamento');
+      expect(savedIds).toContain('p-concluida');
+      expect(savedIds).toContain('p-pend-1');
+      expect(savedIds).toContain('p-pend-2');
+
+      // E as ordens resultantes não podem ter duplicatas
+      const ordens = savedOrder.map((p) => p.ordem);
+      expect(new Set(ordens).size).toBe(ordens.length);
+    });
+
+    it('deve rotular a parada em_andamento corretamente (não como "Pulada")', () => {
+      Platform.OS = 'web';
+      const { getByText, queryByText } = render(
+        <DraggableStopList
+          paradas={mockParadasComEmAndamento}
+          onReorder={jest.fn()}
+          rotaStatus="em_andamento"
+        />,
+      );
+
+      // A parada em andamento aparece na seção fixa com rótulo correto
+      expect(getByText('Rua Em Andamento, 2')).toBeTruthy();
+      expect(getByText('Em andamento')).toBeTruthy();
+      // Não pode ser rotulada como Pulada (só a concluída existe além dela)
+      expect(queryByText('Pulada')).toBeNull();
     });
   });
 
@@ -469,7 +578,7 @@ describe('DraggableStopList', () => {
       ];
 
       const { queryByText } = render(
-        <DraggableStopList {...defaultProps} paradas={paradasComBasePoint} />
+        <DraggableStopList {...defaultProps} paradas={paradasComBasePoint} />,
       );
 
       expect(queryByText('Base Point Não Visível')).toBeNull();
@@ -478,7 +587,9 @@ describe('DraggableStopList', () => {
 
   describe('Ícones', () => {
     it('deve renderizar ícone de swap nas instruções', () => {
-      const { getAllByTestId } = render(<DraggableStopList {...defaultProps} />);
+      const { getAllByTestId } = render(
+        <DraggableStopList {...defaultProps} />,
+      );
 
       // Há múltiplos ícones swap-vertical (instruções e seção de paradas pendentes)
       expect(getAllByTestId('icon-swap-vertical').length).toBeGreaterThan(0);
@@ -486,7 +597,7 @@ describe('DraggableStopList', () => {
 
     it('deve renderizar ícone de cadeado para rotas não reordenáveis', () => {
       const { getByTestId } = render(
-        <DraggableStopList {...defaultProps} rotaStatus="concluida" />
+        <DraggableStopList {...defaultProps} rotaStatus="concluida" />,
       );
 
       expect(getByTestId('icon-lock-closed-outline')).toBeTruthy();

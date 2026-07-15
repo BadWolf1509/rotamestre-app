@@ -14,14 +14,16 @@ import { StopCard } from './StopCard';
 
 import type { Parada } from '../types';
 
-
 export interface FixedStopsListProps {
   paradas: Parada[];
   /** Modo desktop para densidade compacta */
   isDesktop?: boolean;
 }
 
-export const FixedStopsList = memo(function FixedStopsList({ paradas, isDesktop = false }: FixedStopsListProps) {
+export const FixedStopsList = memo(function FixedStopsList({
+  paradas,
+  isDesktop = false,
+}: FixedStopsListProps) {
   const { theme } = useUnistyles();
 
   if (paradas.length === 0) {
@@ -30,9 +32,20 @@ export const FixedStopsList = memo(function FixedStopsList({ paradas, isDesktop 
 
   return (
     <View style={[styles.container, isDesktop && styles.containerCompact]}>
-      <View style={[styles.labelContainer, isDesktop && styles.labelContainerCompact]}>
-        <Ionicons name="lock-closed" size={isDesktop ? 10 : 12} color={theme.colors.gray500} />
-        <Text style={[styles.labelText, isDesktop && styles.labelTextCompact]}>Paradas finalizadas (ordem fixa)</Text>
+      <View
+        style={[
+          styles.labelContainer,
+          isDesktop && styles.labelContainerCompact,
+        ]}
+      >
+        <Ionicons
+          name="lock-closed"
+          size={isDesktop ? 10 : 12}
+          color={theme.colors.gray500}
+        />
+        <Text style={[styles.labelText, isDesktop && styles.labelTextCompact]}>
+          Paradas com ordem fixa
+        </Text>
       </View>
       {paradas.map((parada) => (
         <StopCard
