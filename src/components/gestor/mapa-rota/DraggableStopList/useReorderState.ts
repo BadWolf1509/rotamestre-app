@@ -59,9 +59,18 @@ export function useReorderState({
     // Filtrar apenas checkpoints (excluir base points)
     const checkpoints = paradas.filter((p) => p.is_checkpoint !== false);
 
-    // Paradas fixas: já concluídas ou puladas
+    // Paradas fixas: concluídas, puladas ou em andamento.
+    // em_andamento é a parada atual do motorista — não deve ser reordenável,
+    // mas PRECISA entrar no array salvo: se ficar de fora, sua `ordem` no banco
+    // colide com a renumeração das demais e o RPC reordenar_paradas falha com
+    // duplicate key (UNIQUE rota_id, ordem).
     const fixed = checkpoints
-      .filter((p) => p.status === 'concluida' || p.status === 'pulada')
+      .filter(
+        (p) =>
+          p.status === 'concluida' ||
+          p.status === 'pulada' ||
+          p.status === 'em_andamento',
+      )
       .sort((a, b) => a.ordem - b.ordem);
 
     // Paradas reordenáveis: pendentes
@@ -102,7 +111,7 @@ export function useReorderState({
 
       await onReorder([...fixedParadas, ...newOrder]);
     },
-    [canReorder, fixedParadas, onReorder]
+    [canReorder, fixedParadas, onReorder],
   );
 
   // Move parada para cima
@@ -114,7 +123,7 @@ export function useReorderState({
       setWebReorderList(list);
       setHasChanges(true);
     },
-    [currentWebList]
+    [currentWebList],
   );
 
   // Move parada para baixo
@@ -126,7 +135,7 @@ export function useReorderState({
       setWebReorderList(list);
       setHasChanges(true);
     },
-    [currentWebList]
+    [currentWebList],
   );
 
   // Salvar alterações da web

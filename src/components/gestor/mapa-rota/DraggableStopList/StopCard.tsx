@@ -53,15 +53,36 @@ export const StopCard = memo(function StopCard({
 }: StopCardProps) {
   const { theme } = useUnistyles();
   const isFixed = variant === 'fixed';
-  const isCompleted = parada.status === 'concluida';
   const isWeb = Platform.OS === 'web';
 
+  // Apresentação da parada fixa por status (concluída / em andamento / pulada).
+  // em_andamento entra na seção fixa (não é reordenável), então precisa de
+  // rótulo próprio — sem isso cairia no fallback "Pulada".
+  const fixedStatus: {
+    icon: 'checkmark-circle' | 'navigate-circle' | 'close-circle';
+    label: string;
+    color: string;
+  } =
+    parada.status === 'concluida'
+      ? {
+          icon: 'checkmark-circle',
+          label: 'Concluída',
+          color: theme.colors.success,
+        }
+      : parada.status === 'em_andamento'
+        ? {
+            icon: 'navigate-circle',
+            label: 'Em andamento',
+            color: theme.colors.info,
+          }
+        : {
+            icon: 'close-circle',
+            label: 'Pulada',
+            color: theme.colors.gray400,
+          };
+
   // Cor do badge baseada no status
-  const badgeColor = isFixed
-    ? isCompleted
-      ? theme.colors.success
-      : theme.colors.gray400
-    : theme.colors.warning;
+  const badgeColor = isFixed ? fixedStatus.color : theme.colors.warning;
 
   // Estilo animado para feedback visual (scale + translateX pulse)
   const animatedStyle = animatedValue
@@ -93,14 +114,20 @@ export const StopCard = memo(function StopCard({
     <CardContainer
       style={[
         isFixed ? styles.fixedItem : styles.draggableItem,
-        isDesktop && (isFixed ? styles.fixedItemCompact : styles.draggableItemCompact),
+        isDesktop &&
+          (isFixed ? styles.fixedItemCompact : styles.draggableItemCompact),
         isActive && styles.draggableItemActive,
         animatedStyle,
       ]}
     >
       {/* Controles de reordenação */}
       {!isFixed && isWeb && position && (
-        <View style={[styles.webMoveButtons, isDesktop && styles.webMoveButtonsCompact]}>
+        <View
+          style={[
+            styles.webMoveButtons,
+            isDesktop && styles.webMoveButtonsCompact,
+          ]}
+        >
           <TouchableOpacity
             style={[
               styles.moveButton,
@@ -114,7 +141,9 @@ export const StopCard = memo(function StopCard({
             <Ionicons
               name="chevron-up"
               size={isDesktop ? 14 : 18}
-              color={position.isFirst ? theme.colors.gray300 : theme.colors.secondary}
+              color={
+                position.isFirst ? theme.colors.gray300 : theme.colors.secondary
+              }
             />
           </TouchableOpacity>
           <TouchableOpacity
@@ -130,7 +159,9 @@ export const StopCard = memo(function StopCard({
             <Ionicons
               name="chevron-down"
               size={isDesktop ? 14 : 18}
-              color={position.isLast ? theme.colors.gray300 : theme.colors.secondary}
+              color={
+                position.isLast ? theme.colors.gray300 : theme.colors.secondary
+              }
             />
           </TouchableOpacity>
         </View>
@@ -138,10 +169,7 @@ export const StopCard = memo(function StopCard({
 
       {/* Drag handle (mobile apenas) */}
       {!isFixed && !isWeb && (
-        <View
-          style={styles.dragHandle}
-          onTouchStart={onDrag}
-        >
+        <View style={styles.dragHandle} onTouchStart={onDrag}>
           <Ionicons
             name="reorder-three"
             size={24}
@@ -151,13 +179,24 @@ export const StopCard = memo(function StopCard({
       )}
 
       {/* Badge de ordem */}
-      <View style={[styles.orderBadge, isDesktop && styles.orderBadgeCompact, { backgroundColor: badgeColor }]}>
-        <Text style={[styles.orderText, isDesktop && styles.orderTextCompact]}>{displayIndex}</Text>
+      <View
+        style={[
+          styles.orderBadge,
+          isDesktop && styles.orderBadgeCompact,
+          { backgroundColor: badgeColor },
+        ]}
+      >
+        <Text style={[styles.orderText, isDesktop && styles.orderTextCompact]}>
+          {displayIndex}
+        </Text>
       </View>
 
       {/* Conteúdo principal */}
       <View style={styles.itemContent}>
-        <Text style={[styles.itemAddress, isDesktop && styles.itemAddressCompact]} numberOfLines={1}>
+        <Text
+          style={[styles.itemAddress, isDesktop && styles.itemAddressCompact]}
+          numberOfLines={1}
+        >
           {parada.endereco}
         </Text>
 
@@ -165,19 +204,28 @@ export const StopCard = memo(function StopCard({
           // Status para paradas fixas
           <View style={styles.statusRow}>
             <Ionicons
-              name={isCompleted ? 'checkmark-circle' : 'close-circle'}
+              name={fixedStatus.icon}
               size={isDesktop ? 12 : 14}
               color={badgeColor}
             />
-            <Text style={[styles.statusText, isDesktop && styles.statusTextCompact, { color: badgeColor }]}>
-              {isCompleted ? 'Concluída' : 'Pulada'}
+            <Text
+              style={[
+                styles.statusText,
+                isDesktop && styles.statusTextCompact,
+                { color: badgeColor },
+              ]}
+            >
+              {fixedStatus.label}
             </Text>
           </View>
         ) : (
           // Meta info para paradas reordenáveis
           <View style={[styles.metaRow, isDesktop && styles.metaRowCompact]}>
             {parada.destinatario && (
-              <Text style={[styles.metaText, isDesktop && styles.metaTextCompact]} numberOfLines={1}>
+              <Text
+                style={[styles.metaText, isDesktop && styles.metaTextCompact]}
+                numberOfLines={1}
+              >
                 {parada.destinatario}
               </Text>
             )}
@@ -185,7 +233,9 @@ export const StopCard = memo(function StopCard({
               style={[
                 styles.typeTag,
                 isDesktop && styles.typeTagCompact,
-                parada.tipo === 'entrega' ? styles.typeTagEntrega : styles.typeTagRetirada,
+                parada.tipo === 'entrega'
+                  ? styles.typeTagEntrega
+                  : styles.typeTagRetirada,
               ]}
             >
               <Text
@@ -207,7 +257,11 @@ export const StopCard = memo(function StopCard({
       {/* Ícone de cadeado apenas para paradas fixas */}
       {isFixed && (
         <View style={[styles.lockIcon, isDesktop && styles.lockIconCompact]}>
-          <Ionicons name="lock-closed" size={isDesktop ? 12 : 16} color={theme.colors.gray400} />
+          <Ionicons
+            name="lock-closed"
+            size={isDesktop ? 12 : 16}
+            color={theme.colors.gray400}
+          />
         </View>
       )}
     </CardContainer>
