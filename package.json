@@ -62,7 +62,7 @@
     "@sentry/browser": "^10.62.0",
     "@sentry/react": "^10.65.0",
     "@shopify/flash-list": "2.0.2",
-    "@supabase/supabase-js": "^2.110.3",
+    "@supabase/supabase-js": "^2.110.8",
     "expo": "^56.0.0",
     "expo-asset": "~56.0.17",
     "expo-audio": "~56.0.12",
