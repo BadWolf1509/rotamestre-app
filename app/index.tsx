@@ -38,11 +38,19 @@ export default function Index() {
       return;
     }
 
-    // Password recovery redirect: token is in URL hash, redirect to reset form
+    // Password recovery redirect: token is in the URL hash/query → go to reset form.
+    // On web we MUST preserve the hash/query (they carry the recovery token). A bare
+    // router.replace() drops the fragment, so the reset screen wouldn't find the token
+    // and would bounce the user to /auth/login. window.location.replace keeps it.
     if (isRecoveryRedirect) {
       logger.debug('🔐 Recovery token detected in URL → /auth/reset-password');
       hasRedirected.current = true;
-      router.replace('/auth/reset-password');
+      if (typeof window !== 'undefined') {
+        const tokenPart = window.location.hash || window.location.search || '';
+        window.location.replace('/auth/reset-password' + tokenPart);
+      } else {
+        router.replace('/auth/reset-password');
+      }
       setLoading(false);
       return;
     }
@@ -74,7 +82,9 @@ export default function Index() {
         const usuario = await authService.getUsuario(session.user.id);
 
         if (!usuario) {
-          logger.warn('⚠️ Usuário não encontrado no banco, redirecionando para login');
+          logger.warn(
+            '⚠️ Usuário não encontrado no banco, redirecionando para login',
+          );
           hasRedirected.current = true;
           router.replace('/auth/login');
           return;
@@ -82,7 +92,9 @@ export default function Index() {
 
         // IMPORTANTE: Verificar se precisa trocar senha antes de redirecionar
         if (usuario.primeira_senha === true) {
-          logger.debug('🔐 Usuário precisa trocar senha → /onboarding/first-password');
+          logger.debug(
+            '🔐 Usuário precisa trocar senha → /onboarding/first-password',
+          );
           hasRedirected.current = true;
           router.replace('/onboarding/first-password');
           return;
@@ -97,7 +109,9 @@ export default function Index() {
           router.replace('/motorista');
         } else {
           // Tipo desconhecido, vai para login
-          logger.warn('⚠️ Tipo de usuário desconhecido, redirecionando para login');
+          logger.warn(
+            '⚠️ Tipo de usuário desconhecido, redirecionando para login',
+          );
           router.replace('/auth/login');
         }
       } else {
