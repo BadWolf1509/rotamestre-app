@@ -247,14 +247,19 @@ export const loginRateLimiter = createRateLimiter({
 
 /**
  * Rate limiter para recuperação de senha
- * - 3 envios por hora (envios bem-sucedidos também contam — resetOnSuccess: false)
- * - Bloqueio de 15 minutos
+ * - 5 envios por hora (envios bem-sucedidos também contam — resetOnSuccess: false)
+ * - Bloqueio exponencial: 5 min, 10 min... até 30 min
+ *
+ * Guarda-chuva client-side apenas anti-abuso. O gargalo real de frequência é o
+ * rate limit server-side do Supabase (intervalo mínimo por usuário + limite/hora),
+ * então estes valores são propositalmente frouxos para não travar usuários legítimos
+ * que precisam reenviar o link algumas vezes.
  */
 export const passwordResetRateLimiter = createRateLimiter({
-  maxAttempts: 3,
+  maxAttempts: 5,
   windowMs: 60 * 60 * 1000,
-  lockoutMs: 15 * 60 * 1000,
-  maxLockoutMs: 60 * 60 * 1000,
+  lockoutMs: 5 * 60 * 1000,
+  maxLockoutMs: 30 * 60 * 1000,
   storagePrefix: '@rotamestre/pwd_reset_limit_',
   resetOnSuccess: false,
 });

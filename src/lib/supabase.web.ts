@@ -74,5 +74,20 @@ if (isSupabaseConfigured) {
   );
 }
 
+/**
+ * Detecta se a URL atual carrega um token de recuperação de senha.
+ *
+ * No web usamos detectSessionInUrl:false (por causa da página anti-scanner
+ * /auth/confirm-reset), então o hash/query com `type=recovery` é tratado
+ * manualmente. Este export dá paridade com o cliente nativo (supabase.ts): o
+ * app/index.tsx usa isso para redirecionar tokens que caiam na raiz ("/") para
+ * /auth/reset-password. Antes NÃO era exportado aqui → `undefined` no web → o
+ * branch de recovery do index virava código morto e o usuário caía no /auth/login.
+ */
+export const isRecoveryRedirect =
+  typeof window !== 'undefined' &&
+  ((window.location.hash || '').includes('type=recovery') ||
+    (window.location.search || '').includes('type=recovery'));
+
 export const supabase = supabaseClient;
 export { isSupabaseConfigured, supabaseUrl };

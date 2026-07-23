@@ -465,10 +465,10 @@ describe('rateLimiter', () => {
       expect(blocked.allowed).toBe(false);
     });
 
-    it('passwordResetRateLimiter deve permitir 3 tentativas', async () => {
+    it('passwordResetRateLimiter deve permitir 5 tentativas', async () => {
       const key = uniqueKey('pwd');
 
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < 4; i++) {
         await passwordResetRateLimiter.recordAttempt(key, false);
       }
 
@@ -481,12 +481,12 @@ describe('rateLimiter', () => {
       expect(blocked.allowed).toBe(false);
     });
 
-    it('passwordResetRateLimiter deve bloquear após 3 envios bem-sucedidos', async () => {
-      // Regressão: sucesso resetava o contador e o limite de 3 envios/hora
-      // nunca atuava sobre envios que funcionaram
+    it('passwordResetRateLimiter deve bloquear após 5 envios bem-sucedidos', async () => {
+      // Regressão: sucesso resetava o contador e o limite de envios/hora
+      // nunca atuava sobre envios que funcionaram (resetOnSuccess: false)
       const key = uniqueKey('pwd-success');
 
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 5; i++) {
         await passwordResetRateLimiter.recordAttempt(key, true);
       }
 
