@@ -13,7 +13,7 @@ export interface UserFriendlyError {
   title: string;
   message: string;
   /** Tipo do alerta - alinhado com AlertDialog do design system */
-  type: "error" | "warning" | "default" | "success";
+  type: 'error' | 'warning' | 'default' | 'success';
   /** Código interno para debugging (não mostrar ao usuário) */
   code?: string;
 }
@@ -30,79 +30,90 @@ const ERROR_PATTERNS: Array<{
   {
     pattern: /invalid.*login.*credentials/i,
     result: {
-      title: "E-mail ou senha incorretos",
-      message: "Verifique seus dados e tente novamente.",
-      type: "error",
-      code: "AUTH_INVALID_CREDENTIALS",
+      title: 'E-mail ou senha incorretos',
+      message: 'Verifique seus dados e tente novamente.',
+      type: 'error',
+      code: 'AUTH_INVALID_CREDENTIALS',
+    },
+  },
+  {
+    pattern:
+      /legacy.*api.*keys?.*disabled|invalid.*api.*key|api.*key.*invalid/i,
+    result: {
+      title: 'Serviço temporariamente indisponível',
+      message:
+        'Não foi possível conectar ao serviço. Tente novamente em alguns minutos.',
+      type: 'warning',
+      code: 'SERVICE_CONFIGURATION_ERROR',
     },
   },
   {
     pattern: /email.*not.*confirmed/i,
     result: {
-      title: "E-mail não confirmado",
-      message: "Verifique sua caixa de entrada e confirme seu e-mail.",
-      type: "warning",
-      code: "AUTH_EMAIL_NOT_CONFIRMED",
+      title: 'E-mail não confirmado',
+      message: 'Verifique sua caixa de entrada e confirme seu e-mail.',
+      type: 'warning',
+      code: 'AUTH_EMAIL_NOT_CONFIRMED',
     },
   },
   {
     pattern: /user.*already.*registered|email.*already.*exists/i,
     result: {
-      title: "E-mail já cadastrado",
+      title: 'E-mail já cadastrado',
       message:
-        "Este e-mail já está em uso. Tente fazer login ou recuperar sua senha.",
-      type: "warning",
-      code: "AUTH_EMAIL_EXISTS",
+        'Este e-mail já está em uso. Tente fazer login ou recuperar sua senha.',
+      type: 'warning',
+      code: 'AUTH_EMAIL_EXISTS',
     },
   },
   {
     pattern: /too.*many.*requests|rate.*limit/i,
     result: {
-      title: "Muitas tentativas",
-      message: "Aguarde alguns minutos antes de tentar novamente.",
-      type: "warning",
-      code: "RATE_LIMIT",
+      title: 'Muitas tentativas',
+      message: 'Aguarde alguns minutos antes de tentar novamente.',
+      type: 'warning',
+      code: 'RATE_LIMIT',
     },
   },
   {
     pattern:
       /same_password|should.*be.*different|new.*password.*different|password.*same/i,
     result: {
-      title: "Senha inválida",
-      message: "A nova senha deve ser diferente da senha atual/anterior.",
-      type: "warning",
-      code: "AUTH_PASSWORD_SAME",
+      title: 'Senha inválida',
+      message: 'A nova senha deve ser diferente da senha atual/anterior.',
+      type: 'warning',
+      code: 'AUTH_PASSWORD_SAME',
     },
   },
   {
     pattern:
       /weak_password|password.*(at least|minim|minimum)|password.*(uppercase|lowercase|number|special)|password.*requirements/i,
     result: {
-      title: "Senha fraca",
+      title: 'Senha fraca',
       message:
-        "A senha não atende aos requisitos de segurança. Tente uma senha mais forte.",
-      type: "warning",
-      code: "AUTH_PASSWORD_WEAK",
+        'A senha não atende aos requisitos de segurança. Tente uma senha mais forte.',
+      type: 'warning',
+      code: 'AUTH_PASSWORD_WEAK',
     },
   },
   {
     pattern: /leaked|compromised|pwned/i,
     result: {
-      title: "Senha comprometida",
+      title: 'Senha comprometida',
       message:
-        "Essa senha já apareceu em vazamentos. Use uma senha diferente e mais segura.",
-      type: "warning",
-      code: "AUTH_PASSWORD_COMPROMISED",
+        'Essa senha já apareceu em vazamentos. Use uma senha diferente e mais segura.',
+      type: 'warning',
+      code: 'AUTH_PASSWORD_COMPROMISED',
     },
   },
   {
     pattern: /recent.*login|reauth|reauthentication/i,
     result: {
-      title: "Sessão expirada",
+      title: 'Sessão expirada',
       message:
-        "Para atualizar a senha, solicite um novo link de recuperação e tente novamente.",
-      type: "warning",
-      code: "AUTH_RECENT_LOGIN_REQUIRED",
+        'Para atualizar a senha, solicite um novo link de recuperação e tente novamente.',
+      type: 'warning',
+      code: 'AUTH_RECENT_LOGIN_REQUIRED',
     },
   },
 
@@ -110,19 +121,19 @@ const ERROR_PATTERNS: Array<{
   {
     pattern: /rls|row.*level.*security|policy/i,
     result: {
-      title: "Sem permissão",
-      message: "Você não tem permissão para realizar esta ação.",
-      type: "error",
-      code: "RLS_VIOLATION",
+      title: 'Sem permissão',
+      message: 'Você não tem permissão para realizar esta ação.',
+      type: 'error',
+      code: 'RLS_VIOLATION',
     },
   },
   {
     pattern: /permission.*denied|unauthorized|forbidden/i,
     result: {
-      title: "Acesso negado",
-      message: "Você não tem permissão para acessar este recurso.",
-      type: "error",
-      code: "PERMISSION_DENIED",
+      title: 'Acesso negado',
+      message: 'Você não tem permissão para acessar este recurso.',
+      type: 'error',
+      code: 'PERMISSION_DENIED',
     },
   },
 
@@ -130,48 +141,48 @@ const ERROR_PATTERNS: Array<{
   {
     pattern: /foreign.*key|fk_|violates.*foreign.*key/i,
     result: {
-      title: "Operação inválida",
+      title: 'Operação inválida',
       message:
-        "Este registro está vinculado a outros dados e não pode ser alterado.",
-      type: "error",
-      code: "FK_VIOLATION",
+        'Este registro está vinculado a outros dados e não pode ser alterado.',
+      type: 'error',
+      code: 'FK_VIOLATION',
     },
   },
   {
     pattern:
       /duplicate key value violates unique constraint "usuarios_email_key"/i,
     result: {
-      title: "E-mail já cadastrado",
-      message: "Já existe um usuário com este e-mail.",
-      type: "warning",
-      code: "UNIQUE_EMAIL_VIOLATION",
+      title: 'E-mail já cadastrado',
+      message: 'Já existe um usuário com este e-mail.',
+      type: 'warning',
+      code: 'UNIQUE_EMAIL_VIOLATION',
     },
   },
   {
     pattern: /unique.*constraint|duplicate.*key/i,
     result: {
-      title: "Registro duplicado",
-      message: "Já existe um registro com estes dados.",
-      type: "warning",
-      code: "UNIQUE_VIOLATION",
+      title: 'Registro duplicado',
+      message: 'Já existe um registro com estes dados.',
+      type: 'warning',
+      code: 'UNIQUE_VIOLATION',
     },
   },
   {
     pattern: /not.*null|null.*value/i,
     result: {
-      title: "Dados incompletos",
-      message: "Preencha todos os campos obrigatórios.",
-      type: "warning",
-      code: "NULL_VIOLATION",
+      title: 'Dados incompletos',
+      message: 'Preencha todos os campos obrigatórios.',
+      type: 'warning',
+      code: 'NULL_VIOLATION',
     },
   },
   {
     pattern: /check.*constraint/i,
     result: {
-      title: "Dados inválidos",
-      message: "Verifique os dados informados e tente novamente.",
-      type: "error",
-      code: "CHECK_VIOLATION",
+      title: 'Dados inválidos',
+      message: 'Verifique os dados informados e tente novamente.',
+      type: 'error',
+      code: 'CHECK_VIOLATION',
     },
   },
 
@@ -179,19 +190,19 @@ const ERROR_PATTERNS: Array<{
   {
     pattern: /network|connection|offline|fetch.*failed|econnrefused/i,
     result: {
-      title: "Sem conexão",
-      message: "Verifique sua conexão com a internet e tente novamente.",
-      type: "warning",
-      code: "NETWORK_ERROR",
+      title: 'Sem conexão',
+      message: 'Verifique sua conexão com a internet e tente novamente.',
+      type: 'warning',
+      code: 'NETWORK_ERROR',
     },
   },
   {
     pattern: /timeout|timed.*out/i,
     result: {
-      title: "Tempo esgotado",
-      message: "A operação demorou muito. Tente novamente.",
-      type: "warning",
-      code: "TIMEOUT",
+      title: 'Tempo esgotado',
+      message: 'A operação demorou muito. Tente novamente.',
+      type: 'warning',
+      code: 'TIMEOUT',
     },
   },
 
@@ -199,20 +210,20 @@ const ERROR_PATTERNS: Array<{
   {
     pattern: /google.*maps|directions.*api|places.*api/i,
     result: {
-      title: "Erro no mapa",
-      message: "Não foi possível carregar o mapa. Tente novamente.",
-      type: "error",
-      code: "MAPS_ERROR",
+      title: 'Erro no mapa',
+      message: 'Não foi possível carregar o mapa. Tente novamente.',
+      type: 'error',
+      code: 'MAPS_ERROR',
     },
   },
   {
     pattern: /zero.*results|not.*found|no.*route/i,
     result: {
-      title: "Endereço não encontrado",
+      title: 'Endereço não encontrado',
       message:
-        "Não foi possível encontrar este endereço. Verifique e tente novamente.",
-      type: "warning",
-      code: "ADDRESS_NOT_FOUND",
+        'Não foi possível encontrar este endereço. Verifique e tente novamente.',
+      type: 'warning',
+      code: 'ADDRESS_NOT_FOUND',
     },
   },
 
@@ -220,20 +231,20 @@ const ERROR_PATTERNS: Array<{
   {
     pattern: /upload|storage|file.*too.*large/i,
     result: {
-      title: "Erro no upload",
-      message: "Não foi possível enviar o arquivo. Tente novamente.",
-      type: "error",
-      code: "UPLOAD_ERROR",
+      title: 'Erro no upload',
+      message: 'Não foi possível enviar o arquivo. Tente novamente.',
+      type: 'error',
+      code: 'UPLOAD_ERROR',
     },
   },
 ];
 
 // Erro padrão (fallback)
 const DEFAULT_ERROR: UserFriendlyError = {
-  title: "Algo deu errado",
-  message: "Ocorreu um erro inesperado. Tente novamente ou contate o suporte.",
-  type: "error",
-  code: "UNKNOWN_ERROR",
+  title: 'Algo deu errado',
+  message: 'Ocorreu um erro inesperado. Tente novamente ou contate o suporte.',
+  type: 'error',
+  code: 'UNKNOWN_ERROR',
 };
 
 // ============================================================================
@@ -256,13 +267,13 @@ const DEFAULT_ERROR: UserFriendlyError = {
  */
 export function getErrorMessage(error: unknown): UserFriendlyError {
   // Extrair mensagem do erro
-  let errorString = "";
+  let errorString = '';
 
   if (error instanceof Error) {
     errorString = error.message;
-  } else if (typeof error === "string") {
+  } else if (typeof error === 'string') {
     errorString = error;
-  } else if (error && typeof error === "object") {
+  } else if (error && typeof error === 'object') {
     // Supabase errors têm formato específico
     const supabaseError = error as {
       message?: string;
@@ -277,7 +288,7 @@ export function getErrorMessage(error: unknown): UserFriendlyError {
 
   // Buscar padrão correspondente
   for (const { pattern, result } of ERROR_PATTERNS) {
-    if (typeof pattern === "string") {
+    if (typeof pattern === 'string') {
       if (errorString.toLowerCase().includes(pattern.toLowerCase())) {
         return result;
       }
@@ -303,7 +314,7 @@ export function getErrorString(error: unknown): string {
  */
 export function isNetworkError(error: unknown): boolean {
   const result = getErrorMessage(error);
-  return result.code === "NETWORK_ERROR" || result.code === "TIMEOUT";
+  return result.code === 'NETWORK_ERROR' || result.code === 'TIMEOUT';
 }
 
 /**
@@ -311,7 +322,7 @@ export function isNetworkError(error: unknown): boolean {
  */
 export function isAuthError(error: unknown): boolean {
   const result = getErrorMessage(error);
-  return result.code?.startsWith("AUTH_") ?? false;
+  return result.code?.startsWith('AUTH_') ?? false;
 }
 
 /**
@@ -319,7 +330,7 @@ export function isAuthError(error: unknown): boolean {
  */
 export function isPermissionError(error: unknown): boolean {
   const result = getErrorMessage(error);
-  return result.code === "RLS_VIOLATION" || result.code === "PERMISSION_DENIED";
+  return result.code === 'RLS_VIOLATION' || result.code === 'PERMISSION_DENIED';
 }
 
 export default {

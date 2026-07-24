@@ -2,6 +2,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
 import { authService } from '@/lib/auth';
+import { loginRateLimiter } from '@/lib/rateLimiter';
 
 import Login from '../../../auth/login';
 
@@ -16,6 +17,18 @@ const mockRouter = require('expo-router').useRouter();
 jest.mock('@/lib/auth', () => ({
   authService: {
     signIn: jest.fn(),
+  },
+}));
+
+jest.mock('@/lib/rateLimiter', () => ({
+  loginRateLimiter: {
+    checkLimit: jest.fn().mockResolvedValue({
+      allowed: true,
+      remainingAttempts: 5,
+      retryAfterMs: null,
+      message: null,
+    }),
+    recordAttempt: jest.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -271,7 +284,40 @@ describe('Login Screen - Integration Tests', () => {
         expect(
           getByText('Verifique seus dados e tente novamente.'),
         ).toBeTruthy();
+        expect(loginRateLimiter.recordAttempt).toHaveBeenCalledWith(
+          'erro@rotamestre.com',
+          false,
+        );
       });
+    });
+
+    it('não deve penalizar o usuário quando a chave do serviço está inválida', async () => {
+      (authService.signIn as jest.Mock).mockRejectedValue(
+        new Error('Legacy API keys are disabled'),
+      );
+
+      const { getByPlaceholderText, getByText } = render(<Login />);
+
+      fireEvent.changeText(
+        getByPlaceholderText('seu@email.com'),
+        'gestor@rotamestre.com',
+      );
+      fireEvent.changeText(getByPlaceholderText('••••••••'), 'senha-correta');
+      fireEvent.press(getByText('Entrar'));
+
+      await waitFor(() => {
+        expect(getByText('Serviço temporariamente indisponível')).toBeTruthy();
+        expect(
+          getByText(
+            'Não foi possível conectar ao serviço. Tente novamente em alguns minutos.',
+          ),
+        ).toBeTruthy();
+      });
+
+      expect(loginRateLimiter.recordAttempt).not.toHaveBeenCalledWith(
+        'gestor@rotamestre.com',
+        false,
+      );
     });
 
     it('deve exibir erro genérico quando ocorre erro desconhecido', async () => {
@@ -321,6 +367,10 @@ describe('Login Screen - Integration Tests', () => {
             'Não encontramos sua conta. Verifique seus dados e tente novamente.',
           ),
         ).toBeTruthy();
+        expect(loginRateLimiter.recordAttempt).toHaveBeenCalledWith(
+          'naoexiste@rotamestre.com',
+          true,
+        );
       });
     });
   });

@@ -36,6 +36,25 @@ describe('errorMapping', () => {
         expect(result.code).toBe('AUTH_INVALID_CREDENTIALS');
       });
 
+      it('should handle disabled legacy Supabase API keys', () => {
+        const error = new Error('Legacy API keys are disabled');
+        const result = getErrorMessage(error);
+
+        expect(result.title).toBe('Serviço temporariamente indisponível');
+        expect(result.message).toBe(
+          'Não foi possível conectar ao serviço. Tente novamente em alguns minutos.',
+        );
+        expect(result.type).toBe('warning');
+        expect(result.code).toBe('SERVICE_CONFIGURATION_ERROR');
+      });
+
+      it('should handle invalid Supabase API keys', () => {
+        const error = { message: 'Invalid API key' };
+        const result = getErrorMessage(error);
+
+        expect(result.code).toBe('SERVICE_CONFIGURATION_ERROR');
+      });
+
       it('should handle email not confirmed', () => {
         const error = { message: 'Email not confirmed' };
         const result = getErrorMessage(error);
@@ -61,7 +80,9 @@ describe('errorMapping', () => {
       });
 
       it('should handle same password validation', () => {
-        const error = { message: 'New password should be different from the old password' };
+        const error = {
+          message: 'New password should be different from the old password',
+        };
         const result = getErrorMessage(error);
 
         expect(result.title).toBe('Senha inválida');
@@ -79,7 +100,9 @@ describe('errorMapping', () => {
       });
 
       it('should handle compromised password validation', () => {
-        const error = { message: 'Password is known to be compromised and cannot be used' };
+        const error = {
+          message: 'Password is known to be compromised and cannot be used',
+        };
         const result = getErrorMessage(error);
 
         expect(result.title).toBe('Senha comprometida');
@@ -88,7 +111,10 @@ describe('errorMapping', () => {
       });
 
       it('should handle recent login required validation', () => {
-        const error = { message: 'Password update requires recent login. Please reauthenticate.' };
+        const error = {
+          message:
+            'Password update requires recent login. Please reauthenticate.',
+        };
         const result = getErrorMessage(error);
 
         expect(result.title).toBe('Sessão expirada');
@@ -165,7 +191,9 @@ describe('errorMapping', () => {
       });
 
       it('should handle unique constraint violation', () => {
-        const error = { message: 'unique constraint violation on column email' };
+        const error = {
+          message: 'unique constraint violation on column email',
+        };
         const result = getErrorMessage(error);
 
         expect(result.title).toBe('Registro duplicado');
@@ -174,14 +202,18 @@ describe('errorMapping', () => {
       });
 
       it('should handle duplicate key', () => {
-        const error = new Error('duplicate key value violates unique constraint');
+        const error = new Error(
+          'duplicate key value violates unique constraint',
+        );
         const result = getErrorMessage(error);
 
         expect(result.code).toBe('UNIQUE_VIOLATION');
       });
 
       it('should handle not null violation', () => {
-        const error = { message: 'null value in column nome violates not null constraint' };
+        const error = {
+          message: 'null value in column nome violates not null constraint',
+        };
         const result = getErrorMessage(error);
 
         expect(result.title).toBe('Dados incompletos');
@@ -357,7 +389,9 @@ describe('errorMapping', () => {
         const result = getErrorMessage(error);
 
         expect(result.title).toBe('Algo deu errado');
-        expect(result.message).toBe('Ocorreu um erro inesperado. Tente novamente ou contate o suporte.');
+        expect(result.message).toBe(
+          'Ocorreu um erro inesperado. Tente novamente ou contate o suporte.',
+        );
         expect(result.type).toBe('error');
         expect(result.code).toBe('UNKNOWN_ERROR');
       });
@@ -376,7 +410,9 @@ describe('errorMapping', () => {
       const error = new Error('Unknown xyz');
       const result = getErrorString(error);
 
-      expect(result).toBe('Ocorreu um erro inesperado. Tente novamente ou contate o suporte.');
+      expect(result).toBe(
+        'Ocorreu um erro inesperado. Tente novamente ou contate o suporte.',
+      );
     });
   });
 
@@ -391,7 +427,9 @@ describe('errorMapping', () => {
     });
 
     it('should return false for non-network errors', () => {
-      expect(isNetworkError(new Error('Invalid login credentials'))).toBe(false);
+      expect(isNetworkError(new Error('Invalid login credentials'))).toBe(
+        false,
+      );
       expect(isNetworkError({ message: 'permission denied' })).toBe(false);
     });
   });
@@ -417,7 +455,9 @@ describe('errorMapping', () => {
 
     it('should return false for non-permission errors', () => {
       expect(isPermissionError(new Error('Network error'))).toBe(false);
-      expect(isPermissionError(new Error('Invalid login credentials'))).toBe(false);
+      expect(isPermissionError(new Error('Invalid login credentials'))).toBe(
+        false,
+      );
     });
   });
 });
