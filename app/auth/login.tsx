@@ -142,8 +142,9 @@ export default function Login() {
           router.replace('/motorista');
         }
       } else {
-        // Registrar tentativa falha
-        await loginRateLimiter.recordAttempt(email, false);
+        // A senha foi aceita, mas o perfil da aplicação não foi encontrado.
+        // Não penalizar o usuário como se tivesse informado credenciais inválidas.
+        await loginRateLimiter.recordAttempt(email, true);
         showAlert(
           'Usuário não encontrado',
           'Não encontramos sua conta. Verifique seus dados e tente novamente.',
@@ -151,11 +152,15 @@ export default function Login() {
         );
       }
     } catch (error: unknown) {
-      // Registrar tentativa falha
-      await loginRateLimiter.recordAttempt(email.toLowerCase(), false);
-
       // Usar error mapping para mensagem amigável (sem expor detalhes técnicos)
       const friendlyError = getErrorMessage(error);
+
+      // O rate limiter protege contra força bruta. Falhas de rede, servidor ou
+      // configuração não devem bloquear um usuário com credenciais corretas.
+      if (friendlyError.code === 'AUTH_INVALID_CREDENTIALS') {
+        await loginRateLimiter.recordAttempt(email.toLowerCase(), false);
+      }
+
       showAlert(friendlyError.title, friendlyError.message, friendlyError.type);
     } finally {
       setLoading(false);
