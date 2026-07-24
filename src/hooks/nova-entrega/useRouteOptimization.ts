@@ -24,7 +24,9 @@ import type React from 'react';
 
 export interface UseRouteOptimizationReturn {
   rotaOtimizada: RotaOtimizadaState | null;
-  setRotaOtimizada: React.Dispatch<React.SetStateAction<RotaOtimizadaState | null>>;
+  setRotaOtimizada: React.Dispatch<
+    React.SetStateAction<RotaOtimizadaState | null>
+  >;
   isOptimizing: boolean;
   ordemManual: boolean;
   setOrdemManual: (manual: boolean) => void;
@@ -35,7 +37,11 @@ export interface UseRouteOptimizationReturn {
 export interface UseRouteOptimizationOptions {
   paradas: Parada[];
   enderecoUnidade: EnderecoUnidade | null;
-  showToast: (message: string, type: 'success' | 'error' | 'info', duration?: number) => void;
+  showToast: (
+    message: string,
+    type: 'success' | 'error' | 'info',
+    duration?: number,
+  ) => void;
 }
 
 export function useRouteOptimization({
@@ -43,7 +49,9 @@ export function useRouteOptimization({
   enderecoUnidade,
   showToast,
 }: UseRouteOptimizationOptions): UseRouteOptimizationReturn {
-  const [rotaOtimizada, setRotaOtimizada] = useState<RotaOtimizadaState | null>(null);
+  const [rotaOtimizada, setRotaOtimizada] = useState<RotaOtimizadaState | null>(
+    null,
+  );
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [ordemManual, setOrdemManual] = useState(false);
 
@@ -54,29 +62,47 @@ export function useRouteOptimization({
     }
 
     if (!enderecoUnidade) {
-      showToast('Endereço da unidade não encontrado. Verifique o cadastro da unidade.', 'error');
+      showToast(
+        'Endereço da unidade não encontrado. Verifique o cadastro da unidade.',
+        'error',
+      );
       return null;
     }
 
     // Filtrar paradas sem coordenadas válidas
-    const paradasComCoordenadas = paradas.filter((p) => p.latitude != null && p.longitude != null);
+    const paradasComCoordenadas = paradas.filter(
+      (p) =>
+        typeof p.latitude === 'number' &&
+        Number.isFinite(p.latitude) &&
+        p.latitude >= -90 &&
+        p.latitude <= 90 &&
+        typeof p.longitude === 'number' &&
+        Number.isFinite(p.longitude) &&
+        p.longitude >= -180 &&
+        p.longitude <= 180,
+    );
     if (paradasComCoordenadas.length !== paradas.length) {
-      showToast('Algumas paradas não têm coordenadas válidas. Remova-as e adicione novamente.', 'error');
+      showToast(
+        'Algumas paradas não têm coordenadas válidas. Remova-as e adicione novamente.',
+        'error',
+      );
       return null;
     }
 
-    const paradasParaValidar: ParadaParaOtimizar[] = paradasComCoordenadas.map((p) => ({
-      id: p.id,
-      tipo: p.tipo,
-      endereco: p.endereco,
-      latitude: p.latitude as number,
-      longitude: p.longitude as number,
-      ordem: p.ordem,
-      destinatario: p.destinatario,
-      telefone: p.telefone,
-      observacoes: p.observacoes,
-      vinculo_parada_id: p.vinculo_parada_id,
-    }));
+    const paradasParaValidar: ParadaParaOtimizar[] = paradasComCoordenadas.map(
+      (p) => ({
+        id: p.id,
+        tipo: p.tipo,
+        endereco: p.endereco,
+        latitude: p.latitude as number,
+        longitude: p.longitude as number,
+        ordem: p.ordem,
+        destinatario: p.destinatario,
+        telefone: p.telefone,
+        observacoes: p.observacoes,
+        vinculo_parada_id: p.vinculo_parada_id,
+      }),
+    );
 
     const validacao = validarRotaParaOtimizacao(paradasParaValidar);
 
@@ -102,7 +128,7 @@ export function useRouteOptimization({
         const resultado = await otimizarRotaComDependencias(
           pontoUnidade,
           paradasParaValidar,
-          pontoUnidade
+          pontoUnidade,
         );
 
         if (!resultado) {
@@ -114,7 +140,9 @@ export function useRouteOptimization({
           .map((pOtimizada, i) => {
             const paradaOriginal = paradas.find((p) => p.id === pOtimizada.id);
             if (!paradaOriginal) {
-              logger.warn(`[useRouteOptimization] Parada otimizada ${pOtimizada.id} não encontrada nas paradas originais`);
+              logger.warn(
+                `[useRouteOptimization] Parada otimizada ${pOtimizada.id} não encontrada nas paradas originais`,
+              );
               return null;
             }
             return {
@@ -124,18 +152,22 @@ export function useRouteOptimization({
           })
           .filter((p): p is Parada => p !== null);
 
+        const isEstimated = resultado.isEstimated === true;
         setRotaOtimizada({
           distancia_total_metros: resultado.distanciaTotalMetros,
           duracao_total_segundos: resultado.duracaoTotalSegundos,
           legs: [],
           polyline: resultado.polyline,
+          isEstimated,
         });
         setOrdemManual(false);
 
         showToast(
-          `Rota otimizada com dependências! ${(resultado.distanciaTotalMetros / 1000).toFixed(1)} km - ${Math.round(resultado.duracaoTotalSegundos / 60)} min`,
-          'success',
-          4000
+          isEstimated
+            ? 'O serviço viário está indisponível. A ordem exibida é apenas uma estimativa e não pode ser confirmada ainda.'
+            : `Rota otimizada com dependências! ${(resultado.distanciaTotalMetros / 1000).toFixed(1)} km - ${Math.round(resultado.duracaoTotalSegundos / 60)} min`,
+          isEstimated ? 'info' : 'success',
+          isEstimated ? 6000 : 4000,
         );
 
         return paradasAtualizadas;
@@ -148,7 +180,7 @@ export function useRouteOptimization({
         const resultado = await googleMapsService.getDirections(
           pontoUnidade,
           pontoUnidade,
-          waypoints
+          waypoints,
         );
 
         if (!resultado) {
@@ -157,25 +189,33 @@ export function useRouteOptimization({
         }
 
         const ordemOtimizada = resultado.ordem_otimizada || [];
-        const paradasReordenadas = ordenarParadasPorRota(paradas, ordemOtimizada, resultado.legs);
+        const paradasReordenadas = ordenarParadasPorRota(
+          paradas,
+          ordemOtimizada,
+          resultado.legs,
+        );
 
         const paradasComNovaOrdem = paradasReordenadas.map((p, i) => ({
           ...p,
           ordem: i + 1,
         }));
 
+        const isEstimated = resultado.is_estimated === true;
         setRotaOtimizada({
           distancia_total_metros: resultado.distancia_total_metros,
           duracao_total_segundos: resultado.duracao_total_segundos,
           legs: resultado.legs,
           polyline: resultado.polyline,
+          isEstimated,
         });
         setOrdemManual(false);
 
         showToast(
-          `Rota otimizada! ${(resultado.distancia_total_metros / 1000).toFixed(1)} km - ${Math.round(resultado.duracao_total_segundos / 60)} min`,
-          'success',
-          4000
+          isEstimated
+            ? 'O serviço viário está indisponível. A ordem exibida é apenas uma estimativa e não pode ser confirmada ainda.'
+            : `Rota otimizada! ${(resultado.distancia_total_metros / 1000).toFixed(1)} km - ${Math.round(resultado.duracao_total_segundos / 60)} min`,
+          isEstimated ? 'info' : 'success',
+          isEstimated ? 6000 : 4000,
         );
 
         return paradasComNovaOrdem;

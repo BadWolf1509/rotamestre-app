@@ -23,52 +23,62 @@ const FAQ_ITEMS: FAQItem[] = [
   {
     id: '1',
     question: 'Como criar rotas otimizadas?',
-    answer: 'Acesse "Nova Entrega" no menu. Adicione os endereços de entrega usando o autocomplete. O sistema irá automaticamente otimizar a ordem das paradas para reduzir a distância total. Você pode revisar e ajustar a ordem antes de salvar.',
+    answer:
+      'Acesse "Nova Entrega" no menu e adicione os endereços usando o autocomplete. Use "Otimizar melhor percurso" quando quiser que o sistema proponha a menor rota; se preferir uma ordem operacional específica, mantenha a ordem manual. Antes da criação, uma revisão mostra base, motorista, data, distância, alertas e a sequência final.',
   },
   {
     id: '2',
     question: 'Como atribuir uma rota a um motorista?',
-    answer: 'Ao criar uma nova rota, selecione o motorista no campo "Motorista Responsável". Você também pode editar rotas existentes para alterar o motorista atribuído. O motorista receberá uma notificação automática.',
+    answer:
+      'Ao criar uma nova rota, selecione o motorista no campo "Motorista Responsável". Você também pode editar rotas existentes para alterar o motorista atribuído. O motorista receberá uma notificação automática.',
   },
   {
     id: '3',
     question: 'Como gerenciar motoristas?',
-    answer: 'Acesse "Motoristas" no menu para ver sua equipe. Você pode adicionar novos motoristas, editar informações, ativar/desativar contas e ver o histórico de rotas de cada um. Para adicionar, use o botão "+" no canto superior.',
+    answer:
+      'Acesse "Motoristas" no menu para ver sua equipe. Você pode adicionar novos motoristas, editar informações, ativar/desativar contas e ver o histórico de rotas de cada um. Para adicionar, use o botão "+" no canto superior.',
   },
   {
     id: '4',
     question: 'Como analisar relatórios e métricas?',
-    answer: 'O Dashboard mostra métricas em tempo real: rotas do dia, entregas concluídas, taxa de sucesso e tempo médio. Acesse "Gestão de Rotas" para histórico detalhado e use o botão "Exportar" para baixar relatórios em CSV.',
+    answer:
+      'O Dashboard mostra métricas em tempo real: rotas do dia, entregas concluídas, taxa de sucesso e tempo médio. Acesse "Gestão de Rotas" para histórico detalhado e use o botão "Exportar" para baixar relatórios em CSV.',
   },
   {
     id: '5',
     question: 'Como resolver incidentes?',
-    answer: 'Quando um motorista reporta um incidente, você recebe uma notificação. Acesse "Incidentes" no menu para ver detalhes, fotos e localização. Você pode adicionar comentários, resolver o incidente ou escalar para suporte.',
+    answer:
+      'Quando um motorista reporta um incidente, você recebe uma notificação. Acesse "Incidentes" no menu para ver detalhes, fotos e localização. Você pode adicionar comentários, resolver o incidente ou escalar para suporte.',
   },
   {
     id: '6',
     question: 'Como acompanhar uma rota em tempo real?',
-    answer: 'Toque em qualquer rota ativa para ver o mapa com a posição do motorista em tempo real. Você verá quais paradas foram concluídas, o progresso da rota e estimativa de conclusão.',
+    answer:
+      'Toque em qualquer rota ativa para ver o mapa com a posição do motorista em tempo real. Você verá quais paradas foram concluídas, o progresso da rota e estimativa de conclusão.',
   },
   {
     id: '7',
     question: 'Como editar uma rota em andamento?',
-    answer: 'Abra a rota no mapa e toque no ícone de edição. Você pode adicionar novas paradas, remover paradas ou reordenar a sequência. O motorista será notificado automaticamente sobre alterações.',
+    answer:
+      'Abra a rota no mapa e toque no ícone de edição. Você pode adicionar novas paradas, remover paradas ou reordenar a sequência. O motorista será notificado automaticamente sobre alterações.',
   },
   {
     id: '8',
     question: 'Como ver fotos de comprovante de entrega?',
-    answer: 'Acesse o histórico da rota e toque em uma parada concluída. A foto de comprovante (se existir) será exibida junto com horário de conclusão e assinatura do destinatário.',
+    answer:
+      'Acesse o histórico da rota e toque em uma parada concluída. A foto de comprovante (se existir) será exibida junto com horário de conclusão e assinatura do destinatário.',
   },
   {
     id: '9',
     question: 'O que fazer se um motorista não conseguir entregar?',
-    answer: 'Quando o motorista pula uma parada, você recebe uma notificação com o motivo. Você pode reagendar a entrega criando uma nova rota ou adicionando a parada a uma rota existente.',
+    answer:
+      'Quando o motorista pula uma parada, você recebe uma notificação com o motivo. Você pode reagendar a entrega criando uma nova rota ou adicionando a parada a uma rota existente.',
   },
   {
     id: '10',
     question: 'Como exportar dados para Excel?',
-    answer: 'Na tela de Gestão de Rotas, aplique os filtros desejados e toque em "Exportar CSV". O arquivo será baixado automaticamente (web) ou você poderá compartilhar (mobile).',
+    answer:
+      'Na tela de Gestão de Rotas, aplique os filtros desejados e toque em "Exportar CSV". O arquivo será baixado automaticamente (web) ou você poderá compartilhar (mobile).',
   },
 ];
 
@@ -122,10 +132,16 @@ export default function AjudaGestorScreen() {
           if (canOpen) {
             await Linking.openURL(whatsappUrl);
           } else {
-            showWarning('WhatsApp não instalado', 'Tente outro método de contato.');
+            showWarning(
+              'WhatsApp não instalado',
+              'Tente outro método de contato.',
+            );
           }
         } catch {
-          showError({ title: 'Erro', message: 'Não foi possível abrir o WhatsApp.' });
+          showError({
+            title: 'Erro',
+            message: 'Não foi possível abrir o WhatsApp.',
+          });
         }
         break;
       }
@@ -146,108 +162,123 @@ export default function AjudaGestorScreen() {
 
   return (
     <ErrorBoundary>
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
-    >
-      {/* FAQ Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Perguntas Frequentes - Gestor</Text>
-        <View style={styles.faqList}>
-          {FAQ_ITEMS.map((item) => (
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{
+          paddingBottom: Math.max(20, insets.bottom + 20),
+        }}
+      >
+        {/* FAQ Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Perguntas Frequentes - Gestor</Text>
+          <View style={styles.faqList}>
+            {FAQ_ITEMS.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.faqItem}
+                onPress={() => toggleFAQ(item.id)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.faqHeader}>
+                  <Text style={styles.faqQuestion}>{item.question}</Text>
+                  <Text style={styles.faqChevron}>
+                    {expandedFAQ === item.id ? '▼' : '▶'}
+                  </Text>
+                </View>
+                {expandedFAQ === item.id && (
+                  <Text style={styles.faqAnswer}>{item.answer}</Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Support Contact */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Suporte ao Gestor</Text>
+          <Text style={styles.sectionSubtitle}>
+            Atendimento prioritário para gestores:
+          </Text>
+          <View style={styles.supportList}>
+            {SUPPORT_OPTIONS.map((option) => (
+              <TouchableOpacity
+                key={option.id}
+                style={styles.supportItem}
+                onPress={() => handleSupportAction(option.action)}
+              >
+                <Text style={styles.supportIcon}>{option.icon}</Text>
+                <View style={styles.supportInfo}>
+                  <Text style={styles.supportLabel}>{option.label}</Text>
+                  <Text style={styles.supportDescription}>
+                    {option.description}
+                  </Text>
+                </View>
+                <Text style={styles.supportArrow}>→</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Quick Links */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Links Úteis</Text>
+          <View style={styles.linksList}>
             <TouchableOpacity
-              key={item.id}
-              style={styles.faqItem}
-              onPress={() => toggleFAQ(item.id)}
-              activeOpacity={0.7}
+              style={styles.linkItem}
+              onPress={() =>
+                Linking.openURL('https://rotamestre.tec.br/central-de-ajuda')
+              }
             >
-              <View style={styles.faqHeader}>
-                <Text style={styles.faqQuestion}>{item.question}</Text>
-                <Text style={styles.faqChevron}>
-                  {expandedFAQ === item.id ? '▼' : '▶'}
-                </Text>
-              </View>
-              {expandedFAQ === item.id && (
-                <Text style={styles.faqAnswer}>{item.answer}</Text>
-              )}
+              <Text style={styles.linkIcon}>📚</Text>
+              <Text style={styles.linkLabel}>Central de Ajuda</Text>
             </TouchableOpacity>
-          ))}
-        </View>
-      </View>
 
-      {/* Support Contact */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Suporte ao Gestor</Text>
-        <Text style={styles.sectionSubtitle}>
-          Atendimento prioritário para gestores:
-        </Text>
-        <View style={styles.supportList}>
-          {SUPPORT_OPTIONS.map((option) => (
             <TouchableOpacity
-              key={option.id}
-              style={styles.supportItem}
-              onPress={() => handleSupportAction(option.action)}
+              style={styles.linkItem}
+              onPress={() =>
+                Linking.openURL('https://rotamestre.tec.br/tutoriais')
+              }
             >
-              <Text style={styles.supportIcon}>{option.icon}</Text>
-              <View style={styles.supportInfo}>
-                <Text style={styles.supportLabel}>{option.label}</Text>
-                <Text style={styles.supportDescription}>{option.description}</Text>
-              </View>
-              <Text style={styles.supportArrow}>→</Text>
+              <Text style={styles.linkIcon}>🎬</Text>
+              <Text style={styles.linkLabel}>Tutoriais em Vídeo</Text>
             </TouchableOpacity>
-          ))}
+
+            <TouchableOpacity
+              style={styles.linkItem}
+              onPress={() =>
+                Linking.openURL('https://rotamestre.tec.br/termos-de-uso')
+              }
+            >
+              <Text style={styles.linkIcon}>📄</Text>
+              <Text style={styles.linkLabel}>Termos de Uso</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.linkItem}
+              onPress={() =>
+                Linking.openURL(
+                  'https://rotamestre.tec.br/politica-de-privacidade',
+                )
+              }
+            >
+              <Text style={styles.linkIcon}>🔐</Text>
+              <Text style={styles.linkLabel}>Política de Privacidade</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
 
-      {/* Quick Links */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Links Úteis</Text>
-        <View style={styles.linksList}>
-          <TouchableOpacity
-            style={styles.linkItem}
-            onPress={() => Linking.openURL('https://rotamestre.tec.br/central-de-ajuda')}
-          >
-            <Text style={styles.linkIcon}>📚</Text>
-            <Text style={styles.linkLabel}>Central de Ajuda</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.linkItem}
-            onPress={() => Linking.openURL('https://rotamestre.tec.br/tutoriais')}
-          >
-            <Text style={styles.linkIcon}>🎬</Text>
-            <Text style={styles.linkLabel}>Tutoriais em Vídeo</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.linkItem}
-            onPress={() => Linking.openURL('https://rotamestre.tec.br/termos-de-uso')}
-          >
-            <Text style={styles.linkIcon}>📄</Text>
-            <Text style={styles.linkLabel}>Termos de Uso</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.linkItem}
-            onPress={() => Linking.openURL('https://rotamestre.tec.br/politica-de-privacidade')}
-          >
-            <Text style={styles.linkIcon}>🔐</Text>
-            <Text style={styles.linkLabel}>Política de Privacidade</Text>
-          </TouchableOpacity>
+        {/* App Info */}
+        <View style={styles.appInfoSection}>
+          <Text style={styles.appName}>RotaMestre</Text>
+          <Text style={styles.appCopyright}>
+            © {new Date().getFullYear()} RotaMestre. Todos os direitos
+            reservados.
+          </Text>
         </View>
-      </View>
 
-      {/* App Info */}
-      <View style={styles.appInfoSection}>
-        <Text style={styles.appName}>RotaMestre</Text>
-        <Text style={styles.appCopyright}>
-          © {new Date().getFullYear()} RotaMestre. Todos os direitos reservados.
-        </Text>
-      </View>
-
-      <View style={styles.footer} />
-      {AlertDialog}
-    </ScrollView>
+        <View style={styles.footer} />
+        {AlertDialog}
+      </ScrollView>
     </ErrorBoundary>
   );
 }

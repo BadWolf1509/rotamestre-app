@@ -34,21 +34,22 @@ function agruparPorDependencia(paradas: ParadaParaOtimizar[]): {
 
   const retiradasComVinculos = new Map<string, ParadaParaOtimizar[]>();
 
-  paradas.forEach(parada => {
+  paradas.forEach((parada) => {
     if (parada.vinculo_parada_id) {
-      const vinculadas = retiradasComVinculos.get(parada.vinculo_parada_id) || [];
+      const vinculadas =
+        retiradasComVinculos.get(parada.vinculo_parada_id) || [];
       vinculadas.push(parada);
       retiradasComVinculos.set(parada.vinculo_parada_id, vinculadas);
     }
   });
 
-  paradas.forEach(parada => {
+  paradas.forEach((parada) => {
     if (processados.has(parada.id)) return;
 
     if (parada.tipo === 'retirada' && retiradasComVinculos.has(parada.id)) {
       const grupo = [parada, ...retiradasComVinculos.get(parada.id)!];
       grupos.push(grupo);
-      grupo.forEach(p => processados.add(p.id));
+      grupo.forEach((p) => processados.add(p.id));
     } else if (!parada.vinculo_parada_id && !processados.has(parada.id)) {
       independentes.push(parada);
       processados.add(parada.id);
@@ -65,7 +66,7 @@ export async function otimizarRotaComDependencias(
   origem: Coordenadas,
   paradas: ParadaParaOtimizar[],
   destino?: Coordenadas,
-  ignorarCache?: boolean
+  ignorarCache?: boolean,
 ): Promise<ResultadoOtimizacao | null> {
   if (paradas.length === 0) {
     return {
@@ -74,6 +75,7 @@ export async function otimizarRotaComDependencias(
       duracaoTotalSegundos: 0,
       polyline: '',
       ordemIndices: [],
+      isEstimated: false,
     };
   }
 
@@ -89,7 +91,9 @@ export async function otimizarRotaComDependencias(
 
   const validacao = validarRotaParaOtimizacao(paradas);
   if (!validacao.valido) {
-    logger.error('[RouteOptimization] Validacao falhou', { erros: validacao.erros });
+    logger.error('[RouteOptimization] Validacao falhou', {
+      erros: validacao.erros,
+    });
     return null;
   }
 
@@ -100,7 +104,7 @@ export async function otimizarRotaComDependencias(
   const { grupos, independentes } = agruparPorDependencia(paradas);
 
   const representantes: ParadaParaOtimizar[] = [
-    ...grupos.map(grupo => grupo[0]),
+    ...grupos.map((grupo) => grupo[0]),
     ...independentes,
   ];
 
@@ -112,7 +116,7 @@ export async function otimizarRotaComDependencias(
     mapaRepresentantes.set(grupos.length + idx, [parada]);
   });
 
-  const waypoints: Coordenadas[] = representantes.map(p => ({
+  const waypoints: Coordenadas[] = representantes.map((p) => ({
     latitude: p.latitude,
     longitude: p.longitude,
   }));
@@ -122,7 +126,7 @@ export async function otimizarRotaComDependencias(
   const resultado = await googleMapsService.getDirections(
     origem,
     destinoFinal,
-    waypoints
+    waypoints,
   );
 
   if (!resultado) {
@@ -135,20 +139,20 @@ export async function otimizarRotaComDependencias(
   const ordemIndices: number[] = [];
 
   if (ordemOtimizada && ordemOtimizada.length > 0) {
-    ordemOtimizada.forEach(idx => {
+    ordemOtimizada.forEach((idx) => {
       const grupo = mapaRepresentantes.get(idx);
       if (grupo) {
-        grupo.forEach(parada => {
-          const idxOriginal = paradas.findIndex(p => p.id === parada.id);
+        grupo.forEach((parada) => {
+          const idxOriginal = paradas.findIndex((p) => p.id === parada.id);
           ordemIndices.push(idxOriginal);
           paradasOrdenadas.push(parada);
         });
       }
     });
   } else {
-    [...grupos, ...independentes.map(p => [p])].forEach(grupo => {
-      grupo.forEach(parada => {
-        const idxOriginal = paradas.findIndex(p => p.id === parada.id);
+    [...grupos, ...independentes.map((p) => [p])].forEach((grupo) => {
+      grupo.forEach((parada) => {
+        const idxOriginal = paradas.findIndex((p) => p.id === parada.id);
         ordemIndices.push(idxOriginal);
         paradasOrdenadas.push(parada);
       });
@@ -165,6 +169,7 @@ export async function otimizarRotaComDependencias(
     duracaoTotalSegundos: resultado.duracao_total_segundos,
     polyline: resultado.polyline,
     ordemIndices,
+    isEstimated: resultado.is_estimated === true,
   };
 
   salvarNoCache(hashRota, resultadoFinal).then(() => {

@@ -300,6 +300,24 @@ export const novaEntregaStyles = StyleSheet.create((theme: Theme) => ({
     marginTop: -theme.spacing.sm,
     marginBottom: theme.spacing.sm,
   },
+  characterCount: {
+    alignSelf: 'flex-end',
+    color: theme.colors.gray500,
+    fontSize: theme.typography.xs,
+    marginTop: -theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
+  cancelEditButton: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    marginTop: theme.spacing.xs,
+  },
+  cancelEditButtonText: {
+    color: theme.colors.gray600,
+    fontFamily: theme.typography.fontSansSemiBold,
+    fontSize: theme.typography.sm,
+  },
   // Add button
   addButton: {
     backgroundColor: theme.colors.primary,
@@ -356,5 +374,57 @@ export const novaEntregaStyles = StyleSheet.create((theme: Theme) => ({
   },
   clearCardButtonTextDesktop: {
     fontSize: theme.desktop.button.fontSize,
+  },
+  draftStatus: {
+    color: theme.colors.gray500,
+    fontSize: theme.typography.xs,
+    marginBottom: theme.spacing.sm,
+    textAlign: 'right',
+  },
+  mobileActionBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
+    backgroundColor: theme.colors.white,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.gray200,
+    ...theme.shadows.lg,
+  },
+  mobileActionSummary: {
+    flex: 1,
+  },
+  mobileActionCount: {
+    color: theme.colors.gray900,
+    fontFamily: theme.typography.fontSansBold,
+    fontSize: theme.typography.sm,
+  },
+  mobileActionHint: {
+    color: theme.colors.gray500,
+    fontSize: theme.typography.xs,
+    marginTop: 2,
+  },
+  mobileReviewButton: {
+    minWidth: 110,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: theme.colors.success,
+  },
+  mobileReviewButtonDisabled: {
+    backgroundColor: theme.colors.gray400,
+    opacity: 0.65,
+  },
+  mobileReviewButtonText: {
+    color: theme.colors.white,
+    fontFamily: theme.typography.fontSansBold,
+    fontSize: theme.typography.base,
   },
 }));

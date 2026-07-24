@@ -9,6 +9,33 @@ jest.mock('@/hooks/useResponsive', () => ({
   useResponsive: () => mockUseResponsive(),
 }));
 
+jest.mock('react-native-draggable-flatlist', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+
+  return {
+    __esModule: true,
+    default: ({ data, renderItem }: any) =>
+      React.createElement(
+        View,
+        null,
+        data.map((item: any, index: number) =>
+          React.createElement(
+            View,
+            { key: item.id },
+            renderItem({
+              item,
+              getIndex: () => index,
+              drag: jest.fn(),
+              isActive: false,
+            }),
+          ),
+        ),
+      ),
+    ScaleDecorator: ({ children }: any) => children,
+  };
+});
+
 describe('ParadasListAndActions', () => {
   const baseParadas = [
     {
@@ -38,8 +65,14 @@ describe('ParadasListAndActions', () => {
 
   const baseProps = {
     paradas: baseParadas,
-    paradasStatus: { texto: 'ok', cor: 'error' as const, icone: 'warning' as const },
-    motoristas: [{ id: 'm1', nome: 'Joao', email: 'joao@teste.com', ativo: true }],
+    paradasStatus: {
+      texto: 'ok',
+      cor: 'error' as const,
+      icone: 'warning' as const,
+    },
+    motoristas: [
+      { id: 'm1', nome: 'Joao', email: 'joao@teste.com', ativo: true },
+    ],
     motoristaSelecionado: '',
     rotaOtimizada: null,
     ordemManual: false,
@@ -49,11 +82,22 @@ describe('ParadasListAndActions', () => {
     isCalculandoReal: false,
     isLoading: false,
     isDesktop: false,
+    dataRota: '2026-07-24',
+    canGenerateRoute: true,
+    validationErrors: [],
     onMoveUp: jest.fn(),
     onMoveDown: jest.fn(),
     onRemove: jest.fn(),
+    onEdit: jest.fn(),
+    onReorder: jest.fn(),
+    onImport: jest.fn().mockResolvedValue({
+      adicionadas: 0,
+      ignoradas: 0,
+      erros: [],
+    }),
     onOptimize: jest.fn(),
     onSelectMotorista: jest.fn(),
+    onChangeDataRota: jest.fn(),
     onGenerateRoute: jest.fn(),
   };
 
@@ -67,30 +111,25 @@ describe('ParadasListAndActions', () => {
         {...baseProps}
         paradas={[]}
         paradasStatus={{ texto: 'vazio', cor: 'default', icone: null }}
-      />
+      />,
     );
 
     expect(getByText('Nenhuma parada adicionada')).toBeTruthy();
-    expect(queryByText('Gerar Rota')).toBeNull();
+    expect(queryByText('Revisar e Criar Rota')).toBeNull();
   });
 
   it('renderiza lista de paradas e botao de otimizar', () => {
-    const { getByText } = render(
-      <ParadasListAndActions {...baseProps} />
-    );
+    const { getByText } = render(<ParadasListAndActions {...baseProps} />);
 
     expect(getByText(/Paradas Adicionadas/)).toBeTruthy();
     expect(getByText(/limite/i)).toBeTruthy();
-    expect(getByText('Otimizar Rota (Melhor Percurso)')).toBeTruthy();
-    expect(getByText('Gerar Rota')).toBeTruthy();
+    expect(getByText('Otimizar melhor percurso')).toBeTruthy();
+    expect(getByText('Revisar e Criar Rota')).toBeTruthy();
   });
 
   it('desabilita botao de otimizar durante processamento', () => {
     const { getByLabelText, UNSAFE_getAllByType } = render(
-      <ParadasListAndActions
-        {...baseProps}
-        isOptimizing={true}
-      />
+      <ParadasListAndActions {...baseProps} isOptimizing={true} />,
     );
 
     const optimize = getByLabelText('Otimizar rota para o melhor percurso');
@@ -109,10 +148,10 @@ describe('ParadasListAndActions', () => {
           polyline: 'xyz',
         }}
         ordemManual={false}
-      />
+      />,
     );
 
-    expect(getByText('Rota Otimizada!')).toBeTruthy();
+    expect(getByText('Rota otimizada!')).toBeTruthy();
   });
 
   it('renderiza ordem manual e dispara gerar rota habilitado', () => {
@@ -129,11 +168,11 @@ describe('ParadasListAndActions', () => {
         ordemManual={true}
         motoristaSelecionado="m1"
         onGenerateRoute={onGenerateRoute}
-      />
+      />,
     );
 
     expect(getByText('Ordem alterada manualmente')).toBeTruthy();
-    fireEvent.press(getByText('Gerar Rota'));
+    fireEvent.press(getByText('Revisar e Criar Rota'));
     expect(onGenerateRoute).toHaveBeenCalled();
   });
 
@@ -143,10 +182,10 @@ describe('ParadasListAndActions', () => {
         {...baseProps}
         motoristaSelecionado="m1"
         isLoading={true}
-      />
+      />,
     );
 
-    const generate = getByLabelText(/Gerar rota/i);
+    const generate = getByLabelText(/Criando rota/i);
     expect(generate.props.accessibilityState.disabled).toBe(true);
     expect(getByText('Criando rota...')).toBeTruthy();
   });

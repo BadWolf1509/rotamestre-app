@@ -12,11 +12,15 @@ describe('RotaOtimizadaBanner', () => {
           legs: [],
           polyline: 'xyz',
         }}
-        enderecoUnidade={{ latitude: -7.1, longitude: -34.9, endereco: 'Rua Base' }}
-      />
+        enderecoUnidade={{
+          latitude: -7.1,
+          longitude: -34.9,
+          endereco: 'Rua Base',
+        }}
+      />,
     );
 
-    expect(getByText('Rota Otimizada!')).toBeTruthy();
+    expect(getByText('Rota otimizada!')).toBeTruthy();
     expect(getByText('8.5 km')).toBeTruthy();
     expect(getByText('15 min')).toBeTruthy();
   });

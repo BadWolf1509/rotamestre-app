@@ -44,11 +44,11 @@ describe('routeOptimization', () => {
 
   describe('Constants', () => {
     it('should have correct MAX_WAYPOINTS value', () => {
-      expect(MAX_WAYPOINTS).toBe(23);
+      expect(MAX_WAYPOINTS).toBe(50);
     });
 
     it('should have correct WAYPOINTS_RECOMENDADO value', () => {
-      expect(WAYPOINTS_RECOMENDADO).toBe(20);
+      expect(WAYPOINTS_RECOMENDADO).toBe(40);
     });
   });
 
@@ -56,7 +56,9 @@ describe('routeOptimization', () => {
     it('should clear cache', async () => {
       await limparCacheOtimizacao();
 
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@rotamestre/route-optimization-cache');
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith(
+        '@rotamestre/route-optimization-cache',
+      );
     });
 
     it('should return cache statistics', async () => {
@@ -145,7 +147,7 @@ describe('routeOptimization', () => {
       const erros = validarVinculos(paradas);
 
       expect(erros.length).toBeGreaterThan(0);
-      expect(erros.some(e => e.includes('Apenas entregas'))).toBe(true);
+      expect(erros.some((e) => e.includes('Apenas entregas'))).toBe(true);
     });
 
     it('should detect entrega vinculada to another entrega (invalid)', () => {
@@ -172,7 +174,9 @@ describe('routeOptimization', () => {
       const erros = validarVinculos(paradas);
 
       expect(erros.length).toBeGreaterThan(0);
-      expect(erros.some(e => e.includes('deve estar vinculada a uma retirada'))).toBe(true);
+      expect(
+        erros.some((e) => e.includes('deve estar vinculada a uma retirada')),
+      ).toBe(true);
     });
 
     it('should accept valid vinculo (entrega -> retirada)', () => {
@@ -236,7 +240,7 @@ describe('routeOptimization', () => {
       const result = validarRotaParaOtimizacao(paradas);
 
       expect(result.valido).toBe(false);
-      expect(result.erros.some(e => e.includes('Limite'))).toBe(true);
+      expect(result.erros.some((e) => e.includes('Limite'))).toBe(true);
     });
 
     it('should warn when approaching MAX_WAYPOINTS', () => {
@@ -265,7 +269,7 @@ describe('routeOptimization', () => {
       const result = validarRotaParaOtimizacao(paradas);
 
       expect(result.valido).toBe(false);
-      expect(result.erros.some(e => e.includes('coordenadas'))).toBe(true);
+      expect(result.erros.some((e) => e.includes('coordenadas'))).toBe(true);
     });
   });
 
@@ -400,7 +404,7 @@ describe('routeOptimization', () => {
       const result = encontrarRetiradasDisponiveis(paradas);
 
       expect(result).toHaveLength(2);
-      expect(result.every(p => p.tipo === 'retirada')).toBe(true);
+      expect(result.every((p) => p.tipo === 'retirada')).toBe(true);
     });
   });
 
@@ -473,7 +477,12 @@ describe('routeOptimization', () => {
       ];
 
       // Use ignorarCache to force API call
-      const result = await otimizarRotaComDependencias(origem, paradas, undefined, true);
+      const result = await otimizarRotaComDependencias(
+        origem,
+        paradas,
+        undefined,
+        true,
+      );
 
       expect(result).toBeNull();
     });
@@ -501,7 +510,7 @@ describe('routeOptimization', () => {
       await otimizarRotaComDependencias(origem, paradas);
 
       // Wait for cache to be saved
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 100));
 
       // Clear the mock to verify second call doesn't use API
       mockGetDirections.mockClear();
@@ -545,7 +554,12 @@ describe('routeOptimization', () => {
       });
 
       // Second call with ignorarCache=true
-      const result = await otimizarRotaComDependencias(origem, paradas, undefined, true);
+      const result = await otimizarRotaComDependencias(
+        origem,
+        paradas,
+        undefined,
+        true,
+      );
 
       expect(mockGetDirections).toHaveBeenCalled();
       expect(result!.distanciaTotalMetros).toBe(6000);
@@ -611,7 +625,7 @@ describe('routeOptimization', () => {
       expect(mockGetDirections).toHaveBeenCalledWith(
         origem,
         destino,
-        expect.any(Array)
+        expect.any(Array),
       );
     });
   });

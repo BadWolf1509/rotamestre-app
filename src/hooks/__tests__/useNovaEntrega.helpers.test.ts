@@ -24,15 +24,19 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
-import { logger } from '@/lib/logger';
+import type { Parada } from '@/components/gestor/nova-entrega/types';
 
 import {
+  avaliarSanidadeGeografica,
+  encontrarParadaDuplicada,
   generateUniqueId,
   criarParadaCheckpoint,
   prepararParadasParaInserir,
   atualizarVinculosParadas,
   distanceInMeters,
   ordenarParadasPorRota,
+  validarOrdemDependencias,
+  validarRascunhoRota,
 } from '../useNovaEntrega.helpers';
 
 describe('useNovaEntrega.helpers', () => {
@@ -170,29 +174,26 @@ describe('useNovaEntrega.helpers', () => {
       expect(result[3].ordem).toBe(3);
     });
 
-    it('should not add checkpoints when enderecoUnidade is null', () => {
-      const result = prepararParadasParaInserir({
-        rotaId: 'rota-123',
-        paradas: mockParadas,
-        enderecoUnidade: null,
-        nomeUnidade: 'Central',
-      });
-
-      // Should have only the 2 paradas
-      expect(result).toHaveLength(2);
-      expect(result[0].endereco).toBe('Rua A, 1');
-      expect(result[1].endereco).toBe('Rua B, 2');
+    it('should reject route creation when the unit has no base', () => {
+      expect(() =>
+        prepararParadasParaInserir({
+          rotaId: 'rota-123',
+          paradas: mockParadas,
+          enderecoUnidade: null,
+          nomeUnidade: 'Central',
+        }),
+      ).toThrow('sede válido');
     });
 
     it('should preserve parada data correctly', () => {
       const result = prepararParadasParaInserir({
         rotaId: 'rota-123',
         paradas: mockParadas,
-        enderecoUnidade: null,
+        enderecoUnidade: mockEnderecoUnidade,
         nomeUnidade: 'Central',
       });
 
-      expect(result[0]).toMatchObject({
+      expect(result[1]).toMatchObject({
         rota_id: 'rota-123',
         tipo: 'entrega',
         endereco: 'Rua A, 1',
@@ -207,7 +208,7 @@ describe('useNovaEntrega.helpers', () => {
       });
     });
 
-    it('should skip paradas without valid coordinates', () => {
+    it('should reject paradas without valid coordinates', () => {
       const paradasWithInvalid = [
         ...mockParadas,
         {
@@ -222,18 +223,14 @@ describe('useNovaEntrega.helpers', () => {
         },
       ];
 
-      const result = prepararParadasParaInserir({
-        rotaId: 'rota-123',
-        paradas: paradasWithInvalid,
-        enderecoUnidade: null,
-        nomeUnidade: 'Central',
-      });
-
-      // Should skip the invalid parada
-      expect(result).toHaveLength(2);
-      expect(logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('sem coordenadas válidas')
-      );
+      expect(() =>
+        prepararParadasParaInserir({
+          rotaId: 'rota-123',
+          paradas: paradasWithInvalid,
+          enderecoUnidade: mockEnderecoUnidade,
+          nomeUnidade: 'Central',
+        }),
+      ).toThrow('endereço validado');
     });
 
     it('should set order correctly for paradas', () => {
@@ -261,19 +258,19 @@ describe('useNovaEntrega.helpers', () => {
       const result = prepararParadasParaInserir({
         rotaId: 'rota-123',
         paradas: paradasWithVinculo,
-        enderecoUnidade: null,
+        enderecoUnidade: mockEnderecoUnidade,
         nomeUnidade: 'Central',
       });
 
-      expect(result[0]._temp_vinculo_id).toBe('vinculo-123');
+      expect(result[1]._temp_vinculo_id).toBe('vinculo-123');
     });
   });
 
   describe('atualizarVinculosParadas', () => {
     it('should do nothing when no paradas have vinculos', async () => {
       const paradasParaInserir = [
-        { _temp_id: 'temp-1', _temp_vinculo_id: undefined } as any,
-        { _temp_id: 'temp-2', _temp_vinculo_id: undefined } as any,
+        { ordem: 1, _temp_id: 'temp-1', _temp_vinculo_id: undefined } as any,
+        { ordem: 2, _temp_id: 'temp-2', _temp_vinculo_id: undefined } as any,
       ];
       const paradasInseridas = [
         { id: 'real-1', ordem: 1 },
@@ -289,8 +286,8 @@ describe('useNovaEntrega.helpers', () => {
       mockEq.mockResolvedValue({ error: null });
 
       const paradasParaInserir = [
-        { _temp_id: 'temp-1', _temp_vinculo_id: undefined } as any,
-        { _temp_id: 'temp-2', _temp_vinculo_id: 'temp-1' } as any,
+        { ordem: 1, _temp_id: 'temp-1', _temp_vinculo_id: undefined } as any,
+        { ordem: 2, _temp_id: 'temp-2', _temp_vinculo_id: 'temp-1' } as any,
       ];
       const paradasInseridas = [
         { id: 'real-1', ordem: 1 },
@@ -304,11 +301,97 @@ describe('useNovaEntrega.helpers', () => {
     });
   });
 
+  describe('route draft safeguards', () => {
+    const base = {
+      endereco: 'Base Central',
+      latitude: -3.73,
+      longitude: -38.52,
+    };
+    const createStop = (overrides: Partial<Parada> = {}): Parada => ({
+      id: 'stop-1',
+      ordem: 1,
+      tipo: 'entrega',
+      endereco: 'Rua das Flores, 100',
+      destinatario: 'Maria',
+      telefone: '(85) 99999-0000',
+      observacoes: '',
+      latitude: -3.74,
+      longitude: -38.53,
+      ...overrides,
+    });
+
+    it('detects duplicate addresses and phone numbers', () => {
+      const existing = createStop();
+
+      expect(
+        encontrarParadaDuplicada([existing], {
+          endereco: '  RUA DAS FLORES 100 ',
+          telefone: '(85) 98888-1111',
+        }),
+      ).toBe(existing);
+      expect(
+        encontrarParadaDuplicada([existing], {
+          endereco: 'Outro endereço',
+          telefone: '85999990000',
+        }),
+      ).toBe(existing);
+    });
+
+    it('rejects a delivery ordered before its linked pickup', () => {
+      const pickup = createStop({
+        id: 'pickup',
+        ordem: 2,
+        tipo: 'retirada',
+      });
+      const delivery = createStop({
+        id: 'delivery',
+        ordem: 1,
+        vinculo_parada_id: 'pickup',
+      });
+
+      expect(validarOrdemDependencias([delivery, pickup])).toEqual([
+        expect.stringContaining('precisa ocorrer antes'),
+      ]);
+    });
+
+    it('rejects impossible calendar dates and invalid coordinates', () => {
+      const validation = validarRascunhoRota({
+        paradas: [createStop({ latitude: 100 })],
+        motoristaId: 'driver-1',
+        dataRota: '2026-02-31',
+        enderecoUnidade: base,
+      });
+
+      expect(validation.valido).toBe(false);
+      expect(validation.erros).toEqual(
+        expect.arrayContaining([
+          'Informe uma data válida para a rota.',
+          'Todas as paradas precisam ter um endereço validado.',
+        ]),
+      );
+    });
+
+    it('requires confirmation for stops more than 300 km from the base', () => {
+      const sanity = avaliarSanidadeGeografica(
+        [
+          createStop({
+            latitude: -8.05,
+            longitude: -34.9,
+          }),
+        ],
+        base,
+      );
+
+      expect(sanity.requerConfirmacao).toBe(true);
+      expect(sanity.paradasDistantes).toHaveLength(1);
+    });
+  });
+
   describe('distanceInMeters', () => {
     it('should return POSITIVE_INFINITY when parada has no latitude', () => {
       const result = distanceInMeters(
         { latitude: undefined, longitude: -46.63 },
-        { latitude: -23.55, longitude: -46.63 }
+        { latitude: -23.55, longitude: -46.63 },
       );
 
       expect(result).toBe(Number.POSITIVE_INFINITY);
@@ -317,7 +400,7 @@ describe('useNovaEntrega.helpers', () => {
     it('should return POSITIVE_INFINITY when parada has no longitude', () => {
       const result = distanceInMeters(
         { latitude: -23.55, longitude: undefined },
-        { latitude: -23.55, longitude: -46.63 }
+        { latitude: -23.55, longitude: -46.63 },
       );
 
       expect(result).toBe(Number.POSITIVE_INFINITY);
@@ -326,7 +409,7 @@ describe('useNovaEntrega.helpers', () => {
     it('should return POSITIVE_INFINITY when coords is undefined', () => {
       const result = distanceInMeters(
         { latitude: -23.55, longitude: -46.63 },
-        undefined
+        undefined,
       );
 
       expect(result).toBe(Number.POSITIVE_INFINITY);
@@ -335,7 +418,7 @@ describe('useNovaEntrega.helpers', () => {
     it('should return 0 for same coordinates', () => {
       const result = distanceInMeters(
         { latitude: -23.55, longitude: -46.63 },
-        { latitude: -23.55, longitude: -46.63 }
+        { latitude: -23.55, longitude: -46.63 },
       );
 
       expect(result).toBe(0);
@@ -345,7 +428,7 @@ describe('useNovaEntrega.helpers', () => {
       // São Paulo to nearby point (~1km)
       const result = distanceInMeters(
         { latitude: -23.55, longitude: -46.63 },
-        { latitude: -23.56, longitude: -46.63 }
+        { latitude: -23.56, longitude: -46.63 },
       );
 
       // ~1.1km (1100m)
@@ -357,7 +440,7 @@ describe('useNovaEntrega.helpers', () => {
       // São Paulo to Rio (~360km)
       const result = distanceInMeters(
         { latitude: -23.5505, longitude: -46.6333 },
-        { latitude: -22.9068, longitude: -43.1729 }
+        { latitude: -22.9068, longitude: -43.1729 },
       );
 
       // ~358km
