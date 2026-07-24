@@ -3,7 +3,6 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { TouchableOpacity, View } from 'react-native';
 
-
 import { AvatarEditable } from '@/components/AvatarEditable';
 import { ThemeSettings } from '@/components/ThemeSettings';
 import { Text } from '@/design-system';
@@ -19,6 +18,7 @@ interface PerfilDesktopLayoutProps {
   };
   children?: React.ReactNode;
   onLogout?: () => void;
+  onDeleteAccount?: () => void;
 }
 
 export function PerfilDesktopLayout({
@@ -28,6 +28,7 @@ export function PerfilDesktopLayout({
   atividade,
   children,
   onLogout,
+  onDeleteAccount,
 }: PerfilDesktopLayoutProps) {
   const { theme } = useUnistyles();
   const router = useRouter();
@@ -61,7 +62,9 @@ export function PerfilDesktopLayout({
             uploading={uploadingPhoto}
           />
 
-          <Text style={styles(theme).userName}>{usuario?.nome || 'Usuário'}</Text>
+          <Text style={styles(theme).userName}>
+            {usuario?.nome || 'Usuário'}
+          </Text>
           <Text style={styles(theme).userEmail}>{usuario?.email || ''}</Text>
 
           <View style={styles(theme).roleBadge}>
@@ -72,8 +75,14 @@ export function PerfilDesktopLayout({
 
           {usuario?.unidades?.nome && (
             <View style={styles(theme).unitInfo}>
-              <Ionicons name="business-outline" size={16} color={theme.colors.gray500} />
-              <Text style={styles(theme).unitName}>{usuario.unidades.nome}</Text>
+              <Ionicons
+                name="business-outline"
+                size={16}
+                color={theme.colors.gray500}
+              />
+              <Text style={styles(theme).unitName}>
+                {usuario.unidades.nome}
+              </Text>
             </View>
           )}
 
@@ -84,18 +93,34 @@ export function PerfilDesktopLayout({
               style={styles(theme).quickAction}
               onPress={() => router.push('/perfil/editar')}
             >
-              <Ionicons name="person-outline" size={20} color={theme.colors.gray600} />
+              <Ionicons
+                name="person-outline"
+                size={20}
+                color={theme.colors.gray600}
+              />
               <Text style={styles(theme).quickActionText}>Editar Perfil</Text>
-              <Ionicons name="chevron-forward" size={16} color={theme.colors.gray400} />
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={theme.colors.gray400}
+              />
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles(theme).quickAction}
               onPress={() => router.push('/perfil/trocar-senha')}
             >
-              <Ionicons name="lock-closed-outline" size={20} color={theme.colors.gray600} />
+              <Ionicons
+                name="lock-closed-outline"
+                size={20}
+                color={theme.colors.gray600}
+              />
               <Text style={styles(theme).quickActionText}>Alterar Senha</Text>
-              <Ionicons name="chevron-forward" size={16} color={theme.colors.gray400} />
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={theme.colors.gray400}
+              />
             </TouchableOpacity>
 
             {onLogout && (
@@ -103,9 +128,50 @@ export function PerfilDesktopLayout({
                 style={[styles(theme).quickAction, styles(theme).logoutAction]}
                 onPress={onLogout}
               >
-                <Ionicons name="log-out-outline" size={20} color={theme.colors.error} />
-                <Text style={[styles(theme).quickActionText, styles(theme).logoutText]}>Sair</Text>
-                <Ionicons name="chevron-forward" size={16} color={theme.colors.gray400} />
+                <Ionicons
+                  name="log-out-outline"
+                  size={20}
+                  color={theme.colors.error}
+                />
+                <Text
+                  style={[
+                    styles(theme).quickActionText,
+                    styles(theme).logoutText,
+                  ]}
+                >
+                  Sair
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color={theme.colors.gray400}
+                />
+              </TouchableOpacity>
+            )}
+
+            {onDeleteAccount && (
+              <TouchableOpacity
+                style={[styles(theme).quickAction, styles(theme).deleteAction]}
+                onPress={onDeleteAccount}
+              >
+                <Ionicons
+                  name="trash-outline"
+                  size={20}
+                  color={theme.colors.error}
+                />
+                <Text
+                  style={[
+                    styles(theme).quickActionText,
+                    styles(theme).logoutText,
+                  ]}
+                >
+                  Excluir conta
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color={theme.colors.gray400}
+                />
               </TouchableOpacity>
             )}
           </View>
@@ -124,21 +190,33 @@ export function PerfilDesktopLayout({
           <View style={styles(theme).infoCards}>
             <View style={styles(theme).infoCard}>
               <View style={styles(theme).cardHeader}>
-                <Ionicons name="person" size={20} color={theme.colors.primary} />
-                <Text style={styles(theme).cardTitle}>Informações Pessoais</Text>
+                <Ionicons
+                  name="person"
+                  size={20}
+                  color={theme.colors.primary}
+                />
+                <Text style={styles(theme).cardTitle}>
+                  Informações Pessoais
+                </Text>
               </View>
               <View style={styles(theme).cardContent}>
                 <View style={styles(theme).infoRow}>
                   <Text style={styles(theme).infoLabel}>Nome Completo</Text>
-                  <Text style={styles(theme).infoValue}>{usuario?.nome || 'Não informado'}</Text>
+                  <Text style={styles(theme).infoValue}>
+                    {usuario?.nome || 'Não informado'}
+                  </Text>
                 </View>
                 <View style={styles(theme).infoRow}>
                   <Text style={styles(theme).infoLabel}>Email</Text>
-                  <Text style={styles(theme).infoValue}>{usuario?.email || 'Não informado'}</Text>
+                  <Text style={styles(theme).infoValue}>
+                    {usuario?.email || 'Não informado'}
+                  </Text>
                 </View>
                 <View style={styles(theme).infoRow}>
                   <Text style={styles(theme).infoLabel}>Telefone</Text>
-                  <Text style={styles(theme).infoValue}>{usuario?.telefone || 'Não informado'}</Text>
+                  <Text style={styles(theme).infoValue}>
+                    {usuario?.telefone || 'Não informado'}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -151,11 +229,17 @@ export function PerfilDesktopLayout({
               <View style={styles(theme).cardContent}>
                 <View style={styles(theme).infoRow}>
                   <Text style={styles(theme).infoLabel}>Último acesso</Text>
-                  <Text style={styles(theme).infoValue}>{formatDateTime(atividade?.ultimoAcesso)}</Text>
+                  <Text style={styles(theme).infoValue}>
+                    {formatDateTime(atividade?.ultimoAcesso)}
+                  </Text>
                 </View>
                 <View style={styles(theme).infoRow}>
-                  <Text style={styles(theme).infoLabel}>Dispositivos ativos</Text>
-                  <Text style={styles(theme).infoValue}>{formatDevices(atividade?.dispositivosAtivos)}</Text>
+                  <Text style={styles(theme).infoLabel}>
+                    Dispositivos ativos
+                  </Text>
+                  <Text style={styles(theme).infoValue}>
+                    {formatDevices(atividade?.dispositivosAtivos)}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -250,6 +334,9 @@ const styles = (theme: Theme) =>
     },
     logoutText: {
       color: theme.colors.error,
+    },
+    deleteAction: {
+      marginTop: theme.spacing.xs,
     },
     contentArea: {
       flex: 1,

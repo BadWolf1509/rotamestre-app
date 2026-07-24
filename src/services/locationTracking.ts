@@ -5,6 +5,7 @@ import { Alert } from 'react-native';
 
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
+import { requestLocationPermissions } from '@/services/unifiedLocationTracking';
 import { defaultTheme } from '@/utils/styles';
 
 // Task name for background location
@@ -63,17 +64,21 @@ class LocationTrackingService {
   }
 
   // Initialize and start tracking
-  async startTracking(rotaId: string, currentStopId: string, nextStopId?: string) {
+  async startTracking(
+    rotaId: string,
+    currentStopId: string,
+    nextStopId?: string,
+  ) {
     try {
-      // Request permissions
-      const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
-      if (foregroundStatus !== 'granted') {
+      const permissions = await requestLocationPermissions();
+      if (!permissions.foreground) {
         throw new Error('Permissão de localização negada');
       }
 
-      const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-      if (backgroundStatus !== 'granted') {
-        logger.warn('[LocationTracking] Background location permission not granted');
+      if (!permissions.background) {
+        logger.warn(
+          '[LocationTracking] Background location permission not granted',
+        );
       }
 
       // Load navigation preferences
@@ -107,7 +112,10 @@ class LocationTrackingService {
       };
 
       // Save state to AsyncStorage for background task
-      await AsyncStorage.setItem('navigationState', JSON.stringify(this.navigationState));
+      await AsyncStorage.setItem(
+        'navigationState',
+        JSON.stringify(this.navigationState),
+      );
 
       // Start background location updates
       await Location.startLocationUpdatesAsync(LOCATION_TASK, {
@@ -125,8 +133,14 @@ class LocationTrackingService {
 
       return true;
     } catch (error) {
-      logger.error('[LocationTracking] Error starting location tracking', error);
-      Alert.alert('Erro', 'Não foi possível iniciar o rastreamento de localização');
+      logger.error(
+        '[LocationTracking] Error starting location tracking',
+        error,
+      );
+      Alert.alert(
+        'Erro',
+        'Não foi possível iniciar o rastreamento de localização',
+      );
       return false;
     }
   }
@@ -134,7 +148,8 @@ class LocationTrackingService {
   // Stop tracking
   async stopTracking() {
     try {
-      const hasTask = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK);
+      const hasTask =
+        await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK);
       if (hasTask) {
         await Location.stopLocationUpdatesAsync(LOCATION_TASK);
       }
@@ -149,7 +164,10 @@ class LocationTrackingService {
 
       return true;
     } catch (error) {
-      logger.error('[LocationTracking] Error stopping location tracking', error);
+      logger.error(
+        '[LocationTracking] Error stopping location tracking',
+        error,
+      );
       return false;
     }
   }
@@ -167,14 +185,17 @@ class LocationTrackingService {
       location.latitude,
       location.longitude,
       this.navigationState.currentStopLocation.latitude,
-      this.navigationState.currentStopLocation.longitude
+      this.navigationState.currentStopLocation.longitude,
     );
 
     // Update driver position in database
     await this.updateDriverPosition(location);
 
     // Check if arrived at stop
-    if (distance <= this.navigationState.proximityRadius && location.accuracy <= MIN_ACCURACY) {
+    if (
+      distance <= this.navigationState.proximityRadius &&
+      location.accuracy <= MIN_ACCURACY
+    ) {
       await this.handleArrival(distance);
     } else {
       // Cancel arrival timeout if moved away
@@ -202,7 +223,7 @@ class LocationTrackingService {
     await this.sendNotification(
       '📍 Você chegou!',
       `Você está a ${Math.round(distance)}m do destino`,
-      true
+      true,
     );
 
     // Auto-advance after delay if enabled
@@ -215,7 +236,8 @@ class LocationTrackingService {
 
   // Auto advance to next stop
   private async autoAdvanceToNextStop() {
-    if (!this.navigationState?.currentStopId || !this.navigationState?.rotaId) return;
+    if (!this.navigationState?.currentStopId || !this.navigationState?.rotaId)
+      return;
 
     try {
       // Buscar informações completas da parada atual para o log
@@ -236,7 +258,9 @@ class LocationTrackingService {
         .eq('id', this.navigationState.currentStopId);
 
       // Criar log para auto-conclusão
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user && paradaAtual) {
         await supabase.from('logs').insert({
           usuario_id: user.id,
@@ -287,13 +311,16 @@ class LocationTrackingService {
         this.navigationState.nextStopId = followingStop?.id;
 
         // Save updated state
-        await AsyncStorage.setItem('navigationState', JSON.stringify(this.navigationState));
+        await AsyncStorage.setItem(
+          'navigationState',
+          JSON.stringify(this.navigationState),
+        );
 
         // Notify user
         await this.sendNotification(
           '✅ Parada concluída!',
           `Próxima parada: ${nextStop.endereco}`,
-          true
+          true,
         );
       } else {
         // No more stops - route complete
@@ -320,7 +347,7 @@ class LocationTrackingService {
       await this.sendNotification(
         '🎉 Rota Concluída!',
         'Parabéns! Todas as entregas foram realizadas.',
-        true
+        true,
       );
 
       await this.stopTracking();
@@ -340,14 +367,14 @@ class LocationTrackingService {
       await this.sendNotification(
         '📍 Muito próximo!',
         `Você está a ${Math.round(distance)}m do destino`,
-        false
+        false,
       );
       this.lastNotificationTime = now;
     } else if (distance < 500) {
       await this.sendNotification(
         '🚗 Aproximando...',
         `${Math.round(distance)}m até o destino`,
-        false
+        false,
       );
       this.lastNotificationTime = now;
     }
@@ -359,21 +386,21 @@ class LocationTrackingService {
 
     try {
       // Obter usuário atual
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       // Inserir em motorista_locations para histórico e rastreamento em tempo real
-      const { error } = await supabase
-        .from('motorista_locations')
-        .insert({
-          motorista_id: user.id,
-          rota_id: this.navigationState.rotaId,
-          latitude: location.latitude,
-          longitude: location.longitude,
-          velocidade: location.speed ? location.speed * 3.6 : null, // m/s para km/h
-          precisao: location.accuracy,
-          heading: location.heading,
-        });
+      const { error } = await supabase.from('motorista_locations').insert({
+        motorista_id: user.id,
+        rota_id: this.navigationState.rotaId,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        velocidade: location.speed ? location.speed * 3.6 : null, // m/s para km/h
+        precisao: location.accuracy,
+        heading: location.heading,
+      });
 
       if (error) {
         logger.error('[LocationTracking] Erro ao salvar localização', error);
@@ -384,7 +411,12 @@ class LocationTrackingService {
   }
 
   // Calculate distance between two points (Haversine formula)
-  private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  private calculateDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number {
     const R = 6371000; // Earth radius in meters
     const φ1 = (lat1 * Math.PI) / 180;
     const φ2 = (lat2 * Math.PI) / 180;
@@ -400,7 +432,11 @@ class LocationTrackingService {
   }
 
   // Send notification (placeholder - would use expo-notifications)
-  private async sendNotification(_title: string, _body: string, _priority: boolean) {
+  private async sendNotification(
+    _title: string,
+    _body: string,
+    _priority: boolean,
+  ) {
     // In a real implementation, would use expo-notifications
   }
 
@@ -420,12 +456,18 @@ class LocationTrackingService {
     try {
       const current = await this.getNavigationPreferences();
       const updated = { ...current, ...prefs };
-      await AsyncStorage.setItem('navigationPreferences', JSON.stringify(updated));
+      await AsyncStorage.setItem(
+        'navigationPreferences',
+        JSON.stringify(updated),
+      );
 
       // Update current state if tracking
       if (this.navigationState) {
         this.navigationState = { ...this.navigationState, ...prefs };
-        await AsyncStorage.setItem('navigationState', JSON.stringify(this.navigationState));
+        await AsyncStorage.setItem(
+          'navigationState',
+          JSON.stringify(this.navigationState),
+        );
       }
     } catch (error) {
       logger.error('[LocationTracking] Error updating preferences', error);

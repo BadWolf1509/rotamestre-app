@@ -86,7 +86,7 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
  */
 async function saveLocationToDatabase(
   location: Location.LocationObject,
-  fonte: 'foreground' | 'background'
+  fonte: 'foreground' | 'background',
 ): Promise<void> {
   try {
     const contextStr = await AsyncStorage.getItem(TRACKING_CONTEXT_KEY);
@@ -124,27 +124,76 @@ async function saveLocationToDatabase(
  * Retorna objeto com status de cada tipo de permissão
  */
 export async function requestLocationPermissions(): Promise<LocationPermissions> {
-  // Permissão foreground (sempre necessária primeiro)
-  const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
+  const currentForeground = await Location.getForegroundPermissionsAsync();
+  const foregroundStatus =
+    currentForeground.status === 'granted'
+      ? currentForeground.status
+      : (await Location.requestForegroundPermissionsAsync()).status;
   const foregroundGranted = foregroundStatus === 'granted';
 
   if (!foregroundGranted) {
     return { foreground: false, background: false };
   }
 
-  // Permissão background (opcional, mas recomendada para tracking contínuo)
-  const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+  const currentBackground = await Location.getBackgroundPermissionsAsync();
+  if (currentBackground.status === 'granted') {
+    return { foreground: true, background: true };
+  }
+
+  // Exigência de divulgação destacada do Google Play: explicar, dentro do app
+  // e antes do diálogo do Android, o uso quando o app não está em uso.
+  const acceptedDisclosure = await showBackgroundLocationDisclosure();
+  if (!acceptedDisclosure) {
+    return { foreground: true, background: false };
+  }
+
+  const { status: backgroundStatus } =
+    await Location.requestBackgroundPermissionsAsync();
   const backgroundGranted = backgroundStatus === 'granted';
 
   return { foreground: foregroundGranted, background: backgroundGranted };
+}
+
+export function showBackgroundLocationDisclosure(): Promise<boolean> {
+  return new Promise((resolve) => {
+    let resolved = false;
+    const finish = (value: boolean) => {
+      if (!resolved) {
+        resolved = true;
+        resolve(value);
+      }
+    };
+
+    Alert.alert(
+      'Localização durante a rota',
+      'Durante uma rota ativa, o Rota Mestre coleta e envia sua localização mesmo quando o app está fechado ou não está em uso. Isso mantém a navegação funcionando e permite que o gestor da sua empresa acompanhe a entrega em tempo real. A coleta para quando a rota é pausada ou encerrada.',
+      [
+        {
+          text: 'Agora não',
+          style: 'cancel',
+          onPress: () => finish(false),
+        },
+        {
+          text: 'Continuar',
+          onPress: () => finish(true),
+        },
+      ],
+      {
+        cancelable: true,
+        onDismiss: () => finish(false),
+      },
+    );
+  });
 }
 
 /**
  * Verifica status atual das permissões
  */
 export async function checkLocationPermissions(): Promise<LocationPermissions> {
-  const { status: foregroundStatus } = await Location.getForegroundPermissionsAsync();
-  const { status: backgroundStatus } = await Location.getBackgroundPermissionsAsync();
+  const { status: foregroundStatus } =
+    await Location.getForegroundPermissionsAsync();
+  const { status: backgroundStatus } =
+    await Location.getBackgroundPermissionsAsync();
 
   return {
     foreground: foregroundStatus === 'granted',
@@ -156,7 +205,9 @@ export async function checkLocationPermissions(): Promise<LocationPermissions> {
  * Inicia o rastreamento em background
  * Chamado quando o motorista inicia uma rota
  */
-export async function startBackgroundTracking(context: TrackingContext): Promise<boolean> {
+export async function startBackgroundTracking(
+  context: TrackingContext,
+): Promise<boolean> {
   try {
     // Verificar permissões
     const permissions = await checkLocationPermissions();
@@ -169,7 +220,9 @@ export async function startBackgroundTracking(context: TrackingContext): Promise
     await AsyncStorage.setItem(TRACKING_CONTEXT_KEY, JSON.stringify(context));
 
     // Verificar se já está rastreando
-    const isTracking = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+    const isTracking = await Location.hasStartedLocationUpdatesAsync(
+      BACKGROUND_LOCATION_TASK,
+    );
     if (isTracking) {
       return true;
     }
@@ -215,7 +268,9 @@ export async function startBackgroundTracking(context: TrackingContext): Promise
  */
 export async function stopBackgroundTracking(): Promise<void> {
   try {
-    const isTracking = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+    const isTracking = await Location.hasStartedLocationUpdatesAsync(
+      BACKGROUND_LOCATION_TASK,
+    );
     if (isTracking) {
       await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
     }
@@ -230,9 +285,14 @@ export async function stopBackgroundTracking(): Promise<void> {
  */
 export async function isBackgroundTrackingActive(): Promise<boolean> {
   try {
-    return await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+    return await Location.hasStartedLocationUpdatesAsync(
+      BACKGROUND_LOCATION_TASK,
+    );
   } catch (error) {
-    logger.warn('[LocationTracking] Falha ao verificar task de localização', error);
+    logger.warn(
+      '[LocationTracking] Falha ao verificar task de localização',
+      error,
+    );
     return false;
   }
 }
@@ -245,7 +305,10 @@ export async function getTrackingContext(): Promise<TrackingContext | null> {
     const contextStr = await AsyncStorage.getItem(TRACKING_CONTEXT_KEY);
     return contextStr ? JSON.parse(contextStr) : null;
   } catch (error) {
-    logger.warn('[LocationTracking] Falha ao ler contexto de localização', error);
+    logger.warn(
+      '[LocationTracking] Falha ao ler contexto de localização',
+      error,
+    );
     return null;
   }
 }
@@ -255,14 +318,14 @@ export async function getTrackingContext(): Promise<TrackingContext | null> {
  * Útil para atualizar informações sem reiniciar o tracking
  */
 export async function updateTrackingContext(
-  updates: Partial<TrackingContext>
+  updates: Partial<TrackingContext>,
 ): Promise<void> {
   try {
     const current = await getTrackingContext();
     if (current) {
       await AsyncStorage.setItem(
         TRACKING_CONTEXT_KEY,
-        JSON.stringify({ ...current, ...updates })
+        JSON.stringify({ ...current, ...updates }),
       );
     }
   } catch (err) {
@@ -275,7 +338,7 @@ export async function updateTrackingContext(
  * Mostra alertas explicativos para o usuário
  */
 export async function requestAndStartTracking(
-  context: TrackingContext
+  context: TrackingContext,
 ): Promise<{ started: boolean; hasBackgroundPermission: boolean }> {
   // Solicitar permissões
   const permissions = await requestLocationPermissions();
@@ -284,7 +347,7 @@ export async function requestAndStartTracking(
     Alert.alert(
       'Permissão Necessária',
       'O RotaMestre precisa acessar sua localização para rastrear as entregas. Por favor, ative a localização nas configurações.',
-      [{ text: 'OK' }]
+      [{ text: 'OK' }],
     );
     return { started: false, hasBackgroundPermission: false };
   }
@@ -297,7 +360,7 @@ export async function requestAndStartTracking(
     Alert.alert(
       'Rastreamento Limitado',
       'Sem permissão de localização em segundo plano, o gestor só poderá acompanhar sua rota enquanto o app estiver aberto.\n\nPara rastreamento contínuo, ative "Sempre" nas configurações de localização.',
-      [{ text: 'Entendi' }]
+      [{ text: 'Entendi' }],
     );
   }
 

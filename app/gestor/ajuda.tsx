@@ -264,6 +264,16 @@ export default function AjudaGestorScreen() {
               <Text style={styles.linkIcon}>🔐</Text>
               <Text style={styles.linkLabel}>Política de Privacidade</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.linkItem}
+              onPress={() =>
+                Linking.openURL('https://rotamestre.tec.br/exclusao-de-conta')
+              }
+            >
+              <Text style={styles.linkIcon}>🗑️</Text>
+              <Text style={styles.linkLabel}>Exclusão de Conta</Text>
+            </TouchableOpacity>
           </View>
         </View>
 

@@ -23,52 +23,62 @@ const FAQ_ITEMS: FAQItem[] = [
   {
     id: '1',
     question: 'Como iniciar uma rota?',
-    answer: 'Na tela inicial, você verá suas rotas atribuídas. Toque em "Iniciar Rota" para começar. Certifique-se de que seu GPS está ativado para melhor navegação.',
+    answer:
+      'Na tela inicial, você verá suas rotas atribuídas. Toque em "Iniciar Rota" para começar. Certifique-se de que seu GPS está ativado para melhor navegação.',
   },
   {
     id: '2',
     question: 'Como marcar uma parada como concluída?',
-    answer: 'Quando chegar na parada, deslize o card para a DIREITA para concluí-la. Você pode ser solicitado a tirar uma foto como comprovante. Alternativamente, toque no card para expandir e ver mais opções.',
+    answer:
+      'Quando chegar na parada, deslize o card para a DIREITA para concluí-la. Você pode ser solicitado a tirar uma foto como comprovante. Alternativamente, toque no card para expandir e ver mais opções.',
   },
   {
     id: '3',
     question: 'Como tirar foto de comprovante?',
-    answer: 'Ao concluir uma parada, toque no ícone da câmera. Você pode tirar uma nova foto ou escolher uma da galeria. A foto é enviada automaticamente e anexada à parada.',
+    answer:
+      'Ao concluir uma parada, toque no ícone da câmera. Você pode tirar uma nova foto ou escolher uma da galeria. A foto é enviada automaticamente e anexada à parada.',
   },
   {
     id: '4',
     question: 'O que fazer se não conseguir entregar?',
-    answer: 'Se não for possível completar uma entrega, deslize o card para a ESQUERDA para pular a parada. Será solicitado um motivo. O gestor será notificado e poderá reprogramar a entrega.',
+    answer:
+      'Se não for possível completar uma entrega, deslize o card para a ESQUERDA para pular a parada. Será solicitado um motivo. O gestor será notificado e poderá reprogramar a entrega.',
   },
   {
     id: '5',
     question: 'O que fazer em caso de emergência?',
-    answer: 'Use a opção "SOS / Emergência" no menu lateral. Você pode contatar seu gestor, ligar para serviços de emergência (190, 192, 193) e enviar sua localização.',
+    answer:
+      'Use a opção "SOS / Emergência" no menu lateral. Você pode contatar seu gestor, ligar para serviços de emergência (190, 192, 193) e enviar sua localização.',
   },
   {
     id: '6',
     question: 'Como alterar minha senha?',
-    answer: 'Acesse "Meu Perfil" no menu lateral, depois toque na seção "Segurança" e selecione "Alterar Senha". Você precisará informar sua senha atual e a nova senha.',
+    answer:
+      'Acesse "Meu Perfil" no menu lateral, depois toque na seção "Segurança" e selecione "Alterar Senha". Você precisará informar sua senha atual e a nova senha.',
   },
   {
     id: '7',
     question: 'Como ver meu histórico de rotas?',
-    answer: 'Na barra inferior, toque em "Histórico" para ver todas as suas rotas anteriores com detalhes de cada entrega, incluindo fotos e horários.',
+    answer:
+      'Na barra inferior, toque em "Histórico" para ver todas as suas rotas anteriores com detalhes de cada entrega, incluindo fotos e horários.',
   },
   {
     id: '8',
     question: 'O app funciona offline?',
-    answer: 'Algumas funcionalidades básicas funcionam offline, mas a sincronização de dados e o envio de fotos requerem conexão com a internet. Recomendamos manter o 4G/WiFi ativo.',
+    answer:
+      'Algumas funcionalidades básicas funcionam offline, mas a sincronização de dados e o envio de fotos requerem conexão com a internet. Recomendamos manter o 4G/WiFi ativo.',
   },
   {
     id: '9',
     question: 'Como usar a navegação integrada?',
-    answer: 'Ao expandir uma parada, toque em "Como Chegar" para abrir o endereço no app de navegação de sua preferência (Waze, Google Maps ou Apple Maps).',
+    answer:
+      'Ao expandir uma parada, toque em "Como Chegar" para abrir o endereço no app de navegação de sua preferência (Waze, Google Maps ou Apple Maps).',
   },
   {
     id: '10',
     question: 'O que são os badges na lista de paradas?',
-    answer: 'Os badges indicam o tipo (Entrega/Retirada) e status (Pendente, Concluída, Pulada) de cada parada. Cores verdes indicam conclusão, amarelo pendente e vermelho pulada.',
+    answer:
+      'Os badges indicam o tipo (Entrega/Retirada) e status (Pendente, Concluída, Pulada) de cada parada. Cores verdes indicam conclusão, amarelo pendente e vermelho pulada.',
   },
 ];
 
@@ -122,10 +132,16 @@ export default function AjudaScreen() {
           if (canOpen) {
             await Linking.openURL(whatsappUrl);
           } else {
-            showWarning('WhatsApp não instalado', 'Tente outro método de contato.');
+            showWarning(
+              'WhatsApp não instalado',
+              'Tente outro método de contato.',
+            );
           }
         } catch {
-          showError({ title: 'Erro', message: 'Não foi possível abrir o WhatsApp.' });
+          showError({
+            title: 'Erro',
+            message: 'Não foi possível abrir o WhatsApp.',
+          });
         }
         break;
       }
@@ -148,7 +164,9 @@ export default function AjudaScreen() {
     <ErrorBoundary>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+        contentContainerStyle={{
+          paddingBottom: Math.max(20, insets.bottom + 20),
+        }}
       >
         {/* FAQ Section */}
         <View style={styles.section}>
@@ -191,7 +209,9 @@ export default function AjudaScreen() {
                 <Text style={styles.supportIcon}>{option.icon}</Text>
                 <View style={styles.supportInfo}>
                   <Text style={styles.supportLabel}>{option.label}</Text>
-                  <Text style={styles.supportDescription}>{option.description}</Text>
+                  <Text style={styles.supportDescription}>
+                    {option.description}
+                  </Text>
                 </View>
                 <Text style={styles.supportArrow}>→</Text>
               </TouchableOpacity>
@@ -205,7 +225,9 @@ export default function AjudaScreen() {
           <View style={styles.linksList}>
             <TouchableOpacity
               style={styles.linkItem}
-              onPress={() => Linking.openURL('https://rotamestre.tec.br/termos-de-uso')}
+              onPress={() =>
+                Linking.openURL('https://rotamestre.tec.br/termos-de-uso')
+              }
             >
               <Text style={styles.linkIcon}>📄</Text>
               <Text style={styles.linkLabel}>Termos de Uso</Text>
@@ -213,10 +235,24 @@ export default function AjudaScreen() {
 
             <TouchableOpacity
               style={styles.linkItem}
-              onPress={() => Linking.openURL('https://rotamestre.tec.br/politica-de-privacidade')}
+              onPress={() =>
+                Linking.openURL(
+                  'https://rotamestre.tec.br/politica-de-privacidade',
+                )
+              }
             >
               <Text style={styles.linkIcon}>🔐</Text>
               <Text style={styles.linkLabel}>Política de Privacidade</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.linkItem}
+              onPress={() =>
+                Linking.openURL('https://rotamestre.tec.br/exclusao-de-conta')
+              }
+            >
+              <Text style={styles.linkIcon}>🗑️</Text>
+              <Text style={styles.linkLabel}>Exclusão de Conta</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -233,7 +269,8 @@ export default function AjudaScreen() {
         <View style={styles.appInfoSection}>
           <Text style={styles.appName}>RotaMestre</Text>
           <Text style={styles.appCopyright}>
-            © {new Date().getFullYear()} RotaMestre. Todos os direitos reservados.
+            © {new Date().getFullYear()} RotaMestre. Todos os direitos
+            reservados.
           </Text>
         </View>
 

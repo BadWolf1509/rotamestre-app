@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
@@ -132,6 +133,33 @@ export const authService = {
         throw err;
       }
     }
+  },
+
+  /**
+   * Exclui definitivamente a conta autenticada no backend e remove os dados
+   * locais somente depois da confirmação do servidor.
+   */
+  async deleteAccount() {
+    const { data, error } = await supabase.functions.invoke('delete-account', {
+      method: 'POST',
+    });
+
+    if (error) throw error;
+    if (!data?.success) {
+      throw new Error(data?.error || 'Não foi possível excluir a conta.');
+    }
+
+    // A conta já não existe no servidor. Limpa a sessão local sem depender de
+    // outra chamada de rede e remove caches que possam conter dados pessoais.
+    await supabase.auth.signOut({ scope: 'local' });
+    await AsyncStorage.clear();
+    setMockSession(null, null);
+
+    return data as {
+      success: true;
+      deletedAt: string;
+      retainedData: string[];
+    };
   },
 
   // Recuperar senha

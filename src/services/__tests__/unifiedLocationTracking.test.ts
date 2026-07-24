@@ -72,7 +72,13 @@ jest.mock('@/lib/supabase', () => ({
 // Mock Alert
 jest.mock('react-native', () => ({
   Alert: {
-    alert: jest.fn(),
+    alert: jest.fn(
+      (
+        _title: string,
+        _message: string,
+        buttons?: Array<{ onPress?: () => void }>,
+      ) => buttons?.[1]?.onPress?.(),
+    ),
   },
 }));
 
@@ -89,11 +95,15 @@ describe('unifiedLocationTracking', () => {
     mockGetItem.mockReset();
     mockSetItem.mockReset();
     mockRemoveItem.mockReset();
+    mockGetForegroundPermissions.mockResolvedValue({ status: 'undetermined' });
+    mockGetBackgroundPermissions.mockResolvedValue({ status: 'undetermined' });
   });
 
   describe('requestLocationPermissions', () => {
     it('deve retornar false para ambos quando foreground negado', async () => {
-      mockRequestForegroundPermissions.mockResolvedValueOnce({ status: 'denied' });
+      mockRequestForegroundPermissions.mockResolvedValueOnce({
+        status: 'denied',
+      });
 
       const result = await requestLocationPermissions();
 
@@ -101,18 +111,32 @@ describe('unifiedLocationTracking', () => {
     });
 
     it('deve solicitar background quando foreground concedido', async () => {
-      mockRequestForegroundPermissions.mockResolvedValueOnce({ status: 'granted' });
-      mockRequestBackgroundPermissions.mockResolvedValueOnce({ status: 'granted' });
+      mockRequestForegroundPermissions.mockResolvedValueOnce({
+        status: 'granted',
+      });
+      mockRequestBackgroundPermissions.mockResolvedValueOnce({
+        status: 'granted',
+      });
 
       const result = await requestLocationPermissions();
 
       expect(result).toEqual({ foreground: true, background: true });
       expect(mockRequestBackgroundPermissions).toHaveBeenCalled();
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Localização durante a rota',
+        expect.stringContaining('app está fechado'),
+        expect.any(Array),
+        expect.objectContaining({ cancelable: true }),
+      );
     });
 
     it('deve retornar foreground true e background false', async () => {
-      mockRequestForegroundPermissions.mockResolvedValueOnce({ status: 'granted' });
-      mockRequestBackgroundPermissions.mockResolvedValueOnce({ status: 'denied' });
+      mockRequestForegroundPermissions.mockResolvedValueOnce({
+        status: 'granted',
+      });
+      mockRequestBackgroundPermissions.mockResolvedValueOnce({
+        status: 'denied',
+      });
 
       const result = await requestLocationPermissions();
 
@@ -266,7 +290,7 @@ describe('unifiedLocationTracking', () => {
 
       expect(mockSetItem).toHaveBeenCalledWith(
         expect.any(String),
-        expect.stringContaining('Novo Nome')
+        expect.stringContaining('Novo Nome'),
       );
     });
 
@@ -281,42 +305,67 @@ describe('unifiedLocationTracking', () => {
 
   describe('requestAndStartTracking', () => {
     it('deve mostrar alerta e retornar started=false quando foreground negado', async () => {
-      mockRequestForegroundPermissions.mockResolvedValueOnce({ status: 'denied' });
+      mockRequestForegroundPermissions.mockResolvedValueOnce({
+        status: 'denied',
+      });
 
       const result = await requestAndStartTracking(mockContext);
 
-      expect(result).toEqual({ started: false, hasBackgroundPermission: false });
+      expect(result).toEqual({
+        started: false,
+        hasBackgroundPermission: false,
+      });
       expect(Alert.alert).toHaveBeenCalledWith(
         'Permissão Necessária',
         expect.stringContaining('localização'),
-        [{ text: 'OK' }]
+        [{ text: 'OK' }],
       );
     });
 
     it('deve iniciar tracking com ambas permissões concedidas', async () => {
       // requestLocationPermissions mocks
-      mockRequestForegroundPermissions.mockResolvedValueOnce({ status: 'granted' });
-      mockRequestBackgroundPermissions.mockResolvedValueOnce({ status: 'granted' });
+      mockRequestForegroundPermissions.mockResolvedValueOnce({
+        status: 'granted',
+      });
+      mockRequestBackgroundPermissions.mockResolvedValueOnce({
+        status: 'granted',
+      });
       // startBackgroundTracking internally calls checkLocationPermissions
-      mockGetForegroundPermissions.mockResolvedValueOnce({ status: 'granted' });
-      mockGetBackgroundPermissions.mockResolvedValueOnce({ status: 'granted' });
+      mockGetForegroundPermissions
+        .mockResolvedValueOnce({ status: 'undetermined' })
+        .mockResolvedValueOnce({ status: 'granted' });
+      mockGetBackgroundPermissions
+        .mockResolvedValueOnce({ status: 'undetermined' })
+        .mockResolvedValueOnce({ status: 'granted' });
       mockHasStartedLocationUpdates.mockResolvedValueOnce(false);
       mockStartLocationUpdates.mockResolvedValueOnce(undefined);
 
       const result = await requestAndStartTracking(mockContext);
 
       expect(result).toEqual({ started: true, hasBackgroundPermission: true });
-      // No "limited tracking" alert when background is granted
-      expect(Alert.alert).not.toHaveBeenCalled();
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Localização durante a rota',
+        expect.any(String),
+        expect.any(Array),
+        expect.any(Object),
+      );
     });
 
     it('deve mostrar alerta de rastreamento limitado quando background negado', async () => {
       // requestLocationPermissions mocks
-      mockRequestForegroundPermissions.mockResolvedValueOnce({ status: 'granted' });
-      mockRequestBackgroundPermissions.mockResolvedValueOnce({ status: 'denied' });
+      mockRequestForegroundPermissions.mockResolvedValueOnce({
+        status: 'granted',
+      });
+      mockRequestBackgroundPermissions.mockResolvedValueOnce({
+        status: 'denied',
+      });
       // startBackgroundTracking internally calls checkLocationPermissions
-      mockGetForegroundPermissions.mockResolvedValueOnce({ status: 'granted' });
-      mockGetBackgroundPermissions.mockResolvedValueOnce({ status: 'denied' });
+      mockGetForegroundPermissions
+        .mockResolvedValueOnce({ status: 'undetermined' })
+        .mockResolvedValueOnce({ status: 'granted' });
+      mockGetBackgroundPermissions
+        .mockResolvedValueOnce({ status: 'undetermined' })
+        .mockResolvedValueOnce({ status: 'denied' });
       mockHasStartedLocationUpdates.mockResolvedValueOnce(false);
 
       const result = await requestAndStartTracking(mockContext);
@@ -325,23 +374,36 @@ describe('unifiedLocationTracking', () => {
       expect(Alert.alert).toHaveBeenCalledWith(
         'Rastreamento Limitado',
         expect.stringContaining('segundo plano'),
-        [{ text: 'Entendi' }]
+        [{ text: 'Entendi' }],
       );
     });
 
     it('deve retornar started=false quando startBackgroundTracking falha', async () => {
       // requestLocationPermissions mocks
-      mockRequestForegroundPermissions.mockResolvedValueOnce({ status: 'granted' });
-      mockRequestBackgroundPermissions.mockResolvedValueOnce({ status: 'granted' });
+      mockRequestForegroundPermissions.mockResolvedValueOnce({
+        status: 'granted',
+      });
+      mockRequestBackgroundPermissions.mockResolvedValueOnce({
+        status: 'granted',
+      });
       // startBackgroundTracking fails (foreground denied internally)
-      mockGetForegroundPermissions.mockResolvedValueOnce({ status: 'denied' });
-      mockGetBackgroundPermissions.mockResolvedValueOnce({ status: 'denied' });
+      mockGetForegroundPermissions
+        .mockResolvedValueOnce({ status: 'undetermined' })
+        .mockResolvedValueOnce({ status: 'denied' });
+      mockGetBackgroundPermissions
+        .mockResolvedValueOnce({ status: 'undetermined' })
+        .mockResolvedValueOnce({ status: 'denied' });
 
       const result = await requestAndStartTracking(mockContext);
 
       expect(result).toEqual({ started: false, hasBackgroundPermission: true });
       // No alert for limited tracking since started=false
-      expect(Alert.alert).not.toHaveBeenCalled();
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Localização durante a rota',
+        expect.any(String),
+        expect.any(Array),
+        expect.any(Object),
+      );
     });
   });
 });

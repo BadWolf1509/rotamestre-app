@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import {
   View,
@@ -63,7 +63,9 @@ export default function PerfilMotorista() {
   // Sincronizar profile com usuario local
   useEffect(() => {
     if (profile?.foto_url && usuario) {
-      setUsuario(prev => prev ? { ...prev, foto_url: profile.foto_url } : prev);
+      setUsuario((prev) =>
+        prev ? { ...prev, foto_url: profile.foto_url } : prev,
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.foto_url]);
@@ -97,10 +99,14 @@ export default function PerfilMotorista() {
     {
       title: 'Segurança',
       icon: '🔐',
-      items: [
-        { label: 'Alterar Senha', action: true },
-      ],
+      items: [{ label: 'Alterar Senha', action: true }],
       onPress: () => router.push('/motorista/perfil/senha'),
+    },
+    {
+      title: 'Privacidade',
+      icon: '🛡️',
+      items: [{ label: 'Excluir conta e dados', action: true }],
+      onPress: () => router.push('/exclusao-de-conta' as Href),
     },
   ];
 
@@ -114,85 +120,85 @@ export default function PerfilMotorista() {
 
   return (
     <ErrorBoundary>
-    <ScrollView style={styles(theme).container}>
-      {/* Header com Avatar */}
-      <View style={styles(theme).header}>
-        <AvatarEditable
-          name={usuario?.nome || 'Motorista'}
-          imageUrl={usuario?.foto_url}
-          size="xl"
-          onPress={showPhotoOptions}
-          uploading={uploadingPhoto}
-        />
+      <ScrollView style={styles(theme).container}>
+        {/* Header com Avatar */}
+        <View style={styles(theme).header}>
+          <AvatarEditable
+            name={usuario?.nome || 'Motorista'}
+            imageUrl={usuario?.foto_url}
+            size="xl"
+            onPress={showPhotoOptions}
+            uploading={uploadingPhoto}
+          />
 
-        <Text style={styles(theme).nome}>{usuario?.nome || 'Usuário'}</Text>
-        <Text style={styles(theme).email}>{usuario?.email || ''}</Text>
-        <View style={styles(theme).roleBadge}>
-          <Text style={styles(theme).roleBadgeText}>Motorista</Text>
+          <Text style={styles(theme).nome}>{usuario?.nome || 'Usuário'}</Text>
+          <Text style={styles(theme).email}>{usuario?.email || ''}</Text>
+          <View style={styles(theme).roleBadge}>
+            <Text style={styles(theme).roleBadgeText}>Motorista</Text>
+          </View>
+          {usuario?.unidades?.nome && (
+            <View style={styles(theme).unitBadge}>
+              <Text style={styles(theme).unitBadgeLabel}>Unidade</Text>
+              <Text style={styles(theme).unitBadgeValue}>
+                {usuario.unidades.nome}
+              </Text>
+            </View>
+          )}
         </View>
-        {usuario?.unidades?.nome && (
-          <View style={styles(theme).unitBadge}>
-            <Text style={styles(theme).unitBadgeLabel}>Unidade</Text>
-            <Text style={styles(theme).unitBadgeValue}>
-              {usuario.unidades.nome}
-            </Text>
-          </View>
-        )}
-      </View>
 
-      {/* Seções */}
-      {sections.map((section, index) => (
-        <TouchableOpacity
-          key={index}
-          style={styles(theme).section}
-          onPress={section.onPress}
-          activeOpacity={0.7}
-        >
-          <View style={styles(theme).sectionHeader}>
-            <Text style={styles(theme).sectionIcon}>{section.icon}</Text>
-            <Text style={styles(theme).sectionTitle}>{section.title}</Text>
-            <Text style={styles(theme).sectionArrow}>›</Text>
-          </View>
+        {/* Seções */}
+        {sections.map((section, index) => (
+          <TouchableOpacity
+            key={index}
+            style={styles(theme).section}
+            onPress={section.onPress}
+            activeOpacity={0.7}
+          >
+            <View style={styles(theme).sectionHeader}>
+              <Text style={styles(theme).sectionIcon}>{section.icon}</Text>
+              <Text style={styles(theme).sectionTitle}>{section.title}</Text>
+              <Text style={styles(theme).sectionArrow}>›</Text>
+            </View>
 
-          <View style={styles(theme).sectionContent}>
-            {section.items.map((item, itemIndex) => (
-              <View key={itemIndex} style={styles(theme).sectionItem}>
-                <Text style={styles(theme).itemLabel}>{item.label}</Text>
-                {item.value && (
-                  <Text style={styles(theme).itemValue} numberOfLines={1}>
-                    {item.value}
-                  </Text>
-                )}
-                {item.action && (
-                  <Text style={styles(theme).itemAction}>›</Text>
-                )}
-              </View>
-            ))}
-          </View>
-        </TouchableOpacity>
-      ))}
+            <View style={styles(theme).sectionContent}>
+              {section.items.map((item, itemIndex) => (
+                <View key={itemIndex} style={styles(theme).sectionItem}>
+                  <Text style={styles(theme).itemLabel}>{item.label}</Text>
+                  {item.value && (
+                    <Text style={styles(theme).itemValue} numberOfLines={1}>
+                      {item.value}
+                    </Text>
+                  )}
+                  {item.action && (
+                    <Text style={styles(theme).itemAction}>›</Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          </TouchableOpacity>
+        ))}
 
-      {/* Botão Sair */}
-      {/* Espaçamento inferior */}
-      <View style={styles(theme).footer} />
+        {/* Botão Sair */}
+        {/* Espaçamento inferior */}
+        <View style={styles(theme).footer} />
 
-      <Dialog
-        visible={confirmDialog.visible}
-        variant="confirm"
-        title={confirmDialog.title}
-        message={confirmDialog.message}
-        onConfirm={confirmDialog.onConfirm}
-        onCancel={closeConfirmDialog}
-      />
-      <Dialog
-        visible={alertDialog.visible}
-        variant="alert"
-        title={alertDialog.title}
-        message={alertDialog.message}
-        type={alertDialog.type}
-        onConfirm={closeAlertDialog}
-      />
-    </ScrollView>
+        <Dialog
+          visible={confirmDialog.visible}
+          variant="confirm"
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={closeConfirmDialog}
+        />
+        <Dialog
+          visible={alertDialog.visible}
+          variant="alert"
+          title={alertDialog.title}
+          message={alertDialog.message}
+          type={alertDialog.type}
+          onConfirm={closeAlertDialog}
+        />
+      </ScrollView>
     </ErrorBoundary>
   );
 }

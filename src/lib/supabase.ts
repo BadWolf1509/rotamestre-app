@@ -1,10 +1,10 @@
 import 'react-native-url-polyfill/auto';
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 
 import { logger } from './logger';
+import { secureAuthStorage } from './secureAuthStorage';
 
 // Capture URL hash BEFORE Supabase client processes it (createClient cleans the hash)
 // This allows index.tsx to detect recovery redirects reliably
@@ -32,7 +32,7 @@ let supabase: SupabaseClient;
 if (isSupabaseConfigured) {
   supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
-      storage: AsyncStorage,
+      storage: secureAuthStorage,
       autoRefreshToken: true,
       persistSession: true,
       // Web: true to auto-detect recovery/magic-link tokens from URL hash
@@ -74,7 +74,7 @@ if (isSupabaseConfigured) {
     'placeholder-key',
     {
       auth: {
-        storage: AsyncStorage,
+        storage: secureAuthStorage,
         autoRefreshToken: false,
         persistSession: false,
         detectSessionInUrl: false,

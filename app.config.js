@@ -58,6 +58,12 @@ module.exports = ({ config }) => {
       versionCode: resolvedAndroidVersionCode, // From package.json
       // Firebase Cloud Messaging para Push Notifications
       googleServicesFile: "./google-services.json",
+      allowBackup: false,
+      blockedPermissions: [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ],
       permissions: [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
@@ -97,9 +103,23 @@ module.exports = ({ config }) => {
       [
         "expo-location",
         {
-          locationAlwaysAndWhenInUsePermission: "O RotaMestre precisa acessar sua localização para rastrear entregas.",
+          locationAlwaysAndWhenInUsePermission: "Durante uma rota ativa, o Rota Mestre usa sua localização mesmo quando o app está fechado para permitir navegação e acompanhamento da entrega pelo gestor.",
           isAndroidBackgroundLocationEnabled: true,
           isAndroidForegroundServiceEnabled: true
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          microphonePermission: false,
+          recordAudioAndroid: false
+        }
+      ],
+      [
+        "expo-secure-store",
+        {
+          configureAndroidBackup: true,
+          faceIDPermission: false
         }
       ],
       "expo-sharing"

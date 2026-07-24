@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -72,10 +72,11 @@ export default function PerfilGestor() {
   } = useProfile(user);
 
   const pageMeta = getGestorPageMeta('perfil');
-  const { userMenuTrigger, userMenuItems, logoutModal, openLogoutModal } = useDesktopHeaderMenu({
-    userName: usuario?.nome || profile?.nome,
-    userImageUrl: usuario?.foto_url || profile?.foto_url,
-  });
+  const { userMenuTrigger, userMenuItems, logoutModal, openLogoutModal } =
+    useDesktopHeaderMenu({
+      userName: usuario?.nome || profile?.nome,
+      userImageUrl: usuario?.foto_url || profile?.foto_url,
+    });
 
   useEffect(() => {
     loadUsuario();
@@ -84,7 +85,9 @@ export default function PerfilGestor() {
   // Sincronizar profile com usuario local (para dados extras como unidades)
   useEffect(() => {
     if (profile?.foto_url && usuario) {
-      setUsuario(prev => prev ? { ...prev, foto_url: profile.foto_url } : prev);
+      setUsuario((prev) =>
+        prev ? { ...prev, foto_url: profile.foto_url } : prev,
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.foto_url]);
@@ -104,12 +107,17 @@ export default function PerfilGestor() {
         if (error) throw error;
         setUsuario(data as UsuarioComUnidade);
 
-        const lastAccess = (data as UsuarioComUnidade)?.ultimo_login || session.user.last_sign_in_at;
-        const userMetadata = session.user.user_metadata as {
-          dispositivos?: string[];
-          devices?: string[];
-        } | undefined;
-        const appMetadata = session.user.app_metadata as { active_devices?: number } | undefined;
+        const lastAccess =
+          (data as UsuarioComUnidade)?.ultimo_login ||
+          session.user.last_sign_in_at;
+        const userMetadata = session.user.user_metadata as
+          | {
+              dispositivos?: string[];
+              devices?: string[];
+            }
+          | undefined;
+        const appMetadata = session.user.app_metadata as
+          { active_devices?: number } | undefined;
         const dispositivosAtivos =
           appMetadata?.active_devices ??
           (Array.isArray(userMetadata?.dispositivos)
@@ -148,6 +156,7 @@ export default function PerfilGestor() {
             onSelectPhoto={showPhotoOptions}
             atividade={atividadeRecente}
             onLogout={openLogoutModal}
+            onDeleteAccount={() => router.push('/exclusao-de-conta' as Href)}
           />
         </DesktopPageLayout>
         {logoutModal}
@@ -189,6 +198,12 @@ export default function PerfilGestor() {
       items: [{ label: 'Alterar Senha', action: true }],
       onPress: () => router.push('/perfil/trocar-senha'),
     },
+    {
+      title: 'Privacidade',
+      icon: '🛡️',
+      items: [{ label: 'Excluir conta e dados', action: true }],
+      onPress: () => router.push('/exclusao-de-conta' as Href),
+    },
   ];
 
   if (loading) {
@@ -205,87 +220,89 @@ export default function PerfilGestor() {
 
   return (
     <ErrorBoundary>
-    <>
-      <ScrollView
-        style={styles(theme).container}
-        contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
-      >
-      <View style={styles(theme).header}>
-        <AvatarEditable
-          name={usuario?.nome || 'Gestor'}
-          imageUrl={usuario?.foto_url}
-          size="xl"
-          onPress={showPhotoOptions}
-          uploading={uploadingPhoto}
-        />
-
-        <Text style={styles(theme).nome}>{usuario?.nome || 'Gestor'}</Text>
-        <Text style={styles(theme).email}>{usuario?.email || ''}</Text>
-        <View style={styles(theme).roleBadge}>
-          <Text style={styles(theme).roleBadgeText}>
-            {usuario?.papel === 'gestor' ? 'Gestor' : 'Usuário'}
-          </Text>
-        </View>
-        {usuario?.unidades?.nome && (
-          <View style={styles(theme).unitBadge}>
-            <Text style={styles(theme).unitBadgeLabel}>Unidade</Text>
-            <Text style={styles(theme).unitBadgeValue}>
-              {usuario.unidades.nome}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {sections.map((section, index) => (
-        <TouchableOpacity
-          key={index}
-          style={styles(theme).section}
-          onPress={section.onPress}
-          activeOpacity={0.7}
+      <>
+        <ScrollView
+          style={styles(theme).container}
+          contentContainerStyle={{
+            paddingBottom: Math.max(20, insets.bottom + 20),
+          }}
         >
-          <View style={styles(theme).sectionHeader}>
-            <Text style={styles(theme).sectionIcon}>{section.icon}</Text>
-            <Text style={styles(theme).sectionTitle}>{section.title}</Text>
-            <Text style={styles(theme).sectionArrow}>›</Text>
+          <View style={styles(theme).header}>
+            <AvatarEditable
+              name={usuario?.nome || 'Gestor'}
+              imageUrl={usuario?.foto_url}
+              size="xl"
+              onPress={showPhotoOptions}
+              uploading={uploadingPhoto}
+            />
+
+            <Text style={styles(theme).nome}>{usuario?.nome || 'Gestor'}</Text>
+            <Text style={styles(theme).email}>{usuario?.email || ''}</Text>
+            <View style={styles(theme).roleBadge}>
+              <Text style={styles(theme).roleBadgeText}>
+                {usuario?.papel === 'gestor' ? 'Gestor' : 'Usuário'}
+              </Text>
+            </View>
+            {usuario?.unidades?.nome && (
+              <View style={styles(theme).unitBadge}>
+                <Text style={styles(theme).unitBadgeLabel}>Unidade</Text>
+                <Text style={styles(theme).unitBadgeValue}>
+                  {usuario.unidades.nome}
+                </Text>
+              </View>
+            )}
           </View>
 
-          <View style={styles(theme).sectionContent}>
-            {section.items.map((item, itemIndex) => (
-              <View key={itemIndex} style={styles(theme).sectionItem}>
-                <Text style={styles(theme).itemLabel}>{item.label}</Text>
-                {item.value ? (
-                  <Text style={styles(theme).itemValue} numberOfLines={1}>
-                    {item.value}
-                  </Text>
-                ) : (
-                  item.action && (
-                    <Text style={styles(theme).itemAction}>›</Text>
-                  )
-                )}
+          {sections.map((section, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles(theme).section}
+              onPress={section.onPress}
+              activeOpacity={0.7}
+            >
+              <View style={styles(theme).sectionHeader}>
+                <Text style={styles(theme).sectionIcon}>{section.icon}</Text>
+                <Text style={styles(theme).sectionTitle}>{section.title}</Text>
+                <Text style={styles(theme).sectionArrow}>›</Text>
               </View>
-            ))}
-          </View>
-        </TouchableOpacity>
-      ))}
-      </ScrollView>
-      {logoutModal}
-      <Dialog
-        visible={confirmDialog.visible}
-        variant="confirm"
-        title={confirmDialog.title}
-        message={confirmDialog.message}
-        onConfirm={confirmDialog.onConfirm}
-        onCancel={closeConfirmDialog}
-      />
-      <Dialog
-        visible={alertDialog.visible}
-        variant="alert"
-        title={alertDialog.title}
-        message={alertDialog.message}
-        type={alertDialog.type}
-        onConfirm={closeAlertDialog}
-      />
-    </>
+
+              <View style={styles(theme).sectionContent}>
+                {section.items.map((item, itemIndex) => (
+                  <View key={itemIndex} style={styles(theme).sectionItem}>
+                    <Text style={styles(theme).itemLabel}>{item.label}</Text>
+                    {item.value ? (
+                      <Text style={styles(theme).itemValue} numberOfLines={1}>
+                        {item.value}
+                      </Text>
+                    ) : (
+                      item.action && (
+                        <Text style={styles(theme).itemAction}>›</Text>
+                      )
+                    )}
+                  </View>
+                ))}
+              </View>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        {logoutModal}
+        <Dialog
+          visible={confirmDialog.visible}
+          variant="confirm"
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={closeConfirmDialog}
+        />
+        <Dialog
+          visible={alertDialog.visible}
+          variant="alert"
+          title={alertDialog.title}
+          message={alertDialog.message}
+          type={alertDialog.type}
+          onConfirm={closeAlertDialog}
+        />
+      </>
     </ErrorBoundary>
   );
 }
