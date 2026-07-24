@@ -17,13 +17,15 @@ export interface UseEnderecoUnidadeReturn {
 }
 
 export function useEnderecoUnidade(
-  onError?: (message: string) => void
+  onError?: (message: string) => void,
 ): UseEnderecoUnidadeReturn {
   const { unidadeAtivaData } = useUnidadeAtiva();
-  const [enderecoUnidade, setEnderecoUnidade] = useState<EnderecoUnidade | null>(null);
+  const [enderecoUnidade, setEnderecoUnidade] =
+    useState<EnderecoUnidade | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadEnderecoUnidade = useCallback(async () => {
+    setEnderecoUnidade(null);
     if (!unidadeAtivaData) {
       logger.warn('[useEnderecoUnidade] Usuário sem unidade vinculada');
       setIsLoading(false);
@@ -40,7 +42,8 @@ export function useEnderecoUnidade(
 
     const latitudeFromDb = parseCoordinate(unidadeAtivaData.sede_latitude);
     const longitudeFromDb = parseCoordinate(unidadeAtivaData.sede_longitude);
-    const enderecoBase = unidadeAtivaData.sede_endereco || unidadeAtivaData.endereco;
+    const enderecoBase =
+      unidadeAtivaData.sede_endereco || unidadeAtivaData.endereco;
 
     const enderecoCompleto = [
       enderecoBase,
@@ -64,8 +67,12 @@ export function useEnderecoUnidade(
 
     // Sem endereço completo, não pode geocodificar
     if (!enderecoCompleto) {
-      logger.warn('[useEnderecoUnidade] Unidade sem endereço completo cadastrado');
-      onError?.('Endereço da unidade não encontrado. Complete o cadastro antes de gerar rotas.');
+      logger.warn(
+        '[useEnderecoUnidade] Unidade sem endereço completo cadastrado',
+      );
+      onError?.(
+        'Endereço da unidade não encontrado. Complete o cadastro antes de gerar rotas.',
+      );
       setIsLoading(false);
       return;
     }
@@ -80,20 +87,25 @@ export function useEnderecoUnidade(
           endereco: result.formatted_address || enderecoCompleto,
         });
       } else {
-        logger.error('[useEnderecoUnidade] Não foi possível geocodificar o endereço da unidade');
-        onError?.('Endereço da unidade não encontrado. Verifique o cadastro da unidade.');
+        logger.error(
+          '[useEnderecoUnidade] Não foi possível geocodificar o endereço da unidade',
+        );
+        onError?.(
+          'Endereço da unidade não encontrado. Verifique o cadastro da unidade.',
+        );
       }
     } catch (error) {
-      logger.error('[useEnderecoUnidade] Erro ao geocodificar endereço da unidade', error);
+      logger.error(
+        '[useEnderecoUnidade] Erro ao geocodificar endereço da unidade',
+        error,
+      );
     } finally {
       setIsLoading(false);
     }
   }, [onError, unidadeAtivaData]);
 
   useEffect(() => {
-    if (unidadeAtivaData) {
-      loadEnderecoUnidade();
-    }
+    loadEnderecoUnidade();
   }, [loadEnderecoUnidade, unidadeAtivaData]);
 
   return {

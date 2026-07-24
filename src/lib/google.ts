@@ -86,6 +86,7 @@ export const googleMapsService = {
         polyline: osrmResult.polyline,
         distancia_total_metros: osrmResult.distancia_total_metros,
         duracao_total_segundos: osrmResult.duracao_total_segundos,
+        is_estimated: osrmResult.is_estimated === true,
         ordem_otimizada: osrmResult.ordem_otimizada,
         legs: osrmResult.legs.map((leg) => ({
           distancia_metros: leg.distancia_metros,
@@ -159,6 +160,7 @@ export const googleMapsService = {
         polyline: osrmResult.polyline,
         distancia_total_metros: osrmResult.distancia_total_metros,
         duracao_total_segundos: osrmResult.duracao_total_segundos,
+        is_estimated: osrmResult.is_estimated === true,
         ordem_otimizada: [], // Vazio porque não otimizou
         legs: osrmResult.legs.map((leg) => ({
           distancia_metros: leg.distancia_metros,

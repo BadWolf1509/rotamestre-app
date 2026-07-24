@@ -7,7 +7,13 @@
 
 import { formatDistance, formatDuration } from './formatting';
 
-import type { Coordinate, DistanceResult, RouteResult, DirectionsResult, DirectionsResultLeg } from './types';
+import type {
+  Coordinate,
+  DistanceResult,
+  RouteResult,
+  DirectionsResult,
+  DirectionsResultLeg,
+} from './types';
 
 // ============================================================================
 // HAVERSINE
@@ -20,7 +26,7 @@ export function calculateHaversineDistance(
   lat1: number,
   lon1: number,
   lat2: number,
-  lon2: number
+  lon2: number,
 ): number {
   const EARTH_RADIUS = 6371000; // metros
   const phi1 = (lat1 * Math.PI) / 180;
@@ -30,7 +36,10 @@ export function calculateHaversineDistance(
 
   const a =
     Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+    Math.cos(phi1) *
+      Math.cos(phi2) *
+      Math.sin(deltaLambda / 2) *
+      Math.sin(deltaLambda / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   return EARTH_RADIUS * c;
@@ -39,12 +48,15 @@ export function calculateHaversineDistance(
 /**
  * Estima distancia de rota baseado em Haversine (linha reta x 1.3)
  */
-export function estimateRouteDistance(origin: Coordinate, destination: Coordinate): DistanceResult {
+export function estimateRouteDistance(
+  origin: Coordinate,
+  destination: Coordinate,
+): DistanceResult {
   const straightLine = calculateHaversineDistance(
     origin.latitude,
     origin.longitude,
     destination.latitude,
-    destination.longitude
+    destination.longitude,
   );
 
   // Fator de correcao: rotas sao ~30% mais longas que linha reta
@@ -70,7 +82,7 @@ export function estimateRouteDistance(origin: Coordinate, destination: Coordinat
 export function createFallbackRoute(
   origin: Coordinate,
   destination: Coordinate,
-  waypoints?: Coordinate[]
+  waypoints?: Coordinate[],
 ): RouteResult {
   const allCoords = [origin, ...(waypoints || []), destination];
   let totalDistance = 0;
@@ -81,10 +93,10 @@ export function createFallbackRoute(
       allCoords[i].latitude,
       allCoords[i].longitude,
       allCoords[i + 1].latitude,
-      allCoords[i + 1].longitude
+      allCoords[i + 1].longitude,
     );
     totalDistance += dist * 1.3; // Fator de correcao
-    totalDuration += (dist * 1.3 / 1000) * 2 * 60; // 30 km/h media
+    totalDuration += ((dist * 1.3) / 1000) * 2 * 60; // 30 km/h media
   }
 
   return {
@@ -116,7 +128,7 @@ export function createFallbackRoute(
 export function createFallbackDirections(
   origin: Coordinate,
   destination: Coordinate,
-  waypoints?: Coordinate[]
+  waypoints?: Coordinate[],
 ): DirectionsResult {
   const allCoords = [origin, ...(waypoints || []), destination];
   let totalDistance = 0;
@@ -124,12 +136,13 @@ export function createFallbackDirections(
   const legs: DirectionsResultLeg[] = [];
 
   for (let i = 0; i < allCoords.length - 1; i++) {
-    const dist = calculateHaversineDistance(
-      allCoords[i].latitude,
-      allCoords[i].longitude,
-      allCoords[i + 1].latitude,
-      allCoords[i + 1].longitude
-    ) * 1.3; // Fator de correcao
+    const dist =
+      calculateHaversineDistance(
+        allCoords[i].latitude,
+        allCoords[i].longitude,
+        allCoords[i + 1].latitude,
+        allCoords[i + 1].longitude,
+      ) * 1.3; // Fator de correcao
 
     const duration = (dist / 1000) * 2 * 60; // 30 km/h media
 
@@ -152,5 +165,6 @@ export function createFallbackDirections(
     duracao_total_segundos: Math.round(totalDuration),
     ordem_otimizada: (waypoints || []).map((_, i) => i),
     legs,
+    is_estimated: true,
   };
 }

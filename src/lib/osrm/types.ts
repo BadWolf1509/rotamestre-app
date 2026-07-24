@@ -80,6 +80,8 @@ export interface DirectionsResult {
   duracao_total_segundos: number;
   ordem_otimizada: number[];
   legs: DirectionsResultLeg[];
+  /** Indica fallback Haversine; não representa um percurso viário confirmado. */
+  is_estimated?: boolean;
 }
 
 export interface OSRMTripResponse {

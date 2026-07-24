@@ -7,24 +7,24 @@
  * @see https://github.com/Project-OSRM/osrm-backend/wiki/Api-usage-policy
  */
 
-import { decode } from "@mapbox/polyline";
+import { decode } from '@mapbox/polyline';
 
-import { logger } from "@/lib/logger";
+import { logger } from '@/lib/logger';
 
-import { getCacheKey, getFromCache, setCache, waitForRateLimit } from "./cache";
+import { getCacheKey, getFromCache, setCache, waitForRateLimit } from './cache';
 import {
   calculateHaversineDistance,
   createFallbackRoute,
   createFallbackDirections,
   estimateRouteDistance,
-} from "./fallback";
+} from './fallback';
 import {
   formatDistance,
   formatDuration,
   translateManeuver,
-} from "./formatting";
-import { getDistanceMatrix } from "./table";
-import { solveTSP } from "./tsp";
+} from './formatting';
+import { getDistanceMatrix } from './table';
+import { solveTSP } from './tsp';
 
 import type {
   Coordinate,
@@ -34,13 +34,13 @@ import type {
   DirectionsResult,
   DirectionsResultLeg,
   OSRMRouteResponse,
-} from "./types";
+} from './types';
 
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 
-const OSRM_BASE_URL = "https://osrm.rotamestre.tec.br";
+const OSRM_BASE_URL = 'https://osrm.rotamestre.tec.br';
 const REQUEST_TIMEOUT = 10000; // 10 segundos
 
 // ============================================================================
@@ -60,7 +60,7 @@ export async function getRoute(
   },
 ): Promise<RouteResult | null> {
   const allCoords = [origin, ...(waypoints || []), destination];
-  const cacheKey = getCacheKey("route", allCoords);
+  const cacheKey = getCacheKey('route', allCoords);
 
   // Check cache
   const cached = getFromCache<RouteResult>(cacheKey);
@@ -74,12 +74,12 @@ export async function getRoute(
     // Build coordinates string: lon,lat;lon,lat;...
     const coordsStr = allCoords
       .map((c) => `${c.longitude},${c.latitude}`)
-      .join(";");
+      .join(';');
 
     const params = new URLSearchParams({
-      overview: "full",
-      geometries: "polyline",
-      steps: options?.steps !== false ? "true" : "false",
+      overview: 'full',
+      geometries: 'polyline',
+      steps: options?.steps !== false ? 'true' : 'false',
     });
 
     const url = `${OSRM_BASE_URL}/route/v1/driving/${coordsStr}?${params}`;
@@ -88,9 +88,9 @@ export async function getRoute(
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
     const response = await fetch(url, {
-      method: "GET",
+      method: 'GET',
       headers: {
-        "User-Agent": "RotaMestre/1.0 (https://app.rotamestre.tec.br)",
+        'User-Agent': 'RotaMestre/1.0 (https://app.rotamestre.tec.br)',
       },
       signal: controller.signal,
     });
@@ -103,8 +103,8 @@ export async function getRoute(
 
     const data: OSRMRouteResponse = await response.json();
 
-    if (data.code !== "Ok" || !data.routes || data.routes.length === 0) {
-      logger.warn("OSRM: No route found, using Haversine fallback");
+    if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+      logger.warn('OSRM: No route found, using Haversine fallback');
       return createFallbackRoute(origin, destination, waypoints);
     }
 
@@ -122,7 +122,7 @@ export async function getRoute(
             step.maneuver.modifier,
             step.name,
           ),
-          maneuver: `${step.maneuver.type}-${step.maneuver.modifier || ""}`,
+          maneuver: `${step.maneuver.type}-${step.maneuver.modifier || ''}`,
           location: {
             latitude: step.maneuver.location[1],
             longitude: step.maneuver.location[0],
@@ -147,7 +147,7 @@ export async function getRoute(
     setCache(cacheKey, result);
     return result;
   } catch (error) {
-    logger.error("OSRM getRoute error:", error);
+    logger.error('OSRM getRoute error:', error);
     // Fallback to Haversine
     return createFallbackRoute(origin, destination, waypoints);
   }
@@ -164,7 +164,7 @@ export async function getDistance(
   origin: Coordinate,
   destination: Coordinate,
 ): Promise<DistanceResult> {
-  const cacheKey = getCacheKey("distance", [origin, destination]);
+  const cacheKey = getCacheKey('distance', [origin, destination]);
 
   // Check cache
   const cached = getFromCache<DistanceResult>(cacheKey);
@@ -182,9 +182,9 @@ export async function getDistance(
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
     const response = await fetch(url, {
-      method: "GET",
+      method: 'GET',
       headers: {
-        "User-Agent": "RotaMestre/1.0 (https://app.rotamestre.tec.br)",
+        'User-Agent': 'RotaMestre/1.0 (https://app.rotamestre.tec.br)',
       },
       signal: controller.signal,
     });
@@ -197,7 +197,7 @@ export async function getDistance(
 
     const data: OSRMRouteResponse = await response.json();
 
-    if (data.code !== "Ok" || !data.routes || data.routes.length === 0) {
+    if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
       return estimateRouteDistance(origin, destination);
     }
 
@@ -212,7 +212,7 @@ export async function getDistance(
     setCache(cacheKey, result);
     return result;
   } catch (error) {
-    logger.error("OSRM getDistance error:", error);
+    logger.error('OSRM getDistance error:', error);
     return estimateRouteDistance(origin, destination);
   }
 }
@@ -231,7 +231,7 @@ export async function optimizeWaypoints(
     return { order: waypoints.map((_, i) => i), distance: 0, duration: 0 };
   }
 
-  const cacheKey = getCacheKey("optimize", waypoints);
+  const cacheKey = getCacheKey('optimize', waypoints);
 
   // Check cache
   const cached = getFromCache<{
@@ -248,7 +248,7 @@ export async function optimizeWaypoints(
 
     const coordsStr = waypoints
       .map((c) => `${c.longitude},${c.latitude}`)
-      .join(";");
+      .join(';');
 
     // Trip API resolve o TSP
     const url = `${OSRM_BASE_URL}/trip/v1/driving/${coordsStr}?roundtrip=false&source=first&destination=last`;
@@ -257,9 +257,9 @@ export async function optimizeWaypoints(
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
     const response = await fetch(url, {
-      method: "GET",
+      method: 'GET',
       headers: {
-        "User-Agent": "RotaMestre/1.0 (https://app.rotamestre.tec.br)",
+        'User-Agent': 'RotaMestre/1.0 (https://app.rotamestre.tec.br)',
       },
       signal: controller.signal,
     });
@@ -272,7 +272,7 @@ export async function optimizeWaypoints(
 
     const data = await response.json();
 
-    if (data.code !== "Ok" || !data.waypoints) {
+    if (data.code !== 'Ok' || !data.waypoints) {
       return null;
     }
 
@@ -290,7 +290,7 @@ export async function optimizeWaypoints(
     setCache(cacheKey, result);
     return result;
   } catch (error) {
-    logger.error("OSRM optimizeWaypoints error:", error);
+    logger.error('OSRM optimizeWaypoints error:', error);
     return null;
   }
 }
@@ -312,7 +312,7 @@ export function decodePolyline(encoded: string): Coordinate[] {
       longitude: lng,
     }));
   } catch (error) {
-    logger.error("Error decoding polyline", error);
+    logger.error('Error decoding polyline', error);
     return [];
   }
 }
@@ -368,7 +368,7 @@ export async function getOptimizedDirections(
     );
     return result ?? createFallbackDirections(origin, destination, waypoints);
   } catch (error) {
-    logger.error("OSRM getOptimizedDirections error:", error);
+    logger.error('OSRM getOptimizedDirections error:', error);
     // Fallback com Haversine
     return createFallbackDirections(origin, destination, waypoints);
   }
@@ -398,10 +398,10 @@ async function getOptimizedCircularRoute(
 
   if (matrix) {
     distances = matrix.distances;
-    logger.debug("[OSRM] Using Table API distance matrix for TSP");
+    logger.debug('[OSRM] Using Table API distance matrix for TSP');
   } else {
     distances = buildHaversineMatrix(allPoints);
-    logger.warn("[OSRM] Table API unavailable, using Haversine TSP fallback");
+    logger.warn('[OSRM] Table API unavailable, using Haversine TSP fallback');
   }
 
   // Step 2: Solve TSP on distance matrix (optimizes by distance)
@@ -473,7 +473,7 @@ async function getSimpleRoute(
   const allCoords = [origin, ...(waypoints || []), destination];
   const coordsStr = allCoords
     .map((c) => `${c.longitude},${c.latitude}`)
-    .join(";");
+    .join(';');
 
   const url = `${OSRM_BASE_URL}/route/v1/driving/${coordsStr}?overview=full&geometries=polyline&steps=false`;
 
@@ -482,9 +482,9 @@ async function getSimpleRoute(
 
   try {
     const response = await fetch(url, {
-      method: "GET",
+      method: 'GET',
       headers: {
-        "User-Agent": "RotaMestre/1.0 (https://app.rotamestre.tec.br)",
+        'User-Agent': 'RotaMestre/1.0 (https://app.rotamestre.tec.br)',
       },
       signal: controller.signal,
     });
@@ -497,7 +497,7 @@ async function getSimpleRoute(
 
     const data: OSRMRouteResponse = await response.json();
 
-    if (data.code !== "Ok" || !data.routes || data.routes.length === 0) {
+    if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
       return createFallbackDirections(origin, destination, waypoints);
     }
 
@@ -514,8 +514,8 @@ async function getSimpleRoute(
       return {
         distancia_metros: leg.distance,
         duracao_segundos: leg.duration,
-        endereco_inicio: "",
-        endereco_fim: "",
+        endereco_inicio: '',
+        endereco_fim: '',
         coordenadas_inicio: startCoord,
         coordenadas_fim: endCoord,
       };
@@ -527,13 +527,14 @@ async function getSimpleRoute(
       duracao_total_segundos: route.duration,
       ordem_otimizada: waypointOrder,
       legs,
+      is_estimated: false,
     };
 
     setCache(cacheKey, result);
     return result;
   } catch (error) {
     clearTimeout(timeoutId);
-    logger.error("[OSRM] getSimpleRoute error:", error);
+    logger.error('[OSRM] getSimpleRoute error:', error);
     return null;
   }
 }

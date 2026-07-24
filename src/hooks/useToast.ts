@@ -7,6 +7,8 @@ interface ToastState {
   message: string;
   type: ToastType;
   duration: number;
+  actionLabel?: string;
+  onAction?: () => void;
 }
 
 /**
@@ -41,15 +43,22 @@ export function useToast() {
   });
 
   const showToast = useCallback(
-    (message: string, type: ToastType = 'info', duration: number = 3000) => {
+    (
+      message: string,
+      type: ToastType = 'info',
+      duration: number = 3000,
+      action?: { label: string; onPress: () => void },
+    ) => {
       setToast({
         visible: true,
         message,
         type,
         duration,
+        actionLabel: action?.label,
+        onAction: action?.onPress,
       });
     },
-    []
+    [],
   );
 
   const hideToast = useCallback(() => {
@@ -74,13 +83,13 @@ export function useToast() {
    * ```
    */
   const withToast = useCallback(
-    async <T,>(
+    async <T>(
       asyncFn: () => Promise<T>,
       messages: {
         loading: string;
         success: string;
         error?: string;
-      }
+      },
     ): Promise<T> => {
       try {
         showToast(messages.loading, 'loading', 0);
@@ -88,12 +97,14 @@ export function useToast() {
         showToast(messages.success, 'success');
         return result;
       } catch (error: unknown) {
-        const errorMessage = messages.error || (error instanceof Error ? error.message : 'Ocorreu um erro');
+        const errorMessage =
+          messages.error ||
+          (error instanceof Error ? error.message : 'Ocorreu um erro');
         showToast(errorMessage, 'error', 5000);
         throw error;
       }
     },
-    [showToast]
+    [showToast],
   );
 
   return {

@@ -4,13 +4,15 @@
 
 import { renderHook, act } from '@testing-library/react-native';
 
-import type { Parada, EnderecoUnidade } from '@/components/gestor/nova-entrega/types';
+import type {
+  Parada,
+  EnderecoUnidade,
+} from '@/components/gestor/nova-entrega/types';
+import { googleMapsService } from '@/lib/google';
 
-// Mock googleMapsService
-const mockGetDirections = jest.fn();
 jest.mock('@/lib/google', () => ({
   googleMapsService: {
-    getDirections: mockGetDirections,
+    getDirections: jest.fn(),
   },
 }));
 
@@ -28,8 +30,10 @@ const mockOtimizarRotaComDependencias = jest.fn();
 const mockValidarRotaParaOtimizacao = jest.fn();
 jest.mock('@/lib/routeOptimization', () => ({
   __esModule: true,
-  otimizarRotaComDependencias: (...args: unknown[]) => mockOtimizarRotaComDependencias(...args),
-  validarRotaParaOtimizacao: (...args: unknown[]) => mockValidarRotaParaOtimizacao(...args),
+  otimizarRotaComDependencias: (...args: unknown[]) =>
+    mockOtimizarRotaComDependencias(...args),
+  validarRotaParaOtimizacao: (...args: unknown[]) =>
+    mockValidarRotaParaOtimizacao(...args),
   ParadaParaOtimizar: {},
 }));
 
@@ -45,6 +49,8 @@ jest.mock('../../useNovaEntrega.helpers', () => ({
 }));
 
 import { useRouteOptimization } from '../useRouteOptimization';
+
+const mockGetDirections = googleMapsService.getDirections as jest.Mock;
 
 describe('useRouteOptimization', () => {
   const mockEnderecoUnidade: EnderecoUnidade = {
@@ -86,7 +92,14 @@ describe('useRouteOptimization', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockValidarRotaParaOtimizacao.mockReturnValue({ valido: true, erros: [], avisos: [] });
+    mockGetDirections.mockReset();
+    mockOtimizarRotaComDependencias.mockReset();
+    mockValidarRotaParaOtimizacao.mockReset();
+    mockValidarRotaParaOtimizacao.mockReturnValue({
+      valido: true,
+      erros: [],
+      avisos: [],
+    });
   });
 
   describe('initialization', () => {
@@ -111,7 +124,7 @@ describe('useRouteOptimization', () => {
 
       expect(defaultOptions.showToast).toHaveBeenCalledWith(
         'Adicione pelo menos 1 parada para otimizar a rota',
-        'info'
+        'info',
       );
     });
 
@@ -126,7 +139,7 @@ describe('useRouteOptimization', () => {
 
       expect(defaultOptions.showToast).toHaveBeenCalledWith(
         'Endereço da unidade não encontrado. Verifique o cadastro da unidade.',
-        'error'
+        'error',
       );
     });
 
@@ -155,7 +168,7 @@ describe('useRouteOptimization', () => {
 
       expect(defaultOptions.showToast).toHaveBeenCalledWith(
         'Algumas paradas não têm coordenadas válidas. Remova-as e adicione novamente.',
-        'error'
+        'error',
       );
     });
 
@@ -173,7 +186,10 @@ describe('useRouteOptimization', () => {
         expect(res).toBeNull();
       });
 
-      expect(defaultOptions.showToast).toHaveBeenCalledWith('Erro de validação', 'error');
+      expect(defaultOptions.showToast).toHaveBeenCalledWith(
+        'Erro de validação',
+        'error',
+      );
     });
 
     it('should show validation warning if there are avisos', async () => {
@@ -197,7 +213,10 @@ describe('useRouteOptimization', () => {
         await result.current.otimizarRota();
       });
 
-      expect(defaultOptions.showToast).toHaveBeenCalledWith('Aviso de validação', 'info');
+      expect(defaultOptions.showToast).toHaveBeenCalledWith(
+        'Aviso de validação',
+        'info',
+      );
     });
 
     it('should optimize route with vinculos using otimizarRotaComDependencias', async () => {
@@ -228,10 +247,7 @@ describe('useRouteOptimization', () => {
       ];
 
       mockOtimizarRotaComDependencias.mockResolvedValueOnce({
-        paradasOrdenadas: [
-          { id: 'retirada-1' },
-          { id: 'entrega-1' },
-        ],
+        paradasOrdenadas: [{ id: 'retirada-1' }, { id: 'entrega-1' }],
         distanciaTotalMetros: 12000,
         duracaoTotalSegundos: 720,
         polyline: 'polyline_with_deps',
@@ -251,7 +267,7 @@ describe('useRouteOptimization', () => {
       expect(defaultOptions.showToast).toHaveBeenCalledWith(
         expect.stringContaining('Rota otimizada com dependências!'),
         'success',
-        4000
+        4000,
       );
     });
 
@@ -267,7 +283,30 @@ describe('useRouteOptimization', () => {
 
       expect(defaultOptions.showToast).toHaveBeenCalledWith(
         'Não foi possível otimizar a rota',
-        'error'
+        'error',
+      );
+    });
+
+    it('marks a Haversine fallback as estimated instead of confirmed', async () => {
+      mockGetDirections.mockResolvedValueOnce({
+        distancia_total_metros: 10000,
+        duracao_total_segundos: 600,
+        legs: [],
+        polyline: '',
+        ordem_otimizada: [0, 1],
+        is_estimated: true,
+      });
+      const { result } = renderHook(() => useRouteOptimization(defaultOptions));
+
+      await act(async () => {
+        await result.current.otimizarRota();
+      });
+
+      expect(result.current.rotaOtimizada?.isEstimated).toBe(true);
+      expect(defaultOptions.showToast).toHaveBeenCalledWith(
+        expect.stringContaining('apenas uma estimativa'),
+        'info',
+        6000,
       );
     });
 
@@ -310,7 +349,7 @@ describe('useRouteOptimization', () => {
 
       expect(defaultOptions.showToast).toHaveBeenCalledWith(
         'Não foi possível otimizar a rota',
-        'error'
+        'error',
       );
     });
 
@@ -326,7 +365,7 @@ describe('useRouteOptimization', () => {
 
       expect(defaultOptions.showToast).toHaveBeenCalledWith(
         'Não foi possível otimizar a rota',
-        'error'
+        'error',
       );
     });
 

@@ -1,32 +1,32 @@
-/**
- * Componente para exibição da lista de paradas e ações relacionadas
- * Extraído de nova-entrega.tsx para melhor manutenibilidade
- */
-
 import { Ionicons } from '@expo/vector-icons';
 import React, { memo } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ActivityIndicator,
-} from 'react-native';
+import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import DraggableFlatList, {
+  ScaleDecorator,
+  type RenderItemParams,
+} from 'react-native-draggable-flatlist';
 
-import { MAX_WAYPOINTS } from '@/lib/routeOptimization';
+import type {
+  BulkImportResult,
+  BulkParadaInput,
+} from '@/hooks/nova-entrega/useParadasManagement';
+import { MAX_ROUTE_STOPS } from '@/lib/routeOptimization';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
+import { BulkStopImporter } from './BulkStopImporter';
 import { MotoristaSeletor } from './MotoristaSeletor';
 import { OrdemManualBanner } from './OrdemManualBanner';
 import { ParadaCard } from './ParadaCard';
 import { RotaOtimizadaBanner } from './RotaOtimizadaBanner';
+import { RouteDateSelector } from './RouteDateSelector';
 
 import type {
-  Parada,
-  MotoristaResumo,
-  RotaOtimizadaState,
-  EnderecoUnidade,
   DistanciaManualReal,
+  EnderecoUnidade,
+  MotoristaResumo,
+  Parada,
   ParadasStatus,
+  RotaOtimizadaState,
 } from './types';
 
 export interface ParadasListAndActionsProps {
@@ -42,11 +42,19 @@ export interface ParadasListAndActionsProps {
   isCalculandoReal: boolean;
   isLoading: boolean;
   isDesktop: boolean;
+  dataRota: string;
+  canGenerateRoute: boolean;
+  validationErrors: string[];
+  hideGenerateButton?: boolean;
   onMoveUp: (index: number) => void;
   onMoveDown: (index: number) => void;
   onRemove: (index: number) => void;
+  onEdit: (index: number) => void;
+  onReorder: (data: Parada[]) => void;
+  onImport: (items: BulkParadaInput[]) => Promise<BulkImportResult>;
   onOptimize: () => void;
   onSelectMotorista: (id: string) => void;
+  onChangeDataRota: (value: string) => void;
   onGenerateRoute: () => void;
 }
 
@@ -63,101 +71,154 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
   isCalculandoReal,
   isLoading,
   isDesktop,
+  dataRota,
+  canGenerateRoute,
+  validationErrors,
+  hideGenerateButton = false,
   onMoveUp,
   onMoveDown,
   onRemove,
+  onEdit,
+  onReorder,
+  onImport,
   onOptimize,
   onSelectMotorista,
+  onChangeDataRota,
   onGenerateRoute,
 }: ParadasListAndActionsProps) {
   const { theme } = useUnistyles();
   const styles = createStyles(theme, isDesktop);
 
+  const renderStop = ({
+    item,
+    getIndex,
+    drag,
+    isActive,
+  }: RenderItemParams<Parada>) => {
+    const index = getIndex() ?? 0;
+    const linkedPickup = item.vinculo_parada_id
+      ? (paradas.find((parada) => parada.id === item.vinculo_parada_id) ?? null)
+      : null;
+
+    return (
+      <ScaleDecorator>
+        <ParadaCard
+          parada={item}
+          index={index}
+          totalParadas={paradas.length}
+          retiradaVinculada={linkedPickup}
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
+          onRemove={onRemove}
+          onEdit={onEdit}
+          onDrag={drag}
+          isDragging={isActive}
+        />
+      </ScaleDecorator>
+    );
+  };
+
   return (
-    <View style={styles.paradasColumn}>
-      {/* Lista de Paradas */}
+    <View style={styles.column}>
+      {enderecoUnidade && (
+        <View style={styles.baseCard}>
+          <Ionicons
+            name="business-outline"
+            size={18}
+            color={theme.colors.primary}
+          />
+          <View style={styles.baseInfo}>
+            <Text style={styles.baseLabel}>Partida e chegada</Text>
+            <Text style={styles.baseAddress}>{enderecoUnidade.endereco}</Text>
+          </View>
+        </View>
+      )}
+
       {paradas.length > 0 ? (
-        <View style={styles.paradasList}>
-          {/* Header: título só em mobile/tablet, badge sempre visível quando aplicável */}
-          {(!isDesktop || paradasStatus.cor !== 'default') && (
-            <View style={styles.paradasHeaderRow}>
-              {/* Título interno só em mobile/tablet - desktop usa título do DesktopCard */}
-              {!isDesktop && (
-                <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
-                  Paradas Adicionadas ({paradas.length})
+        <View style={styles.listSection}>
+          <View style={styles.headerRow}>
+            {!isDesktop && (
+              <Text style={styles.sectionTitle}>
+                Paradas Adicionadas ({paradas.length})
+              </Text>
+            )}
+            {paradasStatus.cor !== 'default' && (
+              <View
+                style={[
+                  styles.limitBadge,
+                  paradasStatus.cor === 'error'
+                    ? styles.limitBadgeError
+                    : styles.limitBadgeWarning,
+                ]}
+              >
+                <Ionicons
+                  name={paradasStatus.icone || 'alert-circle'}
+                  size={14}
+                  color={
+                    paradasStatus.cor === 'error'
+                      ? theme.colors.error
+                      : theme.colors.warning
+                  }
+                />
+                <Text
+                  style={[
+                    styles.limitText,
+                    {
+                      color:
+                        paradasStatus.cor === 'error'
+                          ? theme.colors.error
+                          : theme.colors.warning,
+                    },
+                  ]}
+                >
+                  {paradas.length > MAX_ROUTE_STOPS
+                    ? 'Limite excedido'
+                    : 'Próximo do limite'}
                 </Text>
-              )}
-              {paradasStatus.cor !== 'default' && (
-                <View style={[
-                  styles.paradasLimitBadge,
-                  paradasStatus.cor === 'error' && styles.paradasLimitBadgeError,
-                  paradasStatus.cor === 'warning' && styles.paradasLimitBadgeWarning,
-                ]}>
-                  <Ionicons
-                    name={paradasStatus.icone || 'alert-circle'}
-                    size={isDesktop ? 12 : 14}
-                    color={paradasStatus.cor === 'error' ? theme.colors.error : theme.colors.warning}
-                  />
-                  <Text style={[
-                    styles.paradasLimitText,
-                    paradasStatus.cor === 'error' && styles.paradasLimitTextError,
-                    paradasStatus.cor === 'warning' && styles.paradasLimitTextWarning,
-                  ]}>
-                    {paradas.length > MAX_WAYPOINTS ? 'Limite excedido' : 'Próximo do limite'}
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
+              </View>
+            )}
+          </View>
 
-          {paradas.map((parada, index) => {
-            const retiradaVinculada = parada.vinculo_parada_id
-              ? paradas.find((p) => p.id === parada.vinculo_parada_id) || null
-              : null;
+          <BulkStopImporter
+            onImport={onImport}
+            disabled={isLoading || paradas.length >= MAX_ROUTE_STOPS}
+          />
 
-            return (
-              <ParadaCard
-                key={parada.id || index}
-                parada={parada}
-                index={index}
-                totalParadas={paradas.length}
-                retiradaVinculada={retiradaVinculada}
-                onMoveUp={onMoveUp}
-                onMoveDown={onMoveDown}
-                onRemove={onRemove}
-              />
-            );
-          })}
+          <DraggableFlatList
+            data={paradas}
+            keyExtractor={(parada) => parada.id}
+            renderItem={renderStop}
+            onDragEnd={({ data }) => onReorder(data)}
+            scrollEnabled={false}
+            activationDistance={8}
+          />
 
-          {/* Botão Otimizar Rota */}
-          {paradas.length >= 1 && (
-            <TouchableOpacity
-              style={styles.otimizarButton}
-              onPress={onOptimize}
-              disabled={isOptimizing || !enderecoUnidade}
-              accessibilityLabel="Otimizar rota para o melhor percurso"
-              accessibilityRole="button"
-              accessibilityState={{ disabled: isOptimizing || !enderecoUnidade }}
-            >
-              {isOptimizing ? (
-                <ActivityIndicator color={theme.colors.white} />
-              ) : (
-                <Text style={styles.otimizarButtonText}>
-                  Otimizar Rota (Melhor Percurso)
-                </Text>
-              )}
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={[
+              styles.optimizeButton,
+              (isOptimizing || !enderecoUnidade) && styles.disabledButton,
+            ]}
+            onPress={onOptimize}
+            disabled={isOptimizing || !enderecoUnidade}
+            accessibilityLabel="Otimizar rota para o melhor percurso"
+            accessibilityRole="button"
+            accessibilityState={{
+              disabled: isOptimizing || !enderecoUnidade,
+            }}
+          >
+            {isOptimizing ? (
+              <ActivityIndicator color={theme.colors.white} />
+            ) : (
+              <Text style={styles.optimizeText}>Otimizar melhor percurso</Text>
+            )}
+          </TouchableOpacity>
 
-          {/* Banner de Rota Otimizada */}
           {rotaOtimizada && !ordemManual && (
             <RotaOtimizadaBanner
               rotaOtimizada={rotaOtimizada}
               enderecoUnidade={enderecoUnidade}
             />
           )}
-
-          {/* Banner de Ordem Manual com Comparativo */}
           {ordemManual && rotaOtimizada && (
             <OrdemManualBanner
               rotaOtimizada={rotaOtimizada}
@@ -169,201 +230,222 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
           )}
         </View>
       ) : (
-        <View style={styles.emptyParadasState}>
-          <View style={styles.emptyParadasIconContainer}>
-            <Ionicons name="cube-outline" size={48} color={theme.colors.gray400} />
+        <View style={styles.emptyState}>
+          <View style={styles.emptyIcon}>
+            <Ionicons
+              name="cube-outline"
+              size={44}
+              color={theme.colors.gray400}
+            />
           </View>
-          <Text style={styles.emptyParadasTitle}>Nenhuma parada adicionada</Text>
-          <Text style={styles.emptyParadasText}>
-            {isDesktop
-              ? 'Adicione paradas ao formulário ao lado para começar a criar sua rota de entrega'
-              : 'Adicione paradas usando o formulário acima para criar sua rota de entrega'}
+          <Text style={styles.emptyTitle}>Nenhuma parada adicionada</Text>
+          <Text style={styles.emptyText}>
+            Use o formulário de parada para começar a montar a rota.
           </Text>
-          {isDesktop && (
-            <View style={styles.emptyParadasCta}>
-              <Ionicons name="arrow-back" size={16} color={theme.colors.secondary} />
-              <Text style={styles.emptyParadasCtaText}>
-                Preencha o formulário à esquerda
-              </Text>
-            </View>
-          )}
+          <BulkStopImporter onImport={onImport} disabled={isLoading} />
         </View>
       )}
 
-      {/* Seleção de Motorista */}
       {paradas.length > 0 && (
-        <MotoristaSeletor
-          motoristas={motoristas}
-          motoristaSelecionado={motoristaSelecionado}
-          onSelectMotorista={onSelectMotorista}
-        />
+        <>
+          <RouteDateSelector value={dataRota} onChange={onChangeDataRota} />
+          <MotoristaSeletor
+            motoristas={motoristas}
+            motoristaSelecionado={motoristaSelecionado}
+            onSelectMotorista={onSelectMotorista}
+          />
+        </>
       )}
 
-      {/* Botão Gerar Rota */}
-      {paradas.length > 0 && (
-        <TouchableOpacity
-          style={[
-            styles.gerarButton,
-            (!motoristaSelecionado || isLoading) && styles.gerarButtonDisabled,
-          ]}
-          onPress={onGenerateRoute}
-          disabled={!motoristaSelecionado || isLoading}
-          accessibilityLabel={
-            !motoristaSelecionado
-              ? 'Gerar rota - selecione um motorista primeiro'
-              : `Gerar rota com ${paradas.length} paradas`
-          }
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !motoristaSelecionado || isLoading }}
-        >
-          {isLoading ? (
-            <View style={styles.gerarButtonLoading}>
-              <ActivityIndicator color={theme.colors.white} />
-              <Text style={[styles.gerarButtonText, { marginLeft: 10 }]}>Criando rota...</Text>
+      {paradas.length > 0 && !hideGenerateButton && (
+        <>
+          {validationErrors.length > 0 && (
+            <View style={styles.validationBox} accessibilityLiveRegion="polite">
+              <Ionicons
+                name="alert-circle"
+                size={18}
+                color={theme.colors.error}
+              />
+              <Text style={styles.validationText}>{validationErrors[0]}</Text>
             </View>
-          ) : (
-            <Text style={styles.gerarButtonText}>Gerar Rota</Text>
           )}
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.generateButton,
+              (!canGenerateRoute || isLoading) && styles.disabledButton,
+            ]}
+            onPress={onGenerateRoute}
+            disabled={!canGenerateRoute || isLoading}
+            accessibilityLabel={
+              isLoading
+                ? 'Criando rota'
+                : canGenerateRoute
+                  ? `Revisar rota com ${paradas.length} paradas`
+                  : validationErrors[0] || 'Rota ainda não pode ser criada'
+            }
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canGenerateRoute || isLoading }}
+          >
+            {isLoading ? (
+              <View style={styles.loadingRow}>
+                <ActivityIndicator color={theme.colors.white} />
+                <Text style={styles.generateText}>Criando rota...</Text>
+              </View>
+            ) : (
+              <Text style={styles.generateText}>Revisar e Criar Rota</Text>
+            )}
+          </TouchableOpacity>
+        </>
       )}
     </View>
   );
 });
 
-const createStyles = (theme: Theme, isDesktop: boolean) => StyleSheet.create({
-  paradasColumn: {
-    flex: 1,
-  },
-  paradasList: {
-    marginBottom: isDesktop ? theme.spacing.lg : theme.spacing['2xl'],
-  },
-  paradasHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: isDesktop ? theme.desktop.field.marginBottom : theme.spacing.lg,
-  },
-  sectionTitle: {
-    fontSize: isDesktop ? theme.typography.base : theme.typography.lg,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray900,
-    marginBottom: isDesktop ? theme.spacing.lg : theme.spacing['2xl'],
-  },
-  paradasLimitBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: isDesktop ? 3 : 4,
-    paddingHorizontal: isDesktop ? 6 : 8,
-    paddingVertical: isDesktop ? 2 : 4,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.gray100,
-  },
-  paradasLimitBadgeWarning: {
-    backgroundColor: theme.colors.warning + '20',
-  },
-  paradasLimitBadgeError: {
-    backgroundColor: theme.colors.error + '20',
-  },
-  paradasLimitText: {
-    fontSize: isDesktop ? 11 : theme.typography.xs,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray600,
-  },
-  paradasLimitTextWarning: {
-    color: theme.colors.warning,
-  },
-  paradasLimitTextError: {
-    color: theme.colors.error,
-  },
-  // Botão Otimizar - compacto no desktop, não full-width
-  otimizarButton: {
-    backgroundColor: theme.colors.info,
-    paddingVertical: isDesktop ? 8 : theme.spacing.lg,
-    paddingHorizontal: isDesktop ? theme.spacing.xl : theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
-    alignItems: isDesktop ? 'center' : 'center',
-    alignSelf: isDesktop ? 'flex-start' : 'stretch',
-    marginTop: isDesktop ? theme.desktop.field.marginBottom : theme.spacing.lg,
-    minHeight: isDesktop ? theme.desktop.input.height : 48,
-    justifyContent: 'center',
-  },
-  otimizarButtonText: {
-    color: theme.colors.white,
-    fontSize: isDesktop ? theme.desktop.input.fontSize : theme.typography.base,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
-  emptyParadasState: {
-    backgroundColor: theme.colors.white,
-    padding: isDesktop ? theme.spacing['2xl'] : theme.spacing['3xl'],
-    borderRadius: theme.borderRadius.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.gray200,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: isDesktop ? 300 : 400,
-  },
-  emptyParadasIconContainer: {
-    width: isDesktop ? 64 : 80,
-    height: isDesktop ? 64 : 80,
-    borderRadius: isDesktop ? 32 : 40,
-    backgroundColor: theme.colors.gray100,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: isDesktop ? theme.spacing.lg : theme.spacing['2xl'],
-  },
-  emptyParadasTitle: {
-    fontSize: isDesktop ? theme.typography.base : theme.typography.lg,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray900,
-    marginBottom: isDesktop ? theme.spacing.sm : theme.spacing.md,
-    textAlign: 'center',
-  },
-  emptyParadasText: {
-    fontSize: isDesktop ? theme.desktop.input.fontSize : theme.typography.sm,
-    color: theme.colors.gray500,
-    textAlign: 'center',
-    maxWidth: isDesktop ? 260 : 300,
-    lineHeight: isDesktop ? 18 : 20,
-    marginBottom: isDesktop ? theme.spacing.lg : theme.spacing.xl,
-  },
-  emptyParadasCta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: isDesktop ? 6 : theme.spacing.sm,
-    paddingVertical: isDesktop ? theme.spacing.sm : theme.spacing.md,
-    paddingHorizontal: isDesktop ? theme.spacing.lg : theme.spacing.xl,
-    backgroundColor: theme.colors.secondary + '15',
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.secondary + '30',
-  },
-  emptyParadasCtaText: {
-    fontSize: isDesktop ? theme.desktop.button.fontSize : theme.typography.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.secondary,
-  },
-  // Botão Gerar Rota - compacto no desktop, não full-width
-  gerarButton: {
-    backgroundColor: theme.colors.success,
-    paddingVertical: isDesktop ? 10 : theme.spacing.lg,
-    paddingHorizontal: isDesktop ? theme.spacing['2xl'] : theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
-    alignItems: 'center',
-    alignSelf: isDesktop ? 'flex-start' : 'stretch',
-    minHeight: isDesktop ? 38 : 52,
-    justifyContent: 'center',
-  },
-  gerarButtonDisabled: {
-    backgroundColor: theme.colors.gray400,
-    opacity: 0.5,
-  },
-  gerarButtonText: {
-    color: theme.colors.white,
-    fontSize: isDesktop ? theme.typography.base : theme.typography.lg,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
-  gerarButtonLoading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-});
+const createStyles = (theme: Theme, isDesktop: boolean) =>
+  StyleSheet.create({
+    column: {
+      flex: 1,
+    },
+    baseCard: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: theme.spacing.sm,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.lg,
+      borderRadius: theme.borderRadius.lg,
+      borderWidth: 1,
+      borderColor: theme.colors.primary + '35',
+      backgroundColor: theme.colors.primaryBg,
+    },
+    baseInfo: {
+      flex: 1,
+    },
+    baseLabel: {
+      color: theme.colors.primaryDark,
+      fontFamily: theme.typography.fontSansSemiBold,
+      fontSize: theme.typography.xs,
+      textTransform: 'uppercase',
+    },
+    baseAddress: {
+      color: theme.colors.gray700,
+      fontSize: theme.typography.sm,
+      marginTop: 2,
+    },
+    listSection: {
+      marginBottom: theme.spacing.xl,
+    },
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: theme.spacing.md,
+    },
+    sectionTitle: {
+      color: theme.colors.gray900,
+      fontFamily: theme.typography.fontSansSemiBold,
+      fontSize: theme.typography.lg,
+    },
+    limitBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: theme.borderRadius.md,
+    },
+    limitBadgeError: {
+      backgroundColor: theme.colors.error + '18',
+    },
+    limitBadgeWarning: {
+      backgroundColor: theme.colors.warning + '18',
+    },
+    limitText: {
+      fontFamily: theme.typography.fontSansSemiBold,
+      fontSize: theme.typography.xs,
+    },
+    optimizeButton: {
+      alignSelf: isDesktop ? 'flex-start' : 'stretch',
+      minHeight: 44,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRadius: theme.borderRadius.lg,
+      backgroundColor: theme.colors.info,
+      paddingHorizontal: theme.spacing.lg,
+      marginTop: theme.spacing.md,
+    },
+    optimizeText: {
+      color: theme.colors.white,
+      fontFamily: theme.typography.fontSansSemiBold,
+      fontSize: theme.typography.sm,
+    },
+    emptyState: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: isDesktop ? 280 : 320,
+      padding: theme.spacing.xl,
+      borderWidth: 1,
+      borderColor: theme.colors.gray200,
+      borderRadius: theme.borderRadius.xl,
+      backgroundColor: theme.colors.white,
+      marginBottom: theme.spacing.xl,
+    },
+    emptyIcon: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.colors.gray100,
+      marginBottom: theme.spacing.lg,
+    },
+    emptyTitle: {
+      color: theme.colors.gray900,
+      fontFamily: theme.typography.fontSansSemiBold,
+      fontSize: theme.typography.lg,
+    },
+    emptyText: {
+      color: theme.colors.gray500,
+      fontSize: theme.typography.sm,
+      textAlign: 'center',
+      marginTop: theme.spacing.sm,
+      marginBottom: theme.spacing.lg,
+    },
+    validationBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing.sm,
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.lg,
+      backgroundColor: theme.colors.error + '12',
+      marginBottom: theme.spacing.sm,
+    },
+    validationText: {
+      flex: 1,
+      color: theme.colors.error,
+      fontSize: theme.typography.sm,
+    },
+    generateButton: {
+      alignSelf: isDesktop ? 'flex-start' : 'stretch',
+      minHeight: 50,
+      minWidth: isDesktop ? 210 : undefined,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRadius: theme.borderRadius.lg,
+      backgroundColor: theme.colors.success,
+      paddingHorizontal: theme.spacing.xl,
+    },
+    disabledButton: {
+      backgroundColor: theme.colors.gray400,
+      opacity: 0.65,
+    },
+    generateText: {
+      color: theme.colors.white,
+      fontFamily: theme.typography.fontSansBold,
+      fontSize: theme.typography.base,
+    },
+    loadingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing.sm,
+    },
+  });

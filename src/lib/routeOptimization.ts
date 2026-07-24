@@ -16,6 +16,7 @@ export {
   type ResultadoOtimizacao,
   type ValidacaoRotaResult,
   // Constants
+  MAX_ROUTE_STOPS,
   MAX_WAYPOINTS,
   WAYPOINTS_RECOMENDADO,
   // Cache

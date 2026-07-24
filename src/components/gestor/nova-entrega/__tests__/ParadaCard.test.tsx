@@ -38,7 +38,7 @@ describe('ParadaCard', () => {
         onMoveUp={onMoveUp}
         onMoveDown={onMoveDown}
         onRemove={jest.fn()}
-      />
+      />,
     );
 
     const moveUp = getByLabelText('Mover parada 1 para cima');
@@ -59,7 +59,7 @@ describe('ParadaCard', () => {
         onMoveUp={onMoveUp}
         onMoveDown={onMoveDown}
         onRemove={jest.fn()}
-      />
+      />,
     );
 
     const moveUpLast = getByLabelText('Mover parada 2 para cima');
@@ -84,10 +84,10 @@ describe('ParadaCard', () => {
         onMoveUp={jest.fn()}
         onMoveDown={jest.fn()}
         onRemove={jest.fn()}
-      />
+      />,
     );
 
-    expect(getByText('Destinatario: Ana')).toBeTruthy();
+    expect(getByText('Destinatário: Ana')).toBeTruthy();
     expect(getByText(/Depende de: Retirada em/)).toBeTruthy();
   });
 
@@ -103,7 +103,7 @@ describe('ParadaCard', () => {
         onMoveUp={jest.fn()}
         onMoveDown={jest.fn()}
         onRemove={onRemove}
-      />
+      />,
     );
 
     fireEvent.press(getByText('Remover'));

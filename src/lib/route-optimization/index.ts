@@ -14,7 +14,7 @@ export type {
   ResultadoOtimizacao,
   ValidacaoRotaResult,
 } from './types';
-export { MAX_WAYPOINTS, WAYPOINTS_RECOMENDADO } from './types';
+export { MAX_ROUTE_STOPS, MAX_WAYPOINTS, WAYPOINTS_RECOMENDADO } from './types';
 
 // Cache
 export {
@@ -30,4 +30,7 @@ export { validarVinculos, validarRotaParaOtimizacao } from './validation';
 export { otimizarRotaComDependencias } from './optimizer';
 
 // Utils
-export { formatarDescricaoVinculo, encontrarRetiradasDisponiveis } from './utils';
+export {
+  formatarDescricaoVinculo,
+  encontrarRetiradasDisponiveis,
+} from './utils';

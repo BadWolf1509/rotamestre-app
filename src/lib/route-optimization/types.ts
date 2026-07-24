@@ -2,11 +2,19 @@
  * Types and constants for route optimization.
  */
 
-/** Limite maximo de waypoints da Google Directions API (25 total - origem - destino) */
-export const MAX_WAYPOINTS = 23;
+/**
+ * Limite operacional do RotaMestre.
+ *
+ * O backend atual usa uma instância própria do OSRM. O limite anterior de 23
+ * vinha da antiga Google Directions API e ficou obsoleto após a migração.
+ */
+export const MAX_ROUTE_STOPS = 50;
+
+/** Alias temporário para consumidores antigos. */
+export const MAX_WAYPOINTS = MAX_ROUTE_STOPS;
 
 /** Limite recomendado para melhor otimizacao (deixa margem para API) */
-export const WAYPOINTS_RECOMENDADO = 20;
+export const WAYPOINTS_RECOMENDADO = 40;
 
 export interface ParadaParaOtimizar {
   id: string;
@@ -33,6 +41,8 @@ export interface ResultadoOtimizacao {
   polyline: string;
   /** Ordem original dos indices apos otimizacao */
   ordemIndices: number[];
+  /** True quando o OSRM falhou e o resultado é apenas uma estimativa. */
+  isEstimated?: boolean;
 }
 
 export interface ValidacaoRotaResult {

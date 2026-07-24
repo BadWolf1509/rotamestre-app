@@ -1,12 +1,6 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import {
-  View,
-  Text,
-  Animated,
-  TouchableOpacity,
-  Platform,
-} from 'react-native';
+import { View, Text, Animated, TouchableOpacity, Platform } from 'react-native';
 
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -49,6 +43,8 @@ export interface ToastProps {
   /** Desabilitar portal (usar quando Toast está dentro de Modal) */
   disablePortal?: boolean;
   testID?: string;
+  actionLabel?: string;
+  onAction?: () => void;
 }
 
 /**
@@ -73,6 +69,8 @@ export function Toast({
   visible,
   disablePortal = false,
   testID,
+  actionLabel,
+  onAction,
 }: ToastProps) {
   const { theme } = useUnistyles();
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -180,9 +178,24 @@ export function Toast({
       </View>
 
       {type !== 'loading' && (
-        <TouchableOpacity onPress={handleDismiss} style={styles.closeButton}>
-          <Text style={styles.closeIcon}>✕</Text>
-        </TouchableOpacity>
+        <>
+          {actionLabel && onAction && (
+            <TouchableOpacity
+              onPress={() => {
+                onAction();
+                handleDismiss();
+              }}
+              style={styles.actionButton}
+              accessibilityRole="button"
+              accessibilityLabel={actionLabel}
+            >
+              <Text style={styles.actionText}>{actionLabel}</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={handleDismiss} style={styles.closeButton}>
+            <Text style={styles.closeIcon}>✕</Text>
+          </TouchableOpacity>
+        </>
       )}
     </Animated.View>
   );
@@ -190,7 +203,11 @@ export function Toast({
   // ✅ No web, usar Portal com container dedicado (z-index máximo)
   // Isso garante que o Toast apareça acima de qualquer Modal
   // Exceto quando disablePortal=true (Toast já está dentro de um Modal)
-  if (Platform.OS === 'web' && typeof document !== 'undefined' && !disablePortal) {
+  if (
+    Platform.OS === 'web' &&
+    typeof document !== 'undefined' &&
+    !disablePortal
+  ) {
     return createPortal(toastContent, getToastRoot());
   }
 
@@ -243,6 +260,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
   closeButton: {
     padding: theme.spacing['1'],
     marginLeft: theme.spacing['3'],
+  },
+  actionButton: {
+    marginLeft: theme.spacing['3'],
+    paddingHorizontal: theme.spacing['3'],
+    paddingVertical: theme.spacing['2'],
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: theme.colors.white + '25',
+  },
+  actionText: {
+    color: theme.colors.white,
+    fontFamily: theme.typography.fontSansBold,
+    fontSize: theme.typography.sm,
   },
   closeIcon: {
     fontSize: theme.typography.lg,

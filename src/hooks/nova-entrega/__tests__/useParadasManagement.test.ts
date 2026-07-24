@@ -1,19 +1,22 @@
-/**
- * Tests for useParadasManagement hook
- */
+import { act, renderHook } from '@testing-library/react-native';
+import { useState } from 'react';
 
-import { renderHook, act } from '@testing-library/react-native';
+import type {
+  Parada,
+  ParadaFormDataWithCoords,
+  RotaOtimizadaState,
+} from '@/components/gestor/nova-entrega/types';
+import { photonService } from '@/lib/photon';
+import { MAX_ROUTE_STOPS } from '@/lib/routeOptimization';
 
-import type { ParadaFormData, ParadaFormDataWithCoords } from '@/components/gestor/nova-entrega/types'; // eslint-disable-line import/order
+import { useParadasManagement } from '../useParadasManagement';
 
-// Mock photonService (migrado de Google para Photon)
 jest.mock('@/lib/photon', () => ({
   photonService: {
     geocodeAddress: jest.fn(),
   },
 }));
 
-// Mock logger
 jest.mock('@/lib/logger', () => ({
   logger: {
     error: jest.fn(),
@@ -22,24 +25,30 @@ jest.mock('@/lib/logger', () => ({
   },
 }));
 
-// Mock helper
-jest.mock('../../useNovaEntrega.helpers', () => ({
-  generateUniqueId: jest.fn(() => `id-${Date.now()}-${Math.random()}`),
-}));
+const baseStop: ParadaFormDataWithCoords = {
+  tipo: 'entrega',
+  endereco: 'Rua A, 123',
+  destinatario: 'João',
+  telefone: '11999999999',
+  observacoes: '',
+  latitude: -23.5,
+  longitude: -46.6,
+};
 
-// Mock routeOptimization constants
-jest.mock('@/lib/routeOptimization', () => ({
-  MAX_WAYPOINTS: 10,
-  WAYPOINTS_RECOMENDADO: 8,
-}));
-
-import { photonService } from '@/lib/photon';
-
-import { useParadasManagement } from '../useParadasManagement';
+function createStop(index: number, overrides: Partial<Parada> = {}): Parada {
+  return {
+    id: `stop-${index}`,
+    ordem: index + 1,
+    ...baseStop,
+    endereco: `Rua ${index}, 100`,
+    destinatario: `Cliente ${index}`,
+    telefone: `1199999${String(index).padStart(4, '0')}`,
+    ...overrides,
+  };
+}
 
 describe('useParadasManagement', () => {
-  const defaultOptions = {
-    rotaOtimizada: null,
+  const callbacks = {
     onOrdemManualChange: jest.fn(),
     onRotaOtimizadaReset: jest.fn(),
     onDistanciaManualRealReset: jest.fn(),
@@ -47,473 +56,236 @@ describe('useParadasManagement', () => {
     onFormReset: jest.fn(),
   };
 
+  function useSubject(
+    initial: Parada[] = [],
+    rotaOtimizada: RotaOtimizadaState | null = null,
+  ) {
+    const [paradas, setParadas] = useState(initial);
+    const management = useParadasManagement({
+      paradas,
+      setParadas,
+      rotaOtimizada,
+      ...callbacks,
+    });
+    return { paradas, ...management };
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('initialization', () => {
-    it('should initialize with empty paradas', () => {
-      const { result } = renderHook(() => useParadasManagement(defaultOptions));
+  it('starts empty with the correct status', () => {
+    const { result } = renderHook(() => useSubject());
 
-      expect(result.current.paradas).toEqual([]);
-      expect(result.current.isLoading).toBe(false);
-    });
-
-    it('should initialize with correct paradasStatus for empty list', () => {
-      const { result } = renderHook(() => useParadasManagement(defaultOptions));
-
-      expect(result.current.paradasStatus).toEqual({
-        texto: 'Nenhuma parada adicionada',
-        cor: 'default',
-        icone: null,
-      });
-    });
-
-    it('should return empty retiradasDisponiveis initially', () => {
-      const { result } = renderHook(() => useParadasManagement(defaultOptions));
-
-      expect(result.current.retiradasDisponiveis).toEqual([]);
+    expect(result.current.paradas).toEqual([]);
+    expect(result.current.retiradasDisponiveis).toEqual([]);
+    expect(result.current.paradasStatus).toEqual({
+      texto: 'Nenhuma parada adicionada',
+      cor: 'default',
+      icone: null,
     });
   });
 
-  describe('onAddParada', () => {
-    it('should add parada with coordinates', async () => {
-      const { result } = renderHook(() => useParadasManagement(defaultOptions));
+  it('adds a validated stop and invalidates previous optimization', async () => {
+    const { result } = renderHook(() => useSubject());
 
-      const paradaData: ParadaFormDataWithCoords = {
-        tipo: 'entrega',
-        endereco: 'Rua A, 123',
-        destinatario: 'João',
-        telefone: '11999999999',
-        observacoes: '',
-        latitude: -23.5,
-        longitude: -46.6,
-      };
-
-      await act(async () => {
-        await result.current.onAddParada(paradaData);
-      });
-
-      expect(result.current.paradas).toHaveLength(1);
-      expect(result.current.paradas[0].endereco).toBe('Rua A, 123');
-      expect(result.current.paradas[0].destinatario).toBe('João');
-      expect(result.current.paradas[0].ordem).toBe(1);
-      expect(defaultOptions.onFormReset).toHaveBeenCalled();
-      expect(defaultOptions.showToast).toHaveBeenCalledWith('Parada adicionada à lista!', 'success');
+    await act(async () => {
+      await result.current.onAddParada(baseStop);
     });
 
-    it('should geocode address if no coordinates', async () => {
-      (photonService.geocodeAddress as jest.Mock).mockResolvedValueOnce({
-        coordenadas: { latitude: -23.5, longitude: -46.6 },
-      });
+    expect(result.current.paradas).toHaveLength(1);
+    expect(result.current.paradas[0]).toMatchObject({
+      endereco: baseStop.endereco,
+      ordem: 1,
+    });
+    expect(callbacks.onFormReset).toHaveBeenCalled();
+    expect(callbacks.onRotaOtimizadaReset).toHaveBeenCalled();
+  });
 
-      const { result } = renderHook(() => useParadasManagement(defaultOptions));
+  it('geocodes a stop only when coordinates are absent', async () => {
+    (photonService.geocodeAddress as jest.Mock).mockResolvedValue({
+      coordenadas: { latitude: -23.51, longitude: -46.61 },
+    });
+    const {
+      latitude: _latitude,
+      longitude: _longitude,
+      ...withoutCoords
+    } = baseStop;
+    const { result } = renderHook(() => useSubject());
 
-      const paradaData: ParadaFormData = {
-        tipo: 'entrega',
-        endereco: 'Rua A, 123',
-        destinatario: 'João',
-        telefone: '11999999999',
-        observacoes: '',
-      };
-
-      await act(async () => {
-        await result.current.onAddParada(paradaData);
-      });
-
-      expect(photonService.geocodeAddress).toHaveBeenCalledWith('Rua A, 123');
-      expect(result.current.paradas).toHaveLength(1);
+    await act(async () => {
+      await result.current.onAddParada(withoutCoords);
     });
 
-    it('should show error if geocoding fails', async () => {
-      (photonService.geocodeAddress as jest.Mock).mockResolvedValueOnce(null);
-
-      const { result } = renderHook(() => useParadasManagement(defaultOptions));
-
-      const paradaData: ParadaFormData = {
-        tipo: 'entrega',
-        endereco: 'Invalid Address',
-        destinatario: 'João',
-        telefone: '11999999999',
-        observacoes: '',
-      };
-
-      await act(async () => {
-        await result.current.onAddParada(paradaData);
-      });
-
-      expect(result.current.paradas).toHaveLength(0);
-      expect(defaultOptions.showToast).toHaveBeenCalledWith(
-        'Não foi possível localizar o endereço. Use o autocomplete para selecionar um endereço válido.',
-        'error'
-      );
-    });
-
-    it('should add vinculada entrega with message', async () => {
-      const { result } = renderHook(() => useParadasManagement(defaultOptions));
-
-      // First add a retirada
-      const retirada: ParadaFormDataWithCoords = {
-        tipo: 'retirada',
-        endereco: 'Rua Origem, 100',
-        destinatario: 'Fornecedor',
-        telefone: '11888888888',
-        observacoes: '',
-        latitude: -23.4,
-        longitude: -46.5,
-      };
-
-      await act(async () => {
-        await result.current.onAddParada(retirada);
-      });
-
-      const retiradaId = result.current.paradas[0].id;
-
-      // Now add a vinculada entrega
-      const entrega: ParadaFormDataWithCoords = {
-        tipo: 'entrega',
-        endereco: 'Rua Destino, 200',
-        destinatario: 'Cliente',
-        telefone: '11999999999',
-        observacoes: '',
-        latitude: -23.5,
-        longitude: -46.6,
-      };
-
-      await act(async () => {
-        await result.current.onAddParada(entrega, retiradaId);
-      });
-
-      expect(result.current.paradas).toHaveLength(2);
-      expect(result.current.paradas[1].vinculo_parada_id).toBe(retiradaId);
-      expect(defaultOptions.showToast).toHaveBeenCalledWith(
-        expect.stringContaining('Entrega vinculada!'),
-        'success',
-        4000
-      );
+    expect(photonService.geocodeAddress).toHaveBeenCalledWith(
+      baseStop.endereco,
+    );
+    expect(result.current.paradas[0]).toMatchObject({
+      latitude: -23.51,
+      longitude: -46.61,
     });
   });
 
-  describe('removeParada', () => {
-    it('should remove parada at index', async () => {
-      const { result } = renderHook(() => useParadasManagement(defaultOptions));
+  it('blocks duplicates unless the user explicitly confirms', async () => {
+    const { result } = renderHook(() => useSubject([createStop(0)]));
+    const duplicate = {
+      ...baseStop,
+      endereco: 'Rua 0, 100',
+      telefone: '11888888888',
+    };
 
-      // Add two paradas
-      await act(async () => {
-        await result.current.onAddParada({
-          tipo: 'entrega',
-          endereco: 'Rua A',
-          destinatario: 'João',
-          telefone: '',
-          observacoes: '',
-          latitude: -23.5,
-          longitude: -46.6,
-        } as ParadaFormDataWithCoords);
-      });
-
-      await act(async () => {
-        await result.current.onAddParada({
-          tipo: 'entrega',
-          endereco: 'Rua B',
-          destinatario: 'Maria',
-          telefone: '',
-          observacoes: '',
-          latitude: -23.6,
-          longitude: -46.7,
-        } as ParadaFormDataWithCoords);
-      });
-
-      expect(result.current.paradas).toHaveLength(2);
-
-      act(() => {
-        result.current.removeParada(0);
-      });
-
-      expect(result.current.paradas).toHaveLength(1);
-      expect(result.current.paradas[0].destinatario).toBe('Maria');
-      expect(result.current.paradas[0].ordem).toBe(1);
-      expect(defaultOptions.onRotaOtimizadaReset).toHaveBeenCalled();
+    await act(async () => {
+      expect(await result.current.onAddParada(duplicate)).toBe(false);
     });
+    expect(result.current.paradas).toHaveLength(1);
 
-    it('should unlink entregas when removing retirada', async () => {
-      const { result } = renderHook(() => useParadasManagement(defaultOptions));
-
-      // Add retirada
-      await act(async () => {
-        await result.current.onAddParada({
-          tipo: 'retirada',
-          endereco: 'Origem',
-          destinatario: 'Fornecedor',
-          telefone: '',
-          observacoes: '',
-          latitude: -23.4,
-          longitude: -46.5,
-        } as ParadaFormDataWithCoords);
-      });
-
-      const retiradaId = result.current.paradas[0].id;
-
-      // Add entrega vinculada
-      await act(async () => {
-        await result.current.onAddParada({
-          tipo: 'entrega',
-          endereco: 'Destino',
-          destinatario: 'Cliente',
-          telefone: '',
-          observacoes: '',
-          latitude: -23.5,
-          longitude: -46.6,
-        } as ParadaFormDataWithCoords, retiradaId);
-      });
-
-      // Remove retirada
-      act(() => {
-        result.current.removeParada(0);
-      });
-
-      // Entrega should have vinculo_parada_id cleared
-      expect(result.current.paradas).toHaveLength(1);
-      expect(result.current.paradas[0].vinculo_parada_id).toBeUndefined();
+    await act(async () => {
+      expect(
+        await result.current.onAddParada(
+          { ...duplicate, telefone: '11777777777' },
+          undefined,
+          undefined,
+          true,
+        ),
+      ).toBe(true);
     });
+    expect(result.current.paradas).toHaveLength(2);
   });
 
-  describe('moveParadaUp', () => {
-    it('should move parada up', async () => {
-      const { result } = renderHook(() => useParadasManagement(defaultOptions));
+  it('enforces the operational stop limit', async () => {
+    const initial = Array.from({ length: MAX_ROUTE_STOPS }, (_, index) =>
+      createStop(index),
+    );
+    const { result } = renderHook(() => useSubject(initial));
 
-      await act(async () => {
+    await act(async () => {
+      expect(
         await result.current.onAddParada({
-          tipo: 'entrega',
-          endereco: 'First',
-          destinatario: 'A',
-          telefone: '',
-          observacoes: '',
-          latitude: -23.5,
-          longitude: -46.6,
-        } as ParadaFormDataWithCoords);
-      });
-
-      await act(async () => {
-        await result.current.onAddParada({
-          tipo: 'entrega',
-          endereco: 'Second',
-          destinatario: 'B',
-          telefone: '',
-          observacoes: '',
-          latitude: -23.6,
-          longitude: -46.7,
-        } as ParadaFormDataWithCoords);
-      });
-
-      act(() => {
-        result.current.moveParadaUp(1);
-      });
-
-      expect(result.current.paradas[0].destinatario).toBe('B');
-      expect(result.current.paradas[1].destinatario).toBe('A');
-      expect(result.current.paradas[0].ordem).toBe(1);
-      expect(result.current.paradas[1].ordem).toBe(2);
+          ...baseStop,
+          endereco: 'Rua excedente',
+        }),
+      ).toBe(false);
     });
 
-    it('should not move first parada up', async () => {
-      const { result } = renderHook(() => useParadasManagement(defaultOptions));
-
-      await act(async () => {
-        await result.current.onAddParada({
-          tipo: 'entrega',
-          endereco: 'First',
-          destinatario: 'A',
-          telefone: '',
-          observacoes: '',
-          latitude: -23.5,
-          longitude: -46.6,
-        } as ParadaFormDataWithCoords);
-      });
-
-      act(() => {
-        result.current.moveParadaUp(0);
-      });
-
-      expect(result.current.paradas[0].destinatario).toBe('A');
-    });
-
-    it('should call onOrdemManualChange when rotaOtimizada exists', async () => {
-      const optionsWithRota = {
-        ...defaultOptions,
-        rotaOtimizada: { status: 'success' as const },
-      };
-
-      const { result } = renderHook(() => useParadasManagement(optionsWithRota));
-
-      await act(async () => {
-        await result.current.onAddParada({
-          tipo: 'entrega',
-          endereco: 'First',
-          destinatario: 'A',
-          telefone: '',
-          observacoes: '',
-          latitude: -23.5,
-          longitude: -46.6,
-        } as ParadaFormDataWithCoords);
-      });
-
-      await act(async () => {
-        await result.current.onAddParada({
-          tipo: 'entrega',
-          endereco: 'Second',
-          destinatario: 'B',
-          telefone: '',
-          observacoes: '',
-          latitude: -23.6,
-          longitude: -46.7,
-        } as ParadaFormDataWithCoords);
-      });
-
-      act(() => {
-        result.current.moveParadaUp(1);
-      });
-
-      expect(defaultOptions.onOrdemManualChange).toHaveBeenCalledWith(true);
-      expect(defaultOptions.onDistanciaManualRealReset).toHaveBeenCalled();
-    });
+    expect(result.current.paradas).toHaveLength(MAX_ROUTE_STOPS);
+    expect(callbacks.showToast).toHaveBeenCalledWith(
+      expect.stringContaining('limite'),
+      'error',
+      5000,
+    );
   });
 
-  describe('moveParadaDown', () => {
-    it('should move parada down', async () => {
-      const { result } = renderHook(() => useParadasManagement(defaultOptions));
+  it('removes a pickup, unlinks dependents and offers a complete undo', () => {
+    const pickup = createStop(0, { tipo: 'retirada' });
+    const delivery = createStop(1, { vinculo_parada_id: pickup.id });
+    const { result } = renderHook(() => useSubject([pickup, delivery]));
 
-      await act(async () => {
-        await result.current.onAddParada({
-          tipo: 'entrega',
-          endereco: 'First',
-          destinatario: 'A',
-          telefone: '',
-          observacoes: '',
-          latitude: -23.5,
-          longitude: -46.6,
-        } as ParadaFormDataWithCoords);
-      });
+    act(() => result.current.removeParada(0));
 
-      await act(async () => {
-        await result.current.onAddParada({
-          tipo: 'entrega',
-          endereco: 'Second',
-          destinatario: 'B',
-          telefone: '',
-          observacoes: '',
-          latitude: -23.6,
-          longitude: -46.7,
-        } as ParadaFormDataWithCoords);
-      });
+    expect(result.current.paradas).toHaveLength(1);
+    expect(result.current.paradas[0].vinculo_parada_id).toBeUndefined();
+    const action = callbacks.showToast.mock.calls.at(-1)?.[3];
 
-      act(() => {
-        result.current.moveParadaDown(0);
-      });
-
-      expect(result.current.paradas[0].destinatario).toBe('B');
-      expect(result.current.paradas[1].destinatario).toBe('A');
-    });
-
-    it('should not move last parada down', async () => {
-      const { result } = renderHook(() => useParadasManagement(defaultOptions));
-
-      await act(async () => {
-        await result.current.onAddParada({
-          tipo: 'entrega',
-          endereco: 'First',
-          destinatario: 'A',
-          telefone: '',
-          observacoes: '',
-          latitude: -23.5,
-          longitude: -46.6,
-        } as ParadaFormDataWithCoords);
-      });
-
-      act(() => {
-        result.current.moveParadaDown(0);
-      });
-
-      expect(result.current.paradas[0].destinatario).toBe('A');
-    });
+    act(() => action?.onPress());
+    expect(result.current.paradas).toEqual([pickup, delivery]);
   });
 
-  describe('clearParadas', () => {
-    it('should clear all paradas', async () => {
-      const { result } = renderHook(() => useParadasManagement(defaultOptions));
+  it('prevents reordering a delivery before its pickup', () => {
+    const pickup = createStop(0, { tipo: 'retirada' });
+    const delivery = createStop(1, { vinculo_parada_id: pickup.id });
+    const { result } = renderHook(() => useSubject([pickup, delivery]));
 
-      await act(async () => {
-        await result.current.onAddParada({
-          tipo: 'entrega',
-          endereco: 'Rua A',
-          destinatario: 'A',
-          telefone: '',
-          observacoes: '',
-          latitude: -23.5,
-          longitude: -46.6,
-        } as ParadaFormDataWithCoords);
-      });
+    act(() => result.current.moveParadaUp(1));
 
-      expect(result.current.paradas).toHaveLength(1);
-
-      act(() => {
-        result.current.clearParadas();
-      });
-
-      expect(result.current.paradas).toHaveLength(0);
-    });
+    expect(result.current.paradas[0].id).toBe(pickup.id);
+    expect(callbacks.showToast).toHaveBeenCalledWith(
+      expect.stringContaining('precisa ocorrer antes'),
+      'error',
+      5000,
+    );
   });
 
-  describe('retiradasDisponiveis', () => {
-    it('should return only retiradas', async () => {
-      const { result } = renderHook(() => useParadasManagement(defaultOptions));
+  it('prevents changing a pickup type while deliveries still depend on it', async () => {
+    const pickup = createStop(0, { tipo: 'retirada' });
+    const delivery = createStop(1, { vinculo_parada_id: pickup.id });
+    const { result } = renderHook(() => useSubject([pickup, delivery]));
 
-      await act(async () => {
-        await result.current.onAddParada({
-          tipo: 'retirada',
-          endereco: 'Retirada 1',
-          destinatario: 'Fornecedor',
-          telefone: '',
-          observacoes: '',
-          latitude: -23.4,
-          longitude: -46.5,
-        } as ParadaFormDataWithCoords);
-      });
-
-      await act(async () => {
-        await result.current.onAddParada({
-          tipo: 'entrega',
-          endereco: 'Entrega 1',
-          destinatario: 'Cliente',
-          telefone: '',
-          observacoes: '',
-          latitude: -23.5,
-          longitude: -46.6,
-        } as ParadaFormDataWithCoords);
-      });
-
-      expect(result.current.retiradasDisponiveis).toHaveLength(1);
-      expect(result.current.retiradasDisponiveis[0].tipo).toBe('retirada');
+    await act(async () => {
+      expect(
+        await result.current.onAddParada(
+          { ...pickup, tipo: 'entrega' },
+          undefined,
+          pickup.id,
+        ),
+      ).toBe(false);
     });
+
+    expect(result.current.paradas[0].tipo).toBe('retirada');
+    expect(callbacks.showToast).toHaveBeenCalledWith(
+      expect.stringContaining('retirada inexistente'),
+      'error',
+      5000,
+    );
   });
 
-  describe('paradasStatus', () => {
-    it('should show default status for few paradas', async () => {
-      const { result } = renderHook(() => useParadasManagement(defaultOptions));
+  it('marks a reordered optimized route as manual', () => {
+    const optimized: RotaOtimizadaState = {
+      distancia_total_metros: 1000,
+      duracao_total_segundos: 300,
+      legs: [],
+    };
+    const { result } = renderHook(() =>
+      useSubject([createStop(0), createStop(1)], optimized),
+    );
 
-      await act(async () => {
-        await result.current.onAddParada({
-          tipo: 'entrega',
-          endereco: 'Rua A',
-          destinatario: 'A',
-          telefone: '',
-          observacoes: '',
-          latitude: -23.5,
-          longitude: -46.6,
-        } as ParadaFormDataWithCoords);
-      });
+    act(() => result.current.moveParadaDown(0));
 
-      expect(result.current.paradasStatus.cor).toBe('default');
-      expect(result.current.paradasStatus.texto).toContain('1 parada');
+    expect(result.current.paradas[0].id).toBe('stop-1');
+    expect(callbacks.onOrdemManualChange).toHaveBeenCalledWith(true);
+    expect(callbacks.onDistanciaManualRealReset).toHaveBeenCalled();
+  });
+
+  it('clears the draft and restores it through the toast action', () => {
+    const previous = [createStop(0)];
+    const extraUndo = jest.fn();
+    const { result } = renderHook(() => useSubject(previous));
+
+    act(() => result.current.clearParadas(extraUndo));
+    expect(result.current.paradas).toEqual([]);
+
+    const action = callbacks.showToast.mock.calls.at(-1)?.[3];
+    act(() => action?.onPress());
+
+    expect(result.current.paradas).toEqual(previous);
+    expect(extraUndo).toHaveBeenCalled();
+  });
+
+  it('imports valid rows and reports duplicates without losing good rows', async () => {
+    (photonService.geocodeAddress as jest.Mock).mockResolvedValue({
+      coordenadas: { latitude: -23.6, longitude: -46.7 },
     });
+    const existing = createStop(0);
+    const { result } = renderHook(() => useSubject([existing]));
+
+    let importResult;
+    await act(async () => {
+      importResult = await result.current.importParadas([
+        {
+          ...baseStop,
+          endereco: existing.endereco,
+          telefone: '11777777777',
+        },
+        {
+          ...baseStop,
+          endereco: 'Rua nova, 500',
+          telefone: '11666666666',
+          latitude: undefined,
+          longitude: undefined,
+        },
+      ]);
+    });
+
+    expect(importResult).toMatchObject({ adicionadas: 1, ignoradas: 1 });
+    expect(result.current.paradas).toHaveLength(2);
   });
 });

@@ -15,4 +15,6 @@ export interface GoogleDirectionsResult {
   duracao_total_segundos: number;
   ordem_otimizada: number[];
   legs: GoogleDirectionsLeg[];
+  /** Indica que distância e duração são apenas estimativas em linha reta. */
+  is_estimated?: boolean;
 }

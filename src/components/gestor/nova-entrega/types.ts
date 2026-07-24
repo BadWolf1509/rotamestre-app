@@ -9,6 +9,9 @@ export type MotoristaResumo = {
   nome: string;
   email: string;
   ativo: boolean;
+  rotaEmAndamento?: boolean;
+  rotasPendentes?: number;
+  paradasPendentes?: number;
 };
 
 export type VinculacaoMotorista = {
@@ -42,6 +45,7 @@ export interface RotaOtimizadaState {
   duracao_total_segundos: number;
   legs: GoogleDirectionsLeg[];
   polyline?: string;
+  isEstimated?: boolean;
 }
 
 export interface EnderecoUnidade {
@@ -53,6 +57,21 @@ export interface EnderecoUnidade {
 export interface DistanciaManualReal {
   metros: number;
   segundos: number;
+  isEstimated?: boolean;
+  polyline?: string;
+}
+
+export interface SanidadeGeografica {
+  maiorDistanciaKm: number;
+  paradasDistantes: Parada[];
+  requerConfirmacao: boolean;
+}
+
+export interface RouteDraftValidation {
+  valido: boolean;
+  erros: string[];
+  avisos: string[];
+  sanidadeGeografica: SanidadeGeografica;
 }
 
 export interface ParadasStatus {

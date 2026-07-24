@@ -56,8 +56,11 @@ jest.mock('@/lib/photon', () => ({
 }));
 
 jest.mock('@/lib/routeOptimization', () => ({
-  otimizarRotaComDependencias: (...args: any[]) => mockOtimizarRotaComDependencias(...args),
-  validarRotaParaOtimizacao: (...args: any[]) => mockValidarRotaParaOtimizacao(...args),
+  otimizarRotaComDependencias: (...args: any[]) =>
+    mockOtimizarRotaComDependencias(...args),
+  validarRotaParaOtimizacao: (...args: any[]) =>
+    mockValidarRotaParaOtimizacao(...args),
+  MAX_ROUTE_STOPS: 3,
   MAX_WAYPOINTS: 3,
   WAYPOINTS_RECOMENDADO: 2,
 }));
@@ -101,7 +104,11 @@ describe('useNovaEntrega', () => {
 
     mockUnidadeAtivaState = { unidadeAtiva: null, unidadeAtivaData: null };
     mockUserData = { id: 'user-1', unidades: { nome: 'Unidade Teste' } };
-    mockValidarRotaParaOtimizacao.mockReturnValue({ valido: true, avisos: [], erros: [] });
+    mockValidarRotaParaOtimizacao.mockReturnValue({
+      valido: true,
+      avisos: [],
+      erros: [],
+    });
   });
 
   it('atualiza paradasStatus conforme quantidade', async () => {
@@ -114,22 +121,33 @@ describe('useNovaEntrega', () => {
     expect(result.current.paradasStatus.cor).toBe('default');
 
     await act(async () => {
-      await result.current.onAddParada(createParadaData({ endereco: 'Rua 2' }) as any);
+      await result.current.onAddParada(
+        createParadaData({ endereco: 'Rua 2', telefone: '11888888888' }) as any,
+      );
     });
     await waitFor(() => expect(result.current.paradas.length).toBe(2));
     expect(result.current.paradasStatus.cor).toBe('default');
 
     await act(async () => {
-      await result.current.onAddParada(createParadaData({ endereco: 'Rua 3' }) as any);
+      await result.current.onAddParada(
+        createParadaData({ endereco: 'Rua 3', telefone: '11777777777' }) as any,
+      );
     });
     await waitFor(() => expect(result.current.paradas.length).toBe(3));
     expect(result.current.paradasStatus.cor).toBe('warning');
 
     await act(async () => {
-      await result.current.onAddParada(createParadaData({ endereco: 'Rua 4' }) as any);
+      await result.current.onAddParada(
+        createParadaData({ endereco: 'Rua 4', telefone: '11666666666' }) as any,
+      );
     });
-    await waitFor(() => expect(result.current.paradas.length).toBe(4));
-    expect(result.current.paradasStatus.cor).toBe('error');
+    await waitFor(() => expect(result.current.paradas.length).toBe(3));
+    expect(result.current.paradasStatus.cor).toBe('warning');
+    expect(mockShowToast).toHaveBeenCalledWith(
+      expect.stringContaining('limite'),
+      'error',
+      5000,
+    );
   });
 
   it('tenta geocodificar quando faltam coordenadas e falha', async () => {
@@ -153,19 +171,27 @@ describe('useNovaEntrega', () => {
     const { result } = renderHook(() => useNovaEntrega());
 
     await act(async () => {
-      await result.current.onAddParada(createParadaData({ tipo: 'retirada' }) as any);
+      await result.current.onAddParada(
+        createParadaData({ tipo: 'retirada' }) as any,
+      );
     });
     await waitFor(() => expect(result.current.paradas.length).toBe(1));
 
     const retiradaId = result.current.paradas[0].id;
 
     await act(async () => {
-      await result.current.onAddParada(createParadaData({ endereco: 'Rua Entrega' }) as any, retiradaId);
+      await result.current.onAddParada(
+        createParadaData({
+          endereco: 'Rua Entrega',
+          telefone: '11888888888',
+        }) as any,
+        retiradaId,
+      );
     });
     await waitFor(() => expect(result.current.paradas.length).toBe(2));
 
     const hasVinculoToast = mockShowToast.mock.calls.some((call) =>
-      String(call[0]).includes('Entrega vinculada')
+      String(call[0]).includes('Entrega vinculada'),
     );
     expect(hasVinculoToast).toBe(true);
 
@@ -185,7 +211,7 @@ describe('useNovaEntrega', () => {
     });
 
     const hasToast = mockShowToast.mock.calls.some((call) =>
-      String(call[0]).includes('Adicione')
+      String(call[0]).includes('Adicione'),
     );
     expect(hasToast).toBe(true);
   });
@@ -203,7 +229,7 @@ describe('useNovaEntrega', () => {
     });
 
     const hasToast = mockShowToast.mock.calls.some((call) =>
-      String(call[0]).includes('unidade')
+      String(call[0]).includes('unidade'),
     );
     expect(hasToast).toBe(true);
   });
@@ -221,7 +247,9 @@ describe('useNovaEntrega', () => {
     await waitFor(() => expect(result.current.enderecoUnidade).not.toBeNull());
 
     await act(async () => {
-      await result.current.onAddParada(createParadaData({ endereco: 'Rua 1' }) as any);
+      await result.current.onAddParada(
+        createParadaData({ endereco: 'Rua 1' }) as any,
+      );
     });
     await waitFor(() => expect(result.current.paradas.length).toBe(1));
 
@@ -230,7 +258,7 @@ describe('useNovaEntrega', () => {
     });
 
     const hasErro = mockShowToast.mock.calls.some((call) =>
-      String(call[0]).includes('Erro de validacao')
+      String(call[0]).includes('Erro de validacao'),
     );
     expect(hasErro).toBe(true);
     expect(mockGoogleMapsService.getDirections).not.toHaveBeenCalled();
@@ -249,24 +277,26 @@ describe('useNovaEntrega', () => {
     await waitFor(() => expect(result.current.enderecoUnidade).not.toBeNull());
 
     await act(async () => {
-      await result.current.onAddParada(createParadaData({ tipo: 'retirada' }) as any);
+      await result.current.onAddParada(
+        createParadaData({ tipo: 'retirada' }) as any,
+      );
     });
     await waitFor(() => expect(result.current.paradas.length).toBe(1));
 
     const retiradaId = result.current.paradas[0].id;
 
     await act(async () => {
-      await result.current.onAddParada(createParadaData({ endereco: 'Rua 2' }) as any, retiradaId);
+      await result.current.onAddParada(
+        createParadaData({ endereco: 'Rua 2', telefone: '11888888888' }) as any,
+        retiradaId,
+      );
     });
     await waitFor(() => expect(result.current.paradas.length).toBe(2));
 
     const [parada1, parada2] = result.current.paradas;
 
     mockOtimizarRotaComDependencias.mockResolvedValueOnce({
-      paradasOrdenadas: [
-        { id: parada2.id },
-        { id: parada1.id },
-      ],
+      paradasOrdenadas: [{ id: parada2.id }, { id: parada1.id }],
       distanciaTotalMetros: 9000,
       duracaoTotalSegundos: 600,
       polyline: 'poly',
@@ -281,7 +311,7 @@ describe('useNovaEntrega', () => {
     expect(mockOtimizarRotaComDependencias).toHaveBeenCalled();
 
     const hasAviso = mockShowToast.mock.calls.some((call) =>
-      String(call[0]).includes('Aviso')
+      String(call[0]).includes('Aviso'),
     );
     expect(hasAviso).toBe(true);
   });

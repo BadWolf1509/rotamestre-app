@@ -1,80 +1,75 @@
-/**
- * Hook para encapsular toda a lógica de estado da tela de Nova Entrega
- *
- * Refatorado para compor hooks menores e mais focados:
- * - useEnderecoUnidade: Carrega endereço da unidade
- * - useMotoristaSelection: Gerencia seleção de motoristas
- * - useParadasManagement: Gerencia lista de paradas
- * - useRouteOptimization: Otimização de rotas
- * - useDistanceCalculation: Cálculo de distâncias
- * - useRouteCreation: Criação de rotas no banco
- */
-
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { Platform } from 'react-native';
+import { z } from 'zod';
 
 import type {
+  DistanciaManualReal,
+  EnderecoUnidade,
+  MotoristaResumo,
   Parada,
   ParadaFormData,
   ParadaFormDataWithCoords,
-  MotoristaResumo,
-  RotaOtimizadaState,
-  EnderecoUnidade,
-  DistanciaManualReal,
   ParadasStatus,
-} from "@/components/gestor/nova-entrega/types";
-import { useToast } from "@/hooks/useToast";
-import { useUnidadeAtiva } from "@/hooks/useUnidadeAtiva";
-import { useUser } from "@/hooks/useUser";
-import { googleMapsService } from "@/lib/google"; // Para getDirections (usa OSRM)
-import { logger } from "@/lib/logger";
-import { photonService } from "@/lib/photon"; // Para geocoding (gratuito!)
-import {
-  createRota,
-  createParadasBatch,
-  logRotaAction,
-  type RotaInsert,
-  type ParadaInsert,
-} from "@/lib/queries";
-import {
-  otimizarRotaComDependencias,
-  ParadaParaOtimizar,
-  validarRotaParaOtimizacao,
-  MAX_WAYPOINTS,
-  WAYPOINTS_RECOMENDADO,
-} from "@/lib/routeOptimization";
-import { z } from "@/lib/zod";
+  RotaOtimizadaState,
+  RouteDraftValidation,
+} from '@/components/gestor/nova-entrega/types';
+import type {
+  BulkImportResult,
+  BulkParadaInput,
+} from '@/hooks/nova-entrega/useParadasManagement';
+import { useToast } from '@/hooks/useToast';
+import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
+import { useUser } from '@/hooks/useUser';
 
 import {
+  useDistanceCalculation,
   useEnderecoUnidade,
   useMotoristaSelection,
-  useDistanceCalculation,
-} from "./nova-entrega";
+  useNovaEntregaDraft,
+  useParadasManagement,
+  useRouteCreation,
+  useRouteOptimization,
+} from './nova-entrega';
 import {
-  generateUniqueId,
-  prepararParadasParaInserir,
-  atualizarVinculosParadas,
-  ordenarParadasPorRota,
-} from "./useNovaEntrega.helpers";
+  encontrarParadaDuplicada,
+  validarRascunhoRota,
+} from './useNovaEntrega.helpers';
 
-// Schema de validação (inclui latitude/longitude para coordenadas do autocomplete)
-const paradaSchema = z.object({
-  endereco: z.string().min(5, "Endereço deve ter no mínimo 5 caracteres"),
-  tipo: z.enum(["entrega", "retirada"]),
-  destinatario: z
-    .string()
-    .min(3, "Nome do destinatário deve ter no mínimo 3 caracteres"),
-  telefone: z
-    .string()
-    .min(1, "Telefone de contato é obrigatório")
-    .refine((val) => val.replace(/\D/g, "").length >= 10, {
-      message: "Telefone deve ter no mínimo 10 dígitos",
-    }),
-  observacoes: z.string().optional(),
-  latitude: z.number().optional(),
-  longitude: z.number().optional(),
-});
+const paradaSchema = z
+  .object({
+    endereco: z.string().trim().min(5, 'Informe um endereço válido.'),
+    tipo: z.enum(['entrega', 'retirada']),
+    destinatario: z.string().trim().min(3, 'Informe o nome do destinatário.'),
+    telefone: z
+      .string()
+      .min(1, 'Telefone de contato é obrigatório.')
+      .refine((value) => {
+        const digits = value.replace(/\D/g, '');
+        return digits.length === 10 || digits.length === 11;
+      }, 'Telefone deve ter DDD e 10 ou 11 dígitos.'),
+    observacoes: z
+      .string()
+      .max(300, 'As observações devem ter no máximo 300 caracteres.')
+      .optional(),
+    latitude: z.number().optional(),
+    longitude: z.number().optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.latitude == null || value.longitude == null) {
+      context.addIssue({
+        code: 'custom',
+        path: ['endereco'],
+        message: 'Selecione um endereço nas sugestões para validá-lo.',
+      });
+    }
+  });
+
+function localToday(): string {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+}
 
 export interface UseNovaEntregaReturn {
   form: ReturnType<typeof useForm<ParadaFormDataWithCoords>>;
@@ -82,9 +77,16 @@ export interface UseNovaEntregaReturn {
   motoristas: MotoristaResumo[];
   motoristaSelecionado: string;
   vinculoSelecionado: string;
+  dataRota: string;
+  setDataRota: (date: string) => void;
   isLoading: boolean;
   isLoadingMotoristas: boolean;
+  isLoadingEndereco: boolean;
   isOptimizing: boolean;
+  isDraftHydrating: boolean;
+  isDraftSaving: boolean;
+  draftLastSavedAt: string | null;
+  draftSaveError: string | null;
   rotaOtimizada: RotaOtimizadaState | null;
   ordemManual: boolean;
   distanciaManualReal: DistanciaManualReal | null;
@@ -92,19 +94,31 @@ export interface UseNovaEntregaReturn {
   enderecoUnidade: EnderecoUnidade | null;
   retiradasDisponiveis: Parada[];
   paradasStatus: ParadasStatus;
-  toastState: ReturnType<typeof useToast>["toast"];
-  showToast: ReturnType<typeof useToast>["showToast"];
-  hideToast: ReturnType<typeof useToast>["hideToast"];
+  routeValidation: RouteDraftValidation;
+  canGenerateRoute: boolean;
+  editingParada: Parada | null;
+  toastState: ReturnType<typeof useToast>['toast'];
+  showToast: ReturnType<typeof useToast>['showToast'];
+  hideToast: () => void;
   setMotoristaSelecionado: (id: string) => void;
   setVinculoSelecionado: (id: string) => void;
-  onAddParada: (data: ParadaFormData, vinculoId?: string) => Promise<void>;
+  onAddParada: (
+    data: ParadaFormData,
+    vinculoId?: string,
+    allowDuplicate?: boolean,
+  ) => Promise<boolean>;
+  importParadas: (items: BulkParadaInput[]) => Promise<BulkImportResult>;
+  startEditParada: (index: number) => void;
+  cancelEditParada: () => void;
   removeParada: (index: number) => void;
   moveParadaUp: (index: number) => void;
   moveParadaDown: (index: number) => void;
+  reorderParadas: (data: Parada[]) => void;
   otimizarRota: () => Promise<void>;
-  gerarRota: () => Promise<void>;
+  gerarRota: () => Promise<boolean>;
   limparFormulario: () => void;
-  userData: ReturnType<typeof useUser>["userData"];
+  findDuplicate: (data: ParadaFormData) => Parada | null;
+  userData: ReturnType<typeof useUser>['userData'];
   unidadeNome: string;
 }
 
@@ -112,48 +126,32 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
   const { userData } = useUser();
   const { unidadeAtiva, unidadeAtivaData } = useUnidadeAtiva();
   const { toast: toastState, showToast, hideToast } = useToast();
-
-  // Ref para cleanup do setTimeout
-  const limparFormularioTimeoutRef = useRef<ReturnType<
-    typeof setTimeout
-  > | null>(null);
-
-  // State
   const [paradas, setParadas] = useState<Parada[]>([]);
-  const [vinculoSelecionado, setVinculoSelecionado] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isOptimizing, setIsOptimizing] = useState(false);
-  const [rotaOtimizada, setRotaOtimizada] = useState<RotaOtimizadaState | null>(
-    null,
-  );
-  const [ordemManual, setOrdemManual] = useState(false);
+  const [vinculoSelecionado, setVinculoSelecionado] = useState('');
+  const [editingParadaId, setEditingParadaId] = useState<string | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [dataRota, setDataRota] = useState(localToday);
 
-  // Form
   const form = useForm<ParadaFormDataWithCoords>({
     resolver: zodResolver(paradaSchema),
     defaultValues: {
-      tipo: "entrega",
-      endereco: "",
-      destinatario: "",
-      telefone: "",
-      observacoes: "",
+      tipo: 'entrega',
+      endereco: '',
+      destinatario: '',
+      telefone: '',
+      observacoes: '',
       latitude: undefined,
       longitude: undefined,
     },
+    shouldFocusError: true,
   });
 
-  // Error handler stable reference
   const handleError = useCallback(
-    (msg: string) => {
-      showToast(msg, "error");
-    },
+    (message: string) => showToast(message, 'error', 5000),
     [showToast],
   );
-
-  // Composed hooks (extracted for reusability)
-  // Agora passando callback estável para evitar re-renders infinitos
-  const { enderecoUnidade } = useEnderecoUnidade(handleError);
-
+  const { enderecoUnidade, isLoading: isLoadingEndereco } =
+    useEnderecoUnidade(handleError);
   const {
     motoristas,
     motoristaSelecionado,
@@ -161,520 +159,282 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     isLoading: isLoadingMotoristas,
   } = useMotoristaSelection(handleError);
 
-  // Auto-cálculo de distância com debounce
-  const { distanciaManualReal, isCalculandoReal, resetDistanciaReal } =
-    useDistanceCalculation({
+  const routeOptimization = useRouteOptimization({
+    paradas,
+    enderecoUnidade,
+    showToast,
+  });
+  const {
+    rotaOtimizada,
+    setRotaOtimizada,
+    ordemManual,
+    setOrdemManual,
+    isOptimizing,
+    resetOptimization,
+  } = routeOptimization;
+
+  const {
+    distanciaManualReal,
+    isCalculandoReal,
+    calculationError,
+    resetDistanciaReal,
+  } = useDistanceCalculation({
+    paradas,
+    enderecoUnidade,
+    rotaOtimizada,
+    ordemManual,
+  });
+
+  const resetStopForm = useCallback(() => {
+    form.reset();
+    setVinculoSelecionado('');
+    setEditingParadaId(null);
+  }, [form]);
+
+  const paradasManagement = useParadasManagement({
+    paradas,
+    setParadas,
+    rotaOtimizada,
+    onOrdemManualChange: setOrdemManual,
+    onRotaOtimizadaReset: () => setRotaOtimizada(null),
+    onDistanciaManualRealReset: resetDistanciaReal,
+    showToast,
+    onFormReset: resetStopForm,
+  });
+
+  const draftPayload = useMemo(
+    () => ({
       paradas,
-      enderecoUnidade,
+      motoristaSelecionado,
+      dataRota,
       rotaOtimizada,
       ordemManual,
-    });
-
-  // Cleanup do timeout ao desmontar
-  useEffect(() => {
-    return () => {
-      if (limparFormularioTimeoutRef.current) {
-        clearTimeout(limparFormularioTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Computed: retiradas disponíveis para vincular
-  const retiradasDisponiveis = useMemo(
-    () => paradas.filter((p) => p.tipo === "retirada"),
-    [paradas],
+    }),
+    [dataRota, motoristaSelecionado, ordemManual, paradas, rotaOtimizada],
   );
 
-  // Computed: status das paradas
-  const paradasStatus = useMemo((): ParadasStatus => {
-    const count = paradas.length;
-    if (count > MAX_WAYPOINTS) {
-      return {
-        texto: `${count} paradas (excede limite de ${MAX_WAYPOINTS})`,
-        cor: "error",
-        icone: "warning",
-      };
-    } else if (count > WAYPOINTS_RECOMENDADO) {
-      return {
-        texto: `${count}/${MAX_WAYPOINTS} paradas (próximo do limite)`,
-        cor: "warning",
-        icone: "alert-circle",
-      };
-    } else if (count > 0) {
-      return {
-        texto: `${count} parada(s) na lista`,
-        cor: "default",
-        icone: null,
-      };
-    }
-    return { texto: "Nenhuma parada adicionada", cor: "default", icone: null };
-  }, [paradas.length]);
-
-  // Computed: nome da unidade
-  const unidadeNome = unidadeAtivaData?.nome || userData?.unidades?.nome || "";
-
-  // Actions: Adicionar parada
-  const onAddParada = useCallback(
-    async (paradaData: ParadaFormData, vinculoId?: string) => {
-      setIsLoading(true);
-      try {
-        const extendedData = paradaData as ParadaFormDataWithCoords;
-        if (!extendedData.latitude || !extendedData.longitude) {
-          // Usa Photon (gratuito!) para geocoding
-          const result = await photonService.geocodeAddress(
-            paradaData.endereco,
-          );
-          if (!result) {
-            showToast(
-              "Não foi possível localizar o endereço. Use o autocomplete para selecionar um endereço válido.",
-              "error",
-            );
-            return;
-          }
-          extendedData.latitude = result.coordenadas.latitude;
-          extendedData.longitude = result.coordenadas.longitude;
-        }
-        const novaParada: Parada = {
-          ...extendedData,
-          id: generateUniqueId(),
-          latitude: extendedData.latitude,
-          longitude: extendedData.longitude,
-          ordem: paradas.length + 1,
-          vinculo_parada_id: vinculoId,
-        };
-        setParadas([...paradas, novaParada]);
-        form.reset();
-        if (vinculoId) {
-          const retiradaVinculada = paradas.find((p) => p.id === vinculoId);
-          showToast(
-            `Entrega vinculada! A retirada em "${retiradaVinculada?.destinatario || "cliente"}" será feita primeiro.`,
-            "success",
-            4000,
-          );
-        } else {
-          showToast("Parada adicionada à lista!", "success");
-        }
-      } catch (error) {
-        logger.error("[NovaEntrega] Erro ao adicionar parada", error);
-        showToast("Não foi possível adicionar a parada", "error");
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [form, paradas, showToast],
-  );
-
-  // Actions: Remover parada
-  const removeParada = useCallback(
-    (index: number) => {
-      const paradaRemovida = paradas[index];
-      let novasParadas = paradas.filter((_, i) => i !== index);
-      if (paradaRemovida.tipo === "retirada") {
-        novasParadas = novasParadas.map((p) =>
-          p.vinculo_parada_id === paradaRemovida.id
-            ? { ...p, vinculo_parada_id: undefined }
-            : p,
-        );
-      }
-      setParadas(novasParadas.map((p, i) => ({ ...p, ordem: i + 1 })));
-      setRotaOtimizada(null);
-    },
-    [paradas],
-  );
-
-  // Actions: Mover parada
-  const moveParadaUp = useCallback(
-    (index: number) => {
-      if (index <= 0) return;
-      const novasParadas = [...paradas];
-      [novasParadas[index - 1], novasParadas[index]] = [
-        novasParadas[index],
-        novasParadas[index - 1],
-      ];
-      setParadas(novasParadas.map((p, i) => ({ ...p, ordem: i + 1 })));
-      if (rotaOtimizada) {
-        setOrdemManual(true);
-        resetDistanciaReal();
-      }
-    },
-    [paradas, rotaOtimizada, resetDistanciaReal],
-  );
-
-  const moveParadaDown = useCallback(
-    (index: number) => {
-      if (index >= paradas.length - 1) return;
-      const novasParadas = [...paradas];
-      [novasParadas[index], novasParadas[index + 1]] = [
-        novasParadas[index + 1],
-        novasParadas[index],
-      ];
-      setParadas(novasParadas.map((p, i) => ({ ...p, ordem: i + 1 })));
-      if (rotaOtimizada) {
-        setOrdemManual(true);
-        resetDistanciaReal();
-      }
-    },
-    [paradas, rotaOtimizada, resetDistanciaReal],
-  );
-
-  // Actions: Otimizar rota
-  const otimizarRota = useCallback(async () => {
-    if (paradas.length < 1) {
-      showToast("Adicione pelo menos 1 parada para otimizar a rota", "info");
-      return;
-    }
-    if (!enderecoUnidade) {
-      showToast(
-        "Endereço da unidade não encontrado. Verifique o cadastro da unidade.",
-        "error",
-      );
-      return;
-    }
-    const paradasComCoordenadas = paradas.filter(
-      (p) => p.latitude != null && p.longitude != null,
-    );
-    if (paradasComCoordenadas.length !== paradas.length) {
-      showToast(
-        "Algumas paradas não têm coordenadas válidas. Remova-as e adicione novamente.",
-        "error",
-      );
-      return;
-    }
-    const paradasParaValidar: ParadaParaOtimizar[] = paradasComCoordenadas.map(
-      (p) => ({
-        id: p.id,
-        tipo: p.tipo,
-        endereco: p.endereco,
-        latitude: p.latitude as number,
-        longitude: p.longitude as number,
-        ordem: p.ordem,
-        destinatario: p.destinatario,
-        telefone: p.telefone,
-        observacoes: p.observacoes,
-        vinculo_parada_id: p.vinculo_parada_id,
-      }),
-    );
-    const validacao = validarRotaParaOtimizacao(paradasParaValidar);
-    if (!validacao.valido) {
-      showToast(validacao.erros[0], "error");
-      return;
-    }
-    if (validacao.avisos.length > 0) showToast(validacao.avisos[0], "info");
-
-    setIsOptimizing(true);
-    try {
-      const pontoUnidade = {
-        latitude: enderecoUnidade.latitude,
-        longitude: enderecoUnidade.longitude,
-      };
-      const temVinculos = paradas.some((p) => p.vinculo_parada_id);
-
-      if (temVinculos) {
-        const resultado = await otimizarRotaComDependencias(
-          pontoUnidade,
-          paradasParaValidar,
-          pontoUnidade,
-        );
-        if (!resultado) {
-          showToast("Não foi possível otimizar a rota", "error");
-          return;
-        }
-        const paradasAtualizadas = resultado.paradasOrdenadas
-          .map((pOtimizada, i) => {
-            const paradaOriginal = paradas.find((p) => p.id === pOtimizada.id);
-            if (!paradaOriginal) {
-              logger.warn(
-                `[NovaEntrega] Parada otimizada ${pOtimizada.id} não encontrada`,
-              );
-              return null;
-            }
-            return { ...paradaOriginal, ordem: i + 1 };
-          })
-          .filter((p): p is Parada => p !== null);
-        setParadas(paradasAtualizadas);
-        setRotaOtimizada({
-          distancia_total_metros: resultado.distanciaTotalMetros,
-          duracao_total_segundos: resultado.duracaoTotalSegundos,
-          legs: [],
-          polyline: resultado.polyline,
-        });
-        setOrdemManual(false);
-        showToast(
-          `Rota otimizada com dependências! ${(resultado.distanciaTotalMetros / 1000).toFixed(1)} km - ${Math.round(resultado.duracaoTotalSegundos / 60)} min`,
-          "success",
-          4000,
-        );
-      } else {
-        const waypoints = paradasComCoordenadas.map((p) => ({
-          latitude: p.latitude as number,
-          longitude: p.longitude as number,
-        }));
-        const resultado = await googleMapsService.getDirections(
-          pontoUnidade,
-          pontoUnidade,
-          waypoints,
-        );
-        if (!resultado) {
-          showToast("Não foi possível otimizar a rota", "error");
-          return;
-        }
-        const ordemOtimizada = resultado.ordem_otimizada || [];
-        const paradasReordenadas = ordenarParadasPorRota(
-          paradas,
-          ordemOtimizada,
-          resultado.legs,
-        );
-        setParadas(paradasReordenadas.map((p, i) => ({ ...p, ordem: i + 1 })));
-        setRotaOtimizada({
-          distancia_total_metros: resultado.distancia_total_metros,
-          duracao_total_segundos: resultado.duracao_total_segundos,
-          legs: resultado.legs,
-          polyline: resultado.polyline,
-        });
-        setOrdemManual(false);
-        showToast(
-          `Rota otimizada! ${(resultado.distancia_total_metros / 1000).toFixed(1)} km - ${Math.round(resultado.duracao_total_segundos / 60)} min`,
-          "success",
-          4000,
-        );
-      }
-    } catch (error) {
-      logger.error("[NovaEntrega] Erro ao otimizar rota", error);
-      showToast("Não foi possível otimizar a rota", "error");
-    } finally {
-      setIsOptimizing(false);
-    }
-  }, [enderecoUnidade, paradas, showToast]);
-
-  // Helper: Calcular dados da rota
-  const calcularDadosRota = useCallback(async () => {
-    if (ordemManual && paradas.length > 0 && enderecoUnidade) {
-      const pontoUnidade = {
-        latitude: enderecoUnidade.latitude,
-        longitude: enderecoUnidade.longitude,
-      };
-      const paradasValidas = paradas.filter(
-        (p): p is Parada & { latitude: number; longitude: number } =>
-          p.latitude != null && p.longitude != null,
-      );
-      if (paradasValidas.length > 0) {
-        const waypoints = paradasValidas.map((p) => ({
-          latitude: p.latitude,
-          longitude: p.longitude,
-        }));
-        const resultado = await googleMapsService.getDirections(
-          pontoUnidade,
-          pontoUnidade,
-          waypoints,
-          false,
-        );
-        if (resultado)
-          return {
-            distanciaKm: Number(
-              (resultado.distancia_total_metros / 1000).toFixed(2),
-            ),
-            tempoMin: Math.round(resultado.duracao_total_segundos / 60),
-            polyline: resultado.polyline,
-          };
-      }
-      return { distanciaKm: null, tempoMin: null, polyline: undefined };
-    }
-    if (rotaOtimizada) {
-      return {
-        distanciaKm: Number(
-          (rotaOtimizada.distancia_total_metros / 1000).toFixed(2),
-        ),
-        tempoMin: Math.round(rotaOtimizada.duracao_total_segundos / 60),
-        polyline: rotaOtimizada.polyline,
-      };
-    }
-    if (paradas.length > 0 && enderecoUnidade) {
-      const pontoUnidade = {
-        latitude: enderecoUnidade.latitude,
-        longitude: enderecoUnidade.longitude,
-      };
-      const paradasValidas = paradas.filter(
-        (p): p is Parada & { latitude: number; longitude: number } =>
-          p.latitude != null && p.longitude != null,
-      );
-      const waypoints = paradasValidas.map((p) => ({
-        latitude: p.latitude,
-        longitude: p.longitude,
-      }));
-      const resultado = await googleMapsService.getDirections(
-        pontoUnidade,
-        pontoUnidade,
-        waypoints,
-        false,
-      );
-      if (resultado)
-        return {
-          distanciaKm: Number(
-            (resultado.distancia_total_metros / 1000).toFixed(2),
-          ),
-          tempoMin: Math.round(resultado.duracao_total_segundos / 60),
-          polyline: resultado.polyline,
-        };
-    }
-    return { distanciaKm: null, tempoMin: null, polyline: undefined };
-  }, [enderecoUnidade, ordemManual, paradas, rotaOtimizada]);
-
-  // Helper: Registrar log (usa query centralizada fire-and-forget)
-  const registrarLogRota = useCallback(
-    async (
-      rotaId: string,
-      temVinculos: boolean,
-      totalVinculos: number,
-      distanciaKm: number | null,
-      tempoMin: number | null,
-    ) => {
-      if (!userData?.id) {
-        logger.warn(
-          "[NovaEntrega] Não foi possível registrar log: userData não disponível",
-        );
-        return;
-      }
-      logRotaAction(userData.id, rotaId, "rota_criada", {
-        total_paradas: paradas.length,
-        motorista_id: motoristaSelecionado,
-        foi_otimizada: rotaOtimizada !== null && !ordemManual,
-        ordem_manual: ordemManual,
-        tem_vinculos: temVinculos,
-        total_vinculos: totalVinculos,
-        distancia_km: distanciaKm,
-        tempo_min: tempoMin,
-        rota_circular: enderecoUnidade !== null,
-      });
+  const restoreDraft = useCallback(
+    (draft: typeof draftPayload | null) => {
+      setParadas(draft?.paradas ?? []);
+      setMotoristaSelecionado(draft?.motoristaSelecionado ?? '');
+      setDataRota(draft?.dataRota ?? localToday());
+      setRotaOtimizada(draft?.rotaOtimizada ?? null);
+      setOrdemManual(draft?.ordemManual ?? false);
+      resetStopForm();
+      resetDistanciaReal();
     },
     [
-      enderecoUnidade,
-      motoristaSelecionado,
-      ordemManual,
-      paradas.length,
-      rotaOtimizada,
-      userData,
+      resetDistanciaReal,
+      resetStopForm,
+      setMotoristaSelecionado,
+      setOrdemManual,
+      setRotaOtimizada,
     ],
   );
 
-  // Actions: Limpar formulário
-  const limparFormulario = useCallback(() => {
-    setParadas([]);
-    setMotoristaSelecionado("");
-    setRotaOtimizada(null);
-    setOrdemManual(false);
-    resetDistanciaReal();
-    form.reset();
-  }, [form, setMotoristaSelecionado, resetDistanciaReal]);
+  const {
+    isHydrating: isDraftHydrating,
+    isSaving: isDraftSaving,
+    lastSavedAt: draftLastSavedAt,
+    saveError: draftSaveError,
+    clearDraft,
+  } = useNovaEntregaDraft({
+    userId: userData?.id ?? null,
+    unidadeId: unidadeAtiva,
+    payload: draftPayload,
+    onRestore: restoreDraft,
+  });
 
-  // Actions: Gerar rota
-  const gerarRota = useCallback(async () => {
-    if (paradas.length === 0) {
-      showToast("Adicione pelo menos uma parada antes de gerar a rota", "info");
-      return;
-    }
-    if (!motoristaSelecionado) {
-      showToast("Selecione um motorista para a rota", "info");
-      return;
-    }
-    if (!unidadeAtiva) {
-      showToast("Unidade não selecionada", "error");
-      return;
-    }
-    if (isLoading) return;
-
-    setIsLoading(true);
-    try {
-      const { distanciaKm, tempoMin, polyline } = await calcularDadosRota();
-      const hoje = new Date();
-      const dataHoje = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
-
-      // Build typed rota payload using centralized query types
-      const rotaPayload: RotaInsert = {
-        unidade_id: unidadeAtiva,
-        motorista_id: motoristaSelecionado,
-        status: "pendente",
-        data: dataHoje,
-        distancia_total: distanciaKm,
-        tempo_total: tempoMin,
-        polyline: polyline || null,
-      };
-
-      // Create rota using centralized query
-      const rotaResult = await createRota(rotaPayload);
-      if (!rotaResult.success) throw new Error(rotaResult.error.message);
-
-      const rotaData = rotaResult.data;
-
-      const paradasPreparadas = prepararParadasParaInserir({
-        rotaId: rotaData.id,
+  const coreRouteValidation = useMemo(
+    () =>
+      validarRascunhoRota({
         paradas,
+        motoristaId: motoristaSelecionado,
+        dataRota,
         enderecoUnidade,
-        nomeUnidade: unidadeAtivaData?.nome || "Base",
-      });
+      }),
+    [dataRota, enderecoUnidade, motoristaSelecionado, paradas],
+  );
 
-      // Strip temp fields and cast to ParadaInsert
-      const paradasLimpas = paradasPreparadas.map((p) => {
-        const { _temp_id, _temp_vinculo_id, ...paradaLimpa } = p;
-        return paradaLimpa as ParadaInsert;
-      });
+  const routeValidation = useMemo((): RouteDraftValidation => {
+    const erros = [...coreRouteValidation.erros];
+    if (coreRouteValidation.valido) {
+      const routeMetrics =
+        rotaOtimizada && !ordemManual ? rotaOtimizada : distanciaManualReal;
 
-      // Create paradas using centralized query
-      const paradasResult = await createParadasBatch(paradasLimpas);
-      if (!paradasResult.success) throw new Error(paradasResult.error.message);
-
-      const paradasInseridas = paradasResult.data;
-      if (paradasInseridas && paradasInseridas.length > 0) {
-        await atualizarVinculosParadas(
-          paradasPreparadas,
-          paradasInseridas.map((p) => ({ id: p.id, ordem: p.ordem })),
+      if (routeMetrics?.isEstimated) {
+        erros.push(
+          'O percurso disponível é apenas uma estimativa. Recalcule antes de criar.',
+        );
+      } else if (isCalculandoReal) {
+        erros.push('Aguarde o cálculo da distância e do tempo da rota.');
+      } else if (!routeMetrics) {
+        erros.push(
+          calculationError ||
+            'Calcule a distância e o tempo da rota antes de continuar.',
         );
       }
-
-      const temVinculos = paradasPreparadas.some((p) => p._temp_vinculo_id);
-      const totalVinculos = paradasPreparadas.filter(
-        (p) => p._temp_vinculo_id,
-      ).length;
-      await registrarLogRota(
-        rotaData.id,
-        temVinculos,
-        totalVinculos,
-        distanciaKm,
-        tempoMin,
-      );
-
-      showToast(
-        `Rota circular criada com sucesso! ${paradas.length} entrega(s) cadastrada(s).`,
-        "success",
-        4000,
-      );
-      if (limparFormularioTimeoutRef.current)
-        clearTimeout(limparFormularioTimeoutRef.current);
-      limparFormularioTimeoutRef.current = setTimeout(
-        () => limparFormulario(),
-        1000,
-      );
-    } catch (error) {
-      logger.error("[NovaEntrega] Erro ao criar rota", error);
-      showToast(
-        "Não foi possível criar a rota. Tente novamente.",
-        "error",
-        5000,
-      );
-    } finally {
-      setIsLoading(false);
     }
+
+    return {
+      ...coreRouteValidation,
+      valido: erros.length === 0,
+      erros,
+    };
   }, [
-    calcularDadosRota,
-    enderecoUnidade,
-    isLoading,
-    limparFormulario,
-    motoristaSelecionado,
-    paradas,
-    registrarLogRota,
-    showToast,
-    unidadeAtiva,
-    unidadeAtivaData,
+    calculationError,
+    coreRouteValidation,
+    distanciaManualReal,
+    isCalculandoReal,
+    ordemManual,
+    rotaOtimizada,
   ]);
+
+  const clearAfterSuccess = useCallback(
+    (_rotaId: string) => {
+      setParadas([]);
+      setMotoristaSelecionado('');
+      setDataRota(localToday());
+      resetOptimization();
+      resetDistanciaReal();
+      resetStopForm();
+      clearDraft().catch(() => {
+        // O RPC também remove o rascunho; esta chamada é apenas sincronização local.
+      });
+    },
+    [
+      clearDraft,
+      resetDistanciaReal,
+      resetOptimization,
+      resetStopForm,
+      setMotoristaSelecionado,
+    ],
+  );
+
+  const { gerarRota } = useRouteCreation({
+    paradas,
+    enderecoUnidade,
+    rotaOtimizada,
+    distanciaManualReal,
+    ordemManual,
+    motoristaSelecionado,
+    unidadeAtiva,
+    unidadeNome: unidadeAtivaData?.nome || 'Base',
+    dataRota,
+    isLoading: routeLoading || paradasManagement.isLoading,
+    setIsLoading: setRouteLoading,
+    showToast,
+    onSuccess: clearAfterSuccess,
+  });
+
+  const onAddParada = useCallback(
+    (data: ParadaFormData, vinculoId?: string, allowDuplicate = false) =>
+      paradasManagement.onAddParada(
+        data,
+        vinculoId,
+        editingParadaId ?? undefined,
+        allowDuplicate,
+      ),
+    [editingParadaId, paradasManagement],
+  );
+
+  const startEditParada = useCallback(
+    (index: number) => {
+      const parada = paradas[index];
+      if (!parada) return;
+      setEditingParadaId(parada.id);
+      setVinculoSelecionado(parada.vinculo_parada_id ?? '');
+      form.reset({
+        tipo: parada.tipo,
+        endereco: parada.endereco,
+        destinatario: parada.destinatario,
+        telefone: parada.telefone,
+        observacoes: parada.observacoes ?? '',
+        latitude: parada.latitude,
+        longitude: parada.longitude,
+      });
+    },
+    [form, paradas],
+  );
+
+  const cancelEditParada = useCallback(() => resetStopForm(), [resetStopForm]);
+
+  const otimizarRota = useCallback(async () => {
+    const reordered = await routeOptimization.otimizarRota();
+    if (reordered) setParadas(reordered);
+  }, [routeOptimization]);
+
+  const limparFormulario = useCallback(() => {
+    const motoristaAnterior = motoristaSelecionado;
+    const dataAnterior = dataRota;
+    const rotaAnterior = rotaOtimizada;
+    const ordemManualAnterior = ordemManual;
+    paradasManagement.clearParadas(() => {
+      setMotoristaSelecionado(motoristaAnterior);
+      setDataRota(dataAnterior);
+      setRotaOtimizada(rotaAnterior);
+      setOrdemManual(ordemManualAnterior);
+    });
+    setMotoristaSelecionado('');
+    setDataRota(localToday());
+    resetStopForm();
+  }, [
+    dataRota,
+    motoristaSelecionado,
+    ordemManual,
+    paradasManagement,
+    resetStopForm,
+    rotaOtimizada,
+    setMotoristaSelecionado,
+    setOrdemManual,
+    setRotaOtimizada,
+  ]);
+
+  const findDuplicate = useCallback(
+    (data: ParadaFormData) =>
+      encontrarParadaDuplicada(paradas, data, editingParadaId ?? undefined),
+    [editingParadaId, paradas],
+  );
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || paradas.length === 0) return;
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [paradas.length]);
+
+  useEffect(() => {
+    if (
+      isLoadingMotoristas ||
+      !motoristaSelecionado ||
+      motoristas.some((motorista) => motorista.id === motoristaSelecionado)
+    ) {
+      return;
+    }
+
+    setMotoristaSelecionado('');
+    showToast(
+      'O motorista salvo no rascunho não está mais disponível nesta unidade.',
+      'info',
+      5000,
+    );
+  }, [
+    isLoadingMotoristas,
+    motoristaSelecionado,
+    motoristas,
+    setMotoristaSelecionado,
+    showToast,
+  ]);
+
+  const unidadeNome = unidadeAtivaData?.nome || userData?.unidades?.nome || '';
+  const editingParada =
+    paradas.find((parada) => parada.id === editingParadaId) ?? null;
+  const isLoading = routeLoading || paradasManagement.isLoading;
+  const canGenerateRoute =
+    routeValidation.valido && !isLoading && !isDraftHydrating;
 
   return {
     form,
@@ -682,28 +442,43 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     motoristas,
     motoristaSelecionado,
     vinculoSelecionado,
+    dataRota,
+    setDataRota,
     isLoading,
     isLoadingMotoristas,
+    isLoadingEndereco,
     isOptimizing,
+    isDraftHydrating,
+    isDraftSaving,
+    draftLastSavedAt,
+    draftSaveError,
     rotaOtimizada,
     ordemManual,
     distanciaManualReal,
     isCalculandoReal,
     enderecoUnidade,
-    retiradasDisponiveis,
-    paradasStatus,
+    retiradasDisponiveis: paradasManagement.retiradasDisponiveis,
+    paradasStatus: paradasManagement.paradasStatus,
+    routeValidation,
+    canGenerateRoute,
+    editingParada,
     toastState,
     showToast,
     hideToast,
     setMotoristaSelecionado,
     setVinculoSelecionado,
     onAddParada,
-    removeParada,
-    moveParadaUp,
-    moveParadaDown,
+    importParadas: paradasManagement.importParadas,
+    startEditParada,
+    cancelEditParada,
+    removeParada: paradasManagement.removeParada,
+    moveParadaUp: paradasManagement.moveParadaUp,
+    moveParadaDown: paradasManagement.moveParadaDown,
+    reorderParadas: paradasManagement.reorderParadas,
     otimizarRota,
     gerarRota,
     limparFormulario,
+    findDuplicate,
     userData,
     unidadeNome,
   };

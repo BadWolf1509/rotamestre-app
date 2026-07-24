@@ -1,53 +1,61 @@
-/**
- * Tela de Nova Entrega - Gestor
- *
- * Permite criar rotas de entrega com:
- * - Adição de paradas via autocomplete do Google Places
- * - Vinculação de entregas a retiradas (dependências)
- * - Otimização de rota via Google Directions API
- * - Atribuição a motorista
- * - Criação de rota circular (unidade → paradas → unidade)
- */
+import { Ionicons } from '@expo/vector-icons';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Ionicons } from "@expo/vector-icons";
-import { useCallback, useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import {
   FormularioParada,
   ParadasListAndActions,
+  RouteReviewModal,
   novaEntregaStyles as styles,
-} from "@/components/gestor/nova-entrega";
-import { getGestorPageMeta } from "@/constants/gestorPageMeta";
+} from '@/components/gestor/nova-entrega';
+import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
   DesktopCard,
   DesktopPageLayout,
   MobileCard,
   MobileLoading,
   Toast,
-} from "@/design-system";
-import { useDesktopHeaderMenu } from "@/hooks/useDesktopHeaderMenu";
-import { useNovaEntrega } from "@/hooks/useNovaEntrega";
-import { useResponsive } from "@/hooks/useResponsive";
-import { useUnistyles } from "@/utils/styles";
+} from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
+import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
+import { useNovaEntrega } from '@/hooks/useNovaEntrega';
+import { useResponsive } from '@/hooks/useResponsive';
+import { useUnistyles } from '@/utils/styles';
 
 export default function NovaEntrega() {
   const { theme } = useUnistyles();
   const { isDesktop, isTablet } = useResponsive();
   const insets = useSafeAreaInsets();
-  const pageMeta = getGestorPageMeta("novaRota");
+  const pageMeta = getGestorPageMeta('novaRota');
+  const { showConfirm, AlertDialog } = useAlert();
+  const [reviewVisible, setReviewVisible] = useState(false);
+  const [hasValidCoordinates, setHasValidCoordinates] = useState(false);
 
+  const novaEntrega = useNovaEntrega();
   const {
     form,
     paradas,
     motoristas,
     motoristaSelecionado,
     vinculoSelecionado,
+    dataRota,
+    setDataRota,
     isLoading,
     isLoadingMotoristas,
+    isLoadingEndereco,
     isOptimizing,
+    isDraftHydrating,
+    isDraftSaving,
+    draftLastSavedAt,
+    draftSaveError,
     rotaOtimizada,
     ordemManual,
     distanciaManualReal,
@@ -55,59 +63,168 @@ export default function NovaEntrega() {
     enderecoUnidade,
     retiradasDisponiveis,
     paradasStatus,
+    routeValidation,
+    canGenerateRoute,
+    editingParada,
     toastState,
-    showToast: _showToast,
+    showToast,
     hideToast,
     setMotoristaSelecionado,
     setVinculoSelecionado,
     onAddParada,
+    importParadas,
+    startEditParada,
+    cancelEditParada,
     removeParada,
     moveParadaUp,
     moveParadaDown,
+    reorderParadas,
     otimizarRota,
     gerarRota,
     limparFormulario,
+    findDuplicate,
     userData,
     unidadeNome,
-  } = useNovaEntrega();
+  } = novaEntrega;
 
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
     userImageUrl: userData?.foto_url,
   });
 
-  const pageSubtitle = unidadeNome || pageMeta.subtitle || "Carregando...";
-
-  const [hasValidCoordinates, setHasValidCoordinates] = useState(false);
+  const selectedDriver = useMemo(
+    () =>
+      motoristas.find((motorista) => motorista.id === motoristaSelecionado) ??
+      null,
+    [motoristaSelecionado, motoristas],
+  );
 
   const setFormCoordinate = useCallback(
-    (name: "latitude" | "longitude", value: number) => {
-      form.setValue(name, value);
-      if (name === "longitude" && value !== 0) {
-        setHasValidCoordinates(true);
-      }
+    (name: 'latitude' | 'longitude', value: number | undefined) => {
+      form.setValue(name, value, { shouldValidate: true });
+      const latitude = name === 'latitude' ? value : form.getValues('latitude');
+      const longitude =
+        name === 'longitude' ? value : form.getValues('longitude');
+      setHasValidCoordinates(latitude != null && longitude != null);
     },
     [form],
   );
 
   const handleAddParada = useCallback(
-    (data: Parameters<typeof onAddParada>[0], vinculoId?: string) => {
-      onAddParada(data, vinculoId);
-      setHasValidCoordinates(false);
+    async (data: Parameters<typeof onAddParada>[0], linkId?: string) => {
+      const duplicate = findDuplicate(data);
+      let allowDuplicate = false;
+      if (duplicate) {
+        allowDuplicate = await showConfirm({
+          title: 'Possível parada duplicada',
+          message: `Já existe uma parada para ${duplicate.destinatario} no mesmo endereço ou telefone. Deseja manter as duas?`,
+          type: 'warning',
+          confirmText: 'Adicionar mesmo assim',
+        });
+        if (!allowDuplicate) return;
+      }
+
+      const saved = await onAddParada(data, linkId, allowDuplicate);
+      if (saved) setHasValidCoordinates(false);
     },
-    [onAddParada],
+    [findDuplicate, onAddParada, showConfirm],
   );
 
-  if (isLoadingMotoristas) {
+  const handleEdit = useCallback(
+    (index: number) => {
+      startEditParada(index);
+      setHasValidCoordinates(true);
+    },
+    [startEditParada],
+  );
+
+  const handleCancelEdit = useCallback(() => {
+    cancelEditParada();
+    setHasValidCoordinates(false);
+  }, [cancelEditParada]);
+
+  const handleRemove = useCallback(
+    async (index: number) => {
+      const stop = paradas[index];
+      if (!stop) return;
+      const linkedCount = paradas.filter(
+        (parada) => parada.vinculo_parada_id === stop.id,
+      ).length;
+
+      if (linkedCount > 0) {
+        const confirmed = await showConfirm({
+          title: 'Remover retirada vinculada?',
+          message: `${linkedCount} entrega(s) dependem desta retirada. Ao remover, os vínculos serão desfeitos. Você ainda poderá usar “Desfazer”.`,
+          type: 'warning',
+          confirmText: 'Remover e desvincular',
+        });
+        if (!confirmed) return;
+      }
+
+      removeParada(index);
+      if (editingParada?.id === stop.id) handleCancelEdit();
+    },
+    [editingParada?.id, handleCancelEdit, paradas, removeParada, showConfirm],
+  );
+
+  const handleClear = useCallback(async () => {
+    const confirmed = await showConfirm({
+      title: 'Descartar todo o rascunho?',
+      message:
+        'Todas as paradas, o motorista e a data serão removidos. Você poderá desfazer por alguns segundos.',
+      type: 'warning',
+      confirmText: 'Limpar rascunho',
+    });
+    if (confirmed) {
+      limparFormulario();
+      setHasValidCoordinates(false);
+    }
+  }, [limparFormulario, showConfirm]);
+
+  const openReview = useCallback(() => {
+    if (!canGenerateRoute) {
+      showToast(
+        routeValidation.erros[0] || 'Revise os dados da rota.',
+        'error',
+        5000,
+      );
+      return;
+    }
+    setReviewVisible(true);
+  }, [canGenerateRoute, routeValidation.erros, showToast]);
+
+  const confirmRoute = useCallback(async () => {
+    const success = await gerarRota();
+    if (success) setReviewVisible(false);
+  }, [gerarRota]);
+
+  const pageSubtitle = unidadeNome || pageMeta.subtitle || 'Carregando...';
+  const draftStatus = draftSaveError
+    ? draftSaveError
+    : isDraftSaving
+      ? 'Salvando rascunho...'
+      : draftLastSavedAt
+        ? 'Rascunho salvo automaticamente'
+        : paradas.length > 0
+          ? 'Rascunho aguardando sincronização'
+          : '';
+
+  if (isLoadingMotoristas || isLoadingEndereco || isDraftHydrating) {
     return (
       <>
-        <MobileLoading message="Carregando dados..." />
+        <MobileLoading
+          message={
+            isDraftHydrating
+              ? 'Restaurando seu rascunho...'
+              : 'Carregando dados...'
+          }
+        />
         {logoutModal}
       </>
     );
   }
 
-  const paradasListProps = {
+  const listProps = {
     paradas,
     paradasStatus,
     motoristas,
@@ -120,15 +237,22 @@ export default function NovaEntrega() {
     isCalculandoReal,
     isLoading,
     isDesktop,
+    dataRota,
+    canGenerateRoute,
+    validationErrors: routeValidation.erros,
     onMoveUp: moveParadaUp,
     onMoveDown: moveParadaDown,
-    onRemove: removeParada,
+    onRemove: handleRemove,
+    onEdit: handleEdit,
+    onReorder: reorderParadas,
+    onImport: importParadas,
     onOptimize: otimizarRota,
     onSelectMotorista: setMotoristaSelecionado,
-    onGenerateRoute: gerarRota,
+    onChangeDataRota: setDataRota,
+    onGenerateRoute: openReview,
   };
 
-  const formularioProps = {
+  const formProps = {
     control: form.control,
     errors: form.formState.errors,
     setValue: setFormCoordinate,
@@ -141,15 +265,41 @@ export default function NovaEntrega() {
     setVinculoSelecionado,
     locationBias: enderecoUnidade ?? undefined,
     hasValidCoordinates,
+    isEditing: editingParada != null,
+    onCancelEdit: handleCancelEdit,
   };
 
-  // Desktop Layout
+  const overlays = (
+    <>
+      <Toast {...toastState} onDismiss={hideToast} />
+      <RouteReviewModal
+        visible={reviewVisible}
+        paradas={paradas}
+        motorista={selectedDriver}
+        unidadeNome={unidadeNome}
+        enderecoUnidade={enderecoUnidade}
+        dataRota={dataRota}
+        rotaOtimizada={rotaOtimizada}
+        ordemManual={ordemManual}
+        distanciaManualReal={distanciaManualReal}
+        validation={routeValidation}
+        isLoading={isLoading}
+        onClose={() => setReviewVisible(false)}
+        onConfirm={confirmRoute}
+      />
+      {AlertDialog}
+      {logoutModal}
+    </>
+  );
+
   if (isDesktop) {
     return (
       <ErrorBoundary>
         <DesktopPageLayout
           title={pageMeta.title}
-          subtitle={pageSubtitle}
+          subtitle={
+            draftStatus ? `${pageSubtitle} · ${draftStatus}` : pageSubtitle
+          }
           breadcrumbs={pageMeta.breadcrumbs}
           userMenuTrigger={userMenuTrigger}
           userMenuItems={userMenuItems}
@@ -159,24 +309,23 @@ export default function NovaEntrega() {
           <View style={styles.twoColumnLayout}>
             <View style={styles.formColumn}>
               <DesktopCard
-                title="Adicionar Parada"
-                icon="add-circle-outline"
+                title={editingParada ? 'Editar Parada' : 'Adicionar Parada'}
+                icon={editingParada ? 'create-outline' : 'add-circle-outline'}
                 iconColor={theme.colors.primary}
                 variant="outlined"
               >
-                <FormularioParada {...formularioProps} />
+                <FormularioParada {...formProps} />
               </DesktopCard>
             </View>
-
             <View style={styles.previewColumn}>
               <DesktopCard
                 title="Paradas Adicionadas"
                 subtitle={paradasStatus.texto}
                 icon="list-outline"
                 iconColor={
-                  paradasStatus.cor === "error"
+                  paradasStatus.cor === 'error'
                     ? theme.colors.error
-                    : paradasStatus.cor === "warning"
+                    : paradasStatus.cor === 'warning'
                       ? theme.colors.warning
                       : theme.colors.secondary
                 }
@@ -188,14 +337,13 @@ export default function NovaEntrega() {
                       styles.clearCardButtonDesktop,
                       paradas.length === 0 && styles.clearCardButtonDisabled,
                     ]}
-                    onPress={limparFormulario}
+                    onPress={handleClear}
                     disabled={paradas.length === 0}
-                    accessibilityLabel="Limpar formulário e todas as paradas"
+                    accessibilityLabel="Descartar rascunho e todas as paradas"
                     accessibilityRole="button"
-                    accessibilityState={{ disabled: paradas.length === 0 }}
                   >
                     <Ionicons
-                      name="refresh-outline"
+                      name="trash-outline"
                       size={16}
                       color={theme.colors.primary}
                     />
@@ -205,75 +353,175 @@ export default function NovaEntrega() {
                         styles.clearCardButtonTextDesktop,
                       ]}
                     >
-                      Limpar formulário
+                      Limpar rascunho
                     </Text>
                   </TouchableOpacity>
                 }
               >
-                <ParadasListAndActions {...paradasListProps} />
+                <ParadasListAndActions {...listProps} />
               </DesktopCard>
             </View>
           </View>
         </DesktopPageLayout>
-
-        <Toast {...toastState} onDismiss={hideToast} />
-        {logoutModal}
+        {overlays}
       </ErrorBoundary>
     );
   }
 
-  // Tablet Layout - Split View (40/60)
   if (isTablet) {
     return (
       <ErrorBoundary>
         <ScrollView
           style={styles.scrollView}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
             paddingBottom: Math.max(20, insets.bottom + 20),
           }}
         >
           <View style={styles.tabletContainer}>
+            {draftStatus && (
+              <Text
+                style={styles.draftStatus}
+                accessibilityLiveRegion="polite"
+                accessibilityRole={draftSaveError ? 'alert' : undefined}
+              >
+                {draftStatus}
+              </Text>
+            )}
             <View style={styles.twoColumnLayout}>
               <View style={styles.formColumn}>
-                <FormularioParada {...formularioProps} />
+                <MobileCard
+                  title={editingParada ? 'Editar Parada' : 'Adicionar Parada'}
+                  variant="bordered"
+                >
+                  <FormularioParada {...formProps} />
+                </MobileCard>
               </View>
-
               <View style={styles.previewColumn}>
-                <ParadasListAndActions {...paradasListProps} />
+                <MobileCard
+                  title="Paradas Adicionadas"
+                  subtitle={paradasStatus.texto}
+                  variant="bordered"
+                >
+                  {paradas.length > 0 && (
+                    <TouchableOpacity
+                      style={styles.clearCardButton}
+                      onPress={handleClear}
+                      accessibilityLabel="Descartar rascunho e todas as paradas"
+                      accessibilityRole="button"
+                    >
+                      <Ionicons
+                        name="trash-outline"
+                        size={16}
+                        color={theme.colors.primary}
+                      />
+                      <Text style={styles.clearCardButtonText}>
+                        Limpar rascunho
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  <ParadasListAndActions {...listProps} />
+                </MobileCard>
               </View>
             </View>
           </View>
         </ScrollView>
-        <Toast {...toastState} onDismiss={hideToast} />
-        {logoutModal}
+        {overlays}
       </ErrorBoundary>
     );
   }
 
-  // Mobile Layout - Single Column
   return (
     <ErrorBoundary>
       <ScrollView
         style={styles.scrollView}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
-          paddingBottom: Math.max(20, insets.bottom + 20),
+          paddingBottom: Math.max(120, insets.bottom + 110),
         }}
       >
         <View style={styles.content}>
-          <MobileCard title="Adicionar Parada" variant="bordered">
-            <FormularioParada {...formularioProps} />
+          {draftStatus && (
+            <Text
+              style={styles.draftStatus}
+              accessibilityLiveRegion="polite"
+              accessibilityRole={draftSaveError ? 'alert' : undefined}
+            >
+              {draftStatus}
+            </Text>
+          )}
+          <MobileCard
+            title={editingParada ? 'Editar Parada' : 'Adicionar Parada'}
+            variant="bordered"
+          >
+            <FormularioParada {...formProps} />
           </MobileCard>
           <MobileCard
             title="Paradas Adicionadas"
             subtitle={paradasStatus.texto}
             variant="bordered"
           >
-            <ParadasListAndActions {...paradasListProps} />
+            {paradas.length > 0 && (
+              <TouchableOpacity
+                style={styles.clearCardButton}
+                onPress={handleClear}
+                accessibilityLabel="Descartar rascunho e todas as paradas"
+                accessibilityRole="button"
+              >
+                <Ionicons
+                  name="trash-outline"
+                  size={16}
+                  color={theme.colors.primary}
+                />
+                <Text style={styles.clearCardButtonText}>Limpar rascunho</Text>
+              </TouchableOpacity>
+            )}
+            <ParadasListAndActions {...listProps} hideGenerateButton />
           </MobileCard>
         </View>
       </ScrollView>
-      <Toast {...toastState} onDismiss={hideToast} />
-      {logoutModal}
+
+      {paradas.length > 0 && (
+        <View
+          style={[
+            styles.mobileActionBar,
+            { paddingBottom: Math.max(insets.bottom, 10) },
+          ]}
+        >
+          <View style={styles.mobileActionSummary}>
+            <Text style={styles.mobileActionCount}>
+              {paradas.length} parada(s)
+            </Text>
+            <Text style={styles.mobileActionHint} numberOfLines={1}>
+              {routeValidation.erros[0] || 'Pronta para revisão'}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[
+              styles.mobileReviewButton,
+              !canGenerateRoute && styles.mobileReviewButtonDisabled,
+            ]}
+            onPress={openReview}
+            disabled={!canGenerateRoute}
+            accessibilityRole="button"
+            accessibilityLabel={
+              isLoading
+                ? 'Criando rota'
+                : canGenerateRoute
+                  ? `Revisar rota com ${paradas.length} paradas`
+                  : routeValidation.erros[0] || 'Rota ainda não pode ser criada'
+            }
+            accessibilityState={{ disabled: !canGenerateRoute }}
+          >
+            {isLoading ? (
+              <ActivityIndicator color={theme.colors.white} />
+            ) : (
+              <Text style={styles.mobileReviewButtonText}>Revisar</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+      {overlays}
     </ErrorBoundary>
   );
 }

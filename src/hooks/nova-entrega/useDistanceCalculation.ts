@@ -20,6 +20,7 @@ const DEBOUNCE_DELAY_MS = 1000;
 export interface UseDistanceCalculationReturn {
   distanciaManualReal: DistanciaManualReal | null;
   isCalculandoReal: boolean;
+  calculationError: string | null;
   resetDistanciaReal: () => void;
 }
 
@@ -36,8 +37,10 @@ export function useDistanceCalculation({
   rotaOtimizada,
   ordemManual,
 }: UseDistanceCalculationOptions): UseDistanceCalculationReturn {
-  const [distanciaManualReal, setDistanciaManualReal] = useState<DistanciaManualReal | null>(null);
+  const [distanciaManualReal, setDistanciaManualReal] =
+    useState<DistanciaManualReal | null>(null);
   const [isCalculandoReal, setIsCalculandoReal] = useState(false);
+  const [calculationError, setCalculationError] = useState<string | null>(null);
 
   // Ref para controle do debounce
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -45,56 +48,74 @@ export function useDistanceCalculation({
   const requestIdRef = useRef(0);
 
   // Calcula distância real via OSRM
-  const calcularDistanciaReal = useCallback(async (requestId: number) => {
-    if (!enderecoUnidade || paradas.length === 0) return;
+  const calcularDistanciaReal = useCallback(
+    async (requestId: number) => {
+      if (!enderecoUnidade || paradas.length === 0) return;
 
-    setIsCalculandoReal(true);
-    try {
-      const pontoUnidade = {
-        latitude: enderecoUnidade.latitude,
-        longitude: enderecoUnidade.longitude,
-      };
+      try {
+        const pontoUnidade = {
+          latitude: enderecoUnidade.latitude,
+          longitude: enderecoUnidade.longitude,
+        };
 
-      const waypoints = paradas
-        .filter((p): p is Parada & { latitude: number; longitude: number } =>
-          p.latitude != null && p.longitude != null
-        )
-        .map((p) => ({
-          latitude: p.latitude,
-          longitude: p.longitude,
-        }));
+        const waypoints = paradas
+          .filter(
+            (p): p is Parada & { latitude: number; longitude: number } =>
+              p.latitude != null && p.longitude != null,
+          )
+          .map((p) => ({
+            latitude: p.latitude,
+            longitude: p.longitude,
+          }));
 
-      const resultado = await googleMapsService.getDirections(
-        pontoUnidade,
-        pontoUnidade,
-        waypoints,
-        false // Não otimizar - manter ordem manual
-      );
+        const resultado = await googleMapsService.getDirections(
+          pontoUnidade,
+          pontoUnidade,
+          waypoints,
+          false, // Não otimizar - manter ordem manual
+        );
 
-      // Verificar se esta requisição ainda é válida
-      if (requestId !== requestIdRef.current) {
-        return; // Requisição obsoleta, ignorar resultado
+        // Verificar se esta requisição ainda é válida
+        if (requestId !== requestIdRef.current) {
+          return; // Requisição obsoleta, ignorar resultado
+        }
+
+        if (resultado) {
+          setDistanciaManualReal({
+            metros: resultado.distancia_total_metros,
+            segundos: resultado.duracao_total_segundos,
+            isEstimated: resultado.is_estimated === true,
+            polyline: resultado.polyline,
+          });
+          setCalculationError(null);
+        } else {
+          setDistanciaManualReal(null);
+          setCalculationError(
+            'Não foi possível calcular o percurso viário. Tente novamente.',
+          );
+        }
+      } catch (error) {
+        // Verificar se esta requisição ainda é válida
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+        logger.error(
+          '[useDistanceCalculation] Erro ao calcular distância real',
+          error,
+        );
+        setDistanciaManualReal(null);
+        setCalculationError(
+          'Não foi possível calcular o percurso viário. Tente novamente.',
+        );
+      } finally {
+        // Só atualiza loading se a requisição ainda for válida
+        if (requestId === requestIdRef.current) {
+          setIsCalculandoReal(false);
+        }
       }
-
-      if (resultado) {
-        setDistanciaManualReal({
-          metros: resultado.distancia_total_metros,
-          segundos: resultado.duracao_total_segundos,
-        });
-      }
-    } catch (error) {
-      // Verificar se esta requisição ainda é válida
-      if (requestId !== requestIdRef.current) {
-        return;
-      }
-      logger.error('[useDistanceCalculation] Erro ao calcular distância real', error);
-    } finally {
-      // Só atualiza loading se a requisição ainda for válida
-      if (requestId === requestIdRef.current) {
-        setIsCalculandoReal(false);
-      }
-    }
-  }, [enderecoUnidade, paradas]);
+    },
+    [enderecoUnidade, paradas],
+  );
 
   // Auto-cálculo com debounce quando ordem manual é ativada ou paradas mudam
   useEffect(() => {
@@ -103,15 +124,25 @@ export function useDistanceCalculation({
       clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
     }
+    requestIdRef.current += 1;
+    const currentRequestId = requestIdRef.current;
 
-    // Só calcular se ordem manual estiver ativa e houver rota otimizada
-    if (!ordemManual || !rotaOtimizada || !enderecoUnidade || paradas.length === 0) {
+    // Uma rota otimizada e não alterada já possui métricas confirmadas.
+    if (rotaOtimizada && !ordemManual) {
+      setIsCalculandoReal(false);
+      setCalculationError(null);
+      return;
+    }
+
+    if (!enderecoUnidade || paradas.length === 0) {
+      setIsCalculandoReal(false);
+      setCalculationError(null);
       return;
     }
 
     // Incrementar ID da requisição para invalidar requisições anteriores
-    requestIdRef.current += 1;
-    const currentRequestId = requestIdRef.current;
+    setIsCalculandoReal(true);
+    setCalculationError(null);
 
     // Iniciar debounce
     debounceTimerRef.current = setTimeout(() => {
@@ -125,7 +156,13 @@ export function useDistanceCalculation({
         debounceTimerRef.current = null;
       }
     };
-  }, [ordemManual, rotaOtimizada, enderecoUnidade, paradas, calcularDistanciaReal]);
+  }, [
+    ordemManual,
+    rotaOtimizada,
+    enderecoUnidade,
+    paradas,
+    calcularDistanciaReal,
+  ]);
 
   const resetDistanciaReal = useCallback(() => {
     // Cancelar requisições pendentes
@@ -136,11 +173,13 @@ export function useDistanceCalculation({
     }
     setDistanciaManualReal(null);
     setIsCalculandoReal(false);
+    setCalculationError(null);
   }, []);
 
   return {
     distanciaManualReal,
     isCalculandoReal,
+    calculationError,
     resetDistanciaReal,
   };
 }

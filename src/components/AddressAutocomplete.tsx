@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useId } from "react";
+import React, { useState, useEffect, useRef, useCallback, useId } from 'react';
 import {
   View,
   TextInput,
@@ -8,14 +8,14 @@ import {
   FlatList,
   Platform,
   Keyboard,
-} from "react-native";
+} from 'react-native';
 
-import { useResponsive } from "@/hooks/useResponsive";
-import { geocodingService, UnifiedPlaceSuggestion } from "@/lib/geocoding";
-import { logger } from "@/lib/logger";
-import type { Coordenadas } from "@/types/endereco";
-import { boxShadow } from "@/utils/color";
-import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
+import { useResponsive } from '@/hooks/useResponsive';
+import { geocodingService, UnifiedPlaceSuggestion } from '@/lib/geocoding';
+import { logger } from '@/lib/logger';
+import type { Coordenadas } from '@/types/endereco';
+import { boxShadow } from '@/utils/color';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface AddressAutocompleteProps {
   value: string;
@@ -44,6 +44,8 @@ interface AddressAutocompleteProps {
   locationBias?: Coordenadas;
   /** Whether the field is required (adds aria-required for screen readers) */
   required?: boolean;
+  /** Ref do formulário para foco automático no primeiro erro. */
+  inputRef?: React.Ref<TextInput>;
 }
 
 /**
@@ -63,12 +65,13 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   value,
   onChangeText,
   onSelectAddress,
-  placeholder = "Endereço ou CEP",
+  placeholder = 'Endereço ou CEP',
   error,
   multiline = false,
   compact,
   locationBias,
   required = false,
+  inputRef: externalInputRef,
 }: AddressAutocompleteProps) {
   const { theme } = useUnistyles();
   const { isDesktop } = useResponsive();
@@ -83,6 +86,18 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
     [comboboxId],
   );
   const inputRef = useRef<TextInput>(null);
+  const setInputRef = useCallback(
+    (node: TextInput | null) => {
+      inputRef.current = node;
+      if (typeof externalInputRef === 'function') {
+        externalInputRef(node);
+      } else if (externalInputRef) {
+        (externalInputRef as React.MutableRefObject<TextInput | null>).current =
+          node;
+      }
+    },
+    [externalInputRef],
+  );
   const [suggestions, setSuggestions] = useState<UnifiedPlaceSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -96,7 +111,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
 
   // Limpar suggestions quando value é limpo externamente
   useEffect(() => {
-    if (value === "") {
+    if (value === '') {
       setSuggestions([]);
       setShowSuggestions(false);
       // Reset interaction tracking for next use (e.g., modal reopen)
@@ -142,7 +157,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
         );
         setSuggestions(results);
       } catch (error) {
-        logger.error("[AddressAutocomplete] Erro no autocomplete:", error);
+        logger.error('[AddressAutocomplete] Erro no autocomplete:', error);
         setSuggestions([]);
       } finally {
         setIsLoading(false);
@@ -226,16 +241,16 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
       let finalAddress = suggestion.description;
       if (numberFromInput && !suggestionHasNumber) {
         // Inserir número após o nome da rua (antes da primeira vírgula)
-        const firstCommaIndex = suggestion.description.indexOf(",");
+        const firstCommaIndex = suggestion.description.indexOf(',');
         if (firstCommaIndex > 0) {
           finalAddress =
             suggestion.description.slice(0, firstCommaIndex) +
-            ", " +
+            ', ' +
             numberFromInput +
             suggestion.description.slice(firstCommaIndex);
         } else {
           // Sem vírgula, adiciona no final
-          finalAddress = suggestion.description + ", " + numberFromInput;
+          finalAddress = suggestion.description + ', ' + numberFromInput;
         }
       }
 
@@ -267,7 +282,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
           );
         } catch (error) {
           logger.error(
-            "[AddressAutocomplete] Erro ao obter coordenadas:",
+            '[AddressAutocomplete] Erro ao obter coordenadas:',
             error,
           );
           // Mesmo sem coordenadas, retorna o endereço
@@ -289,7 +304,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   );
 
   const handleClearInput = useCallback(() => {
-    onChangeText("");
+    onChangeText('');
     setSuggestions([]);
     setShowSuggestions(false);
   }, [onChangeText]);
@@ -329,7 +344,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
 
   // Keyboard navigation via DOM addEventListener (RNW overrides onKeyDown on TextInput)
   useEffect(() => {
-    if (Platform.OS !== "web") return;
+    if (Platform.OS !== 'web') return;
     const node =
       (inputRef.current as unknown as { _node?: HTMLElement })?._node ??
       (inputRef.current as unknown as HTMLElement);
@@ -341,17 +356,17 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
         return;
 
       switch (ke.key) {
-        case "ArrowDown":
+        case 'ArrowDown':
           ke.preventDefault();
           setSelectedIndex((prev) =>
             prev < suggestionsRef.current.length - 1 ? prev + 1 : prev,
           );
           break;
-        case "ArrowUp":
+        case 'ArrowUp':
           ke.preventDefault();
           setSelectedIndex((prev) => (prev > 0 ? prev - 1 : -1));
           break;
-        case "Enter":
+        case 'Enter':
           if (selectedIndexRef.current >= 0) {
             ke.preventDefault();
             handleSelectSuggestionRef.current(
@@ -359,30 +374,30 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
             );
           }
           break;
-        case "Escape":
+        case 'Escape':
           setShowSuggestions(false);
           setSelectedIndex(-1);
           break;
-        case "Tab":
+        case 'Tab':
           setShowSuggestions(false);
           setSelectedIndex(-1);
           break;
       }
     };
 
-    node.addEventListener("keydown", handler);
-    return () => node.removeEventListener("keydown", handler);
+    node.addEventListener('keydown', handler);
+    return () => node.removeEventListener('keydown', handler);
   }, []);
 
   // Ícone baseado na fonte
   const getSourceIcon = useCallback(
-    (source: UnifiedPlaceSuggestion["source"]) => {
+    (source: UnifiedPlaceSuggestion['source']) => {
       switch (source) {
-        case "viacep":
-          return "📮"; // CEP/Correios
-        case "google":
+        case 'viacep':
+          return '📮'; // CEP/Correios
+        case 'google':
         default:
-          return "🔍"; // Google
+          return '🔍'; // Google
       }
     },
     [],
@@ -408,8 +423,8 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
       const isSelected = index === selectedIndex;
 
       const sourceLabel =
-        item.source === "viacep" ? "Resultado via CEP" : "Resultado de busca";
-      const fullLabel = `${sourceLabel}: ${displayMainText}, ${item.structured_formatting.secondary_text}${item.cep ? ", CEP: " + item.cep : ""}`;
+        item.source === 'viacep' ? 'Resultado via CEP' : 'Resultado de busca';
+      const fullLabel = `${sourceLabel}: ${displayMainText}, ${item.structured_formatting.secondary_text}${item.cep ? ', CEP: ' + item.cep : ''}`;
 
       return (
         <TouchableOpacity
@@ -424,11 +439,11 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
           activeOpacity={0.7}
           accessibilityLabel={fullLabel}
           accessibilityHint="Toque para selecionar este endereço"
-          accessibilityRole={Platform.OS !== "web" ? "button" : undefined}
-          {...(Platform.OS === "web"
+          accessibilityRole={Platform.OS !== 'web' ? 'button' : undefined}
+          {...(Platform.OS === 'web'
             ? ({
-                role: "option" as any,
-                "aria-selected": isSelected,
+                role: 'option' as any,
+                'aria-selected': isSelected,
               } as any)
             : {})}
         >
@@ -439,7 +454,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
             ]}
             accessibilityElementsHidden={true}
             importantForAccessibility="no-hide-descendants"
-            {...(Platform.OS === "web" ? { "aria-hidden": true } : {})}
+            {...(Platform.OS === 'web' ? { 'aria-hidden': true } : {})}
           >
             <Text
               style={[
@@ -466,7 +481,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
               ]}
             >
               {item.structured_formatting.secondary_text}
-              {item.cep ? ` • CEP: ${item.cep}` : ""}
+              {item.cep ? ` • CEP: ${item.cep}` : ''}
             </Text>
           </View>
         </TouchableOpacity>
@@ -515,9 +530,9 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
           style={styles.suggestionsContainer}
           nativeID={listboxId}
           accessibilityRole="list"
-          accessibilityLabel={`Sugestões de endereço, ${suggestions.length} resultado${suggestions.length > 1 ? "s" : ""}`}
+          accessibilityLabel={`Sugestões de endereço, ${suggestions.length} resultado${suggestions.length > 1 ? 's' : ''}`}
           accessibilityLiveRegion="polite"
-          {...(Platform.OS === "web" ? { role: "listbox" as any } : {})}
+          {...(Platform.OS === 'web' ? { role: 'listbox' as any } : {})}
         >
           <FlatList
             data={suggestions}
@@ -584,17 +599,17 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
             useCompact && styles.inputCompact,
             error && styles.inputError,
             multiline && styles.inputMultiline,
-            { pointerEvents: "auto" },
+            { pointerEvents: 'auto' },
           ]}
           placeholder={placeholder}
           placeholderTextColor={theme.colors.gray400}
-          value={value || ""}
+          value={value || ''}
           onChangeText={onChangeText}
           onFocus={handleFocus}
           onBlur={handleBlur}
           multiline={multiline}
           numberOfLines={multiline ? 2 : 1}
-          textAlignVertical={multiline ? "top" : "center"}
+          textAlignVertical={multiline ? 'top' : 'center'}
           autoCorrect={false}
           autoCapitalize="words"
           blurOnSubmit={false}
@@ -606,14 +621,14 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
           accessibilityHint="Digite o endereço para buscar sugestões"
           aria-invalid={!!error}
           aria-required={required}
-          ref={inputRef}
-          {...(Platform.OS === "web"
+          ref={setInputRef}
+          {...(Platform.OS === 'web'
             ? {
-                role: "combobox",
-                "aria-expanded": showSuggestions && suggestions.length > 0,
-                "aria-autocomplete": "list",
-                "aria-controls": listboxId,
-                "aria-activedescendant":
+                role: 'combobox',
+                'aria-expanded': showSuggestions && suggestions.length > 0,
+                'aria-autocomplete': 'list',
+                'aria-controls': listboxId,
+                'aria-activedescendant':
                   selectedIndex >= 0 ? getOptionId(selectedIndex) : undefined,
               }
             : {})}
@@ -634,7 +649,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
                 styles.clearButtonText,
                 useCompact && styles.clearButtonTextCompact,
               ]}
-              {...(Platform.OS === "web" ? { "aria-hidden": true } : {})}
+              {...(Platform.OS === 'web' ? { 'aria-hidden': true } : {})}
             >
               ×
             </Text>
@@ -642,7 +657,11 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
         )}
       </View>
 
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && (
+        <Text style={styles.errorText} accessibilityLiveRegion="assertive">
+          {error}
+        </Text>
+      )}
 
       {/* Dropdown com position absolute */}
       {renderDropdownContent()}
@@ -659,6 +678,9 @@ export const AddressAutocomplete = React.memo(
     // Ignorar funções (onChangeText, onSelectAddress) para evitar re-renders
     return (
       prevProps.value === nextProps.value &&
+      prevProps.onChangeText === nextProps.onChangeText &&
+      prevProps.onSelectAddress === nextProps.onSelectAddress &&
+      prevProps.inputRef === nextProps.inputRef &&
       prevProps.placeholder === nextProps.placeholder &&
       prevProps.error === nextProps.error &&
       prevProps.multiline === nextProps.multiline &&
@@ -675,7 +697,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.sm,
   },
   inputContainer: {
-    position: "relative",
+    position: 'relative',
   },
   input: {
     borderWidth: 1,
@@ -696,21 +718,21 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   inputMultiline: {
     minHeight: 60,
-    textAlignVertical: "top",
+    textAlignVertical: 'top',
   },
   inputError: {
     borderColor: theme.colors.error,
   },
   clearButton: {
-    position: "absolute",
+    position: 'absolute',
     right: theme.spacing.sm,
     top: theme.spacing.sm,
     width: theme.spacing.lg,
     height: theme.spacing.lg,
     borderRadius: theme.borderRadius.full,
     backgroundColor: theme.colors.textSecondary,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   clearButtonCompact: {
     right: theme.spacing.xs,
@@ -722,7 +744,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   clearButtonText: {
     color: theme.colors.surface,
     fontSize: theme.typography.sm,
-    fontWeight: "bold",
+    fontWeight: 'bold',
   },
   clearButtonTextCompact: {
     fontSize: theme.typography.xs,
@@ -734,8 +756,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginTop: theme.spacing.xs,
   },
   loadingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: theme.spacing.sm,
     backgroundColor: theme.colors.disabled,
     borderRadius: theme.borderRadius.md,
@@ -773,8 +795,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     maxHeight: 200,
   },
   suggestionItem: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: theme.spacing.sm,
     backgroundColor: theme.colors.surface,
   },
@@ -787,8 +809,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   suggestionIcon: {
     width: theme.spacing.lg,
     height: theme.spacing.lg,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: theme.spacing.sm,
   },
   suggestionIconCompact: {
@@ -809,7 +831,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.base - 1,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.text,
-    marginBottom: theme.spacing["0.5"],
+    marginBottom: theme.spacing['0.5'],
   },
   suggestionMainTextCompact: {
     fontSize: theme.components.input.size.medium.fontSize,
@@ -839,7 +861,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.sm,
     fontFamily: theme.typography.fontSans,
     color: theme.colors.error,
-    textAlign: "center",
+    textAlign: 'center',
   },
   hintContainer: {
     marginTop: theme.spacing.xs,
@@ -848,6 +870,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.xs,
     fontFamily: theme.typography.fontSans,
     color: theme.colors.textSecondary,
-    fontStyle: "italic",
+    fontStyle: 'italic',
   },
 }));
