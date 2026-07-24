@@ -4,90 +4,107 @@
 [![Code Quality](https://github.com/BadWolf1509/rotamestre-app/actions/workflows/quality.yml/badge.svg)](https://github.com/BadWolf1509/rotamestre-app/actions/workflows/quality.yml)
 [![codecov](https://codecov.io/gh/BadWolf1509/rotamestre-app/branch/main/graph/badge.svg)](https://codecov.io/gh/BadWolf1509/rotamestre-app)
 
-> SaaS de otimização e gestão de rotas de última milha. Dois perfis: **gestor** (cria e atribui rotas) e **motorista** (executa com navegação e foto de comprovação de entrega).
+SaaS de planejamento e gestão de rotas de última milha. Gestores montam,
+otimizam e acompanham rotas; motoristas executam as paradas no Android, com
+navegação, ocorrências e foto privada de comprovação.
 
-**Stack:** React Native · Expo SDK 56 · TypeScript · Supabase · React Native Unistyles · MapLibre (sem Google Maps) · Expo Router
+- Web: <https://app.rotamestre.tec.br>
+- Android: `br.tec.rotamestre.app`
+- Estado atual e próximos passos:
+  [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md)
 
-**Produção:** web em **https://app.rotamestre.tec.br** · Android **`br.tec.rotamestre.app`** (em publicação na Play)
+## Stack
 
-> ℹ️ Contexto técnico completo (stack, padrões, phonebook): **[CLAUDE.md](CLAUDE.md)**. Estado do relançamento do app: **[docs/REBUILD_RELAUNCH_PLAN.md](docs/REBUILD_RELAUNCH_PLAN.md)**.
+- React Native, Expo SDK 56, Expo Router e TypeScript
+- Supabase: Auth, Postgres, RLS, Storage, Realtime e Edge Functions
+- MapLibre para mapas e OSRM para cálculo/otimização
+- Google Places somente por Edge Functions, sem chave Google no cliente
+- Jest, Testing Library, Playwright e regressão visual
+- Vercel para web; EAS e Google Play para Android
 
----
+## Desenvolvimento
 
-## 🚀 Setup rápido
+Requer Node.js 20 ou superior.
 
 ```bash
-git clone https://github.com/BadWolf1509/rotamestre-app.git
-cd rotamestre-app
 npm install
-
-# Crie o .env na raiz — o Supabase é OBRIGATÓRIO (sem ele o app cai num
-# placeholder e toda query falha com UnknownHostException):
 cp .env.example .env
-#   EXPO_PUBLIC_SUPABASE_URL=https://xezslsyxjivunmhhyxtd.supabase.co
-#   EXPO_PUBLIC_SUPABASE_ANON_KEY=<anon key: Supabase Dashboard → Settings → API>
-
-npm run web        # web em http://localhost:8081
-npm run android    # build nativo + instala no device/emulador conectado
+npm run web
 ```
 
-> **Mapas** (MapLibre + OSRM + Photon) são gratuitos e **não exigem chave do Google**.
-> Em **builds EAS**, as variáveis do Supabase vivem **por-ambiente no EAS** (`eas env:*`), não no repositório.
+Preencha o `.env` local com a URL e a chave pública atual do Supabase. Não use
+`service_role` no app. Em builds EAS, as variáveis são administradas por
+ambiente no EAS e não ficam versionadas.
 
----
+Para um dispositivo ou emulador Android conectado:
 
-## 📁 Estrutura
-
-```
-app/                     # Telas (Expo Router): (auth)/, gestor/, motorista/
-src/
-├── components/          # UI reutilizável + base do design system
-├── hooks/               # Hooks por domínio (auth/, gestao-rotas/, motorista/, ...)
-├── lib/                 # supabase, logger, sentry, photon, osrm, navegação
-├── context/             # React Contexts (notificações, status de rota)
-└── types/               # Tipos de domínio (Rota, Parada, Usuario, ...)
-database/migrations/     # Migrations SQL (diretório canônico)
-docs/                    # Documentação
+```bash
+npm run android
 ```
 
----
+## Validação
 
-## 🛠️ Comandos
+```bash
+npm run type-check
+npm run lint
+npm test
+npm run build:web
+```
 
-| Comando                              | O quê                                                         |
-| ------------------------------------ | ------------------------------------------------------------- |
-| `npm start`                          | Dev server (Expo)                                             |
-| `npm run web` / `android` / `ios`    | Rodar por plataforma                                          |
-| `npm test` · `npm run test:coverage` | Testes unitários (Jest)                                       |
-| `npm run test:e2e`                   | E2E (Playwright)                                              |
-| `npm run type-check`                 | TypeScript (`tsc --noEmit`)                                   |
-| `npm run lint`                       | ESLint (`--max-warnings=0`)                                   |
-| `npm run build:web`                  | Build web (deploy automático no Vercel ao dar push em `main`) |
+Atalhos adicionais:
 
----
+| Comando                        | Uso                                 |
+| ------------------------------ | ----------------------------------- |
+| `npm run validate`             | type-check, lint e Jest             |
+| `npm run test:e2e`             | testes E2E com Playwright           |
+| `npm run test:visual`          | regressão visual                    |
+| `npm run verify:design-system` | validação dos tokens visuais        |
+| `npx supabase migration list`  | compara migrations locais e remotas |
 
-## 👥 Perfis & multi-tenancy
+Antes de release Android, siga
+[docs/GOOGLE_PLAY_DEPLOYMENT.md](docs/GOOGLE_PLAY_DEPLOYMENT.md); não gere um
+novo build sem conferir o maior `versionCode` já enviado ao Play.
 
-Papéis em `usuarios.papel`: **`gestor`** (CRUD da própria unidade) e **`motorista`** (rotas atribuídas + suas paradas). Ações de **admin** ficam no projeto do **painel**, nunca aqui. Os dados são isolados por `unidade_id` via **RLS** (Row Level Security) — um usuário pode pertencer a várias unidades via `usuario_unidades`.
+## Estrutura
 
----
+```text
+app/                     rotas e telas do Expo Router
+src/components/          componentes e design system
+src/hooks/               hooks organizados por domínio
+src/lib/                 Supabase, mapas, logs, storage e utilitários
+src/types/               tipos de domínio
+database/migrations/     histórico canônico de SQL
+supabase/migrations/     migrations operacionais do Supabase CLI
+supabase/functions/      Edge Functions
+docs/                    contexto, operação, testes e release
+```
 
-## 📚 Documentação
+## Perfis e segurança
 
-| Tema                                                 | Onde                                                             |
-| ---------------------------------------------------- | ---------------------------------------------------------------- |
-| Contexto técnico (stack, padrões, phonebook)         | [CLAUDE.md](CLAUDE.md)                                           |
-| Testes (comandos, cobertura, layout)                 | [docs/TESTING.md](docs/TESTING.md)                               |
-| Migrations (convenções + histórico)                  | [database/MIGRATIONS.md](database/MIGRATIONS.md)                 |
-| Recuperação de senha (fluxo de ponta a ponta)        | [docs/PASSWORD_RECOVERY.md](docs/PASSWORD_RECOVERY.md)           |
-| Relançamento do app (contas perdidas → reconstruído) | [docs/REBUILD_RELAUNCH_PLAN.md](docs/REBUILD_RELAUNCH_PLAN.md)   |
-| Push / Firebase (FCM)                                | [docs/FIREBASE_MIGRATION.md](docs/FIREBASE_MIGRATION.md)         |
-| Publicação na Google Play                            | [docs/GOOGLE_PLAY_DEPLOYMENT.md](docs/GOOGLE_PLAY_DEPLOYMENT.md) |
-| Marca (cores, tipografia, contraste)                 | [brand-guidelines.md](brand-guidelines.md)                       |
-| Contribuição (PRs, branches, CI)                     | [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md)               |
+Os papéis são `gestor` e `motorista`. Usuários podem participar de múltiplas
+unidades por `usuario_unidades`; o acesso é isolado por `unidade_id` e RLS.
+Ações administrativas com `service_role` pertencem ao painel administrativo,
+nunca a este cliente.
 
----
+O bucket `fotos-entrega` é privado. O app persiste paths e gera signed URLs em
+leitura; não substitua esse fluxo por URL pública.
 
-## 📝 Licença
+## Documentação
 
-Proprietário — Rota Mestre © 2026. Dev: Wellington Ribeiro.
+| Tema                            | Documento                                                        |
+| ------------------------------- | ---------------------------------------------------------------- |
+| Handoff, estado atual e backlog | [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md)               |
+| Arquitetura e padrões técnicos  | [CLAUDE.md](CLAUDE.md)                                           |
+| Testes                          | [docs/TESTING.md](docs/TESTING.md)                               |
+| Migrations                      | [database/MIGRATIONS.md](database/MIGRATIONS.md)                 |
+| Publicação no Google Play       | [docs/GOOGLE_PLAY_DEPLOYMENT.md](docs/GOOGLE_PLAY_DEPLOYMENT.md) |
+| Conteúdo da ficha do Play       | [docs/play-store-metadata.md](docs/play-store-metadata.md)       |
+| Histórico do rebuild Android    | [docs/REBUILD_RELAUNCH_PLAN.md](docs/REBUILD_RELAUNCH_PLAN.md)   |
+| Firebase e push                 | [docs/FIREBASE_MIGRATION.md](docs/FIREBASE_MIGRATION.md)         |
+| Recuperação de senha            | [docs/PASSWORD_RECOVERY.md](docs/PASSWORD_RECOVERY.md)           |
+| Marca                           | [brand-guidelines.md](brand-guidelines.md)                       |
+| Contribuição e CI               | [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md)               |
+
+## Licença
+
+Proprietário — Rota Mestre © 2026. Desenvolvimento: Wellington Ribeiro.

@@ -4,24 +4,49 @@
 
 ---
 
-## 📋 Como Aplicar uma Migration
+## 📋 Processo atual
 
-### Opção 1: Supabase Dashboard (Recomendado)
+1. Antes de criar SQL, confira o projeto vinculado e o histórico remoto:
 
-1. Acesse: https://supabase.com/dashboard/project/xezslsyxjivunmhhyxtd/sql
-2. Cole o SQL da migration
-3. Execute
+   ```bash
+   npx supabase migration list
+   ```
 
-### Opção 2: CLI Local
+2. Crie a migration com timestamp `YYYYMMDDhhmmss` em
+   `database/migrations/`.
+3. Para alterações novas de schema, mantenha uma cópia byte-idêntica em
+   `supabase/migrations/`.
+4. Revise RLS, `SECURITY DEFINER`, grants, `search_path`, índices de FKs,
+   idempotência e rollback.
+5. Aplique pelo fluxo versionado do Supabase e valide o efeito no banco vivo.
+6. Regenere `src/types/database.ts` quando o schema exposto ao cliente mudar.
+7. Atualize este histórico e o estado em `docs/PROJECT_CONTEXT.md`.
 
-```bash
-cd tools/scripts
-node apply-migration.js nome-da-migration.sql
-```
+Não cole novamente no Dashboard uma migration que já aparece no remoto.
+Migrations antigas aplicadas manualmente não devem ser marcadas como pendentes
+apenas por não aparecerem em `supabase_migrations.schema_migrations`.
 
 ---
 
-> ⚠️ **Rastreamento (dual-path):** migrations são aplicadas via Dashboard, `tools/scripts/apply-migration.js` ou MCP `apply_migration`. A tabela `supabase_migrations.schema_migrations` rastreia **apenas o subconjunto** aplicado via Supabase CLI/MCP; a maior parte do histórico (~44 arquivos) foi aplicada manualmente e os efeitos estão confirmados no banco. `database/migrations/` é a **fonte canônica**; `supabase/migrations/` é um subconjunto para `supabase db push`. As RPCs `20251224150000_reordenar_paradas_rpc` e `20251224160000_inserir_parada_rpc` foram copiadas de `supabase/` para `database/` em 22/06/2026 para completar o canônico.
+> ⚠️ **Legado dual-path:** a maior parte do histórico foi aplicada pelo
+> Dashboard, scripts locais ou MCP e não está integralmente registrada na tabela
+> de migrations do CLI. `database/migrations/` é o histórico canônico;
+> `supabase/migrations/` é o conjunto operacional do Supabase CLI. Novas
+> migrations devem existir nos dois diretórios. Exceções retroativas precisam
+> declarar que já foram aplicadas para evitar dupla execução.
+
+### Snapshot remoto em 24/07/2026
+
+`npx supabase migration list` confirmou no remoto:
+
+- `20260722195606_security_revoke_definer_anon_param`;
+- `20260723223000_nova_entrega_drafts_atomic_route`.
+
+Também existem divergências históricas conhecidas: migrations aplicadas
+manualmente/MCP sem linha remota, além de três timestamps remotos sem arquivo
+local equivalente (`20260703042401`, `20260723065918` e `20260723135901`).
+Antes de uma futura harmonização, audite conteúdo e efeito; não repare o
+histórico no escuro.
 
 ---
 
@@ -119,9 +144,9 @@ GROUP BY r.id, r.data, r.status, r.motorista_id, m.nome, r.distancia_total;
 
 ---
 
-### ⏳ Migration 4: Otimização RLS (InitPlan)
+### ✅ Migration 4: Otimização RLS (InitPlan)
 
-**Data:** Pendente
+**Data:** 22/10/2025, consolidada em 20/12/2025
 **Objetivo:** Resolver avisos `auth_rls_initplan` - melhorar performance
 
 **Problema:** `auth.uid()` está sendo chamado para cada linha retornada (lento em queries grandes)
@@ -151,7 +176,10 @@ FOR SELECT USING (
 - `paradas` (via `rotas`)
 - `profiles`
 
-**Status:** ⏳ Pendente (não crítico - melhoria de performance)
+**Status:** ✅ Aplicada e posteriormente consolidada por
+`20251220_optimize_rls_policies.sql` (timestamp `20251220` registrado no remoto).
+As policies atuais foram alteradas por migrations multi-unidade posteriores;
+qualquer nova otimização deve partir do schema vivo.
 
 ---
 
@@ -179,11 +207,11 @@ COMMENT ON TABLE spatial_ref_sys IS
 | Tipo             | Quantidade | Status       |
 | ---------------- | ---------- | ------------ |
 | **Críticas**     | 3          | ✅ Aplicadas |
-| **Performance**  | 1          | ⏳ Pendente  |
+| **Performance**  | 1          | ✅ Aplicada  |
 | **Opcionais**    | 1          | ℹ️ Ignorável |
 | **Notificações** | 2          | ✅ Aplicadas |
 
-**Total Aplicado:** 5/7 migrations (71%)
+**Total deste bloco histórico:** 6/7 (a sétima é opcional/ignorável)
 **Avisos Resolvidos:** 13 avisos críticos ✅
 
 ---
@@ -302,7 +330,7 @@ A migration inclui diagnóstico que lista triggers antes e depois da limpeza.
 
 ---
 
-**Última atualização:** 27/12/2025
+**Marco histórico deste bloco:** 27/12/2025
 
 ### 🔧 Migration 9: Prevenir Logs Duplicados
 
@@ -419,4 +447,50 @@ update storage.buckets set public = false where id = 'fotos-entrega';
 
 ---
 
-**Última atualização:** 13/07/2026
+### ✅ Migration 16: Revogar funções DEFINER parametrizadas
+
+**Data:** 22/07/2026
+
+**Arquivos:** `20260722195606_security_revoke_definer_anon_param.sql`
+(`database/` + `supabase/`)
+
+**Objetivo:** fechar divulgação de papel/unidade por seis funções
+`SECURITY DEFINER` que aceitavam um `user_id` arbitrário.
+
+- Revoga `EXECUTE` de `PUBLIC`, `anon` e `authenticated`.
+- Mantém execução interna por `service_role`/`postgres`.
+- Auditoria confirmou que nenhuma policy e nenhum cliente dependiam dessas
+  funções.
+- O SQL já havia sido aplicado; o commit posterior apenas incorporou a
+  migration preexistente ao histórico versionado.
+
+**Status:** ✅ Aplicado em produção e registrado no histórico remoto
+
+---
+
+### ✅ Migration 17: Rascunhos e criação atômica da Nova Entrega
+
+**Data:** 23/07/2026
+
+**Arquivos:** `20260723223000_nova_entrega_drafts_atomic_route.sql`
+(`database/` + `supabase/`)
+
+**Objetivo:** preservar o trabalho do gestor após refresh e impedir rotas
+parciais ou duplicadas em retries.
+
+- Adiciona `rotas.client_request_id` e índice único parcial para idempotência.
+- Cria `rascunhos_rota` com payload JSON, expiração em sete dias e unicidade por
+  gestor/unidade.
+- Habilita RLS de rascunhos para o próprio gestor ativo na unidade.
+- Cria a RPC `criar_rota_com_paradas`, que valida motorista, data, checkpoints,
+  limites, coordenadas, telefones e dependências retirada/entrega.
+- Insere rota, paradas, vínculos e log na mesma transação.
+- Serializa requests iguais com advisory lock, reutiliza uma rota já criada com
+  a mesma chave e remove o rascunho após sucesso.
+- Revoga execução de `PUBLIC`/`anon` e concede apenas a `authenticated`.
+
+**Status:** ✅ Aplicado em produção e registrado no histórico remoto
+
+---
+
+**Última atualização:** 24/07/2026

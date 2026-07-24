@@ -1,103 +1,139 @@
-# Migração para um novo projeto Firebase (push / FCM)
+# Firebase e push Android
 
-> **✅ CONCLUÍDA (2026-06-16):** novo projeto **`rota-mestre-97084`**, app Android `br.tec.rotamestre.app` (App ID `1:576641899942:android:ce17de82eff711db98c367`). SHA-1 da upload key registrado; credencial **FCM V1** (service account) subida no EAS; `google-services.json` trocado. **Push validado ponta a ponta em device** (registro sem `FIS_AUTH_ERROR` + entrega via exp.host→FCM). ⚠️ **Correção à nota antiga deste doc:** como o RotaMestre usa só FCM (não Google Sign-In/Phone Auth/App Check), o **push NÃO depende de SHA-1** — registrar a app-signing SHA-1 do Play é opcional/futuro, não bloqueia push. O runbook abaixo fica como referência.
+> Runbook operacional. Migração concluída; atualizado em 24/07/2026.
 
-> **Contexto:** a conta Google dona do projeto Firebase/GCP original do RotaMestre foi
-> perdida. Sem ela não dá pra registrar SHA-1, gerenciar a API key do `google-services.json`
-> nem a entrega de push. Este runbook recria o lado Firebase **sob uma conta sob seu controle**,
-> sem reescrever o app nem o backend de envio.
+## Estado atual
 
-## O que NÃO muda (importante)
+| Item               | Valor                                            |
+| ------------------ | ------------------------------------------------ |
+| Firebase project   | `rota-mestre-97084`                              |
+| Android package    | `br.tec.rotamestre.app`                          |
+| Entrega no cliente | `expo-notifications`                             |
+| Token persistido   | `usuarios.push_token` (`ExponentPushToken[...]`) |
+| Envio no backend   | Edge Function `send-push-notification`           |
+| Credencial         | FCM V1 administrada no EAS                       |
 
-A arquitetura de push é:
+O novo projeto, o `google-services.json` e a credencial FCM V1 foram
+configurados. Registro de token e entrega foram validados em dispositivo físico
+durante a reconstrução.
 
-```
-app (expo-notifications) → ExponentPushToken → usuarios.push_token
-   │
-   └─ Edge Function send-push-notification → exp.host (Expo Push API) → FCM → device
-```
+## Arquitetura
 
-- A **Edge Function `supabase/functions/send-push-notification`** envia **só via Expo Push API**
-  (`https://exp.host/--/api/v2/push/send`). Ela **não contém credencial Firebase/FCM** → **não muda**.
-- A credencial FCM que o Expo usa pra entregar no Android fica no **projeto Expo/EAS**
-  (`1ea74080-a787-46db-abbf-d303d1b7a9d4`), não no Google. → só **re-subir** a nova.
-- `app.config.js` já aponta `googleServicesFile: "./google-services.json"`. → **não muda** (só troca o arquivo).
-
-Logo, a migração mexe em **dois artefatos**: o `google-services.json` do app e a credencial **FCM V1** no Expo.
-
-## Pré-requisito crítico — confirmar acesso ao Expo/EAS
-
-Tudo isto assume que você **ainda tem** a conta Expo dona do projeto EAS. Confirme:
-
-```powershell
-npx eas whoami          # deve logar o dono do projeto 1ea74080-...
-npx eas credentials     # deve listar credenciais Android do app
+```text
+Android
+  expo-notifications
+       │
+       └── ExponentPushToken ──> usuarios.push_token (Supabase)
+                                      │
+                                      ▼
+Edge Function send-push-notification ──> Expo Push API ──> FCM ──> aparelho
 ```
 
-Se também perdeu o Expo, o cenário muda (novo projeto EAS + todos os apps precisam atualizar). Pare e reavalie.
+- A Edge Function envia para a Expo Push API e não carrega a credencial FCM.
+- A credencial FCM V1 fica no projeto EAS e autoriza a entrega da Expo ao
+  Firebase.
+- `google-services.json` vincula o binário Android ao projeto Firebase.
+- O app atualiza o token no Supabase quando registra notificações.
 
-## Parte A — Criar o novo projeto Firebase
+## Esclarecimento sobre fingerprints SHA
 
-1. [Firebase Console](https://console.firebase.google.com) → **Adicionar projeto** (ex.: `rotamestre`).
-2. Adicionar app **Android** → package name **`br.tec.rotamestre`**.
-3. **Registrar os SHA-1** (Configurações do projeto → seu app Android → _Adicionar impressão digital_). Registre os três:
-   - **Debug (dev local):** `5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25`
-     (de `android/app/debug.keystore`; SHA-256 também disponível).
-   - **Upload key (EAS):** rode `npx eas credentials` → Android → Keystore → copie o SHA-1/SHA-256.
-   - **App signing key (Google Play):** Play Console → _Integridade do app → Assinatura de apps_ →
-     SHA-1/SHA-256 da chave de assinatura do app. **Esse é o que vale pra push em produção**
-     (o app instalado é re-assinado pelo Play).
-4. No **Google Cloud Console** (mesmo projeto) → APIs e Serviços → habilitar:
-   - **Firebase Cloud Messaging API** (FCM v1)
-   - **Firebase Installations API**
-5. Baixar o novo **`google-services.json`**.
+O fluxo atual usa FCM, mas não usa Google Sign-In, Phone Auth ou App Check.
+**FCM não exige SHA-1/SHA-256 da chave Android.** É aceitável registrar as
+fingerprints de debug, upload e Play App Signing como inventário ou preparação
+para serviços futuros, mas sua presença não comprova nem bloqueia o push atual.
 
-## Parte B — Trocar o `google-services.json` no app
+A verificação correta é receber uma notificação no artefato instalado pela
+trilha do Google Play.
 
-> O hook `block-sensitive-files` impede o Claude de escrever esse arquivo — **você** faz a troca.
+## Fontes de verdade
 
-6. Substituir pelo novo em **dois lugares**:
-   - `./google-services.json` (raiz)
-   - `./android/app/google-services.json`
-7. Rebuild local pra validar: `npx expo run:android`.
-   - **Esperado:** `getExpoPushToken` retorna `ExponentPushToken[...]` **sem `FIS_AUTH_ERROR`**
-     (novo projeto + SHA-1 debug registrado).
+- Identidade Android/Firebase: `app.config.js` e configuração nativa
+- Projeto EAS: `app.config.js`
+- Credencial FCM V1: EAS Credentials
+- App e service accounts: Firebase/Google Cloud Console
+- Token do usuário: Supabase `usuarios.push_token`
+- Código de registro: hooks/serviços de notificações no app
+- Código de envio: `supabase/functions/send-push-notification`
 
-## Parte C — Re-subir a credencial FCM V1 no Expo
+Não exponha o conteúdo de `google-services.json` ou da service account em
+documentos, logs ou commits.
 
-8. No novo Firebase: **Configurações do projeto → Contas de serviço → Gerar nova chave privada**
-   → baixa um JSON de service account.
-9. Subir no projeto Expo:
-   ```powershell
-   npx eas credentials      # Android → Push Notifications (FCM V1) → fornecer o JSON
-   ```
-   (ou via [expo.dev](https://expo.dev) → projeto → Credentials → FCM V1).
-10. Isso autoriza o **exp.host** a entregar no novo projeto. A Edge Function continua igual.
+## Verificação segura
 
-## Parte D — Tokens e rollout
+### 1. Identidades
 
-11. Os `ExponentPushToken` salvos em `usuarios.push_token` **se renovam sozinhos**: ao abrir o app
-    atualizado (novo `google-services.json`), o device re-registra e `registerPushToken`
-    (`src/lib/notifications.ts`) grava o token novo.
-12. Usuários em **versão antiga** param de receber push até atualizarem (Expo retorna
-    `DeviceNotRegistered`). É o custo esperado da migração.
-13. Publicar **build novo de produção** (EAS) — **OTA / EAS Update não basta**, porque
-    `google-services.json` é nativo e exige rebuild do binário (`.aab`).
+```bash
+npx eas whoami
+npx eas project:info
+npx eas credentials
+```
 
-## Validação final
+Confirme que o EAS project é o atual e que existe uma credencial FCM V1 para o
+package `br.tec.rotamestre.app`.
 
-- [ ] `npx eas whoami` confirma acesso ao projeto Expo.
-- [ ] Rebuild local sem `FIS_AUTH_ERROR`; token `ExponentPushToken[...]` obtido.
-- [ ] Teste de envio: chamar a Edge Function direto e ver o push chegar:
-  ```
-  POST {SUPABASE_URL}/functions/v1/send-push-notification
-  { "usuario_id": "<uuid de teste>", "titulo": "Teste", "mensagem": "Push migrado ✅" }
-  ```
-- [ ] Build de produção assinado com a key cujo SHA-1 foi registrado (Parte A.3).
+### 2. Registro no aparelho
 
-## Riscos / pegadinhas
+Em um build Android real:
 
-- **SHA-1 de produção é o do Google Play app-signing**, não o da upload key — registre ambos.
-- **FCM legacy server key foi descontinuada (jun/2024)** — use **FCM V1** (service account JSON). A Edge Function já é compatível (vai via Expo).
-- iOS (APNs) é trilha à parte: adicionar app iOS `br.tec.rotamestre` no Firebase e subir a key APNs no Expo quando o iOS entrar.
-- Não comitar `google-services.json` com credenciais erradas; conferир o `project_id` do arquivo novo antes do build.
+1. aceite a permissão de notificações;
+2. confirme que não ocorre `FIS_AUTH_ERROR`;
+3. confirme que o token Expo foi persistido para o usuário atual;
+4. evite imprimir o token completo em logs compartilhados.
+
+### 3. Entrega
+
+Envie uma notificação de teste pelo fluxo normal da aplicação/Edge Function.
+Valide:
+
+- app em primeiro plano;
+- app em segundo plano;
+- app encerrado;
+- toque e deep link esperado;
+- recebimento no build instalado pelo Play.
+
+Use uma conta e um aparelho controlados. Não dispare mensagens em massa durante
+um diagnóstico.
+
+## Rotação ou reconstrução futura
+
+Somente execute este fluxo se o projeto/credencial atual tiver sido revogado ou
+se houver decisão formal de migração.
+
+1. Crie ou selecione um projeto Firebase sob controle corporativo.
+2. Registre um app Android com o package **exato**
+   `br.tec.rotamestre.app`.
+3. Habilite Firebase Cloud Messaging API/FCM V1.
+4. Baixe o novo `google-services.json` e substitua as cópias esperadas pelo
+   projeto, sem versionar o segredo.
+5. Gere uma service account com o menor escopo necessário.
+6. Atualize a credencial FCM V1 em EAS Credentials.
+7. Gere um novo build Android; configuração Firebase não muda um binário já
+   publicado.
+8. Instale em aparelho real, abra o app para renovar/persistir o token e faça um
+   envio único de teste.
+9. Só então avance para uma trilha com mais usuários.
+
+Tokens existentes podem deixar de ser válidos após uma mudança de projeto. O
+app precisa ser aberto para registrar o novo token; trate receipts
+`DeviceNotRegistered` removendo tokens inválidos.
+
+## Diagnóstico
+
+| Sintoma                              | Verificação                                                                             |
+| ------------------------------------ | --------------------------------------------------------------------------------------- |
+| `FIS_AUTH_ERROR`                     | package/projeto no `google-services.json`, API e binário reconstruído                   |
+| token Expo não é salvo               | permissão, device físico, sessão e update no Supabase                                   |
+| token existe, mas mensagem não chega | credencial FCM V1 no EAS, receipt da Expo e projeto Firebase                            |
+| funciona em APK, falha no Play       | compare o conteúdo incorporado/configuração do build e teste o AAB entregue pela trilha |
+| `DeviceNotRegistered`                | invalide o token armazenado e registre novamente                                        |
+| envio em massa parcial               | processe tickets/receipts da Expo e não reutilize tokens inválidos                      |
+
+## Continuidade e segurança
+
+- Mantenha pelo menos dois administradores recuperáveis no Firebase/Google
+  Cloud e no Expo.
+- Guarde service accounts e recovery codes no gerenciador corporativo.
+- Revogue credenciais antigas depois de validar a nova, não antes.
+- Não coloque JSON de serviço, token de usuário ou chave em issue/PR.
+- Registre data, motivo, build e resultado de qualquer rotação em
+  [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md).

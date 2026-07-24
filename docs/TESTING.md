@@ -5,8 +5,14 @@ Este documento descreve a arquitetura de testes, padrões e convenções utiliza
 ## Status Atual
 
 **Framework:** Jest + React Native Testing Library
-**Suites:** 309+, **Testes:** 5747+ passando
-**Threshold de cobertura:** 73% lines (atual ~74%)
+**Snapshot de 24/07/2026:** 312/312 suites e 5721/5721 testes passando
+**Threshold de cobertura:** 73% lines (última medição ~74%)
+
+> ⚠️ No snapshot de 24/07, todas as assertions passaram, mas o processo
+> `npm test -- --runInBand` terminou com código 1 por callbacks de timer de
+> `PictureInPictureMap.test.tsx` executados depois do teardown do Jest. Isso é
+> uma dívida real do harness: não considere a execução totalmente verde até
+> limpar/cancelar os timers e obter exit code 0.
 
 ### Executando testes
 
@@ -27,6 +33,10 @@ npm test -- <padrão>      # filtrar por nome/caminho
 
 - `react-test-renderer` deve ter a mesma versão que `react` (restrição de paridade do jest-expo).
 - `renderHook` em hooks com async/realtime pesado (`useGestaoRotas`, `offline.ts`, `useRealtimeRoutes`) pode causar OOM acima de 4 GB — prefira testar os helpers puros extraídos desses hooks.
+- `src/components/motorista/__tests__/PictureInPictureMap.test.tsx` deixa timers
+  do preset React Native ativos após o teardown em execução serial. Investigue
+  com `--detectOpenHandles`, limpe timers no `afterEach` e preserve um exit code
+  0 como critério de sucesso.
 
 ---
 

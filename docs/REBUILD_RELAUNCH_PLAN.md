@@ -1,96 +1,122 @@
-# Plano de reconstrução e relançamento (app novo)
+# Reconstrução e relançamento do aplicativo Android
 
-> **STATUS (atualizado 2026-07-03):** Fases 0–2 ✅ — app reconstruído como **`br.tec.rotamestre.app`**, EAS `c6401a59-af97-484a-93b7-c75016bf331d` (`@wellington.ribeiro.mkt`), Firebase **`rota-mestre-97084`**; **keystore com backup**; SHA-1 da upload key + credencial FCM V1 registrados; **push validado em device**. MapLibre v11 já mergeado no `main` (está em 11.3.6; issue #190 fechada). Fase 3 🔄 — **`.aab` v1.12.1 (versionCode 3020)** submetido ao **Teste interno** via service account em 2026-07-03 (PR #295); Play App Signing ligado. **Falta**: preencher "Conteúdo do app" (Segurança de dados/classificação/público-alvo), **avisar os ~17 usuários** para atualizar, e depois **promover internal → produção**. Fases 4–5 ⏳ pendentes (migração de usuários + encerramento do app antigo). Fluxo de build/submit consolidado em `docs/GOOGLE_PLAY_DEPLOYMENT.md`.
+> Registro histórico e plano de rollout. Atualizado em 24/07/2026.
+> Para o estado operacional atual, comece por
+> [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md).
 
-> **Contexto:** as 3 contas de plataforma do app original foram perdidas — **Firebase/GCP**,
-> **Expo/EAS** (`1ea74080-a787-46db-abbf-d303d1b7a9d4`) e **Google Play Console** (publica
-> `br.tec.rotamestre`). O app instalado **continua funcionando** (fala com o Supabase, que é
-> nosso), mas **não recebe mais atualizações**. Decisão: **reconstruir como app novo** sob contas
-> novas e migrar os usuários.
->
-> **Seguro (não se perde):** código-fonte (repo), Supabase (dados + backend), domínio
-> `rotamestre.tec.br` + web (Vercel). **SDK 56** já está pronto na branch `chore/upgrade-expo-sdk-56`
-> e entra no app novo de saída.
+## Decisão
 
-## Princípio que evita repetir o problema
+As contas originais do Firebase/GCP, Expo/EAS e Google Play que publicavam o
+package `br.tec.rotamestre` foram perdidas. O app instalado continuou acessando
+o Supabase, mas não podia mais receber atualizações confiáveis.
 
-Criar a nova identidade como **Google Workspace no domínio `rotamestre.tec.br`** (controlamos o DNS).
-Assim Firebase, Play e Expo ficam sob uma conta **sempre recuperável via prova de domínio**.
-**Nunca mais** amarrar infraestrutura a Gmail pessoal ou conta de terceiro (sócio/agência/contratado).
-Guardar todas as credenciais novas num gerenciador de senhas da empresa, com donos documentados.
+A decisão foi reconstruir a identidade de distribuição:
 
-## Fase 0 — Identidade e contas (começar JÁ — têm prazo de verificação)
+| Item            | Identidade atual                       |
+| --------------- | -------------------------------------- |
+| Android package | `br.tec.rotamestre.app`                |
+| EAS project     | `c6401a59-af97-484a-93b7-c75016bf331d` |
+| Firebase        | `rota-mestre-97084`                    |
+| Backend e dados | Supabase `xezslsyxjivunmhhyxtd`        |
 
-1. **Google Workspace** (ou ao menos um Google corporativo) em `@rotamestre.tec.br`.
-2. **Google Play Developer** ($25, **verificação de identidade leva dias/semanas** → iniciar primeiro).
-   Conta de **organização** (com D-U-N-S) se for empresa.
-3. **Conta Expo** nova.
-4. **Projeto Firebase** novo (sob o Workspace).
-5. iOS está fora de escopo hoje (Android-only; não há presença na App Store a perder).
+O package antigo permanece reservado à conta perdida e não deve ser reutilizado.
+Os dois aplicativos usam o mesmo backend; usuários que instalam a versão nova
+mantêm conta e dados.
 
-## Fase 1 — Novo package + repoint no código (na branch `chore/upgrade-expo-sdk-56`)
+## O que foi preservado
 
-> `br.tec.rotamestre` está **permanentemente reservado** ao Play da conta perdida — não dá pra reusar.
+- código-fonte e histórico Git;
+- domínio `rotamestre.tec.br`;
+- web em Vercel;
+- Supabase Auth, banco, Storage e dados operacionais;
+- contas e vínculos de unidade dos usuários.
 
-1. Escolher novo applicationId — sugestão **`br.tec.rotamestre.app`** (definitivo, escolher com cuidado).
-2. `app.config.js`:
-   - `android.package` e `ios.bundleIdentifier` → novo id.
-   - `extra.eas.projectId` → novo projeto EAS.
-   - `updates.url` → nova URL do EAS Update.
-3. Regenerar nativo: `npx expo prebuild --clean` (regenera `android/` com o novo package).
-   - **Antes:** conferir se há customização nativa manual no `android/`/`ios/` commitado (se houver, reaplicar pós-prebuild).
-4. Trocar `google-services.json` (do novo Firebase) na **raiz** e em **`android/app/`**.
-5. `scheme: "rotamestre"` pode **ficar** (não é globalmente único). Se houver App Links em
-   `rotamestre.tec.br/.well-known/assetlinks.json`, atualizar com o **SHA-256 da nova chave**.
+## O que foi reconstruído
 
-## Fase 2 — Build + credenciais (EAS novo)
+- application ID Android;
+- projeto Expo/EAS;
+- keystore/upload key;
+- projeto Firebase e credenciais FCM;
+- app no Google Play e Play App Signing;
+- fluxo de build e submissão;
+- assets e metadados da ficha da loja;
+- páginas públicas de política, termos e exclusão.
 
-1. `npx eas login` (conta nova) → `npx eas init` (vincula o novo projectId).
-2. `npx eas build -p android` → a EAS gera a **nova keystore (upload key)** e a guarda.
-3. Registrar no **novo Firebase** os SHA-1/256: **debug** (`5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25`),
-   **nova upload key** (`eas credentials`) e, após o Play (Fase 3), a **app-signing key**.
-4. Push: seguir [docs/FIREBASE_MIGRATION.md](FIREBASE_MIGRATION.md) Parte C apontando pras contas novas
-   (service account FCM V1 → `eas credentials`). A Edge Function `send-push-notification` **não muda**.
+## Estado das fases
 
-## Fase 3 — Publicar no Play (conta nova)
+### 0. Contas e propriedade — concluída
 
-1. Criar o app no Play Console (novo package), ativar **Play App Signing**.
-2. Trilha: **internal testing → closed → production**.
-3. Pegar o **SHA-1 app-signing** (Play → Integridade do app) e registrar no Firebase — **senão o push
-   de produção quebra** (o app instalado é assinado com essa chave).
+As novas contas de distribuição estão operacionais. A continuidade agora
+depende de manter administradores recuperáveis, backup de credenciais e
+propriedade corporativa documentada fora do Git.
 
-## Fase 4 — Migração de usuários (a alavanca: controlamos o backend)
+### 1. Nova identidade no código — concluída
 
-Os dois apps usam o **mesmo Supabase** → quem instalar o novo e logar vê **os mesmos dados**. Sem perda.
-Canais pra avisar quem está no app antigo (que não atualiza):
+`app.config.js` referencia o package, EAS project e configuração Firebase
+atuais. O scheme `rotamestre` foi preservado.
 
-- ✅ **In-app via `notificacoes`** — inserir uma notificação por usuário ("Novo app disponível: <link Play>").
-  O app antigo **já renderiza** `notificacoes`. Canal que já existe.
-- ⚠️ **Push (testar primeiro)** — os `ExponentPushToken` antigos podem ainda entregar (o projeto Expo
-  perdido ainda existe; a cred FCM pode estar viva). Fazer **1 envio de teste** via a Edge Function; se
-  chegar, usar pra um blast de migração.
-- 🌐 **Web** (`rotamestre.tec.br`) — banner "baixe o novo app".
-- 📇 **Direto** — e-mail/WhatsApp aos gestores (é B2B; os contatos estão em `usuarios`/`unidades`).
-- **Não desligar** o backend do app antigo durante a transição — manter os dois vivos até a maioria migrar.
+### 2. Build, assinatura e push — concluída
 
-## Fase 5 — Encerramento do app antigo
+O app foi compilado sob a identidade nova e a credencial FCM V1 foi
+configurada. Push foi validado em dispositivo físico. Como FCM não depende de
+fingerprint SHA, a validação relevante é no artefato instalado pelo Play.
 
-- Quando a maioria migrar: deixar definhar (não há como despublicar sem o Play) — ele some para **novas**
-  instalações com o tempo (exigência de target-API), enquanto os instalados seguem.
-- Opcional: usar a `notificacao`/uma tela de aviso pra reforçar a migração dos retardatários.
+### 3. Google Play — em rollout
 
-## Sequência crítica (o que atrasa o resto)
+O app e o teste interno foram configurados, os testadores foram revisados e o
+material de publicação foi preparado. O estado exato das trilhas não vive no
+Git: confirme no Play Console a versão ativa, o teste fechado exigido e a
+elegibilidade para produção.
 
-1. **Play Developer (Fase 0.2)** — maior lead time (verificação). **Iniciar hoje.**
-2. Workspace no domínio (Fase 0.1) — base de tudo.
-3. Firebase + Expo novos (rápidos).
-4. Code repoint + build + publish.
-5. Migração.
+Runbook: [GOOGLE_PLAY_DEPLOYMENT.md](GOOGLE_PLAY_DEPLOYMENT.md).
 
-## Riscos / notas
+### 4. Migração de usuários — próxima etapa
 
-- Verificação de identidade do Play pode levar semanas — é o gargalo.
-- **Testar se push ainda chega no app antigo** ANTES de contar com ele pra migração.
-- Conferir customização nativa antes de `prebuild --clean`.
-- Registrar a **app-signing SHA-1 do Play** no Firebase (não só a upload key).
-- O SDK 56 já validado (boot, login, dados, realtime) sai junto no app novo.
+O backend compartilhado elimina migração de dados, mas não instala o novo app
+automaticamente. O plano de comunicação pode combinar:
+
+- notificação dentro do app antigo;
+- e-mail/WhatsApp aos gestores;
+- comunicação no site institucional;
+- suporte direto às unidades;
+- push antigo apenas se ainda for comprovadamente entregável.
+
+Não desligue o backend compartilhado durante a transição.
+
+### 5. Encerramento do app antigo — pendente
+
+A conta perdida impede uma despublicação administrada. O objetivo é mover os
+usuários para o package novo, manter o backend compatível durante a janela de
+transição e só então encerrar suportes específicos ao cliente antigo.
+
+## Critérios para concluir o relançamento
+
+- última versão aprovada e disponível na trilha pretendida;
+- requisito de teste fechado cumprido, se aplicável à conta;
+- autenticação, rota, localização, foto, push e exclusão validados no artefato
+  instalado pelo Play;
+- dados de Segurança do app e páginas legais coerentes;
+- canal de suporte e instruções de atualização comunicados;
+- adoção do app novo acompanhada por unidade;
+- credenciais e recuperação testadas/documentadas.
+
+## Riscos ainda relevantes
+
+- tester cadastrado com e-mail diferente da Conta Google;
+- `google-services.json` ou credencial FCM V1 apontando para o projeto errado;
+- ambiente EAS usando chave pública antiga do Supabase;
+- gerar `versionCode` duplicado ou AAB a partir de árvore não registrada;
+- interromper o app antigo antes da migração dos usuários;
+- divergência entre coleta real de dados, páginas legais e declaração do Play;
+- voltar a concentrar propriedade das plataformas em uma única conta pessoal.
+
+## Política de continuidade
+
+1. Contas críticas devem ter pelo menos dois administradores recuperáveis.
+2. Keystore, senhas e recovery codes ficam no gerenciador corporativo e em
+   backup separado.
+3. Credenciais nunca entram no repositório.
+4. Alterações de package, assinatura, projeto Firebase ou EAS exigem registro de
+   decisão e plano de rollback.
+5. O estado do rollout deve ser atualizado em
+   [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) após cada avanço.

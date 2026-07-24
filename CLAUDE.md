@@ -1,5 +1,9 @@
 # rotamestre-app
 
+> Start every new session with `docs/PROJECT_CONTEXT.md`. This file documents
+> stable architecture and implementation patterns; versions, rollout state and
+> future actions live in the project context to avoid stale duplicated status.
+
 Mobile + web app for last-mile route optimization. Two user roles: **gestor** (manager — creates and assigns routes) and **motorista** (driver — executes routes with turn-by-turn nav and photo proof of delivery).
 
 ## Stack
@@ -99,5 +103,7 @@ Installed in `.claude/`:
 
 ---
 
-**Last verified:** 2026-07-22 (Expo 56, RN 0.85.3, ~5747 tests / ~74% coverage; app nativo **v1.12.1 / versionCode 3020**. **C3 Fase 1+2 em produção** — bucket privado + signed URLs + RLS por unidade, PRs #285/#294. **Fixes recentes (frontend/RPC, técnica de repro no banco vivo em memória):** reordenar paradas (#312, 15/07 — status `em_andamento` órfão no split → colisão UNIQUE; ver phonebook "UI de reordenação") e `inserir_parada` (Migration 15, #310, 13/07 — inserir no meio violava UNIQUE com a chegada; `database/MIGRATIONS.md`). **Cascata Dependabot 22/07 (#314–#321):** `@sentry/*` alinhado em **10.67**, `react-native-url-polyfill` **4.0.0** (major — reescrita dependency-free ~65% menor, usado só via import `/auto` em `supabase.ts`/`.web.ts`), `supabase-js` 2.110.7, `react-hook-form` 7.82, dev-deps, `actions/setup-node` 7. **Gotchas de deps acopladas (memória `merge-pr-workflow`):** `@sentry/react@X` pina `@sentry/browser` em X exato — nunca mergear o browser sozinho numa minor diferente (npm instala 2 cópias, quebra o singleton); `unistyles`+`nitro-modules` andam juntas (mismatch só aparece em **build EAS**, CI é web/Jest). `npm audit` prod sem high/critical. App rebuilt under new package/EAS/Firebase — see memory. Histórico de fixes anteriores: memória `improvements-roadmap-2026-06`)
-**Refresh checklist:** `grep -E '"(expo|react-native|@supabase|version|androidVersionCode)":' package.json` for version snapshot. Re-read `database/MIGRATIONS.md` after migrations land. Confirm Sentry DSN still set in Vercel env vars. Para release nativo (build/submit EAS→Play), ver `docs/GOOGLE_PLAY_DEPLOYMENT.md`.
+**Operational status:** see `docs/PROJECT_CONTEXT.md` (last consolidated
+24/07/2026). Read current versions from `package.json`, migration state from
+`npx supabase migration list`, and distribution state from EAS/Play Console.
+Do not maintain another release snapshot in this architecture guide.
