@@ -34,8 +34,7 @@
         "image": "latest"
       },
       "ios": {
-        "distribution": "store",
-        "autoIncrement": "buildNumber"
+        "distribution": "store"
       },
       "env": {
         "EXPO_PUBLIC_ENV": "production"
@@ -47,7 +46,8 @@
       "android": {
         "serviceAccountKeyPath": "./play-store-credentials.json",
         "track": "production"
-      }
+      },
+      "ios": {}
     },
     "internal": {
       "android": {

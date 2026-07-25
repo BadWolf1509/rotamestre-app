@@ -40,7 +40,9 @@ module.exports = ({ config }) => {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "br.tec.rotamestre.app",
+      buildNumber: "1",
       infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
         NSLocationWhenInUseUsageDescription: "O RotaMestre precisa acessar sua localização para mostrar sua posição no mapa e calcular rotas.",
         NSLocationAlwaysAndWhenInUseUsageDescription: "O RotaMestre precisa acessar sua localização em segundo plano para rastrear o progresso da entrega e permitir que o gestor acompanhe a rota em tempo real.",
         // Habilitar background location no iOS
