@@ -20,7 +20,7 @@ navegação, ocorrências e foto privada de comprovação.
 - MapLibre para mapas e OSRM para cálculo/otimização
 - Google Places somente por Edge Functions, sem chave Google no cliente
 - Jest, Testing Library, Playwright e regressão visual
-- Vercel para web; EAS e Google Play para Android
+- Vercel para web; EAS, Google Play e App Store para os aplicativos móveis
 
 ## Desenvolvimento
 
@@ -65,6 +65,10 @@ Antes de release Android, siga
 [docs/GOOGLE_PLAY_DEPLOYMENT.md](docs/GOOGLE_PLAY_DEPLOYMENT.md); não gere um
 novo build sem conferir o maior `versionCode` já enviado ao Play.
 
+Para preparar ou publicar a versão iOS, siga
+[docs/APP_STORE_DEPLOYMENT.md](docs/APP_STORE_DEPLOYMENT.md). O primeiro build
+exige a configuração interativa das credenciais Apple.
+
 ## Estrutura
 
 ```text
@@ -98,6 +102,7 @@ leitura; não substitua esse fluxo por URL pública.
 | Testes                          | [docs/TESTING.md](docs/TESTING.md)                               |
 | Migrations                      | [database/MIGRATIONS.md](database/MIGRATIONS.md)                 |
 | Publicação no Google Play       | [docs/GOOGLE_PLAY_DEPLOYMENT.md](docs/GOOGLE_PLAY_DEPLOYMENT.md) |
+| Publicação na App Store         | [docs/APP_STORE_DEPLOYMENT.md](docs/APP_STORE_DEPLOYMENT.md)     |
 | Conteúdo da ficha do Play       | [docs/play-store-metadata.md](docs/play-store-metadata.md)       |
 | Histórico do rebuild Android    | [docs/REBUILD_RELAUNCH_PLAN.md](docs/REBUILD_RELAUNCH_PLAN.md)   |
 | Firebase e push                 | [docs/FIREBASE_MIGRATION.md](docs/FIREBASE_MIGRATION.md)         |

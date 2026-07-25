@@ -59,7 +59,7 @@
       "android": {
         "serviceAccountKeyPath": "./play-store-credentials.json",
         "track": "alpha",
-        "releaseStatus": "draft"
+        "releaseStatus": "completed"
       }
     }
   }

@@ -10,17 +10,35 @@
 | ------------------------------ | -------------------------------------- |
 | Package definitivo             | `br.tec.rotamestre.app`                |
 | Versão no código               | `1.12.2`                               |
-| `androidVersionCode` no código | `3023`                                 |
+| `androidVersionCode` no código | `3024`                                 |
 | EAS project                    | `c6401a59-af97-484a-93b7-c75016bf331d` |
 | Firebase                       | `rota-mestre-97084`                    |
 | Formato de produção            | Android App Bundle (`.aab`)            |
 | Play App Signing               | habilitado                             |
 
-O teste interno e sua lista de testadores foram configurados nesta etapa. A
-versão presente em cada trilha, a situação do teste fechado e a elegibilidade
-para produção são estados externos. Consulte o Play Console antes de iniciar
-qualquer build ou submissão; o número em `package.json` não comprova que aquele
-artefato já foi enviado.
+Estado consultado pela Google Play Developer API em 24/07/2026:
+
+- teste fechado (`alpha`): `1.12.2` / `3024`, concluído;
+- teste interno: `1.12.1` / `3021`, concluído;
+- `beta`: vazia;
+- produção: vazia;
+- AAB `1.12.2` / `3024`: build EAS
+  `630fe91d-a0b0-41f7-be7d-334876910375`, concluído;
+- submissão ao teste fechado
+  `b832dbc7-1b42-49fc-b7bc-838c2bb5fe46`, concluída;
+- tentativa de submissão à produção
+  `f3c7e7a5-db29-4131-bafe-972d7b565946`, recusada pelo Play com
+  `Precondition check failed`.
+
+A quantidade de participantes com opt-in contínuo, a situação do teste fechado
+e a elegibilidade para produção continuam sendo estados externos. Consulte o
+Play Console antes de cada submissão; o número em `package.json` não comprova
+que o artefato já foi enviado.
+
+Enquanto a produção estiver bloqueada, use a faixa `alpha` com
+`releaseStatus: completed`. Não gere outro AAB para repetir a tentativa de
+produção: solicite acesso no Play Console quando o requisito de teste fechado
+estiver satisfeito e promova o artefato já validado quando permitido.
 
 ## Fontes de verdade
 
@@ -121,7 +139,9 @@ Não publique um build gerado de uma árvore com alterações não registradas.
 ## Submissão
 
 O `eas.json` possui profiles `internal`, `alpha` e `production`. Escolha um
-profile coerente com a trilha explicitamente aprovada.
+profile coerente com a trilha explicitamente aprovada. O profile `alpha` usa
+`releaseStatus: completed` para liberar a versão aos testadores, não deixá-la
+como rascunho.
 
 Exemplo para teste interno:
 

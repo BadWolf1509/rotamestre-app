@@ -8,11 +8,8 @@ Este documento descreve a arquitetura de testes, padrões e convenções utiliza
 **Snapshot de 24/07/2026:** 312/312 suites, 5729/5729 testes e 5/5 snapshots passando
 **Threshold de cobertura:** 73% lines (última medição ~74%)
 
-> ⚠️ A execução `npm test -- --runInBand --forceExit` terminou com código 0,
-> mas ainda precisou encerrar handles abertos à força. O timer de animação de
-> `PictureInPictureMap` foi corrigido e essa suíte termina sem `--forceExit`;
-> os handles restantes ainda precisam ser identificados. O critério final é
-> obter a passagem completa sem `--forceExit`.
+O comando agregado `npm run validate` passou integralmente nesse snapshot. O
+timer de animação de `PictureInPictureMap` foi corrigido e cancelado no cleanup.
 
 ### Executando testes
 
@@ -33,10 +30,16 @@ npm test -- <padrão>      # filtrar por nome/caminho
 
 - `react-test-renderer` deve ter a mesma versão que `react` (restrição de paridade do jest-expo).
 - `renderHook` em hooks com async/realtime pesado (`useGestaoRotas`, `offline.ts`, `useRealtimeRoutes`) pode causar OOM acima de 4 GB — prefira testar os helpers puros extraídos desses hooks.
-- `src/components/motorista/__tests__/PictureInPictureMap.test.tsx` deixa timers
-  do preset React Native ativos após o teardown em execução serial. Investigue
-  com `--detectOpenHandles`, limpe timers no `afterEach` e preserve um exit code
-  0 como critério de sucesso.
+- Os testes E2E autenticados usam as contas-fixture
+  `gestor.test@rotamestre.tec.br` e `motorista.test@rotamestre.tec.br`. Em
+  24/07/2026 elas não existiam ou não possuíam credenciais válidas no ambiente
+  alvo; por isso os cenários públicos passaram e os autenticados pararam no
+  login. Provisionar essas fixtures de forma segura é pré-requisito para o
+  próximo E2E completo.
+- A regressão visual pública passou em 24 de 26 cenários no Windows. Os dois
+  snapshots de toast divergiram em 1 px de altura e na rasterização do ícone;
+  não atualize o baseline compartilhado Linux apenas para acomodar essa
+  diferença de plataforma.
 
 ---
 
