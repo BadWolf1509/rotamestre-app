@@ -15,7 +15,9 @@ Mobile + web app for last-mile route optimization. Two user roles: **gestor** (m
 - **State:** React hooks + `AsyncStorage` (no Redux/Zustand).
 - **Error tracking:** Sentry, web production only (`src/lib/sentry.ts`).
 - **Testing:** Jest + `@testing-library/react-native` (unit), Playwright (E2E), custom visual regression (`tools/scripts/run-visual-tests.cjs`).
-- **Deploy:** Vercel (web) + EAS (Android `.aab`). iOS not yet configured.
+- **Deploy:** Vercel (web) + EAS (Android `.aab` e iOS para App Store). O
+  primeiro build iOS ainda depende da validação interativa das credenciais
+  Apple; consulte `docs/APP_STORE_DEPLOYMENT.md`.
 
 Versions live in `package.json` — never duplicate them here.
 
@@ -98,12 +100,19 @@ Installed in `.claude/`:
 - **App identity** (rebuilt 2026-06 after the original Firebase/Play/Expo accounts were lost — see memory + `docs/REBUILD_RELAUNCH_PLAN.md`): Android package **`br.tec.rotamestre.app`** · EAS project **`c6401a59-af97-484a-93b7-c75016bf331d`** (owner `@wellington.ribeiro.mkt`) · Firebase **`rota-mestre-97084`** (FCM push, validated end-to-end). All wired in `app.config.js`.
 - **Sentry** — web production only; DSN via `EXPO_PUBLIC_SENTRY_DSN`.
 - **Vercel** — auto-deploy on push to `main`; CSP whitelists Supabase, OSRM, Photon, OpenStreetMap tiles, Sentry.
-- **EAS** — Android builds (production `.aab`; internal/preview `.apk` with install link/QR). Supabase env vars live **per-environment on EAS** (`eas env:*`), NOT in the repo — a local build without them falls back to `placeholder.supabase.co`. Submit ao Play via `eas submit -p android --profile internal` usa a service account em `play-store-credentials.json` (raiz, gitignored). Bump de versão obrigatório antes de cada build: `version` + `androidVersionCode` no `package.json` (fluxo completo em `docs/GOOGLE_PLAY_DEPLOYMENT.md`).
+- **EAS** — Android builds (production `.aab`; internal/preview `.apk` with
+  install link/QR) and iOS store builds. Supabase env vars live
+  **per-environment on EAS** (`eas env:*`), NOT in the repo — a local build
+  without them falls back to `placeholder.supabase.co`. Android submit uses the
+  gitignored service account in `play-store-credentials.json`; iOS credentials
+  stay in EAS/Apple. Version bumps are mandatory before a new store artifact.
+  Follow `docs/GOOGLE_PLAY_DEPLOYMENT.md` and
+  `docs/APP_STORE_DEPLOYMENT.md`.
 - **Asaas** — billing pending; `unidades.asaas_customer_id` is the join key when work begins.
 
 ---
 
 **Operational status:** see `docs/PROJECT_CONTEXT.md` (last consolidated
-24/07/2026). Read current versions from `package.json`, migration state from
+25/07/2026). Read current versions from `package.json`, migration state from
 `npx supabase migration list`, and distribution state from EAS/Play Console.
 Do not maintain another release snapshot in this architecture guide.

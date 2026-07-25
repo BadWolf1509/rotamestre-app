@@ -1,7 +1,23 @@
 # Contexto operacional — Rota Mestre App
 
-> Documento de entrada para novas sessões. Atualizado em 24/07/2026.
+> Documento de entrada para novas sessões. Atualizado em 25/07/2026.
 > Consulte o código ou o serviço responsável antes de alterar um estado externo.
+
+## Retomada imediata
+
+- Caminho local canônico: `D:\rota-mestre\rotamestre-app`.
+- `main` está sincronizada com o GitHub e os checks do último handoff passaram.
+- Web: <https://app.rotamestre.tec.br> está publicada e validada.
+- Android: `1.12.2` / `3024` está concluído no teste fechado. A faixa de
+  produção permanece vazia porque o Play recusou a submissão por
+  `Precondition check failed`; confirme a elegibilidade no Console antes de
+  tentar novamente.
+- iOS: configuração inicial versionada, mas ainda não existe build. A próxima
+  ação bloqueante é executar interativamente
+  `npx eas-cli build --platform ios --profile production` e validar as
+  credenciais Apple.
+- Próxima prioridade sem credenciais Apple: acompanhar o opt-in contínuo do
+  teste fechado e manter os metadados/declarações das lojas coerentes.
 
 ## Resumo executivo
 
@@ -23,6 +39,7 @@ dados dos usuários foram preservados.
 | Item                     | Valor atual                            | Fonte de verdade                       |
 | ------------------------ | -------------------------------------- | -------------------------------------- |
 | Repositório              | `BadWolf1509/rotamestre-app`           | `git remote -v`                        |
+| Caminho local canônico   | `D:\rota-mestre\rotamestre-app`        | workspace                              |
 | Branch de produção       | `main`                                 | Git/Vercel                             |
 | Web                      | <https://app.rotamestre.tec.br>        | Vercel                                 |
 | Android package          | `br.tec.rotamestre.app`                | `app.config.js`                        |
@@ -158,8 +175,8 @@ app.rotamestre.tec.br ── Expo Web / React Native
 ```
 
 - Este repositório não é o site institucional.
-- O repositório irmão `D:\lp-rotamestre` não contém lógica autenticada nem dados
-  operacionais.
+- O repositório irmão `D:\rota-mestre\lp-rotamestre` não contém lógica
+  autenticada nem dados operacionais.
 - As páginas legais públicas do site são as URLs informadas ao Google Play. Ao
   alterar coleta, retenção ou compartilhamento de dados, atualize o app, a
   landing e as declarações do Play no mesmo trabalho.
