@@ -31,7 +31,8 @@ const mockNotificarMotorista = jest.fn();
 
 jest.mock('@/lib/routeUtils', () => ({
   recalcularRota: (...args: unknown[]) => mockRecalcularRota(...args),
-  notificarMotoristaRotaEditada: (...args: unknown[]) => mockNotificarMotorista(...args),
+  notificarMotoristaRotaEditada: (...args: unknown[]) =>
+    mockNotificarMotorista(...args),
 }));
 
 jest.mock('@/hooks/useResponsive', () => ({
@@ -44,16 +45,26 @@ jest.mock('@/hooks/useResponsive', () => ({
 }));
 
 jest.mock('@/lib/phone', () => ({
-  maskPhone: (text: string) => text.replace(/\D/g, '').replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3'),
+  maskPhone: (text: string) =>
+    text.replace(/\D/g, '').replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3'),
 }));
 
 // Mock theme
 // Mock AddressAutocomplete (Photon retorna coordenadas diretamente!)
 jest.mock('@/components/AddressAutocomplete', () => ({
-  AddressAutocomplete: ({ value, onChangeText, onSelectAddress, placeholder }: {
+  AddressAutocomplete: ({
+    value,
+    onChangeText,
+    onSelectAddress,
+    placeholder,
+  }: {
     value: string;
     onChangeText: (text: string) => void;
-    onSelectAddress: (address: string, placeId: string, coordinates?: { latitude: number; longitude: number }) => void;
+    onSelectAddress: (
+      address: string,
+      placeId: string,
+      coordinates?: { latitude: number; longitude: number },
+    ) => void;
     placeholder: string;
   }) => {
     const { TextInput, TouchableOpacity, Text, View } = require('react-native');
@@ -67,7 +78,12 @@ jest.mock('@/components/AddressAutocomplete', () => ({
         />
         <TouchableOpacity
           testID="address-suggestion"
-          onPress={() => onSelectAddress('Rua Nova, 456', 'osm_N654321', { latitude: -23.57, longitude: -46.65 })}
+          onPress={() =>
+            onSelectAddress('Rua Nova, 456', 'osm_N654321', {
+              latitude: -23.57,
+              longitude: -46.65,
+            })
+          }
         >
           <Text>Rua Nova, 456</Text>
         </TouchableOpacity>
@@ -78,12 +94,24 @@ jest.mock('@/components/AddressAutocomplete', () => ({
 
 // Mock DesktopModal with declarative button API
 jest.mock('@/components/desktop/DesktopModal', () => ({
-  DesktopModal: ({ visible, onClose, title, children, primaryButton, secondaryButton }: {
+  DesktopModal: ({
+    visible,
+    onClose,
+    title,
+    children,
+    primaryButton,
+    secondaryButton,
+  }: {
     visible: boolean;
     onClose: () => void;
     title: string;
     children: React.ReactNode;
-    primaryButton?: { text: string; onPress: () => void; loading?: boolean; disabled?: boolean };
+    primaryButton?: {
+      text: string;
+      onPress: () => void;
+      loading?: boolean;
+      disabled?: boolean;
+    };
     secondaryButton?: { text: string; onPress: () => void; disabled?: boolean };
   }) => {
     const { View, Text, TouchableOpacity } = require('react-native');
@@ -175,26 +203,34 @@ describe('EditStopModal', () => {
 
   describe('Renderização', () => {
     it('deve renderizar o modal quando visible=true', () => {
-      const { getByTestId, getByText } = render(<EditStopModal {...defaultProps} />);
+      const { getByTestId, getByText } = render(
+        <EditStopModal {...defaultProps} />,
+      );
 
       expect(getByTestId('desktop-modal')).toBeTruthy();
       expect(getByText('Editar Parada')).toBeTruthy();
     });
 
     it('não deve renderizar quando visible=false', () => {
-      const { queryByTestId } = render(<EditStopModal {...defaultProps} visible={false} />);
+      const { queryByTestId } = render(
+        <EditStopModal {...defaultProps} visible={false} />,
+      );
 
       expect(queryByTestId('desktop-modal')).toBeNull();
     });
 
     it('não deve renderizar quando parada é null', () => {
-      const { queryByTestId } = render(<EditStopModal {...defaultProps} parada={null} />);
+      const { queryByTestId } = render(
+        <EditStopModal {...defaultProps} parada={null} />,
+      );
 
       expect(queryByTestId('desktop-modal')).toBeNull();
     });
 
     it('deve preencher formulário com dados da parada', () => {
-      const { getByTestId, getByText } = render(<EditStopModal {...defaultProps} />);
+      const { getByTestId, getByText } = render(
+        <EditStopModal {...defaultProps} />,
+      );
 
       const addressInput = getByTestId('address-input');
       expect(addressInput.props.value).toBe('Rua Antiga, 100');
@@ -229,7 +265,9 @@ describe('EditStopModal', () => {
 
     it('deve exibir nota quando endereço é alterado', async () => {
       // Photon retorna coordenadas diretamente no autocomplete
-      const { getByTestId, getByText } = render(<EditStopModal {...defaultProps} />);
+      const { getByTestId, getByText } = render(
+        <EditStopModal {...defaultProps} />,
+      );
 
       // Selecionar novo endereço
       fireEvent.press(getByTestId('address-suggestion'));
@@ -268,7 +306,9 @@ describe('EditStopModal', () => {
 
     it('deve recalcular rota quando endereço muda', async () => {
       // Photon retorna coordenadas diretamente no autocomplete
-      const { getByTestId, getByText } = render(<EditStopModal {...defaultProps} />);
+      const { getByTestId, getByText } = render(
+        <EditStopModal {...defaultProps} />,
+      );
 
       // Alterar endereço (Photon envia coordenadas diretamente)
       fireEvent.press(getByTestId('address-suggestion'));
@@ -278,6 +318,26 @@ describe('EditStopModal', () => {
 
       await waitFor(() => {
         expect(mockRecalcularRota).toHaveBeenCalled();
+      });
+    });
+
+    it('deve informar ao fechamento quando o recálculo falha', async () => {
+      mockRecalcularRota.mockResolvedValue({
+        success: false,
+        error: 'Serviço de rotas indisponível',
+      });
+
+      const { getByTestId, getByText } = render(
+        <EditStopModal {...defaultProps} />,
+      );
+
+      fireEvent.press(getByTestId('address-suggestion'));
+      fireEvent.press(getByText('Salvar'));
+
+      await waitFor(() => {
+        expect(defaultProps.onSave).toHaveBeenCalledWith({
+          routeRecalculationFailed: true,
+        });
       });
     });
 
@@ -294,11 +354,14 @@ describe('EditStopModal', () => {
       });
 
       const { getByTestId, getByText } = render(
-        <EditStopModal {...defaultProps} parada={paradaSemCoordenadas} />
+        <EditStopModal {...defaultProps} parada={paradaSemCoordenadas} />,
       );
 
       // Alterar endereço manualmente
-      fireEvent.changeText(getByTestId('address-input'), 'Endereço Novo Manual');
+      fireEvent.changeText(
+        getByTestId('address-input'),
+        'Endereço Novo Manual',
+      );
       fireEvent.press(getByText('Salvar'));
 
       await waitFor(() => {
@@ -312,11 +375,13 @@ describe('EditStopModal', () => {
       fireEvent.press(getByText('Salvar'));
 
       await waitFor(() => {
-        expect(mockNotificarMotorista).toHaveBeenCalledWith(expect.objectContaining({
-          rotaId: 'rota-123',
-          motoristaId: 'motorista-456',
-          tipo: 'rota_parada_editada',
-        }));
+        expect(mockNotificarMotorista).toHaveBeenCalledWith(
+          expect.objectContaining({
+            rotaId: 'rota-123',
+            motoristaId: 'motorista-456',
+            tipo: 'rota_parada_editada',
+          }),
+        );
       });
     });
 
@@ -333,7 +398,9 @@ describe('EditStopModal', () => {
     it('não deve notificar se motoristaId não está definido', async () => {
       const propsWithoutMotorista = { ...defaultProps, motoristaId: undefined };
 
-      const { getByText } = render(<EditStopModal {...propsWithoutMotorista} />);
+      const { getByText } = render(
+        <EditStopModal {...propsWithoutMotorista} />,
+      );
 
       fireEvent.press(getByText('Salvar'));
 
@@ -356,14 +423,21 @@ describe('EditStopModal', () => {
       });
 
       // Verificar que 'logs' não foi chamado
-      const logsCalls = mockFrom.mock.calls.filter((call) => call[0] === 'logs');
+      const logsCalls = mockFrom.mock.calls.filter(
+        (call) => call[0] === 'logs',
+      );
       expect(logsCalls.length).toBe(0);
     });
 
     it('deve lidar com erro ao salvar', async () => {
       mockFrom.mockReturnValue({
         update: jest.fn().mockReturnValue({
-          eq: jest.fn().mockResolvedValue({ data: null, error: { message: 'Update failed' } }),
+          eq: jest
+            .fn()
+            .mockResolvedValue({
+              data: null,
+              error: { message: 'Update failed' },
+            }),
         }),
       });
 
@@ -380,7 +454,9 @@ describe('EditStopModal', () => {
 
   describe('Inicialização do formulário', () => {
     it('deve reinicializar formulário quando parada muda', () => {
-      const { rerender, getByTestId } = render(<EditStopModal {...defaultProps} />);
+      const { rerender, getByTestId } = render(
+        <EditStopModal {...defaultProps} />,
+      );
 
       const newParada = {
         ...mockParada,

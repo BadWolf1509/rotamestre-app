@@ -49,17 +49,20 @@ export function useLoadActiveRoute({
       // ========================================
       const { data: rotasAtivas, error: errorAtivas } = await supabase
         .from('rotas')
-        .select(`
+        .select(
+          `
           id,
           status,
           distancia_total,
           tempo_total,
+          polyline,
           iniciada_em,
           concluida_em,
           created_at,
           data,
           unidades (nome)
-        `)
+        `,
+        )
         .eq('motorista_id', motoristaId)
         .in('status', ['pendente', 'em_andamento'])
         .order('data', { ascending: true })
@@ -78,8 +81,12 @@ export function useLoadActiveRoute({
       // Se tem rotas ativas, usa a de maior prioridade
       if (rotasAtivas && rotasAtivas.length > 0) {
         // Prioridade: em_andamento > pendente (por data ASC)
-        const inProgressRoute = rotasAtivas.find(r => r.status === 'em_andamento');
-        const pendingRoutes = rotasAtivas.filter(r => r.status === 'pendente');
+        const inProgressRoute = rotasAtivas.find(
+          (r) => r.status === 'em_andamento',
+        );
+        const pendingRoutes = rotasAtivas.filter(
+          (r) => r.status === 'pendente',
+        );
         const selectedRoute = inProgressRoute || pendingRoutes[0];
 
         // Contar outras rotas pendentes (excluindo a selecionada)
@@ -113,17 +120,20 @@ export function useLoadActiveRoute({
 
       const { data: rotaConcluida, error: errorConcluida } = await supabase
         .from('rotas')
-        .select(`
+        .select(
+          `
           id,
           status,
           distancia_total,
           tempo_total,
+          polyline,
           iniciada_em,
           concluida_em,
           created_at,
           data,
           unidades (nome)
-        `)
+        `,
+        )
         .eq('motorista_id', motoristaId)
         .eq('status', 'concluida')
         .gte('concluida_em', umaHoraAtras)
@@ -132,7 +142,10 @@ export function useLoadActiveRoute({
         .maybeSingle();
 
       if (errorConcluida) {
-        logger.error('[RouteStatus] Erro ao buscar rota concluída', errorConcluida);
+        logger.error(
+          '[RouteStatus] Erro ao buscar rota concluída',
+          errorConcluida,
+        );
         setRoute(null);
         setParadas([]);
         setLoading(false);
@@ -164,7 +177,14 @@ export function useLoadActiveRoute({
     } finally {
       setLoading(false);
     }
-  }, [userLoading, motoristaId, setRoute, setParadas, setPendingRoutesCount, setLoading]);
+  }, [
+    userLoading,
+    motoristaId,
+    setRoute,
+    setParadas,
+    setPendingRoutesCount,
+    setLoading,
+  ]);
 
   return loadActiveRoute;
 }

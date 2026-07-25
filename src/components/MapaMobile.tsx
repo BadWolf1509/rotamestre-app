@@ -1,6 +1,6 @@
 import * as MapLibreGL from '@maplibre/maplibre-react-native';
 import React, { useState } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 
 import { useLocationTracking } from '@/components/map/hooks/useLocationTracking';
 import { useMarkerGestures } from '@/components/map/hooks/useMarkerGestures';
@@ -14,6 +14,7 @@ import { ParadaMarker } from '@/components/map/mobile/markers/ParadaMarker';
 import { mapMobileStyles as styles } from '@/components/map/mobile/styles';
 import { MotoristaMarker } from '@/components/MotoristaMarker';
 import { useAlert } from '@/hooks/useAlert';
+import type { RouteInfo } from '@/hooks/useRouteDirections';
 import { MAPLIBRE_RASTER_STYLE_JSON, toLngLat } from '@/lib/maplibre';
 import type { ParadaMapItem as Parada, StatusFilter } from '@/types/parada-map';
 import { useUnistyles } from '@/utils/styles';
@@ -35,6 +36,10 @@ interface MapaMobileProps {
   showMotorista?: boolean;
   /** Nome da unidade para exibir nos checkpoints (PARTIDA/CHEGADA) */
   unidadeNome?: string;
+  /** Geometria viária persistida em rotas.polyline. */
+  polyline?: string | null;
+  /** Totais persistidos da rota, em metros e segundos. */
+  storedRouteInfo?: RouteInfo | null;
 }
 
 export function MapaMobile({
@@ -48,6 +53,8 @@ export function MapaMobile({
   motoristaNome,
   showMotorista = false,
   unidadeNome,
+  polyline,
+  storedRouteInfo,
 }: MapaMobileProps) {
   const { theme } = useUnistyles();
   const { AlertDialog } = useAlert();
@@ -65,9 +72,11 @@ export function MapaMobile({
   } = useParadaFiltering(paradas, statusFilter);
 
   // Route shape (GeoJSON LineString) + route info
-  const { routeShape, routeInfo, isLoadingRoute } = useRouteShape(
-    paradasComCoord as Parada[],
-  );
+  const { routeShape, routeInfo, isLoadingRoute, routeError, refetchRoute } =
+    useRouteShape(paradasComCoord as Parada[], {
+      encodedPolyline: polyline,
+      storedRouteInfo,
+    });
 
   // Camera ref + initial camera position
   const { cameraRef, initialCamera } = useMobileMapCamera(
@@ -116,7 +125,7 @@ export function MapaMobile({
       >
         <MapLibreGL.Camera ref={cameraRef} initialViewState={initialCamera} />
 
-        {/* Rota real (via Google Directions API) ou fallback para linhas retas */}
+        {/* Somente geometria viária real (persistida, cache ou OSRM). */}
         {routeShape && (
           <MapLibreGL.GeoJSONSource id="rota" data={routeShape}>
             <MapLibreGL.Layer
@@ -208,6 +217,19 @@ export function MapaMobile({
           </Text>
         )}
       </View>
+
+      {routeError && !routeShape && (
+        <TouchableOpacity
+          style={styles.routeErrorBadge}
+          onPress={() => void refetchRoute()}
+          accessibilityRole="button"
+          accessibilityLabel={`${routeError} Tentar novamente`}
+        >
+          <Text style={styles.routeErrorText}>
+            Trajeto indisponível · Tentar novamente
+          </Text>
+        </TouchableOpacity>
+      )}
 
       <FloatingActionButtons
         onFitAll={handleFitAll}

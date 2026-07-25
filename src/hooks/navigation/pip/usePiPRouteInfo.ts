@@ -9,7 +9,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { decodePolyline, getRoute, type Coordinate } from '@/lib/osrm';
 
-import { AVERAGE_URBAN_SPEED_KMH, NEAR_DESTINATION_THRESHOLD_KM } from './constants';
+import {
+  AVERAGE_URBAN_SPEED_KMH,
+  NEAR_DESTINATION_THRESHOLD_KM,
+} from './constants';
 
 import type { RouteInfo } from './types';
 
@@ -42,7 +45,7 @@ export function calculateDistanceKm(
   lat1: number,
   lon1: number,
   lat2: number,
-  lon2: number
+  lon2: number,
 ): number {
   const R = 6371; // Earth's radius in km
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -76,11 +79,13 @@ export function usePiPRouteInfo({
       userLocation.latitude,
       userLocation.longitude,
       destination.latitude,
-      destination.longitude
+      destination.longitude,
     );
 
     // Estimate time based on average urban speed
-    const estimatedMinutes = Math.ceil((distanceKm / AVERAGE_URBAN_SPEED_KMH) * 60);
+    const estimatedMinutes = Math.ceil(
+      (distanceKm / AVERAGE_URBAN_SPEED_KMH) * 60,
+    );
 
     return {
       distanceKm,
@@ -98,7 +103,8 @@ export function usePiPRouteInfo({
   }, [userLocation, destination]);
 
   // Check if near destination (< 100m)
-  const isNearDestination = routeInfo !== null && routeInfo.distanceKm < NEAR_DESTINATION_THRESHOLD_KM;
+  const isNearDestination =
+    routeInfo !== null && routeInfo.distanceKm < NEAR_DESTINATION_THRESHOLD_KM;
 
   // Fetch OSRM route when visible and locations change
   useEffect(() => {
@@ -111,32 +117,29 @@ export function usePiPRouteInfo({
 
     const fetchRoute = async () => {
       setIsLoadingRoute(true);
+      setRoutePath([]);
       try {
         const result = await getRoute(
-          { latitude: userLocation.latitude, longitude: userLocation.longitude },
-          { latitude: destination.latitude, longitude: destination.longitude }
+          {
+            latitude: userLocation.latitude,
+            longitude: userLocation.longitude,
+          },
+          { latitude: destination.latitude, longitude: destination.longitude },
         );
 
         if (cancelled) return;
 
         if (result?.polyline) {
           const decoded = decodePolyline(result.polyline);
-          setRoutePath(decoded);
+          setRoutePath(decoded.length >= 2 ? decoded : []);
         } else {
-          // Fallback to straight line if OSRM fails
-          setRoutePath([
-            { latitude: userLocation.latitude, longitude: userLocation.longitude },
-            { latitude: destination.latitude, longitude: destination.longitude },
-          ]);
+          logger.warn('PiP: OSRM não retornou geometria viária');
+          setRoutePath([]);
         }
       } catch (error) {
         logger.warn('PiP: Error fetching OSRM route:', error);
         if (!cancelled) {
-          // Fallback to straight line
-          setRoutePath([
-            { latitude: userLocation.latitude, longitude: userLocation.longitude },
-            { latitude: destination.latitude, longitude: destination.longitude },
-          ]);
+          setRoutePath([]);
         }
       } finally {
         if (!cancelled) {
@@ -151,7 +154,13 @@ export function usePiPRouteInfo({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Use specific coordinates to avoid unnecessary re-fetch
-  }, [visible, userLocation?.latitude, userLocation?.longitude, destination?.latitude, destination?.longitude]);
+  }, [
+    visible,
+    userLocation?.latitude,
+    userLocation?.longitude,
+    destination?.latitude,
+    destination?.longitude,
+  ]);
 
   return {
     routeInfo,

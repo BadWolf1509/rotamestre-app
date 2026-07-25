@@ -5,14 +5,14 @@ Este documento descreve a arquitetura de testes, padrões e convenções utiliza
 ## Status Atual
 
 **Framework:** Jest + React Native Testing Library
-**Snapshot de 24/07/2026:** 312/312 suites e 5721/5721 testes passando
+**Snapshot de 24/07/2026:** 312/312 suites, 5729/5729 testes e 5/5 snapshots passando
 **Threshold de cobertura:** 73% lines (última medição ~74%)
 
-> ⚠️ No snapshot de 24/07, todas as assertions passaram, mas o processo
-> `npm test -- --runInBand` terminou com código 1 por callbacks de timer de
-> `PictureInPictureMap.test.tsx` executados depois do teardown do Jest. Isso é
-> uma dívida real do harness: não considere a execução totalmente verde até
-> limpar/cancelar os timers e obter exit code 0.
+> ⚠️ A execução `npm test -- --runInBand --forceExit` terminou com código 0,
+> mas ainda precisou encerrar handles abertos à força. O timer de animação de
+> `PictureInPictureMap` foi corrigido e essa suíte termina sem `--forceExit`;
+> os handles restantes ainda precisam ser identificados. O critério final é
+> obter a passagem completa sem `--forceExit`.
 
 ### Executando testes
 

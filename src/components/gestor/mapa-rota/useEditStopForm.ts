@@ -15,7 +15,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { maskPhone } from '@/lib/phone';
 import { photonService } from '@/lib/photon';
-import { recalcularRota, notificarMotoristaRotaEditada } from '@/lib/routeUtils';
+import {
+  recalcularRota,
+  notificarMotoristaRotaEditada,
+} from '@/lib/routeUtils';
 import { supabase } from '@/lib/supabase';
 import type { Coordenadas } from '@/types/endereco';
 
@@ -32,7 +35,7 @@ export interface UseEditStopFormParams {
   rotaId: string;
   enderecoUnidade: EnderecoUnidade | null;
   allParadas: Parada[];
-  onSave: () => void;
+  onSave: (result: { routeRecalculationFailed: boolean }) => void;
   usuarioId?: string;
   motoristaId?: string | null;
 }
@@ -86,27 +89,33 @@ export function useEditStopForm({
 
   // Handle address selection from autocomplete
   // Photon já retorna coordenadas diretamente - não precisa de getPlaceDetails!
-  const handleAddressSelect = useCallback((address: string, _placeId: string, coordinates?: Coordenadas) => {
-    setEndereco(address);
-    setAddressChanged(true);
-    setError(null);
+  const handleAddressSelect = useCallback(
+    (address: string, _placeId: string, coordinates?: Coordenadas) => {
+      setEndereco(address);
+      setAddressChanged(true);
+      setError(null);
 
-    // Photon retorna coordenadas diretamente no autocomplete
-    if (coordinates) {
-      setLatitude(coordinates.latitude);
-      setLongitude(coordinates.longitude);
-    }
-  }, []);
+      // Photon retorna coordenadas diretamente no autocomplete
+      if (coordinates) {
+        setLatitude(coordinates.latitude);
+        setLongitude(coordinates.longitude);
+      }
+    },
+    [],
+  );
 
   // Handle address text change (manual typing)
-  const handleAddressChange = useCallback((text: string) => {
-    setEndereco(text);
-    setError(null);
-    // Mark as changed only if different from original
-    if (text !== parada?.endereco) {
-      setAddressChanged(true);
-    }
-  }, [parada?.endereco]);
+  const handleAddressChange = useCallback(
+    (text: string) => {
+      setEndereco(text);
+      setError(null);
+      // Mark as changed only if different from original
+      if (text !== parada?.endereco) {
+        setAddressChanged(true);
+      }
+    },
+    [parada?.endereco],
+  );
 
   // Handle phone formatting
   const handlePhoneChange = useCallback((text: string) => {
@@ -131,7 +140,13 @@ export function useEditStopForm({
       let finalLatitude = latitude;
       let finalLongitude = longitude;
 
-      if (addressChanged && (!finalLatitude || !finalLongitude)) {
+      if (
+        addressChanged &&
+        (typeof finalLatitude !== 'number' ||
+          !Number.isFinite(finalLatitude) ||
+          typeof finalLongitude !== 'number' ||
+          !Number.isFinite(finalLongitude))
+      ) {
         // Usa Photon (gratuito!) em vez de Google Geocoding API
         const geocoded = await photonService.geocodeAddress(endereco);
         if (geocoded?.coordenadas) {
@@ -145,7 +160,8 @@ export function useEditStopForm({
 
       // Check if coordinates actually changed (more accurate than text comparison)
       const coordinatesChanged =
-        finalLatitude !== parada.latitude || finalLongitude !== parada.longitude;
+        finalLatitude !== parada.latitude ||
+        finalLongitude !== parada.longitude;
 
       // Update parada in database
       const { error: updateError } = await supabase
@@ -166,14 +182,26 @@ export function useEditStopForm({
       }
 
       // Only recalculate route if coordinates ACTUALLY changed
-      if (coordinatesChanged && enderecoUnidade && finalLatitude && finalLongitude) {
+      let recalcFailed = false;
+      if (coordinatesChanged) {
         const updatedParadas = allParadas.map((p) =>
           p.id === parada.id
             ? { ...p, latitude: finalLatitude, longitude: finalLongitude }
-            : p
+            : p,
         );
 
-        await recalcularRota(rotaId, updatedParadas, enderecoUnidade);
+        const recalcResult = await recalcularRota(
+          rotaId,
+          updatedParadas,
+          enderecoUnidade,
+        );
+        recalcFailed = !recalcResult.success;
+        if (recalcFailed) {
+          logger.warn(
+            'Recálculo de rota falhou após editar parada:',
+            recalcResult.error,
+          );
+        }
       }
 
       // Log the edit
@@ -200,13 +228,15 @@ export function useEditStopForm({
       if (motoristaId) {
         const camposEditados: string[] = [];
         if (endereco !== parada.endereco) camposEditados.push('endereço');
-        if (destinatario !== parada.destinatario) camposEditados.push('destinatário');
+        if (destinatario !== parada.destinatario)
+          camposEditados.push('destinatário');
         if (telefone !== parada.telefone) camposEditados.push('telefone');
         if (tipo !== parada.tipo) camposEditados.push('tipo');
 
-        const mensagem = camposEditados.length > 0
-          ? `Alterações: ${camposEditados.join(', ')}`
-          : 'Uma parada da sua rota foi editada';
+        const mensagem =
+          camposEditados.length > 0
+            ? `Alterações: ${camposEditados.join(', ')}`
+            : 'Uma parada da sua rota foi editada';
 
         await notificarMotoristaRotaEditada({
           rotaId,
@@ -218,7 +248,7 @@ export function useEditStopForm({
         });
       }
 
-      onSave();
+      onSave({ routeRecalculationFailed: recalcFailed });
     } catch (err) {
       logger.error('Erro ao salvar parada:', err);
       setError('Erro ao salvar parada. Tente novamente.');

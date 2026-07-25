@@ -43,19 +43,25 @@ export function useMapaRotaData({
   // Computed values
   const paradasReais = useMemo(
     () => paradas.filter((parada) => parada.is_checkpoint !== false),
-    [paradas]
+    [paradas],
   );
 
   const pontosBase = useMemo(
     () => paradas.filter((parada) => parada.is_checkpoint === false),
-    [paradas]
+    [paradas],
   );
 
   const resumoParadas: ResumoParadas = useMemo(() => {
     const total = paradasReais.length;
-    const concluidas = paradasReais.filter((p) => p.status === 'concluida').length;
-    const pendentes = paradasReais.filter((p) => p.status === 'pendente').length;
-    const emAndamento = paradasReais.filter((p) => p.status === 'em_andamento').length;
+    const concluidas = paradasReais.filter(
+      (p) => p.status === 'concluida',
+    ).length;
+    const pendentes = paradasReais.filter(
+      (p) => p.status === 'pendente',
+    ).length;
+    const emAndamento = paradasReais.filter(
+      (p) => p.status === 'em_andamento',
+    ).length;
     const puladas = paradasReais.filter((p) => p.status === 'pulada').length;
     return { total, concluidas, pendentes, emAndamento, puladas };
   }, [paradasReais]);
@@ -82,7 +88,7 @@ export function useMapaRotaData({
       const { data: rotaData, error: rotaError } = await supabase
         .from('rotas')
         .select(
-          'id, data, status, distancia_total, tempo_total, created_at, updated_at, motorista_id, unidade_id, usuarios!rotas_motorista_id_fkey(nome), unidades(nome)'
+          'id, data, status, distancia_total, tempo_total, polyline, created_at, updated_at, motorista_id, unidade_id, usuarios!rotas_motorista_id_fkey(nome), unidades(nome)',
         )
         .eq('id', id)
         .single();
@@ -109,8 +115,12 @@ export function useMapaRotaData({
 
       // Check if order needs normalization (arrival checkpoint not at end)
       if (paradasData && paradasData.length > 0) {
-        const chegada = paradasData.find((p) => p.is_checkpoint === false && p.ordem > 0);
-        const paradasReaisArr = paradasData.filter((p) => p.is_checkpoint !== false);
+        const chegada = paradasData.find(
+          (p) => p.is_checkpoint === false && p.ordem > 0,
+        );
+        const paradasReaisArr = paradasData.filter(
+          (p) => p.is_checkpoint !== false,
+        );
         const expectedChegadaOrdem = paradasReaisArr.length + 1;
 
         if (chegada && chegada.ordem !== expectedChegadaOrdem) {

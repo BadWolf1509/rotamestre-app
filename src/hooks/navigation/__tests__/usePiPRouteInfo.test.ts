@@ -81,7 +81,7 @@ describe('usePiPRouteInfo', () => {
           visible: false,
           userLocation: mockUserLocation,
           destination: mockDestination,
-        })
+        }),
       );
 
       // routeInfo is calculated regardless of visibility (uses Haversine)
@@ -102,7 +102,7 @@ describe('usePiPRouteInfo', () => {
           visible: true,
           userLocation: null,
           destination: mockDestination,
-        })
+        }),
       );
 
       expect(result.current.routeInfo).toBeNull();
@@ -115,7 +115,7 @@ describe('usePiPRouteInfo', () => {
           visible: true,
           userLocation: mockUserLocation,
           destination: null,
-        })
+        }),
       );
 
       expect(result.current.routeInfo).toBeNull();
@@ -137,7 +137,7 @@ describe('usePiPRouteInfo', () => {
           visible: true,
           userLocation: mockUserLocation,
           destination: mockDestination,
-        })
+        }),
       );
 
       // routeInfo uses Haversine, not OSRM
@@ -163,7 +163,7 @@ describe('usePiPRouteInfo', () => {
           visible: true,
           userLocation: mockUserLocation,
           destination: mockDestination,
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -172,15 +172,21 @@ describe('usePiPRouteInfo', () => {
 
       // OSRM should have been called
       expect(mockGetRoute).toHaveBeenCalledWith(
-        { latitude: mockUserLocation.latitude, longitude: mockUserLocation.longitude },
-        { latitude: mockDestination.latitude, longitude: mockDestination.longitude }
+        {
+          latitude: mockUserLocation.latitude,
+          longitude: mockUserLocation.longitude,
+        },
+        {
+          latitude: mockDestination.latitude,
+          longitude: mockDestination.longitude,
+        },
       );
 
       // routePath should be populated from decoded polyline
       expect(result.current.routePath.length).toBeGreaterThan(0);
     });
 
-    it('should handle OSRM error gracefully with fallback to straight line', async () => {
+    it('should not draw a misleading line when OSRM fails', async () => {
       mockGetRoute.mockRejectedValueOnce(new Error('Network error'));
 
       const { result } = renderHook(() =>
@@ -188,7 +194,7 @@ describe('usePiPRouteInfo', () => {
           visible: true,
           userLocation: mockUserLocation,
           destination: mockDestination,
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -198,11 +204,10 @@ describe('usePiPRouteInfo', () => {
       // routeInfo should still work (uses Haversine, not OSRM)
       expect(result.current.routeInfo).not.toBeNull();
 
-      // routePath should fallback to straight line (2 points)
-      expect(result.current.routePath.length).toBe(2);
+      expect(result.current.routePath).toEqual([]);
     });
 
-    it('should fallback when OSRM returns null', async () => {
+    it('should keep route empty when OSRM returns null', async () => {
       mockGetRoute.mockResolvedValueOnce(null);
 
       const { result } = renderHook(() =>
@@ -210,15 +215,14 @@ describe('usePiPRouteInfo', () => {
           visible: true,
           userLocation: mockUserLocation,
           destination: mockDestination,
-        })
+        }),
       );
 
       await waitFor(() => {
         expect(result.current.isLoadingRoute).toBe(false);
       });
 
-      // routePath should fallback to straight line (2 points)
-      expect(result.current.routePath.length).toBe(2);
+      expect(result.current.routePath).toEqual([]);
     });
   });
 
@@ -235,7 +239,7 @@ describe('usePiPRouteInfo', () => {
           visible: true,
           userLocation: mockUserLocation,
           destination: closeDestination,
-        })
+        }),
       );
 
       // Distance is calculated via Haversine
@@ -250,7 +254,7 @@ describe('usePiPRouteInfo', () => {
           visible: true,
           userLocation: mockUserLocation,
           destination: mockDestination,
-        })
+        }),
       );
 
       // Distance should be >= 0.1km
@@ -271,7 +275,7 @@ describe('usePiPRouteInfo', () => {
           visible: true,
           userLocation: mockUserLocation,
           destination: closeDestination,
-        })
+        }),
       );
 
       // Should be formatted as meters
@@ -290,7 +294,7 @@ describe('usePiPRouteInfo', () => {
           visible: true,
           userLocation: mockUserLocation,
           destination: farDestination,
-        })
+        }),
       );
 
       // Should be formatted as km
@@ -303,7 +307,7 @@ describe('usePiPRouteInfo', () => {
           visible: true,
           userLocation: mockUserLocation,
           destination: mockDestination,
-        })
+        }),
       );
 
       // Short distance should have short time

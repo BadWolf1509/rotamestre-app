@@ -34,11 +34,14 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { logger } from '@/lib/logger';
+import { decodePolyline } from '@/lib/osrm';
 
 import {
   CACHE_PREFIX,
   CACHE_TTL,
   generateCacheKey,
+  isValidRouteCoordinates,
+  decodeValidPolyline,
   loadFromCache,
   saveToCache,
   type Parada,
@@ -69,6 +72,48 @@ describe('useRouteDirections utilities', () => {
     });
   });
 
+  describe('road geometry validation', () => {
+    it('accepts a route with at least two valid coordinates', () => {
+      expect(
+        isValidRouteCoordinates([
+          { latitude: -7.1153, longitude: -34.8813 },
+          { latitude: -7.1202, longitude: -34.8641 },
+        ]),
+      ).toBe(true);
+    });
+
+    it('rejects a single point so it cannot be rendered as a route', () => {
+      expect(
+        isValidRouteCoordinates([{ latitude: -7.1153, longitude: -34.8813 }]),
+      ).toBe(false);
+    });
+
+    it('rejects out-of-range coordinates', () => {
+      expect(
+        isValidRouteCoordinates([
+          { latitude: -7.1153, longitude: -34.8813 },
+          { latitude: 95, longitude: -34.8641 },
+        ]),
+      ).toBe(false);
+    });
+
+    it('decodes a persisted polyline through the shared OSRM decoder', () => {
+      const coordinates = [
+        { latitude: -7.1153, longitude: -34.8813 },
+        { latitude: -7.1202, longitude: -34.8641 },
+      ];
+      (decodePolyline as jest.Mock).mockReturnValueOnce(coordinates);
+
+      expect(decodeValidPolyline('encoded-road-geometry')).toEqual(coordinates);
+      expect(decodePolyline).toHaveBeenCalledWith('encoded-road-geometry');
+    });
+
+    it('does not accept an empty/fallback polyline', () => {
+      expect(decodeValidPolyline('')).toBeNull();
+      expect(decodePolyline).not.toHaveBeenCalled();
+    });
+  });
+
   // ─── generateCacheKey ─────────────────────────────────────────
 
   describe('generateCacheKey', () => {
@@ -84,13 +129,13 @@ describe('useRouteDirections utilities', () => {
 
     it('should sort paradas by ordem before generating key', () => {
       const paradasUnordered: Parada[] = [
-        { id: '2', latitude: -22.90680, longitude: -43.17290, ordem: 2 },
+        { id: '2', latitude: -22.9068, longitude: -43.1729, ordem: 2 },
         { id: '1', latitude: -23.55052, longitude: -46.63331, ordem: 1 },
       ];
 
       const paradasOrdered: Parada[] = [
         { id: '1', latitude: -23.55052, longitude: -46.63331, ordem: 1 },
-        { id: '2', latitude: -22.90680, longitude: -43.17290, ordem: 2 },
+        { id: '2', latitude: -22.9068, longitude: -43.1729, ordem: 2 },
       ];
 
       const keyUnordered = generateCacheKey(paradasUnordered);
@@ -101,15 +146,15 @@ describe('useRouteDirections utilities', () => {
 
     it('should produce the same key for same paradas in different array order', () => {
       const paradasA: Parada[] = [
-        { id: '3', latitude: -15.78010, longitude: -47.92920, ordem: 3 },
+        { id: '3', latitude: -15.7801, longitude: -47.9292, ordem: 3 },
         { id: '1', latitude: -23.55052, longitude: -46.63331, ordem: 1 },
-        { id: '2', latitude: -22.90680, longitude: -43.17290, ordem: 2 },
+        { id: '2', latitude: -22.9068, longitude: -43.1729, ordem: 2 },
       ];
 
       const paradasB: Parada[] = [
         { id: '1', latitude: -23.55052, longitude: -46.63331, ordem: 1 },
-        { id: '2', latitude: -22.90680, longitude: -43.17290, ordem: 2 },
-        { id: '3', latitude: -15.78010, longitude: -47.92920, ordem: 3 },
+        { id: '2', latitude: -22.9068, longitude: -43.1729, ordem: 2 },
+        { id: '3', latitude: -15.7801, longitude: -47.9292, ordem: 3 },
       ];
 
       expect(generateCacheKey(paradasA)).toBe(generateCacheKey(paradasB));
@@ -118,7 +163,7 @@ describe('useRouteDirections utilities', () => {
     it('should filter out paradas with null latitude', () => {
       const paradas: Parada[] = [
         { id: '1', latitude: -23.55052, longitude: -46.63331, ordem: 1 },
-        { id: '2', latitude: null, longitude: -43.17290, ordem: 2 },
+        { id: '2', latitude: null, longitude: -43.1729, ordem: 2 },
       ];
 
       const key = generateCacheKey(paradas);
@@ -129,7 +174,7 @@ describe('useRouteDirections utilities', () => {
     it('should filter out paradas with null longitude', () => {
       const paradas: Parada[] = [
         { id: '1', latitude: -23.55052, longitude: null, ordem: 1 },
-        { id: '2', latitude: -22.90680, longitude: -43.17290, ordem: 2 },
+        { id: '2', latitude: -22.9068, longitude: -43.1729, ordem: 2 },
       ];
 
       const key = generateCacheKey(paradas);
@@ -140,7 +185,7 @@ describe('useRouteDirections utilities', () => {
     it('should filter out paradas with both null coordinates', () => {
       const paradas: Parada[] = [
         { id: '1', latitude: null, longitude: null, ordem: 1 },
-        { id: '2', latitude: -22.90680, longitude: -43.17290, ordem: 2 },
+        { id: '2', latitude: -22.9068, longitude: -43.1729, ordem: 2 },
       ];
 
       const key = generateCacheKey(paradas);
@@ -150,7 +195,12 @@ describe('useRouteDirections utilities', () => {
 
     it('should format coordinates to 5 decimal places', () => {
       const paradas: Parada[] = [
-        { id: '1', latitude: -23.5505199999, longitude: -46.6333100001, ordem: 1 },
+        {
+          id: '1',
+          latitude: -23.5505199999,
+          longitude: -46.6333100001,
+          ordem: 1,
+        },
       ];
 
       const key = generateCacheKey(paradas);
@@ -161,12 +211,14 @@ describe('useRouteDirections utilities', () => {
     it('should join multiple paradas with pipe separator', () => {
       const paradas: Parada[] = [
         { id: '1', latitude: -23.55052, longitude: -46.63331, ordem: 1 },
-        { id: '2', latitude: -22.90680, longitude: -43.17290, ordem: 2 },
+        { id: '2', latitude: -22.9068, longitude: -43.1729, ordem: 2 },
       ];
 
       const key = generateCacheKey(paradas);
 
-      expect(key).toBe(`${CACHE_PREFIX}-23.55052,-46.63331|-22.90680,-43.17290`);
+      expect(key).toBe(
+        `${CACHE_PREFIX}-23.55052,-46.63331|-22.90680,-43.17290`,
+      );
     });
 
     it('should produce minimal key when all paradas have null coordinates', () => {
@@ -193,7 +245,7 @@ describe('useRouteDirections utilities', () => {
     const makeCachedData = (timestamp: number): CachedRoute => ({
       coordinates: [
         { latitude: -23.55052, longitude: -46.63331 },
-        { latitude: -22.90680, longitude: -43.17290 },
+        { latitude: -22.9068, longitude: -43.1729 },
       ],
       routeInfo: {
         distanceMeters: 358000,
@@ -206,14 +258,18 @@ describe('useRouteDirections utilities', () => {
       const result = await loadFromCache('route_cache_nonexistent');
 
       expect(result).toBeNull();
-      expect(AsyncStorage.getItem).toHaveBeenCalledWith('route_cache_nonexistent');
+      expect(AsyncStorage.getItem).toHaveBeenCalledWith(
+        'route_cache_nonexistent',
+      );
     });
 
     it('should return cached data when valid and within TTL', async () => {
       const now = 1700000000000;
       const freshData = makeCachedData(now - 1000); // 1 second ago
 
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(JSON.stringify(freshData));
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(
+        JSON.stringify(freshData),
+      );
       jest.spyOn(Date, 'now').mockReturnValue(now);
 
       const result = await loadFromCache('route_cache_valid');
@@ -231,13 +287,17 @@ describe('useRouteDirections utilities', () => {
       const now = 1700000000000;
       const expiredData = makeCachedData(now - CACHE_TTL - 1); // 1ms past TTL
 
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(JSON.stringify(expiredData));
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(
+        JSON.stringify(expiredData),
+      );
       jest.spyOn(Date, 'now').mockReturnValue(now);
 
       const result = await loadFromCache('route_cache_expired');
 
       expect(result).toBeNull();
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('route_cache_expired');
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith(
+        'route_cache_expired',
+      );
 
       jest.restoreAllMocks();
     });
@@ -246,7 +306,9 @@ describe('useRouteDirections utilities', () => {
       const now = 1700000000000;
       const boundaryData = makeCachedData(now - CACHE_TTL); // Exactly at TTL
 
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(JSON.stringify(boundaryData));
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(
+        JSON.stringify(boundaryData),
+      );
       jest.spyOn(Date, 'now').mockReturnValue(now);
 
       const result = await loadFromCache('route_cache_boundary');
@@ -260,26 +322,30 @@ describe('useRouteDirections utilities', () => {
     });
 
     it('should return null on JSON parse error and log warning', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce('not-valid-json{{{');
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(
+        'not-valid-json{{{',
+      );
 
       const result = await loadFromCache('route_cache_bad_json');
 
       expect(result).toBeNull();
       expect(logger.warn).toHaveBeenCalledWith(
         '[useRouteDirections] Erro ao carregar cache:',
-        expect.any(Error)
+        expect.any(Error),
       );
     });
 
     it('should return null when AsyncStorage.getItem throws', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(new Error('Storage read failed'));
+      (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(
+        new Error('Storage read failed'),
+      );
 
       const result = await loadFromCache('route_cache_error');
 
       expect(result).toBeNull();
       expect(logger.warn).toHaveBeenCalledWith(
         '[useRouteDirections] Erro ao carregar cache:',
-        expect.any(Error)
+        expect.any(Error),
       );
     });
 
@@ -287,7 +353,9 @@ describe('useRouteDirections utilities', () => {
       const now = 1700000000000;
       const oldData = makeCachedData(now - 25 * 60 * 60 * 1000); // 25 hours ago
 
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(JSON.stringify(oldData));
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(
+        JSON.stringify(oldData),
+      );
       jest.spyOn(Date, 'now').mockReturnValue(now);
 
       const result = await loadFromCache('route_cache_25h');
@@ -304,7 +372,7 @@ describe('useRouteDirections utilities', () => {
   describe('saveToCache', () => {
     const coordinates = [
       { latitude: -23.55052, longitude: -46.63331 },
-      { latitude: -22.90680, longitude: -43.17290 },
+      { latitude: -22.9068, longitude: -43.1729 },
     ];
 
     const routeInfo = {
@@ -346,15 +414,17 @@ describe('useRouteDirections utilities', () => {
     });
 
     it('should handle AsyncStorage error gracefully without throwing', async () => {
-      (AsyncStorage.setItem as jest.Mock).mockRejectedValueOnce(new Error('Storage write failed'));
+      (AsyncStorage.setItem as jest.Mock).mockRejectedValueOnce(
+        new Error('Storage write failed'),
+      );
 
       await expect(
-        saveToCache('route_cache_save_err', coordinates, routeInfo)
+        saveToCache('route_cache_save_err', coordinates, routeInfo),
       ).resolves.toBeUndefined();
 
       expect(logger.warn).toHaveBeenCalledWith(
         '[useRouteDirections] Erro ao salvar cache:',
-        expect.any(Error)
+        expect.any(Error),
       );
     });
 
@@ -363,7 +433,10 @@ describe('useRouteDirections utilities', () => {
 
       await saveToCache(key, coordinates, routeInfo);
 
-      expect(AsyncStorage.setItem).toHaveBeenCalledWith(key, expect.any(String));
+      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+        key,
+        expect.any(String),
+      );
     });
   });
 
@@ -376,7 +449,7 @@ describe('useRouteDirections utilities', () => {
 
       const coordinates = [
         { latitude: -23.55052, longitude: -46.63331 },
-        { latitude: -22.90680, longitude: -43.17290 },
+        { latitude: -22.9068, longitude: -43.1729 },
       ];
       const routeInfo = { distanceMeters: 358000, durationSeconds: 18000 };
 

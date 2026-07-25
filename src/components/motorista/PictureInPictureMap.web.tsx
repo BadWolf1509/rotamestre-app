@@ -49,12 +49,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import maplibregl from 'maplibre-gl';
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -72,7 +67,10 @@ import {
 import type { PictureInPictureMapProps } from '@/hooks/navigation';
 import { usePiPPosition } from '@/hooks/usePiPPosition';
 import { logger } from '@/lib/logger';
-import { getOpenFreeMapStyle, installOpenFreeMapMissingImageHandler } from '@/lib/openFreeMapStyle';
+import {
+  getOpenFreeMapStyle,
+  installOpenFreeMapMissingImageHandler,
+} from '@/lib/openFreeMapStyle';
 import { boxShadow, withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -182,8 +180,17 @@ export function PictureInPictureMap({
       let initialY = defaultY;
 
       if (savedPosition) {
-        initialX = Math.max(EDGE_PADDING, Math.min(savedPosition.x, viewport.width - PIP_WIDTH - EDGE_PADDING));
-        initialY = Math.max(EDGE_PADDING, Math.min(savedPosition.y, viewport.height - PIP_HEIGHT - EDGE_PADDING - 60));
+        initialX = Math.max(
+          EDGE_PADDING,
+          Math.min(savedPosition.x, viewport.width - PIP_WIDTH - EDGE_PADDING),
+        );
+        initialY = Math.max(
+          EDGE_PADDING,
+          Math.min(
+            savedPosition.y,
+            viewport.height - PIP_HEIGHT - EDGE_PADDING - 60,
+          ),
+        );
       }
 
       setPosition({ x: initialX, y: initialY });
@@ -193,7 +200,14 @@ export function PictureInPictureMap({
 
   // Auto-reposicionamento para evitar colisão com avoidAreas
   useEffect(() => {
-    if (!avoidAreas || avoidAreas.length === 0 || isExpanded || !visible || viewport.width === 0) return;
+    if (
+      !avoidAreas ||
+      avoidAreas.length === 0 ||
+      isExpanded ||
+      !visible ||
+      viewport.width === 0
+    )
+      return;
 
     const currentPosition = positionRef.current;
 
@@ -216,7 +230,15 @@ export function PictureInPictureMap({
       setPosition(bestPosition);
       savePosition(bestPosition);
     }
-  }, [avoidAreas, visible, isExpanded, viewport, savePosition, checkCollision, findSafePosition]);
+  }, [
+    avoidAreas,
+    visible,
+    isExpanded,
+    viewport,
+    savePosition,
+    checkCollision,
+    findSafePosition,
+  ]);
 
   // Toggle expansão
   const toggleExpand = useCallback(() => {
@@ -239,8 +261,14 @@ export function PictureInPictureMap({
   }, [isExpanded, viewport, expandedWidth, expandedHeight]);
 
   // Map calculations (pure functions from pip-utils)
-  const getRegion = useCallback(() => getMapCenter(userLocation, destination), [userLocation, destination]);
-  const getZoom = useCallback(() => getMapZoom(userLocation, destination), [userLocation, destination]);
+  const getRegion = useCallback(
+    () => getMapCenter(userLocation, destination),
+    [userLocation, destination],
+  );
+  const getZoom = useCallback(
+    () => getMapZoom(userLocation, destination),
+    [userLocation, destination],
+  );
 
   // Open external Google Maps
   const openGoogleMaps = useCallback(() => {
@@ -252,12 +280,13 @@ export function PictureInPictureMap({
   }, [userLocation, destination]);
 
   // Create user marker element
-  const createUserMarkerElement = useCallback((heading?: number) => {
-    const el = document.createElement('div');
+  const createUserMarkerElement = useCallback(
+    (heading?: number) => {
+      const el = document.createElement('div');
 
-    if (heading !== undefined) {
-      // Seta direcional quando heading disponível
-      el.style.cssText = `
+      if (heading !== undefined) {
+        // Seta direcional quando heading disponível
+        el.style.cssText = `
         width: 32px;
         height: 32px;
         border-radius: 50%;
@@ -268,10 +297,10 @@ export function PictureInPictureMap({
         box-shadow: 0 2px 4px rgba(0,0,0,0.25);
         transform: rotate(${heading}deg);
       `;
-      el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 512 512"><path fill="${theme.colors.info}" d="m256 64l192 192-64 64-96-96v224h-64V224l-96 96-64-64z"/></svg>`;
-    } else {
-      // Ponto azul padrão
-      el.style.cssText = `
+        el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 512 512"><path fill="${theme.colors.info}" d="m256 64l192 192-64 64-96-96v224h-64V224l-96 96-64-64z"/></svg>`;
+      } else {
+        // Ponto azul padrão
+        el.style.cssText = `
         width: 24px;
         height: 24px;
         border-radius: 50%;
@@ -281,19 +310,21 @@ export function PictureInPictureMap({
         justify-content: center;
       `;
 
-      const dot = document.createElement('div');
-      dot.style.cssText = `
+        const dot = document.createElement('div');
+        dot.style.cssText = `
         width: 12px;
         height: 12px;
         border-radius: 50%;
         background-color: ${theme.colors.info};
         border: 2px solid ${theme.colors.white};
       `;
-      el.appendChild(dot);
-    }
+        el.appendChild(dot);
+      }
 
-    return el;
-  }, [theme.colors.info, theme.colors.white]);
+      return el;
+    },
+    [theme.colors.info, theme.colors.white],
+  );
 
   // Create destination marker element
   const createDestinationMarkerElement = useCallback(() => {
@@ -342,7 +373,8 @@ export function PictureInPictureMap({
           attributionControl: false,
           interactive: isExpanded,
         });
-        removeMissingImageHandler = installOpenFreeMapMissingImageHandler(mapInstance);
+        removeMissingImageHandler =
+          installOpenFreeMapMissingImageHandler(mapInstance);
 
         mapInstance.on('load', () => {
           setMapReady(true);
@@ -405,12 +437,17 @@ export function PictureInPictureMap({
     // Update or create user marker
     if (userLocation) {
       if (userMarkerRef.current) {
-        userMarkerRef.current.setLngLat([userLocation.longitude, userLocation.latitude]);
+        userMarkerRef.current.setLngLat([
+          userLocation.longitude,
+          userLocation.latitude,
+        ]);
         // Update marker element if heading changed
         const newEl = createUserMarkerElement(userHeading);
         userMarkerRef.current.getElement().replaceWith(newEl);
       } else {
-        userMarkerRef.current = new maplibregl.Marker({ element: createUserMarkerElement(userHeading) })
+        userMarkerRef.current = new maplibregl.Marker({
+          element: createUserMarkerElement(userHeading),
+        })
           .setLngLat([userLocation.longitude, userLocation.latitude])
           .addTo(mapRef.current);
       }
@@ -419,45 +456,60 @@ export function PictureInPictureMap({
     // Update or create destination marker
     if (destination) {
       if (destMarkerRef.current) {
-        destMarkerRef.current.setLngLat([destination.longitude, destination.latitude]);
+        destMarkerRef.current.setLngLat([
+          destination.longitude,
+          destination.latitude,
+        ]);
       } else {
-        destMarkerRef.current = new maplibregl.Marker({ element: createDestinationMarkerElement() })
+        destMarkerRef.current = new maplibregl.Marker({
+          element: createDestinationMarkerElement(),
+        })
           .setLngLat([destination.longitude, destination.latitude])
           .addTo(mapRef.current);
       }
     }
-  }, [mapReady, userLocation, destination, userHeading, createUserMarkerElement, createDestinationMarkerElement]);
+  }, [
+    mapReady,
+    userLocation,
+    destination,
+    userHeading,
+    createUserMarkerElement,
+    createDestinationMarkerElement,
+  ]);
 
   // Add route polyline
   useEffect(() => {
-    if (!mapRef.current || !mapReady || routePath.length < 2) return;
+    if (!mapRef.current || !mapReady) return;
 
+    const map = mapRef.current;
     const sourceId = 'pip-route-source';
     const layerId = 'pip-route-layer';
 
     // Remove existing layer and source if they exist
-    if (mapRef.current.getLayer(layerId)) {
-      mapRef.current.removeLayer(layerId);
+    if (map.getLayer(layerId)) {
+      map.removeLayer(layerId);
     }
-    if (mapRef.current.getSource(sourceId)) {
-      mapRef.current.removeSource(sourceId);
+    if (map.getSource(sourceId)) {
+      map.removeSource(sourceId);
     }
 
+    if (routePath.length < 2) return;
+
     // Add route source
-    mapRef.current.addSource(sourceId, {
+    map.addSource(sourceId, {
       type: 'geojson',
       data: {
         type: 'Feature',
         properties: {},
         geometry: {
           type: 'LineString',
-          coordinates: routePath.map(c => [c.longitude, c.latitude]),
+          coordinates: routePath.map((c) => [c.longitude, c.latitude]),
         },
       },
     });
 
     // Add route layer
-    mapRef.current.addLayer({
+    map.addLayer({
       id: layerId,
       type: 'line',
       source: sourceId,
@@ -471,6 +523,12 @@ export function PictureInPictureMap({
         'line-opacity': 1,
       },
     });
+
+    return () => {
+      if (!(map as unknown as { style?: unknown }).style) return;
+      if (map.getLayer(layerId)) map.removeLayer(layerId);
+      if (map.getSource(sourceId)) map.removeSource(sourceId);
+    };
   }, [mapReady, routePath, theme.colors.primary]);
 
   // Update map center when user location changes
@@ -500,12 +558,28 @@ export function PictureInPictureMap({
         }}
         onMouseDown={handleMouseDown}
       >
-        <View style={[styles.container, { width: currentWidth, height: currentHeight }]}>
+        <View
+          style={[
+            styles.container,
+            { width: currentWidth, height: currentHeight },
+          ]}
+        >
           <View style={styles.fallbackContainer}>
-            <Ionicons name="map-outline" size={32} color={theme.colors.gray400} />
+            <Ionicons
+              name="map-outline"
+              size={32}
+              color={theme.colors.gray400}
+            />
             <Text style={styles.fallbackText}>Mapa indisponível</Text>
-            <TouchableOpacity style={styles.openMapsButton} onPress={openGoogleMaps}>
-              <Ionicons name="open-outline" size={16} color={theme.colors.primary} />
+            <TouchableOpacity
+              style={styles.openMapsButton}
+              onPress={openGoogleMaps}
+            >
+              <Ionicons
+                name="open-outline"
+                size={16}
+                color={theme.colors.primary}
+              />
               <Text style={styles.openMapsText}>Abrir Google Maps</Text>
             </TouchableOpacity>
           </View>
@@ -539,7 +613,12 @@ export function PictureInPictureMap({
         boxShadow: boxShadow(0, 4, 16, 0, '#000000', 0.25),
       }}
     >
-      <View style={[styles.container, { width: currentWidth, height: currentHeight }]}>
+      <View
+        style={[
+          styles.container,
+          { width: currentWidth, height: currentHeight },
+        ]}
+      >
         {/* Drag Overlay - cobre toda área quando colapsado para permitir drag */}
         {!isExpanded && (
           <div
@@ -580,7 +659,11 @@ export function PictureInPictureMap({
         {/* Navigation Instruction - apenas quando colapsado e há instrução */}
         {!isExpanded && nextInstruction && (
           <View style={styles.instructionBar}>
-            <Ionicons name="compass-outline" size={14} color={theme.colors.white} />
+            <Ionicons
+              name="compass-outline"
+              size={14}
+              color={theme.colors.white}
+            />
             <Text style={styles.instructionText} numberOfLines={1}>
               {nextInstruction}
             </Text>
@@ -589,8 +672,17 @@ export function PictureInPictureMap({
 
         {/* Progress Badge - apenas quando colapsado e há progresso */}
         {!isExpanded && progress && (
-          <View style={[styles.progressBadge, nextInstruction && styles.progressBadgeWithInstruction]}>
-            <Ionicons name="checkmark-circle-outline" size={12} color={theme.colors.white} />
+          <View
+            style={[
+              styles.progressBadge,
+              nextInstruction && styles.progressBadgeWithInstruction,
+            ]}
+          >
+            <Ionicons
+              name="checkmark-circle-outline"
+              size={12}
+              color={theme.colors.white}
+            />
             <Text style={styles.progressText}>
               {currentStopOrder ?? progress.completed + 1} de {progress.total}
             </Text>
@@ -600,10 +692,7 @@ export function PictureInPictureMap({
         {/* ETA Badge - apenas quando colapsado */}
         {!isExpanded && routeInfo && (
           <View
-            style={[
-              styles.etaBadge,
-              isNearDestination && styles.etaBadgePulse,
-            ]}
+            style={[styles.etaBadge, isNearDestination && styles.etaBadgePulse]}
           >
             <Ionicons
               name={stopType === 'retirada' ? 'cube-outline' : 'gift-outline'}

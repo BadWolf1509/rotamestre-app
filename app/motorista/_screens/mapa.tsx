@@ -17,25 +17,21 @@ function MapaMotoristaContent() {
   const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
 
   // Usar contexto como fonte única de dados (com realtime automático)
-  const {
-    route,
-    paradas,
-    loading,
-    routeStatus,
-    completeStop,
-  } = useRouteStatus();
+  const { route, paradas, loading, routeStatus, completeStop } =
+    useRouteStatus();
 
   // Estados locais de UI apenas
   const [selectedParadaId, setSelectedParadaId] = useState<string | null>(null);
   const [bottomSheetVisible, setBottomSheetVisible] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pendente' | 'em_andamento' | 'concluida'>('all');
+  const [statusFilter, setStatusFilter] = useState<
+    'all' | 'pendente' | 'em_andamento' | 'concluida'
+  >('all');
 
   // Broadcast localização do motorista quando a rota está em andamento
   useDriverLocationBroadcast({
     rotaId: route?.id,
     rotaStatus: route?.status,
   });
-
 
   // Handler para quando um marcador é pressionado
   const handleMarkerPress = useCallback((paradaId: string) => {
@@ -52,8 +48,19 @@ function MapaMotoristaContent() {
   // Parada selecionada (objeto completo)
   const selectedParada = useMemo(() => {
     if (!selectedParadaId) return null;
-    return paradas.find(p => p.id === selectedParadaId) || null;
+    return paradas.find((p) => p.id === selectedParadaId) || null;
   }, [selectedParadaId, paradas]);
+
+  const storedRouteInfo = useMemo(
+    () =>
+      route?.distancia_total != null && route?.tempo_total != null
+        ? {
+            distanceMeters: route.distancia_total * 1000,
+            durationSeconds: route.tempo_total * 60,
+          }
+        : null,
+    [route?.distancia_total, route?.tempo_total],
+  );
 
   // Fechar bottom sheet
   const handleCloseBottomSheet = useCallback(() => {
@@ -62,25 +69,34 @@ function MapaMotoristaContent() {
 
   // Marcar parada como concluída usando o contexto
   // Nota: Aceita tipo genérico para compatibilidade com ParadaBottomSheet
-  const handleMarkComplete = useCallback(async (parada: { id: string; ordem: number }) => {
-    // Validar se a rota foi iniciada
-    if (route?.status !== 'em_andamento') {
-      showWarning(
-        'Rota não iniciada',
-        'Você precisa iniciar a rota antes de concluir paradas.'
-      );
-      return;
-    }
+  const handleMarkComplete = useCallback(
+    async (parada: { id: string; ordem: number }) => {
+      // Validar se a rota foi iniciada
+      if (route?.status !== 'em_andamento') {
+        showWarning(
+          'Rota não iniciada',
+          'Você precisa iniciar a rota antes de concluir paradas.',
+        );
+        return;
+      }
 
-    try {
-      // Usar completeStop do contexto (já faz update + log + refresh)
-      await completeStop(parada.id);
-      showSuccess('Sucesso', `Parada ${parada.ordem} marcada como concluída!`);
-    } catch (error: unknown) {
-      logger.error('Erro ao marcar parada como concluída', error);
-      showError({ title: 'Erro', message: 'Não foi possível atualizar a parada.' });
-    }
-  }, [route?.status, completeStop, showWarning, showSuccess, showError]);
+      try {
+        // Usar completeStop do contexto (já faz update + log + refresh)
+        await completeStop(parada.id);
+        showSuccess(
+          'Sucesso',
+          `Parada ${parada.ordem} marcada como concluída!`,
+        );
+      } catch (error: unknown) {
+        logger.error('Erro ao marcar parada como concluída', error);
+        showError({
+          title: 'Erro',
+          message: 'Não foi possível atualizar a parada.',
+        });
+      }
+    },
+    [route?.status, completeStop, showWarning, showSuccess, showError],
+  );
 
   if (loading) {
     return (
@@ -93,7 +109,10 @@ function MapaMotoristaContent() {
 
   if (routeStatus === 'no-route' || paradas.length === 0) {
     return (
-      <View testID="motorista-mapa-empty" style={{ flex: 1, backgroundColor: theme.colors.gray50 }}>
+      <View
+        testID="motorista-mapa-empty"
+        style={{ flex: 1, backgroundColor: theme.colors.gray50 }}
+      >
         <MobileEmptyState
           icon="🗺️"
           title="Nenhuma rota para visualizar"
@@ -110,44 +129,103 @@ function MapaMotoristaContent() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{route?.unidade_nome}</Text>
         <Text style={styles.headerSubtitle}>
-          {paradas.filter(p => p.status === 'concluida' && p.is_checkpoint !== false).length} de {paradas.filter(p => p.is_checkpoint !== false).length} paradas concluídas
+          {
+            paradas.filter(
+              (p) => p.status === 'concluida' && p.is_checkpoint !== false,
+            ).length
+          }{' '}
+          de {paradas.filter((p) => p.is_checkpoint !== false).length} paradas
+          concluídas
         </Text>
       </View>
 
       {/* Filtros de status */}
       <View style={styles.filterContainer}>
         <TouchableOpacity
-          style={[styles.filterChip, statusFilter === 'all' && styles.filterChipActive]}
+          style={[
+            styles.filterChip,
+            statusFilter === 'all' && styles.filterChipActive,
+          ]}
           onPress={() => setStatusFilter('all')}
         >
-          <Text style={[styles.filterChipText, statusFilter === 'all' && styles.filterChipTextActive]}>
+          <Text
+            style={[
+              styles.filterChipText,
+              statusFilter === 'all' && styles.filterChipTextActive,
+            ]}
+          >
             Todas
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.filterChip, statusFilter === 'pendente' && styles.filterChipActivePendente]}
+          style={[
+            styles.filterChip,
+            statusFilter === 'pendente' && styles.filterChipActivePendente,
+          ]}
           onPress={() => setStatusFilter('pendente')}
         >
-          <View style={[styles.filterDot, { backgroundColor: theme.colors.warning }]} />
-          <Text style={[styles.filterChipText, statusFilter === 'pendente' && { color: theme.colors.warningDark }]}>
+          <View
+            style={[
+              styles.filterDot,
+              { backgroundColor: theme.colors.warning },
+            ]}
+          />
+          <Text
+            style={[
+              styles.filterChipText,
+              statusFilter === 'pendente' && {
+                color: theme.colors.warningDark,
+              },
+            ]}
+          >
             Pendentes
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.filterChip, statusFilter === 'em_andamento' && styles.filterChipActiveAndamento]}
+          style={[
+            styles.filterChip,
+            statusFilter === 'em_andamento' && styles.filterChipActiveAndamento,
+          ]}
           onPress={() => setStatusFilter('em_andamento')}
         >
-          <View style={[styles.filterDot, { backgroundColor: theme.colors.primary }]} />
-          <Text style={[styles.filterChipText, statusFilter === 'em_andamento' && { color: theme.colors.primaryDark }]}>
+          <View
+            style={[
+              styles.filterDot,
+              { backgroundColor: theme.colors.primary },
+            ]}
+          />
+          <Text
+            style={[
+              styles.filterChipText,
+              statusFilter === 'em_andamento' && {
+                color: theme.colors.primaryDark,
+              },
+            ]}
+          >
             Andamento
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.filterChip, statusFilter === 'concluida' && styles.filterChipActiveConcluida]}
+          style={[
+            styles.filterChip,
+            statusFilter === 'concluida' && styles.filterChipActiveConcluida,
+          ]}
           onPress={() => setStatusFilter('concluida')}
         >
-          <View style={[styles.filterDot, { backgroundColor: theme.colors.success }]} />
-          <Text style={[styles.filterChipText, statusFilter === 'concluida' && { color: theme.colors.successDark }]}>
+          <View
+            style={[
+              styles.filterDot,
+              { backgroundColor: theme.colors.success },
+            ]}
+          />
+          <Text
+            style={[
+              styles.filterChipText,
+              statusFilter === 'concluida' && {
+                color: theme.colors.successDark,
+              },
+            ]}
+          >
             Concluídas
           </Text>
         </TouchableOpacity>
@@ -162,6 +240,8 @@ function MapaMotoristaContent() {
           onMapPress={handleMapPress}
           statusFilter={statusFilter}
           unidadeNome={route?.unidade_nome}
+          polyline={route?.polyline}
+          storedRouteInfo={storedRouteInfo}
         />
       </View>
 

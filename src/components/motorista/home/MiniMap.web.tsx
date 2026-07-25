@@ -1,13 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
 import maplibregl from 'maplibre-gl';
-import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
-import { Text, TouchableOpacity, View, ActivityIndicator, Pressable } from 'react-native';
+import React, {
+  useMemo,
+  useCallback,
+  useState,
+  useEffect,
+  useRef,
+} from 'react';
+import {
+  Text,
+  TouchableOpacity,
+  View,
+  ActivityIndicator,
+  Pressable,
+} from 'react-native';
 
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { useRouteDirections } from '@/hooks/useRouteDirections';
 import { logger } from '@/lib/logger';
-import { getOpenFreeMapStyle, installOpenFreeMapMissingImageHandler } from '@/lib/openFreeMapStyle';
+import {
+  getOpenFreeMapStyle,
+  installOpenFreeMapMissingImageHandler,
+} from '@/lib/openFreeMapStyle';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -24,6 +39,8 @@ interface Parada {
 interface Rota {
   id: string;
   distancia_total?: number;
+  tempo_total?: number;
+  polyline?: string | null;
 }
 
 interface MiniMapProps {
@@ -41,9 +58,12 @@ interface MiniMapProps {
  * Verifica se as coordenadas estão em range válido
  */
 const isValidCoordinate = (lat: number, lng: number): boolean =>
-  !isNaN(lat) && !isNaN(lng) &&
-  lat >= -90 && lat <= 90 &&
-  lng >= -180 && lng <= 180;
+  !isNaN(lat) &&
+  !isNaN(lng) &&
+  lat >= -90 &&
+  lat <= 90 &&
+  lng >= -180 &&
+  lng <= 180;
 
 export function MiniMap({
   paradas,
@@ -103,31 +123,47 @@ export function MiniMap({
   // Filtrar paradas por status (excluindo checkpoints para contagem)
   // Paradas restantes = pendentes + em andamento (não concluídas e não puladas)
   const paradasRestantes = useMemo(
-    () => paradas.filter(p =>
-      p.status !== 'concluida' && p.status !== 'pulada' && p.is_checkpoint !== false
-    ),
-    [paradas]
+    () =>
+      paradas.filter(
+        (p) =>
+          p.status !== 'concluida' &&
+          p.status !== 'pulada' &&
+          p.is_checkpoint !== false,
+      ),
+    [paradas],
   );
   const paradasConcluidas = useMemo(
-    () => paradas.filter(p => p.status === 'concluida' && p.is_checkpoint !== false),
-    [paradas]
+    () =>
+      paradas.filter(
+        (p) => p.status === 'concluida' && p.is_checkpoint !== false,
+      ),
+    [paradas],
   );
 
   // Todas as paradas com coordenadas válidas (para centralização)
   const todasParadasComCoord = useMemo(
-    () => paradas.filter(p => p.latitude && p.longitude && !isNaN(p.latitude) && !isNaN(p.longitude)),
-    [paradas]
+    () =>
+      paradas.filter(
+        (p) =>
+          p.latitude &&
+          p.longitude &&
+          !isNaN(p.latitude) &&
+          !isNaN(p.longitude),
+      ),
+    [paradas],
   );
 
   // Checkpoints (pontos de partida/chegada da unidade)
   const checkpoints = useMemo(
-    () => todasParadasComCoord.filter(p => p.is_checkpoint === false),
-    [todasParadasComCoord]
+    () => todasParadasComCoord.filter((p) => p.is_checkpoint === false),
+    [todasParadasComCoord],
   );
 
   // Preparar paradas para o hook de rota
   const paradasParaRota = useMemo(() => {
-    const todasOrdenadas = [...todasParadasComCoord].sort((a, b) => a.ordem - b.ordem);
+    const todasOrdenadas = [...todasParadasComCoord].sort(
+      (a, b) => a.ordem - b.ordem,
+    );
     return todasOrdenadas.map((p, idx) => ({
       id: p.id,
       ordem: idx,
@@ -137,16 +173,32 @@ export function MiniMap({
   }, [todasParadasComCoord]);
 
   // Usar hook para buscar rota real via OSRM
-  const { routeCoordinates, routeInfo, isLoading: isLoadingRoute } = useRouteDirections(paradasParaRota);
+  const {
+    routeCoordinates,
+    routeInfo,
+    isLoading: isLoadingRoute,
+    error: routeError,
+  } = useRouteDirections(paradasParaRota, {
+    encodedPolyline: route?.polyline,
+    storedRouteInfo:
+      route?.distancia_total != null && route?.tempo_total != null
+        ? {
+            distanceMeters: route.distancia_total * 1000,
+            durationSeconds: route.tempo_total * 60,
+          }
+        : null,
+  });
 
   // Coordenadas das paradas restantes para calcular bounds do zoom
   // Foca o mapa nas paradas que ainda precisam ser visitadas
   const coordsParadasRestantes = useMemo(() => {
-    const restantes = paradas.filter(p =>
-      p.status !== 'concluida' && p.status !== 'pulada' &&
-      isValidCoordinate(p.latitude, p.longitude)
+    const restantes = paradas.filter(
+      (p) =>
+        p.status !== 'concluida' &&
+        p.status !== 'pulada' &&
+        isValidCoordinate(p.latitude, p.longitude),
     );
-    return restantes.map(p => ({
+    return restantes.map((p) => ({
       latitude: p.latitude,
       longitude: p.longitude,
     }));
@@ -158,7 +210,7 @@ export function MiniMap({
     if (coordsParadasRestantes.length > 0) return coordsParadasRestantes;
     // Fallback para rota completa se todas as paradas foram concluídas
     if (routeCoordinates.length > 1) return routeCoordinates;
-    return todasParadasComCoord.map(p => ({
+    return todasParadasComCoord.map((p) => ({
       latitude: p.latitude,
       longitude: p.longitude,
     }));
@@ -167,11 +219,11 @@ export function MiniMap({
   // Calcular centro do mapa
   const center = useMemo(() => {
     if (coordsForBounds.length === 0) {
-      return { lng: -46.633308, lat: -23.550520 }; // São Paulo default
+      return { lng: -46.633308, lat: -23.55052 }; // São Paulo default
     }
 
-    const lats = coordsForBounds.map(p => p.latitude);
-    const longs = coordsForBounds.map(p => p.longitude);
+    const lats = coordsForBounds.map((p) => p.latitude);
+    const longs = coordsForBounds.map((p) => p.longitude);
 
     return {
       lat: (Math.min(...lats) + Math.max(...lats)) / 2,
@@ -183,8 +235,8 @@ export function MiniMap({
   const zoom = useMemo(() => {
     if (coordsForBounds.length <= 1) return 15;
 
-    const lats = coordsForBounds.map(p => p.latitude);
-    const longs = coordsForBounds.map(p => p.longitude);
+    const lats = coordsForBounds.map((p) => p.latitude);
+    const longs = coordsForBounds.map((p) => p.longitude);
 
     const latDiff = Math.max(...lats) - Math.min(...lats);
     const lngDiff = Math.max(...longs) - Math.min(...longs);
@@ -228,17 +280,18 @@ export function MiniMap({
     return outer;
   }, []);
 
-  const createStopMarkerElement = useCallback((options: {
-    size: number;
-    backgroundColor: string;
-    text?: string;
-    opacity?: number;
-    isNext?: boolean;
-  }) => {
-    const colors = themeColorsRef.current;
+  const createStopMarkerElement = useCallback(
+    (options: {
+      size: number;
+      backgroundColor: string;
+      text?: string;
+      opacity?: number;
+      isNext?: boolean;
+    }) => {
+      const colors = themeColorsRef.current;
 
-    const el = document.createElement('div');
-    el.style.cssText = `
+      const el = document.createElement('div');
+      el.style.cssText = `
       width: ${options.size}px;
       height: ${options.size}px;
       border-radius: ${options.size / 2}px;
@@ -255,12 +308,14 @@ export function MiniMap({
       ${options.isNext ? `box-shadow: 0 0 8px 2px ${withOpacity(options.backgroundColor, 0.6)};` : ''}
     `;
 
-    if (options.text) {
-      el.textContent = options.text;
-    }
+      if (options.text) {
+        el.textContent = options.text;
+      }
 
-    return el;
-  }, []);
+      return el;
+    },
+    [],
+  );
 
   // Initialize MapLibre map
   useEffect(() => {
@@ -289,7 +344,8 @@ export function MiniMap({
           attributionControl: false,
           interactive: false, // MiniMap is not interactive
         });
-        removeMissingImageHandler = installOpenFreeMapMissingImageHandler(mapInstance);
+        removeMissingImageHandler =
+          installOpenFreeMapMissingImageHandler(mapInstance);
 
         mapInstance.on('load', () => {
           setMapReady(true);
@@ -315,7 +371,7 @@ export function MiniMap({
         removeMissingImageHandler();
       }
       // Clean up markers
-      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
       if (mapInstance) {
         mapInstance.remove();
@@ -330,7 +386,10 @@ export function MiniMap({
     if (!mapRef.current || !mapReady || coordsForBounds.length === 0) return;
 
     if (coordsForBounds.length === 1) {
-      mapRef.current.setCenter([coordsForBounds[0].longitude, coordsForBounds[0].latitude]);
+      mapRef.current.setCenter([
+        coordsForBounds[0].longitude,
+        coordsForBounds[0].latitude,
+      ]);
       mapRef.current.setZoom(15);
       return;
     }
@@ -363,12 +422,14 @@ export function MiniMap({
     const colors = themeColorsRef.current;
 
     // Clear existing markers
-    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
 
     // Add user marker
     if (userLocation) {
-      const userMarker = new maplibregl.Marker({ element: createUserMarkerElement() })
+      const userMarker = new maplibregl.Marker({
+        element: createUserMarkerElement(),
+      })
         .setLngLat([userLocation.longitude, userLocation.latitude])
         .addTo(mapRef.current);
       markersRef.current.push(userMarker);
@@ -416,11 +477,19 @@ export function MiniMap({
         .addTo(mapRef.current!);
       markersRef.current.push(marker);
     });
-  }, [mapReady, userLocation, paradasConcluidas, paradasRestantes, checkpoints, createUserMarkerElement, createStopMarkerElement]);
+  }, [
+    mapReady,
+    userLocation,
+    paradasConcluidas,
+    paradasRestantes,
+    checkpoints,
+    createUserMarkerElement,
+    createStopMarkerElement,
+  ]);
 
   // Add route polyline
   useEffect(() => {
-    if (!mapRef.current || !mapReady || routeCoordinates.length < 2) return;
+    if (!mapRef.current || !mapReady) return;
 
     const sourceId = 'minimap-route-source';
     const layerId = 'minimap-route-layer';
@@ -433,6 +502,8 @@ export function MiniMap({
       mapRef.current.removeSource(sourceId);
     }
 
+    if (routeCoordinates.length < 2) return;
+
     // Add route source
     mapRef.current.addSource(sourceId, {
       type: 'geojson',
@@ -441,7 +512,7 @@ export function MiniMap({
         properties: {},
         geometry: {
           type: 'LineString',
-          coordinates: routeCoordinates.map(c => [c.longitude, c.latitude]),
+          coordinates: routeCoordinates.map((c) => [c.longitude, c.latitude]),
         },
       },
     });
@@ -472,7 +543,7 @@ export function MiniMap({
     const destination = `${todasParadas[todasParadas.length - 1].latitude},${todasParadas[todasParadas.length - 1].longitude}`;
     const waypoints = todasParadas
       .slice(1, -1)
-      .map(p => `${p.latitude},${p.longitude}`)
+      .map((p) => `${p.latitude},${p.longitude}`)
       .join('|');
 
     return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ''}&travelmode=driving`;
@@ -498,16 +569,28 @@ export function MiniMap({
     return (
       <View style={styles.container} testID={testID}>
         <TouchableOpacity
-          style={[styles.mapContainer, styles.fallbackContainer, { height: 56 }]}
+          style={[
+            styles.mapContainer,
+            styles.fallbackContainer,
+            { height: 56 },
+          ]}
           onPress={openGoogleMaps}
           activeOpacity={0.95}
           accessibilityLabel="Abrir rota no Google Maps"
           accessibilityRole="button"
         >
           <View style={styles.compactRow}>
-            <Ionicons name="map-outline" size={20} color={theme.colors.primary} />
+            <Ionicons
+              name="map-outline"
+              size={20}
+              color={theme.colors.primary}
+            />
             <Text style={styles.compactText}>Ver rota no Google Maps</Text>
-            <Ionicons name="open-outline" size={16} color={theme.colors.gray400} />
+            <Ionicons
+              name="open-outline"
+              size={16}
+              color={theme.colors.gray400}
+            />
           </View>
         </TouchableOpacity>
       </View>
@@ -554,6 +637,9 @@ export function MiniMap({
                   : route?.distancia_total
                     ? ` • ${Math.round(route.distancia_total)} km total`
                     : ''}
+                {routeError && routeCoordinates.length < 2
+                  ? ' • trajeto indisponível'
+                  : ''}
               </Text>
             )}
           </View>
@@ -584,7 +670,9 @@ export function MiniMap({
                   e.stopPropagation();
                   onToggleExpand();
                 }}
-                accessibilityLabel={expanded ? 'Minimizar mapa' : 'Expandir mapa'}
+                accessibilityLabel={
+                  expanded ? 'Minimizar mapa' : 'Expandir mapa'
+                }
                 accessibilityRole="button"
               >
                 <Ionicons

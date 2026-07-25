@@ -33,7 +33,8 @@ const mockNotificarMotorista = jest.fn();
 
 jest.mock('@/lib/routeUtils', () => ({
   recalcularRota: (...args: unknown[]) => mockRecalcularRota(...args),
-  notificarMotoristaRotaEditada: (...args: unknown[]) => mockNotificarMotorista(...args),
+  notificarMotoristaRotaEditada: (...args: unknown[]) =>
+    mockNotificarMotorista(...args),
 }));
 
 jest.mock('@/hooks/useResponsive', () => ({
@@ -46,16 +47,26 @@ jest.mock('@/hooks/useResponsive', () => ({
 }));
 
 jest.mock('@/lib/phone', () => ({
-  maskPhone: (text: string) => text.replace(/\D/g, '').replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3'),
+  maskPhone: (text: string) =>
+    text.replace(/\D/g, '').replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3'),
 }));
 
 // Mock theme with complete structure
 // Mock AddressAutocomplete (Photon retorna coordenadas diretamente!)
 jest.mock('@/components/AddressAutocomplete', () => ({
-  AddressAutocomplete: ({ value, onChangeText, onSelectAddress, placeholder }: {
+  AddressAutocomplete: ({
+    value,
+    onChangeText,
+    onSelectAddress,
+    placeholder,
+  }: {
     value: string;
     onChangeText: (text: string) => void;
-    onSelectAddress: (address: string, placeId: string, coordinates?: { latitude: number; longitude: number }) => void;
+    onSelectAddress: (
+      address: string,
+      placeId: string,
+      coordinates?: { latitude: number; longitude: number },
+    ) => void;
     placeholder: string;
   }) => {
     const { TextInput, TouchableOpacity, Text, View } = require('react-native');
@@ -69,7 +80,12 @@ jest.mock('@/components/AddressAutocomplete', () => ({
         />
         <TouchableOpacity
           testID="address-suggestion"
-          onPress={() => onSelectAddress('Rua Teste, 123', 'osm_N123456', { latitude: -23.55, longitude: -46.63 })}
+          onPress={() =>
+            onSelectAddress('Rua Teste, 123', 'osm_N123456', {
+              latitude: -23.55,
+              longitude: -46.63,
+            })
+          }
         >
           <Text>Rua Teste, 123</Text>
         </TouchableOpacity>
@@ -82,12 +98,24 @@ let lastPrimaryButton: { disabled?: boolean } | null = null;
 
 // Mock DesktopModal with declarative button API
 jest.mock('@/components/desktop/DesktopModal', () => ({
-  DesktopModal: ({ visible, onClose, title, children, primaryButton, secondaryButton }: {
+  DesktopModal: ({
+    visible,
+    onClose,
+    title,
+    children,
+    primaryButton,
+    secondaryButton,
+  }: {
     visible: boolean;
     onClose: () => void;
     title: string;
     children: React.ReactNode;
-    primaryButton?: { text: string; onPress: () => void; loading?: boolean; disabled?: boolean };
+    primaryButton?: {
+      text: string;
+      onPress: () => void;
+      loading?: boolean;
+      disabled?: boolean;
+    };
     secondaryButton?: { text: string; onPress: () => void; disabled?: boolean };
   }) => {
     lastPrimaryButton = primaryButton;
@@ -135,7 +163,15 @@ jest.mock('@/components/desktop/DesktopFormGrid', () => ({
 
 // Mock Ionicons
 jest.mock('@expo/vector-icons', () => ({
-  Ionicons: ({ name, size: _size, color: _color }: { name: string; size: number; color: string }) => {
+  Ionicons: ({
+    name,
+    size: _size,
+    color: _color,
+  }: {
+    name: string;
+    size: number;
+    color: string;
+  }) => {
     const { Text } = require('react-native');
     return <Text testID={`icon-${name}`}>{name}</Text>;
   },
@@ -148,8 +184,24 @@ describe('AddStopModal', () => {
     enderecoUnidade: { latitude: -23.55, longitude: -46.63 },
     currentParadasCount: 5,
     allParadas: [
-      { id: 'p1', ordem: 1, latitude: -23.56, longitude: -46.64, is_checkpoint: true, endereco: 'Rua A', status: 'pendente' } as any,
-      { id: 'p2', ordem: 2, latitude: -23.57, longitude: -46.65, is_checkpoint: true, endereco: 'Rua B', status: 'pendente' } as any,
+      {
+        id: 'p1',
+        ordem: 1,
+        latitude: -23.56,
+        longitude: -46.64,
+        is_checkpoint: true,
+        endereco: 'Rua A',
+        status: 'pendente',
+      } as any,
+      {
+        id: 'p2',
+        ordem: 2,
+        latitude: -23.57,
+        longitude: -46.65,
+        is_checkpoint: true,
+        endereco: 'Rua B',
+        status: 'pendente',
+      } as any,
     ],
     onSave: jest.fn(),
     onCancel: jest.fn(),
@@ -171,7 +223,9 @@ describe('AddStopModal', () => {
 
   describe('Renderização', () => {
     it('deve renderizar o modal quando visible=true', () => {
-      const { getByTestId, getByText } = render(<AddStopModal {...defaultProps} />);
+      const { getByTestId, getByText } = render(
+        <AddStopModal {...defaultProps} />,
+      );
 
       expect(getByTestId('desktop-modal')).toBeTruthy();
       expect(getByTestId('modal-title')).toBeTruthy();
@@ -179,14 +233,16 @@ describe('AddStopModal', () => {
     });
 
     it('não deve renderizar quando visible=false', () => {
-      const { queryByTestId } = render(<AddStopModal {...defaultProps} visible={false} />);
+      const { queryByTestId } = render(
+        <AddStopModal {...defaultProps} visible={false} />,
+      );
 
       expect(queryByTestId('desktop-modal')).toBeNull();
     });
 
     it('deve exibir banner de aviso quando limite de paradas é atingido', () => {
       const { getByText } = render(
-        <AddStopModal {...defaultProps} currentParadasCount={23} />
+        <AddStopModal {...defaultProps} currentParadasCount={23} />,
       );
 
       expect(getByText(/Limite de 23 paradas atingido/i)).toBeTruthy();
@@ -202,7 +258,7 @@ describe('AddStopModal', () => {
 
     it('deve exibir hint quando não há paradas', () => {
       const { getByText } = render(
-        <AddStopModal {...defaultProps} allParadas={[]} />
+        <AddStopModal {...defaultProps} allParadas={[]} />,
       );
 
       expect(getByText(/Primeira parada da rota/)).toBeTruthy();
@@ -235,7 +291,9 @@ describe('AddStopModal', () => {
       fireEvent.press(option);
 
       await waitFor(() => {
-        expect(getByLabelText(/Posi.*Rua A/).props.accessibilityState.checked).toBe(true);
+        expect(
+          getByLabelText(/Posi.*Rua A/).props.accessibilityState.checked,
+        ).toBe(true);
       });
     });
 
@@ -300,7 +358,9 @@ describe('AddStopModal', () => {
     });
 
     it('deve salvar parada com sucesso', async () => {
-      const { getByTestId, getByText } = render(<AddStopModal {...defaultProps} />);
+      const { getByTestId, getByText } = render(
+        <AddStopModal {...defaultProps} />,
+      );
 
       // Selecionar endereço do autocomplete (Photon retorna coordenadas diretamente!)
       fireEvent.press(getByTestId('address-suggestion'));
@@ -309,11 +369,14 @@ describe('AddStopModal', () => {
       fireEvent.press(getByText('Adicionar'));
 
       await waitFor(() => {
-        expect(mockRpc).toHaveBeenCalledWith('inserir_parada', expect.objectContaining({
-          p_rota_id: 'rota-123',
-          p_tipo: 'entrega',
-          p_endereco: 'Rua Teste, 123',
-        }));
+        expect(mockRpc).toHaveBeenCalledWith(
+          'inserir_parada',
+          expect.objectContaining({
+            p_rota_id: 'rota-123',
+            p_tipo: 'entrega',
+            p_endereco: 'Rua Teste, 123',
+          }),
+        );
       });
 
       await waitFor(() => {
@@ -327,7 +390,9 @@ describe('AddStopModal', () => {
         coordenadas: { latitude: -23.59, longitude: -46.67 },
       });
 
-      const { getByTestId, getByText } = render(<AddStopModal {...defaultProps} />);
+      const { getByTestId, getByText } = render(
+        <AddStopModal {...defaultProps} />,
+      );
 
       // Digitar endereço manualmente (sem coordenadas)
       fireEvent.changeText(getByTestId('address-input'), 'Rua Manual, 789');
@@ -342,13 +407,17 @@ describe('AddStopModal', () => {
     it('deve exibir erro se geocoding falhar', async () => {
       mockGeocodeAddress.mockResolvedValue(null);
 
-      const { getByTestId, getByText } = render(<AddStopModal {...defaultProps} />);
+      const { getByTestId, getByText } = render(
+        <AddStopModal {...defaultProps} />,
+      );
 
       fireEvent.changeText(getByTestId('address-input'), 'Endereço Inválido');
       fireEvent.press(getByText('Adicionar'));
 
       await waitFor(() => {
-        expect(getByText(/Não foi possível encontrar as coordenadas/)).toBeTruthy();
+        expect(
+          getByText(/Não foi possível encontrar as coordenadas/),
+        ).toBeTruthy();
       });
     });
 
@@ -358,7 +427,9 @@ describe('AddStopModal', () => {
         error: { message: 'Database error' },
       });
 
-      const { getByTestId, getByText } = render(<AddStopModal {...defaultProps} />);
+      const { getByTestId, getByText } = render(
+        <AddStopModal {...defaultProps} />,
+      );
 
       // Selecionar endereço (Photon retorna coordenadas diretamente)
       fireEvent.press(getByTestId('address-suggestion'));
@@ -371,7 +442,9 @@ describe('AddStopModal', () => {
     });
 
     it('deve recalcular rota após inserção', async () => {
-      const { getByTestId, getByText } = render(<AddStopModal {...defaultProps} />);
+      const { getByTestId, getByText } = render(
+        <AddStopModal {...defaultProps} />,
+      );
 
       fireEvent.press(getByTestId('address-suggestion'));
       // Photon retorna coordenadas diretamente (sem getPlaceDetails)
@@ -382,15 +455,20 @@ describe('AddStopModal', () => {
         expect(mockRecalcularRota).toHaveBeenCalledWith(
           'rota-123',
           expect.any(Array),
-          defaultProps.enderecoUnidade
+          defaultProps.enderecoUnidade,
         );
       });
     });
 
     it('deve exibir warning quando recálculo de rota falha', async () => {
-      mockRecalcularRota.mockResolvedValue({ success: false, error: 'API error' });
+      mockRecalcularRota.mockResolvedValue({
+        success: false,
+        error: 'API error',
+      });
 
-      const { getByTestId, getByText } = render(<AddStopModal {...defaultProps} />);
+      const { getByTestId, getByText } = render(
+        <AddStopModal {...defaultProps} />,
+      );
 
       fireEvent.press(getByTestId('address-suggestion'));
       // Photon retorna coordenadas diretamente (sem getPlaceDetails)
@@ -402,11 +480,15 @@ describe('AddStopModal', () => {
       });
 
       // Deve ainda chamar onSave (parada foi adicionada com sucesso)
-      expect(defaultProps.onSave).toHaveBeenCalled();
+      expect(defaultProps.onSave).toHaveBeenCalledWith({
+        routeRecalculationFailed: true,
+      });
     });
 
     it('deve notificar motorista após inserção', async () => {
-      const { getByTestId, getByText } = render(<AddStopModal {...defaultProps} />);
+      const { getByTestId, getByText } = render(
+        <AddStopModal {...defaultProps} />,
+      );
 
       fireEvent.press(getByTestId('address-suggestion'));
       // Photon retorna coordenadas diretamente (sem getPlaceDetails)
@@ -414,16 +496,20 @@ describe('AddStopModal', () => {
       fireEvent.press(getByText('Adicionar'));
 
       await waitFor(() => {
-        expect(mockNotificarMotorista).toHaveBeenCalledWith(expect.objectContaining({
-          rotaId: 'rota-123',
-          motoristaId: 'motorista-456',
-          tipo: 'rota_parada_adicionada',
-        }));
+        expect(mockNotificarMotorista).toHaveBeenCalledWith(
+          expect.objectContaining({
+            rotaId: 'rota-123',
+            motoristaId: 'motorista-456',
+            tipo: 'rota_parada_adicionada',
+          }),
+        );
       });
     });
 
     it('deve registrar log após inserção', async () => {
-      const { getByTestId, getByText } = render(<AddStopModal {...defaultProps} />);
+      const { getByTestId, getByText } = render(
+        <AddStopModal {...defaultProps} />,
+      );
 
       fireEvent.press(getByTestId('address-suggestion'));
       // Photon retorna coordenadas diretamente (sem getPlaceDetails)
@@ -437,10 +523,14 @@ describe('AddStopModal', () => {
 
     it('não deve notificar se motoristaId não está definido', async () => {
       const onSave = jest.fn();
-      const propsWithoutMotorista = { ...defaultProps, motoristaId: undefined, onSave };
+      const propsWithoutMotorista = {
+        ...defaultProps,
+        motoristaId: undefined,
+        onSave,
+      };
 
       const { getByTestId, getByText } = render(
-        <AddStopModal {...propsWithoutMotorista} />
+        <AddStopModal {...propsWithoutMotorista} />,
       );
 
       fireEvent.press(getByTestId('address-suggestion'));
@@ -457,10 +547,14 @@ describe('AddStopModal', () => {
 
     it('não deve registrar log se usuarioId não está definido', async () => {
       const onSave = jest.fn();
-      const propsWithoutUser = { ...defaultProps, usuarioId: undefined, onSave };
+      const propsWithoutUser = {
+        ...defaultProps,
+        usuarioId: undefined,
+        onSave,
+      };
 
       const { getByTestId, getByText } = render(
-        <AddStopModal {...propsWithoutUser} />
+        <AddStopModal {...propsWithoutUser} />,
       );
 
       fireEvent.press(getByTestId('address-suggestion'));
@@ -480,7 +574,7 @@ describe('AddStopModal', () => {
   describe('Reset de formulário', () => {
     it('deve limpar formulário quando modal é aberto', async () => {
       const { getByTestId, rerender } = render(
-        <AddStopModal {...defaultProps} visible={false} />
+        <AddStopModal {...defaultProps} visible={false} />,
       );
 
       // Reabrir modal

@@ -89,7 +89,7 @@ describe('MapaAdapter (Mobile)', () => {
           paradas={mockParadas}
           onMarkerPress={onMarkerPress}
           onMapPress={onMapPress}
-        />
+        />,
       );
 
       const callArgs = mockMapaMobile.mock.calls[0][0];
@@ -105,6 +105,10 @@ describe('MapaAdapter (Mobile)', () => {
     });
 
     it('deve passar props de rota e motorista', () => {
+      const storedRouteInfo = {
+        distanceMeters: 9300,
+        durationSeconds: 660,
+      };
       render(
         <MapaAdapter
           paradas={mockParadas}
@@ -112,7 +116,9 @@ describe('MapaAdapter (Mobile)', () => {
           motoristaNome="João"
           showMotorista={true}
           unidadeNome="Unidade Centro"
-        />
+          polyline="encoded-road-geometry"
+          storedRouteInfo={storedRouteInfo}
+        />,
       );
 
       const callArgs = mockMapaMobile.mock.calls[0][0];
@@ -120,6 +126,8 @@ describe('MapaAdapter (Mobile)', () => {
       expect(callArgs.motoristaNome).toBe('João');
       expect(callArgs.showMotorista).toBe(true);
       expect(callArgs.unidadeNome).toBe('Unidade Centro');
+      expect(callArgs.polyline).toBe('encoded-road-geometry');
+      expect(callArgs.storedRouteInfo).toBe(storedRouteInfo);
     });
   });
 
@@ -206,8 +214,8 @@ describe('MapaAdapter (Mobile)', () => {
           id: '3',
           ordem: 3,
           endereco: 'Checkpoint',
-          latitude: -23.5600,
-          longitude: -46.6500,
+          latitude: -23.56,
+          longitude: -46.65,
           status: 'pendente',
           tipo: 'entrega',
           is_checkpoint: true,

@@ -62,9 +62,9 @@ interface UseMapaRotaHandlersResult {
   handleConfirmRemoveStop: () => Promise<void>;
   clearParadaToRemove: () => void;
   handleEditStop: (parada: Parada) => void;
-  handleEditStopSave: () => Promise<void>;
+  handleEditStopSave: (routeRecalculationFailed?: boolean) => Promise<void>;
   clearParadaToEdit: () => void;
-  handleAddStopSave: () => Promise<void>;
+  handleAddStopSave: (routeRecalculationFailed?: boolean) => Promise<void>;
   handleReorderParadas: (newOrder: Parada[]) => Promise<void>;
 }
 
@@ -284,7 +284,12 @@ export function useMapaRotaHandlers({
           });
         }
 
-        showToast('Parada removida com sucesso', 'success');
+        showToast(
+          result.routeRecalculationFailed
+            ? 'Parada removida. O trajeto será recalculado ao carregar o mapa.'
+            : 'Parada removida com sucesso',
+          result.routeRecalculationFailed ? 'info' : 'success',
+        );
         setParadaToRemove(null);
         await loadRotaEParadas();
       } else {
@@ -313,16 +318,32 @@ export function useMapaRotaHandlers({
     setParadaToEdit(null);
   }, []);
 
-  const handleEditStopSave = useCallback(async () => {
-    setParadaToEdit(null);
-    showToast('Parada atualizada com sucesso', 'success');
-    await loadRotaEParadas();
-  }, [loadRotaEParadas, showToast]);
+  const handleEditStopSave = useCallback(
+    async (routeRecalculationFailed = false) => {
+      setParadaToEdit(null);
+      showToast(
+        routeRecalculationFailed
+          ? 'Parada atualizada. O trajeto será recalculado ao carregar o mapa.'
+          : 'Parada atualizada com sucesso',
+        routeRecalculationFailed ? 'info' : 'success',
+      );
+      await loadRotaEParadas();
+    },
+    [loadRotaEParadas, showToast],
+  );
 
-  const handleAddStopSave = useCallback(async () => {
-    showToast('Parada adicionada com sucesso', 'success');
-    await loadRotaEParadas();
-  }, [loadRotaEParadas, showToast]);
+  const handleAddStopSave = useCallback(
+    async (routeRecalculationFailed = false) => {
+      showToast(
+        routeRecalculationFailed
+          ? 'Parada adicionada. O trajeto será recalculado ao carregar o mapa.'
+          : 'Parada adicionada com sucesso',
+        routeRecalculationFailed ? 'info' : 'success',
+      );
+      await loadRotaEParadas();
+    },
+    [loadRotaEParadas, showToast],
+  );
 
   const handleReorderParadas = useCallback(
     async (newOrder: Parada[]) => {

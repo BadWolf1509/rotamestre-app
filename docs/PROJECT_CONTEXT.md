@@ -13,8 +13,8 @@ Este repositório contém o produto operacional do Rota Mestre:
 - otimização, execução e acompanhamento de rotas;
 - fotos privadas de comprovação, ocorrências, notificações e histórico.
 
-O código em `main` está na versão **1.12.2**, com
-`androidVersionCode` **3023**. O app foi reconstruído sob uma nova identidade
+O código local está na versão **1.12.2**, com
+`androidVersionCode` **3024**. O app foi reconstruído sob uma nova identidade
 Android após a perda das contas de distribuição originais. O Supabase e os
 dados dos usuários foram preservados.
 
@@ -26,7 +26,7 @@ dados dos usuários foram preservados.
 | Branch de produção       | `main`                                 | Git/Vercel                             |
 | Web                      | <https://app.rotamestre.tec.br>        | Vercel                                 |
 | Android package          | `br.tec.rotamestre.app`                | `app.config.js`                        |
-| Versão Android no código | `1.12.2` / `3023`                      | `package.json`                         |
+| Versão Android no código | `1.12.2` / `3024`                      | `package.json`                         |
 | EAS project              | `c6401a59-af97-484a-93b7-c75016bf331d` | `app.config.js`                        |
 | Firebase                 | `rota-mestre-97084`                    | console Firebase / configuração nativa |
 | Supabase project ref     | `xezslsyxjivunmhhyxtd`                 | `supabase/.temp/project-ref`           |
@@ -50,6 +50,13 @@ Não copie versões para outros documentos. Quando houver divergência, prevalec
   e o RLS isola objetos por unidade.
 - A autenticação Android foi corrigida após a rotação da chave pública do
   Supabase. Credenciais/sessões usam armazenamento seguro quando disponível.
+- Os mapas usam a `polyline` viária persistida em `rotas` como fonte principal,
+  com cache local e OSRM como fallback. Na ausência de geometria viária real, o
+  app mantém os marcadores e informa a indisponibilidade; nunca representa
+  paradas por segmentos retos como se fossem vias.
+- Alterações de paradas invalidam a geometria e as métricas anteriores antes do
+  recálculo. Se o serviço de rotas falhar, a operação permanece salva, o gestor
+  recebe um aviso e o mapa não reutiliza um trajeto incompatível.
 - As páginas de política de privacidade, termos e exclusão de conta existem no
   app e no site público.
 
@@ -57,6 +64,10 @@ Não copie versões para outros documentos. Quando houver divergência, prevalec
 
 - A identidade nova está configurada no EAS, Firebase e Google Play; Play App
   Signing está habilitado.
+- O build EAS de prévia `35fff202-d45b-4664-b447-8bc4c8756827`
+  (`1.12.2` / `3024`) foi concluído e instalado incrementalmente no dispositivo
+  de validação em 24/07. A atividade iniciou sem crash. É um artefato de teste,
+  não uma publicação no Play.
 - O teste interno foi configurado e a lista de testadores foi revisada nesta
   sessão. O endereço usado no Google Play deve ser o da **Conta Google** do
   testador; ele pode ser diferente do e-mail cadastrado no Rota Mestre.
@@ -70,13 +81,23 @@ Não copie versões para outros documentos. Quando houver divergência, prevalec
 ### Qualidade
 
 - O projeto possui Jest, Playwright, regressão visual, lint, type-check e CI.
-- Em 24/07, type-check e lint passaram. O Jest executou 312 suites e 5721
-  testes sem falha de assertion, porém retornou exit code 1 por timers de
-  `PictureInPictureMap.test.tsx` disparados após o teardown. O problema está
-  registrado em `docs/TESTING.md` e precisa ser corrigido antes de tratar a
-  suíte local como totalmente verde.
+- Em 24/07, type-check, lint dos arquivos afetados e build web passaram. O Jest
+  executou 312 suites, 5729 testes e 5 snapshots com exit code 0 usando
+  `--forceExit`. O timer de animação de `PictureInPictureMap` agora é cancelado
+  no cleanup e seu teste isolado termina naturalmente. A suíte completa ainda
+  reporta handles abertos não identificados; isso permanece registrado em
+  `docs/TESTING.md`.
 - Um dispositivo Android físico foi usado nesta sessão, mas sua conexão e
   autorização ADB devem ser verificadas novamente em cada ambiente.
+- No aparelho de validação, `RUN_ANY_IN_BACKGROUND` estava em `ignore`. Isso é
+  uma restrição de bateria configurada no dispositivo e pode impedir o
+  rastreamento quando o app não está visível, mesmo com as permissões de
+  localização concedidas. Confirme esse estado no smoke test de cada aparelho.
+- O smoke visual da geometria da build 3024 foi concluído após o desbloqueio:
+  a rota ativa carregou 28 pontos viários, coincidiu com a sequência de ruas
+  retornada pelo OSRM e não usou ligação direta entre marcadores. No cenário
+  inspecionado, o trecho longo parece diagonal porque acompanha a própria
+  Avenida Rui Barbosa.
 - A validação completa recomendada antes de release é `npm run validate`,
   seguida dos testes E2E/visuais relevantes e de um smoke test no Android.
 
@@ -88,6 +109,7 @@ Não copie versões para outros documentos. Quando houver divergência, prevalec
 | 23/07/2026 | Migration de segurança já aplicada foi incorporada ao histórico versionado               | commit `de8a036`, migration `20260722195606` |
 | 24/07/2026 | Correção da autenticação Android após rotação de chave                                   | commit `6dd8aa8`                             |
 | 24/07/2026 | Preparação do app e da ficha para o Google Play, páginas legais e exclusão de conta      | commit `b7a39dc`                             |
+| 24/07/2026 | Geometria viária persistida nos mapas; remoção dos fallbacks visuais em linha reta       | implementação local desta sessão             |
 
 O histórico completo do rebuild está em
 [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md), agora tratado como
@@ -153,8 +175,8 @@ app.rotamestre.tec.br ── Expo Web / React Native
 
 1. Monitorar erros da Nova Entrega: recuperação de rascunho após refresh,
    importação em massa, dependências retirada/entrega, retries e duplicidade.
-2. Corrigir o vazamento de timers de `PictureInPictureMap.test.tsx` e confirmar
-   que `npm test -- --runInBand` termina com exit code 0.
+2. Identificar os handles restantes da suíte completa com `--detectOpenHandles`
+   para que ela termine naturalmente, sem `--forceExit`.
 3. Validar no Android o ciclo completo de um motorista em rede instável.
 4. Confirmar entrega de push no artefato instalado pela trilha do Play e revisar
    tickets/receipts da Expo.

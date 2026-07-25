@@ -65,9 +65,12 @@ export function useNavigationModeLogic({
   const [eta, setEta] = useState<string | null>(null);
   const [isTracking, setIsTracking] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [navigationMode, setNavigationMode] = useState<'map' | 'turn-by-turn'>('map');
+  const [navigationMode, setNavigationMode] = useState<'map' | 'turn-by-turn'>(
+    'map',
+  );
   const [isInitializing, setIsInitializing] = useState(true);
-  const [preferences, setPreferences] = useState<NavigationPreferences>(DEFAULT_PREFERENCES);
+  const [preferences, setPreferences] =
+    useState<NavigationPreferences>(DEFAULT_PREFERENCES);
 
   // Route path from OSRM
   const [routePath, setRoutePath] = useState<Coordinate[]>([]);
@@ -88,7 +91,8 @@ export function useNavigationModeLogic({
 
   // Identify start and end checkpoints
   const startCheckpoint = checkpoints.length > 0 ? checkpoints[0] : null;
-  const endCheckpoint = checkpoints.length > 1 ? checkpoints[checkpoints.length - 1] : null;
+  const endCheckpoint =
+    checkpoints.length > 1 ? checkpoints[checkpoints.length - 1] : null;
 
   // Current stop index in filtered array (1-based for display)
   const currentStopIndex = useMemo(() => {
@@ -107,7 +111,9 @@ export function useNavigationModeLogic({
 
   // Pending stops (excluding current and completed)
   const pendingStops = useMemo(() => {
-    return realParadas.filter((p) => p.id !== currentStop?.id && p.status === 'pendente');
+    return realParadas.filter(
+      (p) => p.id !== currentStop?.id && p.status === 'pendente',
+    );
   }, [realParadas, currentStop]);
 
   // Remaining waypoints for turn-by-turn navigation
@@ -146,7 +152,7 @@ export function useNavigationModeLogic({
       if (speedKmh <= 80) return theme.colors.warning;
       return theme.colors.error;
     },
-    [theme.colors]
+    [theme.colors],
   );
 
   /**
@@ -157,11 +163,15 @@ export function useNavigationModeLogic({
       const prefs = await LocationTrackingService.getNavigationPreferences();
       const newPrefs: NavigationPreferences = {
         soundAlerts: prefs.soundAlerts ?? DEFAULT_PREFERENCES.soundAlerts,
-        vibrationAlerts: prefs.vibrationAlerts ?? DEFAULT_PREFERENCES.vibrationAlerts,
-        showSpeedometer: prefs.showSpeedometer ?? DEFAULT_PREFERENCES.showSpeedometer,
-        internalNavigation: prefs.internalNavigation ?? DEFAULT_PREFERENCES.internalNavigation,
+        vibrationAlerts:
+          prefs.vibrationAlerts ?? DEFAULT_PREFERENCES.vibrationAlerts,
+        showSpeedometer:
+          prefs.showSpeedometer ?? DEFAULT_PREFERENCES.showSpeedometer,
+        internalNavigation:
+          prefs.internalNavigation ?? DEFAULT_PREFERENCES.internalNavigation,
         autoAdvance: prefs.autoAdvance ?? DEFAULT_PREFERENCES.autoAdvance,
-        proximityRadius: prefs.proximityRadius ?? DEFAULT_PREFERENCES.proximityRadius,
+        proximityRadius:
+          prefs.proximityRadius ?? DEFAULT_PREFERENCES.proximityRadius,
       };
       setPreferences(newPrefs);
       if (newPrefs.internalNavigation) {
@@ -181,7 +191,7 @@ export function useNavigationModeLogic({
     const tracking = await LocationTrackingService.startTracking(
       rotaId,
       currentStop.id,
-      nextStop?.id
+      nextStop?.id,
     );
     setIsTracking(tracking);
   }, [currentStop, nextStop, rotaId]);
@@ -201,7 +211,7 @@ export function useNavigationModeLogic({
   const updateLocationFromCoords = useCallback(
     (
       coords: { latitude: number; longitude: number; heading?: number | null },
-      speedMs: number | null
+      speedMs: number | null,
     ) => {
       const location: UserLocation = {
         latitude: coords.latitude,
@@ -217,7 +227,7 @@ export function useNavigationModeLogic({
           coords.latitude,
           coords.longitude,
           currentStop.latitude,
-          currentStop.longitude
+          currentStop.longitude,
         );
         setDistance(dist);
 
@@ -228,13 +238,13 @@ export function useNavigationModeLogic({
           setEta(`${minutes} min`);
         } else {
           // Fallback: use average urban speed
-          const timeInHours = (dist / 1000) / AVERAGE_URBAN_SPEED_KMH;
+          const timeInHours = dist / 1000 / AVERAGE_URBAN_SPEED_KMH;
           const minutes = Math.ceil(timeInHours * 60);
           setEta(minutes > 0 ? `${minutes} min` : '< 1 min');
         }
       }
     },
-    [currentStop]
+    [currentStop],
   );
 
   // Fetch OSRM route when user location or destination changes
@@ -251,7 +261,7 @@ export function useNavigationModeLogic({
         prevLoc.lat,
         prevLoc.lon,
         userLocation.latitude,
-        userLocation.longitude
+        userLocation.longitude,
       );
       if (movedDistance < 50) {
         return;
@@ -263,20 +273,31 @@ export function useNavigationModeLogic({
     const fetchRoute = async () => {
       try {
         const routeData = await getRoute(
-          { latitude: userLocation.latitude, longitude: userLocation.longitude },
-          { latitude: currentStop.latitude, longitude: currentStop.longitude }
+          {
+            latitude: userLocation.latitude,
+            longitude: userLocation.longitude,
+          },
+          { latitude: currentStop.latitude, longitude: currentStop.longitude },
         );
 
-        if (!cancelled && routeData?.polyline) {
-          const decoded = decodePolyline(routeData.polyline);
-          setRoutePath(decoded);
-          prevUserLocationRef.current = {
-            lat: userLocation.latitude,
-            lon: userLocation.longitude,
-          };
+        if (!cancelled) {
+          if (routeData?.polyline) {
+            const decoded = decodePolyline(routeData.polyline);
+            setRoutePath(decoded.length >= 2 ? decoded : []);
+            prevUserLocationRef.current = {
+              lat: userLocation.latitude,
+              lon: userLocation.longitude,
+            };
+          } else {
+            setRoutePath([]);
+          }
         }
       } catch (error) {
-        logger.warn('[useNavigationModeLogic] Error fetching OSRM route:', error);
+        logger.warn(
+          '[useNavigationModeLogic] Error fetching OSRM route:',
+          error,
+        );
+        if (!cancelled) setRoutePath([]);
       }
     };
 
@@ -286,11 +307,17 @@ export function useNavigationModeLogic({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- We only want to refetch when coordinates change
-  }, [userLocation?.latitude, userLocation?.longitude, currentStop?.latitude, currentStop?.longitude]);
+  }, [
+    userLocation?.latitude,
+    userLocation?.longitude,
+    currentStop?.latitude,
+    currentStop?.longitude,
+  ]);
 
   // Reset route path when current stop changes
   useEffect(() => {
     prevUserLocationRef.current = null;
+    setRoutePath([]);
   }, [currentStop?.id]);
 
   return {

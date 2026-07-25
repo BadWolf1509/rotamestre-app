@@ -24,10 +24,10 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { View, ActivityIndicator, Text } from 'react-native';
+import { View, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 
 import { useMotoristaLocationMapLibre } from '@/components/map/hooks/useMotoristaLocationMapLibre';
-import { useRouteDirections } from '@/hooks/useRouteDirections';
+import { useRouteDirections, type RouteInfo } from '@/hooks/useRouteDirections';
 import { logger } from '@/lib/logger';
 import {
   getOpenFreeMapStyle,
@@ -50,53 +50,12 @@ interface MapaWebMapLibreProps {
   showMotorista?: boolean;
   unidadeNome?: string;
   polyline?: string | null;
+  storedRouteInfo?: RouteInfo | null;
 }
 
 // Default center (Brasília)
 const DEFAULT_CENTER: [number, number] = [-47.8822, -15.7942];
 const DEFAULT_ZOOM = 13;
-
-/**
- * Decode polyline from OSRM (Google polyline algorithm)
- */
-function decodePolyline(encoded: string): [number, number][] {
-  const coordinates: [number, number][] = [];
-  let index = 0;
-  let lat = 0;
-  let lng = 0;
-
-  while (index < encoded.length) {
-    let shift = 0;
-    let result = 0;
-    let byte: number;
-
-    do {
-      byte = encoded.charCodeAt(index++) - 63;
-      result |= (byte & 0x1f) << shift;
-      shift += 5;
-    } while (byte >= 0x20);
-
-    const dlat = result & 1 ? ~(result >> 1) : result >> 1;
-    lat += dlat;
-
-    shift = 0;
-    result = 0;
-
-    do {
-      byte = encoded.charCodeAt(index++) - 63;
-      result |= (byte & 0x1f) << shift;
-      shift += 5;
-    } while (byte >= 0x20);
-
-    const dlng = result & 1 ? ~(result >> 1) : result >> 1;
-    lng += dlng;
-
-    // MapLibre uses [lng, lat] order
-    coordinates.push([lng / 1e5, lat / 1e5]);
-  }
-
-  return coordinates;
-}
 
 function toNumber(value: number | null): number | null {
   if (value == null) return null;
@@ -159,6 +118,7 @@ export default function MapaWebMapLibre({
   showMotorista = false,
   unidadeNome,
   polyline,
+  storedRouteInfo,
 }: MapaWebMapLibreProps) {
   const { theme } = useUnistyles();
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -225,18 +185,20 @@ export default function MapaWebMapLibre({
     return new maplibregl.LngLatBounds([minLng, minLat], [maxLng, maxLat]);
   }, [paradasComCoord]);
 
-  const { routeCoordinates } = useRouteDirections(paradasComCoord);
+  const {
+    routeCoordinates,
+    error: routeError,
+    refetch: refetchRoute,
+  } = useRouteDirections(paradasComCoord, {
+    encodedPolyline: polyline,
+    storedRouteInfo,
+  });
 
   const polylineCoordinates = useMemo(() => {
-    if (polyline) {
-      return decodePolyline(polyline).filter(
-        ([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat),
-      );
-    }
     return routeCoordinates
       .map((coord) => [coord.longitude, coord.latitude] as [number, number])
       .filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat));
-  }, [polyline, routeCoordinates]);
+  }, [routeCoordinates]);
 
   const paradasParaExibir = useMemo(
     () => [...checkpoints, ...paradasFiltradas],
@@ -396,8 +358,7 @@ export default function MapaWebMapLibre({
 
   // Add/update route polyline
   useEffect(() => {
-    if (!mapRef.current || !mapLoaded || polylineCoordinates.length === 0)
-      return;
+    if (!mapRef.current || !mapLoaded) return;
 
     const map = mapRef.current;
     if (!(map as unknown as { style?: unknown }).style) return;
@@ -411,6 +372,8 @@ export default function MapaWebMapLibre({
     if (map.getSource(sourceId)) {
       map.removeSource(sourceId);
     }
+
+    if (polylineCoordinates.length < 2) return;
 
     // Add route source
     map.addSource(sourceId, {
@@ -726,6 +689,18 @@ export default function MapaWebMapLibre({
           <Text style={styles.loadingText}>Carregando mapa...</Text>
         </View>
       )}
+      {routeError && polylineCoordinates.length < 2 && (
+        <TouchableOpacity
+          style={styles.routeErrorBadge}
+          onPress={() => void refetchRoute()}
+          accessibilityRole="button"
+          accessibilityLabel={`${routeError} Tentar novamente`}
+        >
+          <Text style={styles.routeErrorText}>
+            Trajeto indisponível · Tentar novamente
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -762,5 +737,21 @@ const styles = StyleSheet.create((theme: Theme) => ({
   errorText: {
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.error,
+  },
+  routeErrorBadge: {
+    position: 'absolute',
+    top: theme.spacing['3'],
+    left: theme.spacing['3'],
+    maxWidth: 260,
+    backgroundColor: withOpacity(theme.colors.error, 0.94),
+    paddingHorizontal: theme.spacing['3'],
+    paddingVertical: theme.spacing['2'],
+    borderRadius: theme.borderRadius.md,
+  },
+  routeErrorText: {
+    fontSize: theme.typography.fontSize.xs,
+    fontWeight: '600',
+    color: theme.colors.white,
+    textAlign: 'center',
   },
 }));

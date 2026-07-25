@@ -44,7 +44,7 @@ export interface EditStopModalProps {
   rotaId: string;
   enderecoUnidade: EnderecoUnidade | null;
   allParadas: Parada[];
-  onSave: () => void;
+  onSave: (result: { routeRecalculationFailed: boolean }) => void;
   onCancel: () => void;
   usuarioId?: string;
   motoristaId?: string | null;
@@ -112,11 +112,21 @@ export function EditStopModal({
       }}
     >
       {/* Body */}
-      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Tipo */}
         <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-          <Text style={[styles.label, isDesktop && styles.labelCompact]}>Tipo</Text>
-          <View style={[styles.tipoContainer, isDesktop && styles.tipoContainerCompact]}>
+          <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+            Tipo
+          </Text>
+          <View
+            style={[
+              styles.tipoContainer,
+              isDesktop && styles.tipoContainerCompact,
+            ]}
+          >
             <TouchableOpacity
               style={[
                 styles.tipoButton,
@@ -128,7 +138,9 @@ export function EditStopModal({
               <Ionicons
                 name="arrow-down-circle"
                 size={isDesktop ? 16 : 18}
-                color={tipo === 'entrega' ? theme.colors.white : theme.colors.info}
+                color={
+                  tipo === 'entrega' ? theme.colors.white : theme.colors.info
+                }
               />
               <Text
                 style={[
@@ -152,7 +164,11 @@ export function EditStopModal({
               <Ionicons
                 name="arrow-up-circle"
                 size={isDesktop ? 16 : 18}
-                color={tipo === 'retirada' ? theme.colors.white : theme.colors.warning}
+                color={
+                  tipo === 'retirada'
+                    ? theme.colors.white
+                    : theme.colors.warning
+                }
               />
               <Text
                 style={[
@@ -170,7 +186,9 @@ export function EditStopModal({
 
         {/* Endereço */}
         <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-          <Text style={[styles.label, isDesktop && styles.labelCompact]}>Endereço</Text>
+          <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+            Endereço
+          </Text>
           <AddressAutocomplete
             value={endereco}
             onChangeText={handleAddressChange}
@@ -187,7 +205,9 @@ export function EditStopModal({
         {/* Destinatário + Telefone em grid */}
         <DesktopFormGrid columns={2}>
           <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-            <Text style={[styles.label, isDesktop && styles.labelCompact]}>Destinatário</Text>
+            <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+              Destinatário
+            </Text>
             <TextInput
               style={[styles.input, isDesktop && styles.inputCompact]}
               value={destinatario}
@@ -198,7 +218,9 @@ export function EditStopModal({
           </View>
 
           <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-            <Text style={[styles.label, isDesktop && styles.labelCompact]}>Telefone</Text>
+            <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+              Telefone
+            </Text>
             <TextInput
               style={[styles.input, isDesktop && styles.inputCompact]}
               value={telefone}
@@ -213,9 +235,16 @@ export function EditStopModal({
 
         {/* Observações */}
         <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-          <Text style={[styles.label, isDesktop && styles.labelCompact]}>Observações</Text>
+          <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+            Observações
+          </Text>
           <TextInput
-            style={[styles.input, isDesktop && styles.inputCompact, styles.textArea, isDesktop && styles.textAreaCompact]}
+            style={[
+              styles.input,
+              isDesktop && styles.inputCompact,
+              styles.textArea,
+              isDesktop && styles.textAreaCompact,
+            ]}
             value={observacoes}
             onChangeText={setObservacoes}
             placeholder="Observações sobre a parada"
@@ -229,7 +258,11 @@ export function EditStopModal({
         {/* Error message */}
         {error && (
           <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle" size={16} color={theme.colors.error} />
+            <Ionicons
+              name="alert-circle"
+              size={16}
+              color={theme.colors.error}
+            />
             <Text style={styles.errorText}>{error}</Text>
           </View>
         )}

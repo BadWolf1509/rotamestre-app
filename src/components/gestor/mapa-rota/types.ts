@@ -27,6 +27,7 @@ export interface Rota {
   status: string;
   distancia_total?: number;
   tempo_total?: number;
+  polyline?: string | null;
   created_at?: string;
   updated_at?: string;
   motorista_id?: string;

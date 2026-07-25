@@ -45,6 +45,8 @@ interface Parada {
 interface Rota {
   id: string;
   distancia_total?: number;
+  tempo_total?: number;
+  polyline?: string | null;
 }
 
 /**
@@ -161,12 +163,22 @@ export function MiniMap({
     }));
   }, [todasParadasComCoord]);
 
-  // Usar hook para buscar rota real do Google Directions API
+  // Prioriza a geometria persistida; consulta OSRM apenas quando necessário.
   const {
     routeCoordinates,
     routeInfo,
     isLoading: isLoadingRoute,
-  } = useRouteDirections(paradasParaRota);
+    error: routeError,
+  } = useRouteDirections(paradasParaRota, {
+    encodedPolyline: route?.polyline,
+    storedRouteInfo:
+      route?.distancia_total != null && route?.tempo_total != null
+        ? {
+            distanceMeters: route.distancia_total * 1000,
+            durationSeconds: route.tempo_total * 60,
+          }
+        : null,
+  });
 
   const routeShape = useMemo(
     () => (routeCoordinates.length > 1 ? toLineString(routeCoordinates) : null),
@@ -468,6 +480,9 @@ export function MiniMap({
                   : route?.distancia_total
                     ? ` • ${Math.round(route.distancia_total)} km total`
                     : ''}
+                {routeError && routeCoordinates.length < 2
+                  ? ' • trajeto indisponível'
+                  : ''}
               </Text>
             )}
           </View>

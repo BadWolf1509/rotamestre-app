@@ -1,12 +1,12 @@
-import * as Haptics from "expo-haptics";
+import * as Haptics from 'expo-haptics';
 import {
   type MutableRefObject,
   useCallback,
   useEffect,
   useRef,
   useState,
-} from "react";
-import { Animated, Platform } from "react-native";
+} from 'react';
+import { Animated, Platform } from 'react-native';
 
 import {
   EDGE_PADDING,
@@ -14,7 +14,7 @@ import {
   OPACITY_ANIMATION_DURATION,
   PIP_HEIGHT,
   PIP_WIDTH,
-} from "./constants";
+} from './constants';
 
 interface UsePiPAnimationOptions {
   initialPosition: { x: number; y: number };
@@ -54,16 +54,19 @@ export function usePiPAnimation({
 
   // Show/hide opacity animation
   useEffect(() => {
-    Animated.timing(opacity, {
+    const visibilityAnimation = Animated.timing(opacity, {
       toValue: visible ? 1 : 0,
       duration: OPACITY_ANIMATION_DURATION,
       useNativeDriver: false,
-    }).start();
+    });
+
+    visibilityAnimation.start();
+    return () => visibilityAnimation.stop();
   }, [opacity, visible]);
 
   // Toggle expand/collapse
   const toggleExpand = useCallback(() => {
-    if (Platform.OS !== "web") {
+    if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
 

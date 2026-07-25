@@ -1,13 +1,9 @@
 /**
- * Hook for fetching directions on React Native (mobile)
+ * Legacy mobile directions hook.
  *
- * MIGRADO PARA OSRM (Open Source Routing Machine)
- * - Custo: GRATUITO (vs Google Directions API)
- * - Cache: 5 minutos (gerenciado pelo serviço OSRM)
- *
- * @see src/lib/osrm.ts
+ * Kept for MapaRN compatibility. It only exposes actual road geometry; when
+ * OSRM cannot provide one, callers receive an explicit error and no line.
  */
-
 import { useCallback, useEffect, useState } from 'react';
 
 import { logger } from '@/lib/logger';
@@ -39,9 +35,6 @@ interface UseDirectionsMobileResult {
   refetch: () => Promise<void>;
 }
 
-/**
- * Hook to fetch directions using OSRM (gratuito!)
- */
 export function useDirectionsMobile({
   paradas,
 }: UseDirectionsMobileOptions): UseDirectionsMobileResult {
@@ -52,6 +45,7 @@ export function useDirectionsMobile({
   const fetchDirections = useCallback(async () => {
     if (paradas.length < 2) {
       setDirections(null);
+      setError(null);
       return;
     }
 
@@ -62,84 +56,55 @@ export function useDirectionsMobile({
       const origem = paradas[0];
       const destino = paradas[paradas.length - 1];
       const waypoints = paradas.slice(1, -1);
+      const route = await getRoute(
+        { latitude: origem.latitude, longitude: origem.longitude },
+        { latitude: destino.latitude, longitude: destino.longitude },
+        waypoints.map((waypoint) => ({
+          latitude: waypoint.latitude,
+          longitude: waypoint.longitude,
+        })),
+        { steps: false },
+      );
 
-      // Converter para formato OSRM
-      const originCoord: Coordinate = {
-        latitude: origem.latitude,
-        longitude: origem.longitude,
-      };
-      const destCoord: Coordinate = {
-        latitude: destino.latitude,
-        longitude: destino.longitude,
-      };
-      const waypointCoords: Coordinate[] = waypoints.map(wp => ({
-        latitude: wp.latitude,
-        longitude: wp.longitude,
-      }));
-
-      // Buscar rota do OSRM (gratuito!)
-      const route = await getRoute(originCoord, destCoord, waypointCoords, { steps: false });
-
-      if (route && route.polyline) {
-        // Decodificar polyline
-        const coordinates = decodePolyline(route.polyline);
-
-        const totalDistanceMeters = route.distance;
-        const totalDurationSeconds = route.duration;
-
-        const distanceKm = totalDistanceMeters / 1000;
-        const durationMins = Math.ceil(totalDurationSeconds / 60);
-
-        setDirections({
-          coordinates,
-          distanceMeters: totalDistanceMeters,
-          durationSeconds: totalDurationSeconds,
-          distanceText: distanceKm >= 1 ? `${distanceKm.toFixed(1)} km` : `${totalDistanceMeters} m`,
-          durationText: durationMins >= 60
-            ? `${Math.floor(durationMins / 60)}h ${durationMins % 60}min`
-            : `${durationMins} min`,
-        });
-        setError(null);
-      } else {
-        // Fallback: usar linhas retas
-        logger.warn('[useDirectionsMobile] OSRM não retornou rota válida, usando linhas retas');
-        const coordinates: Coordinate[] = paradas.map(p => ({
-          latitude: p.latitude,
-          longitude: p.longitude,
-        }));
-
-        setDirections({
-          coordinates,
-          distanceMeters: 0,
-          durationSeconds: 0,
-          distanceText: '--',
-          durationText: '--',
-        });
-        setError(null);
+      if (!route?.polyline) {
+        throw new Error('OSRM não retornou uma geometria viária');
       }
-    } catch (err) {
-      logger.error('[useDirectionsMobile] Error fetching directions:', err);
-      setError('Failed to fetch directions');
 
-      // Fallback em caso de erro: usar linhas retas
-      const coordinates: Coordinate[] = paradas.map(p => ({
-        latitude: p.latitude,
-        longitude: p.longitude,
-      }));
+      const coordinates = decodePolyline(route.polyline);
+      if (coordinates.length < 2) {
+        throw new Error('OSRM retornou uma geometria inválida');
+      }
+
+      const distanceKm = route.distance / 1000;
+      const durationMins = Math.ceil(route.duration / 60);
+
       setDirections({
         coordinates,
-        distanceMeters: 0,
-        durationSeconds: 0,
-        distanceText: '--',
-        durationText: '--',
+        distanceMeters: route.distance,
+        durationSeconds: route.duration,
+        distanceText:
+          distanceKm >= 1
+            ? `${distanceKm.toFixed(1)} km`
+            : `${Math.round(route.distance)} m`,
+        durationText:
+          durationMins >= 60
+            ? `${Math.floor(durationMins / 60)}h ${durationMins % 60}min`
+            : `${durationMins} min`,
       });
+    } catch (routeError) {
+      logger.error(
+        '[useDirectionsMobile] Erro ao buscar trajeto viário:',
+        routeError,
+      );
+      setDirections(null);
+      setError('Trajeto viário indisponível');
     } finally {
       setIsLoading(false);
     }
   }, [paradas]);
 
   useEffect(() => {
-    fetchDirections();
+    void fetchDirections();
   }, [fetchDirections]);
 
   return {

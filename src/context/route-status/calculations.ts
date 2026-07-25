@@ -12,7 +12,7 @@ import type { ParadaData, RouteData, RouteStatus, RotaQueryRow } from './types';
 export function getRouteStatus(
   route: RouteData | null,
   paradas: ParadaData[],
-  now?: number
+  now?: number,
 ): RouteStatus {
   if (!route) return 'no-route';
 
@@ -23,9 +23,9 @@ export function getRouteStatus(
   if (route.status === 'em_andamento') {
     // Contar apenas paradas reais (excluindo checkpoints de partida/chegada)
     const pendingStops = paradas.filter(
-      p =>
+      (p) =>
         p.is_checkpoint !== false &&
-        (p.status === 'pendente' || p.status === 'em_andamento')
+        (p.status === 'pendente' || p.status === 'em_andamento'),
     );
 
     if (pendingStops.length === 0) return 'ready-to-complete';
@@ -53,8 +53,8 @@ export function getRouteStatus(
 
 /** Calcula progresso (excluindo checkpoints de partida/chegada) */
 export function getProgress(paradas: ParadaData[]) {
-  const paradasReais = paradas.filter(p => p.is_checkpoint !== false);
-  const completed = paradasReais.filter(p => p.status === 'concluida').length;
+  const paradasReais = paradas.filter((p) => p.is_checkpoint !== false);
+  const completed = paradasReais.filter((p) => p.status === 'concluida').length;
   const total = paradasReais.length;
   const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
 
@@ -64,29 +64,32 @@ export function getProgress(paradas: ParadaData[]) {
 /** Pega a parada atual (próxima pendente, excluindo checkpoints) */
 export function getCurrentStop(paradas: ParadaData[]): ParadaData | null {
   const orderedStops = paradas
-    .filter(p => p.is_checkpoint !== false)
+    .filter((p) => p.is_checkpoint !== false)
     .sort((a, b) => a.ordem - b.ordem);
 
-  const inProgressStop = orderedStops.find(p => p.status === 'em_andamento');
+  const inProgressStop = orderedStops.find((p) => p.status === 'em_andamento');
   if (inProgressStop) return inProgressStop;
 
-  return orderedStops.find(p => p.status === 'pendente') || null;
+  return orderedStops.find((p) => p.status === 'pendente') || null;
 }
 
 /** Pega a próxima parada após a atual (excluindo checkpoints) */
 export function getNextStop(paradas: ParadaData[]): ParadaData | null {
   const orderedStops = paradas
-    .filter(p => p.is_checkpoint !== false)
+    .filter((p) => p.is_checkpoint !== false)
     .sort((a, b) => a.ordem - b.ordem);
 
-  const currentStop = orderedStops.find(p => p.status === 'em_andamento')
-    || orderedStops.find(p => p.status === 'pendente');
+  const currentStop =
+    orderedStops.find((p) => p.status === 'em_andamento') ||
+    orderedStops.find((p) => p.status === 'pendente');
 
   if (!currentStop) return null;
 
-  return orderedStops.find(
-    p => p.status === 'pendente' && p.ordem > currentStop.ordem
-  ) || null;
+  return (
+    orderedStops.find(
+      (p) => p.status === 'pendente' && p.ordem > currentStop.ordem,
+    ) || null
+  );
 }
 
 /** Build RouteData object from Supabase query row */
@@ -101,6 +104,7 @@ export function buildRouteData(rota: RotaQueryRow): RouteData {
     status: rota.status,
     distancia_total: rota.distancia_total ?? undefined,
     tempo_total: rota.tempo_total ?? undefined,
+    polyline: rota.polyline,
     iniciada_em: rota.iniciada_em ?? undefined,
     concluida_em: rota.concluida_em ?? undefined,
     data: rota.data ?? undefined,

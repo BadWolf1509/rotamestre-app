@@ -14,7 +14,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { maskPhone } from '@/lib/phone';
 import { photonService } from '@/lib/photon';
-import { recalcularRota, notificarMotoristaRotaEditada } from '@/lib/routeUtils';
+import {
+  recalcularRota,
+  notificarMotoristaRotaEditada,
+} from '@/lib/routeUtils';
 import { supabase } from '@/lib/supabase';
 import type { Coordenadas } from '@/types/endereco';
 
@@ -31,7 +34,7 @@ export interface UseAddStopFormParams {
   enderecoUnidade: EnderecoUnidade | null;
   currentParadasCount: number;
   allParadas: Parada[];
-  onSave: () => void;
+  onSave: (result: { routeRecalculationFailed: boolean }) => void;
   usuarioId?: string;
   motoristaId?: string | null;
 }
@@ -76,9 +79,14 @@ export function useAddStopForm({
   const paradasReaisParaSelecao = useMemo(
     () =>
       allParadas
-        .filter((p) => p.is_checkpoint !== false && p.status !== 'concluida' && p.status !== 'pulada')
+        .filter(
+          (p) =>
+            p.is_checkpoint !== false &&
+            p.status !== 'concluida' &&
+            p.status !== 'pulada',
+        )
         .sort((a, b) => a.ordem - b.ordem),
-    [allParadas]
+    [allParadas],
   );
 
   // Reset form only when modal OPENS (transition from false to true)
@@ -106,20 +114,27 @@ export function useAddStopForm({
   const canAddMoreStops = currentParadasCount < MAX_PARADAS;
 
   // Coordinates validation
-  const hasValidCoordinates = latitude !== null && longitude !== null;
+  const hasValidCoordinates =
+    typeof latitude === 'number' &&
+    Number.isFinite(latitude) &&
+    typeof longitude === 'number' &&
+    Number.isFinite(longitude);
 
   // Handle address selection from autocomplete
   // Photon já retorna coordenadas diretamente - não precisa de getPlaceDetails!
-  const handleAddressSelect = useCallback((address: string, _placeId: string, coordinates?: Coordenadas) => {
-    setEndereco(address);
-    setError(null);
+  const handleAddressSelect = useCallback(
+    (address: string, _placeId: string, coordinates?: Coordenadas) => {
+      setEndereco(address);
+      setError(null);
 
-    // Photon retorna coordenadas diretamente no autocomplete
-    if (coordinates) {
-      setLatitude(coordinates.latitude);
-      setLongitude(coordinates.longitude);
-    }
-  }, []);
+      // Photon retorna coordenadas diretamente no autocomplete
+      if (coordinates) {
+        setLatitude(coordinates.latitude);
+        setLongitude(coordinates.longitude);
+      }
+    },
+    [],
+  );
 
   // Handle address text change
   const handleAddressChange = useCallback((text: string) => {
@@ -160,7 +175,12 @@ export function useAddStopForm({
       let finalLatitude = latitude;
       let finalLongitude = longitude;
 
-      if (!finalLatitude || !finalLongitude) {
+      if (
+        typeof finalLatitude !== 'number' ||
+        !Number.isFinite(finalLatitude) ||
+        typeof finalLongitude !== 'number' ||
+        !Number.isFinite(finalLongitude)
+      ) {
         // Usa Photon (gratuito!) em vez de Google Geocoding API
         const geocoded = await photonService.geocodeAddress(endereco);
         if (geocoded?.coordenadas) {
@@ -173,48 +193,54 @@ export function useAddStopForm({
       }
 
       // Use atomic RPC to insert parada (handles order adjustments in single transaction)
-      const { data: rpcResult, error: rpcError } = await supabase.rpc('inserir_parada', {
-        p_rota_id: rotaId,
-        p_tipo: tipo,
-        p_endereco: endereco,
-        p_latitude: finalLatitude,
-        p_longitude: finalLongitude,
-        p_posicao_insercao: posicaoInsercao,
-        p_destinatario: destinatario || null,
-        p_telefone: telefone || null,
-        p_observacoes: observacoes || null,
-      });
+      const { data: rpcResult, error: rpcError } = await supabase.rpc(
+        'inserir_parada',
+        {
+          p_rota_id: rotaId,
+          p_tipo: tipo,
+          p_endereco: endereco,
+          p_latitude: finalLatitude,
+          p_longitude: finalLongitude,
+          p_posicao_insercao: posicaoInsercao,
+          p_destinatario: destinatario || null,
+          p_telefone: telefone || null,
+          p_observacoes: observacoes || null,
+        },
+      );
 
       if (rpcError) {
         throw rpcError;
       }
 
       if (!rpcResult?.success) {
-        throw new Error(rpcResult?.error || 'Erro desconhecido ao inserir parada');
+        throw new Error(
+          rpcResult?.error || 'Erro desconhecido ao inserir parada',
+        );
       }
 
       const newParadaId = rpcResult.parada_id;
       const newStopOrdem = rpcResult.ordem;
 
       // Recalculate route
-      let recalcFailed = false;
-      if (enderecoUnidade) {
-        const updatedParadas = [
-          ...allParadas,
-          {
-            id: newParadaId,
-            ordem: newStopOrdem,
-            latitude: finalLatitude,
-            longitude: finalLongitude,
-            is_checkpoint: true,
-          },
-        ];
+      const updatedParadas = [
+        ...allParadas,
+        {
+          id: newParadaId,
+          ordem: newStopOrdem,
+          latitude: finalLatitude,
+          longitude: finalLongitude,
+          is_checkpoint: true,
+        },
+      ];
 
-        const recalcResult = await recalcularRota(rotaId, updatedParadas, enderecoUnidade);
-        if (!recalcResult.success) {
-          logger.warn('Recálculo de rota falhou:', recalcResult.error);
-          recalcFailed = true;
-        }
+      const recalcResult = await recalcularRota(
+        rotaId,
+        updatedParadas,
+        enderecoUnidade,
+      );
+      const recalcFailed = !recalcResult.success;
+      if (recalcFailed) {
+        logger.warn('Recálculo de rota falhou:', recalcResult.error);
       }
 
       // Log the addition
@@ -228,7 +254,8 @@ export function useAddStopForm({
             endereco,
             tipo,
             ordem: newStopOrdem,
-            posicao_insercao: posicaoInsercao === null ? 'final' : `posicao_${posicaoInsercao}`,
+            posicao_insercao:
+              posicaoInsercao === null ? 'final' : `posicao_${posicaoInsercao}`,
           },
         });
       }
@@ -247,10 +274,12 @@ export function useAddStopForm({
 
       // Show warning if recalculation failed (but stop was added successfully)
       if (recalcFailed) {
-        setWarning('Parada adicionada, mas a otimização da rota falhou. A ordem das paradas pode não estar otimizada.');
+        setWarning(
+          'Parada adicionada, mas a otimização da rota falhou. A ordem das paradas pode não estar otimizada.',
+        );
       }
 
-      onSave();
+      onSave({ routeRecalculationFailed: recalcFailed });
     } catch (err) {
       logger.error('Erro ao adicionar parada:', err);
       setError('Erro ao adicionar parada. Tente novamente.');

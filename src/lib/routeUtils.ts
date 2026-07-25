@@ -16,6 +16,62 @@ interface ParadaBasica {
   is_checkpoint?: boolean;
 }
 
+function coordenadasSaoValidas(
+  coordenadas:
+    | {
+        latitude: number | null | undefined;
+        longitude: number | null | undefined;
+      }
+    | null
+    | undefined,
+): coordenadas is Coordenadas {
+  const latitude = coordenadas?.latitude;
+  const longitude = coordenadas?.longitude;
+
+  return (
+    typeof latitude === 'number' &&
+    Number.isFinite(latitude) &&
+    typeof longitude === 'number' &&
+    Number.isFinite(longitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    longitude >= -180 &&
+    longitude <= 180
+  );
+}
+
+/**
+ * Remove dados derivados antes de recalcular uma rota.
+ *
+ * As paradas já foram alteradas quando esta função é chamada. Manter a
+ * geometria anterior durante uma falha de recálculo faria o mapa representar
+ * um trajeto que não corresponde mais à rota atual.
+ */
+async function invalidarDadosCalculadosRota(rotaId: string): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('rotas')
+      .update({
+        distancia_total: null,
+        tempo_total: null,
+        polyline: null,
+      })
+      .eq('id', rotaId);
+
+    if (error) {
+      logger.warn(
+        '[recalcularRota] Não foi possível invalidar dados antigos da rota',
+        error,
+      );
+    }
+  } catch (error) {
+    logger.warn(
+      '[recalcularRota] Erro ao invalidar dados antigos da rota',
+      error,
+    );
+  }
+}
+
 /**
  * Recalcula a rota após modificações nas paradas
  * Mantém a ordem atual (sem otimização) e atualiza polyline, distância e tempo
@@ -27,18 +83,20 @@ interface ParadaBasica {
 export async function recalcularRota(
   rotaId: string,
   paradas: ParadaBasica[],
-  enderecoUnidade: Coordenadas
+  enderecoUnidade: Coordenadas | null,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    // As paradas já foram persistidas pelos chamadores. Invalide os dados
+    // derivados primeiro para que uma falha nunca deixe uma rota obsoleta
+    // visível no mapa ou nas métricas.
+    await invalidarDadosCalculadosRota(rotaId);
+
     // Validar coordenadas da unidade (deve ser número válido, não null/undefined/NaN)
-    if (
-      !enderecoUnidade ||
-      typeof enderecoUnidade.latitude !== 'number' ||
-      typeof enderecoUnidade.longitude !== 'number' ||
-      isNaN(enderecoUnidade.latitude) ||
-      isNaN(enderecoUnidade.longitude)
-    ) {
-      logger.error('[recalcularRota] Coordenadas da unidade inválidas', enderecoUnidade);
+    if (!coordenadasSaoValidas(enderecoUnidade)) {
+      logger.error(
+        '[recalcularRota] Coordenadas da unidade inválidas',
+        enderecoUnidade,
+      );
       return {
         success: false,
         error: 'Coordenadas da unidade inválidas.',
@@ -51,9 +109,10 @@ export async function recalcularRota(
         // Verificar se é parada real
         if (p.is_checkpoint === false) return false;
         // Verificar se tem coordenadas numéricas válidas (não null, não undefined, não NaN)
-        if (typeof p.latitude !== 'number' || typeof p.longitude !== 'number') return false;
-        if (isNaN(p.latitude) || isNaN(p.longitude)) return false;
-        return true;
+        return coordenadasSaoValidas({
+          latitude: p.latitude,
+          longitude: p.longitude,
+        });
       })
       .sort((a, b) => a.ordem - b.ordem)
       .map((p) => ({
@@ -61,11 +120,17 @@ export async function recalcularRota(
         longitude: p.longitude!,
       }));
 
-    logger.debug('[recalcularRota] Waypoints válidos:', waypoints.length, 'de', paradas.length, 'paradas');
+    logger.debug(
+      '[recalcularRota] Waypoints válidos:',
+      waypoints.length,
+      'de',
+      paradas.length,
+      'paradas',
+    );
 
     // Se não há waypoints, apenas atualizar com valores zerados
     if (waypoints.length === 0) {
-      await supabase
+      const { error: resetError } = await supabase
         .from('rotas')
         .update({
           distancia_total: 0,
@@ -74,6 +139,17 @@ export async function recalcularRota(
         })
         .eq('id', rotaId);
 
+      if (resetError) {
+        logger.error(
+          '[recalcularRota] Erro ao zerar rota sem paradas',
+          resetError,
+        );
+        return {
+          success: false,
+          error: 'Erro ao salvar dados da rota.',
+        };
+      }
+
       return { success: true };
     }
 
@@ -81,7 +157,7 @@ export async function recalcularRota(
     const resultado = await googleMapsService.getDirectionsSequential(
       enderecoUnidade,
       enderecoUnidade,
-      waypoints
+      waypoints,
     );
 
     if (!resultado) {
@@ -114,7 +190,10 @@ export async function recalcularRota(
     logger.error('[recalcularRota] Erro', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro desconhecido ao recalcular rota.',
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Erro desconhecido ao recalcular rota.',
     };
   }
 }
@@ -126,14 +205,18 @@ export async function recalcularRota(
  * @param paradas - Lista de paradas na nova ordem
  */
 export async function reordenarParadas(
-  paradas: ParadaBasica[]
+  paradas: ParadaBasica[],
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (paradas.length === 0) {
       return { success: true };
     }
 
-    logger.debug('[reordenarParadas] Reordering', paradas.length, 'paradas via RPC');
+    logger.debug(
+      '[reordenarParadas] Reordering',
+      paradas.length,
+      'paradas via RPC',
+    );
 
     // Preparar arrays para a RPC
     const paradaIds = paradas.map((p) => p.id);
@@ -156,17 +239,28 @@ export async function reordenarParadas(
     }
 
     if (data && !data.success) {
-      logger.error('[reordenarParadas] RPC returned error', { error: data.error });
-      return { success: false, error: data.error || 'Erro ao reordenar paradas.' };
+      logger.error('[reordenarParadas] RPC returned error', {
+        error: data.error,
+      });
+      return {
+        success: false,
+        error: data.error || 'Erro ao reordenar paradas.',
+      };
     }
 
-    logger.debug('[reordenarParadas] Completed via RPC. Updated:', data?.updated || paradas.length);
+    logger.debug(
+      '[reordenarParadas] Completed via RPC. Updated:',
+      data?.updated || paradas.length,
+    );
     return { success: true };
   } catch (error) {
     logger.error('[reordenarParadas] Erro', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro desconhecido ao reordenar paradas.',
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Erro desconhecido ao reordenar paradas.',
     };
   }
 }
@@ -176,9 +270,13 @@ export async function reordenarParadas(
  * Abordagem de duas etapas para evitar conflitos de unique constraint
  */
 async function reordenarParadasFallback(
-  paradas: ParadaBasica[]
+  paradas: ParadaBasica[],
 ): Promise<{ success: boolean; error?: string }> {
-  logger.debug('[reordenarParadasFallback] Using sequential fallback for', paradas.length, 'paradas');
+  logger.debug(
+    '[reordenarParadasFallback] Using sequential fallback for',
+    paradas.length,
+    'paradas',
+  );
 
   // STEP 1: Move all paradas to temporary high values (1000+)
   for (let i = 0; i < paradas.length; i++) {
@@ -190,7 +288,10 @@ async function reordenarParadasFallback(
 
     if (error) {
       logger.error('[reordenarParadasFallback] Error in step 1', error);
-      return { success: false, error: 'Erro ao mover paradas para valores temporários.' };
+      return {
+        success: false,
+        error: 'Erro ao mover paradas para valores temporários.',
+      };
     }
   }
 
@@ -226,7 +327,7 @@ async function reordenarParadasFallback(
  * @param rotaId - ID da rota para normalizar
  */
 export async function normalizarOrdemParadas(
-  rotaId: string
+  rotaId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     logger.debug('[normalizarOrdemParadas] Starting for rota:', rotaId);
@@ -246,32 +347,64 @@ export async function normalizarOrdemParadas(
       };
     }
 
-    logger.debug('[normalizarOrdemParadas] Found paradas:', todasParadas.length);
+    logger.debug(
+      '[normalizarOrdemParadas] Found paradas:',
+      todasParadas.length,
+    );
 
     // Separar: partida (ordem 0, is_checkpoint false), chegada (is_checkpoint false, ordem > 0), paradas reais
-    const partida = todasParadas.find((p) => p.is_checkpoint === false && p.ordem === 0);
-    const chegada = todasParadas.find((p) => p.is_checkpoint === false && p.ordem > 0);
+    const partida = todasParadas.find(
+      (p) => p.is_checkpoint === false && p.ordem === 0,
+    );
+    const chegada = todasParadas.find(
+      (p) => p.is_checkpoint === false && p.ordem > 0,
+    );
     const paradasReais = todasParadas
       .filter((p) => p.is_checkpoint !== false)
       .sort((a, b) => a.ordem - b.ordem);
 
-    logger.debug('[normalizarOrdemParadas] Partida:', partida?.id, 'ordem:', partida?.ordem);
-    logger.debug('[normalizarOrdemParadas] Chegada:', chegada?.id, 'ordem:', chegada?.ordem);
-    logger.debug('[normalizarOrdemParadas] Paradas reais:', paradasReais.length);
+    logger.debug(
+      '[normalizarOrdemParadas] Partida:',
+      partida?.id,
+      'ordem:',
+      partida?.ordem,
+    );
+    logger.debug(
+      '[normalizarOrdemParadas] Chegada:',
+      chegada?.id,
+      'ordem:',
+      chegada?.ordem,
+    );
+    logger.debug(
+      '[normalizarOrdemParadas] Paradas reais:',
+      paradasReais.length,
+    );
 
     // Build the list of all paradas that need reordering with their target ordem
-    const reorderPlan: Array<{ id: string; currentOrdem: number; targetOrdem: number }> = [];
+    const reorderPlan: Array<{
+      id: string;
+      currentOrdem: number;
+      targetOrdem: number;
+    }> = [];
 
     // Partida should be at 0
     if (partida && partida.ordem !== 0) {
-      reorderPlan.push({ id: partida.id, currentOrdem: partida.ordem, targetOrdem: 0 });
+      reorderPlan.push({
+        id: partida.id,
+        currentOrdem: partida.ordem,
+        targetOrdem: 0,
+      });
     }
 
     // Paradas reais should be at 1, 2, 3, 4...
     for (let i = 0; i < paradasReais.length; i++) {
       const targetOrdem = i + 1;
       if (paradasReais[i].ordem !== targetOrdem) {
-        reorderPlan.push({ id: paradasReais[i].id, currentOrdem: paradasReais[i].ordem, targetOrdem });
+        reorderPlan.push({
+          id: paradasReais[i].id,
+          currentOrdem: paradasReais[i].ordem,
+          targetOrdem,
+        });
       }
     }
 
@@ -279,7 +412,11 @@ export async function normalizarOrdemParadas(
     if (chegada) {
       const chegadaOrdem = paradasReais.length + 1;
       if (chegada.ordem !== chegadaOrdem) {
-        reorderPlan.push({ id: chegada.id, currentOrdem: chegada.ordem, targetOrdem: chegadaOrdem });
+        reorderPlan.push({
+          id: chegada.id,
+          currentOrdem: chegada.ordem,
+          targetOrdem: chegadaOrdem,
+        });
       }
     }
 
@@ -289,13 +426,19 @@ export async function normalizarOrdemParadas(
       return { success: true };
     }
 
-    logger.debug('[normalizarOrdemParadas] Reorder plan:', reorderPlan.length, 'paradas to update');
+    logger.debug(
+      '[normalizarOrdemParadas] Reorder plan:',
+      reorderPlan.length,
+      'paradas to update',
+    );
 
     // STEP 1: Move all paradas that need reordering to temporary high values (1000+)
     // This avoids unique constraint conflicts
     for (let i = 0; i < reorderPlan.length; i++) {
       const tempOrdem = 1000 + i;
-      logger.debug(`[normalizarOrdemParadas] Step 1: ${reorderPlan[i].id} -> temp ${tempOrdem}`);
+      logger.debug(
+        `[normalizarOrdemParadas] Step 1: ${reorderPlan[i].id} -> temp ${tempOrdem}`,
+      );
       const { error } = await supabase
         .from('paradas')
         .update({ ordem: tempOrdem })
@@ -303,13 +446,18 @@ export async function normalizarOrdemParadas(
 
       if (error) {
         logger.error('[normalizarOrdemParadas] Error in step 1', error);
-        return { success: false, error: 'Erro ao mover paradas para valores temporários.' };
+        return {
+          success: false,
+          error: 'Erro ao mover paradas para valores temporários.',
+        };
       }
     }
 
     // STEP 2: Assign the correct target values
     for (const item of reorderPlan) {
-      logger.debug(`[normalizarOrdemParadas] Step 2: ${item.id} -> ${item.targetOrdem}`);
+      logger.debug(
+        `[normalizarOrdemParadas] Step 2: ${item.id} -> ${item.targetOrdem}`,
+      );
       const { error } = await supabase
         .from('paradas')
         .update({ ordem: item.targetOrdem })
@@ -321,7 +469,11 @@ export async function normalizarOrdemParadas(
       }
     }
 
-    logger.debug('[normalizarOrdemParadas] Completed. Updated:', reorderPlan.length, 'paradas');
+    logger.debug(
+      '[normalizarOrdemParadas] Completed. Updated:',
+      reorderPlan.length,
+      'paradas',
+    );
     return { success: true };
   } catch (error) {
     logger.error('[normalizarOrdemParadas] Exception', error);
@@ -349,8 +501,12 @@ export async function removerParadaERecalcular(
   rotaId: string,
   paradasRestantes: ParadaBasica[],
   enderecoUnidade: Coordenadas,
-  usuarioId?: string
-): Promise<{ success: boolean; error?: string }> {
+  usuarioId?: string,
+): Promise<{
+  success: boolean;
+  error?: string;
+  routeRecalculationFailed?: boolean;
+}> {
   try {
     // 1. Deletar a parada
     const { error: deleteError } = await supabase
@@ -369,13 +525,36 @@ export async function removerParadaERecalcular(
     // 2. Reordenar paradas restantes
     const reordenResult = await reordenarParadas(paradasRestantes);
     if (!reordenResult.success) {
-      return reordenResult;
+      // A parada já foi removida. Evite manter uma geometria que ainda passe
+      // pelo ponto excluído e reporte a operação como concluída com ressalva.
+      await invalidarDadosCalculadosRota(rotaId);
+      logger.warn(
+        '[removerParadaERecalcular] Parada removida, mas reordenação falhou',
+        {
+          error: reordenResult.error,
+        },
+      );
+
+      return {
+        success: true,
+        error: reordenResult.error,
+        routeRecalculationFailed: true,
+      };
     }
 
     // 3. Recalcular rota
-    const recalcResult = await recalcularRota(rotaId, paradasRestantes, enderecoUnidade);
+    const recalcResult = await recalcularRota(
+      rotaId,
+      paradasRestantes,
+      enderecoUnidade,
+    );
     if (!recalcResult.success) {
-      return recalcResult;
+      logger.warn(
+        '[removerParadaERecalcular] Parada removida, mas recálculo falhou',
+        {
+          error: recalcResult.error,
+        },
+      );
     }
 
     // 4. Registrar log (opcional)
@@ -391,7 +570,11 @@ export async function removerParadaERecalcular(
       });
     }
 
-    return { success: true };
+    return {
+      success: true,
+      error: recalcResult.error,
+      routeRecalculationFailed: !recalcResult.success,
+    };
   } catch (error) {
     logger.error('[removerParadaERecalcular] Erro', error);
     return {
@@ -427,7 +610,7 @@ interface NotificarMotoristaParams {
  * @returns Promise com sucesso ou erro
  */
 export async function notificarMotoristaRotaEditada(
-  params: NotificarMotoristaParams
+  params: NotificarMotoristaParams,
 ): Promise<{ success: boolean; error?: string }> {
   const { rotaId, motoristaId, tipo, titulo, mensagem, paradaId } = params;
 
@@ -440,13 +623,18 @@ export async function notificarMotoristaRotaEditada(
       .single();
 
     if (rotaError || !rota) {
-      logger.warn('[notificarMotoristaRotaEditada] Rota não encontrada:', rotaId);
+      logger.warn(
+        '[notificarMotoristaRotaEditada] Rota não encontrada:',
+        rotaId,
+      );
       return { success: false, error: 'Rota não encontrada' };
     }
 
     // Não notificar para rotas concluídas ou canceladas
     if (rota.status !== 'pendente' && rota.status !== 'em_andamento') {
-      logger.debug('[notificarMotoristaRotaEditada] Rota não está ativa, ignorando notificação');
+      logger.debug(
+        '[notificarMotoristaRotaEditada] Rota não está ativa, ignorando notificação',
+      );
       return { success: true };
     }
 
@@ -462,7 +650,10 @@ export async function notificarMotoristaRotaEditada(
     });
 
     if (notifError) {
-      logger.error('[notificarMotoristaRotaEditada] Erro ao criar notificação', notifError);
+      logger.error(
+        '[notificarMotoristaRotaEditada] Erro ao criar notificação',
+        notifError,
+      );
       return { success: false, error: 'Erro ao criar notificação' };
     }
 

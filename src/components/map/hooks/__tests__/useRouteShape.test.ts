@@ -57,4 +57,27 @@ describe('useRouteShape', () => {
     const { result } = renderHook(() => useRouteShape([] as any));
     expect(result.current.isLoadingRoute).toBe(true);
   });
+
+  it('forwards persisted route options and retry/error state', () => {
+    const refetch = jest.fn();
+    (useRouteDirections as jest.Mock).mockReturnValue({
+      routeCoordinates: [],
+      routeInfo: null,
+      isLoading: false,
+      error: 'Trajeto viário indisponível',
+      refetch,
+      source: null,
+      isStale: false,
+    });
+    const options = {
+      encodedPolyline: 'encoded-road-geometry',
+      storedRouteInfo: { distanceMeters: 1000, durationSeconds: 120 },
+    };
+
+    const { result } = renderHook(() => useRouteShape([] as any, options));
+
+    expect(useRouteDirections).toHaveBeenCalledWith([], options);
+    expect(result.current.routeError).toBe('Trajeto viário indisponível');
+    expect(result.current.refetchRoute).toBe(refetch);
+  });
 });

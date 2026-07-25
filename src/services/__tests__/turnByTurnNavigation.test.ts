@@ -1,8 +1,8 @@
-import * as Speech from "expo-speech";
+import * as Speech from 'expo-speech';
 
-import { clearCache } from "@/lib/osrm";
+import { clearCache } from '@/lib/osrm';
 
-import TurnByTurnNavigationService from "../turnByTurnNavigation";
+import TurnByTurnNavigationService from '../turnByTurnNavigation';
 
 // Mocks já configurados em jest.setup.js:
 // - fetch
@@ -26,12 +26,12 @@ function createOSRMResponse(options: {
   }>;
 }) {
   return {
-    code: "Ok",
+    code: 'Ok',
     routes: [
       {
         distance: options.distance,
         duration: options.duration,
-        geometry: options.geometry || "encoded_polyline",
+        geometry: options.geometry || 'encoded_polyline',
         legs: [
           {
             distance: options.distance,
@@ -48,7 +48,7 @@ function createOSRMResponse(options: {
   };
 }
 
-describe("TurnByTurnNavigationService", () => {
+describe('TurnByTurnNavigationService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     clearCache(); // Limpar cache do OSRM entre testes para evitar poluição
@@ -56,20 +56,20 @@ describe("TurnByTurnNavigationService", () => {
     TurnByTurnNavigationService.setVoiceEnabled(true);
   });
 
-  describe("getDirections", () => {
-    it("deve buscar rota do OSRM com sucesso (gratuito!)", async () => {
+  describe('getDirections', () => {
+    it('deve buscar rota do OSRM com sucesso (gratuito!)', async () => {
       const mockResponse = createOSRMResponse({
         distance: 1000,
         duration: 600,
-        geometry: "encoded_polyline",
+        geometry: 'encoded_polyline',
         steps: [
           {
             distance: 100,
             duration: 60,
-            name: "Rua Teste",
+            name: 'Rua Teste',
             maneuver: {
-              type: "turn",
-              modifier: "right",
+              type: 'turn',
+              modifier: 'right',
               location: [10, 10], // [lng, lat]
             },
           },
@@ -90,54 +90,52 @@ describe("TurnByTurnNavigationService", () => {
       expect(route?.distance).toBe(1000);
       expect(route?.instructions).toHaveLength(1);
       // OSRM maneuver "turn" + "right" é traduzido para "Vire à direita"
-      expect(route?.instructions[0].instruction).toContain("Vire à direita");
+      expect(route?.instructions[0].instruction).toContain('Vire à direita');
 
       // Verificar que usou OSRM (osrm.rotamestre.tec.br)
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining("osrm.rotamestre.tec.br"),
+        expect.stringContaining('osrm.rotamestre.tec.br'),
         expect.any(Object),
       );
     });
 
-    it("deve lidar com erro na API e retornar fallback", async () => {
-      (global.fetch as jest.Mock).mockRejectedValueOnce(new Error("API Error"));
+    it('não deve iniciar navegação sem geometria viária', async () => {
+      (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('API Error'));
 
       const route = await TurnByTurnNavigationService.getDirections(
         { latitude: 0, longitude: 0 },
         { latitude: 1, longitude: 1 },
       );
 
-      // OSRM retorna fallback com Haversine em caso de erro, não null
-      // O fallback tem distance > 0 (estimativa baseada em Haversine)
-      expect(route).not.toBeNull();
+      expect(route).toBeNull();
     });
   });
 
-  describe("updateNavigation", () => {
+  describe('updateNavigation', () => {
     beforeEach(async () => {
       // Setup initial route com OSRM format
       const mockResponse = createOSRMResponse({
         distance: 1000,
         duration: 600,
-        geometry: "encoded_polyline",
+        geometry: 'encoded_polyline',
         steps: [
           {
             distance: 100,
             duration: 60,
-            name: "Rua A",
+            name: 'Rua A',
             maneuver: {
-              type: "turn",
-              modifier: "right",
+              type: 'turn',
+              modifier: 'right',
               location: [0.001, 0.001], // [lng, lat] - Perto da origem
             },
           },
           {
             distance: 200,
             duration: 120,
-            name: "Rua B",
+            name: 'Rua B',
             maneuver: {
-              type: "continue",
-              modifier: "straight",
+              type: 'continue',
+              modifier: 'straight',
               location: [0.002, 0.002],
             },
           },
@@ -155,7 +153,7 @@ describe("TurnByTurnNavigationService", () => {
       );
     });
 
-    it("deve retornar instrução atual", async () => {
+    it('deve retornar instrução atual', async () => {
       const result = await TurnByTurnNavigationService.updateNavigation(
         { latitude: 0, longitude: 0 },
         50, // speed km/h
@@ -163,10 +161,10 @@ describe("TurnByTurnNavigationService", () => {
 
       expect(result.currentInstruction).not.toBeNull();
       // OSRM maneuver format: "type-modifier"
-      expect(result.currentInstruction?.maneuver).toBe("turn-right");
+      expect(result.currentInstruction?.maneuver).toBe('turn-right');
     });
 
-    it("deve avançar instrução quando próximo", async () => {
+    it('deve avançar instrução quando próximo', async () => {
       // Simular estar muito perto do ponto da primeira instrução
       const result = await TurnByTurnNavigationService.updateNavigation(
         { latitude: 0.001, longitude: 0.001 },
@@ -191,45 +189,45 @@ describe("TurnByTurnNavigationService", () => {
       // Então ele retorna a instrução que ACABOU de ser completada como "current"?
       // Não, ele pega currentInstruction no início.
 
-      expect(result.currentInstruction?.maneuver).toBe("turn-right");
+      expect(result.currentInstruction?.maneuver).toBe('turn-right');
     });
 
-    it("deve acionar voz quando na distância correta", async () => {
+    it('deve acionar voz quando na distância correta', async () => {
       // Distância para falar em 50km/h: 500, 200, 50
       // Vamos tentar simular uma distância de ~200m
       // Isso é difícil sem mockar calculateDistance ou fazer matemática geodésica precisa.
       // Mas podemos testar speakInstruction diretamente se quisermos testar a integração com Speech.
 
-      await TurnByTurnNavigationService.speakInstruction("Teste");
-      expect(Speech.speak).toHaveBeenCalledWith("Teste", expect.any(Object));
+      await TurnByTurnNavigationService.speakInstruction('Teste');
+      expect(Speech.speak).toHaveBeenCalledWith('Teste', expect.any(Object));
     });
   });
 
-  describe("Helper Methods", () => {
+  describe('Helper Methods', () => {
     beforeEach(async () => {
       // Setup route for helpers com OSRM format
       const mockResponse = createOSRMResponse({
         distance: 1000,
         duration: 600,
-        geometry: "encoded_polyline",
+        geometry: 'encoded_polyline',
         steps: [
           {
             distance: 100,
             duration: 60,
-            name: "Step 1",
+            name: 'Step 1',
             maneuver: {
-              type: "turn",
-              modifier: "right",
+              type: 'turn',
+              modifier: 'right',
               location: [0, 0],
             },
           },
           {
             distance: 200,
             duration: 120,
-            name: "Step 2",
+            name: 'Step 2',
             maneuver: {
-              type: "continue",
-              modifier: "straight",
+              type: 'continue',
+              modifier: 'straight',
               location: [0.001, 0.001],
             },
           },
@@ -247,13 +245,13 @@ describe("TurnByTurnNavigationService", () => {
       );
     });
 
-    it("deve retornar coordenadas da rota", () => {
+    it('deve retornar coordenadas da rota', () => {
       const coords = TurnByTurnNavigationService.getRouteCoordinates();
       expect(coords).toBeDefined();
       expect(Array.isArray(coords)).toBe(true);
     });
 
-    it("deve calcular progresso corretamente", async () => {
+    it('deve calcular progresso corretamente', async () => {
       // Initial state: index 0, total 2
       expect(TurnByTurnNavigationService.getProgress()).toBe(0);
 
@@ -269,12 +267,12 @@ describe("TurnByTurnNavigationService", () => {
       // Let's rely on the fact that updateNavigation increments index if close.
     });
 
-    it("deve calcular distância restante", () => {
+    it('deve calcular distância restante', () => {
       // Total distance is 100 + 200 = 300
       expect(TurnByTurnNavigationService.getRemainingDistance()).toBe(300);
     });
 
-    it("deve calcular tempo restante", () => {
+    it('deve calcular tempo restante', () => {
       // Total duration is 60 + 120 = 180
       expect(TurnByTurnNavigationService.getRemainingTime()).toBe(180);
     });

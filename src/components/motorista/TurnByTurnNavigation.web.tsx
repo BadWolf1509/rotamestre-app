@@ -1,37 +1,37 @@
-import { Ionicons } from "@expo/vector-icons";
-import maplibregl from "maplibre-gl";
+import { Ionicons } from '@expo/vector-icons';
+import maplibregl from 'maplibre-gl';
 import React, {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-} from "react";
+} from 'react';
 import {
   ActivityIndicator,
   Linking,
   Text,
   TouchableOpacity,
   View,
-} from "react-native";
+} from 'react-native';
 
-import "maplibre-gl/dist/maplibre-gl.css";
+import 'maplibre-gl/dist/maplibre-gl.css';
 
-import { logger } from "@/lib/logger";
+import { logger } from '@/lib/logger';
 import {
   getOpenFreeMapStyle,
   installOpenFreeMapMissingImageHandler,
-} from "@/lib/openFreeMapStyle";
-import LocationTrackingService from "@/services/locationTracking";
+} from '@/lib/openFreeMapStyle';
+import LocationTrackingService from '@/services/locationTracking';
 import TurnByTurnNavigationService, {
   calculateHaversineDistance,
   type NavigationInstruction,
-} from "@/services/turnByTurnNavigation";
-import type { IconName } from "@/types/icons";
-import { boxShadow } from "@/utils/color";
-import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
+} from '@/services/turnByTurnNavigation';
+import type { IconName } from '@/types/icons';
+import { boxShadow } from '@/utils/color';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-import { BottomPanel, InstructionBar } from "./turn-by-turn";
+import { BottomPanel, InstructionBar } from './turn-by-turn';
 
 // Default values
 const DEFAULT_PROXIMITY_RADIUS = 30;
@@ -99,7 +99,7 @@ export function TurnByTurnNavigation({
           setVoiceEnabled(prefs.voiceNavigation);
         }
       } catch (error) {
-        logger.warn("[TurnByTurn.web] Error loading preferences:", error);
+        logger.warn('[TurnByTurn.web] Error loading preferences:', error);
       }
     };
     loadPreferences();
@@ -158,7 +158,7 @@ export function TurnByTurnNavigation({
   // Watch user position with browser Geolocation API
   useEffect(() => {
     if (!navigator.geolocation) {
-      logger.warn("[TurnByTurn.web] Geolocation not supported");
+      logger.warn('[TurnByTurn.web] Geolocation not supported');
       return;
     }
 
@@ -198,7 +198,7 @@ export function TurnByTurnNavigation({
     };
 
     const handleError = (error: GeolocationPositionError) => {
-      logger.warn("[TurnByTurn.web] Geolocation error:", error.message);
+      logger.warn('[TurnByTurn.web] Geolocation error:', error.message);
     };
 
     watchIdRef.current = navigator.geolocation.watchPosition(
@@ -241,19 +241,19 @@ export function TurnByTurnNavigation({
         removeMissingImageHandler =
           installOpenFreeMapMissingImageHandler(mapInstance);
 
-        mapInstance.on("load", () => {
+        mapInstance.on('load', () => {
           setMapLoaded(true);
           mapRef.current = mapInstance;
         });
 
-        mapInstance.on("error", (e) => {
-          logger.error("[TurnByTurn.web] Map error:", e);
-          setMapError("Erro ao carregar mapa");
+        mapInstance.on('error', (e) => {
+          logger.error('[TurnByTurn.web] Map error:', e);
+          setMapError('Erro ao carregar mapa');
         });
       } catch (error) {
         if (cancelled) return;
-        logger.error("[TurnByTurn.web] Failed to initialize map:", error);
-        setMapError("Erro ao inicializar mapa");
+        logger.error('[TurnByTurn.web] Failed to initialize map:', error);
+        setMapError('Erro ao inicializar mapa');
       }
     };
 
@@ -281,7 +281,7 @@ export function TurnByTurnNavigation({
 
   // Create user marker element
   const createUserMarkerElement = useCallback(() => {
-    const el = document.createElement("div");
+    const el = document.createElement('div');
     el.style.cssText = `
       width: 24px;
       height: 24px;
@@ -294,7 +294,7 @@ export function TurnByTurnNavigation({
       justify-content: center;
     `;
 
-    const inner = document.createElement("div");
+    const inner = document.createElement('div');
     inner.style.cssText = `
       width: 8px;
       height: 8px;
@@ -308,7 +308,7 @@ export function TurnByTurnNavigation({
 
   // Create destination marker element
   const createDestinationMarkerElement = useCallback(() => {
-    const el = document.createElement("div");
+    const el = document.createElement('div');
     el.style.cssText = `
       background-color: ${theme.colors.white};
       border-radius: 16px;
@@ -319,7 +319,7 @@ export function TurnByTurnNavigation({
       justify-content: center;
     `;
 
-    const icon = document.createElement("div");
+    const icon = document.createElement('div');
     icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 512 512"><path fill="${theme.colors.error}" d="M80 464V68.14a8 8 0 0 1 4-6.9C91.81 56.66 112.92 48 160 48c64 0 145 48 192 48a199.53 199.53 0 0 0 77.23-15.77a2 2 0 0 1 2.77 1.85v219.36a4 4 0 0 1-2.39 3.65C421.37 308.7 392.33 320 352 320c-48 0-128-32-192-32s-80 16-80 16"/><path fill="${theme.colors.error}" d="M80 464a16 16 0 0 1-16-16V68.14a24 24 0 0 1 12-20.9C91.55 38 112.91 32 160 32c61.31 0 140.63 40 184 40c48.47 0 80.27-16.3 90.14-21.42a16 16 0 0 1 17.71 2.63A15.94 15.94 0 0 1 456 67.57v237.31a23.93 23.93 0 0 1-14.36 21.93C423.45 334.9 384.05 352 352 352c-50.44 0-129.44-32-192-32c-31.81 0-54.07 6.84-64 12.64V448a16 16 0 0 1-16 16"/></svg>`;
     el.appendChild(icon);
 
@@ -329,7 +329,7 @@ export function TurnByTurnNavigation({
   // Create waypoint marker element
   const createWaypointMarkerElement = useCallback(
     (index: number) => {
-      const el = document.createElement("div");
+      const el = document.createElement('div');
       el.style.cssText = `
       width: 28px;
       height: 28px;
@@ -414,45 +414,48 @@ export function TurnByTurnNavigation({
 
   // Add route polyline
   useEffect(() => {
-    if (!mapRef.current || !mapLoaded || routeCoordinates.length === 0) return;
+    if (!mapRef.current || !mapLoaded) return;
 
-    const sourceId = "route-source";
-    const layerId = "route-layer";
+    const map = mapRef.current;
+    const sourceId = 'route-source';
+    const layerId = 'route-layer';
 
     // Remove existing layer and source if they exist
-    if (mapRef.current.getLayer(layerId)) {
-      mapRef.current.removeLayer(layerId);
+    if (map.getLayer(layerId)) {
+      map.removeLayer(layerId);
     }
-    if (mapRef.current.getSource(sourceId)) {
-      mapRef.current.removeSource(sourceId);
+    if (map.getSource(sourceId)) {
+      map.removeSource(sourceId);
     }
 
+    if (routeCoordinates.length < 2) return;
+
     // Add route source
-    mapRef.current.addSource(sourceId, {
-      type: "geojson",
+    map.addSource(sourceId, {
+      type: 'geojson',
       data: {
-        type: "Feature",
+        type: 'Feature',
         properties: {},
         geometry: {
-          type: "LineString",
+          type: 'LineString',
           coordinates: routeCoordinates.map((c) => [c.longitude, c.latitude]),
         },
       },
     });
 
     // Add route layer
-    mapRef.current.addLayer({
+    map.addLayer({
       id: layerId,
-      type: "line",
+      type: 'line',
       source: sourceId,
       layout: {
-        "line-join": "round",
-        "line-cap": "round",
+        'line-join': 'round',
+        'line-cap': 'round',
       },
       paint: {
-        "line-color": theme.colors.primary,
-        "line-width": 5,
-        "line-opacity": 0.8,
+        'line-color': theme.colors.primary,
+        'line-width': 5,
+        'line-opacity': 0.8,
       },
     });
 
@@ -464,11 +467,17 @@ export function TurnByTurnNavigation({
       });
       bounds.extend([userLocation.longitude, userLocation.latitude]);
 
-      mapRef.current.fitBounds(bounds, {
+      map.fitBounds(bounds, {
         padding: { top: 150, right: 50, bottom: 200, left: 50 },
         duration: 500,
       });
     }
+
+    return () => {
+      if (!(map as unknown as { style?: unknown }).style) return;
+      if (map.getLayer(layerId)) map.removeLayer(layerId);
+      if (map.getSource(sourceId)) map.removeSource(sourceId);
+    };
   }, [mapLoaded, routeCoordinates, theme.colors.primary, userLocation]);
 
   // Format distance
@@ -509,14 +518,14 @@ export function TurnByTurnNavigation({
   // Get maneuver icon
   const getManeuverIcon = useCallback((maneuver: string): IconName => {
     const iconMap: Record<string, IconName> = {
-      "turn-left": "arrow-back",
-      "turn-right": "arrow-forward",
-      "turn-sharp-left": "return-up-back",
-      "turn-sharp-right": "return-up-forward",
-      straight: "arrow-up",
-      merge: "git-merge",
-      roundabout: "sync",
-      uturn: "refresh",
+      'turn-left': 'arrow-back',
+      'turn-right': 'arrow-forward',
+      'turn-sharp-left': 'return-up-back',
+      'turn-sharp-right': 'return-up-forward',
+      straight: 'arrow-up',
+      merge: 'git-merge',
+      roundabout: 'sync',
+      uturn: 'refresh',
     };
 
     for (const [key, icon] of Object.entries(iconMap)) {
@@ -525,7 +534,7 @@ export function TurnByTurnNavigation({
       }
     }
 
-    return "arrow-up";
+    return 'arrow-up';
   }, []);
 
   // Toggle voice (visual only on web, no actual speech)
@@ -574,9 +583,9 @@ export function TurnByTurnNavigation({
         ref={mapContainerRef}
         style={{
           flex: 1,
-          width: "100%",
-          height: "100%",
-          position: "absolute",
+          width: '100%',
+          height: '100%',
+          position: 'absolute',
           top: 0,
           left: 0,
           right: 0,
@@ -611,10 +620,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: theme.colors.white,
-    gap: theme.spacing["4"],
+    gap: theme.spacing['4'],
   },
   loadingText: {
     fontSize: theme.typography.fontSize.base,
@@ -622,50 +631,50 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   fallbackButton: {
     backgroundColor: theme.colors.primary,
-    paddingHorizontal: theme.spacing["6"],
-    paddingVertical: theme.spacing["3"],
+    paddingHorizontal: theme.spacing['6'],
+    paddingVertical: theme.spacing['3'],
     borderRadius: theme.borderRadius.lg,
-    marginTop: theme.spacing["4"],
+    marginTop: theme.spacing['4'],
   },
   fallbackButtonText: {
     color: theme.colors.white,
     fontSize: theme.typography.fontSize.base,
-    fontWeight: "600",
+    fontWeight: '600',
   },
   userMarker: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 3,
-    borderColor: "white",
-    boxShadow: boxShadow(0, 2, 4, 0, "#000", 0.3),
+    borderColor: 'white',
+    boxShadow: boxShadow(0, 2, 4, 0, '#000', 0.3),
   },
   userMarkerInner: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "white",
+    backgroundColor: 'white',
   },
   destinationMarker: {
     borderRadius: 16,
     padding: 8,
-    boxShadow: boxShadow(0, 2, 4, 0, "#000", 0.2),
+    boxShadow: boxShadow(0, 2, 4, 0, '#000', 0.2),
   },
   waypointMarker: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 2,
-    borderColor: "white",
-    boxShadow: boxShadow(0, 1, 3, 0, "#000", 0.2),
+    borderColor: 'white',
+    boxShadow: boxShadow(0, 1, 3, 0, '#000', 0.2),
   },
   waypointText: {
-    color: "white",
+    color: 'white',
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: '700',
   },
 }));

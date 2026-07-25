@@ -4,7 +4,13 @@
 
 import type { MotivoSkip } from '@/constants/skipReasons';
 
-export type RouteStatus = 'no-route' | 'pending' | 'active' | 'last-stop' | 'ready-to-complete' | 'completed';
+export type RouteStatus =
+  | 'no-route'
+  | 'pending'
+  | 'active'
+  | 'last-stop'
+  | 'ready-to-complete'
+  | 'completed';
 
 export interface RouteData {
   id: string;
@@ -12,6 +18,7 @@ export interface RouteData {
   unidade_nome: string;
   distancia_total?: number;
   tempo_total?: number;
+  polyline?: string | null;
   iniciada_em?: string;
   concluida_em?: string;
   data?: string;
@@ -45,6 +52,7 @@ export interface RotaQueryRow {
   status: string;
   distancia_total: number | null;
   tempo_total: number | null;
+  polyline: string | null;
   iniciada_em: string | null;
   concluida_em: string | null;
   created_at: string;
@@ -77,6 +85,10 @@ export interface RouteStatusContextData {
   refreshRoute: () => Promise<void>;
   startRoute: () => Promise<void>;
   completeStop: (paradaId: string, fotoUrl?: string) => Promise<void>;
-  skipStop: (paradaId: string, motivo: MotivoSkip, observacoes?: string) => Promise<void>;
+  skipStop: (
+    paradaId: string,
+    motivo: MotivoSkip,
+    observacoes?: string,
+  ) => Promise<void>;
   completeRoute: () => Promise<void>;
 }

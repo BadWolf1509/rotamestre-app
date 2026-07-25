@@ -454,7 +454,8 @@ export function TurnByTurnNavigation({
   );
 
   const routeShape = useMemo(
-    () => (routeCoordinates.length > 0 ? toLineString(routeCoordinates) : null),
+    () =>
+      routeCoordinates.length >= 2 ? toLineString(routeCoordinates) : null,
     [routeCoordinates],
   );
 

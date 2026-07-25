@@ -7,6 +7,7 @@
 
 import React from 'react';
 
+import type { RouteInfo } from '@/hooks/useRouteDirections';
 import type { ParadaMapItem, StatusFilter } from '@/types/parada-map';
 
 import MapaWebMapLibre from './MapaWebMapLibre';
@@ -22,6 +23,8 @@ interface MapaAdapterProps {
   motoristaNome?: string;
   showMotorista?: boolean;
   unidadeNome?: string;
+  polyline?: string | null;
+  storedRouteInfo?: RouteInfo | null;
 }
 
 /**
@@ -37,6 +40,8 @@ export function MapaAdapter({
   motoristaNome,
   showMotorista,
   unidadeNome,
+  polyline,
+  storedRouteInfo,
 }: MapaAdapterProps) {
   return (
     <MapaWebMapLibre
@@ -49,6 +54,8 @@ export function MapaAdapter({
       motoristaNome={motoristaNome}
       showMotorista={showMotorista}
       unidadeNome={unidadeNome}
+      polyline={polyline}
+      storedRouteInfo={storedRouteInfo}
     />
   );
 }

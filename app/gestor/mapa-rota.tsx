@@ -150,6 +150,16 @@ export default function MapaRota() {
     [rota?.status],
   );
   const hasBaseInfo = useHasBaseInfo(pontosBase);
+  const storedRouteInfo = useMemo(
+    () =>
+      rota?.distancia_total != null && rota?.tempo_total != null
+        ? {
+            distanceMeters: rota.distancia_total * 1000,
+            durationSeconds: rota.tempo_total * 60,
+          }
+        : null,
+    [rota?.distancia_total, rota?.tempo_total],
+  );
 
   // ===== Loading State =====
   if (loading) {
@@ -277,6 +287,8 @@ export default function MapaRota() {
                         motoristaNome={rota?.motorista?.nome}
                         showMotorista={rota?.status === 'em_andamento'}
                         unidadeNome={rota?.unidade?.nome}
+                        polyline={rota?.polyline}
+                        storedRouteInfo={storedRouteInfo}
                       />
                     </View>
                   </DesktopCard>
@@ -469,8 +481,8 @@ export default function MapaRota() {
             rotaId={Array.isArray(id) ? id[0] : id || ''}
             enderecoUnidade={enderecoUnidade}
             allParadas={paradasReais}
-            onSave={async () => {
-              await handleEditStopSave();
+            onSave={async ({ routeRecalculationFailed }) => {
+              await handleEditStopSave(routeRecalculationFailed);
               modals.closeEditStopModal();
             }}
             onCancel={() => {
@@ -487,8 +499,8 @@ export default function MapaRota() {
             enderecoUnidade={enderecoUnidade}
             currentParadasCount={paradasReais.length}
             allParadas={paradasReais}
-            onSave={async () => {
-              await handleAddStopSave();
+            onSave={async ({ routeRecalculationFailed }) => {
+              await handleAddStopSave(routeRecalculationFailed);
               modals.closeAddStopModal();
             }}
             onCancel={modals.closeAddStopModal}
@@ -633,6 +645,8 @@ export default function MapaRota() {
                     motoristaNome={rota?.motorista?.nome}
                     showMotorista={rota?.status === 'em_andamento'}
                     unidadeNome={rota?.unidade?.nome}
+                    polyline={rota?.polyline}
+                    storedRouteInfo={storedRouteInfo}
                   />
                 </View>
                 <Text style={styles.paradasTitle}>

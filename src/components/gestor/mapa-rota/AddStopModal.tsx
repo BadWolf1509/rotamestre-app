@@ -45,7 +45,7 @@ export interface AddStopModalProps {
   enderecoUnidade: EnderecoUnidade | null;
   currentParadasCount: number;
   allParadas: Parada[];
-  onSave: () => void;
+  onSave: (result: { routeRecalculationFailed: boolean }) => void;
   onCancel: () => void;
   usuarioId?: string;
   /** ID do motorista atribuído à rota (para notificação) */
@@ -158,8 +158,15 @@ export function AddStopModal({
       >
         {/* Tipo */}
         <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-          <Text style={[styles.label, isDesktop && styles.labelCompact]}>Tipo</Text>
-          <View style={[styles.tipoContainer, isDesktop && styles.tipoContainerCompact]}>
+          <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+            Tipo
+          </Text>
+          <View
+            style={[
+              styles.tipoContainer,
+              isDesktop && styles.tipoContainerCompact,
+            ]}
+          >
             <TouchableOpacity
               style={[
                 styles.tipoButton,
@@ -171,7 +178,9 @@ export function AddStopModal({
               <Ionicons
                 name="arrow-down-circle"
                 size={isDesktop ? 16 : 18}
-                color={tipo === 'entrega' ? theme.colors.white : theme.colors.info}
+                color={
+                  tipo === 'entrega' ? theme.colors.white : theme.colors.info
+                }
               />
               <Text
                 style={[
@@ -195,7 +204,11 @@ export function AddStopModal({
               <Ionicons
                 name="arrow-up-circle"
                 size={isDesktop ? 16 : 18}
-                color={tipo === 'retirada' ? theme.colors.white : theme.colors.warning}
+                color={
+                  tipo === 'retirada'
+                    ? theme.colors.white
+                    : theme.colors.warning
+                }
               />
               <Text
                 style={[
@@ -214,11 +227,26 @@ export function AddStopModal({
         {/* Endereço */}
         <View style={[styles.field, isDesktop && styles.fieldCompact]}>
           <View style={styles.labelRow}>
-            <Text style={[styles.labelInRow, isDesktop && styles.labelInRowCompact]}>Endereço *</Text>
+            <Text
+              style={[styles.labelInRow, isDesktop && styles.labelInRowCompact]}
+            >
+              Endereço *
+            </Text>
             {hasValidCoordinates && (
               <View style={styles.validatedBadge}>
-                <Ionicons name="checkmark-circle" size={isDesktop ? 14 : 16} color={theme.colors.success} />
-                <Text style={[styles.validatedText, isDesktop && styles.validatedTextCompact]}>Validado</Text>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={isDesktop ? 14 : 16}
+                  color={theme.colors.success}
+                />
+                <Text
+                  style={[
+                    styles.validatedText,
+                    isDesktop && styles.validatedTextCompact,
+                  ]}
+                >
+                  Validado
+                </Text>
               </View>
             )}
           </View>
@@ -233,7 +261,9 @@ export function AddStopModal({
         {/* Destinatário + Telefone em grid */}
         <DesktopFormGrid columns={2}>
           <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-            <Text style={[styles.label, isDesktop && styles.labelCompact]}>Destinatário</Text>
+            <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+              Destinatário
+            </Text>
             <TextInput
               style={[styles.input, isDesktop && styles.inputCompact]}
               value={destinatario}
@@ -244,7 +274,9 @@ export function AddStopModal({
           </View>
 
           <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-            <Text style={[styles.label, isDesktop && styles.labelCompact]}>Telefone</Text>
+            <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+              Telefone
+            </Text>
             <TextInput
               style={[styles.input, isDesktop && styles.inputCompact]}
               value={telefone}
@@ -259,9 +291,16 @@ export function AddStopModal({
 
         {/* Observações - full width */}
         <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-          <Text style={[styles.label, isDesktop && styles.labelCompact]}>Observações (opcional)</Text>
+          <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+            Observações (opcional)
+          </Text>
           <TextInput
-            style={[styles.input, isDesktop && styles.inputCompact, styles.textArea, isDesktop && styles.textAreaCompact]}
+            style={[
+              styles.input,
+              isDesktop && styles.inputCompact,
+              styles.textArea,
+              isDesktop && styles.textAreaCompact,
+            ]}
             value={observacoes}
             onChangeText={setObservacoes}
             placeholder="Observações sobre a parada"
@@ -279,7 +318,9 @@ export function AddStopModal({
           accessibilityRole="radiogroup"
           accessibilityLabel="Selecione a posição na rota"
         >
-          <Text style={[styles.label, isDesktop && styles.labelCompact]}>Posição na Rota</Text>
+          <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+            Posição na Rota
+          </Text>
 
           {/* Options: Before each existing stop (badge shows final position) */}
           {paradasReaisParaSelecao.map((parada) => {
@@ -301,17 +342,46 @@ export function AddStopModal({
                 accessibilityLabel={`Posição ${parada.ordem}, ${addressText}`}
                 accessibilityState={{ checked: isSelected }}
               >
-                <View style={[
-                  styles.radioCircle,
-                  isDesktop && styles.radioCircleCompact,
-                  isSelected && styles.radioCircleSelected,
-                ]}>
-                  {isSelected ? <View style={[styles.radioCircleInner, isDesktop && styles.radioCircleInnerCompact]} /> : null}
+                <View
+                  style={[
+                    styles.radioCircle,
+                    isDesktop && styles.radioCircleCompact,
+                    isSelected && styles.radioCircleSelected,
+                  ]}
+                >
+                  {isSelected ? (
+                    <View
+                      style={[
+                        styles.radioCircleInner,
+                        isDesktop && styles.radioCircleInnerCompact,
+                      ]}
+                    />
+                  ) : null}
                 </View>
-                <View style={[styles.orderBadge, isDesktop && styles.orderBadgeCompact]}>
-                  <Text style={[styles.orderText, isDesktop && styles.orderTextCompact]}>{parada.ordem}</Text>
+                <View
+                  style={[
+                    styles.orderBadge,
+                    isDesktop && styles.orderBadgeCompact,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.orderText,
+                      isDesktop && styles.orderTextCompact,
+                    ]}
+                  >
+                    {parada.ordem}
+                  </Text>
                 </View>
-                <Text style={[styles.positionText, isDesktop && styles.positionTextCompact]} numberOfLines={2}>{addressText}</Text>
+                <Text
+                  style={[
+                    styles.positionText,
+                    isDesktop && styles.positionTextCompact,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {addressText}
+                </Text>
               </TouchableOpacity>
             );
           })}
@@ -329,17 +399,45 @@ export function AddStopModal({
               accessibilityLabel={`Posição ${paradasReaisParaSelecao.length + 1}, Final da rota`}
               accessibilityState={{ checked: posicaoInsercao === null }}
             >
-              <View style={[
-                styles.radioCircle,
-                isDesktop && styles.radioCircleCompact,
-                posicaoInsercao === null && styles.radioCircleSelected,
-              ]}>
-                {posicaoInsercao === null ? <View style={[styles.radioCircleInner, isDesktop && styles.radioCircleInnerCompact]} /> : null}
+              <View
+                style={[
+                  styles.radioCircle,
+                  isDesktop && styles.radioCircleCompact,
+                  posicaoInsercao === null && styles.radioCircleSelected,
+                ]}
+              >
+                {posicaoInsercao === null ? (
+                  <View
+                    style={[
+                      styles.radioCircleInner,
+                      isDesktop && styles.radioCircleInnerCompact,
+                    ]}
+                  />
+                ) : null}
               </View>
-              <View style={[styles.orderBadge, isDesktop && styles.orderBadgeCompact]}>
-                <Text style={[styles.orderText, isDesktop && styles.orderTextCompact]}>{paradasReaisParaSelecao.length + 1}</Text>
+              <View
+                style={[
+                  styles.orderBadge,
+                  isDesktop && styles.orderBadgeCompact,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.orderText,
+                    isDesktop && styles.orderTextCompact,
+                  ]}
+                >
+                  {paradasReaisParaSelecao.length + 1}
+                </Text>
               </View>
-              <Text style={[styles.positionText, isDesktop && styles.positionTextCompact]}>Final da rota</Text>
+              <Text
+                style={[
+                  styles.positionText,
+                  isDesktop && styles.positionTextCompact,
+                ]}
+              >
+                Final da rota
+              </Text>
             </TouchableOpacity>
           )}
 
@@ -359,7 +457,11 @@ export function AddStopModal({
               errorYPosition.current = event.nativeEvent.layout.y;
             }}
           >
-            <Ionicons name="alert-circle" size={16} color={theme.colors.error} />
+            <Ionicons
+              name="alert-circle"
+              size={16}
+              color={theme.colors.error}
+            />
             <Text style={styles.errorText}>{error}</Text>
           </View>
         )}

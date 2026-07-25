@@ -64,7 +64,7 @@ class TurnByTurnNavigationService {
   async getDirections(
     origin: { latitude: number; longitude: number },
     destination: { latitude: number; longitude: number },
-    waypoints?: Array<{ latitude: number; longitude: number }>
+    waypoints?: Array<{ latitude: number; longitude: number }>,
   ): Promise<NavigationRoute | null> {
     try {
       // Usar OSRM em vez de Google (R$900/mês de economia!)
@@ -72,26 +72,33 @@ class TurnByTurnNavigationService {
         origin as Coordinate,
         destination as Coordinate,
         waypoints as Coordinate[],
-        { steps: true }
+        { steps: true },
       );
 
-      if (!osrmRoute) {
-        throw new Error('Nenhuma rota encontrada');
+      if (!osrmRoute?.polyline) {
+        throw new Error('Nenhuma geometria viária encontrada');
+      }
+
+      const routeCoordinates = osrmDecodePolyline(osrmRoute.polyline);
+      if (routeCoordinates.length < 2) {
+        throw new Error('Geometria viária inválida');
       }
 
       // Convert OSRM steps to NavigationInstruction format
-      const instructions: NavigationInstruction[] = osrmRoute.steps.map(step => ({
-        distance: step.distance,
-        duration: step.duration,
-        instruction: step.instruction,
-        maneuver: step.maneuver,
-        location: step.location,
-        voiceInstruction: this.generateVoiceInstruction(
-          step.instruction,
-          step.distance,
-          step.maneuver
-        ),
-      }));
+      const instructions: NavigationInstruction[] = osrmRoute.steps.map(
+        (step) => ({
+          distance: step.distance,
+          duration: step.duration,
+          instruction: step.instruction,
+          maneuver: step.maneuver,
+          location: step.location,
+          voiceInstruction: this.generateVoiceInstruction(
+            step.instruction,
+            step.distance,
+            step.maneuver,
+          ),
+        }),
+      );
 
       // Create route object
       this.currentRoute = {
@@ -113,7 +120,7 @@ class TurnByTurnNavigationService {
   private generateVoiceInstruction(
     instruction: string,
     distance: number,
-    maneuver?: string
+    maneuver?: string,
   ): string {
     // Format distance for voice
     const distanceText = this.formatDistanceForVoice(distance);
@@ -126,13 +133,13 @@ class TurnByTurnNavigationService {
       'turn-sharp-right': 'vire acentuadamente à direita',
       'turn-slight-left': 'pegue à esquerda',
       'turn-slight-right': 'pegue à direita',
-      'straight': 'continue em frente',
+      straight: 'continue em frente',
       'roundabout-left': 'na rotatória, pegue à esquerda',
       'roundabout-right': 'na rotatória, pegue à direita',
-      'merge': 'entre na via',
+      merge: 'entre na via',
       'fork-left': 'mantenha-se à esquerda',
       'fork-right': 'mantenha-se à direita',
-      'ferry': 'pegue a balsa',
+      ferry: 'pegue a balsa',
       'uturn-left': 'faça o retorno à esquerda',
       'uturn-right': 'faça o retorno à direita',
     };
@@ -170,7 +177,10 @@ class TurnByTurnNavigationService {
 
   // Get current instruction based on location
   getCurrentInstruction(): NavigationInstruction | null {
-    if (!this.currentRoute || this.currentInstructionIndex >= this.currentRoute.instructions.length) {
+    if (
+      !this.currentRoute ||
+      this.currentInstructionIndex >= this.currentRoute.instructions.length
+    ) {
       return null;
     }
 
@@ -179,7 +189,10 @@ class TurnByTurnNavigationService {
 
   // Get next instruction
   getNextInstruction(): NavigationInstruction | null {
-    if (!this.currentRoute || this.currentInstructionIndex + 1 >= this.currentRoute.instructions.length) {
+    if (
+      !this.currentRoute ||
+      this.currentInstructionIndex + 1 >= this.currentRoute.instructions.length
+    ) {
       return null;
     }
 
@@ -189,7 +202,7 @@ class TurnByTurnNavigationService {
   // Update navigation based on current position
   async updateNavigation(
     currentLocation: { latitude: number; longitude: number },
-    speed: number = 0
+    speed: number = 0,
   ): Promise<{
     currentInstruction: NavigationInstruction | null;
     nextInstruction: NavigationInstruction | null;
@@ -222,7 +235,7 @@ class TurnByTurnNavigationService {
       currentLocation.latitude,
       currentLocation.longitude,
       currentInstruction.location.latitude,
-      currentInstruction.location.longitude
+      currentInstruction.location.longitude,
     );
 
     // Determine if we should speak instruction
@@ -231,9 +244,15 @@ class TurnByTurnNavigationService {
     // Speak at different distances based on speed
     const speakDistances = this.getSpeakDistances(speed);
 
-    if (this.voiceEnabled && this.lastSpokenInstruction !== this.currentInstructionIndex) {
+    if (
+      this.voiceEnabled &&
+      this.lastSpokenInstruction !== this.currentInstructionIndex
+    ) {
       for (const distance of speakDistances) {
-        if (distanceToNextTurn <= distance && distanceToNextTurn > distance - 50) {
+        if (
+          distanceToNextTurn <= distance &&
+          distanceToNextTurn > distance - 50
+        ) {
           shouldSpeak = true;
           break;
         }
@@ -296,12 +315,19 @@ class TurnByTurnNavigationService {
   }
 
   // Calculate distance between two points (uses OSRM utility)
-  private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  private calculateDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number {
     return calculateHaversineDistance(lat1, lon1, lat2, lon2);
   }
 
   // Decode polyline to coordinates (uses OSRM utility)
-  decodePolyline(encoded: string): Array<{ latitude: number; longitude: number }> {
+  decodePolyline(
+    encoded: string,
+  ): Array<{ latitude: number; longitude: number }> {
     return osrmDecodePolyline(encoded);
   }
 
@@ -349,7 +375,11 @@ class TurnByTurnNavigationService {
     if (!this.currentRoute) return 0;
 
     let remaining = 0;
-    for (let i = this.currentInstructionIndex; i < this.currentRoute.instructions.length; i++) {
+    for (
+      let i = this.currentInstructionIndex;
+      i < this.currentRoute.instructions.length;
+      i++
+    ) {
       remaining += this.currentRoute.instructions[i].distance;
     }
 
@@ -361,7 +391,11 @@ class TurnByTurnNavigationService {
     if (!this.currentRoute) return 0;
 
     let remaining = 0;
-    for (let i = this.currentInstructionIndex; i < this.currentRoute.instructions.length; i++) {
+    for (
+      let i = this.currentInstructionIndex;
+      i < this.currentRoute.instructions.length;
+      i++
+    ) {
       remaining += this.currentRoute.instructions[i].duration;
     }
 
