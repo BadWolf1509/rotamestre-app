@@ -1,6 +1,9 @@
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import { Linking } from 'react-native';
+
+import { logger } from '@/lib/logger';
+import { toast } from '@/utils/toast';
 
 import { TesterRecruitmentScreen } from '../TesterRecruitmentScreen';
 
@@ -14,13 +17,10 @@ jest.mock('expo-router', () => ({
   }),
 }));
 
-jest.mock('@/hooks/useResponsive', () => ({
-  useResponsive: () => ({
-    isDesktop: false,
-    isMobile: true,
-    isTablet: false,
-    width: 375,
-  }),
+jest.mock('@/utils/toast', () => ({
+  toast: {
+    error: jest.fn(),
+  },
 }));
 
 const mockIsEnabled = jest.fn();
@@ -87,5 +87,34 @@ describe('TesterRecruitmentScreen', () => {
     const { getByText, queryByText } = render(<TesterRecruitmentScreen />);
     expect(getByText(/só para Android/i)).toBeTruthy();
     expect(queryByText('Entre no grupo de testadores')).toBeNull();
+  });
+
+  it('mostra a URL de compartilhamento no desktop', () => {
+    mockIsEnabled.mockReturnValue(true);
+    mockDetect.mockReturnValue('desktop');
+    const { getByText } = render(<TesterRecruitmentScreen />);
+    expect(getByText(/Está no computador\?/i)).toBeTruthy();
+  });
+
+  it('não chama Linking.openURL quando o passo está desabilitado (url vazia)', () => {
+    mockIsEnabled.mockReturnValue(true);
+    mockDetect.mockReturnValue('android');
+    mockGetLinks.mockReturnValue({ ...LINKS, groupUrl: '' });
+    const { getByText } = render(<TesterRecruitmentScreen />);
+    fireEvent.press(getByText('Entrar no grupo'));
+    expect(openURLSpy).not.toHaveBeenCalled();
+  });
+
+  it('trata a rejeição de Linking.openURL sem quebrar e mostra toast de erro', async () => {
+    mockIsEnabled.mockReturnValue(true);
+    mockDetect.mockReturnValue('android');
+    const loggerWarnSpy = jest.spyOn(logger, 'warn').mockImplementation();
+    openURLSpy.mockRejectedValueOnce(new Error('falhou'));
+    const { getByText } = render(<TesterRecruitmentScreen />);
+
+    fireEvent.press(getByText('Abrir convite de teste'));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(loggerWarnSpy).toHaveBeenCalled();
   });
 });

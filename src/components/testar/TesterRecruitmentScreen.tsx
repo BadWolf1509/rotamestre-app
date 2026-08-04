@@ -4,9 +4,11 @@ import { Linking, ScrollView, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/design-system';
+import { logger } from '@/lib/logger';
 import { getTesterLinks, isRecruitmentEnabled } from '@/lib/testerLinks';
 import { detectWebPlatform } from '@/utils/detectWebPlatform';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { toast } from '@/utils/toast';
 
 interface StepData {
   n: number;
@@ -20,6 +22,22 @@ const SHARE_URL =
   typeof window !== 'undefined' && window.location?.origin
     ? `${window.location.origin}/testar`
     : 'https://app.rotamestre.tec.br/testar';
+
+/**
+ * Abre um link externo (grupo, opt-in, Play Store) tratando falhas.
+ * Sem isso, uma rejeição de `Linking.openURL` (ex.: navegador bloqueou popup,
+ * nenhum app pra abrir o link) deixa o toque no CTA sem nenhum feedback —
+ * dead-end silencioso no funil de recrutamento.
+ */
+async function handleOpenLink(url: string): Promise<void> {
+  if (!url) return;
+  try {
+    await Linking.openURL(url);
+  } catch (err) {
+    logger.warn('Não foi possível abrir o link externo', err as Error);
+    toast.error('Não foi possível abrir o link. Tente novamente.');
+  }
+}
 
 export function TesterRecruitmentScreen() {
   const { theme } = useUnistyles();
@@ -139,7 +157,7 @@ export function TesterRecruitmentScreen() {
                       !step.url && styles.stepCtaDisabled,
                     ]}
                     disabled={!step.url}
-                    onPress={() => step.url && Linking.openURL(step.url)}
+                    onPress={() => handleOpenLink(step.url)}
                     accessibilityRole="link"
                     accessibilityLabel={step.cta}
                   >
