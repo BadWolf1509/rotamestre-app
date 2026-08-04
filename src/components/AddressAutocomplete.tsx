@@ -309,6 +309,18 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
     setShowSuggestions(false);
   }, [onChangeText]);
 
+  // Digitar também conta como interação. Sem isto, apagar o campo inteiro sem
+  // tirar o foco zerava `hasUserInteracted` (efeito de `value === ''`) e, como
+  // só o focus a religava, a busca ficava desativada em silêncio até o usuário
+  // sair e voltar ao campo.
+  const handleChangeText = useCallback(
+    (text: string) => {
+      hasUserInteracted.current = true;
+      onChangeText(text);
+    },
+    [onChangeText],
+  );
+
   const handleFocus = useCallback(() => {
     // Mark that user has interacted - enables search from now on
     hasUserInteracted.current = true;
@@ -604,7 +616,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
           placeholder={placeholder}
           placeholderTextColor={theme.colors.gray400}
           value={value || ''}
-          onChangeText={onChangeText}
+          onChangeText={handleChangeText}
           onFocus={handleFocus}
           onBlur={handleBlur}
           multiline={multiline}
