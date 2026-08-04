@@ -95,3 +95,7 @@ rotamestre-corrigido.apk
 
 # Android build exports
 android-export/
+
+# maplibre-gl v6 worker copiado de node_modules (ver tools/scripts/copy-maplibre-worker.cjs)
+/public/maplibre-gl-worker.mjs
+/public/maplibre-gl-shared.mjs

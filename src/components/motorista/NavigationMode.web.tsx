@@ -26,6 +26,7 @@ import {
 } from '@/hooks/navigation';
 import { useAlert } from '@/hooks/useAlert';
 import { logger } from '@/lib/logger';
+import { configureMaplibreWorker } from '@/lib/maplibreWorker';
 import { abrirNavegacao } from '@/lib/navigation';
 import {
   getOpenFreeMapStyle,
@@ -134,6 +135,7 @@ export function NavigationMode({
         const style = await getOpenFreeMapStyle();
         if (cancelled || !mapContainerRef.current) return;
 
+        configureMaplibreWorker();
         mapInstance = new maplibregl.Map({
           container: mapContainerRef.current,
           style,

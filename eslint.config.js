@@ -54,6 +54,8 @@ module.exports = [
       'supabase/.temp',
       'tools/scripts/node_modules/**',
       'e2e-report/**',
+      // Worker do maplibre-gl v6 copiado de node_modules (vendor minificado)
+      'public/maplibre-gl-*.mjs',
     ],
   },
   js.configs.recommended,
