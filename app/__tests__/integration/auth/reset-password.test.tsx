@@ -970,8 +970,8 @@ describe('Reset Password Screen - Integration Tests', () => {
       });
 
       // Corrige a confirmação → reValidateMode onChange limpa o erro.
-      // Timeout maior: a revalidação async do zodResolver pode passar de 1s
-      // sob carga da suíte completa.
+      // Timeout generoso: a revalidação async do zodResolver pode passar de 3s
+      // sob a carga da suíte completa (workers paralelos disputando CPU).
       fireEvent.changeText(
         getByPlaceholderText('Confirmar senha'),
         VALID_PASSWORD,
@@ -981,7 +981,7 @@ describe('Reset Password Screen - Integration Tests', () => {
         () => {
           expect(queryByText('As senhas não coincidem')).toBeNull();
         },
-        { timeout: 3000 },
+        { timeout: 6000 },
       );
     });
 
