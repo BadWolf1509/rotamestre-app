@@ -814,4 +814,68 @@ describe('AddressAutocomplete', () => {
       });
     });
   });
+
+  describe('respostas fora de ordem', () => {
+    const makeSuggestion = (mainText: string) => ({
+      place_id: `id_${mainText}`,
+      description: `${mainText}, Cidade`,
+      structured_formatting: {
+        main_text: mainText,
+        secondary_text: 'Cidade',
+      },
+      coordinates: { latitude: -7.1, longitude: -34.8 },
+      source: 'google',
+    });
+
+    it('ignora a resposta de uma busca antiga que chega depois da mais recente', async () => {
+      let resolveAntiga: (v: unknown) => void = () => {};
+      let resolveNova: (v: unknown) => void = () => {};
+      const buscaAntiga = new Promise((r) => {
+        resolveAntiga = r;
+      });
+      const buscaNova = new Promise((r) => {
+        resolveNova = r;
+      });
+
+      (geocodingService.autocomplete as jest.Mock)
+        .mockImplementationOnce(() => buscaAntiga)
+        .mockImplementationOnce(() => buscaNova);
+
+      const { getByPlaceholderText, queryByText } = render(<TestWrapper />);
+      const input = getByPlaceholderText('Endereço ou CEP');
+
+      // Primeira busca dispara e fica em voo
+      fireEvent(input, 'focus');
+      fireEvent.changeText(input, 'Rua Antiga');
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      // Usuário continua digitando: segunda busca dispara com a antiga ainda em voo
+      fireEvent.changeText(input, 'Rua Nova');
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      expect(geocodingService.autocomplete).toHaveBeenCalledTimes(2);
+
+      // A busca mais recente responde primeiro
+      await act(async () => {
+        resolveNova([makeSuggestion('Resultado Novo')]);
+        await Promise.resolve();
+      });
+
+      // ...e só então a antiga responde (fora de ordem)
+      await act(async () => {
+        resolveAntiga([makeSuggestion('Resultado Antigo')]);
+        await Promise.resolve();
+      });
+
+      // A lista deve refletir o que o usuário digitou por último
+      await waitFor(() => {
+        expect(queryByText('Resultado Novo')).toBeTruthy();
+      });
+      expect(queryByText('Resultado Antigo')).toBeNull();
+    });
+  });
 });
