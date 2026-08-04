@@ -21,6 +21,7 @@ import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
 import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
 import { FieldError } from '@/components/auth/FieldError';
+import { TesterLoginLink } from '@/components/testar/TesterLoginLink';
 import { Dialog } from '@/design-system';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
@@ -285,6 +286,8 @@ export default function Login() {
                   <Text style={styles.footerLinkText}>Solicitar acesso</Text>
                 </TouchableOpacity>
               </View>
+
+              {Platform.OS === 'web' && <TesterLoginLink />}
             </View>
           </View>
         </View>
@@ -430,6 +433,8 @@ export default function Login() {
               <Text style={styles.footerLinkText}>Solicitar acesso</Text>
             </TouchableOpacity>
           </View>
+
+          {Platform.OS === 'web' && <TesterLoginLink />}
         </View>
 
         {/* Alert Dialog */}
