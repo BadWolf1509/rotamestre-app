@@ -1,13 +1,24 @@
 # Contexto operacional — Rota Mestre App
 
-> Documento de entrada para novas sessões. Atualizado em 25/07/2026.
+> Documento de entrada para novas sessões. Atualizado em 04/08/2026.
 > Consulte o código ou o serviço responsável antes de alterar um estado externo.
 
 ## Retomada imediata
 
 - Caminho local canônico: `D:\rota-mestre\rotamestre-app`.
-- `main` está sincronizada com o GitHub e os checks do último handoff passaram.
-- Web: <https://app.rotamestre.tec.br> está publicada e validada.
+- `main` integra, em 04/08/2026, oito PRs por squash: cinco de evolução
+  (recrutamento de testadores web `/testar`, maplibre-gl 5→6, upgrade de
+  **Node 20→22** em dev/CI/EAS/Vercel, alinhamento do Sentry e um lote de
+  dependências) e três correções de regressão encontradas ao exercitar o que
+  tinha acabado de ser integrado. CI verde em cada um. Detalhe em "Estado
+  confirmado em 04/08/2026".
+- **O mapa web depende de um worker servido de `public/`** (`maplibre-gl 6` é
+  ESM-only e o Metro não empacota o worker dele). Se o mapa voltar a travar em
+  "Carregando...", confira esse arquivo antes de qualquer outra hipótese.
+- **Node 22 é o novo baseline** de runtime (`.nvmrc`, `engines.node`, CI e EAS
+  Build). O próximo build EAS será o primeiro sob Node 22 — observe-o.
+- Web: <https://app.rotamestre.tec.br> está publicada e revalidada após o merge
+  (deploy de produção concluído; smoke test sem erros de console).
 - Android: `1.12.2` / `3024` está concluído no teste fechado. A faixa de
   produção permanece vazia porque o Play recusou a submissão por
   `Precondition check failed`; confirme a elegibilidade no Console antes de
@@ -16,8 +27,9 @@
   ação bloqueante é executar interativamente
   `npx eas-cli build --platform ios --profile production` e validar as
   credenciais Apple.
-- Próxima prioridade sem credenciais Apple: acompanhar o opt-in contínuo do
-  teste fechado e manter os metadados/declarações das lojas coerentes.
+- Próxima prioridade sem credenciais Apple: ampliar e acompanhar o opt-in do
+  teste fechado — agora com o hub público `/testar` para recrutar testadores — e
+  manter os metadados/declarações das lojas coerentes.
 
 ## Resumo executivo
 
@@ -143,6 +155,69 @@ Não copie versões para outros documentos. Quando houver divergência, prevalec
 - A validação completa recomendada antes de release é `npm run validate`,
   seguida dos testes E2E/visuais relevantes e de um smoke test no Android.
 
+## Estado confirmado em 04/08/2026
+
+- Cinco PRs foram integrados à `main` por squash, em série com rebase entre cada
+  um: `/testar` (#341), maplibre-gl 5→6 (#345), Sentry alinhado (#343), lote de
+  dependências do Dependabot (#342) e Node 20→22 (#344). Como todos os PRs são
+  do mesmo autor e a `main` exige uma aprovação de revisão, o merge usou override
+  de administrador; os checks obrigatórios estavam verdes em cada um.
+- **Node 22** passou a ser o baseline de dev, CI, EAS e Vercel: `.nvmrc` em `22`,
+  `engines.node` em `>=22` e os workflows na matriz `22.x`. O EAS Build lê o
+  `.nvmrc`, então o próximo build nativo será o primeiro sob Node 22.
+- A proteção da `main` foi ajustada de `Run Tests (20.x)` para `Run Tests (22.x)`
+  (mais `TypeScript & Linting`), acompanhando a renomeação dos jobs de CI.
+- As versões de Sentry foram realinhadas juntas (dependência acoplada),
+  `size-limit` subiu para a linha 13 e `react-native-nitro-modules` recebeu um
+  patch — validados na suíte completa antes do merge. No conflito do lote de Node
+  22, `supabase` foi mantido na versão da `main`, evitando um downgrade
+  silencioso trazido pela base antiga da branch.
+- Os dez PRs individuais do Dependabot que esses lotes substituem foram fechados
+  (a maioria pelo próprio Dependabot ao detectar as versões já na base).
+- O hub público `/testar` recruta testadores para o teste fechado Android, com
+  passo a passo, detecção de plataforma e aviso de "mesma Conta Google". É a peça
+  web que apoia o P0 de destravar a produção.
+- O deploy de produção no Vercel concluiu com sucesso. Smoke test em
+  <https://app.rotamestre.tec.br>: login e `/testar` carregam sem erros de
+  console e a detecção de plataforma responde.
+
+- O servidor OSRM próprio (`osrm.rotamestre.tec.br`) responde apenas à origem de
+  produção: o header `Access-Control-Allow-Origin` é fixo em
+  `https://app.rotamestre.tec.br`. Consequência: **no dev local o cálculo de rota
+  falha com `Failed to fetch`** — é CORS, não indisponibilidade (o mesmo endereço
+  responde 200 via `curl`). Os mapas continuam desenhando o trajeto no dev porque
+  usam a `polyline` persistida em `rotas`. Para exercitar o cálculo localmente
+  seria preciso liberar `localhost` no CORS ou usar proxy; nada disso foi feito.
+
+### Três regressões corrigidas no mesmo dia
+
+O smoke test do lote acima não cobriu as telas autenticadas. Ao exercitá-las,
+apareceram três defeitos que a suíte existente não pegava — todos corrigidos,
+merjados e validados em produção no mesmo dia.
+
+- **Mapa web travado em "Carregando..." (#346).** O `maplibre-gl 6` é ESM-only e
+  resolve seu web worker por `import.meta.url`, que o bundler do Expo (Metro) não
+  empacota. Sem o worker, o estilo nunca termina de carregar, o evento `load`
+  nunca dispara e nenhum tile é buscado. A correção serve
+  `maplibre-gl-worker.mjs` e o sibling `maplibre-gl-shared.mjs` a partir de
+  `public/` (copiados de `node_modules` no `postinstall` e no início do
+  `build:web`) e aponta `setWorkerUrl` para o caminho servido, via
+  `configureMaplibreWorker()` nos cinco componentes de mapa web. Os testes não
+  pegaram porque usam mock do maplibre, e a regressão visual só cobre telas
+  públicas. O app nativo não é afetado (usa `@maplibre/maplibre-react-native`).
+- **Autocomplete de endereço ficava mudo (#347).** Quem apagava o endereço
+  inteiro sem sair do campo zerava a flag interna de interação, que só era
+  religada no evento de foco — como o campo seguia focado, cada tecla passava a
+  ser descartada em silêncio, sem disparar requisição. Passou a marcar a
+  interação também ao digitar. As Edge Functions estavam saudáveis o tempo todo
+  (todas as chamadas em 200), o que descarta API/quota como causa.
+- **Resposta obsoleta do autocomplete (#348).** O debounce cancelava só o timer,
+  nunca a requisição já em voo: com duas buscas simultâneas, a que respondia por
+  último vencia. O cleanup do efeito passa a invalidar a busca anterior.
+- Os dois defeitos do autocomplete ganharam teste de regressão. O do mapa é
+  coberto indiretamente (o worker é validado no build), mas **não há teste
+  automatizado que falhe se o worker sumir** — a verificação continua manual.
+
 ## Mudanças relevantes desta etapa
 
 | Data       | Mudança                                                                                  | Referência                                   |
@@ -153,6 +228,9 @@ Não copie versões para outros documentos. Quando houver divergência, prevalec
 | 24/07/2026 | Preparação do app e da ficha para o Google Play, páginas legais e exclusão de conta      | commit `b7a39dc`                             |
 | 24/07/2026 | Geometria viária persistida nos mapas; remoção dos fallbacks visuais em linha reta       | commit `3788f55`                             |
 | 24/07/2026 | Configuração inicial de distribuição e conformidade iOS                                  | commit `191db5a`                             |
+| 04/08/2026 | Integração de 5 PRs: `/testar`, maplibre 6, Sentry, deps e Node 22 (baseline/CI)         | PRs #341/#345/#343/#342/#344                 |
+| 04/08/2026 | Correção do worker do maplibre 6 (mapa web travado em "Carregando...")                   | PR #346                                      |
+| 04/08/2026 | Correções do autocomplete de endereço: interação após limpar e resposta obsoleta         | PRs #347 e #348                              |
 
 O histórico completo do rebuild está em
 [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md), agora tratado como
@@ -197,13 +275,21 @@ app.rotamestre.tec.br ── Expo Web / React Native
   um plano formal de migração.
 - Dependências acopladas exigem validação nativa: versões de Sentry devem ficar
   alinhadas; Unistyles e Nitro Modules devem ser testados juntos em build EAS.
+- O baseline de runtime é **Node 22** (`.nvmrc`, `engines.node`, CI e EAS). Não
+  regrida para Node 20; a proteção da `main` espera `Run Tests (22.x)`.
+- O mapa web só funciona com o worker do `maplibre-gl 6` servido de `public/`.
+  Não remova `tools/scripts/copy-maplibre-worker.cjs` do `postinstall`/`build:web`,
+  a chamada de `configureMaplibreWorker()` nos componentes de mapa web, nem os
+  `.mjs` copiados. Quebrar isso trava o mapa em "Carregando..." **sem erro no
+  console e com o CI verde** — nenhum teste automatizado detecta.
 
 ## Próximas ações
 
 ### P0 — concluir distribuição móvel
 
 1. Confirmar no Play Console a quantidade e a continuidade dos participantes
-   com opt-in. Contas cadastradas sem opt-in não contam para o requisito.
+   com opt-in; divulgue o hub `/testar` para ampliar a base. Contas cadastradas
+   sem opt-in não contam para o requisito.
 2. Solicitar acesso à produção quando o requisito mostrado pelo Console estiver
    satisfeito e promover o build `3024`; não gerar um novo AAB apenas para
    repetir a tentativa.
