@@ -6,10 +6,15 @@
 ## Retomada imediata
 
 - Caminho local canônico: `D:\rota-mestre\rotamestre-app`.
-- `main` integra, em 04/08/2026, cinco PRs por squash: recrutamento de
-  testadores web (`/testar`), maplibre-gl 5→6, upgrade de **Node 20→22**
-  (dev/CI/EAS/Vercel), alinhamento do Sentry e um lote de dependências. CI verde
-  em cada um. Detalhe em "Estado confirmado em 04/08/2026".
+- `main` integra, em 04/08/2026, oito PRs por squash: cinco de evolução
+  (recrutamento de testadores web `/testar`, maplibre-gl 5→6, upgrade de
+  **Node 20→22** em dev/CI/EAS/Vercel, alinhamento do Sentry e um lote de
+  dependências) e três correções de regressão encontradas ao exercitar o que
+  tinha acabado de ser integrado. CI verde em cada um. Detalhe em "Estado
+  confirmado em 04/08/2026".
+- **O mapa web depende de um worker servido de `public/`** (`maplibre-gl 6` é
+  ESM-only e o Metro não empacota o worker dele). Se o mapa voltar a travar em
+  "Carregando...", confira esse arquivo antes de qualquer outra hipótese.
 - **Node 22 é o novo baseline** de runtime (`.nvmrc`, `engines.node`, CI e EAS
   Build). O próximo build EAS será o primeiro sob Node 22 — observe-o.
 - Web: <https://app.rotamestre.tec.br> está publicada e revalidada após o merge
@@ -174,10 +179,44 @@ Não copie versões para outros documentos. Quando houver divergência, prevalec
   web que apoia o P0 de destravar a produção.
 - O deploy de produção no Vercel concluiu com sucesso. Smoke test em
   <https://app.rotamestre.tec.br>: login e `/testar` carregam sem erros de
-  console e a detecção de plataforma responde. As telas de mapa (maplibre 6)
-  ficam atrás de login e não foram exercitadas no smoke test, mas o bundle que as
-  contém foi construído e carregado sem erro, e o CI cobriu Bundle Size, Visual
-  Regression e testes.
+  console e a detecção de plataforma responde.
+
+- O servidor OSRM próprio (`osrm.rotamestre.tec.br`) responde apenas à origem de
+  produção: o header `Access-Control-Allow-Origin` é fixo em
+  `https://app.rotamestre.tec.br`. Consequência: **no dev local o cálculo de rota
+  falha com `Failed to fetch`** — é CORS, não indisponibilidade (o mesmo endereço
+  responde 200 via `curl`). Os mapas continuam desenhando o trajeto no dev porque
+  usam a `polyline` persistida em `rotas`. Para exercitar o cálculo localmente
+  seria preciso liberar `localhost` no CORS ou usar proxy; nada disso foi feito.
+
+### Três regressões corrigidas no mesmo dia
+
+O smoke test do lote acima não cobriu as telas autenticadas. Ao exercitá-las,
+apareceram três defeitos que a suíte existente não pegava — todos corrigidos,
+merjados e validados em produção no mesmo dia.
+
+- **Mapa web travado em "Carregando..." (#346).** O `maplibre-gl 6` é ESM-only e
+  resolve seu web worker por `import.meta.url`, que o bundler do Expo (Metro) não
+  empacota. Sem o worker, o estilo nunca termina de carregar, o evento `load`
+  nunca dispara e nenhum tile é buscado. A correção serve
+  `maplibre-gl-worker.mjs` e o sibling `maplibre-gl-shared.mjs` a partir de
+  `public/` (copiados de `node_modules` no `postinstall` e no início do
+  `build:web`) e aponta `setWorkerUrl` para o caminho servido, via
+  `configureMaplibreWorker()` nos cinco componentes de mapa web. Os testes não
+  pegaram porque usam mock do maplibre, e a regressão visual só cobre telas
+  públicas. O app nativo não é afetado (usa `@maplibre/maplibre-react-native`).
+- **Autocomplete de endereço ficava mudo (#347).** Quem apagava o endereço
+  inteiro sem sair do campo zerava a flag interna de interação, que só era
+  religada no evento de foco — como o campo seguia focado, cada tecla passava a
+  ser descartada em silêncio, sem disparar requisição. Passou a marcar a
+  interação também ao digitar. As Edge Functions estavam saudáveis o tempo todo
+  (todas as chamadas em 200), o que descarta API/quota como causa.
+- **Resposta obsoleta do autocomplete (#348).** O debounce cancelava só o timer,
+  nunca a requisição já em voo: com duas buscas simultâneas, a que respondia por
+  último vencia. O cleanup do efeito passa a invalidar a busca anterior.
+- Os dois defeitos do autocomplete ganharam teste de regressão. O do mapa é
+  coberto indiretamente (o worker é validado no build), mas **não há teste
+  automatizado que falhe se o worker sumir** — a verificação continua manual.
 
 ## Mudanças relevantes desta etapa
 
@@ -190,6 +229,8 @@ Não copie versões para outros documentos. Quando houver divergência, prevalec
 | 24/07/2026 | Geometria viária persistida nos mapas; remoção dos fallbacks visuais em linha reta       | commit `3788f55`                             |
 | 24/07/2026 | Configuração inicial de distribuição e conformidade iOS                                  | commit `191db5a`                             |
 | 04/08/2026 | Integração de 5 PRs: `/testar`, maplibre 6, Sentry, deps e Node 22 (baseline/CI)         | PRs #341/#345/#343/#342/#344                 |
+| 04/08/2026 | Correção do worker do maplibre 6 (mapa web travado em "Carregando...")                   | PR #346                                      |
+| 04/08/2026 | Correções do autocomplete de endereço: interação após limpar e resposta obsoleta         | PRs #347 e #348                              |
 
 O histórico completo do rebuild está em
 [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md), agora tratado como
@@ -236,6 +277,11 @@ app.rotamestre.tec.br ── Expo Web / React Native
   alinhadas; Unistyles e Nitro Modules devem ser testados juntos em build EAS.
 - O baseline de runtime é **Node 22** (`.nvmrc`, `engines.node`, CI e EAS). Não
   regrida para Node 20; a proteção da `main` espera `Run Tests (22.x)`.
+- O mapa web só funciona com o worker do `maplibre-gl 6` servido de `public/`.
+  Não remova `tools/scripts/copy-maplibre-worker.cjs` do `postinstall`/`build:web`,
+  a chamada de `configureMaplibreWorker()` nos componentes de mapa web, nem os
+  `.mjs` copiados. Quebrar isso trava o mapa em "Carregando..." **sem erro no
+  console e com o CI verde** — nenhum teste automatizado detecta.
 
 ## Próximas ações
 
