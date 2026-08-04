@@ -120,7 +120,7 @@
     "@playwright/test": "^1.62.1",
     "@react-native/eslint-plugin": "^0.86.2",
     "@react-native/jest-preset": "^0.86.2",
-    "@size-limit/preset-app": "^12.1.0",
+    "@size-limit/preset-app": "^13.0.3",
     "@testing-library/jest-native": "^5.4.3",
     "@testing-library/react-native": "^13.3.3",
     "@types/jest": "^29.5.12",
