@@ -143,6 +143,12 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
       return;
     }
 
+    // Invalida esta busca quando o valor muda: o debounce só cancela o timer,
+    // então uma requisição já em voo continua viva. Sem esta marca, a resposta
+    // que chega por último vence — e uma busca antiga e lenta sobrescreve o
+    // resultado do texto que o usuário acabou de digitar.
+    let cancelled = false;
+
     // Não mostrar loading imediatamente - só após o debounce
     debounceTimer.current = setTimeout(async () => {
       setIsLoading(true);
@@ -155,16 +161,22 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
           value,
           locationBias,
         );
+        if (cancelled) return;
         setSuggestions(results);
       } catch (error) {
+        if (cancelled) return;
         logger.error('[AddressAutocomplete] Erro no autocomplete:', error);
         setSuggestions([]);
       } finally {
-        setIsLoading(false);
+        // Uma busca obsoleta não pode desligar o loading da busca atual
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     }, 1000); // 1000ms de debounce (1 segundo = sem interrupções)
 
     return () => {
+      cancelled = true;
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);
       }
