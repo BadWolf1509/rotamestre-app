@@ -5,6 +5,7 @@
   "main": "index.ts",
   "scripts": {
     "prepare": "husky",
+    "postinstall": "node tools/scripts/copy-maplibre-worker.cjs",
     "start": "expo start",
     "version:patch": "npm version patch -m \"chore(release): v%s\"",
     "version:minor": "npm version minor -m \"chore(release): v%s\"",
@@ -18,8 +19,8 @@
     "build:android:release": "npm run bump:android && cd android && gradlew.bat assembleRelease",
     "build:tokens": "node tools/scripts/build-tokens.cjs",
     "prebuild:web": "tsc --noEmit",
-    "build:web": "node tools/scripts/copy-assets.js && expo export --platform web && node tools/scripts/copy-public.js && node tools/scripts/inject-meta-tags.js",
-    "build:web:clear": "node tools/scripts/copy-assets.js && expo export --platform web --clear && node tools/scripts/copy-public.js && node tools/scripts/inject-meta-tags.js",
+    "build:web": "node tools/scripts/copy-maplibre-worker.cjs && node tools/scripts/copy-assets.js && expo export --platform web && node tools/scripts/copy-public.js && node tools/scripts/inject-meta-tags.js",
+    "build:web:clear": "node tools/scripts/copy-maplibre-worker.cjs && node tools/scripts/copy-assets.js && expo export --platform web --clear && node tools/scripts/copy-public.js && node tools/scripts/inject-meta-tags.js",
     "report:hex": "node tools/scripts/hex-report.cjs",
     "verify:design-system": "node tools/scripts/verify-design-system.cjs",
     "test": "jest",

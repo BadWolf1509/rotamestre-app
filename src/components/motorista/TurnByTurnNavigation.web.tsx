@@ -18,6 +18,7 @@ import {
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { logger } from '@/lib/logger';
+import { configureMaplibreWorker } from '@/lib/maplibreWorker';
 import {
   getOpenFreeMapStyle,
   installOpenFreeMapMissingImageHandler,
@@ -231,6 +232,7 @@ export function TurnByTurnNavigation({
         const style = await getOpenFreeMapStyle();
         if (cancelled || !mapContainerRef.current) return;
 
+        configureMaplibreWorker();
         mapInstance = new maplibregl.Map({
           container: mapContainerRef.current,
           style,

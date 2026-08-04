@@ -29,6 +29,7 @@ import { View, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 import { useMotoristaLocationMapLibre } from '@/components/map/hooks/useMotoristaLocationMapLibre';
 import { useRouteDirections, type RouteInfo } from '@/hooks/useRouteDirections';
 import { logger } from '@/lib/logger';
+import { configureMaplibreWorker } from '@/lib/maplibreWorker';
 import {
   getOpenFreeMapStyle,
   installOpenFreeMapMissingImageHandler,
@@ -38,6 +39,9 @@ import type { ParadaMapItem as Parada, StatusFilter } from '@/types/parada-map';
 import { withOpacity } from '@/utils/color';
 import { getMarkerColorExpression } from '@/utils/mapMarkerColors';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+
+// maplibre-gl v6 precisa do web worker servido de public/ (ver maplibreWorker.ts).
+configureMaplibreWorker();
 
 interface MapaWebMapLibreProps {
   paradas: Parada[];

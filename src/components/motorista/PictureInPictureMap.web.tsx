@@ -67,6 +67,7 @@ import {
 import type { PictureInPictureMapProps } from '@/hooks/navigation';
 import { usePiPPosition } from '@/hooks/usePiPPosition';
 import { logger } from '@/lib/logger';
+import { configureMaplibreWorker } from '@/lib/maplibreWorker';
 import {
   getOpenFreeMapStyle,
   installOpenFreeMapMissingImageHandler,
@@ -365,6 +366,7 @@ export function PictureInPictureMap({
         const center = getRegion();
         const zoom = getZoom();
 
+        configureMaplibreWorker();
         mapInstance = new maplibregl.Map({
           container: mapContainerRef.current,
           style,
