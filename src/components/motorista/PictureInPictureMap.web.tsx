@@ -47,7 +47,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 

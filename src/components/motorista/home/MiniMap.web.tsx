@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import React, {
   useMemo,
   useCallback,
