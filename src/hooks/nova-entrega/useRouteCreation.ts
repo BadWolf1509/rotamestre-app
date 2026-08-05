@@ -176,14 +176,20 @@ export function useRouteCreation({
 
       // Otimizou e manteve a ordem do otimizador => 'otimizada'.
       // Não otimizou, ou otimizou e depois arrastou => 'manual'.
-      // `foiOtimizada` é verdadeiro quando a distância "antes" foi medida
-      // (mesmo que null), o que só acontece dentro do fluxo de otimização.
-      // Comparação estrita com `undefined`: não colapsar com `??`, pois
-      // `null` ("antes" falhou) e `undefined` (sem otimização) têm
-      // significados diferentes aqui.
-      const foiOtimizada = routeData.distanciaAntesKm !== undefined;
-      const otimizacaoEstado: OtimizacaoEstado =
-        foiOtimizada && !ordemManual ? 'otimizada' : 'manual';
+      // Mesma condição do ramo 1 de `calcularDadosRota` (linha ~84): o sinal
+      // de "otimizou" é a PRESENÇA do objeto `rotaOtimizada`, não a
+      // medição de `distanciaAntesKm`. Um rascunho restaurado (persistido
+      // inteiro em `rascunhos_rota` e reidratado depois) pode trazer
+      // `rotaOtimizada` sem a chave `distanciaAntesKm` — a otimização
+      // aconteceu mesmo assim, e não podemos falsear o estado para
+      // 'manual' só porque essa medição específica não sobreviveu ao
+      // round-trip. `distanciaAntesKm` continua podendo ser `null` (a
+      // medição do "antes" falhou durante a otimização) sem afetar este
+      // sinal; ver `p_otimizacao_distancia_antes` abaixo.
+      const foiOtimizada = rotaOtimizada !== null && !ordemManual;
+      const otimizacaoEstado: OtimizacaoEstado = foiOtimizada
+        ? 'otimizada'
+        : 'manual';
 
       const requestSignature = JSON.stringify({
         unidadeAtiva,

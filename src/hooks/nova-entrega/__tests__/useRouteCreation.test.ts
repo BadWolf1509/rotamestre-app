@@ -417,4 +417,36 @@ describe('useRouteCreation', () => {
       }),
     );
   });
+
+  it('envia estado "otimizada" quando o rascunho restaurado nao tem distanciaAntesKm', async () => {
+    (supabase.rpc as jest.Mock).mockResolvedValue({
+      data: { success: true, rota_id: 'route-8', reused: false },
+      error: null,
+    });
+    // Cenário do rascunho: `rotaOtimizada` é persistido inteiro em
+    // `rascunhos_rota` (JSON, validade 7 dias) e restaurado depois. O
+    // objeto reidratado pode não trazer a chave `distanciaAntesKm` (campo
+    // novo desta feature) — nada a ver com a otimização ter ou não
+    // acontecido. `optimizedRoute` (sem essa chave) simula exatamente essa
+    // restauração. `otimizacaoEstado` não pode depender dessa medição:
+    // basta `rotaOtimizada` existir e a ordem não ter sido mexida.
+    const options = {
+      ...defaultOptions,
+      rotaOtimizada: optimizedRoute,
+      ordemManual: false,
+    };
+    const { result } = renderHook(() => useRouteCreation(options));
+
+    await act(async () => {
+      expect(await result.current.gerarRota()).toBe(true);
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'criar_rota_com_paradas',
+      expect.objectContaining({
+        p_otimizacao_estado: 'otimizada',
+        p_otimizacao_distancia_antes: null,
+      }),
+    );
+  });
 });
