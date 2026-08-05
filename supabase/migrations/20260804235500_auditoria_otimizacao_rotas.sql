@@ -53,7 +53,25 @@ CREATE INDEX IF NOT EXISTS idx_rotas_otimizada_por
 --   3) o log opcional 'rota_otimizada', logo após o log 'rota_criada'.
 -- A lógica de validação/idempotência (locks, checagens de gestor/motorista,
 -- validação de paradas/checkpoints/vínculos) NÃO foi tocada.
+--
+-- DROP antes do CREATE (decisão adicional, avaliada e aprovada pelo dono do
+-- projeto -- não é uma das 3 mudanças acima): no Postgres, a identidade de
+-- uma função é (nome + lista de tipos dos parâmetros). Acrescentar
+-- parâmetros -- mesmo com DEFAULT -- muda essa lista, então
+-- CREATE OR REPLACE FUNCTION sozinho NÃO substituiria a função de 8
+-- parâmetros existente; criaria um overload novo e separado, e os dois
+-- coexistiriam no catálogo. O app chama esta RPC com 8 parâmetros NOMEADOS
+-- (supabase-js `.rpc()`) -- uma chamada assim passaria a casar com as DUAS
+-- assinaturas (a de 8, exata; a de 12, via DEFAULT nos 4 novos), o que o
+-- Postgres resolve com erro `function ... is not unique`, quebrando a
+-- criação de rota em produção. O DROP remove o overload de 8 parâmetros
+-- antes do CREATE, garantindo que só a assinatura de 12 parâmetros exista
+-- quando a migration terminar -- nenhuma chamada, antiga ou nova, fica
+-- ambígua.
 -- ---------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.criar_rota_com_paradas(
+  uuid, uuid, uuid, date, numeric, integer, text, jsonb);
+
 CREATE OR REPLACE FUNCTION public.criar_rota_com_paradas(
   p_request_id UUID,
   p_unidade_id UUID,
@@ -367,53 +385,36 @@ BEGIN
 END;
 $$;
 
--- ATENÇÃO — achado desta migration, NÃO resolvido aqui (ver task-1-report.md
--- para o detalhe completo; decisão fica para quem rodar o Step 5/rls-policy-
--- reviewer antes de aplicar):
---
--- Os 4 parâmetros novos mudam a lista de tipos da assinatura da função. No
--- Postgres, CREATE OR REPLACE FUNCTION com parâmetros adicionados (mesmo que
--- todos DEFAULT) NÃO substitui o overload existente — cria um OVERLOAD NOVO,
--- porque a identidade da função é (nome + lista de tipos dos parâmetros).
--- Confirmado: https://www.postgresql.org/docs/current/sql-createfunction.html
---
--- Duas consequências práticas:
---   1) O overload de 8 parâmetros (uuid, uuid, uuid, date, numeric, integer,
---      text, jsonb) listado no REVOKE/GRANT abaixo continua existindo como
---      objeto separado no catálogo, com a MESMA lógica de antes. Chamadas
---      antigas com 8 argumentos posicionais continuam caindo nele, não no
---      overload novo de 12 parâmetros — o que é inofensivo aqui porque as
---      duas versões produzem o mesmo resultado para esses argumentos (colunas
---      novas ficam NULL em ambas), mas passa a existir a MESMA lógica crítica
---      duplicada em dois objetos que podem divergir em edições futuras.
---   2) O REVOKE/GRANT abaixo (copiado do arquivo original de
---      20260723223000_nova_entrega_drafts_atomic_route.sql, sem alteração —
---      não fazia parte das 3 mudanças autorizadas pelo brief desta task) só
---      cobre a assinatura de 8 parâmetros. O overload NOVO de 12 parâmetros
---      não recebe REVOKE/GRANT explícito nesta migration e herda o privilégio
---      default do schema public deste projeto — que é exatamente a classe de
---      furo (SECURITY DEFINER executável por anon/PUBLIC) já fechada duas
---      vezes neste repositório: ver
---      supabase/migrations/20260622195500_security_revoke_definer_anon.sql e
---      supabase/migrations/20260722195606_security_revoke_definer_anon_param.sql.
---
--- Isto não foi corrigido aqui por estar fora do escopo desta task (Steps 1-4,
--- só os 3 changes especificados no brief). Precisa de decisão explícita antes
--- do Step 6 (aplicar) — plausivelmente um REVOKE/GRANT adicional cobrindo a
--- assinatura de 12 parâmetros.
-REVOKE EXECUTE ON FUNCTION public.criar_rota_com_paradas(
-  uuid, uuid, uuid, date, numeric, integer, text, jsonb
+-- Reaplica os grants na assinatura NOVA de 12 parâmetros, espelhando
+-- exatamente o que está em produção hoje na função de 8 parâmetros
+-- (confirmado no banco vivo: SECURITY DEFINER, anon já revogado, EXECUTE
+-- concedido a authenticated e service_role). Isto é necessário porque
+-- CREATE FUNCTION nunca herda privilégios de uma função removida por DROP,
+-- mesmo com o mesmo nome -- sem este bloco, a função recém-criada ficaria
+-- com o privilégio default do schema public em vez dos grants reais de
+-- produção, reabrindo a classe de furo (SECURITY DEFINER executável por
+-- anon/PUBLIC) já fechada duas vezes neste repositório: ver
+-- supabase/migrations/20260622195500_security_revoke_definer_anon.sql e
+-- supabase/migrations/20260722195606_security_revoke_definer_anon_param.sql.
+REVOKE ALL ON FUNCTION public.criar_rota_com_paradas(
+  uuid, uuid, uuid, date, numeric, integer, text, jsonb,
+  text, numeric, numeric, uuid
 ) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.criar_rota_com_paradas(
-  uuid, uuid, uuid, date, numeric, integer, text, jsonb
-) TO authenticated;
+  uuid, uuid, uuid, date, numeric, integer, text, jsonb,
+  text, numeric, numeric, uuid
+) TO authenticated, service_role;
 
 COMMIT;
 
 -- ROLLBACK:
 -- BEGIN;
--- -- Remove só o overload NOVO de 12 parâmetros (o overload de 8 parâmetros
--- -- original não foi tocado por esta migration e não precisa ser restaurado).
+-- -- Esta migration faz DROP no overload de 8 parâmetros -- rollback
+-- -- completo precisa recriar a função original, não só remover a de 12.
+-- -- Reaplique o CREATE OR REPLACE FUNCTION + REVOKE/GRANT de
+-- -- supabase/migrations/20260723223000_nova_entrega_drafts_atomic_route.sql
+-- -- (função de 8 parâmetros) antes ou depois do DROP abaixo.
 -- DROP FUNCTION IF EXISTS public.criar_rota_com_paradas(
 --   uuid, uuid, uuid, date, numeric, integer, text, jsonb,
 --   text, numeric, numeric, uuid
