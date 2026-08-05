@@ -197,15 +197,34 @@ update rotas set otimizacao_estado = 'qualquer_coisa' where id = (select id from
 
 Esperado: erro `violates check constraint "rotas_otimizacao_estado_check"`.
 
-- [ ] **Step 7: Regenerar os tipos**
+- [ ] **Step 7: Acrescentar os campos ao tipo curado à mão**
 
-Use o skill `/regenerate-supabase-types`. Confirme que `src/types/database.ts` passou a conter `otimizacao_estado`:
+**Este projeto não tem tipos gerados do Supabase.** Não existe `src/types/database.ts`; os tipos de domínio são curados à mão (ver `src/types/rota.ts`, `usuario.ts`, …), como o `CLAUDE.md` descreve. Não gere o arquivo — introduzir 2500+ linhas geradas que nada consome iria contra a convenção do projeto.
 
-```bash
-grep -c "otimizacao_estado" src/types/database.ts
+Em `src/types/rota.ts`, acrescente o tipo do estado junto dos outros `type` do topo:
+
+```ts
+/**
+ * Como a ordem das paradas da rota foi definida.
+ *
+ * `null`/ausente significa **sem registro** — rota criada antes desta feature.
+ * Nunca trate ausência como `'manual'`: não há como saber se aquelas rotas
+ * foram otimizadas, e assumir uma delas falsearia a auditoria.
+ */
+export type OtimizacaoEstado = 'otimizada' | 'manual' | 'otimizada_alterada';
 ```
 
-Esperado: número maior que 0.
+E os campos ao final da interface `Rota`:
+
+```ts
+  // Auditoria de uso do otimizador. O ganho é derivado na leitura
+  // (`antes - depois`), nunca persistido, para não haver duas fontes de verdade.
+  otimizacao_estado?: OtimizacaoEstado | null;
+  otimizacao_distancia_antes?: number | null; // em km
+  otimizacao_distancia_depois?: number | null; // em km
+  otimizada_em?: string | null;
+  otimizada_por?: string | null;
+```
 
 - [ ] **Step 8: Rodar type-check**
 
@@ -314,7 +333,12 @@ try {
       longitude: p.longitude,
     })),
   );
-  distanciaAntesKm = rotaAtual?.distanciaKm ?? null;
+  // getDirectionsSequential devolve GoogleDirectionsResult, cujo campo é
+  // `distancia_total_metros` (em METROS) — não existe `distanciaKm` nele.
+  distanciaAntesKm =
+    typeof rotaAtual?.distancia_total_metros === 'number'
+      ? rotaAtual.distancia_total_metros / 1000
+      : null;
 } catch (error) {
   logger.warn(
     '[useRouteOptimization] Falha ao medir a distância antes da otimização',
