@@ -46,6 +46,12 @@ export interface RotaOtimizadaState {
   legs: GoogleDirectionsLeg[];
   polyline?: string;
   isEstimated?: boolean;
+  /**
+   * Distância (km) da ordem em que as paradas estavam ANTES da otimização.
+   * null quando o cálculo falhou — o ganho fica desconhecido, mas a
+   * otimização acontece normalmente.
+   */
+  distanciaAntesKm?: number | null;
 }
 
 export interface EnderecoUnidade {

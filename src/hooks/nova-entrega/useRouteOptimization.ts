@@ -122,6 +122,28 @@ export function useRouteOptimization({
         longitude: enderecoUnidade.longitude,
       };
 
+      // Distância na ordem atual, para medir o ganho da otimização.
+      // Falha aqui não pode impedir a otimização: o ganho vira desconhecido.
+      let distanciaAntesKm: number | null = null;
+      try {
+        const rotaAtual = await googleMapsService.getDirectionsSequential(
+          pontoUnidade,
+          pontoUnidade,
+          paradasParaValidar.map((p) => ({
+            latitude: p.latitude,
+            longitude: p.longitude,
+          })),
+        );
+        distanciaAntesKm = rotaAtual
+          ? rotaAtual.distancia_total_metros / 1000
+          : null;
+      } catch (error) {
+        logger.warn(
+          '[useRouteOptimization] Falha ao medir a distância antes da otimização',
+          error,
+        );
+      }
+
       const temVinculos = paradas.some((p) => p.vinculo_parada_id);
 
       if (temVinculos) {
@@ -159,6 +181,7 @@ export function useRouteOptimization({
           legs: [],
           polyline: resultado.polyline,
           isEstimated,
+          distanciaAntesKm,
         });
         setOrdemManual(false);
 
@@ -207,6 +230,7 @@ export function useRouteOptimization({
           legs: resultado.legs,
           polyline: resultado.polyline,
           isEstimated,
+          distanciaAntesKm,
         });
         setOrdemManual(false);
 
