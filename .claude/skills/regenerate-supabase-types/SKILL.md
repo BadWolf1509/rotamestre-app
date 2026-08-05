@@ -25,13 +25,18 @@ disable-model-invocation: true
 
 ## When to run
 
-Run this skill after:
+**Only when adopting generated types project-wide** (see the warning above). The
+triggers below describe how this skill would fit _if_ the project used generated
+types — they are **not** reasons to run it today:
 
 1. Applying a migration that adds/changes tables, columns, enums, RPC functions, or views.
 2. Pulling changes from `main` that include migrations you didn't author.
 3. Seeing `TS2353`/`TS2339` errors on Supabase query results that don't match the schema.
 
-Do NOT run this if you only modified RLS policies, indexes, or triggers — those don't affect generated types.
+Note that item 3 cannot happen today: without the `<Database>` generic on the
+client, Supabase results are not checked against the schema at all.
+
+Never relevant for RLS policies, indexes, or triggers — those don't affect types.
 
 ## Project context
 
