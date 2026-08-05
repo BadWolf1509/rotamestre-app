@@ -301,4 +301,120 @@ describe('useRouteCreation', () => {
       }),
     );
   });
+
+  it('envia estado "otimizada" quando o gestor otimizou e nao mexeu depois', async () => {
+    (supabase.rpc as jest.Mock).mockResolvedValue({
+      data: { success: true, rota_id: 'route-4', reused: false },
+      error: null,
+    });
+    const options = {
+      ...defaultOptions,
+      rotaOtimizada: { ...optimizedRoute, distanciaAntesKm: 30.5 },
+      ordemManual: false,
+    };
+    const { result } = renderHook(() => useRouteCreation(options));
+
+    await act(async () => {
+      expect(await result.current.gerarRota()).toBe(true);
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'criar_rota_com_paradas',
+      expect.objectContaining({
+        p_otimizacao_estado: 'otimizada',
+        p_otimizacao_distancia_antes: 30.5,
+        p_otimizacao_distancia_depois: 10,
+      }),
+    );
+  });
+
+  it('envia estado "manual" quando o gestor nao otimizou', async () => {
+    (supabase.rpc as jest.Mock).mockResolvedValue({
+      data: { success: true, rota_id: 'route-5', reused: false },
+      error: null,
+    });
+    const options = {
+      ...defaultOptions,
+      rotaOtimizada: null,
+      ordemManual: false,
+      distanciaManualReal: {
+        metros: 12500,
+        segundos: 780,
+        polyline: 'reviewed-polyline',
+        isEstimated: false,
+      },
+    };
+    const { result } = renderHook(() => useRouteCreation(options));
+
+    await act(async () => {
+      expect(await result.current.gerarRota()).toBe(true);
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'criar_rota_com_paradas',
+      expect.objectContaining({
+        p_otimizacao_estado: 'manual',
+        p_otimizacao_distancia_antes: null,
+        p_otimizacao_distancia_depois: null,
+      }),
+    );
+  });
+
+  it('envia estado "manual" quando o gestor otimizou mas alterou a ordem depois', async () => {
+    (supabase.rpc as jest.Mock).mockResolvedValue({
+      data: { success: true, rota_id: 'route-6', reused: false },
+      error: null,
+    });
+    const options = {
+      ...defaultOptions,
+      rotaOtimizada: { ...optimizedRoute, distanciaAntesKm: 30.5 },
+      ordemManual: true,
+      distanciaManualReal: {
+        metros: 12500,
+        segundos: 780,
+        polyline: 'reviewed-polyline',
+        isEstimated: false,
+      },
+    };
+    const { result } = renderHook(() => useRouteCreation(options));
+
+    await act(async () => {
+      expect(await result.current.gerarRota()).toBe(true);
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'criar_rota_com_paradas',
+      expect.objectContaining({
+        p_otimizacao_estado: 'manual',
+        p_otimizacao_distancia_antes: null,
+        p_otimizacao_distancia_depois: null,
+      }),
+    );
+  });
+
+  it('mantem "otimizada" mesmo quando o calculo do "antes" falhou', async () => {
+    (supabase.rpc as jest.Mock).mockResolvedValue({
+      data: { success: true, rota_id: 'route-7', reused: false },
+      error: null,
+    });
+    const options = {
+      ...defaultOptions,
+      rotaOtimizada: { ...optimizedRoute, distanciaAntesKm: null },
+      ordemManual: false,
+    };
+    const { result } = renderHook(() => useRouteCreation(options));
+
+    await act(async () => {
+      expect(await result.current.gerarRota()).toBe(true);
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'criar_rota_com_paradas',
+      expect.objectContaining({
+        p_otimizacao_estado: 'otimizada',
+        p_otimizacao_distancia_antes: null,
+        p_otimizacao_distancia_depois: 10,
+      }),
+    );
+  });
 });

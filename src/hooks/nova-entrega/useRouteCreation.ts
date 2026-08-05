@@ -9,6 +9,7 @@ import type {
 import { googleMapsService } from '@/lib/google';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
+import type { OtimizacaoEstado } from '@/types/rota';
 
 import {
   generateRequestId,
@@ -46,6 +47,21 @@ interface AtomicRouteResult {
   reused?: boolean;
 }
 
+interface DadosRotaCalculados {
+  distanciaKm: number | null;
+  tempoMin: number | null;
+  polyline?: string;
+  isEstimated: boolean;
+  /**
+   * Distância (km) da ordem em que as paradas estavam ANTES da otimização.
+   * Só é preenchida quando estes dados vieram de `rotaOtimizada` (fluxo do
+   * otimizador). `null` quando a otimização rodou mas a medição do "antes"
+   * falhou (ainda assim é uma otimização); ausente/`undefined` quando não
+   * houve otimização nenhuma. Não colapsar os dois casos.
+   */
+  distanciaAntesKm?: number | null;
+}
+
 export function useRouteCreation({
   paradas,
   enderecoUnidade,
@@ -73,6 +89,7 @@ export function useRouteCreation({
         tempoMin: Math.round(rotaOtimizada.duracao_total_segundos / 60),
         polyline: rotaOtimizada.polyline,
         isEstimated: rotaOtimizada.isEstimated === true,
+        distanciaAntesKm: rotaOtimizada.distanciaAntesKm,
       };
     }
 
@@ -147,7 +164,7 @@ export function useRouteCreation({
 
     setIsLoading(true);
     try {
-      const routeData = await calcularDadosRota();
+      const routeData: DadosRotaCalculados = await calcularDadosRota();
       if (routeData.isEstimated) {
         showToast(
           'Não foi possível confirmar o percurso viário. Tente calcular a rota novamente antes de criar.',
@@ -156,6 +173,17 @@ export function useRouteCreation({
         );
         return false;
       }
+
+      // Otimizou e manteve a ordem do otimizador => 'otimizada'.
+      // Não otimizou, ou otimizou e depois arrastou => 'manual'.
+      // `foiOtimizada` é verdadeiro quando a distância "antes" foi medida
+      // (mesmo que null), o que só acontece dentro do fluxo de otimização.
+      // Comparação estrita com `undefined`: não colapsar com `??`, pois
+      // `null` ("antes" falhou) e `undefined` (sem otimização) têm
+      // significados diferentes aqui.
+      const foiOtimizada = routeData.distanciaAntesKm !== undefined;
+      const otimizacaoEstado: OtimizacaoEstado =
+        foiOtimizada && !ordemManual ? 'otimizada' : 'manual';
 
       const requestSignature = JSON.stringify({
         unidadeAtiva,
@@ -194,6 +222,15 @@ export function useRouteCreation({
         p_tempo_total: routeData.tempoMin,
         p_polyline: routeData.polyline ?? null,
         p_paradas: rpcStops,
+        p_otimizacao_estado: otimizacaoEstado,
+        p_otimizacao_distancia_antes:
+          otimizacaoEstado === 'otimizada'
+            ? (routeData.distanciaAntesKm ?? null)
+            : null,
+        p_otimizacao_distancia_depois:
+          otimizacaoEstado === 'otimizada'
+            ? (routeData.distanciaKm ?? null)
+            : null,
       });
       if (error) throw error;
 
