@@ -418,7 +418,7 @@ it('envia estado "otimizada" quando o gestor otimizou e nao mexeu depois', async
   );
 
   await act(async () => {
-    await result.current.criarRota();
+    await result.current.gerarRota();
   });
 
   expect(mockRpc).toHaveBeenCalledWith(
@@ -441,7 +441,7 @@ it('envia estado "manual" quando o gestor nao otimizou', async () => {
   );
 
   await act(async () => {
-    await result.current.criarRota();
+    await result.current.gerarRota();
   });
 
   expect(mockRpc).toHaveBeenCalledWith(
@@ -460,7 +460,7 @@ it('envia estado "manual" quando o gestor otimizou mas alterou a ordem depois', 
   );
 
   await act(async () => {
-    await result.current.criarRota();
+    await result.current.gerarRota();
   });
 
   expect(mockRpc).toHaveBeenCalledWith(
@@ -479,7 +479,7 @@ it('mantem "otimizada" mesmo quando o calculo do "antes" falhou', async () => {
   );
 
   await act(async () => {
-    await result.current.criarRota();
+    await result.current.gerarRota();
   });
 
   expect(mockRpc).toHaveBeenCalledWith(
