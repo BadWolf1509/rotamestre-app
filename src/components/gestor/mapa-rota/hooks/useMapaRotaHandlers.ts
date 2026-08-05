@@ -404,7 +404,23 @@ export function useMapaRotaHandlers({
           recalcWarning = true;
         }
 
-        // 3. Log action
+        // 3. Reordenar à mão desfaz a otimização. Rota sem registro (NULL)
+        // permanece sem registro — não inventamos o passado dela.
+        const desfezOtimizacao = rota.otimizacao_estado === 'otimizada';
+        if (desfezOtimizacao) {
+          const { error: estadoError } = await supabase
+            .from('rotas')
+            .update({ otimizacao_estado: 'otimizada_alterada' })
+            .eq('id', id);
+          if (estadoError) {
+            logger.warn(
+              '[useMapaRotaHandlers] Falha ao marcar otimização desfeita',
+              estadoError,
+            );
+          }
+        }
+
+        // 4. Log action
         await supabase.from('logs').insert({
           usuario_id: userData?.id,
           rota_id: id,
@@ -412,10 +428,11 @@ export function useMapaRotaHandlers({
           detalhes: {
             nova_ordem: newOrder.map((p) => ({ id: p.id, ordem: p.ordem })),
             alterado_por: userData?.nome,
+            desfez_otimizacao: desfezOtimizacao,
           },
         });
 
-        // 4. Notify motorista
+        // 5. Notify motorista
         if (rota.motorista_id) {
           await notificarMotoristaRotaEditada({
             rotaId: id,

@@ -12,6 +12,10 @@
 
 import { renderHook, act } from '@testing-library/react-native';
 
+import { logger } from '@/lib/logger';
+import { recalcularRota, reordenarParadas } from '@/lib/routeUtils';
+import { supabase } from '@/lib/supabase';
+
 import { useMapaRotaHandlers } from '../useMapaRotaHandlers';
 
 import type { Parada, Rota } from '../../types';
@@ -179,5 +183,140 @@ describe('useMapaRotaHandlers — seleção sem scroll', () => {
       result.current.handleMapPress();
     });
     expect(result.current.selectedParadaId).toBeNull();
+  });
+});
+
+describe('useMapaRotaHandlers — reordenar paradas (auditoria de otimização)', () => {
+  const rotaBase: Rota = {
+    id: 'rota-1',
+    data: '2026-06-22',
+    status: 'em_andamento',
+  };
+  const newOrder = [makeParada('p2', 2), makeParada('p1', 1)];
+  const baseOptions = {
+    rotaId: 'rota-1',
+    paradas: [makeParada('p1', 1), makeParada('p2', 2)],
+    paradasReais: [makeParada('p1', 1), makeParada('p2', 2)],
+    enderecoUnidade: { latitude: -23.5, longitude: -46.6 },
+    loadRotaEParadas: jest.fn().mockResolvedValue(undefined),
+  };
+
+  let mockUpdate: jest.Mock;
+  let mockLogInsert: jest.Mock;
+
+  const setupReorder = (rota: Rota) =>
+    renderHook(() => useMapaRotaHandlers({ ...baseOptions, rota }));
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUpdate = jest.fn(() => ({
+      eq: jest.fn().mockResolvedValue({ error: null }),
+    }));
+    mockLogInsert = jest.fn().mockResolvedValue({ error: null });
+    (supabase.from as jest.Mock).mockImplementation(() => ({
+      update: mockUpdate,
+      insert: mockLogInsert,
+    }));
+    (reordenarParadas as jest.Mock).mockResolvedValue({ success: true });
+    (recalcularRota as jest.Mock).mockResolvedValue({ success: true });
+  });
+
+  it('marca otimizada_alterada quando reordena uma rota otimizada', async () => {
+    const { result } = setupReorder({
+      ...rotaBase,
+      otimizacao_estado: 'otimizada',
+    });
+
+    await act(async () => {
+      await result.current.handleReorderParadas(newOrder);
+    });
+
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ otimizacao_estado: 'otimizada_alterada' }),
+    );
+  });
+
+  it('nao mexe no estado de uma rota sem registro', async () => {
+    const { result } = setupReorder({ ...rotaBase, otimizacao_estado: null });
+
+    await act(async () => {
+      await result.current.handleReorderParadas(newOrder);
+    });
+
+    expect(mockUpdate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ otimizacao_estado: expect.anything() }),
+    );
+  });
+
+  it('nao promove uma rota ja marcada como manual', async () => {
+    const { result } = setupReorder({
+      ...rotaBase,
+      otimizacao_estado: 'manual',
+    });
+
+    await act(async () => {
+      await result.current.handleReorderParadas(newOrder);
+    });
+
+    expect(mockUpdate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ otimizacao_estado: expect.anything() }),
+    );
+  });
+
+  it('registra desfez_otimizacao no log quando desfaz a otimizacao', async () => {
+    const { result } = setupReorder({
+      ...rotaBase,
+      otimizacao_estado: 'otimizada',
+    });
+
+    await act(async () => {
+      await result.current.handleReorderParadas(newOrder);
+    });
+
+    expect(mockLogInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        evento: 'paradas_reordenadas',
+        detalhes: expect.objectContaining({ desfez_otimizacao: true }),
+      }),
+    );
+  });
+
+  it('registra desfez_otimizacao=false quando a rota nao estava otimizada', async () => {
+    const { result } = setupReorder({ ...rotaBase, otimizacao_estado: null });
+
+    await act(async () => {
+      await result.current.handleReorderParadas(newOrder);
+    });
+
+    expect(mockLogInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detalhes: expect.objectContaining({ desfez_otimizacao: false }),
+      }),
+    );
+  });
+
+  it('nao interrompe a reordenacao quando a marcacao de estado falha', async () => {
+    const { result } = setupReorder({
+      ...rotaBase,
+      otimizacao_estado: 'otimizada',
+    });
+    mockUpdate.mockReturnValueOnce({
+      eq: jest.fn().mockResolvedValue({ error: { message: 'boom' } }),
+    });
+
+    await act(async () => {
+      await expect(
+        result.current.handleReorderParadas(newOrder),
+      ).resolves.toBeUndefined();
+    });
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      '[useMapaRotaHandlers] Falha ao marcar otimização desfeita',
+      expect.anything(),
+    );
+    // A reordenação em si não pode ser derrubada pela falha de auditoria.
+    expect(mockLogInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ evento: 'paradas_reordenadas' }),
+    );
   });
 });
