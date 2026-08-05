@@ -88,7 +88,7 @@ export function useMapaRotaData({
       const { data: rotaData, error: rotaError } = await supabase
         .from('rotas')
         .select(
-          'id, data, status, distancia_total, tempo_total, polyline, created_at, updated_at, motorista_id, unidade_id, usuarios!rotas_motorista_id_fkey(nome), unidades(nome)',
+          'id, data, status, distancia_total, tempo_total, polyline, created_at, updated_at, motorista_id, unidade_id, otimizacao_estado, usuarios!rotas_motorista_id_fkey(nome), unidades(nome)',
         )
         .eq('id', id)
         .single();
