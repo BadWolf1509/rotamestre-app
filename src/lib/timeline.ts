@@ -28,6 +28,7 @@ export const TIMELINE_LOG_EVENTS = [
   'parada_retomada',
   'motorista_alterado',
   'paradas_reordenadas',
+  'rota_otimizada',
   'sos_acionado',
 ] as const;
 
@@ -59,11 +60,7 @@ export const CRITICAL_INCIDENT_CATEGORIES = ['accident', 'vehicle'];
  * Preview event type for collapsible timeline
  */
 export type TimelinePreviewEventType =
-  | 'inicio'
-  | 'conclusao'
-  | 'parada'
-  | 'incidente'
-  | 'outro';
+  'inicio' | 'conclusao' | 'parada' | 'incidente' | 'outro';
 
 /**
  * Result of mapping log event to preview
@@ -79,22 +76,13 @@ export interface TimelinePreviewEvent {
  * Should be resolved by component using theme
  */
 export type TimelineSemanticColor =
-  | 'info'
-  | 'success'
-  | 'error'
-  | 'warning'
-  | 'purple'
-  | 'blue'
-  | 'gray';
+  'info' | 'success' | 'error' | 'warning' | 'purple' | 'blue' | 'gray';
 
 /**
  * Full event type for RouteTimeline
  */
 export type TimelineEventType =
-  | 'status_change'
-  | 'parada_update'
-  | 'incidente'
-  | 'gps_update';
+  'status_change' | 'parada_update' | 'incidente' | 'gps_update';
 
 /**
  * Mapped event for RouteTimeline (without resolved color)
@@ -421,16 +409,40 @@ export function mapLogToTimelineEvent(log: {
 
   // STOPS REORDERED
   if (evento === 'paradas_reordenadas') {
+    const autor = detalhes?.alterado_por;
+    const desfezOtimizacao = detalhes?.desfez_otimizacao === true;
+    const descricaoBase = autor
+      ? `Ordem alterada por ${autor}`
+      : 'Ordem das paradas foi alterada';
     return {
       id: `log-${log.id}`,
       type: 'status_change',
       timestamp: log.timestamp,
       title: 'Rota Reordenada',
-      description: detalhes?.alterado_por
-        ? `Ordem alterada por ${detalhes.alterado_por}`
-        : 'Ordem das paradas foi alterada',
+      description: desfezOtimizacao
+        ? `${descricaoBase} — desfez a otimização`
+        : descricaoBase,
       icon: 'swap-vertical',
       colorKey: 'purple',
+    };
+  }
+
+  // ROUTE OPTIMIZED
+  if (evento === 'rota_otimizada') {
+    const antes = detalhes?.distancia_antes as number | null | undefined;
+    const depois = detalhes?.distancia_depois as number | null | undefined;
+    const description =
+      typeof antes === 'number' && typeof depois === 'number'
+        ? `${antes.toFixed(1)} km → ${depois.toFixed(1)} km`
+        : 'Ordem definida pelo otimizador';
+    return {
+      id: `log-${log.id}`,
+      type: 'status_change',
+      timestamp: log.timestamp,
+      title: 'Rota otimizada',
+      description,
+      icon: 'flash',
+      colorKey: 'success',
     };
   }
 
