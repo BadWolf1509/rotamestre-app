@@ -45,7 +45,7 @@
 **Interfaces:**
 
 - Consumes: nada.
-- Produces: colunas `rotas.otimizacao_estado`, `rotas.otimizacao_distancia_antes`, `rotas.otimizacao_distancia_depois`, `rotas.otimizada_em`, `rotas.otimizada_por`. RPC `criar_rota_com_paradas` passa a aceitar 4 parâmetros novos, todos com DEFAULT NULL: `p_otimizacao_estado text`, `p_otimizacao_distancia_antes numeric`, `p_otimizacao_distancia_depois numeric`, `p_otimizada_por uuid`.
+- Produces: colunas `rotas.otimizacao_estado`, `rotas.otimizacao_distancia_antes`, `rotas.otimizacao_distancia_depois`, `rotas.otimizada_em`, `rotas.otimizada_por`. RPC `criar_rota_com_paradas` passa a aceitar **3** parâmetros novos, todos com DEFAULT NULL: `p_otimizacao_estado text`, `p_otimizacao_distancia_antes numeric`, `p_otimizacao_distancia_depois numeric`. O autor **não** é parâmetro: a RPC usa `auth.uid()`, para que a autoria não possa ser forjada pelo cliente.
 
 - [ ] **Step 1: Gerar o arquivo da migration**
 
@@ -500,8 +500,9 @@ E acrescente os quatro parâmetros ao objeto da RPC, depois de `p_paradas`:
             : null,
         p_otimizacao_distancia_depois:
           otimizacaoEstado === 'otimizada' ? (routeData.distanciaKm ?? null) : null,
-        p_otimizada_por: otimizacaoEstado === 'otimizada' ? userData?.id : null,
 ```
+
+> **Não envie o autor.** A RPC resolve o autor com `auth.uid()` do lado do servidor. Mandar o id pelo cliente permitiria a um gestor forjar a autoria da otimização — o que anularia o propósito da auditoria. Achado do `rls-policy-reviewer` na Task 1.
 
 **Cuidado com o `undefined` vs `null`:** `distanciaAntesKm` é `null` quando a otimização rodou mas o cálculo do "antes" falhou (ainda é `'otimizada'`), e `undefined` quando não houve otimização nenhuma (`'manual'`). Não colapse os dois com `??` na hora de decidir o estado.
 
