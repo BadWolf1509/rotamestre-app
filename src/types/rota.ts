@@ -3,8 +3,18 @@ import type { MotivoSkip } from '@/constants/skipReasons';
 import { Endereco, Coordenadas } from './endereco';
 
 export type TipoCheckpoint = 'entrega' | 'retirada' | 'origem';
-export type StatusRota = 'pendente' | 'em_andamento' | 'concluida' | 'cancelada';
+export type StatusRota =
+  'pendente' | 'em_andamento' | 'concluida' | 'cancelada';
 export type StatusCheckpoint = 'pendente' | 'concluida' | 'pulada';
+
+/**
+ * Como a ordem das paradas da rota foi definida.
+ *
+ * `null`/ausente significa **sem registro** — rota criada antes desta feature.
+ * Nunca trate ausência como `'manual'`: não há como saber se aquelas rotas
+ * foram otimizadas, e assumir uma delas falsearia a auditoria.
+ */
+export type OtimizacaoEstado = 'otimizada' | 'manual' | 'otimizada_alterada';
 
 export interface Checkpoint {
   id: string;
@@ -45,6 +55,13 @@ export interface Rota {
   updated_at: string;
   iniciada_em?: string;
   concluida_em?: string;
+  // Auditoria de uso do otimizador. O ganho é derivado na leitura
+  // (`antes - depois`), nunca persistido, para não haver duas fontes de verdade.
+  otimizacao_estado?: OtimizacaoEstado | null;
+  otimizacao_distancia_antes?: number | null; // em km
+  otimizacao_distancia_depois?: number | null; // em km
+  otimizada_em?: string | null;
+  otimizada_por?: string | null;
 }
 
 export interface RotaOtimizada {

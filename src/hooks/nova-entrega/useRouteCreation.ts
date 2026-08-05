@@ -9,6 +9,7 @@ import type {
 import { googleMapsService } from '@/lib/google';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
+import type { OtimizacaoEstado } from '@/types/rota';
 
 import {
   generateRequestId,
@@ -46,6 +47,24 @@ interface AtomicRouteResult {
   reused?: boolean;
 }
 
+interface DadosRotaCalculados {
+  distanciaKm: number | null;
+  tempoMin: number | null;
+  polyline?: string;
+  isEstimated: boolean;
+  /**
+   * Distância (km) da ordem em que as paradas estavam ANTES da otimização.
+   * `null` quando a otimização rodou mas a medição do "antes" falhou — nesse
+   * caso a rota ainda é `'otimizada'`, só sem ganho conhecido.
+   *
+   * Este campo carrega apenas a distância: **não** use a presença dele para
+   * inferir que houve otimização. O sinal correto é `rotaOtimizada && !ordemManual`
+   * (um rascunho restaurado traz `rotaOtimizada` sem esta medição, e derivar
+   * daqui marcaria como manual uma rota que foi otimizada).
+   */
+  distanciaAntesKm?: number | null;
+}
+
 export function useRouteCreation({
   paradas,
   enderecoUnidade,
@@ -73,6 +92,7 @@ export function useRouteCreation({
         tempoMin: Math.round(rotaOtimizada.duracao_total_segundos / 60),
         polyline: rotaOtimizada.polyline,
         isEstimated: rotaOtimizada.isEstimated === true,
+        distanciaAntesKm: rotaOtimizada.distanciaAntesKm,
       };
     }
 
@@ -147,7 +167,7 @@ export function useRouteCreation({
 
     setIsLoading(true);
     try {
-      const routeData = await calcularDadosRota();
+      const routeData: DadosRotaCalculados = await calcularDadosRota();
       if (routeData.isEstimated) {
         showToast(
           'Não foi possível confirmar o percurso viário. Tente calcular a rota novamente antes de criar.',
@@ -156,6 +176,23 @@ export function useRouteCreation({
         );
         return false;
       }
+
+      // Otimizou e manteve a ordem do otimizador => 'otimizada'.
+      // Não otimizou, ou otimizou e depois arrastou => 'manual'.
+      // Mesma condição do ramo 1 de `calcularDadosRota` (linha ~84): o sinal
+      // de "otimizou" é a PRESENÇA do objeto `rotaOtimizada`, não a
+      // medição de `distanciaAntesKm`. Um rascunho restaurado (persistido
+      // inteiro em `rascunhos_rota` e reidratado depois) pode trazer
+      // `rotaOtimizada` sem a chave `distanciaAntesKm` — a otimização
+      // aconteceu mesmo assim, e não podemos falsear o estado para
+      // 'manual' só porque essa medição específica não sobreviveu ao
+      // round-trip. `distanciaAntesKm` continua podendo ser `null` (a
+      // medição do "antes" falhou durante a otimização) sem afetar este
+      // sinal; ver `p_otimizacao_distancia_antes` abaixo.
+      const foiOtimizada = rotaOtimizada !== null && !ordemManual;
+      const otimizacaoEstado: OtimizacaoEstado = foiOtimizada
+        ? 'otimizada'
+        : 'manual';
 
       const requestSignature = JSON.stringify({
         unidadeAtiva,
@@ -194,6 +231,15 @@ export function useRouteCreation({
         p_tempo_total: routeData.tempoMin,
         p_polyline: routeData.polyline ?? null,
         p_paradas: rpcStops,
+        p_otimizacao_estado: otimizacaoEstado,
+        p_otimizacao_distancia_antes:
+          otimizacaoEstado === 'otimizada'
+            ? (routeData.distanciaAntesKm ?? null)
+            : null,
+        p_otimizacao_distancia_depois:
+          otimizacaoEstado === 'otimizada'
+            ? (routeData.distanciaKm ?? null)
+            : null,
       });
       if (error) throw error;
 

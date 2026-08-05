@@ -3,6 +3,7 @@
  */
 
 import type { MotivoSkip } from '@/constants/skipReasons';
+import type { OtimizacaoEstado } from '@/types/rota';
 
 export interface Parada {
   id: string;
@@ -38,6 +39,9 @@ export interface Rota {
   unidade?: {
     nome: string;
   };
+  // Auditoria de uso do otimizador. `null`/ausente = sem registro (rota
+  // criada antes da feature) — nunca tratar como 'manual'.
+  otimizacao_estado?: OtimizacaoEstado | null;
 }
 
 export interface ResumoParadas {

@@ -404,7 +404,32 @@ export function useMapaRotaHandlers({
           recalcWarning = true;
         }
 
-        // 3. Log action
+        // 3. Reordenar à mão desfaz a otimização. Rota sem registro (NULL)
+        // permanece sem registro — não inventamos o passado dela.
+        const desfezOtimizacao = rota.otimizacao_estado === 'otimizada';
+        // Escopo elevado até o log abaixo: o log precisa saber se o UPDATE
+        // realmente aconteceu, não só se ele foi tentado.
+        let estadoError: unknown = null;
+        if (desfezOtimizacao) {
+          const updateResult = await supabase
+            .from('rotas')
+            .update({ otimizacao_estado: 'otimizada_alterada' })
+            .eq('id', id);
+          estadoError = updateResult.error;
+          if (estadoError) {
+            // `error`, não `warn`: warn é __DEV__-only (src/lib/logger.ts) e em
+            // produção some. Este é o único ramo em que uma escrita de auditoria
+            // falha em silêncio — a coluna fica 'otimizada' e o log registra
+            // desfez_otimizacao: false, então sem isto a alteração manual não
+            // deixa rastro nenhum.
+            logger.error(
+              '[useMapaRotaHandlers] Falha ao marcar otimização desfeita',
+              estadoError,
+            );
+          }
+        }
+
+        // 4. Log action
         await supabase.from('logs').insert({
           usuario_id: userData?.id,
           rota_id: id,
@@ -412,10 +437,14 @@ export function useMapaRotaHandlers({
           detalhes: {
             nova_ordem: newOrder.map((p) => ({ id: p.id, ordem: p.ordem })),
             alterado_por: userData?.nome,
+            // Reflete o que de fato foi gravado: se o UPDATE acima falhou,
+            // `rotas.otimizacao_estado` continua 'otimizada' no banco — o
+            // log não pode afirmar que a otimização foi desfeita.
+            desfez_otimizacao: desfezOtimizacao && !estadoError,
           },
         });
 
-        // 4. Notify motorista
+        // 5. Notify motorista
         if (rota.motorista_id) {
           await notificarMotoristaRotaEditada({
             rotaId: id,

@@ -573,6 +573,17 @@ describe('timeline', () => {
       expect(result?.description).toBe('Ordem das paradas foi alterada');
     });
 
+    it('sinaliza quando a reordenacao desfez a otimizacao', () => {
+      const evento = mapLogToTimelineEvent({
+        id: '3',
+        evento: 'paradas_reordenadas',
+        timestamp: '2026-08-04T12:00:00Z',
+        detalhes: { alterado_por: 'Amanda', desfez_otimizacao: true },
+      });
+
+      expect(evento?.description).toContain('desfez a otimização');
+    });
+
     it('should map rota_reativada with reativado_por', () => {
       const result = mapLogToTimelineEvent({
         id,
@@ -619,6 +630,32 @@ describe('timeline', () => {
         timestamp: ts,
       });
       expect(result?.description).toBe('Parada pulada foi retomada');
+    });
+
+    it('narra a otimizacao com o ganho', () => {
+      const evento = mapLogToTimelineEvent({
+        id: '1',
+        evento: 'rota_otimizada',
+        timestamp: '2026-08-04T12:00:00Z',
+        detalhes: { distancia_antes: 30.5, distancia_depois: 25.9 },
+      });
+
+      expect(evento).not.toBeNull();
+      expect(evento?.title).toBe('Rota otimizada');
+      expect(evento?.description).toContain('30.5');
+      expect(evento?.description).toContain('25.9');
+    });
+
+    it('narra otimizacao sem ganho conhecido quando falta o "antes"', () => {
+      const evento = mapLogToTimelineEvent({
+        id: '2',
+        evento: 'rota_otimizada',
+        timestamp: '2026-08-04T12:00:00Z',
+        detalhes: { distancia_antes: null, distancia_depois: 25.9 },
+      });
+
+      expect(evento).not.toBeNull();
+      expect(evento?.description).not.toContain('null');
     });
 
     it('should return null for unknown events', () => {

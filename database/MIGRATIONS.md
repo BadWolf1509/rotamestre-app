@@ -493,4 +493,60 @@ parciais ou duplicadas em retries.
 
 ---
 
-**Última atualização:** 24/07/2026
+### ✅ Migration 18: Auditoria de uso do otimizador de rotas
+
+**Data:** 04/08/2026
+
+**Arquivos:** `20260804235500_auditoria_otimizacao_rotas.sql`
+(`database/` + `supabase/`)
+
+**Objetivo:** registrar em cada rota se ela foi otimizada pelo otimizador,
+montada manualmente, ou otimizada e depois alterada manualmente — base de
+dados para a auditoria de uso do otimizador (o app grava nessas colunas em
+tasks seguintes).
+
+- Adiciona `rotas.otimizacao_estado` (`otimizada` | `manual` |
+  `otimizada_alterada`; `NULL` = sem registro, rota anterior a esta feature —
+  **nunca** tratar como `'manual'`), `otimizacao_distancia_antes`,
+  `otimizacao_distancia_depois`, `otimizada_em` e `otimizada_por` (FK
+  `usuarios`, `ON DELETE SET NULL`), mais índices `(unidade_id,
+otimizacao_estado)` e `(otimizada_por)`.
+- **Estende `criar_rota_com_paradas` de 8 para 11 parâmetros** (os 3 novos
+  `DEFAULT NULL`) via **DROP da assinatura de 8 parâmetros antes do
+  `CREATE OR REPLACE`**: no Postgres a identidade de uma função é (nome +
+  tipos dos parâmetros), então acrescentar parâmetros — mesmo com DEFAULT —
+  cria um overload novo em vez de substituir o antigo; uma chamada com 8
+  parâmetros nomeados (como o app fazia) passaria a casar com as duas
+  assinaturas e o Postgres devolveria `function ... is not unique`, quebrando
+  a criação de rota em produção. Corpo idêntico ao original + as 3 colunas
+  novas no INSERT + log opcional `rota_otimizada` + checagem de
+  não-negatividade para as duas distâncias novas.
+- Autoria (`otimizada_por`) vem de `auth.uid()`, nunca de parâmetro do
+  cliente — a primeira versão da migration aceitava um `p_otimizada_por uuid`
+  livre e, por ser `SECURITY DEFINER`, qualquer gestor autenticado podia
+  forjar o autor da otimização; corrigido antes de aplicar.
+- Reaplica os grants (REVOKE `PUBLIC`/`anon` + GRANT `authenticated`/
+  `service_role`) na assinatura nova — `CREATE FUNCTION` não herda
+  privilégios da função removida pelo `DROP`, então sem isso a função
+  recriada ficaria com o grant default do schema `public`, reabrindo a
+  classe de furo (SECURITY DEFINER executável por anon/PUBLIC) já fechada em
+  `20260622195500_security_revoke_definer_anon.sql` e
+  `20260722195606_security_revoke_definer_anon_param.sql`.
+
+**Rollback não é só remover a função nova** — a migration faz DROP do
+overload de 8 parâmetros, então: (1) reverta primeiro o **código do app**
+para a versão que chama `criar_rota_com_paradas` com 8 parâmetros (revertido
+o banco antes disso, toda criação de rota quebra, porque o app em produção
+já chama com 11 parâmetros nomeados); só depois (2) recrie a assinatura de 8
+parâmetros a partir de `20260723223000_nova_entrega_drafts_atomic_route.sql`
+(CREATE OR REPLACE FUNCTION + REVOKE/GRANT). Bloco comentado no fim do
+próprio arquivo da migration.
+
+**Status:** ✅ Aplicado em produção em 05/08/2026 via MCP `apply_migration`
+(não `supabase db push` — há drift conhecido entre `database/migrations/`,
+`supabase/migrations/` e o banco vivo neste projeto; `db push` não é seguro
+aqui, ver "Legado dual-path" no topo deste arquivo).
+
+---
+
+**Última atualização:** 05/08/2026

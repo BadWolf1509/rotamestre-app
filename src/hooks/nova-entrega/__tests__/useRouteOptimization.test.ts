@@ -13,6 +13,7 @@ import { googleMapsService } from '@/lib/google';
 jest.mock('@/lib/google', () => ({
   googleMapsService: {
     getDirections: jest.fn(),
+    getDirectionsSequential: jest.fn(),
   },
 }));
 
@@ -51,6 +52,8 @@ jest.mock('../../useNovaEntrega.helpers', () => ({
 import { useRouteOptimization } from '../useRouteOptimization';
 
 const mockGetDirections = googleMapsService.getDirections as jest.Mock;
+const mockGetDirectionsSequential =
+  googleMapsService.getDirectionsSequential as jest.Mock;
 
 describe('useRouteOptimization', () => {
   const mockEnderecoUnidade: EnderecoUnidade = {
@@ -99,6 +102,16 @@ describe('useRouteOptimization', () => {
       valido: true,
       erros: [],
       avisos: [],
+    });
+    mockGetDirectionsSequential.mockReset();
+    // Default: cálculo da distância "antes" sempre sucede, salvo quando um
+    // teste específico sobrescreve com mockResolvedValueOnce/mockRejectedValueOnce.
+    mockGetDirectionsSequential.mockResolvedValue({
+      distancia_total_metros: 10000,
+      duracao_total_segundos: 600,
+      legs: [],
+      polyline: 'antes-default',
+      ordem_otimizada: [],
     });
   });
 
@@ -389,6 +402,105 @@ describe('useRouteOptimization', () => {
 
       // After completion, should be false again
       expect(result.current.isOptimizing).toBe(false);
+    });
+  });
+
+  describe('distanciaAntesKm', () => {
+    it('guarda a distancia da ordem original ao otimizar', async () => {
+      mockGetDirectionsSequential.mockResolvedValueOnce({
+        distancia_total_metros: 30500,
+        duracao_total_segundos: 2400,
+        legs: [],
+        polyline: 'abc',
+        ordem_otimizada: [],
+      });
+      mockGetDirections.mockResolvedValueOnce({
+        distancia_total_metros: 10000,
+        duracao_total_segundos: 600,
+        legs: [],
+        polyline: 'encoded',
+        ordem_otimizada: [0, 1],
+      });
+
+      const { result } = renderHook(() => useRouteOptimization(defaultOptions));
+
+      await act(async () => {
+        await result.current.otimizarRota();
+      });
+
+      expect(result.current.rotaOtimizada?.distanciaAntesKm).toBe(30.5);
+    });
+
+    it('nao bloqueia a otimizacao quando o calculo do "antes" falha', async () => {
+      mockGetDirectionsSequential.mockRejectedValueOnce(new Error('OSRM fora'));
+      mockGetDirections.mockResolvedValueOnce({
+        distancia_total_metros: 10000,
+        duracao_total_segundos: 600,
+        legs: [],
+        polyline: 'encoded',
+        ordem_otimizada: [0, 1],
+      });
+
+      const { result } = renderHook(() => useRouteOptimization(defaultOptions));
+
+      await act(async () => {
+        await result.current.otimizarRota();
+      });
+
+      expect(result.current.rotaOtimizada).not.toBeNull();
+      expect(result.current.rotaOtimizada?.distanciaAntesKm).toBeNull();
+    });
+
+    it('guarda a distancia "antes" tambem quando a rota tem vinculos (retirada->entrega)', async () => {
+      const paradasComVinculo: Parada[] = [
+        {
+          id: 'retirada-1',
+          tipo: 'retirada',
+          endereco: 'Origem',
+          destinatario: 'Fornecedor',
+          telefone: '',
+          observacoes: '',
+          latitude: -23.5,
+          longitude: -46.6,
+          ordem: 1,
+        },
+        {
+          id: 'entrega-1',
+          tipo: 'entrega',
+          endereco: 'Destino',
+          destinatario: 'Cliente',
+          telefone: '',
+          observacoes: '',
+          latitude: -23.55,
+          longitude: -46.65,
+          ordem: 2,
+          vinculo_parada_id: 'retirada-1',
+        },
+      ];
+
+      mockGetDirectionsSequential.mockResolvedValueOnce({
+        distancia_total_metros: 20000,
+        duracao_total_segundos: 1500,
+        legs: [],
+        polyline: 'antes-com-vinculo',
+        ordem_otimizada: [],
+      });
+      mockOtimizarRotaComDependencias.mockResolvedValueOnce({
+        paradasOrdenadas: [{ id: 'retirada-1' }, { id: 'entrega-1' }],
+        distanciaTotalMetros: 12000,
+        duracaoTotalSegundos: 720,
+        polyline: 'polyline_with_deps',
+      });
+
+      const options = { ...defaultOptions, paradas: paradasComVinculo };
+      const { result } = renderHook(() => useRouteOptimization(options));
+
+      await act(async () => {
+        await result.current.otimizarRota();
+      });
+
+      expect(mockOtimizarRotaComDependencias).toHaveBeenCalled();
+      expect(result.current.rotaOtimizada?.distanciaAntesKm).toBe(20);
     });
   });
 
