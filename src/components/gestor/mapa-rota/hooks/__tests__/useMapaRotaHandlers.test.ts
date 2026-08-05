@@ -319,4 +319,28 @@ describe('useMapaRotaHandlers — reordenar paradas (auditoria de otimização)'
       expect.objectContaining({ evento: 'paradas_reordenadas' }),
     );
   });
+
+  it('registra desfez_otimizacao=false quando a marcacao de estado falha (a coluna nao mudou)', async () => {
+    const { result } = setupReorder({
+      ...rotaBase,
+      otimizacao_estado: 'otimizada',
+    });
+    mockUpdate.mockReturnValueOnce({
+      eq: jest.fn().mockResolvedValue({ error: { message: 'boom' } }),
+    });
+
+    await act(async () => {
+      await result.current.handleReorderParadas(newOrder);
+    });
+
+    // O UPDATE falhou: `rotas.otimizacao_estado` continua 'otimizada' no
+    // banco. O log não pode afirmar `desfez_otimizacao: true` nesse caso —
+    // isso mentiria sobre o que de fato aconteceu.
+    expect(mockLogInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        evento: 'paradas_reordenadas',
+        detalhes: expect.objectContaining({ desfez_otimizacao: false }),
+      }),
+    );
+  });
 });

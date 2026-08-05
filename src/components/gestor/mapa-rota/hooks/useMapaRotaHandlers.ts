@@ -407,11 +407,15 @@ export function useMapaRotaHandlers({
         // 3. Reordenar à mão desfaz a otimização. Rota sem registro (NULL)
         // permanece sem registro — não inventamos o passado dela.
         const desfezOtimizacao = rota.otimizacao_estado === 'otimizada';
+        // Escopo elevado até o log abaixo: o log precisa saber se o UPDATE
+        // realmente aconteceu, não só se ele foi tentado.
+        let estadoError: unknown = null;
         if (desfezOtimizacao) {
-          const { error: estadoError } = await supabase
+          const updateResult = await supabase
             .from('rotas')
             .update({ otimizacao_estado: 'otimizada_alterada' })
             .eq('id', id);
+          estadoError = updateResult.error;
           if (estadoError) {
             logger.warn(
               '[useMapaRotaHandlers] Falha ao marcar otimização desfeita',
@@ -428,7 +432,10 @@ export function useMapaRotaHandlers({
           detalhes: {
             nova_ordem: newOrder.map((p) => ({ id: p.id, ordem: p.ordem })),
             alterado_por: userData?.nome,
-            desfez_otimizacao: desfezOtimizacao,
+            // Reflete o que de fato foi gravado: se o UPDATE acima falhou,
+            // `rotas.otimizacao_estado` continua 'otimizada' no banco — o
+            // log não pode afirmar que a otimização foi desfeita.
+            desfez_otimizacao: desfezOtimizacao && !estadoError,
           },
         });
 
