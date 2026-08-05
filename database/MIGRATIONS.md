@@ -35,18 +35,55 @@ apenas por não aparecerem em `supabase_migrations.schema_migrations`.
 > migrations devem existir nos dois diretórios. Exceções retroativas precisam
 > declarar que já foram aplicadas para evitar dupla execução.
 
-### Snapshot remoto em 24/07/2026
+### Auditoria de drift em 05/08/2026
 
-`npx supabase migration list` confirmou no remoto:
+Auditoria completa (arquivos × `supabase_migrations.schema_migrations` × schema
+vivo) com um resultado tranquilizador: **nenhuma migration documentada como
+aplicada está faltando no banco.** Todo efeito verificado (colunas, funções,
+policies, buckets) existe em produção. **O drift é de contabilidade, não de
+schema.**
 
-- `20260722195606_security_revoke_definer_anon_param`;
-- `20260723223000_nova_entrega_drafts_atomic_route`.
+**O mecanismo** — importa mais que a lista, porque explica todos os casos:
 
-Também existem divergências históricas conhecidas: migrations aplicadas
-manualmente/MCP sem linha remota, além de três timestamps remotos sem arquivo
-local equivalente (`20260703042401`, `20260723065918` e `20260723135901`).
-Antes de uma futura harmonização, audite conteúdo e efeito; não repare o
-histórico no escuro.
+| Como foi aplicada     | Efeito em `schema_migrations`                                             |
+| --------------------- | ------------------------------------------------------------------------- |
+| MCP `apply_migration` | cria versão própria = timestamp da chamada → **versão ≠ nome do arquivo** |
+| MCP `execute_sql`     | **nenhuma linha** registrada                                              |
+| `db push` / CLI       | versão = timestamp do arquivo ✅                                          |
+
+**Pares confirmados por comparação de conteúdo** (não por nome): a versão remota
+`20260703042401` é o arquivo `20260703120000_c3_fase2_storage_rls_por_unidade`,
+e `20260805032012` é o arquivo `20260804235500_auditoria_otimizacao_rotas`. Nos
+dois casos o SQL armazenado bate com o arquivo e com o schema vivo. **Não
+reaplique nenhum dos dois** — eles não estão pendentes, só estão registrados sob
+outro timestamp.
+
+**Os dois timestamps remotos sem arquivo aqui** — `20260723065918`
+(`plan_prices_and_mrr_history`) e `20260723135901` (`analytics_rpcs`) — criam
+tabela de preços e RPCs de analytics, **todas com `REVOKE` de `anon`/
+`authenticated` e `GRANT` apenas para `service_role`**. Pelo `CLAUDE.md`, isso é
+o **projeto do painel admin**, que compartilha este Postgres. Não há arquivo a
+recuperar; não trate como mistério nem como schema faltando.
+
+### ⚠️ `supabase db push` não é seguro aqui sem reparo prévio
+
+Sem reparar o histórico, o push tenta rodar 4 arquivos que já estão aplicados.
+O primeiro deles (`20260207000000_add_motivo_skip`) **abortava o push inteiro**
+por não ter `IF NOT EXISTS` — corrigido em 05/08/2026, mas o reparo do histórico
+continua pendente.
+
+Caminho seguro, **somente metadado, sem DDL**:
+
+```bash
+npx supabase migration repair --status applied 20260207000000
+npx supabase migration repair --status applied 20260624033812
+npx supabase migration repair --status applied 20260703120000
+npx supabase migration repair --status applied 20260804235500
+```
+
+Rode `npx supabase migration list` antes e depois para conferir. Enquanto o
+reparo não for feito, **prefira aplicar migrations pelo MCP `apply_migration`**
+(ciente de que ele registra sob timestamp próprio) em vez de `db push`.
 
 ---
 
@@ -177,9 +214,21 @@ FOR SELECT USING (
 - `profiles`
 
 **Status:** ✅ Aplicada e posteriormente consolidada por
-`20251220_optimize_rls_policies.sql` (timestamp `20251220` registrado no remoto).
-As policies atuais foram alteradas por migrations multi-unidade posteriores;
-qualquer nova otimização deve partir do schema vivo.
+`20251220_optimize_rls_policies.sql`. As policies atuais foram alteradas por
+migrations multi-unidade posteriores; qualquer nova otimização deve partir do
+schema vivo.
+
+> **Correção (05/08/2026):** este trecho afirmava que o timestamp `20251220`
+> registrado no remoto correspondia a `optimize_rls_policies.sql`. É **falso** —
+> a linha remota `20251220` tem `name = enable_realtime`. Oito arquivos
+> compartilham o prefixo `20251220` sem `hhmmss` (`add_fk_indexes`,
+> `add_notificacoes_realtime`, `add_push_notifications`,
+> `add_push_trigger_pg_net`, `enable_realtime`, `fix_function_search_path`,
+> `fix_rls_recursion`, `optimize_rls_policies`) e **apenas `enable_realtime`
+> ocupa aquele slot**. O conteúdo dos outros sete provavelmente está vivo
+> (aplicados manualmente na época), só não por essa linha. Consequência prática:
+> se algum dos outros sete for espelhado para `supabase/migrations/`, colide no
+> mesmo version string.
 
 ---
 
@@ -546,6 +595,53 @@ próprio arquivo da migration.
 (não `supabase db push` — há drift conhecido entre `database/migrations/`,
 `supabase/migrations/` e o banco vivo neste projeto; `db push` não é seguro
 aqui, ver "Legado dual-path" no topo deste arquivo).
+
+---
+
+### ✅ Migration 19: Coluna `motivo_skip` em `paradas` (retroativa)
+
+**Data:** 07/02/2026 (documentada retroativamente em 05/08/2026)
+
+**Arquivos:** `20260207000000_add_motivo_skip.sql` (`database/` + `supabase/`)
+
+**Objetivo:** guardar o motivo estruturado quando uma parada é pulada, em vez de
+só marcar o status `pulada`.
+
+- Adiciona `paradas.motivo_skip VARCHAR(30)`. Valores em
+  `src/constants/skipReasons.ts` (`cliente_ausente`, `recusa`,
+  `endereco_incorreto`, `acesso_bloqueado`, `renovacao_contrato`, `outro`).
+- Ganhou `IF NOT EXISTS` em 05/08/2026: sem a guarda, era o primeiro arquivo
+  pendente de um `supabase db push` e abortava o push inteiro com "column
+  already exists".
+
+**Status:** ✅ Coluna confirmada viva em produção, **sem linha em
+`schema_migrations`** — pendente de `migration repair --status applied`.
+
+---
+
+### ✅ Migration 20: `get_my_unidade_ids()` e RLS multi-unidade (retroativa)
+
+**Data:** 08/02/2026 (documentada retroativamente em 05/08/2026)
+
+**Arquivos:** `20260208000000_fix_rls_multi_unidade.sql` (**apenas
+`database/`** — não espelhada em `supabase/`)
+
+**Objetivo:** dar às policies um helper multi-unidade, substituindo o
+`get_user_unidade()` de unidade única.
+
+- Cria `get_my_unidade_ids()` (SETOF uuid, `SECURITY DEFINER`,
+  `search_path=''`, EXECUTE para `anon` + `authenticated`), que resolve as
+  unidades ativas do `auth.uid()` via `usuario_unidades`.
+- Recria as policies `usuarios_select_optimized`, `usuarios_update_optimized`,
+  `usuarios_insert_optimized` e `motorista_locations_select_optimized`.
+
+**Importa mais do que o silêncio sugeria:** é esta migration que define o
+`get_my_unidade_ids()` que o `CLAUDE.md` documenta como helper preferido para
+código novo, e do qual a Migration 14 (isolamento de `storage.objects` por
+unidade) **depende** — afrouxar esta afrouxa a leitura das fotos.
+
+**Status:** ✅ Função e policies confirmadas vivas em produção, **sem linha em
+`schema_migrations`** e não espelhada em `supabase/migrations/`.
 
 ---
 
