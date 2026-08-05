@@ -88,9 +88,18 @@ CREATE INDEX IF NOT EXISTS idx_rotas_otimizada_por
 
 - [ ] **Step 3: Estender a RPC `criar_rota_com_paradas`**
 
-A função existe em `supabase/migrations/20260723223000_nova_entrega_drafts_atomic_route.sql`. **Copie a definição completa dela** para o fim da nova migration como `CREATE OR REPLACE FUNCTION`, mantendo tudo idêntico exceto as três mudanças abaixo. Não reescreva a lógica de validação/idempotência — ela é o caminho crítico de criação de rota.
+A função existe em `supabase/migrations/20260723223000_nova_entrega_drafts_atomic_route.sql`. **Copie a definição completa dela** para o fim da nova migration, mantendo tudo idêntico exceto as mudanças abaixo. Não reescreva a lógica de validação/idempotência — ela é o caminho crítico de criação de rota.
 
-Mudança 1 — acrescentar os parâmetros **no fim** da assinatura, todos com DEFAULT (assim qualquer chamada antiga continua válida):
+> **Por que não basta `CREATE OR REPLACE`:** no Postgres a identidade de uma função é **nome + tipos dos argumentos**. Acrescentar parâmetros cria um **overload novo** em vez de substituir a função de 8 parâmetros. Isso produz dois problemas graves: (1) o app chama com 8 parâmetros nomeados, que passariam a casar com as duas assinaturas — risco de `function is not unique` no caminho crítico de criação de rota; (2) o overload novo nasceria **sem os GRANTs**, herdando o default do schema — a mesma classe de falha que este repo já fechou em `20260622195500_security_revoke_definer_anon.sql` e `20260722195606_security_revoke_definer_anon_param.sql`.
+
+Mudança 1 — **derrubar a assinatura antiga** antes de criar a nova. O `DROP` + `CREATE` roda na transação da migration, então não há janela sem a função:
+
+```sql
+DROP FUNCTION IF EXISTS public.criar_rota_com_paradas(
+  uuid, uuid, uuid, date, numeric, integer, text, jsonb);
+```
+
+Mudança 2 — acrescentar os parâmetros **no fim** da assinatura, todos com DEFAULT:
 
 ```sql
   p_otimizacao_estado text DEFAULT NULL,
@@ -99,7 +108,19 @@ Mudança 1 — acrescentar os parâmetros **no fim** da assinatura, todos com DE
   p_otimizada_por uuid DEFAULT NULL
 ```
 
-Mudança 2 — no `INSERT INTO public.rotas`, acrescentar as colunas e os valores (a lista de colunas atual termina em `client_request_id`):
+Mudança 3 — **reaplicar os grants na assinatura nova**, espelhando exatamente o que a função de 8 parâmetros tem hoje em produção (`postgres`, `authenticated`, `service_role` — sem `anon`):
+
+```sql
+REVOKE ALL ON FUNCTION public.criar_rota_com_paradas(
+  uuid, uuid, uuid, date, numeric, integer, text, jsonb,
+  text, numeric, numeric, uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.criar_rota_com_paradas(
+  uuid, uuid, uuid, date, numeric, integer, text, jsonb,
+  text, numeric, numeric, uuid) TO authenticated, service_role;
+```
+
+Mudança 4 — no `INSERT INTO public.rotas`, acrescentar as colunas e os valores (a lista de colunas atual termina em `client_request_id`):
 
 ```sql
     client_request_id,
@@ -118,7 +139,7 @@ Mudança 2 — no `INSERT INTO public.rotas`, acrescentar as colunas e os valore
     CASE WHEN p_otimizacao_estado = 'otimizada' THEN p_otimizada_por ELSE NULL END
 ```
 
-Mudança 3 — logo depois do `INSERT INTO public.logs` que grava `rota_criada`, acrescentar o evento de otimização (só quando houve otimização):
+Mudança 5 — logo depois do `INSERT INTO public.logs` que grava `rota_criada`, acrescentar o evento de otimização (só quando houve otimização):
 
 ```sql
   IF p_otimizacao_estado = 'otimizada' THEN
