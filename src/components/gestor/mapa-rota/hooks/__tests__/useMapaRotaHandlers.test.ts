@@ -310,7 +310,9 @@ describe('useMapaRotaHandlers — reordenar paradas (auditoria de otimização)'
       ).resolves.toBeUndefined();
     });
 
-    expect(logger.warn).toHaveBeenCalledWith(
+    // `error`, não `warn`: warn é __DEV__-only e sumiria em produção, deixando
+    // a falha de auditoria sem rastro nenhum.
+    expect(logger.error).toHaveBeenCalledWith(
       '[useMapaRotaHandlers] Falha ao marcar otimização desfeita',
       expect.anything(),
     );

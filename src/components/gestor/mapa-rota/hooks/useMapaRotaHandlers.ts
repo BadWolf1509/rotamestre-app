@@ -417,7 +417,12 @@ export function useMapaRotaHandlers({
             .eq('id', id);
           estadoError = updateResult.error;
           if (estadoError) {
-            logger.warn(
+            // `error`, não `warn`: warn é __DEV__-only (src/lib/logger.ts) e em
+            // produção some. Este é o único ramo em que uma escrita de auditoria
+            // falha em silêncio — a coluna fica 'otimizada' e o log registra
+            // desfez_otimizacao: false, então sem isto a alteração manual não
+            // deixa rastro nenhum.
+            logger.error(
               '[useMapaRotaHandlers] Falha ao marcar otimização desfeita',
               estadoError,
             );

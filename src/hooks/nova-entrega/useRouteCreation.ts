@@ -54,10 +54,13 @@ interface DadosRotaCalculados {
   isEstimated: boolean;
   /**
    * Distância (km) da ordem em que as paradas estavam ANTES da otimização.
-   * Só é preenchida quando estes dados vieram de `rotaOtimizada` (fluxo do
-   * otimizador). `null` quando a otimização rodou mas a medição do "antes"
-   * falhou (ainda assim é uma otimização); ausente/`undefined` quando não
-   * houve otimização nenhuma. Não colapsar os dois casos.
+   * `null` quando a otimização rodou mas a medição do "antes" falhou — nesse
+   * caso a rota ainda é `'otimizada'`, só sem ganho conhecido.
+   *
+   * Este campo carrega apenas a distância: **não** use a presença dele para
+   * inferir que houve otimização. O sinal correto é `rotaOtimizada && !ordemManual`
+   * (um rascunho restaurado traz `rotaOtimizada` sem esta medição, e derivar
+   * daqui marcaria como manual uma rota que foi otimizada).
    */
   distanciaAntesKm?: number | null;
 }
