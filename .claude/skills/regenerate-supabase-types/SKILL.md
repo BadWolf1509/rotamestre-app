@@ -6,15 +6,37 @@ disable-model-invocation: true
 
 # Regenerate Supabase Types
 
+> ⚠️ **This skill has never been run, and running it is a project-wide decision —
+> not routine post-migration hygiene.**
+>
+> `src/types/database.ts` does **not** exist today. This project types its data
+> with **hand-curated** domain types (`src/types/rota.ts`, `usuario.ts`, …), and
+> `src/lib/supabase.ts` does not use the `<Database>` generic. Nothing currently
+> consumes generated types.
+>
+> **After a normal migration, do NOT run this.** Add the new fields to the
+> relevant hand-curated type instead — that is the current convention (see
+> `database/MIGRATIONS.md` step 6). Generating a ~2500-line file that nothing
+> imports adds maintenance cost with no consumer.
+>
+> Run this only if the user is deliberately adopting generated types across the
+> project — which also means typing the Supabase client and reconciling the
+> generated shapes with the existing domain types.
+
 ## When to run
 
-Run this skill after:
+**Only when adopting generated types project-wide** (see the warning above). The
+triggers below describe how this skill would fit _if_ the project used generated
+types — they are **not** reasons to run it today:
 
 1. Applying a migration that adds/changes tables, columns, enums, RPC functions, or views.
 2. Pulling changes from `main` that include migrations you didn't author.
 3. Seeing `TS2353`/`TS2339` errors on Supabase query results that don't match the schema.
 
-Do NOT run this if you only modified RLS policies, indexes, or triggers — those don't affect generated types.
+Note that item 3 cannot happen today: without the `<Database>` generic on the
+client, Supabase results are not checked against the schema at all.
+
+Never relevant for RLS policies, indexes, or triggers — those don't affect types.
 
 ## Project context
 
@@ -54,9 +76,7 @@ If you need types for `auth`, `storage`, or other schemas, append `--schema auth
 
    ```typescript
    import type { Database } from '@/types/database';
-   supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-     /* ... */
-   });
+   supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {/* ... */});
    ```
 
    Then `npm run type-check` to surface any latent mismatches.

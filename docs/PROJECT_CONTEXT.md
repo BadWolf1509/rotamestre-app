@@ -1,35 +1,62 @@
 # Contexto operacional — Rota Mestre App
 
-> Documento de entrada para novas sessões. Atualizado em 04/08/2026.
+> Documento de entrada para novas sessões. Atualizado em 05/08/2026.
 > Consulte o código ou o serviço responsável antes de alterar um estado externo.
 
-## Retomada imediata
+## Pendências (comece por aqui)
+
+Lista única e canônica. Se resolver uma, risque daqui.
+
+| #   | Pendência                                                                                                                                                                                                                                                            | Quem pode fazer                                | Onde está o detalhe                                    |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------ |
+| 1   | **Validar a auditoria de otimização no fluxo real:** criar rota com o botão "Otimizar" e depois reordenar as paradas; confirmar `otimizacao_estado` = `otimizada` → `otimizada_alterada`. **Nenhum teste toca o banco real** — é o único elo sem prova automatizada. | gestor (cria dado real, notifica motorista)    | "Auditoria de uso do otimizador" abaixo                |
+| 2   | **Furo de RLS:** motorista pode alterar `unidade_id` da própria rota. Pré-existente, exige motorista malicioso fora do app.                                                                                                                                          | requer design (o fix óbvio quebra o motorista) | Security Advisory privado `GHSA-vw63-jxg2-28vx`        |
+| 3   | **Fase 2 da auditoria:** chip na tela da rota + indicador/filtro/contador na Gestão de Rotas. Plano próprio ainda não escrito — melhor depois de algumas semanas de dado acumulado.                                                                                  | qualquer sessão                                | spec `2026-08-04-auditoria-otimizacao-rotas-design.md` |
+| 4   | **Play Store:** faixa de produção vazia (`Precondition check failed`). Ampliar opt-in do teste fechado, divulgando o hub público `/testar`.                                                                                                                          | gestor (Play Console)                          | `GOOGLE_PLAY_DEPLOYMENT.md`                            |
+| 5   | **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).                                                                                                                                  | gestor (Apple ID + 2FA)                        | `APP_STORE_DEPLOYMENT.md`                              |
+| 6   | **Primeiro build EAS sob Node 22** ainda não aconteceu — observe o próximo.                                                                                                                                                                                          | qualquer sessão                                | "Node 22" abaixo                                       |
+
+Follow-ups menores (nenhum bloqueia): Timeline não narra o autor da otimização
+(o dado existe em `logs.usuario_id`, falta join em `useTimelineData.ts`);
+`toFixed(1)` exibe `29.1` em app pt-BR; `mapLogToTimelinePreview` sem case para
+`rota_otimizada`, então o widget colapsado conta o evento mas não o exibe.
+
+## Armadilhas que já custaram caro
+
+Cada uma quebrou algo de verdade. Leia antes de agir na área correspondente.
+
+- **`supabase db push`:** o histórico foi reconciliado em 05/08/2026 e hoje está
+  sem pendências, mas o MCP `apply_migration` registra sob **timestamp próprio**
+  (≠ nome do arquivo) e colar no Dashboard não registra nada. Rode
+  `npx supabase migration list` antes de qualquer push. Detalhe em
+  `database/MIGRATIONS.md`.
+- **Banco único = produção.** Não há staging. Peça aval antes de aplicar
+  migration e **nunca deixe subagente escrever no banco** — foi essa regra que
+  impediu um `CREATE OR REPLACE` defeituoso de derrubar a criação de rotas.
+- **`src/types/database.ts` NÃO existe.** Tipos de domínio são curados à mão. Não
+  rode `/regenerate-supabase-types` (é aspiracional, nunca executado); acrescente
+  os campos ao tipo em `src/types/`.
+- **Worker do maplibre 6** servido de `public/`: se sumir, o mapa trava em
+  "Carregando..." **sem erro no console e com o CI verde**. Detalhe do que não
+  pode ser removido em "Regras que não podem regredir".
+- **RPC `criar_rota_com_paradas`:** acrescentar parâmetro cria _overload_ em vez
+  de substituir (identidade de função no Postgres = nome + tipos). Exige `DROP`
+  da assinatura antiga + reaplicar os grants. Reverter a migration depois de
+  mergear o código derruba a criação de rotas — **reverta o código primeiro**.
+
+## Estado atual
 
 - Caminho local canônico: `D:\rota-mestre\rotamestre-app`.
-- `main` integra, em 04/08/2026, oito PRs por squash: cinco de evolução
-  (recrutamento de testadores web `/testar`, maplibre-gl 5→6, upgrade de
-  **Node 20→22** em dev/CI/EAS/Vercel, alinhamento do Sentry e um lote de
-  dependências) e três correções de regressão encontradas ao exercitar o que
-  tinha acabado de ser integrado. CI verde em cada um. Detalhe em "Estado
-  confirmado em 04/08/2026".
-- **O mapa web depende de um worker servido de `public/`** (`maplibre-gl 6` é
-  ESM-only e o Metro não empacota o worker dele). Se o mapa voltar a travar em
-  "Carregando...", confira esse arquivo antes de qualquer outra hipótese.
-- **Node 22 é o novo baseline** de runtime (`.nvmrc`, `engines.node`, CI e EAS
-  Build). O próximo build EAS será o primeiro sob Node 22 — observe-o.
-- Web: <https://app.rotamestre.tec.br> está publicada e revalidada após o merge
-  (deploy de produção concluído; smoke test sem erros de console).
-- Android: `1.12.2` / `3024` está concluído no teste fechado. A faixa de
-  produção permanece vazia porque o Play recusou a submissão por
-  `Precondition check failed`; confirme a elegibilidade no Console antes de
-  tentar novamente.
-- iOS: configuração inicial versionada, mas ainda não existe build. A próxima
-  ação bloqueante é executar interativamente
-  `npx eas-cli build --platform ios --profile production` e validar as
-  credenciais Apple.
-- Próxima prioridade sem credenciais Apple: ampliar e acompanhar o opt-in do
-  teste fechado — agora com o hub público `/testar` para recrutar testadores — e
-  manter os metadados/declarações das lojas coerentes.
+- Web: <https://app.rotamestre.tec.br> publicada e validada. Deploy automático a
+  cada push na `main`.
+- **Node 22** é o baseline de dev/CI/EAS/Vercel (`.nvmrc`, `engines.node`,
+  matriz `22.x`). A proteção da `main` exige `Run Tests (22.x)` e
+  `TypeScript & Linting`; o check do Vercel aparece como _pending_ e não bloqueia.
+- Merge exige **admin override** (`gh pr merge --squash --admin`): a `main` pede
+  1 review, o gestor é autor de tudo e não há segundo revisor. Histórico linear
+  obrigatório, então squash — merge commit não passa.
+- Android: `1.12.2` / `3024` concluído no teste fechado; produção vazia (pend. 4).
+- iOS: configuração versionada, sem build (pend. 5).
 
 ## Resumo executivo
 
@@ -218,19 +245,62 @@ merjados e validados em produção no mesmo dia.
   coberto indiretamente (o worker é validado no build), mas **não há teste
   automatizado que falhe se o worker sumir** — a verificação continua manual.
 
+## Estado confirmado em 05/08/2026
+
+### Auditoria de uso do otimizador — Fase 1 (PR #350)
+
+O sistema passou a **registrar** em cada rota nova se ela foi otimizada, montada
+à mão, ou otimizada-e-depois-alterada, com distância antes/depois. **Nada mudou
+na tela** — é fundação para a Fase 2 (pendência 3).
+
+- Colunas em `rotas`: `otimizacao_estado` (`otimizada` | `manual` |
+  `otimizada_alterada`; **`NULL` = sem registro, nunca leia como `'manual'`**),
+  as duas distâncias, `otimizada_em` e `otimizada_por`.
+- **Autoria vem de `auth.uid()` no servidor**, nunca de parâmetro do cliente: a
+  primeira versão aceitava o autor do cliente e, sendo `SECURITY DEFINER`,
+  qualquer gestor podia forjá-lo — o que anularia o propósito da auditoria.
+- O ganho é **derivado** na leitura (`antes − depois`), nunca persistido.
+- Adicionar parada **não** marca "alterada"; só reordenação manual marca.
+- As 562 rotas anteriores ficaram `NULL`. **Backfill é impossível com honestidade**
+  — o dado nunca existiu. A auditoria só ganha densidade com o tempo.
+- Um defeito só apareceu na revisão da branch inteira: a coluna **nunca era lida
+  do banco** (faltava no `select`), o que tornava a marcação de "alterada" código
+  morto. Nenhuma revisão por tarefa podia ver — os testes injetam a rota direto no
+  hook. Hoje há teste que trava essa regressão.
+
+### Histórico de migrations reconciliado
+
+Auditoria completa concluiu que **o drift era de contabilidade, não de schema**:
+nenhuma migration documentada como aplicada estava faltando no banco. As 4
+versões pendentes foram reparadas (`migration repair --status applied`, só
+metadado) e hoje **não há arquivo local sem linha remota**. Sobram 4 linhas
+só-remotas: 2 são o mesmo conteúdo registrado sob outro timestamp, e 2
+(`plan_prices_and_mrr_history`, `analytics_rpcs`) pertencem ao **projeto do
+painel admin**, que compartilha este Postgres — não há arquivo a recuperar.
+
+### Correção de um relato errado sobre RLS
+
+Foi relatado, e propagado por mim, que a policy `rotas_update` permitiria a um
+**gestor** mover rota entre unidades. **Falso**: pela documentação do Postgres,
+`WITH CHECK` ausente faz o `USING` valer também para a linha nova, e o gestor não
+passa por "gestor da unidade de destino". A exposição real é outra e mais
+estreita — pelo ramo do **motorista** — e está na pendência 2.
+
 ## Mudanças relevantes desta etapa
 
-| Data       | Mudança                                                                                  | Referência                                   |
-| ---------- | ---------------------------------------------------------------------------------------- | -------------------------------------------- |
-| 23/07/2026 | Nova Entrega com rascunho persistente, importação, revisão e criação atômica/idempotente | commit `e1f1bd5`, migration `20260723223000` |
-| 23/07/2026 | Migration de segurança já aplicada foi incorporada ao histórico versionado               | commit `de8a036`, migration `20260722195606` |
-| 24/07/2026 | Correção da autenticação Android após rotação de chave                                   | commit `6dd8aa8`                             |
-| 24/07/2026 | Preparação do app e da ficha para o Google Play, páginas legais e exclusão de conta      | commit `b7a39dc`                             |
-| 24/07/2026 | Geometria viária persistida nos mapas; remoção dos fallbacks visuais em linha reta       | commit `3788f55`                             |
-| 24/07/2026 | Configuração inicial de distribuição e conformidade iOS                                  | commit `191db5a`                             |
-| 04/08/2026 | Integração de 5 PRs: `/testar`, maplibre 6, Sentry, deps e Node 22 (baseline/CI)         | PRs #341/#345/#343/#342/#344                 |
-| 04/08/2026 | Correção do worker do maplibre 6 (mapa web travado em "Carregando...")                   | PR #346                                      |
-| 04/08/2026 | Correções do autocomplete de endereço: interação após limpar e resposta obsoleta         | PRs #347 e #348                              |
+| Data       | Mudança                                                                                   | Referência                                   |
+| ---------- | ----------------------------------------------------------------------------------------- | -------------------------------------------- |
+| 23/07/2026 | Nova Entrega com rascunho persistente, importação, revisão e criação atômica/idempotente  | commit `e1f1bd5`, migration `20260723223000` |
+| 23/07/2026 | Migration de segurança já aplicada foi incorporada ao histórico versionado                | commit `de8a036`, migration `20260722195606` |
+| 24/07/2026 | Correção da autenticação Android após rotação de chave                                    | commit `6dd8aa8`                             |
+| 24/07/2026 | Preparação do app e da ficha para o Google Play, páginas legais e exclusão de conta       | commit `b7a39dc`                             |
+| 24/07/2026 | Geometria viária persistida nos mapas; remoção dos fallbacks visuais em linha reta        | commit `3788f55`                             |
+| 24/07/2026 | Configuração inicial de distribuição e conformidade iOS                                   | commit `191db5a`                             |
+| 04/08/2026 | Integração de 5 PRs: `/testar`, maplibre 6, Sentry, deps e Node 22 (baseline/CI)          | PRs #341/#345/#343/#342/#344                 |
+| 04/08/2026 | Correção do worker do maplibre 6 (mapa web travado em "Carregando...")                    | PR #346                                      |
+| 04/08/2026 | Correções do autocomplete de endereço: interação após limpar e resposta obsoleta          | PRs #347 e #348                              |
+| 05/08/2026 | Auditoria de uso do otimizador, Fase 1 (registrar): colunas, RPC de 11 params, Timeline   | PR #350, migration `20260804235500`          |
+| 05/08/2026 | Histórico de migrations reconciliado + `IF NOT EXISTS` no arquivo que travava o `db push` | PR #351                                      |
 
 O histórico completo do rebuild está em
 [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md), agora tratado como
@@ -282,10 +352,22 @@ app.rotamestre.tec.br ── Expo Web / React Native
   a chamada de `configureMaplibreWorker()` nos componentes de mapa web, nem os
   `.mjs` copiados. Quebrar isso trava o mapa em "Carregando..." **sem erro no
   console e com o CI verde** — nenhum teste automatizado detecta.
+- `otimizacao_estado = NULL` significa **sem registro**, nunca `'manual'`. Não
+  conte, filtre nem exiba rota antiga como manual: não há como saber se ela foi
+  otimizada, e assumir falsearia a auditoria.
+- Autoria de ações sensíveis vem de `auth.uid()` **dentro** da função
+  `SECURITY DEFINER`, nunca de parâmetro enviado pelo cliente — caso contrário
+  qualquer usuário autenticado pode forjá-la.
+- Não existe `src/types/database.ts`. Os tipos de domínio são curados à mão em
+  `src/types/`; não introduza tipos gerados sem decidir isso para o projeto todo.
 
 ## Próximas ações
 
-### P0 — concluir distribuição móvel
+> As pendências ativas estão na **tabela do topo deste documento**, que é a lista
+> canônica. Esta seção guarda só o detalhe operacional de cada frente e o
+> backlog de médio prazo — não repita itens aqui.
+
+### P0 — concluir distribuição móvel (detalhe das pendências 4 e 5)
 
 1. Confirmar no Play Console a quantidade e a continuidade dos participantes
    com opt-in; divulgue o hub `/testar` para ampliar a base. Contas cadastradas
@@ -322,30 +404,41 @@ app.rotamestre.tec.br ── Expo Web / React Native
 
 ## Roteiro para a próxima sessão
 
-1. Leia este documento e `git status --short --branch`.
-2. Confira `package.json`, o último commit e os checks do GitHub.
-3. Se houver banco no escopo, rode `npx supabase migration list` e compare o
-   schema vivo antes de criar SQL.
-4. Se houver release Android no escopo, consulte primeiro o Play Console e o
+1. Leia, **nesta ordem**, as três primeiras seções deste documento: Pendências,
+   Armadilhas e Estado atual. Elas bastam para começar; o resto é referência sob
+   demanda.
+2. `git status --short --branch`. **Espere ver `.claude/settings.json` modificado
+   e não commitado** — é uma permissão local do gestor, intencional. Não commite
+   e **não use `git reset --hard`**, que a destrói (já aconteceu três vezes).
+3. Confira `package.json`, o último commit e os checks do GitHub.
+4. Se houver banco no escopo, rode `npx supabase migration list` e compare o
+   schema vivo antes de criar SQL. Releia "Armadilhas" antes de aplicar.
+5. Se houver release Android no escopo, consulte primeiro o Play Console e o
    EAS; não gere build só para descobrir o estado.
-5. Execute a menor validação proporcional à mudança e registre aqui qualquer
+6. Execute a menor validação proporcional à mudança e registre aqui qualquer
    nova decisão, estado externo ou pendência.
 
 ## Mapa da documentação
 
-| Necessidade                               | Documento                                                |
-| ----------------------------------------- | -------------------------------------------------------- |
-| Começar uma nova sessão / estado atual    | este arquivo                                             |
-| Arquitetura, padrões e phonebook técnico  | [`../CLAUDE.md`](../CLAUDE.md)                           |
-| Testes                                    | [TESTING.md](TESTING.md)                                 |
-| Histórico e processo de migrations        | [`../database/MIGRATIONS.md`](../database/MIGRATIONS.md) |
-| Google Play: procedimento                 | [GOOGLE_PLAY_DEPLOYMENT.md](GOOGLE_PLAY_DEPLOYMENT.md)   |
-| Google Play: textos, assets e declarações | [play-store-metadata.md](play-store-metadata.md)         |
-| App Store / iOS: procedimento             | [APP_STORE_DEPLOYMENT.md](APP_STORE_DEPLOYMENT.md)       |
-| Reconstrução da identidade Android        | [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md)     |
-| Firebase e push                           | [FIREBASE_MIGRATION.md](FIREBASE_MIGRATION.md)           |
-| Recuperação de senha                      | [PASSWORD_RECOVERY.md](PASSWORD_RECOVERY.md)             |
-| Marca e tokens                            | [`../brand-guidelines.md`](../brand-guidelines.md)       |
+| Necessidade                               | Documento                                                                               |
+| ----------------------------------------- | --------------------------------------------------------------------------------------- |
+| Começar uma nova sessão / estado atual    | este arquivo                                                                            |
+| Arquitetura, padrões e phonebook técnico  | [`../CLAUDE.md`](../CLAUDE.md)                                                          |
+| Testes                                    | [TESTING.md](TESTING.md)                                                                |
+| Histórico e processo de migrations        | [`../database/MIGRATIONS.md`](../database/MIGRATIONS.md)                                |
+| Google Play: procedimento                 | [GOOGLE_PLAY_DEPLOYMENT.md](GOOGLE_PLAY_DEPLOYMENT.md)                                  |
+| Google Play: textos, assets e declarações | [play-store-metadata.md](play-store-metadata.md)                                        |
+| App Store / iOS: procedimento             | [APP_STORE_DEPLOYMENT.md](APP_STORE_DEPLOYMENT.md)                                      |
+| Reconstrução da identidade Android        | [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md)                                    |
+| Firebase e push                           | [FIREBASE_MIGRATION.md](FIREBASE_MIGRATION.md)                                          |
+| Recuperação de senha                      | [PASSWORD_RECOVERY.md](PASSWORD_RECOVERY.md)                                            |
+| Marca e tokens                            | [`../brand-guidelines.md`](../brand-guidelines.md)                                      |
+| Specs e planos de features                | [`superpowers/specs/`](superpowers/specs/) e [`superpowers/plans/`](superpowers/plans/) |
+
+Os specs e planos em `superpowers/` são **registro de decisão**, não estado
+atual: leia-os quando for continuar a feature de que tratam (ex.: a Fase 2 da
+auditoria). Onde eles divergirem deste documento ou do código, **o código vence** —
+vários deles registram passos que a execução provou errados.
 
 ## Segurança documental
 

@@ -92,10 +92,23 @@ COMMIT;
 
 ## After the file is written
 
-1. **Apply to remote DB.** Per `database/MIGRATIONS.md`:
-   - Preferred: paste SQL into Supabase Dashboard → SQL Editor → run.
-   - Alternative: `node tools/scripts/apply-migration.js <filename>`.
-2. **Regenerate types.** Run the `/regenerate-supabase-types` skill (only if the migration changes tables, columns, enums, or RPC signatures).
+1. **Apply to remote DB.** The only database is **production** — there is no
+   staging. Ask the user before applying, and never let a subagent write to the DB.
+   - Preferred: `mcp__supabase__apply_migration`. Pass the SQL **without**
+     `BEGIN`/`COMMIT` (the runner opens its own transaction). Note it records the
+     migration under **its own timestamp**, not the filename's — see the drift
+     section in `database/MIGRATIONS.md`.
+   - `supabase db push` is only safe while the history has no pending files;
+     run `npx supabase migration list` first and confirm nothing shows as local
+     without a remote row.
+   - Do **not** paste into the Dashboard SQL Editor: it applies the DDL without
+     recording anything, which is what produced the historical drift.
+   - (`tools/scripts/apply-migration.js` does not exist — ignore older references
+     to it.)
+2. **Update the hand-curated types.** Add the new fields to the relevant type in
+   `src/types/` (e.g. `rota.ts`). **Do not** run `/regenerate-supabase-types`:
+   `src/types/database.ts` does not exist and this project does not use generated
+   types.
 3. **Update `database/MIGRATIONS.md`.** Append an entry with the migration number, date, purpose, and status (✅/⏳).
 4. **Verify in app:**
    - `npm run type-check`
