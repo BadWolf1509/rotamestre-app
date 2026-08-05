@@ -6,6 +6,23 @@ disable-model-invocation: true
 
 # Regenerate Supabase Types
 
+> ⚠️ **This skill has never been run, and running it is a project-wide decision —
+> not routine post-migration hygiene.**
+>
+> `src/types/database.ts` does **not** exist today. This project types its data
+> with **hand-curated** domain types (`src/types/rota.ts`, `usuario.ts`, …), and
+> `src/lib/supabase.ts` does not use the `<Database>` generic. Nothing currently
+> consumes generated types.
+>
+> **After a normal migration, do NOT run this.** Add the new fields to the
+> relevant hand-curated type instead — that is the current convention (see
+> `database/MIGRATIONS.md` step 6). Generating a ~2500-line file that nothing
+> imports adds maintenance cost with no consumer.
+>
+> Run this only if the user is deliberately adopting generated types across the
+> project — which also means typing the Supabase client and reconciling the
+> generated shapes with the existing domain types.
+
 ## When to run
 
 Run this skill after:
@@ -54,9 +71,7 @@ If you need types for `auth`, `storage`, or other schemas, append `--schema auth
 
    ```typescript
    import type { Database } from '@/types/database';
-   supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-     /* ... */
-   });
+   supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {/* ... */});
    ```
 
    Then `npm run type-check` to surface any latent mismatches.

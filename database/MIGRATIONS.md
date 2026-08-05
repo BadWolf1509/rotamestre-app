@@ -19,7 +19,9 @@
 4. Revise RLS, `SECURITY DEFINER`, grants, `search_path`, índices de FKs,
    idempotência e rollback.
 5. Aplique pelo fluxo versionado do Supabase e valide o efeito no banco vivo.
-6. Regenere `src/types/database.ts` quando o schema exposto ao cliente mudar.
+6. Acrescente os campos novos ao tipo curado à mão correspondente em
+   `src/types/` (ex.: `rota.ts`). **Não existe `src/types/database.ts`** — este
+   projeto não usa tipos gerados do Supabase.
 7. Atualize este histórico e o estado em `docs/PROJECT_CONTEXT.md`.
 
 Não cole novamente no Dashboard uma migration que já aparece no remoto.

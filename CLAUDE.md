@@ -58,13 +58,14 @@ Roles in `usuarios.papel`: `gestor` (CRUD their unidade), `motorista` (route ass
 - **ErrorBoundary:** every screen route under `app/` gets one (verifique com `grep -rl ErrorBoundary app/`).
 - **Type safety:** no `as any` in production code (Unistyles web styles are the documented exception). Use `.returns<T>()` on Supabase queries when inference fails, with comments.
 - **Async UX:** wrap async operations with `useToast.withToast()` — handles loading + success + error feedback in one call.
+- **Mapa web (maplibre 6):** o v6 é ESM-only e resolve seu web worker por `import.meta.url`, que o Metro **não** empacota. O worker é servido de `public/` (copiado de `node_modules` por `tools/scripts/copy-maplibre-worker.cjs` no `postinstall` e no `build:web`) e apontado por `configureMaplibreWorker()` (`src/lib/maplibreWorker.ts`), chamado nos 5 componentes de mapa web. **Quebrar isso trava o mapa em "Carregando..." sem erro no console e com o CI verde** — nenhum teste detecta. O nativo usa `@maplibre/maplibre-react-native` e não é afetado.
 - **Fotos/Storage:** o bucket `fotos-entrega` é **privado** com **RLS por unidade** em `storage.objects` (C3 Fase 1+2, PRs #285/#294). **Nunca** renderize foto por URL pública — use `useSignedUrl(foto_url)` (`src/hooks/storage/useSignedUrl.ts`; resolve on-read com cache + dedupe, pass-through de URL externa). **Uploads persistem o `path`** (não a URL), no formato `{unidadeId}/{rotaId}/{paradaId}_{ts}.jpg` (entrega), `perfis/…`, `incidentes/…`. Helpers `getStoragePath` / `createSignedUrlForFoto` em `src/lib/storage.ts` aceitam URL legada **ou** path (sem backfill). Policy SELECT (`20260703120000_c3_fase2_…`): owner OU 1º segmento do path ∈ unidades ativas (`get_my_unidade_ids()`) OU perfil/incidente referenciado por linha visível — **invariante:** afrouxar o RLS de `usuarios`/`incidentes` afrouxa a leitura das fotos.
 
 ## Skills, agents, hook
 
 Installed in `.claude/`:
 
-- `/regenerate-supabase-types` (user-invoke) — after schema-changing migrations, regenerate types into `src/types/database.ts`.
+- `/regenerate-supabase-types` (user-invoke) — **aspirational, never run.** `src/types/database.ts` does **not** exist; this project uses hand-curated domain types (`src/types/rota.ts`, `usuario.ts`, …). After a migration, add the new fields to the relevant hand-curated type — do not generate the file unless you are deliberately adopting generated types project-wide.
 - `/new-migration` (both Claude + user) — scaffold a SQL migration with RLS + SECURITY DEFINER + FK-index checklist.
 - Agent `rls-policy-reviewer` — review migrations for multi-tenant security holes. Use BEFORE merging schema changes.
 - Agent `migration-drift-auditor` — detect drift between `database/migrations/`, `supabase/migrations/`, `MIGRATIONS.md`, and the live DB.
