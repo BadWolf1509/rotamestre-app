@@ -43,29 +43,42 @@ CREATE INDEX IF NOT EXISTS idx_rotas_otimizada_por
 -- ---------------------------------------------------------------------------
 -- Estende public.criar_rota_com_paradas (definida originalmente em
 -- supabase/migrations/20260723223000_nova_entrega_drafts_atomic_route.sql)
--- com 4 parâmetros novos, todos DEFAULT NULL, para registrar o estado de
+-- com 3 parâmetros novos, todos DEFAULT NULL, para registrar o estado de
 -- otimização já no momento da criação da rota.
 --
--- Corpo copiado da definição original. As únicas três mudanças em relação ao
--- original são:
---   1) os 4 parâmetros novos, acrescentados no fim da assinatura;
+-- Corpo copiado da definição original. As mudanças em relação ao original
+-- são:
+--   1) os 3 parâmetros novos, acrescentados no fim da assinatura;
 --   2) as colunas/valores correspondentes no INSERT INTO public.rotas;
---   3) o log opcional 'rota_otimizada', logo após o log 'rota_criada'.
--- A lógica de validação/idempotência (locks, checagens de gestor/motorista,
--- validação de paradas/checkpoints/vínculos) NÃO foi tocada.
+--   3) o log opcional 'rota_otimizada', logo após o log 'rota_criada';
+--   4) checagem de não-negatividade para as duas distâncias novas, no mesmo
+--      estilo da checagem já existente para p_distancia_total.
+-- A lógica de validação/idempotência original (locks, checagens de
+-- gestor/motorista, validação de paradas/checkpoints/vínculos) NÃO foi
+-- tocada.
+--
+-- Autoria NÃO vem de parâmetro do cliente (achado CRÍTICO do
+-- rls-policy-reviewer, corrigido antes de aplicar): a primeira versão desta
+-- migration tinha um `p_otimizada_por uuid` que o chamador informava
+-- livremente, e por ser SECURITY DEFINER esse valor era gravado direto em
+-- rotas.otimizada_por e logs.usuario_id -- qualquer gestor autenticado
+-- podia forjar o uuid de outro usuário como autor da otimização, o que
+-- destruiria o propósito da auditoria. Removido; a função usa auth.uid()
+-- (já validado como gestor da unidade mais acima nesta mesma função) nos
+-- dois pontos em que a autoria é gravada.
 --
 -- DROP antes do CREATE (decisão adicional, avaliada e aprovada pelo dono do
--- projeto -- não é uma das 3 mudanças acima): no Postgres, a identidade de
+-- projeto -- não é uma das mudanças acima): no Postgres, a identidade de
 -- uma função é (nome + lista de tipos dos parâmetros). Acrescentar
 -- parâmetros -- mesmo com DEFAULT -- muda essa lista, então
 -- CREATE OR REPLACE FUNCTION sozinho NÃO substituiria a função de 8
 -- parâmetros existente; criaria um overload novo e separado, e os dois
 -- coexistiriam no catálogo. O app chama esta RPC com 8 parâmetros NOMEADOS
 -- (supabase-js `.rpc()`) -- uma chamada assim passaria a casar com as DUAS
--- assinaturas (a de 8, exata; a de 12, via DEFAULT nos 4 novos), o que o
+-- assinaturas (a de 8, exata; a de 11, via DEFAULT nos 3 novos), o que o
 -- Postgres resolve com erro `function ... is not unique`, quebrando a
 -- criação de rota em produção. O DROP remove o overload de 8 parâmetros
--- antes do CREATE, garantindo que só a assinatura de 12 parâmetros exista
+-- antes do CREATE, garantindo que só a assinatura de 11 parâmetros exista
 -- quando a migration terminar -- nenhuma chamada, antiga ou nova, fica
 -- ambígua.
 -- ---------------------------------------------------------------------------
@@ -83,8 +96,7 @@ CREATE OR REPLACE FUNCTION public.criar_rota_com_paradas(
   p_paradas JSONB,
   p_otimizacao_estado text DEFAULT NULL,
   p_otimizacao_distancia_antes numeric DEFAULT NULL,
-  p_otimizacao_distancia_depois numeric DEFAULT NULL,
-  p_otimizada_por uuid DEFAULT NULL
+  p_otimizacao_distancia_depois numeric DEFAULT NULL
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -164,6 +176,14 @@ BEGIN
 
   IF p_tempo_total IS NOT NULL AND p_tempo_total < 0 THEN
     RAISE EXCEPTION 'Tempo total inválido.';
+  END IF;
+
+  IF p_otimizacao_distancia_antes IS NOT NULL AND p_otimizacao_distancia_antes < 0 THEN
+    RAISE EXCEPTION 'Distância antes da otimização inválida.';
+  END IF;
+
+  IF p_otimizacao_distancia_depois IS NOT NULL AND p_otimizacao_distancia_depois < 0 THEN
+    RAISE EXCEPTION 'Distância depois da otimização inválida.';
   END IF;
 
   IF p_paradas IS NULL OR jsonb_typeof(p_paradas) <> 'array' THEN
@@ -291,7 +311,7 @@ BEGIN
     p_otimizacao_distancia_antes,
     p_otimizacao_distancia_depois,
     CASE WHEN p_otimizacao_estado = 'otimizada' THEN now() ELSE NULL END,
-    CASE WHEN p_otimizacao_estado = 'otimizada' THEN p_otimizada_por ELSE NULL END
+    CASE WHEN p_otimizacao_estado = 'otimizada' THEN auth.uid() ELSE NULL END
   )
   RETURNING id INTO v_rota_id;
 
@@ -363,7 +383,7 @@ BEGIN
   IF p_otimizacao_estado = 'otimizada' THEN
     INSERT INTO public.logs (usuario_id, rota_id, evento, detalhes)
     VALUES (
-      p_otimizada_por,
+      auth.uid(),
       v_rota_id,
       'rota_otimizada',
       jsonb_build_object(
@@ -385,7 +405,7 @@ BEGIN
 END;
 $$;
 
--- Reaplica os grants na assinatura NOVA de 12 parâmetros, espelhando
+-- Reaplica os grants na assinatura NOVA de 11 parâmetros, espelhando
 -- exatamente o que está em produção hoje na função de 8 parâmetros
 -- (confirmado no banco vivo: SECURITY DEFINER, anon já revogado, EXECUTE
 -- concedido a authenticated e service_role). Isto é necessário porque
@@ -398,12 +418,12 @@ $$;
 -- supabase/migrations/20260722195606_security_revoke_definer_anon_param.sql.
 REVOKE ALL ON FUNCTION public.criar_rota_com_paradas(
   uuid, uuid, uuid, date, numeric, integer, text, jsonb,
-  text, numeric, numeric, uuid
+  text, numeric, numeric
 ) FROM PUBLIC, anon;
 
 GRANT EXECUTE ON FUNCTION public.criar_rota_com_paradas(
   uuid, uuid, uuid, date, numeric, integer, text, jsonb,
-  text, numeric, numeric, uuid
+  text, numeric, numeric
 ) TO authenticated, service_role;
 
 COMMIT;
@@ -411,13 +431,13 @@ COMMIT;
 -- ROLLBACK:
 -- BEGIN;
 -- -- Esta migration faz DROP no overload de 8 parâmetros -- rollback
--- -- completo precisa recriar a função original, não só remover a de 12.
+-- -- completo precisa recriar a função original, não só remover a de 11.
 -- -- Reaplique o CREATE OR REPLACE FUNCTION + REVOKE/GRANT de
 -- -- supabase/migrations/20260723223000_nova_entrega_drafts_atomic_route.sql
 -- -- (função de 8 parâmetros) antes ou depois do DROP abaixo.
 -- DROP FUNCTION IF EXISTS public.criar_rota_com_paradas(
 --   uuid, uuid, uuid, date, numeric, integer, text, jsonb,
---   text, numeric, numeric, uuid
+--   text, numeric, numeric
 -- );
 -- ALTER TABLE public.rotas DROP CONSTRAINT IF EXISTS rotas_otimizacao_estado_check;
 -- DROP INDEX IF EXISTS public.idx_rotas_otimizada_por;
