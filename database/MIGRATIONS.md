@@ -647,4 +647,46 @@ unidade) **depende** — afrouxar esta afrouxa a leitura das fotos.
 
 ---
 
-**Última atualização:** 05/08/2026
+### ⏳ Migration 21: Onboarding self-service (testador cria a própria unidade)
+
+**Data:** 06/08/2026
+
+**Arquivos:** `20260806175617_onboarding_self_service.sql` (`database/` +
+`supabase/`, cópia byte-idêntica)
+
+**Objetivo:** até esta data, nenhum usuário novo conseguia concluir o cadastro
+público — `signUp` criava a conta no Auth e depois tentava inserir em
+`usuarios`, insert que a policy `usuarios_insert_optimized` bloqueia por
+exigir que o autor já seja gestor de alguma unidade. Como o erro aparecia
+DEPOIS da conta criada, sobrava conta órfã (5 pessoas reais nesse estado).
+
+- `unidades.cnpj` deixa de ser `NOT NULL` (o `UNIQUE` permanece — múltiplos
+  `NULL` não colidem em Postgres).
+- Cria a RPC `criar_unidade_para_novo_gestor(text, text, text, text, text,
+numeric, numeric, text) RETURNS uuid`, `SECURITY DEFINER` com
+  `search_path = ''`.
+- Guardas: rejeita se `auth.uid()` já tem linha em `usuarios`
+  (`PERFIL_JA_EXISTE`, torna duplo submit inofensivo), exige nome/unidade/
+  cidade não vazios, exige coordenadas da sede (sem elas a unidade nasce
+  incapaz de gerar rota) e valida a faixa (`-90..90` / `-180..180`). E-mail
+  vem de `auth.users` pelo `auth.uid()`, nunca de parâmetro — impede cadastrar
+  perfil com e-mail alheio.
+- Grava, na mesma transação: `unidades` (`origem='self_service'`,
+  `status='trial'`), `usuarios` (`papel='gestor'`, `primeira_senha=false`,
+  `is_gestor_principal=true`, `unidade_id` preenchido) e `usuario_unidades`
+  (`papel='gestor'`, `is_principal=true`).
+- Revoga `EXECUTE` de `PUBLIC`/`anon`; concede apenas a `authenticated`.
+- Rollback comentado no próprio arquivo: `DROP FUNCTION` + reverter o
+  `NOT NULL` de `cnpj` (só é seguro se nenhuma unidade tiver `cnpj` nulo — o
+  próprio arquivo traz a query de checagem).
+
+**Status:** ⏳ Escrita e revisada, **ainda NÃO aplicada** no banco (nem via MCP
+`apply_migration` nem via `db push`) — e a branch `feat/onboarding-self-service`
+ainda não foi mergeada. Aplicar exige aval do gestor (banco único = produção,
+sem staging — ver "Armadilhas" em `docs/PROJECT_CONTEXT.md`). Depois de
+aplicar, a validação é manual: nenhum teste toca o banco real. Pendência
+registrada em `docs/PROJECT_CONTEXT.md`.
+
+---
+
+**Última atualização:** 06/08/2026
