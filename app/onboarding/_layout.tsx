@@ -31,6 +31,13 @@ export default function OnboardingLayout() {
           headerShown: true,
         }}
       />
+      <Stack.Screen
+        name="criar-unidade"
+        options={{
+          title: 'Criar sua unidade',
+          headerShown: true,
+        }}
+      />
     </Stack>
   );
 }
