@@ -1,6 +1,6 @@
 # Contexto operacional — Rota Mestre App
 
-> Documento de entrada para novas sessões. Atualizado em 05/08/2026.
+> Documento de entrada para novas sessões. Atualizado em 06/08/2026.
 > Consulte o código ou o serviço responsável antes de alterar um estado externo.
 
 ## Pendências (comece por aqui)
@@ -44,7 +44,7 @@ Cada uma quebrou algo de verdade. Leia antes de agir na área correspondente.
   de substituir (identidade de função no Postgres = nome + tipos). Exige `DROP`
   da assinatura antiga + reaplicar os grants. Reverter a migration depois de
   mergear o código derruba a criação de rotas — **reverta o código primeiro**.
-- **Cadastro público quebrado até 06/08/2026.** `signUp` criava a conta no Auth
+- **Cadastro público quebrado — correção escrita em 06/08/2026, ainda não aplicada.** `signUp` criava a conta no Auth
   e depois inseria em `usuarios` — insert que o RLS bloqueia porque exige que o
   autor já seja gestor. O erro vinha DEPOIS da conta criada: 5 pessoas reais
   ficaram com conta órfã, e `app/index.tsx` as devolvia ao login sem mensagem.
