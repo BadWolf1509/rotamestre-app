@@ -203,8 +203,9 @@ const ERROR_PATTERNS: Array<{
   // código chega em produção antes da migration que cria a função (ex.:
   // criar_unidade_para_novo_gestor) — ver exigência de ordem de deploy em
   // database/MIGRATIONS.md, Migration 21.
+  // Padrão restrito a funções (não colunas — PGRST204 requer tratamento diferente).
   {
-    pattern: /PGRST202|schema cache/i,
+    pattern: /could not find the.*function.*schema cache/i,
     result: {
       title: 'Serviço temporariamente indisponível',
       message:

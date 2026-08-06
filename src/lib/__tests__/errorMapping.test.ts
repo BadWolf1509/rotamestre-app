@@ -181,6 +181,29 @@ describe('errorMapping', () => {
       });
     });
 
+    describe('authentication - session expired errors', () => {
+      it('should handle NAO_AUTENTICADO from RPC', () => {
+        const error = {
+          message: 'NAO_AUTENTICADO: Sessão expirada no meio do formulário',
+        };
+        const result = getErrorMessage(error);
+
+        expect(result.title).toBe('Sessão expirada');
+        expect(result.message).toBe(
+          'Sua sessão expirou. Faça login novamente para continuar.',
+        );
+        expect(result.type).toBe('warning');
+        expect(result.code).toBe('AUTH_NOT_AUTHENTICATED');
+      });
+
+      it('should handle NAO_AUTENTICADO uppercase', () => {
+        const error = { message: 'NAO_AUTENTICADO' };
+        const result = getErrorMessage(error);
+
+        expect(result.code).toBe('AUTH_NOT_AUTHENTICATED');
+      });
+    });
+
     describe('database constraint errors', () => {
       it('should handle foreign key violation', () => {
         const error = new Error('violates foreign key constraint');
@@ -330,6 +353,44 @@ describe('errorMapping', () => {
         const result = getErrorMessage(error);
 
         expect(result.code).toBe('UPLOAD_ERROR');
+      });
+    });
+
+    describe('RPC schema not ready errors', () => {
+      it('should handle missing RPC function in schema cache', () => {
+        const error = {
+          message:
+            "Could not find the 'criar_unidade_para_novo_gestor' function in the schema cache",
+        };
+        const result = getErrorMessage(error);
+
+        expect(result.title).toBe('Serviço temporariamente indisponível');
+        expect(result.message).toBe(
+          'Este recurso ainda está sendo configurado. Tente novamente em alguns instantes.',
+        );
+        expect(result.type).toBe('warning');
+        expect(result.code).toBe('RPC_SCHEMA_NOT_READY');
+      });
+
+      it('should handle missing RPC function with lowercase function', () => {
+        const error = {
+          message: "could not find the function 'some_rpc' in the schema cache",
+        };
+        const result = getErrorMessage(error);
+
+        expect(result.code).toBe('RPC_SCHEMA_NOT_READY');
+      });
+
+      it('should NOT match missing column error (PGRST204 — different error)', () => {
+        const error = {
+          message:
+            "Could not find the 'email' column of 'usuarios' in the schema cache",
+        };
+        const result = getErrorMessage(error);
+
+        // Should fall back to default error, not RPC_SCHEMA_NOT_READY
+        expect(result.code).toBe('UNKNOWN_ERROR');
+        expect(result.title).toBe('Algo deu errado');
       });
     });
 
