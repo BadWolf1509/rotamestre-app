@@ -7,19 +7,39 @@
 
 Lista única e canônica. Se resolver uma, risque daqui.
 
-| #   | Pendência                                                                                                                                                                                                                                                            | Quem pode fazer                                | Onde está o detalhe                                    |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------ |
-| 1   | **Validar a auditoria de otimização no fluxo real:** criar rota com o botão "Otimizar" e depois reordenar as paradas; confirmar `otimizacao_estado` = `otimizada` → `otimizada_alterada`. **Nenhum teste toca o banco real** — é o único elo sem prova automatizada. | gestor (cria dado real, notifica motorista)    | "Auditoria de uso do otimizador" abaixo                |
-| 2   | **Furo de RLS:** motorista pode alterar `unidade_id` da própria rota. Pré-existente, exige motorista malicioso fora do app.                                                                                                                                          | requer design (o fix óbvio quebra o motorista) | Security Advisory privado `GHSA-vw63-jxg2-28vx`        |
-| 3   | **Fase 2 da auditoria:** chip na tela da rota + indicador/filtro/contador na Gestão de Rotas. Plano próprio ainda não escrito — melhor depois de algumas semanas de dado acumulado.                                                                                  | qualquer sessão                                | spec `2026-08-04-auditoria-otimizacao-rotas-design.md` |
-| 4   | **Play Store:** faixa de produção vazia (`Precondition check failed`). Ampliar opt-in do teste fechado, divulgando o hub público `/testar`.                                                                                                                          | gestor (Play Console)                          | `GOOGLE_PLAY_DEPLOYMENT.md`                            |
-| 5   | **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).                                                                                                                                  | gestor (Apple ID + 2FA)                        | `APP_STORE_DEPLOYMENT.md`                              |
-| 6   | **Primeiro build EAS sob Node 22** ainda não aconteceu — observe o próximo.                                                                                                                                                                                          | qualquer sessão                                | "Node 22" abaixo                                       |
+| #   | Pendência                                                                                                                                                                                                                               | Quem pode fazer                                | Onde está o detalhe                                    |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------ |
+| 1   | **Rotacionar/desativar contas de teste com senha vazada** — `gestor@`, `motorista@`, `gestor.test@`, `motorista.test@` foram **excluídas em 05/08/2026**; se recriar qualquer conta de teste, use senha forte por variável de ambiente. | gestor (Supabase → Auth → Users)               | "Credenciais hardcoded" abaixo                         |
+| 2   | **Furo de RLS:** motorista pode alterar `unidade_id` da própria rota. Pré-existente, exige motorista malicioso fora do app.                                                                                                             | requer design (o fix óbvio quebra o motorista) | Security Advisory privado `GHSA-vw63-jxg2-28vx`        |
+| 3   | **Fase 2 da auditoria:** chip na tela da rota + indicador/filtro/contador na Gestão de Rotas. Plano próprio ainda não escrito — melhor depois de algumas semanas de dado acumulado.                                                     | qualquer sessão                                | spec `2026-08-04-auditoria-otimizacao-rotas-design.md` |
+| 4   | **Play Store:** faixa de produção vazia (`Precondition check failed`). Ampliar opt-in do teste fechado, divulgando o hub público `/testar`.                                                                                             | gestor (Play Console)                          | `GOOGLE_PLAY_DEPLOYMENT.md`                            |
+| 5   | **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).                                                                                                     | gestor (Apple ID + 2FA)                        | `APP_STORE_DEPLOYMENT.md`                              |
+| 6   | **Primeiro build EAS sob Node 22** ainda não aconteceu — observe o próximo.                                                                                                                                                             | qualquer sessão                                | "Node 22" abaixo                                       |
 
 Follow-ups menores (nenhum bloqueia): Timeline não narra o autor da otimização
 (o dado existe em `logs.usuario_id`, falta join em `useTimelineData.ts`);
-`toFixed(1)` exibe `29.1` em app pt-BR; `mapLogToTimelinePreview` sem case para
-`rota_otimizada`, então o widget colapsado conta o evento mas não o exibe.
+**`toFixed(1)` usa ponto — confirmado em 05/08/2026 na Timeline, que exibiu
+`27.1 km → 18.1 km` num app pt-BR (deveria ser `27,1`)**;
+`mapLogToTimelinePreview` sem case para `rota_otimizada`, então o widget
+colapsado conta o evento mas não o exibe.
+
+### Auditoria de otimização — validada em 05/08/2026
+
+A pendência que ocupava a linha 1 desta tabela foi **fechada**. Rota de teste
+criada na Unidade Demo pelo Gestor Demo, com o botão "Otimizar", e depois
+reordenada à mão:
+
+| Momento        | `otimizacao_estado`  | `distancia_total` | `otimizacao_distancia_depois` |
+| -------------- | -------------------- | ----------------- | ----------------------------- |
+| Após otimizar  | `otimizada`          | 18,13 km          | 18,13 km                      |
+| Após reordenar | `otimizada_alterada` | **18,74 km**      | **18,13 km** (congelado)      |
+
+`antes` = 27,129 km e `otimizada_por` = Gestor Demo (via `auth.uid()`, não
+parâmetro do cliente). O par de colunas provou ser **registro histórico, não
+espelho do estado atual** — foi possível medir que a alteração manual custou
+610 m. Os 3 logs saíram corretos (incluindo `desfez_otimizacao: true`, que só
+grava `true` se o UPDATE de fato passou) e a Timeline narrou os 3 eventos.
+A rota de teste foi cancelada em seguida.
 
 ## Armadilhas que já custaram caro
 
@@ -39,6 +59,22 @@ Cada uma quebrou algo de verdade. Leia antes de agir na área correspondente.
 - **Worker do maplibre 6** servido de `public/`: se sumir, o mapa trava em
   "Carregando..." **sem erro no console e com o CI verde**. Detalhe do que não
   pode ser removido em "Regras que não podem regredir".
+- **OSRM não atende `localhost`.** O servidor responde
+  `Access-Control-Allow-Origin: https://app.rotamestre.tec.br` **fixo**,
+  ignorando a origem que pediu. Em produção casa e funciona; em
+  `localhost:8082` o browser bloqueia **toda** chamada OSRM (`status: 0`,
+  "Trajeto indisponível" no mapa). O fluxo não quebra porque
+  `buildHaversineMatrix` (linha reta × 1,3) assume e o TSP roda normalmente —
+  a reordenação continua sendo otimização real, mas **as distâncias em dev são
+  estimativas, não distância de via**. Não confunda com bug: valide distância
+  em produção. Verificado em 05/08/2026 com
+  `curl -H "Origin: http://localhost:8082"`.
+- **Credenciais hardcoded (05/08/2026).** Dois scripts de criação de usuário de
+  teste, o fixture de E2E, um script de RLS e a seed traziam senha em texto puro
+  num repositório **público**, e quatro dessas contas estavam **vivas em
+  produção**. Todas removidas do código (agora exigem variável de ambiente, sem
+  fallback) e as 4 contas foram excluídas. Regra: **nenhuma senha no repo, nem
+  como fallback, nem em `console.log`** — o log sobrevive no scrollback e no CI.
 - **RPC `criar_rota_com_paradas`:** acrescentar parâmetro cria _overload_ em vez
   de substituir (identidade de função no Postgres = nome + tipos). Exige `DROP`
   da assinatura antiga + reaplicar os grants. Reverter a migration depois de

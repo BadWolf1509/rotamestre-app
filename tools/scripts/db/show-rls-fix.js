@@ -56,9 +56,8 @@ async function showRLSFix() {
   console.log('5️⃣  TESTAR LOGIN\n');
   console.log('   Após executar, teste o login em:');
   console.log('   https://app.rotamestre.tec.br/auth/login\n');
-  console.log('   Credenciais:');
-  console.log('   - Gestor: gestor@rotamestre.tec.br / gestor123');
-  console.log('   - Motorista: motorista@rotamestre.tec.br / motorista123\n');
+  console.log('   Use uma conta de gestor e uma de motorista da sua unidade.');
+  console.log('   (Credenciais não ficam neste repositório — ele é público.)\n');
 
   console.log('╔════════════════════════════════════════════════╗');
   console.log('║         📊 RESUMO DAS ALTERAÇÕES              ║');

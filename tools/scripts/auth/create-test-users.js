@@ -3,9 +3,13 @@
 /**
  * Script para criar usuários de teste no Supabase Auth
  *
- * Cria:
- * - gestor@rotamestre.com.br (senha: gestor123)
- * - motorista@rotamestre.com.br (senha: motorista123)
+ * Credenciais vêm de variáveis de ambiente — NUNCA hardcoded. Este arquivo é
+ * versionado num repositório público: qualquer senha escrita aqui vira senha
+ * pública, e o banco apontado é o de produção (não existe staging).
+ *
+ * Obrigatórias, além de SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY:
+ * - TEST_GESTOR_EMAIL / TEST_GESTOR_PASSWORD
+ * - TEST_MOTORISTA_EMAIL / TEST_MOTORISTA_PASSWORD
  */
 
 import { dirname, join } from 'path';
@@ -27,6 +31,48 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error('❌ ERRO: SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY devem estar definidos no .env');
   console.error(`   Arquivo esperado: ${envPath}`);
+  process.exit(1);
+}
+
+// Credenciais dos usuários de teste: sempre do ambiente, nunca do código.
+const TEST_USERS = [
+  {
+    envPrefix: 'TEST_GESTOR',
+    email: process.env.TEST_GESTOR_EMAIL,
+    password: process.env.TEST_GESTOR_PASSWORD,
+    nome: process.env.TEST_GESTOR_NOME || 'Gestor de Teste',
+    papel: 'gestor',
+  },
+  {
+    envPrefix: 'TEST_MOTORISTA',
+    email: process.env.TEST_MOTORISTA_EMAIL,
+    password: process.env.TEST_MOTORISTA_PASSWORD,
+    nome: process.env.TEST_MOTORISTA_NOME || 'Motorista de Teste',
+    papel: 'motorista',
+  },
+];
+
+const faltando = TEST_USERS.flatMap((u) =>
+  [
+    u.email ? null : `${u.envPrefix}_EMAIL`,
+    u.password ? null : `${u.envPrefix}_PASSWORD`,
+  ].filter(Boolean)
+);
+
+if (faltando.length > 0) {
+  console.error('❌ ERRO: variáveis de credencial ausentes:');
+  faltando.forEach((v) => console.error(`   - ${v}`));
+  console.error('\n   Defina-as no ambiente antes de rodar. Não escreva senhas');
+  console.error('   neste arquivo: o repositório é público.');
+  process.exit(1);
+}
+
+// Senha fraca aqui vira senha fraca pública assim que alguém reusar o valor.
+const FRACAS = TEST_USERS.filter((u) => u.password.length < 12);
+if (FRACAS.length > 0) {
+  console.error('❌ ERRO: senha com menos de 12 caracteres em:');
+  FRACAS.forEach((u) => console.error(`   - ${u.envPrefix}_PASSWORD`));
+  console.error('\n   Estas contas ficam ativas em PRODUÇÃO. Use senha forte e única.');
   process.exit(1);
 }
 
@@ -153,7 +199,7 @@ async function main() {
   console.log('║  Criação de Usuários de Teste - RotaMestre    ║');
   console.log('╚════════════════════════════════════════════════╝');
   console.log(`\n📡 Supabase URL: ${SUPABASE_URL}`);
-  console.log(`🔑 Service Role Key: ${SUPABASE_SERVICE_ROLE_KEY.substring(0, 20)}...`);
+  console.log(`🔑 Service Role Key: definida (${SUPABASE_SERVICE_ROLE_KEY.length} chars)`);
 
   try {
     // Buscar primeira unidade ativa
@@ -174,37 +220,25 @@ async function main() {
     console.log(`✅ Unidade encontrada: ${unidade.nome} (ID: ${unidade.id})`);
 
     // Criar usuários
-    const gestorId = await createUser(
-      'gestor@rotamestre.tec.br',
-      'gestor123',
-      'João Silva - Gestor',
-      'gestor',
-      unidade.id
-    );
+    const criados = [];
+    for (const u of TEST_USERS) {
+      const id = await createUser(u.email, u.password, u.nome, u.papel, unidade.id);
+      criados.push({ ...u, id });
+    }
 
-    const motoristaId = await createUser(
-      'motorista@rotamestre.tec.br',
-      'motorista123',
-      'Carlos Santos - Motorista',
-      'motorista',
-      unidade.id
-    );
-
-    // Resumo
+    // Resumo — sem senha. O operador já a tem no ambiente; imprimi-la só serve
+    // para vazá-la no scrollback do terminal e nos logs de CI.
     console.log('\n╔════════════════════════════════════════════════╗');
     console.log('║              RESUMO DA CRIAÇÃO                 ║');
     console.log('╚════════════════════════════════════════════════╝');
     console.log('\n✅ Usuários criados com sucesso!\n');
-    console.log('👤 GESTOR');
-    console.log(`   Email: gestor@rotamestre.com.br`);
-    console.log(`   Senha: gestor123`);
-    console.log(`   ID: ${gestorId}`);
-    console.log('\n👤 MOTORISTA');
-    console.log(`   Email: motorista@rotamestre.com.br`);
-    console.log(`   Senha: motorista123`);
-    console.log(`   ID: ${motoristaId}`);
-    console.log('\n📱 Acesse: https://app.rotamestre.tec.br');
-    console.log('🔐 Faça login com as credenciais acima\n');
+    for (const u of criados) {
+      console.log(`👤 ${u.papel.toUpperCase()}`);
+      console.log(`   Email: ${u.email}`);
+      console.log(`   Senha: (definida em ${u.envPrefix}_PASSWORD)`);
+      console.log(`   ID: ${u.id}\n`);
+    }
+    console.log('📱 Acesse: https://app.rotamestre.tec.br\n');
 
   } catch (error) {
     console.error('\n❌ Erro fatal:', error.message);

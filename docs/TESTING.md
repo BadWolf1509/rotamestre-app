@@ -30,12 +30,18 @@ npm test -- <padrão>      # filtrar por nome/caminho
 
 - `react-test-renderer` deve ter a mesma versão que `react` (restrição de paridade do jest-expo).
 - `renderHook` em hooks com async/realtime pesado (`useGestaoRotas`, `offline.ts`, `useRealtimeRoutes`) pode causar OOM acima de 4 GB — prefira testar os helpers puros extraídos desses hooks.
-- Os testes E2E autenticados usam as contas-fixture
-  `gestor.test@rotamestre.tec.br` e `motorista.test@rotamestre.tec.br`. Em
-  24/07/2026 elas não existiam ou não possuíam credenciais válidas no ambiente
-  alvo; por isso os cenários públicos passaram e os autenticados pararam no
-  login. Provisionar essas fixtures de forma segura é pré-requisito para o
-  próximo E2E completo.
+- Os testes E2E autenticados exigem **quatro variáveis de ambiente**, sem
+  fallback: `E2E_GESTOR_EMAIL`, `E2E_GESTOR_PASSWORD`, `E2E_MOTORISTA_EMAIL` e
+  `E2E_MOTORISTA_PASSWORD`. Faltando qualquer uma, `e2e/fixtures/test-fixtures.ts`
+  lança erro em vez de assumir um valor. O fallback embutido que existia antes
+  era senha pública (o repositório é aberto) de conta viva em produção —
+  removido em 05/08/2026 junto com as demais credenciais hardcoded.
+- As contas-fixture `gestor.test@rotamestre.tec.br` e
+  `motorista.test@rotamestre.tec.br` existem em `auth.users` mas **não têm linha
+  em `public.usuarios`**. É por isso que, em 24/07/2026, os cenários públicos
+  passaram e os autenticados pararam no login: a autenticação até resolve, mas o
+  app não encontra o perfil. Provisionar o perfil (e senha forte por ambiente) é
+  pré-requisito para o próximo E2E completo.
 - A regressão visual pública passou em 24 de 26 cenários no Windows. Os dois
   snapshots de toast divergiram em 1 px de altura e na rasterização do ícone;
   não atualize o baseline compartilhado Linux apenas para acomodar essa

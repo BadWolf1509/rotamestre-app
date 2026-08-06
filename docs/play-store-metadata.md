@@ -86,6 +86,21 @@ Sequência recomendada:
 
 ## Acesso para avaliação
 
+**Onde fica no Play Console** (verificado em 05/08/2026 — a declaração foi
+renomeada e o caminho não é óbvio):
+
+- A declaração **não** se chama mais "Acesso ao app". Hoje é **"Detalhes do
+  login"**; a própria página avisa o nome antigo.
+- **"Políticas e programas" está aninhado dentro de "Monitorar e aprimorar"**,
+  não é seção de topo do menu lateral.
+- Caminho: **Monitorar e aprimorar → Políticas e programas → Conteúdo do app →
+  aba "Concluídas" → Detalhes do login → Gerenciar**.
+- Atalho: `…/app/<appId>/app-content/testing-credentials`. A página de índice é
+  `…/app-content/overview` — `…/app-content` sem `/overview` redireciona para a
+  lista de apps.
+- O Play Console exibe usuário e senha **em texto puro** para quem tem
+  permissão. É a fonte de verdade dessas credenciais.
+
 Cadastrar duas entradas no Play Console, sem copiar senhas para este documento:
 
 ### Manager reviewer account

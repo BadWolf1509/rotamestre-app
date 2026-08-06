@@ -2,17 +2,39 @@
 import { test as base, expect, Page } from '@playwright/test';
 
 /**
- * Test user credentials for E2E tests
- * Use environment variables in CI, fallback to test accounts
+ * Credenciais dos usuários de E2E — sempre do ambiente, sem fallback.
+ *
+ * Um fallback embutido aqui seria senha pública (repo aberto) de conta viva em
+ * PRODUÇÃO, e ainda por cima silencioso: o teste passaria localmente e ninguém
+ * perceberia que a senha vazou. Falhar cedo é o comportamento correto.
  */
+function requireEnv(nome: string): string {
+  const valor = process.env[nome];
+  if (!valor) {
+    throw new Error(
+      `${nome} não está definida. Defina as credenciais de E2E no ambiente ` +
+        `(nunca no código — este repositório é público).`,
+    );
+  }
+  return valor;
+}
+
 export const testUsers = {
   motorista: {
-    email: process.env.E2E_MOTORISTA_EMAIL || 'motorista.test@rotamestre.tec.br',
-    password: process.env.E2E_MOTORISTA_PASSWORD || 'Test@123456',
+    get email() {
+      return requireEnv('E2E_MOTORISTA_EMAIL');
+    },
+    get password() {
+      return requireEnv('E2E_MOTORISTA_PASSWORD');
+    },
   },
   gestor: {
-    email: process.env.E2E_GESTOR_EMAIL || 'gestor.test@rotamestre.tec.br',
-    password: process.env.E2E_GESTOR_PASSWORD || 'Test@123456',
+    get email() {
+      return requireEnv('E2E_GESTOR_EMAIL');
+    },
+    get password() {
+      return requireEnv('E2E_GESTOR_PASSWORD');
+    },
   },
 };
 
@@ -47,9 +69,11 @@ async function login(page: Page, userType: 'motorista' | 'gestor') {
 
   // React Native Web renders TextInput as standard <input> elements
   const emailInput = page.locator(
-    'input[placeholder="E-mail"], input[placeholder="seu@email.com"], input:not([type="password"])'
+    'input[placeholder="E-mail"], input[placeholder="seu@email.com"], input:not([type="password"])',
   );
-  const passwordInput = page.locator('input[placeholder="Senha"], input[type="password"]');
+  const passwordInput = page.locator(
+    'input[placeholder="Senha"], input[type="password"]',
+  );
   const loginButton = page.getByText('Entrar', { exact: true });
 
   // Wait for form to be visible
@@ -65,9 +89,12 @@ async function login(page: Page, userType: 'motorista' | 'gestor') {
   await loginButton.click();
 
   // Wait for navigation to complete
-  await page.waitForURL(userType === 'motorista' ? '**/motorista**' : '**/gestor**', {
-    timeout: 60000,
-  });
+  await page.waitForURL(
+    userType === 'motorista' ? '**/motorista**' : '**/gestor**',
+    {
+      timeout: 60000,
+    },
+  );
 }
 
 /**
@@ -75,7 +102,9 @@ async function login(page: Page, userType: 'motorista' | 'gestor') {
  */
 async function logout(page: Page) {
   // Try to open drawer menu and click logout
-  const menuButton = page.locator('[data-testid="menu-button"], [aria-label*="menu"]').first();
+  const menuButton = page
+    .locator('[data-testid="menu-button"], [aria-label*="menu"]')
+    .first();
   if (await menuButton.isVisible()) {
     await menuButton.click();
     await page.waitForTimeout(500);
