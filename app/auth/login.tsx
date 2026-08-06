@@ -146,11 +146,12 @@ export default function Login() {
         // A senha foi aceita, mas o perfil da aplicação não foi encontrado.
         // Não penalizar o usuário como se tivesse informado credenciais inválidas.
         await loginRateLimiter.recordAttempt(email, true);
-        showAlert(
-          'Usuário não encontrado',
-          'Não encontramos sua conta. Verifique seus dados e tente novamente.',
-          'error',
-        );
+        // Sessão válida sem perfil = cadastro incompleto (conta órfã antiga ou
+        // onboarding interrompido). Mesma regra de app/index.tsx — mostrar um
+        // alerta e deixar a pessoa parada no login é o beco sem saída que esta
+        // branch existe para eliminar: o login funcionou, então login não é a
+        // resposta.
+        router.replace('/onboarding/criar-unidade');
       }
     } catch (error: unknown) {
       // Usar error mapping para mensagem amigável (sem expor detalhes técnicos)

@@ -687,6 +687,20 @@ sem staging — ver "Armadilhas" em `docs/PROJECT_CONTEXT.md`). Depois de
 aplicar, a validação é manual: nenhum teste toca o banco real. Pendência
 registrada em `docs/PROJECT_CONTEXT.md`.
 
+**Ordem de deploy (obrigatória):** esta migration precisa ser aplicada **antes**
+de o código da branch chegar em produção — nunca depois. Na ordem inversa, todo
+cadastro novo (via `/onboarding/criar-unidade`, e também via `/auth/login` para
+quem já tem sessão sem perfil) recebe `PGRST202` (`criar_unidade_para_novo_gestor`
+ainda não existe no schema cache do PostgREST) e fica preso na tela — sem
+voltar (`headerBackVisible: false`, `gestureEnabled: false` no
+`app/onboarding/_layout.tsx`) até o botão "Sair" existir no `criar-unidade.tsx`.
+A ordem correta (migration primeiro) é segura nos dois sentidos: `cnpj` deixar
+de ser `NOT NULL` é inócuo para todo código antigo (só fica menos restritivo, não
+quebra nenhum insert existente), e a RPC só é alcançável por um usuário
+autenticado sem linha em `usuarios` — o código hoje em produção nunca chama
+`criar_unidade_para_novo_gestor`, então aplicar a migration isolada, antes do
+deploy do app, não tem efeito colateral observável.
+
 ---
 
 **Última atualização:** 06/08/2026

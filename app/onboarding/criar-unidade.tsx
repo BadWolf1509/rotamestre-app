@@ -20,6 +20,7 @@ import {
   criarUnidadeSchema,
   type CriarUnidadeInput,
 } from '@/lib/schemas/onboarding';
+import { supabase } from '@/lib/supabase';
 import type { Coordenadas } from '@/types/endereco';
 
 function CriarUnidadeScreen() {
@@ -70,6 +71,16 @@ function CriarUnidadeScreen() {
     }
   }
 
+  // Réplica do padrão de app/onboarding/first-password.tsx (sessão sem
+  // usuário → signOut + volta pro login): sem esta saída, quem cai aqui com a
+  // RPC indisponível (ex.: PGRST202 antes da migration aplicar) fica preso —
+  // o Stack deste layout tem headerBackVisible=false e gestureEnabled=false, e
+  // reabrir o app cai na mesma tela de novo.
+  async function handleSair() {
+    await supabase.auth.signOut();
+    router.replace('/auth/login');
+  }
+
   return (
     <ScrollView contentContainerStyle={{ padding: isDesktop ? 32 : 16 }}>
       {/* useAlert só exibe se o dialog estiver na árvore (padrão de
@@ -78,6 +89,15 @@ function CriarUnidadeScreen() {
       {AlertDialog}
       <ResponsiveContainer>
         <Card>
+          <View style={{ alignSelf: 'flex-end' }}>
+            <Button
+              title="Sair"
+              variant="ghost"
+              size="small"
+              onPress={handleSair}
+            />
+          </View>
+
           <Text variant="title">Falta pouco</Text>
           <Text variant="body">
             Cadastre sua empresa para começar a criar rotas.
