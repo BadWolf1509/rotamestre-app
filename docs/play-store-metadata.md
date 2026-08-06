@@ -101,6 +101,18 @@ renomeada e o caminho não é óbvio):
 - O Play Console exibe usuário e senha **em texto puro** para quem tem
   permissão. É a fonte de verdade dessas credenciais.
 
+**Quais contas usar — não é escolha cosmética.** As duas entradas devem apontar
+para o par **demo** (`gestor.demo@` / `motorista.demo@`), que vive na **Unidade
+Demo - Avaliacao Google**. Até 06/08/2026 a entrada de motorista apontava para
+uma conta de uma **unidade real**, e as policies dão a qualquer motorista da
+unidade: o registro completo da empresa (`unidades` — CNPJ, endereço, telefone,
+e-mail, plano) e **nome, e-mail e telefone de todo o time** (`usuarios`). Isso é
+dado pessoal de terceiros entregue a um revisor externo. As rotas em si ficam
+protegidas (`rotas_select` casa por `motorista_id`), mas o cadastro não.
+
+Ao revisar essas entradas, confirme sempre que o e-mail termina em `.demo@` — a
+Unidade Demo contém apenas as duas contas demo, nenhuma pessoa real.
+
 Cadastrar duas entradas no Play Console, sem copiar senhas para este documento:
 
 ### Manager reviewer account

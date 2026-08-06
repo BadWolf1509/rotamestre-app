@@ -69,6 +69,26 @@ Cada uma quebrou algo de verdade. Leia antes de agir na área correspondente.
   estimativas, não distância de via**. Não confunda com bug: valide distância
   em produção. Verificado em 05/08/2026 com
   `curl -H "Origin: http://localhost:8082"`.
+- **As API keys legacy estão DESABILITADAS (verificado 06/08/2026).** O projeto
+  migrou para o formato novo: `sb_publishable_…` no lugar da `anon` e
+  `sb_secret_…` no lugar da `service_role` (Settings → API Keys, aba
+  _Publishable and secret_). `.env` local, EAS `production` e EAS `preview` já
+  usam a publishable — **a variável continua com o nome herdado
+  `EXPO_PUBLIC_SUPABASE_ANON_KEY`**, o que engana. Pegadinha cara: a
+  `sb_secret_…` devolve **401 na Admin API do Auth** (`/auth/v1/admin/users/…`),
+  provavelmente porque o endpoint ainda espera um JWT e não um token opaco. Para
+  redefinir senha de usuário, use o **SQL Editor** — `pgcrypto` está instalada no
+  schema `extensions` e o Auth guarda bcrypt (`$2a$`, 60 chars):
+
+  ```sql
+  update auth.users
+  set encrypted_password = extensions.crypt('<senha>', extensions.gen_salt('bf')),
+      updated_at = now()
+  where id = '<uuid>';
+  ```
+
+  Limpe o editor depois: o histórico de execuções recentes guarda a query.
+
 - **Credenciais hardcoded (05/08/2026).** Dois scripts de criação de usuário de
   teste, o fixture de E2E, um script de RLS e a seed traziam senha em texto puro
   num repositório **público**, e quatro dessas contas estavam **vivas em
