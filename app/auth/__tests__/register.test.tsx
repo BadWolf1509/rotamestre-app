@@ -85,14 +85,6 @@ describe('Register Screen', () => {
       expect(getByText(/E-mail/)).toBeTruthy();
       expect(getByText(/^Senha/)).toBeTruthy();
       expect(getByText(/Confirmar Senha/)).toBeTruthy();
-      expect(getByText(/Tipo de Conta/)).toBeTruthy();
-    });
-
-    it('deve renderizar botões de tipo de usuário', () => {
-      const { getByText } = render(<Register />);
-
-      expect(getByText('Motorista')).toBeTruthy();
-      expect(getByText('Gestor')).toBeTruthy();
     });
 
     it('deve renderizar botão de criar conta', () => {
@@ -141,82 +133,6 @@ describe('Register Screen', () => {
 
       fireEvent.changeText(input, 'Senha123!');
       expect(input.props.value).toBe('Senha123!');
-    });
-
-    it('deve alternar tipo de usuário para gestor', async () => {
-      (authService.signUp as jest.Mock).mockResolvedValueOnce(undefined);
-
-      const { getByText, getByPlaceholderText, getAllByText } = render(
-        <Register />,
-      );
-      fireEvent.press(getByText('Gestor'));
-
-      fireEvent.changeText(
-        getByPlaceholderText('Digite seu nome'),
-        'João Silva',
-      );
-      fireEvent.changeText(
-        getByPlaceholderText('Digite seu e-mail'),
-        'gestor@exemplo.com',
-      );
-      fireEvent.changeText(
-        getByPlaceholderText(
-          'Mínimo 8 caracteres, maiúscula, número e especial',
-        ),
-        'Senha123!',
-      );
-      fireEvent.changeText(
-        getByPlaceholderText('Digite a senha novamente'),
-        'Senha123!',
-      );
-      fireEvent.press(getAllByText('Criar Conta')[1]);
-
-      await waitFor(() => {
-        expect(authService.signUp).toHaveBeenCalledWith(
-          'gestor@exemplo.com',
-          'Senha123!',
-          'João Silva',
-          'gestor',
-        );
-      });
-    });
-
-    it('deve alternar tipo de usuário para motorista', async () => {
-      (authService.signUp as jest.Mock).mockResolvedValueOnce(undefined);
-
-      const { getByText, getByPlaceholderText, getAllByText } = render(
-        <Register />,
-      );
-      fireEvent.press(getByText('Motorista'));
-
-      fireEvent.changeText(
-        getByPlaceholderText('Digite seu nome'),
-        'Maria Souza',
-      );
-      fireEvent.changeText(
-        getByPlaceholderText('Digite seu e-mail'),
-        'motorista@exemplo.com',
-      );
-      fireEvent.changeText(
-        getByPlaceholderText(
-          'Mínimo 8 caracteres, maiúscula, número e especial',
-        ),
-        'Senha123!',
-      );
-      fireEvent.changeText(
-        getByPlaceholderText('Digite a senha novamente'),
-        'Senha123!',
-      );
-      fireEvent.press(getAllByText('Criar Conta')[1]);
-
-      await waitFor(() => {
-        expect(authService.signUp).toHaveBeenCalledWith(
-          'motorista@exemplo.com',
-          'Senha123!',
-          'Maria Souza',
-          'motorista',
-        );
-      });
     });
   });
 
@@ -435,45 +351,6 @@ describe('Register Screen', () => {
           'joao@exemplo.com',
           'Senha123!',
           'João Silva',
-          'motorista',
-        );
-      });
-    });
-
-    it('deve chamar authService.signUp com tipo gestor', async () => {
-      (authService.signUp as jest.Mock).mockResolvedValue(undefined);
-
-      const { getByPlaceholderText, getByText, getAllByText } = render(
-        <Register />,
-      );
-
-      fireEvent.changeText(
-        getByPlaceholderText('Digite seu nome'),
-        'Maria Gestora',
-      );
-      fireEvent.changeText(
-        getByPlaceholderText('Digite seu e-mail'),
-        'maria@exemplo.com',
-      );
-      fireEvent.changeText(
-        getByPlaceholderText(
-          'Mínimo 8 caracteres, maiúscula, número e especial',
-        ),
-        'Senha123!',
-      );
-      fireEvent.changeText(
-        getByPlaceholderText('Digite a senha novamente'),
-        'Senha123!',
-      );
-      fireEvent.press(getByText('Gestor'));
-      fireEvent.press(getAllByText('Criar Conta')[1]);
-
-      await waitFor(() => {
-        expect(authService.signUp).toHaveBeenCalledWith(
-          'maria@exemplo.com',
-          'Senha123!',
-          'Maria Gestora',
-          'gestor',
         );
       });
     });
@@ -730,43 +607,6 @@ describe('Register Screen', () => {
   });
 
   describe('Estado Inicial', () => {
-    it('deve começar com tipo motorista selecionado', async () => {
-      (authService.signUp as jest.Mock).mockResolvedValue(undefined);
-
-      const { getByPlaceholderText, getAllByText } = render(<Register />);
-
-      // Preenche todos campos e submete
-      fireEvent.changeText(
-        getByPlaceholderText('Digite seu nome'),
-        'João Silva',
-      );
-      fireEvent.changeText(
-        getByPlaceholderText('Digite seu e-mail'),
-        'joao@exemplo.com',
-      );
-      fireEvent.changeText(
-        getByPlaceholderText(
-          'Mínimo 8 caracteres, maiúscula, número e especial',
-        ),
-        'Senha123!',
-      );
-      fireEvent.changeText(
-        getByPlaceholderText('Digite a senha novamente'),
-        'Senha123!',
-      );
-      fireEvent.press(getAllByText('Criar Conta')[1]);
-
-      // Verifica que foi chamado com motorista (padrão)
-      await waitFor(() => {
-        expect(authService.signUp).toHaveBeenCalledWith(
-          expect.any(String),
-          expect.any(String),
-          expect.any(String),
-          'motorista',
-        );
-      });
-    });
-
     it('todos os campos devem começar vazios', () => {
       const { getByPlaceholderText } = render(<Register />);
 

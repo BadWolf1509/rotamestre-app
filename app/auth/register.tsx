@@ -35,14 +35,13 @@ export default function Register() {
       email: '',
       password: '',
       confirmPassword: '',
-      tipo: 'motorista',
     },
     mode: 'onSubmit',
     reValidateMode: 'onChange',
   });
 
   async function onSubmit(data: RegisterInput) {
-    const { nome, email, password, tipo } = data;
+    const { nome, email, password } = data;
 
     // Verificar rate limit (proteção contra spam de registros)
     const rateLimitCheck = await signupRateLimiter.checkLimit(email);
@@ -57,7 +56,7 @@ export default function Register() {
     setLoading(true);
 
     try {
-      await authService.signUp(email, password, nome, tipo);
+      await authService.signUp(email, password, nome);
 
       // Registro bem-sucedido: resetar rate limit
       await signupRateLimiter.recordAttempt(email, true);
@@ -168,32 +167,6 @@ export default function Register() {
                 )}
               />
 
-              <View style={styles.tipoSection}>
-                <Text variant="label" style={styles.tipoLabel}>
-                  Tipo de Conta
-                </Text>
-                <Controller
-                  control={control}
-                  name="tipo"
-                  render={({ field: { onChange, value } }) => (
-                    <View style={styles.tipoContainer}>
-                      <Button
-                        title="Motorista"
-                        variant={value === 'motorista' ? 'primary' : 'outline'}
-                        onPress={() => onChange('motorista')}
-                        style={styles.tipoButton}
-                      />
-                      <Button
-                        title="Gestor"
-                        variant={value === 'gestor' ? 'primary' : 'outline'}
-                        onPress={() => onChange('gestor')}
-                        style={styles.tipoButton}
-                      />
-                    </View>
-                  )}
-                />
-              </View>
-
               <Button
                 title="Criar Conta"
                 onPress={handleSubmit(onSubmit)}
@@ -250,19 +223,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   form: {
     marginTop: theme.spacing.sm,
-  },
-  tipoSection: {
-    marginBottom: theme.spacing.md,
-  },
-  tipoLabel: {
-    marginBottom: theme.spacing.sm,
-  },
-  tipoContainer: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-  },
-  tipoButton: {
-    flex: 1,
   },
   backLink: {
     marginTop: 16,

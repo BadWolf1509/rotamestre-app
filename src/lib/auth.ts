@@ -88,32 +88,26 @@ export const authService = {
   },
 
   // Registro
-  async signUp(
-    email: string,
-    password: string,
-    nome: string,
-    papel: TipoUsuario,
-  ) {
+  /**
+   * Cria apenas a conta no Auth.
+   *
+   * O perfil (`usuarios`) e a unidade nascem depois, na RPC
+   * `criar_unidade_para_novo_gestor`, chamada pela tela de onboarding após o
+   * primeiro login. Inserir em `usuarios` aqui é o que quebrava o cadastro: a
+   * policy exige que o autor já seja gestor de alguma unidade, então o insert
+   * falhava DEPOIS da conta já existir — deixando conta órfã.
+   *
+   * `nome` viaja em `options.data` só para a tela de onboarding pré-preencher.
+   * É metadata controlada pelo client, então a RPC revalida.
+   */
+  async signUp(email: string, password: string, nome: string) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: { data: { nome } },
     });
 
     if (error) throw error;
-
-    // Criar registro na tabela usuarios
-    if (data.user) {
-      const { error: insertError } = await supabase.from('usuarios').insert([
-        {
-          id: data.user.id,
-          email,
-          nome,
-          papel, // Alterado de 'tipo' para 'papel' (match com DB)
-        },
-      ]);
-
-      if (insertError) throw insertError;
-    }
 
     return data;
   },
