@@ -19,24 +19,25 @@
 - **Formulários:** sempre schema Zod + `useForm({ resolver: zodResolver(schema) })` + `Controller`; erro inline via `FieldError` ou prop `error` do design-system.
 - **Toda rota em `app/` tem `ErrorBoundary`.**
 - **Responsivo:** sempre `useResponsive()` de `@/hooks/useResponsive`.
-- **Async UX:** operações assíncronas envolvidas em `useToast.withToast()`.
+- **Feedback assíncrono:** use `useAlert()` — `{ showSuccess, showError, AlertDialog }` — e renderize `{AlertDialog}` na árvore. **Não use `useToast().withToast`**: apesar de o CLAUDE.md citá-lo, ele não é usado por nenhuma tela do app (só pelo próprio teste) e sua assinatura é `withToast(fn, { loading, success, error? })`, **sem `onSuccess`**. O padrão real está em `app/onboarding/first-password.tsx:22,128,132,140`.
 - `src/types/database.ts` **não existe** — tipos de domínio são curados à mão em `src/types/`. Não rode `/regenerate-supabase-types`.
 - Mensagens ao usuário em **pt-BR**.
 
 ## File Structure
 
-| Arquivo                                                          | Responsabilidade                                                                             |
-| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `database/migrations/20260806HHMMSS_onboarding_self_service.sql` | **Criar** — `cnpj` deixa de ser `NOT NULL` + RPC `criar_unidade_para_novo_gestor` com grants |
-| `src/lib/schemas/onboarding.ts`                                  | **Criar** — `criarUnidadeSchema` + `CriarUnidadeInput`                                       |
-| `src/hooks/onboarding/useCriarUnidade.ts`                        | **Criar** — chama a RPC, traduz `PERFIL_JA_EXISTE` em sucesso                                |
-| `app/onboarding/criar-unidade.tsx`                               | **Criar** — formulário e navegação                                                           |
-| `app/index.tsx`                                                  | **Modificar** (linha ~84) — portão: sessão sem perfil → onboarding                           |
-| `src/lib/auth.ts`                                                | **Modificar** (`signUp`, ~linha 91) — remove insert em `usuarios`, envia `nome` em metadata  |
-| `src/lib/schemas/auth.ts`                                        | **Modificar** (`registerSchema`, linha 32) — remove `tipo`                                   |
-| `app/auth/register.tsx`                                          | **Modificar** — remove o seletor gestor/motorista                                            |
-| `src/types/unidade.ts`                                           | **Modificar** — campos de sede no tipo curado à mão                                          |
-| `docs/PROJECT_CONTEXT.md`, `database/MIGRATIONS.md`              | **Modificar** — registrar                                                                    |
+| Arquivo                                                          | Responsabilidade                                                                                |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `database/migrations/20260806HHMMSS_onboarding_self_service.sql` | **Criar** — `cnpj` deixa de ser `NOT NULL` + RPC `criar_unidade_para_novo_gestor` com grants    |
+| `src/lib/schemas/onboarding.ts`                                  | **Criar** — `criarUnidadeSchema` + `CriarUnidadeInput`                                          |
+| `src/hooks/onboarding/useCriarUnidade.ts`                        | **Criar** — chama a RPC, traduz `PERFIL_JA_EXISTE` em sucesso                                   |
+| `app/onboarding/criar-unidade.tsx`                               | **Criar** — formulário e navegação                                                              |
+| `app/onboarding/_layout.tsx`                                     | **Modificar** — registrar `<Stack.Screen name="criar-unidade">` (senão a tela nasce sem título) |
+| `app/index.tsx`                                                  | **Modificar** (linha ~84) — portão: sessão sem perfil → onboarding                              |
+| `src/lib/auth.ts`                                                | **Modificar** (`signUp`, ~linha 91) — remove insert em `usuarios`, envia `nome` em metadata     |
+| `src/lib/schemas/auth.ts`                                        | **Modificar** (`registerSchema`, linha 32) — remove `tipo`                                      |
+| `app/auth/register.tsx`                                          | **Modificar** — remove o seletor gestor/motorista                                               |
+| `src/types/unidade.ts`                                           | **Modificar** — campos de sede no tipo curado à mão                                             |
+| `docs/PROJECT_CONTEXT.md`, `database/MIGRATIONS.md`              | **Modificar** — registrar                                                                       |
 
 Ordem: Task 1 entrega a RPC; Task 2 a tela que a consome; Task 3 o portão que leva à tela; Task 4 limpa o caminho antigo; Task 5 documenta. **Tudo vai num único PR** — entre a Task 4 e a Task 3 o cadastro fica sem saída, então não faz sentido mergear pela metade.
 
@@ -232,7 +233,9 @@ git commit -m "feat(db): RPC de onboarding self-service + cnpj opcional"
 - Create: `src/lib/schemas/onboarding.ts`
 - Create: `src/hooks/onboarding/useCriarUnidade.ts`
 - Create: `app/onboarding/criar-unidade.tsx`
+- Modify: `app/onboarding/_layout.tsx`
 - Test: `src/hooks/onboarding/__tests__/useCriarUnidade.test.ts`
+- Test: `src/lib/schemas/__tests__/onboarding.test.ts`
 
 **Interfaces:**
 
@@ -494,9 +497,10 @@ import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ResponsiveContainer } from '@/components/ResponsiveContainer';
 import { Button, Card, Input, Text } from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
 import { useCriarUnidade } from '@/hooks/onboarding/useCriarUnidade';
 import { useResponsive } from '@/hooks/useResponsive';
-import { useToast } from '@/hooks/useToast';
+import { logger } from '@/lib/logger';
 import {
   criarUnidadeSchema,
   type CriarUnidadeInput,
@@ -507,7 +511,7 @@ function CriarUnidadeScreen() {
   const router = useRouter();
   const { isDesktop } = useResponsive();
   const { criarUnidade, loading } = useCriarUnidade();
-  const { withToast } = useToast();
+  const { showSuccess, showError, AlertDialog } = useAlert();
 
   const {
     control,
@@ -531,25 +535,34 @@ function CriarUnidadeScreen() {
   async function onSubmit(data: CriarUnidadeInput) {
     // O `.refine` do schema já barra este caso; a checagem existe para o
     // TypeScript estreitar o tipo, sem cast.
-    if (data.latitude === undefined || data.longitude === undefined) return;
+    const { latitude, longitude } = data;
+    if (latitude === undefined || longitude === undefined) return;
 
-    await withToast(
-      () =>
-        criarUnidade({
-          ...data,
-          latitude: data.latitude,
-          longitude: data.longitude,
-        }),
-      {
-        loading: 'Criando sua unidade…',
-        success: 'Tudo pronto! Bem-vindo ao Rota Mestre.',
-        onSuccess: () => router.replace('/gestor/inicio'),
-      },
-    );
+    try {
+      await criarUnidade({ ...data, latitude, longitude });
+      showSuccess(
+        'Tudo pronto!',
+        'Sua unidade foi criada. Bem-vindo ao Rota Mestre.',
+        () => router.replace('/gestor/inicio'),
+      );
+    } catch (error: unknown) {
+      logger.error('[criar-unidade] Falha no onboarding', error);
+      showError({
+        title: 'Não foi possível criar a unidade',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Tente novamente em alguns instantes.',
+      });
+    }
   }
 
   return (
     <ScrollView contentContainerStyle={{ padding: isDesktop ? 32 : 16 }}>
+      {/* useAlert só exibe se o dialog estiver na árvore (padrão de
+          app/onboarding/first-password.tsx:140). Sem esta linha, showSuccess e
+          showError viram no-op silencioso. */}
+      {AlertDialog}
       <ResponsiveContainer>
         <Card>
           <Text variant="h2">Falta pouco</Text>
@@ -664,6 +677,22 @@ export default function CriarUnidadeRoute() {
 }
 ```
 
+- [ ] **Step 6b: Registrar a tela no layout de onboarding**
+
+Em `app/onboarding/_layout.tsx`, acrescente um segundo `<Stack.Screen>` dentro do `<Stack>` já existente, logo depois do de `first-password`:
+
+```tsx
+<Stack.Screen
+  name="criar-unidade"
+  options={{
+    title: 'Criar sua unidade',
+    headerShown: true,
+  }}
+/>
+```
+
+Não altere o `screenOptions` do `<Stack>`: `headerBackVisible: false` e `gestureEnabled: false` já valem para todas as telas do grupo, e é o comportamento desejado aqui — sem unidade o app não tem para onde voltar.
+
 - [ ] **Step 7: Verificar tipos e lint**
 
 Run: `npm run type-check && npm run lint`
@@ -672,7 +701,7 @@ Expected: ambos exit 0. Se `Input` ou `Button` não aceitarem alguma prop usada 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/lib/schemas/onboarding.ts src/lib/schemas/__tests__/onboarding.test.ts src/hooks/onboarding app/onboarding/criar-unidade.tsx
+git add src/lib/schemas/onboarding.ts src/lib/schemas/__tests__/onboarding.test.ts src/hooks/onboarding app/onboarding/criar-unidade.tsx app/onboarding/_layout.tsx
 git commit -m "feat(onboarding): tela de criacao de unidade para novo gestor"
 ```
 
