@@ -6,7 +6,6 @@ const base = {
   cidade: 'João Pessoa',
   uf: 'PB',
   endereco: 'Av. Epitácio Pessoa, 100',
-  telefone: '',
 };
 
 describe('criarUnidadeSchema', () => {

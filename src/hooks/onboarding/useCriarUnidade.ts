@@ -25,7 +25,6 @@ export function useCriarUnidade() {
         p_sede_endereco: input.endereco,
         p_sede_latitude: input.latitude,
         p_sede_longitude: input.longitude,
-        p_telefone: input.telefone || null,
       });
 
       if (error) {

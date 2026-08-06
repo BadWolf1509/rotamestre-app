@@ -16,7 +16,6 @@ const input = {
   endereco: 'Av. Epitácio Pessoa, 100',
   latitude: -7.1195,
   longitude: -34.845,
-  telefone: '',
 };
 
 describe('useCriarUnidade', () => {
@@ -74,10 +73,13 @@ describe('useCriarUnidade', () => {
 
     const { result } = renderHook(() => useCriarUnidade());
 
+    // Asserção específica: precisa ser ESTE erro (mensagem do mock), não
+    // qualquer rejeição — senão o teste passaria mesmo se o hook lançasse
+    // outra coisa.
     await expect(
       act(async () => {
         await result.current.criarUnidade(input);
       }),
-    ).rejects.toBeTruthy();
+    ).rejects.toMatchObject({ message: 'COORDENADAS_OBRIGATORIAS' });
   });
 });

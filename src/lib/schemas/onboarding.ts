@@ -18,7 +18,6 @@ export const criarUnidadeSchema = z
     // Tipar como obrigatório aqui forçaria um cast na tela.
     latitude: z.number().optional(),
     longitude: z.number().optional(),
-    telefone: z.string().trim().optional(),
   })
   .refine((d) => d.latitude !== undefined && d.longitude !== undefined, {
     // Sem coordenadas a unidade nasce incapaz de gerar rota.

@@ -41,7 +41,6 @@ function CriarUnidadeScreen() {
       cidade: '',
       uf: '',
       endereco: '',
-      telefone: '',
     },
     mode: 'onSubmit',
     reValidateMode: 'onChange',
@@ -62,13 +61,12 @@ function CriarUnidadeScreen() {
       );
     } catch (error: unknown) {
       logger.error('[criar-unidade] Falha no onboarding', error);
-      showError({
-        title: 'Não foi possível criar a unidade',
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Tente novamente em alguns instantes.',
-      });
+      // Passar `error` como 1º argumento (em vez de {title, message}) aciona o
+      // mapeamento de src/lib/errorMapping.ts: sentinelas cruas do Postgres
+      // (ex.: COORDENADAS_INVALIDAS) viram uma mensagem genérica em pt-BR em
+      // vez de vazar pro usuário. `fallbackOptions.title` só sobrescreve o
+      // título; a mensagem mapeada é preservada.
+      showError(error, { title: 'Não foi possível criar a unidade' });
     }
   }
 
