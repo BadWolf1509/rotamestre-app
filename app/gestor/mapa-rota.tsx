@@ -598,7 +598,7 @@ export default function MapaRota() {
           </View>
           {rota.distancia_total && (
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Distancia Total:</Text>
+              <Text style={styles.infoLabel}>Distância Total:</Text>
               <Text style={styles.infoValue}>
                 {rota.distancia_total.toFixed(1)} km
               </Text>

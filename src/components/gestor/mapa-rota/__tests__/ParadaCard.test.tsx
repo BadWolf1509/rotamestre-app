@@ -171,13 +171,14 @@ describe('ParadaCard', () => {
       expect(getByText('Retirada')).toBeTruthy();
     });
 
-    it('deve exibir status "Concluida" para paradas concluídas', () => {
+    it('deve exibir status "Concluída" para paradas concluídas', () => {
       const paradaConcluida = { ...mockParada, status: 'concluida' };
       const { getByText } = render(
         <ParadaCard {...defaultProps} parada={paradaConcluida} />,
       );
 
-      expect(getByText('Concluida')).toBeTruthy();
+      // O rótulo é acentuado; o valor 'concluida' (sem acento) é o do banco.
+      expect(getByText('Concluída')).toBeTruthy();
     });
 
     it('deve exibir status "Em andamento" para paradas em andamento', () => {
