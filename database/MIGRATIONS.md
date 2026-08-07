@@ -703,4 +703,63 @@ deploy do app, não tem efeito colateral observável.
 
 ---
 
-**Última atualização:** 06/08/2026
+### ⏳ Migration 22: RPC `atualizar_unidade` (sem policy de UPDATE)
+
+**Data:** 07/08/2026
+
+**Arquivos:** `20260807151639_atualizar_unidade.sql` (`database/` + `supabase/`,
+cópia byte-idêntica)
+
+**Objetivo:** a tela "Minha unidade" chamava `.update()` direto em `unidades`,
+que a RLS deixa passar sem erro e sem efeito — a tabela só tem a policy
+`unidades_select` (somente leitura), então o `.update()` afetava 0 linhas, o
+código só checava `error` (sempre `null`) e a tela exibia "Dados atualizados
+com sucesso!" recarregando os valores antigos.
+
+- Cria `atualizar_unidade(uuid, text, text, text, text, text, text, text,
+numeric, numeric)` — `SECURITY DEFINER`, `search_path = ''`, 10 parâmetros
+  explícitos (nome, telefone, endereço, cidade, UF, CEP e os três campos de
+  sede, estes últimos com `DEFAULT NULL`).
+- Guarda de autorização roda antes de qualquer validação de campo: exige
+  gestor **ativo** da unidade via `usuario_unidades` (`papel = 'gestor' AND
+ativo = true`, sem exigir "principal" — hoje 0 dos 9 gestores têm
+  `is_gestor_principal = true`; exigir isso travaria todos). Falha com
+  `SEM_PERMISSAO` (`42501`).
+- Valida nome/cidade não vazios (`CAMPOS_OBRIGATORIOS`), UF de 2 caracteres
+  (`UF_INVALIDA`) e a faixa de coordenadas da sede (`COORDENADAS_INVALIDAS`);
+  trata tab/newline/CR como whitespace (`btrim` de 1 argumento só remove
+  espaço — corrigido para regex `!~ '\S'` / `btrim` de 2 argumentos com
+  `E' \t\n\r'`).
+- Sede só é sobrescrita quando endereço + latitude + longitude vierem juntos;
+  omitir os três preserva os valores atuais — apagar a sede por omissão
+  deixaria a unidade incapaz de gerar rota.
+- **Deliberadamente não cria policy de UPDATE em `unidades`.** A tabela tem 17
+  colunas fora das que a RPC edita, várias comerciais (`plano`, `status`,
+  `desconto_percentual`, `asaas_customer_id`, `observacoes_admin`) — como
+  `anon`/`authenticated` já têm grant de tabela cheio (default do Supabase) e
+  RLS não restringe coluna, qualquer policy de UPDATE abriria as 17 de uma
+  vez. A RPC é a única porta de escrita. Detalhe em "Armadilhas que já
+  custaram caro" em `docs/PROJECT_CONTEXT.md`.
+- Revoga `EXECUTE` de `PUBLIC`/`anon`; concede apenas a `authenticated`.
+- Revisada pelo agente `rls-policy-reviewer` (**APPROVE**); uma fix wave
+  posterior corrigiu o tratamento de whitespace acima e removeu um
+  `updated_at = now()` redundante (o trigger `update_unidades_updated_at` já
+  cobre incondicionalmente). Rollback comentado no próprio arquivo, com aviso
+  explícito contra "compensar" a remoção com uma policy.
+
+**Status:** ⏳ Escrita e revisada, **ainda NÃO aplicada** no banco — confirmado
+por consulta direta a `pg_proc` em 07/08/2026 (nenhuma linha para
+`atualizar_unidade`). `unidades` continua com uma única policy
+(`unidades_select`, somente leitura); nenhuma policy de UPDATE foi criada — é
+o desenho, não uma lacuna. A branch `fix/policy-update-unidades` ainda não foi
+mergeada e já inclui o código do app chamando esta RPC
+(`app/unidade/index.tsx`) — pela mesma regra de ordem de deploy da Migration
+21, aplicar **antes** do merge evita que "Minha unidade" chame uma função
+ausente; se a ordem inverter, o erro já cai no mapeamento genérico de "RPC
+ausente no schema cache" (`src/lib/errorMapping.ts`, `RPC_SCHEMA_NOT_READY`)
+em vez de um erro cru. Aplicar exige aval do gestor (banco único = produção,
+sem staging — ver "Armadilhas" em `docs/PROJECT_CONTEXT.md`).
+
+---
+
+**Última atualização:** 07/08/2026
