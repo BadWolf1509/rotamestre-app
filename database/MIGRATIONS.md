@@ -680,26 +680,9 @@ numeric, numeric, text) RETURNS uuid`, `SECURITY DEFINER` com
   `NOT NULL` de `cnpj` (só é seguro se nenhuma unidade tiver `cnpj` nulo — o
   próprio arquivo traz a query de checagem).
 
-**Status:** ⏳ Escrita e revisada, **ainda NÃO aplicada** no banco (nem via MCP
-`apply_migration` nem via `db push`) — e a branch `feat/onboarding-self-service`
-ainda não foi mergeada. Aplicar exige aval do gestor (banco único = produção,
-sem staging — ver "Armadilhas" em `docs/PROJECT_CONTEXT.md`). Depois de
-aplicar, a validação é manual: nenhum teste toca o banco real. Pendência
-registrada em `docs/PROJECT_CONTEXT.md`.
+**Status:** ✅ Aplicado em produção em 06/08/2026 via MCP `apply_migration`; branch `feat/onboarding-self-service` mergeada em main (commit 61cd738).
 
-**Ordem de deploy (obrigatória):** esta migration precisa ser aplicada **antes**
-de o código da branch chegar em produção — nunca depois. Na ordem inversa, todo
-cadastro novo (via `/onboarding/criar-unidade`, e também via `/auth/login` para
-quem já tem sessão sem perfil) recebe `PGRST202` (`criar_unidade_para_novo_gestor`
-ainda não existe no schema cache do PostgREST) e fica preso na tela — sem
-voltar (`headerBackVisible: false`, `gestureEnabled: false` no
-`app/onboarding/_layout.tsx`) até o botão "Sair" existir no `criar-unidade.tsx`.
-A ordem correta (migration primeiro) é segura nos dois sentidos: `cnpj` deixar
-de ser `NOT NULL` é inócuo para todo código antigo (só fica menos restritivo, não
-quebra nenhum insert existente), e a RPC só é alcançável por um usuário
-autenticado sem linha em `usuarios` — o código hoje em produção nunca chama
-`criar_unidade_para_novo_gestor`, então aplicar a migration isolada, antes do
-deploy do app, não tem efeito colateral observável.
+**Ordem de deploy (obrigatória):** esta migration foi aplicada **antes** do código da branch chegar em produção — a ordem correta foi mantida. Na ordem inversa, todo cadastro novo (via `/onboarding/criar-unidade`, e também via `/auth/login` para quem já tem sessão sem perfil) receberia `PGRST202` (`criar_unidade_para_novo_gestor` ainda não existe no schema cache do PostgREST) e ficaria preso na tela — sem voltar (`headerBackVisible: false`, `gestureEnabled: false` no `app/onboarding/_layout.tsx`) até o botão "Sair" existir no `criar-unidade.tsx`. A ordem correta (migration primeiro) é segura nos dois sentidos: `cnpj` deixar de ser `NOT NULL` é inócuo para todo código antigo (só fica menos restritivo, não quebra nenhum insert existente), e a RPC só é alcançável por um usuário autenticado sem linha em `usuarios` — o código aplicado em produção agora chama `criar_unidade_para_novo_gestor`, confirmando a execução posterior do código sem efeito colateral.
 
 ---
 
@@ -751,14 +734,10 @@ ativo = true`, sem exigir "principal" — hoje 0 dos 9 gestores têm
 por consulta direta a `pg_proc` em 07/08/2026 (nenhuma linha para
 `atualizar_unidade`). `unidades` continua com uma única policy
 (`unidades_select`, somente leitura); nenhuma policy de UPDATE foi criada — é
-o desenho, não uma lacuna. A branch `fix/policy-update-unidades` ainda não foi
-mergeada e já inclui o código do app chamando esta RPC
-(`app/unidade/index.tsx`) — pela mesma regra de ordem de deploy da Migration
-21, aplicar **antes** do merge evita que "Minha unidade" chame uma função
-ausente; se a ordem inverter, o erro já cai no mapeamento genérico de "RPC
-ausente no schema cache" (`src/lib/errorMapping.ts`, `RPC_SCHEMA_NOT_READY`)
-em vez de um erro cru. Aplicar exige aval do gestor (banco único = produção,
+o desenho, não uma lacuna. Aplicar exige aval do gestor (banco único = produção,
 sem staging — ver "Armadilhas" em `docs/PROJECT_CONTEXT.md`).
+
+**Ordem de deploy (obrigatória):** pela mesma regra de ordem de deploy da Migration 21, aplicar **antes** do merge evita que "Minha unidade" chame uma função ausente. A branch `fix/policy-update-unidades` já inclui o código do app chamando esta RPC (`app/unidade/index.tsx`); se a ordem inverter, o erro já cai no mapeamento genérico de "RPC ausente no schema cache" (`src/lib/errorMapping.ts`, `RPC_SCHEMA_NOT_READY`) em vez de um erro cru.
 
 ---
 
