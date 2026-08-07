@@ -77,7 +77,7 @@ function formatStatusLabel(status?: string) {
   const labels: Record<string, string> = {
     pendente: 'pendente',
     em_andamento: 'em andamento',
-    concluida: 'concluida',
+    concluida: 'concluída',
     cancelada: 'cancelada',
     nao_executada: 'não executada',
   };
@@ -207,7 +207,7 @@ export function RouteInfoHeader({
             <Text style={styles.infoChipLabel}>Paradas:</Text>
             <Text style={styles.infoChipValue}>
               {resumoParadas.total > 0
-                ? `${resumoParadas.concluidas}/${resumoParadas.total} concluidas`
+                ? `${resumoParadas.concluidas}/${resumoParadas.total} concluídas`
                 : 'Sem entregas'}
             </Text>
           </View>

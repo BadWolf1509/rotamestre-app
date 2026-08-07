@@ -205,7 +205,7 @@ describe('RouteInfoHeader', () => {
         <RouteInfoHeader rota={rota} resumoParadas={resumo} />,
       );
 
-      expect(getByText('5/10 concluidas')).toBeTruthy();
+      expect(getByText('5/10 concluídas')).toBeTruthy();
       expect(getByText('Paradas:')).toBeTruthy();
     });
 
@@ -354,8 +354,8 @@ describe('formatStatusLabel', () => {
     expect(formatStatusLabel('em_andamento')).toBe('em andamento');
   });
 
-  it('deve formatar status concluida', () => {
-    expect(formatStatusLabel('concluida')).toBe('concluida');
+  it('deve formatar status concluída', () => {
+    expect(formatStatusLabel('concluida')).toBe('concluída');
   });
 
   it('deve formatar status cancelada', () => {
