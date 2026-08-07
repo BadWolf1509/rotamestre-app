@@ -5,13 +5,13 @@
  * Used by the TSP solver to optimize route order by distance.
  */
 
-import { logger } from "@/lib/logger";
+import { logger } from '@/lib/logger';
 
-import { getCacheKey, getFromCache, setCache, waitForRateLimit } from "./cache";
+import { getCacheKey, getFromCache, setCache, waitForRateLimit } from './cache';
+import { OSRM_BASE_URL } from './config';
 
-import type { Coordinate, OSRMTableResponse } from "./types";
+import type { Coordinate, OSRMTableResponse } from './types';
 
-const OSRM_BASE_URL = "https://osrm.rotamestre.tec.br";
 const REQUEST_TIMEOUT = 10000; // 10s — self-hosted server is fast
 
 export interface DistanceMatrix {
@@ -24,7 +24,7 @@ export async function getDistanceMatrix(
 ): Promise<DistanceMatrix | null> {
   if (coordinates.length < 2) return null;
 
-  const cacheKey = getCacheKey("table", coordinates);
+  const cacheKey = getCacheKey('table', coordinates);
   const cached = getFromCache<DistanceMatrix>(cacheKey);
   if (cached) return cached;
 
@@ -33,7 +33,7 @@ export async function getDistanceMatrix(
 
     const coordsStr = coordinates
       .map((c) => `${c.longitude},${c.latitude}`)
-      .join(";");
+      .join(';');
 
     const url = `${OSRM_BASE_URL}/table/v1/driving/${coordsStr}?annotations=distance,duration`;
 
@@ -41,9 +41,9 @@ export async function getDistanceMatrix(
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
     const response = await fetch(url, {
-      method: "GET",
+      method: 'GET',
       headers: {
-        "User-Agent": "RotaMestre/1.0 (https://app.rotamestre.tec.br)",
+        'User-Agent': 'RotaMestre/1.0 (https://app.rotamestre.tec.br)',
       },
       signal: controller.signal,
     });
@@ -56,8 +56,8 @@ export async function getDistanceMatrix(
 
     const data: OSRMTableResponse = await response.json();
 
-    if (data.code !== "Ok" || !data.distances || !data.durations) {
-      logger.warn("[OSRM Table] No matrix returned");
+    if (data.code !== 'Ok' || !data.distances || !data.durations) {
+      logger.warn('[OSRM Table] No matrix returned');
       return null;
     }
 
@@ -69,7 +69,7 @@ export async function getDistanceMatrix(
     setCache(cacheKey, result);
     return result;
   } catch (error) {
-    logger.error("[OSRM Table] Error fetching distance matrix", error);
+    logger.error('[OSRM Table] Error fetching distance matrix', error);
     return null;
   }
 }

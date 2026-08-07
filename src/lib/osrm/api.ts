@@ -12,6 +12,7 @@ import { decode } from '@mapbox/polyline';
 import { logger } from '@/lib/logger';
 
 import { getCacheKey, getFromCache, setCache, waitForRateLimit } from './cache';
+import { OSRM_BASE_URL } from './config';
 import {
   calculateHaversineDistance,
   createFallbackRoute,
@@ -40,7 +41,6 @@ import type {
 // CONFIGURATION
 // ============================================================================
 
-const OSRM_BASE_URL = 'https://osrm.rotamestre.tec.br';
 const REQUEST_TIMEOUT = 10000; // 10 segundos
 
 // ============================================================================
