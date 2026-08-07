@@ -56,14 +56,17 @@ BEGIN
 
   -- `cidade` entra aqui porque é NOT NULL no schema: sem a guarda, cidade
   -- vazia estouraria com violação de constraint crua em vez de sentinela.
-  IF coalesce(btrim(p_nome), '') = ''
-     OR coalesce(btrim(p_cidade), '') = '' THEN
+  -- Teste via regex (`!~ '\S'`, "não contém caractere não-whitespace") em vez
+  -- de btrim de 1 argumento: btrim de 1 argumento só remove espaço — tab,
+  -- newline e CR passariam como "preenchido".
+  IF coalesce(p_nome, '') !~ '\S'
+     OR coalesce(p_cidade, '') !~ '\S' THEN
     RAISE EXCEPTION 'CAMPOS_OBRIGATORIOS' USING ERRCODE = '22023';
   END IF;
 
   IF p_uf IS NOT NULL
-     AND btrim(p_uf) <> ''
-     AND length(btrim(p_uf)) <> 2 THEN
+     AND btrim(p_uf, E' \t\n\r') <> ''
+     AND length(btrim(p_uf, E' \t\n\r')) <> 2 THEN
     RAISE EXCEPTION 'UF_INVALIDA' USING ERRCODE = '22023';
   END IF;
 
@@ -72,7 +75,7 @@ BEGIN
   -- chegada saem de sede_latitude/sede_longitude
   -- (src/hooks/nova-entrega/useEnderecoUnidade.ts).
   v_atualiza_sede := p_sede_endereco IS NOT NULL
-                     AND btrim(p_sede_endereco) <> ''
+                     AND btrim(p_sede_endereco, E' \t\n\r') <> ''
                      AND p_sede_latitude IS NOT NULL
                      AND p_sede_longitude IS NOT NULL;
 
@@ -82,20 +85,23 @@ BEGIN
     RAISE EXCEPTION 'COORDENADAS_INVALIDAS' USING ERRCODE = '22023';
   END IF;
 
+  -- btrim de 2 argumentos com conjunto explícito (espaço, tab, newline, CR):
+  -- mesma lógica das guardas acima, pra não gravar caractere de controle como
+  -- se fosse valor preenchido. `updated_at` não entra aqui: o trigger
+  -- `update_unidades_updated_at` (BEFORE UPDATE) já seta incondicionalmente.
   UPDATE public.unidades SET
-    nome           = btrim(p_nome),
-    cidade         = btrim(p_cidade),
-    telefone       = nullif(btrim(coalesce(p_telefone, '')), ''),
-    endereco       = nullif(btrim(coalesce(p_endereco, '')), ''),
-    uf             = nullif(btrim(coalesce(p_uf, '')), ''),
-    cep            = nullif(btrim(coalesce(p_cep, '')), ''),
+    nome           = btrim(p_nome, E' \t\n\r'),
+    cidade         = btrim(p_cidade, E' \t\n\r'),
+    telefone       = nullif(btrim(coalesce(p_telefone, ''), E' \t\n\r'), ''),
+    endereco       = nullif(btrim(coalesce(p_endereco, ''), E' \t\n\r'), ''),
+    uf             = nullif(btrim(coalesce(p_uf, ''), E' \t\n\r'), ''),
+    cep            = nullif(btrim(coalesce(p_cep, ''), E' \t\n\r'), ''),
     sede_endereco  = CASE WHEN v_atualiza_sede
-                          THEN btrim(p_sede_endereco) ELSE sede_endereco END,
+                          THEN btrim(p_sede_endereco, E' \t\n\r') ELSE sede_endereco END,
     sede_latitude  = CASE WHEN v_atualiza_sede
                           THEN p_sede_latitude ELSE sede_latitude END,
     sede_longitude = CASE WHEN v_atualiza_sede
-                          THEN p_sede_longitude ELSE sede_longitude END,
-    updated_at     = now()
+                          THEN p_sede_longitude ELSE sede_longitude END
   WHERE id = p_unidade_id;
 END;
 $$;
