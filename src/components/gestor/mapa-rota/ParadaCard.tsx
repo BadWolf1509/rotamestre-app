@@ -91,7 +91,7 @@ export const ParadaCard = React.memo<ParadaCardProps>(
                   ]}
                 >
                   <Text style={styles.statusTagText}>
-                    {parada.status === 'concluida' && 'Concluida'}
+                    {parada.status === 'concluida' && 'Concluída'}
                     {parada.status === 'pendente' && 'Pendente'}
                     {parada.status === 'em_andamento' && 'Em andamento'}
                     {parada.status === 'pulada' && 'Pulada'}
@@ -107,7 +107,7 @@ export const ParadaCard = React.memo<ParadaCardProps>(
             <View style={styles.paradaMetaGrid}>
               {parada.destinatario && (
                 <View style={styles.paradaMetaItem}>
-                  <Text style={styles.paradaMetaLabel}>Destinatario</Text>
+                  <Text style={styles.paradaMetaLabel}>Destinatário</Text>
                   <Text style={styles.paradaMetaValue}>
                     {parada.destinatario}
                   </Text>
@@ -144,7 +144,7 @@ export const ParadaCard = React.memo<ParadaCardProps>(
             </View>
             {parada.observacoes && (
               <View style={[styles.paradaMetaItem, styles.paradaMetaItemFull]}>
-                <Text style={styles.paradaMetaLabel}>Observacoes</Text>
+                <Text style={styles.paradaMetaLabel}>Observações</Text>
                 <Text style={styles.paradaMetaValue}>{parada.observacoes}</Text>
               </View>
             )}

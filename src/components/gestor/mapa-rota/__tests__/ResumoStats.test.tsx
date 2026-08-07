@@ -76,7 +76,9 @@ jest.mock('../styles', () => ({
 }));
 
 describe('ResumoStats', () => {
-  const createResumo = (overrides: Partial<ResumoParadas> = {}): ResumoParadas => ({
+  const createResumo = (
+    overrides: Partial<ResumoParadas> = {},
+  ): ResumoParadas => ({
     total: 12,
     concluidas: 7,
     pendentes: 4,
@@ -99,7 +101,7 @@ describe('ResumoStats', () => {
       const { getByText } = render(<ResumoStats resumoParadas={resumo} />);
 
       expect(getByText('8')).toBeTruthy();
-      expect(getByText('Concluidas')).toBeTruthy();
+      expect(getByText('Concluídas')).toBeTruthy();
     });
 
     it('deve renderizar paradas pendentes', () => {
@@ -129,7 +131,7 @@ describe('ResumoStats', () => {
       expect(getByText('7')).toBeTruthy();
       expect(getByText('5')).toBeTruthy();
       expect(getByText('Paradas Totais')).toBeTruthy();
-      expect(getByText('Concluidas')).toBeTruthy();
+      expect(getByText('Concluídas')).toBeTruthy();
       expect(getByText('Pendentes')).toBeTruthy();
     });
   });
@@ -138,18 +140,18 @@ describe('ResumoStats', () => {
     it('deve renderizar com variante desktop', () => {
       const resumo = createResumo();
       const { getByText } = render(
-        <ResumoStats resumoParadas={resumo} variant="desktop" />
+        <ResumoStats resumoParadas={resumo} variant="desktop" />,
       );
 
       expect(getByText('Paradas Totais')).toBeTruthy();
-      expect(getByText('Concluidas')).toBeTruthy();
+      expect(getByText('Concluídas')).toBeTruthy();
       expect(getByText('Pendentes')).toBeTruthy();
     });
 
     it('deve exibir ícones na variante desktop', () => {
       const resumo = createResumo();
       const { getByTestId } = render(
-        <ResumoStats resumoParadas={resumo} variant="desktop" />
+        <ResumoStats resumoParadas={resumo} variant="desktop" />,
       );
 
       expect(getByTestId('icon-flag-outline')).toBeTruthy();
@@ -164,7 +166,7 @@ describe('ResumoStats', () => {
         pendentes: 5,
       });
       const { getByText } = render(
-        <ResumoStats resumoParadas={resumo} variant="desktop" />
+        <ResumoStats resumoParadas={resumo} variant="desktop" />,
       );
 
       expect(getByText('20')).toBeTruthy();
@@ -210,7 +212,7 @@ describe('ResumoStats', () => {
       const { getByText } = render(<ResumoStats resumoParadas={resumo} />);
 
       expect(getByText('10')).toBeTruthy();
-      expect(getByText('Concluidas')).toBeTruthy();
+      expect(getByText('Concluídas')).toBeTruthy();
     });
   });
 });

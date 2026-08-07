@@ -6,7 +6,11 @@
 import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
 
-import { RouteInfoHeader, getStatusBadgeVariant, formatStatusLabel } from '../RouteInfoHeader';
+import {
+  RouteInfoHeader,
+  getStatusBadgeVariant,
+  formatStatusLabel,
+} from '../RouteInfoHeader';
 
 import type { Rota, ResumoParadas } from '../types';
 
@@ -43,7 +47,8 @@ const mockTheme = {
 jest.mock('@/utils/styles', () => ({
   useUnistyles: () => ({ theme: mockTheme }),
   StyleSheet: {
-    create: (fn: (t: typeof mockTheme) => Record<string, unknown>) => fn(mockTheme),
+    create: (fn: (t: typeof mockTheme) => Record<string, unknown>) =>
+      fn(mockTheme),
   },
   type: { Theme: {} },
 }));
@@ -87,7 +92,9 @@ describe('RouteInfoHeader', () => {
     ...overrides,
   });
 
-  const createResumo = (overrides: Partial<ResumoParadas> = {}): ResumoParadas => ({
+  const createResumo = (
+    overrides: Partial<ResumoParadas> = {},
+  ): ResumoParadas => ({
     total: 10,
     concluidas: 5,
     pendentes: 4,
@@ -101,7 +108,7 @@ describe('RouteInfoHeader', () => {
       const rota = createRota({ motorista: { nome: 'Carlos Souza' } });
       const resumo = createResumo();
       const { getByText } = render(
-        <RouteInfoHeader rota={rota} resumoParadas={resumo} />
+        <RouteInfoHeader rota={rota} resumoParadas={resumo} />,
       );
 
       expect(getByText('Carlos Souza')).toBeTruthy();
@@ -112,7 +119,7 @@ describe('RouteInfoHeader', () => {
       const rota = createRota({ motorista: undefined });
       const resumo = createResumo();
       const { getByText } = render(
-        <RouteInfoHeader rota={rota} resumoParadas={resumo} />
+        <RouteInfoHeader rota={rota} resumoParadas={resumo} />,
       );
 
       expect(getByText('Sem motorista')).toBeTruthy();
@@ -122,7 +129,7 @@ describe('RouteInfoHeader', () => {
       const rota = createRota({ status: 'em_andamento' });
       const resumo = createResumo();
       const { getByText } = render(
-        <RouteInfoHeader rota={rota} resumoParadas={resumo} />
+        <RouteInfoHeader rota={rota} resumoParadas={resumo} />,
       );
 
       expect(getByText('em andamento')).toBeTruthy();
@@ -133,28 +140,28 @@ describe('RouteInfoHeader', () => {
       const rota = createRota({ distancia_total: 32.7 });
       const resumo = createResumo();
       const { getByText } = render(
-        <RouteInfoHeader rota={rota} resumoParadas={resumo} />
+        <RouteInfoHeader rota={rota} resumoParadas={resumo} />,
       );
 
       expect(getByText('32.7 km')).toBeTruthy();
-      expect(getByText('Distancia Total:')).toBeTruthy();
+      expect(getByText('Distância Total:')).toBeTruthy();
     });
 
     it('não deve renderizar distância quando não disponível', () => {
       const rota = createRota({ distancia_total: undefined });
       const resumo = createResumo();
       const { queryByText } = render(
-        <RouteInfoHeader rota={rota} resumoParadas={resumo} />
+        <RouteInfoHeader rota={rota} resumoParadas={resumo} />,
       );
 
-      expect(queryByText('Distancia Total:')).toBeNull();
+      expect(queryByText('Distância Total:')).toBeNull();
     });
 
     it('deve renderizar tempo estimado', () => {
       const rota = createRota({ tempo_total: 90 });
       const resumo = createResumo();
       const { getByText } = render(
-        <RouteInfoHeader rota={rota} resumoParadas={resumo} />
+        <RouteInfoHeader rota={rota} resumoParadas={resumo} />,
       );
 
       expect(getByText('1h 30min')).toBeTruthy();
@@ -165,7 +172,7 @@ describe('RouteInfoHeader', () => {
       const rota = createRota({ tempo_total: 45 });
       const resumo = createResumo();
       const { getByText } = render(
-        <RouteInfoHeader rota={rota} resumoParadas={resumo} />
+        <RouteInfoHeader rota={rota} resumoParadas={resumo} />,
       );
 
       expect(getByText('45 min')).toBeTruthy();
@@ -175,7 +182,7 @@ describe('RouteInfoHeader', () => {
       const rota = createRota({ tempo_total: 120 });
       const resumo = createResumo();
       const { getByText } = render(
-        <RouteInfoHeader rota={rota} resumoParadas={resumo} />
+        <RouteInfoHeader rota={rota} resumoParadas={resumo} />,
       );
 
       expect(getByText('2h 0min')).toBeTruthy();
@@ -185,7 +192,7 @@ describe('RouteInfoHeader', () => {
       const rota = createRota({ tempo_total: undefined });
       const resumo = createResumo();
       const { queryByText } = render(
-        <RouteInfoHeader rota={rota} resumoParadas={resumo} />
+        <RouteInfoHeader rota={rota} resumoParadas={resumo} />,
       );
 
       expect(queryByText('Tempo Estimado:')).toBeNull();
@@ -195,10 +202,10 @@ describe('RouteInfoHeader', () => {
       const rota = createRota();
       const resumo = createResumo({ total: 10, concluidas: 5 });
       const { getByText } = render(
-        <RouteInfoHeader rota={rota} resumoParadas={resumo} />
+        <RouteInfoHeader rota={rota} resumoParadas={resumo} />,
       );
 
-      expect(getByText('5/10 concluidas')).toBeTruthy();
+      expect(getByText('5/10 concluídas')).toBeTruthy();
       expect(getByText('Paradas:')).toBeTruthy();
     });
 
@@ -206,7 +213,7 @@ describe('RouteInfoHeader', () => {
       const rota = createRota();
       const resumo = createResumo({ total: 0, concluidas: 0, pendentes: 0 });
       const { getByText } = render(
-        <RouteInfoHeader rota={rota} resumoParadas={resumo} />
+        <RouteInfoHeader rota={rota} resumoParadas={resumo} />,
       );
 
       expect(getByText('Sem entregas')).toBeTruthy();
@@ -219,7 +226,11 @@ describe('RouteInfoHeader', () => {
       const rota = createRota({ status: 'pendente' });
       const resumo = createResumo();
       const { getByText } = render(
-        <RouteInfoHeader rota={rota} resumoParadas={resumo} onCancelPress={onCancelPress} />
+        <RouteInfoHeader
+          rota={rota}
+          resumoParadas={resumo}
+          onCancelPress={onCancelPress}
+        />,
       );
 
       expect(getByText('Cancelar rota')).toBeTruthy();
@@ -230,7 +241,11 @@ describe('RouteInfoHeader', () => {
       const rota = createRota({ status: 'em_andamento' });
       const resumo = createResumo();
       const { getByText } = render(
-        <RouteInfoHeader rota={rota} resumoParadas={resumo} onCancelPress={onCancelPress} />
+        <RouteInfoHeader
+          rota={rota}
+          resumoParadas={resumo}
+          onCancelPress={onCancelPress}
+        />,
       );
 
       fireEvent.press(getByText('Cancelar rota'));
@@ -242,7 +257,11 @@ describe('RouteInfoHeader', () => {
       const rota = createRota({ status: 'cancelada' });
       const resumo = createResumo();
       const { queryByText } = render(
-        <RouteInfoHeader rota={rota} resumoParadas={resumo} onCancelPress={onCancelPress} />
+        <RouteInfoHeader
+          rota={rota}
+          resumoParadas={resumo}
+          onCancelPress={onCancelPress}
+        />,
       );
 
       expect(queryByText('Cancelar rota')).toBeNull();
@@ -253,7 +272,11 @@ describe('RouteInfoHeader', () => {
       const rota = createRota({ status: 'concluida' });
       const resumo = createResumo();
       const { queryByText } = render(
-        <RouteInfoHeader rota={rota} resumoParadas={resumo} onCancelPress={onCancelPress} />
+        <RouteInfoHeader
+          rota={rota}
+          resumoParadas={resumo}
+          onCancelPress={onCancelPress}
+        />,
       );
 
       expect(queryByText('Cancelar rota')).toBeNull();
@@ -263,7 +286,7 @@ describe('RouteInfoHeader', () => {
       const rota = createRota({ status: 'pendente' });
       const resumo = createResumo();
       const { queryByText } = render(
-        <RouteInfoHeader rota={rota} resumoParadas={resumo} />
+        <RouteInfoHeader rota={rota} resumoParadas={resumo} />,
       );
 
       expect(queryByText('Cancelar rota')).toBeNull();
@@ -331,8 +354,8 @@ describe('formatStatusLabel', () => {
     expect(formatStatusLabel('em_andamento')).toBe('em andamento');
   });
 
-  it('deve formatar status concluida', () => {
-    expect(formatStatusLabel('concluida')).toBe('concluida');
+  it('deve formatar status concluída', () => {
+    expect(formatStatusLabel('concluida')).toBe('concluída');
   });
 
   it('deve formatar status cancelada', () => {
@@ -348,7 +371,9 @@ describe('formatStatusLabel', () => {
   });
 
   it('deve formatar status desconhecido substituindo underscores', () => {
-    expect(formatStatusLabel('outro_status_qualquer')).toBe('outro status qualquer');
+    expect(formatStatusLabel('outro_status_qualquer')).toBe(
+      'outro status qualquer',
+    );
   });
 
   it('deve normalizar para minúsculas', () => {

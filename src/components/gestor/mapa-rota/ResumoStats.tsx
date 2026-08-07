@@ -18,49 +18,49 @@ interface ResumoStatsProps {
   variant?: 'mobile' | 'desktop';
 }
 
-export function ResumoStats({ resumoParadas, variant = 'mobile' }: ResumoStatsProps) {
+export function ResumoStats({
+  resumoParadas,
+  variant = 'mobile',
+}: ResumoStatsProps) {
   const { theme } = useUnistyles();
 
-  const resumoItems = useMemo(
-    () => {
-      const items = [
-        {
-          label: 'Paradas Totais',
-          value: resumoParadas.total,
-          color: theme.colors.gray900,
-          icon: 'flag-outline' as keyof typeof Ionicons.glyphMap,
-          bg: theme.colors.primaryBg,
-        },
-        {
-          label: 'Concluidas',
-          value: resumoParadas.concluidas,
-          color: theme.colors.success,
-          icon: 'checkmark-done-outline' as keyof typeof Ionicons.glyphMap,
-          bg: theme.colors.successBg,
-        },
-        {
-          label: 'Pendentes',
-          value: resumoParadas.pendentes,
-          color: theme.colors.warning,
-          icon: 'time-outline' as keyof typeof Ionicons.glyphMap,
-          bg: theme.colors.warningBg,
-        },
-      ];
+  const resumoItems = useMemo(() => {
+    const items = [
+      {
+        label: 'Paradas Totais',
+        value: resumoParadas.total,
+        color: theme.colors.gray900,
+        icon: 'flag-outline' as keyof typeof Ionicons.glyphMap,
+        bg: theme.colors.primaryBg,
+      },
+      {
+        label: 'Concluídas',
+        value: resumoParadas.concluidas,
+        color: theme.colors.success,
+        icon: 'checkmark-done-outline' as keyof typeof Ionicons.glyphMap,
+        bg: theme.colors.successBg,
+      },
+      {
+        label: 'Pendentes',
+        value: resumoParadas.pendentes,
+        color: theme.colors.warning,
+        icon: 'time-outline' as keyof typeof Ionicons.glyphMap,
+        bg: theme.colors.warningBg,
+      },
+    ];
 
-      if (resumoParadas.puladas > 0) {
-        items.push({
-          label: 'Puladas',
-          value: resumoParadas.puladas,
-          color: theme.colors.error,
-          icon: 'close-circle-outline' as keyof typeof Ionicons.glyphMap,
-          bg: theme.colors.errorBg,
-        });
-      }
+    if (resumoParadas.puladas > 0) {
+      items.push({
+        label: 'Puladas',
+        value: resumoParadas.puladas,
+        color: theme.colors.error,
+        icon: 'close-circle-outline' as keyof typeof Ionicons.glyphMap,
+        bg: theme.colors.errorBg,
+      });
+    }
 
-      return items;
-    },
-    [resumoParadas, theme]
-  );
+    return items;
+  }, [resumoParadas, theme]);
 
   if (variant === 'desktop') {
     return (
@@ -75,7 +75,9 @@ export function ResumoStats({ resumoParadas, variant = 'mobile' }: ResumoStatsPr
             >
               <Ionicons name={item.icon} size={16} color={item.color} />
             </View>
-            <Text style={[styles.resumoDesktopValue, { color: item.color }]}>{item.value}</Text>
+            <Text style={[styles.resumoDesktopValue, { color: item.color }]}>
+              {item.value}
+            </Text>
             <Text style={styles.resumoDesktopLabel}>{item.label}</Text>
           </View>
         ))}
@@ -90,8 +92,10 @@ export function ResumoStats({ resumoParadas, variant = 'mobile' }: ResumoStatsPr
           <Text
             style={[
               styles.resumoStatValue,
-              item.color === theme.colors.success && styles.resumoStatValueSuccess,
-              item.color === theme.colors.warning && styles.resumoStatValueWarning,
+              item.color === theme.colors.success &&
+                styles.resumoStatValueSuccess,
+              item.color === theme.colors.warning &&
+                styles.resumoStatValueWarning,
             ]}
           >
             {item.value}
