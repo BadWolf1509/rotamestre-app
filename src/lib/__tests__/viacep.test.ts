@@ -9,6 +9,7 @@ import {
   extractCEP,
   extractNumberFromCEPInput,
   formatCEP,
+  maskCEP,
   viacepService,
 } from '../viacep';
 
@@ -44,7 +45,9 @@ jest.mock('@/lib/cache', () => ({
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeViaCEPResponse(overrides: Partial<ViaCEPResponse> = {}): ViaCEPResponse {
+function makeViaCEPResponse(
+  overrides: Partial<ViaCEPResponse> = {},
+): ViaCEPResponse {
   return {
     cep: '58068-504',
     logradouro: 'Rua Exemplo',
@@ -224,6 +227,29 @@ describe('viacep', () => {
     });
   });
 
+  describe('maskCEP', () => {
+    it('insere o hífen progressivamente enquanto digita', () => {
+      // formatCEP devolveria estes intactos: só formata com os 8 dígitos.
+      expect(maskCEP('580')).toBe('580');
+      expect(maskCEP('58068')).toBe('58068');
+      expect(maskCEP('580685')).toBe('58068-5');
+      expect(maskCEP('58068504')).toBe('58068-504');
+    });
+
+    it('descarta o excedente em vez de deixar o campo crescer', () => {
+      expect(maskCEP('580685049999')).toBe('58068-504');
+    });
+
+    it('é idempotente sobre um CEP já formatado', () => {
+      expect(maskCEP('58068-504')).toBe('58068-504');
+    });
+
+    it('permite apagar sem travar no hífen', () => {
+      expect(maskCEP('58068-50')).toBe('58068-50');
+      expect(maskCEP('58068-')).toBe('58068');
+    });
+  });
+
   // ========================================================================
   // viacepService.searchByCEP
   // ========================================================================
@@ -242,7 +268,7 @@ describe('viacep', () => {
       expect(mockFetch).toHaveBeenCalledTimes(1);
       expect(mockFetch).toHaveBeenCalledWith(
         'https://viacep.com.br/ws/58068504/json/',
-        expect.objectContaining({ method: 'GET' })
+        expect.objectContaining({ method: 'GET' }),
       );
     });
 
@@ -255,7 +281,7 @@ describe('viacep', () => {
       expect(result).not.toBeNull();
       expect(mockFetch).toHaveBeenCalledWith(
         'https://viacep.com.br/ws/58068504/json/',
-        expect.any(Object)
+        expect.any(Object),
       );
     });
 
@@ -292,7 +318,7 @@ describe('viacep', () => {
       expect(mockSetCache).toHaveBeenCalledWith(
         'viacep_58068504',
         expect.objectContaining({ cep: '58068-504' }),
-        30 * 60 * 1000 // CACHE_TTL.GEOCODING
+        30 * 60 * 1000, // CACHE_TTL.GEOCODING
       );
     });
 
@@ -321,7 +347,10 @@ describe('viacep', () => {
     });
 
     it('returns null on AbortError (timeout)', async () => {
-      const abortError = new DOMException('The operation was aborted.', 'AbortError');
+      const abortError = new DOMException(
+        'The operation was aborted.',
+        'AbortError',
+      );
       mockFetch.mockRejectedValueOnce(abortError);
 
       const result = await viacepService.searchByCEP('58068504');
@@ -341,7 +370,11 @@ describe('viacep', () => {
       ];
       mockFetchOk(apiData);
 
-      const result = await viacepService.searchByAddress('PB', 'João Pessoa', 'Rua');
+      const result = await viacepService.searchByAddress(
+        'PB',
+        'João Pessoa',
+        'Rua',
+      );
 
       expect(result).toHaveLength(2);
       expect(result[0].cep).toBe('58068-504');
@@ -349,7 +382,11 @@ describe('viacep', () => {
     });
 
     it('returns empty array when logradouro is less than 3 chars', async () => {
-      const result = await viacepService.searchByAddress('PB', 'João Pessoa', 'Ru');
+      const result = await viacepService.searchByAddress(
+        'PB',
+        'João Pessoa',
+        'Ru',
+      );
 
       expect(result).toEqual([]);
       expect(mockFetch).not.toHaveBeenCalled();
@@ -360,13 +397,20 @@ describe('viacep', () => {
         {
           place_id: 'cep_58068504',
           description: 'Rua A, Centro, João Pessoa, PB',
-          structured_formatting: { main_text: 'Rua A', secondary_text: 'Centro, João Pessoa, PB' },
+          structured_formatting: {
+            main_text: 'Rua A',
+            secondary_text: 'Centro, João Pessoa, PB',
+          },
           cep: '58068-504',
         },
       ];
       mockGetCache.mockResolvedValueOnce(cachedResults);
 
-      const result = await viacepService.searchByAddress('PB', 'João Pessoa', 'Rua');
+      const result = await viacepService.searchByAddress(
+        'PB',
+        'João Pessoa',
+        'Rua',
+      );
 
       expect(result).toEqual(cachedResults);
       expect(mockFetch).not.toHaveBeenCalled();
@@ -375,7 +419,11 @@ describe('viacep', () => {
     it('returns empty array when API returns non-OK status', async () => {
       mockFetchNotOk(500);
 
-      const result = await viacepService.searchByAddress('PB', 'João Pessoa', 'Rua');
+      const result = await viacepService.searchByAddress(
+        'PB',
+        'João Pessoa',
+        'Rua',
+      );
 
       expect(result).toEqual([]);
     });
@@ -383,7 +431,11 @@ describe('viacep', () => {
     it('returns empty array when API returns empty array', async () => {
       mockFetchOk([]);
 
-      const result = await viacepService.searchByAddress('PB', 'João Pessoa', 'Rua Inexistente');
+      const result = await viacepService.searchByAddress(
+        'PB',
+        'João Pessoa',
+        'Rua Inexistente',
+      );
 
       expect(result).toEqual([]);
     });
@@ -391,18 +443,26 @@ describe('viacep', () => {
     it('returns empty array on network error', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network failure'));
 
-      const result = await viacepService.searchByAddress('PB', 'João Pessoa', 'Rua');
+      const result = await viacepService.searchByAddress(
+        'PB',
+        'João Pessoa',
+        'Rua',
+      );
 
       expect(result).toEqual([]);
     });
 
     it('limits results to 5 suggestions', async () => {
       const apiData = Array.from({ length: 10 }, (_, i) =>
-        makeViaCEPResponse({ cep: `58068-50${i}`, logradouro: `Rua ${i}` })
+        makeViaCEPResponse({ cep: `58068-50${i}`, logradouro: `Rua ${i}` }),
       );
       mockFetchOk(apiData);
 
-      const result = await viacepService.searchByAddress('PB', 'João Pessoa', 'Rua');
+      const result = await viacepService.searchByAddress(
+        'PB',
+        'João Pessoa',
+        'Rua',
+      );
 
       expect(result).toHaveLength(5);
     });

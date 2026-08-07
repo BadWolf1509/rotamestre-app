@@ -5,6 +5,7 @@ import {
   screen,
 } from '@testing-library/react-native';
 
+import { googlePlacesService } from '@/lib/googlePlaces';
 import { supabase } from '@/lib/supabase';
 
 import UnidadeScreen from '../index';
@@ -55,17 +56,65 @@ jest.mock('@/hooks/useResponsive', () => ({
 // src/components/AddressAutocomplete.tsx, que sobrevive ao fim do teste.
 jest.mock('@/components/AddressAutocomplete', () => {
   const ReactActual = require('react');
-  const { TextInput } = require('react-native');
+  const { TextInput, Text } = require('react-native');
   return {
-    AddressAutocomplete: ({ value, onChangeText, placeholder }: any) =>
-      ReactActual.createElement(TextInput, {
-        testID: 'mock-sede-input',
-        placeholder,
-        value,
-        onChangeText,
-      }),
+    AddressAutocomplete: ({
+      value,
+      onChangeText,
+      onSelectAddress,
+      placeholder,
+    }: any) =>
+      ReactActual.createElement(
+        ReactActual.Fragment,
+        null,
+        ReactActual.createElement(TextInput, {
+          testID: 'mock-sede-input',
+          placeholder,
+          value,
+          onChangeText,
+        }),
+        // Dispara o mesmo contrato do componente real ao escolher uma
+        // sugestão: (endereço, place_id, coordenadas) — ver
+        // src/components/AddressAutocomplete.tsx:290.
+        ReactActual.createElement(
+          Text,
+          {
+            testID: 'mock-selecionar-sugestao',
+            onPress: () =>
+              onSelectAddress?.(
+                'Av. Epitácio Pessoa, 100 - Tambaú, João Pessoa - PB',
+                'place-joao-pessoa',
+                { latitude: -7.1195, longitude: -34.8331 },
+              ),
+          },
+          'selecionar sugestão',
+        ),
+        // Sugestão vinda do ViaCEP: place_id sintético, não resolvível pelo
+        // Places (src/lib/viacep.ts:176).
+        ReactActual.createElement(
+          Text,
+          {
+            testID: 'mock-selecionar-sugestao-cep',
+            onPress: () =>
+              onSelectAddress?.(
+                'Rua Exemplo, Centro, João Pessoa, PB',
+                'cep_58068504',
+                { latitude: -7.1195, longitude: -34.8331 },
+              ),
+          },
+          'selecionar sugestão de CEP',
+        ),
+      ),
   };
 });
+
+// O auto-preenchimento busca os componentes estruturados do endereço. Sem o
+// mock, a tela tentaria alcançar a Edge Function real.
+jest.mock('@/lib/googlePlaces', () => ({
+  googlePlacesService: {
+    getPlaceDetails: jest.fn(),
+  },
+}));
 
 const mockSupabase = supabase as jest.Mocked<typeof supabase>;
 
@@ -213,5 +262,108 @@ describe('tela Minha Unidade', () => {
     expect(mockSupabase.rpc).not.toHaveBeenCalled();
     expect(screen.queryByText(/atualizados com sucesso/i)).toBeNull();
     expect(global.mockUseAlert.showWarning).toHaveBeenCalled();
+  });
+
+  it('avisa no próprio campo que a sede precisa ser confirmada, sem esperar o submit', async () => {
+    render(<UnidadeScreen />);
+    await entrarEmEdicao();
+    fireEvent.changeText(
+      screen.getByTestId('mock-sede-input'),
+      'Av. Epitácio Pessoa, 100',
+    );
+
+    // Antes, a exigência só aparecia como erro depois de tentar salvar.
+    expect(
+      await screen.findByText(/Escolha uma das opções sugeridas/i),
+    ).toBeTruthy();
+  });
+
+  it('preenche endereço, cidade, UF e CEP a partir da sede escolhida', async () => {
+    // O bug: dava para mudar a sede para João Pessoa e sair com o CEP da
+    // Av. Paulista no cadastro, sem nenhum aviso.
+    (googlePlacesService.getPlaceDetails as jest.Mock).mockResolvedValue({
+      logradouro: 'Avenida Epitácio Pessoa',
+      numero: '100',
+      bairro: 'Tambaú',
+      cidade: 'João Pessoa',
+      // A Edge Function extrai com `longText`, então vem por extenso.
+      estado: 'Paraíba',
+      cep: '58039000',
+      coordenadas: { latitude: -7.1195, longitude: -34.8331 },
+      formatted_address: 'Av. Epitácio Pessoa, 100 - João Pessoa - PB',
+    });
+
+    render(<UnidadeScreen />);
+    await entrarEmEdicao();
+    fireEvent.press(screen.getByTestId('mock-selecionar-sugestao'));
+
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText('Cidade').props.value).toBe(
+        'João Pessoa',
+      ),
+    );
+    expect(screen.getByPlaceholderText('00000-000').props.value).toBe(
+      '58039-000',
+    );
+    expect(
+      screen.getByPlaceholderText('Rua, número, complemento').props.value,
+    ).toBe('Avenida Epitácio Pessoa, 100');
+    // "Paraíba" no campo de UF (maxLength 2) seria truncado para "Pa".
+    expect(screen.getByPlaceholderText('UF').props.value).toBe('PB');
+  });
+
+  it('não quebra o preenchimento da sede quando o place details falha', async () => {
+    (googlePlacesService.getPlaceDetails as jest.Mock).mockRejectedValue(
+      new Error('rede indisponível'),
+    );
+
+    render(<UnidadeScreen />);
+    await entrarEmEdicao();
+    fireEvent.press(screen.getByTestId('mock-selecionar-sugestao'));
+
+    // A sede é o que importa: ela vem das coordenadas da própria seleção.
+    await waitFor(() =>
+      expect(screen.getByTestId('mock-sede-input').props.value).toContain(
+        'Epitácio Pessoa',
+      ),
+    );
+    expect(screen.getByPlaceholderText('Cidade').props.value).toBe('São Paulo');
+  });
+
+  it('não consulta o Places para sugestão vinda do ViaCEP', async () => {
+    render(<UnidadeScreen />);
+    await entrarEmEdicao();
+    fireEvent.press(screen.getByTestId('mock-selecionar-sugestao-cep'));
+
+    // O place_id `cep_...` é sintético: a chamada só voltaria vazia.
+    await waitFor(() =>
+      expect(screen.getByTestId('mock-sede-input').props.value).toContain(
+        'Rua Exemplo',
+      ),
+    );
+    expect(googlePlacesService.getPlaceDetails).not.toHaveBeenCalled();
+  });
+
+  it('mostra a sede também fora do modo edição', async () => {
+    render(<UnidadeScreen />);
+
+    // UNIDADE_MOCK.sede_endereco é null: sem sede cadastrada o campo tem que
+    // aparecer mesmo assim, dizendo que está vazio. Antes ele simplesmente
+    // não existia fora da edição.
+    expect(
+      await screen.findByPlaceholderText('Nenhuma sede cadastrada'),
+    ).toBeTruthy();
+  });
+
+  it('formata o CEP enquanto o gestor digita', async () => {
+    render(<UnidadeScreen />);
+    await entrarEmEdicao();
+    fireEvent.changeText(screen.getByPlaceholderText('00000-000'), '58039000');
+
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText('00000-000').props.value).toBe(
+        '58039-000',
+      ),
+    );
   });
 });
