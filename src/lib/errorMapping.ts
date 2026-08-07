@@ -129,6 +129,19 @@ const ERROR_PATTERNS: Array<{
       code: 'AUTH_NOT_AUTHENTICATED',
     },
   },
+  {
+    // Sentinela da RPC atualizar_unidade: levantada quando quem chama não é
+    // gestor ativo daquela unidade. Mensagem específica para deixar claro que
+    // é falta de permissão, não erro genérico.
+    pattern: /SEM_PERMISSAO/i,
+    result: {
+      title: 'Sem permissão',
+      message:
+        'Você não tem permissão para alterar os dados desta unidade. Apenas gestores podem fazer isso.',
+      type: 'error',
+      code: 'SEM_PERMISSAO',
+    },
+  },
 
   // Erros de RLS/Permissão
   {

@@ -204,6 +204,17 @@ describe('errorMapping', () => {
       });
     });
 
+    describe('SEM_PERMISSAO', () => {
+      it('orienta a falta de permissão em vez de mandar contatar o suporte', () => {
+        const resultado = getErrorMessage({ message: 'SEM_PERMISSAO' });
+
+        expect(resultado.title).not.toBe('Algo deu errado');
+        expect(resultado.message).toMatch(/permiss/i);
+        // O texto cru da sentinela nunca pode chegar ao usuário.
+        expect(resultado.message).not.toContain('SEM_PERMISSAO');
+      });
+    });
+
     describe('database constraint errors', () => {
       it('should handle foreign key violation', () => {
         const error = new Error('violates foreign key constraint');
