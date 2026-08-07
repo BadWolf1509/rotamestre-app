@@ -24,9 +24,12 @@ import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
+import { nomeEstadoParaUF } from '@/lib/estados';
+import { googlePlacesService } from '@/lib/googlePlaces';
 import { logger } from '@/lib/logger';
 import { cleanPhone, formatPhone } from '@/lib/phone';
 import { supabase } from '@/lib/supabase';
+import { maskCEP } from '@/lib/viacep';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface UnidadeData {
@@ -85,6 +88,15 @@ export default function UnidadeScreen() {
   const isDesktopView = isDesktop;
   const isLoading = userLoading || loading;
 
+  // Derivados da sede, compartilhados entre a guarda do salvamento e o texto
+  // de apoio do campo. Mantê-los numa fonte só impede que a mensagem exibida
+  // e a regra que bloqueia o save saiam de sincronia.
+  const sedeTemCoordenadas =
+    sedeLatitude !== undefined && sedeLongitude !== undefined;
+  const sedeFoiAlterada =
+    sedeEndereco.trim() !== (unidade?.sede_endereco ?? '').trim();
+  const sedePrecisaConfirmacao = sedeFoiAlterada && !sedeTemCoordenadas;
+
   const loadUnidade = useCallback(async () => {
     const unidadeId = userData?.unidade_id;
     if (!unidadeId) {
@@ -109,7 +121,7 @@ export default function UnidadeScreen() {
       setEndereco(data.endereco || '');
       setCidade(data.cidade || '');
       setEstado(data.uf || '');
-      setCep(data.cep || '');
+      setCep(maskCEP(data.cep || ''));
       setSedeEndereco(data.sede_endereco || '');
     } catch (error) {
       logger.error('Erro ao carregar unidade', error);
@@ -146,7 +158,7 @@ export default function UnidadeScreen() {
 
   async function handleSave() {
     if (!nome.trim()) {
-      showWarning('Erro', 'O nome da unidade é obrigatório');
+      showWarning('Campo obrigatório', 'Informe o nome da unidade.');
       return;
     }
 
@@ -156,14 +168,10 @@ export default function UnidadeScreen() {
     // src/components/AddressAutocomplete.tsx:301 e :310). Sem lat/long a RPC
     // calcula v_atualiza_sede = false e preserva a sede antiga em silêncio —
     // mas a tela mostraria sucesso do mesmo jeito. Bloqueia antes da RPC.
-    const sedeFoiAlterada =
-      sedeEndereco.trim() !== (unidade?.sede_endereco ?? '').trim();
-    const faltamCoordenadasDaSede =
-      sedeLatitude === undefined || sedeLongitude === undefined;
-    if (sedeFoiAlterada && faltamCoordenadasDaSede) {
+    if (sedePrecisaConfirmacao) {
       showWarning(
-        'Erro',
-        'Selecione o endereço da sede na lista de sugestões para salvar.',
+        'Confirme o endereço da sede',
+        'Escolha uma das opções sugeridas no campo de sede. Endereço digitado sem confirmar não é salvo.',
       );
       return;
     }
@@ -197,13 +205,80 @@ export default function UnidadeScreen() {
     }
   }
 
+  // Selecionar uma sugestão de sede também preenche os campos de cadastro.
+  // Sem isso dava para mudar a sede de cidade e deixar CEP e UF da cidade
+  // antiga para trás, sem nenhum aviso. O place details já foi buscado pelo
+  // AddressAutocomplete para resolver as coordenadas (src/lib/geocoding.ts:227),
+  // então esta chamada cai no cache de 30 minutos.
+  async function handleSelecionarSede(
+    address: string,
+    placeId?: string,
+    coords?: { latitude: number; longitude: number },
+  ) {
+    setSedeEndereco(address);
+    if (coords) {
+      setSedeLatitude(coords.latitude);
+      setSedeLongitude(coords.longitude);
+    }
+
+    // Sugestões do ViaCEP entram na mesma lista, mas com place_id sintético
+    // no formato `cep_58068504` (src/lib/viacep.ts:176) — o Places não sabe
+    // resolver isso. Sair aqui evita uma ida à Edge Function que só voltaria
+    // vazia.
+    if (!placeId || placeId.startsWith('cep_')) return;
+
+    try {
+      const detalhes = await googlePlacesService.getPlaceDetails(placeId);
+      if (!detalhes) return;
+
+      const logradouro = [detalhes.logradouro, detalhes.numero]
+        .filter(Boolean)
+        .join(', ');
+      // A Edge Function extrai os componentes com `longText`, então `estado`
+      // chega como "Paraíba" e precisa virar "PB" — o campo tem maxLength 2.
+      const uf = nomeEstadoParaUF(detalhes.estado);
+
+      const preenchidos: string[] = [];
+      if (logradouro) {
+        setEndereco(logradouro);
+        preenchidos.push('endereço');
+      }
+      if (detalhes.cidade) {
+        setCidade(detalhes.cidade);
+        preenchidos.push('cidade');
+      }
+      if (uf) {
+        setEstado(uf);
+        preenchidos.push('UF');
+      }
+      if (detalhes.cep) {
+        setCep(maskCEP(detalhes.cep));
+        preenchidos.push('CEP');
+      }
+
+      // Anuncia só o que de fato mudou: a resposta do Places nem sempre traz
+      // os quatro componentes.
+      if (preenchidos.length > 0) {
+        showToast(
+          `Preenchido a partir da sede: ${preenchidos.join(', ')}.`,
+          'info',
+          3000,
+        );
+      }
+    } catch (error) {
+      // Não-crítico: o preenchimento é conveniência. A sede em si já foi
+      // definida acima e os demais campos continuam editáveis à mão.
+      logger.warn('Não foi possível preencher os campos pela sede', error);
+    }
+  }
+
   function handleCancel() {
     setNome(unidade?.nome || '');
     setTelefone(formatPhone(unidade?.telefone || ''));
     setEndereco(unidade?.endereco || '');
     setCidade(unidade?.cidade || '');
     setEstado(unidade?.uf || '');
-    setCep(unidade?.cep || '');
+    setCep(maskCEP(unidade?.cep || ''));
     setSedeEndereco(unidade?.sede_endereco || '');
     setSedeLatitude(undefined);
     setSedeLongitude(undefined);
@@ -218,7 +293,15 @@ export default function UnidadeScreen() {
   const podeEditar = userData?.papel === 'gestor';
 
   // Componente Sidebar (Info Cards) - reutilizável
-  const SidebarInfo = () => (
+  // Funções de render, chamadas como `{renderX()}` e nunca como `<X />`.
+  // Declaradas aqui dentro, elas ganham identidade nova a cada renderização:
+  // usadas como componente, o React trata cada render como um TIPO diferente e
+  // remonta a subárvore inteira a cada tecla. Isso zerava o `hasUserInteracted`
+  // do AddressAutocomplete (src/components/AddressAutocomplete.tsx:135) e
+  // limpava o debounce, então a busca de sede nunca chegava a rodar — e o campo
+  // ainda perdia o foco a cada caractere. Chamadas como função, o JSX entra na
+  // árvore do próprio UnidadeScreen e nada remonta.
+  const renderSidebarInfo = () => (
     <View style={styles.sidebarContainer}>
       {/* Badge Gestor Principal */}
       {isGestorPrincipal && (
@@ -242,7 +325,7 @@ export default function UnidadeScreen() {
   );
 
   // Componente Formulário - reutilizável
-  const FormularioUnidade = () => (
+  const renderFormularioUnidade = () => (
     <View style={styles.formContainer}>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Informações da Unidade</Text>
@@ -262,6 +345,7 @@ export default function UnidadeScreen() {
             onChangeText={setNome}
             editable={editMode}
             placeholder="Nome da unidade"
+            maxLength={255}
           />
         </View>
 
@@ -317,6 +401,9 @@ export default function UnidadeScreen() {
             editable={editMode}
             placeholder="Rua, número, complemento"
           />
+          <Text style={styles.helperText}>
+            Endereço de cadastro da unidade. Não define de onde as rotas partem.
+          </Text>
         </View>
 
         {/* Cidade e Estado */}
@@ -339,6 +426,7 @@ export default function UnidadeScreen() {
               onChangeText={setCidade}
               editable={editMode}
               placeholder="Cidade"
+              maxLength={100}
             />
           </View>
 
@@ -378,7 +466,7 @@ export default function UnidadeScreen() {
               !editMode && styles.inputDisabled,
             ]}
             value={cep}
-            onChangeText={setCep}
+            onChangeText={(text) => setCep(maskCEP(text))}
             editable={editMode}
             placeholder="00000-000"
             keyboardType="numeric"
@@ -386,17 +474,15 @@ export default function UnidadeScreen() {
           />
         </View>
 
-        {/* Sede (partida/chegada das rotas) — só em modo edição: o
-              AddressAutocomplete não tem estado somente-leitura, então fora
-              do modo edição o campo simplesmente não aparece. */}
-        {editMode && (
-          <View
-            style={[
-              styles.inputGroup,
-              isDesktopView && styles.inputGroupDesktop,
-            ]}
-          >
-            <Text style={styles.inputLabel}>Endereço da Sede</Text>
+        {/* Sede: define de onde toda rota parte e para onde volta. Aparece
+              também fora do modo edição — antes o campo sumia, e o endereço
+              mais consequente da tela era justamente o único invisível para
+              quem só queria conferir os dados. */}
+        <View
+          style={[styles.inputGroup, isDesktopView && styles.inputGroupDesktop]}
+        >
+          <Text style={styles.inputLabel}>Endereço da Sede</Text>
+          {editMode ? (
             <AddressAutocomplete
               value={sedeEndereco}
               onChangeText={(text) => {
@@ -408,18 +494,41 @@ export default function UnidadeScreen() {
                 }
                 setSedeEndereco(text);
               }}
-              onSelectAddress={(address, _placeId, coords) => {
-                setSedeEndereco(address);
-                if (coords) {
-                  setSedeLatitude(coords.latitude);
-                  setSedeLongitude(coords.longitude);
-                }
-              }}
+              onSelectAddress={handleSelecionarSede}
               placeholder="Endereço da sede (partida e chegada das rotas)"
               multiline
             />
-          </View>
-        )}
+          ) : (
+            // O AddressAutocomplete não tem estado somente-leitura, então
+            // fora da edição a sede vira um campo comum desabilitado.
+            <TextInput
+              style={[
+                styles.input,
+                isDesktopView && styles.inputDesktop,
+                styles.inputDisabled,
+              ]}
+              value={sedeEndereco}
+              editable={false}
+              placeholder="Nenhuma sede cadastrada"
+              multiline
+            />
+          )}
+          {/* A exigência de confirmar a sugestão só se manifestava no submit,
+              como erro. Aqui ela aparece enquanto o gestor edita. */}
+          <Text
+            style={[
+              styles.helperText,
+              editMode && sedePrecisaConfirmacao && styles.helperTextWarning,
+              editMode && sedeTemCoordenadas && styles.helperTextSuccess,
+            ]}
+          >
+            {editMode && sedePrecisaConfirmacao
+              ? 'Escolha uma das opções sugeridas para confirmar. Só assim as rotas passam a partir daqui.'
+              : editMode && sedeTemCoordenadas
+                ? '✓ Endereço confirmado. As rotas partem e retornam deste ponto.'
+                : 'Ponto de partida e chegada de todas as rotas.'}
+          </Text>
+        </View>
 
         {/* Botões de Ação (apenas em modo edição) */}
         {editMode && !isDesktopView && (
@@ -490,12 +599,8 @@ export default function UnidadeScreen() {
           actions={desktopActions}
         >
           <View style={styles.twoColumnLayout}>
-            <View style={styles.mainColumn}>
-              <FormularioUnidade />
-            </View>
-            <View style={styles.sideColumn}>
-              <SidebarInfo />
-            </View>
+            <View style={styles.mainColumn}>{renderFormularioUnidade()}</View>
+            <View style={styles.sideColumn}>{renderSidebarInfo()}</View>
           </View>
         </DesktopPageLayout>
         <Toast {...toastState} onDismiss={hideToast} />
@@ -536,10 +641,10 @@ export default function UnidadeScreen() {
             </View>
           )}
           <MobileCard title="Equipe" variant="bordered">
-            <SidebarInfo />
+            {renderSidebarInfo()}
           </MobileCard>
           <MobileCard title="Informações da Unidade" variant="bordered">
-            <FormularioUnidade />
+            {renderFormularioUnidade()}
           </MobileCard>
         </View>
       </ScrollView>
@@ -705,6 +810,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.xs,
     color: theme.colors.gray500,
     marginTop: theme.spacing.xs,
+  },
+  helperTextWarning: {
+    color: theme.colors.warning,
+    fontFamily: theme.typography.fontSansSemiBold,
+  },
+  helperTextSuccess: {
+    color: theme.colors.success,
   },
   row: {
     flexDirection: 'row',

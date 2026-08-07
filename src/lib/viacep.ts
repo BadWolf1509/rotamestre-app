@@ -100,7 +100,9 @@ export function extractNumberFromCEPInput(text: string): string | null {
 
   // Procura por número no resto do texto
   // Aceita: ", 100", " 100", " nº 100", " n 100", " num 100", " número 100"
-  const match = withoutCEP.match(/(?:,\s*|^\s*|n[úu°]?(?:mero)?\s*)(\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?)/i);
+  const match = withoutCEP.match(
+    /(?:,\s*|^\s*|n[úu°]?(?:mero)?\s*)(\d+[a-zA-Z]?(?:-[a-zA-Z0-9]+)?)/i,
+  );
 
   return match ? match[1] : null;
 }
@@ -111,6 +113,20 @@ export function extractNumberFromCEPInput(text: string): string | null {
 export function formatCEP(cep: string): string {
   const cleaned = cep.replace(/\D/g, '');
   if (cleaned.length !== 8) return cep;
+  return `${cleaned.slice(0, 5)}-${cleaned.slice(5)}`;
+}
+
+/**
+ * Máscara de CEP para digitação em TextInput (XXXXX-XXX)
+ *
+ * Diferente de `formatCEP`, que só formata com os 8 dígitos completos e
+ * devolve a entrada intacta caso contrário: aqui o hífen entra
+ * progressivamente e o excedente é descartado, então o campo continua
+ * coerente enquanto o usuário digita ou apaga.
+ */
+export function maskCEP(value: string): string {
+  const cleaned = value.replace(/\D/g, '').slice(0, 8);
+  if (cleaned.length <= 5) return cleaned;
   return `${cleaned.slice(0, 5)}-${cleaned.slice(5)}`;
 }
 
@@ -172,7 +188,7 @@ function responseToSuggestion(data: ViaCEPResponse): ViaCEPPlaceSuggestion {
  */
 async function fetchWithTimeout(
   url: string,
-  timeout: number = REQUEST_TIMEOUT
+  timeout: number = REQUEST_TIMEOUT,
 ): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -225,7 +241,9 @@ export const viacepService = {
       const response = await fetchWithTimeout(url);
 
       if (!response.ok) {
-        logger.warn('[ViaCEP] API returned non-OK status', { status: response.status });
+        logger.warn('[ViaCEP] API returned non-OK status', {
+          status: response.status,
+        });
         return null;
       }
 
@@ -264,14 +282,16 @@ export const viacepService = {
   async searchByAddress(
     uf: string,
     cidade: string,
-    logradouro: string
+    logradouro: string,
   ): Promise<ViaCEPPlaceSuggestion[]> {
     if (logradouro.length < 3) {
       return [];
     }
 
     // Cache key
-    const cacheKey = `viacep_addr_${uf}_${cidade}_${logradouro}`.toLowerCase().replace(/\s+/g, '_');
+    const cacheKey = `viacep_addr_${uf}_${cidade}_${logradouro}`
+      .toLowerCase()
+      .replace(/\s+/g, '_');
 
     // Verificar cache
     const cached = await getCache<ViaCEPPlaceSuggestion[]>(cacheKey);
@@ -329,4 +349,9 @@ export const viacepService = {
    * Formata CEP para exibição
    */
   formatCEP,
+
+  /**
+   * Máscara de CEP para digitação
+   */
+  maskCEP,
 };
