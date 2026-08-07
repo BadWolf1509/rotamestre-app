@@ -118,7 +118,7 @@ async function main() {
       console.log('👤 GESTOR');
       console.log(`   Email antigo: ${OLD_GESTOR_EMAIL}`);
       console.log(`   Email novo: ${NEW_GESTOR_EMAIL}`);
-      console.log(`   Senha: gestor123 (não alterada)`);
+      console.log(`   Senha: não alterada`);
       console.log(`   ID: ${gestorId}\n`);
     }
 
@@ -126,7 +126,7 @@ async function main() {
       console.log('👤 MOTORISTA');
       console.log(`   Email antigo: ${OLD_MOTORISTA_EMAIL}`);
       console.log(`   Email novo: ${NEW_MOTORISTA_EMAIL}`);
-      console.log(`   Senha: motorista123 (não alterada)`);
+      console.log(`   Senha: não alterada`);
       console.log(`   ID: ${motoristaId}\n`);
     }
 

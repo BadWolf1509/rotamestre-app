@@ -22,7 +22,7 @@ ON CONFLICT (id) DO NOTHING;
 -- 2. CRIAR USUÁRIO GESTOR DE TESTE
 -- ====================================================================
 -- Email: gestor@rotamestre.tec.br
--- Senha: gestor123 (será definida no Supabase Auth)
+-- Senha: definida no Supabase Auth (nunca neste arquivo — repo público)
 -- ====================================================================
 
 -- Nota: O auth.users será criado via Supabase Dashboard ou API
@@ -45,7 +45,7 @@ ON CONFLICT (id) DO NOTHING;
 -- 3. CRIAR USUÁRIO MOTORISTA DE TESTE
 -- ====================================================================
 -- Email: motorista@rotamestre.tec.br
--- Senha: motorista123 (será definida no Supabase Auth)
+-- Senha: definida no Supabase Auth (nunca neste arquivo — repo público)
 -- ====================================================================
 
 INSERT INTO usuarios (id, nome, email, telefone, papel, unidade_id, ativo, created_at)
@@ -251,8 +251,10 @@ WHERE id = '40000000-0000-0000-0000-000000000002';
 --
 -- 1. Criar usuários no Supabase Auth:
 --    - Via Dashboard: Authentication > Users > Add User
---    - Email: gestor@rotamestre.tec.br | Senha: gestor123
---    - Email: motorista@rotamestre.tec.br | Senha: motorista123
+--    - Email: gestor@rotamestre.tec.br
+--    - Email: motorista@rotamestre.tec.br
+--    - Senha: gere uma senha forte e única no momento da criação. Não escreva
+--      senha neste arquivo: o repositório é público e o banco é o de produção.
 --
 -- 2. Atualizar os IDs dos usuários:
 --    - Após criar no Auth, copiar os UUIDs gerados
