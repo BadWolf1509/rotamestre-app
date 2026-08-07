@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
+  AddressAutocomplete,
   DesktopPageLayout,
   MobileCard,
   MobileLoading,
@@ -37,6 +38,7 @@ interface UnidadeData {
   cidade: string;
   uf: string;
   cep: string;
+  sede_endereco?: string | null;
 }
 
 const formatCnpj = (value?: string | null): string => {
@@ -45,7 +47,10 @@ const formatCnpj = (value?: string | null): string => {
   if (digits.length !== 14) {
     return value;
   }
-  return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  return digits.replace(
+    /(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,
+    '$1.$2.$3/$4-$5',
+  );
 };
 
 export default function UnidadeScreen() {
@@ -58,7 +63,7 @@ export default function UnidadeScreen() {
     userImageUrl: userData?.foto_url,
   });
   const { toast: toastState, showToast, hideToast } = useToast();
-  const { showWarning, AlertDialog } = useAlert();
+  const { showWarning, showError, AlertDialog } = useAlert();
   const { isDesktop } = useResponsive();
   const pageMeta = getGestorPageMeta('minhaUnidade');
   const [unidade, setUnidade] = useState<UnidadeData | null>(null);
@@ -74,6 +79,9 @@ export default function UnidadeScreen() {
   const [cidade, setCidade] = useState('');
   const [estado, setEstado] = useState('');
   const [cep, setCep] = useState('');
+  const [sedeEndereco, setSedeEndereco] = useState('');
+  const [sedeLatitude, setSedeLatitude] = useState<number | undefined>();
+  const [sedeLongitude, setSedeLongitude] = useState<number | undefined>();
   const isDesktopView = isDesktop;
   const isLoading = userLoading || loading;
 
@@ -102,6 +110,7 @@ export default function UnidadeScreen() {
       setCidade(data.cidade || '');
       setEstado(data.uf || '');
       setCep(data.cep || '');
+      setSedeEndereco(data.sede_endereco || '');
     } catch (error) {
       logger.error('Erro ao carregar unidade', error);
       showToast('Erro ao carregar dados da unidade', 'error', 4000);
@@ -141,20 +150,39 @@ export default function UnidadeScreen() {
       return;
     }
 
+    // Texto da sede mudou mas sem coordenadas: a sugestão nunca foi
+    // selecionada (usuário só digitou), ou o geocoding da sugestão falhou
+    // (AddressAutocomplete cai no fallback sem coords — ver
+    // src/components/AddressAutocomplete.tsx:301 e :310). Sem lat/long a RPC
+    // calcula v_atualiza_sede = false e preserva a sede antiga em silêncio —
+    // mas a tela mostraria sucesso do mesmo jeito. Bloqueia antes da RPC.
+    const sedeFoiAlterada =
+      sedeEndereco.trim() !== (unidade?.sede_endereco ?? '').trim();
+    const faltamCoordenadasDaSede =
+      sedeLatitude === undefined || sedeLongitude === undefined;
+    if (sedeFoiAlterada && faltamCoordenadasDaSede) {
+      showWarning(
+        'Erro',
+        'Selecione o endereço da sede na lista de sugestões para salvar.',
+      );
+      return;
+    }
+
     try {
       setSaving(true);
 
-      const { error } = await supabase
-        .from('unidades')
-        .update({
-          nome: nome.trim(),
-        telefone: cleanPhone(telefone),
-          endereco: endereco.trim(),
-          cidade: cidade.trim(),
-          uf: estado.trim(),
-          cep: cep.trim(),
-        })
-        .eq('id', unidade!.id);
+      const { error } = await supabase.rpc('atualizar_unidade', {
+        p_unidade_id: unidade!.id,
+        p_nome: nome.trim(),
+        p_telefone: cleanPhone(telefone),
+        p_endereco: endereco.trim(),
+        p_cidade: cidade.trim(),
+        p_uf: estado.trim(),
+        p_cep: cep.trim(),
+        p_sede_endereco: sedeEndereco.trim() || null,
+        p_sede_latitude: sedeLatitude ?? null,
+        p_sede_longitude: sedeLongitude ?? null,
+      });
 
       if (error) throw error;
 
@@ -163,7 +191,7 @@ export default function UnidadeScreen() {
       await loadUnidade();
     } catch (error) {
       logger.error('Erro ao atualizar unidade', error);
-      showToast('Erro ao atualizar dados', 'error', 4000);
+      showError(error, { title: 'Não foi possível salvar' });
     } finally {
       setSaving(false);
     }
@@ -176,10 +204,18 @@ export default function UnidadeScreen() {
     setCidade(unidade?.cidade || '');
     setEstado(unidade?.uf || '');
     setCep(unidade?.cep || '');
+    setSedeEndereco(unidade?.sede_endereco || '');
+    setSedeLatitude(undefined);
+    setSedeLongitude(undefined);
     setEditMode(false);
   }
 
   const isGestorPrincipal = userData?.is_gestor_principal === true;
+  // Editar os dados é diferente de ser o titular. `is_gestor_principal` é
+  // false para todos os gestores hoje, então gatear a edição por ele esconde
+  // o botão de todo mundo. O gate da UI é conveniência — quem decide de fato
+  // é a guarda da RPC.
+  const podeEditar = userData?.papel === 'gestor';
 
   // Componente Sidebar (Info Cards) - reutilizável
   const SidebarInfo = () => (
@@ -199,9 +235,7 @@ export default function UnidadeScreen() {
           style={styles.linkButton}
           onPress={() => router.push('/unidade/equipe')}
         >
-          <Text style={styles.linkButtonText}>
-            Ver equipe {'>'}
-          </Text>
+          <Text style={styles.linkButtonText}>Ver equipe {'>'}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -211,151 +245,237 @@ export default function UnidadeScreen() {
   const FormularioUnidade = () => (
     <View style={styles.formContainer}>
       <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Informações da Unidade</Text>
+        <Text style={styles.sectionTitle}>Informações da Unidade</Text>
 
-          {/* Nome */}
-          <View style={[styles.inputGroup, isDesktopView && styles.inputGroupDesktop]}>
-            <Text style={styles.inputLabel}>Nome da Unidade</Text>
-            <TextInput
-              style={[styles.input, isDesktopView && styles.inputDesktop, !editMode && styles.inputDisabled]}
-              value={nome}
-              onChangeText={setNome}
-              editable={editMode}
-              placeholder="Nome da unidade"
-            />
-          </View>
-
-          {/* CNPJ (sempre bloqueado) */}
-          <View style={[styles.inputGroup, isDesktopView && styles.inputGroupDesktop]}>
-            <Text style={styles.inputLabel}>CNPJ</Text>
+        {/* Nome */}
+        <View
+          style={[styles.inputGroup, isDesktopView && styles.inputGroupDesktop]}
+        >
+          <Text style={styles.inputLabel}>Nome da Unidade</Text>
           <TextInput
-            style={[styles.input, isDesktopView && styles.inputDesktop, styles.inputDisabled]}
+            style={[
+              styles.input,
+              isDesktopView && styles.inputDesktop,
+              !editMode && styles.inputDisabled,
+            ]}
+            value={nome}
+            onChangeText={setNome}
+            editable={editMode}
+            placeholder="Nome da unidade"
+          />
+        </View>
+
+        {/* CNPJ (sempre bloqueado) */}
+        <View
+          style={[styles.inputGroup, isDesktopView && styles.inputGroupDesktop]}
+        >
+          <Text style={styles.inputLabel}>CNPJ</Text>
+          <TextInput
+            style={[
+              styles.input,
+              isDesktopView && styles.inputDesktop,
+              styles.inputDisabled,
+            ]}
             value={formatCnpj(unidade?.cnpj)}
             editable={false}
             placeholder="Não informado"
           />
         </View>
 
-          {/* Telefone */}
-          <View style={[styles.inputGroup, isDesktopView && styles.inputGroupDesktop]}>
-            <Text style={styles.inputLabel}>Telefone</Text>
-            <TextInput
-              style={[styles.input, isDesktopView && styles.inputDesktop, !editMode && styles.inputDisabled]}
-              value={telefone}
-              onChangeText={(text) => setTelefone(formatPhone(text))}
-              editable={editMode}
-              placeholder="(00) 00000-0000"
-              keyboardType="phone-pad"
-            />
-          </View>
-
-          {/* Endereço */}
-          <View style={[styles.inputGroup, isDesktopView && styles.inputGroupDesktop]}>
-            <Text style={styles.inputLabel}>Endereço</Text>
-            <TextInput
-              style={[styles.input, isDesktopView && styles.inputDesktop, !editMode && styles.inputDisabled]}
-              value={endereco}
-              onChangeText={setEndereco}
-              editable={editMode}
-              placeholder="Rua, número, complemento"
-            />
-          </View>
-
-          {/* Cidade e Estado */}
-          <View style={styles.row}>
-            <View style={[styles.inputGroup, styles.flex2, isDesktopView && styles.inputGroupDesktop]}>
-              <Text style={styles.inputLabel}>Cidade</Text>
-              <TextInput
-                style={[styles.input, isDesktopView && styles.inputDesktop, !editMode && styles.inputDisabled]}
-                value={cidade}
-                onChangeText={setCidade}
-                editable={editMode}
-                placeholder="Cidade"
-              />
-            </View>
-
-            <View style={[styles.inputGroup, styles.flex1, isDesktopView && styles.inputGroupDesktop]}>
-              <Text style={styles.inputLabel}>UF</Text>
-              <TextInput
-                style={[styles.input, isDesktopView && styles.inputDesktop, !editMode && styles.inputDisabled]}
-                value={estado}
-                onChangeText={setEstado}
-                editable={editMode}
-                placeholder="UF"
-                maxLength={2}
-                autoCapitalize="characters"
-              />
-            </View>
-          </View>
-
-          {/* CEP */}
-          <View style={[styles.inputGroup, isDesktopView && styles.inputGroupDesktop]}>
-            <Text style={styles.inputLabel}>CEP</Text>
-            <TextInput
-              style={[styles.input, isDesktopView && styles.inputDesktop, !editMode && styles.inputDisabled]}
-              value={cep}
-              onChangeText={setCep}
-              editable={editMode}
-              placeholder="00000-000"
-              keyboardType="numeric"
-            />
-          </View>
-
-          {/* Botões de Ação (apenas em modo edição) */}
-          {editMode && !isDesktopView && (
-            <View style={styles.actionButtons}>
-              <TouchableOpacity
-                style={[styles.button, styles.buttonSecondary]}
-                onPress={handleCancel}
-                disabled={saving}
-              >
-                <Text style={[styles.buttonText, styles.buttonTextSecondary]}>
-                  Cancelar
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.button, styles.buttonPrimary]}
-                onPress={handleSave}
-                disabled={saving}
-              >
-                {saving ? (
-                  <ActivityIndicator color={theme.colors.white} />
-                ) : (
-                  <Text style={styles.buttonText}>Salvar</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
+        {/* Telefone */}
+        <View
+          style={[styles.inputGroup, isDesktopView && styles.inputGroupDesktop]}
+        >
+          <Text style={styles.inputLabel}>Telefone</Text>
+          <TextInput
+            style={[
+              styles.input,
+              isDesktopView && styles.inputDesktop,
+              !editMode && styles.inputDisabled,
+            ]}
+            value={telefone}
+            onChangeText={(text) => setTelefone(formatPhone(text))}
+            editable={editMode}
+            placeholder="(00) 00000-0000"
+            keyboardType="phone-pad"
+          />
         </View>
+
+        {/* Endereço */}
+        <View
+          style={[styles.inputGroup, isDesktopView && styles.inputGroupDesktop]}
+        >
+          <Text style={styles.inputLabel}>Endereço</Text>
+          <TextInput
+            style={[
+              styles.input,
+              isDesktopView && styles.inputDesktop,
+              !editMode && styles.inputDisabled,
+            ]}
+            value={endereco}
+            onChangeText={setEndereco}
+            editable={editMode}
+            placeholder="Rua, número, complemento"
+          />
+        </View>
+
+        {/* Cidade e Estado */}
+        <View style={styles.row}>
+          <View
+            style={[
+              styles.inputGroup,
+              styles.flex2,
+              isDesktopView && styles.inputGroupDesktop,
+            ]}
+          >
+            <Text style={styles.inputLabel}>Cidade</Text>
+            <TextInput
+              style={[
+                styles.input,
+                isDesktopView && styles.inputDesktop,
+                !editMode && styles.inputDisabled,
+              ]}
+              value={cidade}
+              onChangeText={setCidade}
+              editable={editMode}
+              placeholder="Cidade"
+            />
+          </View>
+
+          <View
+            style={[
+              styles.inputGroup,
+              styles.flex1,
+              isDesktopView && styles.inputGroupDesktop,
+            ]}
+          >
+            <Text style={styles.inputLabel}>UF</Text>
+            <TextInput
+              style={[
+                styles.input,
+                isDesktopView && styles.inputDesktop,
+                !editMode && styles.inputDisabled,
+              ]}
+              value={estado}
+              onChangeText={setEstado}
+              editable={editMode}
+              placeholder="UF"
+              maxLength={2}
+              autoCapitalize="characters"
+            />
+          </View>
+        </View>
+
+        {/* CEP */}
+        <View
+          style={[styles.inputGroup, isDesktopView && styles.inputGroupDesktop]}
+        >
+          <Text style={styles.inputLabel}>CEP</Text>
+          <TextInput
+            style={[
+              styles.input,
+              isDesktopView && styles.inputDesktop,
+              !editMode && styles.inputDisabled,
+            ]}
+            value={cep}
+            onChangeText={setCep}
+            editable={editMode}
+            placeholder="00000-000"
+            keyboardType="numeric"
+            maxLength={9}
+          />
+        </View>
+
+        {/* Sede (partida/chegada das rotas) — só em modo edição: o
+              AddressAutocomplete não tem estado somente-leitura, então fora
+              do modo edição o campo simplesmente não aparece. */}
+        {editMode && (
+          <View
+            style={[
+              styles.inputGroup,
+              isDesktopView && styles.inputGroupDesktop,
+            ]}
+          >
+            <Text style={styles.inputLabel}>Endereço da Sede</Text>
+            <AddressAutocomplete
+              value={sedeEndereco}
+              onChangeText={(text) => {
+                // Editar o texto invalida as coordenadas: elas só são
+                // confiáveis quando vêm de uma sugestão selecionada.
+                if (text !== sedeEndereco) {
+                  setSedeLatitude(undefined);
+                  setSedeLongitude(undefined);
+                }
+                setSedeEndereco(text);
+              }}
+              onSelectAddress={(address, _placeId, coords) => {
+                setSedeEndereco(address);
+                if (coords) {
+                  setSedeLatitude(coords.latitude);
+                  setSedeLongitude(coords.longitude);
+                }
+              }}
+              placeholder="Endereço da sede (partida e chegada das rotas)"
+              multiline
+            />
+          </View>
+        )}
+
+        {/* Botões de Ação (apenas em modo edição) */}
+        {editMode && !isDesktopView && (
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={[styles.button, styles.buttonSecondary]}
+              onPress={handleCancel}
+              disabled={saving}
+            >
+              <Text style={[styles.buttonText, styles.buttonTextSecondary]}>
+                Cancelar
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.button, styles.buttonPrimary]}
+              onPress={handleSave}
+              disabled={saving}
+            >
+              {saving ? (
+                <ActivityIndicator color={theme.colors.white} />
+              ) : (
+                <Text style={styles.buttonText}>Salvar</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
     </View>
   );
 
   if (isDesktopView) {
-    const desktopActions = isGestorPrincipal
-      ? (editMode
-          ? [
-              {
-                label: 'Cancelar',
-                icon: 'close-circle-outline',
-                onPress: handleCancel,
-                variant: 'secondary',
-                disabled: saving,
-              },
-              {
-                label: saving ? 'Salvando...' : 'Salvar alterações',
-                icon: 'save-outline',
-                onPress: handleSave,
-                disabled: saving,
-              },
-            ]
-          : [
-              {
-                label: 'Editar informações',
-                icon: 'create-outline',
-                onPress: () => setEditMode(true),
-              },
-            ])
+    const desktopActions = podeEditar
+      ? editMode
+        ? [
+            {
+              label: 'Cancelar',
+              icon: 'close-circle-outline',
+              onPress: handleCancel,
+              variant: 'secondary',
+              disabled: saving,
+            },
+            {
+              label: saving ? 'Salvando...' : 'Salvar alterações',
+              icon: 'save-outline',
+              onPress: handleSave,
+              disabled: saving,
+            },
+          ]
+        : [
+            {
+              label: 'Editar informações',
+              icon: 'create-outline',
+              onPress: () => setEditMode(true),
+            },
+          ]
       : undefined;
 
     return (
@@ -398,16 +518,20 @@ export default function UnidadeScreen() {
     <ErrorBoundary>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+        contentContainerStyle={{
+          paddingBottom: Math.max(20, insets.bottom + 20),
+        }}
       >
         <View style={styles.content}>
-          {isGestorPrincipal && !editMode && (
+          {podeEditar && !editMode && (
             <View style={styles.mobileEditButtonContainer}>
               <TouchableOpacity
                 style={styles.mobileEditButton}
                 onPress={() => setEditMode(true)}
               >
-                <Text style={styles.mobileEditButtonText}>✏️ Editar Informações</Text>
+                <Text style={styles.mobileEditButtonText}>
+                  ✏️ Editar Informações
+                </Text>
               </TouchableOpacity>
             </View>
           )}
@@ -620,6 +744,3 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray900,
   },
 }));
-
-
-
