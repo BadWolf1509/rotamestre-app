@@ -33,6 +33,7 @@ function CriarUnidadeScreen() {
     control,
     handleSubmit,
     setValue,
+    clearErrors,
     formState: { errors },
   } = useForm<CriarUnidadeInput>({
     resolver: zodResolver(criarUnidadeSchema),
@@ -173,10 +174,23 @@ function CriarUnidadeScreen() {
                   onChange(text);
                 }}
                 onSelectAddress={(address, _placeId, coords?: Coordenadas) => {
-                  onChange(address);
                   if (coords) {
                     setValue('latitude', coords.latitude);
                     setValue('longitude', coords.longitude);
+                  }
+                  onChange(address);
+                  // O erro do schema mora em `endereco` (refine com
+                  // path: ['endereco'] em src/lib/schemas/onboarding.ts) mas
+                  // quem o causa é a ausência de lat/long. `setValue` sem
+                  // opções não revalida, e nem a revalidação do `onChange` nem
+                  // um `trigger('endereco')` derrubam o erro aqui — ambos são
+                  // assíncronos e perdem a corrida. Sem esta limpeza explícita
+                  // o erro fica preso ao lado do "Validado" verde, mandando o
+                  // gestor refazer o que ele acabou de fazer. Se o endereço
+                  // ainda for inválido por outro motivo, o próximo submit o
+                  // reintroduz.
+                  if (coords) {
+                    clearErrors('endereco');
                   }
                 }}
                 error={errors.endereco?.message}

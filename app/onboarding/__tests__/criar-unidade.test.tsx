@@ -135,4 +135,41 @@ describe('tela de onboarding: criar unidade', () => {
     });
     expect(mockSupabase.rpc).not.toHaveBeenCalled();
   });
+
+  it('limpa o erro do endereço assim que a sugestão é selecionada', async () => {
+    const { getByLabelText, getByText, queryByText, getByTestId } = render(
+      <CriarUnidade />,
+    );
+
+    fireEvent.changeText(getByLabelText('Seu nome'), 'Maria Souza');
+    fireEvent.changeText(
+      getByLabelText('Nome da empresa'),
+      'Transportes Souza',
+    );
+    fireEvent.changeText(getByLabelText('Cidade'), 'João Pessoa');
+    fireEvent.changeText(
+      getByTestId('mock-endereco-input'),
+      'Av. Epitácio Pessoa, 100',
+    );
+
+    // Primeiro provoca o erro, que é o que arma a revalidação a cada mudança.
+    fireEvent.press(getByText('Criar unidade'));
+    await waitFor(() => {
+      expect(
+        getByText('Selecione o endereço na lista de sugestões'),
+      ).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('mock-endereco-selecionar'));
+
+    // Regressão: com `onChange(address)` antes dos `setValue` das coordenadas,
+    // a revalidação disparada pelo onChange rodava com lat/long ainda vazias e
+    // repunha o erro. Ele ficava preso na tela ao lado do "Validado" verde,
+    // mandando o gestor refazer algo que ele acabara de fazer.
+    await waitFor(() => {
+      expect(
+        queryByText('Selecione o endereço na lista de sugestões'),
+      ).toBeNull();
+    });
+  });
 });
