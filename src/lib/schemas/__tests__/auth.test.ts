@@ -74,19 +74,10 @@ describe('registerSchema', () => {
     email: 'joao@example.com',
     password: 'Abcdef1!',
     confirmPassword: 'Abcdef1!',
-    tipo: 'gestor' as const,
   };
 
   it('accepts valid registration data', () => {
     const result = registerSchema.safeParse(validData);
-    expect(result.success).toBe(true);
-  });
-
-  it('accepts tipo "motorista"', () => {
-    const result = registerSchema.safeParse({
-      ...validData,
-      tipo: 'motorista',
-    });
     expect(result.success).toBe(true);
   });
 
@@ -102,11 +93,6 @@ describe('registerSchema', () => {
       );
       expect(pathIssue?.message).toBe('As senhas não coincidem');
     }
-  });
-
-  it('rejects invalid tipo', () => {
-    const result = registerSchema.safeParse({ ...validData, tipo: 'admin' });
-    expect(result.success).toBe(false);
   });
 
   it('rejects weak password (no uppercase)', () => {

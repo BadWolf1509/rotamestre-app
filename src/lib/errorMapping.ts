@@ -116,6 +116,19 @@ const ERROR_PATTERNS: Array<{
       code: 'AUTH_RECENT_LOGIN_REQUIRED',
     },
   },
+  {
+    // Sentinela da RPC criar_unidade_para_novo_gestor (ver
+    // database/migrations/20260806175617_onboarding_self_service.sql): a
+    // sessão expirou no meio do formulário de onboarding. Conselho diferente
+    // do padrão acima — aqui não existe "link de recuperação", é refazer login.
+    pattern: /NAO_AUTENTICADO/i,
+    result: {
+      title: 'Sessão expirada',
+      message: 'Sua sessão expirou. Faça login novamente para continuar.',
+      type: 'warning',
+      code: 'AUTH_NOT_AUTHENTICATED',
+    },
+  },
 
   // Erros de RLS/Permissão
   {
@@ -183,6 +196,22 @@ const ERROR_PATTERNS: Array<{
       message: 'Verifique os dados informados e tente novamente.',
       type: 'error',
       code: 'CHECK_VIOLATION',
+    },
+  },
+
+  // Erros de RPC ausente no schema cache do PostgREST. Aparece quando o
+  // código chega em produção antes da migration que cria a função (ex.:
+  // criar_unidade_para_novo_gestor) — ver exigência de ordem de deploy em
+  // database/MIGRATIONS.md, Migration 21.
+  // Padrão restrito a funções (não colunas — PGRST204 requer tratamento diferente).
+  {
+    pattern: /could not find the.*function.*schema cache/i,
+    result: {
+      title: 'Serviço temporariamente indisponível',
+      message:
+        'Este recurso ainda está sendo configurado. Tente novamente em alguns instantes.',
+      type: 'warning',
+      code: 'RPC_SCHEMA_NOT_READY',
     },
   },
 

@@ -187,7 +187,7 @@ describe('AuthService - Unit Tests', () => {
   // GRUPO 2: signUp - Registro
   // ============================================
   describe('signUp', () => {
-    it('deve criar novo usuário com sucesso', async () => {
+    it('deve criar apenas a conta no Auth e retornar os dados', async () => {
       const mockUser = {
         id: 'new-user-123',
         email: 'novo@rotamestre.com',
@@ -198,37 +198,17 @@ describe('AuthService - Unit Tests', () => {
         error: null,
       });
 
-      const mockInsert = jest.fn().mockResolvedValue({
-        data: null,
-        error: null,
-      });
-
-      mockSupabase.from.mockReturnValue({
-        insert: mockInsert,
-      } as any);
-
       const result = await authService.signUp(
         'novo@rotamestre.com',
         'senha123',
         'Novo Usuário',
-        'motorista',
       );
 
       expect(mockSupabase.auth.signUp).toHaveBeenCalledWith({
         email: 'novo@rotamestre.com',
         password: 'senha123',
+        options: { data: { nome: 'Novo Usuário' } },
       });
-
-      expect(mockSupabase.from).toHaveBeenCalledWith('usuarios');
-      expect(mockInsert).toHaveBeenCalledWith([
-        {
-          id: 'new-user-123',
-          email: 'novo@rotamestre.com',
-          nome: 'Novo Usuário',
-          papel: 'motorista',
-        },
-      ]);
-
       expect(result.user).toEqual(mockUser);
     });
 
@@ -239,66 +219,45 @@ describe('AuthService - Unit Tests', () => {
       } as any);
 
       await expect(
-        authService.signUp(
-          'existente@rotamestre.com',
-          'senha123',
-          'Teste',
-          'gestor',
-        ),
+        authService.signUp('existente@rotamestre.com', 'senha123', 'Teste'),
       ).rejects.toThrow('Este email já está cadastrado');
     });
 
-    it('deve lançar erro quando inserção na tabela usuarios falha', async () => {
-      const mockUser = {
-        id: 'new-user-123',
-        email: 'novo@rotamestre.com',
-      };
-
-      mockSupabase.auth.signUp.mockResolvedValue({
-        data: { user: mockUser, session: null } as any,
+    it('NÃO insere em usuarios — o perfil nasce na RPC de onboarding', async () => {
+      const mockFrom = jest.fn();
+      mockSupabase.from = mockFrom;
+      mockSupabase.auth.signUp = jest.fn().mockResolvedValue({
+        data: { user: { id: 'novo-1' }, session: null },
         error: null,
       });
 
-      const mockInsert = jest.fn().mockResolvedValue({
-        data: null,
-        error: new Error('Erro ao criar registro do usuário'),
-      });
-
-      mockSupabase.from.mockReturnValue({
-        insert: mockInsert,
-      } as any);
-
-      await expect(
-        authService.signUp(
-          'novo@rotamestre.com',
-          'senha123',
-          'Novo Usuário',
-          'motorista',
-        ),
-      ).rejects.toThrow('Erro ao criar registro do usuário');
-    });
-
-    it('deve não tentar inserir na tabela usuarios quando data.user é null', async () => {
-      mockSupabase.auth.signUp.mockResolvedValue({
-        data: { user: null, session: null } as any,
-        error: null,
-      });
-
-      const mockInsert = jest.fn();
-      mockSupabase.from.mockReturnValue({
-        insert: mockInsert,
-      } as any);
-
-      const result = await authService.signUp(
-        'novo@rotamestre.com',
-        'senha123',
-        'Novo Usuário',
-        'gestor',
+      await authService.signUp(
+        'novo@teste.com',
+        'SenhaForte123',
+        'Novo Gestor',
       );
 
-      expect(mockSupabase.from).not.toHaveBeenCalled();
-      expect(mockInsert).not.toHaveBeenCalled();
-      expect(result.user).toBeNull();
+      // Regressão do bug que deixou 5 contas órfãs: o insert é bloqueado pelo
+      // RLS e acontece DEPOIS da conta no Auth já existir.
+      expect(mockFrom).not.toHaveBeenCalledWith('usuarios');
+    });
+
+    it('envia o nome em options.data para o onboarding pré-preencher', async () => {
+      mockSupabase.auth.signUp = jest.fn().mockResolvedValue({
+        data: { user: { id: 'novo-2' }, session: null },
+        error: null,
+      });
+
+      await authService.signUp('novo2@teste.com', 'SenhaForte123', 'Ana Lima');
+
+      expect(mockSupabase.auth.signUp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'novo2@teste.com',
+          options: expect.objectContaining({
+            data: expect.objectContaining({ nome: 'Ana Lima' }),
+          }),
+        }),
+      );
     });
   });
 

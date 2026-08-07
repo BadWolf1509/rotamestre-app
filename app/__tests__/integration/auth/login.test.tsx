@@ -344,12 +344,14 @@ describe('Login Screen - Integration Tests', () => {
       });
     });
 
-    it('deve exibir erro quando usuário não é encontrado', async () => {
+    it('deve redirecionar para o onboarding quando o perfil não é encontrado', async () => {
       (authService.signIn as jest.Mock).mockResolvedValue({
         usuario: null,
       });
 
-      const { getByPlaceholderText, getByText } = render(<Login />);
+      const { getByPlaceholderText, getByText, queryByText } = render(
+        <Login />,
+      );
 
       const emailInput = getByPlaceholderText('seu@email.com');
       const passwordInput = getByPlaceholderText('••••••••');
@@ -361,17 +363,18 @@ describe('Login Screen - Integration Tests', () => {
       fireEvent.press(loginButton);
 
       await waitFor(() => {
-        expect(getByText('Usuário não encontrado')).toBeTruthy();
-        expect(
-          getByText(
-            'Não encontramos sua conta. Verifique seus dados e tente novamente.',
-          ),
-        ).toBeTruthy();
+        expect(mockRouter.replace).toHaveBeenCalledWith(
+          '/onboarding/criar-unidade',
+        );
         expect(loginRateLimiter.recordAttempt).toHaveBeenCalledWith(
           'naoexiste@rotamestre.com',
           true,
         );
       });
+      // Regressão: sessão válida sem perfil não pode mais devolver a pessoa
+      // para a tela de login com um alerta — esse era o beco sem saída que
+      // esta branch (onboarding self-service) existe para eliminar.
+      expect(queryByText('Usuário não encontrado')).toBeNull();
     });
   });
 

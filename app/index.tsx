@@ -82,11 +82,16 @@ export default function Index() {
         const usuario = await authService.getUsuario(session.user.id);
 
         if (!usuario) {
+          // Sessão válida sem perfil = cadastro incompleto. Mandar para o login
+          // aqui foi o que travou 5 pessoas reais: o login funciona, então elas
+          // voltavam para a mesma tela sem mensagem e desistiam.
+          // O portão reage a ESTADO, então serve tanto para cadastro novo
+          // quanto para as contas órfãs antigas.
           logger.warn(
-            '⚠️ Usuário não encontrado no banco, redirecionando para login',
+            '[index] Sessão sem perfil → onboarding de criação de unidade',
           );
           hasRedirected.current = true;
-          router.replace('/auth/login');
+          router.replace('/onboarding/criar-unidade');
           return;
         }
 

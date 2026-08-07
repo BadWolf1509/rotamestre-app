@@ -35,7 +35,6 @@ export const registerSchema = z
     email: emailSchema,
     password: passwordSchema,
     confirmPassword: z.string(),
-    tipo: z.enum(['gestor', 'motorista']),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'As senhas não coincidem',
