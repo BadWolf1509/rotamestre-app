@@ -54,6 +54,10 @@ jest.mock('@/hooks/useResponsive', () => ({
 // app/onboarding/__tests__/criar-unidade.test.tsx). Sem isto, digitar no
 // campo de sede agenda o setTimeout real de 1000ms de
 // src/components/AddressAutocomplete.tsx, que sobrevive ao fim do teste.
+// Contador de montagens: o prefixo `mock` é o que permite referenciá-lo de
+// dentro da factory do jest.mock.
+const mockMontagensAutocomplete = { total: 0 };
+
 jest.mock('@/components/AddressAutocomplete', () => {
   const ReactActual = require('react');
   const { TextInput, Text } = require('react-native');
@@ -63,8 +67,12 @@ jest.mock('@/components/AddressAutocomplete', () => {
       onChangeText,
       onSelectAddress,
       placeholder,
-    }: any) =>
-      ReactActual.createElement(
+    }: any) => {
+      ReactActual.useEffect(() => {
+        mockMontagensAutocomplete.total += 1;
+      }, []);
+
+      return ReactActual.createElement(
         ReactActual.Fragment,
         null,
         ReactActual.createElement(TextInput, {
@@ -104,7 +112,8 @@ jest.mock('@/components/AddressAutocomplete', () => {
           },
           'selecionar sugestão de CEP',
         ),
-      ),
+      );
+    },
   };
 });
 
@@ -328,6 +337,24 @@ describe('tela Minha Unidade', () => {
       ),
     );
     expect(screen.getByPlaceholderText('Cidade').props.value).toBe('São Paulo');
+  });
+
+  it('não remonta o autocomplete a cada tecla digitada na sede', async () => {
+    render(<UnidadeScreen />);
+    await entrarEmEdicao();
+    const montagensAposEntrarEmEdicao = mockMontagensAutocomplete.total;
+
+    fireEvent.changeText(screen.getByTestId('mock-sede-input'), 'Av');
+    fireEvent.changeText(screen.getByTestId('mock-sede-input'), 'Av. E');
+    fireEvent.changeText(screen.getByTestId('mock-sede-input'), 'Av. Epi');
+
+    // Regressão da causa raiz: com o formulário declarado como componente
+    // dentro do render, cada tecla dava um TIPO novo ao React e remontava a
+    // subárvore. Isso zerava o `hasUserInteracted` do AddressAutocomplete
+    // (src/components/AddressAutocomplete.tsx:135) e limpava o debounce — a
+    // busca de sugestões nunca rodava e o campo perdia o foco a cada letra.
+    // Sem sugestão não há coordenadas, e sem coordenadas a sede não salva.
+    expect(mockMontagensAutocomplete.total).toBe(montagensAposEntrarEmEdicao);
   });
 
   it('não consulta o Places para sugestão vinda do ViaCEP', async () => {

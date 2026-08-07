@@ -293,7 +293,15 @@ export default function UnidadeScreen() {
   const podeEditar = userData?.papel === 'gestor';
 
   // Componente Sidebar (Info Cards) - reutilizável
-  const SidebarInfo = () => (
+  // Funções de render, chamadas como `{renderX()}` e nunca como `<X />`.
+  // Declaradas aqui dentro, elas ganham identidade nova a cada renderização:
+  // usadas como componente, o React trata cada render como um TIPO diferente e
+  // remonta a subárvore inteira a cada tecla. Isso zerava o `hasUserInteracted`
+  // do AddressAutocomplete (src/components/AddressAutocomplete.tsx:135) e
+  // limpava o debounce, então a busca de sede nunca chegava a rodar — e o campo
+  // ainda perdia o foco a cada caractere. Chamadas como função, o JSX entra na
+  // árvore do próprio UnidadeScreen e nada remonta.
+  const renderSidebarInfo = () => (
     <View style={styles.sidebarContainer}>
       {/* Badge Gestor Principal */}
       {isGestorPrincipal && (
@@ -317,7 +325,7 @@ export default function UnidadeScreen() {
   );
 
   // Componente Formulário - reutilizável
-  const FormularioUnidade = () => (
+  const renderFormularioUnidade = () => (
     <View style={styles.formContainer}>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Informações da Unidade</Text>
@@ -591,12 +599,8 @@ export default function UnidadeScreen() {
           actions={desktopActions}
         >
           <View style={styles.twoColumnLayout}>
-            <View style={styles.mainColumn}>
-              <FormularioUnidade />
-            </View>
-            <View style={styles.sideColumn}>
-              <SidebarInfo />
-            </View>
+            <View style={styles.mainColumn}>{renderFormularioUnidade()}</View>
+            <View style={styles.sideColumn}>{renderSidebarInfo()}</View>
           </View>
         </DesktopPageLayout>
         <Toast {...toastState} onDismiss={hideToast} />
@@ -637,10 +641,10 @@ export default function UnidadeScreen() {
             </View>
           )}
           <MobileCard title="Equipe" variant="bordered">
-            <SidebarInfo />
+            {renderSidebarInfo()}
           </MobileCard>
           <MobileCard title="Informações da Unidade" variant="bordered">
-            <FormularioUnidade />
+            {renderFormularioUnidade()}
           </MobileCard>
         </View>
       </ScrollView>
