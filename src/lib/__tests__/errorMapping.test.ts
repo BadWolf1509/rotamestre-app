@@ -213,6 +213,44 @@ describe('errorMapping', () => {
         // O texto cru da sentinela nunca pode chegar ao usuário.
         expect(resultado.message).not.toContain('SEM_PERMISSAO');
       });
+
+      it('usa code PERMISSION_DENIED para que isPermissionError() reconheça a sentinela', () => {
+        const resultado = getErrorMessage({ message: 'SEM_PERMISSAO' });
+
+        expect(resultado.code).toBe('PERMISSION_DENIED');
+        expect(isPermissionError({ message: 'SEM_PERMISSAO' })).toBe(true);
+      });
+    });
+
+    describe('CAMPOS_OBRIGATORIOS', () => {
+      it('orienta preencher nome e cidade em vez de mandar contatar o suporte', () => {
+        const resultado = getErrorMessage({ message: 'CAMPOS_OBRIGATORIOS' });
+
+        expect(resultado.title).not.toBe('Algo deu errado');
+        expect(resultado.message).toMatch(/nome/i);
+        expect(resultado.message).toMatch(/cidade/i);
+        expect(resultado.code).toBe('REQUIRED_FIELDS_MISSING');
+      });
+    });
+
+    describe('UF_INVALIDA', () => {
+      it('orienta corrigir a UF em vez de mandar contatar o suporte', () => {
+        const resultado = getErrorMessage({ message: 'UF_INVALIDA' });
+
+        expect(resultado.title).not.toBe('Algo deu errado');
+        expect(resultado.message).toMatch(/\buf\b/i);
+        expect(resultado.code).toBe('INVALID_STATE_CODE');
+      });
+    });
+
+    describe('COORDENADAS_INVALIDAS', () => {
+      it('orienta selecionar o endereço da sede na lista de sugestões', () => {
+        const resultado = getErrorMessage({ message: 'COORDENADAS_INVALIDAS' });
+
+        expect(resultado.title).not.toBe('Algo deu errado');
+        expect(resultado.message).toMatch(/sugest/i);
+        expect(resultado.code).toBe('INVALID_COORDINATES');
+      });
     });
 
     describe('database constraint errors', () => {

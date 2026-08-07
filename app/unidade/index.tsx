@@ -150,6 +150,24 @@ export default function UnidadeScreen() {
       return;
     }
 
+    // Texto da sede mudou mas sem coordenadas: a sugestão nunca foi
+    // selecionada (usuário só digitou), ou o geocoding da sugestão falhou
+    // (AddressAutocomplete cai no fallback sem coords — ver
+    // src/components/AddressAutocomplete.tsx:301 e :310). Sem lat/long a RPC
+    // calcula v_atualiza_sede = false e preserva a sede antiga em silêncio —
+    // mas a tela mostraria sucesso do mesmo jeito. Bloqueia antes da RPC.
+    const sedeFoiAlterada =
+      sedeEndereco.trim() !== (unidade?.sede_endereco ?? '').trim();
+    const faltamCoordenadasDaSede =
+      sedeLatitude === undefined || sedeLongitude === undefined;
+    if (sedeFoiAlterada && faltamCoordenadasDaSede) {
+      showWarning(
+        'Erro',
+        'Selecione o endereço da sede na lista de sugestões para salvar.',
+      );
+      return;
+    }
+
     try {
       setSaving(true);
 
@@ -364,6 +382,7 @@ export default function UnidadeScreen() {
             editable={editMode}
             placeholder="00000-000"
             keyboardType="numeric"
+            maxLength={9}
           />
         </View>
 

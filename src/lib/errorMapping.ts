@@ -133,13 +133,52 @@ const ERROR_PATTERNS: Array<{
     // Sentinela da RPC atualizar_unidade: levantada quando quem chama não é
     // gestor ativo daquela unidade. Mensagem específica para deixar claro que
     // é falta de permissão, não erro genérico.
+    // code usa a convenção semântica das demais entradas (não o nome cru da
+    // sentinela) para que isPermissionError() reconheça este erro.
     pattern: /SEM_PERMISSAO/i,
     result: {
       title: 'Sem permissão',
       message:
         'Você não tem permissão para alterar os dados desta unidade. Apenas gestores podem fazer isso.',
       type: 'error',
-      code: 'SEM_PERMISSAO',
+      code: 'PERMISSION_DENIED',
+    },
+  },
+  {
+    // Sentinela da RPC atualizar_unidade: nome ou cidade vazios (após trim).
+    // handleSave (app/unidade/index.tsx) só valida nome no cliente — cidade
+    // não tem guarda na UI, então apagá-la é o caminho real até aqui.
+    pattern: /CAMPOS_OBRIGATORIOS/i,
+    result: {
+      title: 'Campos obrigatórios',
+      message: 'Preencha o nome e a cidade da unidade para salvar.',
+      type: 'warning',
+      code: 'REQUIRED_FIELDS_MISSING',
+    },
+  },
+  {
+    // Sentinela da RPC atualizar_unidade: UF diferente de 2 letras. O input
+    // de UF aceita 1 caractere na tela hoje, então é alcançável digitando.
+    pattern: /UF_INVALIDA/i,
+    result: {
+      title: 'UF inválida',
+      message: 'Informe a UF com as 2 letras do estado (ex.: SP, RJ).',
+      type: 'warning',
+      code: 'INVALID_STATE_CODE',
+    },
+  },
+  {
+    // Sentinela da RPC atualizar_unidade: latitude/longitude da sede fora do
+    // intervalo válido (-90..90 / -180..180). Só alcançável com payload fora
+    // do fluxo normal — o AddressAutocomplete sempre entrega coordenadas
+    // reais quando uma sugestão é selecionada.
+    pattern: /COORDENADAS_INVALIDAS/i,
+    result: {
+      title: 'Endereço da sede inválido',
+      message:
+        'Selecione o endereço da sede na lista de sugestões e tente novamente.',
+      type: 'warning',
+      code: 'INVALID_COORDINATES',
     },
   },
 

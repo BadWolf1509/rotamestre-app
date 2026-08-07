@@ -48,6 +48,25 @@ jest.mock('@/hooks/useResponsive', () => ({
   }),
 }));
 
+// Stub de AddressAutocomplete: só o onChangeText de um TextInput comum, sem
+// o debounce/geocoding do componente real (mesmo padrão de
+// app/onboarding/__tests__/criar-unidade.test.tsx). Sem isto, digitar no
+// campo de sede agenda o setTimeout real de 1000ms de
+// src/components/AddressAutocomplete.tsx, que sobrevive ao fim do teste.
+jest.mock('@/components/AddressAutocomplete', () => {
+  const ReactActual = require('react');
+  const { TextInput } = require('react-native');
+  return {
+    AddressAutocomplete: ({ value, onChangeText, placeholder }: any) =>
+      ReactActual.createElement(TextInput, {
+        testID: 'mock-sede-input',
+        placeholder,
+        value,
+        onChangeText,
+      }),
+  };
+});
+
 const mockSupabase = supabase as jest.Mocked<typeof supabase>;
 
 // Unidade usada por `loadUnidade()` (supabase.from('unidades')...). nome
@@ -86,10 +105,10 @@ function usuariosQueryBuilder() {
 
 /**
  * Seletores reais da tela (confirmados em app/unidade/index.tsx):
- *   entrar em edição → texto '✏️ Editar Informações' (l. 455)
- *   salvar           → texto 'Salvar'                (l. 370)
- *   telefone         → placeholder '(00) 00000-0000' (l. 262)
- *   nome             → placeholder 'Nome da unidade' (l. 239)
+ *   entrar em edição → texto '✏️ Editar Informações'
+ *   salvar           → texto 'Salvar'
+ *   telefone         → placeholder '(00) 00000-0000'
+ *   nome             → placeholder 'Nome da unidade'
  */
 async function entrarEmEdicao() {
   fireEvent.press(await screen.findByText('✏️ Editar Informações'));
@@ -175,5 +194,24 @@ describe('tela Minha Unidade', () => {
     // Nulos fazem a RPC preservar a sede. Enviar string vazia a apagaria.
     expect(payload.p_sede_latitude).toBeNull();
     expect(payload.p_sede_longitude).toBeNull();
+  });
+
+  it('bloqueia o salvamento quando o texto da sede muda mas nenhuma sugestão é selecionada', async () => {
+    mockSupabase.rpc = jest.fn().mockResolvedValue({ data: null, error: null });
+
+    render(<UnidadeScreen />);
+    await entrarEmEdicao();
+    fireEvent.changeText(
+      screen.getByTestId('mock-sede-input'),
+      'Av. Epitácio Pessoa, 100',
+    );
+    await salvar();
+
+    // Sem coordenadas, a RPC ignoraria a sede em silêncio (v_atualiza_sede
+    // = false) e o resto do formulário salvaria normalmente — o toast de
+    // sucesso esconderia que a sede antiga continua valendo.
+    expect(mockSupabase.rpc).not.toHaveBeenCalled();
+    expect(screen.queryByText(/atualizados com sucesso/i)).toBeNull();
+    expect(global.mockUseAlert.showWarning).toHaveBeenCalled();
   });
 });

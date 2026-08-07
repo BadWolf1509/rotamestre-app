@@ -85,10 +85,14 @@ BEGIN
     RAISE EXCEPTION 'COORDENADAS_INVALIDAS' USING ERRCODE = '22023';
   END IF;
 
-  -- btrim de 2 argumentos com conjunto explícito (espaço, tab, newline, CR):
-  -- mesma lógica das guardas acima, pra não gravar caractere de controle como
-  -- se fosse valor preenchido. `updated_at` não entra aqui: o trigger
-  -- `update_unidades_updated_at` (BEFORE UPDATE) já seta incondicionalmente.
+  -- btrim de 2 argumentos com conjunto explícito (espaço, tab, newline, CR).
+  -- NÃO é a mesma lógica das guardas acima: `!~ '\S'` reconhece 6 caracteres
+  -- de whitespace (inclui form feed e vertical tab), este btrim cobre só 4.
+  -- Diferença real, mas sem efeito prático — nenhum client grava form
+  -- feed/vertical tab nestes campos — e corrigi-la exigiria nova rodada do
+  -- rls-policy-reviewer nesta migration, que ainda não foi aplicada.
+  -- `updated_at` não entra aqui: o trigger `update_unidades_updated_at`
+  -- (BEFORE UPDATE) já seta incondicionalmente.
   UPDATE public.unidades SET
     nome           = btrim(p_nome, E' \t\n\r'),
     cidade         = btrim(p_cidade, E' \t\n\r'),
