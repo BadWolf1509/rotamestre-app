@@ -37,7 +37,9 @@ import {
   validarRascunhoRota,
 } from './useNovaEntrega.helpers';
 
-const paradaSchema = z
+// Exportado para que o teste do FormularioParada monte um form real com a
+// mesma validação da tela, em vez de duplicar o schema e testar uma cópia.
+export const paradaSchema = z
   .object({
     endereco: z.string().trim().min(5, 'Informe um endereço válido.'),
     tipo: z.enum(['entrega', 'retirada']),

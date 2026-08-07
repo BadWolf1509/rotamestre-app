@@ -36,6 +36,8 @@ export interface FormularioParadaProps {
   control: Control<ParadaFormDataWithCoords>;
   errors: FieldErrors<ParadaFormDataWithCoords>;
   setValue: (name: 'latitude' | 'longitude', value: number | undefined) => void;
+  /** Estreito de propósito: só o erro de endereço é limpo por aqui. */
+  clearErrors: (name: 'endereco') => void;
   handleSubmit: UseFormHandleSubmit<ParadaFormDataWithCoords>;
   watch: UseFormWatch<ParadaFormDataWithCoords>;
   onAddParada: (data: ParadaFormData, vinculoId?: string) => void;
@@ -55,6 +57,7 @@ export const FormularioParada = memo(function FormularioParada({
   control,
   errors,
   setValue,
+  clearErrors,
   handleSubmit,
   watch,
   onAddParada,
@@ -293,10 +296,22 @@ export const FormularioParada = memo(function FormularioParada({
                 _placeId,
                 coordinates?: Coordenadas,
               ) => {
-                onChange(address);
+                // O erro do schema mora em `endereco` (superRefine com
+                // path: ['endereco'] em src/hooks/useNovaEntrega.ts), mas quem
+                // o causa é a ausência de lat/long. `setValue` sem opções não
+                // revalida, e a revalidação assíncrona do `onChange` perde a
+                // corrida — o erro ficava preso ao lado do badge verde
+                // "Validado", mandando o gestor refazer o que acabara de
+                // fazer. Limpar explicitamente é o único caminho determinístico
+                // aqui; se o endereço ainda for inválido por outro motivo, o
+                // próximo submit reintroduz o erro.
                 if (coordinates) {
                   setValue('latitude', coordinates.latitude);
                   setValue('longitude', coordinates.longitude);
+                }
+                onChange(address);
+                if (coordinates) {
+                  clearErrors('endereco');
                 }
               }}
               error={errors.endereco?.message}

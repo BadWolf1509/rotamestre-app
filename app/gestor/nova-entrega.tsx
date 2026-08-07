@@ -256,6 +256,7 @@ export default function NovaEntrega() {
     control: form.control,
     errors: form.formState.errors,
     setValue: setFormCoordinate,
+    clearErrors: form.clearErrors,
     handleSubmit: form.handleSubmit,
     watch: form.watch,
     onAddParada: handleAddParada,
