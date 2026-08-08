@@ -10,25 +10,27 @@
 | ------------------------------ | -------------------------------------- |
 | Package definitivo             | `br.tec.rotamestre.app`                |
 | Versão no código               | `1.12.2`                               |
-| `androidVersionCode` no código | `3024`                                 |
+| `androidVersionCode` no código | `3025`                                 |
 | EAS project                    | `c6401a59-af97-484a-93b7-c75016bf331d` |
 | Firebase                       | `rota-mestre-97084`                    |
 | Formato de produção            | Android App Bundle (`.aab`)            |
 | Play App Signing               | habilitado                             |
 
-Estado consultado pela Google Play Developer API em 24/07/2026:
+Estado consultado pela Google Play Developer API em 08/08/2026:
 
-- teste fechado (`alpha`): `1.12.2` / `3024`, concluído;
-- teste interno: `1.12.1` / `3021`, concluído;
+- teste fechado (`alpha`): `1.12.2` / `3025`, concluído;
+- teste interno: `1.12.2` / `3025`, concluído (promovido, ver abaixo);
 - `beta`: vazia;
-- produção: vazia;
-- AAB `1.12.2` / `3024`: build EAS
-  `630fe91d-a0b0-41f7-be7d-334876910375`, concluído;
-- submissão ao teste fechado
-  `b832dbc7-1b42-49fc-b7bc-838c2bb5fe46`, concluída;
-- tentativa de submissão à produção
-  `f3c7e7a5-db29-4131-bafe-972d7b565946`, recusada pelo Play com
-  `Precondition check failed`.
+- produção: **vazia — nunca teve release**;
+- AAB `1.12.2` / `3025`: build EAS
+  `d34a88d6-fcf2-48a6-a6d0-1a8bcc7225e9`, concluído;
+- instalação confirmada por `adb` no aparelho `ZF5257FKKM`:
+  `versionCode=3025`, instalador `com.android.vending`.
+
+A tentativa histórica de submissão à produção
+(`f3c7e7a5-db29-4131-bafe-972d7b565946`) foi recusada com
+`Precondition check failed` — a conta ainda precisa cumprir o requisito de
+teste fechado.
 
 A quantidade de participantes com opt-in contínuo, a situação do teste fechado
 e a elegibilidade para produção continuam sendo estados externos. Consulte o
@@ -154,6 +156,34 @@ Exemplo para produção, somente depois da aprovação do rollout:
 ```bash
 npx eas submit --platform android --profile production
 ```
+
+### Precedência de trilha — publique nas duas
+
+A Play entrega sempre a trilha de **maior prioridade** a que a conta tem
+direito: **interno > fechado > aberto > produção**. Publicar só no teste
+fechado deixa todo testador interno preso na versão antiga, e o sintoma engana:
+o link de teste fechado abre, o opt-in é aceito, e mesmo assim chega o build
+velho. Aconteceu em 08/08/2026 — o aparelho recebeu o `3021` da interna com o
+teste fechado já no `3025`.
+
+Regra prática: ao publicar em teste fechado, **promova também para a interna**.
+
+### `eas submit` não promove
+
+`eas submit` **sempre faz upload do bundle**, então falha com
+`You've already submitted this version of the app` quando aquele `versionCode`
+já subiu — é o caso de mover um build entre trilhas. Promoção é operação da
+Play Developer API:
+
+1. `POST /edits` → `editId`
+2. `PUT /edits/{editId}/tracks/{track}` com
+   `{ "releases": [{ "versionCodes": ["3025"], "status": "completed" }] }`
+3. `POST /edits/{editId}:commit`
+
+A autenticação pronta está em `scripts/publish-play-listing.mjs`: JWT RS256
+assinado com `node:crypto`, trocado por token no escopo `androidpublisher`,
+**sem dependências externas**. Reaproveite esse padrão — a API já está
+conectada, não precisa de conta nem biblioteca nova.
 
 O arquivo `play-store-credentials.json` é local, gitignored e referenciado pelo
 EAS Submit. Ele nunca deve aparecer em issue, log, documentação ou commit.

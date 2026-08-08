@@ -1,29 +1,36 @@
 # Contexto operacional — Rota Mestre App
 
-> Documento de entrada para novas sessões. Atualizado em 07/08/2026.
+> Documento de entrada para novas sessões. Atualizado em 08/08/2026.
 > Consulte o código ou o serviço responsável antes de alterar um estado externo.
 
 ## Pendências (comece por aqui)
 
 Lista única e canônica. Se resolver uma, risque daqui.
 
-| #   | Pendência                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Quem pode fazer                                | Onde está o detalhe                                    |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- | ------------------------------------------------------ |
-| 1   | **Rotacionar/desativar contas de teste com senha vazada** — `gestor@`, `motorista@`, `gestor.test@`, `motorista.test@` foram **excluídas em 05/08/2026**; se recriar qualquer conta de teste, use senha forte por variável de ambiente.                                                                                                                                                                                                                                  | gestor (Supabase → Auth → Users)               | "Credenciais hardcoded" abaixo                         |
-| 2   | **Furo de RLS:** motorista pode alterar `unidade_id` da própria rota. Pré-existente, exige motorista malicioso fora do app.                                                                                                                                                                                                                                                                                                                                              | requer design (o fix óbvio quebra o motorista) | Security Advisory privado `GHSA-vw63-jxg2-28vx`        |
-| 3   | **Fase 2 da auditoria:** chip na tela da rota + indicador/filtro/contador na Gestão de Rotas. Plano próprio ainda não escrito — melhor depois de algumas semanas de dado acumulado.                                                                                                                                                                                                                                                                                      | qualquer sessão                                | spec `2026-08-04-auditoria-otimizacao-rotas-design.md` |
-| 4   | **Play Store:** faixa de produção vazia (`Precondition check failed`). Ampliar opt-in do teste fechado, divulgando o hub público `/testar`.                                                                                                                                                                                                                                                                                                                              | gestor (Play Console)                          | `GOOGLE_PLAY_DEPLOYMENT.md`                            |
-| 5   | **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).                                                                                                                                                                                                                                                                                                                                      | gestor (Apple ID + 2FA)                        | `APP_STORE_DEPLOYMENT.md`                              |
-| 6   | **Primeiro build EAS sob Node 22** ainda não aconteceu — observe o próximo.                                                                                                                                                                                                                                                                                                                                                                                              | qualquer sessão                                | "Node 22" abaixo                                       |
-| 7   | **Validar o onboarding self-service ponta a ponta.** A migration foi aplicada em 06/08/2026 e o código mergeado. Falta o teste manual: cadastro com e-mail descartável → confirmar → login → tela de onboarding → criar unidade → **criar um motorista** (prova `usuarios.unidade_id`) → **criar uma rota** (prova as coordenadas da sede). Nenhum teste automatizado cobre isso — nenhum toca o banco real.                                                             | gestor (cria dado real)                        | `database/MIGRATIONS.md` (Migration 21)                |
-| 8   | **Aplicar a Migration 22 (`atualizar_unidade`) ANTES de mergear o código.** A `main` faz auto-deploy; a ordem inversa faz a tela cair em `PGRST202`. Depois, validar: editar dados pela tela e conferir no banco que a linha mudou, e confirmar que um `.update()` direto em `unidades` **continua falhando**. Dado relevante: **4 das 9 unidades têm `sede_endereco` preenchido com coordenadas NULL** — não conseguem gerar rota, e esta tela é o caminho de conserto. | gestor (aplica migration)                      | `database/MIGRATIONS.md` (Migration 22)                |
+| #   | Pendência                                                                                                                                                                                                                                                                                                                                                                                                    | Quem pode fazer                                | Onde está o detalhe                                    |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- | ------------------------------------------------------ |
+| 1   | **Rotacionar/desativar contas de teste com senha vazada** — `gestor@`, `motorista@`, `gestor.test@`, `motorista.test@` foram **excluídas em 05/08/2026**; se recriar qualquer conta de teste, use senha forte por variável de ambiente.                                                                                                                                                                      | gestor (Supabase → Auth → Users)               | "Credenciais hardcoded" abaixo                         |
+| 2   | **Furo de RLS:** motorista pode alterar `unidade_id` da própria rota. Pré-existente, exige motorista malicioso fora do app.                                                                                                                                                                                                                                                                                  | requer design (o fix óbvio quebra o motorista) | Security Advisory privado `GHSA-vw63-jxg2-28vx`        |
+| 3   | **Fase 2 da auditoria:** chip na tela da rota + indicador/filtro/contador na Gestão de Rotas. Plano próprio ainda não escrito — melhor depois de algumas semanas de dado acumulado.                                                                                                                                                                                                                          | qualquer sessão                                | spec `2026-08-04-auditoria-otimizacao-rotas-design.md` |
+| 4   | **Play Store: produção continua vazia.** O `3025` está publicado em **teste fechado (`alpha`) e teste interno**, ambos `completed`. Falta cumprir o requisito de testadores para solicitar acesso à produção. Ampliar opt-in divulgando o hub público `/testar`.                                                                                                                                             | gestor (Play Console)                          | `GOOGLE_PLAY_DEPLOYMENT.md`                            |
+| 5   | **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).                                                                                                                                                                                                                                                                          | gestor (Apple ID + 2FA)                        | `APP_STORE_DEPLOYMENT.md`                              |
+| 6   | **Validar o onboarding self-service ponta a ponta.** A migration foi aplicada em 06/08/2026 e o código mergeado. Falta o teste manual: cadastro com e-mail descartável → confirmar → login → tela de onboarding → criar unidade → **criar um motorista** (prova `usuarios.unidade_id`) → **criar uma rota** (prova as coordenadas da sede). Nenhum teste automatizado cobre isso — nenhum toca o banco real. | gestor (cria dado real)                        | `database/MIGRATIONS.md` (Migration 21)                |
+| 7   | **4 das 9 unidades têm `sede_endereco` com coordenadas NULL** — não conseguem gerar rota. A tela "Minha Unidade" é o caminho de conserto e desde 08/08 funciona de verdade (ver Migration 22 e a armadilha do componente aninhado). Falta passar unidade por unidade.                                                                                                                                        | gestor (edita cada unidade)                    | `database/MIGRATIONS.md` (Migration 22)                |
+| 8   | **Decidir o destino de `assets/store/screenshots/phone/raw/`** — hoje untracked. Commitar ou colocar no `.gitignore`; deixar como está gera ruído em todo `git status`.                                                                                                                                                                                                                                      | qualquer sessão                                | —                                                      |
+
+**Fechadas em 08/08/2026, não reabra:** a Migration 22 foi aplicada em
+07/08 e validada na tela (edição gravou no banco; `.update()` direto continua
+falhando); o **primeiro build EAS sob Node 22** aconteceu — build `3025`,
+que resolveu o Node pelo `.nvmrc` e passou sem ajuste.
 
 Follow-ups menores (nenhum bloqueia): Timeline não narra o autor da otimização
 (o dado existe em `logs.usuario_id`, falta join em `useTimelineData.ts`);
 **`toFixed(1)` usa ponto — confirmado em 05/08/2026 na Timeline, que exibiu
 `27.1 km → 18.1 km` num app pt-BR (deveria ser `27,1`)**;
 `mapLogToTimelinePreview` sem case para `rota_otimizada`, então o widget
-colapsado conta o evento mas não o exibe.
+colapsado conta o evento mas não o exibe; os dois scripts de consulta/promoção
+da Play ficaram **fora do repositório** (ver "Play Store: trilhas" nas
+armadilhas) — recriar custa uma investigação inteira.
 
 ### Auditoria de otimização — validada em 05/08/2026
 
@@ -61,16 +68,53 @@ Cada uma quebrou algo de verdade. Leia antes de agir na área correspondente.
 - **Worker do maplibre 6** servido de `public/`: se sumir, o mapa trava em
   "Carregando..." **sem erro no console e com o CI verde**. Detalhe do que não
   pode ser removido em "Regras que não podem regredir".
-- **OSRM não atende `localhost`.** O servidor responde
-  `Access-Control-Allow-Origin: https://app.rotamestre.tec.br` **fixo**,
-  ignorando a origem que pediu. Em produção casa e funciona; em
-  `localhost:8082` o browser bloqueia **toda** chamada OSRM (`status: 0`,
-  "Trajeto indisponível" no mapa). O fluxo não quebra porque
-  `buildHaversineMatrix` (linha reta × 1,3) assume e o TSP roda normalmente —
-  a reordenação continua sendo otimização real, mas **as distâncias em dev são
-  estimativas, não distância de via**. Não confunda com bug: valide distância
-  em produção. Verificado em 05/08/2026 com
-  `curl -H "Origin: http://localhost:8082"`.
+- **OSRM no dev web usa outro servidor (desde 08/08/2026, PR #358).** O nosso
+  `osrm.rotamestre.tec.br` responde
+  `Access-Control-Allow-Origin: https://app.rotamestre.tec.br` **fixo**, então o
+  browser bloqueava toda chamada a partir de `localhost` e o otimizador caía no
+  `buildHaversineMatrix` (linha reta × 1,3) **sem erro visível** — a rota
+  "otimizava" com distância plausível e ninguém percebia a ausência de
+  roteamento por vias. `src/lib/osrm/config.ts` agora resolve a URL nesta
+  ordem: `EXPO_PUBLIC_OSRM_URL` → demo público (**só em dev web**) →
+  self-hosted. Produção e dev nativo **não mudaram**. Duas consequências: o
+  demo público cobre o planeta em vez do extrato do Nordeste, então as
+  distâncias em dev **não conferem exatamente** com produção; e a correção
+  definitiva continua sendo liberar `localhost` no CORS do nosso openresty —
+  **CORS não é controle de acesso**, o endpoint já responde a qualquer um via
+  `curl`, o header só restringe browser.
+- **Componente declarado dentro do render remonta a subárvore a cada tecla.**
+  `const Form = () => (...)` usado como `<Form />` ganha identidade nova a cada
+  renderização, e identidade nova é **tipo** novo para o React. Custou caro na
+  tela "Minha Unidade": o autocomplete da sede **nunca funcionou** ali, porque
+  cada caractere destruía o nó do DOM, perdia o foco e zerava o
+  `hasUserInteracted` do `AddressAutocomplete`
+  (`src/components/AddressAutocomplete.tsx:135`), matando o debounce antes de
+  disparar. Sem sugestão não há coordenadas, e sem coordenadas a sede não salva
+  — o gestor não estava mal orientado, a operação era **impossível**. Correção:
+  chamar como função (`{renderForm()}`), nunca como componente. Diagnóstico
+  rápido: marque o nó (`el.dataset.x = '1'`) e digite uma letra; se a marca
+  sumir, remontou.
+- **Erro de formulário num campo pode ser causado por outro.** Nos schemas de
+  endereço, o `refine`/`superRefine` pendura a mensagem em `endereco` mas quem a
+  causa é a ausência de `latitude`/`longitude`. Como `setValue` sem opções **não
+  revalida** e a revalidação assíncrona do `onChange` perde a corrida, o erro
+  ficava preso na tela ao lado do badge verde "Validado" — dois sinais opostos
+  no mesmo campo. Reordenar as chamadas e `trigger()` explícito **não
+  resolveram**; só `clearErrors('endereco')` é determinístico. Vale para
+  `nova-entrega` e `onboarding`; `AddStopModal`/`EditStopModal` são imunes
+  (usam `useState` puro e já limpam o erro).
+- **Play Store: precedência de trilha e `eas submit` não promove.** A Play serve
+  sempre a trilha de maior prioridade a que a conta tem direito —
+  **internal ganha de closed**. Publicar só no teste fechado deixa os testadores
+  internos presos na versão antiga, e o sintoma engana: o link de teste fechado
+  funciona, o opt-in é aceito, e mesmo assim chega o build velho (aconteceu em
+  08/08 — link de `alpha`, aparelho recebeu o `3021` da internal). Publique nas
+  duas. E `eas submit` **sempre faz upload**, então falha com
+  "You've already submitted this version" quando o versionCode já subiu:
+  promover entre trilhas exige a API (`edits` → `PUT tracks/<track>` →
+  `:commit`). O padrão de autenticação pronto está em
+  `scripts/publish-play-listing.mjs` — JWT RS256 com `node:crypto`, sem
+  dependências.
 - **As API keys legacy estão DESABILITADAS (verificado 06/08/2026).** O projeto
   migrou para o formato novo: `sb_publishable_…` no lugar da `anon` e
   `sb_secret_…` no lugar da `service_role` (Settings → API Keys, aba
@@ -130,7 +174,8 @@ Cada uma quebrou algo de verdade. Leia antes de agir na área correspondente.
 - Merge exige **admin override** (`gh pr merge --squash --admin`): a `main` pede
   1 review, o gestor é autor de tudo e não há segundo revisor. Histórico linear
   obrigatório, então squash — merge commit não passa.
-- Android: `1.12.2` / `3024` concluído no teste fechado; produção vazia (pend. 4).
+- Android: `1.12.2` / `3025` concluído em teste fechado **e** interno; produção
+  nunca teve release (pend. 4).
 - iOS: configuração versionada, sem build (pend. 5).
 
 ## Resumo executivo
@@ -144,7 +189,7 @@ Este repositório contém o produto operacional do Rota Mestre:
 - fotos privadas de comprovação, ocorrências, notificações e histórico.
 
 O código local está na versão **1.12.2**, com
-`androidVersionCode` **3024**. O app foi reconstruído sob uma nova identidade
+`androidVersionCode` **3025**. O app foi reconstruído sob uma nova identidade
 Android após a perda das contas de distribuição originais. O Supabase e os
 dados dos usuários foram preservados.
 
@@ -157,7 +202,7 @@ dados dos usuários foram preservados.
 | Branch de produção       | `main`                                 | Git/Vercel                             |
 | Web                      | <https://app.rotamestre.tec.br>        | Vercel                                 |
 | Android package          | `br.tec.rotamestre.app`                | `app.config.js`                        |
-| Versão Android no código | `1.12.2` / `3024`                      | `package.json`                         |
+| Versão Android no código | `1.12.2` / `3025`                      | `package.json`                         |
 | EAS project              | `c6401a59-af97-484a-93b7-c75016bf331d` | `app.config.js`                        |
 | Firebase                 | `rota-mestre-97084`                    | console Firebase / configuração nativa |
 | Supabase project ref     | `xezslsyxjivunmhhyxtd`                 | `supabase/.temp/project-ref`           |
@@ -166,6 +211,15 @@ dados dos usuários foram preservados.
 
 Não copie versões para outros documentos. Quando houver divergência, prevalecem
 `package.json`, `app.config.js`, `eas.json` e o estado consultado nos consoles.
+
+## Snapshots datados — histórico, não estado atual
+
+> As três seções a seguir são **fotografias** de 24/07, 04/08 e 05/08/2026.
+> Foram verdade naquelas datas e continuam úteis pelo raciocínio técnico que
+> registram, mas **os números envelheceram** (versões, versionCode, trilhas da
+> Play). Para o estado de hoje use, no topo: **Pendências**, **Armadilhas**,
+> **Estado atual** e **Identidades e serviços**. Onde divergirem, o topo vence —
+> e o código vence o topo.
 
 ## Estado confirmado em 24/07/2026
 
@@ -363,19 +417,27 @@ estreita — pelo ramo do **motorista** — e está na pendência 2.
 
 ## Mudanças relevantes desta etapa
 
-| Data       | Mudança                                                                                   | Referência                                   |
-| ---------- | ----------------------------------------------------------------------------------------- | -------------------------------------------- |
-| 23/07/2026 | Nova Entrega com rascunho persistente, importação, revisão e criação atômica/idempotente  | commit `e1f1bd5`, migration `20260723223000` |
-| 23/07/2026 | Migration de segurança já aplicada foi incorporada ao histórico versionado                | commit `de8a036`, migration `20260722195606` |
-| 24/07/2026 | Correção da autenticação Android após rotação de chave                                    | commit `6dd8aa8`                             |
-| 24/07/2026 | Preparação do app e da ficha para o Google Play, páginas legais e exclusão de conta       | commit `b7a39dc`                             |
-| 24/07/2026 | Geometria viária persistida nos mapas; remoção dos fallbacks visuais em linha reta        | commit `3788f55`                             |
-| 24/07/2026 | Configuração inicial de distribuição e conformidade iOS                                   | commit `191db5a`                             |
-| 04/08/2026 | Integração de 5 PRs: `/testar`, maplibre 6, Sentry, deps e Node 22 (baseline/CI)          | PRs #341/#345/#343/#342/#344                 |
-| 04/08/2026 | Correção do worker do maplibre 6 (mapa web travado em "Carregando...")                    | PR #346                                      |
-| 04/08/2026 | Correções do autocomplete de endereço: interação após limpar e resposta obsoleta          | PRs #347 e #348                              |
-| 05/08/2026 | Auditoria de uso do otimizador, Fase 1 (registrar): colunas, RPC de 11 params, Timeline   | PR #350, migration `20260804235500`          |
-| 05/08/2026 | Histórico de migrations reconciliado + `IF NOT EXISTS` no arquivo que travava o `db push` | PR #351                                      |
+| Data       | Mudança                                                                                     | Referência                                   |
+| ---------- | ------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| 23/07/2026 | Nova Entrega com rascunho persistente, importação, revisão e criação atômica/idempotente    | commit `e1f1bd5`, migration `20260723223000` |
+| 23/07/2026 | Migration de segurança já aplicada foi incorporada ao histórico versionado                  | commit `de8a036`, migration `20260722195606` |
+| 24/07/2026 | Correção da autenticação Android após rotação de chave                                      | commit `6dd8aa8`                             |
+| 24/07/2026 | Preparação do app e da ficha para o Google Play, páginas legais e exclusão de conta         | commit `b7a39dc`                             |
+| 24/07/2026 | Geometria viária persistida nos mapas; remoção dos fallbacks visuais em linha reta          | commit `3788f55`                             |
+| 24/07/2026 | Configuração inicial de distribuição e conformidade iOS                                     | commit `191db5a`                             |
+| 04/08/2026 | Integração de 5 PRs: `/testar`, maplibre 6, Sentry, deps e Node 22 (baseline/CI)            | PRs #341/#345/#343/#342/#344                 |
+| 04/08/2026 | Correção do worker do maplibre 6 (mapa web travado em "Carregando...")                      | PR #346                                      |
+| 04/08/2026 | Correções do autocomplete de endereço: interação após limpar e resposta obsoleta            | PRs #347 e #348                              |
+| 05/08/2026 | Auditoria de uso do otimizador, Fase 1 (registrar): colunas, RPC de 11 params, Timeline     | PR #350, migration `20260804235500`          |
+| 05/08/2026 | Histórico de migrations reconciliado + `IF NOT EXISTS` no arquivo que travava o `db push`   | PR #351                                      |
+| 06/08/2026 | Onboarding self-service: RPC de criação de unidade + portão no `index.tsx` e no `login.tsx` | PR #354, migration `20260806175617`          |
+| 07/08/2026 | Credenciais hardcoded removidas do repositório público                                      | PR #353                                      |
+| 07/08/2026 | Tela "Minha Unidade" passa a salvar via RPC `atualizar_unidade`                             | PR #355, migration `20260807151639`          |
+| 07/08/2026 | Acentuação dos rótulos da tela de rota                                                      | PR #356                                      |
+| 08/08/2026 | Formulário de unidade: 7 defeitos + a causa raiz que impedia salvar a sede                  | PR #357                                      |
+| 08/08/2026 | OSRM real no dev web (`src/lib/osrm/config.ts`), constante de URL unificada                 | PR #358                                      |
+| 08/08/2026 | Erro de endereço que não sumia após selecionar a sugestão (nova-entrega + onboarding)       | PR #359                                      |
+| 08/08/2026 | `androidVersionCode` 3024 → 3025; build EAS e publicação em teste fechado + interno         | PR #360, build `d34a88d6`                    |
 
 O histórico completo do rebuild está em
 [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md), agora tratado como
@@ -435,6 +497,13 @@ app.rotamestre.tec.br ── Expo Web / React Native
   qualquer usuário autenticado pode forjá-la.
 - Não existe `src/types/database.ts`. Os tipos de domínio são curados à mão em
   `src/types/`; não introduza tipos gerados sem decidir isso para o projeto todo.
+- **Não declare componente dentro do render de outro componente.** Se precisar
+  quebrar um JSX grande, use função de render chamada como `{renderX()}`. Como
+  `<X />`, o React remonta a subárvore a cada renderização — quebra foco, zera
+  refs e mata debounce, tudo sem erro no console e com o CI verde.
+- O default do `OSRM_BASE_URL` em produção e em dev **nativo** é o self-hosted.
+  Só o dev **web** cai no demo público, e só porque o CORS bloqueia. Não
+  generalize a troca para as outras plataformas.
 
 ## Próximas ações
 
@@ -448,8 +517,9 @@ app.rotamestre.tec.br ── Expo Web / React Native
    com opt-in; divulgue o hub `/testar` para ampliar a base. Contas cadastradas
    sem opt-in não contam para o requisito.
 2. Solicitar acesso à produção quando o requisito mostrado pelo Console estiver
-   satisfeito e promover o build `3024`; não gerar um novo AAB apenas para
-   repetir a tentativa.
+   satisfeito e **promover** o build `3025` — já publicado em teste fechado e
+   interno. Promoção entre trilhas é feita pela API, não por `eas submit`; não
+   gere um AAB novo só para repetir a tentativa.
 3. Revisar “Conteúdo do app”, Segurança de dados, classificação, público-alvo,
    acesso do revisor e URLs legais contra `play-store-metadata.md`.
 4. Concluir a autenticação interativa da Apple para criar/validar certificado e

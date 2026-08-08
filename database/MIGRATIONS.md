@@ -647,7 +647,7 @@ unidade) **depende** — afrouxar esta afrouxa a leitura das fotos.
 
 ---
 
-### ⏳ Migration 21: Onboarding self-service (testador cria a própria unidade)
+### ✅ Migration 21: Onboarding self-service (testador cria a própria unidade)
 
 **Data:** 06/08/2026
 
@@ -686,7 +686,7 @@ numeric, numeric, text) RETURNS uuid`, `SECURITY DEFINER` com
 
 ---
 
-### ⏳ Migration 22: RPC `atualizar_unidade` (sem policy de UPDATE)
+### ✅ Migration 22: RPC `atualizar_unidade` (sem policy de UPDATE)
 
 **Data:** 07/08/2026
 
@@ -730,15 +730,25 @@ ativo = true`, sem exigir "principal" — hoje 0 dos 9 gestores têm
   cobre incondicionalmente). Rollback comentado no próprio arquivo, com aviso
   explícito contra "compensar" a remoção com uma policy.
 
-**Status:** ⏳ Escrita e revisada, **ainda NÃO aplicada** no banco — confirmado
-por consulta direta a `pg_proc` em 07/08/2026 (nenhuma linha para
-`atualizar_unidade`). `unidades` continua com uma única policy
-(`unidades_select`, somente leitura); nenhuma policy de UPDATE foi criada — é
-o desenho, não uma lacuna. Aplicar exige aval do gestor (banco único = produção,
-sem staging — ver "Armadilhas" em `docs/PROJECT_CONTEXT.md`).
+**Status:** ✅ Aplicada em 07/08/2026, na ordem correta (migration antes do
+merge do PR #355). `unidades` segue com uma única policy (`unidades_select`,
+somente leitura); nenhuma policy de UPDATE foi criada — é o desenho, não uma
+lacuna.
 
-**Ordem de deploy (obrigatória):** pela mesma regra de ordem de deploy da Migration 21, aplicar **antes** do merge evita que "Minha unidade" chame uma função ausente. A branch `fix/policy-update-unidades` já inclui o código do app chamando esta RPC (`app/unidade/index.tsx`); se a ordem inverter, o erro já cai no mapeamento genérico de "RPC ausente no schema cache" (`src/lib/errorMapping.ts`, `RPC_SCHEMA_NOT_READY`) em vez de um erro cru.
+**Validada em 08/08/2026** pela tela, não só por consulta: a Unidade Demo foi
+editada de São Paulo para João Pessoa e a linha mudou no banco
+(`cidade`, `uf`, `cep`, `sede_endereco`, `sede_latitude = -7.12008880`,
+`sede_longitude = -34.85964640`, `updated_at` do momento). O teste
+automatizado que prova o outro lado — payload da RPC sem `p_plano`,
+`p_status`, `p_asaas_customer_id`, `p_desconto_percentual` nem
+`p_observacoes_admin` — está em `app/unidade/__tests__/index.test.tsx`.
+
+**Atenção para quem for mexer nesta tela:** aplicar a migration não bastou para
+a tela funcionar. O autocomplete da sede estava morto por um motivo de React
+sem relação com o banco — o formulário era um componente declarado dentro do
+render, e remontava a cada tecla. Corrigido no PR #357. Detalhe em "Armadilhas
+que já custaram caro" em `docs/PROJECT_CONTEXT.md`.
 
 ---
 
-**Última atualização:** 07/08/2026
+**Última atualização:** 08/08/2026
