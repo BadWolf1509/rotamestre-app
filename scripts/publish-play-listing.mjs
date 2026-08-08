@@ -131,16 +131,17 @@ async function replaceImages(token, editId, imageType, filePaths) {
 async function main() {
   const workspace = process.cwd();
   const credentials = JSON.parse(
-    await readFile(
-      path.join(workspace, 'play-store-credentials.json'),
-      'utf8',
-    ),
+    await readFile(path.join(workspace, 'play-store-credentials.json'), 'utf8'),
   );
   const token = await getAccessToken(credentials);
   const edit = await apiRequest(
     token,
     `${apiBase}/applications/${packageName}/edits`,
-    { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    },
   );
 
   await apiRequest(
@@ -152,32 +153,35 @@ async function main() {
       body: JSON.stringify(listing),
     },
   );
-  await replaceImages(
-    token,
-    edit.id,
-    'icon',
-    [path.join(workspace, 'assets', 'store', 'icon-512.png')],
-  );
-  await replaceImages(
-    token,
-    edit.id,
-    'featureGraphic',
-    [
-      path.join(
-        workspace,
-        'assets',
-        'store',
-        'feature-graphic-1024x500.png',
-      ),
-    ],
-  );
+  await replaceImages(token, edit.id, 'icon', [
+    path.join(workspace, 'assets', 'store', 'icon-512.png'),
+  ]);
+  await replaceImages(token, edit.id, 'featureGraphic', [
+    path.join(workspace, 'assets', 'store', 'feature-graphic-1024x500-v2.png'),
+  ]);
+  // Os 8 de `final/` são a fonte de verdade declarada em
+  // docs/play-store-metadata.md e o que está publicado hoje. As 4 capturas
+  // antigas na raiz de `phone/` ficaram para trás — rodar este script com elas
+  // sobrescreveria a listagem com screenshots desatualizados.
   const screenshots = [
-    '01-login.png',
-    '02-nova-rota.png',
-    '03-ajuda.png',
-    '04-desempenho.png',
+    '01-gestao-em-um-so-lugar.png',
+    '02-crie-rotas-em-poucos-passos.png',
+    '03-acompanhe-a-operacao.png',
+    '04-mapa-e-paradas.png',
+    '05-proxima-parada-a-vista.png',
+    '06-todas-as-paradas-no-mapa.png',
+    '07-navegue-com-seu-app-favorito.png',
+    '08-ajuda-sempre-a-mao.png',
   ].map((fileName) =>
-    path.join(workspace, 'assets', 'store', 'screenshots', 'phone', fileName),
+    path.join(
+      workspace,
+      'assets',
+      'store',
+      'screenshots',
+      'phone',
+      'final',
+      fileName,
+    ),
   );
   await replaceImages(token, edit.id, 'phoneScreenshots', screenshots);
   await replaceImages(token, edit.id, 'sevenInchScreenshots', screenshots);
@@ -185,7 +189,11 @@ async function main() {
   await apiRequest(
     token,
     `${apiBase}/applications/${packageName}/edits/${edit.id}:commit`,
-    { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    },
   );
   console.log(
     'Listagem pt-BR, ícone, recurso gráfico e capturas enviados com sucesso.',
