@@ -99,3 +99,7 @@ android-export/
 # maplibre-gl v6 worker copiado de node_modules (ver tools/scripts/copy-maplibre-worker.cjs)
 /public/maplibre-gl-worker.mjs
 /public/maplibre-gl-shared.mjs
+
+# Capturas intermediarias dos screenshots da loja (regeneraveis pelo script;
+# os assets finais ficam versionados em assets/store/screenshots/phone/final/)
+assets/store/screenshots/phone/raw/

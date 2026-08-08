@@ -46,7 +46,9 @@
     "mcp:git:test": "node tools/mcp-git-rotamestre/test-mcp.js",
     "mcp:db": "node tools/mcp-server/src/index.js",
     "migration:run": "node database/migrations/execute-migration.js",
-    "migration:verify": "node database/migrations/verify-checkpoint-logic.js"
+    "migration:verify": "node database/migrations/verify-checkpoint-logic.js",
+    "play:status": "node scripts/play-status.mjs",
+    "play:promote": "node scripts/play-promote.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/nunito-sans": "^0.4.2",
