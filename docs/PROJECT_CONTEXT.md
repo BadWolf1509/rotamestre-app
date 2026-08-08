@@ -16,12 +16,13 @@ Lista única e canônica. Se resolver uma, risque daqui.
 | 5   | **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).                                                                                                                                                                                                                                                                          | gestor (Apple ID + 2FA)                        | `APP_STORE_DEPLOYMENT.md`                              |
 | 6   | **Validar o onboarding self-service ponta a ponta.** A migration foi aplicada em 06/08/2026 e o código mergeado. Falta o teste manual: cadastro com e-mail descartável → confirmar → login → tela de onboarding → criar unidade → **criar um motorista** (prova `usuarios.unidade_id`) → **criar uma rota** (prova as coordenadas da sede). Nenhum teste automatizado cobre isso — nenhum toca o banco real. | gestor (cria dado real)                        | `database/MIGRATIONS.md` (Migration 21)                |
 | 7   | **4 das 9 unidades têm `sede_endereco` com coordenadas NULL** — não conseguem gerar rota. A tela "Minha Unidade" é o caminho de conserto e desde 08/08 funciona de verdade (ver Migration 22 e a armadilha do componente aninhado). Falta passar unidade por unidade.                                                                                                                                        | gestor (edita cada unidade)                    | `database/MIGRATIONS.md` (Migration 22)                |
-| 8   | **Decidir o destino de `assets/store/screenshots/phone/raw/`** — hoje untracked. Commitar ou colocar no `.gitignore`; deixar como está gera ruído em todo `git status`.                                                                                                                                                                                                                                      | qualquer sessão                                | —                                                      |
 
 **Fechadas em 08/08/2026, não reabra:** a Migration 22 foi aplicada em
 07/08 e validada na tela (edição gravou no banco; `.update()` direto continua
 falhando); o **primeiro build EAS sob Node 22** aconteceu — build `3025`,
-que resolveu o Node pelo `.nvmrc` e passou sem ajuste.
+que resolveu o Node pelo `.nvmrc` e passou sem ajuste; os assets da loja foram
+resolvidos — `final/` versionado, `raw/` no `.gitignore`, e os 8 screenshots
+mais o feature graphic v2 refeitos e commitados com a listagem já publicada.
 
 Follow-ups menores (nenhum bloqueia): Timeline não narra o autor da otimização
 (o dado existe em `logs.usuario_id`, falta join em `useTimelineData.ts`);
@@ -49,6 +50,32 @@ espelho do estado atual** — foi possível medir que a alteração manual custo
 610 m. Os 3 logs saíram corretos (incluindo `desfez_otimizacao: true`, que só
 grava `true` se o UPDATE de fato passou) e a Timeline narrou os 3 eventos.
 A rota de teste foi cancelada em seguida.
+
+### Massa demo criada por SQL em 08/08/2026
+
+A Unidade Demo (`aaaa0000-0000-4000-8000-000000000001`) tem 4 rotas inseridas
+**direto por SQL**, fora do fluxo do app, para servirem de cenário nos
+screenshots da loja. UUIDs fixos e reconhecíveis:
+
+| id (sufixo) | data  | status       | conteúdo                             |
+| ----------- | ----- | ------------ | ------------------------------------ |
+| `…020`      | 08/08 | em_andamento | 3 entregas: 1 concluída, 2 pendentes |
+| `…021`      | 07/08 | concluída    | 3 entregas, todas concluídas         |
+| `…022`      | 06/08 | concluída    | 3 entregas, todas concluídas         |
+| `…023`      | 05/08 | concluída    | 3 entregas, todas concluídas         |
+
+Endereços reais de João Pessoa, destinatários fictícios, distância e duração
+coerentes com o trajeto. Respeitam o invariante de partida/chegada
+(`is_checkpoint = false` na primeira e na última ordem).
+
+**Limitação conhecida:** as paradas concluídas **não têm `foto_url`**, então a
+tela mostra o placeholder "Sem foto registrada". Preencher exigiria upload real
+ao bucket privado `fotos-entrega`, que só acontece pelo app com sessão
+autenticada — não dá por SQL.
+
+Para remover: `delete from public.rotas where id in (…020, …021, …022, …023)`
+(as paradas caem por cascade). Não confunda com dado de cliente: nada disso
+existe fora da unidade de avaliação.
 
 ## Armadilhas que já custaram caro
 

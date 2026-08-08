@@ -1,6 +1,6 @@
 # Google Play — metadados canônicos do Rota Mestre
 
-Atualizado em 24/07/2026. Este arquivo é a fonte de verdade para a listagem,
+Atualizado em 08/08/2026. Este arquivo é a fonte de verdade para a listagem,
 declarações e acesso de avaliação do pacote `br.tec.rotamestre.app`.
 
 ## Identificação
@@ -69,20 +69,28 @@ período grátis, sem documentação comercial que as comprove.
 Arquivos finais:
 
 - Ícone: `assets/store/icon-512.png` — PNG 512 × 512, até 1.024 KB.
-- Feature graphic: `assets/store/feature-graphic-1024x500.png` — PNG 1024 × 500.
-- Screenshots de telefone: `assets/store/screenshots/phone/` — de 2 a 8
+- Feature graphic: `assets/store/feature-graphic-1024x500-v2.png` — PNG
+  1024 × 500. **É o publicado.** A versão sem `-v2` foi removida em 08/08/2026
+  para não deixar dúvida sobre qual está no ar.
+- Screenshots de telefone: `assets/store/screenshots/phone/final/` — 8
   imagens 1080 × 1920, sem dados reais de clientes.
+
+As capturas originais do Android ficam em `assets/store/screenshots/phone/raw/`
+e não devem ser enviadas ao Play Console.
+
+As 8 capturas foram refeitas em 08/08/2026 com as contas demo renovadas, uma
+rota atual de João Pessoa e dados fictícios exclusivos da unidade de avaliação.
 
 Sequência recomendada:
 
-1. Login
-2. Painel do gestor
-3. Nova entrega
-4. Rota e paradas
-5. Tela inicial do motorista
-6. Navegação
-7. Comprovante
-8. Histórico ou desempenho
+1. Gestão em um só lugar
+2. Crie rotas em poucos passos
+3. Acompanhe toda a operação
+4. Visualize a rota e cada parada
+5. Próxima parada sempre à vista
+6. Todas as paradas no mapa
+7. Navegue com seu app favorito
+8. Ajuda sempre à mão
 
 ## Acesso para avaliação
 
