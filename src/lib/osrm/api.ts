@@ -103,7 +103,16 @@ export async function getRoute(
 
     const data: OSRMRouteResponse = await response.json();
 
-    if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+    // `distance: 0` com `code: "Ok"` acontece quando todas as coordenadas caem
+    // no mesmo no do grafo. O caso real sao pontos fora da area do extrato: o
+    // OSRM cola cada um na via mais proxima em vez de recusar, e todos acabam
+    // no mesmo ponto da borda. Sem esta guarda a UI mostra "0 m".
+    if (
+      data.code !== 'Ok' ||
+      !data.routes ||
+      data.routes.length === 0 ||
+      !data.routes[0].distance
+    ) {
       logger.warn('OSRM: No route found, using Haversine fallback');
       return createFallbackRoute(origin, destination, waypoints);
     }
@@ -142,6 +151,7 @@ export async function getRoute(
         longitude: wp.location[0],
       })),
       waypointOrder: data.waypoints.map((wp) => wp.waypoint_index),
+      is_estimated: false,
     };
 
     setCache(cacheKey, result);
@@ -197,7 +207,14 @@ export async function getDistance(
 
     const data: OSRMRouteResponse = await response.json();
 
-    if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+    // Ver comentario em getRoute: `distance: 0` com `code: "Ok"` sinaliza
+    // coordenada fora da area do extrato, nao uma rota de comprimento zero.
+    if (
+      data.code !== 'Ok' ||
+      !data.routes ||
+      data.routes.length === 0 ||
+      !data.routes[0].distance
+    ) {
       return estimateRouteDistance(origin, destination);
     }
 
@@ -207,6 +224,7 @@ export async function getDistance(
       duration: route.duration,
       distanceText: formatDistance(route.distance),
       durationText: formatDuration(route.duration),
+      is_estimated: false,
     };
 
     setCache(cacheKey, result);
@@ -497,7 +515,14 @@ async function getSimpleRoute(
 
     const data: OSRMRouteResponse = await response.json();
 
-    if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+    // Ver comentario em getRoute: `distance: 0` com `code: "Ok"` sinaliza
+    // coordenada fora da area do extrato, nao uma rota de comprimento zero.
+    if (
+      data.code !== 'Ok' ||
+      !data.routes ||
+      data.routes.length === 0 ||
+      !data.routes[0].distance
+    ) {
       return createFallbackDirections(origin, destination, waypoints);
     }
 

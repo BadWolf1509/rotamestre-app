@@ -10,6 +10,12 @@ interface DistanceInfo {
   durationText: string;
   isLoading: boolean;
   error: string | null;
+  /**
+   * `true` quando o número veio do fallback Haversine (linha reta × 1.3, ETA a
+   * 30 km/h fixos) em vez de um percurso viário do OSRM. Acontece quando o
+   * serviço falha ou quando a coordenada está fora da área do extrato.
+   */
+  isEstimated: boolean;
 }
 
 interface Location {
@@ -46,6 +52,7 @@ export function useDistanceToStop(
     durationText: '--',
     isLoading: false,
     error: null,
+    isEstimated: false,
   });
 
   const lastFetchRef = useRef<number>(0);
@@ -72,6 +79,9 @@ export function useDistanceToStop(
         durationText: result.durationText,
         isLoading: false,
         error: null,
+        // getDistance trata a falha internamente e devolve o fallback Haversine,
+        // então a flag é a única forma de saber que o número é estimado.
+        isEstimated: result.is_estimated === true,
       };
 
       setDistanceInfo(newInfo);
@@ -88,6 +98,7 @@ export function useDistanceToStop(
         durationText: estimate.durationText,
         isLoading: false,
         error: null, // Não mostrar erro, Haversine funciona como fallback
+        isEstimated: true,
       });
     }
   }, [userLocation, destination, enabled]);
