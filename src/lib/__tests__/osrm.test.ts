@@ -424,6 +424,41 @@ describe('OSRM module', () => {
       expect(result).not.toBeNull();
       // Order should be preserved: [0, 1] (first waypoint, then second)
       expect(result?.ordem_otimizada).toEqual([0, 1]);
+      expect(result?.is_estimated).toBe(false);
+    });
+
+    it('trata code Ok com distancia zero como ausencia de rota', async () => {
+      // Pontos fora da area do extrato: o OSRM cola todos na via mais proxima
+      // da borda e devolve uma rota degenerada de 0 m com code Ok.
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          code: 'Ok',
+          routes: [
+            {
+              geometry: 'encoded_polyline',
+              distance: 0,
+              duration: 0,
+              legs: [{ distance: 0, duration: 0 }],
+            },
+          ],
+          waypoints: [
+            { location: [0, 0], waypoint_index: 0 },
+            { location: [1, 1], waypoint_index: 1 },
+          ],
+        }),
+      });
+
+      const result = await getOptimizedDirections(
+        { latitude: 0, longitude: 0 },
+        { latitude: 3, longitude: 3 },
+        [],
+        false,
+      );
+
+      expect(result).not.toBeNull();
+      expect(result?.is_estimated).toBe(true);
+      expect(result?.distancia_total_metros).toBeGreaterThan(0);
     });
 
     it('should fall back to Haversine when Table API fails for circular route', async () => {
