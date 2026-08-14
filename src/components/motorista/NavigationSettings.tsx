@@ -58,7 +58,12 @@ const DEFAULT_SETTINGS: NavigationSettingsState = {
   preferredNavApp: 'default',
 };
 
-const NAV_APP_OPTIONS: { value: NavAppPreference; label: string; icon: string; platform?: string }[] = [
+const NAV_APP_OPTIONS: {
+  value: NavAppPreference;
+  label: string;
+  icon: string;
+  platform?: string;
+}[] = [
   { value: 'default', label: 'Padrão do Sistema', icon: '📱' },
   { value: 'waze', label: 'Waze', icon: '🗺️' },
   { value: 'google_maps', label: 'Google Maps', icon: '🌍' },
@@ -75,7 +80,8 @@ export function NavigationSettings({
   const { showSuccess, showConfirm, AlertDialog } = useAlert();
   const isWeb = Platform.OS === 'web';
 
-  const [settings, setSettings] = useState<NavigationSettingsState>(DEFAULT_SETTINGS);
+  const [settings, setSettings] =
+    useState<NavigationSettingsState>(DEFAULT_SETTINGS);
 
   useEffect(() => {
     loadSettings();
@@ -87,13 +93,21 @@ export function NavigationSettings({
       ...DEFAULT_SETTINGS,
       autoAdvance: prefs.autoAdvance ?? DEFAULT_SETTINGS.autoAdvance,
       soundAlerts: prefs.soundAlerts ?? DEFAULT_SETTINGS.soundAlerts,
-      vibrationAlerts: prefs.vibrationAlerts ?? DEFAULT_SETTINGS.vibrationAlerts,
-      proximityRadius: prefs.proximityRadius ?? DEFAULT_SETTINGS.proximityRadius,
-      showSpeedometer: prefs.showSpeedometer ?? DEFAULT_SETTINGS.showSpeedometer,
-      preventScreenSleep: prefs.preventScreenSleep ?? DEFAULT_SETTINGS.preventScreenSleep,
-      voiceNavigation: prefs.voiceNavigation ?? DEFAULT_SETTINGS.voiceNavigation,
-      internalNavigation: prefs.internalNavigation ?? DEFAULT_SETTINGS.internalNavigation,
-      preferredNavApp: (prefs.preferredNavApp as NavAppPreference) ?? DEFAULT_SETTINGS.preferredNavApp,
+      vibrationAlerts:
+        prefs.vibrationAlerts ?? DEFAULT_SETTINGS.vibrationAlerts,
+      proximityRadius:
+        prefs.proximityRadius ?? DEFAULT_SETTINGS.proximityRadius,
+      showSpeedometer:
+        prefs.showSpeedometer ?? DEFAULT_SETTINGS.showSpeedometer,
+      preventScreenSleep:
+        prefs.preventScreenSleep ?? DEFAULT_SETTINGS.preventScreenSleep,
+      voiceNavigation:
+        prefs.voiceNavigation ?? DEFAULT_SETTINGS.voiceNavigation,
+      internalNavigation:
+        prefs.internalNavigation ?? DEFAULT_SETTINGS.internalNavigation,
+      preferredNavApp:
+        (prefs.preferredNavApp as NavAppPreference) ??
+        DEFAULT_SETTINGS.preferredNavApp,
     };
     setSettings(newSettings);
   };
@@ -110,7 +124,7 @@ export function NavigationSettings({
 
   const handleSettingChange = async <K extends SettingKey>(
     key: K,
-    value: SettingValue<K>
+    value: SettingValue<K>,
   ) => {
     // Validate proximity radius
     if (key === 'proximityRadius') {
@@ -135,7 +149,8 @@ export function NavigationSettings({
   const handleResetDefaults = async () => {
     const confirmed = await showConfirm({
       title: 'Restaurar Padrões',
-      message: 'Deseja restaurar todas as configurações para os valores padrão?',
+      message:
+        'Deseja restaurar todas as configurações para os valores padrão?',
       confirmText: 'Restaurar',
       cancelText: 'Cancelar',
       type: 'danger',
@@ -144,7 +159,9 @@ export function NavigationSettings({
     if (confirmed) {
       await triggerHapticFeedback();
       setSettings(DEFAULT_SETTINGS);
-      await LocationTrackingService.updateNavigationPreferences(DEFAULT_SETTINGS);
+      await LocationTrackingService.updateNavigationPreferences(
+        DEFAULT_SETTINGS,
+      );
       onSettingsChange?.(DEFAULT_SETTINGS);
       showSuccess('Sucesso', 'Configurações restauradas');
     }
@@ -152,11 +169,15 @@ export function NavigationSettings({
 
   // Filter nav options based on platform
   const navOptions = NAV_APP_OPTIONS.filter(
-    (opt) => !opt.platform || opt.platform === Platform.OS
+    (opt) => !opt.platform || opt.platform === Platform.OS,
   );
 
-  // Settings content - reused in both modal and inline variants
-  const SettingsContent = () => (
+  // Settings content - reused in both modal and inline variants.
+  // Função de render, NUNCA componente declarado aqui dentro: usado como JSX
+  // (`<X />`), cada mudança de configuração daria um tipo novo ao
+  // React e remontaria a subárvore — o Slider era destruído no meio do drag
+  // (cada tick dispara setSettings), sem erro no console. Ver CLAUDE.md.
+  const renderSettingsContent = () => (
     <>
       {/* Nav App Section */}
       <View style={styles.section}>
@@ -170,15 +191,19 @@ export function NavigationSettings({
               key={option.value}
               style={[
                 styles.navOption,
-                settings.preferredNavApp === option.value && styles.navOptionActive,
+                settings.preferredNavApp === option.value &&
+                  styles.navOptionActive,
               ]}
-              onPress={() => handleSettingChange('preferredNavApp', option.value)}
+              onPress={() =>
+                handleSettingChange('preferredNavApp', option.value)
+              }
             >
               <Text style={styles.navOptionIcon}>{option.icon}</Text>
               <Text
                 style={[
                   styles.navOptionLabel,
-                  settings.preferredNavApp === option.value && styles.navOptionLabelActive,
+                  settings.preferredNavApp === option.value &&
+                    styles.navOptionLabelActive,
                 ]}
               >
                 {option.label}
@@ -205,7 +230,10 @@ export function NavigationSettings({
           <Switch
             value={settings.autoAdvance}
             onValueChange={(value) => handleSettingChange('autoAdvance', value)}
-            trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+            trackColor={{
+              false: theme.colors.gray300,
+              true: theme.colors.primary,
+            }}
             thumbColor={theme.colors.white}
           />
         </View>
@@ -224,7 +252,9 @@ export function NavigationSettings({
               maximumValue={100}
               step={10}
               value={settings.proximityRadius}
-              onValueChange={(value) => handleSettingChange('proximityRadius', value)}
+              onValueChange={(value) =>
+                handleSettingChange('proximityRadius', value)
+              }
               minimumTrackTintColor={theme.colors.primary}
               maximumTrackTintColor={theme.colors.gray300}
               thumbTintColor={theme.colors.primary}
@@ -247,14 +277,21 @@ export function NavigationSettings({
               Navegação Turn-by-Turn
               {isWeb && ' (somente mobile)'}
             </Text>
-            <Text style={[styles.settingDescription, isWeb && styles.disabledText]}>
+            <Text
+              style={[styles.settingDescription, isWeb && styles.disabledText]}
+            >
               Instruções de direção dentro do app (economia de bateria)
             </Text>
           </View>
           <Switch
             value={settings.internalNavigation}
-            onValueChange={(value) => handleSettingChange('internalNavigation', value)}
-            trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+            onValueChange={(value) =>
+              handleSettingChange('internalNavigation', value)
+            }
+            trackColor={{
+              false: theme.colors.gray300,
+              true: theme.colors.primary,
+            }}
             thumbColor={theme.colors.white}
             disabled={isWeb}
           />
@@ -270,8 +307,13 @@ export function NavigationSettings({
             </View>
             <Switch
               value={settings.voiceNavigation}
-              onValueChange={(value) => handleSettingChange('voiceNavigation', value)}
-              trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+              onValueChange={(value) =>
+                handleSettingChange('voiceNavigation', value)
+              }
+              trackColor={{
+                false: theme.colors.gray300,
+                true: theme.colors.primary,
+              }}
               thumbColor={theme.colors.white}
             />
           </View>
@@ -292,7 +334,10 @@ export function NavigationSettings({
           <Switch
             value={settings.soundAlerts}
             onValueChange={(value) => handleSettingChange('soundAlerts', value)}
-            trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+            trackColor={{
+              false: theme.colors.gray300,
+              true: theme.colors.primary,
+            }}
             thumbColor={theme.colors.white}
           />
         </View>
@@ -306,8 +351,13 @@ export function NavigationSettings({
           </View>
           <Switch
             value={settings.vibrationAlerts}
-            onValueChange={(value) => handleSettingChange('vibrationAlerts', value)}
-            trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+            onValueChange={(value) =>
+              handleSettingChange('vibrationAlerts', value)
+            }
+            trackColor={{
+              false: theme.colors.gray300,
+              true: theme.colors.primary,
+            }}
             thumbColor={theme.colors.white}
           />
         </View>
@@ -323,14 +373,21 @@ export function NavigationSettings({
               Velocímetro
               {isWeb && ' (somente mobile)'}
             </Text>
-            <Text style={[styles.settingDescription, isWeb && styles.disabledText]}>
+            <Text
+              style={[styles.settingDescription, isWeb && styles.disabledText]}
+            >
               Mostrar velocidade atual durante navegação
             </Text>
           </View>
           <Switch
             value={settings.showSpeedometer}
-            onValueChange={(value) => handleSettingChange('showSpeedometer', value)}
-            trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+            onValueChange={(value) =>
+              handleSettingChange('showSpeedometer', value)
+            }
+            trackColor={{
+              false: theme.colors.gray300,
+              true: theme.colors.primary,
+            }}
             thumbColor={theme.colors.white}
             disabled={isWeb}
           />
@@ -342,14 +399,21 @@ export function NavigationSettings({
               Manter Tela Ligada
               {isWeb && ' (somente mobile)'}
             </Text>
-            <Text style={[styles.settingDescription, isWeb && styles.disabledText]}>
+            <Text
+              style={[styles.settingDescription, isWeb && styles.disabledText]}
+            >
               Impedir que a tela desligue durante navegação
             </Text>
           </View>
           <Switch
             value={settings.preventScreenSleep}
-            onValueChange={(value) => handleSettingChange('preventScreenSleep', value)}
-            trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
+            onValueChange={(value) =>
+              handleSettingChange('preventScreenSleep', value)
+            }
+            trackColor={{
+              false: theme.colors.gray300,
+              true: theme.colors.primary,
+            }}
             thumbColor={theme.colors.white}
             disabled={isWeb}
           />
@@ -359,14 +423,20 @@ export function NavigationSettings({
       {/* Tips Section */}
       <View style={styles.tipsSection}>
         <View style={styles.tipHeader}>
-          <Ionicons name="bulb-outline" size={20} color={theme.colors.warning} />
+          <Ionicons
+            name="bulb-outline"
+            size={20}
+            color={theme.colors.warning}
+          />
           <Text style={styles.tipTitle}>Dicas</Text>
         </View>
         <Text style={styles.tipText}>
-          • O modo automático economiza tempo ao não precisar confirmar cada parada manualmente
+          • O modo automático economiza tempo ao não precisar confirmar cada
+          parada manualmente
         </Text>
         <Text style={styles.tipText}>
-          • Ajuste o raio de proximidade baseado na precisão do GPS em sua região
+          • Ajuste o raio de proximidade baseado na precisão do GPS em sua
+          região
         </Text>
         {!isWeb && (
           <Text style={styles.tipText}>
@@ -381,7 +451,10 @@ export function NavigationSettings({
       </View>
 
       {/* Reset Button */}
-      <TouchableOpacity style={styles.resetButton} onPress={handleResetDefaults}>
+      <TouchableOpacity
+        style={styles.resetButton}
+        onPress={handleResetDefaults}
+      >
         <Ionicons name="refresh" size={20} color={theme.colors.error} />
         <Text style={styles.resetButtonText}>Restaurar Padrões</Text>
       </TouchableOpacity>
@@ -392,9 +465,7 @@ export function NavigationSettings({
   if (variant === 'inline') {
     return (
       <>
-        <View style={styles.inlineContainer}>
-          <SettingsContent />
-        </View>
+        <View style={styles.inlineContainer}>{renderSettingsContent()}</View>
         {AlertDialog}
       </>
     );
@@ -430,7 +501,7 @@ export function NavigationSettings({
               bounces={false}
               nestedScrollEnabled={true}
             >
-              <SettingsContent />
+              {renderSettingsContent()}
               <View style={{ height: theme.spacing['12'] }} />
             </ScrollView>
           </View>

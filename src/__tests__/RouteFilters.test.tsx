@@ -6,6 +6,25 @@ import DateTimePickerModal from 'react-native-ui-datepicker';
 import { RouteFilters, getPresetDates } from '@/components/RouteFilters';
 import type { RouteFiltersState } from '@/components/RouteFilters';
 
+// Contador de montagens da seção de status: o prefixo `mock` é o que permite
+// referenciá-lo de dentro da factory do jest.mock. O wrapper é transparente
+// (delega para a seção real), então os demais testes não mudam.
+const mockMontagensStatusSection = { total: 0 };
+
+jest.mock('@/components/route-filters', () => {
+  const actual = jest.requireActual('@/components/route-filters');
+  const ReactActual = require('react');
+  return {
+    ...actual,
+    StatusFilterSection: (props: unknown) => {
+      ReactActual.useEffect(() => {
+        mockMontagensStatusSection.total += 1;
+      }, []);
+      return ReactActual.createElement(actual.StatusFilterSection, props);
+    },
+  };
+});
+
 describe('RouteFilters Component', () => {
   const mockOnFiltersChange = jest.fn();
   const mockMotoristas = [
@@ -37,11 +56,15 @@ describe('RouteFilters Component', () => {
 
       const ultimaSemana = getPresetDates('ultima_semana');
       expect(ultimaSemana?.endDate.toDateString()).toBe(today.toDateString());
-      expect(ultimaSemana?.startDate.getTime()).toBeLessThan(ultimaSemana!.endDate.getTime());
+      expect(ultimaSemana?.startDate.getTime()).toBeLessThan(
+        ultimaSemana!.endDate.getTime(),
+      );
 
       const ultimoMes = getPresetDates('ultimo_mes');
       expect(ultimoMes?.endDate.toDateString()).toBe(today.toDateString());
-      expect(ultimoMes?.startDate.getTime()).toBeLessThan(ultimoMes!.endDate.getTime());
+      expect(ultimoMes?.startDate.getTime()).toBeLessThan(
+        ultimoMes!.endDate.getTime(),
+      );
 
       const esteMes = getPresetDates('este_mes');
       expect(esteMes?.startDate.getDate()).toBe(1);
@@ -61,7 +84,7 @@ describe('RouteFilters Component', () => {
           onFiltersChange={mockOnFiltersChange}
           motoristas={mockMotoristas}
           variant="desktop"
-        />
+        />,
       );
 
       fireEvent.press(getByTestId('filter-date-range'));
@@ -87,7 +110,7 @@ describe('RouteFilters Component', () => {
           onFiltersChange={mockOnFiltersChange}
           motoristas={mockMotoristas}
           variant="desktop"
-        />
+        />,
       );
 
       expect(getByText('Status')).toBeTruthy();
@@ -102,7 +125,7 @@ describe('RouteFilters Component', () => {
           onFiltersChange={mockOnFiltersChange}
           motoristas={mockMotoristas}
           variant="desktop"
-        />
+        />,
       );
 
       const statusButton = getByTestId('filter-status-em_andamento');
@@ -126,7 +149,7 @@ describe('RouteFilters Component', () => {
           onFiltersChange={mockOnFiltersChange}
           motoristas={mockMotoristas}
           variant="desktop"
-        />
+        />,
       );
 
       const statusButton = getByTestId('filter-status-em_andamento');
@@ -145,7 +168,7 @@ describe('RouteFilters Component', () => {
           onFiltersChange={mockOnFiltersChange}
           motoristas={mockMotoristas}
           variant="desktop"
-        />
+        />,
       );
 
       const motoristaButton = getByTestId('filter-motorista-motorista-1');
@@ -169,7 +192,7 @@ describe('RouteFilters Component', () => {
           onFiltersChange={mockOnFiltersChange}
           motoristas={mockMotoristas}
           variant="desktop"
-        />
+        />,
       );
 
       const motoristaButton = getByTestId('filter-motorista-motorista-1');
@@ -195,7 +218,7 @@ describe('RouteFilters Component', () => {
           onFiltersChange={mockOnFiltersChange}
           motoristas={mockMotoristas}
           variant="desktop"
-        />
+        />,
       );
 
       // O botão mostra "Limpar Filtros (4)" porque há 4 filtros ativos
@@ -207,6 +230,36 @@ describe('RouteFilters Component', () => {
   });
 
   describe('Filter Behavior', () => {
+    it('não remonta as seções quando o pai re-renderiza', () => {
+      const { rerender } = render(
+        <RouteFilters
+          filters={defaultFilters}
+          onFiltersChange={mockOnFiltersChange}
+          motoristas={mockMotoristas}
+          variant="desktop"
+        />,
+      );
+      const montagensIniciais = mockMontagensStatusSection.total;
+
+      // O dashboard do gestor re-renderiza com dados em tempo real e passa um
+      // objeto de filtros novo (mesmo conteúdo) a cada atualização.
+      rerender(
+        <RouteFilters
+          filters={{ ...defaultFilters }}
+          onFiltersChange={mockOnFiltersChange}
+          motoristas={mockMotoristas}
+          variant="desktop"
+        />,
+      );
+
+      // Regressão da causa raiz: com `FilterContent` declarado como componente
+      // dentro do render, cada re-render dava um TIPO novo ao React e
+      // remontava a subárvore inteira — o DateRangeFilterSection perdia os 6
+      // estados internos (calendário aberto, intervalo em seleção) no meio da
+      // interação, sem erro no console.
+      expect(mockMontagensStatusSection.total).toBe(montagensIniciais);
+    });
+
     it('deve aplicar filtro de data programaticamente', () => {
       const { rerender } = render(
         <RouteFilters
@@ -214,7 +267,7 @@ describe('RouteFilters Component', () => {
           onFiltersChange={mockOnFiltersChange}
           motoristas={mockMotoristas}
           variant="desktop"
-        />
+        />,
       );
 
       // Simular aplicação de filtro de data externamente
@@ -229,7 +282,7 @@ describe('RouteFilters Component', () => {
           onFiltersChange={mockOnFiltersChange}
           motoristas={mockMotoristas}
           variant="desktop"
-        />
+        />,
       );
 
       // Verificar que o componente aceita o novo filtro
@@ -249,7 +302,7 @@ describe('RouteFilters Component', () => {
           onFiltersChange={mockOnFiltersChange}
           motoristas={mockMotoristas}
           variant="desktop"
-        />
+        />,
       );
 
       // Verificar que ambas as datas estão definidas
@@ -269,7 +322,7 @@ describe('RouteFilters Component', () => {
           onFiltersChange={mockOnFiltersChange}
           motoristas={mockMotoristas}
           variant="desktop"
-        />
+        />,
       );
 
       // Simular limpeza de filtro
@@ -284,7 +337,7 @@ describe('RouteFilters Component', () => {
           onFiltersChange={mockOnFiltersChange}
           motoristas={mockMotoristas}
           variant="desktop"
-        />
+        />,
       );
 
       expect(clearedFilters.dataInicio).toBeNull();
@@ -299,7 +352,7 @@ describe('RouteFilters Component', () => {
           onFiltersChange={mockOnFiltersChange}
           motoristas={mockMotoristas}
           variant="mobile"
-        />
+        />,
       );
 
       expect(getByTestId('filter-floating-button')).toBeTruthy();
@@ -312,7 +365,7 @@ describe('RouteFilters Component', () => {
           onFiltersChange={mockOnFiltersChange}
           motoristas={mockMotoristas}
           variant="mobile"
-        />
+        />,
       );
 
       const floatingButton = getByTestId('filter-floating-button');
@@ -338,7 +391,7 @@ describe('RouteFilters Component', () => {
           onFiltersChange={mockOnFiltersChange}
           motoristas={mockMotoristas}
           variant="desktop"
-        />
+        />,
       );
 
       // Badge deve mostrar "2" (status + dataInicio)
@@ -352,7 +405,7 @@ describe('RouteFilters Component', () => {
           onFiltersChange={mockOnFiltersChange}
           motoristas={mockMotoristas}
           variant="desktop"
-        />
+        />,
       );
 
       expect(queryByTestId('filter-badge')).toBeNull();
@@ -372,7 +425,7 @@ describe('RouteFilters Component', () => {
           onFiltersChange={mockOnFiltersChange}
           motoristas={mockMotoristas}
           variant="desktop"
-        />
+        />,
       );
 
       // Badge deve mostrar "4" (status + dataInicio + dataFim + motoristaId)
@@ -395,7 +448,7 @@ describe('RouteFilters Component', () => {
           onFiltersChange={mockOnFiltersChange}
           motoristas={mockMotoristas}
           variant="desktop"
-        />
+        />,
       );
 
       // Verificar que todos os filtros estão aplicados
@@ -419,7 +472,7 @@ describe('RouteFilters Component', () => {
           onFiltersChange={mockOnFiltersChange}
           motoristas={mockMotoristas}
           variant="desktop"
-        />
+        />,
       );
 
       // Limpar apenas o status (toggle)

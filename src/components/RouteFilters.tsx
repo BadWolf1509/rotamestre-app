@@ -22,7 +22,6 @@ import {
 } from './route-filters';
 import { getPresetDates } from './route-filters/utils';
 
-
 // Re-export types for backwards compatibility
 export type { PeriodPreset, RouteFiltersState };
 export { getPresetDates };
@@ -42,7 +41,10 @@ export function RouteFilters({
     onFiltersChange({ ...filters, status });
   };
 
-  const handleDateRangeChange = (dataInicio: Date | null, dataFim: Date | null) => {
+  const handleDateRangeChange = (
+    dataInicio: Date | null,
+    dataFim: Date | null,
+  ) => {
     onFiltersChange({ ...filters, dataInicio, dataFim });
   };
 
@@ -59,7 +61,11 @@ export function RouteFilters({
     });
   };
 
-  const FilterContent = () => (
+  // Função de render, NUNCA componente declarado aqui dentro: usado como JSX (`<X />`),
+  // cada re-render do pai daria um tipo novo ao React e remontaria a subárvore,
+  // zerando os estados internos do DateRangeFilterSection (calendário, intervalo
+  // em seleção) no meio da interação — sem erro no console. Ver CLAUDE.md.
+  const renderFilterContent = () => (
     <ScrollView style={styles.filterContainer}>
       <StatusFilterSection
         status={filters.status}
@@ -81,8 +87,14 @@ export function RouteFilters({
       {/* Clear Filters Button */}
       {activeFiltersCount > 0 && (
         <Pressable style={styles.clearFiltersButton} onPress={clearFilters}>
-          <Ionicons name="close-circle-outline" size={20} color={theme.colors.error} />
-          <Text style={styles.clearFiltersButtonText}>Limpar Filtros ({activeFiltersCount})</Text>
+          <Ionicons
+            name="close-circle-outline"
+            size={20}
+            color={theme.colors.error}
+          />
+          <Text style={styles.clearFiltersButtonText}>
+            Limpar Filtros ({activeFiltersCount})
+          </Text>
         </Pressable>
       )}
     </ScrollView>
@@ -92,7 +104,11 @@ export function RouteFilters({
     return (
       <View style={styles.desktopContainer}>
         <View style={styles.desktopHeader}>
-          <Ionicons name="filter-outline" size={20} color={theme.colors.gray500} />
+          <Ionicons
+            name="filter-outline"
+            size={20}
+            color={theme.colors.gray500}
+          />
           <Text style={styles.desktopTitle}>Filtros</Text>
           {activeFiltersCount > 0 && (
             <View style={styles.badge}>
@@ -100,7 +116,7 @@ export function RouteFilters({
             </View>
           )}
         </View>
-        <FilterContent />
+        {renderFilterContent()}
       </View>
     );
   }
@@ -134,7 +150,7 @@ export function RouteFilters({
               <Ionicons name="close" size={28} color={theme.colors.gray500} />
             </Pressable>
           </View>
-          <FilterContent />
+          {renderFilterContent()}
         </View>
       </Modal>
     </>
