@@ -1,6 +1,7 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
+import { authService } from '@/lib/auth';
 import { googlePlacesService } from '@/lib/googlePlaces';
 import { supabase } from '@/lib/supabase';
 
@@ -80,12 +81,15 @@ jest.mock('@/components/AddressAutocomplete', () => {
 
 jest.mock('@/lib/googlePlaces');
 
+jest.mock('@/lib/auth');
+
 jest.mock('@/lib/supabase');
 
 const mockSupabase = supabase as jest.Mocked<typeof supabase>;
 const mockPlaces = googlePlacesService as jest.Mocked<
   typeof googlePlacesService
 >;
+const mockAuth = authService as jest.Mocked<typeof authService>;
 
 const CriarUnidade = require('../criar-unidade').default;
 
@@ -112,10 +116,43 @@ describe('tela de onboarding: criar unidade', () => {
     // usuário ainda NÃO tem linha em `usuarios` (o perfil nasce na RPC).
     mockSupabase.auth = {
       getUser: jest.fn().mockResolvedValue({
-        data: { user: { user_metadata: { nome: 'Maria Souza' } } },
+        data: {
+          user: { id: 'user-1', user_metadata: { nome: 'Maria Souza' } },
+        },
         error: null,
       }),
     } as unknown as typeof mockSupabase.auth;
+    // Premissa desta tela: sessão sem perfil. Quem já tem perfil não deveria
+    // estar aqui — ver os dois testes de redirecionamento.
+    mockAuth.getUsuario = jest.fn().mockResolvedValue(null);
+  });
+
+  it('manda para o portão quem já tem perfil', async () => {
+    // A rota abre por URL — favorito, histórico do navegador ou aba velha. Sem
+    // esta saída o gestor cai num formulário que a RPC vai recusar, sem botão
+    // de voltar (o layout desliga headerBackVisible e gestureEnabled) e com o
+    // "Sair" — que desloga — como única saída visível.
+    mockAuth.getUsuario = jest
+      .fn()
+      .mockResolvedValue({ id: 'user-1', papel: 'gestor' });
+
+    render(<CriarUnidade />);
+
+    // Redireciona para `/`, não direto para o painel: quem sabe para onde
+    // mandar é o portão do app/index.tsx, que também trata primeira_senha e
+    // papel. Duplicar essa decisão aqui criaria duas versões da mesma regra.
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+  });
+
+  it('mantém o formulário quando a conta ainda não tem perfil', async () => {
+    const { getByLabelText } = render(<CriarUnidade />);
+
+    // O caminho normal do onboarding: perfil ainda não existe, a tela é
+    // exatamente onde a pessoa deve estar.
+    await waitFor(() =>
+      expect(getByLabelText('Seu nome').props.value).toBe('Maria Souza'),
+    );
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it('pré-preenche o nome com o que foi digitado no cadastro', async () => {

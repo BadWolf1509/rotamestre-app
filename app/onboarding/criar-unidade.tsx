@@ -16,6 +16,7 @@ import {
 import { useCriarUnidade } from '@/hooks/onboarding/useCriarUnidade';
 import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
+import { authService } from '@/lib/auth';
 import { nomeEstadoParaUF } from '@/lib/estados';
 import { googlePlacesService } from '@/lib/googlePlaces';
 import { logger } from '@/lib/logger';
@@ -52,27 +53,53 @@ function CriarUnidadeScreen() {
     reValidateMode: 'onChange',
   });
 
-  // Pré-preenche o nome com o que a pessoa digitou no cadastro. Ele viaja em
-  // `options.data` do signUp e fica em `user_metadata` — é a única fonte aqui,
-  // porque nesta tela ainda NÃO existe linha em `usuarios` (o perfil nasce na
-  // RPC, logo adiante). Sem isso a pessoa redigita o nome que acabou de
-  // informar, e nada impede que os dois valores divirjam.
+  // Uma leitura só resolve duas coisas: quem já tem perfil não pode ficar
+  // nesta tela, e quem não tem merece o nome já preenchido.
   useEffect(() => {
     let cancelado = false;
 
     (async () => {
       try {
         const { data } = await supabase.auth.getUser();
-        const nome = data?.user?.user_metadata?.nome;
-        if (cancelado || typeof nome !== 'string' || !nome.trim()) return;
+        const user = data?.user;
+        if (cancelado || !user) return;
+
+        // Esta tela existe para a janela entre o cadastro e a RPC, quando ainda
+        // não há linha em `usuarios`. Quem já passou por ela chega aqui por
+        // URL — favorito, histórico do navegador ou aba esquecida — e cai num
+        // formulário que a RPC vai recusar com PERFIL_JA_EXISTE. Pior: o layout
+        // do onboarding desliga `headerBackVisible` e `gestureEnabled`, então a
+        // única saída visível é o botão "Sair", que **desloga**.
+        const perfil = await authService.getUsuario(user.id);
+        if (cancelado) return;
+
+        if (perfil) {
+          // Vai para o portão, não direto ao painel: quem sabe o destino é
+          // `app/index.tsx`, que também trata `primeira_senha` e o papel.
+          // Decidir aqui criaria uma segunda versão da mesma regra. Ele nunca
+          // devolve para cá, porque só manda ao onboarding quem NÃO tem perfil.
+          logger.warn(
+            '[Onboarding] Conta já tem perfil nesta tela — devolvendo ao portão',
+          );
+          router.replace('/');
+          return;
+        }
+
+        // O nome digitado no cadastro viaja em `options.data` do signUp e fica
+        // em `user_metadata` — é a única fonte aqui, já que o perfil ainda não
+        // existe. Sem isso a pessoa redigita o nome que acabou de informar, e
+        // nada impede que os dois valores divirjam.
+        const nome = user.user_metadata?.nome;
+        if (typeof nome !== 'string' || !nome.trim()) return;
         // Não sobrescreve o que já foi digitado: a leitura é assíncrona e pode
         // chegar depois de a pessoa começar a preencher.
         if (getValues('gestorNome')?.trim()) return;
         setValue('gestorNome', nome.trim());
       } catch (error) {
-        // Falha aqui só custa o pré-preenchimento; o campo continua editável.
+        // Falhar aqui deixa a tela como era antes: formulário aberto e nome
+        // vazio. É o lado seguro — a RPC continua barrando a segunda unidade.
         logger.warn(
-          '[Onboarding] Não foi possível ler o nome do cadastro',
+          '[Onboarding] Não foi possível verificar o perfil da conta',
           error,
         );
       }
@@ -81,7 +108,7 @@ function CriarUnidadeScreen() {
     return () => {
       cancelado = true;
     };
-  }, [getValues, setValue]);
+  }, [getValues, router, setValue]);
 
   // Cidade e UF saem do próprio endereço da sede. Digitados à mão eles podem
   // divergir das coordenadas — a unidade nasceria dizendo "Recife" com a sede
