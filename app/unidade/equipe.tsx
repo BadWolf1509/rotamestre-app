@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -51,9 +51,17 @@ export default function EquipeScreen() {
   const [filteredMembros, setFilteredMembros] = useState<Membro[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterPapel, setFilterPapel] = useState<'todos' | 'gestor' | 'motorista'>('todos');
+  const [filterPapel, setFilterPapel] = useState<
+    'todos' | 'gestor' | 'motorista'
+  >('todos');
   const isDesktopView = isDesktop;
   const isLoading = userLoading || loading;
+  // `loading` troca a tela inteira pelo spinner (MobileLoading no mobile,
+  // DesktopPageLayout no desktop). Por isso ele vale só para a carga inicial:
+  // a recarga depois de ativar/desativar um membro precisa manter a lista na
+  // tela — o gestor acabou de agir e já recebeu o toast de sucesso. Mesma regra
+  // do useDashboardData.
+  const cargaInicialFeitaRef = useRef(false);
 
   const loadMembros = useCallback(async () => {
     const unidadeId = userData?.unidade_id;
@@ -64,10 +72,14 @@ export default function EquipeScreen() {
     }
 
     try {
-      setLoading(true);
+      if (!cargaInicialFeitaRef.current) {
+        setLoading(true);
+      }
       const { data, error } = await supabase
         .from('usuarios')
-        .select('id, nome, email, papel, is_gestor_principal, ativo, created_at, foto_url')
+        .select(
+          'id, nome, email, papel, is_gestor_principal, ativo, created_at, foto_url',
+        )
         .eq('unidade_id', unidadeId)
         .order('created_at', { ascending: false });
 
@@ -78,6 +90,8 @@ export default function EquipeScreen() {
       logger.error('Erro ao carregar membros', error);
       showToast('Erro ao carregar equipe', 'error', 4000);
     } finally {
+      // A tentativa aconteceu: da próxima vez é recarga, não carga inicial.
+      cargaInicialFeitaRef.current = true;
       setLoading(false);
     }
   }, [showToast, userData?.unidade_id]);
@@ -96,7 +110,10 @@ export default function EquipeScreen() {
         return true;
       }
       const query = searchQuery.toLowerCase();
-      return m.nome.toLowerCase().includes(query) || m.email.toLowerCase().includes(query);
+      return (
+        m.nome.toLowerCase().includes(query) ||
+        m.email.toLowerCase().includes(query)
+      );
     });
     setFilteredMembros(filtered);
   }, [filterPapel, membros, searchQuery]);
@@ -112,7 +129,7 @@ export default function EquipeScreen() {
     if (membro.is_gestor_principal) {
       showWarning(
         'Erro',
-        'O gestor principal não pode ser desativado. Transfira a gestão primeiro.'
+        'O gestor principal não pode ser desativado. Transfira a gestão primeiro.',
       );
       return;
     }
@@ -139,7 +156,7 @@ export default function EquipeScreen() {
       showToast(
         `Usuário ${membro.ativo ? 'desativado' : 'reativado'} com sucesso!`,
         'success',
-        3000
+        3000,
       );
       await loadMembros();
     } catch (error) {
@@ -163,11 +180,15 @@ export default function EquipeScreen() {
         <Text style={styles.statLabel}>Total</Text>
       </View>
       <View style={styles.statCard}>
-        <Text style={[styles.statValue, styles.statValuePositive]}>{ativos}</Text>
+        <Text style={[styles.statValue, styles.statValuePositive]}>
+          {ativos}
+        </Text>
         <Text style={styles.statLabel}>Ativos</Text>
       </View>
       <View style={styles.statCard}>
-        <Text style={[styles.statValue, styles.statValueNegative]}>{inativos}</Text>
+        <Text style={[styles.statValue, styles.statValueNegative]}>
+          {inativos}
+        </Text>
         <Text style={styles.statLabel}>Inativos</Text>
       </View>
     </View>
@@ -216,7 +237,9 @@ export default function EquipeScreen() {
       const emptyState = (
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>
-            {searchQuery ? 'Nenhum membro encontrado' : 'Nenhum membro na equipe'}
+            {searchQuery
+              ? 'Nenhum membro encontrado'
+              : 'Nenhum membro na equipe'}
           </Text>
         </View>
       );
@@ -234,74 +257,76 @@ export default function EquipeScreen() {
           const isGestorRole = membro.papel === 'gestor';
           return (
             <View
-            key={membro.id}
-            style={[
-              styles.membroCard,
-              !membro.ativo && styles.membroCardInativo,
-              useDesktopLayout && styles.membroCardGrid,
-            ]}
-          >
-            <View style={styles.membroHeader}>
-              <Avatar
-                name={membro.nome}
-                imageUrl={membro.foto_url}
-                size="md"
-              />
-              <View style={styles.membroInfo}>
-                <View style={styles.membroNameRow}>
-                  <Text style={styles.membroNome}>{membro.nome}</Text>
-                  {membro.is_gestor_principal && (
-                    <View style={styles.principalBadge}>
-                      <Text style={styles.principalBadgeText}>⭐</Text>
-                    </View>
-                  )}
-                  {!membro.ativo && (
-                    <View style={styles.inativoBadge}>
-                      <Text style={styles.inativoBadgeText}>Inativo</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.membroEmail}>{membro.email}</Text>
-                <View
-                  style={[
-                    styles.papelBadge,
-                    isGestorRole ? styles.papelBadgeGestor : styles.papelBadgeMotorista,
-                  ]}
-                >
-                  <Text
+              key={membro.id}
+              style={[
+                styles.membroCard,
+                !membro.ativo && styles.membroCardInativo,
+                useDesktopLayout && styles.membroCardGrid,
+              ]}
+            >
+              <View style={styles.membroHeader}>
+                <Avatar
+                  name={membro.nome}
+                  imageUrl={membro.foto_url}
+                  size="md"
+                />
+                <View style={styles.membroInfo}>
+                  <View style={styles.membroNameRow}>
+                    <Text style={styles.membroNome}>{membro.nome}</Text>
+                    {membro.is_gestor_principal && (
+                      <View style={styles.principalBadge}>
+                        <Text style={styles.principalBadgeText}>⭐</Text>
+                      </View>
+                    )}
+                    {!membro.ativo && (
+                      <View style={styles.inativoBadge}>
+                        <Text style={styles.inativoBadgeText}>Inativo</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.membroEmail}>{membro.email}</Text>
+                  <View
                     style={[
-                      styles.papelBadgeText,
+                      styles.papelBadge,
                       isGestorRole
-                        ? styles.papelBadgeTextGestor
-                        : styles.papelBadgeTextMotorista,
+                        ? styles.papelBadgeGestor
+                        : styles.papelBadgeMotorista,
                     ]}
                   >
-                    {getPapelLabel(membro.papel)}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.papelBadgeText,
+                        isGestorRole
+                          ? styles.papelBadgeTextGestor
+                          : styles.papelBadgeTextMotorista,
+                      ]}
+                    >
+                      {getPapelLabel(membro.papel)}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
 
-            {isGestorPrincipal &&
-              membro.id !== userData?.id &&
-              !membro.is_gestor_principal && (
-                <View style={styles.membroActions}>
-                  <Button
-                    title={membro.ativo ? 'Desativar' : 'Reativar'}
-                    variant={membro.ativo ? 'danger' : 'secondary'}
-                    onPress={() => handleToggleAtivo(membro)}
-                    style={styles.actionButton}
-                    size="small"
-                  />
+              {isGestorPrincipal &&
+                membro.id !== userData?.id &&
+                !membro.is_gestor_principal && (
+                  <View style={styles.membroActions}>
+                    <Button
+                      title={membro.ativo ? 'Desativar' : 'Reativar'}
+                      variant={membro.ativo ? 'danger' : 'secondary'}
+                      onPress={() => handleToggleAtivo(membro)}
+                      style={styles.actionButton}
+                      size="small"
+                    />
+                  </View>
+                )}
+
+              {membro.id === userData?.id && (
+                <View style={styles.youBadge}>
+                  <Text style={styles.youBadgeText}>Você</Text>
                 </View>
               )}
-
-            {membro.id === userData?.id && (
-              <View style={styles.youBadge}>
-                <Text style={styles.youBadgeText}>Você</Text>
-              </View>
-            )}
-          </View>
+            </View>
           );
         })}
       </View>
@@ -374,7 +399,9 @@ export default function EquipeScreen() {
     <ErrorBoundary>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+        contentContainerStyle={{
+          paddingBottom: Math.max(20, insets.bottom + 20),
+        }}
       >
         <View style={styles.content}>
           <MobileCard title="Resumo" variant="bordered">
@@ -384,7 +411,11 @@ export default function EquipeScreen() {
             {searchSection}
             {filterSection}
           </MobileCard>
-          <MobileCard title="Membros" subtitle={`${filteredMembros.length} encontrado(s)`} variant="bordered">
+          <MobileCard
+            title="Membros"
+            subtitle={`${filteredMembros.length} encontrado(s)`}
+            variant="bordered"
+          >
             {renderMembersSection(false)}
           </MobileCard>
         </View>
@@ -622,7 +653,3 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.warning,
   },
 }));
-
-
-
-
