@@ -7,16 +7,16 @@
 
 Lista única e canônica. Se resolver uma, risque daqui.
 
-| #   | Pendência                                                                                                                                                                                                                                                                                                                                                                                         | Quem pode fazer                                | Onde está o detalhe                                    |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------ |
-| 1   | **Rotacionar/desativar contas de teste com senha vazada** — `gestor@`, `motorista@`, `gestor.test@`, `motorista.test@` foram **excluídas em 05/08/2026**; se recriar qualquer conta de teste, use senha forte por variável de ambiente.                                                                                                                                                           | gestor (Supabase → Auth → Users)               | "Credenciais hardcoded" abaixo                         |
-| 2   | **Furo de RLS:** motorista pode alterar `unidade_id` da própria rota. Pré-existente, exige motorista malicioso fora do app.                                                                                                                                                                                                                                                                       | requer design (o fix óbvio quebra o motorista) | Security Advisory privado `GHSA-vw63-jxg2-28vx`        |
-| 3   | **Fase 2 da auditoria:** chip na tela da rota + indicador/filtro/contador na Gestão de Rotas. Plano próprio ainda não escrito — melhor depois de algumas semanas de dado acumulado.                                                                                                                                                                                                               | qualquer sessão                                | spec `2026-08-04-auditoria-otimizacao-rotas-design.md` |
-| 4   | **Play Store: produção continua vazia.** O `3025` está publicado em **teste fechado (`alpha`) e teste interno**, ambos `completed`. Falta cumprir o requisito de testadores para solicitar acesso à produção. Ampliar opt-in divulgando o hub público `/testar`.                                                                                                                                  | gestor (Play Console)                          | `GOOGLE_PLAY_DEPLOYMENT.md`                            |
-| 5   | **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).                                                                                                                                                                                                                                                               | gestor (Apple ID + 2FA)                        | `APP_STORE_DEPLOYMENT.md`                              |
-| 6   | **Validar o onboarding self-service — passos 1 a 3 feitos em 15/08, faltam 4 a 6.** O portão foi confirmado com conta real: cadastro → confirmação → login cai em `/onboarding/criar-unidade`. Falta criar unidade, motorista e rota. Detalhe do que verificar e do dado de teste vivo em "Trabalho em curso". Nenhum teste automatizado cobre isso — nenhum toca o banco real.                   | gestor (cria dado real)                        | "Trabalho em curso" abaixo                             |
-| 7   | **4 das 9 unidades têm `sede_endereco` com coordenadas NULL** — não conseguem gerar rota. A tela "Minha Unidade" é o caminho de conserto e desde 08/08 funciona de verdade (ver Migration 22 e a armadilha do componente aninhado). Falta passar unidade por unidade.                                                                                                                             | gestor (edita cada unidade)                    | `database/MIGRATIONS.md` (Migration 22)                |
-| 8   | **Proteção contra senha vazada: exige plano Pro, não dá para ligar hoje.** O advisor aponta `auth_leaked_password_protection`, mas a checagem contra o HaveIBeenPwned é **Pro ou acima** — a assinatura é por organização, não por projeto. **Não é um toggle**, é upgrade de plano. O que o free permite e vale conferir: comprimento mínimo e caracteres exigidos, em Auth → Providers → Email. | gestor (decisão de plano; ou ajuste no Email)  | "Política de senha" abaixo                             |
+| #   | Pendência                                                                                                                                                                                                                                                                                                                                                                                           | Quem pode fazer                                | Onde está o detalhe                                    |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------ |
+| 1   | **Rotacionar/desativar contas de teste com senha vazada** — `gestor@`, `motorista@`, `gestor.test@`, `motorista.test@` foram **excluídas em 05/08/2026**; se recriar qualquer conta de teste, use senha forte por variável de ambiente.                                                                                                                                                             | gestor (Supabase → Auth → Users)               | "Credenciais hardcoded" abaixo                         |
+| 2   | **Furo de RLS:** motorista pode alterar `unidade_id` da própria rota. Pré-existente, exige motorista malicioso fora do app.                                                                                                                                                                                                                                                                         | requer design (o fix óbvio quebra o motorista) | Security Advisory privado `GHSA-vw63-jxg2-28vx`        |
+| 3   | **Fase 2 da auditoria:** chip na tela da rota + indicador/filtro/contador na Gestão de Rotas. Plano próprio ainda não escrito — melhor depois de algumas semanas de dado acumulado.                                                                                                                                                                                                                 | qualquer sessão                                | spec `2026-08-04-auditoria-otimizacao-rotas-design.md` |
+| 4   | **Play Store: produção continua vazia.** O `3025` está publicado em **teste fechado (`alpha`) e teste interno**, ambos `completed`. Falta cumprir o requisito de testadores para solicitar acesso à produção. Ampliar opt-in divulgando o hub público `/testar`.                                                                                                                                    | gestor (Play Console)                          | `GOOGLE_PLAY_DEPLOYMENT.md`                            |
+| 5   | **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).                                                                                                                                                                                                                                                                 | gestor (Apple ID + 2FA)                        | `APP_STORE_DEPLOYMENT.md`                              |
+| 6   | **Validar o onboarding self-service — passos 1 a 4 feitos em 15/08, faltam 5 e 6.** Cadastro, confirmação, portão e **criação da unidade** confirmados com conta real, com todos os invariantes da RPC conferidos no banco. Falta criar o motorista e a rota, bloqueados porque cadastrar motorista exige definir senha de acesso. Nenhum teste automatizado cobre isso — nenhum toca o banco real. | gestor (cria conta de motorista)               | "Trabalho em curso" abaixo                             |
+| 7   | **4 das 9 unidades têm `sede_endereco` com coordenadas NULL** — não conseguem gerar rota. A tela "Minha Unidade" é o caminho de conserto e desde 08/08 funciona de verdade (ver Migration 22 e a armadilha do componente aninhado). Falta passar unidade por unidade.                                                                                                                               | gestor (edita cada unidade)                    | `database/MIGRATIONS.md` (Migration 22)                |
+| 8   | **Proteção contra senha vazada: exige plano Pro, não dá para ligar hoje.** O advisor aponta `auth_leaked_password_protection`, mas a checagem contra o HaveIBeenPwned é **Pro ou acima** — a assinatura é por organização, não por projeto. **Não é um toggle**, é upgrade de plano. O que o free permite e vale conferir: comprimento mínimo e caracteres exigidos, em Auth → Providers → Email.   | gestor (decisão de plano; ou ajuste no Email)  | "Política de senha" abaixo                             |
 
 **Fechadas em 08/08/2026, não reabra:** a Migration 22 foi aplicada em
 07/08 e validada na tela (edição gravou no banco; `.update()` direto continua
@@ -28,7 +28,10 @@ mais o feature graphic v2 refeitos e commitados com a listagem já publicada.
 **Fechadas em 15/08/2026, não reabra:** o decimal com ponto (`18.1 km` num app
 pt-BR) foi centralizado em `formatarDecimal` e migrado em 32 pontos de exibição
 (PR #375); **toda rota sob `app/` tem ErrorBoundary** (PRs #373 e #374); as
-**contas órfãs em `auth.users` foram zeradas** (ver seção própria abaixo).
+**contas órfãs em `auth.users` foram zeradas** (ver seção própria abaixo); no
+onboarding, o **nome do cadastro chega pré-preenchido** e **cidade e UF saem do
+endereço** da sede, com os campos reordenados (PR #378) — ambos validados no
+navegador com o Places real.
 
 Follow-ups menores (nenhum bloqueia): Timeline não narra o autor da otimização
 (o dado existe em `logs.usuario_id`, falta join em `useTimelineData.ts`);
@@ -42,51 +45,12 @@ trilhas" nas armadilhas) — recriar custa uma investigação inteira.
 
 ## Trabalho em curso (retomar por aqui)
 
-Sessão de 15/08/2026 interrompida no meio. Tudo que segue é estado real
-verificado, não plano.
+Sessão de 15/08/2026. Tudo que segue é estado real verificado, não plano.
 
-### 1. PR aberto, aguardando merge
+### 1. Onboarding self-service validado até o passo 4 (pendência 6)
 
-[PR #378](https://github.com/BadWolf1509/rotamestre-app/pull/378), branch
-`fix/onboarding-prefill-nome`: pré-preenchimento do nome (`4e7abf7`) e cidade/UF
-automáticas (`c8b43db`), mais dois commits de documentação. Suíte completa verde:
-331 suites, 5854 testes. **Merge exige `--squash --admin`** (a `main` pede 1
-review e o gestor é autor de tudo).
-
-### 2. Cidade e UF automáticas — implementado em 15/08
-
-Selecionar o endereço preenche cidade e UF, e os campos foram reordenados para
-Nome → Empresa → **Endereço** → Cidade → UF. Só `app/onboarding/criar-unidade.tsx`.
-O que a implementação decidiu e por quê:
-
-- **O endereço sobrescreve** cidade/UF já digitados (decisão do gestor): senão a
-  unidade nasce dizendo "Recife" com a sede em João Pessoa, sem aviso. Os dois
-  campos seguem editáveis.
-- **O autocomplete não entrega cidade/UF** — `onSelectAddress` só dá endereço,
-  `place_id` e coordenadas. Cidade e estado exigem `getPlaceDetails(placeId)`,
-  que cai no cache de 30 min aberto pelo próprio autocomplete.
-- Duas armadilhas herdadas de `app/unidade/index.tsx`: `place_id` iniciado por
-  `cep_` é sintético do ViaCEP e o Places não resolve; o estado chega por extenso
-  e truncaria para "Pa" no campo `maxLength={2}` — daí o `nomeEstadoParaUF`.
-- **Falha do Places é silenciosa** (`logger.warn`): as coordenadas já vieram do
-  `onSelectAddress` e são o que a RPC exige.
-- **Fora do escopo:** CEP e logradouro — este formulário não tem esses campos.
-
-Validado no navegador com o Places real: cidade e UF **vazias** antes do clique,
-"João Pessoa" e "PB" depois. Os 5 testes novos foram conferidos contra a ausência
-da própria proteção — sem a guarda de `cep_`, sem o `try/catch` ou sem o
-`clearErrors`, o teste correspondente falha.
-
-Um detalhe de teste que custou tempo e vai se repetir: `waitFor` afirmando
-**ausência** (`queryByText(...).toBeNull()`) logo após um `fireEvent` falha mesmo
-com o código certo — ele corre em paralelo com o preenchimento e conclui cedo.
-Ancore antes numa precondição observável (o campo com o valor esperado) e só
-então afirme a ausência.
-
-### 3. Onboarding validado até o passo 3 (pendência 6, parcial)
-
-Primeira vez que o fluxo self-service foi percorrido com conta real. **Passos 1
-a 3 verificados no banco e no navegador:**
+Primeira vez que o fluxo foi percorrido inteiro com conta real, do cadastro à
+criação da unidade. **Passos 1 a 4 verificados no banco e no navegador:**
 
 | Passo              | Resultado                                                                               |
 | ------------------ | --------------------------------------------------------------------------------------- |
@@ -94,34 +58,71 @@ a 3 verificados no banco e no navegador:**
 | `nome` em metadata | gravado e íntegro                                                                       |
 | Confirmação        | `email_confirmed_at` preenchido                                                         |
 | Login → **portão** | caiu em `/onboarding/criar-unidade`, com sessão — **o caminho de resgate existe mesmo** |
+| **Criar unidade**  | RPC gravou as três linhas atomicamente, com todos os invariantes                        |
 
-**Falta:** criar a unidade (passo 4), o motorista (5) e a rota (6). O contador
-`unidades where origem='self_service'` continua **0** — é o indicador de que o
-passo 4 nunca completou.
+A RPC `criar_unidade_para_novo_gestor` foi conferida linha a linha:
+`origem='self_service'`, `status='trial'`, `sede_latitude`/`sede_longitude` não
+nulas, `usuarios.unidade_id` com `papel='gestor'` e `is_gestor_principal=true`,
+`usuario_unidades.is_principal=true`. O contador `unidades where
+origem='self_service'` saiu de **0 → 1** e as contas órfãs de **1 → 0**.
 
-Ao retomar, conferir na criação da unidade: `origem='self_service'`,
-`status='trial'`, `sede_latitude`/`sede_longitude` **não nulas**,
-`usuarios.unidade_id` preenchido com `papel='gestor'` e
-`is_gestor_principal=true`, e `usuario_unidades.is_principal=true`. A RPC grava
-as três linhas atomicamente.
+Também validado depois da criação, sem motorista: a sede entra sozinha como
+**partida e chegada** da rota; o autocomplete de paradas e o otimizador OSRM
+funcionam (2 paradas → 14,3 km / 21 min, com a vírgula decimal correta); e o
+rascunho da rota sobrevive à navegação entre telas.
 
-### 4. Dado de teste vivo em produção
+**Falta:** o motorista (passo 5) e a rota (6) — ver o bloqueio no item 2.
 
-O teste criou uma conta real (e-mail corporativo, não descartável) que está
-**órfã** — sem perfil, porque o passo 4 não completou. O indicador de contas
-órfãs, que estava zerado, hoje retorna **1**. Ou se conclui a validação, ou se
-apaga a conta; deixá-la assim mantém o indicador sujo e confunde a próxima
-auditoria.
+### 2. O passo 5 exige criar conta com senha
 
-### 5. Bug registrado, não corrigido
+`Motoristas → Adicionar Motorista` pede nome, e-mail e **senha inicial**: é
+criação de conta de acesso, então precisa ser feita pelo gestor, não pelo
+assistente. Sem pelo menos um motorista o passo 6 não existe — a tela Nova Rota
+mostra "Nenhum motorista disponível nesta unidade" e o botão de criar rota fica
+desabilitado.
 
-`PGRST116` (zero linhas) logado como `logger.error` **4×** durante o onboarding,
-em `src/lib/auth.ts:231` e `src/hooks/useUser.ts:141`. Não é falha: nesse
-momento o usuário legitimamente não tem perfil, mas o código usa `.single()`.
-Como o **Sentry está ligado na web em produção**, todo cadastro self-service vai
-gerar 4 eventos de erro num fluxo que deu certo — polui o rastreamento e ensina
-a ignorar esses eventos. Correção: `.maybeSingle()` ou tratar o código como caso
-normal.
+Para retomar: criar um motorista na unidade `Transportes Epitacio Teste`, voltar
+em Nova Rota (o rascunho com as 2 paradas otimizadas está salvo) e criar a rota.
+
+### 3. Dados de teste vivos em produção
+
+A validação deixou em produção uma **unidade real** (`Transportes Epitacio
+Teste`, `origem='self_service'`, `status='trial'`) com o e-mail corporativo do
+gestor como gestor principal. Não há mais conta órfã, mas há uma unidade de teste
+no meio das reais — decidir se fica como massa de teste do fluxo self-service ou
+se é removida junto com as paradas/rotas que vierem dela.
+
+### 4. Bugs encontrados na validação, nenhum corrigido
+
+Em ordem de impacto:
+
+1. **`PGRST116` logado como erro durante o onboarding** — `logger.error` **4×**
+   em `src/lib/auth.ts:231` e `src/hooks/useUser.ts:141`. Não é falha: entre o
+   cadastro e a RPC o usuário legitimamente não tem perfil, mas o código usa
+   `.single()`. Com o **Sentry ligado na web em produção**, todo cadastro gera 4
+   eventos de erro num fluxo que deu certo. Confirmado que **para** assim que o
+   perfil existe. Correção: `.maybeSingle()` ou tratar o código como caso normal.
+2. **Toast de erro não se dispensa** — o toast vermelho do `PGRST116` ficou na
+   tela por toda a sessão, atravessando várias navegações; só sumiu com recarga
+   completa. Um erro transitório do onboarding acompanha o gestor pelo app
+   inteiro.
+3. **Beco sem saída para o gestor novo** — "Nova Rota de Entrega" é a primeira
+   ação do dashboard, mas uma unidade recém-criada não tem motorista. Dá para
+   preencher paradas, geocodificar e otimizar, e só no fim descobrir que não dá
+   para concluir. Não há link para cadastrar motorista a partir dali.
+4. **Cidade e UF duplicadas no texto da partida/chegada** — sai "Avenida Epitacio
+   Pessoa, 1000 - Torre, João Pessoa - PB, João Pessoa, PB": o `sede_endereco` já
+   contém cidade e UF, e a tela concatena os campos de novo.
+5. **"Rascunho salvo automaticamente" promete mais do que entrega** — o rascunho
+   vive em `sessionStorage` (`rotamestre:nova-entrega:<gestor>:<unidade>`), que
+   morre junto com a aba. Sobrevive à navegação, não a fechar o navegador.
+6. **`Unexpected text node` no console** — dezenas por tela do gestor, vindas dos
+   ícones `Ionicons` da `Sidebar.tsx`. Ruído de desenvolvimento; confirmar se
+   aparece também no bundle de produção antes de decidir se importa.
+7. **Campo de endereço sem rótulo visível** no formulário de onboarding — os
+   outros quatro campos têm rótulo acima; o endereço só tem placeholder, que some
+   ao ser preenchido. O nome acessível existe ("Campo de endereço"), é
+   inconsistência visual.
 
 ### Auditoria de otimização — validada em 05/08/2026
 
@@ -198,8 +199,9 @@ retornava **9 linhas** — resíduo do `signUp` em dois passos, que criava a con
 no Auth e falhava no insert em `usuarios`. Todas foram excluídas a pedido do
 gestor, depois de conferido que nenhuma tinha rota, vínculo de unidade ou
 registro em `admin_logs`, e que nenhuma havia se recadastrado com sucesso.
-Hoje `auth.users` e `public.usuarios` batem: **17 para 17**, zero órfãs e zero
-usuários sem conta de auth.
+Hoje `auth.users` e `public.usuarios` batem: **18 para 18**, zero órfãs e zero
+usuários sem conta de auth. (Eram 17/17 na limpeza; a 18ª é a conta usada para
+validar o onboarding, que virou gestor de verdade ao completar o passo 4.)
 
 Seis eram **pessoas reais**, presas desde março de 2026 — uma delas voltou em
 abril, autenticou e não conseguiu usar o app, porque o perfil nunca existiu. A
@@ -350,7 +352,9 @@ Cada uma quebrou algo de verdade. Leia antes de agir na área correspondente.
   conta criada: pessoas reais ficaram com conta órfã, e `app/index.tsx` as
   devolvia ao login sem mensagem. Hoje `index.tsx` **e** `login.tsx` mandam
   sessão-sem-perfil para `/onboarding/criar-unidade`, então deixou de ser beco
-  sem saída — mas esse fluxo **nunca foi validado ponta a ponta** (pendência 6).
+  sem saída. **Validado com conta real em 15/08 até a criação da unidade**: o
+  portão leva à tela certa e a RPC grava as três linhas atomicamente (pendência 6
+  segue aberta só nos passos de motorista e rota).
   _(Até 15/08 esta entrada dizia "correção ainda não aplicada", o que contradizia
   a própria tabela de mudanças e o código; corrigido após conferir o
   `login.tsx`.)_
@@ -802,10 +806,10 @@ app.rotamestre.tec.br ── Expo Web / React Native
 
 ## Roteiro para a próxima sessão
 
-0. **Se "Trabalho em curso" ainda existir neste documento, comece por ele** — há
-   branch aberta sem push, uma implementação já desenhada e aprovada, e uma
-   validação manual parada no meio. Quando essas cinco frentes fecharem, apague
-   a seção inteira.
+0. **Se "Trabalho em curso" ainda existir neste documento, comece por ele** — o
+   onboarding está validado até o passo 4 e travado no 5 por depender de uma
+   conta de motorista, há dado de teste vivo em produção e sete bugs registrados
+   sem correção. Quando essas quatro frentes fecharem, apague a seção inteira.
 1. Leia, **nesta ordem**, as três primeiras seções deste documento: Pendências,
    Armadilhas e Estado atual. Elas bastam para começar; o resto é referência sob
    demanda.
