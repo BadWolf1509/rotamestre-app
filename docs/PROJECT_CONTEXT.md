@@ -92,37 +92,56 @@ gestor como gestor principal. Não há mais conta órfã, mas há uma unidade de
 no meio das reais — decidir se fica como massa de teste do fluxo self-service ou
 se é removida junto com as paradas/rotas que vierem dela.
 
-### 4. Bugs encontrados na validação, nenhum corrigido
+### 4. Bugs encontrados na validação — todos resolvidos
 
-Em ordem de impacto:
+O **`PGRST116`** foi corrigido: `getUsuario` (`src/lib/auth.ts`) e
+`fetchUserData` (`src/hooks/useUser.ts`) passaram de `.single()` para
+`.maybeSingle()`. Medido contra a API real: `.single()` manda
+`Accept: application/vnd.pgrst.object+json` e o PostgREST responde **406 +
+PGRST116** quando não há linha; `.maybeSingle()` responde **200 com `[]`**, que o
+cliente entrega como `data:null, error:null`. Some o `logger.error` (e o evento
+no Sentry) **e** a linha 406 no console. `useUser` também passou a refletir o
+"sem perfil" limpando o cache, em vez de deixar um perfil antigo responder.
 
-1. **`PGRST116` logado como erro durante o onboarding** — `logger.error` **4×**
-   em `src/lib/auth.ts:231` e `src/hooks/useUser.ts:141`. Não é falha: entre o
-   cadastro e a RPC o usuário legitimamente não tem perfil, mas o código usa
-   `.single()`. Com o **Sentry ligado na web em produção**, todo cadastro gera 4
-   eventos de erro num fluxo que deu certo. Confirmado que **para** assim que o
-   perfil existe. Correção: `.maybeSingle()` ou tratar o código como caso normal.
-2. **Toast de erro não se dispensa** — o toast vermelho do `PGRST116` ficou na
-   tela por toda a sessão, atravessando várias navegações; só sumiu com recarga
-   completa. Um erro transitório do onboarding acompanha o gestor pelo app
-   inteiro.
-3. **Beco sem saída para o gestor novo** — "Nova Rota de Entrega" é a primeira
-   ação do dashboard, mas uma unidade recém-criada não tem motorista. Dá para
-   preencher paradas, geocodificar e otimizar, e só no fim descobrir que não dá
-   para concluir. Não há link para cadastrar motorista a partir dali.
-4. **Cidade e UF duplicadas no texto da partida/chegada** — sai "Avenida Epitacio
-   Pessoa, 1000 - Torre, João Pessoa - PB, João Pessoa, PB": o `sede_endereco` já
-   contém cidade e UF, e a tela concatena os campos de novo.
-5. **"Rascunho salvo automaticamente" promete mais do que entrega** — o rascunho
-   vive em `sessionStorage` (`rotamestre:nova-entrega:<gestor>:<unidade>`), que
-   morre junto com a aba. Sobrevive à navegação, não a fechar o navegador.
-6. **`Unexpected text node` no console** — dezenas por tela do gestor, vindas dos
-   ícones `Ionicons` da `Sidebar.tsx`. Ruído de desenvolvimento; confirmar se
-   aparece também no bundle de produção antes de decidir se importa.
-7. **Campo de endereço sem rótulo visível** no formulário de onboarding — os
-   outros quatro campos têm rótulo acima; o endereço só tem placeholder, que some
-   ao ser preenchido. O nome acessível existe ("Campo de endereço"), é
-   inconsistência visual.
+Também corrigidos, todos validados no navegador:
+
+1. **Beco sem saída para o gestor novo** — "Nova Rota de Entrega" é a primeira
+   ação do dashboard, mas uma unidade recém-criada não tem motorista, e dava para
+   preencher paradas, geocodificar e otimizar antes de descobrir que a rota não
+   podia ser concluída. O estado vazio do `MotoristaSeletor` agora leva a
+   `/gestor/motoristas` e avisa que o rascunho fica salvo.
+2. **Cidade e UF duplicadas no endereço da sede** — `useEnderecoUnidade` juntava
+   `[sede_endereco, cidade, uf, cep]` sem olhar o que a base já tinha, e o
+   `sede_endereco` do Places já traz cidade e UF: saía "… João Pessoa - PB, João
+   Pessoa, PB". Agora só anexa o que falta, comparando com `normalizeComparable`
+   (acento, caixa e pontuação) e exigindo fronteira de não-alfanumérico — sem ela
+   a UF "PA" casaria dentro de "Parnamirim" e sumiria. A concatenação continua
+   valendo para endereço cru, que é o que o geocoding precisa.
+3. **Campo de endereço sem rótulo** no onboarding — os outros quatro campos têm
+   rótulo acima; o endereço só tinha placeholder, que some ao ser preenchido.
+4. **`PERFIL_JA_EXISTE` sem tradução** (achado durante as correções acima) — a
+   rota `/onboarding/criar-unidade` abre por URL mesmo para quem já concluiu o
+   onboarding. A RPC barra corretamente a segunda unidade, mas a sentinela caía
+   no genérico "Algo deu errado" depois do formulário preenchido.
+
+**Três dos sete achados não eram bugs de produto.** Fica registrado para não
+serem "corrigidos" por engano:
+
+- **Toast de erro que não se dispensa** e **`Unexpected text node`**: os dois vêm
+  do **LogBox**, ferramenta de desenvolvimento. Medido no bundle de produção
+  servido pela Vercel: `LogBoxNotification`, `LogBoxInspector`, `LogBoxData` e
+  `LogBoxLog` aparecem **zero** vezes, e a string "Unexpected text node" também.
+  Nenhum componente do app renderiza saída de log. O aviso de text node, além
+  disso, já é suprimido em desenvolvimento por `src/utils/configureLogBox.ts` —
+  eu só o "encontrei" porque meu interceptor de console ficou **acima** dessa
+  camada e contou mensagens que nunca chegaram ao console.
+- **Rascunho que morreria com a aba**: falso. O `sessionStorage` é espelho
+  síncrono; a fonte é a tabela **`rascunhos_rota`**, com expiração de 7 dias
+  (`useNovaEntregaDraft` compara os dois e usa o mais recente). Confirmado no
+  banco: a rota de teste tem lá suas 2 paradas, expirando em 22/08.
+
+Lição: **ler o arquivo inteiro antes de declarar bug**. Os três vieram de olhar
+um sintoma ou meia implementação e completar o resto por dedução.
 
 ### Auditoria de otimização — validada em 05/08/2026
 

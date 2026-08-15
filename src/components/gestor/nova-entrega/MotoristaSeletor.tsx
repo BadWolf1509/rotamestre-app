@@ -3,6 +3,7 @@
  * Suporta densidade compacta para desktop
  */
 
+import { useRouter } from 'expo-router';
 import React, { memo, useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 
@@ -24,6 +25,7 @@ export const MotoristaSeletor = memo(function MotoristaSeletor({
 }: MotoristaSeletorProps) {
   const { theme } = useUnistyles();
   const { isDesktop } = useResponsive();
+  const router = useRouter();
   const styles = createStyles(theme, isDesktop);
   const [search, setSearch] = useState('');
   const filteredDrivers = useMemo(() => {
@@ -50,9 +52,26 @@ export const MotoristaSeletor = memo(function MotoristaSeletor({
         />
       )}
       {motoristas.length === 0 ? (
-        <Text style={styles.noMotoristas}>
-          Nenhum motorista disponível nesta unidade
-        </Text>
+        // Beco sem saída do gestor novo: a unidade recém-criada não tem
+        // motorista, mas "Nova Rota de Entrega" é a primeira ação do dashboard.
+        // Sem esta saída dá para preencher paradas, geocodificar e otimizar, e
+        // só descobrir no fim que a rota não pode ser concluída.
+        <View style={styles.emptyState}>
+          <Text style={styles.noMotoristas}>
+            Nenhum motorista disponível nesta unidade
+          </Text>
+          <TouchableOpacity
+            style={styles.emptyAction}
+            onPress={() => router.push('/gestor/motoristas')}
+            accessibilityLabel="Cadastrar motorista"
+            accessibilityRole="button"
+          >
+            <Text style={styles.emptyActionText}>Cadastrar motorista</Text>
+          </TouchableOpacity>
+          <Text style={styles.emptyHint}>
+            O rascunho desta rota fica salvo enquanto você cadastra.
+          </Text>
+        </View>
       ) : filteredDrivers.length === 0 ? (
         <Text style={styles.noMotoristas}>
           Nenhum motorista corresponde à busca
@@ -134,6 +153,28 @@ const createStyles = (theme: Theme, isDesktop: boolean) =>
       textAlign: 'center',
       padding: isDesktop ? theme.spacing.lg : theme.spacing['2xl'],
       fontSize: isDesktop ? theme.desktop.input.fontSize : theme.typography.sm,
+    },
+    emptyState: {
+      alignItems: 'center',
+      gap: theme.spacing.sm,
+    },
+    emptyAction: {
+      backgroundColor: theme.colors.primary,
+      borderRadius: theme.borderRadius.lg,
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: theme.spacing.xl,
+    },
+    emptyActionText: {
+      color: theme.colors.white,
+      fontFamily: theme.typography.fontSansSemiBold,
+      fontSize: isDesktop ? theme.desktop.input.fontSize : theme.typography.sm,
+      textAlign: 'center',
+    },
+    emptyHint: {
+      color: theme.colors.gray500,
+      fontSize: 12,
+      textAlign: 'center',
     },
     searchInput: {
       borderWidth: 1,

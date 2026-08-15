@@ -214,52 +214,61 @@ function CriarUnidadeScreen() {
 
           {/* O endereço vem antes de cidade e UF de propósito: selecionar uma
               sugestão preenche os dois campos abaixo, então pedi-los antes
-              faria a pessoa digitar algo que o app sobrescreve em seguida. */}
-          <Controller
-            control={control}
-            name="endereco"
-            render={({ field: { onChange, value } }) => (
-              <AddressAutocomplete
-                value={value || ''}
-                onChangeText={(text) => {
-                  // Editar o texto invalida as coordenadas: elas só são
-                  // confiáveis quando vêm de uma sugestão selecionada.
-                  if (text !== value) {
-                    setValue('latitude', undefined);
-                    setValue('longitude', undefined);
-                  }
-                  onChange(text);
-                }}
-                onSelectAddress={(address, placeId, coords?: Coordenadas) => {
-                  if (coords) {
-                    setValue('latitude', coords.latitude);
-                    setValue('longitude', coords.longitude);
-                  }
-                  onChange(address);
-                  // Sem await: a seleção do endereço não pode ficar presa
-                  // esperando a rede. O preenchimento chega quando chegar.
-                  void preencherCidadeUF(placeId);
-                  // O erro do schema mora em `endereco` (refine com
-                  // path: ['endereco'] em src/lib/schemas/onboarding.ts) mas
-                  // quem o causa é a ausência de lat/long. `setValue` sem
-                  // opções não revalida, e nem a revalidação do `onChange` nem
-                  // um `trigger('endereco')` derrubam o erro aqui — ambos são
-                  // assíncronos e perdem a corrida. Sem esta limpeza explícita
-                  // o erro fica preso ao lado do "Validado" verde, mandando o
-                  // gestor refazer o que ele acabou de fazer. Se o endereço
-                  // ainda for inválido por outro motivo, o próximo submit o
-                  // reintroduz.
-                  if (coords) {
-                    clearErrors('endereco');
-                  }
-                }}
-                error={errors.endereco?.message}
-                placeholder="Endereço da sede"
-                required
-                multiline
-              />
-            )}
-          />
+              faria a pessoa digitar algo que o app sobrescreve em seguida.
+
+              O rótulo é explícito porque o AddressAutocomplete não desenha um:
+              sem ele o campo ficava só com placeholder, que some ao ser
+              preenchido — e quem volta ao formulário não sabe mais o que é. */}
+          <View>
+            <Text variant="label" style={{ marginBottom: 4 }}>
+              Endereço da sede <Text tone="error">*</Text>
+            </Text>
+            <Controller
+              control={control}
+              name="endereco"
+              render={({ field: { onChange, value } }) => (
+                <AddressAutocomplete
+                  value={value || ''}
+                  onChangeText={(text) => {
+                    // Editar o texto invalida as coordenadas: elas só são
+                    // confiáveis quando vêm de uma sugestão selecionada.
+                    if (text !== value) {
+                      setValue('latitude', undefined);
+                      setValue('longitude', undefined);
+                    }
+                    onChange(text);
+                  }}
+                  onSelectAddress={(address, placeId, coords?: Coordenadas) => {
+                    if (coords) {
+                      setValue('latitude', coords.latitude);
+                      setValue('longitude', coords.longitude);
+                    }
+                    onChange(address);
+                    // Sem await: a seleção do endereço não pode ficar presa
+                    // esperando a rede. O preenchimento chega quando chegar.
+                    void preencherCidadeUF(placeId);
+                    // O erro do schema mora em `endereco` (refine com
+                    // path: ['endereco'] em src/lib/schemas/onboarding.ts) mas
+                    // quem o causa é a ausência de lat/long. `setValue` sem
+                    // opções não revalida, e nem a revalidação do `onChange` nem
+                    // um `trigger('endereco')` derrubam o erro aqui — ambos são
+                    // assíncronos e perdem a corrida. Sem esta limpeza explícita
+                    // o erro fica preso ao lado do "Validado" verde, mandando o
+                    // gestor refazer o que ele acabou de fazer. Se o endereço
+                    // ainda for inválido por outro motivo, o próximo submit o
+                    // reintroduz.
+                    if (coords) {
+                      clearErrors('endereco');
+                    }
+                  }}
+                  error={errors.endereco?.message}
+                  placeholder="Endereço ou CEP"
+                  required
+                  multiline
+                />
+              )}
+            />
+          </View>
 
           <Controller
             control={control}

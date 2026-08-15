@@ -6,6 +6,7 @@
 import { useState, useCallback, useEffect } from 'react';
 
 import type { EnderecoUnidade } from '@/components/gestor/nova-entrega/types';
+import { normalizeComparable } from '@/hooks/useNovaEntrega.helpers';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { logger } from '@/lib/logger';
 import { photonService } from '@/lib/photon';
@@ -14,6 +15,45 @@ export interface UseEnderecoUnidadeReturn {
   enderecoUnidade: EnderecoUnidade | null;
   isLoading: boolean;
   reload: () => Promise<void>;
+}
+
+function escaparRegex(valor: string): string {
+  return valor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Junta as partes do endereço sem repetir o que a base já traz.
+ *
+ * `sede_endereco` costuma vir do Google Places já completo ("… João Pessoa -
+ * PB"), enquanto cidade, UF e CEP vêm do cadastro. Concatenar sem olhar produzia
+ * "… João Pessoa - PB, João Pessoa, PB" na tela de Nova Rota, no banner da rota
+ * otimizada e no texto mandado ao geocoding. Simplesmente parar de concatenar
+ * não serve: para um endereço cru ("Rua das Flores, 50") é a concatenação que
+ * impede o geocoding de errar de cidade.
+ *
+ * A comparação exige fronteira de não-alfanumérico dos dois lados — sem isso a
+ * UF "PA" casaria dentro de "Parnamirim" e sumiria do endereço.
+ */
+function juntarSemRepetir(partes: (string | null | undefined)[]): string {
+  let resultado = '';
+  let normalizado = '';
+
+  for (const parte of partes) {
+    if (typeof parte !== 'string') continue;
+    const limpa = parte.trim();
+    if (!limpa) continue;
+
+    const alvo = escaparRegex(normalizeComparable(limpa));
+    const jaPresente = new RegExp(`(^|[^a-z0-9])${alvo}([^a-z0-9]|$)`).test(
+      normalizado,
+    );
+    if (jaPresente) continue;
+
+    resultado = resultado ? `${resultado}, ${limpa}` : limpa;
+    normalizado = normalizeComparable(resultado);
+  }
+
+  return resultado;
 }
 
 export function useEnderecoUnidade(
@@ -45,14 +85,12 @@ export function useEnderecoUnidade(
     const enderecoBase =
       unidadeAtivaData.sede_endereco || unidadeAtivaData.endereco;
 
-    const enderecoCompleto = [
+    const enderecoCompleto = juntarSemRepetir([
       enderecoBase,
       unidadeAtivaData.cidade,
       unidadeAtivaData.uf,
       unidadeAtivaData.cep,
-    ]
-      .filter((parte) => typeof parte === 'string' && parte.trim().length > 0)
-      .join(', ');
+    ]);
 
     // Se já tem coordenadas no banco, usar diretamente
     if (latitudeFromDb != null && longitudeFromDb != null) {

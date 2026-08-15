@@ -241,6 +241,15 @@ describe('tela de onboarding: criar unidade', () => {
     });
   });
 
+  it('mostra rótulo visível no campo de endereço', async () => {
+    const { getByText } = render(<CriarUnidade />);
+
+    // Os outros quatro campos têm rótulo acima; o endereço só tinha
+    // placeholder, que some assim que a pessoa digita — quem volta ao
+    // formulário não sabe mais o que aquele campo é.
+    await waitFor(() => expect(getByText(/Endereço da sede/)).toBeTruthy());
+  });
+
   it('preenche cidade e UF a partir do endereço selecionado', async () => {
     const { getByLabelText, getByTestId } = render(<CriarUnidade />);
 

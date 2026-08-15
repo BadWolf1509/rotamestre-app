@@ -253,7 +253,14 @@ export function validarOrdemDependencias(paradas: Parada[]): string[] {
   return erros;
 }
 
-function normalizeComparable(value: string): string {
+/**
+ * Texto comparável: sem acento, sem pontuação e em minúsculas.
+ *
+ * Exportado porque `useEnderecoUnidade` compara o endereço da sede (formatado
+ * pelo Places) com cidade/UF/CEP do cadastro (digitados à mão) — os dois
+ * divergem justamente em acento, caixa e pontuação.
+ */
+export function normalizeComparable(value: string): string {
   return value
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')

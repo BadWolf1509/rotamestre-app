@@ -204,6 +204,22 @@ describe('errorMapping', () => {
       });
     });
 
+    describe('PERFIL_JA_EXISTE', () => {
+      it('explica que a conta já tem unidade em vez de cair no genérico', () => {
+        // A tela /onboarding/criar-unidade abre por URL mesmo para quem já
+        // concluiu o onboarding — um link antigo ou o histórico do navegador
+        // bastam. A RPC barra corretamente, mas sem este mapeamento o gestor
+        // preenchia o formulário inteiro para receber "Algo deu errado".
+        const resultado = getErrorMessage({
+          message: 'PERFIL_JA_EXISTE: usuário já possui perfil',
+        });
+
+        expect(resultado.title).not.toBe('Algo deu errado');
+        expect(resultado.code).toBe('PROFILE_ALREADY_EXISTS');
+        expect(resultado.type).toBe('warning');
+      });
+    });
+
     describe('SEM_PERMISSAO', () => {
       it('orienta a falta de permissão em vez de mandar contatar o suporte', () => {
         const resultado = getErrorMessage({ message: 'SEM_PERMISSAO' });
