@@ -1,3 +1,4 @@
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import {
   LegalBullet,
   LegalPage,
@@ -5,7 +6,7 @@ import {
   LegalSection,
 } from '@/components/legal/LegalPage';
 
-export default function TermosDeUso() {
+function TermosDeUsoContent() {
   return (
     <LegalPage title="Termos de Uso" updatedAt="24 de julho de 2026">
       <LegalSection title="1. Aceitação">
@@ -107,5 +108,14 @@ export default function TermosDeUso() {
         </LegalParagraph>
       </LegalSection>
     </LegalPage>
+  );
+}
+
+/** Invólucro com ErrorBoundary — ver comentário em app/auth/login.tsx. */
+export default function TermosDeUso() {
+  return (
+    <ErrorBoundary>
+      <TermosDeUsoContent />
+    </ErrorBoundary>
   );
 }

@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 
 import { Dialog } from '@/components/Dialog';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import {
   LegalBullet,
   LegalPage,
@@ -21,7 +22,7 @@ import { authService } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-export default function ExclusaoDeConta() {
+function ExclusaoDeContaContent() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { session, loading: sessionLoading } = useAuth();
@@ -214,3 +215,12 @@ const styles = (theme: Theme) =>
       fontFamily: theme.typography.fontSansSemiBold,
     },
   });
+
+/** Invólucro com ErrorBoundary — ver comentário em app/auth/login.tsx. */
+export default function ExclusaoDeConta() {
+  return (
+    <ErrorBoundary>
+      <ExclusaoDeContaContent />
+    </ErrorBoundary>
+  );
+}

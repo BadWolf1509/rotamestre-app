@@ -2,6 +2,7 @@ import { useRouter, useSegments } from 'expo-router';
 import { useEffect, useState, useRef } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { authService } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { isRecoveryRedirect } from '@/lib/supabase';
@@ -19,7 +20,7 @@ import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
  *
  * Landing page institucional: www.rotamestre.tec.br
  */
-export default function Index() {
+function IndexContent() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const segments = useSegments();
@@ -163,3 +164,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontFamily: theme.typography.fontSansMedium,
   },
 }));
+
+/** Invólucro com ErrorBoundary — ver comentário em app/auth/login.tsx. */
+export default function Index() {
+  return (
+    <ErrorBoundary>
+      <IndexContent />
+    </ErrorBoundary>
+  );
+}
