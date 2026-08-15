@@ -36,7 +36,10 @@ navegador com o Places real. E, fechando a lista de bugs da validação manual
 bem-sucedido (`.single()` → `.maybeSingle()`), a Nova Rota **dá saída ao gestor
 sem motorista**, o endereço da sede **não repete mais cidade e UF**, o campo de
 endereço do onboarding **ganhou rótulo** e `PERFIL_JA_EXISTE` **ganhou mensagem
-própria**.
+própria**. Por fim, a tela de criar unidade **devolve ao portão quem já tem
+perfil** (PR #383): ela abria por URL para qualquer um, e o layout do onboarding
+desliga o botão e o gesto de voltar — a única saída visível era o "Sair", que
+desloga.
 
 Follow-ups menores (nenhum bloqueia): Timeline não narra o autor da otimização
 (o dado existe em `logs.usuario_id`, falta join em `useTimelineData.ts`);
@@ -46,12 +49,16 @@ conta — `rota_otimizada`, `paradas_reordenadas`, `rota_reativada`,
 colapsado soma esses eventos e não mostra nenhum deles (o registro anterior
 citava só `rota_otimizada`, era maior que isso); os dois scripts de
 consulta/promoção da Play ficaram **fora do repositório** (ver "Play Store:
-trilhas" nas armadilhas) — recriar custa uma investigação inteira.
+trilhas" nas armadilhas) — recriar custa uma investigação inteira; e falta uma
+varredura por **telas com precondição forte que não verificam se ela ainda
+vale** — dois casos apareceram em 15/08 (Nova Rota sem motorista, PR #381, e
+criar-unidade com perfil já existente, PR #383), os dois pelo mesmo descuido, e
+ninguém conferiu as demais.
 
 ## Trabalho em curso (retomar por aqui)
 
 Sessão de 15/08/2026, encerrada com **nenhum PR aberto** e a `main` em
-`c7b9a85`: PRs #371 a #381 mergeados (o #380 foi fechado sem merge, ver item 4),
+`c03f50b`: PRs #371 a #383 mergeados (o #380 foi fechado sem merge, ver item 4),
 árvore limpa fora do `.claude/settings.json`. Tudo que segue é estado real
 verificado, não plano.
 
@@ -646,8 +653,8 @@ estreita — pelo ramo do **motorista** — e está na pendência 2.
 
 ## Estado confirmado em 15/08/2026
 
-Sessão que começou como investigação de bugs e terminou com **dez PRs mergeados
-(#371 a #381, menos o #380, fechado sem merge)**, o onboarding self-service
+Sessão que começou como investigação de bugs e terminou com **doze PRs mergeados
+(#371 a #383, menos o #380, fechado sem merge)**, o onboarding self-service
 percorrido com conta real até a criação da unidade e a lista de bugs dessa
 validação fechada. O que importa para a próxima sessão:
 
@@ -673,7 +680,7 @@ validação fechada. O que importa para a próxima sessão:
   desmentidos por medição direta, não por leitura: bundle de produção baixado da
   Vercel para o LogBox, tabela `rascunhos_rota` consultada para o rascunho. Estão
   em "Armadilhas" com a evidência, para não voltarem à lista.
-- **Suíte ao fim: 332 suites, 5864 testes, exit 0**, com o CI verde nos seis
+- **Suíte ao fim: 332 suites, 5866 testes, exit 0**, com o CI verde nos seis
   checks. Dois detalhes de método que enganaram durante a sessão: a saída do
   `validate` trouxe `[exited with code 0]` **junto** com uma falha de lint — leia
   a saída, não confie só no código de retorno; e um teste que passa de primeira
@@ -713,6 +720,7 @@ validação fechada. O que importa para a próxima sessão:
 | 15/08/2026 | Onboarding: nome pré-preenchido do cadastro + cidade/UF derivadas do endereço da sede       | PR #378                                      |
 | 15/08/2026 | Validação manual do onboarding até o passo 4 registrada, com os 7 achados                   | PR #379                                      |
 | 15/08/2026 | Bugs da validação: PGRST116 fora do Sentry, saída sem motorista, endereço sem duplicar      | PR #381 (o #380 subiu junto e foi fechado)   |
+| 15/08/2026 | Onboarding devolve ao portão quem já tem perfil, em vez de abrir um formulário condenado    | PR #383                                      |
 
 O histórico completo do rebuild está em
 [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md), agora tratado como
