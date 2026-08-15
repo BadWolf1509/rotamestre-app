@@ -19,6 +19,7 @@ import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
 import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
 import { FieldError } from '@/components/auth/FieldError';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
@@ -27,7 +28,7 @@ import { passwordResetRateLimiter } from '@/lib/rateLimiter';
 import { forgotPasswordSchema, type ForgotPasswordInput } from '@/lib/schemas';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-export default function ForgotPassword() {
+function ForgotPasswordContent() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { isDesktop } = useResponsive();
@@ -407,3 +408,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontFamily: theme.typography.fontSansMedium,
   },
 }));
+
+/** Invólucro com ErrorBoundary — ver comentário em app/auth/login.tsx. */
+export default function ForgotPassword() {
+  return (
+    <ErrorBoundary>
+      <ForgotPasswordContent />
+    </ErrorBoundary>
+  );
+}

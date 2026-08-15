@@ -21,6 +21,7 @@ import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
 import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
 import { FieldError } from '@/components/auth/FieldError';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { TesterLoginLink } from '@/components/testar/TesterLoginLink';
 import { Dialog } from '@/design-system';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -57,7 +58,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
   }
 }
 
-export default function Login() {
+function LoginContent() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { isDesktop } = useResponsive();
@@ -642,3 +643,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.primary,
   },
 }));
+
+/**
+ * Invólucro com ErrorBoundary. Fica fora do componente de conteúdo para cobrir
+ * todos os returns (desktop e mobile) e os antecipados que venham a existir —
+ * envolver return a return deixaria algum de fora. Em auth não há tela anterior
+ * para onde voltar: sem o boundary, um erro de render vira tela branca na porta
+ * de entrada do app.
+ */
+export default function Login() {
+  return (
+    <ErrorBoundary>
+      <LoginContent />
+    </ErrorBoundary>
+  );
+}

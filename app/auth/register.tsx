@@ -5,6 +5,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { ScrollView, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ResponsiveContainer } from '@/components/ResponsiveContainer';
 import { Button, Card, Input, Text } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
@@ -18,7 +19,7 @@ import {
 } from '@/lib/schemas';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
-export default function Register() {
+function RegisterContent() {
   const router = useRouter();
   const { isDesktop } = useResponsive();
   const insets = useSafeAreaInsets();
@@ -232,3 +233,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.sm,
   },
 }));
+
+/** Invólucro com ErrorBoundary — ver comentário em app/auth/login.tsx. */
+export default function Register() {
+  return (
+    <ErrorBoundary>
+      <RegisterContent />
+    </ErrorBoundary>
+  );
+}
