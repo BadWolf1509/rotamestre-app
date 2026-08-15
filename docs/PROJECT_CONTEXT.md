@@ -14,9 +14,8 @@ Lista única e canônica. Se resolver uma, risque daqui.
 | 3   | **Fase 2 da auditoria:** chip na tela da rota + indicador/filtro/contador na Gestão de Rotas. Plano próprio ainda não escrito — melhor depois de algumas semanas de dado acumulado.                                                                                                                                                                                                                                                                                      | qualquer sessão                                | spec `2026-08-04-auditoria-otimizacao-rotas-design.md` |
 | 4   | **Play Store: produção continua vazia.** O `3025` está publicado em **teste fechado (`alpha`) e teste interno**, ambos `completed`. Falta cumprir o requisito de testadores para solicitar acesso à produção. Ampliar opt-in divulgando o hub público `/testar`.                                                                                                                                                                                                         | gestor (Play Console)                          | `GOOGLE_PLAY_DEPLOYMENT.md`                            |
 | 5   | **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).                                                                                                                                                                                                                                                                                                                                      | gestor (Apple ID + 2FA)                        | `APP_STORE_DEPLOYMENT.md`                              |
-| 6   | **Validar o onboarding self-service — passos 1 a 4 feitos em 15/08, faltam 5 e 6.** Cadastro, confirmação, portão e **criação da unidade** confirmados com conta real, com todos os invariantes da RPC conferidos no banco. Falta criar o motorista e a rota, bloqueados porque cadastrar motorista exige definir senha de acesso. Nenhum teste automatizado cobre isso — nenhum toca o banco real.                                                                      | gestor (cria conta de motorista)               | "Trabalho em curso" abaixo                             |
-| 7   | **4 das 9 unidades têm coordenadas de sede NULL, mas só 1 está ativa** — o registro anterior dizia "4 unidades não conseguem gerar rota"; conferido no banco em 15/08, três delas estão inativas e o impacto real hoje é **uma**. A tela "Minha Unidade" é o caminho de conserto e desde 08/08 funciona de verdade (ver Migration 22 e a armadilha do componente aninhado). Desde o PR #385 a Nova Rota avisa e leva até lá, em vez de só sumir com o cartão de partida. | gestor (edita a unidade ativa)                 | `database/MIGRATIONS.md` (Migration 22)                |
-| 8   | **Proteção contra senha vazada: exige plano Pro, não dá para ligar hoje.** O advisor aponta `auth_leaked_password_protection`, mas a checagem contra o HaveIBeenPwned é **Pro ou acima** — a assinatura é por organização, não por projeto. **Não é um toggle**, é upgrade de plano. O que o free permite e vale conferir: comprimento mínimo e caracteres exigidos, em Auth → Providers → Email.                                                                        | gestor (decisão de plano; ou ajuste no Email)  | "Política de senha" abaixo                             |
+| 6   | **4 das 9 unidades têm coordenadas de sede NULL, mas só 1 está ativa** — o registro anterior dizia "4 unidades não conseguem gerar rota"; conferido no banco em 15/08, três delas estão inativas e o impacto real hoje é **uma**. A tela "Minha Unidade" é o caminho de conserto e desde 08/08 funciona de verdade (ver Migration 22 e a armadilha do componente aninhado). Desde o PR #385 a Nova Rota avisa e leva até lá, em vez de só sumir com o cartão de partida. | gestor (edita a unidade ativa)                 | `database/MIGRATIONS.md` (Migration 22)                |
+| 7   | **Proteção contra senha vazada: exige plano Pro, não dá para ligar hoje.** O advisor aponta `auth_leaked_password_protection`, mas a checagem contra o HaveIBeenPwned é **Pro ou acima** — a assinatura é por organização, não por projeto. **Não é um toggle**, é upgrade de plano. O que o free permite e vale conferir: comprimento mínimo e caracteres exigidos, em Auth → Providers → Email.                                                                        | gestor (decisão de plano; ou ajuste no Email)  | "Política de senha" abaixo                             |
 
 **Fechadas em 08/08/2026, não reabra:** a Migration 22 foi aplicada em
 07/08 e validada na tela (edição gravou no banco; `.update()` direto continua
@@ -55,74 +54,36 @@ A varredura por **telas com precondição forte** foi feita em 15/08 e o resulta
 está em "Guardas de precondição" abaixo: o projeto está bem coberto, e o único
 beco aberto que ela encontrou (Nova Rota sem sede) foi fechado no PR #385.
 
-## Trabalho em curso (retomar por aqui)
+## Validações registradas
 
-Sessão de 15/08/2026, encerrada com **nenhum PR aberto** e a `main` em
-`c03f50b`: PRs #371 a #383 mergeados (o #380 foi fechado sem merge, ver item 4),
-árvore limpa fora do `.claude/settings.json`. Tudo que segue é estado real
-verificado, não plano.
+Fluxos conferidos com dado real, não só por teste. Cada um diz o que foi medido
+e onde, para não ser refeito por dúvida.
 
-### 1. Onboarding self-service validado até o passo 4 (pendência 6)
+### Onboarding self-service — completo em 15/08/2026
 
-Primeira vez que o fluxo foi percorrido inteiro com conta real, do cadastro à
-criação da unidade. **Passos 1 a 4 verificados no banco e no navegador:**
+Percorrido de ponta a ponta com conta e dados reais, do cadastro à rota criada.
+Fecha a pendência 6, que nenhum teste automatizado cobre — nenhum toca o banco.
 
-| Passo              | Resultado                                                                               |
-| ------------------ | --------------------------------------------------------------------------------------- |
-| Cadastro           | conta em `auth.users`, **sem** linha em `usuarios` — correto, o perfil nasce na RPC     |
-| `nome` em metadata | gravado e íntegro                                                                       |
-| Confirmação        | `email_confirmed_at` preenchido                                                         |
-| Login → **portão** | caiu em `/onboarding/criar-unidade`, com sessão — **o caminho de resgate existe mesmo** |
-| **Criar unidade**  | RPC gravou as três linhas atomicamente, com todos os invariantes                        |
+| Passo                 | O que foi conferido                                                                                                                                                |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1–3 Cadastro → portão | conta em `auth.users` **sem** linha em `usuarios`, `nome` íntegro no metadata, login caindo em `/onboarding/criar-unidade`                                         |
+| 4 Criar unidade       | RPC gravou as três linhas atomicamente: `origem='self_service'`, `status='trial'`, coordenadas não nulas, gestor com `is_gestor_principal`, vínculo `is_principal` |
+| 5 Cadastrar motorista | `papel='motorista'`, ativo, **`primeira_senha=true`** — o motorista troca a senha no 1º acesso                                                                     |
+| 6 Criar rota          | `status='pendente'`, geometria viária real, notificação `nova_rota_atribuida` entregue                                                                             |
 
-A RPC `criar_unidade_para_novo_gestor` foi conferida linha a linha:
-`origem='self_service'`, `status='trial'`, `sede_latitude`/`sede_longitude` não
-nulas, `usuarios.unidade_id` com `papel='gestor'` e `is_gestor_principal=true`,
-`usuario_unidades.is_principal=true`. O contador `unidades where
-origem='self_service'` saiu de **0 → 1** e as contas órfãs de **1 → 0**.
+A auditoria de otimização registrou **18,23 km → 15,92 km** com carimbo em
+`otimizada_em`. As 4 paradas nasceram na ordem 0–3, com a sede como partida e
+chegada (`is_checkpoint=false`) e as duas entregas como checkpoints.
 
-Também validado depois da criação, sem motorista: a sede entra sozinha como
-**partida e chegada** da rota; o autocomplete de paradas e o otimizador OSRM
-funcionam (2 paradas → 14,3 km / 21 min, com a vírgula decimal correta); e o
-rascunho da rota sobrevive à navegação entre telas.
+**Um limite do assistente que reaparece a cada validação:** o passo 5 cria conta
+de acesso e pede senha inicial, então é o gestor quem faz. O login também. Todo o
+resto do fluxo o assistente percorre sozinho.
 
-**Falta:** o motorista (passo 5) e a rota (6) — ver o bloqueio no item 2.
-
-### 2. O passo 5 exige criar conta com senha
-
-`Motoristas → Adicionar Motorista` pede nome, e-mail e **senha inicial**: é
-criação de conta de acesso, então precisa ser feita pelo gestor, não pelo
-assistente. Sem pelo menos um motorista o passo 6 não existe — a tela Nova Rota
-mostra "Nenhum motorista disponível nesta unidade" e o botão de criar rota fica
-desabilitado.
-
-Para retomar: criar um motorista na unidade `Transportes Epitacio Teste`, voltar
-em Nova Rota (o rascunho com as 2 paradas otimizadas está salvo) e criar a rota.
-
-### 3. Dados de teste vivos em produção
-
-A validação deixou em produção uma **unidade real** (`Transportes Epitacio
-Teste`, `origem='self_service'`, `status='trial'`) com o e-mail corporativo do
-gestor como gestor principal. Não há mais conta órfã, mas há uma unidade de teste
-no meio das reais — decidir se fica como massa de teste do fluxo self-service ou
-se é removida junto com as paradas/rotas que vierem dela.
-
-### 4. Os bugs da validação já foram fechados
-
-Sete achados: **quatro corrigidos** (PGRST116 no Sentry, beco sem saída sem
-motorista, cidade/UF duplicadas na sede, `PERFIL_JA_EXISTE` sem tradução) mais o
-rótulo do endereço no onboarding, todos na `main` via PRs #380 (fechado, ver
-abaixo) e #381. **Três não eram bugs de produto** e estão registrados em
-"Armadilhas" para não voltarem: o toast vermelho e o `Unexpected text node` são
-do LogBox e não existem em produção; o rascunho de rota mora no banco, não no
-`sessionStorage`.
-
-A lição que os três compartilham: **ler o arquivo inteiro antes de declarar
-bug** — vieram de olhar um sintoma ou meia implementação e deduzir o resto.
-
-O PR #380 (PGRST116) foi **fechado sem merge**: a branch das demais correções
-nasceu dele, então o conteúdo subiu junto no #381 (`c7b9a85`). Mantê-lo aberto só
-criaria risco de reverter o que veio depois.
+Os dados de teste foram **removidos ao final** — banco de volta a 9 unidades, 16
+contas, zero órfãs e `self_service = 0`. A ordem importou: `usuarios.unidade_id`
+é `SET NULL`, então apagar a unidade primeiro deixaria os perfis vivos e sem
+unidade — estado pior que conta órfã, porque nem o portão do onboarding recolhe.
+Apague as contas de auth primeiro (cascateiam os perfis), a unidade depois.
 
 ### Auditoria de otimização — validada em 05/08/2026
 
@@ -278,6 +239,26 @@ Cada uma quebrou algo de verdade. Leia antes de agir na área correspondente.
   `useNovaEntregaDraft` compara os dois carimbos e usa o mais recente. Ver a
   chave local e concluir "morre com a aba" foi um falso positivo em 15/08 —
   fechar o navegador **não** perde o rascunho.
+- **A tabela `logs` não tem coluna `parada_id` — a parada vai em `detalhes`.** O
+  schema real é `id, usuario_id, rota_id, evento, detalhes, timestamp`. Três
+  lugares mandavam `parada_id` no insert (`queries/logs.ts`, `queries/paradas.ts`,
+  `services/locationTracking.ts`); o PostgREST recusa com **400** e a falha só
+  virava `logger.warn` — em `logParadaAction` nem isso, porque o supabase-js
+  **devolve** o erro em vez de lançar, e o `try/catch` não pegava nada. Resultado
+  medido: `motorista_criado` ficou parado em **04/12/2025**, oito meses de
+  auditoria de gestão de usuários perdidos sem um sinal. Corrigido no PR #387.
+  Duas coisas para não errar de novo: o padrão certo (`parada_id` dentro de
+  `detalhes`) já existia em `useAddStopForm`, `useEditStopForm` e `routeUtils`; e
+  os eventos de **rota e parada continuam cobertos por triggers no banco**
+  (`log_parada_status`, `log_rota_status`) — foi por isso que `parada_concluida`
+  tinha 3039 registros e o estrago pareceu maior do que era.
+- **Teste que afirma um schema inventado dá cobertura ao defeito.** Os dois bugs
+  do PR #387 sobreviveram porque os testes os _exigiam_: `logs.test.ts` esperava
+  `parada_id` no insert, e `DashboardMobile.test.tsx` esperava `'150.5'` citando
+  o `toFixed` no próprio comentário. Um teste escrito a partir do código, e não
+  do contrato real, transforma o bug em requisito. Ao testar escrita em tabela,
+  confira as colunas no banco (`information_schema.columns`) antes de fixar o
+  payload esperado.
 - **Não use here-string do PowerShell (`-m @'…'@`) na ferramenta Bash.** O bash
   não conhece essa sintaxe: o `@` vira texto e o Git toma essa primeira linha
   como **assunto** do commit. Foi o que produziu `ca8ebc3` na `main`, registrado
@@ -681,10 +662,10 @@ estreita — pelo ramo do **motorista** — e está na pendência 2.
 
 ## Estado confirmado em 15/08/2026
 
-Sessão que começou como investigação de bugs e terminou com **doze PRs mergeados
-(#371 a #383, menos o #380, fechado sem merge)**, o onboarding self-service
-percorrido com conta real até a criação da unidade e a lista de bugs dessa
-validação fechada. O que importa para a próxima sessão:
+Sessão que começou como investigação de bugs e terminou com **dezesseis PRs
+mergeados (#371 a #387, menos o #380, fechado sem merge)**, o onboarding
+self-service percorrido de ponta a ponta com dado real e uma migration em
+produção. O que importa para a próxima sessão:
 
 - **Três defeitos que a suíte não pegava e o console não denunciava**, todos com
   teste de regressão visto falhando antes da correção: dois de remontagem por
@@ -700,15 +681,24 @@ validação fechada. O que importa para a próxima sessão:
   renderizou com contexto WebGL vivo. Atenção ao formato da armadilha: o
   `copy-maplibre-worker.cjs` sai com **código 0 e só um aviso** se não achar o
   arquivo — no dia em que o upstream renomear, o CI passa e o mapa trava.
-- **O onboarding self-service foi percorrido com conta real até o passo 4**, com
-  os invariantes da RPC conferidos no banco. Trava no passo 5 porque cadastrar
-  motorista cria conta de acesso com senha — isso é do gestor. Detalhe em
-  "Trabalho em curso".
+- **O onboarding self-service foi percorrido inteiro** — cadastro, unidade,
+  motorista e rota — com os invariantes conferidos no banco a cada passo. Fecha
+  a pendência que estava aberta desde agosto. Detalhe em "Validações
+  registradas"; os dados de teste foram removidos ao final.
+- **Dois defeitos que só a passagem real revelou** (PR #387): a auditoria de
+  gestão de usuários estava morta havia oito meses, porque três lugares gravavam
+  uma coluna inexistente em `logs` e a falha só virava `logger.warn`; e o card
+  "km Total" do dashboard exibia `15.9` num app pt-BR. Os dois eram **afirmados
+  pelos testes existentes** — ver as armadilhas correspondentes.
+- **Uma migration aplicada em produção** (23): `admin_logs` perdeu a FK para
+  `auth.users`, porque log de auditoria precisa sobreviver ao fim da conta. Foi
+  o que permitiu, no mesmo dia, excluir as contas de teste **sem** destruir o
+  rastro do que elas fizeram.
 - **Três dos sete "bugs" dessa validação não eram bugs**, e os três foram
   desmentidos por medição direta, não por leitura: bundle de produção baixado da
   Vercel para o LogBox, tabela `rascunhos_rota` consultada para o rascunho. Estão
   em "Armadilhas" com a evidência, para não voltarem à lista.
-- **Suíte ao fim: 332 suites, 5866 testes, exit 0**, com o CI verde nos seis
+- **Suíte ao fim: 332 suites, 5871 testes, exit 0**, com o CI verde nos seis
   checks. Dois detalhes de método que enganaram durante a sessão: a saída do
   `validate` trouxe `[exited with code 0]` **junto** com uma falha de lint — leia
   a saída, não confie só no código de retorno; e um teste que passa de primeira
@@ -749,6 +739,9 @@ validação fechada. O que importa para a próxima sessão:
 | 15/08/2026 | Validação manual do onboarding até o passo 4 registrada, com os 7 achados                   | PR #379                                      |
 | 15/08/2026 | Bugs da validação: PGRST116 fora do Sentry, saída sem motorista, endereço sem duplicar      | PR #381 (o #380 subiu junto e foi fechado)   |
 | 15/08/2026 | Onboarding devolve ao portão quem já tem perfil, em vez de abrir um formulário condenado    | PR #383                                      |
+| 15/08/2026 | Nova Rota avisa e leva a Minha Unidade quando a unidade não tem sede geocodificada          | PR #385                                      |
+| 15/08/2026 | `admin_logs` perde a FK para `auth.users`: auditoria sobrevive à exclusão da conta          | PR #386, migration `20260815200000`          |
+| 15/08/2026 | Auditoria de usuários volta a gravar (coluna inexistente no insert) + decimal do dashboard  | PR #387                                      |
 
 O histórico completo do rebuild está em
 [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md), agora tratado como
@@ -876,11 +869,12 @@ app.rotamestre.tec.br ── Expo Web / React Native
 
 ## Roteiro para a próxima sessão
 
-0. **Se "Trabalho em curso" ainda existir neste documento, comece por ele** — o
-   onboarding está validado até o passo 4 e travado no 5, que depende de uma
-   conta de motorista criada pelo gestor, e há dado de teste vivo em produção. Os
-   bugs da validação já foram fechados. Quando essas três frentes fecharem,
-   apague a seção inteira — o que ela tem de durável já está em "Armadilhas".
+0. **Não há frente aberta nem dado de teste solto.** A sessão de 15/08 encerrou
+   com a `main` limpa, nenhum PR aberto e o banco de volta ao estado anterior ao
+   teste (9 unidades, 16 contas, zero órfãs). A seção "Trabalho em curso" que
+   existia aqui foi apagada porque suas quatro frentes fecharam — o que ela tinha
+   de durável está em "Armadilhas" e "Validações registradas". Se criar uma nova,
+   siga o mesmo contrato: estado real verificado, e apagada ao fechar.
 1. Leia, **nesta ordem**, as três primeiras seções deste documento: Pendências,
    Armadilhas e Estado atual. Elas bastam para começar; o resto é referência sob
    demanda.
