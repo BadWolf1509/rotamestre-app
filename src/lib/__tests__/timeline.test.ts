@@ -642,8 +642,8 @@ describe('timeline', () => {
 
       expect(evento).not.toBeNull();
       expect(evento?.title).toBe('Rota otimizada');
-      expect(evento?.description).toContain('30.5');
-      expect(evento?.description).toContain('25.9');
+      expect(evento?.description).toContain('30,5');
+      expect(evento?.description).toContain('25,9');
     });
 
     it('narra otimizacao sem ganho conhecido quando falta o "antes"', () => {

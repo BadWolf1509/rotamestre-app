@@ -6,6 +6,8 @@
  * into timeline events.
  */
 
+import { formatarDecimal } from '@/lib/formatNumber';
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -433,7 +435,7 @@ export function mapLogToTimelineEvent(log: {
     const depois = detalhes?.distancia_depois as number | null | undefined;
     const description =
       typeof antes === 'number' && typeof depois === 'number'
-        ? `${antes.toFixed(1)} km → ${depois.toFixed(1)} km`
+        ? `${formatarDecimal(antes)} km → ${formatarDecimal(depois)} km`
         : 'Ordem definida pelo otimizador';
     return {
       id: `log-${log.id}`,

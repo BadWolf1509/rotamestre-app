@@ -298,7 +298,7 @@ describe('usePiPRouteInfo', () => {
       );
 
       // Should be formatted as km
-      expect(result.current.routeInfo?.distanceText).toMatch(/\d+\.\d km$/);
+      expect(result.current.routeInfo?.distanceText).toMatch(/\d+,\d km$/);
     });
 
     it('should format time in minutes when < 60min', () => {

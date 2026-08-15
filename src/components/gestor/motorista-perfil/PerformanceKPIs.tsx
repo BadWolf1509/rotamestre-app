@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
 import { View, Text } from 'react-native';
 
+import { formatarDecimal } from '@/lib/formatNumber';
 import { useUnistyles } from '@/utils/styles';
 
 import { styles } from './styles';
@@ -24,7 +25,13 @@ interface KPICardProps {
   valueStyle?: 'success' | 'warning' | 'error' | 'default';
 }
 
-function KPICard({ value, label, icon, color, valueStyle = 'default' }: KPICardProps) {
+function KPICard({
+  value,
+  label,
+  icon,
+  color,
+  valueStyle = 'default',
+}: KPICardProps) {
   const { theme: _theme } = useUnistyles();
 
   const getValueStyle = () => {
@@ -44,7 +51,9 @@ function KPICard({ value, label, icon, color, valueStyle = 'default' }: KPICardP
     <View style={styles.kpiCard}>
       <View style={styles.kpiHeader}>
         <Text style={styles.kpiLabel}>{label}</Text>
-        <View style={[styles.kpiIconContainer, { backgroundColor: color + '20' }]}>
+        <View
+          style={[styles.kpiIconContainer, { backgroundColor: color + '20' }]}
+        >
           <Ionicons name={icon} size={18} color={color} />
         </View>
       </View>
@@ -66,7 +75,7 @@ export function PerformanceKPIs({ performance }: PerformanceKPIsProps) {
 
   const formatDistancia = (km: number | null) => {
     if (!km) return '-';
-    return `${km.toFixed(1)} km`;
+    return `${formatarDecimal(km)} km`;
   };
 
   const taxaStyle = useMemo(() => {
@@ -103,7 +112,13 @@ export function PerformanceKPIs({ performance }: PerformanceKPIsProps) {
           value={`${performance.taxa_execucao}%`}
           label="Taxa de Execução"
           icon="trending-up"
-          color={taxaStyle === 'success' ? theme.colors.success : taxaStyle === 'warning' ? theme.colors.warning : theme.colors.error}
+          color={
+            taxaStyle === 'success'
+              ? theme.colors.success
+              : taxaStyle === 'warning'
+                ? theme.colors.warning
+                : theme.colors.error
+          }
           valueStyle={taxaStyle}
         />
 
@@ -111,7 +126,11 @@ export function PerformanceKPIs({ performance }: PerformanceKPIsProps) {
           value={performance.rotas_nao_executadas}
           label="Não Executadas"
           icon="alert-circle"
-          color={naoExecStyle === 'default' ? theme.colors.gray500 : theme.colors.warning}
+          color={
+            naoExecStyle === 'default'
+              ? theme.colors.gray500
+              : theme.colors.warning
+          }
           valueStyle={naoExecStyle}
         />
 

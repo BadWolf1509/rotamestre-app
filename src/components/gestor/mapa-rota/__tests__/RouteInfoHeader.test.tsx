@@ -143,7 +143,7 @@ describe('RouteInfoHeader', () => {
         <RouteInfoHeader rota={rota} resumoParadas={resumo} />,
       );
 
-      expect(getByText('32.7 km')).toBeTruthy();
+      expect(getByText('32,7 km')).toBeTruthy();
       expect(getByText('Distância Total:')).toBeTruthy();
     });
 

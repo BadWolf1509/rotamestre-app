@@ -32,19 +32,19 @@ describe('useTurnByTurnFormatters', () => {
     });
 
     it('formats exactly 1000 meters as km', () => {
-      expect(formatDistance(1000)).toBe('1.0km');
+      expect(formatDistance(1000)).toBe('1,0km');
     });
 
     it('formats 1500 meters as 1.5km', () => {
-      expect(formatDistance(1500)).toBe('1.5km');
+      expect(formatDistance(1500)).toBe('1,5km');
     });
 
     it('formats 10000 meters as 10.0km', () => {
-      expect(formatDistance(10000)).toBe('10.0km');
+      expect(formatDistance(10000)).toBe('10,0km');
     });
 
     it('formats decimal km with 1 decimal place', () => {
-      expect(formatDistance(2750)).toBe('2.8km');
+      expect(formatDistance(2750)).toBe('2,8km');
     });
   });
 

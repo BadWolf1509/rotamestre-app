@@ -61,6 +61,7 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { formatDateBR } from '@/lib/dateUtils';
+import { formatarDecimal } from '@/lib/formatNumber';
 import { useUnistyles } from '@/utils/styles';
 
 // Optimized map height
@@ -600,7 +601,7 @@ export default function MapaRota() {
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Distância Total:</Text>
               <Text style={styles.infoValue}>
-                {rota.distancia_total.toFixed(1)} km
+                {formatarDecimal(rota.distancia_total)} km
               </Text>
             </View>
           )}

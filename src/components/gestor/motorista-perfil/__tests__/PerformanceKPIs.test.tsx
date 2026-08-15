@@ -74,7 +74,7 @@ describe('PerformanceKPIs', () => {
   describe('Renderização de KPIs', () => {
     it('deve renderizar total de rotas', () => {
       const { getByText } = render(
-        <PerformanceKPIs performance={mockPerformance} />
+        <PerformanceKPIs performance={mockPerformance} />,
       );
 
       expect(getByText('50')).toBeTruthy();
@@ -83,7 +83,7 @@ describe('PerformanceKPIs', () => {
 
     it('deve renderizar rotas concluídas', () => {
       const { getByText } = render(
-        <PerformanceKPIs performance={mockPerformance} />
+        <PerformanceKPIs performance={mockPerformance} />,
       );
 
       expect(getByText('45')).toBeTruthy();
@@ -92,7 +92,7 @@ describe('PerformanceKPIs', () => {
 
     it('deve renderizar taxa de execução', () => {
       const { getByText } = render(
-        <PerformanceKPIs performance={mockPerformance} />
+        <PerformanceKPIs performance={mockPerformance} />,
       );
 
       expect(getByText('90%')).toBeTruthy();
@@ -101,7 +101,7 @@ describe('PerformanceKPIs', () => {
 
     it('deve renderizar rotas não executadas', () => {
       const { getByText } = render(
-        <PerformanceKPIs performance={mockPerformance} />
+        <PerformanceKPIs performance={mockPerformance} />,
       );
 
       expect(getByText('1')).toBeTruthy();
@@ -110,7 +110,7 @@ describe('PerformanceKPIs', () => {
 
     it('deve renderizar rotas em andamento', () => {
       const { getByText } = render(
-        <PerformanceKPIs performance={mockPerformance} />
+        <PerformanceKPIs performance={mockPerformance} />,
       );
 
       // Não verificar o valor específico pois pode haver duplicatas
@@ -119,7 +119,7 @@ describe('PerformanceKPIs', () => {
 
     it('deve renderizar rotas canceladas', () => {
       const { getByText } = render(
-        <PerformanceKPIs performance={mockPerformance} />
+        <PerformanceKPIs performance={mockPerformance} />,
       );
 
       expect(getByText('Canceladas')).toBeTruthy();
@@ -129,17 +129,17 @@ describe('PerformanceKPIs', () => {
   describe('Formatação de distância', () => {
     it('deve formatar distância com km', () => {
       const { getByText } = render(
-        <PerformanceKPIs performance={mockPerformance} />
+        <PerformanceKPIs performance={mockPerformance} />,
       );
 
-      expect(getByText('1250.5 km')).toBeTruthy();
+      expect(getByText('1250,5 km')).toBeTruthy();
       expect(getByText('Distância Total')).toBeTruthy();
     });
 
     it('deve mostrar "-" quando distância é null', () => {
       const perfSemDistancia = { ...mockPerformance, distancia_total_km: null };
       const { getAllByText } = render(
-        <PerformanceKPIs performance={perfSemDistancia} />
+        <PerformanceKPIs performance={perfSemDistancia} />,
       );
 
       // Pelo menos um "-" deve aparecer (distância)
@@ -150,7 +150,7 @@ describe('PerformanceKPIs', () => {
   describe('Formatação de tempo', () => {
     it('deve formatar tempo em horas e minutos', () => {
       const { getByText } = render(
-        <PerformanceKPIs performance={mockPerformance} />
+        <PerformanceKPIs performance={mockPerformance} />,
       );
 
       // 95 minutos = 1h 35m
@@ -161,7 +161,7 @@ describe('PerformanceKPIs', () => {
     it('deve formatar tempo apenas em minutos quando < 1h', () => {
       const perfPoucoTempo = { ...mockPerformance, tempo_medio_minutos: 45 };
       const { getByText } = render(
-        <PerformanceKPIs performance={perfPoucoTempo} />
+        <PerformanceKPIs performance={perfPoucoTempo} />,
       );
 
       expect(getByText('45min')).toBeTruthy();
@@ -170,7 +170,7 @@ describe('PerformanceKPIs', () => {
     it('deve mostrar "-" quando tempo é null', () => {
       const perfSemTempo = { ...mockPerformance, tempo_medio_minutos: null };
       const { getAllByText } = render(
-        <PerformanceKPIs performance={perfSemTempo} />
+        <PerformanceKPIs performance={perfSemTempo} />,
       );
 
       expect(getAllByText('-').length).toBeGreaterThan(0);
@@ -180,27 +180,21 @@ describe('PerformanceKPIs', () => {
   describe('Estilos de taxa de execução', () => {
     it('deve usar estilo success para taxa >= 80%', () => {
       const perfAlta = { ...mockPerformance, taxa_execucao: 85 };
-      const { getByText } = render(
-        <PerformanceKPIs performance={perfAlta} />
-      );
+      const { getByText } = render(<PerformanceKPIs performance={perfAlta} />);
 
       expect(getByText('85%')).toBeTruthy();
     });
 
     it('deve usar estilo warning para taxa >= 50% e < 80%', () => {
       const perfMedia = { ...mockPerformance, taxa_execucao: 65 };
-      const { getByText } = render(
-        <PerformanceKPIs performance={perfMedia} />
-      );
+      const { getByText } = render(<PerformanceKPIs performance={perfMedia} />);
 
       expect(getByText('65%')).toBeTruthy();
     });
 
     it('deve usar estilo error para taxa < 50%', () => {
       const perfBaixa = { ...mockPerformance, taxa_execucao: 30 };
-      const { getByText } = render(
-        <PerformanceKPIs performance={perfBaixa} />
-      );
+      const { getByText } = render(<PerformanceKPIs performance={perfBaixa} />);
 
       expect(getByText('30%')).toBeTruthy();
     });
@@ -209,9 +203,7 @@ describe('PerformanceKPIs', () => {
   describe('Estilos de não executadas', () => {
     it('deve usar estilo default quando 0 não executadas', () => {
       const perfZero = { ...mockPerformance, rotas_nao_executadas: 0 };
-      const { getByText } = render(
-        <PerformanceKPIs performance={perfZero} />
-      );
+      const { getByText } = render(<PerformanceKPIs performance={perfZero} />);
 
       expect(getByText('0')).toBeTruthy();
     });
@@ -219,7 +211,7 @@ describe('PerformanceKPIs', () => {
     it('deve usar estilo warning quando 1-2 não executadas', () => {
       const perfPoucas = { ...mockPerformance, rotas_nao_executadas: 2 };
       const { getByText } = render(
-        <PerformanceKPIs performance={perfPoucas} />
+        <PerformanceKPIs performance={perfPoucas} />,
       );
 
       expect(getByText('Não Executadas')).toBeTruthy();
@@ -228,7 +220,7 @@ describe('PerformanceKPIs', () => {
     it('deve usar estilo error quando > 2 não executadas', () => {
       const perfMuitas = { ...mockPerformance, rotas_nao_executadas: 5 };
       const { getByText } = render(
-        <PerformanceKPIs performance={perfMuitas} />
+        <PerformanceKPIs performance={perfMuitas} />,
       );
 
       expect(getByText('5')).toBeTruthy();
@@ -238,7 +230,7 @@ describe('PerformanceKPIs', () => {
   describe('Ícones', () => {
     it('deve renderizar ícone navigate para total de rotas', () => {
       const { getByText } = render(
-        <PerformanceKPIs performance={mockPerformance} />
+        <PerformanceKPIs performance={mockPerformance} />,
       );
 
       expect(getByText('navigate')).toBeTruthy();
@@ -246,7 +238,7 @@ describe('PerformanceKPIs', () => {
 
     it('deve renderizar ícone checkmark-circle para concluídas', () => {
       const { getByText } = render(
-        <PerformanceKPIs performance={mockPerformance} />
+        <PerformanceKPIs performance={mockPerformance} />,
       );
 
       expect(getByText('checkmark-circle')).toBeTruthy();
@@ -254,7 +246,7 @@ describe('PerformanceKPIs', () => {
 
     it('deve renderizar ícone trending-up para taxa', () => {
       const { getByText } = render(
-        <PerformanceKPIs performance={mockPerformance} />
+        <PerformanceKPIs performance={mockPerformance} />,
       );
 
       expect(getByText('trending-up')).toBeTruthy();
@@ -262,7 +254,7 @@ describe('PerformanceKPIs', () => {
 
     it('deve renderizar ícone time para em andamento', () => {
       const { getByText } = render(
-        <PerformanceKPIs performance={mockPerformance} />
+        <PerformanceKPIs performance={mockPerformance} />,
       );
 
       expect(getByText('time')).toBeTruthy();
@@ -270,7 +262,7 @@ describe('PerformanceKPIs', () => {
 
     it('deve renderizar ícone speedometer para distância', () => {
       const { getByText } = render(
-        <PerformanceKPIs performance={mockPerformance} />
+        <PerformanceKPIs performance={mockPerformance} />,
       );
 
       expect(getByText('speedometer')).toBeTruthy();
@@ -278,7 +270,7 @@ describe('PerformanceKPIs', () => {
 
     it('deve renderizar ícone hourglass para tempo médio', () => {
       const { getByText } = render(
-        <PerformanceKPIs performance={mockPerformance} />
+        <PerformanceKPIs performance={mockPerformance} />,
       );
 
       expect(getByText('hourglass')).toBeTruthy();

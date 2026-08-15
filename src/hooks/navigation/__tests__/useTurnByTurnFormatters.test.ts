@@ -21,11 +21,11 @@ describe('useTurnByTurnFormatters', () => {
     it('should format kilometers for distances >= 1000m', () => {
       const { result } = renderHook(() => useTurnByTurnFormatters());
 
-      expect(result.current.formatDistance(1000)).toBe('1.0km');
-      expect(result.current.formatDistance(1500)).toBe('1.5km');
-      expect(result.current.formatDistance(2750)).toBe('2.8km');
-      expect(result.current.formatDistance(10000)).toBe('10.0km');
-      expect(result.current.formatDistance(100000)).toBe('100.0km');
+      expect(result.current.formatDistance(1000)).toBe('1,0km');
+      expect(result.current.formatDistance(1500)).toBe('1,5km');
+      expect(result.current.formatDistance(2750)).toBe('2,8km');
+      expect(result.current.formatDistance(10000)).toBe('10,0km');
+      expect(result.current.formatDistance(100000)).toBe('100,0km');
     });
 
     it('should round meters to nearest integer', () => {
@@ -38,8 +38,8 @@ describe('useTurnByTurnFormatters', () => {
     it('should show one decimal place for kilometers', () => {
       const { result } = renderHook(() => useTurnByTurnFormatters());
 
-      expect(result.current.formatDistance(1234)).toBe('1.2km');
-      expect(result.current.formatDistance(1567)).toBe('1.6km');
+      expect(result.current.formatDistance(1234)).toBe('1,2km');
+      expect(result.current.formatDistance(1567)).toBe('1,6km');
     });
   });
 
@@ -91,36 +91,52 @@ describe('useTurnByTurnFormatters', () => {
     it('should return arrow-forward for right turns', () => {
       const { result } = renderHook(() => useTurnByTurnFormatters());
 
-      expect(result.current.getManeuverIcon('turn-right')).toBe('arrow-forward');
-      expect(result.current.getManeuverIcon('turn-slight-right')).toBe('arrow-forward');
-      expect(result.current.getManeuverIcon('keep-right')).toBe('arrow-forward');
+      expect(result.current.getManeuverIcon('turn-right')).toBe(
+        'arrow-forward',
+      );
+      expect(result.current.getManeuverIcon('turn-slight-right')).toBe(
+        'arrow-forward',
+      );
+      expect(result.current.getManeuverIcon('keep-right')).toBe(
+        'arrow-forward',
+      );
     });
 
     it('should return arrow-back for left turns', () => {
       const { result } = renderHook(() => useTurnByTurnFormatters());
 
       expect(result.current.getManeuverIcon('turn-left')).toBe('arrow-back');
-      expect(result.current.getManeuverIcon('turn-slight-left')).toBe('arrow-back');
+      expect(result.current.getManeuverIcon('turn-slight-left')).toBe(
+        'arrow-back',
+      );
       expect(result.current.getManeuverIcon('keep-left')).toBe('arrow-forward'); // keep-left maps to arrow-forward per implementation
     });
 
     it('should return return-down-forward for sharp right', () => {
       const { result } = renderHook(() => useTurnByTurnFormatters());
 
-      expect(result.current.getManeuverIcon('turn-sharp-right')).toBe('return-down-forward');
+      expect(result.current.getManeuverIcon('turn-sharp-right')).toBe(
+        'return-down-forward',
+      );
     });
 
     it('should return return-down-back for sharp left', () => {
       const { result } = renderHook(() => useTurnByTurnFormatters());
 
-      expect(result.current.getManeuverIcon('turn-sharp-left')).toBe('return-down-back');
+      expect(result.current.getManeuverIcon('turn-sharp-left')).toBe(
+        'return-down-back',
+      );
     });
 
     it('should return return-up-back for u-turns', () => {
       const { result } = renderHook(() => useTurnByTurnFormatters());
 
-      expect(result.current.getManeuverIcon('uturn-right')).toBe('return-up-back');
-      expect(result.current.getManeuverIcon('uturn-left')).toBe('return-up-back');
+      expect(result.current.getManeuverIcon('uturn-right')).toBe(
+        'return-up-back',
+      );
+      expect(result.current.getManeuverIcon('uturn-left')).toBe(
+        'return-up-back',
+      );
     });
 
     it('should return sync for roundabouts', () => {

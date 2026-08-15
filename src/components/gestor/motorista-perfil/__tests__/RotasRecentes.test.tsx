@@ -123,25 +123,21 @@ describe('RotasRecentes', () => {
 
   describe('Estado vazio', () => {
     it('deve mostrar mensagem quando não há rotas', () => {
-      const { getByText } = render(
-        <RotasRecentes rotas={[]} />
-      );
+      const { getByText } = render(<RotasRecentes rotas={[]} />);
 
-      expect(getByText('Nenhuma rota encontrada para este motorista')).toBeTruthy();
+      expect(
+        getByText('Nenhuma rota encontrada para este motorista'),
+      ).toBeTruthy();
     });
 
     it('deve mostrar ícone navigate-outline quando vazio', () => {
-      const { getByText } = render(
-        <RotasRecentes rotas={[]} />
-      );
+      const { getByText } = render(<RotasRecentes rotas={[]} />);
 
       expect(getByText('navigate-outline')).toBeTruthy();
     });
 
     it('deve mostrar título "Rotas Recentes" mesmo quando vazio', () => {
-      const { getByText } = render(
-        <RotasRecentes rotas={[]} />
-      );
+      const { getByText } = render(<RotasRecentes rotas={[]} />);
 
       expect(getByText('Rotas Recentes')).toBeTruthy();
     });
@@ -149,17 +145,13 @@ describe('RotasRecentes', () => {
 
   describe('Lista de rotas', () => {
     it('deve renderizar título "Rotas Recentes"', () => {
-      const { getByText } = render(
-        <RotasRecentes rotas={mockRotas} />
-      );
+      const { getByText } = render(<RotasRecentes rotas={mockRotas} />);
 
       expect(getByText('Rotas Recentes')).toBeTruthy();
     });
 
     it('deve renderizar todas as rotas', () => {
-      const { getByText } = render(
-        <RotasRecentes rotas={mockRotas} />
-      );
+      const { getByText } = render(<RotasRecentes rotas={mockRotas} />);
 
       // Verificar que cada status é renderizado
       expect(getByText('Concluída')).toBeTruthy();
@@ -170,44 +162,38 @@ describe('RotasRecentes', () => {
     });
 
     it('deve formatar data corretamente', () => {
-      const { getByText } = render(
-        <RotasRecentes rotas={mockRotas} />
-      );
+      const { getByText } = render(<RotasRecentes rotas={mockRotas} />);
 
       // Verifica se pelo menos uma data formatada está presente
       expect(getByText('20/12/2025')).toBeTruthy();
     });
 
     it('deve mostrar distância quando disponível', () => {
-      const { getByText } = render(
-        <RotasRecentes rotas={mockRotas} />
-      );
+      const { getByText } = render(<RotasRecentes rotas={mockRotas} />);
 
-      expect(getByText('45.5 km')).toBeTruthy();
-      expect(getByText('32.3 km')).toBeTruthy();
+      expect(getByText('45,5 km')).toBeTruthy();
+      expect(getByText('32,3 km')).toBeTruthy();
     });
   });
 
   describe('Botão Ver todas', () => {
     it('deve mostrar "Ver todas" quando onVerTodas fornecido', () => {
       const { getByText } = render(
-        <RotasRecentes rotas={mockRotas} onVerTodas={mockOnVerTodas} />
+        <RotasRecentes rotas={mockRotas} onVerTodas={mockOnVerTodas} />,
       );
 
       expect(getByText('Ver todas')).toBeTruthy();
     });
 
     it('não deve mostrar "Ver todas" sem callback', () => {
-      const { queryByText } = render(
-        <RotasRecentes rotas={mockRotas} />
-      );
+      const { queryByText } = render(<RotasRecentes rotas={mockRotas} />);
 
       expect(queryByText('Ver todas')).toBeNull();
     });
 
     it('deve chamar onVerTodas ao clicar', () => {
       const { getByText } = render(
-        <RotasRecentes rotas={mockRotas} onVerTodas={mockOnVerTodas} />
+        <RotasRecentes rotas={mockRotas} onVerTodas={mockOnVerTodas} />,
       );
 
       fireEvent.press(getByText('Ver todas'));
@@ -218,9 +204,7 @@ describe('RotasRecentes', () => {
 
   describe('Navegação para detalhes', () => {
     it('deve navegar para mapa-rota ao clicar em uma rota', () => {
-      const { getByText } = render(
-        <RotasRecentes rotas={mockRotas} />
-      );
+      const { getByText } = render(<RotasRecentes rotas={mockRotas} />);
 
       // Clicar na primeira rota (Concluída)
       fireEvent.press(getByText('Concluída'));
@@ -231,41 +215,31 @@ describe('RotasRecentes', () => {
 
   describe('Ícones de status', () => {
     it('deve mostrar checkmark-circle para concluída', () => {
-      const { getByText } = render(
-        <RotasRecentes rotas={[mockRotas[0]]} />
-      );
+      const { getByText } = render(<RotasRecentes rotas={[mockRotas[0]]} />);
 
       expect(getByText('checkmark-circle')).toBeTruthy();
     });
 
     it('deve mostrar time para em andamento', () => {
-      const { getByText } = render(
-        <RotasRecentes rotas={[mockRotas[1]]} />
-      );
+      const { getByText } = render(<RotasRecentes rotas={[mockRotas[1]]} />);
 
       expect(getByText('time')).toBeTruthy();
     });
 
     it('deve mostrar hourglass para pendente', () => {
-      const { getByText } = render(
-        <RotasRecentes rotas={[mockRotas[2]]} />
-      );
+      const { getByText } = render(<RotasRecentes rotas={[mockRotas[2]]} />);
 
       expect(getByText('hourglass')).toBeTruthy();
     });
 
     it('deve mostrar alert-circle para não executada', () => {
-      const { getByText } = render(
-        <RotasRecentes rotas={[mockRotas[3]]} />
-      );
+      const { getByText } = render(<RotasRecentes rotas={[mockRotas[3]]} />);
 
       expect(getByText('alert-circle')).toBeTruthy();
     });
 
     it('deve mostrar close-circle para cancelada', () => {
-      const { getByText } = render(
-        <RotasRecentes rotas={[mockRotas[4]]} />
-      );
+      const { getByText } = render(<RotasRecentes rotas={[mockRotas[4]]} />);
 
       expect(getByText('close-circle')).toBeTruthy();
     });
@@ -282,7 +256,7 @@ describe('RotasRecentes', () => {
       };
 
       const { getByText } = render(
-        <RotasRecentes rotas={[rotaDesconhecida]} />
+        <RotasRecentes rotas={[rotaDesconhecida]} />,
       );
 
       // Deve usar config de pendente como fallback

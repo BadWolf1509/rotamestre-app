@@ -104,9 +104,9 @@ describe('OSRM module', () => {
     });
 
     it('should format kilometers correctly', () => {
-      expect(formatDistance(1000)).toBe('1.0km');
-      expect(formatDistance(1500)).toBe('1.5km');
-      expect(formatDistance(10000)).toBe('10.0km');
+      expect(formatDistance(1000)).toBe('1,0km');
+      expect(formatDistance(1500)).toBe('1,5km');
+      expect(formatDistance(10000)).toBe('10,0km');
     });
   });
 
@@ -824,7 +824,7 @@ describe('OSRM module', () => {
 
       expect(result.distance).toBe(1500);
       expect(result.duration).toBe(180);
-      expect(result.distanceText).toBe('1.5km');
+      expect(result.distanceText).toBe('1,5km');
       expect(result.durationText).toBe('3 min');
     });
 

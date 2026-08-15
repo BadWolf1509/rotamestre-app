@@ -77,7 +77,9 @@ describe('RouteInfoHeaderCompact', () => {
 
   describe('Renderização', () => {
     it('deve renderizar nome do motorista', () => {
-      const { getByText } = render(<RouteInfoHeaderCompact {...defaultProps} />);
+      const { getByText } = render(
+        <RouteInfoHeaderCompact {...defaultProps} />,
+      );
 
       expect(getByText('Carlos Silva')).toBeTruthy();
     });
@@ -85,26 +87,32 @@ describe('RouteInfoHeaderCompact', () => {
     it('deve exibir "Sem motorista" quando não há motorista', () => {
       const rotaSemMotorista = { ...mockRota, motorista: undefined };
       const { getByText } = render(
-        <RouteInfoHeaderCompact {...defaultProps} rota={rotaSemMotorista} />
+        <RouteInfoHeaderCompact {...defaultProps} rota={rotaSemMotorista} />,
       );
 
       expect(getByText('Sem motorista')).toBeTruthy();
     });
 
     it('deve exibir status Pendente', () => {
-      const { getByText } = render(<RouteInfoHeaderCompact {...defaultProps} />);
+      const { getByText } = render(
+        <RouteInfoHeaderCompact {...defaultProps} />,
+      );
 
       expect(getByText('Pendente')).toBeTruthy();
     });
 
     it('deve exibir distância total', () => {
-      const { getByText } = render(<RouteInfoHeaderCompact {...defaultProps} />);
+      const { getByText } = render(
+        <RouteInfoHeaderCompact {...defaultProps} />,
+      );
 
-      expect(getByText('15.5 km')).toBeTruthy();
+      expect(getByText('15,5 km')).toBeTruthy();
     });
 
     it('deve exibir contagem de paradas', () => {
-      const { getByText } = render(<RouteInfoHeaderCompact {...defaultProps} />);
+      const { getByText } = render(
+        <RouteInfoHeaderCompact {...defaultProps} />,
+      );
 
       expect(getByText('2/5')).toBeTruthy();
       expect(getByText('paradas')).toBeTruthy();
@@ -115,7 +123,7 @@ describe('RouteInfoHeaderCompact', () => {
     it('deve exibir status "Em andamento" para em_andamento', () => {
       const rotaEmAndamento = { ...mockRota, status: 'em_andamento' };
       const { getByText, getByTestId } = render(
-        <RouteInfoHeaderCompact {...defaultProps} rota={rotaEmAndamento} />
+        <RouteInfoHeaderCompact {...defaultProps} rota={rotaEmAndamento} />,
       );
 
       expect(getByText('Em andamento')).toBeTruthy();
@@ -125,7 +133,7 @@ describe('RouteInfoHeaderCompact', () => {
     it('deve exibir status "Concluída" para concluida', () => {
       const rotaConcluida = { ...mockRota, status: 'concluida' };
       const { getByText, getByTestId } = render(
-        <RouteInfoHeaderCompact {...defaultProps} rota={rotaConcluida} />
+        <RouteInfoHeaderCompact {...defaultProps} rota={rotaConcluida} />,
       );
 
       expect(getByText('Concluída')).toBeTruthy();
@@ -135,7 +143,7 @@ describe('RouteInfoHeaderCompact', () => {
     it('deve exibir status "Cancelada" para cancelada', () => {
       const rotaCancelada = { ...mockRota, status: 'cancelada' };
       const { getByText, getByTestId } = render(
-        <RouteInfoHeaderCompact {...defaultProps} rota={rotaCancelada} />
+        <RouteInfoHeaderCompact {...defaultProps} rota={rotaCancelada} />,
       );
 
       expect(getByText('Cancelada')).toBeTruthy();
@@ -145,7 +153,7 @@ describe('RouteInfoHeaderCompact', () => {
     it('deve exibir status "Não executada" para nao_executada', () => {
       const rotaNaoExecutada = { ...mockRota, status: 'nao_executada' };
       const { getByText, getByTestId } = render(
-        <RouteInfoHeaderCompact {...defaultProps} rota={rotaNaoExecutada} />
+        <RouteInfoHeaderCompact {...defaultProps} rota={rotaNaoExecutada} />,
       );
 
       expect(getByText('Não executada')).toBeTruthy();
@@ -160,7 +168,7 @@ describe('RouteInfoHeaderCompact', () => {
         <RouteInfoHeaderCompact
           {...defaultProps}
           onChangeDriverPress={onChangeDriverPress}
-        />
+        />,
       );
 
       expect(getByText('Trocar')).toBeTruthy();
@@ -177,7 +185,7 @@ describe('RouteInfoHeaderCompact', () => {
           {...defaultProps}
           rota={rotaEmAndamento}
           onChangeDriverPress={onChangeDriverPress}
-        />
+        />,
       );
 
       expect(queryByText('Trocar')).toBeNull();
@@ -191,7 +199,7 @@ describe('RouteInfoHeaderCompact', () => {
         <RouteInfoHeaderCompact
           {...defaultProps}
           onCancelPress={onCancelPress}
-        />
+        />,
       );
 
       expect(getByText('Cancelar')).toBeTruthy();
@@ -208,7 +216,7 @@ describe('RouteInfoHeaderCompact', () => {
           {...defaultProps}
           rota={rotaEmAndamento}
           onCancelPress={onCancelPress}
-        />
+        />,
       );
 
       expect(getByText('Cancelar')).toBeTruthy();
@@ -222,7 +230,7 @@ describe('RouteInfoHeaderCompact', () => {
           {...defaultProps}
           rota={rotaConcluida}
           onCancelPress={onCancelPress}
-        />
+        />,
       );
 
       expect(queryByText('Cancelar')).toBeNull();
@@ -236,7 +244,7 @@ describe('RouteInfoHeaderCompact', () => {
           {...defaultProps}
           rota={rotaCancelada}
           onCancelPress={onCancelPress}
-        />
+        />,
       );
 
       expect(queryByText('Cancelar')).toBeNull();
@@ -252,7 +260,7 @@ describe('RouteInfoHeaderCompact', () => {
           {...defaultProps}
           rota={rotaNaoExecutada}
           onReactivatePress={onReactivatePress}
-        />
+        />,
       );
 
       expect(getByText('Reativar')).toBeTruthy();
@@ -267,7 +275,7 @@ describe('RouteInfoHeaderCompact', () => {
         <RouteInfoHeaderCompact
           {...defaultProps}
           onReactivatePress={onReactivatePress}
-        />
+        />,
       );
 
       expect(queryByText('Reativar')).toBeNull();
@@ -281,7 +289,7 @@ describe('RouteInfoHeaderCompact', () => {
         <RouteInfoHeaderCompact
           {...defaultProps}
           onAddStopPress={onAddStopPress}
-        />
+        />,
       );
 
       expect(getByText('+ Parada')).toBeTruthy();
@@ -298,7 +306,7 @@ describe('RouteInfoHeaderCompact', () => {
           {...defaultProps}
           rota={rotaEmAndamento}
           onAddStopPress={onAddStopPress}
-        />
+        />,
       );
 
       expect(getByText('+ Parada')).toBeTruthy();
@@ -312,7 +320,7 @@ describe('RouteInfoHeaderCompact', () => {
           {...defaultProps}
           rota={rotaConcluida}
           onAddStopPress={onAddStopPress}
-        />
+        />,
       );
 
       expect(queryByText('+ Parada')).toBeNull();
@@ -326,7 +334,7 @@ describe('RouteInfoHeaderCompact', () => {
         <RouteInfoHeaderCompact
           {...defaultProps}
           onReorderPress={onReorderPress}
-        />
+        />,
       );
 
       expect(getByText('Reordenar')).toBeTruthy();
@@ -343,7 +351,7 @@ describe('RouteInfoHeaderCompact', () => {
           {...defaultProps}
           rota={rotaEmAndamento}
           onReorderPress={onReorderPress}
-        />
+        />,
       );
 
       expect(getByText('Reordenar')).toBeTruthy();
@@ -357,7 +365,7 @@ describe('RouteInfoHeaderCompact', () => {
           {...defaultProps}
           rota={rotaConcluida}
           onReorderPress={onReorderPress}
-        />
+        />,
       );
 
       expect(queryByText('Reordenar')).toBeNull();
@@ -368,7 +376,7 @@ describe('RouteInfoHeaderCompact', () => {
     it('não deve exibir distância quando não está definida', () => {
       const rotaSemDistancia = { ...mockRota, distancia_total: undefined };
       const { queryByText } = render(
-        <RouteInfoHeaderCompact {...defaultProps} rota={rotaSemDistancia} />
+        <RouteInfoHeaderCompact {...defaultProps} rota={rotaSemDistancia} />,
       );
 
       expect(queryByText('km')).toBeNull();
@@ -377,25 +385,33 @@ describe('RouteInfoHeaderCompact', () => {
 
   describe('Ícones', () => {
     it('deve renderizar ícone de pessoa para motorista', () => {
-      const { getByTestId } = render(<RouteInfoHeaderCompact {...defaultProps} />);
+      const { getByTestId } = render(
+        <RouteInfoHeaderCompact {...defaultProps} />,
+      );
 
       expect(getByTestId('icon-person-circle')).toBeTruthy();
     });
 
     it('deve renderizar ícone de velocímetro para distância', () => {
-      const { getByTestId } = render(<RouteInfoHeaderCompact {...defaultProps} />);
+      const { getByTestId } = render(
+        <RouteInfoHeaderCompact {...defaultProps} />,
+      );
 
       expect(getByTestId('icon-speedometer-outline')).toBeTruthy();
     });
 
     it('deve renderizar ícone de bandeira para paradas', () => {
-      const { getByTestId } = render(<RouteInfoHeaderCompact {...defaultProps} />);
+      const { getByTestId } = render(
+        <RouteInfoHeaderCompact {...defaultProps} />,
+      );
 
       expect(getByTestId('icon-flag-outline')).toBeTruthy();
     });
 
     it('deve renderizar ícone de hourglass para status pendente', () => {
-      const { getByTestId } = render(<RouteInfoHeaderCompact {...defaultProps} />);
+      const { getByTestId } = render(
+        <RouteInfoHeaderCompact {...defaultProps} />,
+      );
 
       expect(getByTestId('icon-hourglass-outline')).toBeTruthy();
     });

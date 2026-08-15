@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 
 import { useRouteDirections } from '@/hooks/useRouteDirections';
+import { formatarDecimal } from '@/lib/formatNumber';
 import {
   MAPLIBRE_RASTER_STYLE_JSON,
   getBounds,
@@ -476,7 +477,7 @@ export function MiniMap({
               <Text style={styles.infoText}>
                 {paradasRestantes.length} restantes
                 {routeInfo
-                  ? ` • ${(routeInfo.distanceMeters / 1000).toFixed(1)} km total`
+                  ? ` • ${formatarDecimal(routeInfo.distanceMeters / 1000)} km total`
                   : route?.distancia_total
                     ? ` • ${Math.round(route.distancia_total)} km total`
                     : ''}

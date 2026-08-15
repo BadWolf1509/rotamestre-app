@@ -15,6 +15,7 @@ import { Platform, Text, View } from 'react-native';
 
 import { useAlert } from '@/hooks/useAlert';
 import { useOffRouteDetection } from '@/hooks/useOffRouteDetection';
+import { formatarDecimal } from '@/lib/formatNumber';
 import { logger } from '@/lib/logger';
 import {
   MAPLIBRE_RASTER_STYLE_JSON,
@@ -423,7 +424,7 @@ export function TurnByTurnNavigation({
     if (meters < 1000) {
       return `${Math.round(meters)}m`;
     }
-    return `${(meters / 1000).toFixed(1)}km`;
+    return `${formatarDecimal(meters / 1000)}km`;
   };
 
   // Format duration

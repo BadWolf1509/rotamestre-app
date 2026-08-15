@@ -63,9 +63,21 @@ jest.mock('@/components/StatusBadge', () => ({
 
 // Mock Text component
 jest.mock('@/components/Text', () => ({
-  Text: ({ children, style, testID }: { children: React.ReactNode; style?: object; testID?: string }) => {
+  Text: ({
+    children,
+    style,
+    testID,
+  }: {
+    children: React.ReactNode;
+    style?: object;
+    testID?: string;
+  }) => {
     const { Text: RNText } = require('react-native');
-    return <RNText style={style} testID={testID}>{children}</RNText>;
+    return (
+      <RNText style={style} testID={testID}>
+        {children}
+      </RNText>
+    );
   },
 }));
 
@@ -92,7 +104,7 @@ describe('ProgressCell', () => {
 
   it('deve exibir porcentagem quando showPercentage é true', () => {
     const { getByText } = render(
-      <ProgressCell value={5} total={10} showPercentage={true} />
+      <ProgressCell value={5} total={10} showPercentage={true} />,
     );
 
     expect(getByText('5/10 (50%)')).toBeTruthy();
@@ -100,7 +112,12 @@ describe('ProgressCell', () => {
 
   it('deve ocultar fração quando showFraction é false', () => {
     const { queryByText } = render(
-      <ProgressCell value={5} total={10} showFraction={false} showPercentage={true} />
+      <ProgressCell
+        value={5}
+        total={10}
+        showFraction={false}
+        showPercentage={true}
+      />,
     );
 
     expect(queryByText('5/10')).toBeNull();
@@ -109,7 +126,7 @@ describe('ProgressCell', () => {
 
   it('deve calcular 0% quando total é 0', () => {
     const { getByText } = render(
-      <ProgressCell value={0} total={0} showPercentage={true} />
+      <ProgressCell value={0} total={0} showPercentage={true} />,
     );
 
     expect(getByText('0/0 (0%)')).toBeTruthy();
@@ -117,7 +134,7 @@ describe('ProgressCell', () => {
 
   it('deve arredondar porcentagem', () => {
     const { getByText } = render(
-      <ProgressCell value={1} total={3} showPercentage={true} />
+      <ProgressCell value={1} total={3} showPercentage={true} />,
     );
 
     expect(getByText('1/3 (33%)')).toBeTruthy();
@@ -162,7 +179,9 @@ describe('StatusCell', () => {
   });
 
   it('deve usar label customizado quando fornecido', () => {
-    const { getByText } = render(<StatusCell status="pendente" label="Custom Label" />);
+    const { getByText } = render(
+      <StatusCell status="pendente" label="Custom Label" />,
+    );
 
     expect(getByText('Custom Label')).toBeTruthy();
   });
@@ -190,7 +209,7 @@ describe('UserCell', () => {
 
   it('deve renderizar subtítulo quando fornecido', () => {
     const { getAllByText, getByText } = render(
-      <UserCell name="João Silva" subtitle="Motorista" />
+      <UserCell name="João Silva" subtitle="Motorista" />,
     );
 
     expect(getAllByText('João Silva').length).toBeGreaterThan(0);
@@ -199,7 +218,7 @@ describe('UserCell', () => {
 
   it('deve aceitar prop de avatar URL', () => {
     const { getByTestId } = render(
-      <UserCell name="João" avatarUrl="https://example.com/avatar.jpg" />
+      <UserCell name="João" avatarUrl="https://example.com/avatar.jpg" />,
     );
 
     expect(getByTestId('avatar')).toBeTruthy();
@@ -227,14 +246,18 @@ describe('DateCell', () => {
 
   it('deve renderizar data válida', () => {
     // Usar data com timezone para evitar problemas de fuso
-    const { getByText } = render(<DateCell date="2024-01-15T12:00:00" format="date" />);
+    const { getByText } = render(
+      <DateCell date="2024-01-15T12:00:00" format="date" />,
+    );
 
     // Verifica se contém parte da data (formato pode variar por timezone)
     expect(getByText(/01\/2024/)).toBeTruthy();
   });
 
   it('deve renderizar data com formato datetime', () => {
-    const { getByText } = render(<DateCell date="2024-01-15T14:30:00" format="datetime" />);
+    const { getByText } = render(
+      <DateCell date="2024-01-15T14:30:00" format="datetime" />,
+    );
 
     // Verifica se contém parte da data (formato pode variar por timezone)
     expect(getByText(/01\/2024/)).toBeTruthy();
@@ -248,7 +271,9 @@ describe('DateCell', () => {
 
   it('deve aceitar Date object', () => {
     // Criar data com horário para minimizar problemas de timezone
-    const { getByText } = render(<DateCell date={new Date(2024, 0, 15, 12, 0, 0)} />);
+    const { getByText } = render(
+      <DateCell date={new Date(2024, 0, 15, 12, 0, 0)} />,
+    );
 
     expect(getByText(/15\/01\/2024/)).toBeTruthy();
   });
@@ -273,7 +298,7 @@ describe('DateCell', () => {
 
     it('deve mostrar "Agora" para datas recentes', () => {
       const { getByText } = render(
-        <DateCell date={new Date('2024-01-15T12:00:00')} format="relative" />
+        <DateCell date={new Date('2024-01-15T12:00:00')} format="relative" />,
       );
 
       expect(getByText('Agora')).toBeTruthy();
@@ -281,7 +306,7 @@ describe('DateCell', () => {
 
     it('deve mostrar minutos atrás', () => {
       const { getByText } = render(
-        <DateCell date={new Date('2024-01-15T11:30:00')} format="relative" />
+        <DateCell date={new Date('2024-01-15T11:30:00')} format="relative" />,
       );
 
       expect(getByText('30 min atrás')).toBeTruthy();
@@ -289,7 +314,7 @@ describe('DateCell', () => {
 
     it('deve mostrar horas atrás', () => {
       const { getByText } = render(
-        <DateCell date={new Date('2024-01-15T10:00:00')} format="relative" />
+        <DateCell date={new Date('2024-01-15T10:00:00')} format="relative" />,
       );
 
       expect(getByText('2h atrás')).toBeTruthy();
@@ -297,7 +322,7 @@ describe('DateCell', () => {
 
     it('deve mostrar dias atrás', () => {
       const { getByText } = render(
-        <DateCell date={new Date('2024-01-13T12:00:00')} format="relative" />
+        <DateCell date={new Date('2024-01-13T12:00:00')} format="relative" />,
       );
 
       expect(getByText('2d atrás')).toBeTruthy();
@@ -353,14 +378,16 @@ describe('DistanceCell', () => {
   it('deve formatar distância com unidade', () => {
     const { getByText } = render(<DistanceCell km={25.5} />);
 
-    expect(getByText('25.5 km')).toBeTruthy();
+    expect(getByText('25,5 km')).toBeTruthy();
   });
 
   it('deve ocultar unidade quando showUnit é false', () => {
-    const { getByText, queryByText } = render(<DistanceCell km={25.5} showUnit={false} />);
+    const { getByText, queryByText } = render(
+      <DistanceCell km={25.5} showUnit={false} />,
+    );
 
-    expect(getByText('25.5')).toBeTruthy();
-    expect(queryByText('25.5 km')).toBeNull();
+    expect(getByText('25,5')).toBeTruthy();
+    expect(queryByText('25,5 km')).toBeNull();
   });
 
   it('deve renderizar ícone de velocímetro', () => {
@@ -417,7 +444,7 @@ describe('IconCell', () => {
 
   it('deve renderizar texto quando fornecido', () => {
     const { getByText, getByTestId } = render(
-      <IconCell icon="car" text="Em trânsito" />
+      <IconCell icon="car" text="Em trânsito" />,
     );
 
     expect(getByTestId('icon-car')).toBeTruthy();

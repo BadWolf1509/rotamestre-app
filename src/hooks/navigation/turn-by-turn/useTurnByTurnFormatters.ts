@@ -6,6 +6,7 @@
 
 import { useCallback } from 'react';
 
+import { formatarDecimal } from '@/lib/formatNumber';
 import type { IconName } from '@/types/icons';
 
 interface UseTurnByTurnFormattersReturn {
@@ -30,7 +31,7 @@ export function useTurnByTurnFormatters(): UseTurnByTurnFormattersReturn {
     if (meters < 1000) {
       return `${Math.round(meters)}m`;
     }
-    return `${(meters / 1000).toFixed(1)}km`;
+    return `${formatarDecimal(meters / 1000)}km`;
   }, []);
 
   /**
@@ -53,45 +54,48 @@ export function useTurnByTurnFormatters(): UseTurnByTurnFormattersReturn {
    * @param maneuver - Maneuver type from navigation service
    * @returns Ionicon name for the maneuver
    */
-  const getManeuverIcon = useCallback((maneuver: string | undefined): IconName => {
-    if (!maneuver) return 'arrow-up';
+  const getManeuverIcon = useCallback(
+    (maneuver: string | undefined): IconName => {
+      if (!maneuver) return 'arrow-up';
 
-    switch (maneuver) {
-      case 'turn-right':
-      case 'turn-slight-right':
-        return 'arrow-forward';
-      case 'turn-left':
-      case 'turn-slight-left':
-        return 'arrow-back';
-      case 'turn-sharp-right':
-        return 'return-down-forward';
-      case 'turn-sharp-left':
-        return 'return-down-back';
-      case 'uturn-right':
-      case 'uturn-left':
-        return 'return-up-back';
-      case 'roundabout-right':
-      case 'roundabout-left':
-        return 'sync';
-      case 'merge':
-        return 'git-merge';
-      case 'fork-right':
-      case 'fork-left':
-        return 'git-branch';
-      case 'ramp-right':
-      case 'ramp-left':
-        return 'trending-up';
-      case 'keep-right':
-      case 'keep-left':
-        return 'arrow-forward';
-      case 'arrive':
-        return 'flag';
-      case 'depart':
-      case 'straight':
-      default:
-        return 'arrow-up';
-    }
-  }, []);
+      switch (maneuver) {
+        case 'turn-right':
+        case 'turn-slight-right':
+          return 'arrow-forward';
+        case 'turn-left':
+        case 'turn-slight-left':
+          return 'arrow-back';
+        case 'turn-sharp-right':
+          return 'return-down-forward';
+        case 'turn-sharp-left':
+          return 'return-down-back';
+        case 'uturn-right':
+        case 'uturn-left':
+          return 'return-up-back';
+        case 'roundabout-right':
+        case 'roundabout-left':
+          return 'sync';
+        case 'merge':
+          return 'git-merge';
+        case 'fork-right':
+        case 'fork-left':
+          return 'git-branch';
+        case 'ramp-right':
+        case 'ramp-left':
+          return 'trending-up';
+        case 'keep-right':
+        case 'keep-left':
+          return 'arrow-forward';
+        case 'arrive':
+          return 'flag';
+        case 'depart':
+        case 'straight':
+        default:
+          return 'arrow-up';
+      }
+    },
+    [],
+  );
 
   return {
     formatDistance,

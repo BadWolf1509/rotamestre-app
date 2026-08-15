@@ -4,6 +4,8 @@
  * Distance/duration formatting and Portuguese maneuver translations.
  */
 
+import { formatarDecimal } from '@/lib/formatNumber';
+
 // ============================================================================
 // DISTANCE & DURATION FORMATTING
 // ============================================================================
@@ -12,7 +14,7 @@ export function formatDistance(meters: number): string {
   if (meters < 1000) {
     return `${Math.round(meters)}m`;
   }
-  return `${(meters / 1000).toFixed(1)}km`;
+  return `${formatarDecimal(meters / 1000)}km`;
 }
 
 export function formatDuration(seconds: number): string {
@@ -84,14 +86,19 @@ export const MANEUVER_TRANSLATIONS: Record<string, Record<string, string>> = {
   },
 };
 
-export function translateManeuver(type: string, modifier?: string, streetName?: string): string {
+export function translateManeuver(
+  type: string,
+  modifier?: string,
+  streetName?: string,
+): string {
   const typeTranslations = MANEUVER_TRANSLATIONS[type];
 
   if (!typeTranslations) {
     return streetName ? `Continue para ${streetName}` : 'Continue';
   }
 
-  let instruction = typeTranslations[modifier || ''] || typeTranslations.default || 'Continue';
+  let instruction =
+    typeTranslations[modifier || ''] || typeTranslations.default || 'Continue';
 
   if (streetName && streetName !== '' && type !== 'arrive') {
     instruction += ` ${streetName}`;

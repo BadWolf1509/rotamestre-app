@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 
+import { formatarDecimal } from '@/lib/formatNumber';
 import { useUnistyles, type Theme } from '@/utils/styles';
 
 import { styles } from './styles';
@@ -175,7 +176,7 @@ export function RouteInfoHeader({
             >
               <Text style={styles.infoChipLabel}>Distância Total:</Text>
               <Text style={styles.infoChipValue}>
-                {rota.distancia_total.toFixed(1)} km
+                {formatarDecimal(rota.distancia_total)} km
               </Text>
             </View>
           )}

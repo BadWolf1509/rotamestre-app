@@ -82,7 +82,7 @@ describe('useNavigationModeLogic', () => {
           nextStop: null,
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
       expect(result.current.userLocation).toBeNull();
@@ -102,7 +102,7 @@ describe('useNavigationModeLogic', () => {
           nextStop: null,
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
       expect(result.current.preferences).toEqual({
@@ -123,12 +123,14 @@ describe('useNavigationModeLogic', () => {
           currentStop: mockCurrentStop,
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
       // Should have 3 real paradas (excluding checkpoints with is_checkpoint === false)
       expect(result.current.realParadas.length).toBe(3);
-      expect(result.current.realParadas.every((p) => p.is_checkpoint !== false)).toBe(true);
+      expect(
+        result.current.realParadas.every((p) => p.is_checkpoint !== false),
+      ).toBe(true);
     });
 
     it('should identify checkpoints', () => {
@@ -137,7 +139,7 @@ describe('useNavigationModeLogic', () => {
           currentStop: mockCurrentStop,
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
       expect(result.current.checkpoints.length).toBe(2);
@@ -151,7 +153,7 @@ describe('useNavigationModeLogic', () => {
           currentStop: mockCurrentStop,
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
       expect(result.current.currentStopIndex).toBe(1);
@@ -163,7 +165,7 @@ describe('useNavigationModeLogic', () => {
           currentStop: mockCurrentStop,
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
       expect(result.current.nextStopAfterCurrent?.id).toBe('parada-2');
@@ -175,7 +177,7 @@ describe('useNavigationModeLogic', () => {
           currentStop: mockCurrentStop,
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
       // parada-2 is pending and not current
@@ -189,7 +191,7 @@ describe('useNavigationModeLogic', () => {
           currentStop: { ...mockCurrentStop, tipo: 'entrega' },
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
       expect(result.current.isEntrega).toBe(true);
@@ -201,7 +203,7 @@ describe('useNavigationModeLogic', () => {
           currentStop: { ...mockCurrentStop, tipo: 'retirada' },
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
       expect(result.current.isEntrega).toBe(false);
@@ -215,7 +217,7 @@ describe('useNavigationModeLogic', () => {
           currentStop: mockCurrentStop,
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
       expect(result.current.formatDistance(150)).toBe('150m');
@@ -228,12 +230,12 @@ describe('useNavigationModeLogic', () => {
           currentStop: mockCurrentStop,
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
-      expect(result.current.formatDistance(1000)).toBe('1.0km');
-      expect(result.current.formatDistance(1500)).toBe('1.5km');
-      expect(result.current.formatDistance(10000)).toBe('10.0km');
+      expect(result.current.formatDistance(1000)).toBe('1,0km');
+      expect(result.current.formatDistance(1500)).toBe('1,5km');
+      expect(result.current.formatDistance(10000)).toBe('10,0km');
     });
   });
 
@@ -244,7 +246,7 @@ describe('useNavigationModeLogic', () => {
           currentStop: mockCurrentStop,
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
       expect(result.current.getSpeedColor(30)).toBe('#00FF00');
@@ -257,7 +259,7 @@ describe('useNavigationModeLogic', () => {
           currentStop: mockCurrentStop,
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
       expect(result.current.getSpeedColor(50)).toBe('#FFFF00');
@@ -270,7 +272,7 @@ describe('useNavigationModeLogic', () => {
           currentStop: mockCurrentStop,
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
       expect(result.current.getSpeedColor(81)).toBe('#FF0000');
@@ -285,13 +287,13 @@ describe('useNavigationModeLogic', () => {
           currentStop: mockCurrentStop,
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
       act(() => {
         result.current.updateLocationFromCoords(
           { latitude: -23.55, longitude: -46.63, heading: 90 },
-          10
+          10,
         );
       });
 
@@ -308,13 +310,13 @@ describe('useNavigationModeLogic', () => {
           currentStop: mockCurrentStop,
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
       act(() => {
         result.current.updateLocationFromCoords(
           { latitude: -23.55, longitude: -46.63 },
-          10 // 10 m/s = 36 km/h
+          10, // 10 m/s = 36 km/h
         );
       });
 
@@ -327,13 +329,13 @@ describe('useNavigationModeLogic', () => {
           currentStop: mockCurrentStop,
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
       act(() => {
         result.current.updateLocationFromCoords(
           { latitude: -23.55, longitude: -46.63 },
-          10
+          10,
         );
       });
 
@@ -346,13 +348,13 @@ describe('useNavigationModeLogic', () => {
           currentStop: mockCurrentStop,
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
       act(() => {
         result.current.updateLocationFromCoords(
           { latitude: -23.55, longitude: -46.63 },
-          10 // 10 m/s
+          10, // 10 m/s
         );
       });
 
@@ -368,7 +370,7 @@ describe('useNavigationModeLogic', () => {
           currentStop: mockCurrentStop,
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
       act(() => {
@@ -384,7 +386,7 @@ describe('useNavigationModeLogic', () => {
           currentStop: mockCurrentStop,
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
       act(() => {
@@ -397,7 +399,9 @@ describe('useNavigationModeLogic', () => {
 
   describe('isNearDestination', () => {
     it('should be true when distance < 100m', () => {
-      const { calculateHaversineDistance } = require('@/services/turnByTurnNavigation');
+      const {
+        calculateHaversineDistance,
+      } = require('@/services/turnByTurnNavigation');
       calculateHaversineDistance.mockReturnValue(50);
 
       const { result } = renderHook(() =>
@@ -405,13 +409,13 @@ describe('useNavigationModeLogic', () => {
           currentStop: mockCurrentStop,
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
       act(() => {
         result.current.updateLocationFromCoords(
           { latitude: -23.55, longitude: -46.63 },
-          5
+          5,
         );
       });
 
@@ -419,7 +423,9 @@ describe('useNavigationModeLogic', () => {
     });
 
     it('should be false when distance >= 100m', () => {
-      const { calculateHaversineDistance } = require('@/services/turnByTurnNavigation');
+      const {
+        calculateHaversineDistance,
+      } = require('@/services/turnByTurnNavigation');
       calculateHaversineDistance.mockReturnValue(500);
 
       const { result } = renderHook(() =>
@@ -427,13 +433,13 @@ describe('useNavigationModeLogic', () => {
           currentStop: mockCurrentStop,
           paradas: mockParadas,
           rotaId: 'rota-123',
-        })
+        }),
       );
 
       act(() => {
         result.current.updateLocationFromCoords(
           { latitude: -23.55, longitude: -46.63 },
-          5
+          5,
         );
       });
 

@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ParadaData } from '@/context/RouteStatusContext';
+import { formatarDecimal } from '@/lib/formatNumber';
 import { logger } from '@/lib/logger';
 import { getRoute, decodePolyline, type Coordinate } from '@/lib/osrm';
 import LocationTrackingService from '@/services/locationTracking';
@@ -138,7 +139,7 @@ export function useNavigationModeLogic({
     if (meters < 1000) {
       return `${Math.round(meters)}m`;
     }
-    return `${(meters / 1000).toFixed(1)}km`;
+    return `${formatarDecimal(meters / 1000)}km`;
   }, []);
 
   /**
