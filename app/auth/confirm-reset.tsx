@@ -14,6 +14,7 @@ import { UnistylesRuntime } from 'react-native-unistyles';
 import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
 import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useResponsive } from '@/hooks/useResponsive';
 import { supabaseUrl } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -59,7 +60,7 @@ function getConfirmationUrl(): string | null {
   }
 }
 
-export default function ConfirmReset() {
+function ConfirmResetContent() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { isDesktop } = useResponsive();
@@ -286,3 +287,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontFamily: theme.typography.fontSansMedium,
   },
 }));
+
+/** Invólucro com ErrorBoundary — ver comentário em app/auth/login.tsx. */
+export default function ConfirmReset() {
+  return (
+    <ErrorBoundary>
+      <ConfirmResetContent />
+    </ErrorBoundary>
+  );
+}

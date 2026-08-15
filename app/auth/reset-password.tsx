@@ -21,6 +21,7 @@ import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
 import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
 import { FieldError } from '@/components/auth/FieldError';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
 import { useSessionRecovery } from '@/hooks/auth/useSessionRecovery';
 import { useAlert } from '@/hooks/useAlert';
@@ -34,7 +35,7 @@ import { resetPasswordSchema, type ResetPasswordInput } from '@/lib/schemas';
 import { styles } from '@/styles/auth/reset-password.styles';
 import { useUnistyles } from '@/utils/styles';
 
-export default function ResetPassword() {
+function ResetPasswordContent() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const { isDesktop } = useResponsive();
@@ -501,5 +502,14 @@ export default function ResetPassword() {
         {AlertDialog}
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+/** Invólucro com ErrorBoundary — ver comentário em app/auth/login.tsx. */
+export default function ResetPassword() {
+  return (
+    <ErrorBoundary>
+      <ResetPasswordContent />
+    </ErrorBoundary>
   );
 }
