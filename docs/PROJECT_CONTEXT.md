@@ -1,21 +1,22 @@
 # Contexto operacional — Rota Mestre App
 
-> Documento de entrada para novas sessões. Atualizado em 08/08/2026.
+> Documento de entrada para novas sessões. Atualizado em 15/08/2026.
 > Consulte o código ou o serviço responsável antes de alterar um estado externo.
 
 ## Pendências (comece por aqui)
 
 Lista única e canônica. Se resolver uma, risque daqui.
 
-| #   | Pendência                                                                                                                                                                                                                                                                                                                                                                                                    | Quem pode fazer                                | Onde está o detalhe                                    |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- | ------------------------------------------------------ |
-| 1   | **Rotacionar/desativar contas de teste com senha vazada** — `gestor@`, `motorista@`, `gestor.test@`, `motorista.test@` foram **excluídas em 05/08/2026**; se recriar qualquer conta de teste, use senha forte por variável de ambiente.                                                                                                                                                                      | gestor (Supabase → Auth → Users)               | "Credenciais hardcoded" abaixo                         |
-| 2   | **Furo de RLS:** motorista pode alterar `unidade_id` da própria rota. Pré-existente, exige motorista malicioso fora do app.                                                                                                                                                                                                                                                                                  | requer design (o fix óbvio quebra o motorista) | Security Advisory privado `GHSA-vw63-jxg2-28vx`        |
-| 3   | **Fase 2 da auditoria:** chip na tela da rota + indicador/filtro/contador na Gestão de Rotas. Plano próprio ainda não escrito — melhor depois de algumas semanas de dado acumulado.                                                                                                                                                                                                                          | qualquer sessão                                | spec `2026-08-04-auditoria-otimizacao-rotas-design.md` |
-| 4   | **Play Store: produção continua vazia.** O `3025` está publicado em **teste fechado (`alpha`) e teste interno**, ambos `completed`. Falta cumprir o requisito de testadores para solicitar acesso à produção. Ampliar opt-in divulgando o hub público `/testar`.                                                                                                                                             | gestor (Play Console)                          | `GOOGLE_PLAY_DEPLOYMENT.md`                            |
-| 5   | **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).                                                                                                                                                                                                                                                                          | gestor (Apple ID + 2FA)                        | `APP_STORE_DEPLOYMENT.md`                              |
-| 6   | **Validar o onboarding self-service ponta a ponta.** A migration foi aplicada em 06/08/2026 e o código mergeado. Falta o teste manual: cadastro com e-mail descartável → confirmar → login → tela de onboarding → criar unidade → **criar um motorista** (prova `usuarios.unidade_id`) → **criar uma rota** (prova as coordenadas da sede). Nenhum teste automatizado cobre isso — nenhum toca o banco real. | gestor (cria dado real)                        | `database/MIGRATIONS.md` (Migration 21)                |
-| 7   | **4 das 9 unidades têm `sede_endereco` com coordenadas NULL** — não conseguem gerar rota. A tela "Minha Unidade" é o caminho de conserto e desde 08/08 funciona de verdade (ver Migration 22 e a armadilha do componente aninhado). Falta passar unidade por unidade.                                                                                                                                        | gestor (edita cada unidade)                    | `database/MIGRATIONS.md` (Migration 22)                |
+| #   | Pendência                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Quem pode fazer                                | Onde está o detalhe                                    |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------ |
+| 1   | **Rotacionar/desativar contas de teste com senha vazada** — `gestor@`, `motorista@`, `gestor.test@`, `motorista.test@` foram **excluídas em 05/08/2026**; se recriar qualquer conta de teste, use senha forte por variável de ambiente.                                                                                                                                                                                                                                                                                                                                    | gestor (Supabase → Auth → Users)               | "Credenciais hardcoded" abaixo                         |
+| 2   | **Furo de RLS:** motorista pode alterar `unidade_id` da própria rota. Pré-existente, exige motorista malicioso fora do app.                                                                                                                                                                                                                                                                                                                                                                                                                                                | requer design (o fix óbvio quebra o motorista) | Security Advisory privado `GHSA-vw63-jxg2-28vx`        |
+| 3   | **Fase 2 da auditoria:** chip na tela da rota + indicador/filtro/contador na Gestão de Rotas. Plano próprio ainda não escrito — melhor depois de algumas semanas de dado acumulado.                                                                                                                                                                                                                                                                                                                                                                                        | qualquer sessão                                | spec `2026-08-04-auditoria-otimizacao-rotas-design.md` |
+| 4   | **Play Store: produção continua vazia.** O `3025` está publicado em **teste fechado (`alpha`) e teste interno**, ambos `completed`. Falta cumprir o requisito de testadores para solicitar acesso à produção. Ampliar opt-in divulgando o hub público `/testar`.                                                                                                                                                                                                                                                                                                           | gestor (Play Console)                          | `GOOGLE_PLAY_DEPLOYMENT.md`                            |
+| 5   | **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).                                                                                                                                                                                                                                                                                                                                                                                                                                        | gestor (Apple ID + 2FA)                        | `APP_STORE_DEPLOYMENT.md`                              |
+| 6   | **Validar o onboarding self-service ponta a ponta.** A migration foi aplicada em 06/08/2026 e o código mergeado. Falta o teste manual: cadastro com e-mail descartável → confirmar → login → tela de onboarding → criar unidade → **criar um motorista** (prova `usuarios.unidade_id`) → **criar uma rota** (prova as coordenadas da sede). Nenhum teste automatizado cobre isso — nenhum toca o banco real. **Subiu de prioridade em 15/08:** com as contas órfãs excluídas, esse fluxo passou a ser o único caminho de volta para quem foi afetado pelo bug do `signUp`. | gestor (cria dado real)                        | `database/MIGRATIONS.md` (Migration 21)                |
+| 7   | **4 das 9 unidades têm `sede_endereco` com coordenadas NULL** — não conseguem gerar rota. A tela "Minha Unidade" é o caminho de conserto e desde 08/08 funciona de verdade (ver Migration 22 e a armadilha do componente aninhado). Falta passar unidade por unidade.                                                                                                                                                                                                                                                                                                      | gestor (edita cada unidade)                    | `database/MIGRATIONS.md` (Migration 22)                |
+| 8   | **Proteção contra senha vazada: exige plano Pro, não dá para ligar hoje.** O advisor aponta `auth_leaked_password_protection`, mas a checagem contra o HaveIBeenPwned é **Pro ou acima** — a assinatura é por organização, não por projeto. **Não é um toggle**, é upgrade de plano. O que o free permite e vale conferir: comprimento mínimo e caracteres exigidos, em Auth → Providers → Email.                                                                                                                                                                          | gestor (decisão de plano; ou ajuste no Email)  | "Política de senha" abaixo                             |
 
 **Fechadas em 08/08/2026, não reabra:** a Migration 22 foi aplicada em
 07/08 e validada na tela (edição gravou no banco; `.update()` direto continua
@@ -24,14 +25,20 @@ que resolveu o Node pelo `.nvmrc` e passou sem ajuste; os assets da loja foram
 resolvidos — `final/` versionado, `raw/` no `.gitignore`, e os 8 screenshots
 mais o feature graphic v2 refeitos e commitados com a listagem já publicada.
 
+**Fechadas em 15/08/2026, não reabra:** o decimal com ponto (`18.1 km` num app
+pt-BR) foi centralizado em `formatarDecimal` e migrado em 32 pontos de exibição
+(PR #375); **toda rota sob `app/` tem ErrorBoundary** (PRs #373 e #374); as
+**contas órfãs em `auth.users` foram zeradas** (ver seção própria abaixo).
+
 Follow-ups menores (nenhum bloqueia): Timeline não narra o autor da otimização
 (o dado existe em `logs.usuario_id`, falta join em `useTimelineData.ts`);
-**`toFixed(1)` usa ponto — confirmado em 05/08/2026 na Timeline, que exibiu
-`27.1 km → 18.1 km` num app pt-BR (deveria ser `27,1`)**;
-`mapLogToTimelinePreview` sem case para `rota_otimizada`, então o widget
-colapsado conta o evento mas não o exibe; os dois scripts de consulta/promoção
-da Play ficaram **fora do repositório** (ver "Play Store: trilhas" nas
-armadilhas) — recriar custa uma investigação inteira.
+`mapLogToTimelinePreview` não exibe **6** dos eventos que `TIMELINE_LOG_EVENTS`
+conta — `rota_otimizada`, `paradas_reordenadas`, `rota_reativada`,
+`parada_reaberta`, `parada_retomada` e `motorista_alterado` —, então o widget
+colapsado soma esses eventos e não mostra nenhum deles (o registro anterior
+citava só `rota_otimizada`, era maior que isso); os dois scripts de
+consulta/promoção da Play ficaram **fora do repositório** (ver "Play Store:
+trilhas" nas armadilhas) — recriar custa uma investigação inteira.
 
 ### Auditoria de otimização — validada em 05/08/2026
 
@@ -77,6 +84,52 @@ Para remover: `delete from public.rotas where id in (…020, …021, …022, …
 (as paradas caem por cascade). Não confunda com dado de cliente: nada disso
 existe fora da unidade de avaliação.
 
+### Política de senha — o que o plano free permite
+
+Verificado na doc oficial em 15/08/2026
+([Password security](https://supabase.com/docs/guides/auth/password-security)):
+a rejeição de senha vazada via HaveIBeenPwned é **Pro ou acima**. O advisor
+`auth_leaked_password_protection` aponta o problema sem dizer isso, e o registro
+inicial desta sessão descreveu o item como "um toggle no dashboard" — **estava
+errado**, corrigido antes de entrar na `main`.
+
+No plano free dá para endurecer, em Auth → Providers → Email:
+
+- comprimento mínimo (nada abaixo de 8);
+- caracteres exigidos — dígitos, minúsculas, maiúsculas e símbolos.
+
+Vale conferir o que está configurado no servidor: o app já exige 8 caracteres
+com maiúscula, número e especial em `src/lib/schemas/auth.ts`, mas isso é
+validação de **cliente** e não protege quem chama a API direto.
+
+Se um dia endurecerem a política: usuários existentes continuam entrando com a
+senha atual, porém recebem `WeakPasswordError` no `signInWithPassword`. Hoje
+esse erro cairia no `getErrorMessage` genérico — trate antes de mexer, ou a
+pessoa recebe uma mensagem que não explica nada.
+
+### Contas órfãs zeradas em 15/08/2026
+
+O indicador de saúde
+(`select au.email from auth.users au left join public.usuarios u on u.id = au.id where u.id is null;`)
+retornava **9 linhas** — resíduo do `signUp` em dois passos, que criava a conta
+no Auth e falhava no insert em `usuarios`. Todas foram excluídas a pedido do
+gestor, depois de conferido que nenhuma tinha rota, vínculo de unidade ou
+registro em `admin_logs`, e que nenhuma havia se recadastrado com sucesso.
+Hoje `auth.users` e `public.usuarios` batem: **17 para 17**, zero órfãs e zero
+usuários sem conta de auth.
+
+Seis eram **pessoas reais**, presas desde março de 2026 — uma delas voltou em
+abril, autenticou e não conseguiu usar o app, porque o perfil nunca existiu. A
+lista nominal foi entregue ao gestor **fora do repositório** (a seção "Segurança
+documental" proíbe registrá-la aqui) para eventual convite de volta; os e-mails
+ficaram livres para cadastro novo.
+
+Antes de apagar, vale saber: `admin_logs.admin_id` referencia `auth.users` com
+`NO ACTION` e **bloquearia** o delete se houvesse linha; todo o resto cascateia.
+A consulta de FKs pelo `information_schema` volta **vazia** por privilégio e
+levaria a concluir que não existe FK nenhuma — use `pg_constraint`, que mostra
+as 10 reais.
+
 ## Armadilhas que já custaram caro
 
 Cada uma quebrou algo de verdade. Leia antes de agir na área correspondente.
@@ -109,6 +162,30 @@ Cada uma quebrou algo de verdade. Leia antes de agir na área correspondente.
   definitiva continua sendo liberar `localhost` no CORS do nosso openresty —
   **CORS não é controle de acesso**, o endpoint já responde a qualquer um via
   `curl`, o header só restringe browser.
+- **O Fast Refresh não aplica no dev web — recarregue antes de medir.** Em
+  15/08/2026, validando pelo `preview_start`/`expo-web`, as edições de código
+  **não chegavam ao navegador**: o Metro registrava só o bundle inicial e a
+  página seguia executando a versão antiga. Isso produziu três medições
+  contraditórias, incluindo um teste diferencial em que o bug foi reintroduzido
+  de propósito e o navegador insistiu que ele não existia — quase virou
+  conclusão errada no relatório. Antes de medir qualquer coisa pelo navegador,
+  force `window.location.reload()` e espere o bundle voltar (~10 s até o
+  dashboard reaparecer). Se duas medições se contradisserem, suspeite do Fast
+  Refresh antes de suspeitar do código. Para ter certeza de qual versão está
+  sendo servida, baixe o bundle e procure o símbolo:
+  `curl -s "http://localhost:8082/index.ts.bundle?platform=web&dev=true" | grep -c meuSimbolo`.
+- **`loading` que troca a página inteira pelo spinner.** `DesktopPageLayout`
+  (linha 109) e `DashboardMobile` (441) retornam **só** o `ActivityIndicator`
+  quando `loading` é true — descartam cabeçalho, filtros, tabela e qualquer
+  seletor aberto. Isso é correto na carga inicial e vira defeito quando
+  `loading` volta a `true` com conteúdo já na tela. Dois casos corrigidos em
+  15/08: o dashboard religava em **toda troca de filtro** (medido: 843 ms de
+  tela em branco por filtro, em dev com base vazia — PR #372) e a Equipe
+  religava depois de ativar/desativar um membro, logo após o toast de sucesso
+  (PR #376). A regra: **`loading` só na carga inicial**; recarga sinaliza por
+  `refreshing` ou pelo toast da própria ação. `useGestaoRotas` já fazia certo
+  desde sempre ("only show loading if no cache") e `motorista-perfil.tsx`
+  também — foram a referência.
 - **Componente declarado dentro do render remonta a subárvore a cada tecla.**
   `const Form = () => (...)` usado como `<Form />` ganha identidade nova a cada
   renderização, e identidade nova é **tipo** novo para o React. Custou caro na
@@ -121,6 +198,18 @@ Cada uma quebrou algo de verdade. Leia antes de agir na área correspondente.
   chamar como função (`{renderForm()}`), nunca como componente. Diagnóstico
   rápido: marque o nó (`el.dataset.x = '1'`) e digite uma letra; se a marca
   sumir, remontou.
+  **Mais dois casos em 15/08 (PR #372):** `FilterContent` no `RouteFilters` e
+  `SettingsContent` no `NavigationSettings` — este último destruía o `Slider` de
+  raio de proximidade **no meio do arrasto**, já que cada tick dispara
+  `setSettings`. Onde a tela tem vários returns (as 5 de auth somam 11), o
+  boundary/invólucro vai **em volta** do componente de conteúdo, não return a
+  return: envolver um a um deixa algum de fora e os returns futuros nascem
+  descobertos. Duas lições sobre **medir** essa remontagem: o teste unitário usa
+  contador de montagens num filho mockado; no navegador, guarde a referência do
+  nó e cheque `node.isConnected` — e, acima de tudo, **prove que o pai
+  re-renderizou** (um controle observável, como o ✓ migrando de opção). Sem esse
+  controle a medição passa mesmo com o defeito presente: aconteceu três vezes
+  nesta sessão, por cliques que não registravam e por leitura errada do estado.
 - **Erro de formulário num campo pode ser causado por outro.** Nos schemas de
   endereço, o `refine`/`superRefine` pendura a mensagem em `endereco` mas quem a
   causa é a ausência de `latitude`/`longitude`. Como `setValue` sem opções **não
@@ -172,12 +261,19 @@ Cada uma quebrou algo de verdade. Leia antes de agir na área correspondente.
   de substituir (identidade de função no Postgres = nome + tipos). Exige `DROP`
   da assinatura antiga + reaplicar os grants. Reverter a migration depois de
   mergear o código derruba a criação de rotas — **reverta o código primeiro**.
-- **Cadastro público quebrado — correção escrita em 06/08/2026, ainda não aplicada.** `signUp` criava a conta no Auth
-  e depois inseria em `usuarios` — insert que o RLS bloqueia porque exige que o
-  autor já seja gestor. O erro vinha DEPOIS da conta criada: 5 pessoas reais
-  ficaram com conta órfã, e `app/index.tsx` as devolvia ao login sem mensagem.
+- **Cadastro público quebrado — o portão já está aplicado desde o PR #354.**
+  `signUp` criava a conta no Auth e depois inseria em `usuarios` — insert que o
+  RLS bloqueia porque exige que o autor já seja gestor. O erro vinha DEPOIS da
+  conta criada: pessoas reais ficaram com conta órfã, e `app/index.tsx` as
+  devolvia ao login sem mensagem. Hoje `index.tsx` **e** `login.tsx` mandam
+  sessão-sem-perfil para `/onboarding/criar-unidade`, então deixou de ser beco
+  sem saída — mas esse fluxo **nunca foi validado ponta a ponta** (pendência 6).
+  _(Até 15/08 esta entrada dizia "correção ainda não aplicada", o que contradizia
+  a própria tabela de mudanças e o código; corrigido após conferir o
+  `login.tsx`.)_
   Lição: **operação que precisa de mais de uma linha vira RPC em transação**,
-  nunca dois passos no client. Indicador de saúde:
+  nunca dois passos no client. Indicador de saúde — hoje retorna **zero**, ver
+  "Contas órfãs zeradas":
   `select au.email from auth.users au left join public.usuarios u on u.id = au.id where u.id is null;`
 - **`unidades` não tem — e não deve ter — policy de UPDATE.** A tabela tem 17
   colunas fora do que o app edita, várias comerciais (`plano`, `status`,
@@ -442,6 +538,30 @@ Foi relatado, e propagado por mim, que a policy `rotas_update` permitiria a um
 passa por "gestor da unidade de destino". A exposição real é outra e mais
 estreita — pelo ramo do **motorista** — e está na pendência 2.
 
+## Estado confirmado em 15/08/2026
+
+Sessão de investigação de bugs que virou seis PRs mergeados. O que importa para
+a próxima sessão:
+
+- **Três defeitos que a suíte não pegava e o console não denunciava**, todos com
+  teste de regressão visto falhando antes da correção: dois de remontagem por
+  componente declarado no render (filtros do gestor e configurações do
+  motorista) e o desmonte da página inteira do dashboard a cada troca de filtro.
+- **Verificado no navegador com o gestor e o motorista logados**, não só em
+  teste: filtros, configurações do motorista, mapa com maplibre 6.3.0 e o ciclo
+  de logout/login com supabase-js 2.112.3 (o login em si foi feito pelo gestor —
+  o agente não digita senha). O ciclo de auth foi confirmado até a leitura sob
+  RLS: as 4 rotas da Unidade Demo voltaram com o token novo.
+- **maplibre 6.3.0 conferido no ponto que nenhum teste cobre**: o `postinstall`
+  reescreveu os dois `.mjs` em `public/`, o Metro serve ambos com 200 e o mapa
+  renderizou com contexto WebGL vivo. Atenção ao formato da armadilha: o
+  `copy-maplibre-worker.cjs` sai com **código 0 e só um aviso** se não achar o
+  arquivo — no dia em que o upstream renomear, o CI passa e o mapa trava.
+- **`npm run validate` na `main` ao fim: 331 suites, 5847 testes, exit 0**, com
+  o CI verde. Um detalhe que enganou durante a sessão: a saída do `validate`
+  trouxe `[exited with code 0]` **junto** com uma falha de lint — leia a saída,
+  não confie só no código de retorno.
+
 ## Mudanças relevantes desta etapa
 
 | Data       | Mudança                                                                                     | Referência                                   |
@@ -465,6 +585,13 @@ estreita — pelo ramo do **motorista** — e está na pendência 2.
 | 08/08/2026 | OSRM real no dev web (`src/lib/osrm/config.ts`), constante de URL unificada                 | PR #358                                      |
 | 08/08/2026 | Erro de endereço que não sumia após selecionar a sugestão (nova-entrega + onboarding)       | PR #359                                      |
 | 08/08/2026 | `androidVersionCode` 3024 → 3025; build EAS e publicação em teste fechado + interno         | PR #360, build `d34a88d6`                    |
+| 15/08/2026 | Fallback Haversine do OSRM sinalizado (`is_estimated`) + guarda de rota com distância zero  | PR #371                                      |
+| 15/08/2026 | Remontagens invisíveis (componente no render) + dashboard não desmonta na troca de filtro   | PR #372                                      |
+| 15/08/2026 | `ErrorBoundary` nas 5 telas de auth                                                         | PR #373                                      |
+| 15/08/2026 | `ErrorBoundary` nas 5 rotas públicas restantes — cobertura de `app/` fechada                | PR #374                                      |
+| 15/08/2026 | Decimal com vírgula em 32 pontos de exibição, via `formatarDecimal`                         | PR #375                                      |
+| 15/08/2026 | Equipe: ativar/desativar membro não pisca mais a tela inteira                               | PR #376                                      |
+| 15/08/2026 | Lote do Dependabot: maplibre 6.3.0, supabase-js 2.112.3, web-vitals 6.1.0 e dev deps        | PRs #367/#369/#370/#368                      |
 
 O histórico completo do rebuild está em
 [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md), agora tratado como
@@ -528,6 +655,22 @@ app.rotamestre.tec.br ── Expo Web / React Native
   quebrar um JSX grande, use função de render chamada como `{renderX()}`. Como
   `<X />`, o React remonta a subárvore a cada renderização — quebra foco, zera
   refs e mata debounce, tudo sem erro no console e com o CI verde.
+- **Toda rota sob `app/` tem `ErrorBoundary`** (desde 15/08, PRs #373 e #374).
+  Auth e `index` são os mais críticos: são a porta de entrada, sem tela anterior
+  para onde voltar. Ao criar rota nova, inclua o boundary. Verificação:
+  `for f in $(find app -name "*.tsx" -not -path "*__tests__*" -not -name "_layout.tsx" -not -name "+*"); do grep -q ErrorBoundary "$f" || echo "$f"; done`
+  — as 4 tabs em `app/motorista/(tabs)/` aparecem nessa busca e são **falso
+  positivo**: re-exportam de `_screens/`, que já têm.
+- **Número com decimal na tela passa por `formatarDecimal`**
+  (`src/lib/formatNumber.ts`), nunca `toFixed` cru: o app é pt-BR e vírgula é o
+  separador. **Não troque por `Intl.NumberFormat('pt-BR')`** — o Hermes pode ser
+  compilado sem os dados de locale do ICU, e nesse caso `Intl` aceita o locale e
+  devolve en-US calado: sairia certo na web e errado no aparelho. Chave de
+  cache, coordenada, valor que vai para o banco e célula numérica de planilha
+  continuam com `toFixed` — não são exibição.
+- **`loading` vale só para a carga inicial.** Religá-lo numa recarga faz
+  `DesktopPageLayout`/`DashboardMobile` descartarem a página inteira. Recarga
+  sinaliza por `refreshing` ou pelo toast da própria ação.
 - O default do `OSRM_BASE_URL` em produção e em dev **nativo** é o self-hosted.
   Só o dev **web** cai no demo público, e só porque o CORS bloqueia. Não
   generalize a troca para as outras plataformas.
@@ -589,6 +732,10 @@ app.rotamestre.tec.br ── Expo Web / React Native
    EAS; não gere build só para descobrir o estado.
 6. Execute a menor validação proporcional à mudança e registre aqui qualquer
    nova decisão, estado externo ou pendência.
+7. Se for validar pelo navegador, **recarregue a página antes de medir** — o
+   Fast Refresh não aplica no dev web (ver armadilhas). E monte um controle
+   observável que prove que a interação aconteceu; sem ele a medição passa mesmo
+   com o defeito presente.
 
 ## Mapa da documentação
 
