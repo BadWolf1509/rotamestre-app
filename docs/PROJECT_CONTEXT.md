@@ -45,11 +45,13 @@ trilhas" nas armadilhas) — recriar custa uma investigação inteira.
 Sessão de 15/08/2026 interrompida no meio. Tudo que segue é estado real
 verificado, não plano.
 
-### 1. Branch aberta, sem push nem PR
+### 1. PR aberto, aguardando merge
 
-`fix/onboarding-prefill-nome`, três commits: `4e7abf7` (pré-preenchimento do
-nome), `1d8d479` (docs) e `c8b43db` (cidade/UF automáticas). **Nada foi enviado.**
-Suíte completa verde: 331 suites, 5854 testes.
+[PR #378](https://github.com/BadWolf1509/rotamestre-app/pull/378), branch
+`fix/onboarding-prefill-nome`: pré-preenchimento do nome (`4e7abf7`) e cidade/UF
+automáticas (`c8b43db`), mais dois commits de documentação. Suíte completa verde:
+331 suites, 5854 testes. **Merge exige `--squash --admin`** (a `main` pede 1
+review e o gestor é autor de tudo).
 
 ### 2. Cidade e UF automáticas — implementado em 15/08
 
