@@ -221,11 +221,18 @@ export const authService = {
 
   // Obter dados do usuário
   async getUsuario(userId: string): Promise<Usuario | null> {
+    // `.maybeSingle()`, não `.single()`: entre o cadastro e a RPC do onboarding
+    // a pessoa legitimamente não tem linha em `usuarios` — é assim que o fluxo
+    // self-service funciona, e `app/index.tsx` conta com o null para mandar ao
+    // onboarding. O `.single()` traduzia esse estado esperado em 406 + PGRST116,
+    // que virava logger.error; com o Sentry ligado na web em produção, todo
+    // cadastro que DEU CERTO registrava erros. Aqui zero linhas devolve
+    // data:null com error:null, e só falha de verdade cai no if abaixo.
     const { data, error } = await supabase
       .from('usuarios')
       .select('*, unidades(nome)')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       logger.error('[Auth] Erro ao buscar usuário:', error);

@@ -92,34 +92,38 @@ gestor como gestor principal. Não há mais conta órfã, mas há uma unidade de
 no meio das reais — decidir se fica como massa de teste do fluxo self-service ou
 se é removida junto com as paradas/rotas que vierem dela.
 
-### 4. Bugs encontrados na validação, nenhum corrigido
+### 4. Bugs encontrados na validação — 1 corrigido, 6 abertos
 
-Em ordem de impacto:
+O **`PGRST116`** foi corrigido: `getUsuario` (`src/lib/auth.ts`) e
+`fetchUserData` (`src/hooks/useUser.ts`) passaram de `.single()` para
+`.maybeSingle()`. Medido contra a API real: `.single()` manda
+`Accept: application/vnd.pgrst.object+json` e o PostgREST responde **406 +
+PGRST116** quando não há linha; `.maybeSingle()` responde **200 com `[]`**, que o
+cliente entrega como `data:null, error:null`. Some o `logger.error` (e o evento
+no Sentry) **e** a linha 406 no console. `useUser` também passou a refletir o
+"sem perfil" limpando o cache, em vez de deixar um perfil antigo responder.
 
-1. **`PGRST116` logado como erro durante o onboarding** — `logger.error` **4×**
-   em `src/lib/auth.ts:231` e `src/hooks/useUser.ts:141`. Não é falha: entre o
-   cadastro e a RPC o usuário legitimamente não tem perfil, mas o código usa
-   `.single()`. Com o **Sentry ligado na web em produção**, todo cadastro gera 4
-   eventos de erro num fluxo que deu certo. Confirmado que **para** assim que o
-   perfil existe. Correção: `.maybeSingle()` ou tratar o código como caso normal.
-2. **Toast de erro não se dispensa** — o toast vermelho do `PGRST116` ficou na
+Os seis restantes, em ordem de impacto:
+
+1. **Toast de erro não se dispensa** — o toast vermelho do `PGRST116` ficou na
    tela por toda a sessão, atravessando várias navegações; só sumiu com recarga
    completa. Um erro transitório do onboarding acompanha o gestor pelo app
-   inteiro.
-3. **Beco sem saída para o gestor novo** — "Nova Rota de Entrega" é a primeira
+   inteiro. **Continua valendo depois da correção acima**: qualquer erro que
+   apareça uma vez fica preso na tela.
+2. **Beco sem saída para o gestor novo** — "Nova Rota de Entrega" é a primeira
    ação do dashboard, mas uma unidade recém-criada não tem motorista. Dá para
    preencher paradas, geocodificar e otimizar, e só no fim descobrir que não dá
    para concluir. Não há link para cadastrar motorista a partir dali.
-4. **Cidade e UF duplicadas no texto da partida/chegada** — sai "Avenida Epitacio
+3. **Cidade e UF duplicadas no texto da partida/chegada** — sai "Avenida Epitacio
    Pessoa, 1000 - Torre, João Pessoa - PB, João Pessoa, PB": o `sede_endereco` já
    contém cidade e UF, e a tela concatena os campos de novo.
-5. **"Rascunho salvo automaticamente" promete mais do que entrega** — o rascunho
+4. **"Rascunho salvo automaticamente" promete mais do que entrega** — o rascunho
    vive em `sessionStorage` (`rotamestre:nova-entrega:<gestor>:<unidade>`), que
    morre junto com a aba. Sobrevive à navegação, não a fechar o navegador.
-6. **`Unexpected text node` no console** — dezenas por tela do gestor, vindas dos
+5. **`Unexpected text node` no console** — dezenas por tela do gestor, vindas dos
    ícones `Ionicons` da `Sidebar.tsx`. Ruído de desenvolvimento; confirmar se
    aparece também no bundle de produção antes de decidir se importa.
-7. **Campo de endereço sem rótulo visível** no formulário de onboarding — os
+6. **Campo de endereço sem rótulo visível** no formulário de onboarding — os
    outros quatro campos têm rótulo acima; o endereço só tem placeholder, que some
    ao ser preenchido. O nome acessível existe ("Campo de endereço"), é
    inconsistência visual.

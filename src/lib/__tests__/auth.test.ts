@@ -57,7 +57,7 @@ describe('AuthService - Unit Tests', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
+        maybeSingle: jest.fn().mockResolvedValue({
           data: mockUsuario,
           error: null,
         }),
@@ -108,7 +108,7 @@ describe('AuthService - Unit Tests', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
+        maybeSingle: jest.fn().mockResolvedValue({
           data: null,
           error: new Error('Usuário não encontrado'),
         }),
@@ -149,7 +149,7 @@ describe('AuthService - Unit Tests', () => {
         select: jest.fn().mockReturnThis(),
         update: mockUpdate,
         eq: mockEq,
-        single: jest.fn().mockResolvedValue({
+        maybeSingle: jest.fn().mockResolvedValue({
           data: mockUsuario,
           error: null,
         }),
@@ -526,7 +526,7 @@ describe('AuthService - Unit Tests', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
+        maybeSingle: jest.fn().mockResolvedValue({
           data: mockUsuario,
           error: null,
         }),
@@ -544,7 +544,7 @@ describe('AuthService - Unit Tests', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
+        maybeSingle: jest.fn().mockResolvedValue({
           data: null,
           error: new Error('Usuário não encontrado'),
         }),
@@ -556,13 +556,44 @@ describe('AuthService - Unit Tests', () => {
       expect(usuario).toBeNull();
     });
 
+    it('não loga erro quando o perfil ainda não existe', async () => {
+      // Entre o cadastro e a RPC do onboarding o usuário legitimamente não tem
+      // linha em `usuarios` — é assim que o fluxo self-service funciona. Com
+      // `.single()` o PostgREST devolve 406 + PGRST116 e isso virava
+      // logger.error: como o Sentry está ligado na web em produção, todo
+      // cadastro que DEU CERTO gerava eventos de erro. `.maybeSingle()` devolve
+      // data:null com error:null, que é o estado real.
+      const mockQueryBuilder = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        // Isca: se alguém voltar para `.single()`, este mock responde com o
+        // PGRST116 real e o teste falha, em vez de quebrar por método ausente.
+        single: jest.fn().mockResolvedValue({
+          data: null,
+          error: {
+            code: 'PGRST116',
+            details: 'The result contains 0 rows',
+            hint: null,
+            message: 'Cannot coerce the result to a single JSON object',
+          },
+        }),
+        maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+      };
+      mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
+
+      const usuario = await authService.getUsuario('user-sem-perfil-ainda');
+
+      expect(usuario).toBeNull();
+      expect(logger.error).not.toHaveBeenCalled();
+    });
+
     it('deve buscar usuário pelo ID correto', async () => {
       const mockEq = jest.fn().mockReturnThis();
 
       mockSupabase.from.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: mockEq,
-        single: jest.fn().mockResolvedValue({
+        maybeSingle: jest.fn().mockResolvedValue({
           data: {},
           error: null,
         }),
@@ -579,7 +610,7 @@ describe('AuthService - Unit Tests', () => {
       mockSupabase.from.mockReturnValue({
         select: mockSelect,
         eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
+        maybeSingle: jest.fn().mockResolvedValue({
           data: {},
           error: null,
         }),
@@ -595,7 +626,7 @@ describe('AuthService - Unit Tests', () => {
       mockSupabase.from.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
+        maybeSingle: jest.fn().mockResolvedValue({
           data: null,
           error: mockError,
         }),
@@ -627,7 +658,7 @@ describe('AuthService - Unit Tests', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
+        maybeSingle: jest.fn().mockResolvedValue({
           data: mockUsuario,
           error: null,
         }),
@@ -651,7 +682,7 @@ describe('AuthService - Unit Tests', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
+        maybeSingle: jest.fn().mockResolvedValue({
           data: mockUsuario,
           error: null,
         }),
@@ -668,7 +699,7 @@ describe('AuthService - Unit Tests', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
+        maybeSingle: jest.fn().mockResolvedValue({
           data: null,
           error: new Error('Usuário não encontrado'),
         }),

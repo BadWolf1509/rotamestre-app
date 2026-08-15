@@ -88,7 +88,7 @@ describe('useUser', () => {
       (mockSupabase.from as jest.Mock).mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
+        maybeSingle: jest.fn().mockResolvedValue({
           data: mockUserData,
           error: null,
         }),
@@ -110,7 +110,7 @@ describe('useUser', () => {
       (mockSupabase.from as jest.Mock).mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
+        maybeSingle: jest.fn().mockResolvedValue({
           data: null,
           error: { message: errorMessage },
         }),
@@ -126,13 +126,48 @@ describe('useUser', () => {
       expect(result.current.unidade).toBeUndefined();
     });
 
+    it('não loga erro quando o perfil ainda não existe', async () => {
+      const { logger } = require('@/lib/logger');
+      jest.spyOn(logger, 'error').mockImplementation(() => {});
+      jest.spyOn(logger, 'warn').mockImplementation(() => {});
+
+      // Janela do onboarding: a conta existe no Auth mas o perfil ainda não
+      // nasceu (ele vem da RPC criar_unidade_para_novo_gestor). Com `.single()`
+      // isso vinha como 406 + PGRST116 e virava logger.error — e o Sentry da web
+      // registrava erro em todo cadastro bem-sucedido.
+      (mockSupabase.from as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        // Isca: se alguém voltar para `.single()`, este mock responde com o
+        // PGRST116 real e o teste falha, em vez de quebrar por método ausente.
+        single: jest.fn().mockResolvedValue({
+          data: null,
+          error: {
+            code: 'PGRST116',
+            message: 'Cannot coerce the result to a single JSON object',
+          },
+        }),
+        maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+      });
+
+      const { result } = renderHook(() => useUser());
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      expect(result.current.userData).toBeNull();
+      expect(logger.error).not.toHaveBeenCalled();
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
+
     it('deve fazer join corretamente com tabela unidades', async () => {
       const mockSelect = jest.fn().mockReturnThis();
 
       (mockSupabase.from as jest.Mock).mockReturnValue({
         select: mockSelect,
         eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
+        maybeSingle: jest.fn().mockResolvedValue({
           data: mockUserData,
           error: null,
         }),
@@ -143,10 +178,10 @@ describe('useUser', () => {
       await waitFor(() => {
         // Verifica que a query inclui unidades e usuario_unidades (multi-unidade)
         expect(mockSelect).toHaveBeenCalledWith(
-          expect.stringContaining('unidades(*)')
+          expect.stringContaining('unidades(*)'),
         );
         expect(mockSelect).toHaveBeenCalledWith(
-          expect.stringContaining('usuario_unidades(')
+          expect.stringContaining('usuario_unidades('),
         );
       });
     });
@@ -157,7 +192,7 @@ describe('useUser', () => {
       (mockSupabase.from as jest.Mock).mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
+        maybeSingle: jest.fn().mockResolvedValue({
           data: { ...mockUserData, papel: 'gestor' },
           error: null,
         }),
@@ -177,7 +212,7 @@ describe('useUser', () => {
       (mockSupabase.from as jest.Mock).mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
+        maybeSingle: jest.fn().mockResolvedValue({
           data: { ...mockUserData, papel: 'motorista' },
           error: null,
         }),
@@ -216,7 +251,7 @@ describe('useUser', () => {
           selectCallCount++;
           return {
             eq: jest.fn().mockReturnThis(),
-            single: jest.fn().mockResolvedValue({
+            maybeSingle: jest.fn().mockResolvedValue({
               data: mockUserData,
               error: null,
             }),
@@ -269,7 +304,7 @@ describe('useUser', () => {
           callCount++;
           return {
             eq: jest.fn().mockReturnThis(),
-            single: jest.fn().mockResolvedValue({
+            maybeSingle: jest.fn().mockResolvedValue({
               data: mockUserData,
               error: null,
             }),

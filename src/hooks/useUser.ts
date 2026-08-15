@@ -2,7 +2,13 @@ import { useCallback, useEffect, useState, useRef } from 'react';
 import { Platform } from 'react-native';
 
 import { useAuth } from './useAuth';
-import { getCache, setCache, clearCache, CACHE_TTL, CACHE_KEYS } from '../lib/cache';
+import {
+  getCache,
+  setCache,
+  clearCache,
+  CACHE_TTL,
+  CACHE_KEYS,
+} from '../lib/cache';
 import { logger } from '../lib/logger';
 import { initializePushNotifications } from '../lib/notifications';
 import { onProfileUpdate } from '../lib/profileEvents';
@@ -29,7 +35,9 @@ export function useUser() {
 
       return {
         id: userId,
-        email: isGestor ? 'gestor.test@rotamestre.tec.br' : 'motorista.test@rotamestre.tec.br',
+        email: isGestor
+          ? 'gestor.test@rotamestre.tec.br'
+          : 'motorista.test@rotamestre.tec.br',
         nome: isGestor ? 'Gestor Teste' : 'Motorista Teste',
         papel: isGestor ? 'gestor' : 'motorista',
         ativo: true,
@@ -44,27 +52,30 @@ export function useUser() {
           sede_latitude: -23.5505,
           sede_longitude: -46.6333,
         } as any,
-        usuario_unidades: [{
-          id: 'vinculo-mock-1',
-          usuario_id: userId,
-          unidade_id: mockUnidadeId,
-          papel: isGestor ? 'gestor' : 'motorista',
-          is_principal: true,
-          ativo: true,
-          created_at: new Date().toISOString(),
-          unidades: {
-            id: mockUnidadeId,
-            nome: 'Unidade Teste',
-            cidade: 'São Paulo',
-            ativa: true,
-          }
-        }]
+        usuario_unidades: [
+          {
+            id: 'vinculo-mock-1',
+            usuario_id: userId,
+            unidade_id: mockUnidadeId,
+            papel: isGestor ? 'gestor' : 'motorista',
+            is_principal: true,
+            ativo: true,
+            created_at: new Date().toISOString(),
+            unidades: {
+              id: mockUnidadeId,
+              nome: 'Unidade Teste',
+              cidade: 'São Paulo',
+              ativa: true,
+            },
+          },
+        ],
       } as Usuario;
     }
 
     const { data, error } = await supabase
       .from('usuarios')
-      .select(`
+      .select(
+        `
         *,
         unidades(*),
         usuario_unidades(
@@ -77,20 +88,25 @@ export function useUser() {
           created_at,
           unidades(id, nome, cidade, ativa)
         )
-      `)
+      `,
+      )
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       // Fallback para query simples (evita falhas por RLS em joins)
-      logger.warn('[useUser] Query completa falhou, tentando fallback simples', error);
+      logger.warn(
+        '[useUser] Query completa falhou, tentando fallback simples',
+        error,
+      );
       const { data: basicData, error: basicError } = await supabase
         .from('usuarios')
         .select('*, unidades(*)')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (basicError) throw basicError;
+      if (!basicData) return null;
 
       return {
         ...basicData,
@@ -98,57 +114,71 @@ export function useUser() {
       } as Usuario;
     }
 
+    // `data` nulo aqui não é falha: é a janela do onboarding, em que a conta já
+    // existe no Auth mas o perfil ainda vai nascer na RPC. `.maybeSingle()`
+    // devolve isso como data:null/error:null em vez do 406 + PGRST116 que o
+    // `.single()` produzia — e que o catch de loadUserData registrava como erro.
     return data;
   }, [userId]);
 
-  const loadUserData = useCallback(async (forceRefresh = false) => {
-    // Aguardar auth estar pronto antes de fazer queries (evita 406)
-    if (authLoading) return;
+  const loadUserData = useCallback(
+    async (forceRefresh = false) => {
+      // Aguardar auth estar pronto antes de fazer queries (evita 406)
+      if (authLoading) return;
 
-    if (!userId) {
-      setUserData(null);
-      setLoading(false);
-      return;
-    }
-
-    if (fetchingRef.current) return;
-    fetchingRef.current = true;
-
-    const cacheKey = CACHE_KEYS.USER_DATA(userId);
-
-    try {
-      // 1. Verificar cache primeiro (se não for refresh forçado)
-      // IMPORTANTE: Não definir loading=false do cache para evitar que
-      // outros componentes façam queries antes da sessão Supabase estar validada
-      if (!forceRefresh) {
-        const cached = await getCache<Usuario>(cacheKey);
-        if (cached !== null && mountedRef.current) {
-          setUserData(cached);
-          setFromCache(true);
-          // NÃO definir loading=false aqui - aguardar query Supabase validar sessão
-        }
-      }
-
-      // 2. Buscar dados frescos (valida que a sessão Supabase está funcionando)
-      const freshData = await fetchUserData();
-
-      if (freshData && mountedRef.current) {
-        setUserData(freshData);
-        setFromCache(false);
-        await setCache(cacheKey, freshData, CACHE_TTL.USER_DATA);
-      }
-    } catch (error) {
-      logger.error('Error loading user data:', error);
-      if (mountedRef.current && !userDataRef.current) {
+      if (!userId) {
         setUserData(null);
-      }
-    } finally {
-      if (mountedRef.current) {
         setLoading(false);
+        return;
       }
-      fetchingRef.current = false;
-    }
-  }, [authLoading, userId, fetchUserData]);
+
+      if (fetchingRef.current) return;
+      fetchingRef.current = true;
+
+      const cacheKey = CACHE_KEYS.USER_DATA(userId);
+
+      try {
+        // 1. Verificar cache primeiro (se não for refresh forçado)
+        // IMPORTANTE: Não definir loading=false do cache para evitar que
+        // outros componentes façam queries antes da sessão Supabase estar validada
+        if (!forceRefresh) {
+          const cached = await getCache<Usuario>(cacheKey);
+          if (cached !== null && mountedRef.current) {
+            setUserData(cached);
+            setFromCache(true);
+            // NÃO definir loading=false aqui - aguardar query Supabase validar sessão
+          }
+        }
+
+        // 2. Buscar dados frescos (valida que a sessão Supabase está funcionando)
+        const freshData = await fetchUserData();
+
+        if (freshData && mountedRef.current) {
+          setUserData(freshData);
+          setFromCache(false);
+          await setCache(cacheKey, freshData, CACHE_TTL.USER_DATA);
+        } else if (!freshData && mountedRef.current) {
+          // Sem linha em `usuarios` — perfil ainda não criado (onboarding) ou não
+          // visível para este usuário. É estado real, não erro: reflita-o e não
+          // deixe um perfil antigo em cache responder por ele.
+          setUserData(null);
+          setFromCache(false);
+          await clearCache(cacheKey);
+        }
+      } catch (error) {
+        logger.error('Error loading user data:', error);
+        if (mountedRef.current && !userDataRef.current) {
+          setUserData(null);
+        }
+      } finally {
+        if (mountedRef.current) {
+          setLoading(false);
+        }
+        fetchingRef.current = false;
+      }
+    },
+    [authLoading, userId, fetchUserData],
+  );
 
   // Sincronizar ref com state para evitar stale closure
   useEffect(() => {
@@ -194,7 +224,7 @@ export function useUser() {
   }, [userData?.id, userId]);
 
   // Verificar se tem múltiplas unidades
-  const vinculacoes = userData?.usuario_unidades?.filter(v => v.ativo) || [];
+  const vinculacoes = userData?.usuario_unidades?.filter((v) => v.ativo) || [];
   const temMultiplasUnidades = vinculacoes.length > 1;
 
   // Refresh forçando busca na API (ignorando cache)
