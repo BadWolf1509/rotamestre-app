@@ -320,6 +320,23 @@ describe('useNovaEntrega.helpers', () => {
       ...overrides,
     });
 
+    it('diz o que fazer quando a unidade não tem sede, em vez de jargão', () => {
+      // A mensagem chega ao gestor num toast de 5 segundos, depois de ele ter
+      // montado a rota inteira. "sede geocodificada" não indica ação nenhuma —
+      // o conserto mora em Minha Unidade, e a mensagem precisa dizer isso.
+      const { erros } = validarRascunhoRota({
+        paradas: [createStop()],
+        motoristaId: 'm1',
+        dataRota: '2099-01-01',
+        enderecoUnidade: null,
+      });
+
+      const erroDaSede = erros.find((e) => /sede/i.test(e));
+      expect(erroDaSede).toBeDefined();
+      expect(erroDaSede).toMatch(/Minha Unidade/);
+      expect(erroDaSede).not.toMatch(/geocodificada/i);
+    });
+
     it('detects duplicate addresses and phone numbers', () => {
       const existing = createStop();
 

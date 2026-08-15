@@ -7,16 +7,16 @@
 
 Lista única e canônica. Se resolver uma, risque daqui.
 
-| #   | Pendência                                                                                                                                                                                                                                                                                                                                                                                           | Quem pode fazer                                | Onde está o detalhe                                    |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------ |
-| 1   | **Rotacionar/desativar contas de teste com senha vazada** — `gestor@`, `motorista@`, `gestor.test@`, `motorista.test@` foram **excluídas em 05/08/2026**; se recriar qualquer conta de teste, use senha forte por variável de ambiente.                                                                                                                                                             | gestor (Supabase → Auth → Users)               | "Credenciais hardcoded" abaixo                         |
-| 2   | **Furo de RLS:** motorista pode alterar `unidade_id` da própria rota. Pré-existente, exige motorista malicioso fora do app.                                                                                                                                                                                                                                                                         | requer design (o fix óbvio quebra o motorista) | Security Advisory privado `GHSA-vw63-jxg2-28vx`        |
-| 3   | **Fase 2 da auditoria:** chip na tela da rota + indicador/filtro/contador na Gestão de Rotas. Plano próprio ainda não escrito — melhor depois de algumas semanas de dado acumulado.                                                                                                                                                                                                                 | qualquer sessão                                | spec `2026-08-04-auditoria-otimizacao-rotas-design.md` |
-| 4   | **Play Store: produção continua vazia.** O `3025` está publicado em **teste fechado (`alpha`) e teste interno**, ambos `completed`. Falta cumprir o requisito de testadores para solicitar acesso à produção. Ampliar opt-in divulgando o hub público `/testar`.                                                                                                                                    | gestor (Play Console)                          | `GOOGLE_PLAY_DEPLOYMENT.md`                            |
-| 5   | **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).                                                                                                                                                                                                                                                                 | gestor (Apple ID + 2FA)                        | `APP_STORE_DEPLOYMENT.md`                              |
-| 6   | **Validar o onboarding self-service — passos 1 a 4 feitos em 15/08, faltam 5 e 6.** Cadastro, confirmação, portão e **criação da unidade** confirmados com conta real, com todos os invariantes da RPC conferidos no banco. Falta criar o motorista e a rota, bloqueados porque cadastrar motorista exige definir senha de acesso. Nenhum teste automatizado cobre isso — nenhum toca o banco real. | gestor (cria conta de motorista)               | "Trabalho em curso" abaixo                             |
-| 7   | **4 das 9 unidades têm `sede_endereco` com coordenadas NULL** — não conseguem gerar rota. A tela "Minha Unidade" é o caminho de conserto e desde 08/08 funciona de verdade (ver Migration 22 e a armadilha do componente aninhado). Falta passar unidade por unidade.                                                                                                                               | gestor (edita cada unidade)                    | `database/MIGRATIONS.md` (Migration 22)                |
-| 8   | **Proteção contra senha vazada: exige plano Pro, não dá para ligar hoje.** O advisor aponta `auth_leaked_password_protection`, mas a checagem contra o HaveIBeenPwned é **Pro ou acima** — a assinatura é por organização, não por projeto. **Não é um toggle**, é upgrade de plano. O que o free permite e vale conferir: comprimento mínimo e caracteres exigidos, em Auth → Providers → Email.   | gestor (decisão de plano; ou ajuste no Email)  | "Política de senha" abaixo                             |
+| #   | Pendência                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Quem pode fazer                                | Onde está o detalhe                                    |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- | ------------------------------------------------------ |
+| 1   | **Rotacionar/desativar contas de teste com senha vazada** — `gestor@`, `motorista@`, `gestor.test@`, `motorista.test@` foram **excluídas em 05/08/2026**; se recriar qualquer conta de teste, use senha forte por variável de ambiente.                                                                                                                                                                                                                                  | gestor (Supabase → Auth → Users)               | "Credenciais hardcoded" abaixo                         |
+| 2   | **Furo de RLS:** motorista pode alterar `unidade_id` da própria rota. Pré-existente, exige motorista malicioso fora do app.                                                                                                                                                                                                                                                                                                                                              | requer design (o fix óbvio quebra o motorista) | Security Advisory privado `GHSA-vw63-jxg2-28vx`        |
+| 3   | **Fase 2 da auditoria:** chip na tela da rota + indicador/filtro/contador na Gestão de Rotas. Plano próprio ainda não escrito — melhor depois de algumas semanas de dado acumulado.                                                                                                                                                                                                                                                                                      | qualquer sessão                                | spec `2026-08-04-auditoria-otimizacao-rotas-design.md` |
+| 4   | **Play Store: produção continua vazia.** O `3025` está publicado em **teste fechado (`alpha`) e teste interno**, ambos `completed`. Falta cumprir o requisito de testadores para solicitar acesso à produção. Ampliar opt-in divulgando o hub público `/testar`.                                                                                                                                                                                                         | gestor (Play Console)                          | `GOOGLE_PLAY_DEPLOYMENT.md`                            |
+| 5   | **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).                                                                                                                                                                                                                                                                                                                                      | gestor (Apple ID + 2FA)                        | `APP_STORE_DEPLOYMENT.md`                              |
+| 6   | **Validar o onboarding self-service — passos 1 a 4 feitos em 15/08, faltam 5 e 6.** Cadastro, confirmação, portão e **criação da unidade** confirmados com conta real, com todos os invariantes da RPC conferidos no banco. Falta criar o motorista e a rota, bloqueados porque cadastrar motorista exige definir senha de acesso. Nenhum teste automatizado cobre isso — nenhum toca o banco real.                                                                      | gestor (cria conta de motorista)               | "Trabalho em curso" abaixo                             |
+| 7   | **4 das 9 unidades têm coordenadas de sede NULL, mas só 1 está ativa** — o registro anterior dizia "4 unidades não conseguem gerar rota"; conferido no banco em 15/08, três delas estão inativas e o impacto real hoje é **uma**. A tela "Minha Unidade" é o caminho de conserto e desde 08/08 funciona de verdade (ver Migration 22 e a armadilha do componente aninhado). Desde o PR #385 a Nova Rota avisa e leva até lá, em vez de só sumir com o cartão de partida. | gestor (edita a unidade ativa)                 | `database/MIGRATIONS.md` (Migration 22)                |
+| 8   | **Proteção contra senha vazada: exige plano Pro, não dá para ligar hoje.** O advisor aponta `auth_leaked_password_protection`, mas a checagem contra o HaveIBeenPwned é **Pro ou acima** — a assinatura é por organização, não por projeto. **Não é um toggle**, é upgrade de plano. O que o free permite e vale conferir: comprimento mínimo e caracteres exigidos, em Auth → Providers → Email.                                                                        | gestor (decisão de plano; ou ajuste no Email)  | "Política de senha" abaixo                             |
 
 **Fechadas em 08/08/2026, não reabra:** a Migration 22 foi aplicada em
 07/08 e validada na tela (edição gravou no banco; `.update()` direto continua
@@ -49,11 +49,11 @@ conta — `rota_otimizada`, `paradas_reordenadas`, `rota_reativada`,
 colapsado soma esses eventos e não mostra nenhum deles (o registro anterior
 citava só `rota_otimizada`, era maior que isso); os dois scripts de
 consulta/promoção da Play ficaram **fora do repositório** (ver "Play Store:
-trilhas" nas armadilhas) — recriar custa uma investigação inteira; e falta uma
-varredura por **telas com precondição forte que não verificam se ela ainda
-vale** — dois casos apareceram em 15/08 (Nova Rota sem motorista, PR #381, e
-criar-unidade com perfil já existente, PR #383), os dois pelo mesmo descuido, e
-ninguém conferiu as demais.
+trilhas" nas armadilhas) — recriar custa uma investigação inteira.
+
+A varredura por **telas com precondição forte** foi feita em 15/08 e o resultado
+está em "Guardas de precondição" abaixo: o projeto está bem coberto, e o único
+beco aberto que ela encontrou (Nova Rota sem sede) foi fechado no PR #385.
 
 ## Trabalho em curso (retomar por aqui)
 
@@ -398,6 +398,34 @@ Cada uma quebrou algo de verdade. Leia antes de agir na área correspondente.
   **Se algum dia essa RPC parar de funcionar, o conserto não é adicionar
   policy.** Verificação: um `.update()` direto em `unidades` pelo client tem
   que continuar falhando.
+
+## Guardas de precondição — varredura de 15/08/2026
+
+Duas telas quebraram no mesmo padrão em 15/08: **assumir um estado sem verificar
+se ele ainda vale**. Nova Rota assumia "existe motorista" (PR #381) e
+criar-unidade assumia "não existe perfil" (PR #383). A varredura das demais
+mostrou que o resto está coberto:
+
+| Onde                                           | Precondição                            | Como é garantida                                        |
+| ---------------------------------------------- | -------------------------------------- | ------------------------------------------------------- |
+| `gestor/`, `motorista/`, `perfil/`, `unidade/` | autenticado + papel + `primeira_senha` | `useRequireAuth` no `_layout` de cada grupo             |
+| `onboarding/first-password`                    | `primeira_senha === true`              | checa e redireciona ao destino certo                    |
+| `onboarding/criar-unidade`                     | sessão **sem** perfil                  | checa e devolve ao portão `/` (PR #383)                 |
+| `unidade/transferir`                           | é gestor principal                     | renderiza tela explicativa no lugar do formulário       |
+| `auth/*`                                       | não autenticado                        | **não verifica** — nada trava e reautenticar é legítimo |
+
+**`useRequireAuth` ignora de propósito os grupos `auth` e `onboarding`**
+(`src/hooks/useRequireAuth.ts:46`) — é por isso que as telas de onboarding
+precisam da própria checagem, e foi essa exceção que deixou o criar-unidade
+aberto por meses.
+
+O único beco que a varredura encontrou foi a Nova Rota **sem sede geocodificada**
+(PR #385): o cartão de partida sumia sem explicação e o erro só aparecia no
+submit, num toast de 5 segundos, dizendo "sede geocodificada" — jargão que não
+indica ação. Hoje o aviso é fixo, em português direto, e leva a Minha Unidade.
+
+Ao criar uma tela com precondição forte, a pergunta é sempre a mesma: **o que
+acontece com quem chega aqui por URL, ou com a precondição já quebrada?**
 
 ## Estado atual
 

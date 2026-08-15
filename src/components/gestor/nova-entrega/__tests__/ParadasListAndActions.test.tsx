@@ -105,6 +105,32 @@ describe('ParadasListAndActions', () => {
     mockUseResponsive.mockReturnValue({ isDesktop: false });
   });
 
+  it('oferece caminho para cadastrar a sede quando a unidade não tem coordenadas', () => {
+    // Mesmo beco do seletor de motorista, e pior: o gestor monta a rota inteira
+    // e só descobre no submit, num toast de 5 segundos, que a unidade não tem
+    // sede. O cartão de partida/chegada apenas sumia, sem dizer por quê nem
+    // para onde ir — e o conserto mora em Minha Unidade.
+    const { router } = require('expo-router');
+    (router.push as jest.Mock).mockClear();
+
+    const { getByLabelText } = render(
+      <ParadasListAndActions {...baseProps} enderecoUnidade={null} />,
+    );
+
+    fireEvent.press(getByLabelText('Cadastrar sede da unidade'));
+
+    expect(router.push).toHaveBeenCalledWith('/unidade');
+  });
+
+  it('não oferece o atalho da sede quando a unidade já tem coordenadas', () => {
+    // O atalho é a saída de um beco; com sede cadastrada ele só rouba atenção.
+    const { queryByLabelText } = render(
+      <ParadasListAndActions {...baseProps} />,
+    );
+
+    expect(queryByLabelText('Cadastrar sede da unidade')).toBeNull();
+  });
+
   it('renderiza estado vazio quando nao ha paradas', () => {
     const { getByText, queryByText } = render(
       <ParadasListAndActions

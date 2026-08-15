@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { memo } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import DraggableFlatList, {
@@ -87,6 +88,7 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
   onGenerateRoute,
 }: ParadasListAndActionsProps) {
   const { theme } = useUnistyles();
+  const router = useRouter();
   const styles = createStyles(theme, isDesktop);
 
   const renderStop = ({
@@ -120,7 +122,7 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
 
   return (
     <View style={styles.column}>
-      {enderecoUnidade && (
+      {enderecoUnidade ? (
         <View style={styles.baseCard}>
           <Ionicons
             name="business-outline"
@@ -130,6 +132,35 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
           <View style={styles.baseInfo}>
             <Text style={styles.baseLabel}>Partida e chegada</Text>
             <Text style={styles.baseAddress}>{enderecoUnidade.endereco}</Text>
+          </View>
+        </View>
+      ) : (
+        // Sem sede a rota não pode ser criada, e antes disso o cartão apenas
+        // sumia: o gestor montava tudo e descobria no submit, por um toast de 5
+        // segundos. A tela do conserto é Minha Unidade — este aviso é fixo e
+        // leva até ela. A tela só chega aqui depois de carregar o endereço
+        // (app/gestor/nova-entrega.tsx:212), então ausência aqui é ausência
+        // mesmo, não carregamento.
+        <View style={styles.semSedeCard}>
+          <Ionicons
+            name="alert-circle-outline"
+            size={18}
+            color={theme.colors.warning}
+          />
+          <View style={styles.baseInfo}>
+            <Text style={styles.semSedeLabel}>Sede não cadastrada</Text>
+            <Text style={styles.baseAddress}>
+              A rota parte e volta para a sede da unidade. Sem o endereço dela,
+              não é possível criar rotas.
+            </Text>
+            <TouchableOpacity
+              style={styles.semSedeAcao}
+              onPress={() => router.push('/unidade')}
+              accessibilityLabel="Cadastrar sede da unidade"
+              accessibilityRole="button"
+            >
+              <Text style={styles.semSedeAcaoTexto}>Cadastrar sede</Text>
+            </TouchableOpacity>
           </View>
         </View>
       )}
@@ -330,6 +361,37 @@ const createStyles = (theme: Theme, isDesktop: boolean) =>
       color: theme.colors.gray700,
       fontSize: theme.typography.sm,
       marginTop: 2,
+    },
+    semSedeCard: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: theme.spacing.sm,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.lg,
+      borderRadius: theme.borderRadius.lg,
+      borderWidth: 1,
+      borderColor: theme.colors.warning + '55',
+      backgroundColor: theme.colors.warning + '12',
+    },
+    semSedeLabel: {
+      color: theme.colors.warning,
+      fontFamily: theme.typography.fontSansSemiBold,
+      fontSize: theme.typography.xs,
+      textTransform: 'uppercase',
+    },
+    semSedeAcao: {
+      alignSelf: 'flex-start',
+      marginTop: theme.spacing.sm,
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: theme.spacing.lg,
+      borderRadius: theme.borderRadius.lg,
+      backgroundColor: theme.colors.primary,
+    },
+    semSedeAcaoTexto: {
+      color: theme.colors.white,
+      fontFamily: theme.typography.fontSansSemiBold,
+      fontSize: theme.typography.sm,
     },
     listSection: {
       marginBottom: theme.spacing.xl,
