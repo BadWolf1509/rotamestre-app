@@ -5,7 +5,8 @@ Este documento descreve a arquitetura de testes, padrões e convenções utiliza
 ## Status Atual
 
 **Framework:** Jest + React Native Testing Library
-**Snapshot de 24/07/2026:** 312/312 suites, 5729/5729 testes e 5/5 snapshots passando
+**Snapshot de 15/08/2026:** 331/331 suites, 5849/5849 testes e 5/5 snapshots passando
+(era 312/5729 em 24/07)
 **Threshold de cobertura:** 73% lines (última medição ~74%)
 
 O comando agregado `npm run validate` passou integralmente nesse snapshot. O

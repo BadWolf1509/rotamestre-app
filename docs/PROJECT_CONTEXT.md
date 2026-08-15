@@ -7,16 +7,16 @@
 
 Lista única e canônica. Se resolver uma, risque daqui.
 
-| #   | Pendência                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Quem pode fazer                                | Onde está o detalhe                                    |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------ |
-| 1   | **Rotacionar/desativar contas de teste com senha vazada** — `gestor@`, `motorista@`, `gestor.test@`, `motorista.test@` foram **excluídas em 05/08/2026**; se recriar qualquer conta de teste, use senha forte por variável de ambiente.                                                                                                                                                                                                                                                                                                                                    | gestor (Supabase → Auth → Users)               | "Credenciais hardcoded" abaixo                         |
-| 2   | **Furo de RLS:** motorista pode alterar `unidade_id` da própria rota. Pré-existente, exige motorista malicioso fora do app.                                                                                                                                                                                                                                                                                                                                                                                                                                                | requer design (o fix óbvio quebra o motorista) | Security Advisory privado `GHSA-vw63-jxg2-28vx`        |
-| 3   | **Fase 2 da auditoria:** chip na tela da rota + indicador/filtro/contador na Gestão de Rotas. Plano próprio ainda não escrito — melhor depois de algumas semanas de dado acumulado.                                                                                                                                                                                                                                                                                                                                                                                        | qualquer sessão                                | spec `2026-08-04-auditoria-otimizacao-rotas-design.md` |
-| 4   | **Play Store: produção continua vazia.** O `3025` está publicado em **teste fechado (`alpha`) e teste interno**, ambos `completed`. Falta cumprir o requisito de testadores para solicitar acesso à produção. Ampliar opt-in divulgando o hub público `/testar`.                                                                                                                                                                                                                                                                                                           | gestor (Play Console)                          | `GOOGLE_PLAY_DEPLOYMENT.md`                            |
-| 5   | **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).                                                                                                                                                                                                                                                                                                                                                                                                                                        | gestor (Apple ID + 2FA)                        | `APP_STORE_DEPLOYMENT.md`                              |
-| 6   | **Validar o onboarding self-service ponta a ponta.** A migration foi aplicada em 06/08/2026 e o código mergeado. Falta o teste manual: cadastro com e-mail descartável → confirmar → login → tela de onboarding → criar unidade → **criar um motorista** (prova `usuarios.unidade_id`) → **criar uma rota** (prova as coordenadas da sede). Nenhum teste automatizado cobre isso — nenhum toca o banco real. **Subiu de prioridade em 15/08:** com as contas órfãs excluídas, esse fluxo passou a ser o único caminho de volta para quem foi afetado pelo bug do `signUp`. | gestor (cria dado real)                        | `database/MIGRATIONS.md` (Migration 21)                |
-| 7   | **4 das 9 unidades têm `sede_endereco` com coordenadas NULL** — não conseguem gerar rota. A tela "Minha Unidade" é o caminho de conserto e desde 08/08 funciona de verdade (ver Migration 22 e a armadilha do componente aninhado). Falta passar unidade por unidade.                                                                                                                                                                                                                                                                                                      | gestor (edita cada unidade)                    | `database/MIGRATIONS.md` (Migration 22)                |
-| 8   | **Proteção contra senha vazada: exige plano Pro, não dá para ligar hoje.** O advisor aponta `auth_leaked_password_protection`, mas a checagem contra o HaveIBeenPwned é **Pro ou acima** — a assinatura é por organização, não por projeto. **Não é um toggle**, é upgrade de plano. O que o free permite e vale conferir: comprimento mínimo e caracteres exigidos, em Auth → Providers → Email.                                                                                                                                                                          | gestor (decisão de plano; ou ajuste no Email)  | "Política de senha" abaixo                             |
+| #   | Pendência                                                                                                                                                                                                                                                                                                                                                                                         | Quem pode fazer                                | Onde está o detalhe                                    |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------ |
+| 1   | **Rotacionar/desativar contas de teste com senha vazada** — `gestor@`, `motorista@`, `gestor.test@`, `motorista.test@` foram **excluídas em 05/08/2026**; se recriar qualquer conta de teste, use senha forte por variável de ambiente.                                                                                                                                                           | gestor (Supabase → Auth → Users)               | "Credenciais hardcoded" abaixo                         |
+| 2   | **Furo de RLS:** motorista pode alterar `unidade_id` da própria rota. Pré-existente, exige motorista malicioso fora do app.                                                                                                                                                                                                                                                                       | requer design (o fix óbvio quebra o motorista) | Security Advisory privado `GHSA-vw63-jxg2-28vx`        |
+| 3   | **Fase 2 da auditoria:** chip na tela da rota + indicador/filtro/contador na Gestão de Rotas. Plano próprio ainda não escrito — melhor depois de algumas semanas de dado acumulado.                                                                                                                                                                                                               | qualquer sessão                                | spec `2026-08-04-auditoria-otimizacao-rotas-design.md` |
+| 4   | **Play Store: produção continua vazia.** O `3025` está publicado em **teste fechado (`alpha`) e teste interno**, ambos `completed`. Falta cumprir o requisito de testadores para solicitar acesso à produção. Ampliar opt-in divulgando o hub público `/testar`.                                                                                                                                  | gestor (Play Console)                          | `GOOGLE_PLAY_DEPLOYMENT.md`                            |
+| 5   | **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).                                                                                                                                                                                                                                                               | gestor (Apple ID + 2FA)                        | `APP_STORE_DEPLOYMENT.md`                              |
+| 6   | **Validar o onboarding self-service — passos 1 a 3 feitos em 15/08, faltam 4 a 6.** O portão foi confirmado com conta real: cadastro → confirmação → login cai em `/onboarding/criar-unidade`. Falta criar unidade, motorista e rota. Detalhe do que verificar e do dado de teste vivo em "Trabalho em curso". Nenhum teste automatizado cobre isso — nenhum toca o banco real.                   | gestor (cria dado real)                        | "Trabalho em curso" abaixo                             |
+| 7   | **4 das 9 unidades têm `sede_endereco` com coordenadas NULL** — não conseguem gerar rota. A tela "Minha Unidade" é o caminho de conserto e desde 08/08 funciona de verdade (ver Migration 22 e a armadilha do componente aninhado). Falta passar unidade por unidade.                                                                                                                             | gestor (edita cada unidade)                    | `database/MIGRATIONS.md` (Migration 22)                |
+| 8   | **Proteção contra senha vazada: exige plano Pro, não dá para ligar hoje.** O advisor aponta `auth_leaked_password_protection`, mas a checagem contra o HaveIBeenPwned é **Pro ou acima** — a assinatura é por organização, não por projeto. **Não é um toggle**, é upgrade de plano. O que o free permite e vale conferir: comprimento mínimo e caracteres exigidos, em Auth → Providers → Email. | gestor (decisão de plano; ou ajuste no Email)  | "Política de senha" abaixo                             |
 
 **Fechadas em 08/08/2026, não reabra:** a Migration 22 foi aplicada em
 07/08 e validada na tela (edição gravou no banco; `.update()` direto continua
@@ -39,6 +39,84 @@ colapsado soma esses eventos e não mostra nenhum deles (o registro anterior
 citava só `rota_otimizada`, era maior que isso); os dois scripts de
 consulta/promoção da Play ficaram **fora do repositório** (ver "Play Store:
 trilhas" nas armadilhas) — recriar custa uma investigação inteira.
+
+## Trabalho em curso (retomar por aqui)
+
+Sessão de 15/08/2026 interrompida no meio. Tudo que segue é estado real
+verificado, não plano.
+
+### 1. Branch aberta, commit não enviado
+
+`fix/onboarding-prefill-nome`, commit `4e7abf7` — **não** foi feito push nem PR.
+Corrige o pré-preenchimento do nome na tela de onboarding (detalhe em "Onboarding
+validado até o passo 3"). `npm run validate` passou: 331 suites, 5849 testes.
+
+### 2. Próxima implementação, já desenhada e aprovada
+
+Preencher **cidade e UF automaticamente** ao selecionar o endereço no onboarding,
+e reordenar os campos. Design aprovado pelo gestor em 15/08:
+
+- **Ordem nova:** Nome → Empresa → **Endereço** → Cidade → UF (o endereço vem
+  antes do que ele preenche).
+- **Sobrescreve** cidade/UF já digitados — decisão explícita do gestor: o
+  endereço é a fonte de verdade, senão a unidade nasce com cidade divergente do
+  endereço, sem aviso. Campos seguem editáveis.
+- **O autocomplete não entrega cidade/UF.** `onSelectAddress(address, placeId,
+coordinates?)` só dá isso; cidade e estado exigem uma chamada extra a
+  `googlePlacesService.getPlaceDetails(placeId)`.
+- **Copiar o padrão pronto de `app/unidade/index.tsx:228-255`**, que já resolve
+  as duas armadilhas: ignorar `place_id` que começa com `cep_` (sintético do
+  ViaCEP, o Places não resolve) e converter o estado com `nomeEstadoParaUF` —
+  senão "Paraíba" trunca para "Pa" no campo `maxLength={2}`.
+- **Falhar em silêncio é o certo aqui:** se o `getPlaceDetails` falhar, o
+  cadastro continua. Endereço e coordenadas já vieram do `onSelectAddress` e são
+  o que a RPC exige; cidade/UF caem para digitação manual, com `logger.warn`.
+- **Arquivo:** só `app/onboarding/criar-unidade.tsx`.
+- **Testes (TDD, RED primeiro):** preenche cidade e UF; UF chega como sigla e
+  não por extenso; sugestão de CEP não chama o Places; falha do `getPlaceDetails`
+  não impede o envio.
+- **Fora do escopo:** CEP e logradouro — a tela Minha Unidade preenche, este
+  formulário não tem esses campos.
+
+### 3. Onboarding validado até o passo 3 (pendência 6, parcial)
+
+Primeira vez que o fluxo self-service foi percorrido com conta real. **Passos 1
+a 3 verificados no banco e no navegador:**
+
+| Passo              | Resultado                                                                               |
+| ------------------ | --------------------------------------------------------------------------------------- |
+| Cadastro           | conta em `auth.users`, **sem** linha em `usuarios` — correto, o perfil nasce na RPC     |
+| `nome` em metadata | gravado e íntegro                                                                       |
+| Confirmação        | `email_confirmed_at` preenchido                                                         |
+| Login → **portão** | caiu em `/onboarding/criar-unidade`, com sessão — **o caminho de resgate existe mesmo** |
+
+**Falta:** criar a unidade (passo 4), o motorista (5) e a rota (6). O contador
+`unidades where origem='self_service'` continua **0** — é o indicador de que o
+passo 4 nunca completou.
+
+Ao retomar, conferir na criação da unidade: `origem='self_service'`,
+`status='trial'`, `sede_latitude`/`sede_longitude` **não nulas**,
+`usuarios.unidade_id` preenchido com `papel='gestor'` e
+`is_gestor_principal=true`, e `usuario_unidades.is_principal=true`. A RPC grava
+as três linhas atomicamente.
+
+### 4. Dado de teste vivo em produção
+
+O teste criou uma conta real (e-mail corporativo, não descartável) que está
+**órfã** — sem perfil, porque o passo 4 não completou. O indicador de contas
+órfãs, que estava zerado, hoje retorna **1**. Ou se conclui a validação, ou se
+apaga a conta; deixá-la assim mantém o indicador sujo e confunde a próxima
+auditoria.
+
+### 5. Bug registrado, não corrigido
+
+`PGRST116` (zero linhas) logado como `logger.error` **4×** durante o onboarding,
+em `src/lib/auth.ts:231` e `src/hooks/useUser.ts:141`. Não é falha: nesse
+momento o usuário legitimamente não tem perfil, mas o código usa `.single()`.
+Como o **Sentry está ligado na web em produção**, todo cadastro self-service vai
+gerar 4 eventos de erro num fluxo que deu certo — polui o rastreamento e ensina
+a ignorar esses eventos. Correção: `.maybeSingle()` ou tratar o código como caso
+normal.
 
 ### Auditoria de otimização — validada em 05/08/2026
 
@@ -719,6 +797,10 @@ app.rotamestre.tec.br ── Expo Web / React Native
 
 ## Roteiro para a próxima sessão
 
+0. **Se "Trabalho em curso" ainda existir neste documento, comece por ele** — há
+   branch aberta sem push, uma implementação já desenhada e aprovada, e uma
+   validação manual parada no meio. Quando essas cinco frentes fecharem, apague
+   a seção inteira.
 1. Leia, **nesta ordem**, as três primeiras seções deste documento: Pendências,
    Armadilhas e Estado atual. Elas bastam para começar; o resto é referência sob
    demanda.
