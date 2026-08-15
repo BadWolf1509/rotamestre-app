@@ -16,7 +16,7 @@ Lista única e canônica. Se resolver uma, risque daqui.
 | 5   | **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).                                                                                                                                                                                                                                                                                                                                                                                                                                        | gestor (Apple ID + 2FA)                        | `APP_STORE_DEPLOYMENT.md`                              |
 | 6   | **Validar o onboarding self-service ponta a ponta.** A migration foi aplicada em 06/08/2026 e o código mergeado. Falta o teste manual: cadastro com e-mail descartável → confirmar → login → tela de onboarding → criar unidade → **criar um motorista** (prova `usuarios.unidade_id`) → **criar uma rota** (prova as coordenadas da sede). Nenhum teste automatizado cobre isso — nenhum toca o banco real. **Subiu de prioridade em 15/08:** com as contas órfãs excluídas, esse fluxo passou a ser o único caminho de volta para quem foi afetado pelo bug do `signUp`. | gestor (cria dado real)                        | `database/MIGRATIONS.md` (Migration 21)                |
 | 7   | **4 das 9 unidades têm `sede_endereco` com coordenadas NULL** — não conseguem gerar rota. A tela "Minha Unidade" é o caminho de conserto e desde 08/08 funciona de verdade (ver Migration 22 e a armadilha do componente aninhado). Falta passar unidade por unidade.                                                                                                                                                                                                                                                                                                      | gestor (edita cada unidade)                    | `database/MIGRATIONS.md` (Migration 22)                |
-| 8   | **Proteção contra senha vazada desligada no Supabase Auth.** O advisor aponta `auth_leaked_password_protection`: o Auth não checa a senha contra o HaveIBeenPwned. É um toggle no dashboard, sem código envolvido.                                                                                                                                                                                                                                                                                                                                                         | gestor (Supabase → Auth → Policies)            | advisor `get_advisors(type: security)`                 |
+| 8   | **Proteção contra senha vazada: exige plano Pro, não dá para ligar hoje.** O advisor aponta `auth_leaked_password_protection`, mas a checagem contra o HaveIBeenPwned é **Pro ou acima** — a assinatura é por organização, não por projeto. **Não é um toggle**, é upgrade de plano. O que o free permite e vale conferir: comprimento mínimo e caracteres exigidos, em Auth → Providers → Email.                                                                                                                                                                          | gestor (decisão de plano; ou ajuste no Email)  | "Política de senha" abaixo                             |
 
 **Fechadas em 08/08/2026, não reabra:** a Migration 22 foi aplicada em
 07/08 e validada na tela (edição gravou no banco; `.update()` direto continua
@@ -83,6 +83,29 @@ autenticada — não dá por SQL.
 Para remover: `delete from public.rotas where id in (…020, …021, …022, …023)`
 (as paradas caem por cascade). Não confunda com dado de cliente: nada disso
 existe fora da unidade de avaliação.
+
+### Política de senha — o que o plano free permite
+
+Verificado na doc oficial em 15/08/2026
+([Password security](https://supabase.com/docs/guides/auth/password-security)):
+a rejeição de senha vazada via HaveIBeenPwned é **Pro ou acima**. O advisor
+`auth_leaked_password_protection` aponta o problema sem dizer isso, e o registro
+inicial desta sessão descreveu o item como "um toggle no dashboard" — **estava
+errado**, corrigido antes de entrar na `main`.
+
+No plano free dá para endurecer, em Auth → Providers → Email:
+
+- comprimento mínimo (nada abaixo de 8);
+- caracteres exigidos — dígitos, minúsculas, maiúsculas e símbolos.
+
+Vale conferir o que está configurado no servidor: o app já exige 8 caracteres
+com maiúscula, número e especial em `src/lib/schemas/auth.ts`, mas isso é
+validação de **cliente** e não protege quem chama a API direto.
+
+Se um dia endurecerem a política: usuários existentes continuam entrando com a
+senha atual, porém recebem `WeakPasswordError` no `signInWithPassword`. Hoje
+esse erro cairia no `getErrorMessage` genérico — trate antes de mexer, ou a
+pessoa recebe uma mensagem que não explica nada.
 
 ### Contas órfãs zeradas em 15/08/2026
 
