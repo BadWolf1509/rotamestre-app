@@ -148,6 +148,50 @@ describe('useDistanceToStop', () => {
       expect(result.current.distanceMeters).toBe(1400);
       expect(result.current.distanceKm).toBe('1.4 km');
       expect(result.current.error).toBeNull(); // No error shown on fallback
+      expect(result.current.isEstimated).toBe(true);
+    });
+
+    it('nao marca isEstimated quando a distancia vem do OSRM', async () => {
+      const { result } = renderHook(() =>
+        useDistanceToStop(mockUserLocation, mockDestination)
+      );
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+
+      await waitFor(() => {
+        expect(result.current.distanceMeters).toBe(1500);
+      });
+
+      expect(result.current.isEstimated).toBe(false);
+    });
+
+    it('marca isEstimated quando o proprio getDistance ja devolveu estimativa', async () => {
+      // getDistance trata a falha internamente e devolve o fallback Haversine
+      // sem lancar excecao: sem a flag, o hook nao teria como saber.
+      mockGetDistance.mockResolvedValueOnce({
+        distance: 1400,
+        distanceText: '1.4 km',
+        duration: 280,
+        durationText: '4 min',
+        is_estimated: true,
+      });
+
+      const { result } = renderHook(() =>
+        useDistanceToStop(mockUserLocation, mockDestination)
+      );
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+
+      await waitFor(() => {
+        expect(result.current.distanceMeters).toBe(1400);
+      });
+
+      expect(result.current.isEstimated).toBe(true);
+      expect(mockEstimateRouteDistance).not.toHaveBeenCalled();
     });
   });
 

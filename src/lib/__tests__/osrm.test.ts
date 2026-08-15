@@ -86,6 +86,15 @@ describe('OSRM module', () => {
         Math.round(haversine * 1.3),
       );
     });
+
+    it('marca o resultado como estimado', () => {
+      const result = estimateRouteDistance(
+        { latitude: -23.5505, longitude: -46.6333 },
+        { latitude: -23.5605, longitude: -46.6433 },
+      );
+
+      expect(result.is_estimated).toBe(true);
+    });
   });
 
   describe('Distance formatting', () => {
@@ -415,6 +424,41 @@ describe('OSRM module', () => {
       expect(result).not.toBeNull();
       // Order should be preserved: [0, 1] (first waypoint, then second)
       expect(result?.ordem_otimizada).toEqual([0, 1]);
+      expect(result?.is_estimated).toBe(false);
+    });
+
+    it('trata code Ok com distancia zero como ausencia de rota', async () => {
+      // Pontos fora da area do extrato: o OSRM cola todos na via mais proxima
+      // da borda e devolve uma rota degenerada de 0 m com code Ok.
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          code: 'Ok',
+          routes: [
+            {
+              geometry: 'encoded_polyline',
+              distance: 0,
+              duration: 0,
+              legs: [{ distance: 0, duration: 0 }],
+            },
+          ],
+          waypoints: [
+            { location: [0, 0], waypoint_index: 0 },
+            { location: [1, 1], waypoint_index: 1 },
+          ],
+        }),
+      });
+
+      const result = await getOptimizedDirections(
+        { latitude: 0, longitude: 0 },
+        { latitude: 3, longitude: 3 },
+        [],
+        false,
+      );
+
+      expect(result).not.toBeNull();
+      expect(result?.is_estimated).toBe(true);
+      expect(result?.distancia_total_metros).toBeGreaterThan(0);
     });
 
     it('should fall back to Haversine when Table API fails for circular route', async () => {
@@ -723,6 +767,44 @@ describe('OSRM module', () => {
       expect(result).not.toBeNull();
       expect(result?.distance).toBeGreaterThan(0);
     });
+
+    it('marca is_estimated false quando a rota vem do OSRM', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue(okRouteResponse),
+      });
+
+      const result = await getRoute(origin, destination);
+
+      expect(result?.is_estimated).toBe(false);
+    });
+
+    it('marca is_estimated true quando cai no fallback', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('network'));
+
+      const result = await getRoute(origin, destination);
+
+      expect(result?.is_estimated).toBe(true);
+    });
+
+    it('trata code Ok com distancia zero como ausencia de rota', async () => {
+      // Todas as coordenadas colapsam no mesmo no do grafo. E o que o OSRM
+      // devolve para pontos fora da area do extrato: cada um e colado na via
+      // mais proxima e todos caem no mesmo ponto da borda.
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          ...okRouteResponse,
+          routes: [{ ...okRouteResponse.routes[0], distance: 0, duration: 0 }],
+        }),
+      });
+
+      const result = await getRoute(origin, destination);
+
+      expect(result?.is_estimated).toBe(true);
+      expect(result?.polyline).toBe(''); // fallback nao tem polyline
+      expect(result?.distance).toBeGreaterThan(0);
+    });
   });
 
   describe('getDistance', () => {
@@ -788,6 +870,43 @@ describe('OSRM module', () => {
 
       expect(result.distance).toBeGreaterThan(0);
       expect(result.distanceText).toBeTruthy();
+    });
+
+    it('marca is_estimated false quando a distancia vem do OSRM', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          code: 'Ok',
+          routes: [{ distance: 1500, duration: 180 }],
+        }),
+      });
+
+      const result = await getDistance(origin, destination);
+
+      expect(result.is_estimated).toBe(false);
+    });
+
+    it('marca is_estimated true quando estima via Haversine', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('network'));
+
+      const result = await getDistance(origin, destination);
+
+      expect(result.is_estimated).toBe(true);
+    });
+
+    it('trata code Ok com distancia zero como ausencia de rota', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          code: 'Ok',
+          routes: [{ distance: 0, duration: 0 }],
+        }),
+      });
+
+      const result = await getDistance(origin, destination);
+
+      expect(result.is_estimated).toBe(true);
+      expect(result.distance).toBeGreaterThan(0);
     });
   });
 
@@ -897,6 +1016,12 @@ describe('OSRM module', () => {
       expect(route.steps).toHaveLength(2);
       expect(route.steps[0].maneuver).toBe('depart');
       expect(route.steps[1].maneuver).toBe('arrive');
+    });
+
+    it('marca o resultado como estimado', () => {
+      const route = createFallbackRoute(origin, destination);
+
+      expect(route.is_estimated).toBe(true);
     });
 
     it('soma a distancia passando por waypoints (desvio e mais longo)', () => {

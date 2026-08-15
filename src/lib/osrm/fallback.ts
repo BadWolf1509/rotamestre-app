@@ -69,6 +69,7 @@ export function estimateRouteDistance(
     duration,
     distanceText: formatDistance(distance),
     durationText: formatDuration(duration),
+    is_estimated: true,
   };
 }
 
@@ -119,6 +120,7 @@ export function createFallbackRoute(
         location: destination,
       },
     ],
+    is_estimated: true,
   };
 }
 

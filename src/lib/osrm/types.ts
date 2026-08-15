@@ -25,6 +25,8 @@ export interface RouteResult {
   steps: RouteStep[];
   waypoints?: Coordinate[];
   waypointOrder?: number[];
+  /** Indica fallback Haversine; não representa um percurso viário confirmado. */
+  is_estimated?: boolean;
 }
 
 export interface DistanceResult {
@@ -32,6 +34,8 @@ export interface DistanceResult {
   duration: number; // segundos
   distanceText: string;
   durationText: string;
+  /** Indica fallback Haversine; não representa um percurso viário confirmado. */
+  is_estimated?: boolean;
 }
 
 export interface OSRMRouteResponse {
