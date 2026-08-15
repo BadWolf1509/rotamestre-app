@@ -1,3 +1,4 @@
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import {
   LegalBullet,
   LegalPage,
@@ -5,7 +6,7 @@ import {
   LegalSection,
 } from '@/components/legal/LegalPage';
 
-export default function PoliticaDePrivacidade() {
+function PoliticaDePrivacidadeContent() {
   return (
     <LegalPage title="Política de Privacidade" updatedAt="24 de julho de 2026">
       <LegalSection title="1. Quem somos">
@@ -132,5 +133,14 @@ export default function PoliticaDePrivacidade() {
         </LegalParagraph>
       </LegalSection>
     </LegalPage>
+  );
+}
+
+/** Invólucro com ErrorBoundary — ver comentário em app/auth/login.tsx. */
+export default function PoliticaDePrivacidade() {
+  return (
+    <ErrorBoundary>
+      <PoliticaDePrivacidadeContent />
+    </ErrorBoundary>
   );
 }

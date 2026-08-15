@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
 import { Button, Card, Input, Text } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
@@ -15,7 +16,7 @@ import { StyleSheet, type Theme } from '@/utils/styles';
 
 import type { User } from '@supabase/supabase-js';
 
-export default function FirstPasswordScreen() {
+function FirstPasswordContent() {
   const router = useRouter();
   const { isDesktop } = useResponsive();
   const insets = useSafeAreaInsets();
@@ -31,7 +32,9 @@ export default function FirstPasswordScreen() {
 
   useEffect(() => {
     async function loadUser() {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
       setUser(currentUser);
     }
     loadUser();
@@ -52,7 +55,7 @@ export default function FirstPasswordScreen() {
     if (!isPasswordValid(newPassword)) {
       showWarning(
         'Senha Fraca',
-        'A senha não atende aos requisitos mínimos de segurança. Por favor, crie uma senha mais forte.'
+        'A senha não atende aos requisitos mínimos de segurança. Por favor, crie uma senha mais forte.',
       );
       return;
     }
@@ -61,10 +64,15 @@ export default function FirstPasswordScreen() {
       setLoading(true);
 
       // Verificar se há uma sessão ativa
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
       if (!session) {
-        showWarning('Erro', 'Sessão expirada. Por favor, faça login novamente.');
+        showWarning(
+          'Erro',
+          'Sessão expirada. Por favor, faça login novamente.',
+        );
         await supabase.auth.signOut();
         router.replace('/auth/login');
         return;
@@ -79,8 +87,11 @@ export default function FirstPasswordScreen() {
 
       // Segurança: verificar se realmente está marcado como primeira_senha
       if (profile.primeira_senha !== true) {
-        logger.warn('Usuário tentou acessar first-password sem estar marcado como primeira_senha');
-        const targetRoute = profile.papel === 'gestor' ? '/gestor/inicio' : '/motorista';
+        logger.warn(
+          'Usuário tentou acessar first-password sem estar marcado como primeira_senha',
+        );
+        const targetRoute =
+          profile.papel === 'gestor' ? '/gestor/inicio' : '/motorista';
         router.replace(targetRoute);
         return;
       }
@@ -91,11 +102,13 @@ export default function FirstPasswordScreen() {
       });
 
       if (updateError) {
-        if (updateError.message.includes('should be different') ||
-            updateError.message.includes('same')) {
+        if (
+          updateError.message.includes('should be different') ||
+          updateError.message.includes('same')
+        ) {
           showWarning(
             'Senha Inválida',
-            'A nova senha não pode ser igual à senha temporária que você recebeu. Por favor, escolha uma senha diferente.'
+            'A nova senha não pode ser igual à senha temporária que você recebeu. Por favor, escolha uma senha diferente.',
           );
           setLoading(false);
           return;
@@ -115,9 +128,8 @@ export default function FirstPasswordScreen() {
         logger.error('Erro ao atualizar primeira_senha', dbError);
       }
 
-      const targetRoute = profile.papel === 'gestor'
-        ? '/gestor/inicio'
-        : '/motorista';
+      const targetRoute =
+        profile.papel === 'gestor' ? '/gestor/inicio' : '/motorista';
 
       const papelNome = profile.papel === 'gestor' ? 'Gestor' : 'Motorista';
 
@@ -125,10 +137,15 @@ export default function FirstPasswordScreen() {
         `Bem-vindo ao Rota Mestre, ${profile.nome}! ` +
         `Voce sera redirecionado para sua area de ${papelNome}.`;
 
-      showSuccess('Senha Definida com Sucesso!', successMessage, () => router.replace(targetRoute));
+      showSuccess('Senha Definida com Sucesso!', successMessage, () =>
+        router.replace(targetRoute),
+      );
     } catch (error: unknown) {
       logger.error('Erro ao definir senha', error);
-      const message = error instanceof Error ? error.message : 'Erro ao definir senha. Tente novamente.';
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Erro ao definir senha. Tente novamente.';
       showError({ title: 'Erro', message });
     } finally {
       setLoading(false);
@@ -147,7 +164,11 @@ export default function FirstPasswordScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={[styles.content, isDesktop && styles.contentDesktop]}>
-          <Card padding="large" style={styles.card} testID="onboarding-first-password-card">
+          <Card
+            padding="large"
+            style={styles.card}
+            testID="onboarding-first-password-card"
+          >
             <View style={styles.header}>
               <Text variant="title" style={styles.welcomeText}>
                 Bem-vindo!
@@ -156,8 +177,8 @@ export default function FirstPasswordScreen() {
                 Defina sua Senha
               </Text>
               <Text tone="muted" style={styles.subtitle}>
-                Por seguranca, voce precisa criar uma nova senha antes de continuar.
-                Esta senha sera usada para acessar o aplicativo.
+                Por seguranca, voce precisa criar uma nova senha antes de
+                continuar. Esta senha sera usada para acessar o aplicativo.
               </Text>
             </View>
 
@@ -186,8 +207,12 @@ export default function FirstPasswordScreen() {
                 secureTextEntry={!showConfirmPassword}
                 placeholder="Digite novamente sua nova senha"
                 autoCapitalize="none"
-                rightIcon={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
-                onRightIconPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                rightIcon={
+                  showConfirmPassword ? 'eye-off-outline' : 'eye-outline'
+                }
+                onRightIconPress={() =>
+                  setShowConfirmPassword(!showConfirmPassword)
+                }
               />
               {confirmPassword && newPassword !== confirmPassword && (
                 <Text tone="error" style={styles.errorText}>
@@ -200,9 +225,15 @@ export default function FirstPasswordScreen() {
               <Text variant="label" style={styles.requirementsTitle}>
                 Requisitos de Seguranca:
               </Text>
-              <Text style={styles.requirementText}>- Minimo de 8 caracteres</Text>
-              <Text style={styles.requirementText}>- Pelo menos 1 letra maiuscula</Text>
-              <Text style={styles.requirementText}>- Pelo menos 1 letra minuscula</Text>
+              <Text style={styles.requirementText}>
+                - Minimo de 8 caracteres
+              </Text>
+              <Text style={styles.requirementText}>
+                - Pelo menos 1 letra maiuscula
+              </Text>
+              <Text style={styles.requirementText}>
+                - Pelo menos 1 letra minuscula
+              </Text>
               <Text style={styles.requirementText}>- Pelo menos 1 numero</Text>
               <Text style={styles.requirementText}>
                 - Pelo menos 1 caractere especial (!@#$%&*)
@@ -304,3 +335,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     lineHeight: theme.typography.lg,
   },
 }));
+
+/** Invólucro com ErrorBoundary — ver comentário em app/auth/login.tsx. */
+export default function FirstPasswordScreen() {
+  return (
+    <ErrorBoundary>
+      <FirstPasswordContent />
+    </ErrorBoundary>
+  );
+}
