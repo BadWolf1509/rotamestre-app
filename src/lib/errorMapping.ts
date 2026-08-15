@@ -130,6 +130,22 @@ const ERROR_PATTERNS: Array<{
     },
   },
   {
+    // Sentinela da RPC criar_unidade_para_novo_gestor: a conta já tem perfil,
+    // então já passou pelo onboarding. A rota /onboarding/criar-unidade abre
+    // por URL mesmo depois disso — link antigo, histórico do navegador ou aba
+    // esquecida bastam —, e sem esta entrada o gestor preenchia o formulário
+    // inteiro para receber "Algo deu errado". A RPC em si está correta: ela
+    // barra a criação de uma segunda unidade.
+    pattern: /PERFIL_JA_EXISTE/i,
+    result: {
+      title: 'Sua conta já tem unidade',
+      message:
+        'Este cadastro já foi concluído. Volte ao início para acessar sua unidade.',
+      type: 'warning',
+      code: 'PROFILE_ALREADY_EXISTS',
+    },
+  },
+  {
     // Sentinela da RPC atualizar_unidade: levantada quando quem chama não é
     // gestor ativo daquela unidade. Mensagem específica para deixar claro que
     // é falta de permissão, não erro genérico.
