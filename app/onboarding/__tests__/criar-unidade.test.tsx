@@ -71,6 +71,38 @@ describe('tela de onboarding: criar unidade', () => {
     mockSupabase.rpc = jest
       .fn()
       .mockResolvedValue({ data: 'unidade-1', error: null });
+    // O nome digitado no cadastro viaja em `options.data` do signUp e fica em
+    // user_metadata — é a única fonte disponível aqui, porque nesta tela o
+    // usuário ainda NÃO tem linha em `usuarios` (o perfil nasce na RPC).
+    mockSupabase.auth = {
+      getUser: jest.fn().mockResolvedValue({
+        data: { user: { user_metadata: { nome: 'Maria Souza' } } },
+        error: null,
+      }),
+    } as unknown as typeof mockSupabase.auth;
+  });
+
+  it('pré-preenche o nome com o que foi digitado no cadastro', async () => {
+    const { getByLabelText } = render(<CriarUnidade />);
+
+    // Sem isso a pessoa redigita o nome que acabou de informar, e nada impede
+    // que os dois divirjam — `user_metadata.nome` e `usuarios.nome` ficariam
+    // desencontrados para sempre.
+    await waitFor(() =>
+      expect(getByLabelText('Seu nome').props.value).toBe('Maria Souza'),
+    );
+  });
+
+  it('não sobrescreve o nome que a pessoa já começou a digitar', async () => {
+    const { getByLabelText } = render(<CriarUnidade />);
+
+    fireEvent.changeText(getByLabelText('Seu nome'), 'Jo');
+
+    // A leitura do metadata é assíncrona: se ela chegasse depois e sobrescrevesse,
+    // o campo saltaria para outro valor no meio da digitação.
+    await waitFor(() =>
+      expect(getByLabelText('Seu nome').props.value).toBe('Jo'),
+    );
   });
 
   it('preenche o formulário, seleciona um endereço com coordenadas e envia p_sede_latitude/p_sede_longitude preenchidos para a RPC', async () => {

@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { ScrollView, View } from 'react-native';
 
@@ -33,6 +34,7 @@ function CriarUnidadeScreen() {
     control,
     handleSubmit,
     setValue,
+    getValues,
     clearErrors,
     formState: { errors },
   } = useForm<CriarUnidadeInput>({
@@ -47,6 +49,37 @@ function CriarUnidadeScreen() {
     mode: 'onSubmit',
     reValidateMode: 'onChange',
   });
+
+  // Pré-preenche o nome com o que a pessoa digitou no cadastro. Ele viaja em
+  // `options.data` do signUp e fica em `user_metadata` — é a única fonte aqui,
+  // porque nesta tela ainda NÃO existe linha em `usuarios` (o perfil nasce na
+  // RPC, logo adiante). Sem isso a pessoa redigita o nome que acabou de
+  // informar, e nada impede que os dois valores divirjam.
+  useEffect(() => {
+    let cancelado = false;
+
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        const nome = data?.user?.user_metadata?.nome;
+        if (cancelado || typeof nome !== 'string' || !nome.trim()) return;
+        // Não sobrescreve o que já foi digitado: a leitura é assíncrona e pode
+        // chegar depois de a pessoa começar a preencher.
+        if (getValues('gestorNome')?.trim()) return;
+        setValue('gestorNome', nome.trim());
+      } catch (error) {
+        // Falha aqui só custa o pré-preenchimento; o campo continua editável.
+        logger.warn(
+          '[Onboarding] Não foi possível ler o nome do cadastro',
+          error,
+        );
+      }
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [getValues, setValue]);
 
   async function onSubmit(data: CriarUnidadeInput) {
     // O `.refine` do schema já barra este caso; a checagem existe para o
