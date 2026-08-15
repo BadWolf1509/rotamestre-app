@@ -103,7 +103,7 @@ function calcularTempoMedio(rotas: any[]): number {
  * Encontra o motorista com mais rotas concluídas
  */
 function encontrarMotoristaDestaque(
-  rotas: any[]
+  rotas: any[],
 ): { nome: string; rotasConcluidas: number } | null {
   const motoristasCount: Record<string, { nome: string; count: number }> = {};
 
@@ -117,7 +117,8 @@ function encontrarMotoristaDestaque(
     }
   });
 
-  let motoristaDestaque: { nome: string; rotasConcluidas: number } | null = null;
+  let motoristaDestaque: { nome: string; rotasConcluidas: number } | null =
+    null;
   let maxRotas = 0;
 
   Object.values(motoristasCount).forEach((m) => {
@@ -137,7 +138,7 @@ function processarRotasComParadas(rotasData: any[]): RotaResumo[] {
   return rotasData.map((rota) => {
     // Filtra apenas paradas reais (checkpoints, não base)
     const paradasReais = (rota.paradas || []).filter(
-      (parada: any) => parada.is_checkpoint !== false
+      (parada: any) => parada.is_checkpoint !== false,
     );
 
     return {
@@ -147,7 +148,9 @@ function processarRotasComParadas(rotasData: any[]): RotaResumo[] {
       motorista_nome: rota.usuarios?.nome || 'Sem motorista',
       motorista_id: rota.motorista_id,
       total_paradas: paradasReais.length,
-      paradas_concluidas: paradasReais.filter((p: any) => p.status === 'concluida').length,
+      paradas_concluidas: paradasReais.filter(
+        (p: any) => p.status === 'concluida',
+      ).length,
       distancia_total: rota.distancia_total || 0,
     };
   });
@@ -161,7 +164,9 @@ function processarRotasComParadas(rotasData: any[]): RotaResumo[] {
  * Hook compartilhado para dados do dashboard
  * Usado tanto na versão mobile quanto desktop
  */
-export function useDashboardData(options: UseDashboardDataOptions = {}): DashboardData {
+export function useDashboardData(
+  options: UseDashboardDataOptions = {},
+): DashboardData {
   const { filters } = options;
   const { userData } = useUser();
   const { unidadeAtiva } = useUnidadeAtiva();
@@ -191,6 +196,11 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
   // Refs para controle de execução
   const loadingRef = useRef(false);
   const mountedRef = useRef(true);
+  // `loading` desmonta a página inteira: DesktopPageLayout e DashboardMobile
+  // retornam só o spinner quando ele é true. Por isso ele vale apenas para a
+  // carga inicial; recarga por filtro sinaliza via `refreshing`, que preserva a
+  // árvore. Mesma regra do useGestaoRotas ("only show loading if no cache").
+  const cargaInicialFeitaRef = useRef(false);
 
   // ============================================================================
   // FUNÇÃO PRINCIPAL DE FETCH (extraída para eliminar duplicação)
@@ -205,7 +215,12 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
       // Se não há unidade, limpar dados
       if (!unidadeId) {
         if (mountedRef.current) {
-          setStats({ total: 0, emAndamento: 0, concluidas: 0, distanciaTotal: 0 });
+          setStats({
+            total: 0,
+            emAndamento: 0,
+            concluidas: 0,
+            distanciaTotal: 0,
+          });
           setTodayStats({ totalHoje: 0 });
           setRotas([]);
           setLoading(false);
@@ -217,7 +232,7 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
 
       try {
         if (mountedRef.current) {
-          if (isRefresh) {
+          if (isRefresh || cargaInicialFeitaRef.current) {
             setRefreshing(true);
           } else {
             setLoading(true);
@@ -227,7 +242,7 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
         // MOCK DATA FOR E2E/CI
         if (!isSupabaseConfigured) {
           logger.warn('[Dashboard] Mocking data for E2E/CI');
-          await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
+          await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate delay
 
           if (!mountedRef.current) return;
 
@@ -240,7 +255,7 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
               motorista_id: 'mot-1',
               total_paradas: 10,
               paradas_concluidas: 4,
-              distancia_total: 15.5
+              distancia_total: 15.5,
             },
             {
               id: 'rota-2',
@@ -250,7 +265,7 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
               motorista_id: 'mot-2',
               total_paradas: 8,
               paradas_concluidas: 8,
-              distancia_total: 12.0
+              distancia_total: 12.0,
             },
             {
               id: 'rota-3',
@@ -260,8 +275,8 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
               motorista_id: null,
               total_paradas: 5,
               paradas_concluidas: 0,
-              distancia_total: 8.2
-            }
+              distancia_total: 8.2,
+            },
           ];
 
           setRotas(mockRotas);
@@ -270,7 +285,7 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
             emAndamento: 1,
             concluidas: 1,
             distanciaTotal: 35.7,
-            incidentesAbertos: 1
+            incidentesAbertos: 1,
           });
           setTodayStats({ totalHoje: 3 });
           setKpis({
@@ -280,9 +295,12 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
             tempoMedioMinutos: 45,
             totalParadas: 150,
             paradasConcluidas: 142,
-            motoristaDestaque: { nome: 'Motorista Teste 2', rotasConcluidas: 20 }
+            motoristaDestaque: {
+              nome: 'Motorista Teste 2',
+              rotasConcluidas: 20,
+            },
           });
-          
+
           setLoading(false);
           setRefreshing(false);
           loadingRef.current = false;
@@ -297,7 +315,8 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
         // =====================================================================
         let query = supabase
           .from('rotas')
-          .select(`
+          .select(
+            `
             id,
             data,
             status,
@@ -305,7 +324,8 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
             motorista_id,
             usuarios!motorista_id(nome),
             paradas(id, status, is_checkpoint)
-          `)
+          `,
+          )
           .eq('unidade_id', unidadeId);
 
         // Aplicar filtros de data
@@ -388,12 +408,16 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
         const kpisPromise = Promise.all([
           supabase
             .from('rotas')
-            .select('id, status, iniciada_em, concluida_em, motorista_id, usuarios!motorista_id(nome)')
+            .select(
+              'id, status, iniciada_em, concluida_em, motorista_id, usuarios!motorista_id(nome)',
+            )
             .eq('unidade_id', unidadeId)
             .gte('data', inicioSemana.toISOString().split('T')[0]),
           supabase
             .from('rotas')
-            .select('id, status, iniciada_em, concluida_em, motorista_id, usuarios!motorista_id(nome)')
+            .select(
+              'id, status, iniciada_em, concluida_em, motorista_id, usuarios!motorista_id(nome)',
+            )
             .eq('unidade_id', unidadeId)
             .gte('data', inicioMes.toISOString().split('T')[0]),
         ]);
@@ -410,9 +434,15 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
         // Calcular estatísticas
         const statsData: Stats = {
           total: rotasComDetalhes.length,
-          emAndamento: rotasComDetalhes.filter((r) => r.status === 'em_andamento').length,
-          concluidas: rotasComDetalhes.filter((r) => r.status === 'concluida').length,
-          distanciaTotal: rotasComDetalhes.reduce((sum, r) => sum + r.distancia_total, 0),
+          emAndamento: rotasComDetalhes.filter(
+            (r) => r.status === 'em_andamento',
+          ).length,
+          concluidas: rotasComDetalhes.filter((r) => r.status === 'concluida')
+            .length,
+          distanciaTotal: rotasComDetalhes.reduce(
+            (sum, r) => sum + r.distancia_total,
+            0,
+          ),
           incidentesAbertos,
         };
 
@@ -428,9 +458,18 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
         const rotasSemanaData = kpiSemana.data || [];
         const rotasMesData = kpiMes.data || [];
 
-        const totalParadas = rotasComDetalhes.reduce((sum, r) => sum + r.total_paradas, 0);
-        const paradasConcluidas = rotasComDetalhes.reduce((sum, r) => sum + r.paradas_concluidas, 0);
-        const taxaSucesso = totalParadas > 0 ? Math.round((paradasConcluidas / totalParadas) * 100) : 0;
+        const totalParadas = rotasComDetalhes.reduce(
+          (sum, r) => sum + r.total_paradas,
+          0,
+        );
+        const paradasConcluidas = rotasComDetalhes.reduce(
+          (sum, r) => sum + r.paradas_concluidas,
+          0,
+        );
+        const taxaSucesso =
+          totalParadas > 0
+            ? Math.round((paradasConcluidas / totalParadas) * 100)
+            : 0;
 
         setKpis({
           rotasSemana: rotasSemanaData.length,
@@ -444,6 +483,9 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
       } catch (error) {
         logger.error('Erro ao carregar dashboard:', error);
       } finally {
+        // Marca fora do `if (mountedRef)`: a tentativa aconteceu, então a
+        // próxima passagem é recarga, não carga inicial.
+        cargaInicialFeitaRef.current = true;
         if (mountedRef.current) {
           setLoading(false);
           setRefreshing(false);
@@ -451,7 +493,7 @@ export function useDashboardData(options: UseDashboardDataOptions = {}): Dashboa
         loadingRef.current = false;
       }
     },
-    [unidadeId, filters]
+    [unidadeId, filters],
   );
 
   // ============================================================================
