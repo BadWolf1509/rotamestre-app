@@ -67,7 +67,7 @@ describe('RouteReviewModal', () => {
 
     expect(getByText('Unidade Centro')).toBeTruthy();
     expect(getByText('Carlos')).toBeTruthy();
-    expect(getByText('10.0 km')).toBeTruthy();
+    expect(getByText('10,0 km')).toBeTruthy();
     expect(getByText('20 min')).toBeTruthy();
     expect(getByText('Rua A, 123')).toBeTruthy();
   });

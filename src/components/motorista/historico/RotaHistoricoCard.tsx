@@ -7,8 +7,12 @@ import React from 'react';
 import { TouchableOpacity, View } from 'react-native';
 
 import { Text } from '@/design-system';
-import { calcularTempoTotal, type RotaHistorico } from '@/hooks/motorista/historico';
+import {
+  calcularTempoTotal,
+  type RotaHistorico,
+} from '@/hooks/motorista/historico';
 import { parseLocalDate } from '@/lib/dateUtils';
+import { formatarDecimal } from '@/lib/formatNumber';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface RotaHistoricoCardProps {
@@ -35,7 +39,8 @@ export const RotaHistoricoCard = React.memo(function RotaHistoricoCard({
       ? Math.round((item.paradas_concluidas! / item.paradas_count) * 100)
       : 0;
 
-  const paradasPendentes = (item.paradas_count || 0) - (item.paradas_concluidas || 0);
+  const paradasPendentes =
+    (item.paradas_count || 0) - (item.paradas_concluidas || 0);
   const tempoTotal = calcularTempoTotal(item);
 
   const statusLabel = isPendente
@@ -62,7 +67,11 @@ export const RotaHistoricoCard = React.memo(function RotaHistoricoCard({
       activeOpacity={0.7}
       accessibilityLabel={`Rota ${statusLabel} de ${item.unidades.nome}, ${item.paradas_count || 0} paradas`}
       accessibilityRole="button"
-      accessibilityHint={isExpanded ? 'Toque para recolher detalhes' : 'Toque para ver mais detalhes'}
+      accessibilityHint={
+        isExpanded
+          ? 'Toque para recolher detalhes'
+          : 'Toque para ver mais detalhes'
+      }
     >
       {/* Header */}
       <View style={styles.rotaHeader}>
@@ -87,10 +96,12 @@ export const RotaHistoricoCard = React.memo(function RotaHistoricoCard({
             isNaoExecutada && styles.statusBadgeNaoExecutada,
           ]}
         >
-          <Text style={[
-            styles.statusBadgeText,
-            isNaoExecutada && styles.statusBadgeTextNaoExecutada,
-          ]}>
+          <Text
+            style={[
+              styles.statusBadgeText,
+              isNaoExecutada && styles.statusBadgeTextNaoExecutada,
+            ]}
+          >
             {isPendente && 'Pendente'}
             {isEmAndamento && 'Em Andamento'}
             {isConcluida && 'Concluída'}
@@ -129,7 +140,10 @@ export const RotaHistoricoCard = React.memo(function RotaHistoricoCard({
             <View style={styles.naoExecutadaInfo}>
               <Ionicons name="warning" size={16} color={theme.colors.warning} />
               <Text style={styles.naoExecutadaInfoText}>
-                {paradasPendentes} {paradasPendentes === 1 ? 'parada ficou pendente' : 'paradas ficaram pendentes'}
+                {paradasPendentes}{' '}
+                {paradasPendentes === 1
+                  ? 'parada ficou pendente'
+                  : 'paradas ficaram pendentes'}
               </Text>
             </View>
           )}
@@ -173,7 +187,7 @@ export const RotaHistoricoCard = React.memo(function RotaHistoricoCard({
             <View style={styles.detalheRow}>
               <Text style={styles.detalheLabel}>Distância:</Text>
               <Text style={styles.detalheValue}>
-                {item.distancia_total.toFixed(1)} km
+                {formatarDecimal(item.distancia_total)} km
               </Text>
             </View>
           )}

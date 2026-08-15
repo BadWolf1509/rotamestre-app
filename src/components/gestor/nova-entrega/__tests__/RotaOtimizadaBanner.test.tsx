@@ -21,7 +21,7 @@ describe('RotaOtimizadaBanner', () => {
     );
 
     expect(getByText('Rota otimizada!')).toBeTruthy();
-    expect(getByText('8.5 km')).toBeTruthy();
+    expect(getByText('8,5 km')).toBeTruthy();
     expect(getByText('15 min')).toBeTruthy();
   });
 });

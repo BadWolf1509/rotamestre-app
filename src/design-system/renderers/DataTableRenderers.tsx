@@ -38,6 +38,7 @@ import { View } from 'react-native';
 import { Avatar } from '@/components/Avatar';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Text } from '@/components/Text';
+import { formatarDecimal } from '@/lib/formatNumber';
 import type { IconName } from '@/types/icons';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -71,7 +72,9 @@ export function ProgressCell({
 
   return (
     <View style={styles.progressContainer}>
-      <View style={[styles.progressBar, { backgroundColor: theme.colors.gray200 }]}>
+      <View
+        style={[styles.progressBar, { backgroundColor: theme.colors.gray200 }]}
+      >
         <View
           style={[
             styles.progressFill,
@@ -94,7 +97,13 @@ export function ProgressCell({
 // STATUS CELL
 // ============================================
 
-type StatusType = 'pendente' | 'em_andamento' | 'concluida' | 'cancelada' | 'nao_executada' | 'pulada';
+type StatusType =
+  | 'pendente'
+  | 'em_andamento'
+  | 'concluida'
+  | 'cancelada'
+  | 'nao_executada'
+  | 'pulada';
 
 interface StatusCellProps {
   /** Status value */
@@ -115,7 +124,10 @@ const statusLabels: Record<StatusType, string> = {
 /**
  * Maps status types to theme color keys
  */
-const statusColorKeys: Record<StatusType, 'warning' | 'info' | 'success' | 'error'> = {
+const statusColorKeys: Record<
+  StatusType,
+  'warning' | 'info' | 'success' | 'error'
+> = {
   pendente: 'warning',
   em_andamento: 'info',
   concluida: 'success',
@@ -148,7 +160,12 @@ interface UserCellProps {
   size?: 'sm' | 'md';
 }
 
-export function UserCell({ name, avatarUrl, subtitle, size = 'sm' }: UserCellProps) {
+export function UserCell({
+  name,
+  avatarUrl,
+  subtitle,
+  size = 'sm',
+}: UserCellProps) {
   return (
     <View style={styles.userContainer}>
       <Avatar name={name} imageUrl={avatarUrl} size={size} />
@@ -173,12 +190,19 @@ interface DateCellProps {
   fallback?: string;
 }
 
-export function DateCell({ date, format = 'date', fallback = '--' }: DateCellProps) {
+export function DateCell({
+  date,
+  format = 'date',
+  fallback = '--',
+}: DateCellProps) {
   if (!date) {
     return <Text style={styles.dateFallback}>{fallback}</Text>;
   }
 
-  const dateObj = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+  const dateObj =
+    typeof date === 'string' || typeof date === 'number'
+      ? new Date(date)
+      : date;
 
   if (Number.isNaN(dateObj.getTime())) {
     return <Text style={styles.dateFallback}>{fallback}</Text>;
@@ -206,8 +230,12 @@ export function DateCell({ date, format = 'date', fallback = '--' }: DateCellPro
     }
   } else {
     const options: Intl.DateTimeFormatOptions = {
-      ...(format === 'date' || format === 'datetime' ? { dateStyle: 'short' } : {}),
-      ...(format === 'time' || format === 'datetime' ? { timeStyle: 'short' } : {}),
+      ...(format === 'date' || format === 'datetime'
+        ? { dateStyle: 'short' }
+        : {}),
+      ...(format === 'time' || format === 'datetime'
+        ? { timeStyle: 'short' }
+        : {}),
     } as Intl.DateTimeFormatOptions;
     formattedDate = new Intl.DateTimeFormat('pt-BR', options).format(dateObj);
   }
@@ -262,7 +290,11 @@ interface DistanceCellProps {
   fallback?: string;
 }
 
-export function DistanceCell({ km, showUnit = true, fallback = '--' }: DistanceCellProps) {
+export function DistanceCell({
+  km,
+  showUnit = true,
+  fallback = '--',
+}: DistanceCellProps) {
   const { theme } = useUnistyles();
 
   if (km == null) {
@@ -271,9 +303,13 @@ export function DistanceCell({ km, showUnit = true, fallback = '--' }: DistanceC
 
   return (
     <View style={styles.distanceContainer}>
-      <Ionicons name="speedometer-outline" size={14} color={theme.colors.gray500} />
+      <Ionicons
+        name="speedometer-outline"
+        size={14}
+        color={theme.colors.gray500}
+      />
       <Text style={styles.distanceText}>
-        {km.toFixed(1)}
+        {formatarDecimal(km)}
         {showUnit && ' km'}
       </Text>
     </View>

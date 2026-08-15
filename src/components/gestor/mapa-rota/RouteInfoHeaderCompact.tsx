@@ -11,6 +11,7 @@ import {
   ROUTE_STATUS_CONFIG,
   type RouteStatusType,
 } from '@/constants/statusConfig';
+import { formatarDecimal } from '@/lib/formatNumber';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import type { Rota, ResumoParadas } from './types';
@@ -50,11 +51,16 @@ export function RouteInfoHeaderCompact({
   }, [rota.status]);
 
   const statusColor = theme.colors[statusConfig.colorKey];
-  const canCancel = rota.status !== 'cancelada' && rota.status !== 'concluida' && rota.status !== 'nao_executada';
+  const canCancel =
+    rota.status !== 'cancelada' &&
+    rota.status !== 'concluida' &&
+    rota.status !== 'nao_executada';
   const canReactivate = rota.status === 'nao_executada';
   const canChangeDriver = rota.status === 'pendente';
-  const canAddStop = rota.status === 'pendente' || rota.status === 'em_andamento';
-  const canReorder = rota.status === 'pendente' || rota.status === 'em_andamento';
+  const canAddStop =
+    rota.status === 'pendente' || rota.status === 'em_andamento';
+  const canReorder =
+    rota.status === 'pendente' || rota.status === 'em_andamento';
 
   return (
     <View style={styles.container}>
@@ -70,7 +76,11 @@ export function RouteInfoHeaderCompact({
             onPress={onChangeDriverPress}
             activeOpacity={0.7}
           >
-            <Ionicons name="swap-horizontal" size={14} color={theme.colors.primary} />
+            <Ionicons
+              name="swap-horizontal"
+              size={14}
+              color={theme.colors.primary}
+            />
             <Text style={styles.changeDriverText}>Trocar</Text>
           </TouchableOpacity>
         )}
@@ -80,7 +90,12 @@ export function RouteInfoHeaderCompact({
       <View style={styles.separator} />
 
       {/* Status Badge */}
-      <View style={[styles.statusBadge, { backgroundColor: `${statusColor}15`, borderColor: statusColor }]}>
+      <View
+        style={[
+          styles.statusBadge,
+          { backgroundColor: `${statusColor}15`, borderColor: statusColor },
+        ]}
+      >
         <Ionicons name={statusConfig.icon} size={14} color={statusColor} />
         <Text style={[styles.statusText, { color: statusColor }]}>
           {statusConfig.label}
@@ -92,22 +107,38 @@ export function RouteInfoHeaderCompact({
         {/* Distância */}
         {rota.distancia_total && (
           <View style={styles.metric}>
-            <Ionicons name="speedometer-outline" size={14} color={theme.colors.gray500} />
-            <Text style={styles.metricValue}>{rota.distancia_total.toFixed(1)} km</Text>
+            <Ionicons
+              name="speedometer-outline"
+              size={14}
+              color={theme.colors.gray500}
+            />
+            <Text style={styles.metricValue}>
+              {formatarDecimal(rota.distancia_total)} km
+            </Text>
           </View>
         )}
 
         {/* Tempo estimado */}
         {rota.tempo_total && (
           <View style={styles.metric}>
-            <Ionicons name="hourglass-outline" size={14} color={theme.colors.gray500} />
-            <Text style={styles.metricValue}>{formatTempoTotal(rota.tempo_total)}</Text>
+            <Ionicons
+              name="hourglass-outline"
+              size={14}
+              color={theme.colors.gray500}
+            />
+            <Text style={styles.metricValue}>
+              {formatTempoTotal(rota.tempo_total)}
+            </Text>
           </View>
         )}
 
         {/* Paradas */}
         <View style={styles.metric}>
-          <Ionicons name="flag-outline" size={14} color={theme.colors.gray500} />
+          <Ionicons
+            name="flag-outline"
+            size={14}
+            color={theme.colors.gray500}
+          />
           <Text style={styles.metricValue}>
             {resumoParadas.concluidas}/{resumoParadas.total}
           </Text>
@@ -125,7 +156,11 @@ export function RouteInfoHeaderCompact({
           onPress={onAddStopPress}
           activeOpacity={0.7}
         >
-          <Ionicons name="add-circle-outline" size={16} color={theme.colors.primary} />
+          <Ionicons
+            name="add-circle-outline"
+            size={16}
+            color={theme.colors.primary}
+          />
           <Text style={styles.addStopText}>+ Parada</Text>
         </TouchableOpacity>
       )}
@@ -137,7 +172,11 @@ export function RouteInfoHeaderCompact({
           onPress={onReorderPress}
           activeOpacity={0.7}
         >
-          <Ionicons name="swap-vertical-outline" size={16} color={theme.colors.secondary} />
+          <Ionicons
+            name="swap-vertical-outline"
+            size={16}
+            color={theme.colors.secondary}
+          />
           <Text style={styles.reorderText}>Reordenar</Text>
         </TouchableOpacity>
       )}
@@ -149,7 +188,11 @@ export function RouteInfoHeaderCompact({
           onPress={onCancelPress}
           activeOpacity={0.7}
         >
-          <Ionicons name="close-circle-outline" size={16} color={theme.colors.error} />
+          <Ionicons
+            name="close-circle-outline"
+            size={16}
+            color={theme.colors.error}
+          />
           <Text style={styles.cancelText}>Cancelar</Text>
         </TouchableOpacity>
       )}
@@ -161,7 +204,11 @@ export function RouteInfoHeaderCompact({
           onPress={onReactivatePress}
           activeOpacity={0.7}
         >
-          <Ionicons name="refresh-circle-outline" size={16} color={theme.colors.success} />
+          <Ionicons
+            name="refresh-circle-outline"
+            size={16}
+            color={theme.colors.success}
+          />
           <Text style={styles.reactivateText}>Reativar</Text>
         </TouchableOpacity>
       )}

@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 
+import { formatarDecimal } from '@/lib/formatNumber';
 import { logger } from '@/lib/logger';
 import { getRoute, decodePolyline, type Coordinate } from '@/lib/osrm';
 
@@ -84,7 +85,7 @@ export function useDirectionsMobile({
         durationSeconds: route.duration,
         distanceText:
           distanceKm >= 1
-            ? `${distanceKm.toFixed(1)} km`
+            ? `${formatarDecimal(distanceKm)} km`
             : `${Math.round(route.distance)} m`,
         durationText:
           durationMins >= 60

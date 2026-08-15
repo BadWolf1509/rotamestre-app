@@ -6,6 +6,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+import { formatarDecimal } from '@/lib/formatNumber';
 import { logger } from '@/lib/logger';
 import { decodePolyline, getRoute, type Coordinate } from '@/lib/osrm';
 
@@ -94,7 +95,7 @@ export function usePiPRouteInfo({
       distanceText:
         distanceKm < 1
           ? `${Math.round(distanceKm * 1000)} m`
-          : `${distanceKm.toFixed(1)} km`,
+          : `${formatarDecimal(distanceKm)} km`,
       timeText:
         estimatedMinutes < 60
           ? `${estimatedMinutes} min`

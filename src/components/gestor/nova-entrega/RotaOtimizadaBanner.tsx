@@ -5,6 +5,7 @@
 import React, { memo } from 'react';
 import { View, Text } from 'react-native';
 
+import { formatarDecimal } from '@/lib/formatNumber';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import type { RotaOtimizadaState, EnderecoUnidade } from './types';
@@ -25,7 +26,7 @@ export const RotaOtimizadaBanner = memo(function RotaOtimizadaBanner({
     <View
       style={styles.otimizacaoBanner}
       accessibilityRole="alert"
-      accessibilityLabel={`${rotaOtimizada.isEstimated ? 'Rota apenas estimada' : 'Rota otimizada'}: ${(rotaOtimizada.distancia_total_metros / 1000).toFixed(1)} quilômetros, ${Math.round(rotaOtimizada.duracao_total_segundos / 60)} minutos`}
+      accessibilityLabel={`${rotaOtimizada.isEstimated ? 'Rota apenas estimada' : 'Rota otimizada'}: ${formatarDecimal(rotaOtimizada.distancia_total_metros / 1000)} quilômetros, ${Math.round(rotaOtimizada.duracao_total_segundos / 60)} minutos`}
     >
       <Text style={styles.otimizacaoBannerTitle}>
         {rotaOtimizada.isEstimated
@@ -36,7 +37,7 @@ export const RotaOtimizadaBanner = memo(function RotaOtimizadaBanner({
         <View style={styles.otimizacaoStat}>
           <Text style={styles.otimizacaoStatLabel}>Distância:</Text>
           <Text style={styles.otimizacaoStatValue}>
-            {(rotaOtimizada.distancia_total_metros / 1000).toFixed(1)} km
+            {formatarDecimal(rotaOtimizada.distancia_total_metros / 1000)} km
           </Text>
         </View>
         <View style={styles.otimizacaoStat}>

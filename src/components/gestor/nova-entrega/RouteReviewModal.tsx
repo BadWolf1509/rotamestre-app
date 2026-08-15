@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 
+import { formatarDecimal } from '@/lib/formatNumber';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import type {
@@ -150,7 +151,7 @@ export function RouteReviewModal({
             {routeMetrics && (
               <View style={styles.metrics}>
                 <Text style={styles.metric}>
-                  {(routeMetrics.meters / 1000).toFixed(1)} km
+                  {formatarDecimal(routeMetrics.meters / 1000)} km
                 </Text>
                 <Text style={styles.metric}>
                   {Math.round(routeMetrics.seconds / 60)} min
@@ -196,8 +197,11 @@ export function RouteReviewModal({
                 />
                 <Text style={styles.confirmDistanceText}>
                   Confirmo que há parada a aproximadamente{' '}
-                  {validation.sanidadeGeografica.maiorDistanciaKm.toFixed(0)} km
-                  da base e que a unidade selecionada está correta.
+                  {formatarDecimal(
+                    validation.sanidadeGeografica.maiorDistanciaKm,
+                    0,
+                  )}{' '}
+                  km da base e que a unidade selecionada está correta.
                 </Text>
               </Pressable>
             )}

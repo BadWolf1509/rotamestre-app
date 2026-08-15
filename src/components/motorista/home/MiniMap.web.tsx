@@ -18,6 +18,7 @@ import {
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { useRouteDirections } from '@/hooks/useRouteDirections';
+import { formatarDecimal } from '@/lib/formatNumber';
 import { logger } from '@/lib/logger';
 import { configureMaplibreWorker } from '@/lib/maplibreWorker';
 import {
@@ -635,7 +636,7 @@ export function MiniMap({
               <Text style={styles.infoText}>
                 {paradasRestantes.length} restantes
                 {routeInfo
-                  ? ` • ${(routeInfo.distanceMeters / 1000).toFixed(1)} km total`
+                  ? ` • ${formatarDecimal(routeInfo.distanceMeters / 1000)} km total`
                   : route?.distancia_total
                     ? ` • ${Math.round(route.distancia_total)} km total`
                     : ''}

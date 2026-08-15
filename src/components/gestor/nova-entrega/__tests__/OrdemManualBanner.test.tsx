@@ -29,12 +29,12 @@ describe('OrdemManualBanner', () => {
         isOptimizing={false}
         isCalculandoReal={false}
         onReoptimize={jest.fn()}
-      />
+      />,
     );
 
     expect(getByText('Ordem alterada manualmente')).toBeTruthy();
-    expect(getByText(/\+2\.0 km/)).toBeTruthy();
-    expect(getByText('12.0 km')).toBeTruthy();
+    expect(getByText(/\+2,0 km/)).toBeTruthy();
+    expect(getByText('12,0 km')).toBeTruthy();
     expect(getByText(/~25 min/)).toBeTruthy();
   });
 
@@ -46,7 +46,7 @@ describe('OrdemManualBanner', () => {
         isOptimizing={false}
         isCalculandoReal={true}
         onReoptimize={jest.fn()}
-      />
+      />,
     );
 
     expect(getByText('Calculando...')).toBeTruthy();
@@ -61,7 +61,7 @@ describe('OrdemManualBanner', () => {
         isOptimizing={false}
         isCalculandoReal={false}
         onReoptimize={jest.fn()}
-      />
+      />,
     );
 
     expect(getAllByText('--').length).toBeGreaterThan(0);
@@ -75,11 +75,11 @@ describe('OrdemManualBanner', () => {
         isOptimizing={false}
         isCalculandoReal={false}
         onReoptimize={jest.fn()}
-      />
+      />,
     );
 
     // 15000 - 10000 = +5000m = +5.0 km
-    expect(getByText(/\+5\.0 km/)).toBeTruthy();
+    expect(getByText(/\+5,0 km/)).toBeTruthy();
     expect(getByText(/\+50%/)).toBeTruthy();
   });
 
@@ -91,11 +91,11 @@ describe('OrdemManualBanner', () => {
         isOptimizing={false}
         isCalculandoReal={false}
         onReoptimize={jest.fn()}
-      />
+      />,
     );
 
     // 8000 - 10000 = -2000m = -2.0 km
-    expect(getByText(/-2\.0 km/)).toBeTruthy();
+    expect(getByText(/-2,0 km/)).toBeTruthy();
   });
 
   it('desabilita botao reotimizar durante processamento', () => {
@@ -106,10 +106,12 @@ describe('OrdemManualBanner', () => {
         isOptimizing={true}
         isCalculandoReal={false}
         onReoptimize={jest.fn()}
-      />
+      />,
     );
 
-    const reoptimize = getByLabelText('Re-otimizar rota para o melhor percurso');
+    const reoptimize = getByLabelText(
+      'Re-otimizar rota para o melhor percurso',
+    );
     expect(reoptimize.props.accessibilityState.disabled).toBe(true);
     expect(UNSAFE_getAllByType(ActivityIndicator).length).toBeGreaterThan(0);
   });
@@ -124,10 +126,10 @@ describe('OrdemManualBanner', () => {
         isOptimizing={false}
         isCalculandoReal={false}
         onReoptimize={jest.fn()}
-      />
+      />,
     );
 
     expect(getByText('Ordem alterada manualmente')).toBeTruthy();
-    expect(getByText('12.0 km')).toBeTruthy();
+    expect(getByText('12,0 km')).toBeTruthy();
   });
 });

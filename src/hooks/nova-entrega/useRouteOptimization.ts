@@ -10,6 +10,7 @@ import type {
   EnderecoUnidade,
   RotaOtimizadaState,
 } from '@/components/gestor/nova-entrega/types';
+import { formatarDecimal } from '@/lib/formatNumber';
 import { googleMapsService } from '@/lib/google';
 import { logger } from '@/lib/logger';
 import {
@@ -188,7 +189,7 @@ export function useRouteOptimization({
         showToast(
           isEstimated
             ? 'O serviço viário está indisponível. A ordem exibida é apenas uma estimativa e não pode ser confirmada ainda.'
-            : `Rota otimizada com dependências! ${(resultado.distanciaTotalMetros / 1000).toFixed(1)} km - ${Math.round(resultado.duracaoTotalSegundos / 60)} min`,
+            : `Rota otimizada com dependências! ${formatarDecimal(resultado.distanciaTotalMetros / 1000)} km - ${Math.round(resultado.duracaoTotalSegundos / 60)} min`,
           isEstimated ? 'info' : 'success',
           isEstimated ? 6000 : 4000,
         );
@@ -237,7 +238,7 @@ export function useRouteOptimization({
         showToast(
           isEstimated
             ? 'O serviço viário está indisponível. A ordem exibida é apenas uma estimativa e não pode ser confirmada ainda.'
-            : `Rota otimizada! ${(resultado.distancia_total_metros / 1000).toFixed(1)} km - ${Math.round(resultado.duracao_total_segundos / 60)} min`,
+            : `Rota otimizada! ${formatarDecimal(resultado.distancia_total_metros / 1000)} km - ${Math.round(resultado.duracao_total_segundos / 60)} min`,
           isEstimated ? 'info' : 'success',
           isEstimated ? 6000 : 4000,
         );

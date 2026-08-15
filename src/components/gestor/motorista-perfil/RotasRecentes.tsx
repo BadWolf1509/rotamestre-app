@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 
+import { formatarDecimal } from '@/lib/formatNumber';
 import type { IconName } from '@/types/icons';
 import { useUnistyles } from '@/utils/styles';
 
@@ -19,13 +20,16 @@ interface RotasRecentesProps {
   onVerTodas?: () => void;
 }
 
-const STATUS_CONFIG: Record<string, {
-  label: string;
-  badgeStyle: string;
-  textStyle: string;
-  icon: IconName;
-  iconColor: string;
-}> = {
+const STATUS_CONFIG: Record<
+  string,
+  {
+    label: string;
+    badgeStyle: string;
+    textStyle: string;
+    icon: IconName;
+    iconColor: string;
+  }
+> = {
   concluida: {
     label: 'Concluída',
     badgeStyle: 'rotaStatusConcluida',
@@ -79,7 +83,9 @@ function RotaCard({ rota }: { rota: RotaRecente }) {
   const statusConfig = STATUS_CONFIG[rota.status] || STATUS_CONFIG.pendente;
   // Excluir 'incident' do tipo pois é um objeto, não uma string de cor
   type SimpleColorKey = Exclude<keyof typeof theme.colors, 'incident'>;
-  const iconColor = theme.colors[statusConfig.iconColor as SimpleColorKey] || theme.colors.gray500;
+  const iconColor =
+    theme.colors[statusConfig.iconColor as SimpleColorKey] ||
+    theme.colors.gray500;
 
   return (
     <TouchableOpacity
@@ -88,19 +94,36 @@ function RotaCard({ rota }: { rota: RotaRecente }) {
       activeOpacity={0.7}
     >
       <View style={styles.rotaCardLeft}>
-        <View style={[styles.rotaIconContainer, { backgroundColor: iconColor + '20' }]}>
+        <View
+          style={[
+            styles.rotaIconContainer,
+            { backgroundColor: iconColor + '20' },
+          ]}
+        >
           <Ionicons name={statusConfig.icon} size={20} color={iconColor} />
         </View>
         <View style={styles.rotaInfo}>
           <Text style={styles.rotaData}>{formatDate(rota.data)}</Text>
           {rota.distancia_total && (
-            <Text style={styles.rotaDistancia}>{rota.distancia_total.toFixed(1)} km</Text>
+            <Text style={styles.rotaDistancia}>
+              {formatarDecimal(rota.distancia_total)} km
+            </Text>
           )}
         </View>
       </View>
 
-      <View style={[styles.rotaStatusBadge, styles[statusConfig.badgeStyle as keyof typeof styles]]}>
-        <Text style={[styles.rotaStatusText, styles[statusConfig.textStyle as keyof typeof styles]]}>
+      <View
+        style={[
+          styles.rotaStatusBadge,
+          styles[statusConfig.badgeStyle as keyof typeof styles],
+        ]}
+      >
+        <Text
+          style={[
+            styles.rotaStatusText,
+            styles[statusConfig.textStyle as keyof typeof styles],
+          ]}
+        >
           {statusConfig.label}
         </Text>
       </View>
@@ -116,7 +139,11 @@ export function RotasRecentes({ rotas, onVerTodas }: RotasRecentesProps) {
       <View style={styles.rotasContainer}>
         <Text style={styles.rotasTitle}>Rotas Recentes</Text>
         <View style={styles.emptyRotas}>
-          <Ionicons name="navigate-outline" size={40} color={theme.colors.gray300} />
+          <Ionicons
+            name="navigate-outline"
+            size={40}
+            color={theme.colors.gray300}
+          />
           <Text style={styles.emptyRotasText}>
             Nenhuma rota encontrada para este motorista
           </Text>

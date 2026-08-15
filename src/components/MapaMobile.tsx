@@ -15,6 +15,7 @@ import { mapMobileStyles as styles } from '@/components/map/mobile/styles';
 import { MotoristaMarker } from '@/components/MotoristaMarker';
 import { useAlert } from '@/hooks/useAlert';
 import type { RouteInfo } from '@/hooks/useRouteDirections';
+import { formatarDecimal } from '@/lib/formatNumber';
 import { MAPLIBRE_RASTER_STYLE_JSON, toLngLat } from '@/lib/maplibre';
 import type { ParadaMapItem as Parada, StatusFilter } from '@/types/parada-map';
 import { useUnistyles } from '@/utils/styles';
@@ -198,7 +199,7 @@ export function MapaMobile({
         accessibilityLabel={
           isLoadingRoute
             ? 'Calculando rota'
-            : `${paradasFiltradas.length} parada${paradasFiltradas.length !== 1 ? 's' : ''}${routeInfo ? `, ${(routeInfo.distanceMeters / 1000).toFixed(1)} quilômetros, ${Math.round(routeInfo.durationSeconds / 60)} minutos` : ''}`
+            : `${paradasFiltradas.length} parada${paradasFiltradas.length !== 1 ? 's' : ''}${routeInfo ? `, ${formatarDecimal(routeInfo.distanceMeters / 1000)} quilômetros, ${Math.round(routeInfo.durationSeconds / 60)} minutos` : ''}`
         }
         accessibilityLiveRegion="polite"
       >
@@ -213,7 +214,7 @@ export function MapaMobile({
             {statusFilter !== 'all' ? `/${paradasReais.length}` : ''} parada
             {paradasFiltradas.length !== 1 ? 's' : ''}
             {routeInfo &&
-              ` • ${(routeInfo.distanceMeters / 1000).toFixed(1)} km • ${Math.round(routeInfo.durationSeconds / 60)} min`}
+              ` • ${formatarDecimal(routeInfo.distanceMeters / 1000)} km • ${Math.round(routeInfo.durationSeconds / 60)} min`}
           </Text>
         )}
       </View>
