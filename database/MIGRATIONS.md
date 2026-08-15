@@ -749,6 +749,62 @@ sem relação com o banco — o formulário era um componente declarado dentro d
 render, e remontava a cada tecla. Corrigido no PR #357. Detalhe em "Armadilhas
 que já custaram caro" em `docs/PROJECT_CONTEXT.md`.
 
+### ✅ Migration 23: `admin_logs` sobrevive à exclusão da conta
+
+**Data:** 15/08/2026
+
+**Arquivos:** `20260815200000_admin_logs_sobrevive_a_conta.sql` (`database/` +
+`supabase/`, cópia byte-idêntica)
+
+**Objetivo:** `admin_logs.admin_id` é `NOT NULL` e referenciava `auth.users(id)`
+com `NO ACTION`. A combinação tornava **impossível excluir uma conta que já
+tivesse agido**: a FK bloqueava o `DELETE` e a coluna não aceitava `NULL`.
+Sobravam duas saídas ruins — apagar o log (destruir justamente o que se quer
+auditar) ou deixar a conta órfã viva em `auth.users`. A segunda não é inofensiva:
+conta órfã continua autenticando e, sem perfil em `usuarios`, cai no portão
+`/onboarding/criar-unidade` e pode criar unidade, virando gestora.
+
+- Remove a constraint `admin_logs_admin_id_fkey`. `admin_id` **continua
+  `NOT NULL`**: todo registro segue exigindo autor; o que muda é que o autor não
+  precisa mais existir em `auth.users`.
+- Garante `idx_admin_logs_admin_id` (já existia; o `IF NOT EXISTS` é rede de
+  segurança — índice de FK no Postgres não é criado nem removido junto com a
+  constraint).
+- `COMMENT ON COLUMN` explica a ausência da FK e pede explicitamente que **não
+  seja recriada**, para nenhuma migration futura "consertar" o que é desenho.
+- **Não altera RLS nem grants.** A tabela tem uma única policy,
+  `admin_logs_no_access` (`FOR ALL USING (false)`), e nem `anon` nem
+  `authenticated` têm `rolbypassrls` — a escrita só acontece pelo `service_role`
+  do projeto do painel. Soltar a FK não muda quem escreve, só para de validar
+  que o UUID existe.
+- Revisada pelo agente `rls-policy-reviewer` (**APPROVE**). Ele confirmou que
+  `admin_email` nunca foi checado contra `admin_id` (sem trigger, sem CHECK),
+  então a confiabilidade do registro histórico não mudou — era e segue sendo a
+  do código do painel. Também varreu o schema: nenhuma outra tabela tem o par
+  `NOT NULL` + FK `NO ACTION` para `auth.users`. `usuarios.id` referencia
+  `auth.users` com `CASCADE`, que é risco de forma diferente (apaga o perfil em
+  silêncio), não o mesmo impasse.
+
+**Status:** ✅ Aplicada em 15/08/2026 via `mcp__supabase__apply_migration`.
+Verificado depois: `admin_logs` com **0 FKs**, os **7 registros preservados**,
+índice presente e comentário gravado.
+
+**Drift esperado, não é erro:** o MCP registra sob **timestamp próprio**, então
+`npx supabase migration list` mostra `20260815200000` como `local` (o arquivo) e
+`20260815214635` como `remote` (o registro). É o mesmo par que 21 e 22 já
+produziram — a auditoria de drift deve tratar como aplicada, não como pendente.
+
+**Validada pelo caso que a motivou**, no mesmo dia: a conta de teste de motorista
+cujo perfil havia sido excluído foi finalmente removida de `auth.users` — e os 7
+registros de auditoria dela continuam na tabela, identificáveis por
+`admin_email`. Contas órfãs voltaram a **zero** (16 `auth.users` / 16 `usuarios`).
+
+**Follow-up não bloqueante** levantado na revisão: `admin_logs` ainda tem grants
+de tabela cheios para `anon`/`authenticated`, hoje neutralizados pela policy
+`USING (false)`. É inconsistente com o padrão `REVOKE` usado em outras tabelas
+exclusivas do painel (`plan_prices`) — vale um `REVOKE` por defesa em
+profundidade. Não tem relação com esta migration.
+
 ---
 
-**Última atualização:** 08/08/2026
+**Última atualização:** 15/08/2026
