@@ -31,7 +31,12 @@ pt-BR) foi centralizado em `formatarDecimal` e migrado em 32 pontos de exibiçã
 **contas órfãs em `auth.users` foram zeradas** (ver seção própria abaixo); no
 onboarding, o **nome do cadastro chega pré-preenchido** e **cidade e UF saem do
 endereço** da sede, com os campos reordenados (PR #378) — ambos validados no
-navegador com o Places real.
+navegador com o Places real. E, fechando a lista de bugs da validação manual
+(PR #381): o **`PGRST116` deixou de virar erro no Sentry** a cada cadastro
+bem-sucedido (`.single()` → `.maybeSingle()`), a Nova Rota **dá saída ao gestor
+sem motorista**, o endereço da sede **não repete mais cidade e UF**, o campo de
+endereço do onboarding **ganhou rótulo** e `PERFIL_JA_EXISTE` **ganhou mensagem
+própria**.
 
 Follow-ups menores (nenhum bloqueia): Timeline não narra o autor da otimização
 (o dado existe em `logs.usuario_id`, falta join em `useTimelineData.ts`);
@@ -45,7 +50,10 @@ trilhas" nas armadilhas) — recriar custa uma investigação inteira.
 
 ## Trabalho em curso (retomar por aqui)
 
-Sessão de 15/08/2026. Tudo que segue é estado real verificado, não plano.
+Sessão de 15/08/2026, encerrada com **nenhum PR aberto** e a `main` em
+`c7b9a85`: PRs #371 a #381 mergeados (o #380 foi fechado sem merge, ver item 4),
+árvore limpa fora do `.claude/settings.json`. Tudo que segue é estado real
+verificado, não plano.
 
 ### 1. Onboarding self-service validado até o passo 4 (pendência 6)
 
@@ -92,56 +100,22 @@ gestor como gestor principal. Não há mais conta órfã, mas há uma unidade de
 no meio das reais — decidir se fica como massa de teste do fluxo self-service ou
 se é removida junto com as paradas/rotas que vierem dela.
 
-### 4. Bugs encontrados na validação — todos resolvidos
+### 4. Os bugs da validação já foram fechados
 
-O **`PGRST116`** foi corrigido: `getUsuario` (`src/lib/auth.ts`) e
-`fetchUserData` (`src/hooks/useUser.ts`) passaram de `.single()` para
-`.maybeSingle()`. Medido contra a API real: `.single()` manda
-`Accept: application/vnd.pgrst.object+json` e o PostgREST responde **406 +
-PGRST116** quando não há linha; `.maybeSingle()` responde **200 com `[]`**, que o
-cliente entrega como `data:null, error:null`. Some o `logger.error` (e o evento
-no Sentry) **e** a linha 406 no console. `useUser` também passou a refletir o
-"sem perfil" limpando o cache, em vez de deixar um perfil antigo responder.
+Sete achados: **quatro corrigidos** (PGRST116 no Sentry, beco sem saída sem
+motorista, cidade/UF duplicadas na sede, `PERFIL_JA_EXISTE` sem tradução) mais o
+rótulo do endereço no onboarding, todos na `main` via PRs #380 (fechado, ver
+abaixo) e #381. **Três não eram bugs de produto** e estão registrados em
+"Armadilhas" para não voltarem: o toast vermelho e o `Unexpected text node` são
+do LogBox e não existem em produção; o rascunho de rota mora no banco, não no
+`sessionStorage`.
 
-Também corrigidos, todos validados no navegador:
+A lição que os três compartilham: **ler o arquivo inteiro antes de declarar
+bug** — vieram de olhar um sintoma ou meia implementação e deduzir o resto.
 
-1. **Beco sem saída para o gestor novo** — "Nova Rota de Entrega" é a primeira
-   ação do dashboard, mas uma unidade recém-criada não tem motorista, e dava para
-   preencher paradas, geocodificar e otimizar antes de descobrir que a rota não
-   podia ser concluída. O estado vazio do `MotoristaSeletor` agora leva a
-   `/gestor/motoristas` e avisa que o rascunho fica salvo.
-2. **Cidade e UF duplicadas no endereço da sede** — `useEnderecoUnidade` juntava
-   `[sede_endereco, cidade, uf, cep]` sem olhar o que a base já tinha, e o
-   `sede_endereco` do Places já traz cidade e UF: saía "… João Pessoa - PB, João
-   Pessoa, PB". Agora só anexa o que falta, comparando com `normalizeComparable`
-   (acento, caixa e pontuação) e exigindo fronteira de não-alfanumérico — sem ela
-   a UF "PA" casaria dentro de "Parnamirim" e sumiria. A concatenação continua
-   valendo para endereço cru, que é o que o geocoding precisa.
-3. **Campo de endereço sem rótulo** no onboarding — os outros quatro campos têm
-   rótulo acima; o endereço só tinha placeholder, que some ao ser preenchido.
-4. **`PERFIL_JA_EXISTE` sem tradução** (achado durante as correções acima) — a
-   rota `/onboarding/criar-unidade` abre por URL mesmo para quem já concluiu o
-   onboarding. A RPC barra corretamente a segunda unidade, mas a sentinela caía
-   no genérico "Algo deu errado" depois do formulário preenchido.
-
-**Três dos sete achados não eram bugs de produto.** Fica registrado para não
-serem "corrigidos" por engano:
-
-- **Toast de erro que não se dispensa** e **`Unexpected text node`**: os dois vêm
-  do **LogBox**, ferramenta de desenvolvimento. Medido no bundle de produção
-  servido pela Vercel: `LogBoxNotification`, `LogBoxInspector`, `LogBoxData` e
-  `LogBoxLog` aparecem **zero** vezes, e a string "Unexpected text node" também.
-  Nenhum componente do app renderiza saída de log. O aviso de text node, além
-  disso, já é suprimido em desenvolvimento por `src/utils/configureLogBox.ts` —
-  eu só o "encontrei" porque meu interceptor de console ficou **acima** dessa
-  camada e contou mensagens que nunca chegaram ao console.
-- **Rascunho que morreria com a aba**: falso. O `sessionStorage` é espelho
-  síncrono; a fonte é a tabela **`rascunhos_rota`**, com expiração de 7 dias
-  (`useNovaEntregaDraft` compara os dois e usa o mais recente). Confirmado no
-  banco: a rota de teste tem lá suas 2 paradas, expirando em 22/08.
-
-Lição: **ler o arquivo inteiro antes de declarar bug**. Os três vieram de olhar
-um sintoma ou meia implementação e completar o resto por dedução.
+O PR #380 (PGRST116) foi **fechado sem merge**: a branch das demais correções
+nasceu dele, então o conteúdo subiu junto no #381 (`c7b9a85`). Mantê-lo aberto só
+criaria risco de reverter o que veio depois.
 
 ### Auditoria de otimização — validada em 05/08/2026
 
@@ -278,6 +252,32 @@ Cada uma quebrou algo de verdade. Leia antes de agir na área correspondente.
   Refresh antes de suspeitar do código. Para ter certeza de qual versão está
   sendo servida, baixe o bundle e procure o símbolo:
   `curl -s "http://localhost:8082/index.ts.bundle?platform=web&dev=true" | grep -c meuSimbolo`.
+- **O toast vermelho de erro e o `Unexpected text node` são do LogBox — não
+  existem em produção.** Os dois foram registrados como bug em 15/08 e depois
+  desmentidos por medição: no bundle de produção servido pela Vercel,
+  `LogBoxNotification`, `LogBoxInspector`, `LogBoxData` e `LogBoxLog` aparecem
+  **zero** vezes, e a string "Unexpected text node" também. Nenhum componente do
+  app renderiza saída de log — se você vê texto de `console.error` na tela, é
+  ferramenta de desenvolvimento. O aviso de text node ainda por cima **já é
+  suprimido** em dev por `src/utils/configureLogBox.ts`, que substitui
+  `console.error`. A armadilha de método: um interceptor de console instalado
+  **depois** desse arquivo fica **acima** do filtro e conta mensagens que nunca
+  chegam ao console. Ao instrumentar console, verifique se alguém já o
+  substituiu, e confirme o achado no console real (`read_console_messages`)
+  antes de chamá-lo de bug.
+- **O rascunho de rota não vive no `sessionStorage`.** A fonte é a tabela
+  **`rascunhos_rota`**, com expiração de 7 dias; o `sessionStorage`
+  (`rotamestre:nova-entrega:<gestor>:<unidade>`) é espelho síncrono, e
+  `useNovaEntregaDraft` compara os dois carimbos e usa o mais recente. Ver a
+  chave local e concluir "morre com a aba" foi um falso positivo em 15/08 —
+  fechar o navegador **não** perde o rascunho.
+- **Não use here-string do PowerShell (`-m @'…'@`) na ferramenta Bash.** O bash
+  não conhece essa sintaxe: o `@` vira texto e o Git toma essa primeira linha
+  como **assunto** do commit. Foi o que produziu `ca8ebc3` na `main`, registrado
+  como `@ (#379)` — a mensagem inteira ficou no corpo, só o assunto virou lixo.
+  Os outros PRs escaparam porque o GitHub usa o título do PR ao fazer squash; o
+  #379 tinha um único commit e herdou o assunto dele. No bash use heredoc
+  (`git commit -F -`); a sintaxe `@'…'@` só vale na ferramenta PowerShell.
 - **`loading` que troca a página inteira pelo spinner.** `DesktopPageLayout`
   (linha 109) e `DashboardMobile` (441) retornam **só** o `ActivityIndicator`
   quando `loading` é true — descartam cabeçalho, filtros, tabela e qualquer
@@ -646,8 +646,10 @@ estreita — pelo ramo do **motorista** — e está na pendência 2.
 
 ## Estado confirmado em 15/08/2026
 
-Sessão de investigação de bugs que virou seis PRs mergeados. O que importa para
-a próxima sessão:
+Sessão que começou como investigação de bugs e terminou com **dez PRs mergeados
+(#371 a #381, menos o #380, fechado sem merge)**, o onboarding self-service
+percorrido com conta real até a criação da unidade e a lista de bugs dessa
+validação fechada. O que importa para a próxima sessão:
 
 - **Três defeitos que a suíte não pegava e o console não denunciava**, todos com
   teste de regressão visto falhando antes da correção: dois de remontagem por
@@ -663,10 +665,20 @@ a próxima sessão:
   renderizou com contexto WebGL vivo. Atenção ao formato da armadilha: o
   `copy-maplibre-worker.cjs` sai com **código 0 e só um aviso** se não achar o
   arquivo — no dia em que o upstream renomear, o CI passa e o mapa trava.
-- **`npm run validate` na `main` ao fim: 331 suites, 5847 testes, exit 0**, com
-  o CI verde. Um detalhe que enganou durante a sessão: a saída do `validate`
-  trouxe `[exited with code 0]` **junto** com uma falha de lint — leia a saída,
-  não confie só no código de retorno.
+- **O onboarding self-service foi percorrido com conta real até o passo 4**, com
+  os invariantes da RPC conferidos no banco. Trava no passo 5 porque cadastrar
+  motorista cria conta de acesso com senha — isso é do gestor. Detalhe em
+  "Trabalho em curso".
+- **Três dos sete "bugs" dessa validação não eram bugs**, e os três foram
+  desmentidos por medição direta, não por leitura: bundle de produção baixado da
+  Vercel para o LogBox, tabela `rascunhos_rota` consultada para o rascunho. Estão
+  em "Armadilhas" com a evidência, para não voltarem à lista.
+- **Suíte ao fim: 332 suites, 5864 testes, exit 0**, com o CI verde nos seis
+  checks. Dois detalhes de método que enganaram durante a sessão: a saída do
+  `validate` trouxe `[exited with code 0]` **junto** com uma falha de lint — leia
+  a saída, não confie só no código de retorno; e um teste que passa de primeira
+  não prova nada, então cada guarda nova foi conferida contra a ausência da
+  proteção que ela vigia (ver TESTING.md).
 
 ## Mudanças relevantes desta etapa
 
@@ -698,6 +710,9 @@ a próxima sessão:
 | 15/08/2026 | Decimal com vírgula em 32 pontos de exibição, via `formatarDecimal`                         | PR #375                                      |
 | 15/08/2026 | Equipe: ativar/desativar membro não pisca mais a tela inteira                               | PR #376                                      |
 | 15/08/2026 | Lote do Dependabot: maplibre 6.3.0, supabase-js 2.112.3, web-vitals 6.1.0 e dev deps        | PRs #367/#369/#370/#368                      |
+| 15/08/2026 | Onboarding: nome pré-preenchido do cadastro + cidade/UF derivadas do endereço da sede       | PR #378                                      |
+| 15/08/2026 | Validação manual do onboarding até o passo 4 registrada, com os 7 achados                   | PR #379                                      |
+| 15/08/2026 | Bugs da validação: PGRST116 fora do Sentry, saída sem motorista, endereço sem duplicar      | PR #381 (o #380 subiu junto e foi fechado)   |
 
 O histórico completo do rebuild está em
 [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md), agora tratado como
@@ -826,9 +841,10 @@ app.rotamestre.tec.br ── Expo Web / React Native
 ## Roteiro para a próxima sessão
 
 0. **Se "Trabalho em curso" ainda existir neste documento, comece por ele** — o
-   onboarding está validado até o passo 4 e travado no 5 por depender de uma
-   conta de motorista, há dado de teste vivo em produção e sete bugs registrados
-   sem correção. Quando essas quatro frentes fecharem, apague a seção inteira.
+   onboarding está validado até o passo 4 e travado no 5, que depende de uma
+   conta de motorista criada pelo gestor, e há dado de teste vivo em produção. Os
+   bugs da validação já foram fechados. Quando essas três frentes fecharem,
+   apague a seção inteira — o que ela tem de durável já está em "Armadilhas".
 1. Leia, **nesta ordem**, as três primeiras seções deste documento: Pendências,
    Armadilhas e Estado atual. Elas bastam para começar; o resto é referência sob
    demanda.
