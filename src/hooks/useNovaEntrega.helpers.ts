@@ -355,9 +355,16 @@ export function validarRascunhoRota({
   }
   if (!motoristaId) erros.push('Selecione um motorista.');
   if (!enderecoUnidade) {
-    erros.push('A unidade não possui uma sede geocodificada.');
+    // Esta mensagem chega num toast de 5 segundos, depois de a rota inteira
+    // estar montada. "sede geocodificada" descrevia o estado interno e não
+    // indicava ação nenhuma — o conserto mora em Minha Unidade.
+    erros.push(
+      'Cadastre o endereço da sede em Minha Unidade: a rota parte e volta para lá.',
+    );
   } else if (!hasValidCoordinates(enderecoUnidade)) {
-    erros.push('A sede da unidade possui coordenadas inválidas.');
+    erros.push(
+      'A sede da unidade está sem coordenadas válidas. Reveja o endereço em Minha Unidade.',
+    );
   }
 
   const hoje = new Date();
